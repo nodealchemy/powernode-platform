@@ -13,7 +13,7 @@ export interface McpToolExplorerProps {
   isOpen: boolean;
   onClose: () => void;
    
-  onExecuteTool?: (toolId: string, params: Record<string, any>) => Promise<any>;
+  onExecuteTool?: (toolId: string, params: Record<string, unknown>) => Promise<unknown>;
 }
 
 interface ToolParameter {
@@ -23,13 +23,13 @@ interface ToolParameter {
   required: boolean;
   enum?: string[];
    
-  default?: any;
+  default?: unknown;
 }
 
 interface ExecutionResult {
   success: boolean;
    
-  result?: any;
+  result?: unknown;
   error?: string;
   execution_time_ms?: number;
 }
@@ -41,7 +41,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
   onExecuteTool
 }) => {
    
-  const [parameters, setParameters] = useState<Record<string, any>>({});
+  const [parameters, setParameters] = useState<Record<string, unknown>>({});
   const [executing, setExecuting] = useState(false);
   const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
   const [showRawSchema, setShowRawSchema] = useState(false);
@@ -58,12 +58,12 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
     const required = (tool.input_schema.required || []) as string[];
 
      
-    return Object.entries(props).map(([name, schema]: [string, any]) => ({
+    return Object.entries(props).map(([name, schema]: [string, Record<string, unknown>]) => ({
       name,
-      type: schema.type || 'string',
-      description: schema.description,
+      type: (schema.type as string) || 'string',
+      description: schema.description as string | undefined,
       required: required.includes(name),
-      enum: schema.enum,
+      enum: schema.enum as string[] | undefined,
       default: schema.default
     }));
   }, [tool.input_schema]);
@@ -71,7 +71,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
   // Initialize default values
   React.useEffect(() => {
      
-    const defaults: Record<string, any> = {};
+    const defaults: Record<string, unknown> = {};
     extractedParameters.forEach(param => {
       if (param.default !== undefined) {
         defaults[param.name] = param.default;
@@ -82,7 +82,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
   }, [extractedParameters]);
 
    
-  const handleParameterChange = (name: string, value: any) => {
+  const handleParameterChange = (name: string, value: string | boolean) => {
     setParameters(prev => ({
       ...prev,
       [name]: value
@@ -108,7 +108,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
     for (const param of extractedParameters) {
       if (['array', 'object'].includes(param.type) && parameters[param.name]) {
         try {
-          JSON.parse(parameters[param.name]);
+          JSON.parse(parameters[param.name] as string);
         } catch (_error) {
           addNotification({
             type: 'error',
@@ -131,23 +131,24 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
       setExecutionResult(null);
 
       // Convert parameters to appropriate types
-      const processedParams: Record<string, any> = {};
+      const processedParams: Record<string, unknown> = {};
       extractedParameters.forEach(param => {
         const value = parameters[param.name];
         if (value === undefined || value === '') return;
 
+        const strValue = String(value);
         switch (param.type) {
           case 'number':
           case 'integer':
-            processedParams[param.name] = parseFloat(value);
+            processedParams[param.name] = parseFloat(strValue);
             break;
           case 'boolean':
-            processedParams[param.name] = value === 'true' || value === true;
+            processedParams[param.name] = strValue === 'true' || value === true;
             break;
           case 'array':
           case 'object':
             try {
-              processedParams[param.name] = JSON.parse(value);
+              processedParams[param.name] = JSON.parse(strValue);
             } catch (_error) {
               processedParams[param.name] = value;
             }
@@ -226,7 +227,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
   };
 
   const renderParameterInput = (param: ToolParameter) => {
-    const value = parameters[param.name] || '';
+    const value = (parameters[param.name] as string) || '';
 
     if (param.enum) {
       return (
@@ -418,7 +419,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
               </div>
             )}
 
-            {executionResult.result && (
+            {executionResult.result != null && (
               <div className="relative">
                 <p className="text-xs text-theme-tertiary mb-2">Result:</p>
                 <pre className="p-3 bg-theme-surface rounded text-xs overflow-x-auto max-h-64">

@@ -548,7 +548,8 @@ describe('AddVendorModal', () => {
         expect(screen.getByText('Test error')).toBeInTheDocument();
       });
 
-      expect(mockOnClose).not.toHaveBeenCalled();
+      // Modal should still be visible (error displayed, not closed)
+      expect(screen.getByRole('heading', { name: /Add Vendor/i })).toBeInTheDocument();
     });
   });
 

@@ -29,7 +29,7 @@ import { Modal } from '@/shared/components/ui/Modal';
 import { workflowsApi } from '@/shared/services/ai';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
-import { AiWorkflow, AiWorkflowRun, AiWorkflowNodeExecution, AiWorkflowNode, AiWorkflowEdge } from '@/shared/types/workflow';
+import { AiWorkflow, AiWorkflowRun, AiWorkflowNodeExecution, AiWorkflowNode, AiWorkflowEdge, WorkflowRunStatus } from '@/shared/types/workflow';
 import { sortNodesInExecutionOrder } from '@/shared/utils/workflow';
 import { getErrorMessage } from '@/shared/utils/typeGuards';
 import {
@@ -372,11 +372,13 @@ export const WorkflowExecutionDetails: React.FC<WorkflowExecutionDetailsProps> =
       channel: 'AiOrchestrationChannel',
       params: { type: 'workflow_run', id: runId },
        
-      onMessage: (data: any) => {
-        const eventType = data.event || data.type;
+      onMessage: (data: unknown) => {
+        const message = data as Record<string, unknown>;
+        const payload = message.payload as Record<string, unknown> | undefined;
+        const eventType = message.event || message.type;
 
         if (eventType === 'node.execution.updated') {
-          const nodeExecution = data.payload?.node_execution || data.node_execution;
+          const nodeExecution = (payload?.node_execution || message.node_execution) as (AiWorkflowNodeExecution & Record<string, unknown>) | undefined;
           if (!nodeExecution) return;
 
           setLastUpdateReceived(Date.now());
@@ -408,22 +410,22 @@ export const WorkflowExecutionDetails: React.FC<WorkflowExecutionDetailsProps> =
               updated[existingIndex] = {
                 ...existing,
                 ...nodeExecution,
-                node: existing.node || {
-                  node_id: nodeExecution.node_id,
-                  name: nodeExecution.node_name,
-                  node_type: nodeExecution.node_type
+                node: existing.node || nodeExecution.node || {
+                  node_id: String(nodeExecution.node_id || ''),
+                  name: String(nodeExecution.node_name || ''),
+                  node_type: String(nodeExecution.node_type || '')
                 }
-              };
+              } as AiWorkflowNodeExecution;
               return updated;
             } else {
               const newExecution = {
                 ...nodeExecution,
                 node: nodeExecution.node || {
-                  node_id: nodeExecution.node_id,
-                  name: nodeExecution.node_name,
-                  node_type: nodeExecution.node_type
+                  node_id: String(nodeExecution.node_id || ''),
+                  name: String(nodeExecution.node_name || ''),
+                  node_type: String(nodeExecution.node_type || '')
                 }
-              };
+              } as AiWorkflowNodeExecution;
               return [...prev, newExecution];
             }
           });
@@ -432,50 +434,50 @@ export const WorkflowExecutionDetails: React.FC<WorkflowExecutionDetailsProps> =
         if (eventType === 'workflow.execution.completed' || eventType === 'workflow.execution.failed' ||
             eventType === 'workflow.status.changed' || eventType === 'workflow.run.status.changed' ||
             eventType === 'workflow.run.progress.changed') {
-          const workflowRun = data.payload?.workflow_run || data.workflow_run;
+          const workflowRun = (payload?.workflow_run || message.workflow_run) as Record<string, unknown> | undefined;
           if (workflowRun?.status && workflowRun.status !== runStatus) {
             hasReceivedWebSocketStatusRef.current = true;
-            setRunStatus(workflowRun.status);
+            setRunStatus(workflowRun.status as WorkflowRunStatus);
 
             if (workflowRun) {
               setCurrentRun(prev => ({
                 ...prev,
-                status: workflowRun.status,
-                completed_at: workflowRun.completed_at || prev.completed_at,
-                duration_seconds: workflowRun.duration_seconds ?? prev.duration_seconds,
-                cost_usd: workflowRun.cost_usd ?? prev.cost_usd,
-                completed_nodes: workflowRun.completed_nodes ?? prev.completed_nodes,
-                failed_nodes: workflowRun.failed_nodes ?? prev.failed_nodes,
-                total_nodes: workflowRun.total_nodes || prev.total_nodes,
+                status: workflowRun.status as WorkflowRunStatus,
+                completed_at: (workflowRun.completed_at as string) || prev.completed_at,
+                duration_seconds: (workflowRun.duration_seconds as number) ?? prev.duration_seconds,
+                cost_usd: (workflowRun.cost_usd as number) ?? prev.cost_usd,
+                completed_nodes: (workflowRun.completed_nodes as number) ?? prev.completed_nodes,
+                failed_nodes: (workflowRun.failed_nodes as number) ?? prev.failed_nodes,
+                total_nodes: (workflowRun.total_nodes as number) || prev.total_nodes,
                 output: workflowRun.output || prev.output,
-                output_variables: workflowRun.output_variables || prev.output_variables
+                output_variables: (workflowRun.output_variables as Record<string, unknown>) || prev.output_variables
               }));
             }
           }
         }
 
         if (eventType === 'workflow.execution.started') {
-          const workflowRun = data.payload?.workflow_run || data.workflow_run;
+          const workflowRun = (payload?.workflow_run || message.workflow_run) as Record<string, unknown> | undefined;
           if (workflowRun?.status && workflowRun.status !== runStatus) {
             hasReceivedWebSocketStatusRef.current = true;
-            setRunStatus(workflowRun.status);
+            setRunStatus(workflowRun.status as WorkflowRunStatus);
           }
           if (workflowRun) {
             setCurrentRun(prev => ({
               ...prev,
-              status: workflowRun.status || prev.status,
-              completed_at: workflowRun.completed_at || prev.completed_at,
-              duration_seconds: workflowRun.duration_seconds || prev.duration_seconds,
-              cost_usd: workflowRun.cost_usd || prev.cost_usd,
-              completed_nodes: workflowRun.completed_nodes ?? prev.completed_nodes,
-              failed_nodes: workflowRun.failed_nodes ?? prev.failed_nodes,
-              total_nodes: workflowRun.total_nodes || prev.total_nodes,
+              status: (workflowRun.status as WorkflowRunStatus) || prev.status,
+              completed_at: (workflowRun.completed_at as string) || prev.completed_at,
+              duration_seconds: (workflowRun.duration_seconds as number) || prev.duration_seconds,
+              cost_usd: (workflowRun.cost_usd as number) || prev.cost_usd,
+              completed_nodes: (workflowRun.completed_nodes as number) ?? prev.completed_nodes,
+              failed_nodes: (workflowRun.failed_nodes as number) ?? prev.failed_nodes,
+              total_nodes: (workflowRun.total_nodes as number) || prev.total_nodes,
               output: workflowRun.output || prev.output,
-              output_variables: workflowRun.output_variables || prev.output_variables
+              output_variables: (workflowRun.output_variables as Record<string, unknown>) || prev.output_variables
             }));
-          } else if (data.status) {
+          } else if (message.status) {
             hasReceivedWebSocketStatusRef.current = true;
-            setRunStatus(data.status);
+            setRunStatus(message.status as WorkflowRunStatus);
           }
         }
       }

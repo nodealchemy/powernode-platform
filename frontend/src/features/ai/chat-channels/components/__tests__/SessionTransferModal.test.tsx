@@ -17,6 +17,8 @@ const mockedGetAgents = (agentsApi as any).getAgents as jest.Mock;
 
 const mockSession = {
   id: 'session-1',
+  channel_id: 'channel-1',
+  platform: 'telegram' as const,
   platform_user_id: 'user123',
   platform_username: 'testuser',
   status: 'active' as const,

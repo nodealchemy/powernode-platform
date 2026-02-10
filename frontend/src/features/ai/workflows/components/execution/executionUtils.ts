@@ -257,19 +257,58 @@ export interface ExportExecutionData {
   cost_usd: number | undefined;
   trigger_type: string | undefined;
    
-  node_executions: any[];
+  node_executions: NodeExecutionExport[];
+}
+
+interface NodeExecutionExport {
+  execution_id: string;
+  node_id: string | undefined;
+  node_name: string | undefined;
+  node_type: string | undefined;
+  status: string;
+  started_at: string | undefined;
+  completed_at: string | undefined;
+  duration_ms: number | undefined;
+  input: unknown;
+  output: unknown;
+  error: unknown;
+  cost: number | undefined;
+}
+
+interface WorkflowRun {
+  run_id?: string;
+  id?: string;
+  status: string;
+  started_at?: string;
+  completed_at?: string;
+  duration_seconds?: number;
+  cost_usd?: number;
+  trigger_type?: string;
+}
+
+interface NodeExecution {
+  execution_id: string;
+  node?: { node_id: string; name: string; node_type: string };
+  status: string;
+  started_at?: string;
+  completed_at?: string;
+  execution_time_ms?: number;
+  duration_ms?: number;
+  input_data?: unknown;
+  output_data?: unknown;
+  error_details?: unknown;
+  cost?: number;
+  cost_usd?: number;
 }
 
 export const createExportData = (
   workflowId: string,
-   
-  run: any,
-   
-  nodeExecutions: any[]
+  run: WorkflowRun,
+  nodeExecutions: NodeExecution[]
 ): ExportExecutionData => {
   return {
     workflow_id: workflowId,
-    run_id: run.run_id || run.id,
+    run_id: run.run_id || run.id || '',
     status: run.status,
     started_at: run.started_at,
     completed_at: run.completed_at,

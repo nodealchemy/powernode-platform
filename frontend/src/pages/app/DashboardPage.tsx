@@ -101,6 +101,13 @@ import { SelfHealingDashboard } from '@/features/ai/self-healing/SelfHealingDash
 import { RecommendationsDashboard } from '@/features/ai/learning/RecommendationsDashboard';
 import { TrajectoryInsights } from '@/features/ai/learning/TrajectoryInsights';
 
+// AI Agent Orchestration pages
+import { SandboxDashboardPage } from '@/features/ai/sandboxes';
+import { AutonomyDashboardPage } from '@/features/ai/autonomy';
+import { MemoryExplorerPage } from '@/features/ai/memory';
+import CompoundLearningPage from './ai/CompoundLearningPage';
+import { AuditDashboardPage } from '@/features/ai/audit';
+
 // Container Orchestration (Sandboxed AI execution)
 import { ContainersPage } from '@/features/devops/containers/pages/ContainersPage';
 
@@ -595,6 +602,13 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/infrastructure/*" element={<InfrastructurePage />} />
         <Route path="/ai/billing/*" element={<AiBillingPage />} />
         <Route path="/ai/monitoring/*" element={<AIMonitoringPage />} />
+
+        {/* AI Pages - Agent Orchestration */}
+        <Route path="/ai/sandboxes" element={<SandboxDashboardPage />} />
+        <Route path="/ai/autonomy" element={<AutonomyDashboardPage />} />
+        <Route path="/ai/memory" element={<MemoryExplorerPage />} />
+        <Route path="/ai/learning" element={<CompoundLearningPage />} />
+        <Route path="/ai/audit" element={<AuditDashboardPage />} />
 
         {/* AI Pages - Hidden (no nav, still accessible) */}
         <Route path="/ai/publisher" element={<PublisherDashboard />} />

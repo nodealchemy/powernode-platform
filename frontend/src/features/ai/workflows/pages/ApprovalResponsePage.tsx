@@ -221,8 +221,8 @@ export const ApprovalResponsePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-theme-background flex items-center justify-center p-4">
       <div className="max-w-lg w-full bg-theme-surface rounded-xl shadow-lg border border-theme overflow-hidden">
-        {/* Header - Purple gradient for AI Workflows */}
-        <div className="bg-gradient-to-r from-purple-600 to-violet-600 p-6 text-white">
+        {/* Header */}
+        <div className="bg-theme-primary p-6 text-white">
           <div className="flex items-center gap-3 mb-1">
             <Workflow className="w-6 h-6" />
             <h1 className="text-xl font-semibold">AI Workflow Approval Required</h1>
