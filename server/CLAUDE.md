@@ -25,19 +25,14 @@ Rails 8 API backend for Powernode.
 
 ## Test Execution
 
-**Parallel RSpec** (preferred):
 ```bash
-bundle exec parallel_rspec spec/
+bundle exec rspec spec/                          # Run full suite
+bundle exec rspec spec/path_spec.rb              # Run single file
+bundle exec rspec spec/path_spec.rb:42           # Run single example
 ```
 
-**Setup** (run once after schema changes):
-```bash
-bundle exec rake parallel:setup
-```
-
-- `parallel_tests` uses per-process databases (`powernode_test`, `powernode_test2`, ...) — no deadlocks
-- Agents MAY run `parallel_rspec` concurrently — each invocation uses isolated DBs
-- For single-file tests: `bundle exec rspec spec/path_spec.rb` is fine
+- Uses `DatabaseCleaner` with `:deletion` strategy (avoids `TRUNCATE` deadlocks)
+- Transactional fixtures enabled — each test rolls back automatically
 - Frontend tests and TypeScript checks are always safe to run concurrently
 
 ## Worker Architecture

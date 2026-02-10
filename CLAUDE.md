@@ -91,19 +91,10 @@ journalctl -u powernode-backend@default -f      # Tail service logs
 
 ## Test Execution
 
-**Parallel RSpec** (preferred — uses per-process databases):
+**RSpec**:
 ```bash
-cd server && bundle exec parallel_rspec spec/
-```
-
-**Single-process RSpec** (fallback):
-```bash
-cd server && pkill -f rspec 2>/dev/null || true; sleep 1; bundle exec rspec --format progress
-```
-
-**Parallel test setup** (run once after schema changes):
-```bash
-cd server && bundle exec rake parallel:setup
+cd server && bundle exec rspec --format progress    # Full suite
+cd server && bundle exec rspec spec/path_spec.rb    # Single file
 ```
 
 **Frontend tests** - always use CI=true:
@@ -112,9 +103,8 @@ cd frontend && CI=true npm test
 ```
 
 ### Multi-Agent Test Rules
-- With `parallel_tests`, each process uses its own database (`powernode_test`, `powernode_test2`, `powernode_test3`, ...) — no deadlocks.
-- Agents MAY run `bundle exec parallel_rspec` concurrently — each invocation creates its own set of isolated DB processes.
-- For targeted single-file tests, standard `bundle exec rspec spec/path_spec.rb` is fine — just don't run multiple single-process instances simultaneously.
+- Uses `DatabaseCleaner` with `:deletion` strategy — avoids `TRUNCATE` deadlocks between concurrent processes.
+- Do NOT run multiple single-process rspec instances simultaneously on the same database.
 - Frontend tests (`CI=true npm test`) and TypeScript checks (`npx tsc --noEmit`) are always safe to run concurrently.
 
 ### Worker Architecture (CRITICAL)
