@@ -56,22 +56,24 @@ module Ai
 
     # Semantic search using neighbor gem's nearest_neighbors scope (cosine distance)
     def self.semantic_search(query_embedding, account_id:, threshold: 0.6, limit: 20)
-      return none if query_embedding.blank?
+      return [] if query_embedding.blank?
 
       active.where(account_id: account_id)
         .nearest_neighbors(:embedding, query_embedding, distance: "cosine")
-        .where("neighbor_distance <= ?", 1.0 - threshold)
         .limit(limit)
+        .to_a
+        .select { |e| e.neighbor_distance <= 1.0 - threshold }
     end
 
     # Find near-duplicates by embedding similarity
     def self.find_similar(embedding, account_id:, threshold: 0.92, limit: 5)
-      return none if embedding.blank?
+      return [] if embedding.blank?
 
       active.where(account_id: account_id)
         .nearest_neighbors(:embedding, embedding, distance: "cosine")
-        .where("neighbor_distance <= ?", 1.0 - threshold)
         .limit(limit)
+        .to_a
+        .select { |e| e.neighbor_distance <= 1.0 - threshold }
     end
 
     # ==========================================

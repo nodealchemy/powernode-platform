@@ -58,10 +58,12 @@ module Ai
 
         if Ai::ContextEntry.embedding_column_exists?
           # Vector similarity search via neighbor gem
+          # NOTE: neighbor_distance is a virtual column — cannot use in WHERE clause
           results = scope
             .nearest_neighbors(:embedding, query_embedding, distance: "cosine")
-            .where("neighbor_distance <= ?", 1.0 - threshold)
             .limit(limit)
+            .to_a
+            .select { |e| e.neighbor_distance <= 1.0 - threshold }
 
           # Combine with keyword results for better coverage
           keyword_results = keyword_search(query, limit: 5, tags: tags)
@@ -342,10 +344,11 @@ module Ai
           .experiential
           .by_agent(@agent.id)
           .where.not(id: entry.id)
-          .nearest_neighbors(:embedding, entry.embedding, distance: "cosine")
-          .where("neighbor_distance <= ?", 1.0 - threshold)
           .where("ai_context_entries.created_at < ?", entry.created_at)
+          .nearest_neighbors(:embedding, entry.embedding, distance: "cosine")
           .limit(5)
+          .to_a
+          .select { |e| e.neighbor_distance <= 1.0 - threshold }
       end
 
       def merge_entries(target, source)

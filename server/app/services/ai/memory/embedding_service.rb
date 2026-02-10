@@ -228,8 +228,9 @@ module Ai
         hash = Digest::SHA256.digest(text)
         seed = hash.bytes.sum
 
-        Random.new(seed).rand(EMBEDDING_DIMENSION).times.map do
-          Random.new(seed).rand(-1.0..1.0)
+        rng = Random.new(seed)
+        EMBEDDING_DIMENSION.times.map do
+          rng.rand(-1.0..1.0)
         end.tap do |embedding|
           # Normalize to unit vector
           magnitude = Math.sqrt(embedding.sum { |x| x * x })

@@ -310,9 +310,12 @@ module Ai
           # Try semantic search first
           query_embedding = @embedding_service.generate(filters[:query])
           if query_embedding
-            scope = scope.active
+            limit = filters[:limit] || 50
+            return scope.active
               .nearest_neighbors(:embedding, query_embedding, distance: "cosine")
-              .where("neighbor_distance <= ?", 0.6)
+              .limit(limit)
+              .to_a
+              .select { |e| e.neighbor_distance <= 0.6 }
           else
             scope = scope.where("content ILIKE ? OR title ILIKE ?", "%#{filters[:query]}%", "%#{filters[:query]}%")
           end

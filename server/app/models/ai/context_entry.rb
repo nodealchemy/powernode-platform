@@ -135,15 +135,16 @@ module Ai
 
     # Semantic similarity search using neighbor gem (cosine distance via pgvector)
     def self.semantic_search(query_embedding, agent_id: nil, memory_type: nil, limit: 10, threshold: 0.7)
-      return none unless embedding_column_exists?
+      return [] unless embedding_column_exists?
 
       scope = active
       scope = scope.by_agent(agent_id) if agent_id
       scope = scope.by_memory_type(memory_type) if memory_type
 
       scope.nearest_neighbors(:embedding, query_embedding, distance: "cosine")
-           .where("neighbor_distance <= ?", 1.0 - threshold)
            .limit(limit)
+           .to_a
+           .select { |e| e.neighbor_distance <= 1.0 - threshold }
     end
 
     # Check if embedding column exists

@@ -260,8 +260,9 @@ class Ai::ContextPersistenceService
       results = context.context_entries
         .active
         .nearest_neighbors(:embedding, query_embedding, distance: "cosine")
-        .where("neighbor_distance <= ?", 1.0 - threshold)
         .limit(limit)
+        .to_a
+        .select { |e| e.neighbor_distance <= 1.0 - threshold }
 
       log_access(
         context: context,
