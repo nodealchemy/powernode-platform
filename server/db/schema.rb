@@ -10,8 +10,9 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_10_100005) do
   # These are extensions that must be enabled in order to support this database
+  enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
   enable_extension "vector"
@@ -402,6 +403,31 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
     t.index ["webhook_status"], name: "index_ai_agent_executions_on_webhook_status"
   end
 
+  create_table "ai_agent_identities", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "agent_id", null: false
+    t.string "agent_uri"
+    t.string "algorithm", default: "ed25519", null: false
+    t.jsonb "attestation_claims", default: {}
+    t.jsonb "capabilities", default: []
+    t.datetime "created_at", null: false
+    t.text "encrypted_private_key", null: false
+    t.datetime "expires_at"
+    t.string "key_fingerprint", null: false
+    t.text "public_key", null: false
+    t.string "revocation_reason"
+    t.datetime "revoked_at"
+    t.datetime "rotated_at"
+    t.datetime "rotation_overlap_until"
+    t.string "status", default: "active", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_agent_identities_on_account_id"
+    t.index ["agent_id", "status"], name: "index_ai_agent_identities_on_agent_id_and_status"
+    t.index ["agent_id"], name: "index_ai_agent_identities_on_agent_id"
+    t.index ["key_fingerprint"], name: "index_ai_agent_identities_on_key_fingerprint", unique: true
+    t.index ["status"], name: "index_ai_agent_identities_on_status"
+  end
+
   create_table "ai_agent_installations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.uuid "agent_template_id", null: false
@@ -443,6 +469,31 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
     t.index ["account_id"], name: "index_ai_agent_lineages_on_account_id"
     t.index ["child_agent_id"], name: "index_ai_agent_lineages_on_child_agent_id"
     t.index ["parent_agent_id"], name: "index_ai_agent_lineages_on_parent_agent_id"
+  end
+
+  create_table "ai_agent_privilege_policies", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.boolean "active", default: true, null: false
+    t.uuid "agent_id"
+    t.jsonb "allowed_actions", default: []
+    t.jsonb "allowed_resources", default: []
+    t.jsonb "allowed_tools", default: []
+    t.jsonb "communication_rules", default: {}
+    t.datetime "created_at", null: false
+    t.jsonb "denied_actions", default: []
+    t.jsonb "denied_resources", default: []
+    t.jsonb "denied_tools", default: []
+    t.jsonb "escalation_rules", default: {}
+    t.string "policy_name", null: false
+    t.string "policy_type", default: "custom", null: false
+    t.integer "priority", default: 0
+    t.string "trust_tier"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "policy_name"], name: "idx_on_account_id_policy_name_3fe605a85f", unique: true
+    t.index ["account_id"], name: "index_ai_agent_privilege_policies_on_account_id"
+    t.index ["agent_id"], name: "index_ai_agent_privilege_policies_on_agent_id"
+    t.index ["policy_type"], name: "index_ai_agent_privilege_policies_on_policy_type"
+    t.index ["trust_tier"], name: "index_ai_agent_privilege_policies_on_trust_tier"
   end
 
   create_table "ai_agent_reviews", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -665,6 +716,54 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
     t.index ["parent_agent_id"], name: "index_ai_agents_on_parent_agent_id"
     t.index ["slug"], name: "index_ai_agents_on_slug", unique: true
     t.index ["status"], name: "index_ai_agents_on_status"
+  end
+
+  create_table "ai_agui_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.text "content"
+    t.datetime "created_at", null: false
+    t.jsonb "delta", default: {}
+    t.string "event_type", null: false
+    t.string "message_id"
+    t.jsonb "metadata", default: {}
+    t.string "role"
+    t.string "run_id"
+    t.integer "sequence_number", null: false
+    t.uuid "session_id", null: false
+    t.string "step_id"
+    t.string "tool_call_id"
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_agui_events_on_account_id"
+    t.index ["event_type"], name: "index_ai_agui_events_on_event_type"
+    t.index ["session_id", "sequence_number"], name: "index_ai_agui_events_on_session_id_and_sequence_number", unique: true
+    t.index ["session_id"], name: "index_ai_agui_events_on_session_id"
+  end
+
+  create_table "ai_agui_sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "agent_id"
+    t.jsonb "capabilities", default: {}
+    t.datetime "completed_at"
+    t.jsonb "context", default: []
+    t.datetime "created_at", null: false
+    t.datetime "expires_at"
+    t.datetime "last_event_at"
+    t.jsonb "messages", default: []
+    t.string "parent_run_id"
+    t.string "run_id"
+    t.integer "sequence_number", default: 0, null: false
+    t.datetime "started_at"
+    t.jsonb "state", default: {}
+    t.string "status", default: "idle", null: false
+    t.string "thread_id", null: false
+    t.jsonb "tools", default: []
+    t.datetime "updated_at", null: false
+    t.uuid "user_id"
+    t.index ["account_id"], name: "index_ai_agui_sessions_on_account_id"
+    t.index ["expires_at"], name: "index_ai_agui_sessions_on_expires_at"
+    t.index ["status"], name: "index_ai_agui_sessions_on_status"
+    t.index ["thread_id"], name: "index_ai_agui_sessions_on_thread_id"
+    t.index ["user_id"], name: "index_ai_agui_sessions_on_user_id"
   end
 
   create_table "ai_approval_chains", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1527,6 +1626,29 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'processing'::character varying::text, 'indexed'::character varying::text, 'failed'::character varying::text, 'archived'::character varying::text])", name: "check_document_status"
   end
 
+  create_table "ai_encrypted_messages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.text "aad"
+    t.uuid "account_id", null: false
+    t.binary "auth_tag", null: false
+    t.binary "ciphertext", null: false
+    t.datetime "created_at", null: false
+    t.text "ephemeral_public_key"
+    t.uuid "from_agent_id", null: false
+    t.binary "nonce", null: false
+    t.integer "sequence_number", null: false
+    t.string "session_id"
+    t.text "signature"
+    t.string "status", default: "delivered"
+    t.uuid "task_id"
+    t.uuid "to_agent_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_encrypted_messages_on_account_id"
+    t.index ["from_agent_id"], name: "index_ai_encrypted_messages_on_from_agent_id"
+    t.index ["session_id", "sequence_number"], name: "index_ai_encrypted_messages_on_session_id_and_sequence_number", unique: true
+    t.index ["session_id"], name: "index_ai_encrypted_messages_on_session_id"
+    t.index ["to_agent_id"], name: "index_ai_encrypted_messages_on_to_agent_id"
+  end
+
   create_table "ai_evaluation_results", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.uuid "agent_id", null: false
@@ -1664,6 +1786,30 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
     t.index ["ai_agent_id"], name: "index_ai_guardrail_configs_on_ai_agent_id"
   end
 
+  create_table "ai_hybrid_search_results", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.string "fusion_method", default: "rrf"
+    t.jsonb "graph_results", default: []
+    t.decimal "graph_score", precision: 5, scale: 4
+    t.jsonb "keyword_results", default: []
+    t.decimal "keyword_score", precision: 5, scale: 4
+    t.jsonb "merged_results", default: []
+    t.jsonb "metadata", default: {}
+    t.text "query_text", null: false
+    t.string "rerank_model"
+    t.boolean "reranked", default: false
+    t.integer "result_count", default: 0
+    t.string "search_mode", null: false
+    t.integer "total_latency_ms"
+    t.jsonb "vector_results", default: []
+    t.decimal "vector_score", precision: 5, scale: 4
+    t.index ["account_id"], name: "index_ai_hybrid_search_results_on_account_id"
+    t.index ["created_at"], name: "index_ai_hybrid_search_results_on_created_at"
+    t.index ["search_mode"], name: "index_ai_hybrid_search_results_on_search_mode"
+    t.check_constraint "search_mode::text = ANY (ARRAY['vector'::character varying, 'keyword'::character varying, 'hybrid'::character varying, 'graph'::character varying]::text[])", name: "check_ai_hybrid_search_mode"
+  end
+
   create_table "ai_improvement_recommendations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.datetime "applied_at"
@@ -1715,6 +1861,60 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
     t.index ["status"], name: "index_ai_knowledge_bases_on_status"
     t.check_constraint "chunking_strategy::text = ANY (ARRAY['recursive'::character varying::text, 'semantic'::character varying::text, 'fixed'::character varying::text, 'sentence'::character varying::text, 'paragraph'::character varying::text, 'custom'::character varying::text])", name: "check_kb_chunking_strategy"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'indexing'::character varying::text, 'paused'::character varying::text, 'archived'::character varying::text, 'error'::character varying::text])", name: "check_kb_status"
+  end
+
+  create_table "ai_knowledge_graph_edges", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.boolean "bidirectional", default: false
+    t.decimal "confidence", precision: 5, scale: 4, default: "1.0"
+    t.datetime "created_at", null: false
+    t.string "label"
+    t.jsonb "metadata", default: {}
+    t.jsonb "properties", default: {}
+    t.string "relation_type", null: false
+    t.uuid "source_document_id"
+    t.uuid "source_node_id", null: false
+    t.string "status", default: "active"
+    t.uuid "target_node_id", null: false
+    t.datetime "updated_at", null: false
+    t.decimal "weight", precision: 5, scale: 4, default: "1.0"
+    t.index ["account_id"], name: "index_ai_knowledge_graph_edges_on_account_id"
+    t.index ["relation_type"], name: "index_ai_knowledge_graph_edges_on_relation_type"
+    t.index ["source_node_id", "target_node_id", "relation_type"], name: "index_ai_kg_edges_unique_active", unique: true, where: "((status)::text = 'active'::text)"
+    t.index ["source_node_id"], name: "index_ai_knowledge_graph_edges_on_source_node_id"
+    t.index ["target_node_id"], name: "index_ai_knowledge_graph_edges_on_target_node_id"
+  end
+
+  create_table "ai_knowledge_graph_nodes", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.decimal "confidence", precision: 5, scale: 4, default: "1.0"
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.vector "embedding", limit: 1536
+    t.string "entity_type"
+    t.uuid "knowledge_base_id"
+    t.datetime "last_seen_at"
+    t.integer "mention_count", default: 1
+    t.uuid "merged_into_id"
+    t.jsonb "metadata", default: {}
+    t.string "name", null: false
+    t.string "node_type", null: false
+    t.ltree "path"
+    t.jsonb "properties", default: {}
+    t.uuid "source_document_id"
+    t.string "status", default: "active"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "name", "node_type"], name: "index_ai_kg_nodes_unique_active", unique: true, where: "((status)::text = 'active'::text)"
+    t.index ["account_id"], name: "index_ai_knowledge_graph_nodes_on_account_id"
+    t.index ["embedding"], name: "index_ai_knowledge_graph_nodes_on_embedding", opclass: :vector_cosine_ops, using: :hnsw
+    t.index ["entity_type"], name: "index_ai_knowledge_graph_nodes_on_entity_type"
+    t.index ["knowledge_base_id"], name: "index_ai_knowledge_graph_nodes_on_knowledge_base_id"
+    t.index ["name"], name: "index_ai_kg_nodes_on_name"
+    t.index ["node_type"], name: "index_ai_knowledge_graph_nodes_on_node_type"
+    t.index ["path"], name: "index_ai_knowledge_graph_nodes_on_path", using: :gist
+    t.index ["status"], name: "index_ai_knowledge_graph_nodes_on_status"
+    t.check_constraint "node_type::text = ANY (ARRAY['entity'::character varying, 'concept'::character varying, 'relation'::character varying, 'attribute'::character varying]::text[])", name: "check_ai_kg_node_type"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'merged'::character varying, 'archived'::character varying]::text[])", name: "check_ai_kg_node_status"
   end
 
   create_table "ai_marketplace_categories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1821,6 +2021,43 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
     t.index ["transaction_type"], name: "index_ai_marketplace_transactions_on_transaction_type"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'refunded'::character varying::text, 'disputed'::character varying::text])", name: "check_transaction_status"
     t.check_constraint "transaction_type::text = ANY (ARRAY['purchase'::character varying::text, 'subscription'::character varying::text, 'renewal'::character varying::text, 'refund'::character varying::text, 'payout'::character varying::text])", name: "check_transaction_type"
+  end
+
+  create_table "ai_mcp_app_instances", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.jsonb "input_data", default: {}
+    t.uuid "mcp_app_id", null: false
+    t.jsonb "output_data", default: {}
+    t.uuid "session_id"
+    t.datetime "started_at"
+    t.jsonb "state", default: {}
+    t.string "status", default: "created", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_mcp_app_instances_on_account_id"
+    t.index ["mcp_app_id"], name: "index_ai_mcp_app_instances_on_mcp_app_id"
+    t.index ["session_id"], name: "index_ai_mcp_app_instances_on_session_id"
+  end
+
+  create_table "ai_mcp_apps", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "app_type", default: "custom", null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.jsonb "csp_policy", default: {}
+    t.text "description"
+    t.text "html_content"
+    t.jsonb "input_schema", default: {}
+    t.jsonb "metadata", default: {}
+    t.string "name", null: false
+    t.jsonb "output_schema", default: {}
+    t.jsonb "sandbox_config", default: {}
+    t.string "status", default: "draft", null: false
+    t.datetime "updated_at", null: false
+    t.string "version", default: "1.0.0"
+    t.index ["account_id", "name"], name: "index_ai_mcp_apps_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_ai_mcp_apps_on_account_id"
   end
 
   create_table "ai_memory_pools", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2238,6 +2475,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
     t.uuid "account_id", null: false
     t.decimal "avg_cost_per_request", precision: 12, scale: 8
     t.decimal "avg_latency_ms", precision: 10, scale: 2
+    t.decimal "cache_write_cost_per_1k", precision: 12, scale: 8
+    t.decimal "cached_input_cost_per_1k", precision: 12, scale: 8
     t.string "circuit_state"
     t.integer "consecutive_failures", default: 0, null: false
     t.decimal "cost_per_1k_tokens", precision: 12, scale: 8
@@ -2249,6 +2488,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
     t.decimal "max_latency_ms", precision: 10, scale: 2
     t.decimal "min_latency_ms", precision: 10, scale: 2
     t.jsonb "model_breakdown", default: {}, null: false
+    t.string "model_tier"
     t.decimal "p50_latency_ms", precision: 10, scale: 2
     t.decimal "p95_latency_ms", precision: 10, scale: 2
     t.decimal "p99_latency_ms", precision: 10, scale: 2
@@ -2368,13 +2608,40 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
     t.index ["snapshot_date"], name: "index_ai_publisher_earnings_snapshots_on_snapshot_date"
   end
 
+  create_table "ai_quarantine_records", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "agent_id", null: false
+    t.uuid "approved_by_id"
+    t.integer "cooldown_minutes", default: 60
+    t.datetime "created_at", null: false
+    t.uuid "escalated_from_id"
+    t.jsonb "forensic_snapshot", default: {}
+    t.jsonb "previous_capabilities", default: {}
+    t.text "restoration_notes"
+    t.datetime "restored_at"
+    t.jsonb "restrictions_applied", default: {}
+    t.datetime "scheduled_restore_at"
+    t.string "severity", null: false
+    t.string "status", default: "active", null: false
+    t.string "trigger_reason", null: false
+    t.string "trigger_source"
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_quarantine_records_on_account_id"
+    t.index ["agent_id"], name: "index_ai_quarantine_records_on_agent_id"
+    t.index ["scheduled_restore_at"], name: "index_ai_quarantine_records_on_scheduled_restore_at"
+    t.index ["severity"], name: "index_ai_quarantine_records_on_severity"
+    t.index ["status"], name: "index_ai_quarantine_records_on_status"
+  end
+
   create_table "ai_rag_queries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.uuid "agent_execution_id"
     t.float "avg_similarity_score"
     t.integer "chunks_retrieved", default: 0
     t.datetime "created_at", null: false
+    t.boolean "enable_reranking", default: false
     t.jsonb "filters", default: {}
+    t.integer "graph_depth", default: 2
     t.uuid "knowledge_base_id", null: false
     t.jsonb "metadata", default: {}
     t.vector "query_embedding", limit: 1536
@@ -2382,6 +2649,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
     t.text "query_text", null: false
     t.string "retrieval_strategy", default: "similarity"
     t.jsonb "retrieved_chunks", default: []
+    t.string "search_mode", default: "vector"
     t.float "similarity_threshold", default: 0.7
     t.string "status", default: "completed", null: false
     t.integer "tokens_used", default: 0
@@ -2639,11 +2907,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
     t.integer "actual_tokens_used"
     t.uuid "agent_execution_id"
     t.decimal "alternative_cost_usd", precision: 12, scale: 8
+    t.integer "cached_tokens", default: 0
     t.jsonb "candidates_evaluated", default: [], null: false
+    t.uuid "complexity_assessment_id"
     t.datetime "created_at", null: false
     t.string "decision_reason"
     t.decimal "estimated_cost_usd", precision: 12, scale: 8
     t.integer "estimated_tokens"
+    t.string "model_tier"
     t.string "outcome"
     t.decimal "quality_score", precision: 5, scale: 4
     t.jsonb "request_metadata", default: {}, null: false
@@ -2654,10 +2925,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
     t.uuid "selected_provider_id"
     t.string "strategy_used", null: false
     t.datetime "updated_at", null: false
+    t.boolean "was_cached", default: false
+    t.boolean "was_compressed", default: false
     t.uuid "workflow_run_id"
     t.index ["account_id", "created_at"], name: "index_ai_routing_decisions_on_account_id_and_created_at"
     t.index ["account_id"], name: "index_ai_routing_decisions_on_account_id"
     t.index ["agent_execution_id"], name: "index_ai_routing_decisions_on_agent_execution_id"
+    t.index ["complexity_assessment_id"], name: "index_ai_routing_decisions_on_complexity_assessment_id"
     t.index ["created_at"], name: "index_ai_routing_decisions_on_created_at"
     t.index ["outcome"], name: "index_ai_routing_decisions_on_outcome"
     t.index ["routing_rule_id"], name: "index_ai_routing_decisions_on_routing_rule_id"
@@ -2719,6 +2993,31 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
     t.index ["status"], name: "index_ai_sandboxes_on_status"
     t.check_constraint "sandbox_type::text = ANY (ARRAY['standard'::character varying::text, 'isolated'::character varying::text, 'production_mirror'::character varying::text, 'performance'::character varying::text, 'security'::character varying::text])", name: "check_sandbox_type"
     t.check_constraint "status::text = ANY (ARRAY['inactive'::character varying::text, 'active'::character varying::text, 'paused'::character varying::text, 'expired'::character varying::text, 'deleted'::character varying::text])", name: "check_sandbox_status"
+  end
+
+  create_table "ai_security_audit_trails", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "action", null: false
+    t.uuid "agent_id"
+    t.string "asi_reference"
+    t.jsonb "context", default: {}
+    t.datetime "created_at", null: false
+    t.string "csa_pillar"
+    t.jsonb "details", default: {}
+    t.inet "ip_address"
+    t.string "outcome", null: false
+    t.decimal "risk_score", precision: 5, scale: 4
+    t.string "severity"
+    t.string "source_service"
+    t.datetime "updated_at", null: false
+    t.uuid "user_id"
+    t.index ["account_id"], name: "index_ai_security_audit_trails_on_account_id"
+    t.index ["action"], name: "index_ai_security_audit_trails_on_action"
+    t.index ["agent_id"], name: "index_ai_security_audit_trails_on_agent_id"
+    t.index ["asi_reference"], name: "index_ai_security_audit_trails_on_asi_reference"
+    t.index ["created_at"], name: "index_ai_security_audit_trails_on_created_at"
+    t.index ["outcome"], name: "index_ai_security_audit_trails_on_outcome"
+    t.index ["severity"], name: "index_ai_security_audit_trails_on_severity"
   end
 
   create_table "ai_shared_context_pools", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2868,6 +3167,30 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
     t.index ["violation_type"], name: "index_ai_sla_violations_on_violation_type"
     t.check_constraint "credit_status::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'applied'::character varying::text, 'rejected'::character varying::text, 'waived'::character varying::text])", name: "check_sla_credit_status"
     t.check_constraint "violation_type::text = ANY (ARRAY['success_rate'::character varying::text, 'latency'::character varying::text, 'availability'::character varying::text, 'quality'::character varying::text])", name: "check_sla_violation_type"
+  end
+
+  create_table "ai_task_complexity_assessments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "actual_tier_used"
+    t.string "classifier_version", null: false
+    t.string "complexity_level", null: false
+    t.decimal "complexity_score", precision: 5, scale: 4, null: false
+    t.jsonb "complexity_signals", default: {}
+    t.integer "conversation_depth", default: 0
+    t.datetime "created_at", null: false
+    t.integer "input_token_count", default: 0
+    t.string "recommended_tier", null: false
+    t.uuid "routing_decision_id"
+    t.string "task_type", null: false
+    t.integer "tool_count", default: 0
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_task_complexity_assessments_on_account_id"
+    t.index ["complexity_level"], name: "index_ai_task_complexity_assessments_on_complexity_level"
+    t.index ["recommended_tier"], name: "index_ai_task_complexity_assessments_on_recommended_tier"
+    t.index ["routing_decision_id"], name: "index_ai_task_complexity_assessments_on_routing_decision_id"
+    t.index ["task_type"], name: "index_ai_task_complexity_assessments_on_task_type"
+    t.check_constraint "complexity_level::text = ANY (ARRAY['trivial'::character varying, 'simple'::character varying, 'moderate'::character varying, 'complex'::character varying, 'expert'::character varying]::text[])", name: "chk_ai_task_complexity_level"
+    t.check_constraint "recommended_tier::text = ANY (ARRAY['economy'::character varying, 'standard'::character varying, 'premium'::character varying]::text[])", name: "chk_ai_task_recommended_tier"
   end
 
   create_table "ai_task_reviews", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -8773,6 +9096,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
   add_foreign_key "ai_agent_executions", "ai_agents", on_delete: :cascade
   add_foreign_key "ai_agent_executions", "ai_providers", on_delete: :restrict
   add_foreign_key "ai_agent_executions", "users", on_delete: :restrict
+  add_foreign_key "ai_agent_identities", "accounts"
   add_foreign_key "ai_agent_installations", "accounts"
   add_foreign_key "ai_agent_installations", "ai_agent_templates", column: "agent_template_id"
   add_foreign_key "ai_agent_installations", "ai_agents", column: "installed_agent_id"
@@ -8780,6 +9104,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
   add_foreign_key "ai_agent_lineages", "accounts"
   add_foreign_key "ai_agent_lineages", "ai_agents", column: "child_agent_id"
   add_foreign_key "ai_agent_lineages", "ai_agents", column: "parent_agent_id"
+  add_foreign_key "ai_agent_privilege_policies", "accounts"
   add_foreign_key "ai_agent_reviews", "accounts"
   add_foreign_key "ai_agent_reviews", "ai_agent_installations", column: "installation_id"
   add_foreign_key "ai_agent_reviews", "ai_agent_templates", column: "agent_template_id"
@@ -8798,6 +9123,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
   add_foreign_key "ai_agents", "accounts", on_delete: :cascade
   add_foreign_key "ai_agents", "ai_providers"
   add_foreign_key "ai_agents", "users", column: "creator_id", on_delete: :restrict
+  add_foreign_key "ai_agui_events", "accounts"
+  add_foreign_key "ai_agui_events", "ai_agui_sessions", column: "session_id"
+  add_foreign_key "ai_agui_sessions", "accounts"
+  add_foreign_key "ai_agui_sessions", "users"
   add_foreign_key "ai_approval_chains", "accounts"
   add_foreign_key "ai_approval_chains", "users", column: "created_by_id"
   add_foreign_key "ai_approval_decisions", "ai_approval_requests", column: "approval_request_id"
@@ -8872,6 +9201,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
   add_foreign_key "ai_document_chunks", "ai_knowledge_bases", column: "knowledge_base_id"
   add_foreign_key "ai_documents", "ai_knowledge_bases", column: "knowledge_base_id"
   add_foreign_key "ai_documents", "users", column: "uploaded_by_id"
+  add_foreign_key "ai_encrypted_messages", "accounts"
   add_foreign_key "ai_evaluation_results", "accounts"
   add_foreign_key "ai_evaluation_results", "ai_agents", column: "agent_id"
   add_foreign_key "ai_execution_events", "accounts"
@@ -8882,10 +9212,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
   add_foreign_key "ai_file_locks", "ai_worktrees", column: "worktree_id"
   add_foreign_key "ai_guardrail_configs", "accounts"
   add_foreign_key "ai_guardrail_configs", "ai_agents"
+  add_foreign_key "ai_hybrid_search_results", "accounts"
   add_foreign_key "ai_improvement_recommendations", "accounts"
   add_foreign_key "ai_improvement_recommendations", "users", column: "approved_by_id"
   add_foreign_key "ai_knowledge_bases", "accounts"
   add_foreign_key "ai_knowledge_bases", "users", column: "created_by_id"
+  add_foreign_key "ai_knowledge_graph_edges", "accounts"
+  add_foreign_key "ai_knowledge_graph_edges", "ai_documents", column: "source_document_id"
+  add_foreign_key "ai_knowledge_graph_edges", "ai_knowledge_graph_nodes", column: "source_node_id"
+  add_foreign_key "ai_knowledge_graph_edges", "ai_knowledge_graph_nodes", column: "target_node_id"
+  add_foreign_key "ai_knowledge_graph_nodes", "accounts"
+  add_foreign_key "ai_knowledge_graph_nodes", "ai_documents", column: "source_document_id"
+  add_foreign_key "ai_knowledge_graph_nodes", "ai_knowledge_bases", column: "knowledge_base_id"
+  add_foreign_key "ai_knowledge_graph_nodes", "ai_knowledge_graph_nodes", column: "merged_into_id"
   add_foreign_key "ai_marketplace_categories", "ai_marketplace_categories", column: "parent_id"
   add_foreign_key "ai_marketplace_moderations", "ai_agent_templates", column: "agent_template_id"
   add_foreign_key "ai_marketplace_moderations", "users", column: "reviewed_by_id"
@@ -8898,6 +9237,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
   add_foreign_key "ai_marketplace_transactions", "ai_agent_installations", column: "installation_id"
   add_foreign_key "ai_marketplace_transactions", "ai_agent_templates", column: "agent_template_id"
   add_foreign_key "ai_marketplace_transactions", "ai_publisher_accounts", column: "publisher_id"
+  add_foreign_key "ai_mcp_app_instances", "accounts"
+  add_foreign_key "ai_mcp_app_instances", "ai_agui_sessions", column: "session_id"
+  add_foreign_key "ai_mcp_app_instances", "ai_mcp_apps", column: "mcp_app_id"
+  add_foreign_key "ai_mcp_apps", "accounts"
   add_foreign_key "ai_memory_pools", "accounts"
   add_foreign_key "ai_merge_operations", "accounts"
   add_foreign_key "ai_merge_operations", "ai_worktree_sessions", column: "worktree_session_id"
@@ -8939,6 +9282,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
   add_foreign_key "ai_publisher_accounts", "accounts"
   add_foreign_key "ai_publisher_accounts", "users", column: "primary_user_id"
   add_foreign_key "ai_publisher_earnings_snapshots", "ai_publisher_accounts", column: "publisher_id"
+  add_foreign_key "ai_quarantine_records", "accounts"
   add_foreign_key "ai_rag_queries", "accounts"
   add_foreign_key "ai_rag_queries", "ai_knowledge_bases", column: "knowledge_base_id"
   add_foreign_key "ai_rag_queries", "users"
@@ -8958,6 +9302,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
   add_foreign_key "ai_routing_decisions", "ai_agent_executions", column: "agent_execution_id"
   add_foreign_key "ai_routing_decisions", "ai_model_routing_rules", column: "routing_rule_id"
   add_foreign_key "ai_routing_decisions", "ai_providers", column: "selected_provider_id"
+  add_foreign_key "ai_routing_decisions", "ai_task_complexity_assessments", column: "complexity_assessment_id"
   add_foreign_key "ai_routing_decisions", "ai_workflow_runs", column: "workflow_run_id"
   add_foreign_key "ai_runner_dispatches", "ai_worktree_sessions", column: "worktree_session_id"
   add_foreign_key "ai_runner_dispatches", "ai_worktrees", column: "worktree_id"
@@ -8965,6 +9310,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
   add_foreign_key "ai_runner_dispatches", "git_runners"
   add_foreign_key "ai_sandboxes", "accounts"
   add_foreign_key "ai_sandboxes", "users", column: "created_by_id"
+  add_foreign_key "ai_security_audit_trails", "accounts"
   add_foreign_key "ai_shared_context_pools", "ai_workflow_runs", on_delete: :cascade
   add_foreign_key "ai_shared_knowledges", "accounts"
   add_foreign_key "ai_shared_knowledges", "users", column: "created_by_id"
@@ -8976,6 +9322,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
   add_foreign_key "ai_sla_contracts", "ai_outcome_definitions", column: "outcome_definition_id"
   add_foreign_key "ai_sla_violations", "accounts"
   add_foreign_key "ai_sla_violations", "ai_sla_contracts", column: "sla_contract_id"
+  add_foreign_key "ai_task_complexity_assessments", "accounts"
+  add_foreign_key "ai_task_complexity_assessments", "ai_routing_decisions", column: "routing_decision_id"
   add_foreign_key "ai_task_reviews", "accounts"
   add_foreign_key "ai_task_reviews", "ai_agents", column: "reviewer_agent_id"
   add_foreign_key "ai_task_reviews", "ai_team_roles", column: "reviewer_role_id"
