@@ -72,11 +72,11 @@ user.role === 'manager'
 | Ruby Files | `# frozen_string_literal: true` pragma required |
 | Logging | `Rails.logger` - no `puts`/`print` |
 | Migrations | **NEVER** create separate indexes for `t.references` columns - configure index in the references declaration itself: `t.references :account, index: { unique: true }` |
-| AI Namespace | `Ai::AgentTeam` not `AiAgentTeam` — always use `Ai::` prefix with `::` references |
+| Namespaces | ALL namespaced models MUST use `::` separator in `class_name:` — e.g., `Ai::AgentTeam` not `AiAgentTeam`, `Devops::Pipeline` not `DevopsPipeline`, `BaaS::Tenant` not `BaaSTenant` |
 | Seeds | After modifying seeds, run `cd server && rails db:seed` and verify completion |
 | Service Restart | After API endpoint changes, restart: `sudo systemctl restart powernode-backend@default` |
 | Associations | Always pair `class_name:` with `foreign_key:` — e.g. `belongs_to :provider, class_name: "Ai::Provider", foreign_key: "ai_provider_id"` |
-| Foreign Keys | AI models use `ai_` prefix on FKs: `ai_agent_id`, `ai_workflow_id`, `ai_provider_id` — never bare `agent_id` |
+| Foreign Keys | Namespaced FK prefixes: `Ai::` → `ai_` (`ai_agent_id`), `Devops::` → `ci_cd_` (`ci_cd_pipeline_id`), `BaaS::` → `baas_` (`baas_customer_id`). Others: use explicit FK or omit if unambiguous |
 | JSON Columns | Always use lambda defaults: `attribute :config, :json, default: -> { {} }` — never `default: {}` |
 | Controller Size | Controllers MUST stay under 300 lines — extract query logic to services, serialization to concerns |
 | Eager Loading | Always use `.includes()` when iterating associations — never bare `.all` followed by `.map`/`.each` accessing relations |
@@ -88,7 +88,8 @@ user.role === 'manager'
 | Reuse First | Always reuse existing services/patterns — never propose standalone/greenfield when infrastructure exists |
 | Quality Gates | Run `cd frontend && npx tsc --noEmit` after TS changes, verify Ruby syntax after .rb changes |
 | Verify Seeds | After seed modifications: `cd server && rails db:seed` — watch for association/validation errors |
-| Stop & Ask | After 3 failed attempts at the same fix, stop and ask the user for guidance — do not continue iterating |
+| Stop & Ask | **HARD RULE**: After 3 failed attempts at the same fix, STOP immediately and ask the user. Do NOT try a 4th approach, do NOT continue iterating, do NOT try workarounds. Present what you tried and ask for guidance |
+| Audit Sessions | When asked to audit/review/analyze code, save findings to `docs/` and do NOT implement changes. Audit = report only, unless the user explicitly says to fix |
 
 ---
 
@@ -186,6 +187,10 @@ cd frontend && CI=true npm test
 # Pattern validation
 ./scripts/pattern-validation.sh          # Full audit
 ./scripts/quick-pattern-check.sh         # Quick check
+
+# Pre-push validation
+./scripts/validate.sh                    # Run all checks (specs + TS + patterns)
+./scripts/validate.sh --skip-tests       # Skip RSpec, run TS + patterns only
 
 # Service management (systemd)
 sudo scripts/systemd/powernode-installer.sh install           # Install units + configs
