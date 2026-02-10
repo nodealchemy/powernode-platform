@@ -2092,6 +2092,34 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
+        # 10.5. KNOWLEDGE GRAPH - Knowledge Graphs + Hybrid RAG
+        # ===================================================================
+        scope :knowledge_graph, controller: "knowledge_graph" do
+          # Nodes CRUD
+          get "nodes", action: :nodes
+          get "nodes/:id", action: :show_node
+          post "nodes", action: :create_node
+          patch "nodes/:id", action: :update_node
+          delete "nodes/:id", action: :destroy_node
+
+          # Node traversal
+          get "nodes/:id/neighbors", action: :neighbors
+
+          # Edges CRUD
+          get "edges", action: :edges
+          post "edges", action: :create_edge
+          delete "edges/:id", action: :destroy_edge
+
+          # Graph operations
+          get "shortest_path", action: :shortest_path
+          post "subgraph", action: :subgraph
+          post "extract", action: :extract
+          get "statistics", action: :statistics
+          post "reason", action: :multi_hop_reason
+          post "search", action: :hybrid_search
+        end
+
+        # ===================================================================
         # 11. TEAMS CONTROLLER - Multi-Agent Team Orchestration
         # ===================================================================
         # Revenue: Tiered subscriptions + agent seat pricing
@@ -2517,6 +2545,22 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
+        # 14b. FINOPS CONTROLLER - Smart Model Routing & Financial Operations
+        # ===================================================================
+        # Token analytics, waste analysis, forecasting, and optimization scoring
+        # ===================================================================
+        scope :finops, controller: "finops" do
+          get "/", action: :index
+          get "cost_breakdown", action: :cost_breakdown
+          get "trends", action: :trends
+          get "budget_utilization", action: :budget_utilization
+          get "token_analytics", action: :token_analytics
+          get "waste_analysis", action: :waste_analysis
+          get "forecast", action: :forecast
+          get "optimization_score", action: :optimization_score
+        end
+
+        # ===================================================================
         # 15. CREDITS CONTROLLER - Prepaid AI Credit System
         # ===================================================================
         # Revenue: Prepaid credits + reseller margins
@@ -2819,6 +2863,27 @@ Rails.application.routes.draw do
             post :check_output
             post :batch_scan
           end
+
+          # Phase 7: Agent Identity Management (OWASP ASI03)
+          scope :identities, controller: "agent_identity" do
+            get "/", action: :index
+            post "/", action: :provision
+            get "/:id", action: :show
+            post "/:id/rotate", action: :rotate
+            post "/:id/revoke", action: :revoke
+            post "/verify", action: :verify
+          end
+
+          # Phase 7: Quarantine Management (OWASP ASI08/ASI10)
+          scope :quarantine, controller: "quarantine" do
+            get "/", action: :index
+            get "/report", action: :security_report
+            get "/compliance", action: :compliance_matrix
+            get "/:id", action: :show
+            post "/", action: :quarantine_agent
+            post "/:id/escalate", action: :escalate
+            post "/:id/restore", action: :restore
+          end
         end
 
         # ===================================================================
@@ -2920,6 +2985,32 @@ Rails.application.routes.draw do
           post "reinforce/:id", action: :reinforce
           post "promote", action: :promote
           post "compound_maintenance", action: :compound_maintenance
+        end
+
+        # ===================================================================
+        # AG-UI PROTOCOL - Agent-User Interaction Protocol
+        # ===================================================================
+        scope :agui, controller: "agui" do
+          post "run", action: :run
+          get "sessions", action: :sessions
+          post "sessions", action: :create_session
+          get "sessions/:id", action: :show_session
+          delete "sessions/:id", action: :destroy_session
+          post "sessions/:id/state", action: :push_state
+          get "sessions/:id/events", action: :events
+        end
+
+        # ===================================================================
+        # MCP APPS - MCP Application Framework
+        # ===================================================================
+        scope :mcp_apps, controller: "mcp_apps" do
+          get "/", action: :index
+          post "/", action: :create
+          get "/:id", action: :show
+          patch "/:id", action: :update
+          delete "/:id", action: :destroy
+          post "/:id/render", action: :render_app
+          post "/:id/process", action: :process_input
         end
       end
 
