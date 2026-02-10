@@ -554,6 +554,17 @@ class Api::V1::ReportsController < ApplicationController
   end
 
   def generate_csv_data(report_type)
+    case report_type
+    when "customer_report"
+      return export_customer_data_csv
+    when "subscription_report"
+      return export_subscription_data_csv
+    end
+
+    unless defined?(PowernodeEnterprise::Engine)
+      return CSV.generate(headers: true) { |csv| csv << ["Enterprise feature required"] }
+    end
+
     analytics_service = Billing::RevenueAnalyticsService.new(
       account: @account_scope,
       start_date: @start_date,
@@ -563,10 +574,6 @@ class Api::V1::ReportsController < ApplicationController
     case report_type
     when "revenue_report"
       analytics_service.export_revenue_data_csv("monthly")
-    when "customer_report"
-      export_customer_data_csv
-    when "subscription_report"
-      export_subscription_data_csv
     else
       # Default to revenue data
       analytics_service.export_revenue_data_csv("monthly")

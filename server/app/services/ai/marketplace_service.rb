@@ -15,6 +15,8 @@ module Ai
 
     # Publisher Management
     def create_publisher(name:, user:, description: nil, website_url: nil, support_email: nil)
+      return { error: "Enterprise feature required" } unless defined?(PowernodeEnterprise::Engine)
+
       Ai::PublisherAccount.create!(
         account: account,
         primary_user: user,
@@ -28,6 +30,8 @@ module Ai
     end
 
     def get_publisher
+      return nil unless defined?(PowernodeEnterprise::Engine)
+
       Ai::PublisherAccount.find_by(account: account)
     end
 
@@ -137,6 +141,8 @@ module Ai
 
     # Categories (cached for 1 hour)
     def list_categories
+      return [] unless defined?(PowernodeEnterprise::Engine)
+
       cache_key = "ai:marketplace:categories"
 
       Rails.cache.fetch(cache_key, expires_in: CATEGORIES_CACHE_TTL) do
@@ -165,6 +171,8 @@ module Ai
     PUBLISHER_ANALYTICS_CACHE_TTL = 1.hour
 
     def publisher_analytics(publisher, start_date: 30.days.ago, end_date: Time.current)
+      return {} unless defined?(PowernodeEnterprise::Engine)
+
       # Cache key includes date range for different queries
       cache_key = "ai:marketplace:publisher_analytics:#{publisher.id}:#{start_date.to_i}:#{end_date.to_i}"
 
@@ -191,6 +199,8 @@ module Ai
     private
 
     def process_template_payment(template)
+      return { success: false, error: "Enterprise feature required" } unless defined?(PowernodeEnterprise::Engine)
+
       # Create transaction record
       publisher = template.publisher
       commission_percentage = 100 - publisher.revenue_share_percentage

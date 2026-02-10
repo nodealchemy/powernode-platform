@@ -198,10 +198,14 @@ module Admin
       return {} unless user.can?("view_global_analytics")
 
       {
-        total_revenue: RevenueSnapshot.where(account_id: nil)
+        total_revenue: if defined?(PowernodeEnterprise::Engine)
+                       RevenueSnapshot.where(account_id: nil)
                                       .order(:snapshot_date)
                                       .last(30)
-                                      .pluck(:snapshot_date, :total_revenue),
+                                      .pluck(:snapshot_date, :total_revenue)
+                     else
+                       []
+                     end,
         subscription_trends: Subscription.group(:status).count,
         churn_rate: calculate_global_churn_rate,
         customer_growth: calculate_customer_growth

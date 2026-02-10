@@ -43,6 +43,19 @@ class AnalyticsChannel < ApplicationCable::Channel
       return
     end
 
+    unless defined?(PowernodeEnterprise::Engine)
+      transmit({
+        type: "analytics_update",
+        data: {
+          current_metrics: { mrr: 0, arr: 0, active_customers: 0, churn_rate: 0 },
+          timestamp: Time.current.iso8601,
+          account_id: account_id,
+          status: :enterprise_required
+        }
+      })
+      return
+    end
+
     analytics_service = Billing::RevenueAnalyticsService.new(
       account: account_id ? Account.find(account_id) : nil
     )

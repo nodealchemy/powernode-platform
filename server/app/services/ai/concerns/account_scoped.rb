@@ -29,6 +29,8 @@ module Ai
       end
 
       def audit_action(action:, resource_type: nil, resource_id: nil, details: {})
+        return unless defined?(PowernodeEnterprise::Engine)
+
         Ai::ComplianceAuditEntry.create(
           account: @account,
           action_type: action,

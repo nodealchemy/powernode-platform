@@ -77,12 +77,14 @@ module Ai
                  evaluate_budget_gate(agent, action_context)
 
         outcome = denial ? "blocked" : "success"
-        Ai::ComplianceAuditEntry.log!(
-          account: @account, action_type: "agent_action_check",
-          resource_type: "Ai::Agent", resource_id: agent.id, outcome: outcome,
-          description: denial ? denial[:reason] : "Action '#{action_type}' allowed",
-          context: { action_type: action_type, agent_id: agent.id }
-        )
+        if defined?(PowernodeEnterprise::Engine)
+          Ai::ComplianceAuditEntry.log!(
+            account: @account, action_type: "agent_action_check",
+            resource_type: "Ai::Agent", resource_id: agent.id, outcome: outcome,
+            description: denial ? denial[:reason] : "Action '#{action_type}' allowed",
+            context: { action_type: action_type, agent_id: agent.id }
+          )
+        end
         denial || { allowed: true, reason: nil, enforcement: nil }
       rescue StandardError => e
         Rails.logger.error "[AgentAnomalyDetection] check_action error: #{e.message}"
@@ -149,8 +151,12 @@ module Ai
             rogue_detected: rogue[:rogue], rogue_indicators: rogue[:indicators] }
         end
 
-        violations = Ai::PolicyViolation.where(account: @account)
-                                        .where("detected_at >= ?", period_hours.hours.ago).unresolved
+        violations = if defined?(PowernodeEnterprise::Engine)
+                       Ai::PolicyViolation.where(account: @account)
+                                          .where("detected_at >= ?", period_hours.hours.ago).unresolved
+                     else
+                       Ai::PolicyViolation.none
+                     end
         {
           account_id: @account.id, period_hours: period_hours,
           generated_at: Time.current.iso8601, total_agents: agents.count,
@@ -167,6 +173,8 @@ module Ai
       # --- Policy / trust / budget gates ---
 
       def evaluate_policies(agent, action_type, action_context)
+        return nil unless defined?(PowernodeEnterprise::Engine)
+
         Ai::CompliancePolicy.where(account: @account).active.ordered_by_priority.each do |policy|
           result = policy.evaluate(action_context.merge(action_type: action_type))
           next if result[:allowed]
@@ -360,6 +368,8 @@ module Ai
       # --- Audit logging ---
 
       def log_analysis_audit(agent, anomalies, risk_level)
+        return unless defined?(PowernodeEnterprise::Engine)
+
         Ai::ComplianceAuditEntry.log!(
           account: @account, action_type: "agent_anomaly_analysis",
           resource_type: "Ai::Agent", resource_id: agent.id,
@@ -372,6 +382,8 @@ module Ai
       end
 
       def log_policy_check(agent, policy, action_type, result)
+        return unless defined?(PowernodeEnterprise::Engine)
+
         Ai::ComplianceAuditEntry.log!(
           account: @account, action_type: "agent_policy_evaluation",
           resource_type: "Ai::Agent", resource_id: agent.id,
@@ -384,25 +396,27 @@ module Ai
       end
 
       def record_injection_detection(matches, confidence, action_taken, text, context)
-        classification = Ai::DataClassification.where(account: @account).by_level("restricted").first
-        if classification
-          classification.record_detection!(
-            source_type: context[:source_type] || "AgentInput",
-            source_id: context[:source_id] || SecureRandom.uuid,
-            field_path: context[:field_path], original: text.truncate(500),
-            action: action_taken, confidence: confidence
-          )
-        end
+        if defined?(PowernodeEnterprise::Engine)
+          classification = Ai::DataClassification.where(account: @account).by_level("restricted").first
+          if classification
+            classification.record_detection!(
+              source_type: context[:source_type] || "AgentInput",
+              source_id: context[:source_id] || SecureRandom.uuid,
+              field_path: context[:field_path], original: text.truncate(500),
+              action: action_taken, confidence: confidence
+            )
+          end
 
-        policy = Ai::CompliancePolicy.where(account: @account).active.by_type("output_filter").first
-        if policy && confidence >= 0.6
-          policy.record_violation!(
-            source_type: context[:source_type] || "AgentInput",
-            source_id: context[:source_id] || SecureRandom.uuid,
-            description: "Prompt injection (confidence: #{confidence.round(4)}, patterns: #{matches.size})",
-            context: { patterns: matches.map { |m| m[:type] }, confidence: confidence },
-            severity: confidence >= 0.8 ? "critical" : "high"
-          )
+          policy = Ai::CompliancePolicy.where(account: @account).active.by_type("output_filter").first
+          if policy && confidence >= 0.6
+            policy.record_violation!(
+              source_type: context[:source_type] || "AgentInput",
+              source_id: context[:source_id] || SecureRandom.uuid,
+              description: "Prompt injection (confidence: #{confidence.round(4)}, patterns: #{matches.size})",
+              context: { patterns: matches.map { |m| m[:type] }, confidence: confidence },
+              severity: confidence >= 0.8 ? "critical" : "high"
+            )
+          end
         end
         Rails.logger.warn "[AgentAnomalyDetection] Injection: conf=#{confidence.round(4)}, patterns=#{matches.size}, action=#{action_taken}"
       rescue StandardError => e
@@ -410,21 +424,23 @@ module Ai
       end
 
       def record_rogue_detection(agent, indicators, recommended_action)
-        policy = Ai::CompliancePolicy.where(account: @account).active.by_type("audit").first
-        if policy
-          policy.record_violation!(
-            source_type: "Ai::Agent", source_id: agent.id,
-            description: "Rogue behavior: #{indicators.size} indicator(s), action: #{recommended_action}",
-            context: { indicators: indicators.map { |i| i.slice(:type, :severity) }, recommended_action: recommended_action },
-            severity: indicators.any? { |i| i[:severity] == "critical" } ? "critical" : "high"
+        if defined?(PowernodeEnterprise::Engine)
+          policy = Ai::CompliancePolicy.where(account: @account).active.by_type("audit").first
+          if policy
+            policy.record_violation!(
+              source_type: "Ai::Agent", source_id: agent.id,
+              description: "Rogue behavior: #{indicators.size} indicator(s), action: #{recommended_action}",
+              context: { indicators: indicators.map { |i| i.slice(:type, :severity) }, recommended_action: recommended_action },
+              severity: indicators.any? { |i| i[:severity] == "critical" } ? "critical" : "high"
+            )
+          end
+          Ai::ComplianceAuditEntry.log!(
+            account: @account, action_type: "rogue_agent_detected",
+            resource_type: "Ai::Agent", resource_id: agent.id, outcome: "blocked",
+            description: "Rogue: #{indicators.size} indicators, action: #{recommended_action}",
+            context: { indicators: indicators, recommended_action: recommended_action }
           )
         end
-        Ai::ComplianceAuditEntry.log!(
-          account: @account, action_type: "rogue_agent_detected",
-          resource_type: "Ai::Agent", resource_id: agent.id, outcome: "blocked",
-          description: "Rogue: #{indicators.size} indicators, action: #{recommended_action}",
-          context: { indicators: indicators, recommended_action: recommended_action }
-        )
         Rails.logger.warn "[AgentAnomalyDetection] Rogue: agent=#{agent.id}, indicators=#{indicators.size}"
       rescue StandardError => e
         Rails.logger.error "[AgentAnomalyDetection] record_rogue: #{e.message}"

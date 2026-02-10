@@ -257,6 +257,10 @@ class Api::V1::Admin::UsersController < ApplicationController
 
   # POST /api/v1/admin/users/:id/impersonate
   def impersonate
+    unless defined?(PowernodeEnterprise::Engine)
+      return render_error("Impersonation requires enterprise edition", :forbidden)
+    end
+
     service = Auth::ImpersonationService.new(current_user)
 
     begin
