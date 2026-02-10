@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_09_000004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -283,6 +283,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
     t.index ["is_reseller"], name: "index_ai_account_credits_on_is_reseller"
   end
 
+  create_table "ai_agent_budgets", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "agent_id", null: false
+    t.datetime "created_at", null: false
+    t.string "currency", default: "USD"
+    t.jsonb "metadata", default: {}
+    t.uuid "parent_budget_id"
+    t.datetime "period_end"
+    t.datetime "period_start"
+    t.string "period_type"
+    t.integer "reserved_cents", default: 0
+    t.integer "spent_cents", default: 0
+    t.integer "total_budget_cents", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_agent_budgets_on_account_id"
+    t.index ["agent_id"], name: "index_ai_agent_budgets_on_agent_id"
+  end
+
   create_table "ai_agent_cards", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.uuid "ai_agent_id"
@@ -411,6 +429,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'paused'::character varying::text, 'expired'::character varying::text, 'cancelled'::character varying::text, 'pending_update'::character varying::text])", name: "check_installation_status"
   end
 
+  create_table "ai_agent_lineages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "child_agent_id", null: false
+    t.datetime "created_at", null: false
+    t.jsonb "metadata", default: {}
+    t.uuid "parent_agent_id", null: false
+    t.string "spawn_reason"
+    t.datetime "spawned_at"
+    t.datetime "terminated_at"
+    t.string "termination_reason"
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_agent_lineages_on_account_id"
+    t.index ["child_agent_id"], name: "index_ai_agent_lineages_on_child_agent_id"
+    t.index ["parent_agent_id"], name: "index_ai_agent_lineages_on_parent_agent_id"
+  end
+
   create_table "ai_agent_reviews", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.uuid "agent_template_id", null: false
@@ -438,6 +472,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
     t.index ["user_id"], name: "index_ai_agent_reviews_on_user_id"
     t.check_constraint "rating >= 1 AND rating <= 5", name: "check_review_rating"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'published'::character varying::text, 'hidden'::character varying::text, 'flagged'::character varying::text, 'removed'::character varying::text])", name: "check_review_status"
+  end
+
+  create_table "ai_agent_short_term_memories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.integer "access_count", default: 0
+    t.uuid "account_id", null: false
+    t.uuid "agent_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "expires_at"
+    t.datetime "last_accessed_at"
+    t.string "memory_key", null: false
+    t.string "memory_type", default: "general"
+    t.jsonb "memory_value", null: false
+    t.string "session_id", null: false
+    t.integer "ttl_seconds", default: 3600
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_agent_short_term_memories_on_account_id"
+    t.index ["agent_id", "session_id", "memory_key"], name: "idx_short_term_memories_agent_session_key", unique: true
+    t.index ["agent_id"], name: "index_ai_agent_short_term_memories_on_agent_id"
+    t.index ["expires_at"], name: "index_ai_agent_short_term_memories_on_expires_at"
   end
 
   create_table "ai_agent_skills", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -554,16 +607,37 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
     t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying::text, 'unlisted'::character varying::text, 'public'::character varying::text, 'enterprise'::character varying::text])", name: "check_template_visibility"
   end
 
+  create_table "ai_agent_trust_scores", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "agent_id", null: false
+    t.decimal "cost_efficiency", precision: 5, scale: 4, default: "0.5"
+    t.datetime "created_at", null: false
+    t.integer "evaluation_count", default: 0
+    t.jsonb "evaluation_history", default: []
+    t.datetime "last_evaluated_at"
+    t.decimal "overall_score", precision: 5, scale: 4, default: "0.5"
+    t.decimal "quality", precision: 5, scale: 4, default: "0.5"
+    t.decimal "reliability", precision: 5, scale: 4, default: "0.5"
+    t.decimal "safety", precision: 5, scale: 4, default: "1.0"
+    t.decimal "speed", precision: 5, scale: 4, default: "0.5"
+    t.string "tier", default: "supervised"
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_agent_trust_scores_on_account_id"
+    t.index ["agent_id"], name: "index_ai_agent_trust_scores_on_agent_id", unique: true
+  end
+
   create_table "ai_agents", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.string "agent_type", limit: 50, null: false
     t.uuid "ai_provider_id", null: false
+    t.jsonb "autonomy_config", default: {}
     t.datetime "created_at", null: false
     t.uuid "creator_id", null: false
     t.text "description"
     t.jsonb "execution_stats", default: {}
     t.boolean "is_public", default: false
     t.datetime "last_executed_at", precision: nil
+    t.integer "max_spawn_depth", default: 3
     t.jsonb "mcp_input_schema", default: {}, null: false, comment: "JSON Schema for validating agent input parameters"
     t.jsonb "mcp_metadata", default: {}, null: false, comment: "Additional MCP-specific metadata"
     t.jsonb "mcp_output_schema", default: {}, null: false, comment: "JSON Schema for validating agent output"
@@ -571,8 +645,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
     t.jsonb "mcp_tool_manifest", default: {}, null: false, comment: "Complete MCP tool manifest for agent registration"
     t.jsonb "metadata", default: {}, null: false
     t.string "name", limit: 255, null: false
+    t.uuid "parent_agent_id"
     t.string "slug", limit: 150, null: false
     t.string "status", default: "active", null: false
+    t.string "termination_policy", default: "graceful"
+    t.string "trust_level", default: "supervised"
     t.datetime "updated_at", null: false
     t.string "version", limit: 20, default: "1.0.0", null: false
     t.index ["account_id", "name"], name: "index_ai_agents_on_account_id_and_name"
@@ -585,6 +662,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
     t.index ["last_executed_at"], name: "index_ai_agents_on_last_executed_at"
     t.index ["mcp_registered_at"], name: "index_ai_agents_on_mcp_registered_at"
     t.index ["mcp_tool_manifest"], name: "index_ai_agents_on_mcp_tool_manifest", using: :gin
+    t.index ["parent_agent_id"], name: "index_ai_agents_on_parent_agent_id"
     t.index ["slug"], name: "index_ai_agents_on_slug", unique: true
     t.index ["status"], name: "index_ai_agents_on_status"
   end
@@ -2667,6 +2745,32 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
     t.index ["scope"], name: "index_ai_shared_context_pools_on_scope"
   end
 
+  create_table "ai_shared_knowledges", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "access_level", default: "team"
+    t.uuid "account_id", null: false
+    t.text "content", null: false
+    t.string "content_type", default: "text"
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.vector "embedding", limit: 1536
+    t.string "integrity_hash"
+    t.datetime "last_used_at"
+    t.jsonb "provenance", default: {}
+    t.decimal "quality_score", precision: 5, scale: 4
+    t.uuid "source_id"
+    t.string "source_type"
+    t.string "tags", default: [], array: true
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.integer "usage_count", default: 0
+    t.index ["access_level"], name: "index_ai_shared_knowledges_on_access_level"
+    t.index ["account_id"], name: "index_ai_shared_knowledges_on_account_id"
+    t.index ["created_by_id"], name: "index_ai_shared_knowledges_on_created_by_id"
+    t.index ["embedding"], name: "index_ai_shared_knowledges_on_embedding", opclass: :vector_cosine_ops, using: :hnsw
+    t.index ["source_type", "source_id"], name: "index_ai_shared_knowledges_on_source_type_and_source_id"
+    t.index ["tags"], name: "index_ai_shared_knowledges_on_tags", using: :gin
+  end
+
   create_table "ai_skills", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id"
     t.jsonb "activation_rules", default: {}
@@ -4661,6 +4765,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
     t.string "image_tag", default: "latest"
     t.jsonb "input_parameters", default: {}
     t.text "logs"
+    t.integer "mcp_bridge_port"
     t.integer "memory_used_mb"
     t.integer "network_bytes_in"
     t.integer "network_bytes_out"
@@ -4669,13 +4774,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
     t.jsonb "runner_labels", default: []
     t.string "runner_name"
     t.boolean "sandbox_enabled", default: true
+    t.boolean "sandbox_mode", default: false
     t.jsonb "security_violations", default: []
     t.datetime "started_at"
     t.string "status", default: "pending"
+    t.jsonb "storage_mounts", default: []
     t.bigint "storage_used_bytes"
     t.uuid "template_id"
     t.integer "timeout_seconds"
     t.uuid "triggered_by_id"
+    t.string "trust_level"
     t.datetime "updated_at", null: false
     t.string "vault_token_id"
     t.index ["a2a_task_id"], name: "index_devops_container_instances_on_a2a_task_id"
@@ -4684,9 +4792,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
     t.index ["created_at"], name: "index_devops_container_instances_on_created_at"
     t.index ["execution_id"], name: "index_devops_container_instances_on_execution_id", unique: true
     t.index ["gitea_workflow_run_id"], name: "index_devops_container_instances_on_gitea_workflow_run_id"
+    t.index ["sandbox_mode"], name: "index_devops_container_instances_on_sandbox_mode"
     t.index ["status"], name: "index_devops_container_instances_on_status"
     t.index ["template_id"], name: "index_devops_container_instances_on_template_id"
     t.index ["triggered_by_id"], name: "index_devops_container_instances_on_triggered_by_id"
+    t.index ["trust_level"], name: "index_devops_container_instances_on_trust_level"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'provisioning'::character varying, 'running'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying, 'timeout'::character varying]::text[])", name: "mcp_instances_status_check"
   end
 
@@ -4709,6 +4819,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
     t.jsonb "labels", default: {}
     t.datetime "last_used_at"
     t.integer "max_retries", default: 3
+    t.jsonb "mcp_bridge_config", default: {}
     t.integer "memory_mb", default: 512
     t.string "name", null: false
     t.boolean "network_access", default: false
@@ -4721,8 +4832,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
     t.jsonb "security_options", default: {}
     t.string "slug", null: false
     t.string "status", default: "active"
+    t.jsonb "storage_mounts", default: []
     t.integer "success_count", default: 0
     t.integer "timeout_seconds", default: 3600
+    t.string "trust_level_required"
     t.datetime "updated_at", null: false
     t.jsonb "vault_secret_paths", default: []
     t.string "visibility", default: "private"
@@ -8649,6 +8762,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
   add_foreign_key "ai_ab_tests", "accounts"
   add_foreign_key "ai_ab_tests", "users", column: "created_by_id"
   add_foreign_key "ai_account_credits", "accounts"
+  add_foreign_key "ai_agent_budgets", "accounts"
+  add_foreign_key "ai_agent_budgets", "ai_agent_budgets", column: "parent_budget_id"
+  add_foreign_key "ai_agent_budgets", "ai_agents", column: "agent_id"
   add_foreign_key "ai_agent_cards", "accounts"
   add_foreign_key "ai_agent_cards", "ai_agents"
   add_foreign_key "ai_agent_connections", "accounts"
@@ -8661,10 +8777,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
   add_foreign_key "ai_agent_installations", "ai_agent_templates", column: "agent_template_id"
   add_foreign_key "ai_agent_installations", "ai_agents", column: "installed_agent_id"
   add_foreign_key "ai_agent_installations", "users", column: "installed_by_id"
+  add_foreign_key "ai_agent_lineages", "accounts"
+  add_foreign_key "ai_agent_lineages", "ai_agents", column: "child_agent_id"
+  add_foreign_key "ai_agent_lineages", "ai_agents", column: "parent_agent_id"
   add_foreign_key "ai_agent_reviews", "accounts"
   add_foreign_key "ai_agent_reviews", "ai_agent_installations", column: "installation_id"
   add_foreign_key "ai_agent_reviews", "ai_agent_templates", column: "agent_template_id"
   add_foreign_key "ai_agent_reviews", "users"
+  add_foreign_key "ai_agent_short_term_memories", "accounts"
+  add_foreign_key "ai_agent_short_term_memories", "ai_agents", column: "agent_id"
   add_foreign_key "ai_agent_skills", "ai_agents"
   add_foreign_key "ai_agent_skills", "ai_skills"
   add_foreign_key "ai_agent_team_members", "ai_agent_teams"
@@ -8672,6 +8793,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
   add_foreign_key "ai_agent_teams", "accounts"
   add_foreign_key "ai_agent_templates", "ai_agents", column: "source_agent_id"
   add_foreign_key "ai_agent_templates", "ai_publisher_accounts", column: "publisher_id"
+  add_foreign_key "ai_agent_trust_scores", "accounts"
+  add_foreign_key "ai_agent_trust_scores", "ai_agents", column: "agent_id"
   add_foreign_key "ai_agents", "accounts", on_delete: :cascade
   add_foreign_key "ai_agents", "ai_providers"
   add_foreign_key "ai_agents", "users", column: "creator_id", on_delete: :restrict
@@ -8843,6 +8966,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_09_000001) do
   add_foreign_key "ai_sandboxes", "accounts"
   add_foreign_key "ai_sandboxes", "users", column: "created_by_id"
   add_foreign_key "ai_shared_context_pools", "ai_workflow_runs", on_delete: :cascade
+  add_foreign_key "ai_shared_knowledges", "accounts"
+  add_foreign_key "ai_shared_knowledges", "users", column: "created_by_id"
   add_foreign_key "ai_skills", "accounts"
   add_foreign_key "ai_skills", "ai_knowledge_bases", column: "ai_knowledge_base_id"
   add_foreign_key "ai_skills_mcp_servers", "ai_skills"

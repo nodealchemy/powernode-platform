@@ -49,7 +49,7 @@ class Ai::ProviderClientService
       when "ollama"
         ollama_generate_text(prompt, model_name, **options)
       else
-        raise NotImplementedError, "Text generation not implemented for #{provider.name}"
+        capability_not_supported("text_generation")
       end
     end
   rescue Ai::ProviderCircuitBreakerService::CircuitBreakerOpenError => e
@@ -71,7 +71,7 @@ class Ai::ProviderClientService
       when "openai"
         openai_generate_image(prompt, model_name, **options)
       else
-        raise NotImplementedError, "Image generation not implemented for #{provider.name}"
+        capability_not_supported("image_generation")
       end
     end
   rescue Ai::ProviderCircuitBreakerService::CircuitBreakerOpenError => e
@@ -92,7 +92,7 @@ class Ai::ProviderClientService
     when "replit"
       replit_execute_code(code, language, **options)
     else
-      raise NotImplementedError, "Code execution not implemented for #{provider.name}"
+      capability_not_supported("code_execution")
     end
   end
 
@@ -109,7 +109,7 @@ class Ai::ProviderClientService
     when "ollama"
       ollama_stream_text(prompt, model_name, **options, &block)
     else
-      raise NotImplementedError, "Streaming not implemented for #{provider.name}"
+      capability_not_supported("streaming")
     end
   end
 
@@ -143,7 +143,7 @@ class Ai::ProviderClientService
       when "ollama"
                  ollama_send_message(messages, model_name, **options)
       else
-                 raise NotImplementedError, "send_message not implemented for #{provider.name}"
+                 capability_not_supported("send_message")
       end
 
       response_time_ms = ((Time.current - start_time) * 1000).round
@@ -262,6 +262,19 @@ class Ai::ProviderClientService
   end
 
   private
+
+  # Return a graceful error when a capability is not supported by the provider
+  def capability_not_supported(capability)
+    Rails.logger.info("[AI::ProviderClient] #{capability} not supported by provider #{provider.name} (#{provider.provider_type})")
+    {
+      success: false,
+      error: "#{capability} is not supported by provider #{provider.name}",
+      error_type: "capability_not_supported",
+      capability: capability,
+      provider: provider.name,
+      provider_type: provider.provider_type
+    }
+  end
 
   # Validate message format
   # @param messages [Array<Hash>] Messages to validate

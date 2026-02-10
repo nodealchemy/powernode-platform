@@ -4,7 +4,7 @@ class Ai::RunnerDispatchService
   def initialize(account:, session:)
     @account = account
     @session = session
-    @credential = find_gitea_credential
+    @credential = find_credential
     @client = Devops::Git::ApiClient.for(@credential) if @credential
   end
 
@@ -19,7 +19,7 @@ class Ai::RunnerDispatchService
   def dispatch(worktree:, task_input:, runner:)
     repository = resolve_repository
     return { success: false, error: "No repository configured" } unless repository
-    return { success: false, error: "No Gitea client available" } unless @client
+    return { success: false, error: "No Git provider client available" } unless @client
 
     workflow_ref = worktree.branch_name
     run_result = @client.trigger_workflow(
@@ -67,7 +67,7 @@ class Ai::RunnerDispatchService
     run = runs&.find { |r| r["id"].to_s == dispatch.workflow_run_id }
     return unless run
 
-    new_status = map_gitea_status(run["status"], run["conclusion"])
+    new_status = map_run_status(run["status"], run["conclusion"])
     return if new_status == dispatch.status
 
     dispatch.update!(status: new_status)
@@ -109,13 +109,40 @@ class Ai::RunnerDispatchService
 
   private
 
-  def find_gitea_credential
-    gitea_credentials = @account.git_provider_credentials
-                                .joins(:provider)
-                                .where(git_providers: { provider_type: "gitea" })
-                                .where(is_active: true)
-                                .order(is_default: :desc, created_at: :desc)
-    gitea_credentials.first
+  def find_credential
+    @account.git_provider_credentials
+            .joins(:provider)
+            .where(git_providers: { provider_type: %w[github gitea] })
+            .where(is_active: true)
+            .order(is_default: :desc, created_at: :desc)
+            .first
+  end
+
+  def detect_provider_type(credential = @credential)
+    credential&.provider&.provider_type
+  end
+
+  def dispatch_to_github(task:, runner:, credential:)
+    client = Devops::Git::ApiClient.for(credential)
+    repository = resolve_repository
+    return { success: false, error: "No repository configured" } unless repository
+
+    workflow_ref = @session.base_branch || "main"
+    run_result = client.trigger_workflow(
+      repository.owner, repository.name,
+      "agent-execution.yml",
+      workflow_ref,
+      {
+        session_id: @session.id,
+        task_input: task.to_json,
+        runner_labels: runner.labels.join(",")
+      }
+    )
+
+    { success: true, run_result: run_result, repository: repository }
+  rescue StandardError => e
+    Rails.logger.error "[RunnerDispatch] GitHub dispatch failed: #{e.message}"
+    { success: false, error: e.message }
   end
 
   def resolve_repository
@@ -129,7 +156,7 @@ class Ai::RunnerDispatchService
                          .find_by("full_name LIKE ?", "%#{File.basename(repo_path)}%")
   end
 
-  def map_gitea_status(status, conclusion)
+  def map_run_status(status, conclusion)
     case status&.downcase
     when "queued", "waiting" then "dispatched"
     when "in_progress", "running" then "running"
@@ -145,6 +172,17 @@ class Ai::RunnerDispatchService
 
   def build_workflow_url(repository, run_id)
     return nil unless repository && run_id
-    "#{@credential&.credentials&.dig('url')}/#{repository.full_name}/actions/runs/#{run_id}"
+
+    provider_type = detect_provider_type
+    base_url = @credential&.credentials&.dig("url")
+
+    case provider_type
+    when "github"
+      "#{base_url}/#{repository.full_name}/actions/runs/#{run_id}"
+    when "gitea"
+      "#{base_url}/#{repository.full_name}/actions/runs/#{run_id}"
+    else
+      "#{base_url}/#{repository.full_name}/actions/runs/#{run_id}"
+    end
   end
 end

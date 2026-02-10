@@ -1745,6 +1745,7 @@ Rails.application.routes.draw do
             get :skills
             post :assign_skill
             delete "skills/:skill_id", action: :remove_skill
+            get ".well-known/agent.json", to: "a2a#agent_card", as: :agent_card
           end
 
           collection do
@@ -2269,6 +2270,14 @@ Rails.application.routes.draw do
           end
         end
 
+        # A2A Protocol - Discovery and JSON-RPC endpoints
+        scope :a2a, as: :a2a_protocol do
+          post :discover, to: "a2a#discover"
+          post :tasks, to: "a2a#jsonrpc", as: :jsonrpc
+          get "tasks/:id", to: "a2a#show_task", as: :show_task
+          post "tasks/:id/cancel", to: "a2a#cancel_task", as: :cancel_task
+        end
+
         # Agent Memory Enhancement (adds to existing memory routes)
         scope "agents/:agent_id" do
           post "memory/inject", to: "agent_memory#inject"
@@ -2745,6 +2754,119 @@ Rails.application.routes.draw do
           post "/", action: :create_ab_test
           put "/:id/start", action: :start_ab_test
           get "/:id/results", action: :ab_test_results
+        end
+
+        # ===================================================================
+        # 20b. CONTAINER SANDBOXES - Runtime agent container management
+        # ===================================================================
+        resources :container_sandboxes, only: [:index, :show, :create, :destroy] do
+          member do
+            post :pause
+            post :resume
+            get :metrics
+          end
+          collection do
+            get :stats
+          end
+        end
+
+        # ===================================================================
+        # 21. AUTONOMY - Trust scores, lineage, and budgets
+        # ===================================================================
+        scope :autonomy, controller: "autonomy" do
+          get "trust_scores", action: :trust_scores
+          get "trust_scores/:agent_id", action: :show_trust_score
+          get "lineage/:agent_id", action: :lineage
+          get "budgets", action: :budgets
+          get "stats", action: :stats
+        end
+
+        # ===================================================================
+        # 22. TIERED MEMORY - Multi-tier agent memory management
+        # ===================================================================
+        # Nested under agents for agent-specific memory operations
+        scope "agents/:agent_id" do
+          get "tiered_memory/stats", to: "tiered_memory#stats"
+          get "tiered_memory", to: "tiered_memory#index"
+          post "tiered_memory", to: "tiered_memory#create"
+          post "tiered_memory/consolidate", to: "tiered_memory#consolidate"
+          delete "tiered_memory/:key", to: "tiered_memory#destroy"
+        end
+
+        # Shared knowledge (not agent-specific)
+        get "memory/shared_knowledge", to: "tiered_memory#shared_knowledge"
+
+        # Memory maintenance endpoints (called by worker jobs)
+        post "memory/consolidate", to: "tiered_memory#consolidate_all"
+        post "memory/decay", to: "tiered_memory#decay_all"
+        post "memory/shared_maintenance", to: "tiered_memory#shared_maintenance"
+
+        # ===================================================================
+        # 23. SECURITY - Anomaly detection & PII scanning
+        # ===================================================================
+        namespace :security do
+          resource :anomaly_detection, only: [] do
+            post :analyze
+            post :check_action
+            post :detect_injection
+            post :detect_rogue
+            get :report
+          end
+          resource :pii_redaction, only: [] do
+            post :scan
+            post :redact
+            post :apply_policy
+            post :check_output
+            post :batch_scan
+          end
+        end
+
+        # ===================================================================
+        # 24. INTELLIGENCE - AI-powered business intelligence
+        # ===================================================================
+        namespace :intelligence do
+          resource :supply_chain, only: [] do
+            post :analyze
+            get :risk_summary
+            get :vulnerability_report
+          end
+          resource :pipeline, only: [] do
+            post :analyze_failure
+            get :health
+            get :trends
+          end
+          resource :revenue, only: [] do
+            get :forecast
+            get :churn_risks
+            get :health_scores
+          end
+          resource :baas, only: [] do
+            get :usage_anomalies
+            get :tenant_churn
+            get :pricing_recommendations
+            get :api_fraud
+          end
+          resource :reseller, only: [] do
+            get :performance_scores
+            get :commission_optimization
+            get :referral_churn_risks
+          end
+          resource :reviews, only: [] do
+            post :sentiment_analysis
+            get :spam_detection
+            post :generate_response
+            get :agent_quality
+          end
+          resource :notifications, only: [] do
+            post :smart_routing
+            get :fatigue_analysis
+            get :digest_recommendations
+          end
+          resource :monitoring, only: [] do
+            get :predictive_failure
+            get :self_healing
+            get :sla_breach_risk
+          end
         end
 
         # ===================================================================

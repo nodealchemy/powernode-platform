@@ -16,6 +16,7 @@ module Ai
     include Ai::Agent::Execution
     include Ai::Agent::Statistics
     include Ai::Agent::Operations
+    include Ai::AgentStorageConfig
 
     # Associations
     belongs_to :account
@@ -27,6 +28,14 @@ module Ai
     has_many :messages, class_name: "Ai::Message", foreign_key: "ai_agent_id", dependent: :destroy
     has_many :agent_skills, class_name: "Ai::AgentSkill", foreign_key: "ai_agent_id", dependent: :destroy
     has_many :skills, class_name: "Ai::Skill", through: :agent_skills, source: :skill
+
+    # Autonomy system associations
+    belongs_to :parent_agent, class_name: "Ai::Agent", optional: true
+    has_many :child_lineages, class_name: "Ai::AgentLineage", foreign_key: "parent_agent_id", dependent: :destroy
+    has_many :child_agents, through: :child_lineages, source: :child_agent
+    has_one :trust_score, class_name: "Ai::AgentTrustScore", foreign_key: "agent_id", dependent: :destroy
+    has_many :budgets, class_name: "Ai::AgentBudget", foreign_key: "agent_id", dependent: :destroy
+    has_many :short_term_memories, class_name: "Ai::AgentShortTermMemory", foreign_key: "agent_id", dependent: :destroy
 
     # Validations
     validates :name, presence: true, length: { maximum: 255 }, uniqueness: { scope: :account_id }
