@@ -20,8 +20,6 @@ RSpec.describe 'Api::V1::Ai::AgentContainers', type: :request do
   let(:bridge_service) { instance_double(Ai::ContainerChatBridgeService) }
 
   before do
-    allow_any_instance_of(Account).to receive(:container_instances)
-      .and_return(Account.find(account.id).devops_container_instances)
     allow(Ai::ContainerAgentDeploymentService).to receive(:new).and_return(deployment_service)
     allow(Ai::ContainerChatBridgeService).to receive(:new).and_return(bridge_service)
   end
@@ -150,7 +148,7 @@ RSpec.describe 'Api::V1::Ai::AgentContainers', type: :request do
         expect_success_response
         data = json_response_data
         expect(data['container']).to include('id' => container_instance.id)
-        expect(data['message']).to eq('Container deployment initiated')
+        expect(json_response['message']).to eq('Container deployment initiated')
       end
 
       it 'calls deploy_agent_session with correct arguments' do
@@ -243,7 +241,7 @@ RSpec.describe 'Api::V1::Ai::AgentContainers', type: :request do
 
         expect_success_response
         data = json_response_data
-        expect(data['message']).to eq('Container terminated successfully')
+        expect(json_response['message']).to eq('Container terminated successfully')
         expect(data['container']).to include('id' => container_instance.id)
       end
 
@@ -324,7 +322,7 @@ RSpec.describe 'Api::V1::Ai::AgentContainers', type: :request do
 
         expect_success_response
         data = json_response_data
-        expect(data['message']).to eq('received')
+        expect(json_response['message']).to eq('received')
         expect(data['message_id']).to eq('msg-456')
       end
 

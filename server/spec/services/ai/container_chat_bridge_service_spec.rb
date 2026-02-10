@@ -13,7 +13,6 @@ RSpec.describe Ai::ContainerChatBridgeService, type: :service do
 
   before do
     allow(Ai::ContainerAgentDeploymentService).to receive(:new).and_return(deployment_service)
-    allow(account).to receive(:container_instances).and_return(account.devops_container_instances)
   end
 
   describe '#route_message_to_container' do

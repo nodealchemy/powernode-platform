@@ -361,7 +361,12 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
         is_persistent: true,
         message_retention_hours: 72,
         participant_roles: [],
-        message_count: 0
+        message_count: 0,
+        routing_rules: {},
+        message_schema: {},
+        metadata: {},
+        created_at: Time.current,
+        updated_at: Time.current
       )
     end
 
@@ -373,7 +378,7 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
       it 'creates a new channel' do
         allow(team_service).to receive(:create_channel).and_return(created_channel)
 
-        post '/api/v1/ai/teams/t123/channels', params: valid_params, headers: headers, as: :json
+        post '/api/v1/ai/teams/t123/channels', params: { channel: valid_params }, headers: headers, as: :json
 
         expect(response).to have_http_status(:created)
         expect(team_service).to have_received(:create_channel)

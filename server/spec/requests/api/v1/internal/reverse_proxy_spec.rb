@@ -145,7 +145,7 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
         expect(response).to have_http_status(:internal_server_error)
       end
 
-      it 'includes apache placeholder for apache type' do
+      it 'includes apache config for apache type' do
         post '/api/v1/internal/reverse_proxy/generate_config',
              headers: internal_headers,
              params: { proxy_type: 'apache', config: valid_config },
@@ -154,10 +154,10 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
         expect_success_response
         data = json_response_data
 
-        expect(data['config']).to include('Apache configuration generation not implemented')
+        expect(data['config']).to include('Powernode Apache Reverse Proxy Configuration')
       end
 
-      it 'includes traefik placeholder for traefik type' do
+      it 'includes traefik config for traefik type' do
         post '/api/v1/internal/reverse_proxy/generate_config',
              headers: internal_headers,
              params: { proxy_type: 'traefik', config: valid_config },
@@ -166,7 +166,7 @@ RSpec.describe 'Api::V1::Internal::ReverseProxy', type: :request do
         expect_success_response
         data = json_response_data
 
-        expect(data['config']).to include('Traefik configuration generation not implemented')
+        expect(data['config']).to include('Powernode Traefik Dynamic Configuration')
       end
     end
   end

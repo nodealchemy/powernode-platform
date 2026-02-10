@@ -116,13 +116,10 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
     end
 
     context 'without permission' do
-      before do
-        # Remove the team_role from user
-        user.roles.delete(team_role)
-      end
+      let(:no_perm_user) { create(:user, account: account, permissions: []) }
 
       it 'returns forbidden' do
-        get '/api/v1/ai/agent_teams', headers: headers, as: :json
+        get '/api/v1/ai/agent_teams', headers: auth_headers_for(no_perm_user), as: :json
         expect(response).to have_http_status(:forbidden)
       end
     end
@@ -512,14 +509,10 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
     end
 
     context 'without execute permission' do
-      before do
-        # Remove execute permission from team_role but keep manage permission
-        execute_permission = Permission.find_by(name: 'ai.teams.execute')
-        team_role.permissions.delete(execute_permission) if execute_permission
-      end
+      let(:manage_only_user) { create(:user, account: account, permissions: ['ai.teams.manage']) }
 
       it 'returns forbidden' do
-        post "/api/v1/ai/agent_teams/#{team.id}/execute", headers: headers, as: :json
+        post "/api/v1/ai/agent_teams/#{team.id}/execute", headers: auth_headers_for(manage_only_user), as: :json
         expect(response).to have_http_status(:forbidden)
       end
     end

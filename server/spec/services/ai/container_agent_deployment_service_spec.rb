@@ -30,9 +30,6 @@ RSpec.describe Ai::ContainerAgentDeploymentService do
     )
   end
 
-  before do
-    allow(account).to receive(:container_instances).and_return(account.devops_container_instances)
-  end
 
   describe "#deploy_agent_session" do
     before { template; cluster }

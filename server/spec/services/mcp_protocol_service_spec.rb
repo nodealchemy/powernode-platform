@@ -103,7 +103,7 @@ RSpec.describe Mcp::ProtocolService, type: :service do
     let!(:agent) { create(:ai_agent, account: account, provider: ai_provider, agent_type: 'assistant') }
     let(:tool_id) { agent.mcp_tool_manifest['name'] }
     let(:params) { { 'input' => 'test input' } }
-    let(:options) { { user_id: user.id } }
+    let(:options) { { user: user } }
 
     before do
       # Create credentials for the provider
