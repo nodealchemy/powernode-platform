@@ -1,5 +1,5 @@
 import React from 'react';
-import { DateRangeFilter } from '@/features/business/analytics/components/DateRangeFilter';
+import { DateRangeFilter } from '@enterprise/features/business/analytics/components/DateRangeFilter';
 
 interface ReportTemplate {
   id: string;

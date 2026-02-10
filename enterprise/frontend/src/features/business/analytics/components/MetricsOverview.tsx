@@ -1,5 +1,5 @@
 
-import { AnalyticsData } from '@/pages/app/business/AnalyticsPage';
+import { AnalyticsData } from '@enterprise/pages/business/AnalyticsPage';
 import { MetricCard } from '@/shared/components/ui/Card';
 
 interface MetricsOverviewProps {

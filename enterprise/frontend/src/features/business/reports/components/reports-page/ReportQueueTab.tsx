@@ -1,5 +1,5 @@
 import React from 'react';
-import { ReportRequest } from '@/pages/app/business/ReportsPage';
+import { ReportRequest } from '@enterprise/pages/business/ReportsPage';
 
 interface ReportQueueTabProps {
   requests: ReportRequest[];

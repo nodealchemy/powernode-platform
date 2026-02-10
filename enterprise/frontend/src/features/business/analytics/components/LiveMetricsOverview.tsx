@@ -15,7 +15,7 @@ import {
   Lock
 } from 'lucide-react';
 import { useAnalyticsWebSocket } from '@/shared/hooks/useAnalyticsWebSocket';
-import { analyticsService } from '@/features/business/analytics/services/analyticsService';
+import { analyticsService } from '@enterprise/features/business/analytics/services/analyticsService';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 

@@ -2,37 +2,37 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { useLocation } from 'react-router-dom';
 import { RootState } from '@/shared/services';
-import { analyticsService } from '@/features/business/analytics/services/analyticsService';
+import { analyticsService } from '@enterprise/features/business/analytics/services/analyticsService';
 import { useAnalyticsWebSocket } from '@/shared/hooks/useAnalyticsWebSocket';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 
 // Chart Components
-import { RevenueChart } from '@/features/business/analytics/components/RevenueChart';
-import { GrowthChart } from '@/features/business/analytics/components/GrowthChart';
-import { ChurnChart } from '@/features/business/analytics/components/ChurnChart';
-import { CustomerChart } from '@/features/business/analytics/components/CustomerChart';
-import { CohortChart } from '@/features/business/analytics/components/CohortChart';
-import { MetricsOverview } from '@/features/business/analytics/components/MetricsOverview';
-import { LiveMetricsOverview } from '@/features/business/analytics/components/LiveMetricsOverview';
-import { DateRangeFilter } from '@/features/business/analytics/components/DateRangeFilter';
-import { AnalyticsExportModal } from '@/features/business/analytics/components/AnalyticsExportModal';
+import { RevenueChart } from '@enterprise/features/business/analytics/components/RevenueChart';
+import { GrowthChart } from '@enterprise/features/business/analytics/components/GrowthChart';
+import { ChurnChart } from '@enterprise/features/business/analytics/components/ChurnChart';
+import { CustomerChart } from '@enterprise/features/business/analytics/components/CustomerChart';
+import { CohortChart } from '@enterprise/features/business/analytics/components/CohortChart';
+import { MetricsOverview } from '@enterprise/features/business/analytics/components/MetricsOverview';
+import { LiveMetricsOverview } from '@enterprise/features/business/analytics/components/LiveMetricsOverview';
+import { DateRangeFilter } from '@enterprise/features/business/analytics/components/DateRangeFilter';
+import { AnalyticsExportModal } from '@enterprise/features/business/analytics/components/AnalyticsExportModal';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { Download, Lock, Clock, RefreshCw as RefreshIcon } from 'lucide-react';
 
 // Types and utilities
-import type { AnalyticsData } from '@/features/business/analytics/types';
+import type { AnalyticsData } from '@enterprise/features/business/analytics/types';
 import {
   generateFallbackRevenueData,
   generateFallbackGrowthData,
   generateFallbackChurnData,
   generateFallbackCustomerData,
   generateFallbackCohortData
-} from '@/features/business/analytics/utils/fallbackDataGenerators';
+} from '@enterprise/features/business/analytics/utils/fallbackDataGenerators';
 
 // Re-export for backwards compatibility
-export type { AnalyticsData } from '@/features/business/analytics/types';
+export type { AnalyticsData } from '@enterprise/features/business/analytics/types';
 
 // Format relative time for last updated display
 const formatRelativeTime = (date: Date | null): string => {
