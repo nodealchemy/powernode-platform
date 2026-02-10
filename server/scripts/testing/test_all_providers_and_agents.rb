@@ -67,7 +67,7 @@ credentials.each do |credential|
   print "Testing #{credential.ai_provider.name} (#{credential.name})... "
 
   begin
-    test_service = AiProviderTestService.new(credential)
+    test_service = Ai::ProviderManagementService.new(credential)
     test_result = test_service.test_with_details
 
     credential_info = {
