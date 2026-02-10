@@ -120,6 +120,33 @@ class Api::V1::AdminSettingsController < ApplicationController
   end
 
   # =============================================================================
+  # DEVELOPMENT / ENTERPRISE TOGGLE
+  # =============================================================================
+
+  # GET /api/v1/admin_settings/development
+  def development
+    render_success(Shared::FeatureGateService.development_info)
+  end
+
+  # PUT /api/v1/admin_settings/development
+  def update_development
+    unless Shared::FeatureGateService.enterprise_loaded?
+      return render_error("Enterprise engine is not installed", :unprocessable_content)
+    end
+
+    enabled = ActiveModel::Type::Boolean.new.cast(params[:enterprise_enabled])
+    new_state = Shared::FeatureGateService.set_enterprise_enabled!(enabled)
+
+    log_audit_event("enterprise_mode_toggle", "SystemSettings",
+                    metadata: { enterprise_enabled: new_state })
+
+    render_success(
+      enterprise_enabled: new_state,
+      message: "Enterprise mode #{new_state ? 'enabled' : 'disabled'}"
+    )
+  end
+
+  # =============================================================================
   # SECURITY CONFIGURATION
   # =============================================================================
 

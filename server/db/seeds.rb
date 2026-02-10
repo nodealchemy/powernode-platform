@@ -107,203 +107,30 @@ administrator_plan = Plan.find_or_create_by!(name: 'Administrator') do |plan|
   plan.slug = 'administrator'
 end
 
-# Add Free plan
-free_plan = Plan.find_or_create_by!(name: 'Free') do |plan|
-  plan.description = 'Perfect for individuals and small teams getting started'
+# Self-Hosted plan (core mode)
+self_hosted_plan = Plan.find_or_create_by!(name: 'Self-Hosted') do |plan|
+  plan.description = 'Self-hosted installation with all features enabled'
   plan.price_cents = 0
   plan.currency = 'USD'
   plan.billing_interval = 'monthly'
   plan.trial_period_days = 0
   plan.features = {
-    # Core Features
-    'community_access' => true,
-    'dashboard_access' => true,
-    'mobile_responsive' => true,
-    'email_notifications' => true,
-    'basic_reporting' => true,
-    'standard_support' => true,
-    'basic_analytics' => true,
-    # Advanced Features (limited for free)
-    'email_support' => false,
-    'advanced_analytics' => false,
-    'priority_support' => false,
-    'api_access' => false,
-    'custom_branding' => false,
-    'data_export' => false,
-    'team_collaboration' => false,
-    'webhook_integrations' => false,
-    # Enterprise Features (none for free)
-    'custom_fields' => false,
-    'advanced_filters' => false,
-    'custom_integrations' => false,
-    'dedicated_support' => false,
-    'white_label' => false,
-    'sso_integration' => false,
-    'advanced_security' => false,
-    'audit_logs' => false,
-    'sla_guarantees' => false
+    'community_access' => true, 'dashboard_access' => true, 'mobile_responsive' => true,
+    'email_notifications' => true, 'basic_reporting' => true, 'standard_support' => true,
+    'basic_analytics' => true, 'email_support' => true, 'advanced_analytics' => true,
+    'priority_support' => true, 'api_access' => true, 'custom_branding' => true,
+    'data_export' => true, 'team_collaboration' => true, 'webhook_integrations' => true,
+    'custom_fields' => true, 'advanced_filters' => true, 'custom_integrations' => true,
+    'dedicated_support' => true, 'white_label' => true, 'sso_integration' => true,
+    'advanced_security' => true, 'audit_logs' => true, 'sla_guarantees' => true,
+    'marketplace_publish_enabled' => true, 'marketplace_publish_limit' => nil
   }
   plan.limits = {
-    'max_users' => 3,
-    'max_api_keys' => 2,
-    'max_webhooks' => 2,
-    'max_workers' => 1,
-    'max_repositories' => 5
+    'max_users' => 1, 'max_api_keys' => 100, 'max_webhooks' => 100,
+    'max_workers' => 100, 'max_repositories' => 9999
   }
-  plan.is_active = true
-  plan.slug = 'free'
-end
-
-basic_plan = Plan.find_or_create_by!(name: 'Basic') do |plan|
-  plan.description = 'Essential features for growing teams and small businesses'
-  plan.price_cents = 1500
-  plan.currency = 'USD'
-  plan.billing_cycle = 'monthly'
-  plan.trial_days = 14
-  plan.features = {
-    # Core Features
-    'community_access' => true,
-    'dashboard_access' => true,
-    'mobile_responsive' => true,
-    'email_notifications' => true,
-    'basic_reporting' => true,
-    'standard_support' => true,
-    'basic_analytics' => true,
-    # Advanced Features (some included)
-    'email_support' => true,
-    'advanced_analytics' => false,
-    'priority_support' => false,
-    'api_access' => true,
-    'custom_branding' => false,
-    'data_export' => true,
-    'team_collaboration' => true,
-    'webhook_integrations' => false,
-    # Enterprise Features (none for basic)
-    'custom_fields' => false,
-    'advanced_filters' => false,
-    'custom_integrations' => false,
-    'dedicated_support' => false,
-    'white_label' => false,
-    'sso_integration' => false,
-    'advanced_security' => false,
-    'audit_logs' => false,
-    'sla_guarantees' => false
-  }
-  plan.limits = {
-    'max_users' => 10,
-    'max_api_keys' => 10,
-    'max_webhooks' => 10,
-    'max_workers' => 5,
-    'max_repositories' => 15
-  }
-  plan.is_active = true
-  plan.slug = 'basic'
-  # Add promotional discount
-  plan.promotional_discount_percent = 20.0
-  plan.promotional_discount_start = Time.current
-  plan.promotional_discount_end = 30.days.from_now
-end
-
-professional_plan = Plan.find_or_create_by!(name: 'Professional') do |plan|
-  plan.description = 'Advanced tools and integrations for scaling businesses'
-  plan.price_cents = 4900
-  plan.currency = 'USD'
-  plan.billing_cycle = 'monthly'
-  plan.trial_days = 14
-  plan.features = {
-    # Core Features (all included)
-    'community_access' => true,
-    'dashboard_access' => true,
-    'mobile_responsive' => true,
-    'email_notifications' => true,
-    'basic_reporting' => true,
-    'standard_support' => true,
-    'basic_analytics' => true,
-    # Advanced Features (most included)
-    'email_support' => true,
-    'advanced_analytics' => true,
-    'priority_support' => true,
-    'api_access' => true,
-    'custom_branding' => true,
-    'data_export' => true,
-    'team_collaboration' => true,
-    'webhook_integrations' => true,
-    # Enterprise Features (some included)
-    'custom_fields' => true,
-    'advanced_filters' => true,
-    'custom_integrations' => false,
-    'dedicated_support' => false,
-    'white_label' => false,
-    'sso_integration' => false,
-    'advanced_security' => false,
-    'audit_logs' => true,
-    'sla_guarantees' => false,
-    # Marketplace Publishing
-    'marketplace_publish_enabled' => true,
-    'marketplace_publish_limit' => 5
-  }
-  plan.limits = {
-    'max_users' => 50,
-    'max_api_keys' => 25,
-    'max_webhooks' => 25,
-    'max_workers' => 15,
-    'max_repositories' => 50
-  }
-  plan.is_active = true
-  plan.slug = 'professional'
-  # Add annual discount
-  plan.annual_discount_percent = 25.0
-end
-
-enterprise_plan = Plan.find_or_create_by!(name: 'Enterprise') do |plan|
-  plan.description = 'Complete solution with enterprise security and dedicated support'
-  plan.price_cents = 15000
-  plan.currency = 'USD'
-  plan.billing_cycle = 'monthly'
-  plan.trial_days = 30
-  plan.features = {
-    # Core Features (all included)
-    'community_access' => true,
-    'dashboard_access' => true,
-    'mobile_responsive' => true,
-    'email_notifications' => true,
-    'basic_reporting' => true,
-    'standard_support' => true,
-    'basic_analytics' => true,
-    # Advanced Features (all included)
-    'email_support' => true,
-    'advanced_analytics' => true,
-    'priority_support' => true,
-    'api_access' => true,
-    'custom_branding' => true,
-    'data_export' => true,
-    'team_collaboration' => true,
-    'webhook_integrations' => true,
-    # Enterprise Features (all included)
-    'custom_fields' => true,
-    'advanced_filters' => true,
-    'custom_integrations' => true,
-    'dedicated_support' => true,
-    'white_label' => true,
-    'sso_integration' => true,
-    'advanced_security' => true,
-    'audit_logs' => true,
-    'sla_guarantees' => true,
-    # Marketplace Publishing (unlimited)
-    'marketplace_publish_enabled' => true,
-    'marketplace_publish_limit' => nil
-  }
-  plan.limits = {
-    'max_users' => 9999,
-    'max_api_keys' => 100,
-    'max_webhooks' => 100,
-    'max_workers' => 50,
-    'max_repositories' => 9999
-  }
-  plan.is_active = true
-  plan.slug = 'enterprise'
-  # Add annual discount
-  plan.annual_discount_percent = 30.0
+  plan.is_public = false
+  plan.slug = 'self-hosted'
 end
 
 puts "✅ Created #{Plan.count} plans"

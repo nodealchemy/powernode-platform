@@ -687,6 +687,10 @@ Rails.application.routes.draw do
         get :metrics, on: :member
         get :health, on: :member
 
+        # Development / enterprise toggle
+        get :development, on: :member
+        put :development, on: :member, action: :update_development
+
         # Security configuration endpoints
         get :security, on: :member, action: :security_config
         put :security, on: :member, action: :update_security_config
@@ -857,27 +861,6 @@ Rails.application.routes.draw do
         post :test, on: :collection
       end
 
-      # Payment Gateways management (admin only)
-      resources :payment_gateways, only: [ :index, :show, :update ] do
-        member do
-          post :test_connection
-          get :webhook_events
-          get :transactions
-        end
-      end
-
-      # Gateway connection jobs (for async testing)
-      resources :gateway_connection_jobs, only: [ :show, :update ]
-
-      # Billing and payments
-      get "billing", to: "billing#overview"
-      get "billing/invoices", to: "billing#invoices"
-      post "billing/invoices", to: "billing#create_invoice"
-      get "billing/payment-methods", to: "billing#payment_methods"
-      post "billing/payment-methods", to: "billing#create_payment_method"
-      post "billing/payment-intent", to: "billing#create_payment_intent"
-      get "billing/subscription", to: "billing#subscription_billing"
-
       # Customer management endpoints
       resources :customers do
         member do
@@ -886,57 +869,7 @@ Rails.application.routes.draw do
         end
       end
 
-      # Payment-related endpoints
-      resources :payment_methods, except: [ :show ] do
-        member do
-          post :set_default
-        end
-        collection do
-          post :setup_intent
-          post :confirm
-        end
-      end
-      resources :subscriptions do
-        collection do
-          get :history
-        end
-        member do
-          get :by_stripe_id
-          post :pause
-          post :resume
-          get :preview_proration
-        end
-      end
-      # Subscriptions lookup by external ID
-      get "subscriptions/by_stripe_id/:stripe_id", to: "subscriptions#by_stripe_id"
-      get "subscriptions/by_paypal_id/:paypal_id", to: "subscriptions#by_paypal_id"
-
-      resources :invoices, only: [ :index, :show ] do
-        member do
-          post :send_invoice, path: "send"
-          post :mark_paid
-          post :void
-          post :retry_payment
-          get :pdf
-        end
-        collection do
-          get :statistics
-        end
-      end
-      resources :payments, only: [ :index, :show ]
-
-      # PayPal integration endpoints
-      resource :paypal, only: [], controller: "paypal" do
-        collection do
-          post :create_payment, path: "payments"
-          post :execute_payment, path: "payments/:id/execute"
-          post :create_refund, path: "payments/:id/refund"
-          post :create_subscription_plan, path: "subscriptions/plans"
-          post :create_subscription, path: "subscriptions"
-          post :execute_subscription, path: "subscriptions/:id/execute"
-          delete :cancel_subscription, path: "subscriptions/:id"
-        end
-      end
+      # Billing routes are in enterprise/server/config/routes.rb (enterprise only)
 
       # Analytics endpoints
       namespace :analytics do

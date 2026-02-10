@@ -5,6 +5,7 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
   include UserSerialization
 
   skip_before_action :authenticate_request, only: [ :create ]
+  before_action :require_saas_mode, only: [ :create ]
 
   # POST /api/v1/registrations
   def create
@@ -115,6 +116,12 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
   end
 
   private
+
+  def require_saas_mode
+    unless Shared::FeatureGateService.enterprise_loaded?
+      render_error("Registration is disabled in self-hosted mode", :forbidden)
+    end
+  end
 
   def should_rate_limit?
     true # Always rate limit registration attempts

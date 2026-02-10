@@ -63,7 +63,8 @@ module Api
             detected_proxy: proxy_detected?
           },
           features: {
-            registration_enabled: registration_enabled?,
+            core_mode: !Shared::FeatureGateService.enterprise_loaded?,
+            registration_enabled: Shared::FeatureGateService.enterprise_loaded? && registration_enabled?,
             email_verification_required: email_verification_required?,
             multi_tenancy_enabled: multi_tenancy_enabled?
           },
