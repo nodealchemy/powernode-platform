@@ -246,7 +246,7 @@ module Devops
         Rails.application.config.webhook_base_url :
         ENV.fetch("WEBHOOK_BASE_URL", "https://app.example.com")
 
-      "#{base}/webhooks/git/#{@provider.provider_type}"
+      "#{base}/api/v1/webhooks/git/#{@provider.provider_type}"
     end
 
     # Standardized error handling wrapper for API operations

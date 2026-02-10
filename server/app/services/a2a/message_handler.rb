@@ -142,7 +142,7 @@ module A2a
           subscriptionId: SecureRandom.uuid,
           taskId: task.task_id,
           status: task.a2a_status,
-          streamUrl: "/a2a/stream",
+          streamUrl: "/api/v1/a2a/stream",
           channelName: "a2a_task_#{task.task_id}"
         }
       }

@@ -16,7 +16,7 @@ module A2a
         {
           name: PLATFORM_NAME,
           description: PLATFORM_DESCRIPTION,
-          url: "#{base_url}/a2a",
+          url: "#{base_url}/api/v1/a2a",
           version: CARD_VERSION,
           protocolVersion: PROTOCOL_VERSION,
           provider: {
