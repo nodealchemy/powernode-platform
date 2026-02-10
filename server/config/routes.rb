@@ -32,63 +32,7 @@ Rails.application.routes.draw do
 
   # API Routes
   namespace :api do
-    # =========================================================================
-    # BaaS API - Billing-as-a-Service for external customers
-    # =========================================================================
-    namespace :baas do
-      namespace :v1 do
-        # Tenant management
-        resource :tenant, only: [ :show, :create, :update ], controller: "tenants" do
-          get :dashboard
-          get :limits
-          get :billing_configuration
-          patch :billing_configuration, action: :update_billing_configuration
-        end
-
-        # API Keys
-        resources :api_keys, only: [ :index, :show, :create, :update, :destroy ] do
-          member do
-            post :roll
-          end
-        end
-
-        # Customers
-        resources :customers, only: [ :index, :show, :create, :update, :destroy ], param: :id
-
-        # Subscriptions
-        resources :subscriptions, only: [ :index, :show, :create, :update ], param: :id do
-          member do
-            post :cancel
-            post :pause
-            post :resume
-          end
-        end
-
-        # Invoices
-        resources :invoices, only: [ :index, :show, :create, :update, :destroy ], param: :id do
-          member do
-            post :finalize
-            post :pay
-            post :void
-            post :line_items, action: :add_line_item
-            delete "line_items/:item_id", action: :remove_line_item
-          end
-        end
-
-        # Usage events/metering
-        resources :usage_events, only: [ :create ], controller: "usage" do
-          collection do
-            post :batch
-          end
-        end
-
-        # Usage queries
-        get "usage", to: "usage#index"
-        get "usage/summary", to: "usage#summary"
-        get "usage/aggregate", to: "usage#aggregate"
-        get "usage/analytics", to: "usage#analytics"
-      end
-    end
+    # BaaS API routes are in enterprise/server/config/routes.rb (enterprise only)
 
     namespace :v1 do
       # Health check endpoint for load balancers
@@ -1010,17 +954,7 @@ Rails.application.routes.draw do
         post :update_metrics
       end
 
-      # Analytics tiers (controller is Api::V1::AnalyticsTiersController, not under analytics namespace)
-      scope "analytics" do
-        resources :tiers, only: [ :index, :show ], controller: "analytics_tiers", param: :slug do
-          collection do
-            get :current
-            get :comparison
-            get :feature_gates
-            post :upgrade
-          end
-        end
-      end
+      # Analytics tiers are in enterprise/server/config/routes.rb
 
       # Usage tracking endpoints
       resources :usage, only: [] do
@@ -1043,55 +977,7 @@ Rails.application.routes.draw do
       end
       post "usage_events", to: "usage#track_event"
 
-      # Predictive Analytics & Revenue Intelligence
-      namespace :predictive_analytics, path: "predictive-analytics" do
-        # Health scores
-        get :health_scores
-        get "health_scores/:id", action: :health_score
-        post "health_scores/calculate", action: :calculate_health_score
-
-        # Churn predictions
-        get :churn_predictions
-        get "churn_predictions/:id", action: :churn_prediction
-        post "churn_predictions/predict", action: :predict_churn
-
-        # Revenue forecasts
-        get :revenue_forecasts
-        post "revenue_forecasts/generate", action: :generate_forecast
-
-        # Alerts
-        get :alerts
-        post :alerts, action: :create_alert
-        get "alerts/:id", action: :alert
-        patch "alerts/:id", action: :update_alert
-        delete "alerts/:id", action: :delete_alert
-        get "alerts/:id/events", action: :alert_events
-        post "alerts/:id/acknowledge", action: :acknowledge_alert
-
-        # Summary and recommendations
-        get :summary
-        get :recommendations
-      end
-
-      # Reseller program endpoints
-      resources :resellers do
-        collection do
-          get :me
-          get :tiers
-          post :track_referral
-        end
-        member do
-          get :dashboard
-          get :commissions
-          get :referrals
-          get :payouts
-          post :request_payout
-          post :approve
-          post :activate
-          post :suspend
-        end
-      end
-      post "resellers/payouts/:payout_id/process", to: "resellers#process_payout"
+      # Predictive analytics, reseller routes are in enterprise/server/config/routes.rb
 
       # Payment reconciliation endpoints (service-to-service)
       namespace :reconciliation do
@@ -1180,16 +1066,7 @@ Rails.application.routes.draw do
       # Pages management
       resources :pages, only: [ :index, :show ], param: :slug
 
-      # Impersonation endpoints (admin only)
-      resources :impersonations, only: [ :index, :create, :destroy ] do
-        collection do
-          delete "/", to: "impersonations#destroy"
-          get :history
-          get :users, to: "impersonations#impersonatable_users"
-          post :validate, to: "impersonations#validate_token"
-          post :cleanup_expired, to: "impersonations#cleanup_expired"
-        end
-      end
+      # Impersonation routes are in enterprise/server/config/routes.rb
 
       # Marketplace endpoints (templates, integrations)
       namespace :marketplace do
@@ -1986,23 +1863,7 @@ Rails.application.routes.draw do
         get "marketplace/updates", controller: "marketplace", action: :check_updates
         post "marketplace/updates/apply", controller: "marketplace", action: :apply_updates
 
-        # ===================================================================
-        # 8b. PUBLISHER CONTROLLER - Publisher dashboard and earnings
-        # ===================================================================
-        # Publisher-specific routes for marketplace publishers
-        get "publisher/me", controller: "publisher", action: :me, as: :publisher_me
-        resources :publisher, only: [ :index, :show, :create ], controller: "publisher" do
-          member do
-            get :dashboard
-            get :analytics
-            get :earnings
-            get :templates
-            get :payouts
-            post :request_payout
-            post :stripe_setup
-            get :stripe_status
-          end
-        end
+        # Publisher routes are in enterprise/server/config/routes.rb
 
         # ===================================================================
         # 9. PERSISTENT CONTEXT CONTROLLER - Cross-session AI memory
@@ -2560,83 +2421,7 @@ Rails.application.routes.draw do
           get "optimization_score", action: :optimization_score
         end
 
-        # ===================================================================
-        # 15. CREDITS CONTROLLER - Prepaid AI Credit System
-        # ===================================================================
-        # Revenue: Prepaid credits + reseller margins
-        # - Credit packs: 1K ($99), 10K ($899), 100K ($7,999)
-        # - Reseller margin: 15-30% based on volume
-        # - Credit marketplace for B2B trading
-        # ===================================================================
-        scope :credits, controller: "credits" do
-          # Balance and transactions
-          get "balance", action: :balance
-          get "transactions", action: :transactions
-
-          # Credit packs
-          get "packs", action: :packs
-
-          # Purchases
-          post "purchases", action: :create_purchase
-          post "purchases/:id/complete", action: :complete_purchase
-
-          # Transfers (B2B)
-          post "transfers", action: :create_transfer
-          post "transfers/:id/approve", action: :approve_transfer
-          post "transfers/:id/complete", action: :complete_transfer
-          post "transfers/:id/cancel", action: :cancel_transfer
-
-          # Usage
-          post "deduct", action: :deduct
-          post "calculate_cost", action: :calculate_cost
-
-          # Analytics
-          get "usage_analytics", action: :usage_analytics
-
-          # Reseller
-          post "enable_reseller", action: :enable_reseller
-          get "reseller_stats", action: :reseller_stats
-        end
-
-        # ===================================================================
-        # 16. OUTCOME BILLING CONTROLLER - Success-Based AI Billing
-        # ===================================================================
-        # Revenue: Success fees + SLA premiums
-        # - Per-successful-outcome pricing ($0.01-$5.00 based on complexity)
-        # - SLA tiers: 99% ($X), 99.9% ($2X), 99.99% ($5X)
-        # - Refund credits for SLA breaches
-        # ===================================================================
-        scope :outcome_billing, controller: "outcome_billing" do
-          # Outcome definitions
-          get "definitions", action: :definitions
-          get "definitions/:id", action: :show_definition
-          post "definitions", action: :create_definition
-          patch "definitions/:id", action: :update_definition
-
-          # SLA contracts
-          get "contracts", action: :contracts
-          get "contracts/:id", action: :show_contract
-          post "contracts", action: :create_contract
-          post "contracts/:id/activate", action: :activate_contract
-          post "contracts/:id/suspend", action: :suspend_contract
-          post "contracts/:id/cancel", action: :cancel_contract
-
-          # Billing records
-          get "records", action: :records
-          post "records", action: :create_record
-          patch "records/:id/complete", action: :complete_record
-          post "records/mark_billed", action: :mark_billed
-
-          # SLA violations
-          get "violations", action: :violations
-          post "violations/:id/approve", action: :approve_violation
-          post "violations/:id/apply", action: :apply_violation
-          post "violations/:id/reject", action: :reject_violation
-
-          # Analytics
-          get "summary", action: :summary
-          get "sla_performance", action: :sla_performance
-        end
+        # Credits and outcome billing routes are in enterprise/server/config/routes.rb
 
         # ===================================================================
         # 17. AGENT MARKETPLACE CONTROLLER - Pre-Built Vertical AI Agents
@@ -2663,57 +2448,10 @@ Rails.application.routes.draw do
           get "templates/:template_id/reviews", action: :reviews
           post "templates/:template_id/reviews", action: :create_review
 
-          # Publisher
-          get "publisher", action: :publisher
-          post "publisher", action: :create_publisher
-          get "publisher/analytics", action: :publisher_analytics
+          # Publisher routes are in enterprise/server/config/routes.rb
         end
 
-        # ===================================================================
-        # 18. GOVERNANCE CONTROLLER - AI Workflow Governance & Compliance
-        # ===================================================================
-        # Revenue: Enterprise licensing + compliance certifications
-        # - Compliance add-on: $299-999/mo based on tier
-        # - SOC 2 certification support: $5,000 one-time
-        # - Dedicated compliance officer support: $2,000/mo
-        # ===================================================================
-        scope :governance, controller: "governance" do
-          # Policies
-          get "policies", action: :policies
-          post "policies", action: :create_policy
-          put "policies/:id/activate", action: :activate_policy
-          post "policies/evaluate", action: :evaluate_policies
-
-          # Violations
-          get "violations", action: :violations
-          put "violations/:id/acknowledge", action: :acknowledge_violation
-          put "violations/:id/resolve", action: :resolve_violation
-
-          # Approval chains
-          get "approval_chains", action: :approval_chains
-          post "approval_chains", action: :create_approval_chain
-
-          # Approval requests
-          get "approval_requests", action: :approval_requests
-          get "approval_requests/pending", action: :pending_approvals
-          post "approval_requests/:id/decide", action: :decide_approval
-
-          # Data classifications
-          get "classifications", action: :classifications
-          post "classifications", action: :create_classification
-
-          # Data scanning
-          post "scan", action: :scan_data
-          post "mask", action: :mask_data
-
-          # Reports
-          get "reports", action: :reports
-          post "reports", action: :generate_report
-
-          # Summary and audit
-          get "summary", action: :summary
-          get "audit_log", action: :audit_log
-        end
+        # Governance routes are in enterprise/server/config/routes.rb
 
         # ===================================================================
         # 19. DEVOPS CONTROLLER - AI Pipeline Templates for DevOps
@@ -2900,22 +2638,7 @@ Rails.application.routes.draw do
             get :health
             get :trends
           end
-          resource :revenue, only: [] do
-            get :forecast
-            get :churn_risks
-            get :health_scores
-          end
-          resource :baas, only: [] do
-            get :usage_anomalies
-            get :tenant_churn
-            get :pricing_recommendations
-            get :api_fraud
-          end
-          resource :reseller, only: [] do
-            get :performance_scores
-            get :commission_optimization
-            get :referral_churn_risks
-          end
+          # Revenue, BaaS, and reseller intelligence routes are in enterprise/server/config/routes.rb
           resource :reviews, only: [] do
             post :sentiment_analysis
             get :spam_detection
@@ -3014,48 +2737,8 @@ Rails.application.routes.draw do
         end
       end
 
-      # ===================================================================
-      # MCP HOSTING - Managed MCP Server Operations
-      # ===================================================================
-      # Revenue: Hosting fees + marketplace commission
-      # - Free tier: 1 server, limited requests
-      # - Pro: 5 servers, 10K requests/mo ($79/mo)
-      # - Enterprise: Unlimited + private registry ($299/mo)
-      # - Marketplace commission: 20% on paid tools
-      # ===================================================================
+      # MCP hosting routes are in enterprise/server/config/routes.rb
       namespace :mcp do
-        scope :hosting, controller: "hosting" do
-          # Server management
-          get "servers", action: :index
-          get "servers/:id", action: :show
-          post "servers", action: :create
-          patch "servers/:id", action: :update
-          delete "servers/:id", action: :destroy
-
-          # Deployment operations
-          post "servers/:id/deploy", action: :deploy
-          post "servers/:id/rollback", action: :rollback
-          get "servers/:id/deployments", action: :deployments
-
-          # Lifecycle operations
-          post "servers/:id/start", action: :start
-          post "servers/:id/stop", action: :stop
-          post "servers/:id/restart", action: :restart
-
-          # Monitoring
-          get "servers/:id/metrics", action: :metrics
-          get "servers/:id/health", action: :health
-
-          # Marketplace operations
-          post "servers/:id/publish", action: :publish
-          post "servers/:id/unpublish", action: :unpublish
-          get "marketplace", action: :marketplace
-          post "marketplace/:server_id/subscribe", action: :subscribe
-
-          # Subscriptions
-          get "subscriptions", action: :subscriptions
-        end
-
         # Container orchestration routes moved to namespace :devops
 
         # ===================================================================

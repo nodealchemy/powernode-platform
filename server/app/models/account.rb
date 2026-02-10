@@ -11,7 +11,6 @@ class Account < ApplicationRecord
   has_many :audit_logs, dependent: :destroy
   has_many :payment_methods, dependent: :destroy
   has_many :webhook_events, dependent: :destroy
-  has_many :revenue_snapshots, dependent: :destroy
   has_many :workers, dependent: :destroy
   has_many :api_keys, dependent: :destroy
   has_many :webhook_endpoints, dependent: :destroy
@@ -35,22 +34,6 @@ class Account < ApplicationRecord
   has_many :ai_cost_attributions, class_name: "Ai::CostAttribution", dependent: :destroy
   has_many :ai_provider_metrics, class_name: "Ai::ProviderMetric", dependent: :destroy
 
-  # AI Credit System associations (Phase 2 - Credit System)
-  has_one :ai_account_credits, class_name: "Ai::AccountCredit", dependent: :destroy
-  has_many :ai_credit_transactions, class_name: "Ai::CreditTransaction", dependent: :destroy
-  has_many :ai_credit_purchases, class_name: "Ai::CreditPurchase", dependent: :destroy
-  has_many :ai_credit_transfers_sent, class_name: "Ai::CreditTransfer", foreign_key: :from_account_id, dependent: :destroy
-  has_many :ai_credit_transfers_received, class_name: "Ai::CreditTransfer", foreign_key: :to_account_id, dependent: :destroy
-
-  # AI Outcome Billing associations (Phase 2 - Outcome Billing)
-  has_many :ai_outcome_definitions, class_name: "Ai::OutcomeDefinition", dependent: :destroy
-  has_many :ai_sla_contracts, class_name: "Ai::SlaContract", dependent: :destroy
-  has_many :ai_outcome_billing_records, class_name: "Ai::OutcomeBillingRecord", dependent: :destroy
-  has_many :ai_sla_violations, class_name: "Ai::SlaViolation", dependent: :destroy
-
-  # MCP Hosting associations (Phase 2 - MCP Hosting)
-  has_many :mcp_hosted_servers, class_name: "Mcp::HostedServer", dependent: :destroy
-  has_many :mcp_server_subscriptions, class_name: "Mcp::ServerSubscription", dependent: :destroy
 
   # AI RAG System associations (Phase 3 - Knowledge-Augmented Agents)
   has_many :ai_knowledge_bases, class_name: "Ai::KnowledgeBase", dependent: :destroy
@@ -67,21 +50,9 @@ class Account < ApplicationRecord
   has_many :ai_team_executions, class_name: "Ai::TeamExecution", dependent: :destroy
   has_many :ai_team_templates, class_name: "Ai::TeamTemplate", dependent: :destroy
 
-  # AI Agent Marketplace associations (Phase 4 - Agent Marketplace)
-  has_one :ai_publisher_account, class_name: "Ai::PublisherAccount", dependent: :destroy
+  # AI Agent Marketplace associations (core: browse & install)
   has_many :ai_agent_installations, class_name: "Ai::AgentInstallation", dependent: :destroy
   has_many :ai_agent_reviews, class_name: "Ai::AgentReview", dependent: :destroy
-  has_many :ai_marketplace_transactions, class_name: "Ai::MarketplaceTransaction", dependent: :destroy
-
-  # AI Governance Suite associations (Phase 4 - Governance & Compliance)
-  has_many :ai_compliance_policies, class_name: "Ai::CompliancePolicy", dependent: :destroy
-  has_many :ai_policy_violations, class_name: "Ai::PolicyViolation", dependent: :destroy
-  has_many :ai_approval_chains, class_name: "Ai::ApprovalChain", dependent: :destroy
-  has_many :ai_approval_requests, class_name: "Ai::ApprovalRequest", dependent: :destroy
-  has_many :ai_data_classifications, class_name: "Ai::DataClassification", dependent: :destroy
-  has_many :ai_data_detections, class_name: "Ai::DataDetection", dependent: :destroy
-  has_many :ai_compliance_reports, class_name: "Ai::ComplianceReport", dependent: :destroy
-  has_many :ai_compliance_audit_entries, class_name: "Ai::ComplianceAuditEntry", dependent: :destroy
 
   # AI DevOps Templates associations (Phase 4 - CI/CD Templates)
   has_many :ai_devops_templates, class_name: "Ai::DevopsTemplate", dependent: :destroy
@@ -161,23 +132,10 @@ class Account < ApplicationRecord
   has_many :file_objects, class_name: "FileManagement::Object", dependent: :destroy
   has_many :file_tags, class_name: "FileManagement::Tag", dependent: :destroy
 
-  # Reseller Program associations
-  has_one :reseller, dependent: :destroy
-  has_one :reseller_referral, class_name: "ResellerReferral", foreign_key: :referred_account_id, dependent: :destroy
-
   # Usage Tracking associations
   has_many :usage_events, dependent: :destroy
   has_many :usage_summaries, dependent: :destroy
   has_many :usage_quotas, dependent: :destroy
-
-  # BaaS (Billing-as-a-Service) associations
-  has_many :baas_tenants, class_name: "BaaS::Tenant", dependent: :destroy
-
-  # Revenue Intelligence associations
-  has_many :customer_health_scores, dependent: :destroy
-  has_many :churn_predictions, dependent: :destroy
-  has_many :revenue_forecasts, dependent: :destroy
-  has_many :analytics_alerts, dependent: :destroy
 
   # Supply Chain Management associations
   has_many :supply_chain_sboms, class_name: "SupplyChain::Sbom", dependent: :destroy

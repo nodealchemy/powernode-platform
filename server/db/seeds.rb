@@ -1153,11 +1153,18 @@ if Rails.env.development? || Rails.env.test?
   puts "\n📋 Loading AI Todo App Team..."
   load Rails.root.join('db', 'seeds', 'ai_todo_team_seed.rb')
 
-  puts "\n🛡️ Loading AI Governance (Policies, Approvals, Credits, Agent Cards)..."
-  load Rails.root.join('db', 'seeds', 'ai_governance_seed.rb')
-
   puts "\n🧩 Loading AI Skills..."
   load Rails.root.join('db', 'seeds', 'ai_skills_seed.rb')
+end
+
+# Enterprise Edition seeds (loaded when enterprise engine is present)
+if defined?(PowernodeEnterprise::Engine)
+  enterprise_seeds = Rails.root.join('..', 'enterprise', 'server', 'db', 'seeds')
+  if Dir.exist?(enterprise_seeds)
+    puts "\n🏢 Loading Enterprise Edition seeds..."
+    Dir[enterprise_seeds.join('*.rb')].sort.each { |f| load f }
+    puts "✅ Enterprise seeds loaded"
+  end
 end
 
 puts "\n🎉 Seeding complete!"
