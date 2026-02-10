@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-RSpec.describe "Api::BaaS::V1::Invoices", type: :request do
+RSpec.describe "Api::V1::BaaS::Invoices", type: :request do
   let(:account) { create(:account) }
   let(:tenant) { create(:baas_tenant, account: account) }
   let(:service) { BaaS::ApiKeyService.new(tenant: tenant) }
@@ -17,11 +17,11 @@ RSpec.describe "Api::BaaS::V1::Invoices", type: :request do
     }
   end
 
-  describe "GET /api/baas/v1/invoices" do
+  describe "GET /api/v1/baas/invoices" do
     let!(:invoices) { create_list(:baas_invoice, 3, baas_tenant: tenant, baas_customer: customer) }
 
     it "returns list of invoices" do
-      get "/api/baas/v1/invoices", headers: headers
+      get "/api/v1/baas/invoices", headers: headers
 
       expect(response).to have_http_status(:ok)
       expect(json_response["data"].count).to eq(3)
@@ -30,7 +30,7 @@ RSpec.describe "Api::BaaS::V1::Invoices", type: :request do
     it "filters by status" do
       create(:baas_invoice, :paid, baas_tenant: tenant, baas_customer: customer)
 
-      get "/api/baas/v1/invoices", params: { status: "draft" }, headers: headers
+      get "/api/v1/baas/invoices", params: { status: "draft" }, headers: headers
 
       expect(response).to have_http_status(:ok)
       json_response["data"].each do |invoice|
@@ -42,32 +42,32 @@ RSpec.describe "Api::BaaS::V1::Invoices", type: :request do
       other_customer = create(:baas_customer, baas_tenant: tenant)
       create(:baas_invoice, baas_tenant: tenant, baas_customer: other_customer)
 
-      get "/api/baas/v1/invoices", params: { customer_id: customer.external_id }, headers: headers
+      get "/api/v1/baas/invoices", params: { customer_id: customer.external_id }, headers: headers
 
       expect(response).to have_http_status(:ok)
       expect(json_response["data"].count).to eq(3)
     end
 
     it "paginates results" do
-      get "/api/baas/v1/invoices", params: { page: 1, per_page: 2 }, headers: headers
+      get "/api/v1/baas/invoices", params: { page: 1, per_page: 2 }, headers: headers
 
       expect(response).to have_http_status(:ok)
       expect(json_response["data"].count).to eq(2)
     end
   end
 
-  describe "GET /api/baas/v1/invoices/:id" do
+  describe "GET /api/v1/baas/invoices/:id" do
     let(:invoice) { create(:baas_invoice, baas_tenant: tenant, baas_customer: customer) }
 
     it "returns the invoice" do
-      get "/api/baas/v1/invoices/#{invoice.external_id}", headers: headers
+      get "/api/v1/baas/invoices/#{invoice.external_id}", headers: headers
 
       expect(response).to have_http_status(:ok)
       expect(json_response["data"]["external_id"]).to eq(invoice.external_id)
     end
 
     it "returns 404 for non-existent invoice" do
-      get "/api/baas/v1/invoices/nonexistent", headers: headers
+      get "/api/v1/baas/invoices/nonexistent", headers: headers
 
       expect(response).to have_http_status(:not_found)
     end
@@ -77,13 +77,13 @@ RSpec.describe "Api::BaaS::V1::Invoices", type: :request do
       other_customer = create(:baas_customer, baas_tenant: other_tenant)
       other_invoice = create(:baas_invoice, baas_tenant: other_tenant, baas_customer: other_customer)
 
-      get "/api/baas/v1/invoices/#{other_invoice.external_id}", headers: headers
+      get "/api/v1/baas/invoices/#{other_invoice.external_id}", headers: headers
 
       expect(response).to have_http_status(:not_found)
     end
   end
 
-  describe "POST /api/baas/v1/invoices" do
+  describe "POST /api/v1/baas/invoices" do
     let(:valid_params) do
       {
         customer_id: customer.external_id,
@@ -95,7 +95,7 @@ RSpec.describe "Api::BaaS::V1::Invoices", type: :request do
 
     it "creates a new invoice" do
       expect {
-        post "/api/baas/v1/invoices", params: valid_params.to_json, headers: headers
+        post "/api/v1/baas/invoices", params: valid_params.to_json, headers: headers
       }.to change { tenant.invoices.count }.by(1)
 
       expect(response).to have_http_status(:created)
@@ -103,23 +103,23 @@ RSpec.describe "Api::BaaS::V1::Invoices", type: :request do
     end
 
     it "calculates totals with line items" do
-      post "/api/baas/v1/invoices", params: valid_params.to_json, headers: headers
+      post "/api/v1/baas/invoices", params: valid_params.to_json, headers: headers
 
       expect(response).to have_http_status(:created)
     end
 
     it "returns 422 for invalid params" do
-      post "/api/baas/v1/invoices", params: {}.to_json, headers: headers
+      post "/api/v1/baas/invoices", params: {}.to_json, headers: headers
 
       expect(response).to have_http_status(:unprocessable_content)
     end
   end
 
-  describe "PATCH /api/baas/v1/invoices/:id" do
+  describe "PATCH /api/v1/baas/invoices/:id" do
     let(:invoice) { create(:baas_invoice, baas_tenant: tenant, baas_customer: customer, status: "draft") }
 
     it "updates the invoice" do
-      patch "/api/baas/v1/invoices/#{invoice.external_id}",
+      patch "/api/v1/baas/invoices/#{invoice.external_id}",
         params: { metadata: { notes: "Updated" } }.to_json,
         headers: headers
 
@@ -129,7 +129,7 @@ RSpec.describe "Api::BaaS::V1::Invoices", type: :request do
     it "returns 422 when trying to update finalized invoice" do
       invoice.finalize!
 
-      patch "/api/baas/v1/invoices/#{invoice.external_id}",
+      patch "/api/v1/baas/invoices/#{invoice.external_id}",
         params: { metadata: {} }.to_json,
         headers: headers
 
@@ -137,22 +137,22 @@ RSpec.describe "Api::BaaS::V1::Invoices", type: :request do
     end
   end
 
-  describe "POST /api/baas/v1/invoices/:id/finalize" do
+  describe "POST /api/v1/baas/invoices/:id/finalize" do
     let(:invoice) { create(:baas_invoice, baas_tenant: tenant, baas_customer: customer, status: "draft") }
 
     it "finalizes the invoice" do
-      post "/api/baas/v1/invoices/#{invoice.external_id}/finalize", headers: headers
+      post "/api/v1/baas/invoices/#{invoice.external_id}/finalize", headers: headers
 
       expect(response).to have_http_status(:ok)
       expect(json_response["data"]["status"]).to eq("open")
     end
   end
 
-  describe "POST /api/baas/v1/invoices/:id/pay" do
+  describe "POST /api/v1/baas/invoices/:id/pay" do
     let(:invoice) { create(:baas_invoice, :open, baas_tenant: tenant, baas_customer: customer) }
 
     it "marks invoice as paid" do
-      post "/api/baas/v1/invoices/#{invoice.external_id}/pay",
+      post "/api/v1/baas/invoices/#{invoice.external_id}/pay",
         params: { payment_reference: "pi_123" }.to_json,
         headers: headers
 
@@ -161,11 +161,11 @@ RSpec.describe "Api::BaaS::V1::Invoices", type: :request do
     end
   end
 
-  describe "POST /api/baas/v1/invoices/:id/void" do
+  describe "POST /api/v1/baas/invoices/:id/void" do
     let(:invoice) { create(:baas_invoice, :open, baas_tenant: tenant, baas_customer: customer) }
 
     it "voids the invoice" do
-      post "/api/baas/v1/invoices/#{invoice.external_id}/void", headers: headers
+      post "/api/v1/baas/invoices/#{invoice.external_id}/void", headers: headers
 
       expect(response).to have_http_status(:ok)
       expect(json_response["data"]["status"]).to eq("void")
@@ -174,18 +174,18 @@ RSpec.describe "Api::BaaS::V1::Invoices", type: :request do
     it "returns 422 when trying to void paid invoice" do
       invoice.mark_paid!
 
-      post "/api/baas/v1/invoices/#{invoice.external_id}/void", headers: headers
+      post "/api/v1/baas/invoices/#{invoice.external_id}/void", headers: headers
 
       expect(response).to have_http_status(:unprocessable_content)
     end
   end
 
-  describe "DELETE /api/baas/v1/invoices/:id" do
+  describe "DELETE /api/v1/baas/invoices/:id" do
     let!(:invoice) { create(:baas_invoice, baas_tenant: tenant, baas_customer: customer, status: "draft") }
 
     it "deletes draft invoice" do
       expect {
-        delete "/api/baas/v1/invoices/#{invoice.external_id}", headers: headers
+        delete "/api/v1/baas/invoices/#{invoice.external_id}", headers: headers
       }.to change { tenant.invoices.count }.by(-1)
 
       expect(response).to have_http_status(:no_content)
@@ -194,7 +194,7 @@ RSpec.describe "Api::BaaS::V1::Invoices", type: :request do
     it "returns 422 when trying to delete non-draft invoice" do
       invoice.finalize!
 
-      delete "/api/baas/v1/invoices/#{invoice.external_id}", headers: headers
+      delete "/api/v1/baas/invoices/#{invoice.external_id}", headers: headers
 
       expect(response).to have_http_status(:unprocessable_content)
     end

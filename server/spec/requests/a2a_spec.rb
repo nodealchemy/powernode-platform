@@ -26,9 +26,9 @@ RSpec.describe "A2A Protocol", type: :request do
     end
   end
 
-  describe "GET /a2a" do
+  describe "GET /api/v1/a2a" do
     it "returns protocol info" do
-      get "/a2a"
+      get "/api/v1/a2a"
 
       expect(response).to have_http_status(:ok)
 
@@ -38,9 +38,9 @@ RSpec.describe "A2A Protocol", type: :request do
     end
   end
 
-  describe "POST /a2a" do
+  describe "POST /api/v1/a2a" do
     it "requires authentication" do
-      post "/a2a",
+      post "/api/v1/a2a",
            params: { jsonrpc: "2.0", id: "1", method: "tasks/list", params: {} }.to_json,
            headers: { "Content-Type" => "application/json" }
 
@@ -54,7 +54,7 @@ RSpec.describe "A2A Protocol", type: :request do
       it "lists tasks for authenticated user" do
         create_list(:ai_a2a_task, 3, account: account)
 
-        post "/a2a",
+        post "/api/v1/a2a",
              params: { jsonrpc: "2.0", id: "1", method: "tasks/list", params: {} }.to_json,
              headers: auth_headers.merge("Content-Type" => "application/json")
 
@@ -69,7 +69,7 @@ RSpec.describe "A2A Protocol", type: :request do
       let(:task) { create(:ai_a2a_task, account: account) }
 
       it "returns task details" do
-        post "/a2a",
+        post "/api/v1/a2a",
              params: { jsonrpc: "2.0", id: "1", method: "tasks/get", params: { id: task.task_id } }.to_json,
              headers: auth_headers.merge("Content-Type" => "application/json")
 
@@ -84,7 +84,7 @@ RSpec.describe "A2A Protocol", type: :request do
       let(:task) { create(:ai_a2a_task, account: account, status: "active") }
 
       it "cancels a task" do
-        post "/a2a",
+        post "/api/v1/a2a",
              params: { jsonrpc: "2.0", id: "1", method: "tasks/cancel", params: { id: task.task_id } }.to_json,
              headers: auth_headers.merge("Content-Type" => "application/json")
 
@@ -100,7 +100,7 @@ RSpec.describe "A2A Protocol", type: :request do
       it "executes a skill" do
         workflow = create(:ai_workflow, account: account, status: "active")
 
-        post "/a2a",
+        post "/api/v1/a2a",
              params: {
                jsonrpc: "2.0",
                id: "1",
@@ -123,7 +123,7 @@ RSpec.describe "A2A Protocol", type: :request do
 
     describe "agent/authenticatedExtendedCard" do
       it "returns platform card" do
-        post "/a2a",
+        post "/api/v1/a2a",
              params: { jsonrpc: "2.0", id: "1", method: "agent/authenticatedExtendedCard", params: {} }.to_json,
              headers: auth_headers.merge("Content-Type" => "application/json")
 
@@ -136,7 +136,7 @@ RSpec.describe "A2A Protocol", type: :request do
 
     describe "error handling" do
       it "returns parse error for invalid JSON" do
-        post "/a2a",
+        post "/api/v1/a2a",
              params: "not json",
              headers: auth_headers.merge("Content-Type" => "application/json")
 
@@ -147,7 +147,7 @@ RSpec.describe "A2A Protocol", type: :request do
       end
 
       it "returns invalid request for missing jsonrpc" do
-        post "/a2a",
+        post "/api/v1/a2a",
              params: { id: "1", method: "tasks/list" }.to_json,
              headers: auth_headers.merge("Content-Type" => "application/json")
 
@@ -158,7 +158,7 @@ RSpec.describe "A2A Protocol", type: :request do
       end
 
       it "returns method not found for unknown method" do
-        post "/a2a",
+        post "/api/v1/a2a",
              params: { jsonrpc: "2.0", id: "1", method: "unknown/method", params: {} }.to_json,
              headers: auth_headers.merge("Content-Type" => "application/json")
 
@@ -188,7 +188,7 @@ RSpec.describe "A2A Protocol", type: :request do
       expect(found_key).to be_present
       expect(found_key.active?).to be true
 
-      post "/a2a",
+      post "/api/v1/a2a",
            params: { jsonrpc: "2.0", id: "1", method: "tasks/list", params: {} }.to_json,
            headers: { "Content-Type" => "application/json", "X-API-Key" => api_key.key_value }
 

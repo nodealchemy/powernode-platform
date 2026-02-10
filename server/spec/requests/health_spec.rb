@@ -5,7 +5,7 @@ require 'rails_helper'
 RSpec.describe 'Health', type: :request do
   describe 'GET /health' do
     it 'returns healthy status' do
-      get '/health', as: :json
+      get '/api/v1/health', as: :json
 
       expect_success_response
       response_data = json_response
@@ -17,7 +17,7 @@ RSpec.describe 'Health', type: :request do
     end
 
     it 'does not require authentication' do
-      get '/health', as: :json
+      get '/api/v1/health', as: :json
 
       expect(response).to have_http_status(:ok)
     end
@@ -32,7 +32,7 @@ RSpec.describe 'Health', type: :request do
     end
 
     it 'returns detailed health information' do
-      get '/health/detailed', as: :json
+      get '/api/v1/health/detailed', as: :json
 
       expect_success_response
       response_data = json_response
@@ -42,7 +42,7 @@ RSpec.describe 'Health', type: :request do
     end
 
     it 'includes database check' do
-      get '/health/detailed', as: :json
+      get '/api/v1/health/detailed', as: :json
 
       response_data = json_response
 
@@ -51,7 +51,7 @@ RSpec.describe 'Health', type: :request do
     end
 
     it 'includes redis check' do
-      get '/health/detailed', as: :json
+      get '/api/v1/health/detailed', as: :json
 
       response_data = json_response
 
@@ -59,7 +59,7 @@ RSpec.describe 'Health', type: :request do
     end
 
     it 'includes memory check' do
-      get '/health/detailed', as: :json
+      get '/api/v1/health/detailed', as: :json
 
       response_data = json_response
 
@@ -67,7 +67,7 @@ RSpec.describe 'Health', type: :request do
     end
 
     it 'includes disk check' do
-      get '/health/detailed', as: :json
+      get '/api/v1/health/detailed', as: :json
 
       response_data = json_response
 
@@ -75,7 +75,7 @@ RSpec.describe 'Health', type: :request do
     end
 
     it 'reports overall status based on component health' do
-      get '/health/detailed', as: :json
+      get '/api/v1/health/detailed', as: :json
 
       response_data = json_response
 
@@ -93,7 +93,7 @@ RSpec.describe 'Health', type: :request do
       end
 
       it 'returns ready status' do
-        get '/health/ready', as: :json
+        get '/api/v1/health/ready', as: :json
 
         expect_success_response
         response_data = json_response
@@ -108,7 +108,7 @@ RSpec.describe 'Health', type: :request do
       end
 
       it 'returns service unavailable' do
-        get '/health/ready', as: :json
+        get '/api/v1/health/ready', as: :json
 
         expect(response).to have_http_status(:service_unavailable)
       end
@@ -117,7 +117,7 @@ RSpec.describe 'Health', type: :request do
 
   describe 'GET /health/live' do
     it 'returns live status' do
-      get '/health/live', as: :json
+      get '/api/v1/health/live', as: :json
 
       expect_success_response
       response_data = json_response
@@ -126,14 +126,14 @@ RSpec.describe 'Health', type: :request do
     end
 
     it 'does not require authentication' do
-      get '/health/live', as: :json
+      get '/api/v1/health/live', as: :json
 
       expect(response).to have_http_status(:ok)
     end
 
     it 'always returns live (simple liveness check)' do
       # Liveness check should always succeed if the app is running
-      get '/health/live', as: :json
+      get '/api/v1/health/live', as: :json
 
       expect(response).to have_http_status(:ok)
     end

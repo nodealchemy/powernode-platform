@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-RSpec.describe A2aController, type: :controller do
+RSpec.describe Api::V1::A2aController, type: :controller do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
   let(:jwt_token) { Security::JwtService.encode({ user_id: user.id }) }
@@ -135,7 +135,6 @@ RSpec.describe A2aController, type: :controller do
         expect(response).to have_http_status(:ok)
 
         json = JSON.parse(response.body)
-        # Should have either result or error
         expect(json["jsonrpc"]).to eq("2.0")
         expect(json["result"] || json["error"]).to be_present
       end
@@ -160,7 +159,6 @@ RSpec.describe A2aController, type: :controller do
       expect(response).to have_http_status(:ok)
 
       json = JSON.parse(response.body)
-      # A2A protocol uses status.state with "canceled" (US spelling)
       expect(json["result"]["status"]["state"]).to eq("canceled")
 
       task.reload

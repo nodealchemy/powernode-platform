@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe Webhooks::GitController, type: :controller do
+RSpec.describe Api::V1::Webhooks::GitController, type: :controller do
   let(:account) { create(:account) }
   let(:provider) { create(:git_provider, :github) }
   let(:credential) { create(:git_provider_credential, provider: provider, account: account) }

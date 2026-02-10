@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-RSpec.describe "Api::BaaS::V1::Subscriptions", type: :request do
+RSpec.describe "Api::V1::BaaS::Subscriptions", type: :request do
   let(:account) { create(:account) }
   let(:tenant) { create(:baas_tenant, account: account) }
   let(:service) { BaaS::ApiKeyService.new(tenant: tenant) }
@@ -17,11 +17,11 @@ RSpec.describe "Api::BaaS::V1::Subscriptions", type: :request do
     }
   end
 
-  describe "GET /api/baas/v1/subscriptions" do
+  describe "GET /api/v1/baas/subscriptions" do
     let!(:subscriptions) { create_list(:baas_subscription, 3, baas_tenant: tenant, baas_customer: customer) }
 
     it "returns list of subscriptions" do
-      get "/api/baas/v1/subscriptions", headers: headers
+      get "/api/v1/baas/subscriptions", headers: headers
 
       expect(response).to have_http_status(:ok)
       expect(json_response["data"].count).to eq(3)
@@ -30,7 +30,7 @@ RSpec.describe "Api::BaaS::V1::Subscriptions", type: :request do
     it "filters by status" do
       create(:baas_subscription, :canceled, baas_tenant: tenant, baas_customer: customer)
 
-      get "/api/baas/v1/subscriptions", params: { status: "active" }, headers: headers
+      get "/api/v1/baas/subscriptions", params: { status: "active" }, headers: headers
 
       expect(response).to have_http_status(:ok)
       json_response["data"].each do |sub|
@@ -42,31 +42,31 @@ RSpec.describe "Api::BaaS::V1::Subscriptions", type: :request do
       other_customer = create(:baas_customer, baas_tenant: tenant)
       create(:baas_subscription, baas_tenant: tenant, baas_customer: other_customer)
 
-      get "/api/baas/v1/subscriptions", params: { customer_id: customer.external_id }, headers: headers
+      get "/api/v1/baas/subscriptions", params: { customer_id: customer.external_id }, headers: headers
 
       expect(response).to have_http_status(:ok)
       expect(json_response["data"].count).to eq(3)
     end
   end
 
-  describe "GET /api/baas/v1/subscriptions/:id" do
+  describe "GET /api/v1/baas/subscriptions/:id" do
     let(:subscription) { create(:baas_subscription, baas_tenant: tenant, baas_customer: customer) }
 
     it "returns the subscription" do
-      get "/api/baas/v1/subscriptions/#{subscription.external_id}", headers: headers
+      get "/api/v1/baas/subscriptions/#{subscription.external_id}", headers: headers
 
       expect(response).to have_http_status(:ok)
       expect(json_response["data"]["external_id"]).to eq(subscription.external_id)
     end
 
     it "returns 404 for non-existent subscription" do
-      get "/api/baas/v1/subscriptions/nonexistent", headers: headers
+      get "/api/v1/baas/subscriptions/nonexistent", headers: headers
 
       expect(response).to have_http_status(:not_found)
     end
   end
 
-  describe "POST /api/baas/v1/subscriptions" do
+  describe "POST /api/v1/baas/subscriptions" do
     let(:valid_params) do
       {
         customer_id: customer.external_id,
@@ -79,14 +79,14 @@ RSpec.describe "Api::BaaS::V1::Subscriptions", type: :request do
 
     it "creates a new subscription" do
       expect {
-        post "/api/baas/v1/subscriptions", params: valid_params.to_json, headers: headers
+        post "/api/v1/baas/subscriptions", params: valid_params.to_json, headers: headers
       }.to change { tenant.subscriptions.count }.by(1)
 
       expect(response).to have_http_status(:created)
     end
 
     it "creates trialing subscription with trial_days" do
-      post "/api/baas/v1/subscriptions",
+      post "/api/v1/baas/subscriptions",
         params: valid_params.merge(trial_days: 14).to_json,
         headers: headers
 
@@ -94,17 +94,17 @@ RSpec.describe "Api::BaaS::V1::Subscriptions", type: :request do
     end
 
     it "returns 422 for invalid params" do
-      post "/api/baas/v1/subscriptions", params: { customer_id: customer.external_id }.to_json, headers: headers
+      post "/api/v1/baas/subscriptions", params: { customer_id: customer.external_id }.to_json, headers: headers
 
       expect(response).to have_http_status(:unprocessable_content)
     end
   end
 
-  describe "PATCH /api/baas/v1/subscriptions/:id" do
+  describe "PATCH /api/v1/baas/subscriptions/:id" do
     let(:subscription) { create(:baas_subscription, baas_tenant: tenant, baas_customer: customer) }
 
     it "updates the subscription" do
-      patch "/api/baas/v1/subscriptions/#{subscription.external_id}",
+      patch "/api/v1/baas/subscriptions/#{subscription.external_id}",
         params: { quantity: 5 }.to_json,
         headers: headers
 
@@ -112,11 +112,11 @@ RSpec.describe "Api::BaaS::V1::Subscriptions", type: :request do
     end
   end
 
-  describe "POST /api/baas/v1/subscriptions/:id/cancel" do
+  describe "POST /api/v1/baas/subscriptions/:id/cancel" do
     let(:subscription) { create(:baas_subscription, baas_tenant: tenant, baas_customer: customer) }
 
     it "cancels immediately" do
-      post "/api/baas/v1/subscriptions/#{subscription.external_id}/cancel",
+      post "/api/v1/baas/subscriptions/#{subscription.external_id}/cancel",
         params: { at_period_end: false }.to_json,
         headers: headers
 
@@ -125,7 +125,7 @@ RSpec.describe "Api::BaaS::V1::Subscriptions", type: :request do
     end
 
     it "cancels at period end" do
-      post "/api/baas/v1/subscriptions/#{subscription.external_id}/cancel",
+      post "/api/v1/baas/subscriptions/#{subscription.external_id}/cancel",
         params: { at_period_end: true }.to_json,
         headers: headers
 
@@ -134,22 +134,22 @@ RSpec.describe "Api::BaaS::V1::Subscriptions", type: :request do
     end
   end
 
-  describe "POST /api/baas/v1/subscriptions/:id/pause" do
+  describe "POST /api/v1/baas/subscriptions/:id/pause" do
     let(:subscription) { create(:baas_subscription, baas_tenant: tenant, baas_customer: customer) }
 
     it "pauses the subscription" do
-      post "/api/baas/v1/subscriptions/#{subscription.external_id}/pause", headers: headers
+      post "/api/v1/baas/subscriptions/#{subscription.external_id}/pause", headers: headers
 
       expect(response).to have_http_status(:ok)
       expect(json_response["data"]["status"]).to eq("paused")
     end
   end
 
-  describe "POST /api/baas/v1/subscriptions/:id/resume" do
+  describe "POST /api/v1/baas/subscriptions/:id/resume" do
     let(:subscription) { create(:baas_subscription, :paused, baas_tenant: tenant, baas_customer: customer) }
 
     it "resumes the subscription" do
-      post "/api/baas/v1/subscriptions/#{subscription.external_id}/resume", headers: headers
+      post "/api/v1/baas/subscriptions/#{subscription.external_id}/resume", headers: headers
 
       expect(response).to have_http_status(:ok)
       expect(json_response["data"]["status"]).to eq("active")
