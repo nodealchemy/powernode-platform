@@ -59,6 +59,9 @@ export default defineConfig(({ mode }: { mode: string }) => {
         '@/features': path.resolve(__dirname, './src/features'),
         '@/pages': path.resolve(__dirname, './src/pages'),
         '@/assets': path.resolve(__dirname, './src/assets'),
+        ...(fs.existsSync(path.resolve(__dirname, '../enterprise/frontend/src'))
+          ? { '@enterprise': path.resolve(__dirname, '../enterprise/frontend/src') }
+          : {}),
       },
     },
     
@@ -147,6 +150,7 @@ export default defineConfig(({ mode }: { mode: string }) => {
     define: {
       'process.env.NODE_ENV': JSON.stringify(mode),
       'process.env.REACT_APP_VERSION': JSON.stringify(packageJson.version),
+      '__ENTERPRISE__': JSON.stringify(fs.existsSync(path.resolve(__dirname, '../enterprise/frontend/src'))),
     },
     
     optimizeDeps: {

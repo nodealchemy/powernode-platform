@@ -1,3 +1,9 @@
+PATH
+  remote: /home/rett/Drive/Projects/powernode-platform/enterprise/server
+  specs:
+    powernode_enterprise (0.1.0)
+      rails (~> 8.1)
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -734,6 +740,7 @@ DEPENDENCIES
   opentelemetry-sdk (~> 1.4)
   paypal-sdk-rest
   pg (~> 1.1)
+  powernode_enterprise!
   prawn
   prawn-table
   puma (>= 5.0)

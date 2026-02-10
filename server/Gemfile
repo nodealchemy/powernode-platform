@@ -185,3 +185,7 @@ gem "rswag-ui", "~> 2.13"
 group :development, :test do
   gem "rswag-specs", "~> 2.13"
 end
+
+# Enterprise Edition (loaded conditionally when submodule is present)
+enterprise_path = File.expand_path("../enterprise/server", __dir__)
+gem "powernode_enterprise", path: enterprise_path if File.exist?(enterprise_path)
