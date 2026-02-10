@@ -71,7 +71,7 @@ user.role === 'manager'
 | Worker Jobs | Inherit BaseJob, use `execute()` method, API-only |
 | Ruby Files | `# frozen_string_literal: true` pragma required |
 | Logging | `Rails.logger` - no `puts`/`print` |
-| Migrations | **NEVER** create separate indexes for `t.references` columns - configure index in the references declaration itself: `t.references :account, index: { unique: true }` |
+| Migrations | `t.references` automatically creates an index — **NEVER** use `add_index` for reference columns. Customize via the declaration itself: `t.references :account, index: { unique: true }` |
 | Namespaces | ALL namespaced models MUST use `::` separator in `class_name:` — e.g., `Ai::AgentTeam` not `AiAgentTeam`, `Devops::Pipeline` not `DevopsPipeline`, `BaaS::Tenant` not `BaaSTenant` |
 | Seeds | After modifying seeds, run `cd server && rails db:seed` and verify completion |
 | Service Restart | After API endpoint changes, restart: `sudo systemctl restart powernode-backend@default` |

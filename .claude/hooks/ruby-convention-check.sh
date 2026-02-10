@@ -88,7 +88,7 @@ if echo "$FILE_PATH" | grep -qP "db/migrate/"; then
     if [[ -n "$COL" ]]; then
       REF_COL=$(echo "$COL" | sed 's/^://' | sed 's/_id$//')
       if grep -qP "t\.references\s+:$REF_COL" "$FILE_PATH" 2>/dev/null; then
-        WARNINGS="${WARNINGS}Warning: Separate add_index for t.references column ${COL} — use inline index: option instead: ${line}\n"
+        WARNINGS="${WARNINGS}Warning: Redundant add_index for t.references column ${COL} — references already creates an index. Use inline index: option on the references declaration for customization (e.g., unique): ${line}\n"
       fi
     fi
   done < <(grep -nP "add_index" "$FILE_PATH" 2>/dev/null)
