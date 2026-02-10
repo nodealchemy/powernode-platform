@@ -44,7 +44,7 @@ module Api
             render_success({ channel: channel.channel_details }, status: :created)
             log_audit_event("chat.channels.create", channel)
           else
-            render_error(channel.errors.full_messages, status: :unprocessable_entity)
+            render_error(channel.errors.full_messages, status: :unprocessable_content)
           end
         end
 
@@ -54,7 +54,7 @@ module Api
             render_success(channel: @channel.channel_details)
             log_audit_event("chat.channels.update", @channel)
           else
-            render_error(@channel.errors.full_messages, status: :unprocessable_entity)
+            render_error(@channel.errors.full_messages, status: :unprocessable_content)
           end
         end
 
@@ -73,7 +73,7 @@ module Api
             render_success(channel: @channel.reload.channel_details)
             log_audit_event("chat.channels.connect", @channel)
           else
-            render_error("Failed to connect channel", status: :unprocessable_entity)
+            render_error("Failed to connect channel", status: :unprocessable_content)
           end
         end
 
@@ -95,7 +95,7 @@ module Api
               details: result[:details]
             )
           else
-            render_error(result[:error], status: :unprocessable_entity)
+            render_error(result[:error], status: :unprocessable_content)
           end
         end
 

@@ -30,7 +30,7 @@ module Api
               services = manager.available_services(@cluster)
               render_success(items: services)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Failed to fetch available services: #{e.message}", status: :unprocessable_entity)
+              render_error("Failed to fetch available services: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -39,7 +39,7 @@ module Api
             docker_service_ids = Array(params[:docker_service_ids])
 
             if docker_service_ids.empty?
-              return render_error("No service IDs provided", status: :unprocessable_entity)
+              return render_error("No service IDs provided", status: :unprocessable_content)
             end
 
             manager = ::Devops::Docker::SwarmManager.new(account: current_user.account)
@@ -52,7 +52,7 @@ module Api
               )
               log_audit_event("swarm.services.import", @cluster)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Import failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Import failed: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -70,7 +70,7 @@ module Api
               render_success({ service: service.service_details }, status: :created)
               log_audit_event("swarm.services.create", service)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Service creation failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Service creation failed: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -83,7 +83,7 @@ module Api
               render_success(service: @service.reload.service_details)
               log_audit_event("swarm.services.update", @service)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Service update failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Service update failed: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -96,7 +96,7 @@ module Api
               render_success(message: "Service removed successfully")
               log_audit_event("swarm.services.delete", @service)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Service removal failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Service removal failed: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -109,7 +109,7 @@ module Api
               render_success(service: @service.reload.service_details)
               log_audit_event("swarm.services.scale", @service)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Scale failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Scale failed: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -122,7 +122,7 @@ module Api
               render_success(service: @service.reload.service_details)
               log_audit_event("swarm.services.rollback", @service)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Rollback failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Rollback failed: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -134,7 +134,7 @@ module Api
               log_entries = manager.service_logs(@service, log_params)
               render_success(items: log_entries)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Failed to fetch logs: #{e.message}", status: :unprocessable_entity)
+              render_error("Failed to fetch logs: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -147,7 +147,7 @@ module Api
               items = Array(task_list).map { |t| format_task(t) }
               render_success(items: items)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Failed to fetch tasks: #{e.message}", status: :unprocessable_entity)
+              render_error("Failed to fetch tasks: #{e.message}", status: :unprocessable_content)
             end
           end
 

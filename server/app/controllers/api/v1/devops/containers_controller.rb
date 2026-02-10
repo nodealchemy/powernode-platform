@@ -65,7 +65,7 @@ module Api
           rescue ::Devops::QuotaService::QuotaExceededError => e
             render_error("Quota exceeded: #{e.message}", status: :too_many_requests)
           rescue ::Devops::ContainerOrchestrationService::OrchestrationError => e
-            render_error(e.message, status: :unprocessable_entity)
+            render_error(e.message, status: :unprocessable_content)
           end
         end
 
@@ -80,7 +80,7 @@ module Api
             render_success(instance: @instance.reload.instance_details)
             log_audit_event("devops.containers.cancel", @instance)
           else
-            render_error("Could not cancel execution", status: :unprocessable_entity)
+            render_error("Could not cancel execution", status: :unprocessable_content)
           end
         end
 

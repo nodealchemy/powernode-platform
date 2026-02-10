@@ -35,7 +35,7 @@ module Api
               render_success(node: @node.reload.node_details)
               log_audit_event("swarm.nodes.promote", @node)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Promote failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Promote failed: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -48,7 +48,7 @@ module Api
               render_success(node: @node.reload.node_details)
               log_audit_event("swarm.nodes.demote", @node)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Demote failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Demote failed: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -61,7 +61,7 @@ module Api
               render_success(node: @node.reload.node_details)
               log_audit_event("swarm.nodes.drain", @node)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Drain failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Drain failed: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -74,7 +74,7 @@ module Api
               render_success(node: @node.reload.node_details)
               log_audit_event("swarm.nodes.activate", @node)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Activate failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Activate failed: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -87,7 +87,7 @@ module Api
               render_success(message: "Node removed successfully")
               log_audit_event("swarm.nodes.remove", @node)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Remove failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Remove failed: #{e.message}", status: :unprocessable_content)
             end
           end
 

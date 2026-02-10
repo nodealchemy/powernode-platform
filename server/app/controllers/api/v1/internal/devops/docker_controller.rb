@@ -63,7 +63,7 @@ module Api
             render_error("Host not found", status: :not_found)
           rescue StandardError => e
             Rails.logger.error "Docker sync error: #{e.message}"
-            render_error(e.message, status: :unprocessable_entity)
+            render_error(e.message, status: :unprocessable_content)
           end
 
           # POST /api/v1/internal/devops/docker/hosts/:id/health_results
@@ -95,7 +95,7 @@ module Api
             render_error("Host not found", status: :not_found)
           rescue StandardError => e
             Rails.logger.error "Docker health results error: #{e.message}"
-            render_error(e.message, status: :unprocessable_entity)
+            render_error(e.message, status: :unprocessable_content)
           end
 
           # POST /api/v1/internal/devops/docker/events
@@ -126,7 +126,7 @@ module Api
             render_error("Host not found", status: :not_found)
           rescue StandardError => e
             Rails.logger.error "Docker event creation error: #{e.message}"
-            render_error(e.message, status: :unprocessable_entity)
+            render_error(e.message, status: :unprocessable_content)
           end
 
           private
@@ -134,20 +134,15 @@ module Api
           def sync_containers(host, containers_data)
             incoming_ids = containers_data.map { |c| c[:docker_container_id] || c["docker_container_id"] }
 
-            # Remove imported containers that no longer exist on the host
+            # Remove containers that no longer exist on the host
             host.docker_containers.where.not(docker_container_id: incoming_ids).destroy_all
 
-            # Only update already-imported containers (do not create new ones)
-            imported_ids = host.docker_containers.pluck(:docker_container_id)
-
+            # Upsert all containers from sync data
             containers_data.each do |data|
               data = data.to_unsafe_h if data.respond_to?(:to_unsafe_h)
               docker_id = data["docker_container_id"] || data[:docker_container_id]
 
-              next unless imported_ids.include?(docker_id)
-
-              container = host.docker_containers.find_by(docker_container_id: docker_id)
-              next unless container
+              container = host.docker_containers.find_or_initialize_by(docker_container_id: docker_id)
 
               container.assign_attributes(
                 name: data["name"] || "unknown",
@@ -169,20 +164,15 @@ module Api
           def sync_images(host, images_data)
             incoming_ids = images_data.map { |i| i[:docker_image_id] || i["docker_image_id"] }
 
-            # Remove imported images that no longer exist on the host
+            # Remove images that no longer exist on the host
             host.docker_images.where.not(docker_image_id: incoming_ids).destroy_all
 
-            # Only update already-imported images (do not create new ones)
-            imported_ids = host.docker_images.pluck(:docker_image_id)
-
+            # Upsert all images from sync data
             images_data.each do |data|
               data = data.to_unsafe_h if data.respond_to?(:to_unsafe_h)
               docker_id = data["docker_image_id"] || data[:docker_image_id]
 
-              next unless imported_ids.include?(docker_id)
-
-              image = host.docker_images.find_by(docker_image_id: docker_id)
-              next unless image
+              image = host.docker_images.find_or_initialize_by(docker_image_id: docker_id)
 
               image.assign_attributes(
                 repo_tags: data["repo_tags"] || [],

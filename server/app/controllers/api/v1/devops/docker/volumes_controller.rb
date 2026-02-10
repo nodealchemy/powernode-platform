@@ -18,7 +18,7 @@ module Api
               volumes = result.is_a?(Hash) ? (result["Volumes"] || []) : result
               render_success(items: volumes)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Failed to fetch volumes: #{e.message}", status: :unprocessable_entity)
+              render_error("Failed to fetch volumes: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -32,7 +32,7 @@ module Api
             rescue ::Devops::Docker::ApiClient::NotFoundError
               render_error("Volume not found", status: :not_found)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Failed to fetch volume: #{e.message}", status: :unprocessable_entity)
+              render_error("Failed to fetch volume: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -45,7 +45,7 @@ module Api
               render_success({ volume: result }, status: :created)
               log_audit_event("docker.volumes.create", @host)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Volume creation failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Volume creation failed: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -60,7 +60,7 @@ module Api
             rescue ::Devops::Docker::ApiClient::NotFoundError
               render_error("Volume not found", status: :not_found)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Volume removal failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Volume removal failed: #{e.message}", status: :unprocessable_content)
             end
           end
 

@@ -35,7 +35,7 @@ module Api
           render_error("Execution not found", status: :not_found)
         rescue StandardError => e
           Rails.logger.error "Container execution callback error: #{e.message}"
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         end
 
         # POST /api/v1/internal/container_executions/:execution_id/status

@@ -17,7 +17,7 @@ module Api
               volumes = manager.list
               render_success(items: volumes)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Failed to list volumes: #{e.message}", status: :unprocessable_entity)
+              render_error("Failed to list volumes: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -31,7 +31,7 @@ module Api
             rescue ::Devops::Docker::ApiClient::NotFoundError
               render_error("Volume not found", status: :not_found)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Failed to inspect volume: #{e.message}", status: :unprocessable_entity)
+              render_error("Failed to inspect volume: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -44,7 +44,7 @@ module Api
               render_success({ volume: volume }, status: :created)
               log_audit_event("swarm.volumes.create", @cluster)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Failed to create volume: #{e.message}", status: :unprocessable_entity)
+              render_error("Failed to create volume: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -59,7 +59,7 @@ module Api
             rescue ::Devops::Docker::ApiClient::NotFoundError
               render_error("Volume not found", status: :not_found)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Failed to remove volume: #{e.message}", status: :unprocessable_entity)
+              render_error("Failed to remove volume: #{e.message}", status: :unprocessable_content)
             end
           end
 

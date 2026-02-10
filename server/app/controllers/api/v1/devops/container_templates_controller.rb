@@ -62,7 +62,7 @@ module Api
             render_success({ template: template.template_details }, status: :created)
             log_audit_event("devops.container_templates.create", template)
           else
-            render_error(template.errors.full_messages, status: :unprocessable_entity)
+            render_error(template.errors.full_messages, status: :unprocessable_content)
           end
         end
 
@@ -77,7 +77,7 @@ module Api
             render_success(template: @template.template_details)
             log_audit_event("devops.container_templates.update", @template)
           else
-            render_error(@template.errors.full_messages, status: :unprocessable_entity)
+            render_error(@template.errors.full_messages, status: :unprocessable_content)
           end
         end
 

@@ -29,7 +29,7 @@ module Api
               images = manager.available_images(@host)
               render_success(items: images)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Failed to fetch available images: #{e.message}", status: :unprocessable_entity)
+              render_error("Failed to fetch available images: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -38,7 +38,7 @@ module Api
             docker_image_ids = Array(params[:docker_image_ids])
 
             if docker_image_ids.empty?
-              return render_error("No image IDs provided", status: :unprocessable_entity)
+              return render_error("No image IDs provided", status: :unprocessable_content)
             end
 
             manager = ::Devops::Docker::HostManager.new(account: current_user.account)
@@ -51,7 +51,7 @@ module Api
               )
               log_audit_event("docker.images.import", @host)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Import failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Import failed: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -73,7 +73,7 @@ module Api
               render_success(result: result)
               log_audit_event("docker.images.pull", @host)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Image pull failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Image pull failed: #{e.message}", status: :unprocessable_content)
             rescue ActiveRecord::RecordNotFound
               render_error("Credential not found", status: :not_found)
             end
@@ -88,7 +88,7 @@ module Api
               render_success(message: "Image removed successfully")
               log_audit_event("docker.images.delete", @host)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Image removal failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Image removal failed: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -101,7 +101,7 @@ module Api
               render_success(image: @image.reload.image_details)
               log_audit_event("docker.images.tag", @host)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Image tagging failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Image tagging failed: #{e.message}", status: :unprocessable_content)
             end
           end
 

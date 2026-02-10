@@ -29,7 +29,7 @@ module Api
               containers = manager.available_containers(@host)
               render_success(items: containers)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Failed to fetch available containers: #{e.message}", status: :unprocessable_entity)
+              render_error("Failed to fetch available containers: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -38,7 +38,7 @@ module Api
             docker_container_ids = Array(params[:docker_container_ids])
 
             if docker_container_ids.empty?
-              return render_error("No container IDs provided", status: :unprocessable_entity)
+              return render_error("No container IDs provided", status: :unprocessable_content)
             end
 
             manager = ::Devops::Docker::HostManager.new(account: current_user.account)
@@ -51,7 +51,7 @@ module Api
               )
               log_audit_event("docker.containers.import", @host)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Import failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Import failed: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -74,7 +74,7 @@ module Api
               render_success({ container: result }, status: :created)
               log_audit_event("docker.containers.create", @host)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Container creation failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Container creation failed: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -87,7 +87,7 @@ module Api
               render_success(message: "Container removed successfully")
               log_audit_event("docker.containers.delete", @host)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Container removal failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Container removal failed: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -100,7 +100,7 @@ module Api
               render_success(container: container.container_details)
               log_audit_event("docker.containers.start", @host)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Container start failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Container start failed: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -113,7 +113,7 @@ module Api
               render_success(container: container.container_details)
               log_audit_event("docker.containers.stop", @host)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Container stop failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Container stop failed: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -126,7 +126,7 @@ module Api
               render_success(container: container.container_details)
               log_audit_event("docker.containers.restart", @host)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Container restart failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Container restart failed: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -136,9 +136,9 @@ module Api
 
             begin
               log_entries = manager.container_logs(@container, log_opts)
-              render_success(items: log_entries)
+              render_success(logs: log_entries)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Failed to fetch logs: #{e.message}", status: :unprocessable_entity)
+              render_error("Failed to fetch logs: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -150,7 +150,7 @@ module Api
               result = manager.container_stats(@container)
               render_success(stats: result)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Failed to fetch stats: #{e.message}", status: :unprocessable_entity)
+              render_error("Failed to fetch stats: #{e.message}", status: :unprocessable_content)
             end
           end
 

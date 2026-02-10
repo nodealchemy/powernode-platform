@@ -17,7 +17,7 @@ module Api
               configs = manager.list_configs
               render_success(items: configs)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Failed to list configs: #{e.message}", status: :unprocessable_entity)
+              render_error("Failed to list configs: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -31,7 +31,7 @@ module Api
             rescue ::Devops::Docker::ApiClient::NotFoundError
               render_error("Config not found", status: :not_found)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Failed to inspect config: #{e.message}", status: :unprocessable_entity)
+              render_error("Failed to inspect config: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -44,7 +44,7 @@ module Api
               render_success({ config: config }, status: :created)
               log_audit_event("swarm.configs.create", @cluster)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Failed to create config: #{e.message}", status: :unprocessable_entity)
+              render_error("Failed to create config: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -59,7 +59,7 @@ module Api
             rescue ::Devops::Docker::ApiClient::NotFoundError
               render_error("Config not found", status: :not_found)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Failed to remove config: #{e.message}", status: :unprocessable_entity)
+              render_error("Failed to remove config: #{e.message}", status: :unprocessable_content)
             end
           end
 

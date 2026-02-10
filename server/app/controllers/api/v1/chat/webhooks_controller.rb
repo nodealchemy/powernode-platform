@@ -37,7 +37,7 @@ module Api
             render_success(result[:response] || { status: "ok" })
           else
             Rails.logger.warn "Chat webhook processing failed: #{result[:error]}"
-            render_error(result[:error], status: :unprocessable_entity)
+            render_error(result[:error], status: :unprocessable_content)
           end
         rescue ActiveRecord::RecordNotFound
           render_error("Invalid webhook token", status: :not_found)

@@ -42,7 +42,7 @@ module Api
         # POST /api/v1/ai/agent_teams/:agent_team_id/executions/:id/cancel
         def cancel
           unless @execution.active?
-            return render_error("Execution is not active", :unprocessable_entity)
+            return render_error("Execution is not active", :unprocessable_content)
           end
 
           @execution.update!(control_signal: "cancel")
@@ -53,7 +53,7 @@ module Api
         # POST /api/v1/ai/agent_teams/:agent_team_id/executions/:id/pause
         def pause
           unless @execution.status == "running"
-            return render_error("Execution is not running", :unprocessable_entity)
+            return render_error("Execution is not running", :unprocessable_content)
           end
 
           @execution.update!(control_signal: "pause")
@@ -64,7 +64,7 @@ module Api
         # POST /api/v1/ai/agent_teams/:agent_team_id/executions/:id/resume
         def resume
           unless @execution.control_signal == "pause"
-            return render_error("Execution is not paused", :unprocessable_entity)
+            return render_error("Execution is not paused", :unprocessable_content)
           end
 
           @execution.update!(control_signal: nil)
@@ -75,7 +75,7 @@ module Api
         # POST /api/v1/ai/agent_teams/:agent_team_id/executions/:id/retry
         def retry_execution
           unless @execution.finished?
-            return render_error("Execution has not finished", :unprocessable_entity)
+            return render_error("Execution has not finished", :unprocessable_content)
           end
 
           new_execution_args = {

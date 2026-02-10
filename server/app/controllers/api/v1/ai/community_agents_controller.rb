@@ -64,7 +64,7 @@ module Api
             render_success({ agent: agent.public_details }, status: :created)
             log_audit_event("ai.community_agents.register", agent)
           else
-            render_error(agent.errors.full_messages, status: :unprocessable_entity)
+            render_error(agent.errors.full_messages, status: :unprocessable_content)
           end
         end
 
@@ -79,7 +79,7 @@ module Api
             render_success(agent: @agent.public_details)
             log_audit_event("ai.community_agents.update", @agent)
           else
-            render_error(@agent.errors.full_messages, status: :unprocessable_entity)
+            render_error(@agent.errors.full_messages, status: :unprocessable_content)
           end
         end
 
@@ -132,7 +132,7 @@ module Api
             )
             log_audit_event("ai.community_agents.rate", @agent)
           else
-            render_error(rating.errors.full_messages, status: :unprocessable_entity)
+            render_error(rating.errors.full_messages, status: :unprocessable_content)
           end
         end
 
@@ -151,7 +151,7 @@ module Api
             })
             log_audit_event("ai.community_agents.report", @agent)
           else
-            render_error(report.errors.full_messages, status: :unprocessable_entity)
+            render_error(report.errors.full_messages, status: :unprocessable_content)
           end
         end
 
@@ -196,7 +196,7 @@ module Api
         # AI-powered agent discovery based on task description
         def discover
           unless params[:task_description].present?
-            render_error("task_description is required", status: :unprocessable_entity)
+            render_error("task_description is required", status: :unprocessable_content)
             return
           end
 

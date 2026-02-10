@@ -52,7 +52,7 @@ module Api
             render_success(session: @session.session_details)
             log_audit_event("chat.sessions.update", @session)
           else
-            render_error(@session.errors.full_messages, status: :unprocessable_entity)
+            render_error(@session.errors.full_messages, status: :unprocessable_content)
           end
         end
 
@@ -68,7 +68,7 @@ module Api
           new_agent_id = params[:agent_id]
 
           unless new_agent_id.present?
-            render_error("agent_id is required", status: :unprocessable_entity)
+            render_error("agent_id is required", status: :unprocessable_content)
             return
           end
 
@@ -120,7 +120,7 @@ module Api
         # POST /api/v1/chat/sessions/:id/messages
         def send_message
           unless params[:content].present?
-            render_error("content is required", status: :unprocessable_entity)
+            render_error("content is required", status: :unprocessable_content)
             return
           end
 
@@ -146,7 +146,7 @@ module Api
             render_success(message: message.message_summary)
             log_audit_event("chat.sessions.send_message", @session)
           else
-            render_error(result[:error], status: :unprocessable_entity)
+            render_error(result[:error], status: :unprocessable_content)
           end
         end
 

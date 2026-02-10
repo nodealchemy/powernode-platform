@@ -37,7 +37,7 @@ module Api
           )
           log_audit_event("devops.container_quotas.update", current_user.account)
         rescue ActiveRecord::RecordInvalid => e
-          render_error(e.record.errors.full_messages, status: :unprocessable_entity)
+          render_error(e.record.errors.full_messages, status: :unprocessable_content)
         end
 
         # POST /api/v1/mcp/quotas/reset_usage

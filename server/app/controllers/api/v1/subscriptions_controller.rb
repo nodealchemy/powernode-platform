@@ -45,7 +45,7 @@ class Api::V1::SubscriptionsController < ApplicationController
       end
 
       unless new_plan.active?
-        return render_error("Selected plan is not available", status: :unprocessable_entity)
+        return render_error("Selected plan is not available", status: :unprocessable_content)
       end
 
       old_plan = @subscription.plan
@@ -107,7 +107,7 @@ class Api::V1::SubscriptionsController < ApplicationController
     unless @subscription.may_pause?
       return render_error(
         "Subscription cannot be paused from current status: #{@subscription.status}",
-        status: :unprocessable_entity
+        status: :unprocessable_content
       )
     end
 
@@ -129,7 +129,7 @@ class Api::V1::SubscriptionsController < ApplicationController
       message: "Subscription paused successfully"
     )
   rescue AASM::InvalidTransition => e
-    render_error("Failed to pause subscription: #{e.message}", status: :unprocessable_entity)
+    render_error("Failed to pause subscription: #{e.message}", status: :unprocessable_content)
   end
 
   # POST /api/v1/subscriptions/:id/resume
@@ -137,7 +137,7 @@ class Api::V1::SubscriptionsController < ApplicationController
     unless @subscription.may_resume?
       return render_error(
         "Subscription cannot be resumed from current status: #{@subscription.status}",
-        status: :unprocessable_entity
+        status: :unprocessable_content
       )
     end
 
@@ -156,7 +156,7 @@ class Api::V1::SubscriptionsController < ApplicationController
       message: "Subscription resumed successfully"
     )
   rescue AASM::InvalidTransition => e
-    render_error("Failed to resume subscription: #{e.message}", status: :unprocessable_entity)
+    render_error("Failed to resume subscription: #{e.message}", status: :unprocessable_content)
   end
 
   # GET /api/v1/subscriptions/:id/preview_proration
@@ -174,17 +174,17 @@ class Api::V1::SubscriptionsController < ApplicationController
     end
 
     unless new_plan.active?
-      return render_error("Selected plan is not available", status: :unprocessable_entity)
+      return render_error("Selected plan is not available", status: :unprocessable_content)
     end
 
     old_plan = @subscription.plan
 
     if old_plan.id == new_plan.id
-      return render_error("Cannot prorate to the same plan", status: :unprocessable_entity)
+      return render_error("Cannot prorate to the same plan", status: :unprocessable_content)
     end
 
     unless @subscription.current_period_end.present?
-      return render_error("Cannot calculate proration: subscription has no billing period end date", status: :unprocessable_entity)
+      return render_error("Cannot calculate proration: subscription has no billing period end date", status: :unprocessable_content)
     end
 
     service = Billing::SubscriptionService.new(@subscription)

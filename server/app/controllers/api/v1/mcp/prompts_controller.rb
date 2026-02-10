@@ -42,7 +42,7 @@ module Api
               messages: result[:messages]
             )
           else
-            render_error(result[:error], status: :unprocessable_entity)
+            render_error(result[:error], status: :unprocessable_content)
           end
         end
 

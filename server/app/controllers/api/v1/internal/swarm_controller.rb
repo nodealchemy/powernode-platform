@@ -64,7 +64,7 @@ module Api
           render_error("Cluster not found", status: :not_found)
         rescue StandardError => e
           Rails.logger.error "Swarm sync error: #{e.message}"
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         end
 
         # POST /api/v1/internal/swarm/clusters/:id/health_results
@@ -97,7 +97,7 @@ module Api
           render_error("Cluster not found", status: :not_found)
         rescue StandardError => e
           Rails.logger.error "Swarm health results error: #{e.message}"
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         end
 
         # PATCH /api/v1/internal/swarm/deployments/:id
@@ -146,7 +146,7 @@ module Api
           render_error("Cluster not found", status: :not_found)
         rescue StandardError => e
           Rails.logger.error "Swarm event creation error: #{e.message}"
-          render_error(e.message, status: :unprocessable_entity)
+          render_error(e.message, status: :unprocessable_content)
         end
 
         private

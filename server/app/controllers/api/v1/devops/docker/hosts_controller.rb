@@ -36,9 +36,9 @@ module Api
               render_success({ host: host.host_details }, status: :created)
               log_audit_event("docker.hosts.create", host)
             rescue ::Devops::Docker::ApiClient::ConnectionError => e
-              render_error("Connection failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Connection failed: #{e.message}", status: :unprocessable_content)
             rescue ActiveRecord::RecordInvalid => e
-              render_error(e.message, status: :unprocessable_entity)
+              render_error(e.message, status: :unprocessable_content)
             end
           end
 
@@ -48,7 +48,7 @@ module Api
               render_success(host: @host.host_details)
               log_audit_event("docker.hosts.update", @host)
             else
-              render_error(@host.errors.full_messages.join(", "), status: :unprocessable_entity)
+              render_error(@host.errors.full_messages.join(", "), status: :unprocessable_content)
             end
           end
 
@@ -68,12 +68,12 @@ module Api
             begin
               result = manager.test_connection(@host)
               if result[:success]
-                render_success(connected: true, message: "Connected (Docker #{result[:server_version]}, API #{result[:api_version]})")
+                render_success(connection: { success: true, message: "Connected (Docker #{result[:server_version]}, API #{result[:api_version]})" })
               else
-                render_success(connected: false, message: result[:error])
+                render_success(connection: { success: false, message: result[:error] })
               end
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Connection test failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Connection test failed: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -86,7 +86,7 @@ module Api
               render_success(host: @host.reload.host_details)
               log_audit_event("docker.hosts.sync", @host)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Sync failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Sync failed: #{e.message}", status: :unprocessable_content)
             end
           end
 

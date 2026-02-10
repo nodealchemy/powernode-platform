@@ -43,7 +43,7 @@ RSpec.describe 'Api::V1::Devops::Docker::Volumes', type: :request do
       it 'returns error' do
         get "/api/v1/devops/docker/hosts/#{host.id}/volumes", headers: headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
 
@@ -113,7 +113,7 @@ RSpec.describe 'Api::V1::Devops::Docker::Volumes', type: :request do
              params: { volume: { name: 'existing-volume' } },
              headers: headers, as: :json
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
       end
     end
   end

@@ -44,7 +44,7 @@ module Api
             render_success({ partner: partner.partner_details }, status: :created)
             log_audit_event("ai.federation.register", partner)
           else
-            render_error(partner.errors.full_messages, status: :unprocessable_entity)
+            render_error(partner.errors.full_messages, status: :unprocessable_content)
           end
         end
 
@@ -54,7 +54,7 @@ module Api
             render_success(partner: @partner.partner_details)
             log_audit_event("ai.federation.update", @partner)
           else
-            render_error(@partner.errors.full_messages, status: :unprocessable_entity)
+            render_error(@partner.errors.full_messages, status: :unprocessable_content)
           end
         end
 
@@ -77,7 +77,7 @@ module Api
             })
             log_audit_event("ai.federation.verify", @partner)
           else
-            render_error(result[:error], status: :unprocessable_entity)
+            render_error(result[:error], status: :unprocessable_content)
           end
         end
 
@@ -85,7 +85,7 @@ module Api
         # List agents available from this federation partner
         def agents
           unless @partner.verified?
-            render_error("Partner must be verified first", status: :unprocessable_entity)
+            render_error("Partner must be verified first", status: :unprocessable_content)
             return
           end
 
@@ -97,7 +97,7 @@ module Api
           if result[:success]
             render_success(agents: result[:agents])
           else
-            render_error(result[:error], status: :unprocessable_entity)
+            render_error(result[:error], status: :unprocessable_content)
           end
         end
 
@@ -113,7 +113,7 @@ module Api
             })
             log_audit_event("ai.federation.sync", @partner)
           else
-            render_error(result[:error], status: :unprocessable_entity)
+            render_error(result[:error], status: :unprocessable_content)
           end
         end
 
@@ -122,7 +122,7 @@ module Api
         def register_external
           # Validate the incoming registration request
           unless params[:organization_name].present? && params[:endpoint_url].present?
-            render_error("organization_name and endpoint_url are required", status: :unprocessable_entity)
+            render_error("organization_name and endpoint_url are required", status: :unprocessable_content)
             return
           end
 
@@ -149,7 +149,7 @@ module Api
               status: partner.status
             })
           else
-            render_error(partner.errors.full_messages, status: :unprocessable_entity)
+            render_error(partner.errors.full_messages, status: :unprocessable_content)
           end
         end
 

@@ -17,7 +17,7 @@ module Api
               networks = manager.list
               render_success(items: networks)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Failed to list networks: #{e.message}", status: :unprocessable_entity)
+              render_error("Failed to list networks: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -31,7 +31,7 @@ module Api
             rescue ::Devops::Docker::ApiClient::NotFoundError
               render_error("Network not found", status: :not_found)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Failed to inspect network: #{e.message}", status: :unprocessable_entity)
+              render_error("Failed to inspect network: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -44,7 +44,7 @@ module Api
               render_success({ network: network }, status: :created)
               log_audit_event("swarm.networks.create", @cluster)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Failed to create network: #{e.message}", status: :unprocessable_entity)
+              render_error("Failed to create network: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -59,7 +59,7 @@ module Api
             rescue ::Devops::Docker::ApiClient::NotFoundError
               render_error("Network not found", status: :not_found)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Failed to remove network: #{e.message}", status: :unprocessable_entity)
+              render_error("Failed to remove network: #{e.message}", status: :unprocessable_content)
             end
           end
 

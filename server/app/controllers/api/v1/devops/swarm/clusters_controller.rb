@@ -36,9 +36,9 @@ module Api
               render_success({ cluster: cluster.cluster_details }, status: :created)
               log_audit_event("swarm.clusters.create", cluster)
             rescue ::Devops::Docker::ApiClient::ConnectionError => e
-              render_error("Connection failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Connection failed: #{e.message}", status: :unprocessable_content)
             rescue ActiveRecord::RecordInvalid => e
-              render_error(e.message, status: :unprocessable_entity)
+              render_error(e.message, status: :unprocessable_content)
             end
           end
 
@@ -48,7 +48,7 @@ module Api
               render_success(cluster: @cluster.cluster_details)
               log_audit_event("swarm.clusters.update", @cluster)
             else
-              render_error(@cluster.errors.full_messages.join(", "), status: :unprocessable_entity)
+              render_error(@cluster.errors.full_messages.join(", "), status: :unprocessable_content)
             end
           end
 
@@ -73,7 +73,7 @@ module Api
                 render_success(connected: false, message: result[:error])
               end
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Connection test failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Connection test failed: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -86,7 +86,7 @@ module Api
               render_success(cluster: @cluster.reload.cluster_details)
               log_audit_event("swarm.clusters.sync", @cluster)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Sync failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Sync failed: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -98,7 +98,7 @@ module Api
               result = monitor.check_health
               render_success(health: result)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Health check failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Health check failed: #{e.message}", status: :unprocessable_content)
             end
           end
 

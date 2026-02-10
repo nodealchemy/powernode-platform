@@ -33,7 +33,7 @@ module Api
               render_success({ stack: stack.stack_details }, status: :created)
               log_audit_event("swarm.stacks.create", stack)
             else
-              render_error(stack.errors.full_messages.join(", "), status: :unprocessable_entity)
+              render_error(stack.errors.full_messages.join(", "), status: :unprocessable_content)
             end
           end
 
@@ -43,7 +43,7 @@ module Api
               render_success(stack: @stack.stack_details)
               log_audit_event("swarm.stacks.update", @stack)
             else
-              render_error(@stack.errors.full_messages.join(", "), status: :unprocessable_entity)
+              render_error(@stack.errors.full_messages.join(", "), status: :unprocessable_content)
             end
           end
 
@@ -63,7 +63,7 @@ module Api
               render_success(stack: @stack.reload.stack_details)
               log_audit_event("swarm.stacks.deploy", @stack)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Deploy failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Deploy failed: #{e.message}", status: :unprocessable_content)
             end
           end
 
@@ -76,7 +76,7 @@ module Api
               render_success(stack: @stack.reload.stack_details)
               log_audit_event("swarm.stacks.remove", @stack)
             rescue ::Devops::Docker::ApiClient::ApiError => e
-              render_error("Stack removal failed: #{e.message}", status: :unprocessable_entity)
+              render_error("Stack removal failed: #{e.message}", status: :unprocessable_content)
             end
           end
 
