@@ -24,7 +24,7 @@ The BaaS API enables SaaS platforms to embed billing functionality. It provides 
 ### Base URL
 
 ```
-/api/baas/v1
+/api/v1/baas
 ```
 
 ### Features
@@ -67,7 +67,7 @@ API keys can be scoped to specific resources:
 ### Get Current Tenant
 
 ```http
-GET /api/baas/v1/tenant
+GET /api/v1/baas/tenant
 ```
 
 **Response:**
@@ -89,7 +89,7 @@ GET /api/baas/v1/tenant
 ### Update Tenant
 
 ```http
-PATCH /api/baas/v1/tenant
+PATCH /api/v1/baas/tenant
 ```
 
 **Request Body:**
@@ -113,7 +113,7 @@ PATCH /api/baas/v1/tenant
 ### Get Dashboard Stats
 
 ```http
-GET /api/baas/v1/tenant/dashboard
+GET /api/v1/baas/tenant/dashboard
 ```
 
 **Response:**
@@ -134,7 +134,7 @@ GET /api/baas/v1/tenant/dashboard
 ### Get Rate Limits
 
 ```http
-GET /api/baas/v1/tenant/limits
+GET /api/v1/baas/tenant/limits
 ```
 
 **Response:**
@@ -152,7 +152,7 @@ GET /api/baas/v1/tenant/limits
 ### Get Billing Configuration
 
 ```http
-GET /api/baas/v1/tenant/billing_configuration
+GET /api/v1/baas/tenant/billing_configuration
 ```
 
 **Response:**
@@ -179,7 +179,7 @@ GET /api/baas/v1/tenant/billing_configuration
 ### Update Billing Configuration
 
 ```http
-PATCH /api/baas/v1/tenant/billing_configuration
+PATCH /api/v1/baas/tenant/billing_configuration
 ```
 
 ---
@@ -189,7 +189,7 @@ PATCH /api/baas/v1/tenant/billing_configuration
 ### List Customers
 
 ```http
-GET /api/baas/v1/customers
+GET /api/v1/baas/customers
 ```
 
 **Query Parameters:**
@@ -229,13 +229,13 @@ GET /api/baas/v1/customers
 ### Get Customer
 
 ```http
-GET /api/baas/v1/customers/:id
+GET /api/v1/baas/customers/:id
 ```
 
 ### Create Customer
 
 ```http
-POST /api/baas/v1/customers
+POST /api/v1/baas/customers
 ```
 
 **Request Body:**
@@ -278,13 +278,13 @@ POST /api/baas/v1/customers
 ### Update Customer
 
 ```http
-PATCH /api/baas/v1/customers/:id
+PATCH /api/v1/baas/customers/:id
 ```
 
 ### Delete Customer
 
 ```http
-DELETE /api/baas/v1/customers/:id
+DELETE /api/v1/baas/customers/:id
 ```
 
 **Note:** Cannot delete customers with active subscriptions. Archives the customer instead.
@@ -296,7 +296,7 @@ DELETE /api/baas/v1/customers/:id
 ### List Subscriptions
 
 ```http
-GET /api/baas/v1/subscriptions
+GET /api/v1/baas/subscriptions
 ```
 
 **Query Parameters:**
@@ -335,13 +335,13 @@ GET /api/baas/v1/subscriptions
 ### Get Subscription
 
 ```http
-GET /api/baas/v1/subscriptions/:id
+GET /api/v1/baas/subscriptions/:id
 ```
 
 ### Create Subscription
 
 ```http
-POST /api/baas/v1/subscriptions
+POST /api/v1/baas/subscriptions
 ```
 
 **Request Body:**
@@ -365,13 +365,13 @@ POST /api/baas/v1/subscriptions
 ### Update Subscription
 
 ```http
-PATCH /api/baas/v1/subscriptions/:id
+PATCH /api/v1/baas/subscriptions/:id
 ```
 
 ### Cancel Subscription
 
 ```http
-POST /api/baas/v1/subscriptions/:id/cancel
+POST /api/v1/baas/subscriptions/:id/cancel
 ```
 
 **Request Body:**
@@ -385,13 +385,13 @@ POST /api/baas/v1/subscriptions/:id/cancel
 ### Pause Subscription
 
 ```http
-POST /api/baas/v1/subscriptions/:id/pause
+POST /api/v1/baas/subscriptions/:id/pause
 ```
 
 ### Resume Subscription
 
 ```http
-POST /api/baas/v1/subscriptions/:id/resume
+POST /api/v1/baas/subscriptions/:id/resume
 ```
 
 ---
@@ -401,7 +401,7 @@ POST /api/baas/v1/subscriptions/:id/resume
 ### List Invoices
 
 ```http
-GET /api/baas/v1/invoices
+GET /api/v1/baas/invoices
 ```
 
 **Query Parameters:**
@@ -444,13 +444,13 @@ GET /api/baas/v1/invoices
 ### Get Invoice
 
 ```http
-GET /api/baas/v1/invoices/:id
+GET /api/v1/baas/invoices/:id
 ```
 
 ### Create Invoice
 
 ```http
-POST /api/baas/v1/invoices
+POST /api/v1/baas/invoices
 ```
 
 **Request Body:**
@@ -478,7 +478,7 @@ POST /api/baas/v1/invoices
 ### Update Invoice
 
 ```http
-PATCH /api/baas/v1/invoices/:id
+PATCH /api/v1/baas/invoices/:id
 ```
 
 **Note:** Only draft invoices can be updated.
@@ -486,7 +486,7 @@ PATCH /api/baas/v1/invoices/:id
 ### Delete Invoice
 
 ```http
-DELETE /api/baas/v1/invoices/:id
+DELETE /api/v1/baas/invoices/:id
 ```
 
 **Note:** Only draft invoices can be deleted.
@@ -494,7 +494,7 @@ DELETE /api/baas/v1/invoices/:id
 ### Finalize Invoice
 
 ```http
-POST /api/baas/v1/invoices/:id/finalize
+POST /api/v1/baas/invoices/:id/finalize
 ```
 
 Transitions invoice from draft to open and assigns an invoice number.
@@ -502,7 +502,7 @@ Transitions invoice from draft to open and assigns an invoice number.
 ### Pay Invoice
 
 ```http
-POST /api/baas/v1/invoices/:id/pay
+POST /api/v1/baas/invoices/:id/pay
 ```
 
 **Request Body:**
@@ -515,7 +515,7 @@ POST /api/baas/v1/invoices/:id/pay
 ### Void Invoice
 
 ```http
-POST /api/baas/v1/invoices/:id/void
+POST /api/v1/baas/invoices/:id/void
 ```
 
 **Request Body:**
@@ -528,7 +528,7 @@ POST /api/baas/v1/invoices/:id/void
 ### Add Line Item
 
 ```http
-POST /api/baas/v1/invoices/:id/line_items
+POST /api/v1/baas/invoices/:id/line_items
 ```
 
 **Request Body:**
@@ -544,7 +544,7 @@ POST /api/baas/v1/invoices/:id/line_items
 ### Remove Line Item
 
 ```http
-DELETE /api/baas/v1/invoices/:id/line_items/:item_id
+DELETE /api/v1/baas/invoices/:id/line_items/:item_id
 ```
 
 ---
@@ -554,7 +554,7 @@ DELETE /api/baas/v1/invoices/:id/line_items/:item_id
 ### Record Usage Event
 
 ```http
-POST /api/baas/v1/usage_events
+POST /api/v1/baas/usage_events
 ```
 
 **Request Body:**
@@ -594,7 +594,7 @@ POST /api/baas/v1/usage_events
 ### Batch Record Usage
 
 ```http
-POST /api/baas/v1/usage_events/batch
+POST /api/v1/baas/usage_events/batch
 ```
 
 **Request Body:**
@@ -634,7 +634,7 @@ POST /api/baas/v1/usage_events/batch
 ### List Usage Records
 
 ```http
-GET /api/baas/v1/usage
+GET /api/v1/baas/usage
 ```
 
 **Query Parameters:**
@@ -651,7 +651,7 @@ GET /api/baas/v1/usage
 ### Get Usage Summary
 
 ```http
-GET /api/baas/v1/usage/summary
+GET /api/v1/baas/usage/summary
 ```
 
 **Required Parameters:**
@@ -691,7 +691,7 @@ GET /api/baas/v1/usage/summary
 ### Get Aggregated Usage
 
 ```http
-GET /api/baas/v1/usage/aggregate
+GET /api/v1/baas/usage/aggregate
 ```
 
 **Required Parameters:**
@@ -705,7 +705,7 @@ GET /api/baas/v1/usage/aggregate
 ### Get Usage Analytics
 
 ```http
-GET /api/baas/v1/usage/analytics
+GET /api/v1/baas/usage/analytics
 ```
 
 **Optional Parameters:**
@@ -854,4 +854,4 @@ X-Webhook-Signature: sha256=abc123...
 
 **Document Status**: Complete
 **Last Updated**: 2025-01-30
-**Source**: `server/app/controllers/api/baas/v1/`
+**Source**: `server/app/controllers/api/v1/baas/`

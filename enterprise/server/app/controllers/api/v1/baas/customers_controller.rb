@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
 module Api
-  module BaaS
-    module V1
-      class CustomersController < Api::BaaS::BaseController
+  module V1
+    module BaaS
+      class CustomersController < Api::V1::BaaS::BaseController
         before_action :require_customers_scope
 
-        # GET /api/baas/v1/customers
+        # GET /api/v1/baas/customers
         def index
           service = ::BaaS::BillingApiService.new(tenant: current_tenant)
           result = service.list_customers(
@@ -23,7 +23,7 @@ module Api
           end
         end
 
-        # GET /api/baas/v1/customers/:id
+        # GET /api/v1/baas/customers/:id
         def show
           service = ::BaaS::BillingApiService.new(tenant: current_tenant)
           result = service.get_customer(params[:id])
@@ -35,7 +35,7 @@ module Api
           end
         end
 
-        # POST /api/baas/v1/customers
+        # POST /api/v1/baas/customers
         def create
           service = ::BaaS::BillingApiService.new(tenant: current_tenant)
           result = service.create_customer(customer_params)
@@ -47,7 +47,7 @@ module Api
           end
         end
 
-        # PATCH /api/baas/v1/customers/:id
+        # PATCH /api/v1/baas/customers/:id
         def update
           service = ::BaaS::BillingApiService.new(tenant: current_tenant)
           result = service.update_customer(params[:id], customer_params)
@@ -59,7 +59,7 @@ module Api
           end
         end
 
-        # DELETE /api/baas/v1/customers/:id
+        # DELETE /api/v1/baas/customers/:id
         def destroy
           customer = current_tenant.customers.find_by(external_id: params[:id])
           return render_error("Customer not found", status: :not_found) unless customer

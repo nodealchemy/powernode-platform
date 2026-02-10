@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
 module Api
-  module BaaS
-    module V1
-      class UsageController < Api::BaaS::BaseController
+  module V1
+    module BaaS
+      class UsageController < Api::V1::BaaS::BaseController
         before_action :require_usage_scope
 
-        # POST /api/baas/v1/usage_events
+        # POST /api/v1/baas/usage_events
         def create
           service = ::BaaS::UsageMeteringService.new(tenant: current_tenant)
           result = service.record_usage(usage_params)
@@ -19,7 +19,7 @@ module Api
           end
         end
 
-        # POST /api/baas/v1/usage_events/batch
+        # POST /api/v1/baas/usage_events/batch
         def batch
           events = params[:events]
           return render_error("Events array required") unless events.is_a?(Array)
@@ -39,7 +39,7 @@ module Api
           )
         end
 
-        # GET /api/baas/v1/usage
+        # GET /api/v1/baas/usage
         def index
           service = ::BaaS::UsageMeteringService.new(tenant: current_tenant)
           result = service.list_records(
@@ -59,7 +59,7 @@ module Api
           end
         end
 
-        # GET /api/baas/v1/usage/summary
+        # GET /api/v1/baas/usage/summary
         def summary
           return render_error("customer_id required") unless params[:customer_id].present?
 
@@ -77,7 +77,7 @@ module Api
           end
         end
 
-        # GET /api/baas/v1/usage/aggregate
+        # GET /api/v1/baas/usage/aggregate
         def aggregate
           return render_error("customer_id required") unless params[:customer_id].present?
           return render_error("meter_id required") unless params[:meter_id].present?
@@ -97,7 +97,7 @@ module Api
           end
         end
 
-        # GET /api/baas/v1/usage/analytics
+        # GET /api/v1/baas/usage/analytics
         def analytics
           service = ::BaaS::UsageMeteringService.new(tenant: current_tenant)
           result = service.analytics(

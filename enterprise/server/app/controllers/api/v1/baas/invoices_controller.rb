@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
 module Api
-  module BaaS
-    module V1
-      class InvoicesController < Api::BaaS::BaseController
+  module V1
+    module BaaS
+      class InvoicesController < Api::V1::BaaS::BaseController
         before_action :require_invoices_scope
 
-        # GET /api/baas/v1/invoices
+        # GET /api/v1/baas/invoices
         def index
           service = ::BaaS::BillingApiService.new(tenant: current_tenant)
           result = service.list_invoices(
@@ -23,7 +23,7 @@ module Api
           end
         end
 
-        # GET /api/baas/v1/invoices/:id
+        # GET /api/v1/baas/invoices/:id
         def show
           service = ::BaaS::BillingApiService.new(tenant: current_tenant)
           result = service.get_invoice(params[:id])
@@ -35,7 +35,7 @@ module Api
           end
         end
 
-        # POST /api/baas/v1/invoices
+        # POST /api/v1/baas/invoices
         def create
           service = ::BaaS::BillingApiService.new(tenant: current_tenant)
           result = service.create_invoice(invoice_params)
@@ -47,7 +47,7 @@ module Api
           end
         end
 
-        # PATCH /api/baas/v1/invoices/:id
+        # PATCH /api/v1/baas/invoices/:id
         def update
           invoice = current_tenant.invoices.find_by(external_id: params[:id])
           return render_error("Invoice not found", status: :not_found) unless invoice
@@ -60,7 +60,7 @@ module Api
           end
         end
 
-        # DELETE /api/baas/v1/invoices/:id
+        # DELETE /api/v1/baas/invoices/:id
         def destroy
           invoice = current_tenant.invoices.find_by(external_id: params[:id])
           return render_error("Invoice not found", status: :not_found) unless invoice
@@ -70,7 +70,7 @@ module Api
           head :no_content
         end
 
-        # POST /api/baas/v1/invoices/:id/finalize
+        # POST /api/v1/baas/invoices/:id/finalize
         def finalize
           service = ::BaaS::BillingApiService.new(tenant: current_tenant)
           result = service.finalize_invoice(params[:id])
@@ -82,7 +82,7 @@ module Api
           end
         end
 
-        # POST /api/baas/v1/invoices/:id/pay
+        # POST /api/v1/baas/invoices/:id/pay
         def pay
           service = ::BaaS::BillingApiService.new(tenant: current_tenant)
           result = service.pay_invoice(params[:id], payment_params)
@@ -94,7 +94,7 @@ module Api
           end
         end
 
-        # POST /api/baas/v1/invoices/:id/void
+        # POST /api/v1/baas/invoices/:id/void
         def void
           service = ::BaaS::BillingApiService.new(tenant: current_tenant)
           result = service.void_invoice(params[:id], void_params)
@@ -106,7 +106,7 @@ module Api
           end
         end
 
-        # POST /api/baas/v1/invoices/:id/line_items
+        # POST /api/v1/baas/invoices/:id/line_items
         def add_line_item
           invoice = current_tenant.invoices.find_by(external_id: params[:id])
           return render_error("Invoice not found", status: :not_found) unless invoice
@@ -122,7 +122,7 @@ module Api
           render_success(item, message: "Line item added")
         end
 
-        # DELETE /api/baas/v1/invoices/:id/line_items/:item_id
+        # DELETE /api/v1/baas/invoices/:id/line_items/:item_id
         def remove_line_item
           invoice = current_tenant.invoices.find_by(external_id: params[:id])
           return render_error("Invoice not found", status: :not_found) unless invoice

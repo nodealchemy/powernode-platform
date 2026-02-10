@@ -21,15 +21,9 @@ module PowernodeEnterprise
       end
     end
 
-    # Append enterprise routes to the main application
-    initializer "powernode_enterprise.routes" do |app|
-      routes_file = root.join("config", "routes.rb")
-      if routes_file.exist?
-        app.routes.append do
-          instance_eval(File.read(routes_file))
-        end
-      end
-    end
+    # Enterprise routes are loaded automatically by Rails::Engine via
+    # the add_routing_paths initializer (config/routes.rb is auto-discovered).
+    # The routes file uses Rails.application.routes.draw to register routes.
 
     # Add enterprise migrations to the application migration paths
     initializer "powernode_enterprise.migrations" do |app|

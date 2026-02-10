@@ -1,18 +1,18 @@
 # frozen_string_literal: true
 
 module Api
-  module BaaS
-    module V1
-      class TenantsController < Api::BaaS::BaseController
+  module V1
+    module BaaS
+      class TenantsController < Api::V1::BaaS::BaseController
         skip_before_action :authenticate_baas_request!, only: [ :create ]
         before_action :authenticate_internal!, only: [ :create ]
 
-        # GET /api/baas/v1/tenant
+        # GET /api/v1/baas/tenant
         def show
           render_success(data: current_tenant.summary)
         end
 
-        # POST /api/baas/v1/tenant (internal use - create tenant)
+        # POST /api/v1/baas/tenant (internal use - create tenant)
         def create
           service = ::BaaS::TenantService.new(account: @current_account)
           result = service.create_tenant(tenant_params)
@@ -24,7 +24,7 @@ module Api
           end
         end
 
-        # PATCH /api/baas/v1/tenant
+        # PATCH /api/v1/baas/tenant
         def update
           service = ::BaaS::TenantService.new(tenant: current_tenant)
           result = service.update_tenant(tenant_params)
@@ -36,7 +36,7 @@ module Api
           end
         end
 
-        # GET /api/baas/v1/tenant/dashboard
+        # GET /api/v1/baas/tenant/dashboard
         def dashboard
           service = ::BaaS::TenantService.new(tenant: current_tenant)
           result = service.dashboard_stats
@@ -48,19 +48,19 @@ module Api
           end
         end
 
-        # GET /api/baas/v1/tenant/limits
+        # GET /api/v1/baas/tenant/limits
         def limits
           service = ::BaaS::TenantService.new(tenant: current_tenant)
           render_success(data: service.check_rate_limits)
         end
 
-        # GET /api/baas/v1/tenant/billing_configuration
+        # GET /api/v1/baas/tenant/billing_configuration
         def billing_configuration
           config = current_tenant.billing_configuration
           render_success(data: config&.settings_summary)
         end
 
-        # PATCH /api/baas/v1/tenant/billing_configuration
+        # PATCH /api/v1/baas/tenant/billing_configuration
         def update_billing_configuration
           config = current_tenant.billing_configuration
 

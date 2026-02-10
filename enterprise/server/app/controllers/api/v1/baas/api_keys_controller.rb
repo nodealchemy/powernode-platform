@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
 module Api
-  module BaaS
-    module V1
-      class ApiKeysController < Api::BaaS::BaseController
+  module V1
+    module BaaS
+      class ApiKeysController < Api::V1::BaaS::BaseController
         before_action :require_api_keys_scope, except: [ :index ]
 
-        # GET /api/baas/v1/api_keys
+        # GET /api/v1/baas/api_keys
         def index
           service = ::BaaS::ApiKeyService.new(tenant: current_tenant)
           result = service.list_keys(
@@ -22,7 +22,7 @@ module Api
           end
         end
 
-        # GET /api/baas/v1/api_keys/:id
+        # GET /api/v1/baas/api_keys/:id
         def show
           service = ::BaaS::ApiKeyService.new(tenant: current_tenant)
           result = service.get_key(params[:id])
@@ -34,7 +34,7 @@ module Api
           end
         end
 
-        # POST /api/baas/v1/api_keys
+        # POST /api/v1/baas/api_keys
         def create
           service = ::BaaS::ApiKeyService.new(tenant: current_tenant)
           result = service.create_key(api_key_params)
@@ -51,7 +51,7 @@ module Api
           end
         end
 
-        # PATCH /api/baas/v1/api_keys/:id
+        # PATCH /api/v1/baas/api_keys/:id
         def update
           service = ::BaaS::ApiKeyService.new(tenant: current_tenant)
           result = service.update_key(params[:id], api_key_params)
@@ -63,7 +63,7 @@ module Api
           end
         end
 
-        # DELETE /api/baas/v1/api_keys/:id
+        # DELETE /api/v1/baas/api_keys/:id
         def destroy
           service = ::BaaS::ApiKeyService.new(tenant: current_tenant)
           result = service.revoke_key(params[:id])
@@ -75,7 +75,7 @@ module Api
           end
         end
 
-        # POST /api/baas/v1/api_keys/:id/roll
+        # POST /api/v1/baas/api_keys/:id/roll
         def roll
           service = ::BaaS::ApiKeyService.new(tenant: current_tenant)
           result = service.roll_key(params[:id])

@@ -13,7 +13,7 @@ import type {
   PaginationMeta,
 } from '../types';
 
-const BASE_URL = '/api/baas/v1';
+const BASE_URL = '/api/v1/baas';
 
 interface PaginatedResponse<T> {
   data: T[];

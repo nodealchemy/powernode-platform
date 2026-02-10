@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
 module Api
-  module BaaS
-    module V1
-      class SubscriptionsController < Api::BaaS::BaseController
+  module V1
+    module BaaS
+      class SubscriptionsController < Api::V1::BaaS::BaseController
         before_action :require_subscriptions_scope
 
-        # GET /api/baas/v1/subscriptions
+        # GET /api/v1/baas/subscriptions
         def index
           service = ::BaaS::BillingApiService.new(tenant: current_tenant)
           result = service.list_subscriptions(
@@ -23,7 +23,7 @@ module Api
           end
         end
 
-        # GET /api/baas/v1/subscriptions/:id
+        # GET /api/v1/baas/subscriptions/:id
         def show
           service = ::BaaS::BillingApiService.new(tenant: current_tenant)
           result = service.get_subscription(params[:id])
@@ -35,7 +35,7 @@ module Api
           end
         end
 
-        # POST /api/baas/v1/subscriptions
+        # POST /api/v1/baas/subscriptions
         def create
           service = ::BaaS::BillingApiService.new(tenant: current_tenant)
           result = service.create_subscription(subscription_params)
@@ -47,7 +47,7 @@ module Api
           end
         end
 
-        # PATCH /api/baas/v1/subscriptions/:id
+        # PATCH /api/v1/baas/subscriptions/:id
         def update
           service = ::BaaS::BillingApiService.new(tenant: current_tenant)
           result = service.update_subscription(params[:id], subscription_params)
@@ -59,7 +59,7 @@ module Api
           end
         end
 
-        # POST /api/baas/v1/subscriptions/:id/cancel
+        # POST /api/v1/baas/subscriptions/:id/cancel
         def cancel
           service = ::BaaS::BillingApiService.new(tenant: current_tenant)
           result = service.cancel_subscription(params[:id], cancel_params)
@@ -71,7 +71,7 @@ module Api
           end
         end
 
-        # POST /api/baas/v1/subscriptions/:id/pause
+        # POST /api/v1/baas/subscriptions/:id/pause
         def pause
           subscription = current_tenant.subscriptions.find_by(external_id: params[:id])
           return render_error("Subscription not found", status: :not_found) unless subscription
@@ -83,7 +83,7 @@ module Api
           end
         end
 
-        # POST /api/baas/v1/subscriptions/:id/resume
+        # POST /api/v1/baas/subscriptions/:id/resume
         def resume
           subscription = current_tenant.subscriptions.find_by(external_id: params[:id])
           return render_error("Subscription not found", status: :not_found) unless subscription

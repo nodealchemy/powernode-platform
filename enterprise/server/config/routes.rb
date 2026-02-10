@@ -1,17 +1,16 @@
 # frozen_string_literal: true
 
-# Enterprise routes - appended to the main application router by the engine.
-# These routes are evaluated in the main app context (same namespace structure).
-#
-# Routes defined here are only available when the enterprise engine is loaded.
+# Enterprise routes - loaded automatically by the Rails::Engine add_routing_paths
+# initializer. Routes defined here are only available when the enterprise engine is loaded.
 
-# API Routes
-namespace :api do
-  # =========================================================================
-  # BaaS API - Billing-as-a-Service for external customers
-  # =========================================================================
-  namespace :baas do
+Rails.application.routes.draw do
+  # API Routes
+  namespace :api do
     namespace :v1 do
+    # =========================================================================
+    # BaaS API - Billing-as-a-Service for external customers
+    # =========================================================================
+    namespace :baas do
       # Tenant management
       resource :tenant, only: [ :show, :create, :update ], controller: "tenants" do
         get :dashboard
@@ -63,9 +62,6 @@ namespace :api do
       get "usage/aggregate", to: "usage#aggregate"
       get "usage/analytics", to: "usage#analytics"
     end
-  end
-
-  namespace :v1 do
     # =========================================================================
     # Billing & Payments (moved from core)
     # =========================================================================
@@ -365,4 +361,5 @@ namespace :api do
       end
     end
   end
+end
 end
