@@ -8,7 +8,6 @@ import {
   ClockIcon,
 } from '@heroicons/react/24/outline';
 import { statusApi, SystemStatus, StatusHistory } from '@/features/system/status';
-import { PublicFooter } from '@/features/business/plans/components/plan-selection/PublicFooter';
 
 const STATUS_ICONS: Record<string, React.ElementType> = {
   operational: CheckCircleIcon,
@@ -334,8 +333,6 @@ export const StatusPage: React.FC = () => {
         </div>
       </main>
 
-      {/* Full Footer */}
-      <PublicFooter />
     </div>
   );
 };

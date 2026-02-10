@@ -1,17 +1,13 @@
-import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import React, { useCallback, Suspense } from 'react';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
-import { plansApi } from '@/features/business/plans/services/plansApi';
-import { paymentGatewaysApi } from '@/features/business/payment-gateways/services/paymentGatewaysApi';
 import { DashboardLayout } from '@/shared/components/layout/DashboardLayout';
 import { MetricCard } from '@/shared/components/ui/Card';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { featureRegistry } from '@/shared/services/featureRegistry';
 
 // Import all dashboard pages
-import { ReportsPage } from './business/ReportsPage';
-import { PlansPage } from './business/PlansPage';
 import { ProfilePage } from './account/ProfilePage';
 import { PagesPage } from './content/PagesPage';
 import KnowledgeBasePage from './content/KnowledgeBasePage';
@@ -24,15 +20,9 @@ import { AuditLogsPage } from './system/AuditLogsPage';
 import PrivacyDashboardPage from './privacy/PrivacyDashboardPage';
 import { ApiKeysPage } from './devops/ApiKeysPage';
 import { NotificationsPage } from './account/NotificationsPage';
-import { MetricsPage } from './business/MetricsPage';
-import { AnalyticsPage } from './business/AnalyticsPage';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
-import { BarChart3, Users, CreditCard } from 'lucide-react';
+import { BarChart3, Users } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
-
-// Import individual pages directly (no more management page groupings)
-import { CustomersPage } from './business/CustomersPage';
-import { BillingPage } from './business/BillingPage';
 
 // Import system pages
 import WebhookManagementPage from '@/pages/app/devops/WebhooksPage';
@@ -174,14 +164,9 @@ import {
 const DashboardOverview: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);
-  const [hasPlans, setHasPlans] = useState(false);
-  const [hasPaymentGateways, setHasPaymentGateways] = useState(false);
-  const [loading, setLoading] = useState(true);
-
   // Handle websocket data updates
   const handleDataUpdate = useCallback(() => {
     // Refresh data when receiving real-time updates
-    // Could trigger a re-fetch of metrics here
   }, []);
 
   // WebSocket connection for real-time dashboard updates
@@ -193,101 +178,29 @@ const DashboardOverview: React.FC = () => {
     onNotification: handleDataUpdate
   });
 
-  useEffect(() => {
-    let mounted = true; // Track if component is still mounted
-    
-    const checkSetupStatus = async () => {
-      try {
-        // Check plans status using dedicated endpoint (counts all plans regardless of permissions)
-        let hasPlansConfigured = false;
-        try {
-          const statusResponse = await plansApi.getStatus();
-          hasPlansConfigured = statusResponse.data?.has_plans ?? statusResponse.data?.total_count > 0;
-        } catch (_error) {
-          // Fallback to checking public plans if status endpoint fails
-          try {
-            const publicPlansResponse = await plansApi.getPublicPlans();
-            hasPlansConfigured = (publicPlansResponse.data?.plans?.length ?? 0) > 0;
-          } catch (_error) {
-            hasPlansConfigured = false;
-          }
-        }
-
-        // Check payment gateway status (requires admin.settings.payment permission)
-        let hasConfiguredGateways = false;
-        try {
-          const gatewaysOverview = await paymentGatewaysApi.getOverview();
-          // Consider gateways configured if either Stripe or PayPal is connected/configured
-          const stripeConfigured = gatewaysOverview.gateways.stripe.enabled &&
-            ['connected', 'configured'].includes(gatewaysOverview.status.stripe.status);
-          const paypalConfigured = gatewaysOverview.gateways.paypal.enabled &&
-            ['connected', 'configured'].includes(gatewaysOverview.status.paypal.status);
-          hasConfiguredGateways = stripeConfigured || paypalConfigured;
-        } catch (_error) {
-          // If user doesn't have permission or API fails, assume no gateways configured
-          hasConfiguredGateways = false;
-        }
-
-        // Only update state if component is still mounted
-        if (mounted) {
-          setHasPlans(hasPlansConfigured);
-          setHasPaymentGateways(hasConfiguredGateways);
-        }
-      } catch (_error) {
-        if (mounted) {
-          // Assume no setup on error
-          setHasPlans(false);
-          setHasPaymentGateways(false);
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-    
-    // Run check on mount
-    checkSetupStatus();
-
-    // Cleanup function to prevent state updates on unmounted component
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
   // Calculate completion status
   const completedTasks = [
     true, // Account created (always true if user is logged in)
-    user?.email_verified || false, // Email verification (check actual status)
-    hasPlans, // Plans setup
-    hasPaymentGateways // Payment gateways configured
+    user?.email_verified || false, // Email verification
   ];
   const completedCount = completedTasks.filter(Boolean).length;
   const totalTasks = completedTasks.length;
-  
+
   const pageActions: PageAction[] = [
     {
-      id: 'analytics',
-      label: 'Analytics',
-      onClick: () => navigate('/app/business/analytics'),
+      id: 'ai-overview',
+      label: 'AI Overview',
+      onClick: () => navigate('/app/ai'),
       variant: 'secondary',
       icon: BarChart3
     },
     {
-      id: 'customers',
-      label: 'Customers',
-      onClick: () => navigate('/app/business/customers'),
+      id: 'devops',
+      label: 'DevOps',
+      onClick: () => navigate('/app/devops'),
       variant: 'secondary',
       icon: Users
-    },
-    // Only show Payment Setup button if payment setup is required
-    ...((!hasPaymentGateways && !loading) ? [{
-      id: 'payment-gateways',
-      label: 'Payment Setup',
-      onClick: () => navigate('/app/admin/settings/payment-gateways'),
-      variant: 'secondary' as const,
-      icon: CreditCard
-    }] : [])
+    }
   ];
 
   const breadcrumbs = [
@@ -306,32 +219,31 @@ const DashboardOverview: React.FC = () => {
         {/* Key Metrics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <MetricCard
-            title="Total Revenue"
-            value="$0.00"
-            icon="💰"
-            change={0}
-            description="Revenue from all subscriptions"
-          />
-
-          <MetricCard
-            title="Active Subscriptions"
-            value={0}
-            icon="📊"
-            description="Ready to grow"
-          />
-
-          <MetricCard
-            title="Monthly Growth"
-            value="0%"
-            icon="📈"
-            description="Start your journey"
-          />
-
-          <MetricCard
             title="System Health"
             value="100%"
             icon="✅"
             description="All systems operational"
+          />
+
+          <MetricCard
+            title="AI Agents"
+            value={0}
+            icon="🤖"
+            description="Configure AI agents"
+          />
+
+          <MetricCard
+            title="Pipelines"
+            value={0}
+            icon="🔄"
+            description="Set up CI/CD pipelines"
+          />
+
+          <MetricCard
+            title="Repositories"
+            value={0}
+            icon="📦"
+            description="Connect your repos"
           />
         </div>
 
@@ -343,7 +255,7 @@ const DashboardOverview: React.FC = () => {
               Getting Started
             </h3>
             <span className="bg-theme-info text-theme-on-primary px-3 py-1 rounded-full text-xs font-medium bg-opacity-10 text-theme-info">
-              {loading ? 'Loading...' : `${completedCount} of ${totalTasks} complete`}
+              {`${completedCount} of ${totalTasks} complete`}
             </span>
           </div>
           
@@ -392,65 +304,7 @@ const DashboardOverview: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-start space-x-3">
-              <div className="flex-shrink-0 mt-1">
-                <div className={`h-5 w-5 rounded-full flex items-center justify-center ${
-                  hasPlans ? 'bg-theme-success' : 'bg-theme-warning'
-                }`}>
-                  <span className="text-white text-xs">
-                    {hasPlans ? '✓' : '!'}
-                  </span>
-                </div>
-              </div>
-              <div className="flex-1">
-                <p className={`text-sm font-medium ${hasPlans ? 'text-theme-primary' : 'text-theme-primary'}`}>
-                  {hasPlans ? 'Subscription plans configured' : 'Set up your first subscription plan'}
-                </p>
-                <p className="text-xs text-theme-tertiary mt-1">
-                  {hasPlans ? 'You have plans ready for customers' : 'Create plans to start accepting payments'}
-                </p>
-                {!hasPlans && (
-                  <Button 
-                    onClick={() => navigate('/app/business/plans')}
-                    variant="primary"
-                    size="xs"
-                    className="mt-2"
-                  >
-                    Create Plan
-                  </Button>
-                )}
-              </div>
-            </div>
 
-            <div className="flex items-start space-x-3">
-              <div className="flex-shrink-0 mt-1">
-                <div className={`h-5 w-5 rounded-full flex items-center justify-center ${
-                  hasPaymentGateways ? 'bg-theme-success' : 'bg-theme-warning'
-                }`}>
-                  <span className="text-white text-xs">
-                    {hasPaymentGateways ? '✓' : '!'}
-                  </span>
-                </div>
-              </div>
-              <div className="flex-1">
-                <p className={`text-sm font-medium ${hasPaymentGateways ? 'text-theme-primary' : 'text-theme-primary'}`}>
-                  {hasPaymentGateways ? 'Payment gateways configured' : 'Configure payment methods'}
-                </p>
-                <p className="text-xs text-theme-tertiary mt-1">
-                  {hasPaymentGateways ? 'Stripe or PayPal is ready for payments' : 'Set up Stripe or PayPal integration'}
-                </p>
-                {!hasPaymentGateways && (
-                  <Button 
-                    onClick={() => navigate('/app/admin/settings/payment-gateways')}
-                    variant="primary"
-                    size="xs"
-                    className="mt-2"
-                  >
-                    Configure Payments
-                  </Button>
-                )}
-              </div>
-            </div>
           </div>
         </div>
 
@@ -461,55 +315,52 @@ const DashboardOverview: React.FC = () => {
           </h3>
           
           <div className="grid grid-cols-1 gap-3">
-            <Button 
-              onClick={() => navigate('/app/business/customers')}
+            <Button
+              onClick={() => navigate('/app/ai')}
               variant="secondary"
               className="flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover w-full"
             >
               <div className="flex items-center space-x-3">
-                <span className="text-2xl">👥</span>
+                <span className="text-2xl">🤖</span>
                 <div className="text-left">
-                  <p className="font-medium text-theme-primary">Manage Customers</p>
-                  <p className="text-xs text-theme-tertiary">View and organize your customer base</p>
+                  <p className="font-medium text-theme-primary">AI Workflows</p>
+                  <p className="text-xs text-theme-tertiary">Manage AI agents and workflows</p>
                 </div>
               </div>
               <span className="text-theme-tertiary">→</span>
             </Button>
 
-            <Button 
-              onClick={() => navigate('/app/business/analytics')}
+            <Button
+              onClick={() => navigate('/app/devops')}
               variant="secondary"
               className="flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover w-full"
             >
               <div className="flex items-center space-x-3">
-                <span className="text-2xl">📊</span>
+                <span className="text-2xl">🔧</span>
                 <div className="text-left">
-                  <p className="font-medium text-theme-primary">View Analytics</p>
-                  <p className="text-xs text-theme-tertiary">Track revenue and growth metrics</p>
+                  <p className="font-medium text-theme-primary">DevOps</p>
+                  <p className="text-xs text-theme-tertiary">Pipelines, containers, and infrastructure</p>
                 </div>
               </div>
               <span className="text-theme-tertiary">→</span>
             </Button>
 
-            {/* Only show Payment Gateways button in Quick Actions if setup is needed */}
-            {!hasPaymentGateways && !loading && (
-              <Button 
-                onClick={() => navigate('/app/admin/settings/payment-gateways')}
-                variant="secondary"
-                className="flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover w-full"
-              >
-                <div className="flex items-center space-x-3">
-                  <span className="text-2xl">💳</span>
-                  <div className="text-left">
-                    <p className="font-medium text-theme-primary">Payment Gateways</p>
-                    <p className="text-xs text-theme-tertiary">Configure Stripe and PayPal</p>
-                  </div>
+            <Button
+              onClick={() => navigate('/app/supply-chain')}
+              variant="secondary"
+              className="flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover w-full"
+            >
+              <div className="flex items-center space-x-3">
+                <span className="text-2xl">🔗</span>
+                <div className="text-left">
+                  <p className="font-medium text-theme-primary">Supply Chain</p>
+                  <p className="text-xs text-theme-tertiary">SBOMs, attestations, and compliance</p>
                 </div>
-                <span className="text-theme-tertiary">→</span>
-              </Button>
-            )}
+              </div>
+              <span className="text-theme-tertiary">→</span>
+            </Button>
 
-            <Button 
+            <Button
               onClick={() => navigate('/app/profile')}
               variant="secondary"
               className="flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover w-full"
@@ -534,7 +385,7 @@ const DashboardOverview: React.FC = () => {
           <div>
             <h4 className="font-medium text-theme-success">Powernode Platform Ready</h4>
             <p className="text-sm text-theme-success mt-1">
-              Your subscription platform is set up and ready for configuration. Start by creating your first subscription plan!
+              Your self-hosted platform is set up and ready. Start by connecting AI providers and setting up your first workflow!
             </p>
           </div>
         </div>
@@ -556,10 +407,6 @@ const DashboardPage: React.FC = () => {
         <Route path="/notifications" element={<NotificationsPage />} />
 
         {/* Individual Pages - No More Management Page Groupings */}
-        
-        {/* Business Pages */}
-        <Route path="/business/customers" element={<CustomersPage />} />
-        <Route path="/account/billing/*" element={<BillingPage />} />
         
         {/* AI Pages - Primary navigation */}
         <Route path="/ai" element={<AIOverviewPage />} />
@@ -623,11 +470,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/content/kb/articles/:id/edit" element={<KnowledgeBaseArticleEditor />} />
         <Route path="/content/kb/admin" element={<KnowledgeBaseAdminPage />} />
         <Route path="/content/kb/manage" element={<KnowledgeBaseAdminPage />} />
-        <Route path="/business/plans/*" element={<PlansPage />} />
-        
-        
-        {/* Reports Page */}
-        <Route path="/business/reports/*" element={<ReportsPage />} />
+        {/* Business routes handled by featureRegistry (enterprise) */}
         
         {/* System Pages */}
         <Route path="/profile/*" element={<ProfilePage />} />
@@ -712,9 +555,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/supply-chain/licenses/violations" element={<LicenseViolationsPage />} />
         <Route path="/supply-chain/licenses/violations/:id" element={<LicenseViolationDetailPage />} />
 
-        {/* Business Analytics Pages */}
-        <Route path="/business/analytics/*" element={<AnalyticsPage />} />
-        <Route path="/metrics" element={<MetricsPage />} />
+        {/* Business analytics + metrics routes handled by featureRegistry (enterprise) */}
         
         {/* Marketplace Pages */}
         <Route path="/marketplace" element={<MarketplacePage />} />

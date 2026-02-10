@@ -36,10 +36,11 @@ export const defaultNavigationConfig: NavigationConfig = {
   ],
 
   sections: [
-    // Business section - core business operations (most frequently used)
+    // Business section - enterprise SaaS monetization features
     {
       id: 'business',
       name: 'Business',
+      enterpriseOnly: true,
       items: [
         {
           id: 'customers',
@@ -278,6 +279,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: CreditCard,
           description: 'Invoices and payment processing',
           permissions: ['admin.billing.read'],
+          enterpriseOnly: true,
           order: 3
         }
       ],
@@ -307,7 +309,8 @@ export const defaultNavigationConfig: NavigationConfig = {
       name: 'Billing Center',
       href: '/app/account/billing',
       icon: CreditCard,
-      description: 'Subscription and payment details'
+      description: 'Subscription and payment details',
+      enterpriseOnly: true
     },
     {
       id: 'help-support',
@@ -332,7 +335,8 @@ export const defaultNavigationConfig: NavigationConfig = {
       name: 'Create Plan',
       href: '/app/business/plans/new',
       icon: Package,
-      description: 'Set up a new subscription plan'
+      description: 'Set up a new subscription plan',
+      enterpriseOnly: true
     },
     {
       id: 'invite-team',
@@ -346,7 +350,8 @@ export const defaultNavigationConfig: NavigationConfig = {
       name: 'View Analytics',
       href: '/app/business/analytics',
       icon: BarChart3,
-      description: 'Check your latest metrics'
+      description: 'Check your latest metrics',
+      enterpriseOnly: true
     },
     {
       id: 'configure-payments',
@@ -354,7 +359,8 @@ export const defaultNavigationConfig: NavigationConfig = {
       href: '/app/admin/settings/payment-gateways',
       icon: CreditCard,
       description: 'Set up payment processing',
-      permissions: ['admin.billing.manage_gateways']
+      permissions: ['admin.billing.manage_gateways'],
+      enterpriseOnly: true
     },
     {
       id: 'create-ai-agent',

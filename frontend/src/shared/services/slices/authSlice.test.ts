@@ -13,7 +13,6 @@ import authReducer, {
 } from './authSlice';
 import { authApi } from '@/features/account/auth/services/authAPI';
 import uiReducer from './uiSlice';
-import subscriptionReducer from './subscriptionSlice';
 
 // Mock localStorage BEFORE importing anything else
 const localStorageMock = {
@@ -42,7 +41,6 @@ const mockedAuthAPI = authApi as jest.Mocked<typeof authApi>;
 type TestRootState = {
   auth: ReturnType<typeof authReducer>;
   ui: ReturnType<typeof uiReducer>;
-  subscription: ReturnType<typeof subscriptionReducer>;
 };
 
 describe('authSlice', () => {
@@ -53,7 +51,6 @@ describe('authSlice', () => {
       reducer: {
         auth: authReducer,
         ui: uiReducer,
-        subscription: subscriptionReducer,
       },
     });
     jest.clearAllMocks();

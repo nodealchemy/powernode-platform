@@ -10,12 +10,16 @@ import { AdminSettingsTabs } from '@/features/admin/components/settings/AdminSet
 
 // Import all admin settings tab pages
 import { AdminSettingsOverviewTabPage } from './AdminSettingsOverviewTabPage';
-import { AdminSettingsPaymentGatewaysTabPage } from './AdminSettingsPaymentGatewaysTabPage';
+// Payment Gateways tab - enterprise only, placeholder in core mode
+const PaymentGatewaysPlaceholder: React.FC = () =>
+  React.createElement('div', { className: 'p-8 text-center text-theme-secondary' }, 'Payment Gateways is available in Enterprise edition.');
+const AdminSettingsPaymentGatewaysTabPage = PaymentGatewaysPlaceholder;
 import { AdminSettingsEmailTabPage } from './AdminSettingsEmailTabPage';
 import { AdminSettingsSecurityTabPage } from './AdminSettingsSecurityTabPage';
 import AdminSettingsRateLimitingTabPage from './AdminSettingsRateLimitingTabPage';
 import { AdminSettingsPerformanceTabPage } from './AdminSettingsPerformanceTabPage';
 import { AdminSettingsProxyTabPage } from './AdminSettingsProxyTabPage';
+import { AdminSettingsDevelopmentTabPage } from './AdminSettingsDevelopmentTabPage';
 
 // Tab definitions for breadcrumbs
 const settingsTabs = [
@@ -25,7 +29,8 @@ const settingsTabs = [
   { id: 'proxy', label: 'Reverse Proxy', path: '/app/admin/settings/proxy', icon: '🌐' },
   { id: 'security', label: 'Security', path: '/app/admin/settings/security', icon: '🔒' },
   { id: 'rate-limiting', label: 'Rate Limiting', path: '/app/admin/settings/rate-limiting', icon: '🛡️' },
-  { id: 'performance', label: 'Performance', path: '/app/admin/settings/performance', icon: '⚡' }
+  { id: 'performance', label: 'Performance', path: '/app/admin/settings/performance', icon: '⚡' },
+  { id: 'development', label: 'Development', path: '/app/admin/settings/development', icon: '🔧' }
 ];
 
 export const AdminSettingsPage: React.FC = () => {
@@ -95,7 +100,8 @@ export const AdminSettingsPage: React.FC = () => {
           <Route path="/security" element={<AdminSettingsSecurityTabPage />} />
           <Route path="/rate-limiting" element={<AdminSettingsRateLimitingTabPage />} />
           <Route path="/performance" element={<AdminSettingsPerformanceTabPage />} />
-          
+          <Route path="/development" element={<AdminSettingsDevelopmentTabPage />} />
+
           {/* Legacy redirects */}
           <Route path="/admin/*" element={<Navigate to="/app/admin/settings" replace />} />
           

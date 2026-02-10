@@ -19,8 +19,6 @@ import { NotificationContainer } from '@/shared/components/ui/NotificationContai
 
 // Pages
 import { LoginPage } from '@/pages/public/LoginPage';
-import { RegisterPage } from '@/pages/public/RegisterPage';
-import { PlanSelectionPage } from '@/pages/public/PlanSelectionPage';
 import { DashboardPage } from '@/pages/app/DashboardPage';
 import { ForgotPasswordPage } from '@/pages/public/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/public/ResetPasswordPage';
@@ -189,15 +187,11 @@ const AppContent: React.FC = () => {
           {/* Public routes */}
           <Route
             path="/plans"
-            element={
-              <PublicRoute>
-                <PlanSelectionPage />
-              </PublicRoute>
-            }
+            element={<Navigate to="/login" replace />}
           />
           <Route
             path="/pricing"
-            element={<Navigate to="/plans" replace />}
+            element={<Navigate to="/login" replace />}
           />
           <Route
             path="/login"
@@ -209,11 +203,7 @@ const AppContent: React.FC = () => {
           />
           <Route
             path="/register"
-            element={
-              <PublicRoute>
-                <RegisterPage />
-              </PublicRoute>
-            }
+            element={<Navigate to="/login" replace />}
           />
           <Route
             path="/forgot-password"

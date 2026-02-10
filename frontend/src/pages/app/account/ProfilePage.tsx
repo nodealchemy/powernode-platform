@@ -9,7 +9,6 @@ import { WebSocketStatusIndicator } from '@/shared/components/ui/WebSocketStatus
 import { useTheme } from '@/shared/hooks/ThemeContext';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
-import { ProfileSubscriptionTab } from '@/features/business/subscriptions/components/ProfileSubscriptionTab';
 import { Save, RefreshCw } from 'lucide-react';
 
 // Type guard for settings update data
@@ -560,7 +559,9 @@ export const ProfilePage: React.FC = () => {
             </TabPanel>
 
             <TabPanel tabId="subscription" activeTab={activeTab}>
-              <ProfileSubscriptionTab loading={loading} />
+              <div className="p-8 text-center text-theme-secondary">
+                Subscription management is available in Enterprise edition.
+              </div>
             </TabPanel>
 
             <TabPanel tabId="preferences" activeTab={activeTab}>

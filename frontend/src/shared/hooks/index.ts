@@ -6,8 +6,6 @@ export { useWebSocket } from '@/shared/hooks/useWebSocket';
 export { useAnalyticsWebSocket } from '@/shared/hooks/useAnalyticsWebSocket';
 export { useCustomerWebSocket } from '@/shared/hooks/useCustomerWebSocket';
 export { useSettingsWebSocket } from '@/shared/hooks/useSettingsWebSocket';
-export { useSubscriptionLifecycle } from '@/shared/hooks/useSubscriptionLifecycle';
-export { useSubscriptionWebSocket } from '@/shared/hooks/useSubscriptionWebSocket';
 export { useMcpWebSocket } from '@/shared/hooks/useMcpWebSocket';
 export { useAiOrchestrationWebSocket } from '@/shared/hooks/useAiOrchestrationWebSocket';
 export { useAiMonitoringWebSocket } from '@/shared/hooks/useAiMonitoringWebSocket';

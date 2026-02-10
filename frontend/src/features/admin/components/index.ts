@@ -1,7 +1,3 @@
-// Admin Components
-export { PlanDiscountConfig } from './PlanDiscountConfig';
-export { PlanFormModal } from './PlanFormModal';
-
 // Dashboard Components
 export { AdminDashboard } from './AdminDashboard';
 export { AdminMetricsGrid } from './AdminMetricsGrid';

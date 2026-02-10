@@ -8,7 +8,6 @@ export { AdminSettingsEmailTabPage } from './AdminSettingsEmailTabPage';
 export { AdminSettingsSecurityTabPage } from './AdminSettingsSecurityTabPage';
 export { default as AdminSettingsRateLimitingTabPage } from './AdminSettingsRateLimitingTabPage';
 export { AdminSettingsPerformanceTabPage } from './AdminSettingsPerformanceTabPage';
-export { AdminSettingsPaymentGatewaysTabPage } from './AdminSettingsPaymentGatewaysTabPage';
 
 // Admin User Management
 export { AdminUsersPage } from './AdminUsersPage';

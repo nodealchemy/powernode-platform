@@ -82,9 +82,20 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
       config.sections = [...(config.sections || []), ...adminNavigationOverrides.sections];
     }
 
+    // Filter out enterprise-only sections when enterprise submodule is not installed
+    const enterpriseAvailable = typeof __ENTERPRISE__ !== 'undefined' && __ENTERPRISE__;
+    if (!enterpriseAvailable && config.sections) {
+      config.sections = config.sections.filter(section => !section.enterpriseOnly);
+    }
+
+    // Filter out enterprise-only top-level items
+    if (!enterpriseAvailable) {
+      config.items = config.items.filter(item => !item.enterpriseOnly);
+    }
+
     // Sort items by order
     config.items.sort((a, b) => (a.order || 99) - (b.order || 99));
-    
+
     // Sort sections by order
     if (config.sections) {
       config.sections.sort((a, b) => (a.order || 99) - (b.order || 99));

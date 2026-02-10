@@ -2,13 +2,15 @@
 
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { 
-  CreditCard, Mail, Gauge, 
-  LayoutDashboard, ShieldAlert, 
-  Network, Lock
+import {
+  CreditCard, Mail, Gauge,
+  LayoutDashboard, ShieldAlert,
+  Network, Lock, Wrench
 } from 'lucide-react';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
+
+declare const __ENTERPRISE__: boolean;
 
 interface AdminSettingsTab {
   id: string;
@@ -17,6 +19,7 @@ interface AdminSettingsTab {
   icon: React.ComponentType<any>;
   description: string;
   requiredPermissions?: string[];
+  enterpriseOnly?: boolean;
 }
 
 const adminSettingsTabs: AdminSettingsTab[] = [
@@ -75,6 +78,15 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     icon: Gauge,
     description: 'Monitor and optimize system performance',
     requiredPermissions: ['admin.settings.read'] // Basic permission for now
+  },
+  {
+    id: 'development',
+    label: 'Development',
+    href: '/app/admin/settings/development',
+    icon: Wrench,
+    description: 'Development tools and enterprise mode toggle',
+    requiredPermissions: ['admin.settings.read'],
+    enterpriseOnly: true
   }
 ];
 
@@ -87,8 +99,12 @@ export const AdminSettingsTabs: React.FC<AdminSettingsTabsProps> = ({ className 
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);
 
-  // Filter tabs based on user permissions
+  // Filter tabs based on user permissions and enterprise availability
   const availableTabs = adminSettingsTabs.filter(tab => {
+    // Hide enterprise-only tabs when enterprise submodule is not installed
+    if (tab.enterpriseOnly && (typeof __ENTERPRISE__ === 'undefined' || !__ENTERPRISE__)) {
+      return false;
+    }
     if (!tab.requiredPermissions || tab.requiredPermissions.length === 0) {
       return true; // No specific permissions required
     }

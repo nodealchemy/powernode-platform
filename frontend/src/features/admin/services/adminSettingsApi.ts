@@ -1,5 +1,19 @@
 import { api } from '@/shared/services/api';
 
+export interface DevelopmentFeatureFlag {
+  name: string;
+  enabled: boolean;
+}
+
+export interface DevelopmentInfo {
+  enterprise_installed: boolean;
+  enterprise_enabled: boolean;
+  engine_version?: string;
+  license_valid?: boolean;
+  license_edition?: string;
+  feature_flags?: DevelopmentFeatureFlag[];
+}
+
 export interface SystemMetrics {
   total_users: number;
   total_accounts: number;
@@ -486,6 +500,34 @@ class AdminSettingsApi {
       default:
         return 'gray';
     }
+  }
+
+  // Development / Enterprise Toggle
+  async getDevelopmentInfo(): Promise<{ success: boolean; data?: DevelopmentInfo; error?: string }> {
+    try {
+      const response = await api.get('/admin_settings/development');
+      const responseData = response.data;
+      if (responseData.success !== undefined) {
+        return responseData;
+      }
+      return { success: true, data: responseData };
+    } catch (error) {
+      const errorMessage =
+        error && typeof error === 'object' && 'response' in error
+          ? (error as { response?: { data?: { error?: string } } }).response?.data?.error ||
+            'Failed to fetch development info'
+          : 'Failed to fetch development info';
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  async updateDevelopmentSettings(enterpriseEnabled: boolean): Promise<{ success: boolean; data: { enterprise_enabled: boolean; message: string } }> {
+    const response = await api.put('/admin_settings/development', { enterprise_enabled: enterpriseEnabled });
+    const responseData = response.data;
+    if (responseData.success !== undefined) {
+      return responseData;
+    }
+    return { success: true, data: responseData };
   }
 
   formatRelativeTime(dateString: string): string {
