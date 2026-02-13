@@ -1,31 +1,5 @@
 # frozen_string_literal: true
 
-# Consolidated Workflows Controller - Phase 3 Controller Consolidation
-#
-# This controller consolidates 12 workflow-related controllers into a single
-# RESTful resource controller following the AI Orchestration Redesign pattern.
-#
-# Consolidates:
-# - ::Ai::WorkflowsController (workflow CRUD)
-# - ::Ai::WorkflowRunsController (execution management)
-# - ::Ai::WorkflowExecutionsController (legacy orchestration)
-# - ::Ai::WorkflowSchedulesController (scheduling)
-# - ::Ai::WorkflowTriggersController (triggers)
-# - ::Ai::WorkflowTemplatesController (templates)
-# - ::Ai::WorkflowNodeExecutionsController (node executions)
-# - WorkflowVersionsController (versioning)
-# - WorkflowAnalyticsController (analytics)
-# - WorkflowMarketplaceController (marketplace)
-# - WorkflowRecoveryController (recovery)
-# - WorkflowDryRunsController (dry runs)
-#
-# Architecture:
-# - Primary resource: Workflows
-# - Nested resources: Runs, Versions, Schedules, Node Executions
-# - Delegates to Ai::Workflows::* services for business logic
-# - Follows RESTful conventions strictly
-# - Thin controller, delegates to services
-#
 module Api
   module V1
     module Ai
@@ -37,11 +11,7 @@ module Api
         include ::Ai::ResourceFiltering
         include ::Ai::WorkflowRunActions
 
-        before_action :set_workflow, only: %i[
-          show update destroy
-          execute duplicate validate export
-          convert_to_template create_from_template convert_to_workflow
-        ]
+        before_action :set_workflow, only: %i[show update destroy execute duplicate validate export]
         before_action :set_workflow_run, only: %i[
           run_show run_update run_destroy
           run_cancel run_retry run_pause run_resume
@@ -49,10 +19,6 @@ module Api
           run_process run_broadcast run_check_timeout
         ]
         before_action :validate_permissions
-
-        # =============================================================================
-        # WORKFLOWS - PRIMARY RESOURCE CRUD
-        # =============================================================================
 
         # GET /api/v1/ai/workflows
         def index
@@ -122,10 +88,6 @@ module Api
           end
         end
 
-        # =============================================================================
-        # WORKFLOWS - CUSTOM ACTIONS
-        # =============================================================================
-
         # POST /api/v1/ai/workflows/:id/execute
         def execute
           result = execution_service.execute(
@@ -192,6 +154,7 @@ module Api
           render_success({ workflow: serialize_workflow_detail(imported_workflow) }, status: :created)
           log_audit_event("ai.workflows.import", imported_workflow)
         rescue StandardError => e
+          Rails.logger.error("#{self.class.name}##{action_name} failed: #{e.message}")
           render_error("Import failed: #{e.message}", status: :unprocessable_content)
         end
 
@@ -216,80 +179,7 @@ module Api
           render_success(statistics: stats)
         end
 
-        # =============================================================================
-        # TEMPLATES
-        # =============================================================================
-
-        # GET /api/v1/ai/workflows/templates
-        def templates
-          templates_scope = ::Ai::Workflow.templates
-                                      .where(visibility: %w[public account])
-                                      .or(::Ai::Workflow.templates.where(account_id: current_user.account_id))
-                                      .includes(:creator, :nodes)
-
-          templates_scope = templates_scope.where(template_category: params[:category]) if params[:category].present?
-          templates_scope = templates_scope.search_by_text(params[:search]) if params[:search].present?
-
-          db_templates = templates_scope.order(created_at: :desc).map { |t| serialize_template(t) }
-          builtin_templates = build_workflow_templates
-          db_ids = db_templates.map { |t| t[:id] }
-          all_templates = db_templates + builtin_templates.reject { |t| db_ids.include?(t[:id]) }
-
-          render_success(templates: all_templates)
-        end
-
-        # POST /api/v1/ai/workflows/:id/convert_to_template
-        def convert_to_template
-          result = template_service.convert_to_template(@workflow,
-                                                        category: params[:category] || "custom",
-                                                        visibility: params[:visibility] || "account")
-
-          if result.success?
-            render_success(template: serialize_template(result.workflow), message: "Workflow converted to template successfully")
-            log_audit_event("ai.workflows.convert_to_template", @workflow)
-          else
-            render_error(result.error, status: :unprocessable_content)
-          end
-        end
-
-        # POST /api/v1/ai/workflows/:id/create_from_template
-        def create_from_template
-          source = ::Ai::Workflow.find(params[:id])
-
-          unless source.is_template? && (source.visibility == "public" || source.account_id == current_user.account_id)
-            return render_error("Template not found or not accessible", status: :not_found)
-          end
-
-          result = template_service.create_workflow_from_source(source, name: params[:name])
-
-          if result.success?
-            render_success({ workflow: serialize_workflow_detail(result.workflow), message: "Workflow created from template successfully" }, status: :created)
-            log_audit_event("ai.workflows.create_from_template", result.workflow, source_template_id: source.id)
-          else
-            render_error(result.error, status: :unprocessable_content)
-          end
-        rescue ActiveRecord::RecordNotFound
-          render_error("Template not found", status: :not_found)
-        end
-
-        # POST /api/v1/ai/workflows/:id/convert_to_workflow
-        def convert_to_workflow
-          unless @workflow.is_template?
-            return render_error("This workflow is not a template", status: :unprocessable_content)
-          end
-
-          @workflow.update!(is_template: false, template_category: nil)
-          render_success(workflow: serialize_workflow_detail(@workflow), message: "Template converted to workflow successfully")
-          log_audit_event("ai.workflows.convert_to_workflow", @workflow)
-        rescue ActiveRecord::RecordInvalid => e
-          render_validation_error(e.record.errors)
-        end
-
         private
-
-        # =============================================================================
-        # SERVICE ACCESSORS
-        # =============================================================================
 
         def execution_service
           @execution_service ||= ::Ai::Workflows::ExecutionService.new(
@@ -302,16 +192,6 @@ module Api
             workflow: @workflow_run.workflow, user: current_user || current_worker, account: @workflow_run.account
           )
         end
-
-        def template_service
-          @template_service ||= ::Ai::Workflows::TemplateService.new(
-            account: current_user.account, user: current_user
-          )
-        end
-
-        # =============================================================================
-        # RESOURCE LOADING
-        # =============================================================================
 
         def set_workflow
           @workflow = current_user.account.ai_workflows
@@ -351,32 +231,23 @@ module Api
           end
         end
 
-        # =============================================================================
-        # AUTHORIZATION
-        # =============================================================================
-
         def validate_permissions
           return if current_worker || current_service
 
           permission_map = {
-            %w[index show statistics templates] => "ai.workflows.read",
+            %w[index show statistics] => "ai.workflows.read",
             %w[runs_index run_show run_logs run_node_executions run_metrics run_download runs_lookup] => "ai.workflows.read",
             %w[create import duplicate] => "ai.workflows.create",
             %w[update validate run_update run_update_direct run_check_timeout] => "ai.workflows.update",
             %w[destroy run_destroy runs_destroy_all] => "ai.workflows.delete",
             %w[execute run_cancel run_retry run_pause run_resume run_process run_broadcast] => "ai.workflows.execute",
-            %w[export] => "ai.workflows.export",
-            %w[convert_to_template create_from_template convert_to_workflow] => "ai.workflows.update"
+            %w[export] => "ai.workflows.export"
           }
 
           permission_map.each do |actions, permission|
             return require_permission(permission) if actions.include?(action_name)
           end
         end
-
-        # =============================================================================
-        # PARAMETER HANDLING
-        # =============================================================================
 
         def workflow_params
           params.require(:workflow).permit(
@@ -387,53 +258,29 @@ module Api
           )
         end
 
-        # Normalize workflow params to handle frontend/backend status mapping
-        # and move configuration-related params into the configuration hash
         def normalized_workflow_params
           permitted = workflow_params.to_h
 
-          # Map frontend status values to backend model values
-          # Frontend uses: draft, published
-          # Backend uses: draft, active, paused, inactive, archived
           if permitted[:status].present?
-            status_mapping = {
-              "published" => "active",
-              "enabled" => "active",
-              "disabled" => "inactive"
-            }
+            status_mapping = { "published" => "active", "enabled" => "active", "disabled" => "inactive" }
             permitted[:status] = status_mapping[permitted[:status]] || permitted[:status]
           end
 
-          # Move execution-related params into configuration hash
-          # These are sent as top-level params by frontend but stored in configuration
           config_keys = %w[execution_mode timeout_seconds max_execution_time retry_policy cost_limit]
           config_params = {}
-
           config_keys.each do |key|
             sym_key = key.to_sym
-            if permitted[sym_key].present?
-              config_params[key] = permitted.delete(sym_key)
-            end
+            config_params[key] = permitted.delete(sym_key) if permitted[sym_key].present?
           end
+          permitted[:configuration] = (permitted[:configuration] || {}).merge(config_params) if config_params.any?
 
-          # Merge into existing configuration
-          if config_params.any?
-            permitted[:configuration] = (permitted[:configuration] || {}).merge(config_params)
-          end
-
-          # Move tags into metadata (no tags column exists on ai_workflows table)
-          # Check both symbol and string keys since to_h may use either
           if permitted.key?(:tags) || permitted.key?("tags")
             tags_value = permitted.delete(:tags) || permitted.delete("tags")
-            if tags_value.present?
-              permitted[:metadata] = (permitted[:metadata] || {}).merge("tags" => tags_value)
-            end
+            permitted[:metadata] = (permitted[:metadata] || {}).merge("tags" => tags_value) if tags_value.present?
           end
 
-          # Remove trigger_types if present (not a valid column)
           permitted.delete(:trigger_types)
           permitted.delete("trigger_types")
-
           permitted
         end
 
@@ -451,10 +298,6 @@ module Api
           end
           update_params
         end
-
-        # =============================================================================
-        # HELPERS
-        # =============================================================================
 
         def workflow_sort_fields
           { "version" => "version", "creator" => "users.name" }

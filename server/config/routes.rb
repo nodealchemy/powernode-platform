@@ -1429,15 +1429,16 @@ Rails.application.routes.draw do
             post :duplicate
             get :validate
             get :export
-            post :convert_to_template
-            post :convert_to_workflow
-            post :create_from_template
+            # Template conversions → WorkflowTemplatesController
+            post :convert_to_template, to: "workflow_templates#convert_to_template"
+            post :convert_to_workflow, to: "workflow_templates#convert_to_workflow"
+            post :create_from_template, to: "workflow_templates#create_from_template"
           end
 
           collection do
             post :import
             get :statistics
-            get :templates
+            get :templates, to: "workflow_templates#templates"
           end
 
           # Nested runs (replaces workflow_runs, workflow_executions, workflow_node_executions)
@@ -1612,12 +1613,10 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
-        # 3. PROVIDERS CONTROLLER - Consolidated provider management
+        # 3. PROVIDERS - Split into providers, credentials, sync controllers
         # ===================================================================
         resources :providers do
           member do
-            post :test_connection
-            post :sync_models
             get :models
             get :usage_summary
             get :check_availability
@@ -1626,23 +1625,25 @@ Rails.application.routes.draw do
           collection do
             get :available
             get :statistics
-            post :setup_defaults
-            post :test_all
-            post :sync_all
           end
 
-          # Nested credentials (replaces ai_provider_credentials)
-          resources :credentials, controller: "providers" do
-            collection do
-              post :test_all
-            end
-
+          # Nested credentials → ProviderCredentialsController
+          resources :credentials, controller: "provider_credentials" do
             member do
-              post :test, action: :credential_test
-              post :make_default, action: :credential_make_default
-              post :rotate, action: :credential_rotate
+              post :test
+              post :make_default
+              post :rotate
             end
           end
+        end
+
+        # Provider sync operations → ProviderSyncController
+        scope :providers, controller: "provider_sync" do
+          post ":id/test_connection", action: :test_connection, as: :test_connection_provider
+          post ":id/sync_models", action: :sync_models, as: :sync_models_provider
+          post "setup_defaults", action: :setup_defaults, as: :setup_defaults_providers
+          post "test_all", action: :test_all, as: :test_all_providers
+          post "sync_all", action: :sync_all, as: :sync_all_providers
         end
 
         # ===================================================================
@@ -1713,6 +1714,7 @@ Rails.application.routes.draw do
         # ===================================================================
         # 6. ANALYTICS CONTROLLER - Consolidated analytics & reporting
         # ===================================================================
+        # Analytics dashboard → AnalyticsController
         resource :analytics, only: [] do
           get :dashboard
           get :overview
@@ -1732,28 +1734,16 @@ Rails.application.routes.draw do
           # Workflow/Agent specific analytics
           get "workflows/:workflow_id", action: :workflow_analytics
           get "agents/:agent_id", action: :agent_analytics
+        end
 
-          # Reports system (custom actions)
-          get :reports, action: :reports_index
-          post :reports, action: :report_create
-          get "reports/templates", action: :report_templates
-          get "reports/:id", action: :report_show
-          delete "reports/:id", action: :report_cancel
-          get "reports/:id/download", action: :report_download
-
-          # Reports (replaces reports_controller) - DEPRECATED nested resource
-          resources :reports, controller: "analytics" do
-            member do
-              post :generate
-              post :schedule
-              post :share
-              get :download
-            end
-
-            collection do
-              get :types
-            end
-          end
+        # Analytics reports → AnalyticsReportsController
+        scope "analytics/reports", controller: "analytics_reports" do
+          get "/", action: :reports_index
+          post "/", action: :report_create
+          get "templates", action: :report_templates
+          get "/:id", action: :report_show
+          delete "/:id", action: :report_cancel
+          get "/:id/download", action: :report_download
         end
 
         # ===================================================================
@@ -1765,53 +1755,51 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
-        # 8. MARKETPLACE CONTROLLER - Consolidated marketplace & templates
+        # 8. MARKETPLACE - Split into templates, discovery, installations
         # ===================================================================
-        # Marketplace Templates - No namespace to match controller location at Api::V1::Ai::MarketplaceController
-        # Note: Using standard RESTful action names (index, show, create, update, destroy)
-        get "marketplace/templates", controller: "marketplace", action: :index, as: :templates_index
-        get "marketplace/templates/:id", controller: "marketplace", action: :show, as: :template_show
-        post "marketplace/templates", controller: "marketplace", action: :create, as: :templates_create
-        patch "marketplace/templates/:id", controller: "marketplace", action: :update, as: :template_update
-        put "marketplace/templates/:id", controller: "marketplace", action: :update
-        delete "marketplace/templates/:id", controller: "marketplace", action: :destroy, as: :template_destroy
+        scope :marketplace do
+          # Templates CRUD → MarketplaceController
+          scope :templates, controller: "marketplace" do
+            # Collection routes (before /:id)
+            get "/", action: :index, as: :templates_index
+            post "/", action: :create, as: :templates_create
+            post "from_workflow", action: :create_from_workflow, as: :create_from_workflow
+            post "publish_workflow", action: :publish_workflow, as: :publish_workflow_template
 
-        # Template member actions
-        post "marketplace/templates/:id/install", controller: "marketplace", action: :install, as: :install_template
-        post "marketplace/templates/:id/publish", controller: "marketplace", action: :publish, as: :publish_template
-        get "marketplace/templates/:id/validate", controller: "marketplace", action: :validate_template, as: :validate_template
-        post "marketplace/templates/:id/rate", controller: "marketplace", action: :rate, as: :rate_template
-        get "marketplace/templates/:id/analytics", controller: "marketplace", action: :template_analytics, as: :template_analytics
+            # Member routes
+            get "/:id", action: :show, as: :template_show
+            patch "/:id", action: :update, as: :template_update
+            put "/:id", action: :update
+            delete "/:id", action: :destroy, as: :template_destroy
+            post "/:id/publish", action: :publish, as: :publish_template
+            get "/:id/validate", action: :validate_template, as: :validate_template
+          end
 
-        # Template collection actions
-        post "marketplace/templates/from_workflow", controller: "marketplace", action: :create_from_workflow, as: :create_from_workflow
-        post "marketplace/templates/publish_workflow", controller: "marketplace", action: :publish_workflow, as: :publish_workflow_template
-        get "marketplace/templates/featured", controller: "marketplace", action: :featured, as: :featured_templates
-        get "marketplace/templates/popular", controller: "marketplace", action: :popular, as: :popular_templates
-        get "marketplace/templates/categories", controller: "marketplace", action: :categories, as: :template_categories
-        get "marketplace/templates/tags", controller: "marketplace", action: :tags, as: :template_tags
-        get "marketplace/templates/statistics", controller: "marketplace", action: :statistics, as: :template_statistics
+          # Discovery & browsing → MarketplaceDiscoveryController
+          scope controller: "marketplace_discovery" do
+            get "discover", action: :discover
+            post "search", action: :search
+            get "recommendations", action: :recommendations
+            post "compare", action: :compare
+            get "featured", action: :featured, as: :featured_templates
+            get "popular", action: :popular, as: :popular_templates
+            get "categories", action: :categories, as: :template_categories
+            get "tags", action: :tags, as: :template_tags
+            get "statistics", action: :statistics, as: :template_statistics
+            get "templates/:id/analytics", action: :template_analytics, as: :template_analytics
+          end
 
-        # Marketplace general actions
-        get "marketplace/discover", controller: "marketplace", action: :discover
-        post "marketplace/search", controller: "marketplace", action: :search
-        get "marketplace/recommendations", controller: "marketplace", action: :recommendations
-        post "marketplace/compare", controller: "marketplace", action: :compare
-        # Short routes for featured/popular/categories/tags/statistics (without templates/ prefix)
-        get "marketplace/featured", controller: "marketplace", action: :featured
-        get "marketplace/popular", controller: "marketplace", action: :popular
-        get "marketplace/categories", controller: "marketplace", action: :categories
-        get "marketplace/tags", controller: "marketplace", action: :tags
-        get "marketplace/statistics", controller: "marketplace", action: :statistics
-
-        # Installations - Note: Controller uses custom action names (installations_index, installation_show, etc.)
-        get "marketplace/installations", controller: "marketplace", action: :installations_index, as: :installations_index
-        get "marketplace/installations/:id", controller: "marketplace", action: :installation_show, as: :installation_show
-        delete "marketplace/installations/:id", controller: "marketplace", action: :installation_destroy, as: :installation_destroy
-
-        # Updates
-        get "marketplace/updates", controller: "marketplace", action: :check_updates
-        post "marketplace/updates/apply", controller: "marketplace", action: :apply_updates
+          # Installations & updates → MarketplaceInstallationsController
+          scope controller: "marketplace_installations" do
+            get "installations", action: :installations_index, as: :installations_index
+            get "installations/:id", action: :installation_show, as: :installation_show
+            delete "installations/:id", action: :installation_destroy, as: :installation_destroy
+            post "templates/:id/install", action: :install, as: :install_template
+            post "templates/:id/rate", action: :rate, as: :rate_template
+            get "updates", action: :check_updates
+            post "updates/apply", action: :apply_updates
+          end
+        end
 
         # Publisher routes are in enterprise/server/config/routes.rb
 
@@ -1858,6 +1846,7 @@ Rails.application.routes.draw do
           post "memory/search", to: "agent_memory#search"
           post "memory/clear", to: "agent_memory#clear"
           post "memory/sync", to: "agent_memory#sync"
+          post "memory/inject", to: "agent_memory#inject"
           get "memory/:key", to: "agent_memory#show"
           patch "memory/:key", to: "agent_memory#update"
           delete "memory/:key", to: "agent_memory#destroy"
@@ -1938,92 +1927,76 @@ Rails.application.routes.draw do
         # - Pro: 10 agents, 5 teams, advanced patterns ($199/mo)
         # - Enterprise: Unlimited + custom topologies ($999/mo)
         # ===================================================================
-        scope :teams, controller: "teams" do
-          # Templates (before /:id to avoid matching "templates" as an id)
-          get "/templates", action: :list_templates
-          get "/templates/:id", action: :show_template
-          post "/templates", action: :create_template
-          post "/templates/:id/publish", action: :publish_template
+        scope :teams do
+          # Templates, Role Profiles, Trajectories, Reviews → TeamTemplatesReviewsController
+          scope controller: "team_templates_reviews" do
+            get "/templates", action: :list_templates
+            get "/templates/:id", action: :show_template
+            post "/templates", action: :create_template
+            post "/templates/:id/publish", action: :publish_template
+            get "/role_profiles", action: :list_role_profiles
+            get "/role_profiles/:id", action: :show_role_profile
+            get "/trajectories", action: :list_trajectories
+            get "/trajectories/search", action: :search_trajectories
+            get "/trajectories/:id", action: :show_trajectory
+            get "/reviews/:id", action: :show_review
+            post "/reviews/:id/process", action: :process_review
+            get "/reviews/:review_id/comments", action: :list_review_comments
+            post "/reviews/:review_id/comments", action: :create_review_comment
+            patch "/reviews/:review_id/comments/:comment_id", action: :update_review_comment
+          end
 
-          # Role Profiles (before /:id to avoid matching as team id)
-          get "/role_profiles", action: :list_role_profiles
-          get "/role_profiles/:id", action: :show_role_profile
+          # Executions, Tasks, Messages → TeamExecutionController
+          scope controller: "team_execution" do
+            get "/executions/:id", action: :show_execution
+            post "/executions/:id/pause", action: :pause_execution
+            post "/executions/:id/resume", action: :resume_execution
+            post "/executions/:id/cancel", action: :cancel_execution
+            post "/executions/:id/complete", action: :complete_execution
+            get "/executions/:id/details", action: :execution_details
+            get "/executions/:execution_id/tasks", action: :list_tasks
+            post "/executions/:execution_id/tasks", action: :create_task
+            get "/executions/:execution_id/tasks/:id", action: :show_task
+            post "/executions/:execution_id/tasks/:id/assign", action: :assign_task
+            post "/executions/:execution_id/tasks/:id/start", action: :start_task
+            post "/executions/:execution_id/tasks/:id/complete", action: :complete_task
+            post "/executions/:execution_id/tasks/:id/fail", action: :fail_task
+            post "/executions/:execution_id/tasks/:id/delegate", action: :delegate_task
+            get "/executions/:execution_id/tasks/:task_id/reviews", action: :list_task_reviews
+            get "/executions/:execution_id/messages", action: :list_messages
+            post "/executions/:execution_id/messages", action: :send_message
+            post "/executions/:execution_id/messages/:id/reply", action: :reply_to_message
+          end
 
-          # Trajectories (before /:id to avoid matching as team id)
-          get "/trajectories", action: :list_trajectories
-          get "/trajectories/search", action: :search_trajectories
-          get "/trajectories/:id", action: :show_trajectory
+          # Teams CRUD, Analytics, Health → TeamsController
+          scope controller: "teams" do
+            get "/", action: :index
+            get "/:id", action: :show
+            post "/", action: :create
+            patch "/:id", action: :update
+            delete "/:id", action: :destroy
+            get "/:team_id/analytics", action: :analytics
+            get "/:team_id/composition_health", action: :composition_health
+            put "/:team_id/review_config", action: :update_review_config
+            get "/:team_id/executions", action: :list_executions
+            post "/:team_id/executions", action: :start_execution
+          end
 
-          # Reviews (global)
-          get "/reviews/:id", action: :show_review
-          post "/reviews/:id/process", action: :process_review
-
-          # Review Comments
-          get "/reviews/:review_id/comments", action: :list_review_comments
-          post "/reviews/:review_id/comments", action: :create_review_comment
-          patch "/reviews/:review_id/comments/:comment_id", action: :update_review_comment
-
-          # Executions (before /:id to avoid matching "executions" as an id)
-          get "/executions/:id", action: :show_execution
-          post "/executions/:id/pause", action: :pause_execution
-          post "/executions/:id/resume", action: :resume_execution
-          post "/executions/:id/cancel", action: :cancel_execution
-          post "/executions/:id/complete", action: :complete_execution
-          get "/executions/:id/details", action: :execution_details
-
-          # Tasks
-          get "/executions/:execution_id/tasks", action: :list_tasks
-          post "/executions/:execution_id/tasks", action: :create_task
-          get "/executions/:execution_id/tasks/:id", action: :show_task
-          post "/executions/:execution_id/tasks/:id/assign", action: :assign_task
-          post "/executions/:execution_id/tasks/:id/start", action: :start_task
-          post "/executions/:execution_id/tasks/:id/complete", action: :complete_task
-          post "/executions/:execution_id/tasks/:id/fail", action: :fail_task
-          post "/executions/:execution_id/tasks/:id/delegate", action: :delegate_task
-
-          # Task Reviews
-          get "/executions/:execution_id/tasks/:task_id/reviews", action: :list_task_reviews
-
-          # Messages
-          get "/executions/:execution_id/messages", action: :list_messages
-          post "/executions/:execution_id/messages", action: :send_message
-          post "/executions/:execution_id/messages/:id/reply", action: :reply_to_message
-
-          # Cleanup
-          post "/cleanup_messages", action: :cleanup_messages
-
-          # Teams
-          get "/", action: :index
-          get "/:id", action: :show
-          post "/", action: :create
-          patch "/:id", action: :update
-          delete "/:id", action: :destroy
-
-          # Roles
-          get "/:team_id/roles", action: :list_roles
-          post "/:team_id/roles", action: :create_role
-          patch "/:team_id/roles/:id", action: :update_role
-          delete "/:team_id/roles/:id", action: :delete_role
-          post "/:team_id/roles/:id/assign_agent", action: :assign_agent_to_role
-          post "/:team_id/roles/:id/apply_profile", action: :apply_role_profile
-
-          # Channels
-          get "/:team_id/channels", action: :list_channels
-          post "/:team_id/channels", action: :create_channel
-          get "/:team_id/channels/:id", action: :show_channel
-          patch "/:team_id/channels/:id", action: :update_channel
-          delete "/:team_id/channels/:id", action: :delete_channel
-
-          # Executions (team-specific)
-          get "/:team_id/executions", action: :list_executions
-          post "/:team_id/executions", action: :start_execution
-
-          # Analytics & Health
-          get "/:team_id/analytics", action: :analytics
-          get "/:team_id/composition_health", action: :composition_health
-
-          # Review Configuration
-          put "/:team_id/review_config", action: :update_review_config
+          # Roles, Channels, Cleanup → TeamRolesChannelsController
+          scope controller: "team_roles_channels" do
+            post "/cleanup_messages", action: :cleanup_messages
+            get "/:team_id/roles", action: :list_roles
+            post "/:team_id/roles", action: :create_role
+            patch "/:team_id/roles/:id", action: :update_role
+            delete "/:team_id/roles/:id", action: :delete_role
+            post "/:team_id/roles/:id/assign_agent", action: :assign_agent_to_role
+            post "/:team_id/roles/:id/apply_profile", action: :apply_role_profile
+            get "/:team_id/channels", action: :list_channels
+            post "/:team_id/channels", action: :create_channel
+            get "/:team_id/channels/:id", action: :show_channel
+            patch "/:team_id/channels/:id", action: :update_channel
+            delete "/:team_id/channels/:id", action: :delete_channel
+          end
         end
 
         # ===================================================================
@@ -2089,9 +2062,10 @@ Rails.application.routes.draw do
           end
         end
 
-        # A2A Tasks
-        scope :a2a, as: :a2a do
-          resources :tasks, controller: "a2a_tasks", param: :task_id do
+        # A2A Protocol - Unified scope (merged from two separate blocks)
+        scope :a2a do
+          # REST task operations → A2aTasksController
+          resources :tasks, controller: "a2a_tasks", param: :task_id, as: :a2a_tasks do
             member do
               get :details
               post :cancel
@@ -2102,19 +2076,13 @@ Rails.application.routes.draw do
               get "artifacts/:artifact_id", action: :artifact
               post :push_notifications, action: :configure_push_notifications
             end
-
-            collection do
-              # tasks/send endpoint
-            end
           end
-        end
 
-        # A2A Protocol - Discovery and JSON-RPC endpoints
-        scope :a2a, as: :a2a_protocol do
+          # Discovery and JSON-RPC → A2aController
           post :discover, to: "a2a#discover"
-          post :tasks, to: "a2a#jsonrpc", as: :jsonrpc
-          get "tasks/:id", to: "a2a#show_task", as: :show_task
-          post "tasks/:id/cancel", to: "a2a#cancel_task", as: :cancel_task
+          post :jsonrpc, to: "a2a#jsonrpc"
+          get "task/:id", to: "a2a#show_task", as: :a2a_show_task
+          post "task/:id/cancel", to: "a2a#cancel_task", as: :a2a_cancel_task
         end
 
         # ACP Protocol - Agent Communication Protocol (Cisco standard)
@@ -2130,10 +2098,7 @@ Rails.application.routes.draw do
           post "messages/:id/cancel", to: "acp#cancel_message", as: :cancel_message
         end
 
-        # Agent Memory Enhancement (adds to existing memory routes)
-        scope "agents/:agent_id" do
-          post "memory/inject", to: "agent_memory#inject"
-        end
+        # Agent Memory Enhancement - inject route consolidated into main memory scope below
 
         # ===================================================================
         # RALPH LOOPS - AI-Driven Iterative Development
@@ -2149,16 +2114,8 @@ Rails.application.routes.draw do
             post :resume
             post :cancel
             post :reset
-            post :run_iteration
-            post :run_all
-            post :stop_run_all
-            post :parse_prd
             get :learnings
             get :progress
-            # Scheduling actions
-            post :pause_schedule
-            post :resume_schedule
-            post :regenerate_webhook_token
             # Nested tasks (inside member to use :id param)
             get :tasks
             get "tasks/:task_id", action: :task, as: :task
@@ -2171,6 +2128,17 @@ Rails.application.routes.draw do
           collection do
             get :statistics
           end
+        end
+
+        # Ralph Loops scheduling → RalphLoopsSchedulingController
+        scope "ralph_loops/:id", controller: "ralph_loops_scheduling" do
+          post "run_iteration", action: :run_iteration
+          post "run_all", action: :run_all
+          post "stop_run_all", action: :stop_run_all
+          post "pause_schedule", action: :pause_schedule
+          post "resume_schedule", action: :resume_schedule
+          post "regenerate_webhook_token", action: :regenerate_webhook_token
+          post "parse_prd", action: :parse_prd
         end
 
         # Event-triggered Ralph Loop webhook endpoint
@@ -2267,32 +2235,30 @@ Rails.application.routes.draw do
         # Routes AI requests to optimal providers based on cost, latency, quality
         # Revenue: Usage-based + optimization savings share
         # ===================================================================
-        scope :model_router, controller: "model_router" do
-          # Routing rules management
-          get "rules", action: :rules_index
-          post "rules", action: :create_rule
-          get "rules/:id", action: :show_rule
-          patch "rules/:id", action: :update_rule
-          delete "rules/:id", action: :destroy_rule
-          post "rules/:id/toggle", action: :toggle_rule
+        scope :model_router do
+          # Rules & decisions → ModelRouterController
+          scope controller: "model_router" do
+            get "rules", action: :rules_index
+            post "rules", action: :create_rule
+            get "rules/:id", action: :show_rule
+            patch "rules/:id", action: :update_rule
+            delete "rules/:id", action: :destroy_rule
+            post "rules/:id/toggle", action: :toggle_rule
+            get "decisions", action: :decisions
+            get "decisions/:id", action: :show_decision
+          end
 
-          # Routing operations
-          post "route", action: :route
-
-          # Routing decisions history
-          get "decisions", action: :decisions
-          get "decisions/:id", action: :show_decision
-
-          # Statistics and analytics
-          get "statistics", action: :statistics
-          get "cost_analysis", action: :cost_analysis
-          get "provider_rankings", action: :provider_rankings
-          get "recommendations", action: :recommendations
-
-          # Cost optimization management
-          get "optimizations", action: :optimizations_index
-          post "optimizations/identify", action: :identify_optimizations
-          post "optimizations/:id/apply", action: :apply_optimization
+          # Analytics & optimizations → ModelRouterAnalyticsController
+          scope controller: "model_router_analytics" do
+            post "route", action: :route
+            get "statistics", action: :statistics
+            get "cost_analysis", action: :cost_analysis
+            get "provider_rankings", action: :provider_rankings
+            get "recommendations", action: :recommendations
+            get "optimizations", action: :optimizations_index
+            post "optimizations/identify", action: :identify_optimizations
+            post "optimizations/:id/apply", action: :apply_optimization
+          end
         end
 
         # ===================================================================
@@ -2431,36 +2397,36 @@ Rails.application.routes.draw do
         # - Custom template development: $2,000-10,000
         # - Enterprise template library: $199/mo
         # ===================================================================
-        scope :devops, controller: "devops" do
-          # Templates
-          get "templates", action: :templates
-          get "templates/:id", action: :show_template
-          post "templates", action: :create_template
-          patch "templates/:id", action: :update_template
+        scope :devops do
+          # Templates & installations → DevopsController
+          scope controller: "devops" do
+            get "templates", action: :templates
+            get "templates/:id", action: :show_template
+            post "templates", action: :create_template
+            patch "templates/:id", action: :update_template
+            get "installations", action: :installations
+            post "templates/:template_id/install", action: :install
+            delete "installations/:id", action: :uninstall
+          end
 
-          # Installations
-          get "installations", action: :installations
-          post "templates/:template_id/install", action: :install
-          delete "installations/:id", action: :uninstall
+          # Executions & analytics → DevopsExecutionsController
+          scope controller: "devops_executions" do
+            get "executions", action: :executions
+            post "executions", action: :create_execution
+            get "executions/:id", action: :show_execution
+            get "analytics", action: :analytics
+          end
 
-          # Executions
-          get "executions", action: :executions
-          post "executions", action: :create_execution
-          get "executions/:id", action: :show_execution
-
-          # Deployment risks
-          get "risks", action: :risks
-          post "risks/assess", action: :assess_risk
-          put "risks/:id/approve", action: :approve_risk
-          put "risks/:id/reject", action: :reject_risk
-
-          # Code reviews
-          get "reviews", action: :reviews
-          post "reviews", action: :create_review
-          get "reviews/:id", action: :show_review
-
-          # Analytics
-          get "analytics", action: :analytics
+          # Risks & code reviews → DevopsRiskReviewController
+          scope controller: "devops_risk_review" do
+            get "risks", action: :risks
+            post "risks/assess", action: :assess_risk
+            put "risks/:id/approve", action: :approve_risk
+            put "risks/:id/reject", action: :reject_risk
+            get "reviews", action: :reviews
+            post "reviews", action: :create_review
+            get "reviews/:id", action: :show_review
+          end
         end
 
         # ===================================================================
@@ -2479,28 +2445,24 @@ Rails.application.routes.draw do
             get :analytics
           end
 
-          # Scenarios
-          get "scenarios", to: "sandboxes#scenarios"
-          post "scenarios", to: "sandboxes#create_scenario"
+          # Scenarios & mocks → SandboxScenariosController
+          get "scenarios", to: "sandbox_scenarios#scenarios"
+          post "scenarios", to: "sandbox_scenarios#create_scenario"
+          get "mocks", to: "sandbox_scenarios#mocks"
+          post "mocks", to: "sandbox_scenarios#create_mock"
 
-          # Mocks
-          get "mocks", to: "sandboxes#mocks"
-          post "mocks", to: "sandboxes#create_mock"
-
-          # Test runs
-          get "runs", to: "sandboxes#runs"
-          post "runs", to: "sandboxes#create_run"
-          get "runs/:run_id", to: "sandboxes#show_run"
-          post "runs/:run_id/execute", to: "sandboxes#execute_run"
-
-          # Benchmarks
-          get "benchmarks", to: "sandboxes#benchmarks"
-          post "benchmarks", to: "sandboxes#create_benchmark"
-          post "benchmarks/:benchmark_id/run", to: "sandboxes#run_benchmark"
+          # Test runs & benchmarks → SandboxTestingController
+          get "runs", to: "sandbox_testing#runs"
+          post "runs", to: "sandbox_testing#create_run"
+          get "runs/:run_id", to: "sandbox_testing#show_run"
+          post "runs/:run_id/execute", to: "sandbox_testing#execute_run"
+          get "benchmarks", to: "sandbox_testing#benchmarks"
+          post "benchmarks", to: "sandbox_testing#create_benchmark"
+          post "benchmarks/:benchmark_id/run", to: "sandbox_testing#run_benchmark"
         end
 
-        # A/B Tests (account-level, not sandbox-specific)
-        scope :ab_tests, controller: "sandboxes" do
+        # A/B Tests → SandboxTestingController
+        scope :ab_tests, controller: "sandbox_testing" do
           get "/", action: :ab_tests
           post "/", action: :create_ab_test
           put "/:id/start", action: :start_ab_test
