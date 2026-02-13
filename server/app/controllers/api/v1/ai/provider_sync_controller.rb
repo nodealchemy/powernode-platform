@@ -5,6 +5,7 @@ module Api
     module Ai
       class ProviderSyncController < ApplicationController
         include AuditLogging
+        include ::Ai::ProviderSerialization
 
         before_action :set_provider, only: [ :test_connection, :sync_models ]
         before_action :validate_permissions
@@ -138,13 +139,13 @@ module Api
 
         # POST /api/v1/ai/providers/setup_defaults
         def setup_defaults
-          requested_types = params[:provider_types] || default_provider_types
+          requested_types = params[:provider_types] || ::Ai::Providers::DefaultConfig.types
           created_providers = []
 
           requested_types.each do |provider_type|
             next if current_user.account.ai_providers.exists?(provider_type: provider_type)
 
-            provider_config = default_provider_config(provider_type)
+            provider_config = ::Ai::Providers::DefaultConfig.for(provider_type)
             next unless provider_config
 
             provider = current_user.account.ai_providers.build(
@@ -227,169 +228,6 @@ module Api
           credential
         end
 
-        def calculate_provider_health_status(provider)
-          return "degraded" unless provider.is_active
-
-          active_credentials = provider.provider_credentials.where(is_active: true)
-          return "degraded" if active_credentials.empty?
-
-          tested_credentials = active_credentials.where.not(last_test_at: nil)
-          return "healthy" if tested_credentials.empty?
-
-          successful = tested_credentials.where(last_test_status: "success").count
-          total = tested_credentials.count
-          success_rate = (successful.to_f / total * 100).round
-
-          if success_rate >= 80
-            "healthy"
-          elsif success_rate >= 50
-            "degraded"
-          else
-            "critical"
-          end
-        end
-
-        def serialize_provider_detail(provider)
-          serialize_provider(provider).merge(
-            description: provider.description,
-            documentation_url: provider.documentation_url,
-            status_url: provider.status_url,
-            supported_models: provider.supported_models || [],
-            default_parameters: provider.default_parameters,
-            rate_limits: provider.rate_limits || {},
-            pricing_info: provider.pricing_info || {},
-            metadata: provider.metadata,
-            credentials: provider.provider_credentials.map { |c| serialize_credential(c) }
-          )
-        end
-
-        def serialize_provider(provider)
-          {
-            id: provider.id,
-            account_id: provider.account_id,
-            name: provider.name,
-            slug: provider.slug,
-            provider_type: provider.provider_type,
-            is_active: provider.is_active,
-            api_base_url: provider.api_base_url,
-            priority_order: provider.priority_order,
-            capabilities: provider.capabilities,
-            created_at: provider.created_at.iso8601,
-            updated_at: provider.updated_at.iso8601,
-            health_status: calculate_provider_health_status(provider),
-            stats: {
-              credentials_count: provider.provider_credentials.count,
-              supported_models_count: provider.supported_models&.length || 0
-            },
-            credential_count: provider.provider_credentials.count,
-            model_count: provider.supported_models&.length || 0
-          }
-        end
-
-        def serialize_credential(credential)
-          {
-            id: credential.id,
-            name: credential.name,
-            is_active: credential.is_active,
-            is_default: credential.is_default,
-            last_used_at: credential.last_used_at&.iso8601,
-            last_test_at: credential.last_test_at&.iso8601,
-            last_test_status: credential.last_test_status,
-            created_at: credential.created_at.iso8601,
-            updated_at: credential.updated_at.iso8601,
-            provider: {
-              id: credential.provider.id,
-              name: credential.provider.name,
-              provider_type: credential.provider.provider_type
-            },
-            stats: {
-              success_count: credential.success_count,
-              failure_count: credential.failure_count,
-              success_rate: calculate_credential_success_rate(credential)
-            }
-          }
-        end
-
-        def calculate_credential_success_rate(credential)
-          total = credential.success_count + credential.failure_count
-          return 0 if total.zero?
-
-          ((credential.success_count.to_f / total) * 100).round(2)
-        end
-
-        def default_provider_types
-          %w[openai anthropic google azure_openai groq mistral cohere]
-        end
-
-        def default_provider_config(provider_type)
-          configs = {
-            "openai" => {
-              name: "OpenAI",
-              configuration: {
-                api_base_url: "https://api.openai.com/v1",
-                default_model: "gpt-4o",
-                supported_models: %w[gpt-4o gpt-4o-mini gpt-4-turbo gpt-3.5-turbo],
-                capabilities: %w[chat completions embeddings images]
-              }
-            },
-            "anthropic" => {
-              name: "Anthropic",
-              configuration: {
-                api_base_url: "https://api.anthropic.com/v1",
-                default_model: "claude-sonnet-4-20250514",
-                supported_models: %w[claude-sonnet-4-20250514 claude-3-5-sonnet-20241022 claude-3-5-haiku-20241022],
-                capabilities: %w[chat completions]
-              }
-            },
-            "google" => {
-              name: "Google AI (Gemini)",
-              configuration: {
-                api_base_url: "https://generativelanguage.googleapis.com/v1beta",
-                default_model: "gemini-2.0-flash",
-                supported_models: %w[gemini-2.0-flash gemini-1.5-pro gemini-1.5-flash],
-                capabilities: %w[chat completions embeddings]
-              }
-            },
-            "azure_openai" => {
-              name: "Azure OpenAI",
-              configuration: {
-                api_base_url: nil,
-                default_model: "gpt-4o",
-                supported_models: %w[gpt-4o gpt-4o-mini gpt-4-turbo],
-                capabilities: %w[chat completions embeddings]
-              }
-            },
-            "groq" => {
-              name: "Groq",
-              configuration: {
-                api_base_url: "https://api.groq.com/openai/v1",
-                default_model: "llama-3.3-70b-versatile",
-                supported_models: %w[llama-3.3-70b-versatile llama-3.1-8b-instant mixtral-8x7b-32768],
-                capabilities: %w[chat completions]
-              }
-            },
-            "mistral" => {
-              name: "Mistral AI",
-              configuration: {
-                api_base_url: "https://api.mistral.ai/v1",
-                default_model: "mistral-large-latest",
-                supported_models: %w[mistral-large-latest mistral-medium-latest mistral-small-latest],
-                capabilities: %w[chat completions embeddings]
-              }
-            },
-            "cohere" => {
-              name: "Cohere",
-              configuration: {
-                api_base_url: "https://api.cohere.ai/v1",
-                default_model: "command-r-plus",
-                supported_models: %w[command-r-plus command-r command-light],
-                capabilities: %w[chat completions embeddings]
-              }
-            }
-          }
-
-          configs[provider_type]
-        end
       end
     end
   end
