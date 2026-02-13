@@ -1,40 +1,19 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import ReactMarkdown from 'react-markdown';
-import {
-  Send,
-  Bot,
-  User,
-  Copy,
-  ThumbsUp,
-  ThumbsDown,
-  RefreshCw,
-  AlertCircle,
-  Loader2,
-  MessageSquare,
-  MoreVertical,
-  MessageSquareReply,
-  Pencil,
-  Trash2,
-} from 'lucide-react';
-import { Button } from '@/shared/components/ui/Button';
-import { Avatar } from '@/shared/components/ui/Avatar';
-import { DropdownMenu } from '@/shared/components/ui/DropdownMenu';
-import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { agentsApi } from '@/shared/services/ai';
-import { cleanMarkdownContent } from '@/shared/utils/markdownUtils';
-import { ChatStreamingRenderer } from '@/features/ai/chat/components/ChatStreamingRenderer';
-import { MessageEditor } from '@/features/ai/chat/components/MessageEditor';
 import { MessageThread } from '@/features/ai/chat/components/MessageThread';
 import type {
   AiConversation,
   AiMessage,
-  ConversationChannelMessage
 } from '@/shared/types/ai';
 import type { ConversationBase } from '@/shared/services/ai/ConversationsApiService';
+import { cleanMessageContent, mapBackendMessage } from './conversation/utils';
+import { useConversationSocket } from './conversation/useConversationSocket';
+import { useMessageActions } from './conversation/useMessageActions';
+import { MessageList } from './conversation/MessageList';
+import { MessageComposer } from './conversation/MessageComposer';
 
 // Union type to accept either conversation format
 type ConversationInput = AiConversation | ConversationBase;
@@ -63,113 +42,60 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
   const [threadLoading, setThreadLoading] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   const { addNotification } = useNotifications();
   const currentUser = useSelector((state: RootState) => state.auth.user);
 
-  // WebSocket connection for real-time updates
-  const webSocket = useWebSocket();
+  const agentId = conversation.ai_agent?.id;
 
-  // Create stable refs that don't change
-  const subscribeRef = useRef(webSocket.subscribe);
-  const sendChannelMessageRef = useRef(webSocket.sendMessage);
+  // WebSocket connection
+  const { sendChannelMessage } = useConversationSocket({
+    conversationId: conversation.id,
+    currentUserId: currentUser?.id,
+    onNewMessage,
+    setMessages,
+    setTypingUsers
+  });
 
-  // Update refs only when absolutely necessary
-  if (subscribeRef.current !== webSocket.subscribe) {
-    subscribeRef.current = webSocket.subscribe;
-  }
-  if (sendChannelMessageRef.current !== webSocket.sendMessage) {
-    sendChannelMessageRef.current = webSocket.sendMessage;
-  }
+  // Message action handlers
+  const {
+    handleCopyMessage,
+    handleRegenerateResponse,
+    handleRateMessage,
+    handleEditMessage,
+    handleDeleteMessage,
+    handleOpenThread,
+    handleSendReply
+  } = useMessageActions({
+    conversationId: conversation.id,
+    agentId,
+    setMessages,
+    setEditingMessageId,
+    setEditSaving,
+    setThreadMessage,
+    setThreadMessages,
+    setThreadLoading,
+    threadMessage
+  });
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
-  // Clean message content to remove chunked encoding artifacts
-  // Handles various forms of HTTP chunked transfer encoding markers
-  const cleanMessageContent = (content: string): string => {
-    if (!content) return '';
-
-    // First clean markdown content for safety
-    let cleaned = cleanMarkdownContent(content);
-
-    // Comprehensive chunked encoding cleanup
-    // Handle all variations of chunk markers that can appear in streamed responses
-    cleaned = cleaned
-      // Remove trailing chunk markers (hex size followed by optional CRLF)
-      ?.replace(/[\r\n]*[0-9a-fA-F]+[\r\n]*$/g, '')
-      // Remove leading chunk headers (hex size at start)
-      ?.replace(/^[\r\n]*[0-9a-fA-F]+[\r\n]+/g, '')
-      // Remove inline chunk markers between content
-      ?.replace(/\r\n[0-9a-fA-F]+\r\n/g, '')
-      // Remove "0" after punctuation (final chunk marker)
-      ?.replace(/([.!?])\s*0\s*$/g, '$1')
-      // Remove trailing whitespace + "0" patterns
-      ?.replace(/\s+0\s*$/g, '')
-      // Remove standalone trailing "0" (final chunk indicator)
-      ?.replace(/(?:^|\s)0$/g, '')
-      ?.trim() || '';
-
-    // Final chunk marker check - if content is just zeros, return empty
-    if (/^0+$/.test(cleaned)) {
-      return '';
-    }
-
-    return cleaned;
-  };
-
-  // Map backend message_data format to frontend AiMessage format
-  const mapBackendMessage = (msg: Record<string, unknown>): AiMessage => {
-    const role = (msg.role as string) || 'user';
-    const senderType = role === 'assistant' ? 'ai' : (role as 'user' | 'system');
-
-    return {
-      id: (msg.id as string) || (msg.message_id as string) || '',
-      sender_type: (msg.sender_type as 'user' | 'ai' | 'system') || senderType,
-      sender_info: (msg.sender_info as AiMessage['sender_info']) || {
-        name: (msg.user as string) || (role === 'assistant' ? 'AI Assistant' : 'User')
-      },
-      content: cleanMessageContent((msg.content as string) || ''),
-      created_at: (msg.created_at as string) || new Date().toISOString(),
-      is_edited: msg.is_edited as boolean | undefined,
-      edited_at: msg.edited_at as string | undefined,
-      deleted_at: msg.deleted_at as string | undefined,
-      parent_message_id: msg.parent_message_id as string | undefined,
-      reply_count: msg.reply_count as number | undefined,
-      user_id: msg.user_id as string | undefined,
-      metadata: (msg.metadata as AiMessage['metadata']) || {
-        timestamp: (msg.created_at as string) || new Date().toISOString(),
-        tokens_used: msg.token_count as number | undefined,
-        cost_estimate: msg.cost_usd ? parseFloat(String(msg.cost_usd)) || 0 : undefined,
-        processing: (msg.status as string) === 'processing',
-        error: (msg.status as string) === 'failed'
-      }
-    };
-  };
-
   const loadMessages = useCallback(async () => {
-    // Guard: Need ai_agent.id to load messages
-    if (!conversation.ai_agent?.id) {
+    if (!agentId) {
       setLoading(false);
       return;
     }
 
     try {
       setLoading(true);
-      const response = await agentsApi.getMessages(conversation.ai_agent.id, conversation.id);
-
-      // Handle potential Rails wrapper format - API returns array directly
+      const response = await agentsApi.getMessages(agentId, conversation.id);
       const rawMessages = Array.isArray(response) ? response : [];
-
-      // Map backend message format to frontend AiMessage format
-      const messages = rawMessages.map((msg: AiMessage) => mapBackendMessage(msg as unknown as Record<string, unknown>));
-
-      setMessages(messages); // Backend returns in ascending order (oldest first)
+      const mapped = rawMessages.map((msg: AiMessage) => mapBackendMessage(msg as unknown as Record<string, unknown>));
+      setMessages(mapped);
     } catch (_error) {
-      // Use a ref for addNotification to avoid dependency issues
       addNotification({
         type: 'error',
         title: 'Load Failed',
@@ -178,89 +104,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     } finally {
       setLoading(false);
     }
-  }, [conversation.id]); // Remove addNotification dependency
-
-  const handleChannelMessageRef = useRef<((data: ConversationChannelMessage) => void) | undefined>(undefined);
-
-  const handleChannelMessage = useCallback((data: ConversationChannelMessage) => {
-
-    switch (data.type) {
-      case 'message_created':
-        if (data.message) {
-          setMessages(prev => {
-
-            // Check if we have an optimistic message to replace
-            const optimisticIndex = prev.findIndex(msg =>
-              msg.metadata?.optimistic &&
-              msg.content === data.message!.content &&
-              msg.sender_type === data.message!.sender_type
-            );
-
-            if (optimisticIndex >= 0) {
-              const newMessages = [...prev];
-              newMessages[optimisticIndex] = data.message!;
-              return newMessages;
-            } else {
-              const newMessages = [...prev, data.message!];
-              return newMessages;
-            }
-          });
-          onNewMessage?.(data.message);
-          // Auto-scroll will trigger via useEffect when messages.length changes
-        }
-        break;
-
-      case 'ai_response_streaming':
-      case 'ai_response_complete':
-        if (data.message) {
-          // Clean the message content before updating state
-          const cleanedMessage = {
-            ...data.message,
-            content: cleanMessageContent(data.message.content || '')
-          };
-          setMessages(prev => {
-            const existingIndex = prev.findIndex(m => m.id === cleanedMessage.id);
-            if (existingIndex >= 0) {
-              const updated = [...prev];
-              updated[existingIndex] = cleanedMessage;
-              return updated;
-            } else {
-              return [...prev, cleanedMessage];
-            }
-          });
-          // Auto-scroll will trigger via useEffect when messages change
-        }
-
-        break;
-
-      case 'typing_indicator':
-        if (data.user_id && data.user_id !== currentUser?.id) {
-          setTypingUsers(prev => {
-            const updated = new Set(prev);
-            const userName = (data.user_name || data.user_id) as string;
-            if (data.typing) {
-              updated.add(userName);
-            } else {
-              updated.delete(userName);
-            }
-            return updated;
-          });
-        }
-        break;
-
-      case 'error':
-        // Use addNotification directly without dependency
-        addNotification({
-          type: 'error',
-          title: 'Conversation Error',
-          message: (typeof data.message === 'string' ? data.message : 'An error occurred in the conversation')
-        });
-        break;
-    }
-  }, [currentUser?.id]); // Remove addNotification dependency
-
-  // Update ref immediately when callback changes
-  handleChannelMessageRef.current = handleChannelMessage;
+  }, [conversation.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSendMessage = useCallback(async () => {
     if (!inputValue.trim() || sending || !currentUser) return;
@@ -282,20 +126,15 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
       }
     };
 
-    // Add message immediately to UI
     setMessages(prev => [...prev, optimisticMessage]);
 
     try {
-      // Get agent ID from conversation
-      const agentId = ('ai_agent' in conversation && conversation.ai_agent?.id) || '';
       if (!agentId) {
         throw new Error('No agent associated with this conversation');
       }
 
-      // Send message via REST API - returns both user message and AI response
       const response = await agentsApi.sendMessage(agentId, conversation.id, messageContent);
 
-      // Replace optimistic message with the real user message
       const userMsg: AiMessage = {
         id: response.user_message?.id || optimisticMessage.id,
         sender_type: 'user',
@@ -309,7 +148,6 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
         const withoutOptimistic = prev.filter(msg => msg.id !== optimisticMessage.id);
         const newMessages = [...withoutOptimistic, userMsg];
 
-        // Add assistant message if present
         if (response.assistant_message) {
           const assistantMsg: AiMessage = {
             id: response.assistant_message.id,
@@ -337,589 +175,55 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
         });
       }
     } catch (_error) {
-      // Remove optimistic message on error
       setMessages(prev => prev.filter(msg => msg.id !== optimisticMessage.id));
-
       addNotification({
         type: 'error',
         title: 'Send Failed',
         message: 'Failed to send message. Please try again.'
       });
-      setInputValue(messageContent); // Restore the message
+      setInputValue(messageContent);
     } finally {
       setSending(false);
     }
-  }, [inputValue, sending, currentUser, conversation]);
+  }, [inputValue, sending, currentUser, conversation.id, agentId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTyping = useCallback(() => {
     if (!isTyping) {
       setIsTyping(true);
-      sendChannelMessageRef.current('AiConversationChannel', 'typing_indicator', {
+      sendChannelMessage.current('AiConversationChannel', 'typing_indicator', {
         typing: true
       }, { conversation_id: conversation.id });
     }
 
-    // Clear existing timeout
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
 
-    // Set new timeout to stop typing indicator
     typingTimeoutRef.current = setTimeout(() => {
       setIsTyping(false);
-      sendChannelMessageRef.current('AiConversationChannel', 'typing_indicator', {
+      sendChannelMessage.current('AiConversationChannel', 'typing_indicator', {
         typing: false
       }, { conversation_id: conversation.id });
     }, 1000);
-  }, [isTyping]);
+  }, [isTyping, conversation.id, sendChannelMessage]);
 
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInputValue(e.target.value);
-    handleTyping();
-  }, [handleTyping]);
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  }, [handleSendMessage]);
-
-  const handleCopyMessage = useCallback(async (message: AiMessage) => {
-    try {
-      // When copying, strip markdown formatting to get plain text
-      const plainText = cleanMarkdownContent(message.content).replace(/0\s*$/, '').trim();
-      await navigator.clipboard.writeText(plainText);
-      // Use addNotification directly without dependency
-      addNotification({
-        type: 'success',
-        title: 'Copied',
-        message: 'Message copied to clipboard'
-      });
-    } catch (_error) {
-    // Error silently ignored
-  }
-  }, []); // Remove addNotification dependency
-
-  const handleRegenerateResponse = useCallback(async (messageId: string) => {
-    // Need agent_id from conversation to call the API
-    const agentId = conversation.ai_agent?.id;
-    if (!agentId) {
-      addNotification({
-        type: 'error',
-        title: 'Regeneration Failed',
-        message: 'Unable to regenerate - missing agent information'
-      });
-      return;
-    }
-
-    try {
-      const result = await agentsApi.regenerateMessage(agentId, conversation.id, messageId);
-
-      if (result.regeneration_queued) {
-        addNotification({
-          type: 'success',
-          title: 'Regeneration Queued',
-          message: 'AI response regeneration has been queued. New response will appear shortly.'
-        });
-
-        // Update the message in the UI to show regeneration status
-        setMessages(prev => prev.map(msg =>
-          msg.id === messageId
-            ? { ...msg, metadata: { ...msg.metadata, regenerating: true } }
-            : msg
-        ));
-      }
-    } catch (_error) {
-      addNotification({
-        type: 'error',
-        title: 'Regeneration Failed',
-        message: 'Failed to regenerate AI response. Please try again.'
-      });
-    }
-  }, [conversation.id, conversation.ai_agent?.id]);
-
-  const handleRateMessage = useCallback(async (messageId: string, rating: 'thumbs_up' | 'thumbs_down') => {
-    // Need agent_id from conversation to call the API
-    const agentId = conversation.ai_agent?.id;
-    if (!agentId) {
-      addNotification({
-        type: 'error',
-        title: 'Rating Failed',
-        message: 'Unable to rate - missing agent information'
-      });
-      return;
-    }
-
-    try {
-      const result = await agentsApi.rateMessage(agentId, conversation.id, messageId, rating);
-
-      addNotification({
-        type: 'success',
-        title: 'Feedback Recorded',
-        message: `Thank you for your ${rating === 'thumbs_up' ? 'positive' : 'negative'} feedback!`
-      });
-
-      // Update the message in the UI to show rating
-      setMessages(prev => prev.map(msg =>
-        msg.id === messageId
-          ? { ...msg, metadata: { ...msg.metadata, user_rating: result.rating } }
-          : msg
-      ));
-    } catch (_error) {
-      addNotification({
-        type: 'error',
-        title: 'Rating Failed',
-        message: 'Failed to submit your feedback. Please try again.'
-      });
-    }
-  }, [conversation.id, conversation.ai_agent?.id]);
-
-  const handleEditMessage = useCallback(async (messageId: string, newContent: string) => {
-    const agentId = conversation.ai_agent?.id;
-    if (!agentId) return;
-
-    setEditSaving(true);
-    try {
-      const result = await agentsApi.editMessageContent(agentId, conversation.id, messageId, newContent);
-      setMessages(prev => prev.map(msg =>
-        msg.id === messageId
-          ? { ...msg, content: result.content || newContent, is_edited: true, edited_at: new Date().toISOString() }
-          : msg
-      ));
-      setEditingMessageId(null);
-      addNotification({ type: 'success', title: 'Saved', message: 'Message updated' });
-    } catch (_error) {
-      addNotification({ type: 'error', title: 'Edit Failed', message: 'Failed to update message' });
-    } finally {
-      setEditSaving(false);
-    }
-  }, [conversation.id, conversation.ai_agent?.id]);
-
-  const handleDeleteMessage = useCallback(async (message: AiMessage) => {
-    const agentId = conversation.ai_agent?.id;
-    if (!agentId) return;
-
-    try {
-      if (message.deleted_at) {
-        // Restore
-        const result = await agentsApi.restoreMessage(agentId, conversation.id, message.id);
-        setMessages(prev => prev.map(msg =>
-          msg.id === message.id ? { ...msg, ...result.message, deleted_at: undefined } : msg
-        ));
-        addNotification({ type: 'success', title: 'Restored', message: 'Message restored' });
-      } else {
-        // Soft delete
-        await agentsApi.deleteMessage(agentId, conversation.id, message.id);
-        setMessages(prev => prev.map(msg =>
-          msg.id === message.id ? { ...msg, deleted_at: new Date().toISOString() } : msg
-        ));
-        addNotification({ type: 'success', title: 'Deleted', message: 'Message deleted' });
-      }
-    } catch (_error) {
-      addNotification({ type: 'error', title: 'Action Failed', message: 'Failed to update message' });
-    }
-  }, [conversation.id, conversation.ai_agent?.id]);
-
-  const handleOpenThread = useCallback(async (message: AiMessage) => {
-    const agentId = conversation.ai_agent?.id;
-    if (!agentId) return;
-
-    setThreadMessage(message);
-    setThreadLoading(true);
-    try {
-      const result = await agentsApi.getMessageThread(agentId, conversation.id, message.id);
-      setThreadMessages((result.thread || []).map((msg: AiMessage) => mapBackendMessage(msg as unknown as Record<string, unknown>)));
-    } catch (_error) {
-      addNotification({ type: 'error', title: 'Thread Failed', message: 'Failed to load thread' });
-      setThreadMessage(null);
-    } finally {
-      setThreadLoading(false);
-    }
-  }, [conversation.id, conversation.ai_agent?.id]);
-
-  const handleSendReply = useCallback(async (content: string) => {
-    const agentId = conversation.ai_agent?.id;
-    if (!agentId || !threadMessage) return;
-
-    try {
-      const result = await agentsApi.replyToMessage(agentId, conversation.id, threadMessage.id, content);
-      const mapped = mapBackendMessage(result.message as unknown as Record<string, unknown>);
-      setThreadMessages(prev => [...prev, mapped]);
-      // Update reply count on parent message
-      setMessages(prev => prev.map(msg =>
-        msg.id === threadMessage.id ? { ...msg, reply_count: (msg.reply_count || 0) + 1 } : msg
-      ));
-    } catch (_error) {
-      addNotification({ type: 'error', title: 'Reply Failed', message: 'Failed to send reply' });
-    }
-  }, [conversation.id, conversation.ai_agent?.id, threadMessage]);
-
-  const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const renderMessage = (message: AiMessage, _index: number) => {
-    const isUser = message.sender_type === 'user';
-    const isAI = message.sender_type === 'ai';
-    const isSystem = message.sender_type === 'system';
-    const isProcessing = message.metadata?.processing;
-    const hasError = message.metadata?.error;
-    const isDeleted = !!message.deleted_at;
-    const isEditing = editingMessageId === message.id;
-    const canEdit = isUser && currentUser?.id === message.user_id;
-    const canDelete = isUser && currentUser?.id === message.user_id;
-
-    if (isSystem) {
-      return (
-        <div key={message.id} className="flex justify-center my-4">
-          <div className="bg-theme-surface border border-theme px-3 py-1 rounded-full text-sm text-theme-muted shadow-sm">
-            {cleanMessageContent(message.content)}
-          </div>
-        </div>
-      );
-    }
-
-    // Soft-deleted message
-    if (isDeleted) {
-      return (
-        <div key={message.id} className="group flex gap-3 flex-row opacity-50">
-          <div className="flex-shrink-0 flex items-start justify-center">
-            <Avatar className="h-8 w-8 flex items-center justify-center bg-theme-surface border border-theme text-theme-muted" aria-hidden="true">
-              <div className="flex items-center justify-center w-full h-full">
-                <Trash2 className="h-4 w-4" aria-hidden="true" />
-              </div>
-            </Avatar>
-          </div>
-          <div className="flex-1 max-w-[85%] sm:max-w-[80%] flex flex-col items-start">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm text-theme-muted italic">This message was deleted</span>
-              <span className="text-xs text-theme-secondary">{formatTimestamp(message.created_at)}</span>
-            </div>
-            {canDelete && (
-              <button
-                onClick={() => handleDeleteMessage(message)}
-                className="text-xs text-theme-interactive-primary hover:underline"
-              >
-                Restore message
-              </button>
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div
-        key={message.id}
-        className="group flex gap-3 flex-row"
-      >
-        <div className="flex-shrink-0 flex items-start justify-center">
-          <Avatar
-            className={`h-8 w-8 flex items-center justify-center ${
-              isUser
-                ? 'bg-theme-primary text-white'
-                : 'bg-theme-surface border border-theme text-theme-primary'
-            }`}
-            aria-hidden="true"
-          >
-            <div className="flex items-center justify-center w-full h-full">
-              {isUser ? (
-                <User className="h-4 w-4" aria-hidden="true" />
-              ) : (
-                <Bot className="h-4 w-4" aria-hidden="true" />
-              )}
-            </div>
-          </Avatar>
-        </div>
-
-        <div className="flex-1 max-w-[85%] sm:max-w-[80%] flex flex-col items-start">
-          <div className="flex items-center gap-2 mb-2 flex-row">
-            <span className="text-sm font-semibold text-theme-primary">
-              {message.sender_info?.name || (isUser ? 'You' : 'AI Assistant')}
-            </span>
-            <span className="text-xs text-theme-secondary">
-              {formatTimestamp(message.created_at)}
-            </span>
-            {message.is_edited && (
-              <span className="text-[10px] text-theme-text-tertiary italic">(edited)</span>
-            )}
-          </div>
-
-          {isEditing ? (
-            <div className="w-full">
-              <MessageEditor
-                initialContent={message.content}
-                onSave={(content) => handleEditMessage(message.id, content)}
-                onCancel={() => setEditingMessageId(null)}
-                saving={editSaving}
-              />
-            </div>
-          ) : (
-            <div
-              className={`rounded-2xl px-4 py-3 max-w-full shadow-md ${
-                isUser
-                  ? 'bg-theme-info text-white rounded-bl-md'
-                  : hasError
-                  ? 'bg-theme-danger/10 dark:bg-theme-danger/20 border border-theme-danger/30 dark:border-theme-danger/50 text-theme-danger dark:text-theme-danger rounded-bl-md'
-                  : 'bg-theme-surface border border-theme text-theme-primary rounded-bl-md'
-              }`}
-            >
-              {isProcessing ? (
-                <div className="flex items-center gap-2 py-1">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm">AI is thinking...</span>
-                </div>
-              ) : message.metadata?.streaming ? (
-                <ChatStreamingRenderer
-                  content={cleanMessageContent(message.content)}
-                  isStreaming={true}
-                  tokenCount={message.metadata?.tokens_used}
-                />
-              ) : (
-                <div className="text-sm break-words">
-                  {message.sender_type === 'ai' ? (
-                    <div className="markdown-content">
-                      <ReactMarkdown
-                        components={{
-                          // Headers
-                          h1: ({ children }) => <h1 className="text-2xl font-bold mb-4 mt-6">{children}</h1>,
-                          h2: ({ children }) => <h2 className="text-xl font-bold mb-3 mt-5">{children}</h2>,
-                          h3: ({ children }) => <h3 className="text-lg font-bold mb-2 mt-4">{children}</h3>,
-                          h4: ({ children }) => <h4 className="text-base font-bold mb-2 mt-3">{children}</h4>,
-                          // Paragraphs
-                          p: ({ children }) => <p className="mb-4">{children}</p>,
-                          // Lists
-                          ul: ({ children }) => <ul className="list-disc list-inside mb-4 ml-4">{children}</ul>,
-                          ol: ({ children }) => <ol className="list-decimal list-inside mb-4 ml-4">{children}</ol>,
-                          li: ({ children }) => <li className="mb-1">{children}</li>,
-                          // Code blocks
-                          pre: ({ children }) => (
-                            <pre className="bg-theme-surface dark:bg-theme-surface p-4 rounded-lg overflow-x-auto mb-4 text-sm text-theme-primary dark:text-theme-primary">
-                              {children}
-                            </pre>
-                          ),
-                          code: ({ className, children }) => {
-                            const isInline = !className?.startsWith('language-');
-                            return isInline ? (
-                              <code className="bg-theme-surface dark:bg-theme-surface px-1.5 py-0.5 rounded text-sm font-mono text-theme-primary dark:text-theme-primary">
-                                {children}
-                              </code>
-                            ) : (
-                              <code className="font-mono text-sm">{children}</code>
-                            );
-                          },
-                          // Links
-                          a: ({ href, children }) => (
-                            <a
-                              href={href}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-theme-info hover:text-theme-info/80 underline"
-                            >
-                              {children}
-                            </a>
-                          ),
-                          // Blockquotes
-                          blockquote: ({ children }) => (
-                            <blockquote className="border-l-4 border-theme dark:border-theme pl-4 italic mb-4">
-                              {children}
-                            </blockquote>
-                          ),
-                          // Horizontal rules
-                          hr: () => <hr className="border-t border-theme dark:border-theme my-4" />,
-                          // Tables
-                          table: ({ children }) => (
-                            <div className="overflow-x-auto mb-4">
-                              <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-600">
-                                {children}
-                              </table>
-                            </div>
-                          ),
-                          th: ({ children }) => (
-                            <th className="px-3 py-2 text-left text-xs font-medium text-theme-secondary dark:text-theme-secondary uppercase tracking-wider">
-                              {children}
-                            </th>
-                          ),
-                          td: ({ children }) => (
-                            <td className="px-3 py-2 text-sm text-theme-primary dark:text-theme-primary">
-                              {children}
-                            </td>
-                          ),
-                          // Strong and emphasis
-                          strong: ({ children }) => <strong className="font-bold">{children}</strong>,
-                          em: ({ children }) => <em className="italic">{children}</em>,
-                        }}
-                      >
-                        {cleanMessageContent(message.content)}
-                      </ReactMarkdown>
-                    </div>
-                  ) : (
-                    <div className="whitespace-pre-wrap">
-                      {cleanMessageContent(message.content)}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {hasError && (
-                <div className="flex items-center gap-2 mt-2 p-2 bg-theme-danger/10 rounded border border-theme-danger/30">
-                  <AlertCircle className="h-4 w-4 text-theme-danger flex-shrink-0" />
-                  <span className="text-xs text-theme-danger">
-                    {message.metadata?.error_message || 'An error occurred'}
-                  </span>
-                </div>
-              )}
-
-              {message.metadata?.tokens_used != null && message.metadata.tokens_used > 0 && (
-                <div className="flex items-center gap-3 mt-2 pt-2 border-t border-theme text-xs text-theme-muted">
-                  <span>{message.metadata.tokens_used} tokens</span>
-                  {message.metadata?.response_time_ms != null && message.metadata.response_time_ms > 0 && (
-                    <span>{message.metadata.response_time_ms}ms</span>
-                  )}
-                  {message.metadata?.cost_estimate != null && message.metadata.cost_estimate > 0 && (
-                    <span>${message.metadata.cost_estimate.toFixed(4)}</span>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Message action bar */}
-          {!isProcessing && !isEditing && (
-            <div className="flex items-center gap-1 mt-2" role="group" aria-label="Message actions">
-              <div className="flex items-center bg-theme-surface/80 backdrop-blur-sm rounded-full border border-theme/20 p-1 shadow-sm">
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  onClick={() => handleCopyMessage(message)}
-                  className="h-7 w-7 p-0 hover:bg-theme-surface-hover rounded-full transition-all duration-200"
-                  title="Copy message"
-                  aria-label="Copy message to clipboard"
-                >
-                  <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  onClick={() => handleOpenThread(message)}
-                  className="h-7 w-7 p-0 hover:bg-theme-surface-hover rounded-full transition-all duration-200"
-                  title="Reply in thread"
-                  aria-label="Reply in thread"
-                >
-                  <MessageSquareReply className="h-3.5 w-3.5" aria-hidden="true" />
-                </Button>
-
-                {isAI && (
-                  <>
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => handleRateMessage(message.id, 'thumbs_up')}
-                      className="h-7 w-7 p-0 hover:bg-theme-success/10 hover:text-theme-success dark:hover:bg-theme-success/20 rounded-full transition-all duration-200"
-                      title="Good response"
-                      aria-label="Rate this response as helpful"
-                    >
-                      <ThumbsUp className="h-3.5 w-3.5" aria-hidden="true" />
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => handleRateMessage(message.id, 'thumbs_down')}
-                      className="h-7 w-7 p-0 hover:bg-theme-danger/10 hover:text-theme-danger dark:hover:bg-theme-danger/20 rounded-full transition-all duration-200"
-                      title="Poor response"
-                      aria-label="Rate this response as not helpful"
-                    >
-                      <ThumbsDown className="h-3.5 w-3.5" aria-hidden="true" />
-                    </Button>
-                  </>
-                )}
-
-                <DropdownMenu
-                  trigger={
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      className="h-7 w-7 p-0 hover:bg-theme-surface-hover rounded-full transition-all duration-200"
-                      title="More options"
-                      aria-label="More message options"
-                    >
-                      <MoreVertical className="h-3.5 w-3.5" aria-hidden="true" />
-                    </Button>
-                  }
-                  items={[
-                    ...(isAI ? [{
-                      icon: RefreshCw,
-                      label: 'Regenerate Response',
-                      onClick: () => handleRegenerateResponse(message.id)
-                    }] : []),
-                    ...(canEdit ? [{
-                      icon: Pencil,
-                      label: 'Edit Message',
-                      onClick: () => setEditingMessageId(message.id)
-                    }] : []),
-                    ...(canDelete ? [{
-                      icon: Trash2,
-                      label: 'Delete Message',
-                      onClick: () => handleDeleteMessage(message),
-                      danger: true
-                    }] : []),
-                  ]}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Thread indicator */}
-          {(message.reply_count ?? 0) > 0 && (
-            <button
-              onClick={() => handleOpenThread(message)}
-              className="flex items-center gap-1.5 mt-1.5 text-xs text-theme-interactive-primary hover:underline"
-            >
-              <MessageSquareReply className="h-3 w-3" />
-              {message.reply_count} {message.reply_count === 1 ? 'reply' : 'replies'}
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  // Set up WebSocket subscription
+  // Cleanup typing timeout
   useEffect(() => {
-
-    const unsubscribe = subscribeRef.current({
-      channel: 'AiConversationChannel',
-      params: {
-        conversation_id: conversation.id
-      },
-      onMessage: (data: unknown) => {
-        handleChannelMessageRef.current?.(data as ConversationChannelMessage);
-      }
-    });
-
     return () => {
-      unsubscribe();
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
     };
-  }, [conversation.id]);
+  }, []);
 
-  // Load initial messages - only when conversation changes
+  // Load initial messages
   useEffect(() => {
     loadMessages();
-  }, [conversation.id]); // Only depend on conversation.id, not loadMessages
+  }, [conversation.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     if (messages.length > 0) {
-      // Use setTimeout to ensure DOM has updated
       setTimeout(() => {
         scrollToBottom();
       }, 100);
@@ -948,80 +252,30 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
       {/* Main chat area */}
       <div className={`flex flex-col ${threadMessage ? 'w-[60%]' : 'w-full'} transition-all duration-200`}>
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto bg-gradient-to-b from-transparent to-theme-surface/10">
-          <div className="p-4 space-y-4">
-            {(() => {
-              return messages.length === 0 ? (
-                <EmptyState
-                  icon={MessageSquare}
-                  title="Start a conversation"
-                  description="Send a message to begin chatting with your AI assistant"
-                />
-              ) : (
-                messages.map((message, index) => {
-                  return renderMessage(message, index);
-                })
-              );
-            })()}
-
-            {/* Typing indicators */}
-            {typingUsers.size > 0 && (
-              <div className="flex items-center gap-3 p-3 bg-theme-surface/70 backdrop-blur-md rounded-xl border border-theme/20 shadow-lg">
-                <div className="flex gap-1">
-                  <div className="w-2 h-2 bg-theme-interactive-primary/80 rounded-full animate-bounce" />
-                  <div className="w-2 h-2 bg-theme-interactive-primary/80 rounded-full animate-bounce delay-100" />
-                  <div className="w-2 h-2 bg-theme-interactive-primary/80 rounded-full animate-bounce delay-200" />
-                </div>
-                <span className="text-sm font-medium text-theme-secondary">
-                  {Array.from(typingUsers).join(', ')} {typingUsers.size === 1 ? 'is' : 'are'} typing...
-                </span>
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </div>
-        </div>
+        <MessageList
+          messages={messages}
+          currentUser={currentUser}
+          editingMessageId={editingMessageId}
+          editSaving={editSaving}
+          typingUsers={typingUsers}
+          messagesEndRef={messagesEndRef as React.RefObject<HTMLDivElement>}
+          onCopy={handleCopyMessage}
+          onRate={handleRateMessage}
+          onRegenerate={handleRegenerateResponse}
+          onEdit={handleEditMessage}
+          onSetEditing={setEditingMessageId}
+          onDelete={handleDeleteMessage}
+          onOpenThread={handleOpenThread}
+        />
 
         {/* Input Area */}
-        <div className="p-4 border-t border-theme/30 bg-theme-surface/40 backdrop-blur-sm">
-          {/* Screen reader instructions */}
-          <span id="message-input-instructions" className="sr-only">
-            Type your message and press Enter to send, or Shift+Enter for a new line
-          </span>
-          <div className="flex gap-3 items-end">
-            <div className="flex-1">
-              <textarea
-                ref={inputRef}
-                value={inputValue}
-                onChange={handleInputChange}
-                onKeyDown={handleKeyDown}
-                placeholder="Type your message... (Press Enter to send, Shift+Enter for new line)"
-                className="w-full min-h-[44px] max-h-[120px] px-4 py-2.5 border border-theme/40 rounded-xl resize-none bg-theme-surface/90 backdrop-blur-sm text-theme-primary placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary focus:bg-theme-surface disabled:bg-theme-surface disabled:text-theme-muted transition-all duration-200"
-                disabled={sending}
-                data-testid="message-input"
-                aria-label="Message input"
-                aria-describedby="message-input-instructions"
-              />
-            </div>
-
-            <Button
-              variant="primary"
-              size="sm"
-              rounded="xl"
-              onClick={handleSendMessage}
-              disabled={!inputValue.trim() || sending}
-              className="h-[44px] w-[44px] p-0 flex items-center justify-center shrink-0"
-              data-testid="send-button"
-              aria-label={sending ? "Sending message" : "Send message"}
-            >
-              {sending ? (
-                <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-              ) : (
-                <Send className="h-5 w-5" aria-hidden="true" />
-              )}
-            </Button>
-          </div>
-        </div>
+        <MessageComposer
+          value={inputValue}
+          onChange={setInputValue}
+          onSend={handleSendMessage}
+          onTyping={handleTyping}
+          sending={sending}
+        />
       </div>
 
       {/* Thread panel */}
