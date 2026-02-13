@@ -219,4 +219,30 @@ export const ROUTES = {
   learningRecommendations: '/app/ai/learning/recommendations',
   learningInsights: '/app/ai/learning/insights',
   chatDetached: '/chat/detached',
+
+  // AI consolidated routes
+  infrastructure: '/app/ai/infrastructure',
+  modelRouter: '/app/ai/infrastructure/model-router',
+  memory: '/app/ai/memory',
+  execution: '/app/ai/execution',
+  knowledge: '/app/ai/knowledge',
+  autonomy: '/app/ai/autonomy',
+  sandboxes: '/app/ai/sandboxes',
+  security: '/app/ai/security',
+  audit: '/app/ai/audit',
+  evaluation: '/app/ai/evaluation',
+  aiBilling: '/app/ai/billing',
+  workflowMonitoring: '/app/ai/workflows/monitoring',
+
+  // DevOps routes
+  devopsOverview: '/app/devops',
+  gitProviders: '/app/devops/git',
+  repositories: '/app/devops/repositories',
+  pipelines: '/app/devops/pipelines',
+  runners: '/app/devops/runners',
+  webhooks: '/app/devops/webhooks',
+  integrations: '/app/devops/integrations',
+  apiKeys: '/app/devops/api-keys',
+  dockerHosts: '/app/devops/docker',
+  swarmClusters: '/app/devops/swarm',
 };

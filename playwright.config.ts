@@ -115,7 +115,7 @@ export default defineConfig({
   webServer: [
     {
       command: 'cd server && bundle exec rails server -p 3000',
-      url: 'http://localhost:3000/health',
+      url: 'http://localhost:3000/up',
       reuseExistingServer: !process.env.CI,
       timeout: 120000,
     },
