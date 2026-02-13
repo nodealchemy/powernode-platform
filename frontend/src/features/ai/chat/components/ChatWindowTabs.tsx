@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react';
-import { Plus, X } from 'lucide-react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { Plus, X, SplitSquareHorizontal, ArrowRightLeft } from 'lucide-react';
 import { useChatWindow } from '../context/ChatWindowContext';
 
 interface ChatWindowTabsProps {
@@ -7,8 +7,9 @@ interface ChatWindowTabsProps {
 }
 
 export const ChatWindowTabs: React.FC<ChatWindowTabsProps> = ({ onNewTab }) => {
-  const { state, switchTab, closeTab } = useChatWindow();
+  const { state, switchTab, closeTab, createSplit, moveTabToPanel } = useChatWindow();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [contextMenu, setContextMenu] = useState<{ tabId: string; x: number; y: number } | null>(null);
 
   // Scroll active tab into view
   useEffect(() => {
@@ -17,7 +18,46 @@ export const ChatWindowTabs: React.FC<ChatWindowTabsProps> = ({ onNewTab }) => {
     activeEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
   }, [state.activeTabId]);
 
-  if (state.tabs.length <= 1) return null;
+  // Close context menu on outside click
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handleClick = () => setContextMenu(null);
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [contextMenu]);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, tabId: string) => {
+    e.preventDefault();
+    setContextMenu({ tabId, x: e.clientX, y: e.clientY });
+  }, []);
+
+  const handleSplitRight = useCallback(() => {
+    if (!contextMenu) return;
+    createSplit(contextMenu.tabId, 'right');
+    setContextMenu(null);
+  }, [contextMenu, createSplit]);
+
+  const handleMoveToPanel = useCallback((panelId: string) => {
+    if (!contextMenu) return;
+    moveTabToPanel(contextMenu.tabId, panelId);
+    setContextMenu(null);
+  }, [contextMenu, moveTabToPanel]);
+
+  const handleCloseFromMenu = useCallback(() => {
+    if (!contextMenu) return;
+    closeTab(contextMenu.tabId);
+    setContextMenu(null);
+  }, [contextMenu, closeTab]);
+
+  // Get tabs for the first panel (floating mode shows all tabs in panel[0])
+  const panelTabs = state.panels[0]?.tabIds
+    ? state.tabs.filter(t => state.panels[0].tabIds.includes(t.id))
+    : state.tabs;
+
+  if (panelTabs.length <= 1) return null;
+
+  const canSplit = state.panels.length < 3 && panelTabs.length >= 2;
+  const otherPanels = state.panels.filter(p => p.id !== state.panels[0]?.id);
 
   return (
     <div className="flex items-center border-b border-theme bg-theme-surface/50 shrink-0">
@@ -25,7 +65,7 @@ export const ChatWindowTabs: React.FC<ChatWindowTabsProps> = ({ onNewTab }) => {
         ref={scrollRef}
         className="flex-1 flex overflow-x-auto scrollbar-thin"
       >
-        {state.tabs.map(tab => {
+        {panelTabs.map(tab => {
           const isActive = tab.id === state.activeTabId;
           return (
             <button
@@ -38,6 +78,12 @@ export const ChatWindowTabs: React.FC<ChatWindowTabsProps> = ({ onNewTab }) => {
                   e.preventDefault();
                   closeTab(tab.id);
                 }
+              }}
+              onContextMenu={(e) => handleContextMenu(e, tab.id)}
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData('text/plain', tab.id);
+                e.dataTransfer.effectAllowed = 'move';
               }}
               className={`group relative flex items-center gap-1.5 px-3 py-1.5 text-xs border-r border-theme whitespace-nowrap transition-colors ${
                 isActive
@@ -85,6 +131,46 @@ export const ChatWindowTabs: React.FC<ChatWindowTabsProps> = ({ onNewTab }) => {
       >
         <Plus className="h-3.5 w-3.5" />
       </button>
+
+      {/* Context menu */}
+      {contextMenu && (
+        <div
+          className="fixed z-50 bg-theme-surface border border-theme rounded-lg shadow-lg py-1 min-w-[160px]"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          data-testid="tab-context-menu"
+        >
+          {canSplit && (
+            <button
+              type="button"
+              onClick={handleSplitRight}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-theme-primary hover:bg-theme-surface-hover transition-colors"
+            >
+              <SplitSquareHorizontal className="h-3.5 w-3.5" />
+              Split Right
+            </button>
+          )}
+          {otherPanels.map((p, idx) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => handleMoveToPanel(p.id)}
+              className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-theme-primary hover:bg-theme-surface-hover transition-colors"
+            >
+              <ArrowRightLeft className="h-3.5 w-3.5" />
+              Move to Panel {idx + 2}
+            </button>
+          ))}
+          <div className="border-t border-theme my-1" />
+          <button
+            type="button"
+            onClick={handleCloseFromMenu}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-theme-danger hover:bg-theme-surface-hover transition-colors"
+          >
+            <X className="h-3.5 w-3.5" />
+            Close
+          </button>
+        </div>
+      )}
     </div>
   );
 };

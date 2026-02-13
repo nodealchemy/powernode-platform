@@ -4,6 +4,7 @@ import type {
   ChatWindowMode,
   ChatTab,
   ChatBroadcastMessage,
+  SplitDirection,
 } from './chatWindowTypes';
 import { chatWindowReducer, initialChatWindowState } from './chatWindowReducer';
 import { saveChatState, loadChatState, createBroadcastChannel } from './chatWindowPersistence';
@@ -43,7 +44,6 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
     const bc = createBroadcastChannel((msg: ChatBroadcastMessage) => {
       switch (msg.type) {
         case 'detached_ready':
-          // Popup is ready, sync current state
           broadcastRef.current?.send({ type: 'state_sync', payload: state });
           break;
         case 'detached_closed':
@@ -82,6 +82,15 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
     }
   }, [isDetachedMode]);
 
+  // Listen for nav-item CustomEvent to open maximized
+  useEffect(() => {
+    const handler = () => {
+      dispatch({ type: 'SET_MODE', payload: 'maximized' });
+    };
+    window.addEventListener('powernode:open-chat-maximized', handler);
+    return () => window.removeEventListener('powernode:open-chat-maximized', handler);
+  }, []);
+
   const openConversation = useCallback(async (agentId: string, agentName: string, conversationId?: string) => {
     try {
       let convId = conversationId;
@@ -107,6 +116,40 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
       }
 
       // Sync to detached window if open
+      if (state.mode === 'detached') {
+        broadcastRef.current?.send({ type: 'open_tab', payload: tab });
+      }
+    } catch {
+      addNotification({
+        type: 'error',
+        title: 'Chat Error',
+        message: 'Failed to open conversation. Please try again.',
+      });
+    }
+  }, [state.mode, addNotification]);
+
+  const openConversationMaximized = useCallback(async (agentId: string, agentName: string, conversationId?: string) => {
+    try {
+      let convId = conversationId;
+      if (!convId) {
+        const conv = await chatApi.getOrCreateConversation(agentId);
+        convId = conv.id;
+      }
+
+      const tab: ChatTab = {
+        id: `tab-${convId}`,
+        conversationId: convId,
+        agentId,
+        agentName,
+        title: agentName,
+        unreadCount: 0,
+        createdAt: Date.now(),
+      };
+
+      dispatch({ type: 'OPEN_TAB', payload: tab });
+      dispatch({ type: 'SET_MODE', payload: 'maximized' });
+
+      // Sync to detached window if currently detached
       if (state.mode === 'detached') {
         broadcastRef.current?.send({ type: 'open_tab', payload: tab });
       }
@@ -155,13 +198,44 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
     }
   }, [addNotification]);
 
+  const toggleSidebar = useCallback(() => {
+    dispatch({ type: 'TOGGLE_SIDEBAR' });
+  }, []);
+
+  const createSplit = useCallback((tabId: string, direction: SplitDirection) => {
+    dispatch({ type: 'CREATE_SPLIT', payload: { tabId, direction } });
+  }, []);
+
+  const moveTabToPanel = useCallback((tabId: string, panelId: string) => {
+    dispatch({ type: 'MOVE_TAB_TO_PANEL', payload: { tabId, panelId } });
+  }, []);
+
+  const closePanel = useCallback((panelId: string) => {
+    dispatch({ type: 'CLOSE_PANEL', payload: panelId });
+  }, []);
+
+  const setActivePanelId = useCallback((id: string) => {
+    dispatch({ type: 'SET_ACTIVE_PANEL', payload: id });
+  }, []);
+
+  const setPanelSizes = useCallback((sizes: number[]) => {
+    dispatch({ type: 'SET_PANEL_SIZES', payload: sizes });
+  }, []);
+
   const value: ChatWindowContextValue = {
     state,
     dispatch,
     openConversation,
+    openConversationMaximized,
     closeTab,
     switchTab,
     setMode,
+    toggleSidebar,
+    createSplit,
+    moveTabToPanel,
+    closePanel,
+    setActivePanelId,
+    setPanelSizes,
     isDetachedMode,
   };
 

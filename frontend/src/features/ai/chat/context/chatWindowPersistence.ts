@@ -1,4 +1,4 @@
-import type { ChatWindowState, ChatBroadcastMessage } from './chatWindowTypes';
+import type { ChatWindowState, ChatBroadcastMessage, SplitPanel } from './chatWindowTypes';
 import { initialChatWindowState } from './chatWindowReducer';
 
 const STORAGE_KEY = 'powernode_chat_window';
@@ -16,18 +16,56 @@ export function saveChatState(state: ChatWindowState): void {
   }
 }
 
+/**
+ * Migrate old flat-tabs format (no panels) to single-panel format.
+ */
+function migrateLegacyState(parsed: Record<string, unknown>): Partial<ChatWindowState> {
+  const tabs = (parsed.tabs ?? []) as ChatWindowState['tabs'];
+  const activeTabId = (parsed.activeTabId ?? null) as string | null;
+
+  // If panels already exist, no migration needed
+  if (Array.isArray(parsed.panels) && parsed.panels.length > 0) {
+    return {
+      panels: parsed.panels as SplitPanel[],
+      activePanelId: (parsed.activePanelId as string) || (parsed.panels as SplitPanel[])[0]?.id || 'panel-default',
+      panelSizes: (parsed.panelSizes as number[]) || [100],
+      showSidebar: typeof parsed.showSidebar === 'boolean' ? parsed.showSidebar : true,
+    };
+  }
+
+  // Legacy: wrap all tabs into a single panel
+  const panel: SplitPanel = {
+    id: 'panel-default',
+    tabIds: tabs.map(t => t.id),
+    activeTabId,
+  };
+
+  return {
+    panels: [panel],
+    activePanelId: panel.id,
+    panelSizes: [100],
+    showSidebar: true,
+  };
+}
+
 export function loadChatState(): ChatWindowState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return initialChatWindowState;
-    const parsed = JSON.parse(raw) as ChatWindowState;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const migrated = migrateLegacyState(parsed);
+
     return {
       ...initialChatWindowState,
-      tabs: parsed.tabs ?? [],
-      activeTabId: parsed.activeTabId ?? null,
-      floatingPosition: parsed.floatingPosition ?? initialChatWindowState.floatingPosition,
-      floatingSize: parsed.floatingSize ?? initialChatWindowState.floatingSize,
+      tabs: (parsed.tabs as ChatWindowState['tabs']) ?? [],
+      activeTabId: (parsed.activeTabId as string | null) ?? null,
+      floatingPosition: (parsed.floatingPosition as ChatWindowState['floatingPosition']) ?? initialChatWindowState.floatingPosition,
+      floatingSize: (parsed.floatingSize as ChatWindowState['floatingSize']) ?? initialChatWindowState.floatingSize,
       mode: parsed.mode === 'detached' ? 'detached' : 'closed',
+      showSidebar: migrated.showSidebar ?? true,
+      panels: migrated.panels ?? initialChatWindowState.panels,
+      activePanelId: migrated.activePanelId ?? initialChatWindowState.activePanelId,
+      panelSizes: migrated.panelSizes ?? initialChatWindowState.panelSizes,
     };
   } catch {
     return initialChatWindowState;

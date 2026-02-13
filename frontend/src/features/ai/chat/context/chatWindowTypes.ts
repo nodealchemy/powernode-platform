@@ -20,13 +20,25 @@ export interface FloatingSize {
   height: number;
 }
 
+export interface SplitPanel {
+  id: string;
+  tabIds: string[];
+  activeTabId: string | null;
+}
+
 export interface ChatWindowState {
   mode: ChatWindowMode;
   tabs: ChatTab[];
   activeTabId: string | null;
   floatingPosition: FloatingPosition;
   floatingSize: FloatingSize;
+  showSidebar: boolean;
+  panels: SplitPanel[];
+  activePanelId: string;
+  panelSizes: number[];
 }
+
+export type SplitDirection = 'right';
 
 export type ChatWindowAction =
   | { type: 'SET_MODE'; payload: ChatWindowMode }
@@ -38,15 +50,30 @@ export type ChatWindowAction =
   | { type: 'MARK_READ'; payload: string }
   | { type: 'SET_FLOATING_POSITION'; payload: FloatingPosition }
   | { type: 'SET_FLOATING_SIZE'; payload: FloatingSize }
-  | { type: 'HYDRATE_STATE'; payload: ChatWindowState };
+  | { type: 'HYDRATE_STATE'; payload: ChatWindowState }
+  | { type: 'TOGGLE_SIDEBAR' }
+  | { type: 'SET_SIDEBAR'; payload: boolean }
+  | { type: 'CREATE_SPLIT'; payload: { tabId: string; direction: SplitDirection } }
+  | { type: 'CLOSE_PANEL'; payload: string }
+  | { type: 'MOVE_TAB_TO_PANEL'; payload: { tabId: string; panelId: string } }
+  | { type: 'SET_ACTIVE_PANEL'; payload: string }
+  | { type: 'SET_PANEL_SIZES'; payload: number[] }
+  | { type: 'FOCUS_PANEL'; payload: string };
 
 export interface ChatWindowContextValue {
   state: ChatWindowState;
   dispatch: React.Dispatch<ChatWindowAction>;
   openConversation: (agentId: string, agentName: string, conversationId?: string) => Promise<void>;
+  openConversationMaximized: (agentId: string, agentName: string, conversationId?: string) => Promise<void>;
   closeTab: (tabId: string) => void;
   switchTab: (tabId: string) => void;
   setMode: (mode: ChatWindowMode) => void;
+  toggleSidebar: () => void;
+  createSplit: (tabId: string, direction: SplitDirection) => void;
+  moveTabToPanel: (tabId: string, panelId: string) => void;
+  closePanel: (panelId: string) => void;
+  setActivePanelId: (id: string) => void;
+  setPanelSizes: (sizes: number[]) => void;
   isDetachedMode: boolean;
 }
 

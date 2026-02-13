@@ -1,8 +1,9 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { AgentConversationComponent } from '@/features/ai/components/AgentConversationComponent';
 import { ChatWindowHeader } from './ChatWindowHeader';
-import { ChatWindowTabs } from './ChatWindowTabs';
 import { NewConversationTab } from './NewConversationTab';
+import { ChatWindowSidebar } from './ChatWindowSidebar';
+import { SplitPanelContainer } from './SplitPanelContainer';
 import { useChatWindow } from '../context/ChatWindowContext';
 import type { AiConversation } from '@/shared/types/ai';
 
@@ -12,13 +13,14 @@ interface ChatWindowProps {
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({ onDragStart }) => {
   const { state, dispatch } = useChatWindow();
-  const [showNewTab, setShowNewTab] = useState(false);
+
+  const isFloating = state.mode === 'floating';
 
   const handleNewMessage = useCallback((tabId: string) => {
     dispatch({ type: 'INCREMENT_UNREAD', payload: tabId });
   }, [dispatch]);
 
-  // Build conversation objects for each tab
+  // Build conversation objects for each tab (only used in floating mode)
   const tabConversations = useMemo(() => {
     const map = new Map<string, AiConversation>();
     for (const tab of state.tabs) {
@@ -41,36 +43,37 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ onDragStart }) => {
     return map;
   }, [state.tabs]);
 
+  const activeTab = state.tabs.find(t => t.id === state.activeTabId);
+  const activeConv = activeTab ? tabConversations.get(activeTab.id) : null;
   const hasNoTabs = state.tabs.length === 0;
 
   return (
-    <div className="flex flex-col h-full bg-theme-background rounded-xl overflow-hidden">
+    <div className="flex flex-col h-full bg-theme-background rounded-xl overflow-hidden" data-testid={state.mode === 'maximized' ? 'chat-maximized' : undefined}>
       <ChatWindowHeader onPointerDown={onDragStart} />
-      <ChatWindowTabs onNewTab={() => setShowNewTab(true)} />
-
-      <div className="flex-1 relative overflow-hidden">
-        {(hasNoTabs || showNewTab) && (
-          <div className={`absolute inset-0 z-10 bg-theme-background ${!hasNoTabs ? '' : ''}`}>
-            <NewConversationTab onComplete={() => setShowNewTab(false)} />
-          </div>
+      <div className="flex-1 flex overflow-hidden">
+        {/* Sidebar (all modes, toggled via header button) */}
+        {state.showSidebar && (
+          <ChatWindowSidebar />
         )}
 
-        {state.tabs.map(tab => {
-          const conv = tabConversations.get(tab.id);
-          if (!conv) return null;
-          const isActive = tab.id === state.activeTabId;
-          return (
-            <div
-              key={tab.id}
-              className={isActive && !showNewTab ? 'h-full' : 'hidden'}
-            >
-              <AgentConversationComponent
-                conversation={conv}
-                onNewMessage={() => handleNewMessage(tab.id)}
-              />
+        {isFloating ? (
+          /* Floating mode: single panel, no tabs */
+          <div className="flex-1 flex flex-col min-w-0">
+            <div className="flex-1 relative overflow-hidden">
+              {hasNoTabs || !activeConv ? (
+                <NewConversationTab onComplete={() => {}} />
+              ) : (
+                <AgentConversationComponent
+                  conversation={activeConv}
+                  onNewMessage={() => handleNewMessage(activeTab!.id)}
+                />
+              )}
             </div>
-          );
-        })}
+          </div>
+        ) : (
+          /* Maximized/Detached: split panel container */
+          <SplitPanelContainer />
+        )}
       </div>
     </div>
   );
