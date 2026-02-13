@@ -122,6 +122,8 @@ import { DockerHealthPage } from '@/features/devops/docker/pages/DockerHealthPag
 
 // AI Feature Pages (standalone)
 import TeamsPage from './ai/TeamsPage';
+import DevOpsTemplatesPage from './ai/DevOpsTemplatesPage';
+import { WorkflowAnalyticsPage } from './ai/WorkflowAnalyticsPage';
 
 // Integration Pages
 import {
@@ -455,6 +457,8 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/learning/recommendations" element={<RecommendationsDashboard />} />
         <Route path="/ai/learning/insights" element={<TrajectoryInsights />} />
         <Route path="/ai/analytics/system" element={<AIAnalyticsPage />} />
+        <Route path="/ai/analytics/workflows" element={<WorkflowAnalyticsPage />} />
+        <Route path="/ai/devops/templates" element={<DevOpsTemplatesPage />} />
         <Route path="/ai/debug" element={<AIDebugPage />} />
 
         {/* Core Pages */}
