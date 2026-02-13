@@ -34,6 +34,8 @@ export interface ChatChannel {
   welcome_message?: string;
   session_timeout_minutes: number;
   configuration: Record<string, unknown>;
+  routing_config?: ChannelRoutingConfig;
+  agent_personality?: ChannelAgentPersonality;
   connected_at?: string;
   last_message_at?: string;
   total_sessions: number;
@@ -71,6 +73,8 @@ export interface UpdateChannelRequest {
   welcome_message?: string;
   session_timeout_minutes?: number;
   configuration?: Record<string, unknown>;
+  routing_config?: ChannelRoutingConfig;
+  agent_personality?: ChannelAgentPersonality;
 }
 
 export interface ChannelFilters {
@@ -198,6 +202,48 @@ export interface SessionStats {
   avg_messages_per_session?: number;
   by_platform: Record<ChatPlatform, number>;
   by_status: Record<SessionStatus, number>;
+}
+
+// Channel routing configuration
+export interface ChannelRoutingConfig {
+  routing_strategy: 'default' | 'skill_based' | 'round_robin' | 'load_balanced';
+  skill_routes?: SkillRoute[];
+  fallback_agent_id?: string;
+  max_context_messages?: number;
+  auto_handoff_enabled?: boolean;
+}
+
+export interface SkillRoute {
+  pattern: string;
+  agent_id: string;
+  agent_name?: string;
+  priority: number;
+  match_type: 'keyword' | 'regex' | 'intent';
+}
+
+// Agent personality per channel
+export interface ChannelAgentPersonality {
+  display_name?: string;
+  greeting_style?: 'formal' | 'casual' | 'professional';
+  response_length?: 'concise' | 'standard' | 'detailed';
+  tone?: string;
+  custom_instructions?: string;
+}
+
+// Typing indicator
+export interface TypingIndicator {
+  session_id: string;
+  agent_name?: string;
+  is_typing: boolean;
+  timestamp: string;
+}
+
+// Presence status
+export interface SessionPresence {
+  session_id: string;
+  user_online: boolean;
+  agent_processing: boolean;
+  last_seen_at?: string;
 }
 
 // Platform info

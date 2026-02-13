@@ -1,11 +1,13 @@
 import { configureStore } from '@reduxjs/toolkit';
 import authSlice from '@/shared/services/slices/authSlice';
 import uiSlice from '@/shared/services/slices/uiSlice';
+import configSlice from '@/shared/services/slices/configSlice';
 
 export const store = configureStore({
   reducer: {
     auth: authSlice,
     ui: uiSlice,
+    config: configSlice,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
@@ -50,4 +52,7 @@ export {
   removeNotification,
   clearNotifications
 } from '@/shared/services/slices/uiSlice';
+
+export { default as configSlice } from '@/shared/services/slices/configSlice';
+export { fetchPlatformConfig } from '@/shared/services/slices/configSlice';
 

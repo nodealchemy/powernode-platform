@@ -15,6 +15,9 @@ import type {
   ChannelMetrics,
   SessionStats,
   PlatformInfo,
+  ChannelRoutingConfig,
+  ChannelAgentPersonality,
+  TypingIndicator,
 } from '@/shared/services/ai/types/chat-types';
 
 /**
@@ -242,6 +245,60 @@ class ChatChannelsApiService extends BaseApiService {
   async getSessionStats(): Promise<{ stats: SessionStats }> {
     return this.get<{ stats: SessionStats }>(`${this.sessionsPath}/stats`);
   }
+
+  // ===================================================================
+  // Channel Routing & Personality
+  // ===================================================================
+
+  /**
+   * Update channel routing configuration
+   * PATCH /api/v1/chat/channels/:id
+   */
+  async updateRoutingConfig(channelId: string, routingConfig: ChannelRoutingConfig): Promise<{ channel: ChatChannel }> {
+    return this.patch<{ channel: ChatChannel }>(`${this.channelsPath}/${channelId}`, {
+      channel: { routing_config: routingConfig },
+    });
+  }
+
+  /**
+   * Update channel agent personality
+   * PATCH /api/v1/chat/channels/:id
+   */
+  async updateAgentPersonality(channelId: string, personality: ChannelAgentPersonality): Promise<{ channel: ChatChannel }> {
+    return this.patch<{ channel: ChatChannel }>(`${this.channelsPath}/${channelId}`, {
+      channel: { agent_personality: personality },
+    });
+  }
+
+  // ===================================================================
+  // Typing Indicators & Presence
+  // ===================================================================
+
+  /**
+   * Send typing indicator for a session
+   * POST /api/v1/chat/sessions/:id/typing
+   */
+  async sendTypingIndicator(sessionId: string, typing: boolean): Promise<{ success: boolean }> {
+    return this.post<{ success: boolean }>(`${this.sessionsPath}/${sessionId}/typing`, { typing });
+  }
+
+  /**
+   * Get typing status for a session
+   * GET /api/v1/chat/sessions/:id/typing
+   */
+  async getTypingStatus(sessionId: string): Promise<{ typing: TypingIndicator | null }> {
+    return this.get<{ typing: TypingIndicator | null }>(`${this.sessionsPath}/${sessionId}/typing`);
+  }
+
+  /**
+   * Handoff session context to a different channel
+   * POST /api/v1/chat/sessions/:id/handoff
+   */
+  async handoffSession(sessionId: string, targetChannelId: string): Promise<{ session: ChatSession; message: string }> {
+    return this.post<{ session: ChatSession; message: string }>(`${this.sessionsPath}/${sessionId}/handoff`, {
+      target_channel_id: targetChannelId,
+    });
+  }
 }
 
-export const chatChannelsApi = new ChatChannelsApiService();
+export const chatChannelsApi: ChatChannelsApiService = new ChatChannelsApiService();

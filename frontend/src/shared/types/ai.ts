@@ -174,7 +174,17 @@ export interface AiMessage {
   id: string;
   sender_type: 'user' | 'ai' | 'system';
   sender_id?: string;
+  user_id?: string;
   content: string;
+  role?: 'user' | 'assistant' | 'system' | 'function';
+  message_type?: 'text' | 'image' | 'audio' | 'video' | 'file' | 'code';
+  status?: 'sent' | 'processing' | 'completed' | 'failed';
+  is_edited?: boolean;
+  edited_at?: string;
+  deleted_at?: string;
+  parent_message_id?: string;
+  reply_count?: number;
+  sequence_number?: number;
   metadata?: {
     timestamp?: string;
     processing?: boolean;
@@ -193,6 +203,13 @@ export interface AiMessage {
     };
     [key: string]: unknown;
   };
+  attachments?: Array<{
+    type: string;
+    name: string;
+    size: number;
+    url?: string;
+    preview_url?: string;
+  }>;
   created_at: string;
   sender_info?: {
     name: string;

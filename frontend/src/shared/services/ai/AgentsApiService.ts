@@ -636,6 +636,77 @@ class AgentsApiService extends BaseApiService {
     const fullPath = `${path}/messages/${messageId}/rate`;
     return this.post<{ message: AiMessage; rating: { rating: string; rated_at: string; rated_by: string } }>(fullPath, { rating, feedback });
   }
+
+  /**
+   * Delete a message (soft-delete)
+   * DELETE /api/v1/ai/agents/:agent_id/conversations/:conversation_id/messages/:id
+   */
+  async deleteMessage(
+    agentId: string,
+    conversationId: string,
+    messageId: string
+  ): Promise<{ message: string; message_id: string }> {
+    const path = this.buildPath(this.resource, agentId, 'conversations', conversationId);
+    const fullPath = `${path}/messages/${messageId}`;
+    return this.delete<{ message: string; message_id: string }>(fullPath);
+  }
+
+  /**
+   * Restore a soft-deleted message
+   * POST /api/v1/ai/agents/:agent_id/conversations/:conversation_id/messages/:id/restore
+   */
+  async restoreMessage(
+    agentId: string,
+    conversationId: string,
+    messageId: string
+  ): Promise<{ message: AiMessage }> {
+    const path = this.buildPath(this.resource, agentId, 'conversations', conversationId);
+    const fullPath = `${path}/messages/${messageId}/restore`;
+    return this.post<{ message: AiMessage }>(fullPath, {});
+  }
+
+  /**
+   * Get message thread (parent + children)
+   * GET /api/v1/ai/agents/:agent_id/conversations/:conversation_id/messages/:id/thread
+   */
+  async getMessageThread(
+    agentId: string,
+    conversationId: string,
+    messageId: string
+  ): Promise<{ thread: AiMessage[]; parent_message_id: string | null; reply_count: number }> {
+    const path = this.buildPath(this.resource, agentId, 'conversations', conversationId);
+    const fullPath = `${path}/messages/${messageId}/thread`;
+    return this.get<{ thread: AiMessage[]; parent_message_id: string | null; reply_count: number }>(fullPath);
+  }
+
+  /**
+   * Reply to a message (creates threaded reply)
+   * POST /api/v1/ai/agents/:agent_id/conversations/:conversation_id/messages/:id/reply
+   */
+  async replyToMessage(
+    agentId: string,
+    conversationId: string,
+    messageId: string,
+    content: string
+  ): Promise<{ message: AiMessage }> {
+    const path = this.buildPath(this.resource, agentId, 'conversations', conversationId);
+    const fullPath = `${path}/messages/${messageId}/reply`;
+    return this.post<{ message: AiMessage }>(fullPath, { content });
+  }
+
+  /**
+   * Get edit history for a message
+   * GET /api/v1/ai/agents/:agent_id/conversations/:conversation_id/messages/:id/edit_history
+   */
+  async getEditHistory(
+    agentId: string,
+    conversationId: string,
+    messageId: string
+  ): Promise<{ message_id: string; is_edited: boolean; edited_at: string | null; edit_history: Array<{ content: string; edited_at: string; edited_by: string }> }> {
+    const path = this.buildPath(this.resource, agentId, 'conversations', conversationId);
+    const fullPath = `${path}/messages/${messageId}/edit_history`;
+    return this.get<{ message_id: string; is_edited: boolean; edited_at: string | null; edit_history: Array<{ content: string; edited_at: string; edited_by: string }> }>(fullPath);
+  }
 }
 
 // Export singleton instance

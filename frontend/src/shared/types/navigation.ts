@@ -15,6 +15,7 @@ export interface NavigationItem {
   category?: string;
   order?: number;
   enterpriseOnly?: boolean;
+  action?: string;
 }
 
 export interface NavigationSection {

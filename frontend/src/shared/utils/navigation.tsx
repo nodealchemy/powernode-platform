@@ -2,7 +2,7 @@
 import {
   Home, BarChart3, Users, User, Settings, CreditCard,
   FileText, Package, UserCheck, Store,
-  HelpCircle, LogOut, Bot, Brain, MessageSquare,
+  HelpCircle, LogOut, Bot, Brain,
   HardDrive, Workflow, Server, GitBranch, FolderGit2,
   Puzzle, BookOpen, UserCog, Key, Shield, FileCode,
   CheckCircle2, Scale, Building2, Activity, ShieldCheck,
@@ -125,15 +125,6 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 4
         },
         {
-          id: 'ai-conversations',
-          name: 'Conversations',
-          href: '/app/ai/conversations',
-          icon: MessageSquare,
-          description: 'AI-powered conversations',
-          permissions: ['ai.conversations.read'],
-          order: 5
-        },
-        {
           id: 'ai-execution',
           name: 'Execution',
           href: '/app/ai/execution',
@@ -144,10 +135,10 @@ export const defaultNavigationConfig: NavigationConfig = {
         },
         {
           id: 'ai-knowledge',
-          name: 'Knowledge',
-          href: '/app/ai/knowledge',
+          name: 'Knowledge & Memory',
+          href: '/app/ai/memory',
           icon: BookOpen,
-          description: 'Manage agent knowledge, prompts, skills, and document bases',
+          description: 'Manage agent memory tiers, persistent contexts, and shared knowledge',
           permissions: ['ai.context.read'],
           order: 7
         },
@@ -369,14 +360,6 @@ export const defaultNavigationConfig: NavigationConfig = {
       icon: Bot,
       description: 'Create a new AI agent for automation',
       permissions: ['ai.agents.create']
-    },
-    {
-      id: 'ai-chat',
-      name: 'Start AI Chat',
-      href: '/app/ai/conversations',
-      icon: MessageSquare,
-      description: 'Start a new AI conversation',
-      permissions: ['ai.conversations.create']
     }
   ]
 };

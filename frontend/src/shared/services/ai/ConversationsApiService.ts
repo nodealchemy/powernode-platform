@@ -22,6 +22,9 @@ export interface GlobalConversationFilters extends QueryFilters {
   status?: 'active' | 'paused' | 'completed' | 'archived';
   agent_id?: string;
   user_id?: string;
+  pinned?: boolean;
+  tags?: string[];
+  sort_by?: 'pinned' | 'last_activity' | 'created_at';
 }
 
 export interface ConversationStats {
@@ -50,7 +53,8 @@ export interface UpdateConversationRequest {
   status?: string;
   is_collaborative?: boolean;
   participants?: string[];
-  metadata?: Record<string, any>;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
 }
 
 // Define conversation types locally to avoid circular dependencies
@@ -64,6 +68,9 @@ export interface ConversationBase {
   total_cost: number | null;
   is_collaborative: boolean;
   participant_count: number;
+  pinned: boolean;
+  pinned_at: string | null;
+  tags: string[];
   created_at: string;
   last_activity_at: string | null;
   ai_agent?: {
@@ -211,6 +218,46 @@ class ConversationsApiService extends BaseApiService {
   async getConversationStats(id: string): Promise<ConversationStats> {
     const response = await this.get<StatsResponse>(`${this.basePath}/${id}/stats`);
     return response.stats;
+  }
+
+  /**
+   * Pin a conversation
+   * POST /api/v1/ai/conversations/:id/pin
+   */
+  async pinConversation(id: string): Promise<ConversationBase> {
+    const response = await this.post<ConversationActionResponse>(`${this.basePath}/${id}/pin`);
+    return response.conversation;
+  }
+
+  /**
+   * Unpin a conversation
+   * DELETE /api/v1/ai/conversations/:id/unpin
+   */
+  async unpinConversation(id: string): Promise<ConversationBase> {
+    const response = await this.delete<ConversationActionResponse>(`${this.basePath}/${id}/unpin`);
+    return response.conversation;
+  }
+
+  /**
+   * Bulk operations on conversations
+   * PATCH /api/v1/ai/conversations/bulk
+   */
+  async bulkAction(ids: string[], action: string, params?: Record<string, unknown>): Promise<{ updated_count: number }> {
+    const response = await this.patch<{ updated_count: number }>(`${this.basePath}/bulk`, {
+      ids,
+      action,
+      ...params,
+    });
+    return response;
+  }
+
+  /**
+   * Full-text search across conversation messages
+   * GET /api/v1/ai/conversations/search?q=<query>
+   */
+  async searchConversations(query: string): Promise<ConversationBase[]> {
+    const response = await this.get<{ conversations: ConversationBase[] }>(`${this.basePath}/search?q=${encodeURIComponent(query)}`);
+    return response.conversations || [];
   }
 }
 

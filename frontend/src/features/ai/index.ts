@@ -4,8 +4,8 @@
  * AI workflows, agents, providers, context management, and monitoring
  */
 
-// Context management
-export * from './context';
+// Memory (consolidated: context + agent-memory + memory tiers)
+export * from './memory';
 
 // Prompts management
 export * from './prompts';
@@ -21,9 +21,6 @@ export * from './a2a-tasks';
 
 // Agent cards
 export * from './agent-cards';
-
-// Agent memory
-export * from './agent-memory';
 
 // Chat channels (AI Agent Community Platform)
 export * from './chat-channels';

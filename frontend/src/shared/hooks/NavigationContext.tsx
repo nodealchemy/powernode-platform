@@ -3,9 +3,12 @@ import React, { createContext, useContext, useReducer, useCallback, useEffect } 
 import { useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
+import type { NavigationItem, NavigationSection } from '@/shared/types/navigation';
 import { NavigationContext, NavigationConfig, MenuState, NavigationTheme } from '@/shared/types/navigation';
 import { hasAccess } from '@/shared/utils/permissionUtils';
 import { defaultNavigationConfig, adminNavigationOverrides } from '@/shared/utils/navigation';
+
+declare const __ENTERPRISE__: boolean;
 
 // Menu state reducer
 type MenuAction =
@@ -66,12 +69,33 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
 }) => {
   const location = useLocation();
   const { user } = useSelector((state: RootState) => state.auth);
+  const { enterpriseEnabled } = useSelector((state: RootState) => state.config);
   const [menuState, dispatch] = useReducer(menuReducer, initialMenuState);
 
+  // Enterprise is available only when both build-time flag AND runtime toggle are on
+  const enterpriseAvailable = (typeof __ENTERPRISE__ !== 'undefined' && __ENTERPRISE__) && enterpriseEnabled;
+
   // Check if user has admin access (permission-based)
-  const hasAdminPermissions = hasAccess(user, ['admin.access']) || 
-                             hasAccess(user, ['users.manage']) || 
+  const hasAdminPermissions = hasAccess(user, ['admin.access']) ||
+                             hasAccess(user, ['users.manage']) ||
                              hasAccess(user, ['workers.manage']);
+
+  // Helper: filter enterpriseOnly items from an array
+  const filterEnterpriseItems = useCallback((items: NavigationItem[]): NavigationItem[] => {
+    if (enterpriseAvailable) return items;
+    return items.filter(item => !item.enterpriseOnly);
+  }, [enterpriseAvailable]);
+
+  // Helper: filter enterpriseOnly sections and their items
+  const filterEnterpriseSections = useCallback((sections: NavigationSection[]): NavigationSection[] => {
+    if (enterpriseAvailable) return sections;
+    return sections
+      .filter(section => !section.enterpriseOnly)
+      .map(section => ({
+        ...section,
+        items: section.items.filter(item => !item.enterpriseOnly)
+      }));
+  }, [enterpriseAvailable]);
 
   // Build navigation config based on user permissions
   const buildNavigationConfig = useCallback((): NavigationConfig => {
@@ -82,16 +106,13 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
       config.sections = [...(config.sections || []), ...adminNavigationOverrides.sections];
     }
 
-    // Filter out enterprise-only sections when enterprise submodule is not installed
-    const enterpriseAvailable = typeof __ENTERPRISE__ !== 'undefined' && __ENTERPRISE__;
-    if (!enterpriseAvailable && config.sections) {
-      config.sections = config.sections.filter(section => !section.enterpriseOnly);
+    // Filter enterprise-only at all levels: sections, items within sections, top-level items, userMenuItems, quickActions
+    if (config.sections) {
+      config.sections = filterEnterpriseSections(config.sections);
     }
-
-    // Filter out enterprise-only top-level items
-    if (!enterpriseAvailable) {
-      config.items = config.items.filter(item => !item.enterpriseOnly);
-    }
+    config.items = filterEnterpriseItems(config.items);
+    config.userMenuItems = filterEnterpriseItems(config.userMenuItems);
+    config.quickActions = filterEnterpriseItems(config.quickActions);
 
     // Sort items by order
     config.items.sort((a, b) => (a.order || 99) - (b.order || 99));
@@ -102,7 +123,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
     }
 
     return config;
-  }, [hasAdminPermissions]);
+  }, [hasAdminPermissions, filterEnterpriseItems, filterEnterpriseSections]);
 
   // Permission checker - ONLY use permissions, ignore roles
   const hasPermission = useCallback((permissions?: string[]): boolean => {

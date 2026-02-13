@@ -40,7 +40,7 @@ export interface RoutingRule {
   id: string;
   name: string;
   description?: string;
-  rule_type: 'cost_threshold' | 'latency_threshold' | 'quality_threshold' | 'capability' | 'fallback' | 'load_balance' | 'custom';
+  rule_type: 'cost_based' | 'latency_based' | 'quality_based' | 'capability_based' | 'custom' | 'ml_optimized';
   priority: number;
   is_active: boolean;
   conditions: Record<string, unknown>;

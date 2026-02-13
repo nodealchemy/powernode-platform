@@ -438,6 +438,11 @@ export type {
   ChannelMetrics,
   SessionStats,
   PlatformInfo,
+  ChannelRoutingConfig,
+  SkillRoute,
+  ChannelAgentPersonality,
+  TypingIndicator,
+  SessionPresence,
 } from '@/shared/services/ai/types/chat-types';
 
 // Re-export Community Agents service (AI Agent Community Platform)
