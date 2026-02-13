@@ -141,6 +141,7 @@ module Api
             render_validation_error(new_conversation.errors)
           end
         rescue StandardError => e
+          Rails.logger.error("#{self.class.name}##{action_name} failed: #{e.message}")
           render_error("Failed to duplicate conversation: #{e.message}", status: :unprocessable_content)
         end
 

@@ -13,6 +13,7 @@ module Api
 
             render_success(data: result)
           rescue StandardError => e
+            Rails.logger.error("#{self.class.name}##{action_name} failed: #{e.message}")
             render_error(e.message, status: :unprocessable_content)
           end
 
@@ -22,6 +23,7 @@ module Api
 
             render_success(data: result)
           rescue StandardError => e
+            Rails.logger.error("#{self.class.name}##{action_name} failed: #{e.message}")
             render_error(e.message, status: :unprocessable_content)
           end
 
@@ -34,6 +36,7 @@ module Api
 
             render_success(data: result)
           rescue StandardError => e
+            Rails.logger.error("#{self.class.name}##{action_name} failed: #{e.message}")
             render_error(e.message, status: :unprocessable_content)
           end
 
@@ -46,6 +49,7 @@ module Api
 
             render_success(data: { safe: result })
           rescue StandardError => e
+            Rails.logger.error("#{self.class.name}##{action_name} failed: #{e.message}")
             render_error(e.message, status: :unprocessable_content)
           end
 
@@ -56,6 +60,7 @@ module Api
 
             render_success(data: result)
           rescue StandardError => e
+            Rails.logger.error("#{self.class.name}##{action_name} failed: #{e.message}")
             render_error(e.message, status: :unprocessable_content)
           end
 

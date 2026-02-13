@@ -94,6 +94,7 @@ module Api
 
             render_success(data: report)
           rescue StandardError => e
+            Rails.logger.error("#{self.class.name}##{action_name} failed: #{e.message}")
             render_error(e.message, status: :unprocessable_content)
           end
 
@@ -103,6 +104,7 @@ module Api
 
             render_success(data: { matrix: matrix })
           rescue StandardError => e
+            Rails.logger.error("#{self.class.name}##{action_name} failed: #{e.message}")
             render_error(e.message, status: :unprocessable_content)
           end
 

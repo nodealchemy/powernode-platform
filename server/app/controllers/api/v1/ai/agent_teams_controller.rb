@@ -147,6 +147,7 @@ module Api
             status: "queued"
           })
         rescue StandardError => e
+          Rails.logger.error("#{self.class.name}##{action_name} failed: #{e.message}")
           render_error("Failed to execute team: #{e.message}", status: :unprocessable_content)
         end
 
@@ -217,6 +218,7 @@ module Api
             render_error(result[:error], status: :unprocessable_content)
           end
         rescue StandardError => e
+          Rails.logger.error("#{self.class.name}##{action_name} failed: #{e.message}")
           render_error(e.message, status: :unprocessable_content)
         end
 
