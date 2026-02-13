@@ -10,7 +10,7 @@ module Ai
     # Associations
     belongs_to :team_execution, class_name: "Ai::TeamExecution"
     belongs_to :assigned_role, class_name: "Ai::TeamRole", optional: true
-    belongs_to :assigned_agent, class_name: "AiAgent", optional: true
+    belongs_to :assigned_agent, class_name: "Ai::Agent", foreign_key: "ai_agent_id", optional: true
     belongs_to :parent_task, class_name: "Ai::TeamTask", optional: true
     belongs_to :delegated_from, class_name: "Ai::TeamTask", foreign_key: :delegated_from_task_id, optional: true
 
