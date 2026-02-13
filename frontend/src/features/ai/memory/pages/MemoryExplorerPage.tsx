@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Brain, RefreshCw } from 'lucide-react';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { Brain } from 'lucide-react';
+import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { agentsApi } from '@/shared/services/ai';
 import { MemoryStatsBar } from '../components/MemoryStatsBar';
 import { MemoryTierTabs } from '../components/MemoryTierTabs';
@@ -19,7 +20,11 @@ import {
 import type { MemoryTier, MemoryStats, MemoryEntry, SharedKnowledgeEntry } from '../types/memory';
 import type { AiAgent } from '@/shared/types/ai';
 
-export const MemoryExplorerPage: React.FC = () => {
+interface MemoryExplorerContentProps {
+  onActionsReady?: (actions: PageAction[]) => void;
+}
+
+export const MemoryExplorerContent: React.FC<MemoryExplorerContentProps> = ({ onActionsReady }) => {
   const { addNotification } = useNotifications();
 
   const [agents, setAgents] = useState<AiAgent[]>([]);
@@ -123,46 +128,26 @@ export const MemoryExplorerPage: React.FC = () => {
     }
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = useCallback(() => {
     loadStats();
     loadEntries();
     loadSharedKnowledge();
-  };
+  }, [loadStats, loadEntries, loadSharedKnowledge]);
+
+  const { refreshAction } = useRefreshAction({ onRefresh: handleRefresh });
+
+  useEffect(() => {
+    if (onActionsReady) {
+      onActionsReady([refreshAction]);
+    }
+  }, [onActionsReady, refreshAction]);
 
   if (agentsLoading) {
-    return (
-      <PageContainer
-        title="Agent Memory"
-        description="Explore and manage agent memory tiers"
-        breadcrumbs={[
-          { label: 'Dashboard', href: '/app' },
-          { label: 'AI', href: '/app/ai' },
-          { label: 'Memory Explorer' },
-        ]}
-      >
-        <LoadingSpinner size="lg" className="py-12" message="Loading agents..." />
-      </PageContainer>
-    );
+    return <LoadingSpinner size="lg" className="py-12" message="Loading agents..." />;
   }
 
   return (
-    <PageContainer
-      title="Agent Memory"
-      description="Explore and manage agent memory tiers"
-      breadcrumbs={[
-        { label: 'Dashboard', href: '/app' },
-        { label: 'AI', href: '/app/ai' },
-        { label: 'Memory Explorer' },
-      ]}
-      actions={[
-        {
-          label: 'Refresh',
-          icon: RefreshCw,
-          variant: 'outline',
-          onClick: handleRefresh,
-        },
-      ]}
-    >
+    <div className="space-y-6">
       {/* Agent Selector */}
       <Card>
         <CardContent className="p-4">
@@ -198,6 +183,12 @@ export const MemoryExplorerPage: React.FC = () => {
         <CardContent className="p-4">
           {entriesLoading ? (
             <LoadingSpinner className="py-8" message="Loading entries..." />
+          ) : activeTier === 'working' ? (
+            <EmptyState
+              icon={Brain}
+              title="Working Memory (Redis)"
+              description={`${stats?.working?.count ?? 0} active key${(stats?.working?.count ?? 0) === 1 ? '' : 's'} in Redis. Working memory is ephemeral session storage and cannot be browsed individually.`}
+            />
           ) : entries.length === 0 ? (
             <EmptyState
               icon={Brain}
@@ -223,6 +214,26 @@ export const MemoryExplorerPage: React.FC = () => {
         entries={sharedKnowledge}
         loading={sharedLoading}
       />
+    </div>
+  );
+};
+
+/** Standalone page wrapper (backward compatibility) */
+export const MemoryExplorerPage: React.FC = () => {
+  const [actions, setActions] = useState<PageAction[]>([]);
+
+  return (
+    <PageContainer
+      title="Knowledge & Memory"
+      description="Explore and manage agent memory tiers"
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/app' },
+        { label: 'AI', href: '/app/ai' },
+        { label: 'Knowledge & Memory' },
+      ]}
+      actions={actions}
+    >
+      <MemoryExplorerContent onActionsReady={setActions} />
     </PageContainer>
   );
 };
