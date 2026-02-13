@@ -247,7 +247,7 @@ module Api
         end
 
         def channel_params
-          params.require(:channel).permit(
+          permitted = params.require(:channel).permit(
             :name,
             :platform,
             :default_agent_id,
@@ -257,6 +257,18 @@ module Api
             :session_timeout_minutes,
             configuration: {}
           )
+
+          # Merge routing_config and agent_personality into configuration JSON
+          config = permitted[:configuration] || @channel&.configuration || {}
+          if params[:channel][:routing_config].present?
+            config = config.merge("routing_config" => params[:channel][:routing_config].to_unsafe_h)
+          end
+          if params[:channel][:agent_personality].present?
+            config = config.merge("agent_personality" => params[:channel][:agent_personality].to_unsafe_h)
+          end
+          permitted[:configuration] = config if params[:channel][:routing_config].present? || params[:channel][:agent_personality].present?
+
+          permitted
         end
       end
     end

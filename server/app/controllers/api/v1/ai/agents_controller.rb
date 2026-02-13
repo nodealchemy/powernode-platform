@@ -295,7 +295,9 @@ module Api
             %w[conversation_update pause_conversation resume_conversation complete_conversation regenerate] => "ai.conversations.update",
             %w[conversation_destroy] => "ai.conversations.delete",
             %w[archive_conversation export_conversation] => "ai.conversations.manage",
-            %w[rate] => "ai.conversations.read"
+            %w[rate message_thread edit_history] => "ai.conversations.read",
+            %w[edit_content reply_to_message] => "ai.conversations.update",
+            %w[destroy_message restore_message] => "ai.conversations.delete"
           }
 
           permission_map.each do |actions, permission|

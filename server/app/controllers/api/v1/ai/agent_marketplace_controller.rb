@@ -156,6 +156,43 @@ module Api
           render_success(analytics: analytics)
         end
 
+        # POST /api/v1/ai/agent_marketplace/compose_team
+        # Create a team from multiple marketplace templates
+        def compose_team
+          template_ids = Array(params[:template_ids])
+          return render_error("At least 2 template_ids required", :unprocessable_content) if template_ids.size < 2
+
+          result = @service.compose_team(
+            template_ids: template_ids,
+            team_name: params[:team_name] || "Marketplace Team",
+            team_type: params[:team_type] || "hierarchical",
+            coordination_strategy: params[:coordination_strategy] || "manager_led",
+            user: current_user
+          )
+
+          if result[:success]
+            render_success(
+              team: {
+                id: result[:team].id,
+                name: result[:team].name,
+                team_type: result[:team].team_type,
+                coordination_strategy: result[:team].coordination_strategy,
+                agent_count: result[:agents].size
+              },
+              agents: result[:agents].map { |a| { id: a.id, name: a.name } }
+            )
+          else
+            render_error(result[:error], :unprocessable_content)
+          end
+        end
+
+        # GET /api/v1/ai/agent_marketplace/analytics
+        # Core usage analytics (non-enterprise)
+        def analytics
+          data = @service.installation_analytics
+          render_success(analytics: data)
+        end
+
         private
 
         def set_service

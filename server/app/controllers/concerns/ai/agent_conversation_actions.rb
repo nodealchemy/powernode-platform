@@ -241,6 +241,147 @@ module Ai
       render_error(e.message, status: :not_found)
     end
 
+    # PATCH /api/v1/ai/agents/:agent_id/conversations/:conversation_id/messages/:id/edit_content
+    def edit_content
+      set_agent unless @agent
+      return if performed?
+
+      conversation = @agent.conversations.find(params[:conversation_id])
+      message = conversation.messages.find(params[:id])
+
+      unless message.can_edit?(current_user)
+        return render_error("You don't have permission to edit this message", status: :forbidden)
+      end
+
+      content = params[:content]
+      return render_error("Content is required", status: :bad_request) if content.blank?
+
+      message.edit_content!(content, user: current_user)
+
+      render_success(message: serialize_message(message.reload))
+      log_audit_event("ai.messages.edit", message)
+    rescue ActiveRecord::RecordNotFound => e
+      render_error(e.message, status: :not_found)
+    rescue ArgumentError => e
+      render_error(e.message, status: :unprocessable_content)
+    end
+
+    # DELETE /api/v1/ai/agents/:agent_id/conversations/:conversation_id/messages/:id
+    def destroy_message
+      set_agent unless @agent
+      return if performed?
+
+      conversation = @agent.conversations.find(params[:conversation_id])
+      message = conversation.messages.find(params[:id])
+
+      unless message.can_delete?(current_user)
+        return render_error("You don't have permission to delete this message", status: :forbidden)
+      end
+
+      message.soft_delete!
+
+      render_success(message: "Message deleted", message_id: message.message_id)
+      log_audit_event("ai.messages.delete", message)
+    rescue ActiveRecord::RecordNotFound => e
+      render_error(e.message, status: :not_found)
+    end
+
+    # POST /api/v1/ai/agents/:agent_id/conversations/:conversation_id/messages/:id/restore
+    def restore_message
+      set_agent unless @agent
+      return if performed?
+
+      conversation = @agent.conversations.find(params[:conversation_id])
+      message = conversation.messages.unscoped.find(params[:id])
+
+      unless message.can_delete?(current_user)
+        return render_error("You don't have permission to restore this message", status: :forbidden)
+      end
+
+      message.restore!
+
+      render_success(message: serialize_message(message.reload))
+      log_audit_event("ai.messages.restore", message)
+    rescue ActiveRecord::RecordNotFound => e
+      render_error(e.message, status: :not_found)
+    end
+
+    # GET /api/v1/ai/agents/:agent_id/conversations/:conversation_id/messages/:id/thread
+    def message_thread
+      set_agent unless @agent
+      return if performed?
+
+      conversation = @agent.conversations.find(params[:conversation_id])
+      message = conversation.messages.find(params[:id])
+
+      thread = message.thread_messages.select(&:not_deleted?)
+
+      render_success(
+        thread: thread.map { |m| serialize_message(m) },
+        parent_message_id: message.parent_message&.message_id,
+        reply_count: message.child_messages.not_deleted.count
+      )
+    rescue ActiveRecord::RecordNotFound => e
+      render_error(e.message, status: :not_found)
+    end
+
+    # POST /api/v1/ai/agents/:agent_id/conversations/:conversation_id/messages/:id/reply
+    def reply_to_message
+      set_agent unless @agent
+      return if performed?
+
+      conversation = @agent.conversations.find(params[:conversation_id])
+      parent_message = conversation.messages.find(params[:id])
+
+      content = params[:content]
+      return render_error("Content is required", status: :bad_request) if content.blank?
+
+      reply = conversation.messages.create!(
+        user: current_user,
+        role: "user",
+        content: content,
+        message_type: "text",
+        status: "completed",
+        parent_message: parent_message,
+        sequence_number: conversation.messages.maximum(:sequence_number).to_i + 1
+      )
+
+      # Broadcast the new reply via ActionCable
+      ActionCable.server.broadcast(
+        conversation.websocket_channel,
+        {
+          type: "message_created",
+          conversation_id: conversation.conversation_id,
+          message: reply.message_data
+        }
+      )
+
+      render_success(message: serialize_message(reply))
+      log_audit_event("ai.messages.reply", reply, parent_message_id: parent_message.message_id)
+    rescue ActiveRecord::RecordNotFound => e
+      render_error(e.message, status: :not_found)
+    rescue ActiveRecord::RecordInvalid => e
+      render_error(e.message, status: :unprocessable_content)
+    end
+
+    # GET /api/v1/ai/agents/:agent_id/conversations/:conversation_id/messages/:id/edit_history
+    def edit_history
+      set_agent unless @agent
+      return if performed?
+
+      conversation = @agent.conversations.find(params[:conversation_id])
+      message = conversation.messages.find(params[:id])
+
+      render_success(
+        message_id: message.message_id,
+        is_edited: message.is_edited?,
+        edited_at: message.edited_at,
+        edit_history: message.edit_history || []
+      )
+    rescue ActiveRecord::RecordNotFound => e
+      render_error(e.message, status: :not_found)
+    end
+
     private
 
     # Conversation parameter handling (can be overridden in including controller)

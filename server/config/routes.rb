@@ -1601,6 +1601,11 @@ Rails.application.routes.draw do
                 patch :edit_content
                 post :regenerate
                 post :rate
+                delete :destroy, action: :destroy_message
+                post :restore, action: :restore_message
+                get :thread, action: :message_thread
+                post :reply, action: :reply_to_message
+                get :edit_history
               end
             end
           end
@@ -1644,11 +1649,20 @@ Rails.application.routes.draw do
         # 4. GLOBAL CONVERSATIONS CONTROLLER - Cross-agent conversation management
         # ===================================================================
         resources :conversations, only: [ :index, :show, :update, :destroy ] do
+          collection do
+            get :search
+            patch :bulk
+          end
           member do
             post :archive
             post :unarchive
             post :duplicate
+            post :pin
+            delete :unpin
             get :stats
+            post :worker_complete
+            post :worker_stream_chunk
+            post :worker_error
           end
         end
 
@@ -2103,6 +2117,19 @@ Rails.application.routes.draw do
           post "tasks/:id/cancel", to: "a2a#cancel_task", as: :cancel_task
         end
 
+        # ACP Protocol - Agent Communication Protocol (Cisco standard)
+        # REST-based agent-centric protocol alongside A2A
+        scope :acp, as: :acp_protocol do
+          get "/", to: "acp#info", as: :info
+          get :agents, to: "acp#list_agents"
+          get "agents/:id", to: "acp#show_agent", as: :show_agent
+          post "agents/:id/negotiate", to: "acp#negotiate", as: :negotiate
+          post "agents/:id/messages", to: "acp#send_message", as: :send_message
+          get "agents/:id/events", to: "acp#events", as: :events
+          get "messages/:id", to: "acp#show_message", as: :show_message
+          post "messages/:id/cancel", to: "acp#cancel_message", as: :cancel_message
+        end
+
         # Agent Memory Enhancement (adds to existing memory routes)
         scope "agents/:agent_id" do
           post "memory/inject", to: "agent_memory#inject"
@@ -2384,6 +2411,12 @@ Rails.application.routes.draw do
           get "templates/:template_id/reviews", action: :reviews
           post "templates/:template_id/reviews", action: :create_review
 
+          # Agent Composition
+          post "compose_team", action: :compose_team
+
+          # Core Analytics (non-enterprise)
+          get "analytics", action: :analytics
+
           # Publisher routes are in enterprise/server/config/routes.rb
         end
 
@@ -2561,37 +2594,8 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
-        # 24. INTELLIGENCE - AI-powered business intelligence
+        # 24. INTELLIGENCE - Moved to enterprise/server/config/routes.rb
         # ===================================================================
-        namespace :intelligence do
-          resource :supply_chain, only: [] do
-            post :analyze
-            get :risk_summary
-            get :vulnerability_report
-          end
-          resource :pipeline, only: [] do
-            post :analyze_failure
-            get :health
-            get :trends
-          end
-          # Revenue, BaaS, and reseller intelligence routes are in enterprise/server/config/routes.rb
-          resource :reviews, only: [] do
-            post :sentiment_analysis
-            get :spam_detection
-            post :generate_response
-            get :agent_quality
-          end
-          resource :notifications, only: [] do
-            post :smart_routing
-            get :fatigue_analysis
-            get :digest_recommendations
-          end
-          resource :monitoring, only: [] do
-            get :predictive_failure
-            get :self_healing
-            get :sla_breach_risk
-          end
-        end
 
         # ===================================================================
         # AI SKILLS - Domain-specific skill bundles
@@ -2644,6 +2648,10 @@ Rails.application.routes.draw do
           post "reinforce/:id", action: :reinforce
           post "promote", action: :promote
           post "compound_maintenance", action: :compound_maintenance
+          get "benchmarks", action: :benchmarks
+          post "benchmarks", action: :create_benchmark
+          post "benchmarks/:id/run", action: :run_benchmark
+          get "evaluation_results", action: :evaluation_results
         end
 
         # ===================================================================

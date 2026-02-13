@@ -64,6 +64,7 @@ module Api
           },
           features: {
             core_mode: !Shared::FeatureGateService.enterprise_loaded?,
+            enterprise_enabled: Shared::FeatureGateService.enterprise_enabled?,
             registration_enabled: Shared::FeatureGateService.enterprise_loaded? && registration_enabled?,
             email_verification_required: email_verification_required?,
             multi_tenancy_enabled: multi_tenancy_enabled?

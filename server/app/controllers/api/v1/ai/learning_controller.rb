@@ -113,6 +113,68 @@ module Api
           render_success(promoted_count: count)
         end
 
+        # GET /api/v1/ai/learning/benchmarks
+        def benchmarks
+          benchmarks = ::Ai::PerformanceBenchmark.where(account: current_user.account)
+          benchmarks = benchmarks.where(status: params[:status]) if params[:status].present?
+          benchmarks = benchmarks.for_agent(params[:agent_id]) if params[:agent_id].present?
+          benchmarks = benchmarks.order(created_at: :desc).limit(params[:limit]&.to_i || 50)
+
+          render_success(
+            benchmarks: benchmarks.map { |b| benchmark_json(b) }
+          )
+        end
+
+        # POST /api/v1/ai/learning/benchmarks
+        def create_benchmark
+          benchmark = ::Ai::PerformanceBenchmark.new(
+            account: current_user.account,
+            name: params[:name],
+            target_agent_id: params[:agent_id],
+            target_workflow_id: params[:workflow_id],
+            thresholds: params[:thresholds] || {},
+            status: "active"
+          )
+
+          if benchmark.save
+            render_success(benchmark: benchmark_json(benchmark))
+          else
+            render_error(benchmark.errors.full_messages.join(", "), status: :unprocessable_entity)
+          end
+        end
+
+        # POST /api/v1/ai/learning/benchmarks/:id/run
+        def run_benchmark
+          benchmark = ::Ai::PerformanceBenchmark.find_by(id: params[:id], account: current_user.account)
+          return render_error("Benchmark not found", status: :not_found) unless benchmark
+
+          evaluation_service = ::Ai::Learning::EvaluationService.new(account: current_user.account)
+          agent_id = benchmark.target_agent_id
+          return render_error("Benchmark has no target agent", status: :unprocessable_entity) unless agent_id
+
+          trend_data = evaluation_service.agent_score_trends(agent_id)
+          benchmark.record_results!(trend_data || {})
+
+          render_success(
+            benchmark: benchmark_json(benchmark),
+            results: trend_data
+          )
+        end
+
+        # GET /api/v1/ai/learning/evaluation_results
+        def evaluation_results
+          results = ::Ai::EvaluationResult.joins(:execution)
+                                           .where(ai_agent_executions: { account_id: current_user.account.id })
+
+          results = results.for_agent(params[:agent_id]) if params[:agent_id].present?
+          results = results.in_time_range(params[:from]&.to_datetime, params[:to]&.to_datetime) if params[:from].present?
+          results = results.order(created_at: :desc).limit(params[:limit]&.to_i || 50)
+
+          render_success(
+            results: results.map { |r| evaluation_result_json(r) }
+          )
+        end
+
         # POST /api/v1/ai/learning/compound_maintenance (internal, called by worker)
         def compound_maintenance
           service = ::Ai::Learning::CompoundLearningService.new(account: current_user.account)
@@ -130,11 +192,11 @@ module Api
 
         def validate_permissions
           case action_name
-          when "recommendations", "agent_trends", "cache_metrics"
+          when "recommendations", "agent_trends", "cache_metrics", "evaluation_results", "benchmarks"
             require_permission("ai.analytics.read")
           when "compound_metrics", "learnings"
             require_permission("ai.analytics.read")
-          when "apply_recommendation", "dismiss_recommendation"
+          when "apply_recommendation", "dismiss_recommendation", "create_benchmark", "run_benchmark"
             require_permission("ai.analytics.manage")
           when "reinforce", "promote", "compound_maintenance"
             require_permission("ai.analytics.manage")
@@ -153,6 +215,39 @@ module Api
             confidence_score: rec.confidence_score,
             status: rec.status,
             created_at: rec.created_at&.iso8601
+          }
+        end
+
+        def benchmark_json(benchmark)
+          {
+            id: benchmark.id,
+            name: benchmark.name,
+            status: benchmark.status,
+            target_agent_id: benchmark.target_agent_id,
+            target_workflow_id: benchmark.target_workflow_id,
+            baseline_metrics: benchmark.baseline_metrics,
+            latest_results: benchmark.latest_results,
+            latest_score: benchmark.latest_score,
+            trend: benchmark.trend,
+            thresholds: benchmark.thresholds,
+            last_run_at: benchmark.last_run_at&.iso8601,
+            created_at: benchmark.created_at&.iso8601
+          }
+        end
+
+        def evaluation_result_json(result)
+          {
+            id: result.id,
+            execution_id: result.ai_agent_execution_id,
+            evaluator_model: result.evaluator_model,
+            scores: result.scores,
+            feedback: result.feedback,
+            correctness: result.correctness_score,
+            completeness: result.completeness_score,
+            helpfulness: result.helpfulness_score,
+            safety: result.safety_score,
+            average: result.average_score,
+            created_at: result.created_at&.iso8601
           }
         end
       end
