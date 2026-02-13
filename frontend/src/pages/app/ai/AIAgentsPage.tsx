@@ -9,8 +9,6 @@ import { TeamBuilderModal } from '@/features/ai/agent-teams/components/TeamBuild
 import { ExecuteTeamModal } from '@/features/ai/agent-teams/components/ExecuteTeamModal';
 import { CreateAgentModal } from '@/features/ai/agents/components/CreateAgentModal';
 import { EditAgentModal } from '@/features/ai/agents/components/EditAgentModal';
-import { ConversationContinueModal } from '@/features/ai/conversations/components/ConversationContinueModal';
-import { ConversationCreateModal } from '@/features/ai/conversations/components/ConversationCreateModal';
 import { AgentsOverviewTab } from '@/features/ai/agents/components/tabs/AgentsOverviewTab';
 import { AgentsListTab } from '@/features/ai/agents/components/tabs/AgentsListTab';
 import { CardsTab } from '@/features/ai/agents/components/tabs/CardsTab';
@@ -19,7 +17,7 @@ import { CommunityAgentsContent } from '@/features/ai/community-agents/pages/Com
 import { useAgentsList } from '@/features/ai/agents/hooks/useAgentsList';
 import { useTeamsList } from '@/features/ai/agents/hooks/useTeamsList';
 import { useAgentCards } from '@/features/ai/agents/hooks/useAgentCards';
-import { useAgentChat } from '@/features/ai/agents/hooks/useAgentChat';
+import { useChatWindow } from '@/features/ai/chat/context/ChatWindowContext';
 import { usePermissions } from '@/shared/hooks/usePermissions';
 import { useAiOrchestrationWebSocket } from '@/shared/hooks/useAiOrchestrationWebSocket';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
@@ -36,6 +34,7 @@ const tabs = [
 export const AIAgentsPage: React.FC = () => {
   const location = useLocation();
   const { hasPermission } = usePermissions();
+  const { openConversationMaximized } = useChatWindow();
 
   const canCreateAgents = hasPermission('ai.agents.create');
   const canManageAgents = hasPermission('ai.agents.manage');
@@ -44,7 +43,6 @@ export const AIAgentsPage: React.FC = () => {
   const agentsList = useAgentsList();
   const teamsList = useTeamsList();
   const agentCards = useAgentCards();
-  const agentChat = useAgentChat();
 
   // Local modal state
   const [showCreateAgentModal, setShowCreateAgentModal] = useState(false);
@@ -204,7 +202,7 @@ export const AIAgentsPage: React.FC = () => {
             onCreateAgent={() => setShowCreateAgentModal(true)}
             onToggleStatus={agentsList.handleToggleAgentStatus}
             onEditAgent={handleEditAgent}
-            onChatWithAgent={agentChat.handleChatWithAgent}
+            onChatWithAgent={(agent) => openConversationMaximized(agent.id, agent.name)}
           />
         </TabPanel>
 
@@ -259,21 +257,6 @@ export const AIAgentsPage: React.FC = () => {
         agent={selectedAgent}
         onAgentUpdated={handleAgentUpdated}
         onAgentDeleted={handleAgentDeleted}
-      />
-
-      {agentChat.chatConversation && (
-        <ConversationContinueModal
-          isOpen={agentChat.showChatModal}
-          onClose={agentChat.closeChatModal}
-          conversation={agentChat.chatConversation}
-        />
-      )}
-
-      <ConversationCreateModal
-        isOpen={agentChat.showCreateConversationModal}
-        onClose={agentChat.closeCreateConversationModal}
-        onConversationCreated={agentChat.handleConversationCreatedForChat}
-        preselectedAgentId={agentChat.chatAgent?.id}
       />
     </PageContainer>
   );

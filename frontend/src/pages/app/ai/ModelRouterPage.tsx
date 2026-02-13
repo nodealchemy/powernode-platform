@@ -1,8 +1,9 @@
 // Model Router Page - Intelligent AI Request Routing
 import React, { useState, useEffect } from 'react';
 import {
-  Route, Search, BarChart3, Zap,
-  TrendingUp, ToggleLeft, ToggleRight, Lightbulb, Play
+  Route, Search, BarChart3, Zap, Trash2,
+  TrendingUp, ToggleLeft, ToggleRight, Lightbulb, Play,
+  ChevronDown, ChevronUp, Clock, Shield, Loader2, Crosshair
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Modal } from '@/shared/components/ui/Modal';
@@ -47,6 +48,95 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 type TabType = 'rules' | 'decisions' | 'analytics' | 'optimization';
 
+// ============================================================================
+// Detail rendering helpers
+// ============================================================================
+
+const formatLabel = (key: string): string =>
+  key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+const DetailValue: React.FC<{ value: unknown }> = ({ value }) => {
+  if (value === null || value === undefined) return <span className="text-theme-tertiary italic">—</span>;
+  if (Array.isArray(value)) {
+    if (value.length === 0) return <span className="text-theme-tertiary italic">none</span>;
+    return (
+      <div className="flex flex-wrap gap-1 mt-0.5">
+        {value.map((v, i) => (
+          <span key={i} className="px-1.5 py-0.5 text-xs bg-theme-surface rounded border border-theme font-mono">
+            {String(v)}
+          </span>
+        ))}
+      </div>
+    );
+  }
+  if (typeof value === 'object') {
+    return (
+      <pre className="text-xs bg-theme-surface p-2 rounded overflow-x-auto font-mono mt-0.5">
+        {JSON.stringify(value, null, 2)}
+      </pre>
+    );
+  }
+  if (typeof value === 'boolean') {
+    return <span className={value ? 'text-theme-success' : 'text-theme-danger'}>{value ? 'Yes' : 'No'}</span>;
+  }
+  if (typeof value === 'number') {
+    return <span className="font-mono">{value.toLocaleString()}</span>;
+  }
+  return <span className="font-mono">{String(value)}</span>;
+};
+
+const DetailSection: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode }> = ({ title, icon, children }) => (
+  <div className="bg-theme-bg rounded-lg p-3">
+    <h4 className="flex items-center gap-1.5 text-xs font-semibold text-theme-secondary uppercase tracking-wide mb-2.5">
+      {icon} {title}
+    </h4>
+    {children}
+  </div>
+);
+
+const renderJsonEntries = (obj: Record<string, unknown> | undefined): React.ReactNode => {
+  if (!obj || Object.keys(obj).length === 0) {
+    return <p className="text-xs text-theme-tertiary italic">Not configured</p>;
+  }
+  return (
+    <dl className="space-y-2">
+      {Object.entries(obj).map(([key, value]) => (
+        <div key={key}>
+          <dt className="text-xs text-theme-secondary">{formatLabel(key)}</dt>
+          <dd className="text-xs text-theme-primary">
+            <DetailValue value={value} />
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+};
+
+const renderThresholds = (thresholds: RoutingRule['thresholds']): React.ReactNode => {
+  if (!thresholds) return <p className="text-xs text-theme-tertiary italic">No thresholds set</p>;
+  const entries: [string, string | null][] = [
+    ['Max Cost / 1k Tokens', thresholds.max_cost_per_1k_tokens != null ? `$${Number(thresholds.max_cost_per_1k_tokens).toFixed(4)}` : null],
+    ['Max Latency', thresholds.max_latency_ms != null ? `${Number(thresholds.max_latency_ms).toLocaleString()}ms` : null],
+    ['Min Quality Score', thresholds.min_quality_score != null ? Number(thresholds.min_quality_score).toFixed(2) : null],
+  ];
+  const validEntries = entries.filter((e): e is [string, string] => e[1] !== null);
+  if (validEntries.length === 0) return <p className="text-xs text-theme-tertiary italic">No thresholds set</p>;
+  return (
+    <dl className="space-y-1.5">
+      {validEntries.map(([label, val]) => (
+        <div key={label} className="flex justify-between text-xs">
+          <dt className="text-theme-secondary">{label}</dt>
+          <dd className="font-mono text-theme-primary">{val}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+};
+
+// ============================================================================
+// Main Component
+// ============================================================================
+
 export const ModelRouterContent: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const [activeTab, setActiveTab] = useState<TabType>('rules');
@@ -63,8 +153,17 @@ export const ModelRouterContent: React.FC = () => {
   // Create rule modal
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newRuleName, setNewRuleName] = useState('');
-  const [newRuleType, setNewRuleType] = useState<string>('cost_threshold');
+  const [newRuleType, setNewRuleType] = useState<string>('cost_based');
   const [newRuleDescription, setNewRuleDescription] = useState('');
+
+  // Delete confirmation
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const ruleToDelete = rules.find(r => r.id === deleteConfirmId);
+
+  // Expandable rule details
+  const [expandedRuleId, setExpandedRuleId] = useState<string | null>(null);
+  const [expandedRuleDetails, setExpandedRuleDetails] = useState<Record<string, RoutingRule>>({});
+  const [loadingExpandId, setLoadingExpandId] = useState<string | null>(null);
 
   usePageWebSocket({
     pageType: 'ai',
@@ -89,12 +188,18 @@ export const ModelRouterContent: React.FC = () => {
         modelRouterApi.getRecommendations(),
         modelRouterApi.getOptimizations()
       ]);
-      setRules(rulesRes.items || []);
-      setDecisions(decisionsRes.items || []);
-      setStatistics(statsRes);
-      setCostAnalysis(costRes);
-      setRankings(rankingsRes);
-      setRecommendations(recsRes);
+      const rulesData = rulesRes as unknown as { rules?: RoutingRule[]; items?: RoutingRule[] };
+      const decisionsData = decisionsRes as unknown as { decisions?: RoutingDecision[]; items?: RoutingDecision[] };
+      setRules(rulesData.rules || rulesData.items || []);
+      setDecisions(decisionsData.decisions || decisionsData.items || []);
+      const statsData = statsRes as unknown as { statistics?: RoutingStatistics };
+      setStatistics(statsData.statistics || statsRes);
+      const costData = costRes as unknown as { cost_analysis?: CostAnalysis };
+      setCostAnalysis(costData.cost_analysis || costRes);
+      const rankData = rankingsRes as unknown as { rankings?: ProviderRanking[] };
+      setRankings(rankData.rankings || (Array.isArray(rankingsRes) ? rankingsRes : []));
+      const recsData = recsRes as unknown as { recommendations?: OptimizationRecommendation[] };
+      setRecommendations(recsData.recommendations || (Array.isArray(recsRes) ? recsRes : []));
       setOptimizations(optsRes.optimizations || []);
       setOptimizationStats(optsRes.stats || null);
     } catch (error) {
@@ -127,9 +232,12 @@ export const ModelRouterContent: React.FC = () => {
     try {
       await modelRouterApi.deleteRule(ruleId);
       setRules(rules.filter(r => r.id !== ruleId));
+      if (expandedRuleId === ruleId) setExpandedRuleId(null);
       dispatch(addNotification({ type: 'success', message: 'Rule deleted' }));
     } catch (error) {
       dispatch(addNotification({ type: 'error', message: getErrorMessage(error, 'Failed to delete rule') }));
+    } finally {
+      setDeleteConfirmId(null);
     }
   };
 
@@ -174,14 +282,35 @@ export const ModelRouterContent: React.FC = () => {
     }
   };
 
+  const handleExpandRule = async (ruleId: string) => {
+    if (expandedRuleId === ruleId) {
+      setExpandedRuleId(null);
+      return;
+    }
+    setExpandedRuleId(ruleId);
+    if (!expandedRuleDetails[ruleId]) {
+      try {
+        setLoadingExpandId(ruleId);
+        const res = await modelRouterApi.getRule(ruleId);
+        const detail = (res as unknown as { rule?: RoutingRule }).rule || res;
+        setExpandedRuleDetails(prev => ({ ...prev, [ruleId]: detail }));
+      } catch {
+        dispatch(addNotification({ type: 'error', message: 'Failed to load rule details' }));
+        setExpandedRuleId(null);
+      } finally {
+        setLoadingExpandId(null);
+      }
+    }
+  };
+
   const getRuleTypeColor = (type: string): string => {
     switch (type) {
-      case 'cost_threshold': return 'text-theme-success bg-theme-success/10';
-      case 'latency_threshold': return 'text-theme-warning bg-theme-warning/10';
-      case 'quality_threshold': return 'text-theme-info bg-theme-info/10';
-      case 'capability': return 'text-theme-accent bg-theme-accent/10';
-      case 'fallback': return 'text-theme-danger bg-theme-danger/10';
-      case 'load_balance': return 'text-theme-primary bg-theme-primary/10';
+      case 'cost_based': return 'text-theme-success bg-theme-success/10';
+      case 'latency_based': return 'text-theme-warning bg-theme-warning/10';
+      case 'quality_based': return 'text-theme-info bg-theme-info/10';
+      case 'capability_based': return 'text-theme-accent bg-theme-accent/10';
+      case 'custom': return 'text-theme-danger bg-theme-danger/10';
+      case 'ml_optimized': return 'text-theme-primary bg-theme-primary/10';
       default: return 'text-theme-secondary bg-theme-surface';
     }
   };
@@ -257,41 +386,129 @@ export const ModelRouterContent: React.FC = () => {
                   </button>
                 </div>
               ) : (
-                rules.map(rule => (
-                  <div key={rule.id} className="bg-theme-surface border border-theme rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-mono text-theme-secondary">#{rule.priority}</span>
-                        <h3 className="font-medium text-theme-primary">{rule.name}</h3>
-                        <span className={`px-2 py-1 text-xs rounded ${getRuleTypeColor(rule.rule_type)}`}>{rule.rule_type}</span>
+                rules.map(rule => {
+                  const isExpanded = expandedRuleId === rule.id;
+                  const detail = expandedRuleDetails[rule.id];
+                  const isLoadingDetail = loadingExpandId === rule.id;
+
+                  return (
+                    <div key={rule.id} className="bg-theme-surface border border-theme rounded-lg overflow-hidden">
+                      {/* Clickable header */}
+                      <div
+                        className="flex items-center justify-between p-4 cursor-pointer select-none hover:bg-theme-surface-hover/50 transition-colors"
+                        onClick={() => handleExpandRule(rule.id)}
+                      >
+                        <div className="flex items-center gap-3">
+                          {isExpanded
+                            ? <ChevronUp size={16} className="text-theme-accent flex-shrink-0" />
+                            : <ChevronDown size={16} className="text-theme-secondary flex-shrink-0" />
+                          }
+                          <span className="text-sm font-mono text-theme-secondary">#{rule.priority}</span>
+                          <h3 className="font-medium text-theme-primary">{rule.name}</h3>
+                          <span className={`px-2 py-1 text-xs rounded ${getRuleTypeColor(rule.rule_type)}`}>{rule.rule_type}</span>
+                        </div>
+                        <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
+                          <button
+                            onClick={() => handleToggleRule(rule.id)}
+                            className="text-theme-secondary hover:text-theme-primary transition-colors"
+                            title={rule.is_active ? 'Disable' : 'Enable'}
+                          >
+                            {rule.is_active ? <ToggleRight size={20} className="text-theme-success" /> : <ToggleLeft size={20} />}
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirmId(rule.id)}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded border border-theme-danger/30 text-theme-danger hover:bg-theme-danger/10 transition-colors"
+                            title="Delete rule"
+                          >
+                            <Trash2 size={13} />
+                            Delete
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => handleToggleRule(rule.id)}
-                          className="text-theme-secondary hover:text-theme-primary transition-colors"
-                          title={rule.is_active ? 'Disable' : 'Enable'}
-                        >
-                          {rule.is_active ? <ToggleRight size={20} className="text-theme-success" /> : <ToggleLeft size={20} />}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteRule(rule.id)}
-                          className="text-theme-secondary hover:text-theme-danger transition-colors text-sm"
-                        >
-                          Delete
-                        </button>
-                      </div>
+
+                      {/* Description & stats (always visible) */}
+                      {(rule.description || rule.stats) && (
+                        <div className="px-4 pb-3 -mt-1">
+                          {rule.description && <p className="text-sm text-theme-secondary mb-2 pl-7">{rule.description}</p>}
+                          {rule.stats && (
+                            <div className="flex gap-4 text-xs text-theme-secondary pl-7">
+                              <span>{rule.stats.times_matched} matched</span>
+                              <span className="text-theme-success">{rule.stats.times_succeeded} succeeded</span>
+                              <span className="text-theme-danger">{rule.stats.times_failed} failed</span>
+                              <span>{(rule.stats.success_rate * 100).toFixed(1)}% success</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Expanded details */}
+                      {isExpanded && (
+                        <div className="border-t border-theme px-4 py-4">
+                          {isLoadingDetail ? (
+                            <div className="flex items-center justify-center py-8">
+                              <Loader2 size={20} className="animate-spin text-theme-accent" />
+                              <span className="ml-2 text-sm text-theme-secondary">Loading rule details...</span>
+                            </div>
+                          ) : detail ? (
+                            <div>
+                              {/* Description from full details if not shown in collapsed view */}
+                              {detail.description && !rule.description && (
+                                <p className="text-sm text-theme-secondary mb-4">{detail.description}</p>
+                              )}
+
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {/* Conditions */}
+                                <DetailSection title="Conditions" icon={<Search size={12} />}>
+                                  {renderJsonEntries(detail.conditions)}
+                                </DetailSection>
+
+                                {/* Target */}
+                                <DetailSection title="Target" icon={<Crosshair size={12} />}>
+                                  {renderJsonEntries(detail.target)}
+                                </DetailSection>
+
+                                {/* Thresholds */}
+                                <DetailSection title="Thresholds" icon={<Shield size={12} />}>
+                                  {renderThresholds(detail.thresholds)}
+                                </DetailSection>
+
+                                {/* Metadata */}
+                                <DetailSection title="Metadata" icon={<Clock size={12} />}>
+                                  <dl className="space-y-1.5">
+                                    <div className="flex justify-between text-xs">
+                                      <dt className="text-theme-secondary">Rule ID</dt>
+                                      <dd className="font-mono text-theme-primary truncate ml-2" title={detail.id}>
+                                        {detail.id.length > 16 ? `${detail.id.slice(0, 16)}...` : detail.id}
+                                      </dd>
+                                    </div>
+                                    {detail.created_at && (
+                                      <div className="flex justify-between text-xs">
+                                        <dt className="text-theme-secondary">Created</dt>
+                                        <dd className="text-theme-primary">{new Date(detail.created_at).toLocaleDateString()}</dd>
+                                      </div>
+                                    )}
+                                    {detail.updated_at && (
+                                      <div className="flex justify-between text-xs">
+                                        <dt className="text-theme-secondary">Updated</dt>
+                                        <dd className="text-theme-primary">{new Date(detail.updated_at).toLocaleDateString()}</dd>
+                                      </div>
+                                    )}
+                                    {detail.stats?.last_matched_at && (
+                                      <div className="flex justify-between text-xs">
+                                        <dt className="text-theme-secondary">Last Matched</dt>
+                                        <dd className="text-theme-primary">{new Date(detail.stats.last_matched_at).toLocaleDateString()}</dd>
+                                      </div>
+                                    )}
+                                  </dl>
+                                </DetailSection>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      )}
                     </div>
-                    {rule.description && <p className="text-sm text-theme-secondary mb-2">{rule.description}</p>}
-                    {rule.stats && (
-                      <div className="flex gap-4 text-xs text-theme-secondary">
-                        <span>{rule.stats.times_matched} matched</span>
-                        <span className="text-theme-success">{rule.stats.times_succeeded} succeeded</span>
-                        <span className="text-theme-danger">{rule.stats.times_failed} failed</span>
-                        <span>{(rule.stats.success_rate * 100).toFixed(1)}% success</span>
-                      </div>
-                    )}
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           )}
@@ -479,6 +696,36 @@ export const ModelRouterContent: React.FC = () => {
         </>
       )}
 
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={!!deleteConfirmId}
+        onClose={() => setDeleteConfirmId(null)}
+        title="Delete Routing Rule"
+        maxWidth="sm"
+        icon={<Trash2 className="text-theme-danger" />}
+        footer={
+          <div className="flex justify-end gap-3">
+            <button onClick={() => setDeleteConfirmId(null)} className="btn-theme btn-theme-secondary">Cancel</button>
+            <button
+              onClick={() => deleteConfirmId && handleDeleteRule(deleteConfirmId)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-theme-danger text-white hover:bg-theme-danger/90 transition-colors text-sm font-medium"
+            >
+              <Trash2 size={14} />
+              Delete Rule
+            </button>
+          </div>
+        }
+      >
+        <div className="p-4">
+          <p className="text-sm text-theme-primary">
+            Are you sure you want to delete <span className="font-semibold">{ruleToDelete?.name}</span>?
+          </p>
+          <p className="text-sm text-theme-secondary mt-2">
+            This action cannot be undone. Any routing decisions referencing this rule will lose their rule association.
+          </p>
+        </div>
+      </Modal>
+
       {/* Create Rule Modal */}
       <Modal
         isOpen={showCreateModal}
@@ -511,13 +758,12 @@ export const ModelRouterContent: React.FC = () => {
               onChange={(e) => setNewRuleType(e.target.value)}
               className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
             >
-              <option value="cost_threshold">Cost Threshold</option>
-              <option value="latency_threshold">Latency Threshold</option>
-              <option value="quality_threshold">Quality Threshold</option>
-              <option value="capability">Capability</option>
-              <option value="fallback">Fallback</option>
-              <option value="load_balance">Load Balance</option>
+              <option value="cost_based">Cost Based</option>
+              <option value="latency_based">Latency Based</option>
+              <option value="quality_based">Quality Based</option>
+              <option value="capability_based">Capability Based</option>
               <option value="custom">Custom</option>
+              <option value="ml_optimized">ML Optimized</option>
             </select>
           </div>
           <div>

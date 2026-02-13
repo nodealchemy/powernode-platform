@@ -87,7 +87,7 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
     <Card
       className={cn(
         'cursor-pointer transition-all hover:shadow-md',
-        'border-theme-border-primary',
+        'border-theme-border',
         className
       )}
       onClick={() => onSelect?.(channel)}
@@ -95,12 +95,12 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
       <CardContent className="p-4">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-theme-bg-secondary text-theme-text-primary">
+            <div className="p-2 rounded-lg bg-theme-surface text-theme-primary">
               {platformIcons[channel.platform]}
             </div>
             <div>
-              <h3 className="font-medium text-theme-text-primary">{channel.name}</h3>
-              <p className="text-sm text-theme-text-secondary capitalize">{channel.platform}</p>
+              <h3 className="font-medium text-theme-primary">{channel.name}</h3>
+              <p className="text-sm text-theme-secondary capitalize">{channel.platform}</p>
             </div>
           </div>
           <Badge variant={status.variant} size="sm">
@@ -110,15 +110,15 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
         </div>
 
         <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
-          <div className="flex items-center gap-2 text-theme-text-secondary">
+          <div className="flex items-center gap-2 text-theme-secondary">
             <Users className="w-4 h-4" />
             <span>{channel.active_sessions} active</span>
           </div>
-          <div className="flex items-center gap-2 text-theme-text-secondary">
+          <div className="flex items-center gap-2 text-theme-secondary">
             <MessageSquare className="w-4 h-4" />
             <span>{channel.total_sessions} total</span>
           </div>
-          <div className="flex items-center gap-2 text-theme-text-secondary">
+          <div className="flex items-center gap-2 text-theme-secondary">
             <Clock className="w-4 h-4" />
             <span>{formatTime(channel.last_message_at)}</span>
           </div>

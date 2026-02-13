@@ -98,11 +98,13 @@ export const AdminSettingsTabs: React.FC<AdminSettingsTabsProps> = ({ className 
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);
+  const { enterpriseEnabled } = useSelector((state: RootState) => state.config);
+  const enterpriseAvailable = (typeof __ENTERPRISE__ !== 'undefined' && __ENTERPRISE__) && enterpriseEnabled;
 
   // Filter tabs based on user permissions and enterprise availability
   const availableTabs = adminSettingsTabs.filter(tab => {
-    // Hide enterprise-only tabs when enterprise submodule is not installed
-    if (tab.enterpriseOnly && (typeof __ENTERPRISE__ === 'undefined' || !__ENTERPRISE__)) {
+    // Hide enterprise-only tabs when enterprise is not available
+    if (tab.enterpriseOnly && !enterpriseAvailable) {
       return false;
     }
     if (!tab.requiredPermissions || tab.requiredPermissions.length === 0) {

@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
-import { ContextBrowser } from '@/features/ai/context/components/ContextBrowser';
-import { SearchResults } from '@/features/ai/context/components/SearchResults';
-import { contextApi } from '@/features/ai/context/services/contextApi';
+import { ContextBrowser } from '@/features/ai/memory/components/ContextBrowser';
+import { SearchResults } from '@/features/ai/memory/components/SearchResults';
+import { contextApi } from '@/features/ai/memory/api/contextApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { Input } from '@/shared/components/ui/Input';
 import { Select } from '@/shared/components/ui/Select';
 import { Button } from '@/shared/components/ui/Button';
-import type { ContextFormData } from '@/features/ai/context/types';
+import type { ContextFormData } from '@/features/ai/memory/types/context';
 
 interface ContextsContentProps {
   onActionsReady?: (actions: PageAction[]) => void;

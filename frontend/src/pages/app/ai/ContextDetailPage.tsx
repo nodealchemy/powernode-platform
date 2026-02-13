@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { EntryEditor } from '@/features/ai/context/components/EntryEditor';
-import { SearchResults } from '@/features/ai/context/components/SearchResults';
-import { ImportExportModal } from '@/features/ai/context/components/ImportExportModal';
-import { contextApi } from '@/features/ai/context/services/contextApi';
+import { EntryEditor } from '@/features/ai/memory/components/EntryEditor';
+import { SearchResults } from '@/features/ai/memory/components/SearchResults';
+import { ImportExportModal } from '@/features/ai/memory/components/ImportExportModal';
+import { contextApi } from '@/features/ai/memory/api/contextApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import type {
@@ -13,7 +13,7 @@ import type {
   AiContextEntry,
   ContextStatsResponse,
   EntryType,
-} from '@/features/ai/context/types';
+} from '@/features/ai/memory/types/context';
 
 export function ContextDetailPage() {
   const { id } = useParams<{ id: string }>();

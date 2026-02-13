@@ -1,15 +1,28 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Provider, useDispatch, useSelector } from 'react-redux';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { RootState, AppDispatch } from '@/shared/services';
 import { store } from '@/shared/services';
 import { getCurrentUser, refreshAccessToken, clearAuth, forceTokenClear, checkImpersonationStatus } from '@/shared/services/slices/authSlice';
+import { fetchPlatformConfig } from '@/shared/services/slices/configSlice';
 import { isTokenInvalidError, isValidTokenFormat } from '@/shared/utils/tokenUtils';
 
 // Theme Provider
 import { ThemeProvider } from '@/shared/hooks/ThemeContext';
 import { BreadcrumbProvider } from '@/shared/hooks/BreadcrumbContext';
 import { FooterProvider } from '@/shared/contexts/FooterContext';
+
+// React Query client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 // Components
 import { ProtectedRoute } from '@/shared/components/ui/ProtectedRoute';
@@ -56,6 +69,9 @@ const AppContent: React.FC = () => {
 
     // Try to restore user session if we have a token
     const initializeAuth = async () => {
+      // Fetch platform config (enterprise state, feature flags) in parallel with auth
+      dispatch(fetchPlatformConfig());
+
       // CRITICAL: If user is already loaded (e.g., from login), skip initialization
       if (user && access_token) {
         // User already authenticated and loaded, complete initialization immediately
@@ -345,13 +361,15 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <Provider store={store}>
-      <ThemeProvider>
-        <BreadcrumbProvider>
-          <FooterProvider>
-            <AppContent />
-          </FooterProvider>
-        </BreadcrumbProvider>
-      </ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <BreadcrumbProvider>
+            <FooterProvider>
+              <AppContent />
+            </FooterProvider>
+          </BreadcrumbProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
     </Provider>
   );
 };

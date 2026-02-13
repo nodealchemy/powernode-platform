@@ -11,7 +11,10 @@ import {
   AlertCircle,
   Loader2,
   MessageSquare,
-  MoreVertical
+  MoreVertical,
+  MessageSquareReply,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Avatar } from '@/shared/components/ui/Avatar';
@@ -23,6 +26,9 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { agentsApi } from '@/shared/services/ai';
 import { cleanMarkdownContent } from '@/shared/utils/markdownUtils';
+import { ChatStreamingRenderer } from '@/features/ai/chat/components/ChatStreamingRenderer';
+import { MessageEditor } from '@/features/ai/chat/components/MessageEditor';
+import { MessageThread } from '@/features/ai/chat/components/MessageThread';
 import type {
   AiConversation,
   AiMessage,
@@ -50,21 +56,26 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
   const [inputValue, setInputValue] = useState('');
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const [isTyping, setIsTyping] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [threadMessage, setThreadMessage] = useState<AiMessage | null>(null);
+  const [threadMessages, setThreadMessages] = useState<AiMessage[]>([]);
+  const [threadLoading, setThreadLoading] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
-  
+
   const { addNotification } = useNotifications();
   const currentUser = useSelector((state: RootState) => state.auth.user);
 
   // WebSocket connection for real-time updates
   const webSocket = useWebSocket();
-  
+
   // Create stable refs that don't change
   const subscribeRef = useRef(webSocket.subscribe);
   const sendChannelMessageRef = useRef(webSocket.sendMessage);
-  
+
   // Update refs only when absolutely necessary
   if (subscribeRef.current !== webSocket.subscribe) {
     subscribeRef.current = webSocket.subscribe;
@@ -123,6 +134,12 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
       },
       content: cleanMessageContent((msg.content as string) || ''),
       created_at: (msg.created_at as string) || new Date().toISOString(),
+      is_edited: msg.is_edited as boolean | undefined,
+      edited_at: msg.edited_at as string | undefined,
+      deleted_at: msg.deleted_at as string | undefined,
+      parent_message_id: msg.parent_message_id as string | undefined,
+      reply_count: msg.reply_count as number | undefined,
+      user_id: msg.user_id as string | undefined,
       metadata: (msg.metadata as AiMessage['metadata']) || {
         timestamp: (msg.created_at as string) || new Date().toISOString(),
         tokens_used: msg.token_count as number | undefined,
@@ -164,7 +181,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
   }, [conversation.id]); // Remove addNotification dependency
 
   const handleChannelMessageRef = useRef<((data: ConversationChannelMessage) => void) | undefined>(undefined);
-  
+
   const handleChannelMessage = useCallback((data: ConversationChannelMessage) => {
 
     switch (data.type) {
@@ -241,7 +258,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
         break;
     }
   }, [currentUser?.id]); // Remove addNotification dependency
-  
+
   // Update ref immediately when callback changes
   handleChannelMessageRef.current = handleChannelMessage;
 
@@ -458,10 +475,90 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     }
   }, [conversation.id, conversation.ai_agent?.id]);
 
+  const handleEditMessage = useCallback(async (messageId: string, newContent: string) => {
+    const agentId = conversation.ai_agent?.id;
+    if (!agentId) return;
+
+    setEditSaving(true);
+    try {
+      const result = await agentsApi.editMessageContent(agentId, conversation.id, messageId, newContent);
+      setMessages(prev => prev.map(msg =>
+        msg.id === messageId
+          ? { ...msg, content: result.content || newContent, is_edited: true, edited_at: new Date().toISOString() }
+          : msg
+      ));
+      setEditingMessageId(null);
+      addNotification({ type: 'success', title: 'Saved', message: 'Message updated' });
+    } catch (_error) {
+      addNotification({ type: 'error', title: 'Edit Failed', message: 'Failed to update message' });
+    } finally {
+      setEditSaving(false);
+    }
+  }, [conversation.id, conversation.ai_agent?.id]);
+
+  const handleDeleteMessage = useCallback(async (message: AiMessage) => {
+    const agentId = conversation.ai_agent?.id;
+    if (!agentId) return;
+
+    try {
+      if (message.deleted_at) {
+        // Restore
+        const result = await agentsApi.restoreMessage(agentId, conversation.id, message.id);
+        setMessages(prev => prev.map(msg =>
+          msg.id === message.id ? { ...msg, ...result.message, deleted_at: undefined } : msg
+        ));
+        addNotification({ type: 'success', title: 'Restored', message: 'Message restored' });
+      } else {
+        // Soft delete
+        await agentsApi.deleteMessage(agentId, conversation.id, message.id);
+        setMessages(prev => prev.map(msg =>
+          msg.id === message.id ? { ...msg, deleted_at: new Date().toISOString() } : msg
+        ));
+        addNotification({ type: 'success', title: 'Deleted', message: 'Message deleted' });
+      }
+    } catch (_error) {
+      addNotification({ type: 'error', title: 'Action Failed', message: 'Failed to update message' });
+    }
+  }, [conversation.id, conversation.ai_agent?.id]);
+
+  const handleOpenThread = useCallback(async (message: AiMessage) => {
+    const agentId = conversation.ai_agent?.id;
+    if (!agentId) return;
+
+    setThreadMessage(message);
+    setThreadLoading(true);
+    try {
+      const result = await agentsApi.getMessageThread(agentId, conversation.id, message.id);
+      setThreadMessages((result.thread || []).map((msg: AiMessage) => mapBackendMessage(msg as unknown as Record<string, unknown>)));
+    } catch (_error) {
+      addNotification({ type: 'error', title: 'Thread Failed', message: 'Failed to load thread' });
+      setThreadMessage(null);
+    } finally {
+      setThreadLoading(false);
+    }
+  }, [conversation.id, conversation.ai_agent?.id]);
+
+  const handleSendReply = useCallback(async (content: string) => {
+    const agentId = conversation.ai_agent?.id;
+    if (!agentId || !threadMessage) return;
+
+    try {
+      const result = await agentsApi.replyToMessage(agentId, conversation.id, threadMessage.id, content);
+      const mapped = mapBackendMessage(result.message as unknown as Record<string, unknown>);
+      setThreadMessages(prev => [...prev, mapped]);
+      // Update reply count on parent message
+      setMessages(prev => prev.map(msg =>
+        msg.id === threadMessage.id ? { ...msg, reply_count: (msg.reply_count || 0) + 1 } : msg
+      ));
+    } catch (_error) {
+      addNotification({ type: 'error', title: 'Reply Failed', message: 'Failed to send reply' });
+    }
+  }, [conversation.id, conversation.ai_agent?.id, threadMessage]);
+
   const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    return new Date(timestamp).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
@@ -471,12 +568,45 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     const isSystem = message.sender_type === 'system';
     const isProcessing = message.metadata?.processing;
     const hasError = message.metadata?.error;
+    const isDeleted = !!message.deleted_at;
+    const isEditing = editingMessageId === message.id;
+    const canEdit = isUser && currentUser?.id === message.user_id;
+    const canDelete = isUser && currentUser?.id === message.user_id;
 
     if (isSystem) {
       return (
         <div key={message.id} className="flex justify-center my-4">
           <div className="bg-theme-surface border border-theme px-3 py-1 rounded-full text-sm text-theme-muted shadow-sm">
             {cleanMessageContent(message.content)}
+          </div>
+        </div>
+      );
+    }
+
+    // Soft-deleted message
+    if (isDeleted) {
+      return (
+        <div key={message.id} className="group flex gap-3 flex-row opacity-50">
+          <div className="flex-shrink-0 flex items-start justify-center">
+            <Avatar className="h-8 w-8 flex items-center justify-center bg-theme-surface border border-theme text-theme-muted" aria-hidden="true">
+              <div className="flex items-center justify-center w-full h-full">
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
+              </div>
+            </Avatar>
+          </div>
+          <div className="flex-1 max-w-[85%] sm:max-w-[80%] flex flex-col items-start">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-sm text-theme-muted italic">This message was deleted</span>
+              <span className="text-xs text-theme-secondary">{formatTimestamp(message.created_at)}</span>
+            </div>
+            {canDelete && (
+              <button
+                onClick={() => handleDeleteMessage(message)}
+                className="text-xs text-theme-interactive-primary hover:underline"
+              >
+                Restore message
+              </button>
+            )}
           </div>
         </div>
       );
@@ -514,131 +644,152 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
             <span className="text-xs text-theme-secondary">
               {formatTimestamp(message.created_at)}
             </span>
+            {message.is_edited && (
+              <span className="text-[10px] text-theme-text-tertiary italic">(edited)</span>
+            )}
           </div>
 
-          <div
-            className={`rounded-2xl px-4 py-3 max-w-full shadow-md ${
-              isUser
-                ? 'bg-theme-info text-white rounded-bl-md'
-                : hasError
-                ? 'bg-theme-danger/10 dark:bg-theme-danger/20 border border-theme-danger/30 dark:border-theme-danger/50 text-theme-danger dark:text-theme-danger rounded-bl-md'
-                : 'bg-theme-surface border border-theme text-theme-primary rounded-bl-md'
-            }`}
-          >
-            {isProcessing ? (
-              <div className="flex items-center gap-2 py-1">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span className="text-sm">AI is thinking...</span>
-              </div>
-            ) : (
-              <div className="text-sm break-words">
-                {message.sender_type === 'ai' ? (
-                  <div className="markdown-content">
-                    <ReactMarkdown
-                      components={{
-                        // Headers
-                        h1: ({ children }) => <h1 className="text-2xl font-bold mb-4 mt-6">{children}</h1>,
-                        h2: ({ children }) => <h2 className="text-xl font-bold mb-3 mt-5">{children}</h2>,
-                        h3: ({ children }) => <h3 className="text-lg font-bold mb-2 mt-4">{children}</h3>,
-                        h4: ({ children }) => <h4 className="text-base font-bold mb-2 mt-3">{children}</h4>,
-                        // Paragraphs
-                        p: ({ children }) => <p className="mb-4">{children}</p>,
-                        // Lists
-                        ul: ({ children }) => <ul className="list-disc list-inside mb-4 ml-4">{children}</ul>,
-                        ol: ({ children }) => <ol className="list-decimal list-inside mb-4 ml-4">{children}</ol>,
-                        li: ({ children }) => <li className="mb-1">{children}</li>,
-                        // Code blocks
-                        pre: ({ children }) => (
-                          <pre className="bg-theme-surface dark:bg-theme-surface p-4 rounded-lg overflow-x-auto mb-4 text-sm text-theme-primary dark:text-theme-primary">
-                            {children}
-                          </pre>
-                        ),
-                        code: ({ className, children }) => {
-                          const isInline = !className?.startsWith('language-');
-                          return isInline ? (
-                            <code className="bg-theme-surface dark:bg-theme-surface px-1.5 py-0.5 rounded text-sm font-mono text-theme-primary dark:text-theme-primary">
+          {isEditing ? (
+            <div className="w-full">
+              <MessageEditor
+                initialContent={message.content}
+                onSave={(content) => handleEditMessage(message.id, content)}
+                onCancel={() => setEditingMessageId(null)}
+                saving={editSaving}
+              />
+            </div>
+          ) : (
+            <div
+              className={`rounded-2xl px-4 py-3 max-w-full shadow-md ${
+                isUser
+                  ? 'bg-theme-info text-white rounded-bl-md'
+                  : hasError
+                  ? 'bg-theme-danger/10 dark:bg-theme-danger/20 border border-theme-danger/30 dark:border-theme-danger/50 text-theme-danger dark:text-theme-danger rounded-bl-md'
+                  : 'bg-theme-surface border border-theme text-theme-primary rounded-bl-md'
+              }`}
+            >
+              {isProcessing ? (
+                <div className="flex items-center gap-2 py-1">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm">AI is thinking...</span>
+                </div>
+              ) : message.metadata?.streaming ? (
+                <ChatStreamingRenderer
+                  content={cleanMessageContent(message.content)}
+                  isStreaming={true}
+                  tokenCount={message.metadata?.tokens_used}
+                />
+              ) : (
+                <div className="text-sm break-words">
+                  {message.sender_type === 'ai' ? (
+                    <div className="markdown-content">
+                      <ReactMarkdown
+                        components={{
+                          // Headers
+                          h1: ({ children }) => <h1 className="text-2xl font-bold mb-4 mt-6">{children}</h1>,
+                          h2: ({ children }) => <h2 className="text-xl font-bold mb-3 mt-5">{children}</h2>,
+                          h3: ({ children }) => <h3 className="text-lg font-bold mb-2 mt-4">{children}</h3>,
+                          h4: ({ children }) => <h4 className="text-base font-bold mb-2 mt-3">{children}</h4>,
+                          // Paragraphs
+                          p: ({ children }) => <p className="mb-4">{children}</p>,
+                          // Lists
+                          ul: ({ children }) => <ul className="list-disc list-inside mb-4 ml-4">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal list-inside mb-4 ml-4">{children}</ol>,
+                          li: ({ children }) => <li className="mb-1">{children}</li>,
+                          // Code blocks
+                          pre: ({ children }) => (
+                            <pre className="bg-theme-surface dark:bg-theme-surface p-4 rounded-lg overflow-x-auto mb-4 text-sm text-theme-primary dark:text-theme-primary">
                               {children}
-                            </code>
-                          ) : (
-                            <code className="font-mono text-sm">{children}</code>
-                          );
-                        },
-                        // Links
-                        a: ({ href, children }) => (
-                          <a
-                            href={href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-theme-info hover:text-theme-info/80 underline"
-                          >
-                            {children}
-                          </a>
-                        ),
-                        // Blockquotes
-                        blockquote: ({ children }) => (
-                          <blockquote className="border-l-4 border-theme dark:border-theme pl-4 italic mb-4">
-                            {children}
-                          </blockquote>
-                        ),
-                        // Horizontal rules
-                        hr: () => <hr className="border-t border-theme dark:border-theme my-4" />,
-                        // Tables
-                        table: ({ children }) => (
-                          <div className="overflow-x-auto mb-4">
-                            <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-600">
+                            </pre>
+                          ),
+                          code: ({ className, children }) => {
+                            const isInline = !className?.startsWith('language-');
+                            return isInline ? (
+                              <code className="bg-theme-surface dark:bg-theme-surface px-1.5 py-0.5 rounded text-sm font-mono text-theme-primary dark:text-theme-primary">
+                                {children}
+                              </code>
+                            ) : (
+                              <code className="font-mono text-sm">{children}</code>
+                            );
+                          },
+                          // Links
+                          a: ({ href, children }) => (
+                            <a
+                              href={href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-theme-info hover:text-theme-info/80 underline"
+                            >
                               {children}
-                            </table>
-                          </div>
-                        ),
-                        th: ({ children }) => (
-                          <th className="px-3 py-2 text-left text-xs font-medium text-theme-secondary dark:text-theme-secondary uppercase tracking-wider">
-                            {children}
-                          </th>
-                        ),
-                        td: ({ children }) => (
-                          <td className="px-3 py-2 text-sm text-theme-primary dark:text-theme-primary">
-                            {children}
-                          </td>
-                        ),
-                        // Strong and emphasis
-                        strong: ({ children }) => <strong className="font-bold">{children}</strong>,
-                        em: ({ children }) => <em className="italic">{children}</em>,
-                      }}
-                    >
+                            </a>
+                          ),
+                          // Blockquotes
+                          blockquote: ({ children }) => (
+                            <blockquote className="border-l-4 border-theme dark:border-theme pl-4 italic mb-4">
+                              {children}
+                            </blockquote>
+                          ),
+                          // Horizontal rules
+                          hr: () => <hr className="border-t border-theme dark:border-theme my-4" />,
+                          // Tables
+                          table: ({ children }) => (
+                            <div className="overflow-x-auto mb-4">
+                              <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-600">
+                                {children}
+                              </table>
+                            </div>
+                          ),
+                          th: ({ children }) => (
+                            <th className="px-3 py-2 text-left text-xs font-medium text-theme-secondary dark:text-theme-secondary uppercase tracking-wider">
+                              {children}
+                            </th>
+                          ),
+                          td: ({ children }) => (
+                            <td className="px-3 py-2 text-sm text-theme-primary dark:text-theme-primary">
+                              {children}
+                            </td>
+                          ),
+                          // Strong and emphasis
+                          strong: ({ children }) => <strong className="font-bold">{children}</strong>,
+                          em: ({ children }) => <em className="italic">{children}</em>,
+                        }}
+                      >
+                        {cleanMessageContent(message.content)}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    <div className="whitespace-pre-wrap">
                       {cleanMessageContent(message.content)}
-                    </ReactMarkdown>
-                  </div>
-                ) : (
-                  <div className="whitespace-pre-wrap">
-                    {cleanMessageContent(message.content)}
-                  </div>
-                )}
-              </div>
-            )}
+                    </div>
+                  )}
+                </div>
+              )}
 
-            {hasError && (
-              <div className="flex items-center gap-2 mt-2 p-2 bg-theme-danger/10 rounded border border-theme-danger/30">
-                <AlertCircle className="h-4 w-4 text-theme-danger flex-shrink-0" />
-                <span className="text-xs text-theme-danger">
-                  {message.metadata?.error_message || 'An error occurred'}
-                </span>
-              </div>
-            )}
+              {hasError && (
+                <div className="flex items-center gap-2 mt-2 p-2 bg-theme-danger/10 rounded border border-theme-danger/30">
+                  <AlertCircle className="h-4 w-4 text-theme-danger flex-shrink-0" />
+                  <span className="text-xs text-theme-danger">
+                    {message.metadata?.error_message || 'An error occurred'}
+                  </span>
+                </div>
+              )}
 
-            {message.metadata?.tokens_used != null && message.metadata.tokens_used > 0 && (
-              <div className="flex items-center gap-3 mt-2 pt-2 border-t border-theme text-xs text-theme-muted">
-                <span>{message.metadata.tokens_used} tokens</span>
-                {message.metadata?.response_time_ms != null && message.metadata.response_time_ms > 0 && (
-                  <span>{message.metadata.response_time_ms}ms</span>
-                )}
-                {message.metadata?.cost_estimate != null && message.metadata.cost_estimate > 0 && (
-                  <span>${message.metadata.cost_estimate.toFixed(4)}</span>
-                )}
-              </div>
-            )}
-          </div>
+              {message.metadata?.tokens_used != null && message.metadata.tokens_used > 0 && (
+                <div className="flex items-center gap-3 mt-2 pt-2 border-t border-theme text-xs text-theme-muted">
+                  <span>{message.metadata.tokens_used} tokens</span>
+                  {message.metadata?.response_time_ms != null && message.metadata.response_time_ms > 0 && (
+                    <span>{message.metadata.response_time_ms}ms</span>
+                  )}
+                  {message.metadata?.cost_estimate != null && message.metadata.cost_estimate > 0 && (
+                    <span>${message.metadata.cost_estimate.toFixed(4)}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
-          {isAI && !isProcessing && (
+          {/* Message action bar */}
+          {!isProcessing && !isEditing && (
             <div className="flex items-center gap-1 mt-2" role="group" aria-label="Message actions">
               <div className="flex items-center bg-theme-surface/80 backdrop-blur-sm rounded-full border border-theme/20 p-1 shadow-sm">
                 <Button
@@ -655,24 +806,39 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
                 <Button
                   variant="ghost"
                   size="xs"
-                  onClick={() => handleRateMessage(message.id, 'thumbs_up')}
-                  className="h-7 w-7 p-0 hover:bg-theme-success/10 hover:text-theme-success dark:hover:bg-theme-success/20 rounded-full transition-all duration-200"
-                  title="Good response"
-                  aria-label="Rate this response as helpful"
+                  onClick={() => handleOpenThread(message)}
+                  className="h-7 w-7 p-0 hover:bg-theme-surface-hover rounded-full transition-all duration-200"
+                  title="Reply in thread"
+                  aria-label="Reply in thread"
                 >
-                  <ThumbsUp className="h-3.5 w-3.5" aria-hidden="true" />
+                  <MessageSquareReply className="h-3.5 w-3.5" aria-hidden="true" />
                 </Button>
 
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  onClick={() => handleRateMessage(message.id, 'thumbs_down')}
-                  className="h-7 w-7 p-0 hover:bg-theme-danger/10 hover:text-theme-danger dark:hover:bg-theme-danger/20 rounded-full transition-all duration-200"
-                  title="Poor response"
-                  aria-label="Rate this response as not helpful"
-                >
-                  <ThumbsDown className="h-3.5 w-3.5" aria-hidden="true" />
-                </Button>
+                {isAI && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => handleRateMessage(message.id, 'thumbs_up')}
+                      className="h-7 w-7 p-0 hover:bg-theme-success/10 hover:text-theme-success dark:hover:bg-theme-success/20 rounded-full transition-all duration-200"
+                      title="Good response"
+                      aria-label="Rate this response as helpful"
+                    >
+                      <ThumbsUp className="h-3.5 w-3.5" aria-hidden="true" />
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => handleRateMessage(message.id, 'thumbs_down')}
+                      className="h-7 w-7 p-0 hover:bg-theme-danger/10 hover:text-theme-danger dark:hover:bg-theme-danger/20 rounded-full transition-all duration-200"
+                      title="Poor response"
+                      aria-label="Rate this response as not helpful"
+                    >
+                      <ThumbsDown className="h-3.5 w-3.5" aria-hidden="true" />
+                    </Button>
+                  </>
+                )}
 
                 <DropdownMenu
                   trigger={
@@ -687,15 +853,37 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
                     </Button>
                   }
                   items={[
-                    {
+                    ...(isAI ? [{
                       icon: RefreshCw,
                       label: 'Regenerate Response',
                       onClick: () => handleRegenerateResponse(message.id)
-                    }
+                    }] : []),
+                    ...(canEdit ? [{
+                      icon: Pencil,
+                      label: 'Edit Message',
+                      onClick: () => setEditingMessageId(message.id)
+                    }] : []),
+                    ...(canDelete ? [{
+                      icon: Trash2,
+                      label: 'Delete Message',
+                      onClick: () => handleDeleteMessage(message),
+                      danger: true
+                    }] : []),
                   ]}
                 />
               </div>
             </div>
+          )}
+
+          {/* Thread indicator */}
+          {(message.reply_count ?? 0) > 0 && (
+            <button
+              onClick={() => handleOpenThread(message)}
+              className="flex items-center gap-1.5 mt-1.5 text-xs text-theme-interactive-primary hover:underline"
+            >
+              <MessageSquareReply className="h-3 w-3" />
+              {message.reply_count} {message.reply_count === 1 ? 'reply' : 'replies'}
+            </button>
           )}
         </div>
       </div>
@@ -756,82 +944,101 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
   }
 
   return (
-    <div className="h-full flex flex-col bg-theme-background">
-      {/* Messages - No header for cleaner interface */}
-      <div className="flex-1 overflow-y-auto bg-gradient-to-b from-transparent to-theme-surface/10">
-        <div className="p-4 space-y-4">
-          {(() => {
-            return messages.length === 0 ? (
-              <EmptyState
-                icon={MessageSquare}
-                title="Start a conversation"
-                description="Send a message to begin chatting with your AI assistant"
-              />
-            ) : (
-              messages.map((message, index) => {
-                return renderMessage(message, index);
-              })
-            );
-          })()}
+    <div className="h-full flex bg-theme-background">
+      {/* Main chat area */}
+      <div className={`flex flex-col ${threadMessage ? 'w-[60%]' : 'w-full'} transition-all duration-200`}>
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto bg-gradient-to-b from-transparent to-theme-surface/10">
+          <div className="p-4 space-y-4">
+            {(() => {
+              return messages.length === 0 ? (
+                <EmptyState
+                  icon={MessageSquare}
+                  title="Start a conversation"
+                  description="Send a message to begin chatting with your AI assistant"
+                />
+              ) : (
+                messages.map((message, index) => {
+                  return renderMessage(message, index);
+                })
+              );
+            })()}
 
-          {/* Typing indicators */}
-          {typingUsers.size > 0 && (
-            <div className="flex items-center gap-3 p-3 bg-theme-surface/70 backdrop-blur-md rounded-xl border border-theme/20 shadow-lg">
-              <div className="flex gap-1">
-                <div className="w-2 h-2 bg-theme-interactive-primary/80 rounded-full animate-bounce" />
-                <div className="w-2 h-2 bg-theme-interactive-primary/80 rounded-full animate-bounce delay-100" />
-                <div className="w-2 h-2 bg-theme-interactive-primary/80 rounded-full animate-bounce delay-200" />
+            {/* Typing indicators */}
+            {typingUsers.size > 0 && (
+              <div className="flex items-center gap-3 p-3 bg-theme-surface/70 backdrop-blur-md rounded-xl border border-theme/20 shadow-lg">
+                <div className="flex gap-1">
+                  <div className="w-2 h-2 bg-theme-interactive-primary/80 rounded-full animate-bounce" />
+                  <div className="w-2 h-2 bg-theme-interactive-primary/80 rounded-full animate-bounce delay-100" />
+                  <div className="w-2 h-2 bg-theme-interactive-primary/80 rounded-full animate-bounce delay-200" />
+                </div>
+                <span className="text-sm font-medium text-theme-secondary">
+                  {Array.from(typingUsers).join(', ')} {typingUsers.size === 1 ? 'is' : 'are'} typing...
+                </span>
               </div>
-              <span className="text-sm font-medium text-theme-secondary">
-                {Array.from(typingUsers).join(', ')} {typingUsers.size === 1 ? 'is' : 'are'} typing...
-              </span>
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
-        </div>
-      </div>
-
-      {/* Input Area */}
-      <div className="p-4 border-t border-theme/30 bg-theme-surface/40 backdrop-blur-sm">
-        {/* Screen reader instructions */}
-        <span id="message-input-instructions" className="sr-only">
-          Type your message and press Enter to send, or Shift+Enter for a new line
-        </span>
-        <div className="flex gap-3 items-end">
-          <div className="flex-1">
-            <textarea
-              ref={inputRef}
-              value={inputValue}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-              placeholder="Type your message... (Press Enter to send, Shift+Enter for new line)"
-              className="w-full min-h-[44px] max-h-[120px] px-4 py-2.5 border border-theme/40 rounded-xl resize-none bg-theme-surface/90 backdrop-blur-sm text-theme-primary placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary focus:bg-theme-surface disabled:bg-theme-surface disabled:text-theme-muted transition-all duration-200"
-              disabled={sending}
-              data-testid="message-input"
-              aria-label="Message input"
-              aria-describedby="message-input-instructions"
-            />
-          </div>
-
-          <Button
-            variant="primary"
-            size="sm"
-            rounded="xl"
-            onClick={handleSendMessage}
-            disabled={!inputValue.trim() || sending}
-            className="h-[44px] w-[44px] p-0 flex items-center justify-center shrink-0"
-            data-testid="send-button"
-            aria-label={sending ? "Sending message" : "Send message"}
-          >
-            {sending ? (
-              <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
-            ) : (
-              <Send className="h-5 w-5" aria-hidden="true" />
             )}
-          </Button>
+
+            <div ref={messagesEndRef} />
+          </div>
+        </div>
+
+        {/* Input Area */}
+        <div className="p-4 border-t border-theme/30 bg-theme-surface/40 backdrop-blur-sm">
+          {/* Screen reader instructions */}
+          <span id="message-input-instructions" className="sr-only">
+            Type your message and press Enter to send, or Shift+Enter for a new line
+          </span>
+          <div className="flex gap-3 items-end">
+            <div className="flex-1">
+              <textarea
+                ref={inputRef}
+                value={inputValue}
+                onChange={handleInputChange}
+                onKeyDown={handleKeyDown}
+                placeholder="Type your message... (Press Enter to send, Shift+Enter for new line)"
+                className="w-full min-h-[44px] max-h-[120px] px-4 py-2.5 border border-theme/40 rounded-xl resize-none bg-theme-surface/90 backdrop-blur-sm text-theme-primary placeholder-theme-muted focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-theme-primary focus:bg-theme-surface disabled:bg-theme-surface disabled:text-theme-muted transition-all duration-200"
+                disabled={sending}
+                data-testid="message-input"
+                aria-label="Message input"
+                aria-describedby="message-input-instructions"
+              />
+            </div>
+
+            <Button
+              variant="primary"
+              size="sm"
+              rounded="xl"
+              onClick={handleSendMessage}
+              disabled={!inputValue.trim() || sending}
+              className="h-[44px] w-[44px] p-0 flex items-center justify-center shrink-0"
+              data-testid="send-button"
+              aria-label={sending ? "Sending message" : "Send message"}
+            >
+              {sending ? (
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+              ) : (
+                <Send className="h-5 w-5" aria-hidden="true" />
+              )}
+            </Button>
+          </div>
         </div>
       </div>
+
+      {/* Thread panel */}
+      {threadMessage && (
+        <div className="w-[40%] border-l border-theme">
+          <MessageThread
+            parentMessage={threadMessage}
+            threadMessages={threadMessages}
+            loading={threadLoading}
+            onSendReply={handleSendReply}
+            onClose={() => {
+              setThreadMessage(null);
+              setThreadMessages([]);
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 };

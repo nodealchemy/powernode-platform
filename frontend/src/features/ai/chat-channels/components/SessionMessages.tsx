@@ -6,7 +6,7 @@ import { Loading } from '@/shared/components/ui/Loading';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { chatChannelsApi } from '@/shared/services/ai';
 import { cn } from '@/shared/utils/cn';
-import type { ChatMessageSummary } from '@/shared/services/ai';
+import type { ChatMessageSummary, TypingIndicator } from '@/shared/services/ai';
 
 interface SessionMessagesProps {
   sessionId: string;
@@ -23,6 +23,23 @@ const deliveryStatusConfig: Record<string, { variant: 'success' | 'warning' | 'd
   failed: { variant: 'danger', label: 'Failed' },
 };
 
+const TypingBubble: React.FC<{ agentName?: string }> = ({ agentName }) => (
+  <div className="flex justify-end">
+    <div className="max-w-[75%] rounded-lg px-4 py-2 bg-theme-primary/10 text-theme-secondary">
+      <div className="flex items-center gap-2">
+        <div className="flex gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-theme-secondary animate-bounce" style={{ animationDelay: '0ms' }} />
+          <span className="w-1.5 h-1.5 rounded-full bg-theme-secondary animate-bounce" style={{ animationDelay: '150ms' }} />
+          <span className="w-1.5 h-1.5 rounded-full bg-theme-secondary animate-bounce" style={{ animationDelay: '300ms' }} />
+        </div>
+        {agentName && (
+          <span className="text-xs text-theme-secondary">{agentName} is typing</span>
+        )}
+      </div>
+    </div>
+  </div>
+);
+
 export const SessionMessages: React.FC<SessionMessagesProps> = ({
   sessionId,
   sessionStatus,
@@ -32,6 +49,7 @@ export const SessionMessages: React.FC<SessionMessagesProps> = ({
   const [messages, setMessages] = useState<ChatMessageSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [typing, setTyping] = useState<TypingIndicator | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const loadMessages = useCallback(async () => {
@@ -61,6 +79,29 @@ export const SessionMessages: React.FC<SessionMessagesProps> = ({
     }
   }, [sessionStatus, loadMessages]);
 
+  // Poll typing indicator for active sessions
+  useEffect(() => {
+    if (sessionStatus !== 'active') return;
+
+    let cancelled = false;
+    const pollTyping = async () => {
+      try {
+        const res = await chatChannelsApi.getTypingStatus(sessionId);
+        if (!cancelled) setTyping(res.typing ?? null);
+      } catch {
+        if (!cancelled) setTyping(null);
+      }
+    };
+
+    const interval = setInterval(pollTyping, 2000);
+    pollTyping();
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [sessionId, sessionStatus]);
+
   // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -86,8 +127,8 @@ export const SessionMessages: React.FC<SessionMessagesProps> = ({
           <Button variant="ghost" size="sm" onClick={onBack}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <h3 className="font-medium text-theme-text-primary">Message History</h3>
-          <span className="text-sm text-theme-text-secondary">
+          <h3 className="font-medium text-theme-primary">Message History</h3>
+          <span className="text-sm text-theme-secondary">
             ({messages.length} messages)
           </span>
         </div>
@@ -98,7 +139,7 @@ export const SessionMessages: React.FC<SessionMessagesProps> = ({
 
       {/* Error */}
       {error && (
-        <div className="p-3 rounded-lg bg-theme-status-error/10 text-theme-status-error text-sm">
+        <div className="p-3 rounded-lg bg-theme-danger/10 text-theme-danger text-sm">
           {error}
         </div>
       )}
@@ -127,13 +168,13 @@ export const SessionMessages: React.FC<SessionMessagesProps> = ({
                   className={cn(
                     'max-w-[75%] rounded-lg px-4 py-2',
                     isInbound
-                      ? 'bg-theme-bg-secondary text-theme-text-primary'
-                      : 'bg-theme-primary/10 text-theme-text-primary'
+                      ? 'bg-theme-surface text-theme-primary'
+                      : 'bg-theme-primary/10 text-theme-primary'
                   )}
                 >
                   <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-theme-text-secondary">
+                    <span className="text-xs text-theme-secondary">
                       {formatTime(message.created_at)}
                     </span>
                     {!isInbound && (
@@ -146,6 +187,10 @@ export const SessionMessages: React.FC<SessionMessagesProps> = ({
               </div>
             );
           })}
+
+          {/* Typing indicator */}
+          {typing?.is_typing && <TypingBubble agentName={typing.agent_name} />}
+
           <div ref={messagesEndRef} />
         </div>
       )}

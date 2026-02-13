@@ -76,7 +76,6 @@ import { WorkflowValidationStatisticsPage } from './ai/WorkflowValidationStatist
 import { AIAnalyticsPage } from './ai/AIAnalyticsPage';
 import { AgentMemoryPage } from './ai/AgentMemoryPage';
 import { ContextDetailPage } from './ai/ContextDetailPage';
-import { AgentChatPage } from '@/pages/app/ai/AgentChatPage';
 import { ChatChannelsPage } from '@/features/ai/chat-channels/pages/ChatChannelsPage';
 
 // AI Hidden pages (no nav, still accessible)
@@ -87,10 +86,11 @@ import { TrajectoryInsights } from '@/features/ai/learning/TrajectoryInsights';
 // AI Agent Orchestration pages
 import { SandboxDashboardPage } from '@/features/ai/sandboxes';
 import { AutonomyDashboardPage } from '@/features/ai/autonomy';
-import { MemoryExplorerPage } from '@/features/ai/memory';
+import { KnowledgeMemoryPage } from '@/features/ai/memory';
 import CompoundLearningPage from './ai/CompoundLearningPage';
 import { AuditDashboardPage } from '@/features/ai/audit';
 import { SecurityDashboardPage } from '@/features/ai/security';
+import { EvaluationDashboardPage } from '@/features/ai/evaluation';
 
 // Container Orchestration (Sandboxed AI execution)
 import { ContainersPage } from '@/features/devops/containers/pages/ContainersPage';
@@ -414,7 +414,6 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/agents/cards" element={<AIAgentsPage />} />
         <Route path="/ai/agents/marketplace" element={<AIAgentsPage />} />
         <Route path="/ai/agents/community" element={<AIAgentsPage />} />
-        <Route path="/ai/agents/:agentId/chat" element={<AgentChatPage />} />
         <Route path="/ai/agents/:agentId/memory" element={<AgentMemoryPage />} />
         <Route path="/ai/agents/:agentId/*" element={<AgentDetailPage />} />
         <Route path="/ai/agents/*" element={<AIAgentsPage />} />
@@ -445,12 +444,13 @@ const DashboardPage: React.FC = () => {
         {/* AI Pages - Agent Orchestration */}
         <Route path="/ai/sandboxes" element={<SandboxDashboardPage />} />
         <Route path="/ai/autonomy" element={<AutonomyDashboardPage />} />
-        <Route path="/ai/memory" element={<MemoryExplorerPage />} />
+        <Route path="/ai/memory/*" element={<KnowledgeMemoryPage />} />
         <Route path="/ai/learning" element={<CompoundLearningPage />} />
         <Route path="/ai/audit" element={<AuditDashboardPage />} />
         <Route path="/ai/security" element={<SecurityDashboardPage />} />
 
         {/* AI Pages - Hidden (no nav, still accessible) */}
+        <Route path="/ai/evaluation" element={<EvaluationDashboardPage />} />
         <Route path="/ai/self-healing" element={<SelfHealingDashboard />} />
         <Route path="/ai/learning/recommendations" element={<RecommendationsDashboard />} />
         <Route path="/ai/learning/insights" element={<TrajectoryInsights />} />

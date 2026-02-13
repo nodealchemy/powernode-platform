@@ -8,7 +8,8 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { agentsApi } from '@/shared/services/ai';
 import { AgentConnectionsGraph } from '@/features/ai/agents/components/AgentConnectionsGraph';
-import { ContextBrowser } from '@/features/ai/context/components/ContextBrowser';
+import { ContextBrowser } from '@/features/ai/memory/components/ContextBrowser';
+import { useChatWindow } from '@/features/ai/chat/context/ChatWindowContext';
 import type { AiAgent } from '@/shared/types/ai';
 
 const tabs = [
@@ -21,6 +22,7 @@ export const AgentDetailPage: React.FC = () => {
   const { agentId } = useParams<{ agentId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const { openConversationMaximized } = useChatWindow();
   const [agent, setAgent] = useState<AiAgent | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -70,7 +72,7 @@ export const AgentDetailPage: React.FC = () => {
     {
       id: 'chat',
       label: 'Chat',
-      onClick: () => navigate(`/app/ai/agents/${agent.id}/chat`),
+      onClick: () => openConversationMaximized(agent.id, agent.name),
       variant: 'outline' as const,
       icon: MessageSquare,
     },

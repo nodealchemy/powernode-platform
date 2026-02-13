@@ -117,8 +117,8 @@ export const ChannelList: React.FC<ChannelListProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-theme-text-primary">Chat Channels</h2>
-          <p className="text-sm text-theme-text-secondary">
+          <h2 className="text-lg font-semibold text-theme-primary">Chat Channels</h2>
+          <p className="text-sm text-theme-secondary">
             {totalCount} channel{totalCount !== 1 ? 's' : ''} connected
           </p>
         </div>
@@ -131,7 +131,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
       {/* Filters */}
       <div className="flex items-center gap-4">
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-theme-text-secondary" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-theme-secondary" />
           <Input
             placeholder="Search channels..."
             value={searchQuery}

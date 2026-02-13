@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Brain, Database } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { MemoryViewer } from '@/features/ai/context/components/MemoryViewer';
-import { EntryEditor } from '@/features/ai/context/components/EntryEditor';
-import { contextApi } from '@/features/ai/context/services/contextApi';
+import { MemoryViewer } from '@/features/ai/memory/components/MemoryViewer';
+import { EntryEditor } from '@/features/ai/memory/components/EntryEditor';
+import { contextApi } from '@/features/ai/memory/api/contextApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { memoryApiService } from '@/shared/services/ai/MemoryApiService';
 import { agentsApi } from '@/shared/services/ai';
-import type { AiContextEntry, AiAgentSummary, AiPersistentContextSummary } from '@/features/ai/context/types';
+import type { AiContextEntry, AiAgentSummary, AiPersistentContextSummary } from '@/features/ai/memory/types/context';
 
 interface MemoryPool {
   id: string;

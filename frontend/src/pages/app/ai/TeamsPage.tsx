@@ -24,7 +24,7 @@ import {
   TeamTemplate,
   TeamAnalytics
 } from '@/shared/services/ai/TeamsApiService';
-import { ContextBrowser } from '@/features/ai/context/components/ContextBrowser';
+import { ContextBrowser } from '@/features/ai/memory/components/ContextBrowser';
 
 // Type guard for API errors
 interface ApiErrorResponse {

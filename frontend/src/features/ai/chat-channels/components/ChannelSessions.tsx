@@ -125,8 +125,8 @@ export const ChannelSessions: React.FC<ChannelSessionsProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="font-medium text-theme-text-primary">Chat Sessions</h3>
-          <p className="text-sm text-theme-text-secondary">
+          <h3 className="font-medium text-theme-primary">Chat Sessions</h3>
+          <p className="text-sm text-theme-secondary">
             {totalCount} session{totalCount !== 1 ? 's' : ''}
           </p>
         </div>
@@ -150,7 +150,7 @@ export const ChannelSessions: React.FC<ChannelSessionsProps> = ({
 
       {/* Error */}
       {error && (
-        <div className="p-3 rounded-lg bg-theme-status-error/10 text-theme-status-error text-sm">
+        <div className="p-3 rounded-lg bg-theme-danger/10 text-theme-danger text-sm">
           {error}
         </div>
       )}
@@ -174,25 +174,30 @@ export const ChannelSessions: React.FC<ChannelSessionsProps> = ({
             return (
               <Card
                 key={session.id}
-                className="cursor-pointer hover:bg-theme-bg-secondary/50 transition-colors"
+                className="cursor-pointer hover:bg-theme-surface/50 transition-colors"
                 onClick={() => onSelectSession?.(session)}
               >
                 <CardContent className="p-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 bg-theme-bg-secondary rounded-full flex items-center justify-center">
-                        <User className="w-4 h-4 text-theme-text-secondary" />
+                      <div className="relative">
+                        <div className="h-8 w-8 bg-theme-surface rounded-full flex items-center justify-center">
+                          <User className="w-4 h-4 text-theme-secondary" />
+                        </div>
+                        {session.status === 'active' && (
+                          <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-theme-success border-2 border-theme-background" />
+                        )}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-theme-text-primary text-sm">
+                          <span className="font-medium text-theme-primary text-sm">
                             {session.platform_user_id}
                           </span>
                           <Badge variant={status.variant} size="sm">
                             {status.label}
                           </Badge>
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-theme-text-secondary">
+                        <div className="flex items-center gap-3 text-xs text-theme-secondary">
                           <span className="flex items-center gap-1">
                             <MessageSquare className="w-3 h-3" />
                             {session.message_count} messages

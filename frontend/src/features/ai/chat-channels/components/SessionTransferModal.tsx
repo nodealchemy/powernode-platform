@@ -93,11 +93,11 @@ export const SessionTransferModal: React.FC<SessionTransferModalProps> = ({
     >
       <div className="space-y-4">
         {session && (
-          <div className="p-3 rounded-lg bg-theme-bg-secondary">
-            <p className="text-sm text-theme-text-secondary">Current Session</p>
-            <p className="font-medium text-theme-text-primary">{session.platform_user_id}</p>
+          <div className="p-3 rounded-lg bg-theme-surface">
+            <p className="text-sm text-theme-secondary">Current Session</p>
+            <p className="font-medium text-theme-primary">{session.platform_user_id}</p>
             {session.platform_username && (
-              <p className="text-sm text-theme-text-secondary">
+              <p className="text-sm text-theme-secondary">
                 @{session.platform_username}
               </p>
             )}
@@ -105,7 +105,7 @@ export const SessionTransferModal: React.FC<SessionTransferModalProps> = ({
         )}
 
         {error && (
-          <div className="p-3 rounded-lg bg-theme-status-error/10 text-theme-status-error text-sm">
+          <div className="p-3 rounded-lg bg-theme-danger/10 text-theme-danger text-sm">
             {error}
           </div>
         )}
