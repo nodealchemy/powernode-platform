@@ -5,9 +5,7 @@
 # Called by ContainerChatBridgeService when async deployment is needed.
 # Handles the full lifecycle: provision → monitor → completion/timeout.
 class AiContainerAgentJob < BaseJob
-  queue_as :ai_agents
-
-  sidekiq_options retry: 2, dead: true
+  sidekiq_options queue: "ai_agents", retry: 2, dead: true
 
   def execute(params)
     validate_required_params(params, "execution_id", "account_id")
