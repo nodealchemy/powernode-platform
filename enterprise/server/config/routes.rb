@@ -340,12 +340,38 @@ Rails.application.routes.draw do
         end
       end
 
-      # Enterprise intelligence routes
+      # Enterprise intelligence routes (all intelligence moved from core)
       namespace :intelligence do
+        resource :supply_chain, only: [] do
+          post :analyze
+          get :risk_summary
+          get :vulnerability_report
+        end
+        resource :pipeline, only: [] do
+          post :analyze_failure
+          get :health
+          get :trends
+        end
         resource :revenue, only: [] do
           get :forecast
           get :churn_risks
           get :health_scores
+        end
+        resource :reviews, only: [] do
+          post :sentiment_analysis
+          get :spam_detection
+          post :generate_response
+          get :agent_quality
+        end
+        resource :notifications, only: [] do
+          post :smart_routing
+          get :fatigue_analysis
+          get :digest_recommendations
+        end
+        resource :monitoring, only: [] do
+          get :predictive_failure
+          get :self_healing
+          get :sla_breach_risk
         end
         resource :baas, only: [] do
           get :usage_anomalies

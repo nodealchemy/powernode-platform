@@ -12,6 +12,7 @@ module PowernodeEnterprise
       enterprise_compliance
       enterprise_outcome_billing
       enterprise_revenue_intelligence
+      enterprise_intelligence
       enterprise_reseller
       enterprise_advanced_admin
     ].freeze
@@ -26,6 +27,7 @@ module PowernodeEnterprise
       "compliance" => "enterprise",
       "outcome_billing" => "enterprise",
       "revenue_intelligence" => "business",
+      "intelligence" => "business",
       "reseller" => "enterprise",
       "advanced_admin" => "enterprise"
     }.freeze
