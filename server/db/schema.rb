@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_10_100005) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_12_220729) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -1114,8 +1114,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_10_100005) do
     t.integer "message_count", default: 0
     t.jsonb "metadata", default: {}
     t.jsonb "participants", default: []
+    t.datetime "pinned_at"
     t.string "status", default: "active", null: false
     t.text "summary"
+    t.jsonb "tags", default: [], null: false
     t.string "title", limit: 255
     t.decimal "total_cost", precision: 10, scale: 4, default: "0.0"
     t.integer "total_tokens", default: 0
@@ -1130,7 +1132,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_10_100005) do
     t.index ["conversation_id"], name: "index_ai_conversations_on_conversation_id", unique: true
     t.index ["last_activity_at"], name: "index_ai_conversations_on_last_activity_at"
     t.index ["participants"], name: "index_ai_conversations_on_participants", using: :gin
+    t.index ["pinned_at"], name: "index_ai_conversations_on_pinned_at", where: "(pinned_at IS NOT NULL)"
     t.index ["status"], name: "index_ai_conversations_on_status"
+    t.index ["tags"], name: "index_ai_conversations_on_tags", using: :gin
     t.index ["user_id", "status"], name: "index_ai_conversations_on_user_id_and_status"
     t.index ["user_id"], name: "index_ai_conversations_on_user_id"
     t.index ["websocket_channel"], name: "index_ai_conversations_on_websocket_channel"
@@ -2130,6 +2134,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_10_100005) do
     t.jsonb "content_metadata", default: {}
     t.decimal "cost_usd", precision: 8, scale: 4, default: "0.0"
     t.datetime "created_at", null: false
+    t.datetime "deleted_at"
     t.jsonb "edit_history", default: []
     t.datetime "edited_at", precision: nil
     t.text "error_message"
@@ -2140,6 +2145,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_10_100005) do
     t.datetime "processed_at", precision: nil
     t.jsonb "processing_metadata", default: {}
     t.string "role", limit: 20, null: false
+    t.tsvector "search_vector"
     t.integer "sequence_number"
     t.string "status", limit: 20, default: "sent"
     t.integer "token_count", default: 0
@@ -2150,12 +2156,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_10_100005) do
     t.index ["ai_conversation_id", "sequence_number"], name: "index_ai_messages_on_ai_conversation_id_and_sequence_number"
     t.index ["ai_conversation_id"], name: "index_ai_messages_on_ai_conversation_id"
     t.index ["attachments"], name: "index_ai_messages_on_attachments", using: :gin
+    t.index ["deleted_at"], name: "index_ai_messages_on_deleted_at", where: "(deleted_at IS NOT NULL)"
     t.index ["edit_history"], name: "index_ai_messages_on_edit_history", using: :gin
     t.index ["message_id"], name: "index_ai_messages_on_message_id", unique: true
     t.index ["message_type"], name: "index_ai_messages_on_message_type"
     t.index ["parent_message_id"], name: "index_ai_messages_on_parent_message_id"
     t.index ["processed_at"], name: "index_ai_messages_on_processed_at"
     t.index ["role"], name: "index_ai_messages_on_role"
+    t.index ["search_vector"], name: "index_ai_messages_on_search_vector", using: :gin
     t.index ["sequence_number"], name: "index_ai_messages_on_sequence_number"
     t.index ["status"], name: "index_ai_messages_on_status"
     t.index ["user_id"], name: "index_ai_messages_on_user_id"
