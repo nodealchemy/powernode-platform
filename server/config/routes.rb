@@ -1520,11 +1520,6 @@ Rails.application.routes.draw do
             end
           end
 
-          # Workflow-specific actions
-          member do
-            post :dry_run, action: :workflows_dry_run
-            get "dry_run/validate", action: :workflows_dry_run_validate
-          end
         end
 
         # ===================================================================
@@ -2317,7 +2312,9 @@ Rails.application.routes.draw do
 
           # Cost attributions
           get "attributions", action: :attributions
+        end
 
+        scope "roi/calculations", controller: "roi_calculations" do
           # ROI metrics
           get "metrics", action: :metrics
           get "metrics/:id", action: :show_metric
