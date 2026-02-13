@@ -9,6 +9,7 @@ module Ai
         pii_detection
         hallucination_check
         format_validation
+        structured_output
       ].freeze
 
       def initialize(config:)
@@ -29,6 +30,8 @@ module Ai
           check_hallucination(text, rail, input_text)
         when "format_validation"
           check_format(text, rail)
+        when "structured_output"
+          check_structured_output(text, rail)
         when "regex_filter"
           check_regex_filter(text, rail)
         when "credential_leak"
@@ -164,6 +167,108 @@ module Ai
           }
         else
           { passed: true, rail: "regex_filter" }
+        end
+      end
+
+      def check_structured_output(text, rail)
+        schema = rail["schema"] || rail[:schema]
+        return { passed: true, rail: "structured_output" } unless schema
+
+        # Parse the output as JSON
+        parsed = begin
+          JSON.parse(text)
+        rescue JSON::ParserError
+          # Try to extract JSON from markdown code blocks
+          json_match = text.match(/```(?:json)?\s*\n?(.*?)\n?```/m)
+          if json_match
+            begin
+              JSON.parse(json_match[1])
+            rescue JSON::ParserError
+              nil
+            end
+          end
+        end
+
+        unless parsed
+          return {
+            passed: false,
+            rail: "structured_output",
+            severity: :warning,
+            message: "Output is not valid JSON",
+            details: { expected_schema: schema }
+          }
+        end
+
+        # Validate against JSON Schema
+        errors = validate_json_schema(parsed, schema)
+
+        if errors.empty?
+          { passed: true, rail: "structured_output", details: { parsed: parsed } }
+        else
+          {
+            passed: false,
+            rail: "structured_output",
+            severity: :warning,
+            message: "Output does not match schema: #{errors.first(3).join('; ')}",
+            details: { errors: errors, parsed: parsed, expected_schema: schema }
+          }
+        end
+      end
+
+      def validate_json_schema(data, schema)
+        errors = []
+        schema_type = schema["type"]
+
+        case schema_type
+        when "object"
+          unless data.is_a?(Hash)
+            return ["Expected object, got #{data.class.name.downcase}"]
+          end
+
+          # Check required properties
+          required = schema["required"] || []
+          required.each do |prop|
+            errors << "Missing required property: #{prop}" unless data.key?(prop)
+          end
+
+          # Validate property types
+          properties = schema["properties"] || {}
+          properties.each do |prop_name, prop_schema|
+            next unless data.key?(prop_name)
+
+            prop_errors = validate_property_type(data[prop_name], prop_schema, prop_name)
+            errors.concat(prop_errors)
+          end
+        when "array"
+          unless data.is_a?(Array)
+            return ["Expected array, got #{data.class.name.downcase}"]
+          end
+        end
+
+        errors
+      end
+
+      def validate_property_type(value, prop_schema, prop_name)
+        expected_type = prop_schema["type"]
+        return [] unless expected_type
+
+        valid = case expected_type
+                when "string" then value.is_a?(String)
+                when "number", "integer" then value.is_a?(Numeric)
+                when "boolean" then [true, false].include?(value)
+                when "array" then value.is_a?(Array)
+                when "object" then value.is_a?(Hash)
+                else true
+                end
+
+        if valid
+          # Check enum constraint
+          if prop_schema["enum"] && !prop_schema["enum"].include?(value)
+            return ["Property '#{prop_name}' must be one of: #{prop_schema['enum'].join(', ')}"]
+          end
+          []
+        else
+          ["Property '#{prop_name}' expected #{expected_type}, got #{value.class.name.downcase}"]
         end
       end
 

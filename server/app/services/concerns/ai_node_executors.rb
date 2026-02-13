@@ -40,7 +40,7 @@ module AiNodeExecutors
         client = Ai::ProviderClientService.new(provider_credential)
 
         # Prepare prompt from input data
-        prompt = build_agent_prompt(input_data, agent_config)
+        prompt = build_agent_prompt(agent_config, input_data)
 
         # Call AI provider
         response = client.generate_text(

@@ -32,16 +32,47 @@ module Ai
       end
 
       def self.find_tool(name)
+        # Check static tools first
         class_name = TOOLS[name]
-        return nil unless class_name
+        if class_name
+          return class_name.constantize
+        end
 
-        class_name.constantize
+        # Check dynamic tools
+        dynamic_tool = dynamic_tools.find { |t| t[:name] == name }
+        dynamic_tool[:handler_class]&.constantize if dynamic_tool
       rescue NameError
         nil
       end
 
       def self.tool_definitions(agent: nil)
         available_tools(agent: agent).map { |name, klass| klass.definition.merge(name: name) }
+      end
+
+      # Discover tools by natural language query (semantic search)
+      def self.discover_tools(query:, account:, capabilities: nil, limit: 10)
+        service = SemanticToolDiscoveryService.new(account: account)
+        service.discover(query: query, capabilities: capabilities, limit: limit)
+      end
+
+      # Register a tool dynamically at runtime
+      def self.register_dynamic_tool(account:, name:, description:, parameters:, handler:, metadata: {})
+        SemanticToolDiscoveryService.register_dynamic_tool(
+          account: account, name: name, description: description,
+          parameters: parameters, handler: handler, metadata: metadata
+        )
+      end
+
+      # Unregister a dynamic tool
+      def self.unregister_dynamic_tool(account:, name:)
+        SemanticToolDiscoveryService.unregister_dynamic_tool(account: account, name: name)
+      end
+
+      # List dynamic tools for an account
+      def self.dynamic_tools(account: nil)
+        return [] unless account
+
+        Rails.cache.read("tool_discovery:#{account.id}:dynamic_tools") || []
       end
     end
   end

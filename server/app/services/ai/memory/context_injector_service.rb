@@ -22,7 +22,7 @@ module Ai
         used_chars = 0
 
         # Determine which memory types to include
-        types = include_types || %w[factual working experiential trajectories shared_learnings compound_learnings]
+        types = include_types || %w[factual working experiential trajectories shared_learnings compound_learnings graph_rag]
 
         # 1. Always include critical facts first (highest priority)
         if types.include?("factual")
@@ -82,6 +82,17 @@ module Ai
           used_chars += compound_chars
         end
 
+        # 7. Include GraphRAG context (knowledge graph + RAG fusion)
+        if types.include?("graph_rag") && (query.present? || task.present?)
+          search_query = query || extract_task_query(task)
+          graph_rag_context, graph_rag_chars = inject_graph_rag_memory(
+            budget_chars - used_chars,
+            search_query
+          )
+          context_parts << graph_rag_context if graph_rag_context.present?
+          used_chars += graph_rag_chars
+        end
+
         {
           context: context_parts.join("\n\n"),
           token_estimate: (used_chars / CHARS_PER_TOKEN.to_f).ceil,
@@ -91,7 +102,8 @@ module Ai
             experiential: context_parts.count { |p| p.start_with?("## Relevant Experience") },
             trajectories: context_parts.count { |p| p.start_with?("## Past Trajectories") },
             shared_learnings: context_parts.count { |p| p.start_with?("## Shared Learnings") },
-            compound_learnings: context_parts.count { |p| p.start_with?("## Compound Learnings") }
+            compound_learnings: context_parts.count { |p| p.start_with?("## Compound Learnings") },
+            graph_rag: context_parts.count { |p| p.start_with?("## Graph Knowledge") }
           }
         }
       end
@@ -245,6 +257,28 @@ module Ai
         [context_text, context_text.length]
       rescue StandardError => e
         Rails.logger.warn("[ContextInjector] Compound learnings injection failed: #{e.message}")
+        [nil, 0]
+      end
+
+      def inject_graph_rag_memory(char_budget, query)
+        return [nil, 0] if query.blank?
+
+        graph_rag = Ai::Rag::GraphRagService.new(account: @account)
+        result = graph_rag.build_context(
+          query: query,
+          token_budget: char_budget / CHARS_PER_TOKEN
+        )
+
+        context_text = result[:context]
+        return [nil, 0] if context_text.blank?
+
+        if context_text.length > char_budget
+          context_text = context_text.truncate(char_budget)
+        end
+
+        [context_text, context_text.length]
+      rescue StandardError => e
+        Rails.logger.warn("[ContextInjector] GraphRAG injection failed: #{e.message}")
         [nil, 0]
       end
 

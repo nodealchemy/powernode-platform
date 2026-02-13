@@ -162,7 +162,7 @@ module Orchestration
       end
     end
 
-    def calculate_cost_from_usage(usage, provider_name)
+    def calculate_cost_from_usage(usage, provider_name = nil)
       return 0.0 unless usage&.dig(:total_tokens)
 
       pricing = case provider_name.to_s.downcase

@@ -35,6 +35,9 @@ module Ai
         private
 
         def determine_action(trigger_event, context)
+          # Allow predictive monitor to hint at preferred action
+          return context[:action_hint] if context[:preemptive] && context[:action_hint]
+
           case trigger_event
           when "circuit_breaker_opened"
             context[:service_type] == "provider" ? "provider_failover" : "alert_escalation"
@@ -44,6 +47,14 @@ module Ai
             "alert_escalation"
           when "stuck_execution"
             "workflow_retry"
+          when "provider_degradation"
+            "provider_failover"
+          when "execution_degradation"
+            "model_downgrade"
+          when "cost_anomaly"
+            "alert_escalation"
+          when "context_overflow"
+            "context_trim"
           end
         end
 
@@ -53,6 +64,10 @@ module Ai
             execute_provider_failover(account, context)
           when "workflow_retry"
             execute_workflow_retry(account, context)
+          when "model_downgrade"
+            execute_model_downgrade(account, context)
+          when "context_trim"
+            execute_context_trim(account, context)
           when "alert_escalation"
             execute_alert_escalation(account, context)
           else
@@ -106,6 +121,56 @@ module Ai
           { status: "failure", message: "Retry failed: #{e.message}" }
         end
 
+        def execute_model_downgrade(account, context)
+          provider_id = context[:source_id] || context[:provider_id]
+          return { status: "skipped", message: "No provider specified" } unless provider_id
+
+          # Find agents on the degraded provider and switch to a lower-tier model
+          agents = Ai::Agent.where(account: account, ai_provider_id: provider_id, status: "active")
+          return { status: "skipped", message: "No agents to downgrade" } if agents.empty?
+
+          downgraded = 0
+          agents.each do |agent|
+            current_model = agent.model_id
+            next unless current_model
+
+            # Try to find a cheaper/faster model on the same provider
+            economy_model = find_economy_model(provider_id, current_model)
+            next unless economy_model
+
+            agent.update!(
+              model_id: economy_model,
+              config: (agent.config || {}).merge(
+                "original_model" => current_model,
+                "downgraded_at" => Time.current.iso8601,
+                "downgrade_reason" => "predictive_self_healing"
+              )
+            )
+            downgraded += 1
+          end
+
+          { status: "success", message: "Downgraded #{downgraded} agents to economy models" }
+        end
+
+        def execute_context_trim(account, context)
+          execution_id = context[:execution_id]
+          return { status: "skipped", message: "No execution specified" } unless execution_id
+
+          # Trim context for the execution's agent
+          execution = Ai::AgentExecution.find_by(id: execution_id, account_id: account.id)
+          return { status: "skipped", message: "Execution not found" } unless execution
+
+          agent = execution.agent
+          return { status: "skipped", message: "Agent not found" } unless agent
+
+          # Clear short-term memory to reduce context size
+          cleared = Ai::AgentShortTermMemory.where(ai_agent_id: agent.id, is_active: true)
+                                             .where("expires_at < ?", Time.current)
+                                             .update_all(is_active: false)
+
+          { status: "success", message: "Trimmed #{cleared} expired memory entries for agent #{agent.name}" }
+        end
+
         def execute_alert_escalation(account, context)
           # Broadcast via WebSocket
           ActionCable.server.broadcast(
@@ -144,12 +209,29 @@ module Ai
           transient_errors.include?(error_class.to_s)
         end
 
+        def find_economy_model(provider_id, current_model)
+          # Look for a lower-tier model on the same provider
+          provider = Ai::Provider.find_by(id: provider_id)
+          return nil unless provider
+
+          available_models = Ai::ProviderModel.where(ai_provider_id: provider_id, is_active: true)
+                                               .where.not(model_id: current_model)
+                                               .order(cost_per_token: :asc)
+
+          # Return cheapest available model that isn't the current one
+          available_models.first&.model_id
+        end
+
         def capture_state(action, context)
           case action
           when "provider_failover"
             { provider_id: context[:provider_id], circuit_state: context[:circuit_state] }
           when "workflow_retry"
             { execution_id: context[:execution_id], status: context[:status] }
+          when "model_downgrade"
+            { provider_id: context[:source_id] || context[:provider_id] }
+          when "context_trim"
+            { execution_id: context[:execution_id] }
           when "alert_escalation"
             { severity: context[:severity], source: context[:trigger_source] }
           else

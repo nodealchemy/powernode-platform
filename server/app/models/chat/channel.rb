@@ -166,7 +166,9 @@ module Chat
 
     def channel_details
       channel_summary.merge(
-        configuration: configuration.except("credentials"),
+        configuration: configuration.except("credentials", "routing_config", "agent_personality"),
+        routing_config: configuration&.dig("routing_config"),
+        agent_personality: configuration&.dig("agent_personality"),
         rate_limit_per_minute: rate_limit_per_minute,
         last_error: last_error,
         last_error_at: last_error_at,

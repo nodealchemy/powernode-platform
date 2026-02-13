@@ -42,6 +42,9 @@ module Ai
     scope :processed, -> { where(status: %w[completed failed]) }
     scope :pending_processing, -> { where(status: %w[sent processing]) }
     scope :edited, -> { where(is_edited: true) }
+    scope :not_deleted, -> { where(deleted_at: nil) }
+    scope :deleted, -> { where.not(deleted_at: nil) }
+    scope :full_text_search, ->(query) { where("search_vector @@ plainto_tsquery('english', ?)", query) }
 
     # Callbacks
     before_validation :set_message_id, on: :create
@@ -147,15 +150,19 @@ module Ai
         message_type: message_type,
         status: status,
         user: user&.full_name,
+        user_id: user_id,
         sequence_number: sequence_number,
         token_count: token_count,
         cost_usd: cost_usd,
         has_attachments: has_attachments?,
         attachment_count: attachments.size,
         is_edited: is_edited?,
+        edited_at: edited_at&.iso8601,
+        deleted_at: deleted_at&.iso8601,
         created_at: created_at,
         processed_at: processed_at,
-        parent_message_id: parent_message&.message_id
+        parent_message_id: parent_message&.message_id,
+        reply_count: child_messages.not_deleted.count
       }
     end
 
@@ -181,6 +188,22 @@ module Ai
       return true if user.has_permission?("ai.messages.manage")
 
       false
+    end
+
+    def soft_delete!
+      update!(deleted_at: Time.current)
+    end
+
+    def deleted?
+      deleted_at.present?
+    end
+
+    def not_deleted?
+      deleted_at.nil?
+    end
+
+    def restore!
+      update!(deleted_at: nil)
     end
 
     def to_param

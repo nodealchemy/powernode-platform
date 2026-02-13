@@ -96,15 +96,9 @@ class Ai::McpAgentExecutor
       system_prompt: @agent.mcp_tool_manifest["system_prompt"]
     )
 
-    # 🔍 DIAGNOSTIC: Log the raw provider response
-    @logger.info "[MCP_AGENT_EXECUTOR] 🔍 Provider response received:"
-    @logger.info "[MCP_AGENT_EXECUTOR]    Result class: #{result.class.name}"
-    @logger.info "[MCP_AGENT_EXECUTOR]    Result keys: #{result.keys.inspect}"
-    @logger.info "[MCP_AGENT_EXECUTOR]    Result[:success]: #{result[:success]}"
-    @logger.info "[MCP_AGENT_EXECUTOR]    Result[:data].present?: #{result[:data].present?}"
-    @logger.info "[MCP_AGENT_EXECUTOR]    Result preview: #{result.inspect[0..300]}"
+    @logger.debug "[MCP_AGENT_EXECUTOR] Provider response received: class=#{result.class.name} keys=#{result.keys.inspect} success=#{result[:success]}"
 
-    # ✅ FIX: Check for provider errors before processing
+    # Check for provider errors before processing
     # Provider client returns either:
     # - Success: { success: true, data: { content: [...], usage: {...} } }
     # - Failure: { success: false, error: "message string", status_code: 404 }
@@ -121,7 +115,7 @@ class Ai::McpAgentExecutor
       end
       status_code = result[:status_code] || 500
 
-      @logger.error "[MCP_AGENT_EXECUTOR] ❌ Provider error: #{error_message} (#{error_type}, status: #{status_code})"
+      @logger.error "[MCP_AGENT_EXECUTOR] Provider error: #{error_message} (#{error_type}, status: #{status_code})"
       @logger.error "[MCP_AGENT_EXECUTOR] Full error response: #{result.inspect}"
 
       # Raise appropriate error based on error type
@@ -144,36 +138,25 @@ class Ai::McpAgentExecutor
     raw_data = result[:data] || result["data"]
     response_data = raw_data.is_a?(Hash) ? raw_data : {}
 
-    # 🔍 DIAGNOSTIC: Log the extracted response_data
-    @logger.info "[MCP_AGENT_EXECUTOR] 🔍 Extracted response_data:"
-    @logger.info "[MCP_AGENT_EXECUTOR]    response_data class: #{response_data.class.name}"
-    @logger.info "[MCP_AGENT_EXECUTOR]    response_data keys: #{response_data.keys.inspect}"
-    @logger.info "[MCP_AGENT_EXECUTOR]    response_data['content'].present?: #{response_data['content'].present?}"
-    @logger.info "[MCP_AGENT_EXECUTOR]    response_data['content'] class: #{response_data['content'].class.name if response_data['content']}"
+    @logger.debug "[MCP_AGENT_EXECUTOR] Extracted response_data: class=#{response_data.class.name} keys=#{response_data.keys.inspect}"
 
     # For Anthropic, content is an array of content blocks
     content_text = if response_data["content"].is_a?(Array)
-                     @logger.info "[MCP_AGENT_EXECUTOR] 🔍 Content is array with #{response_data['content'].length} blocks"
+                     @logger.debug "[MCP_AGENT_EXECUTOR] Content is array with #{response_data['content'].length} blocks"
                      response_data["content"].map { |block| block.is_a?(Hash) ? block["text"] : block.to_s }.join
     elsif raw_data.is_a?(String)
-                     # Handle case where provider returned a raw string
-                     @logger.info "[MCP_AGENT_EXECUTOR] 🔍 Raw data is a string, using directly"
+                     @logger.debug "[MCP_AGENT_EXECUTOR] Raw data is a string, using directly"
                      raw_data
     else
-                     @logger.info "[MCP_AGENT_EXECUTOR] 🔍 Content is not array, trying alternate extraction"
+                     @logger.debug "[MCP_AGENT_EXECUTOR] Content is not array, trying alternate extraction"
                      response_data["content"] || response_data["text"] || result[:content] || result[:text]
     end
 
-    # 🔍 DIAGNOSTIC: Log the extracted content
-    @logger.info "[MCP_AGENT_EXECUTOR] 🔍 Extracted content_text:"
-    @logger.info "[MCP_AGENT_EXECUTOR]    content_text.present?: #{content_text.present?}"
-    @logger.info "[MCP_AGENT_EXECUTOR]    content_text class: #{content_text.class.name if content_text}"
-    @logger.info "[MCP_AGENT_EXECUTOR]    content_text length: #{content_text&.length}"
-    @logger.info "[MCP_AGENT_EXECUTOR]    content_text preview: #{content_text&.[](0..100)}"
+    @logger.debug "[MCP_AGENT_EXECUTOR] Extracted content: present=#{content_text.present?} length=#{content_text&.length}"
 
     # Log warning if no output was extracted
     if content_text.nil?
-      @logger.warn "[MCP_AGENT_EXECUTOR] ⚠️  No output extracted from provider response"
+      @logger.warn "[MCP_AGENT_EXECUTOR] No output extracted from provider response"
       @logger.warn "[MCP_AGENT_EXECUTOR] Full result structure: #{result.inspect}"
     end
 
@@ -187,10 +170,7 @@ class Ai::McpAgentExecutor
       }
     }
 
-    # 🔍 DIAGNOSTIC: Log the final formatted result
-    @logger.info "[MCP_AGENT_EXECUTOR] 🔍 Final formatted result:"
-    @logger.info "[MCP_AGENT_EXECUTOR]    output present: #{final_result['output'].present?}"
-    @logger.info "[MCP_AGENT_EXECUTOR]    output preview: #{final_result['output']&.[](0..100)}"
+    @logger.debug "[MCP_AGENT_EXECUTOR] Final result: output_present=#{final_result['output'].present?} model=#{model}"
 
     final_result
   end

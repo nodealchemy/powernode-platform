@@ -15,6 +15,9 @@ module Ai
         @config = config
       end
 
+      BORDERLINE_LOW_THRESHOLD = 0.3
+      BORDERLINE_HIGH_THRESHOLD = 0.7
+
       def check(text:, rail:, metadata: {})
         rail_type = rail["type"] || rail[:type]
 
@@ -34,6 +37,13 @@ module Ai
         else
           { passed: true, rail: rail_type }
         end
+      end
+
+      # Returns true when a check result's confidence falls in the borderline range,
+      # indicating it should be escalated to the LLM evaluator for a more accurate verdict.
+      def borderline?(result, low: BORDERLINE_LOW_THRESHOLD, high: BORDERLINE_HIGH_THRESHOLD)
+        confidence = result[:confidence].to_f
+        confidence > low && confidence < high
       end
 
       private

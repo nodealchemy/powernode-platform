@@ -113,11 +113,11 @@ module Chat
     end
 
     def submit_to_agent(session, message)
-      agent = session.assigned_agent || @channel.default_agent
+      agent = resolve_agent(session, message)
 
       return nil unless agent.present?
 
-      # Build A2A task
+      # Build A2A task with personality context
       a2a_service = Ai::A2a::Service.new(
         account: @channel.account,
         user: @channel.account.owner
@@ -131,7 +131,8 @@ module Chat
           chat_session_id: session.id,
           chat_message_id: message.id,
           platform: @channel.platform,
-          platform_user_id: session.platform_user_id
+          platform_user_id: session.platform_user_id,
+          agent_personality: @channel.configuration&.dig("agent_personality")
         }
       )
 
@@ -139,6 +140,49 @@ module Chat
       message.update_column(:a2a_task_id, task.id) if task.persisted?
 
       task
+    end
+
+    # Resolve agent using skill-based routing or fallback chain
+    def resolve_agent(session, message)
+      # 1. Session-assigned agent takes priority
+      return session.assigned_agent if session.assigned_agent.present?
+
+      # 2. Skill-based routing if configured
+      routing_config = @channel.configuration&.dig("routing_config")
+      if routing_config && routing_config["routing_strategy"] == "skill_based"
+        routed_agent = route_by_skill(message.content_for_ai, routing_config)
+        return routed_agent if routed_agent
+      end
+
+      # 3. Fall back to default agent
+      @channel.default_agent
+    end
+
+    # Route to a specific agent based on message content matching skill routes
+    def route_by_skill(content, routing_config)
+      routes = routing_config["skill_routes"]
+      return nil if routes.blank?
+
+      text = content.to_s.downcase
+
+      matched = routes
+        .sort_by { |r| -(r["priority"] || 0) }
+        .find do |route|
+          case route["match_type"]
+          when "keyword"
+            route["pattern"].to_s.split(",").any? { |kw| text.include?(kw.strip.downcase) }
+          when "regex"
+            text.match?(Regexp.new(route["pattern"], Regexp::IGNORECASE))
+          else
+            false
+          end
+        end
+
+      return nil unless matched
+
+      agent = Ai::Agent.find_by(id: matched["agent_id"], account: @channel.account)
+      Rails.logger.debug "[MessageRouter] Skill-routed to agent #{agent&.name} via #{matched['match_type']} pattern"
+      agent
     end
 
     def build_agent_message(session, message)

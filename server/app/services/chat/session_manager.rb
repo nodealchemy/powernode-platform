@@ -116,6 +116,38 @@ module Chat
               .destroy_all
     end
 
+    # Hand off session context to a target channel, creating a new session
+    # with the conversation history carried over for continuity
+    def handoff_context(session, target_channel)
+      raise SessionError, "Target channel not found" unless target_channel
+      raise SessionError, "Cannot handoff to same channel" if target_channel.id == @channel.id
+
+      # Create or find session on target channel for the same user
+      target_session = target_channel.find_or_create_session(
+        platform_user_id: session.platform_user_id,
+        platform_username: session.platform_username,
+        metadata: (session.user_metadata || {}).merge(
+          "handoff_from_channel_id" => @channel.id,
+          "handoff_from_session_id" => session.id,
+          "handoff_at" => Time.current.iso8601
+        )
+      )
+
+      # Transfer agent assignment
+      target_session.update!(assigned_agent: session.assigned_agent) if session.assigned_agent
+
+      # Copy recent context window for continuity
+      context = session.context_for_agent rescue {}
+      target_session.update!(context_window: context) if context.present?
+
+      # Mark original session as transferred
+      session.update!(status: "transferred")
+
+      Rails.logger.info "[SessionManager] Handed off session #{session.id} to channel #{target_channel.id}"
+
+      target_session
+    end
+
     private
 
     def broadcast_escalation(session, reason)

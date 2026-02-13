@@ -33,6 +33,12 @@ module Ai
     scope :for_user, ->(user) { where(user: user) }
     scope :with_agent, ->(agent) { where(ai_agent_id: agent.is_a?(Ai::Agent) ? agent.id : agent) }
     scope :active_sessions, -> { where.not(websocket_session_id: nil) }
+    scope :pinned, -> { where.not(pinned_at: nil).order(pinned_at: :desc) }
+    scope :unpinned, -> { where(pinned_at: nil) }
+    scope :tagged_with, ->(tag) { where("tags @> ?", [tag].to_json) }
+    scope :tagged_with_any, ->(tags) { where("tags ?| array[:tags]", tags: tags) }
+    scope :by_last_activity, -> { order(last_activity_at: :desc) }
+    scope :pinned_first, -> { order(Arel.sql("CASE WHEN pinned_at IS NOT NULL THEN 0 ELSE 1 END, pinned_at DESC, last_activity_at DESC")) }
 
     # Callbacks
     before_validation :set_conversation_id, on: :create
@@ -100,6 +106,30 @@ module Ai
 
     def archive_conversation!
       update!(status: "archived")
+    end
+
+    def pin!
+      update!(pinned_at: Time.current)
+    end
+
+    def unpin!
+      update!(pinned_at: nil)
+    end
+
+    def pinned?
+      pinned_at.present?
+    end
+
+    def add_tag(tag)
+      tag = tag.to_s.strip.downcase
+      return if tags.include?(tag)
+
+      update!(tags: tags + [tag])
+    end
+
+    def remove_tag(tag)
+      tag = tag.to_s.strip.downcase
+      update!(tags: tags - [tag])
     end
 
     def add_participant(user)
@@ -183,9 +213,20 @@ module Ai
         provider: provider.name,
         is_collaborative: is_collaborative?,
         participant_count: participants.size,
+        pinned: pinned?,
+        tags: tags,
         created_at: created_at,
         last_activity_at: last_activity_at
       }
+    end
+
+    # Full-text search across conversation messages
+    def self.search_messages(query, account_id:)
+      joins(:messages)
+        .where(account_id: account_id)
+        .where("ai_messages.search_vector @@ plainto_tsquery('english', ?)", query)
+        .where(ai_messages: { deleted_at: nil })
+        .distinct
     end
 
     def to_param

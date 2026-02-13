@@ -4,7 +4,7 @@ module Ai
   module Rag
     class RerankingService
       BATCH_SIZE = 10
-      DEFAULT_MODEL = "gpt-4.1"
+      FALLBACK_MODEL = "gpt-4.1"
 
       RERANKING_SCHEMA = {
         name: "relevance_scores",
@@ -36,7 +36,7 @@ module Ai
         return [] if results.blank?
 
         top_k ||= results.size
-        model ||= DEFAULT_MODEL
+        model ||= resolve_reranking_model
 
         # Attempt LLM-based reranking
         reranked = llm_rerank(query, results, model)
@@ -107,6 +107,15 @@ module Ai
       rescue StandardError => e
         Rails.logger.warn "[RerankingService] Batch scoring failed: #{e.message}"
         nil
+      end
+
+      def resolve_reranking_model
+        router = Ai::ModelRouterService.new(account: @account, strategy: "quality_optimized")
+        routing = router.route_for_task(task_type: "analysis")
+        routing[:recommended_models]&.first || FALLBACK_MODEL
+      rescue StandardError => e
+        Rails.logger.debug "[RerankingService] Model resolution via router failed, using fallback: #{e.message}"
+        FALLBACK_MODEL
       end
 
       def heuristic_rerank(query, results)

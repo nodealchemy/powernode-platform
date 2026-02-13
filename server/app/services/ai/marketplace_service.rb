@@ -196,6 +196,71 @@ module Ai
       Rails.cache.delete_matched("ai:marketplace:publisher_analytics:#{publisher_id}:*")
     end
 
+    # Agent Composition — create a team from marketplace templates
+    def compose_team(template_ids:, team_name:, team_type: "hierarchical", coordination_strategy: "manager_led", user:)
+      templates = Ai::AgentTemplate.published.where(id: template_ids)
+      return { success: false, error: "No valid published templates found" } if templates.empty?
+
+      missing = template_ids - templates.map(&:id)
+      return { success: false, error: "Templates not found: #{missing.join(', ')}" } if missing.any?
+
+      team = Ai::AgentTeam.create!(
+        account: account,
+        name: team_name,
+        team_type: team_type,
+        coordination_strategy: coordination_strategy,
+        status: "active"
+      )
+
+      agents = templates.map.with_index do |template, index|
+        agent = create_agent_from_template(template, nil, {}, user)
+        next nil unless agent
+
+        role = index.zero? ? "lead" : "member"
+        Ai::AgentTeamMember.create!(
+          ai_agent_team_id: team.id,
+          ai_agent_id: agent.id,
+          role: role,
+          status: "active"
+        )
+
+        agent
+      end.compact
+
+      { success: true, team: team, agents: agents }
+    rescue ActiveRecord::RecordInvalid => e
+      { success: false, error: e.message }
+    end
+
+    # Core usage analytics (non-enterprise) — stats about installed templates
+    def installation_analytics
+      installations = account.ai_agent_installations.includes(:agent_template)
+
+      active = installations.where(status: "active")
+      templates = active.map(&:agent_template).compact
+
+      {
+        total_installed: installations.count,
+        active_installed: active.count,
+        total_executions: active.sum(:executions_count),
+        total_cost_usd: active.sum(:total_cost_usd).to_f.round(2),
+        by_category: templates.group_by(&:category).transform_values(&:count),
+        most_used: active.order(executions_count: :desc).limit(5).map { |i|
+          {
+            template_name: i.agent_template&.name,
+            executions: i.executions_count,
+            last_used_at: i.last_used_at
+          }
+        },
+        recently_installed: active.order(created_at: :desc).limit(5).map { |i|
+          {
+            template_name: i.agent_template&.name,
+            installed_at: i.created_at
+          }
+        }
+      }
+    end
+
     private
 
     def process_template_payment(template)
