@@ -21,20 +21,20 @@ jest.mock('../ChatWindowHeader', () => ({
   ),
 }));
 
-jest.mock('../ChatWindowTabs', () => ({
-  ChatWindowTabs: ({ onNewTab }: { onNewTab: () => void }) => (
-    <div data-testid="chat-tabs">
-      <button data-testid="new-tab-btn" onClick={onNewTab}>+</button>
-    </div>
-  ),
-}));
-
 jest.mock('../NewConversationTab', () => ({
   NewConversationTab: ({ onComplete }: { onComplete: () => void }) => (
     <div data-testid="new-conversation-tab">
       <button data-testid="complete-btn" onClick={onComplete}>Done</button>
     </div>
   ),
+}));
+
+jest.mock('../ChatWindowSidebar', () => ({
+  ChatWindowSidebar: () => <div data-testid="chat-sidebar" />,
+}));
+
+jest.mock('../SplitPanelContainer', () => ({
+  SplitPanelContainer: () => <div data-testid="split-panel-container" />,
 }));
 
 const mockedUseChatWindow = useChatWindow as jest.Mock;
@@ -56,6 +56,10 @@ const createMockState = (overrides: Partial<ChatWindowState> = {}): ChatWindowSt
   activeTabId: 'tab-1',
   floatingPosition: { x: 100, y: 100 },
   floatingSize: { width: 420, height: 520 },
+  showSidebar: false,
+  panels: [{ id: 'panel-1', tabIds: ['tab-1'], activeTabId: 'tab-1' }],
+  activePanelId: 'panel-1',
+  panelSizes: [100],
   ...overrides,
 });
 
@@ -68,9 +72,16 @@ describe('ChatWindow', () => {
       state: createMockState(),
       dispatch: mockDispatch,
       openConversation: jest.fn(),
+      openConversationMaximized: jest.fn(),
       closeTab: jest.fn(),
       switchTab: jest.fn(),
       setMode: jest.fn(),
+      toggleSidebar: jest.fn(),
+      createSplit: jest.fn(),
+      moveTabToPanel: jest.fn(),
+      closePanel: jest.fn(),
+      setActivePanelId: jest.fn(),
+      setPanelSizes: jest.fn(),
       isDetachedMode: false,
     });
   });
@@ -84,10 +95,9 @@ describe('ChatWindow', () => {
     expect(screen.getByTestId('conversation-conv-1')).toBeInTheDocument();
   });
 
-  it('renders header and tabs', () => {
+  it('renders header', () => {
     render(<ChatWindow />);
     expect(screen.getByTestId('chat-header')).toBeInTheDocument();
-    expect(screen.getByTestId('chat-tabs')).toBeInTheDocument();
   });
 
   it('shows NewConversationTab when no tabs', () => {
@@ -95,37 +105,21 @@ describe('ChatWindow', () => {
       state: createMockState({ tabs: [], activeTabId: null }),
       dispatch: mockDispatch,
       openConversation: jest.fn(),
+      openConversationMaximized: jest.fn(),
       closeTab: jest.fn(),
       switchTab: jest.fn(),
       setMode: jest.fn(),
+      toggleSidebar: jest.fn(),
+      createSplit: jest.fn(),
+      moveTabToPanel: jest.fn(),
+      closePanel: jest.fn(),
+      setActivePanelId: jest.fn(),
+      setPanelSizes: jest.fn(),
       isDetachedMode: false,
     });
 
     render(<ChatWindow />);
     expect(screen.getByTestId('new-conversation-tab')).toBeInTheDocument();
-  });
-
-  it('toggles new conversation overlay when + button clicked', () => {
-    render(<ChatWindow />);
-
-    // Initially no new conversation tab (has tabs, showNewTab is false)
-    expect(screen.queryByTestId('new-conversation-tab')).not.toBeInTheDocument();
-
-    // Click + to show new tab overlay
-    fireEvent.click(screen.getByTestId('new-tab-btn'));
-    expect(screen.getByTestId('new-conversation-tab')).toBeInTheDocument();
-  });
-
-  it('hides new conversation overlay when onComplete is called', () => {
-    render(<ChatWindow />);
-
-    // Open the overlay
-    fireEvent.click(screen.getByTestId('new-tab-btn'));
-    expect(screen.getByTestId('new-conversation-tab')).toBeInTheDocument();
-
-    // Complete dismisses it
-    fireEvent.click(screen.getByTestId('complete-btn'));
-    expect(screen.queryByTestId('new-conversation-tab')).not.toBeInTheDocument();
   });
 
   it('dispatches INCREMENT_UNREAD when onNewMessage fires', () => {
@@ -134,26 +128,74 @@ describe('ChatWindow', () => {
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'INCREMENT_UNREAD', payload: 'tab-1' });
   });
 
-  it('hides inactive tabs', () => {
-    const tabs = [
-      createMockTab({ id: 'tab-1', conversationId: 'conv-1' }),
-      createMockTab({ id: 'tab-2', conversationId: 'conv-2', agentName: 'Agent 2', title: 'Chat 2' }),
-    ];
+  it('shows sidebar when showSidebar is true', () => {
     mockedUseChatWindow.mockReturnValue({
-      state: createMockState({ tabs, activeTabId: 'tab-1' }),
+      state: createMockState({ showSidebar: true }),
       dispatch: mockDispatch,
       openConversation: jest.fn(),
+      openConversationMaximized: jest.fn(),
       closeTab: jest.fn(),
       switchTab: jest.fn(),
       setMode: jest.fn(),
+      toggleSidebar: jest.fn(),
+      createSplit: jest.fn(),
+      moveTabToPanel: jest.fn(),
+      closePanel: jest.fn(),
+      setActivePanelId: jest.fn(),
+      setPanelSizes: jest.fn(),
       isDetachedMode: false,
     });
 
     render(<ChatWindow />);
-    const activeConv = screen.getByTestId('conversation-conv-1');
-    const inactiveConv = screen.getByTestId('conversation-conv-2');
+    expect(screen.getByTestId('chat-sidebar')).toBeInTheDocument();
+  });
 
-    expect(activeConv.parentElement).toHaveClass('h-full');
-    expect(inactiveConv.parentElement).toHaveClass('hidden');
+  it('hides sidebar when showSidebar is false', () => {
+    render(<ChatWindow />);
+    expect(screen.queryByTestId('chat-sidebar')).not.toBeInTheDocument();
+  });
+
+  it('shows sidebar in floating mode when showSidebar is true', () => {
+    mockedUseChatWindow.mockReturnValue({
+      state: createMockState({ mode: 'floating', showSidebar: true }),
+      dispatch: mockDispatch,
+      openConversation: jest.fn(),
+      openConversationMaximized: jest.fn(),
+      closeTab: jest.fn(),
+      switchTab: jest.fn(),
+      setMode: jest.fn(),
+      toggleSidebar: jest.fn(),
+      createSplit: jest.fn(),
+      moveTabToPanel: jest.fn(),
+      closePanel: jest.fn(),
+      setActivePanelId: jest.fn(),
+      setPanelSizes: jest.fn(),
+      isDetachedMode: false,
+    });
+
+    render(<ChatWindow />);
+    expect(screen.getByTestId('chat-sidebar')).toBeInTheDocument();
+  });
+
+  it('renders SplitPanelContainer in maximized mode', () => {
+    mockedUseChatWindow.mockReturnValue({
+      state: createMockState({ mode: 'maximized' }),
+      dispatch: mockDispatch,
+      openConversation: jest.fn(),
+      openConversationMaximized: jest.fn(),
+      closeTab: jest.fn(),
+      switchTab: jest.fn(),
+      setMode: jest.fn(),
+      toggleSidebar: jest.fn(),
+      createSplit: jest.fn(),
+      moveTabToPanel: jest.fn(),
+      closePanel: jest.fn(),
+      setActivePanelId: jest.fn(),
+      setPanelSizes: jest.fn(),
+      isDetachedMode: false,
+    });
+
+    render(<ChatWindow />);
+    expect(screen.getByTestId('split-panel-container')).toBeInTheDocument();
   });
 });

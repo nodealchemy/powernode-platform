@@ -28,6 +28,10 @@ const createMockState = (overrides: Partial<ChatWindowState> = {}): ChatWindowSt
   activeTabId: null,
   floatingPosition: { x: -1, y: -1 },
   floatingSize: { width: 420, height: 520 },
+  showSidebar: true,
+  panels: [{ id: 'panel-1', tabIds: [], activeTabId: null }],
+  activePanelId: 'panel-1',
+  panelSizes: [100],
   ...overrides,
 });
 
@@ -41,8 +45,15 @@ const renderWidget = (
     setMode: mockSetMode,
     dispatch: jest.fn(),
     openConversation: jest.fn(),
+    openConversationMaximized: jest.fn(),
     closeTab: jest.fn(),
     switchTab: jest.fn(),
+    toggleSidebar: jest.fn(),
+    createSplit: jest.fn(),
+    moveTabToPanel: jest.fn(),
+    closePanel: jest.fn(),
+    setActivePanelId: jest.fn(),
+    setPanelSizes: jest.fn(),
     isDetachedMode: false,
   });
 

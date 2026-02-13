@@ -26,19 +26,39 @@ const createMockState = (overrides: Partial<ChatWindowState> = {}): ChatWindowSt
   activeTabId: 'tab-1',
   floatingPosition: { x: 100, y: 100 },
   floatingSize: { width: 420, height: 520 },
+  showSidebar: true,
+  panels: [{ id: 'panel-1', tabIds: ['tab-1'], activeTabId: 'tab-1' }],
+  activePanelId: 'panel-1',
+  panelSizes: [100],
   ...overrides,
 });
 
 const setupMock = (stateOverrides: Partial<ChatWindowState> = {}) => {
   const mockSwitchTab = jest.fn<void, [string]>();
   const mockCloseTab = jest.fn<void, [string]>();
+  // Auto-sync panel tabIds with tabs array if not explicitly provided
+  const mergedState = createMockState(stateOverrides);
+  if (stateOverrides.tabs && !stateOverrides.panels) {
+    mergedState.panels = [{
+      id: 'panel-1',
+      tabIds: stateOverrides.tabs.map(t => t.id),
+      activeTabId: mergedState.activeTabId,
+    }];
+  }
   mockedUseChatWindow.mockReturnValue({
-    state: createMockState(stateOverrides),
+    state: mergedState,
     switchTab: mockSwitchTab,
     closeTab: mockCloseTab,
     dispatch: jest.fn(),
     openConversation: jest.fn(),
+    openConversationMaximized: jest.fn(),
     setMode: jest.fn(),
+    toggleSidebar: jest.fn(),
+    createSplit: jest.fn(),
+    moveTabToPanel: jest.fn(),
+    closePanel: jest.fn(),
+    setActivePanelId: jest.fn(),
+    setPanelSizes: jest.fn(),
     isDetachedMode: false,
   });
   return { mockSwitchTab, mockCloseTab };
