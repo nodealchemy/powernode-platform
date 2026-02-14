@@ -103,7 +103,7 @@ module Ai
       def execute_via_workflow(workflow)
         run = workflow.runs.create!(
           account: account,
-          triggered_by: ralph_loop.created_by || account.users.first,
+          triggered_by_user: ralph_loop.created_by || account.users.first,
           status: "pending",
           input_data: {
             ralph_task_id: task.id,
@@ -131,7 +131,7 @@ module Ai
         execution = Devops::PipelineExecution.create!(
           pipeline: pipeline,
           account: account,
-          triggered_by: ralph_loop.created_by || account.users.first,
+          triggered_by_user: ralph_loop.created_by || account.users.first,
           status: "pending",
           parameters: {
             ralph_task_id: task.id,

@@ -144,7 +144,7 @@ module Ai
 
         old_content = message.content
         message.update!(
-          metadata: (message.metadata || {}).merge(
+          metadata: (message.processing_metadata || {}).merge(
             "regenerated" => true,
             "regenerated_at" => Time.current.iso8601,
             "original_content" => old_content
@@ -193,7 +193,7 @@ module Ai
         rating_data["feedback"] = feedback if feedback.present?
 
         message.update!(
-          metadata: (message.metadata || {}).merge("user_rating" => rating_data)
+          metadata: (message.processing_metadata || {}).merge("user_rating" => rating_data)
         )
 
         Result.new(

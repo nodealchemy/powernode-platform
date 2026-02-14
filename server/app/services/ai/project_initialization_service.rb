@@ -36,7 +36,7 @@ module Ai
     private
 
     def find_gitea_credential
-      gitea_provider = account.git_providers.find_by(provider_type: 'gitea') ||
+      gitea_provider = Devops::GitProvider.where(account: account).find_by(provider_type: 'gitea') ||
                        Devops::GitProvider.find_by(provider_type: 'gitea')
       return nil unless gitea_provider
 

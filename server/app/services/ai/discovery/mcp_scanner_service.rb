@@ -92,7 +92,7 @@ module Ai
       end
 
       def extract_agent_skills(agent)
-        skills = agent.ai_agent_skills.pluck(:name) if agent.respond_to?(:ai_agent_skills)
+        skills = agent.agent_skills.pluck(:name) if agent.respond_to?(:ai_agent_skills)
         skills ||= []
 
         # Also consider agent capabilities from metadata

@@ -258,7 +258,7 @@ module Ai
         # Submit A2A task
         agent = account.ai_agents.find(agent_id)
         task = @a2a_service.submit_task(
-          agent: agent,
+          to_agent_card: agent,
           message: { role: "user", parts: [ { type: "text", text: input.to_json } ] },
           metadata: {
             dag_execution_id: @execution.id,

@@ -3,7 +3,7 @@
 module Ai
   module CodeReview
     class EnhancedReviewService
-      SEVERITY_LEVELS = %w[info warning error critical].freeze
+      SEVERITY_LEVELS = %w[info warning critical].freeze
       COMMENT_TYPES = %w[issue suggestion praise question].freeze
 
       attr_reader :account
@@ -134,7 +134,7 @@ module Ai
           end
 
           if line.match?(/binding\.pry|debugger|byebug|console\.log/)
-            issues << build_issue(file_path, line_num, "issue", "error", "Debug statement detected", "code_quality")
+            issues << build_issue(file_path, line_num, "issue", "warning", "Debug statement detected", "code_quality")
           end
 
           if line.match?(/password|secret|api_key/i) && line.match?(/[=:].*['"][^'"]+['"]/)

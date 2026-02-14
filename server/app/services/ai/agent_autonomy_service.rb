@@ -25,8 +25,8 @@ module Ai
       agent.save!
 
       # Add to team
-      team.ai_agent_team_members.create!(
-        ai_agent: agent,
+      team.members.create!(
+        agent: agent,
         role: agent_params[:role] || "worker",
         status: "active"
       )
@@ -48,7 +48,7 @@ module Ai
         authority.authorize_authority_change!(actor, member, { role: params[:role] })
       end
 
-      agent = member.ai_agent
+      agent = member.agent
       updatable = params.slice(:name, :description, :status)
       agent.update!(updatable)
 
@@ -66,7 +66,7 @@ module Ai
       authority = Ai::TeamAuthorityService.new(team: team)
       authority.authorize_member_management!(actor, :remove_member)
 
-      agent = member.ai_agent
+      agent = member.agent
       agent_name = agent.name
 
       # Clean up any pending tasks assigned to this agent
@@ -83,11 +83,11 @@ module Ai
 
     # Auto-assign the best lead for a team based on capabilities
     def auto_assign_lead(team)
-      members = team.ai_agent_team_members.includes(:ai_agent)
+      members = team.members.includes(:agent)
       return nil if members.empty?
 
       scored = members.map do |member|
-        agent = member.ai_agent
+        agent = member.agent
         next unless agent
 
         score = calculate_lead_score(agent)
@@ -158,7 +158,7 @@ module Ai
       max_agents = guardrails.pick(:configuration)&.dig("max_agents_per_team")
       return unless max_agents
 
-      current_count = team.ai_agent_team_members.count
+      current_count = team.members.count
       if current_count >= max_agents
         raise ArgumentError, "Team #{team.name} has reached maximum capacity of #{max_agents} agents"
       end

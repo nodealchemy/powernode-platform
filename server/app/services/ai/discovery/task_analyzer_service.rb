@@ -87,7 +87,7 @@ module Ai
       # Analyze historical task patterns for recommendations
       def analyze_history
         recent_tasks = Ai::TeamTask.joins(:team_execution)
-                                    .where(team_executions: { account_id: account.id })
+                                    .where(ai_team_executions: { account_id: account.id })
                                     .where("ai_team_tasks.created_at > ?", 30.days.ago)
                                     .limit(100)
 
