@@ -8,8 +8,6 @@ module Review
     belongs_to :app_review
     belongs_to :recipient, class_name: "Account"
     belongs_to :triggered_by, class_name: "Account", optional: true
-    has_many :notification_deliveries, class_name: "Review::NotificationDelivery", foreign_key: :review_notification_id, dependent: :destroy
-
     # Validations
     validates :notification_type, presence: true, inclusion: {
       in: %w[new_review review_response review_flagged review_approved review_rejected

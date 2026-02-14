@@ -12,8 +12,6 @@ module Ai
     # Optional associations
     belongs_to :account, optional: true
     belongs_to :created_by_user, class_name: "User", foreign_key: :created_by_user_id, optional: true
-    belongs_to :source_workflow, class_name: "Ai::Workflow", foreign_key: :source_workflow_id, optional: true
-
     # Validations
     validates :name, presence: true, length: { maximum: 255 }
     validates :slug, presence: true, uniqueness: true, length: { maximum: 150 },
