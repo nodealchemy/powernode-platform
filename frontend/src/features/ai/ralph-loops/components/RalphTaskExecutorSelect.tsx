@@ -1,30 +1,16 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import {
-  Bot,
-  Workflow,
-  GitBranch,
-  Network,
-  Container,
-  User,
-  Globe,
-  Plus,
-  X,
-  Settings,
-  Loader2,
-  FileText,
-  Trash2,
-} from 'lucide-react';
+import { FileText, Settings } from 'lucide-react';
 import { Card, CardContent } from '@/shared/components/ui/Card';
-import { Select } from '@/shared/components/ui/Select';
-import { Button } from '@/shared/components/ui/Button';
-import { Input } from '@/shared/components/ui/Input';
-import { Textarea } from '@/shared/components/ui/Textarea';
-import { Badge } from '@/shared/components/ui/Badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/Tabs';
 import { cn } from '@/shared/utils/cn';
 import { agentsApi } from '@/shared/services/ai/AgentsApiService';
 import { workflowsApi } from '@/shared/services/ai/WorkflowsApiService';
 import { skillsApi } from '@/features/ai/skills/services/skillsApi';
+import { ExecutorAgentTab } from './ExecutorAgentTab';
+import { ExecutorWorkflowTab } from './ExecutorWorkflowTab';
+import { ExecutorSkillTab } from './ExecutorSkillTab';
+import { ExecutorManualTab } from './ExecutorManualTab';
+import { DelegationConfigForm } from './DelegationConfigForm';
 import type {
   RalphExecutionType,
   RalphCapabilityMatchStrategy,
@@ -47,19 +33,16 @@ interface TaskDefinition {
 
 interface RalphTaskExecutorSelectProps {
   taskId: string;
-  // Task definition fields
   taskKey: string;
   taskDescription: string;
   taskDependencies: string[];
   taskAcceptanceCriteria?: string;
-  availableTaskKeys?: string[]; // Other task keys that can be selected as dependencies
-  // Executor fields
+  availableTaskKeys?: string[];
   executionType: RalphExecutionType;
   executorId?: string;
   requiredCapabilities?: string[];
   capabilityMatchStrategy?: RalphCapabilityMatchStrategy;
   delegationConfig?: RalphDelegationConfig;
-  // Callbacks
   onSave: (taskDef: TaskDefinition, executorConfig: UpdateRalphTaskExecutorRequest) => void;
   onDelete?: () => void;
   onCancel?: () => void;
@@ -67,68 +50,17 @@ interface RalphTaskExecutorSelectProps {
   className?: string;
 }
 
-const executionTypeConfig: Record<RalphExecutionType, {
-  label: string;
-  description: string;
-  icon: React.FC<{ className?: string }>;
-}> = {
-  agent: {
-    label: 'AI Agent',
-    description: 'Execute via internal AI agent',
-    icon: Bot,
-  },
-  workflow: {
-    label: 'Workflow',
-    description: 'Execute via multi-step workflow',
-    icon: Workflow,
-  },
-  pipeline: {
-    label: 'Pipeline',
-    description: 'Execute via CI/CD pipeline',
-    icon: GitBranch,
-  },
-  a2a_task: {
-    label: 'A2A Task',
-    description: 'Delegate via A2A protocol',
-    icon: Network,
-  },
-  container: {
-    label: 'Container',
-    description: 'Execute in sandboxed container',
-    icon: Container,
-  },
-  human: {
-    label: 'Human Review',
-    description: 'Queue for human review',
-    icon: User,
-  },
-  community: {
-    label: 'Community Agent',
-    description: 'Execute via community agent',
-    icon: Globe,
-  },
-};
-
-const matchStrategyOptions = [
-  { value: 'all', label: 'Match All', description: 'Executor must have all capabilities' },
-  { value: 'any', label: 'Match Any', description: 'Executor must have at least one capability' },
-  { value: 'weighted', label: 'Weighted', description: 'Score executors by capability overlap' },
-];
-
 export const RalphTaskExecutorSelect: React.FC<RalphTaskExecutorSelectProps> = ({
-  // Task definition props
   taskKey: initialTaskKey,
   taskDescription: initialTaskDescription,
   taskDependencies: initialTaskDependencies = [],
   taskAcceptanceCriteria: initialTaskAcceptanceCriteria,
   availableTaskKeys = [],
-  // Executor props
   executionType: initialType,
   executorId: initialExecutorId,
   requiredCapabilities: initialCapabilities = [],
   capabilityMatchStrategy: initialStrategy = 'all',
   delegationConfig: initialDelegationConfig = {},
-  // Callbacks
   onSave,
   onDelete,
   onCancel,
@@ -152,14 +84,10 @@ export const RalphTaskExecutorSelect: React.FC<RalphTaskExecutorSelectProps> = (
 
   // UI state
   const [activeTab, setActiveTab] = useState<'definition' | 'executor'>('definition');
-
-  // Executor options state
   const [executorOptions, setExecutorOptions] = useState<ExecutorOption[]>([]);
   const [loadingExecutors, setLoadingExecutors] = useState(false);
   const [fallbackExecutorOptions, setFallbackExecutorOptions] = useState<ExecutorOption[]>([]);
   const [loadingFallbackExecutors, setLoadingFallbackExecutors] = useState(false);
-
-  // Available skills from API (replaces capabilities)
   const [availableSkillsByCategory, setAvailableSkillsByCategory] = useState<Record<string, Array<{ slug: string; name: string }>>>({});
   const [loadingSkills, setLoadingSkills] = useState(true);
 
@@ -187,28 +115,17 @@ export const RalphTaskExecutorSelect: React.FC<RalphTaskExecutorSelectProps> = (
     loadSkills();
   }, []);
 
-  // Fetch executors based on execution type
   const fetchExecutors = useCallback(async (type: RalphExecutionType): Promise<ExecutorOption[]> => {
     try {
       switch (type) {
         case 'agent': {
           const response = await agentsApi.getAgents({ per_page: 100 });
-          return (response.items || []).map((agent) => ({
-            id: agent.id,
-            name: agent.name,
-            description: agent.description,
-          }));
+          return (response.items || []).map((agent) => ({ id: agent.id, name: agent.name, description: agent.description }));
         }
         case 'workflow': {
           const response = await workflowsApi.getWorkflows({ per_page: 100 });
-          return (response.items || []).map((workflow) => ({
-            id: workflow.id,
-            name: workflow.name,
-            description: workflow.description,
-          }));
+          return (response.items || []).map((workflow) => ({ id: workflow.id, name: workflow.name, description: workflow.description }));
         }
-        // For other types, we don't have a dedicated API yet
-        // Return empty array and user can enter ID manually
         default:
           return [];
       }
@@ -217,7 +134,6 @@ export const RalphTaskExecutorSelect: React.FC<RalphTaskExecutorSelectProps> = (
     }
   }, []);
 
-  // Load executors when execution type changes
   useEffect(() => {
     const loadExecutors = async () => {
       setLoadingExecutors(true);
@@ -228,13 +144,9 @@ export const RalphTaskExecutorSelect: React.FC<RalphTaskExecutorSelectProps> = (
     loadExecutors();
   }, [executionType, fetchExecutors]);
 
-  // Load fallback executors when fallback type changes
   useEffect(() => {
     const loadFallbackExecutors = async () => {
-      if (!delegationConfig.fallback_executor_type) {
-        setFallbackExecutorOptions([]);
-        return;
-      }
+      if (!delegationConfig.fallback_executor_type) { setFallbackExecutorOptions([]); return; }
       setLoadingFallbackExecutors(true);
       const options = await fetchExecutors(delegationConfig.fallback_executor_type);
       setFallbackExecutorOptions(options);
@@ -245,28 +157,17 @@ export const RalphTaskExecutorSelect: React.FC<RalphTaskExecutorSelectProps> = (
 
   const handleAddCapability = useCallback(() => {
     const cap = newCapability.trim().toLowerCase();
-    if (cap && !capabilities.includes(cap)) {
-      setCapabilities([...capabilities, cap]);
-      setNewCapability('');
-    }
+    if (cap && !capabilities.includes(cap)) { setCapabilities([...capabilities, cap]); setNewCapability(''); }
   }, [newCapability, capabilities]);
-
-  const handleRemoveCapability = useCallback((cap: string) => {
-    setCapabilities(capabilities.filter(c => c !== cap));
-  }, [capabilities]);
 
   const handleSave = useCallback(() => {
     const taskDef: TaskDefinition = {
-      key: taskKey.replace(/\s/g, '_'),
-      description: taskDescription,
-      dependencies: taskDependencies,
-      acceptance_criteria: taskAcceptanceCriteria || undefined,
+      key: taskKey.replace(/\s/g, '_'), description: taskDescription,
+      dependencies: taskDependencies, acceptance_criteria: taskAcceptanceCriteria || undefined,
     };
     const executorConfig: UpdateRalphTaskExecutorRequest = {
-      execution_type: executionType,
-      executor_id: executorId || undefined,
-      required_capabilities: capabilities,
-      capability_match_strategy: matchStrategy,
+      execution_type: executionType, executor_id: executorId || undefined,
+      required_capabilities: capabilities, capability_match_strategy: matchStrategy,
       delegation_config: showAdvanced ? delegationConfig : undefined,
     };
     onSave(taskDef, executorConfig);
@@ -287,436 +188,60 @@ export const RalphTaskExecutorSelect: React.FC<RalphTaskExecutorSelectProps> = (
             </TabsTrigger>
           </TabsList>
 
-          {/* Definition Tab */}
-          <TabsContent value="definition" className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-theme-text-primary mb-1">
-                Task Key
-              </label>
-              <Input
-                value={taskKey}
-                onChange={(e) => setTaskKey(e.target.value.replace(/\s/g, '_'))}
-                placeholder="task_key"
-                className="font-mono"
-              />
-              <p className="mt-1 text-xs text-theme-text-secondary">
-                Unique identifier for this task (no spaces)
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-theme-text-primary mb-1">
-                Description
-              </label>
-              <Textarea
-                value={taskDescription}
-                onChange={(e) => setTaskDescription(e.target.value)}
-                placeholder="Describe what this task should accomplish..."
-                rows={3}
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-theme-text-primary mb-2">
-                Dependencies
-              </label>
-              {availableTaskKeys.length > 0 ? (
-                <div className="space-y-2 max-h-40 overflow-y-auto p-2 border border-theme-border-primary rounded-lg bg-theme-bg-primary">
-                  {availableTaskKeys
-                    .filter(key => key !== taskKey) // Can't depend on self
-                    .map((key) => (
-                      <label
-                        key={key}
-                        className="flex items-center gap-2 cursor-pointer hover:bg-theme-bg-secondary p-1.5 rounded"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={taskDependencies.includes(key)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setTaskDependencies([...taskDependencies, key]);
-                            } else {
-                              setTaskDependencies(taskDependencies.filter(d => d !== key));
-                            }
-                          }}
-                          className="w-4 h-4 rounded border-theme-border-primary text-theme-brand-primary focus:ring-theme-brand-primary"
-                        />
-                        <span className="font-mono text-sm text-theme-text-primary">{key}</span>
-                      </label>
-                    ))}
-                  {availableTaskKeys.filter(key => key !== taskKey).length === 0 && (
-                    <p className="text-sm text-theme-text-secondary py-2">
-                      No other tasks available
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <p className="text-sm text-theme-text-secondary p-2 border border-theme-border-primary rounded-lg">
-                  No other tasks available to select as dependencies
-                </p>
-              )}
-              {taskDependencies.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {taskDependencies.map((dep) => (
-                    <Badge key={dep} variant="outline" size="sm">
-                      {dep}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-              <p className="mt-1 text-xs text-theme-text-secondary">
-                Select tasks that must complete before this task can start
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-theme-text-primary mb-1">
-                Acceptance Criteria
-              </label>
-              <Textarea
-                value={taskAcceptanceCriteria}
-                onChange={(e) => setTaskAcceptanceCriteria(e.target.value)}
-                placeholder="Define what success looks like for this task..."
-                rows={3}
-              />
-            </div>
+          <TabsContent value="definition">
+            <ExecutorAgentTab
+              taskKey={taskKey}
+              taskDescription={taskDescription}
+              taskDependencies={taskDependencies}
+              taskAcceptanceCriteria={taskAcceptanceCriteria}
+              availableTaskKeys={availableTaskKeys}
+              onTaskKeyChange={setTaskKey}
+              onTaskDescriptionChange={setTaskDescription}
+              onTaskDependenciesChange={setTaskDependencies}
+              onTaskAcceptanceCriteriaChange={setTaskAcceptanceCriteria}
+            />
           </TabsContent>
 
-          {/* Executor Tab */}
           <TabsContent value="executor" className="space-y-4">
-            {/* Execution Type Selection */}
-            <div>
-              <label className="block text-sm font-medium text-theme-text-primary mb-2">
-                Execution Type
-              </label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {(Object.keys(executionTypeConfig) as RalphExecutionType[]).map((type) => {
-                  const config = executionTypeConfig[type];
-                  const Icon = config.icon;
-                  const isSelected = executionType === type;
+            <ExecutorWorkflowTab
+              executionType={executionType}
+              executorId={executorId}
+              executorOptions={executorOptions}
+              loadingExecutors={loadingExecutors}
+              onExecutionTypeChange={setExecutionType}
+              onExecutorIdChange={setExecutorId}
+            />
 
-                  return (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => setExecutionType(type)}
-                      className={cn(
-                        'relative flex flex-col items-center justify-center p-3 h-20 rounded-lg border-2 transition-all',
-                        'hover:border-theme-brand-primary/50 hover:bg-theme-brand-primary/5',
-                        isSelected
-                          ? 'border-theme-brand-primary bg-theme-brand-primary/20 ring-2 ring-theme-brand-primary/30'
-                          : 'border-theme-border-primary bg-theme-bg-primary'
-                      )}
-                    >
-                      <Icon className={cn(
-                        'w-6 h-6 mb-1',
-                        isSelected ? 'text-theme-brand-primary' : 'text-theme-text-secondary'
-                      )} />
-                      <span className={cn(
-                        'text-xs font-medium text-center',
-                        isSelected ? 'text-theme-brand-primary font-semibold' : 'text-theme-text-primary'
-                      )}>
-                        {config.label}
-                      </span>
-                      {isSelected && (
-                        <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-theme-brand-primary" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="mt-2 text-xs text-theme-text-secondary">
-                {executionTypeConfig[executionType].description}
-              </p>
-            </div>
+            <ExecutorSkillTab
+              capabilities={capabilities}
+              matchStrategy={matchStrategy}
+              newCapability={newCapability}
+              availableSkillsByCategory={availableSkillsByCategory}
+              loadingSkills={loadingSkills}
+              onCapabilitiesChange={setCapabilities}
+              onMatchStrategyChange={setMatchStrategy}
+              onNewCapabilityChange={setNewCapability}
+              onAddCapability={handleAddCapability}
+              onRemoveCapability={(cap) => setCapabilities(capabilities.filter(c => c !== cap))}
+            />
 
-            {/* Executor ID (optional) */}
-            <div>
-              <label className="block text-sm font-medium text-theme-text-primary mb-1">
-                Specific Executor {executionTypeConfig[executionType]?.label} (Optional)
-              </label>
-              {loadingExecutors ? (
-                <div className="flex items-center gap-2 py-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-theme-text-secondary" />
-                  <span className="text-sm text-theme-text-secondary">Loading executors...</span>
-                </div>
-              ) : executorOptions.length > 0 ? (
-                <Select
-                  value={executorId}
-                  onChange={(value) => setExecutorId(value)}
-                  className="w-full"
-                >
-                  <option value="">Auto-select based on capabilities</option>
-                  {executorOptions.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.name}
-                    </option>
-                  ))}
-                </Select>
-              ) : (
-                <Input
-                  type="text"
-                  placeholder="Enter executor ID manually"
-                  value={executorId}
-                  onChange={(e) => setExecutorId(e.target.value)}
-                  className="w-full"
-                />
-              )}
-              <p className="mt-1 text-xs text-theme-text-secondary">
-                If specified, this executor will be used directly. Otherwise, capability matching will be used.
-              </p>
-            </div>
-
-            {/* Required Skills */}
-            <div>
-              <label className="block text-sm font-medium text-theme-text-primary mb-2">
-                Required Skills
-              </label>
-
-              {/* Selected skills display */}
-              {capabilities.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {capabilities.map((cap) => (
-                    <Badge
-                      key={cap}
-                      variant="info"
-                      size="sm"
-                      className="flex items-center gap-1"
-                    >
-                      {cap}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveCapability(cap)}
-                        className="ml-1 hover:text-theme-status-error"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              )}
-
-              {/* Skill selection by category */}
-              {loadingSkills ? (
-                <div className="flex items-center justify-center gap-2 py-8 border border-theme-border-primary rounded-lg bg-theme-bg-primary">
-                  <Loader2 className="w-4 h-4 animate-spin text-theme-text-secondary" />
-                  <span className="text-sm text-theme-text-secondary">Loading skills...</span>
-                </div>
-              ) : Object.keys(availableSkillsByCategory).length > 0 ? (
-                <div className="max-h-64 overflow-y-auto border border-theme-border-primary rounded-lg bg-theme-bg-primary">
-                  {Object.entries(availableSkillsByCategory).map(([category, skills]) => (
-                    <div key={category} className="border-b border-theme-border-primary last:border-b-0">
-                      <div className="px-3 py-2 bg-theme-bg-secondary text-xs font-semibold text-theme-text-secondary uppercase tracking-wider">
-                        {category.replace(/_/g, ' ')}
-                      </div>
-                      <div className="grid grid-cols-2 gap-1 p-2">
-                        {skills.map((skill) => (
-                          <label
-                            key={skill.slug}
-                            className="flex items-center gap-2 cursor-pointer hover:bg-theme-bg-secondary p-1.5 rounded text-sm"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={capabilities.includes(skill.slug)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setCapabilities([...capabilities, skill.slug]);
-                                } else {
-                                  setCapabilities(capabilities.filter(c => c !== skill.slug));
-                                }
-                              }}
-                              className="w-4 h-4 rounded border-theme-border-primary text-theme-brand-primary focus:ring-theme-brand-primary"
-                            />
-                            <span className="text-theme-text-primary truncate" title={skill.name}>
-                              {skill.name}
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="py-4 px-3 border border-theme-border-primary rounded-lg bg-theme-bg-primary text-center">
-                  <p className="text-sm text-theme-text-secondary">
-                    No skills found. Add custom skill slugs below.
-                  </p>
-                </div>
-              )}
-
-              {/* Custom skill slug input */}
-              <div className="flex gap-2 mt-3">
-                <Input
-                  type="text"
-                  placeholder="Add custom skill slug..."
-                  value={newCapability}
-                  onChange={(e) => setNewCapability(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCapability())}
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddCapability}
-                  disabled={!newCapability.trim()}
-                >
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </div>
-              <p className="mt-1 text-xs text-theme-text-secondary">
-                {Object.keys(availableSkillsByCategory).length > 0
-                  ? 'Select skills from the list above or add custom slugs'
-                  : 'Enter custom skill slugs'}
-              </p>
-            </div>
-
-            {/* Capability Match Strategy */}
-            {capabilities.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-theme-text-primary mb-1">
-                  Match Strategy
-                </label>
-                <Select
-                  value={matchStrategy}
-                  onChange={(value) => setMatchStrategy(value as RalphCapabilityMatchStrategy)}
-                >
-                  {matchStrategyOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </Select>
-                <p className="mt-1 text-xs text-theme-text-secondary">
-                  {matchStrategyOptions.find(o => o.value === matchStrategy)?.description}
-                </p>
-              </div>
-            )}
-
-            {/* Advanced Options Toggle */}
-            <button
-              type="button"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-sm text-theme-brand-primary hover:underline"
-            >
-              {showAdvanced ? 'Hide' : 'Show'} Advanced Options
-            </button>
-
-            {/* Advanced: Delegation Config */}
-            {showAdvanced && (
-              <div className="space-y-3 pt-3 border-t border-theme-border-primary">
-                <div>
-                  <label className="block text-sm font-medium text-theme-text-primary mb-1">
-                    Timeout (seconds)
-                  </label>
-                  <Input
-                    type="number"
-                    min={60}
-                    max={86400}
-                    placeholder="3600"
-                    value={delegationConfig.timeout_seconds || ''}
-                    onChange={(e) => setDelegationConfig({
-                      ...delegationConfig,
-                      timeout_seconds: parseInt(e.target.value) || undefined,
-                    })}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-theme-text-primary mb-1">
-                    Fallback Executor Type
-                  </label>
-                  <Select
-                    value={delegationConfig.fallback_executor_type || ''}
-                    onChange={(value) => setDelegationConfig({
-                      ...delegationConfig,
-                      fallback_executor_type: (value as RalphExecutionType) || undefined,
-                    })}
-                  >
-                    <option value="">No fallback</option>
-                    {(Object.keys(executionTypeConfig) as RalphExecutionType[]).map((type) => (
-                      <option key={type} value={type}>
-                        {executionTypeConfig[type].label}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-
-                {delegationConfig.fallback_executor_type && (
-                  <div>
-                    <label className="block text-sm font-medium text-theme-text-primary mb-1">
-                      Fallback {executionTypeConfig[delegationConfig.fallback_executor_type]?.label}
-                    </label>
-                    {loadingFallbackExecutors ? (
-                      <div className="flex items-center gap-2 py-2">
-                        <Loader2 className="w-4 h-4 animate-spin text-theme-text-secondary" />
-                        <span className="text-sm text-theme-text-secondary">Loading executors...</span>
-                      </div>
-                    ) : fallbackExecutorOptions.length > 0 ? (
-                      <Select
-                        value={delegationConfig.fallback_executor_id || ''}
-                        onChange={(value) => setDelegationConfig({
-                          ...delegationConfig,
-                          fallback_executor_id: value || undefined,
-                        })}
-                        className="w-full"
-                      >
-                        <option value="">Auto-select</option>
-                        {fallbackExecutorOptions.map((option) => (
-                          <option key={option.id} value={option.id}>
-                            {option.name}
-                          </option>
-                        ))}
-                      </Select>
-                    ) : (
-                      <Input
-                        type="text"
-                        placeholder="Enter executor ID manually"
-                        value={delegationConfig.fallback_executor_id || ''}
-                        onChange={(e) => setDelegationConfig({
-                          ...delegationConfig,
-                          fallback_executor_id: e.target.value || undefined,
-                        })}
-                      />
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+            <ExecutorManualTab
+              showAdvanced={showAdvanced}
+              delegationConfig={delegationConfig}
+              fallbackExecutorOptions={fallbackExecutorOptions}
+              loadingFallbackExecutors={loadingFallbackExecutors}
+              onToggleAdvanced={() => setShowAdvanced(!showAdvanced)}
+              onDelegationConfigChange={setDelegationConfig}
+            />
           </TabsContent>
         </Tabs>
 
-        {/* Actions */}
-        <div className="flex items-center justify-between pt-4 mt-4 border-t border-theme-border-primary">
-          {onDelete ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onDelete}
-              disabled={isDeleting}
-              className="text-theme-status-error hover:bg-theme-status-error/10"
-            >
-              {isDeleting ? (
-                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-              ) : (
-                <Trash2 className="w-4 h-4 mr-1" />
-              )}
-              Delete Task
-            </Button>
-          ) : (
-            <div />
-          )}
-          <div className="flex gap-2">
-            {onCancel && (
-              <Button variant="outline" size="sm" onClick={onCancel}>
-                Cancel
-              </Button>
-            )}
-            <Button variant="primary" size="sm" onClick={handleSave}>
-              Save Task
-            </Button>
-          </div>
-        </div>
+        <DelegationConfigForm
+          onSave={handleSave}
+          onDelete={onDelete}
+          onCancel={onCancel}
+          isDeleting={isDeleting}
+        />
       </CardContent>
     </Card>
   );

@@ -1,24 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  BarChart3,
-  DollarSign,
   AlertTriangle,
-  CheckCircle2,
   RefreshCw,
   Download,
   Activity,
-  Lightbulb,
-  TrendingUp,
-  TrendingDown,
-  Zap
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { Card } from '@/shared/components/ui/Card';
-import { Badge } from '@/shared/components/ui/Badge';
-import { Select } from '@/shared/components/ui/Select';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { analyticsApi, CostAnalytics, Insight, Recommendation } from '@/shared/services/ai';
+import { SystemHealthCard } from './SystemHealthCard';
+import { CostMetricsPanel } from './CostMetricsPanel';
+import { ProviderMetricsList } from './ProviderMetricsList';
+import { InsightsPanel } from './InsightsPanel';
 
 interface AnalyticsData {
   systemHealth: {
@@ -74,12 +68,10 @@ export const AnalyticsDashboardComponent: React.FC = () => {
       if (showSpinner) setLoadingSpinner(true);
       else setRefreshing(true);
 
-      // Fetch real analytics data from API
       const filters = {
         time_range: timeRange as '24h' | '7d' | '30d' | '90d'
       };
 
-      // Fetch data in parallel for better performance
       const [dashboard, overview, performance, costs, usage, insightsData, recommendationsData] = await Promise.all([
         analyticsApi.getDashboard(filters),
         analyticsApi.getOverview(filters),
@@ -90,12 +82,10 @@ export const AnalyticsDashboardComponent: React.FC = () => {
         analyticsApi.getRecommendations(filters)
       ]);
 
-      // Store cost analytics, insights, and recommendations
       setCostAnalytics(costs);
       setInsights(insightsData);
       setRecommendations(recommendationsData);
 
-      // Transform API data to component format
       const transformedData: AnalyticsData = {
         systemHealth: {
           overall_health: performance.error_rate < 0.05 ? 'healthy' : performance.error_rate < 0.15 ? 'degraded' : 'unhealthy',
@@ -139,7 +129,7 @@ export const AnalyticsDashboardComponent: React.FC = () => {
 
   const handleRefresh = useCallback(() => {
     loadAnalyticsData(false);
-  }, []);  
+  }, []);
 
   const handleExportData = useCallback(async () => {
     try {
@@ -150,7 +140,6 @@ export const AnalyticsDashboardComponent: React.FC = () => {
         message: 'Preparing analytics report for download...'
       });
 
-      // Use real API to export data
       const result = await analyticsApi.exportData({
         format: 'csv',
         data_type: 'dashboard',
@@ -159,7 +148,6 @@ export const AnalyticsDashboardComponent: React.FC = () => {
         }
       });
 
-      // Open download URL in new tab
       if (result.download_url) {
         window.open(result.download_url, '_blank');
         addNotification({
@@ -180,30 +168,15 @@ export const AnalyticsDashboardComponent: React.FC = () => {
     }
   }, [addNotification, timeRange]);
 
-  const getHealthBadge = (health: string) => {
-    switch (health) {
-      case 'healthy':
-        return <Badge variant="success" size="sm">Healthy</Badge>;
-      case 'degraded':
-        return <Badge variant="warning" size="sm">Degraded</Badge>;
-      case 'unhealthy':
-        return <Badge variant="danger" size="sm">Unhealthy</Badge>;
-      default:
-        return <Badge variant="outline" size="sm">Unknown</Badge>;
-    }
-  };
-
-  // Initial load
   useEffect(() => {
     loadAnalyticsData();
-  }, []);  
-  
-  // Reload when filters change
+  }, []);
+
   useEffect(() => {
-    if (analyticsData) { // Only reload if already loaded initially
+    if (analyticsData) {
       loadAnalyticsData(false);
     }
-  }, [timeRange, selectedProvider]);  
+  }, [timeRange, selectedProvider]);
 
   const breadcrumbs = [
     { label: 'Dashboard', href: '/app' },
@@ -272,303 +245,29 @@ export const AnalyticsDashboardComponent: React.FC = () => {
       breadcrumbs={breadcrumbs}
       actions={pageActions}
     >
-      {/* Controls */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Select
-            value={timeRange}
-            onValueChange={setTimeRange}
-            options={[
-              { value: '1d', label: 'Last 24 hours' },
-              { value: '7d', label: 'Last 7 days' },
-              { value: '30d', label: 'Last 30 days' },
-              { value: '90d', label: 'Last 90 days' }
-            ]}
-          />
-          
-          <Select
-            value={selectedProvider}
-            onValueChange={setSelectedProvider}
-            options={[
-              { value: 'all', label: 'All Providers' },
-              ...(analyticsData.providerMetrics.map(p => ({
-                value: p.id,
-                label: p.name
-              })))
-            ]}
-          />
-        </div>
-        
-        <div className="flex items-center gap-2">
-          {getHealthBadge(analyticsData.systemHealth.overall_health)}
-          <span className="text-sm text-theme-tertiary">
-            System Health
-          </span>
-        </div>
-      </div>
+      <SystemHealthCard
+        systemHealth={analyticsData.systemHealth}
+        accountMetrics={analyticsData.accountMetrics}
+        providerMetrics={analyticsData.providerMetrics}
+        timeRange={timeRange}
+        selectedProvider={selectedProvider}
+        onTimeRangeChange={setTimeRange}
+        onProviderChange={setSelectedProvider}
+      />
 
-      {/* System Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-theme-tertiary">Active Executions</p>
-              <p className="text-2xl font-semibold text-theme-primary">
-                {analyticsData.systemHealth.active_executions}
-              </p>
-            </div>
-            <Activity className="h-5 w-5 text-theme-info" />
-          </div>
-        </Card>
+      <ProviderMetricsList
+        providerMetrics={analyticsData.providerMetrics}
+        topAgents={analyticsData.topAgents}
+      />
 
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-theme-tertiary">Today's Executions</p>
-              <p className="text-2xl font-semibold text-theme-primary">
-                {analyticsData.accountMetrics.executions_today}
-              </p>
-            </div>
-            <BarChart3 className="h-5 w-5 text-theme-info" />
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-theme-tertiary">Success Rate</p>
-              <p className="text-2xl font-semibold text-theme-primary">
-                {Math.round(
-                  (analyticsData.accountMetrics.successful_executions / 
-                   analyticsData.accountMetrics.executions_today) * 100
-                )}%
-              </p>
-            </div>
-            <CheckCircle2 className="h-5 w-5 text-theme-success" />
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-theme-tertiary">Today's Cost</p>
-              <p className="text-2xl font-semibold text-theme-primary">
-                ${analyticsData.accountMetrics.estimated_cost.toFixed(2)}
-              </p>
-            </div>
-            <DollarSign className="h-5 w-5 text-theme-success" />
-          </div>
-        </Card>
-      </div>
-
-      {/* Provider Performance & Top Agents */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Provider Performance */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold text-theme-primary mb-4">
-            Provider Performance
-          </h3>
-          <div className="space-y-4">
-            {analyticsData.providerMetrics.map((provider) => (
-              <div key={provider.id} className="flex items-center justify-between p-3 bg-theme-surface rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full ${
-                    provider.health_status === 'healthy' ? 'bg-theme-success' : 'bg-theme-error'
-                  }`} />
-                  <div>
-                    <p className="font-medium text-theme-primary">{provider.name}</p>
-                    <p className="text-sm text-theme-tertiary">
-                      {provider.total_requests} requests • {provider.avg_response_time}ms avg
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="text-right">
-                  <p className="font-semibold text-theme-primary">
-                    {provider.success_rate.toFixed(1)}%
-                  </p>
-                  <p className="text-sm text-theme-tertiary">
-                    ${provider.cost_today.toFixed(2)}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        {/* Top Performing Agents */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold text-theme-primary mb-4">
-            Top Performing Agents
-          </h3>
-          <div className="space-y-4">
-            {analyticsData.topAgents.map((agent, index) => (
-              <div key={agent.id} className="flex items-center justify-between p-3 bg-theme-surface rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-theme-info rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                    {index + 1}
-                  </div>
-                  <div>
-                    <p className="font-medium text-theme-primary">{agent.name}</p>
-                    <p className="text-sm text-theme-tertiary">
-                      {agent.executions} executions
-                    </p>
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <p className="font-semibold text-theme-primary">
-                    {agent.success_rate.toFixed(1)}%
-                  </p>
-                  <p className="text-sm text-theme-tertiary">
-                    ${agent.total_cost.toFixed(2)}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-
-      {/* Cost Analytics Section */}
       {costAnalytics && (
-        <div className="mt-6">
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-theme-primary">
-                Cost Analytics
-              </h3>
-              {costAnalytics.optimization_potential_usd > 0 && (
-                <Badge variant="success" size="sm">
-                  <Zap className="h-3 w-3 mr-1" />
-                  ${costAnalytics.optimization_potential_usd.toFixed(2)} savings potential
-                </Badge>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="p-4 bg-theme-surface rounded-lg">
-                <p className="text-sm text-theme-tertiary">Total Cost</p>
-                <p className="text-2xl font-semibold text-theme-primary">
-                  ${costAnalytics.total_cost_usd.toFixed(2)}
-                </p>
-              </div>
-
-              <div className="p-4 bg-theme-surface rounded-lg">
-                <p className="text-sm text-theme-tertiary">Cost by Provider</p>
-                <div className="mt-2 space-y-1">
-                  {Object.entries(costAnalytics.cost_by_provider).slice(0, 3).map(([provider, cost]) => (
-                    <div key={provider} className="flex justify-between text-sm">
-                      <span className="text-theme-secondary">{provider}</span>
-                      <span className="font-medium text-theme-primary">${(cost as number).toFixed(2)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="p-4 bg-theme-surface rounded-lg">
-                <p className="text-sm text-theme-tertiary">Top Expensive Workflows</p>
-                <div className="mt-2 space-y-1">
-                  {costAnalytics.top_expensive_workflows.slice(0, 3).map((workflow) => (
-                    <div key={workflow.id} className="flex justify-between text-sm">
-                      <span className="text-theme-secondary truncate max-w-[120px]">{workflow.name}</span>
-                      <span className="font-medium text-theme-primary">${workflow.total_cost_usd.toFixed(2)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </Card>
-        </div>
+        <CostMetricsPanel costAnalytics={costAnalytics} />
       )}
 
-      {/* Insights & Recommendations Section */}
-      {(insights.length > 0 || recommendations.length > 0) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-          {/* Insights */}
-          {insights.length > 0 && (
-            <Card className="p-6">
-              <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center gap-2">
-                <Lightbulb className="h-5 w-5 text-theme-warning" />
-                Insights
-              </h3>
-              <div className="space-y-3">
-                {insights.slice(0, 5).map((insight, index) => (
-                  <div
-                    key={index}
-                    className={`p-3 rounded-lg border ${
-                      insight.severity === 'critical'
-                        ? 'bg-theme-error-background border-theme-error'
-                        : insight.severity === 'warning'
-                        ? 'bg-theme-warning-background border-theme-warning'
-                        : 'bg-theme-surface border-theme'
-                    }`}
-                  >
-                    <div className="flex items-start gap-2">
-                      {insight.severity === 'critical' && <AlertTriangle className="h-4 w-4 text-theme-error mt-0.5" />}
-                      {insight.severity === 'warning' && <AlertTriangle className="h-4 w-4 text-theme-warning mt-0.5" />}
-                      <div>
-                        <p className="font-medium text-theme-primary">{insight.title}</p>
-                        <p className="text-sm text-theme-tertiary mt-1">{insight.description}</p>
-                        {insight.impact && (
-                          <p className="text-xs text-theme-tertiary mt-1">Impact: {insight.impact}</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
-
-          {/* Recommendations */}
-          {recommendations.length > 0 && (
-            <Card className="p-6">
-              <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center gap-2">
-                <Zap className="h-5 w-5 text-theme-success" />
-                Recommendations
-              </h3>
-              <div className="space-y-3">
-                {recommendations.slice(0, 5).map((rec) => (
-                  <div key={rec.id} className="p-3 bg-theme-surface rounded-lg">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium text-theme-primary">{rec.title}</p>
-                          <Badge
-                            variant={rec.priority === 'high' ? 'danger' : rec.priority === 'medium' ? 'warning' : 'outline'}
-                            size="sm"
-                          >
-                            {rec.priority}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-theme-tertiary mt-1">{rec.description}</p>
-                        {(rec.potential_savings_usd || rec.potential_improvement_percentage) && (
-                          <div className="flex items-center gap-3 mt-2">
-                            {rec.potential_savings_usd && (
-                              <span className="text-xs text-theme-success flex items-center gap-1">
-                                <TrendingDown className="h-3 w-3" />
-                                Save ${rec.potential_savings_usd.toFixed(2)}
-                              </span>
-                            )}
-                            {rec.potential_improvement_percentage && (
-                              <span className="text-xs text-theme-success flex items-center gap-1">
-                                <TrendingUp className="h-3 w-3" />
-                                +{rec.potential_improvement_percentage}% improvement
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
-        </div>
-      )}
-
+      <InsightsPanel
+        insights={insights}
+        recommendations={recommendations}
+      />
     </PageContainer>
   );
 };

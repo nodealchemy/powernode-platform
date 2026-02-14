@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Settings,
   RotateCcw,
   Calendar,
   Wifi,
@@ -14,14 +13,12 @@ import {
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/Tabs';
 import { Badge } from '@/shared/components/ui/Badge';
-import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Loading } from '@/shared/components/ui/Loading';
 import { Modal } from '@/shared/components/ui/Modal';
-import { Input } from '@/shared/components/ui/Input';
-import { Select } from '@/shared/components/ui/Select';
-import { Button } from '@/shared/components/ui/Button';
 import { useNotification } from '@/shared/hooks/useNotification';
 import { RalphLoopList } from '../components/RalphLoopList';
+import { LoopSettingsModal } from '../components/LoopSettingsModal';
+import { LoopStatsCards } from '../components/LoopStatsCards';
 import { RalphIterationList } from '../components/RalphIterationList';
 import { RalphProgressView } from '../components/RalphProgressView';
 import { RalphTaskList } from '../components/RalphTaskList';
@@ -325,41 +322,14 @@ export const RalphLoopsContent: React.FC<RalphLoopsContentProps> = ({ refreshKey
           </div>
         )}
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-theme-text-primary">
-                {selectedLoop.current_iteration}/{selectedLoop.max_iterations}
-              </div>
-              <div className="text-sm text-theme-text-secondary">Iterations</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-theme-text-primary">
-                {selectedLoop.completed_task_count || 0}/{selectedLoop.task_count || 0}
-              </div>
-              <div className="text-sm text-theme-text-secondary">Tasks Completed</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-theme-text-primary">
-                {progressPercentage}%
-              </div>
-              <div className="text-sm text-theme-text-secondary">Progress</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="text-2xl font-bold text-theme-text-primary truncate">
-                {selectedLoop.default_agent_name || 'No Agent'}
-              </div>
-              <div className="text-sm text-theme-text-secondary">Default Agent</div>
-            </CardContent>
-          </Card>
-        </div>
+        <LoopStatsCards
+          currentIteration={selectedLoop.current_iteration}
+          maxIterations={selectedLoop.max_iterations}
+          completedTaskCount={selectedLoop.completed_task_count || 0}
+          taskCount={selectedLoop.task_count || 0}
+          progressPercentage={progressPercentage}
+          defaultAgentName={selectedLoop.default_agent_name}
+        />
 
         {/* Progress Bar */}
         <div className="h-2 bg-theme-bg-secondary rounded-full overflow-hidden">
@@ -462,102 +432,15 @@ export const RalphLoopsContent: React.FC<RalphLoopsContentProps> = ({ refreshKey
         </Modal>
 
         {/* Settings Modal */}
-        <Modal
+        <LoopSettingsModal
           isOpen={showSettingsModal}
           onClose={() => setShowSettingsModal(false)}
-          title="Loop Settings"
-          icon={<Settings className="w-5 h-5 text-theme-brand-primary" />}
-          size="md"
-          footer={
-            <>
-              <Button
-                variant="outline"
-                onClick={() => setShowSettingsModal(false)}
-                disabled={settingsLoading}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleSaveSettings}
-                disabled={settingsLoading || !settingsForm.name.trim()}
-              >
-                {settingsLoading ? 'Saving...' : 'Save Settings'}
-              </Button>
-            </>
-          }
-        >
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-theme-text-primary mb-1">
-                Name *
-              </label>
-              <Input
-                value={settingsForm.name}
-                onChange={(e) => setSettingsForm(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Loop name"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-theme-text-primary mb-1">
-                Description
-              </label>
-              <Input
-                value={settingsForm.description}
-                onChange={(e) => setSettingsForm(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Optional description..."
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-theme-text-primary mb-1">
-                Max Iterations
-              </label>
-              <Input
-                type="number"
-                value={settingsForm.max_iterations}
-                onChange={(e) => setSettingsForm(prev => ({ ...prev, max_iterations: parseInt(e.target.value) || 50 }))}
-                min={1}
-                max={1000}
-              />
-              <p className="text-xs text-theme-text-secondary mt-1">
-                Maximum number of AI iterations before stopping
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-theme-text-primary mb-1">
-                Repository URL
-              </label>
-              <Input
-                value={settingsForm.repository_url}
-                onChange={(e) => setSettingsForm(prev => ({ ...prev, repository_url: e.target.value }))}
-                placeholder="https://github.com/user/repo"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-theme-text-primary mb-1">
-                Default Agent
-              </label>
-              <Select
-                value={settingsForm.default_agent_id}
-                onChange={(value) => setSettingsForm(prev => ({ ...prev, default_agent_id: value }))}
-              >
-                <option value="">No agent selected</option>
-                {settingsAgents.map((agent) => (
-                  <option key={agent.id} value={agent.id}>
-                    {agent.name}
-                  </option>
-                ))}
-              </Select>
-              <p className="text-xs text-theme-text-secondary mt-1">
-                AI agent that will execute loop tasks
-              </p>
-            </div>
-          </div>
-        </Modal>
+          settingsForm={settingsForm}
+          onFormChange={(updates) => setSettingsForm(prev => ({ ...prev, ...updates }))}
+          onSave={handleSaveSettings}
+          loading={settingsLoading}
+          agents={settingsAgents}
+        />
       </div>
     );
   }

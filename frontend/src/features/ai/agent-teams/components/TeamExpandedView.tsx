@@ -2,14 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  Play, Save, Trash2, Zap, Crown, Bot, Settings, X, Loader2, Shield,
+  Play, Save, Trash2, Zap, Crown, X, Loader2,
   Edit2, History, Activity,
 } from 'lucide-react';
 import { AgentTeam, TeamMember, AutonomyConfigResponse, agentTeamsApi, UpdateTeamParams } from '../services/agentTeamsApi';
 import { TeamExecutionHistory } from './TeamExecutionHistory';
 import { TeamExecutionDiagram } from './diagram';
 import { CompositionOptimizer } from './CompositionOptimizer';
-import { formatDateTime } from '@/shared/utils/formatters';
+import { TeamSettingsForm } from './TeamSettingsForm';
+import { MembersList } from './MembersList';
+import { AutonomyConfig } from './AutonomyConfig';
 import { cn } from '@/shared/utils/cn';
 import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
@@ -24,53 +26,6 @@ interface TeamExpandedViewProps {
   onDismissMonitor?: (teamId: string) => void;
   onTeamUpdated: () => void;
 }
-
-const TEAM_TYPES = [
-  { value: 'hierarchical', label: 'Hierarchical' },
-  { value: 'mesh', label: 'Mesh' },
-  { value: 'sequential', label: 'Sequential' },
-  { value: 'parallel', label: 'Parallel' },
-];
-
-const STRATEGIES = [
-  { value: 'manager_worker', label: 'Manager-Worker' },
-  { value: 'peer_to_peer', label: 'Peer-to-Peer' },
-  { value: 'hybrid', label: 'Hybrid' },
-];
-
-const STATUSES = [
-  { value: 'active', label: 'Active' },
-  { value: 'inactive', label: 'Inactive' },
-  { value: 'archived', label: 'Archived' },
-];
-
-const getTeamTypeColor = (type: string) => {
-  switch (type) {
-    case 'hierarchical':
-      return 'bg-theme-info/10 text-theme-info';
-    case 'mesh':
-      return 'bg-theme-interactive-primary/10 text-theme-interactive-primary';
-    case 'sequential':
-      return 'bg-theme-success/10 text-theme-success';
-    case 'parallel':
-      return 'bg-theme-warning/10 text-theme-warning';
-    default:
-      return 'bg-theme-accent text-theme-secondary';
-  }
-};
-
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'active':
-      return 'bg-theme-success/10 text-theme-success';
-    case 'inactive':
-      return 'bg-theme-accent text-theme-secondary';
-    case 'archived':
-      return 'bg-theme-error/10 text-theme-error';
-    default:
-      return 'bg-theme-accent text-theme-secondary';
-  }
-};
 
 export const TeamExpandedView: React.FC<TeamExpandedViewProps> = ({
   team,
@@ -89,7 +44,6 @@ export const TeamExpandedView: React.FC<TeamExpandedViewProps> = ({
   const [assigningLead, setAssigningLead] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
 
-  // Inline editing state
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editData, setEditData] = useState<UpdateTeamParams>({
@@ -100,7 +54,6 @@ export const TeamExpandedView: React.FC<TeamExpandedViewProps> = ({
     status: team.status,
   });
 
-  // History visibility
   const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
@@ -122,7 +75,6 @@ export const TeamExpandedView: React.FC<TeamExpandedViewProps> = ({
     loadData();
   }, [team.id]);
 
-  // Reset edit data when team changes
   useEffect(() => {
     setEditData({
       name: team.name,
@@ -310,242 +262,31 @@ export const TeamExpandedView: React.FC<TeamExpandedViewProps> = ({
         </div>
       )}
 
-      {/* Team Details — full-width view/edit toggle */}
-      <div className={cn(
-        'bg-theme-background border rounded-lg p-4 space-y-3',
-        isEditing ? 'border-theme-info/30' : 'border-theme'
-      )}>
-        <h4 className="text-sm font-semibold text-theme-primary flex items-center gap-2">
-          <Settings size={16} />
-          Team Details
-        </h4>
-
-        {isEditing ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="edit-name" className="block text-xs font-medium text-theme-secondary mb-1">Name</label>
-              <input
-                id="edit-name"
-                type="text"
-                value={editData.name || ''}
-                onChange={(e) => setEditData(prev => ({ ...prev, name: e.target.value }))}
-                className="w-full px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info"
-              />
-            </div>
-            <div>
-              <label htmlFor="edit-status" className="block text-xs font-medium text-theme-secondary mb-1">Status</label>
-              <select
-                id="edit-status"
-                value={editData.status || 'active'}
-                onChange={(e) => setEditData(prev => ({ ...prev, status: e.target.value as 'active' | 'inactive' | 'archived' }))}
-                className="w-full px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info"
-              >
-                {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="edit-type" className="block text-xs font-medium text-theme-secondary mb-1">Team Type</label>
-              <select
-                id="edit-type"
-                value={editData.team_type || 'hierarchical'}
-                onChange={(e) => setEditData(prev => ({ ...prev, team_type: e.target.value as 'hierarchical' | 'mesh' | 'sequential' | 'parallel' }))}
-                className="w-full px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info"
-              >
-                {TEAM_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="edit-strategy" className="block text-xs font-medium text-theme-secondary mb-1">Coordination Strategy</label>
-              <select
-                id="edit-strategy"
-                value={editData.coordination_strategy || 'manager_worker'}
-                onChange={(e) => setEditData(prev => ({ ...prev, coordination_strategy: e.target.value as 'manager_worker' | 'peer_to_peer' | 'hybrid' }))}
-                className="w-full px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info"
-              >
-                {STRATEGIES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
-            </div>
-            <div className="md:col-span-2">
-              <label htmlFor="edit-description" className="block text-xs font-medium text-theme-secondary mb-1">Description</label>
-              <textarea
-                id="edit-description"
-                value={editData.description || ''}
-                onChange={(e) => setEditData(prev => ({ ...prev, description: e.target.value }))}
-                rows={2}
-                className="w-full px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-info"
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-3">
-            <div>
-              <span className="text-xs text-theme-secondary block mb-0.5">Name</span>
-              <span className="text-sm text-theme-primary font-medium">{team.name}</span>
-            </div>
-            <div>
-              <span className="text-xs text-theme-secondary block mb-0.5">Status</span>
-              <span className={cn('px-2 py-0.5 text-xs font-medium rounded-full', getStatusColor(team.status))}>
-                {team.status}
-              </span>
-            </div>
-            <div>
-              <span className="text-xs text-theme-secondary block mb-0.5">Type</span>
-              <span className={cn('px-2 py-0.5 text-xs font-medium rounded-full', getTeamTypeColor(team.team_type))}>
-                {team.team_type}
-              </span>
-            </div>
-            <div>
-              <span className="text-xs text-theme-secondary block mb-0.5">Strategy</span>
-              <span className="text-sm text-theme-primary font-medium capitalize">
-                {team.coordination_strategy.replace('_', ' ')}
-              </span>
-            </div>
-            {team.description && (
-              <div className="col-span-2 md:col-span-4">
-                <span className="text-xs text-theme-secondary block mb-0.5">Description</span>
-                <p className="text-sm text-theme-primary">{team.description}</p>
-              </div>
-            )}
-            {(team.team_config?.max_iterations != null || team.team_config?.timeout_seconds != null) && (
-              <>
-                {team.team_config?.max_iterations != null && (
-                  <div>
-                    <span className="text-xs text-theme-secondary block mb-0.5">Max Iterations</span>
-                    <span className="text-sm text-theme-primary font-medium">{team.team_config.max_iterations}</span>
-                  </div>
-                )}
-                {team.team_config?.timeout_seconds != null && (
-                  <div>
-                    <span className="text-xs text-theme-secondary block mb-0.5">Timeout</span>
-                    <span className="text-sm text-theme-primary font-medium">{team.team_config.timeout_seconds}s</span>
-                  </div>
-                )}
-              </>
-            )}
-            <div>
-              <span className="text-xs text-theme-secondary block mb-0.5">Created</span>
-              <span className="text-xs text-theme-primary">{formatDateTime(team.created_at)}</span>
-            </div>
-            <div>
-              <span className="text-xs text-theme-secondary block mb-0.5">Updated</span>
-              <span className="text-xs text-theme-primary">{formatDateTime(team.updated_at)}</span>
-            </div>
-          </div>
-        )}
-      </div>
+      {/* Team Details */}
+      <TeamSettingsForm
+        team={team}
+        isEditing={isEditing}
+        editData={editData}
+        setEditData={setEditData}
+      />
 
       {/* Members + Health/Autonomy layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Members */}
         <div className="lg:col-span-2">
-          <div className="bg-theme-background border border-theme rounded-lg p-4">
-            <h4 className="text-sm font-semibold text-theme-primary mb-3 flex items-center gap-2">
-              <Bot size={16} />
-              Members ({members.length})
-            </h4>
-            {members.length === 0 ? (
-              <div className="text-sm text-theme-secondary py-6 text-center">No members assigned</div>
-            ) : (
-              <div className="space-y-2">
-                {members.map((member) => (
-                  <div
-                    key={member.id}
-                    className="flex items-center gap-3 p-3 rounded-md bg-theme-surface border border-theme"
-                  >
-                    <Bot className="h-5 w-5 text-theme-info flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-theme-primary truncate">
-                          {member.agent_name}
-                        </span>
-                        {member.is_lead && (
-                          <Crown className="h-3.5 w-3.5 text-theme-warning flex-shrink-0" />
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs font-medium text-theme-interactive-primary bg-theme-interactive-primary/10 px-1.5 py-0.5 rounded">
-                          {member.role}
-                        </span>
-                        {member.capabilities.length > 0 && (
-                          <span className="text-xs text-theme-secondary truncate">
-                            {member.capabilities.join(', ')}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <span className="text-xs text-theme-secondary flex-shrink-0 tabular-nums">
-                      #{member.priority_order}
-                    </span>
-                    <button
-                      onClick={() => handleRemoveMember(member.id)}
-                      disabled={removingMemberId === member.id}
-                      className="flex-shrink-0 p-1 rounded hover:bg-theme-error/10 text-theme-secondary hover:text-theme-danger transition-colors disabled:opacity-50"
-                      title="Remove member"
-                    >
-                      {removingMemberId === member.id ? (
-                        <Loader2 size={14} className="animate-spin" />
-                      ) : (
-                        <X size={14} />
-                      )}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <MembersList
+            members={members}
+            removingMemberId={removingMemberId}
+            onRemoveMember={handleRemoveMember}
+          />
         </div>
 
-        {/* Health + Autonomy */}
         <div className="space-y-6">
           <CompositionOptimizer teamId={team.id} />
-
           {autonomyConfig && (
-            <div className="bg-theme-background border border-theme rounded-lg p-4 space-y-3">
-              <h4 className="text-sm font-semibold text-theme-primary flex items-center gap-2">
-                <Shield size={16} />
-                Autonomy Config
-              </h4>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-theme-secondary">Level</span>
-                  <span className="text-xs text-theme-primary font-medium capitalize">
-                    {autonomyConfig.autonomy_level.replace('_', ' ')}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-theme-secondary">Max Agents</span>
-                  <span className="text-xs text-theme-primary font-medium">{autonomyConfig.max_agents_per_team}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-theme-secondary">Agent Creation</span>
-                  <BoolBadge value={autonomyConfig.allow_agent_creation} />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-theme-secondary">Cross-Team Ops</span>
-                  <BoolBadge value={autonomyConfig.allow_cross_team_ops} />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-theme-secondary">Human Approval</span>
-                  <BoolBadge value={autonomyConfig.require_human_approval} />
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-theme-secondary">Branch Protection</span>
-                  <BoolBadge value={autonomyConfig.branch_protection_enabled} />
-                </div>
-              </div>
-            </div>
+            <AutonomyConfig autonomyConfig={autonomyConfig} />
           )}
         </div>
       </div>
     </div>
   );
 };
-
-const BoolBadge: React.FC<{ value: boolean }> = ({ value }) => (
-  <span className={cn(
-    'text-xs font-medium px-1.5 py-0.5 rounded',
-    value ? 'bg-theme-success/10 text-theme-success' : 'bg-theme-accent text-theme-secondary'
-  )}>
-    {value ? 'Yes' : 'No'}
-  </span>
-);

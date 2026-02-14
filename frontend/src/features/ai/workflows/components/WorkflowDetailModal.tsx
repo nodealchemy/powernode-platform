@@ -1,12 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React from 'react';
 import {
-  Eye,
-  Calendar,
-  Settings,
   Workflow,
-  Wifi,
-  WifiOff,
-  BarChart3,
   Edit,
   Sparkles,
   History,
@@ -16,26 +10,16 @@ import {
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
-import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/components/ui/Tabs';
-import { workflowsApi } from '@/shared/services/ai';
-import { useAuth } from '@/shared/hooks/useAuth';
-import { useNotifications } from '@/shared/hooks/useNotifications';
-import { useWebSocket } from '@/shared/hooks/useWebSocket';
-import { AiWorkflow, AIOrchestrationMessage } from '@/shared/types/workflow';
-import { getErrorMessage } from '@/shared/utils/typeGuards';
 import { WorkflowExecutionSummaryModal } from './WorkflowExecutionSummaryModal';
-import { useWorkflowDetail } from '../hooks/useWorkflowDetail';
-import { useWorkflowRuns } from '../hooks/useWorkflowRuns';
+import { WorkflowModalHeader } from './WorkflowModalHeader';
+import { useWorkflowDetailModal } from './useWorkflowDetailModal';
 import {
   OverviewTab,
   ConfigurationTab,
   NodesTab,
   ExecuteTab,
   HistoryTab,
-  renderStatusBadge,
-  renderVisibilityBadge,
-  parseInputToParameters
 } from './workflow-detail';
 
 export interface WorkflowDetailModalProps {
@@ -51,221 +35,50 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
   workflowId,
   initialTab = 'overview'
 }) => {
-  const { currentUser } = useAuth();
-  const { addNotification, showNotification } = useNotifications();
-  const { isConnected, subscribe } = useWebSocket();
-
-  // Workflow data management
   const {
     workflow,
     loading,
     error,
     lastUpdateTime,
     loadWorkflow,
-    setWorkflow,
-    setLastUpdateTime
-  } = useWorkflowDetail({ workflowId, isOpen });
-
-  const [activeTab, setActiveTab] = useState<string>('overview');
-  const [isExecutionInProgress] = useState(false);
-
-  // Edit mode state
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [editedWorkflow, setEditedWorkflow] = useState<Partial<AiWorkflow>>({});
-
-  // Execution state
-  const [chatInput, setChatInput] = useState('');
-  const [additionalParams, setAdditionalParams] = useState<Record<string, unknown>>({});
-  const [isExecuting, setIsExecuting] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-
-  // Workflow runs management
-  const {
+    isConnected,
+    activeTab,
+    setActiveTab,
+    isEditMode,
+    isSaving,
+    editedWorkflow,
+    chatInput,
+    setChatInput,
+    additionalParams,
+    setAdditionalParams,
+    isExecuting,
+    showAdvanced,
+    setShowAdvanced,
     workflowRuns,
     runsLoading,
     runsError,
     expandedRuns,
     isDeletingAll,
     loadWorkflowRuns,
-    setExpandedRuns,
     handleDeleteAllRuns,
-    handleWorkflowRunUpdate,
     registerReloadCallback,
     getToggleHandler,
-    getDeleteHandler
-  } = useWorkflowRuns({ workflowId, isOpen, activeTab });
+    getDeleteHandler,
+    showSummaryModal,
+    setShowSummaryModal,
+    showDeleteAllConfirm,
+    setShowDeleteAllConfirm,
+    canExecuteWorkflows,
+    canUpdateWorkflows,
+    canDeleteWorkflowRuns,
+    handleToggleEditMode,
+    handleSaveWorkflow,
+    handleExecute,
+    handleProtectedClose,
+    handleEditChange,
+  } = useWorkflowDetailModal(workflowId, isOpen, initialTab);
 
-  // Modal state
-  const [showSummaryModal, setShowSummaryModal] = useState(false);
-  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
-
-  // Check permissions
-  const canExecuteWorkflows = currentUser?.permissions?.includes('ai.workflows.execute') || false;
-  const canUpdateWorkflows = currentUser?.permissions?.includes('ai.workflows.update') || false;
-  const canDeleteWorkflowRuns = currentUser?.permissions?.includes('ai.workflows.delete') || false;
-
-  // Reset state when modal opens
-  useEffect(() => {
-    if (isOpen && workflowId) {
-      setActiveTab(initialTab);
-      setIsEditMode(false);
-      setEditedWorkflow({});
-      setChatInput('');
-      setAdditionalParams({});
-      setShowAdvanced(false);
-      setExpandedRuns(new Set());
-      loadWorkflowRuns();
-    }
-     
-  }, [isOpen, workflowId, initialTab]);
-
-  // Subscribe to WebSocket for real-time updates
-  useEffect(() => {
-    if (!isOpen || !workflowId || !isConnected) return;
-
-    const unsubscribe = subscribe({
-      channel: 'AiOrchestrationChannel',
-      params: { type: 'workflow', id: workflowId },
-      onMessage: (message: unknown) => {
-        handleWorkflowRunUpdate(message as AIOrchestrationMessage);
-      }
-    });
-
-    return () => {
-      unsubscribe();
-    };
-  }, [isOpen, workflowId, isConnected, subscribe, handleWorkflowRunUpdate]);
-
-  // Toggle edit mode
-  const handleToggleEditMode = useCallback(() => {
-    if (isEditMode) {
-      setEditedWorkflow({});
-      setIsEditMode(false);
-    } else {
-      setEditedWorkflow({
-        name: workflow?.name,
-        description: workflow?.description,
-        status: workflow?.status,
-        visibility: workflow?.visibility,
-        tags: workflow?.tags,
-        execution_mode: workflow?.execution_mode,
-        timeout_seconds: workflow?.timeout_seconds,
-        configuration: workflow?.configuration
-      });
-      setIsEditMode(true);
-    }
-  }, [isEditMode, workflow]);
-
-  // Save workflow changes
-  const handleSaveWorkflow = useCallback(async () => {
-    if (!workflow || !canUpdateWorkflows) return;
-
-    try {
-      setIsSaving(true);
-
-      const updateData: Record<string, unknown> = {
-        name: editedWorkflow.name,
-        description: editedWorkflow.description,
-        status: editedWorkflow.status,
-        visibility: editedWorkflow.visibility
-      };
-
-      if (editedWorkflow.tags !== undefined) {
-        updateData.metadata = {
-          ...workflow.metadata,
-          tags: editedWorkflow.tags
-        };
-      }
-
-      if (editedWorkflow.execution_mode || editedWorkflow.timeout_seconds || editedWorkflow.configuration) {
-        updateData.configuration = {
-          ...workflow.configuration,
-          ...(editedWorkflow.execution_mode && { execution_mode: editedWorkflow.execution_mode }),
-          ...(editedWorkflow.timeout_seconds && { timeout_seconds: editedWorkflow.timeout_seconds }),
-          ...(editedWorkflow.configuration && typeof editedWorkflow.configuration === 'object' && editedWorkflow.configuration)
-        };
-      }
-
-      const response = await workflowsApi.updateWorkflow(workflow.id, updateData);
-
-      setWorkflow(response);
-      setIsEditMode(false);
-      setEditedWorkflow({});
-      setLastUpdateTime(new Date());
-
-      addNotification({
-        type: 'success',
-        title: 'Workflow Updated',
-        message: 'Workflow has been updated successfully.'
-      });
-    } catch (err) {
-      console.error('[WorkflowDetailModal] Failed to update workflow:', err);
-      addNotification({
-        type: 'error',
-        title: 'Update Failed',
-        message: 'Failed to update workflow. Please try again.'
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  }, [workflow, canUpdateWorkflows, editedWorkflow, setWorkflow, setLastUpdateTime, addNotification]);
-
-  // Handle workflow execution
-  const handleExecute = useCallback(async () => {
-    if (!workflow) return;
-
-    if (!chatInput.trim() && Object.keys(additionalParams).length === 0) {
-      showNotification('Please provide input for the workflow', 'warning');
-      return;
-    }
-
-    setIsExecuting(true);
-
-    try {
-      const parsedParams = parseInputToParameters(chatInput, workflow);
-      setChatInput('');
-
-      const inputVariables = {
-        ...parsedParams,
-        ...additionalParams
-      };
-
-      await workflowsApi.executeWorkflow(workflow.id, {
-        input_variables: inputVariables,
-        trigger_type: 'manual',
-        trigger_context: {
-          triggered_by: 'user',
-          user_input: chatInput
-        }
-      });
-
-      setActiveTab('history');
-      await loadWorkflowRuns();
-    } catch (err: unknown) {
-      showNotification(getErrorMessage(err), 'error');
-    } finally {
-      setIsExecuting(false);
-    }
-  }, [workflow, chatInput, additionalParams, showNotification, loadWorkflowRuns]);
-
-  // Protected close handler
-  const handleProtectedClose = useCallback(() => {
-    if (isExecutionInProgress) {
-      addNotification({
-        type: 'info',
-        title: 'Execution in Progress',
-        message: 'Please wait for the workflow execution to complete before closing.'
-      });
-      return;
-    }
-    onClose();
-  }, [isExecutionInProgress, addNotification, onClose]);
-
-  // Handle edit changes
-  const handleEditChange = useCallback((updates: Partial<AiWorkflow>) => {
-    setEditedWorkflow(prev => ({ ...prev, ...updates }));
-  }, []);
+  const onProtectedClose = () => handleProtectedClose(onClose);
 
   // Modal footer with actions
   const footer = (
@@ -273,7 +86,7 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
       <div className="flex gap-3">
         <Button
           variant="outline"
-          onClick={handleProtectedClose}
+          onClick={onProtectedClose}
           disabled={isSaving || isExecuting}
         >
           Close
@@ -315,22 +128,20 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
     </div>
   );
 
-  // Don't render modal until workflow data is loaded
   if (loading || !workflow) {
     return null;
   }
 
-  // Error state
   if (error) {
     return (
       <Modal
         isOpen={isOpen}
-        onClose={handleProtectedClose}
+        onClose={onProtectedClose}
         title="Error Loading Workflow"
         maxWidth="md"
         icon={<Workflow />}
         footer={
-          <Button variant="outline" onClick={handleProtectedClose}>
+          <Button variant="outline" onClick={onProtectedClose}>
             Close
           </Button>
         }
@@ -352,29 +163,13 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={handleProtectedClose}
+      onClose={onProtectedClose}
       title={
-        <div className="flex items-center gap-3">
-          <span>{workflow.name}</span>
-          <div className="flex items-center gap-1">
-            {isConnected ? (
-              <Wifi className="h-4 w-4 text-theme-success" aria-label="Live updates active" />
-            ) : (
-              <WifiOff className="h-4 w-4 text-theme-muted" aria-label="Live updates inactive" />
-            )}
-            <span className="text-xs text-theme-muted">
-              {isConnected ? 'Live' : 'Offline'}
-            </span>
-          </div>
-        </div>
-      }
-      subtitle={
-        <div className="flex items-center justify-between">
-          <span>{workflow.description}</span>
-          <span className="text-xs text-theme-muted ml-4">
-            Last updated: {lastUpdateTime.toLocaleTimeString()}
-          </span>
-        </div>
+        <WorkflowModalHeader
+          workflow={workflow}
+          isConnected={isConnected}
+          lastUpdateTime={lastUpdateTime}
+        />
       }
       maxWidth="5xl"
       variant="centered"
@@ -383,59 +178,6 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
       disableContentScroll={true}
     >
       <div className="space-y-6">
-        {/* Header Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-theme-muted">Status</p>
-                  {renderStatusBadge(workflow.status)}
-                </div>
-                <Settings className="h-5 w-5 text-theme-muted" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-theme-muted">Visibility</p>
-                  {renderVisibilityBadge(workflow.visibility)}
-                </div>
-                <Eye className="h-5 w-5 text-theme-muted" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-theme-muted">Total Runs</p>
-                  <p className="text-lg font-semibold text-theme-primary">
-                    {workflow.stats?.runs_count || 0}
-                  </p>
-                </div>
-                <BarChart3 className="h-5 w-5 text-theme-muted" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-theme-muted">Version</p>
-                  <p className="text-lg font-semibold text-theme-primary">v{workflow.version}</p>
-                </div>
-                <Calendar className="h-5 w-5 text-theme-muted" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
         {/* Main Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="w-full justify-start">
@@ -542,7 +284,7 @@ export const WorkflowDetailModal: React.FC<WorkflowDetailModalProps> = ({
             <AlertCircle className="h-5 w-5 text-theme-warning mt-0.5" />
             <div className="flex-1">
               <p className="text-sm text-theme-primary font-medium">
-                Are you sure you want to delete all workflow runs for "{workflow.name}"?
+                Are you sure you want to delete all workflow runs for &quot;{workflow.name}&quot;?
               </p>
               <p className="text-xs text-theme-muted mt-1">
                 This will permanently delete all {workflowRuns.length} execution run{workflowRuns.length !== 1 ? 's' : ''} and their associated logs.
