@@ -218,36 +218,40 @@ module Ai
       end
 
       def check_tier_transition(trust_score)
-        if trust_score.promotable? && trust_score.evaluation_count >= MIN_EVALUATIONS_FOR_PROMOTION
-          previous = trust_score.tier
-          new_tier = next_tier(trust_score.tier)
+        trust_score.with_lock do
+          trust_score.reload
 
-          if new_tier && trust_score.overall_score >= TIER_THRESHOLDS[new_tier]
-            trust_score.update!(tier: new_tier)
+          if trust_score.promotable? && trust_score.evaluation_count >= MIN_EVALUATIONS_FOR_PROMOTION
+            previous = trust_score.tier
+            new_tier = next_tier(trust_score.tier)
 
-            # Update agent model if it has trust_level
-            if trust_score.agent.respond_to?(:trust_level=)
-              trust_score.agent.update!(trust_level: new_tier)
+            if new_tier && trust_score.overall_score >= TIER_THRESHOLDS[new_tier]
+              trust_score.update!(tier: new_tier)
+
+              # Update agent model if it has trust_level
+              if trust_score.agent.respond_to?(:trust_level=)
+                trust_score.agent.update!(trust_level: new_tier)
+              end
+
+              return { type: "promotion", from: previous, to: new_tier }
             end
+          elsif trust_score.demotable?
+            previous = trust_score.tier
+            new_tier = previous_tier(trust_score.tier)
 
-            return { type: "promotion", from: previous, to: new_tier }
-          end
-        elsif trust_score.demotable?
-          previous = trust_score.tier
-          new_tier = previous_tier(trust_score.tier)
+            if new_tier
+              trust_score.update!(tier: new_tier)
 
-          if new_tier
-            trust_score.update!(tier: new_tier)
+              if trust_score.agent.respond_to?(:trust_level=)
+                trust_score.agent.update!(trust_level: new_tier)
+              end
 
-            if trust_score.agent.respond_to?(:trust_level=)
-              trust_score.agent.update!(trust_level: new_tier)
+              return { type: "demotion", from: previous, to: new_tier }
             end
-
-            return { type: "demotion", from: previous, to: new_tier }
           end
+
+          { type: nil }
         end
-
-        { type: nil }
       end
 
       def next_tier(current)

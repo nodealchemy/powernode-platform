@@ -129,7 +129,7 @@ class Ai::ProviderLoadBalancerService
 
   def get_available_providers
     @account.ai_providers
-            .joins(:ai_provider_credentials)
+            .joins(:provider_credentials)
             .where(ai_provider_credentials: { is_active: true })
             .where(
               "(capabilities->>?) IS NOT NULL AND (capabilities->>?) != 'false'",

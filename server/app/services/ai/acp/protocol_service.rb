@@ -39,7 +39,7 @@ module Ai
       def list_agents(filter: {})
         scope = Ai::AgentCard.for_discovery(@account.id)
 
-        scope = scope.where("name ILIKE ?", "%#{filter[:query]}%") if filter[:query].present?
+        scope = scope.where("name ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(filter[:query])}%") if filter[:query].present?
 
         if filter[:capabilities].present?
           cap_list = Array(filter[:capabilities])
@@ -252,7 +252,7 @@ module Ai
           id: card.id,
           name: card.name,
           description: card.description,
-          version: card.version || "1.0",
+          version: card.card_version || "1.0",
           protocol: "acp",
           protocol_version: ACP_VERSION,
           status: card.status || "active",

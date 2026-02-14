@@ -292,7 +292,7 @@ module Ai
 
         @factual_context.context_entries
           .active.factual.by_agent(@agent.id)
-          .where("entry_key ILIKE ?", "%#{pattern}%")
+          .where("entry_key ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(pattern)}%")
           .map(&:entry_details)
       end
 
@@ -303,7 +303,7 @@ module Ai
 
         @factual_context.context_entries
           .active.factual.by_agent(@agent.id)
-          .where("content_text ILIKE ?", "%#{query}%")
+          .where("content_text ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(query)}%")
           .map(&:entry_details)
       end
 

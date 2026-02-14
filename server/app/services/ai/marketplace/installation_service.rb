@@ -314,23 +314,26 @@ module Ai
         end
 
         ActiveRecord::Base.transaction do
-          # Update running average
-          if existing_rating
-            # Recalculate removing old rating
-            current_total = template.rating * template.rating_count
-            new_total = current_total - existing_rating + rating
-            new_average = new_total / template.rating_count.to_f
-            template.update!(rating: new_average.round(2))
-          else
-            # Add new rating
-            current_total = template.rating * template.rating_count
-            new_total = current_total + rating
-            new_count = template.rating_count + 1
-            new_average = new_total / new_count.to_f
-            template.update!(
-              rating: new_average.round(2),
-              rating_count: new_count
-            )
+          template.with_lock do
+            template.reload
+            # Update running average
+            if existing_rating
+              # Recalculate removing old rating
+              current_total = template.rating * template.rating_count
+              new_total = current_total - existing_rating + rating
+              new_average = new_total / template.rating_count.to_f
+              template.update!(rating: new_average.round(2))
+            else
+              # Add new rating
+              current_total = template.rating * template.rating_count
+              new_total = current_total + rating
+              new_count = template.rating_count + 1
+              new_average = new_total / new_count.to_f
+              template.update!(
+                rating: new_average.round(2),
+                rating_count: new_count
+              )
+            end
           end
 
           # Store rating in subscription metadata

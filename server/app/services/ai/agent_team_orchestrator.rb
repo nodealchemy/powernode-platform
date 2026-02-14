@@ -569,18 +569,23 @@ class Ai::AgentTeamOrchestrator
   end
 
   def finalize_execution(result, status)
-    update_params = {
-      status: status,
-      completed_at: Time.current,
-      output_variables: result,
-      duration_ms: ((Time.current - @workflow_run.created_at) * 1000).to_i
-    }
+    @workflow_run.with_lock do
+      @workflow_run.reload
+      return if %w[completed failed cancelled].include?(@workflow_run.status)
 
-    if status == "failed"
-      update_params[:error_details] = result[:error] || "Unknown error occurred during team execution"
+      update_params = {
+        status: status,
+        completed_at: Time.current,
+        output_variables: result,
+        duration_ms: ((Time.current - @workflow_run.created_at) * 1000).to_i
+      }
+
+      if status == "failed"
+        update_params[:error_details] = result[:error] || "Unknown error occurred during team execution"
+      end
+
+      @workflow_run.update!(update_params)
     end
-
-    @workflow_run.update!(update_params)
 
     # Build trajectory from completed execution
     if status == "completed"

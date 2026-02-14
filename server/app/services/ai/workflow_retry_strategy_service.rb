@@ -171,21 +171,24 @@ class Ai::WorkflowRetryStrategyService
   end
 
   def update_retry_metadata(delay_ms)
-    current_metadata = node_execution.metadata || {}
-    retry_metadata = current_metadata["retry"] || {}
+    node_execution.with_lock do
+      node_execution.reload
+      current_metadata = node_execution.metadata || {}
+      retry_metadata = current_metadata["retry"] || {}
 
-    updated_retry_metadata = retry_metadata.merge(
-      "attempt_count" => current_retry_attempt + 1,
-      "last_retry_at" => Time.current.iso8601,
-      "last_delay_ms" => delay_ms,
-      "total_delay_ms" => total_retry_time + delay_ms,
-      "error_type" => error_type,
-      "retry_scheduled_at" => Time.current.iso8601
-    )
+      updated_retry_metadata = retry_metadata.merge(
+        "attempt_count" => current_retry_attempt + 1,
+        "last_retry_at" => Time.current.iso8601,
+        "last_delay_ms" => delay_ms,
+        "total_delay_ms" => total_retry_time + delay_ms,
+        "error_type" => error_type,
+        "retry_scheduled_at" => Time.current.iso8601
+      )
 
-    node_execution.update(
-      metadata: current_metadata.merge("retry" => updated_retry_metadata)
-    )
+      node_execution.update(
+        metadata: current_metadata.merge("retry" => updated_retry_metadata)
+      )
+    end
   end
 
   # ============================================================================

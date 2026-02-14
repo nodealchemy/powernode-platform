@@ -261,7 +261,6 @@ module Ai
           created_by_user_id: user.id,
           author_name: user.full_name,
           author_email: user.email,
-          source_workflow_id: workflow.id,
           workflow_definition: extract_workflow_definition(workflow),
           metadata: {
             node_count: workflow.nodes.count,

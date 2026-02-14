@@ -317,7 +317,7 @@ module Ai
               .to_a
               .select { |e| e.neighbor_distance <= 0.6 }
           else
-            scope = scope.where("content ILIKE ? OR title ILIKE ?", "%#{filters[:query]}%", "%#{filters[:query]}%")
+            scope = scope.where("content ILIKE ? OR title ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(filters[:query])}%", "%#{ActiveRecord::Base.sanitize_sql_like(filters[:query])}%")
           end
         end
 

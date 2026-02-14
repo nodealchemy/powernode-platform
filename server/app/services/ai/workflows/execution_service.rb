@@ -151,7 +151,7 @@ module Ai
           if provider.nil?
             issues << { node: node.name, issue: "Provider not found" }
             return Result.failure(error: "Provider not found for node: #{node.name}") if fail_fast
-          elsif !provider.active?
+          elsif !provider.is_active?
             issues << { node: node.name, issue: "Provider not active" }
             return Result.failure(error: "Provider not active for node: #{node.name}") if fail_fast
           end
@@ -253,7 +253,7 @@ module Ai
           # Calculate cost based on provider pricing
           provider = ::Ai::Provider.find_by(id: provider_id)
           if provider
-            pricing = provider.pricing || {}
+            pricing = provider.pricing_info || {}
             input_cost = (estimated_input_tokens / 1000.0) * (pricing["input_cost_per_1k"] || 0.001)
             output_cost = (estimated_output_tokens / 1000.0) * (pricing["output_cost_per_1k"] || 0.002)
             node_cost = input_cost + output_cost

@@ -220,7 +220,7 @@ module Ai
               execution_duration: (Time.current - node_exec.started_at).to_i
             )
 
-            run.update!(failed_nodes: (run.failed_nodes || 0) + 1)
+            run.increment!(:failed_nodes)
             run.fail_execution!(
               "Workflow failed due to node timeout: #{node.name}",
               error_type: "node_timeout",

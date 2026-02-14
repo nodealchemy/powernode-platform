@@ -48,7 +48,10 @@ module Ai
       )
 
       if mode == "blocking"
-        task.update!(status: "waiting") if task.status == "completed"
+        task.with_lock do
+          task.reload
+          task.update!(status: "waiting") if task.status == "completed"
+        end
       end
 
       review.start!
@@ -118,7 +121,10 @@ module Ai
       task = review.team_task
       return unless review.review_mode == "blocking"
 
-      task.update!(status: "completed") if task.status == "waiting"
+      task.with_lock do
+        task.reload
+        task.update!(status: "completed") if task.status == "waiting"
+      end
     end
 
     def on_review_rejected(review)
@@ -146,13 +152,16 @@ module Ai
       task = review.team_task
       return unless review.review_mode == "blocking"
 
-      task.update!(
-        status: "assigned",
-        output_data: (task.output_data || {}).merge(
-          "revision_feedback" => review.rejection_reason,
-          "revision_number" => review.revision_count
+      task.with_lock do
+        task.reload
+        task.update!(
+          status: "assigned",
+          output_data: (task.output_data || {}).merge(
+            "revision_feedback" => review.rejection_reason,
+            "revision_number" => review.revision_count
+          )
         )
-      )
+      end
       extract_review_learnings(review)
     end
 

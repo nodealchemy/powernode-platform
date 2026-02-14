@@ -92,24 +92,17 @@ module Ai
       end
     end
 
-    def by_category(category_id)
+    def by_category(category)
       base_query
-        .joins(:categories)
-        .where(ai_marketplace_categories: { id: category_id })
+        .where(category: category)
         .order(installation_count: :desc)
     end
 
     def similar_to(template, limit: 6)
-      # Find similar templates based on categories and features
-      category_ids = template.categories.pluck(:id)
-
+      # Find similar templates based on category and features
       base_query
         .where.not(id: template.id)
-        .where(id: Ai::AgentTemplate
-          .joins(:categories)
-          .where(ai_marketplace_categories: { id: category_ids })
-          .select(:id)
-        )
+        .where(category: template.category)
         .order(average_rating: :desc, installation_count: :desc)
         .limit(limit)
     end
@@ -155,7 +148,7 @@ module Ai
     def base_query
       Ai::AgentTemplate
         .published
-        .includes(:publisher, :categories)
+        .includes(:publisher)
     end
 
     def apply_text_search(query)
@@ -174,7 +167,7 @@ module Ai
       category_id = @params[:category_id] || @params[:category]
       return query if category_id.blank?
 
-      query.joins(:categories).where(ai_marketplace_categories: { id: category_id })
+      query.where(category: category_id)
     end
 
     def apply_pricing_filter(query)

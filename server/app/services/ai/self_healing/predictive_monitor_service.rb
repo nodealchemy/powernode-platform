@@ -67,7 +67,7 @@ module Ai
 
         active_credentials = Ai::ProviderCredential
           .where(account_id: @account.id, is_active: true)
-          .includes(:ai_provider)
+          .includes(:provider)
 
         active_credentials.each do |credential|
           metrics = provider_metrics(credential)
@@ -80,11 +80,11 @@ module Ai
             event_type: "provider_degradation",
             source: "provider",
             source_id: credential.ai_provider_id,
-            source_name: credential.ai_provider&.name,
+            source_name: credential.provider&.name,
             probability: probability.round(3),
             signals: metrics[:signals],
             metrics: metrics.except(:signals),
-            message: "Provider #{credential.ai_provider&.name} showing degradation signals"
+            message: "Provider #{credential.provider&.name} showing degradation signals"
           }
         end
 
@@ -254,7 +254,7 @@ module Ai
 
         total_cost = Ai::AgentExecution.where(account_id: @account.id)
                                         .where("created_at >= ? AND created_at < ?", window_start, window_end)
-                                        .sum(:total_cost_usd)
+                                        .sum(:cost_usd)
 
         hours = window.to_f / 1.hour
         hourly_avg = hours > 0 ? total_cost / hours : 0

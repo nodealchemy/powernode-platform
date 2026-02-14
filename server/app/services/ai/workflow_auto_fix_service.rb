@@ -244,13 +244,13 @@ class Ai::WorkflowAutoFixService
                  workflow.nodes.where(node_type: "trigger").first ||
                  workflow.nodes.order(:created_at).first
 
-    return log_error("No start node found to connect to") if start_node.nil? || start_node.id == orphaned_node.id
+    return log_error("No start node found to connect to") if start_node.nil? || start_node.node_id == orphaned_node.node_id
 
     # Create edge from start node to orphaned node
     edge = workflow.edges.create!(
       edge_id: SecureRandom.uuid,
-      source_node_id: start_node.id,
-      target_node_id: orphaned_node.id,
+      source_node_id: start_node.node_id,
+      target_node_id: orphaned_node.node_id,
       edge_type: "default",
       metadata: { auto_created: true, created_by: "auto_fix" }
     )
