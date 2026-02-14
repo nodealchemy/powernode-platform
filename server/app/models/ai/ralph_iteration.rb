@@ -9,8 +9,8 @@ module Ai
     STATUSES = %w[pending running completed failed skipped].freeze
 
     # ==================== Associations ====================
-    belongs_to :ralph_loop, class_name: "Ai::RalphLoop"
-    belongs_to :ralph_task, class_name: "Ai::RalphTask", optional: true
+    belongs_to :ralph_loop, class_name: "Ai::RalphLoop", foreign_key: "ralph_loop_id"
+    belongs_to :ralph_task, class_name: "Ai::RalphTask", foreign_key: "ralph_task_id", optional: true
 
     # ==================== Validations ====================
     validates :iteration_number, presence: true, numericality: { only_integer: true, greater_than: 0 }

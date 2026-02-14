@@ -5,8 +5,8 @@ module Ai
     self.table_name = "ai_documents"
 
     # Associations
-    belongs_to :knowledge_base, class_name: "Ai::KnowledgeBase"
-    belongs_to :uploaded_by, class_name: "User", optional: true
+    belongs_to :knowledge_base, class_name: "Ai::KnowledgeBase", foreign_key: "knowledge_base_id"
+    belongs_to :uploaded_by, class_name: "User", foreign_key: "uploaded_by_id", optional: true
 
     has_many :chunks, class_name: "Ai::DocumentChunk", foreign_key: :document_id, dependent: :destroy
 

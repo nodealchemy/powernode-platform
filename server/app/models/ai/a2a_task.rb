@@ -14,12 +14,12 @@ module Ai
 
     # ==================== Associations ====================
     belongs_to :account
-    belongs_to :from_agent, class_name: "Ai::Agent", optional: true
-    belongs_to :to_agent, class_name: "Ai::Agent", optional: true
-    belongs_to :from_agent_card, class_name: "Ai::AgentCard", optional: true
-    belongs_to :to_agent_card, class_name: "Ai::AgentCard", optional: true
+    belongs_to :from_agent, class_name: "Ai::Agent", foreign_key: "from_agent_id", optional: true
+    belongs_to :to_agent, class_name: "Ai::Agent", foreign_key: "to_agent_id", optional: true
+    belongs_to :from_agent_card, class_name: "Ai::AgentCard", foreign_key: "from_agent_card_id", optional: true
+    belongs_to :to_agent_card, class_name: "Ai::AgentCard", foreign_key: "to_agent_card_id", optional: true
     belongs_to :workflow_run, class_name: "Ai::WorkflowRun", foreign_key: "ai_workflow_run_id", optional: true
-    belongs_to :parent_task, class_name: "Ai::A2aTask", optional: true
+    belongs_to :parent_task, class_name: "Ai::A2aTask", foreign_key: "parent_task_id", optional: true
 
     has_many :subtasks, class_name: "Ai::A2aTask", foreign_key: "parent_task_id", dependent: :destroy
     has_many :events, class_name: "Ai::A2aTaskEvent", foreign_key: "ai_a2a_task_id", dependent: :destroy

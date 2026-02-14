@@ -16,7 +16,7 @@ module Ai
     # ==========================================================================
 
     belongs_to :account
-    belongs_to :provider, class_name: "Ai::Provider"
+    belongs_to :provider, class_name: "Ai::Provider", foreign_key: "provider_id"
 
     # ==========================================================================
     # VALIDATIONS

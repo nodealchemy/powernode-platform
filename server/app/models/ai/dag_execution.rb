@@ -10,8 +10,8 @@ module Ai
 
     # Associations
     belongs_to :account
-    belongs_to :workflow, class_name: "Ai::Workflow", optional: true
-    belongs_to :triggered_by, class_name: "User", optional: true
+    belongs_to :workflow, class_name: "Ai::Workflow", foreign_key: "workflow_id", optional: true
+    belongs_to :triggered_by, class_name: "User", foreign_key: "triggered_by_id", optional: true
 
     has_many :a2a_tasks, class_name: "Ai::A2aTask", foreign_key: "dag_execution_id"
 

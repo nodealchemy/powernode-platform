@@ -14,10 +14,10 @@ module Ai
     # Associations
     # ==========================================
     belongs_to :account
-    belongs_to :team_task, class_name: "Ai::TeamTask"
-    belongs_to :reviewer_role, class_name: "Ai::TeamRole", optional: true
-    belongs_to :reviewer_agent, class_name: "Ai::Agent", optional: true
-    has_many :code_review_comments, class_name: "Ai::CodeReviewComment", dependent: :destroy
+    belongs_to :team_task, class_name: "Ai::TeamTask", foreign_key: "team_task_id"
+    belongs_to :reviewer_role, class_name: "Ai::TeamRole", foreign_key: "reviewer_role_id", optional: true
+    belongs_to :reviewer_agent, class_name: "Ai::Agent", foreign_key: "reviewer_agent_id", optional: true
+    has_many :code_review_comments, class_name: "Ai::CodeReviewComment", foreign_key: "task_review_id", dependent: :destroy
 
     # ==========================================
     # Validations

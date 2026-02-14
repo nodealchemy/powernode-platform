@@ -16,7 +16,7 @@ module Ai
     # ==========================================================================
 
     belongs_to :account
-    belongs_to :routing_decision, class_name: "Ai::RoutingDecision", optional: true
+    belongs_to :routing_decision, class_name: "Ai::RoutingDecision", foreign_key: "routing_decision_id", optional: true
 
     # ==========================================================================
     # VALIDATIONS

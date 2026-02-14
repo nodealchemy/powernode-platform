@@ -16,11 +16,11 @@ module Ai
     # ==========================================================================
 
     belongs_to :account
-    belongs_to :routing_rule, class_name: "Ai::ModelRoutingRule", optional: true
-    belongs_to :selected_provider, class_name: "Ai::Provider", optional: true
-    belongs_to :workflow_run, class_name: "Ai::WorkflowRun", optional: true
-    belongs_to :agent_execution, class_name: "Ai::AgentExecution", optional: true
-    belongs_to :complexity_assessment, class_name: "Ai::TaskComplexityAssessment", optional: true
+    belongs_to :routing_rule, class_name: "Ai::ModelRoutingRule", foreign_key: "routing_rule_id", optional: true
+    belongs_to :selected_provider, class_name: "Ai::Provider", foreign_key: "selected_provider_id", optional: true
+    belongs_to :workflow_run, class_name: "Ai::WorkflowRun", foreign_key: "workflow_run_id", optional: true
+    belongs_to :agent_execution, class_name: "Ai::AgentExecution", foreign_key: "agent_execution_id", optional: true
+    belongs_to :complexity_assessment, class_name: "Ai::TaskComplexityAssessment", foreign_key: "complexity_assessment_id", optional: true
 
     # ==========================================================================
     # VALIDATIONS

@@ -6,10 +6,10 @@ module Ai
 
     # Associations
     belongs_to :account
-    belongs_to :sandbox, class_name: "Ai::Sandbox", optional: true
-    belongs_to :target_workflow, class_name: "Ai::Workflow", optional: true
-    belongs_to :target_agent, class_name: "Ai::Agent", optional: true
-    belongs_to :created_by, class_name: "User", optional: true
+    belongs_to :sandbox, class_name: "Ai::Sandbox", foreign_key: "sandbox_id", optional: true
+    belongs_to :target_workflow, class_name: "Ai::Workflow", foreign_key: "target_workflow_id", optional: true
+    belongs_to :target_agent, class_name: "Ai::Agent", foreign_key: "target_agent_id", optional: true
+    belongs_to :created_by, class_name: "User", foreign_key: "created_by_id", optional: true
 
     # Validations
     validates :benchmark_id, presence: true, uniqueness: true

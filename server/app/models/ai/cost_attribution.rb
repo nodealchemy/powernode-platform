@@ -37,8 +37,8 @@ module Ai
     # ==========================================================================
 
     belongs_to :account
-    belongs_to :roi_metric, class_name: "Ai::RoiMetric", optional: true
-    belongs_to :provider, class_name: "Ai::Provider", optional: true
+    belongs_to :roi_metric, class_name: "Ai::RoiMetric", foreign_key: "roi_metric_id", optional: true
+    belongs_to :provider, class_name: "Ai::Provider", foreign_key: "provider_id", optional: true
 
     # ==========================================================================
     # VALIDATIONS

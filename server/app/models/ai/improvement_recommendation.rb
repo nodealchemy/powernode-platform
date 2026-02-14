@@ -6,7 +6,7 @@ module Ai
     RECOMMENDATION_TYPES = %w[provider_switch team_composition timeout_adjustment model_upgrade cost_optimization].freeze
 
     belongs_to :account
-    belongs_to :approved_by, class_name: "User", optional: true
+    belongs_to :approved_by, class_name: "User", foreign_key: "approved_by_id", optional: true
 
     validates :recommendation_type, presence: true, inclusion: { in: RECOMMENDATION_TYPES }
     validates :target_type, presence: true

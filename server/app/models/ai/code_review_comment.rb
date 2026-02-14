@@ -10,8 +10,8 @@ module Ai
 
     # ==================== Associations ====================
     belongs_to :account
-    belongs_to :task_review, class_name: "Ai::TaskReview"
-    belongs_to :agent, class_name: "Ai::Agent", optional: true
+    belongs_to :task_review, class_name: "Ai::TaskReview", foreign_key: "task_review_id"
+    belongs_to :agent, class_name: "Ai::Agent", foreign_key: "agent_id", optional: true
 
     # ==================== Validations ====================
     validates :file_path, presence: true

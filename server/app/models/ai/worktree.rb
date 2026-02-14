@@ -13,9 +13,9 @@ module Ai
     # ==========================================
     # Associations
     # ==========================================
-    belongs_to :worktree_session, class_name: "Ai::WorktreeSession"
+    belongs_to :worktree_session, class_name: "Ai::WorktreeSession", foreign_key: "worktree_session_id"
     belongs_to :account
-    belongs_to :ai_agent, class_name: "Ai::Agent", optional: true
+    belongs_to :ai_agent, class_name: "Ai::Agent", foreign_key: "ai_agent_id", optional: true
     belongs_to :assignee, polymorphic: true, optional: true
     has_many :merge_operations, class_name: "Ai::MergeOperation", foreign_key: "worktree_id", dependent: :destroy
     has_many :file_locks, class_name: "Ai::FileLock", foreign_key: "worktree_id", dependent: :destroy

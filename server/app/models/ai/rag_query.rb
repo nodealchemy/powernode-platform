@@ -8,7 +8,7 @@ module Ai
 
     # Associations
     belongs_to :account
-    belongs_to :knowledge_base, class_name: "Ai::KnowledgeBase"
+    belongs_to :knowledge_base, class_name: "Ai::KnowledgeBase", foreign_key: "knowledge_base_id"
     belongs_to :user, optional: true
 
     # Validations

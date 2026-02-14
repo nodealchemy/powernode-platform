@@ -5,8 +5,8 @@ module Ai
     self.table_name = "ai_test_results"
 
     # Associations
-    belongs_to :test_run, class_name: "Ai::TestRun"
-    belongs_to :scenario, class_name: "Ai::TestScenario"
+    belongs_to :test_run, class_name: "Ai::TestRun", foreign_key: "test_run_id"
+    belongs_to :scenario, class_name: "Ai::TestScenario", foreign_key: "scenario_id"
 
     # Validations
     validates :result_id, presence: true, uniqueness: true

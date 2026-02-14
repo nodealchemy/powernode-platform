@@ -7,7 +7,7 @@ module Ai
     CHANNEL_TYPES = %w[broadcast direct topic task escalation].freeze
 
     # Associations
-    belongs_to :agent_team, class_name: "Ai::AgentTeam"
+    belongs_to :agent_team, class_name: "Ai::AgentTeam", foreign_key: "agent_team_id"
 
     has_many :messages, class_name: "Ai::TeamMessage", foreign_key: :channel_id, dependent: :destroy
 

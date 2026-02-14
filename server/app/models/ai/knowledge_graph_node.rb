@@ -12,9 +12,9 @@ module Ai
 
     # Associations
     belongs_to :account
-    belongs_to :knowledge_base, class_name: "Ai::KnowledgeBase", optional: true
-    belongs_to :source_document, class_name: "Ai::Document", optional: true
-    belongs_to :merged_into, class_name: "Ai::KnowledgeGraphNode", optional: true
+    belongs_to :knowledge_base, class_name: "Ai::KnowledgeBase", foreign_key: "knowledge_base_id", optional: true
+    belongs_to :source_document, class_name: "Ai::Document", foreign_key: "source_document_id", optional: true
+    belongs_to :merged_into, class_name: "Ai::KnowledgeGraphNode", foreign_key: "merged_into_id", optional: true
 
     has_many :outgoing_edges, class_name: "Ai::KnowledgeGraphEdge", foreign_key: :source_node_id, dependent: :destroy
     has_many :incoming_edges, class_name: "Ai::KnowledgeGraphEdge", foreign_key: :target_node_id, dependent: :destroy

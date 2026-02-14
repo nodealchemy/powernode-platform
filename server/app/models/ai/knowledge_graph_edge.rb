@@ -12,9 +12,9 @@ module Ai
 
     # Associations
     belongs_to :account
-    belongs_to :source_node, class_name: "Ai::KnowledgeGraphNode"
-    belongs_to :target_node, class_name: "Ai::KnowledgeGraphNode"
-    belongs_to :source_document, class_name: "Ai::Document", optional: true
+    belongs_to :source_node, class_name: "Ai::KnowledgeGraphNode", foreign_key: "source_node_id"
+    belongs_to :target_node, class_name: "Ai::KnowledgeGraphNode", foreign_key: "target_node_id"
+    belongs_to :source_document, class_name: "Ai::Document", foreign_key: "source_document_id", optional: true
 
     # Validations
     validates :relation_type, presence: true, inclusion: { in: RELATION_TYPES }

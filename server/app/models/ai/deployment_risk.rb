@@ -6,8 +6,8 @@ module Ai
 
     # Associations
     belongs_to :account
-    belongs_to :pipeline_execution, class_name: "Ai::PipelineExecution", optional: true
-    belongs_to :assessed_by, class_name: "User", optional: true
+    belongs_to :pipeline_execution, class_name: "Ai::PipelineExecution", foreign_key: "pipeline_execution_id", optional: true
+    belongs_to :assessed_by, class_name: "User", foreign_key: "assessed_by_id", optional: true
 
     # Validations
     validates :assessment_id, presence: true, uniqueness: true

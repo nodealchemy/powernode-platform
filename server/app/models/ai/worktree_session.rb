@@ -16,7 +16,7 @@ module Ai
     # Associations
     # ==========================================
     belongs_to :account
-    belongs_to :initiated_by, class_name: "User", optional: true
+    belongs_to :initiated_by, class_name: "User", foreign_key: "initiated_by_id", optional: true
     belongs_to :source, polymorphic: true, optional: true
     has_many :worktrees, class_name: "Ai::Worktree", foreign_key: "worktree_session_id", dependent: :destroy
     has_many :merge_operations, class_name: "Ai::MergeOperation", foreign_key: "worktree_session_id", dependent: :destroy

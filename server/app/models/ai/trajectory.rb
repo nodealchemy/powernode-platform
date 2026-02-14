@@ -14,7 +14,7 @@ module Ai
     # Associations
     # ==========================================
     belongs_to :account
-    belongs_to :ai_agent, class_name: "Ai::Agent", optional: true
+    belongs_to :ai_agent, class_name: "Ai::Agent", foreign_key: "ai_agent_id", optional: true
     has_many :chapters, class_name: "Ai::TrajectoryChapter",
              foreign_key: :trajectory_id, dependent: :destroy
 

@@ -8,11 +8,11 @@ module Ai
     PRIORITIES = %w[low normal high urgent].freeze
 
     # Associations
-    belongs_to :team_execution, class_name: "Ai::TeamExecution"
-    belongs_to :channel, class_name: "Ai::TeamChannel", optional: true
-    belongs_to :from_role, class_name: "Ai::TeamRole", optional: true
-    belongs_to :to_role, class_name: "Ai::TeamRole", optional: true
-    belongs_to :in_reply_to, class_name: "Ai::TeamMessage", optional: true
+    belongs_to :team_execution, class_name: "Ai::TeamExecution", foreign_key: "team_execution_id"
+    belongs_to :channel, class_name: "Ai::TeamChannel", foreign_key: "channel_id", optional: true
+    belongs_to :from_role, class_name: "Ai::TeamRole", foreign_key: "from_role_id", optional: true
+    belongs_to :to_role, class_name: "Ai::TeamRole", foreign_key: "to_role_id", optional: true
+    belongs_to :in_reply_to, class_name: "Ai::TeamMessage", foreign_key: "in_reply_to_id", optional: true
 
     has_many :replies, class_name: "Ai::TeamMessage", foreign_key: :in_reply_to_id, dependent: :nullify
 

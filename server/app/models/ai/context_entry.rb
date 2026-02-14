@@ -14,9 +14,9 @@ module Ai
 
     # ==================== Associations ====================
     belongs_to :persistent_context, class_name: "Ai::PersistentContext", foreign_key: "ai_persistent_context_id"
-    belongs_to :created_by_user, class_name: "User", optional: true
+    belongs_to :created_by_user, class_name: "User", foreign_key: "created_by_user_id", optional: true
     belongs_to :agent, class_name: "Ai::Agent", foreign_key: "ai_agent_id", optional: true
-    belongs_to :previous_version, class_name: "Ai::ContextEntry", optional: true
+    belongs_to :previous_version, class_name: "Ai::ContextEntry", foreign_key: "previous_version_id", optional: true
 
     has_many :newer_versions, class_name: "Ai::ContextEntry", foreign_key: :previous_version_id, dependent: :nullify
     has_many :access_logs, class_name: "Ai::ContextAccessLog", foreign_key: "ai_context_entry_id", dependent: :destroy

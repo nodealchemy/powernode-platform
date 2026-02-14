@@ -5,10 +5,10 @@ module Ai
     self.table_name = "ai_agent_reviews"
 
     # Associations
-    belongs_to :agent_template, class_name: "Ai::AgentTemplate"
+    belongs_to :agent_template, class_name: "Ai::AgentTemplate", foreign_key: "agent_template_id"
     belongs_to :account
     belongs_to :user
-    belongs_to :installation, class_name: "Ai::AgentInstallation", optional: true
+    belongs_to :installation, class_name: "Ai::AgentInstallation", foreign_key: "installation_id", optional: true
 
     # Validations
     validates :rating, presence: true, inclusion: { in: 1..5 }

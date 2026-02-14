@@ -7,8 +7,8 @@ module Ai
     has_neighbors :embedding
 
     # Associations
-    belongs_to :document, class_name: "Ai::Document"
-    belongs_to :knowledge_base, class_name: "Ai::KnowledgeBase"
+    belongs_to :document, class_name: "Ai::Document", foreign_key: "document_id"
+    belongs_to :knowledge_base, class_name: "Ai::KnowledgeBase", foreign_key: "knowledge_base_id"
 
     # Delegate account access
     delegate :account, to: :knowledge_base

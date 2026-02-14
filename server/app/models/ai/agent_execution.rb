@@ -10,7 +10,7 @@ module Ai
     belongs_to :account
     belongs_to :user
     belongs_to :provider, class_name: "Ai::Provider", foreign_key: "ai_provider_id"
-    belongs_to :parent_execution, class_name: "Ai::AgentExecution", optional: true
+    belongs_to :parent_execution, class_name: "Ai::AgentExecution", foreign_key: "parent_execution_id", optional: true
     has_many :child_executions, class_name: "Ai::AgentExecution", foreign_key: "parent_execution_id", dependent: :nullify
 
     # Validations

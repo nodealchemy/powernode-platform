@@ -18,10 +18,10 @@ module Ai
     # Associations
     # ==========================================
     belongs_to :account
-    belongs_to :ai_agent_team, class_name: "Ai::AgentTeam", optional: true
-    belongs_to :source_agent, class_name: "Ai::Agent", optional: true
-    belongs_to :source_execution, class_name: "Ai::TeamExecution", optional: true
-    belongs_to :superseded_by, class_name: "Ai::CompoundLearning", optional: true
+    belongs_to :ai_agent_team, class_name: "Ai::AgentTeam", foreign_key: "ai_agent_team_id", optional: true
+    belongs_to :source_agent, class_name: "Ai::Agent", foreign_key: "source_agent_id", optional: true
+    belongs_to :source_execution, class_name: "Ai::TeamExecution", foreign_key: "source_execution_id", optional: true
+    belongs_to :superseded_by, class_name: "Ai::CompoundLearning", foreign_key: "superseded_by_id", optional: true
 
     has_many :superseding, class_name: "Ai::CompoundLearning", foreign_key: :superseded_by_id
 

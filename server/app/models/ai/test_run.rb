@@ -6,8 +6,8 @@ module Ai
 
     # Associations
     belongs_to :account
-    belongs_to :sandbox, class_name: "Ai::Sandbox"
-    belongs_to :triggered_by, class_name: "User", optional: true
+    belongs_to :sandbox, class_name: "Ai::Sandbox", foreign_key: "sandbox_id"
+    belongs_to :triggered_by, class_name: "User", foreign_key: "triggered_by_id", optional: true
 
     has_many :test_results, class_name: "Ai::TestResult", foreign_key: :test_run_id, dependent: :destroy
 

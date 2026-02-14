@@ -13,7 +13,7 @@ module Ai
     # Associations
     belongs_to :workflow, class_name: "Ai::Workflow", foreign_key: "ai_workflow_id"
     belongs_to :account
-    belongs_to :triggered_by_user, class_name: "User", optional: true
+    belongs_to :triggered_by_user, class_name: "User", foreign_key: "triggered_by_user_id", optional: true
     belongs_to :trigger, class_name: "Ai::WorkflowTrigger", foreign_key: "ai_workflow_trigger_id", optional: true
 
     has_many :node_executions, class_name: "Ai::WorkflowNodeExecution",
@@ -44,7 +44,7 @@ module Ai
       message: "must be a valid run status"
     }
     validates :trigger_type, presence: true, inclusion: {
-      in: %w[manual webhook schedule event api_call],
+      in: %w[manual webhook schedule event api_call retry],
       message: "must be a valid trigger type"
     }
     validates :total_nodes, numericality: { greater_than_or_equal_to: 0 }

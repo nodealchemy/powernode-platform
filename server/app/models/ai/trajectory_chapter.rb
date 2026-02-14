@@ -15,7 +15,7 @@ module Ai
     # ==========================================
     # Associations
     # ==========================================
-    belongs_to :trajectory, class_name: "Ai::Trajectory"
+    belongs_to :trajectory, class_name: "Ai::Trajectory", foreign_key: "trajectory_id"
 
     # ==========================================
     # Validations

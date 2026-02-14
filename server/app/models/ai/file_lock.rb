@@ -6,8 +6,8 @@ module Ai
 
     LOCK_TYPES = %w[exclusive shared].freeze
 
-    belongs_to :worktree_session, class_name: "Ai::WorktreeSession"
-    belongs_to :worktree, class_name: "Ai::Worktree"
+    belongs_to :worktree_session, class_name: "Ai::WorktreeSession", foreign_key: "worktree_session_id"
+    belongs_to :worktree, class_name: "Ai::Worktree", foreign_key: "worktree_id"
     belongs_to :account
 
     validates :file_path, presence: true, uniqueness: { scope: :worktree_session_id }

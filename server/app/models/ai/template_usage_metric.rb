@@ -5,7 +5,7 @@ module Ai
     self.table_name = "ai_template_usage_metrics"
 
     # Associations
-    belongs_to :agent_template, class_name: "Ai::AgentTemplate"
+    belongs_to :agent_template, class_name: "Ai::AgentTemplate", foreign_key: "agent_template_id"
 
     # Validations
     validates :metric_date, presence: true, uniqueness: { scope: :agent_template_id }

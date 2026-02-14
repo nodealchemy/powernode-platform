@@ -8,8 +8,8 @@ module Ai
     # Associations
     # ==========================================
     belongs_to :account
-    belongs_to :parent_agent, class_name: "Ai::Agent"
-    belongs_to :child_agent, class_name: "Ai::Agent"
+    belongs_to :parent_agent, class_name: "Ai::Agent", foreign_key: "parent_agent_id"
+    belongs_to :child_agent, class_name: "Ai::Agent", foreign_key: "child_agent_id"
 
     # ==========================================
     # Validations

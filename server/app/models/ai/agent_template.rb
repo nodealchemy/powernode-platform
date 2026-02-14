@@ -5,10 +5,11 @@ module Ai
     self.table_name = "ai_agent_templates"
 
     # Associations
-    belongs_to :source_agent, class_name: "Ai::Agent", optional: true
+    belongs_to :source_agent, class_name: "Ai::Agent", foreign_key: "source_agent_id", optional: true
 
     has_many :installations, class_name: "Ai::AgentInstallation", foreign_key: :agent_template_id, dependent: :destroy
     has_many :reviews, class_name: "Ai::AgentReview", foreign_key: :agent_template_id, dependent: :destroy
+    has_many :template_usage_metrics, class_name: "Ai::TemplateUsageMetric", foreign_key: "agent_template_id", dependent: :destroy
 
     # Enterprise associations - marketplace monetization & publishing
     if defined?(PowernodeEnterprise::Engine)

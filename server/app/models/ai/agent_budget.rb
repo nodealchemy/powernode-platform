@@ -15,7 +15,7 @@ module Ai
     # ==========================================
     belongs_to :account
     belongs_to :agent, class_name: "Ai::Agent", foreign_key: "agent_id"
-    belongs_to :parent_budget, class_name: "Ai::AgentBudget", optional: true
+    belongs_to :parent_budget, class_name: "Ai::AgentBudget", foreign_key: "parent_budget_id", optional: true
 
     has_many :child_budgets, class_name: "Ai::AgentBudget", foreign_key: "parent_budget_id", dependent: :nullify
 

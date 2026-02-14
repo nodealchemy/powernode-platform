@@ -6,7 +6,7 @@ module Ai
 
     # Associations
     belongs_to :account
-    belongs_to :created_by, class_name: "User", optional: true
+    belongs_to :created_by, class_name: "User", foreign_key: "created_by_id", optional: true
 
     has_many :test_scenarios, class_name: "Ai::TestScenario", foreign_key: :sandbox_id, dependent: :destroy
     has_many :mock_responses, class_name: "Ai::MockResponse", foreign_key: :sandbox_id, dependent: :destroy

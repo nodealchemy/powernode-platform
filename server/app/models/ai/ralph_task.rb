@@ -16,7 +16,7 @@ module Ai
     CAPABILITY_STRATEGIES = %w[all any weighted].freeze
 
     # ==================== Associations ====================
-    belongs_to :ralph_loop, class_name: "Ai::RalphLoop"
+    belongs_to :ralph_loop, class_name: "Ai::RalphLoop", foreign_key: "ralph_loop_id"
 
     has_many :ralph_iterations, class_name: "Ai::RalphIteration",
              foreign_key: "ralph_task_id", dependent: :nullify

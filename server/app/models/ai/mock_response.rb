@@ -15,8 +15,8 @@ module Ai
 
     # Associations
     belongs_to :account
-    belongs_to :sandbox, class_name: "Ai::Sandbox"
-    belongs_to :created_by, class_name: "User", optional: true
+    belongs_to :sandbox, class_name: "Ai::Sandbox", foreign_key: "sandbox_id"
+    belongs_to :created_by, class_name: "User", foreign_key: "created_by_id", optional: true
 
     # Validations
     validates :name, presence: true

@@ -6,9 +6,9 @@ module Ai
 
     # Associations
     belongs_to :account
-    belongs_to :agent_template, class_name: "Ai::AgentTemplate"
-    belongs_to :installed_agent, class_name: "Ai::Agent", optional: true
-    belongs_to :installed_by, class_name: "User", optional: true
+    belongs_to :agent_template, class_name: "Ai::AgentTemplate", foreign_key: "agent_template_id"
+    belongs_to :installed_agent, class_name: "Ai::Agent", foreign_key: "installed_agent_id", optional: true
+    belongs_to :installed_by, class_name: "User", foreign_key: "installed_by_id", optional: true
 
     has_one :review, class_name: "Ai::AgentReview", foreign_key: :installation_id
 

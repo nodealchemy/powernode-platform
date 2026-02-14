@@ -17,7 +17,7 @@ module Ai
 
     # Associations
     belongs_to :account
-    belongs_to :creator, class_name: "User"
+    belongs_to :creator, class_name: "User", foreign_key: "creator_id"
 
     has_many :workflow_nodes, class_name: "Ai::WorkflowNode", foreign_key: "ai_workflow_id", dependent: :destroy
     has_many :workflow_edges, class_name: "Ai::WorkflowEdge", foreign_key: "ai_workflow_id", dependent: :destroy
@@ -28,7 +28,7 @@ module Ai
     has_many :workflow_validations, class_name: "WorkflowValidation", foreign_key: :workflow_id, dependent: :destroy
 
     # Versioning associations
-    belongs_to :parent_version, class_name: "Ai::Workflow", optional: true
+    belongs_to :parent_version, class_name: "Ai::Workflow", foreign_key: "parent_version_id", optional: true
     has_many :child_versions, class_name: "Ai::Workflow", foreign_key: "parent_version_id", dependent: :nullify
 
     # Association aliases for convenience and compatibility

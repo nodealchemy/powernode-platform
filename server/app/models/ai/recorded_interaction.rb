@@ -16,8 +16,8 @@ module Ai
 
     # Associations
     belongs_to :account
-    belongs_to :sandbox, class_name: "Ai::Sandbox"
-    belongs_to :source_workflow_run, class_name: "Ai::WorkflowRun", optional: true
+    belongs_to :sandbox, class_name: "Ai::Sandbox", foreign_key: "sandbox_id"
+    belongs_to :source_workflow_run, class_name: "Ai::WorkflowRun", foreign_key: "source_workflow_run_id", optional: true
 
     # Validations
     validates :recording_id, presence: true, uniqueness: true

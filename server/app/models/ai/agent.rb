@@ -20,7 +20,7 @@ module Ai
 
     # Associations
     belongs_to :account
-    belongs_to :creator, class_name: "User"
+    belongs_to :creator, class_name: "User", foreign_key: "creator_id"
     belongs_to :provider, class_name: "Ai::Provider", foreign_key: "ai_provider_id"
     has_many :executions, class_name: "Ai::AgentExecution", foreign_key: "ai_agent_id", dependent: :destroy
 
@@ -30,7 +30,7 @@ module Ai
     has_many :skills, class_name: "Ai::Skill", through: :agent_skills, source: :skill
 
     # Autonomy system associations
-    belongs_to :parent_agent, class_name: "Ai::Agent", optional: true
+    belongs_to :parent_agent, class_name: "Ai::Agent", foreign_key: "parent_agent_id", optional: true
     has_many :child_lineages, class_name: "Ai::AgentLineage", foreign_key: "parent_agent_id", dependent: :destroy
     has_many :child_agents, through: :child_lineages, source: :child_agent
     has_one :trust_score, class_name: "Ai::AgentTrustScore", foreign_key: "agent_id", dependent: :destroy

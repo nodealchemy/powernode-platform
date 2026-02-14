@@ -7,8 +7,8 @@ module Ai
     # Associations
     belongs_to :node_execution, class_name: "Ai::WorkflowNodeExecution",
                foreign_key: "ai_workflow_node_execution_id"
-    belongs_to :recipient_user, class_name: "User", optional: true
-    belongs_to :responded_by, class_name: "User", optional: true
+    belongs_to :recipient_user, class_name: "User", foreign_key: "recipient_user_id", optional: true
+    belongs_to :responded_by, class_name: "User", foreign_key: "responded_by_id", optional: true
 
     # Scopes
     scope :for_node_execution, ->(node_execution_id) { where(ai_workflow_node_execution_id: node_execution_id) }

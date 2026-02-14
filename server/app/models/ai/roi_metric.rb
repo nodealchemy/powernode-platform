@@ -20,7 +20,7 @@ module Ai
 
     belongs_to :account
     belongs_to :attributable, polymorphic: true, optional: true
-    has_many :cost_attributions, class_name: "Ai::CostAttribution", dependent: :destroy
+    has_many :cost_attributions, class_name: "Ai::CostAttribution", foreign_key: "roi_metric_id", dependent: :destroy
 
     # ==========================================================================
     # VALIDATIONS

@@ -6,9 +6,9 @@ module Ai
 
     # Associations
     belongs_to :account
-    belongs_to :devops_template, class_name: "Ai::DevopsTemplate"
-    belongs_to :installed_by, class_name: "User", optional: true
-    belongs_to :created_workflow, class_name: "Ai::Workflow", optional: true
+    belongs_to :devops_template, class_name: "Ai::DevopsTemplate", foreign_key: "devops_template_id"
+    belongs_to :installed_by, class_name: "User", foreign_key: "installed_by_id", optional: true
+    belongs_to :created_workflow, class_name: "Ai::Workflow", foreign_key: "created_workflow_id", optional: true
 
     has_many :pipeline_executions, class_name: "Ai::PipelineExecution", foreign_key: :devops_installation_id, dependent: :nullify
 

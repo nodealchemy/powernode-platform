@@ -12,7 +12,7 @@ module Ai
     # ==================== Associations ====================
     belongs_to :account
     belongs_to :agent, class_name: "Ai::Agent", foreign_key: "ai_agent_id", optional: true  # null = account-wide context
-    belongs_to :created_by_user, class_name: "User", optional: true
+    belongs_to :created_by_user, class_name: "User", foreign_key: "created_by_user_id", optional: true
 
     has_many :context_entries, class_name: "Ai::ContextEntry", foreign_key: "ai_persistent_context_id", dependent: :destroy
     has_many :context_access_logs, class_name: "Ai::ContextAccessLog", foreign_key: "ai_persistent_context_id", dependent: :destroy
