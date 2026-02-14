@@ -19,3 +19,15 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+// Enterprise build flag injected by Vite define
+declare const __ENTERPRISE__: boolean;
+
+// Enterprise module declarations — TS types for enterprise modules resolved by Vite alias.
+// Prevents TS from following tsconfig paths into enterprise source files
+// (enterprise has no node_modules and can't resolve react/etc from its directory).
+declare module '@enterprise/pages/admin/AdminSettingsPaymentGatewaysTabPage' {
+  import { ComponentType } from 'react';
+  const Component: ComponentType;
+  export default Component;
+}

@@ -23,8 +23,7 @@
       "@/shared/*": ["./src/shared/*"],
       "@/features/*": ["./src/features/*"],
       "@/pages/*": ["./src/pages/*"],
-      "@/assets/*": ["./src/assets/*"],
-      "@enterprise/*": ["../enterprise/frontend/src/*"]
+      "@/assets/*": ["./src/assets/*"]
     },
 
     "allowJs": true,

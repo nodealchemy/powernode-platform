@@ -37,7 +37,8 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     href: '/app/admin/settings/payment-gateways',
     icon: CreditCard,
     description: 'Configure Stripe, PayPal, and other payment providers',
-    requiredPermissions: ['admin.billing.manage_gateways']
+    requiredPermissions: ['admin.billing.manage_gateways'],
+    enterpriseOnly: true
   },
   {
     id: 'email',
