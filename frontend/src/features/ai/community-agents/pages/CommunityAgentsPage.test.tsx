@@ -172,13 +172,12 @@ describe('CommunityAgentsPage', () => {
       );
     });
 
-    it('calls onCreateFederationPartner when create partner is clicked', () => {
-      const onCreateFederationPartner = jest.fn();
-      renderComponent({ onCreateFederationPartner });
+    it('opens create partner modal when create partner is clicked', () => {
+      renderComponent({});
 
       fireEvent.click(screen.getAllByTestId('create-partner-btn')[0]);
 
-      expect(onCreateFederationPartner).toHaveBeenCalled();
+      expect(screen.getByText('Add Federation Partner')).toBeInTheDocument();
     });
 
     it('calls onViewAgentDetails when agent details is requested', () => {

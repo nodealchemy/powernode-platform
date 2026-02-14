@@ -8,23 +8,23 @@ import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/Tabs';
 import { AgentDiscovery } from '../components/AgentDiscovery';
 import { FederationPartnerList } from '../components/FederationPartnerList';
+import { CreateFederationPartnerModal } from '../components/CreateFederationPartnerModal';
 import type { CommunityAgentSummary, FederationPartnerSummary } from '@/shared/services/ai';
 
 interface CommunityAgentsPageProps {
   onInvokeAgent?: (agent: CommunityAgentSummary) => void;
   onViewAgentDetails?: (agent: CommunityAgentSummary) => void;
-  onCreateFederationPartner?: () => void;
   onViewPartnerDetails?: (partner: FederationPartnerSummary) => void;
 }
 
 export const CommunityAgentsPage: React.FC<CommunityAgentsPageProps> = ({
   onInvokeAgent,
   onViewAgentDetails,
-  onCreateFederationPartner,
   onViewPartnerDetails,
 }) => {
   const [activeTab, setActiveTab] = useState('discover');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showCreatePartnerModal, setShowCreatePartnerModal] = useState(false);
 
   const handleRefresh = useCallback(() => {
     setRefreshKey((k) => k + 1);
@@ -78,10 +78,16 @@ export const CommunityAgentsPage: React.FC<CommunityAgentsPageProps> = ({
           <FederationPartnerList
             key={`federation-${refreshKey}`}
             onSelectPartner={onViewPartnerDetails}
-            onCreatePartner={onCreateFederationPartner}
+            onCreatePartner={() => setShowCreatePartnerModal(true)}
           />
         </TabsContent>
       </Tabs>
+
+      <CreateFederationPartnerModal
+        isOpen={showCreatePartnerModal}
+        onClose={() => setShowCreatePartnerModal(false)}
+        onPartnerCreated={() => setRefreshKey((k) => k + 1)}
+      />
     </PageContainer>
   );
 };
@@ -90,41 +96,49 @@ export const CommunityAgentsPage: React.FC<CommunityAgentsPageProps> = ({
 export const CommunityAgentsContent: React.FC<CommunityAgentsPageProps> = ({
   onInvokeAgent,
   onViewAgentDetails,
-  onCreateFederationPartner,
   onViewPartnerDetails,
 }) => {
   const [activeTab, setActiveTab] = useState('discover');
-  const [refreshKey, _setRefreshKey] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [showCreatePartnerModal, setShowCreatePartnerModal] = useState(false);
 
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab}>
-      <TabsList>
-        <TabsTrigger value="discover" className="flex items-center gap-2">
-          <Globe className="w-4 h-4" />
-          Discover
-        </TabsTrigger>
-        <TabsTrigger value="federation" className="flex items-center gap-2">
-          <Users className="w-4 h-4" />
-          Federation
-        </TabsTrigger>
-      </TabsList>
+    <>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="discover" className="flex items-center gap-2">
+            <Globe className="w-4 h-4" />
+            Discover
+          </TabsTrigger>
+          <TabsTrigger value="federation" className="flex items-center gap-2">
+            <Users className="w-4 h-4" />
+            Federation
+          </TabsTrigger>
+        </TabsList>
 
-      <TabsContent value="discover" className="mt-4">
-        <AgentDiscovery
-          key={`discover-${refreshKey}`}
-          onSelectAgent={onViewAgentDetails}
-          onInvokeAgent={onInvokeAgent}
-        />
-      </TabsContent>
+        <TabsContent value="discover" className="mt-4">
+          <AgentDiscovery
+            key={`discover-${refreshKey}`}
+            onSelectAgent={onViewAgentDetails}
+            onInvokeAgent={onInvokeAgent}
+          />
+        </TabsContent>
 
-      <TabsContent value="federation" className="mt-4">
-        <FederationPartnerList
-          key={`federation-${refreshKey}`}
-          onSelectPartner={onViewPartnerDetails}
-          onCreatePartner={onCreateFederationPartner}
-        />
-      </TabsContent>
-    </Tabs>
+        <TabsContent value="federation" className="mt-4">
+          <FederationPartnerList
+            key={`federation-${refreshKey}`}
+            onSelectPartner={onViewPartnerDetails}
+            onCreatePartner={() => setShowCreatePartnerModal(true)}
+          />
+        </TabsContent>
+      </Tabs>
+
+      <CreateFederationPartnerModal
+        isOpen={showCreatePartnerModal}
+        onClose={() => setShowCreatePartnerModal(false)}
+        onPartnerCreated={() => setRefreshKey((k) => k + 1)}
+      />
+    </>
   );
 };
 
