@@ -2,9 +2,9 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { NavigationItem } from '../NavigationItem';
 import type { NavigationItem as NavItem } from '@/shared/types/navigation';
-import * as NavigationContext from '@/shared/hooks/NavigationContext';
 
 const mockNavigate = jest.fn();
+let mockHasPermissionResult = true;
 
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
@@ -13,7 +13,7 @@ jest.mock('react-router-dom', () => ({
 
 jest.mock('@/shared/hooks/NavigationContext', () => ({
   useNavigation: () => ({
-    hasPermission: () => true,
+    hasPermission: () => mockHasPermissionResult,
   }),
 }));
 
@@ -28,6 +28,7 @@ const renderItem = (item: NavItem) => {
 describe('NavigationItem', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockHasPermissionResult = true;
   });
 
   it('renders navigation item with name', () => {
@@ -55,14 +56,7 @@ describe('NavigationItem', () => {
   });
 
   it('returns null when user lacks permission', () => {
-    // Override the mock for this test
-    jest.spyOn(NavigationContext, 'useNavigation').mockReturnValue({
-      hasPermission: () => false,
-      config: { items: [], sections: [] },
-      state: { expandedItems: [], mobileOpen: false },
-      theme: { variant: 'default' },
-      updateState: jest.fn(),
-    } as unknown as ReturnType<typeof NavigationContext.useNavigation>);
+    mockHasPermissionResult = false;
 
     const { container } = renderItem({
       id: 'restricted',

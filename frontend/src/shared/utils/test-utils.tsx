@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer from '@/shared/services/slices/authSlice';
 import uiReducer from '@/shared/services/slices/uiSlice';
+import configReducer from '@/shared/services/slices/configSlice';
 import { BreadcrumbProvider } from '@/shared/hooks/BreadcrumbContext';
 
 // This type interface extends the default options for render from RTL, as well
@@ -24,6 +25,7 @@ export function renderWithProviders(
       reducer: {
         auth: authReducer,
         ui: uiReducer,
+        config: configReducer,
       },
       ...(preloadedState && { preloadedState }),
     }),
@@ -139,6 +141,11 @@ export const mockAuthenticatedState = {
     loading: false,
     notifications: [],
   },
+  config: {
+    enterpriseEnabled: false,
+    coreMode: true,
+    isLoaded: true,
+  },
 };
 
 // Mock unauthenticated state
@@ -168,6 +175,11 @@ export const mockUnauthenticatedState = {
     theme: 'light' as const,
     loading: false,
     notifications: [],
+  },
+  config: {
+    enterpriseEnabled: false,
+    coreMode: true,
+    isLoaded: true,
   },
 };
 

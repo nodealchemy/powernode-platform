@@ -91,6 +91,13 @@ jest.mock('@/shared/components/layout/PageContainer', () => ({
   )
 }));
 
+// Mock ChatWindowContext (required by AiAgentDashboard)
+jest.mock('@/features/ai/chat/context/ChatWindowContext', () => ({
+  useChatWindow: () => ({
+    openConversationMaximized: jest.fn(),
+  }),
+}));
+
 // Mock modal components
 jest.mock('./CreateAgentModal', () => ({
   CreateAgentModal: ({ isOpen, onClose, onAgentCreated }: any) => (

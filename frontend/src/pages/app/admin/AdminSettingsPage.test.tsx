@@ -28,10 +28,6 @@ jest.mock('./AdminSettingsOverviewTabPage', () => ({
   AdminSettingsOverviewTabPage: () => <div data-testid="overview-tab-page">Overview Content</div>
 }));
 
-jest.mock('./AdminSettingsPaymentGatewaysTabPage', () => ({
-  AdminSettingsPaymentGatewaysTabPage: () => <div data-testid="payment-gateways-tab-page">Payment Gateways Content</div>
-}));
-
 jest.mock('./AdminSettingsEmailTabPage', () => ({
   AdminSettingsEmailTabPage: () => <div data-testid="email-tab-page">Email Settings Content</div>
 }));

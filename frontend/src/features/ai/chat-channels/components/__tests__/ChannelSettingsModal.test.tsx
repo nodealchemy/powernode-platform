@@ -103,6 +103,19 @@ describe('ChannelSettingsModal', () => {
         rate_limit_per_minute: 60,
         welcome_message: 'Hello!',
         session_timeout_minutes: 30,
+        routing_config: {
+          routing_strategy: 'default',
+          skill_routes: [],
+          auto_handoff_enabled: false,
+          max_context_messages: 20,
+        },
+        agent_personality: {
+          greeting_style: 'professional',
+          response_length: 'standard',
+          tone: '',
+          display_name: '',
+          custom_instructions: '',
+        },
       });
     });
     expect(defaultProps.onSaved).toHaveBeenCalled();
