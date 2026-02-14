@@ -33,7 +33,7 @@ require_relative '../app/jobs/base_job'
 
 # Load all concerns first (BEFORE job classes that use them)
 services_concerns = Dir[File.expand_path('../app/services/concerns/*.rb', __dir__)].sort
-jobs_concerns = Dir[File.expand_path('../app/jobs/concerns/*.rb', __dir__)].sort
+jobs_concerns = Dir[File.expand_path('../app/jobs/concerns/**/*.rb', __dir__)].sort
 all_concerns = (services_concerns + jobs_concerns).sort
 all_concerns.each { |f| require f }
 
