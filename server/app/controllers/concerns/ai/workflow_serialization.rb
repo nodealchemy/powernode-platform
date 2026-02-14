@@ -21,9 +21,9 @@ module Ai
         updated_at: workflow.updated_at.iso8601,
         created_by: serialize_user(workflow.creator),
         stats: {
-          nodes_count: workflow.nodes.count,
-          edges_count: workflow.edges.count,
-          runs_count: workflow.runs.count,
+          nodes_count: workflow.nodes.size,
+          edges_count: workflow.edges.size,
+          runs_count: workflow.runs.size,
           last_run_at: workflow.runs.order(:created_at).last&.created_at&.iso8601
         }
       }

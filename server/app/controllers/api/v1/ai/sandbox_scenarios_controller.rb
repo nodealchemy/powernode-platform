@@ -6,6 +6,7 @@ module Api
       class SandboxScenariosController < ApplicationController
         before_action :set_service
         before_action :set_sandbox
+        before_action :validate_permissions
 
         # GET /api/v1/ai/sandboxes/:sandbox_id/scenarios
         def scenarios
@@ -75,6 +76,17 @@ module Api
         end
 
         private
+
+        def validate_permissions
+          return if current_worker
+
+          case action_name
+          when "scenarios", "mocks"
+            require_permission("ai.sandboxes.read")
+          when "create_scenario", "create_mock"
+            require_permission("ai.sandboxes.create")
+          end
+        end
 
         def set_service
           @service = ::Ai::SandboxService.new(current_account)

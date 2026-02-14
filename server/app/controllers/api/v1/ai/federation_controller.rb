@@ -8,6 +8,7 @@ module Api
         include ::Ai::ResourceFiltering
 
         before_action :set_partner, only: %i[show update destroy verify agents sync]
+        before_action :validate_permissions
 
         # GET /api/v1/ai/federation/partners
         def index
@@ -195,6 +196,25 @@ module Api
         end
 
         private
+
+        def validate_permissions
+          return if current_worker
+
+          case action_name
+          when "index", "show", "agents", "discover"
+            require_permission("ai.federation.read")
+          when "create"
+            require_permission("ai.federation.create")
+          when "update"
+            require_permission("ai.federation.update")
+          when "destroy"
+            require_permission("ai.federation.delete")
+          when "verify", "verify_key"
+            require_permission("ai.federation.verify")
+          when "sync", "register_external"
+            require_permission("ai.federation.sync")
+          end
+        end
 
         def set_partner
           @partner = current_user.account.federation_partners.find(params[:id])

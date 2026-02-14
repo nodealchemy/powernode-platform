@@ -8,6 +8,7 @@ module Api
         include ::Ai::ResourceFiltering
 
         before_action :set_agent, only: %i[show update destroy publish unpublish rate report]
+        before_action :validate_permissions
 
         # GET /api/v1/ai/community/agents
         # Discover community agents
@@ -218,6 +219,29 @@ module Api
         end
 
         private
+
+        def validate_permissions
+          return if current_worker
+
+          case action_name
+          when "index", "show", "my_agents", "categories", "skills"
+            require_permission("ai.community_agents.read")
+          when "create"
+            require_permission("ai.community_agents.create")
+          when "update"
+            require_permission("ai.community_agents.update")
+          when "destroy"
+            require_permission("ai.community_agents.delete")
+          when "publish", "unpublish"
+            require_permission("ai.community_agents.manage")
+          when "rate"
+            require_permission("ai.community_agents.rate")
+          when "report"
+            require_permission("ai.community_agents.report")
+          when "discover"
+            require_permission("ai.community_agents.read")
+          end
+        end
 
         def set_agent
           @agent = CommunityAgent.find(params[:id])

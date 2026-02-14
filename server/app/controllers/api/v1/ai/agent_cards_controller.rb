@@ -18,7 +18,7 @@ module Api
           # Apply filters
           scope = scope.with_skill_record(params[:skill]) if params[:skill].present?
           scope = scope.with_tag(params[:tag]) if params[:tag].present?
-          scope = scope.where("name ILIKE ?", "%#{params[:query]}%") if params[:query].present?
+          scope = scope.where("name ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(params[:query])}%") if params[:query].present?
           scope = scope.where(visibility: params[:visibility]) if params[:visibility].present?
           scope = scope.where(status: params[:status]) if params[:status].present?
 

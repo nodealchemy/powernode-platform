@@ -50,7 +50,7 @@ module Api
 
         # GET /api/v1/ai/agents
         def index
-          agents = current_user.account.ai_agents.includes(:creator, :provider, agent_skills: :skill)
+          agents = current_user.account.ai_agents.includes(:creator, :provider, :executions, agent_skills: :skill)
           agents = apply_agent_filters(agents, current_user: current_user)
           agents = apply_agent_sorting(agents)
           agents = apply_pagination(agents)

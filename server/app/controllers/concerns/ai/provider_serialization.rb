@@ -21,10 +21,10 @@ module Ai
         updated_at: provider.updated_at.iso8601,
         health_status: calculate_provider_health_status(provider),
         stats: {
-          credentials_count: provider.provider_credentials.count,
+          credentials_count: provider.provider_credentials.size,
           supported_models_count: provider.supported_models&.length || 0
         },
-        credential_count: provider.provider_credentials.count,
+        credential_count: provider.provider_credentials.size,
         model_count: provider.supported_models&.length || 0
       }
     end

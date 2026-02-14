@@ -175,21 +175,21 @@ module Ai
 
     def build_execution_stats(agent, executions)
       {
-        total_executions: executions.count,
-        successful_executions: executions.where(status: "completed").count,
-        failed_executions: executions.where(status: "failed").count,
+        total_executions: executions.size,
+        successful_executions: executions.count { |e| e.status == "completed" },
+        failed_executions: executions.count { |e| e.status == "failed" },
         success_rate: agent.success_rate || 0,
         avg_execution_time: executions.where.not(completed_at: nil).average("EXTRACT(epoch FROM (completed_at - started_at))")&.to_f&.round(2) || 0
       }
     end
 
     def build_detailed_stats(executions)
-      total = executions.count
-      completed = executions.where(status: "completed").count
+      total = executions.size
+      completed = executions.count { |e| e.status == "completed" }
       {
         total_executions: total,
         successful_executions: completed,
-        failed_executions: executions.where(status: "failed").count,
+        failed_executions: executions.count { |e| e.status == "failed" },
         average_duration: executions.where.not(completed_at: nil).average("EXTRACT(epoch FROM (completed_at - started_at))")&.to_f&.round(2) || 0,
         total_cost: executions.sum(:cost_usd)&.to_f&.round(4) || 0,
         success_rate: total.zero? ? 0 : ((completed.to_f / total) * 100).round(2)

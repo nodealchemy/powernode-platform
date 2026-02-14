@@ -240,16 +240,8 @@ module Api
         private
 
         def set_ralph_loop
-          @ralph_loop = find_ralph_loop
-        end
-
-        def find_ralph_loop
-          loop_record = current_user.account.ai_ralph_loops.find_by(id: params[:id])
-          unless loop_record
-            render_error("Ralph loop not found", status: :not_found)
-            return nil
-          end
-          loop_record
+          @ralph_loop = current_user.account.ai_ralph_loops.find_by(id: params[:id])
+          render_error("Ralph loop not found", status: :not_found) unless @ralph_loop
         end
 
         def build_execution_service

@@ -6,6 +6,7 @@ module Api
       class SandboxTestingController < ApplicationController
         before_action :set_service
         before_action :set_sandbox, only: %i[runs create_run execute_run show_run benchmarks create_benchmark run_benchmark]
+        before_action :validate_permissions
 
         # GET /api/v1/ai/sandboxes/:sandbox_id/runs
         def runs
@@ -156,6 +157,19 @@ module Api
         end
 
         private
+
+        def validate_permissions
+          return if current_worker
+
+          case action_name
+          when "runs", "show_run", "ab_tests", "ab_test_results"
+            require_permission("ai.sandboxes.test")
+          when "create_run", "execute_run", "create_ab_test", "start_ab_test"
+            require_permission("ai.sandboxes.test")
+          when "benchmarks", "create_benchmark", "run_benchmark"
+            require_permission("ai.sandboxes.benchmark")
+          end
+        end
 
         def set_service
           @service = ::Ai::SandboxService.new(current_account)

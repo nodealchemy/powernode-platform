@@ -1759,7 +1759,7 @@ Rails.application.routes.draw do
             get "/", action: :index, as: :templates_index
             post "/", action: :create, as: :templates_create
             post "from_workflow", action: :create_from_workflow, as: :create_from_workflow
-            post "publish_workflow", action: :publish_workflow, as: :publish_workflow_template
+
 
             # Member routes
             get "/:id", action: :show, as: :template_show
@@ -1841,7 +1841,7 @@ Rails.application.routes.draw do
           post "memory/search", to: "agent_memory#search"
           post "memory/clear", to: "agent_memory#clear"
           post "memory/sync", to: "agent_memory#sync"
-          post "memory/inject", to: "agent_memory#inject"
+
           get "memory/:key", to: "agent_memory#show"
           patch "memory/:key", to: "agent_memory#update"
           delete "memory/:key", to: "agent_memory#destroy"

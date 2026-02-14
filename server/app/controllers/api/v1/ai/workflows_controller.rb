@@ -10,6 +10,7 @@ module Api
         include ::Ai::WorkflowDownloadHelpers
         include ::Ai::ResourceFiltering
         include ::Ai::WorkflowRunActions
+        include ::Ai::WorkflowParamNormalization
 
         before_action :set_workflow, only: %i[show update destroy execute duplicate validate export]
         before_action :set_workflow_run, only: %i[
@@ -22,7 +23,7 @@ module Api
 
         # GET /api/v1/ai/workflows
         def index
-          workflows = current_user.account.ai_workflows.includes(:creator, :nodes, :edges)
+          workflows = current_user.account.ai_workflows.includes(:creator, :nodes, :edges, :runs)
           workflows = apply_workflow_filters(workflows)
           workflows = apply_sorting(workflows, workflow_sort_fields)
           workflows = apply_pagination(workflows)
@@ -249,41 +250,6 @@ module Api
           end
         end
 
-        def workflow_params
-          params.require(:workflow).permit(
-            :name, :description, :status, :visibility, :version, :workflow_type,
-            :is_template, :template_category, :tags, :trigger_types,
-            :execution_mode, :retry_policy, :timeout_seconds, :max_execution_time, :cost_limit,
-            configuration: {}, metadata: {}, input_schema: {}, output_schema: {}, tags: [], nodes: [], edges: []
-          )
-        end
-
-        def normalized_workflow_params
-          permitted = workflow_params.to_h
-
-          if permitted[:status].present?
-            status_mapping = { "published" => "active", "enabled" => "active", "disabled" => "inactive" }
-            permitted[:status] = status_mapping[permitted[:status]] || permitted[:status]
-          end
-
-          config_keys = %w[execution_mode timeout_seconds max_execution_time retry_policy cost_limit]
-          config_params = {}
-          config_keys.each do |key|
-            sym_key = key.to_sym
-            config_params[key] = permitted.delete(sym_key) if permitted[sym_key].present?
-          end
-          permitted[:configuration] = (permitted[:configuration] || {}).merge(config_params) if config_params.any?
-
-          if permitted.key?(:tags) || permitted.key?("tags")
-            tags_value = permitted.delete(:tags) || permitted.delete("tags")
-            permitted[:metadata] = (permitted[:metadata] || {}).merge("tags" => tags_value) if tags_value.present?
-          end
-
-          permitted.delete(:trigger_types)
-          permitted.delete("trigger_types")
-          permitted
-        end
-
         def run_update_params
           params.require(:workflow_run).permit(
             :status, :started_at, :completed_at, :cancelled_at,
@@ -297,10 +263,6 @@ module Api
             update_params[field] = Time.parse(update_params[field]) if update_params[field].is_a?(String)
           end
           update_params
-        end
-
-        def workflow_sort_fields
-          { "version" => "version", "creator" => "users.name" }
         end
 
         def delete_runs_in_transaction(runs)

@@ -3,11 +3,7 @@
 module Api
   module V1
     module Ai
-      # ValidationStatisticsController
-      #
-      # Provides aggregate validation statistics and analytics across workflows.
-      # Supports platform-wide and account-scoped statistics.
-      #
+      # Provides aggregate validation statistics and analytics across workflows
       class ValidationStatisticsController < ApplicationController
         include AuditLogging
 
@@ -161,9 +157,7 @@ module Api
         private
 
         def require_read_permission
-          unless current_user.has_permission?("ai.workflows.read")
-            render_error("Insufficient permissions to view validation statistics", status: :forbidden)
-          end
+          render_error("Insufficient permissions", status: :forbidden) unless current_user.has_permission?("ai.workflows.read")
         end
 
         def parse_time_range(range_param)

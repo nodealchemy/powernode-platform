@@ -6,6 +6,7 @@ module Api
       class SandboxesController < ApplicationController
         before_action :set_service
         before_action :set_sandbox, only: %i[show update destroy activate deactivate analytics]
+        before_action :validate_permissions
 
         # GET /api/v1/ai/sandboxes
         def index
@@ -78,6 +79,23 @@ module Api
         end
 
         private
+
+        def validate_permissions
+          return if current_worker
+
+          case action_name
+          when "index", "show", "analytics"
+            require_permission("ai.sandboxes.read")
+          when "create"
+            require_permission("ai.sandboxes.create")
+          when "update"
+            require_permission("ai.sandboxes.update")
+          when "destroy"
+            require_permission("ai.sandboxes.delete")
+          when "activate", "deactivate"
+            require_permission("ai.sandboxes.manage")
+          end
+        end
 
         def set_service
           @service = ::Ai::SandboxService.new(current_account)
