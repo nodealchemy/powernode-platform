@@ -133,7 +133,7 @@ module Mcp
       return { success: false, errors: validation[:errors] } unless validation[:valid]
 
       # Check if already installed
-      if template.installed_by_account?(account)
+      if template.subscribed_by_account?(account)
         return {
           success: false,
           errors: [ "Template already installed for this account" ]
@@ -166,7 +166,7 @@ module Mcp
       template = Ai::WorkflowTemplate.find(template_id)
 
       # Validate user has installed the template
-      unless template.installed_by_account?(account)
+      unless template.subscribed_by_account?(account)
         return {
           success: false,
           error: "You must install the template before rating it"
@@ -568,7 +568,7 @@ module Mcp
 
       errors << "Template is not published" unless template.published?
       errors << "Template is not public" unless template.public?
-      errors << "Account already has this template installed" if template.installed_by_account?(account)
+      errors << "Account already has this template installed" if template.subscribed_by_account?(account)
 
       {
         valid: errors.empty?,
