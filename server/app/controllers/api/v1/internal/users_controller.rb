@@ -82,7 +82,7 @@ class Api::V1::Internal::UsersController < Api::V1::Internal::InternalBaseContro
   private
 
   def set_user
-    @user = User.find(params[:id] || params[:user_id])
+    @user = User.find(params[:user_id] || params[:id])
   rescue ActiveRecord::RecordNotFound
     render_not_found("User")
   end

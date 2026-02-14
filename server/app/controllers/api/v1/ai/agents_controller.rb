@@ -258,7 +258,7 @@ module Api
         # =============================================================================
 
         def set_agent
-          @agent = current_user.account.ai_agents.find(params[:id] || params[:agent_id])
+          @agent = current_user.account.ai_agents.find(params[:agent_id] || params[:id])
         rescue ActiveRecord::RecordNotFound
           render_error("Agent not found", status: :not_found)
         end

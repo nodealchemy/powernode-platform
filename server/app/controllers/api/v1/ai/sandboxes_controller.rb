@@ -102,7 +102,7 @@ module Api
         end
 
         def set_sandbox
-          @sandbox = current_account.ai_sandboxes.find(params[:id] || params[:sandbox_id])
+          @sandbox = current_account.ai_sandboxes.find(params[:sandbox_id] || params[:id])
         end
 
         def sandbox_params

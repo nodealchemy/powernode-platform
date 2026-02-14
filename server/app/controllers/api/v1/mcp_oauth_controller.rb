@@ -168,7 +168,7 @@ class Api::V1::McpOauthController < ApplicationController
   private
 
   def set_mcp_server
-    @mcp_server = current_user.account.mcp_servers.find(params[:id] || params[:mcp_server_id])
+    @mcp_server = current_user.account.mcp_servers.find(params[:mcp_server_id] || params[:id])
   rescue ActiveRecord::RecordNotFound
     render_error("MCP server not found", status: :not_found)
   end

@@ -86,7 +86,7 @@ module Api
         def set_workflow
           @workflow = current_user.account.ai_workflows
                                   .includes(:creator, :nodes, :edges, :triggers, :variables)
-                                  .find(params[:id] || params[:workflow_id])
+                                  .find(params[:workflow_id] || params[:id])
         rescue ActiveRecord::RecordNotFound
           render_error("Workflow not found", status: :not_found)
         end

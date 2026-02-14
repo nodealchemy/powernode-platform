@@ -94,7 +94,7 @@ class Api::V1::Internal::AccountsController < Api::V1::Internal::InternalBaseCon
   private
 
   def set_account
-    @account = Account.find(params[:id] || params[:account_id])
+    @account = Account.find(params[:account_id] || params[:id])
   rescue ActiveRecord::RecordNotFound
     render_not_found("Account")
   end
