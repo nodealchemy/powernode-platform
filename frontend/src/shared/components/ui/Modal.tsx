@@ -193,7 +193,7 @@ export const Modal: React.FC<ModalProps> = ({
           {/* Enhanced Header */}
           <div className="relative bg-gradient-to-b from-theme-surface to-theme-background px-6 pt-6 pb-4">
             {/* Decorative top border */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-theme-interactive-primary via-purple-500 to-pink-500" />
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-theme-interactive-primary via-theme-interactive-secondary to-theme-interactive-primary" />
             
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3">

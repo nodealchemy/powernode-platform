@@ -211,6 +211,17 @@
   --node-mcp-operation-text: #ffffff;
   --node-mcp-operation-border: #7c3aed; /* violet-600 */
 
+  /* DevOps Orchestration nodes */
+  --node-devops-trigger-bg: #f97316;    /* orange-500 */
+  --node-devops-trigger-text: #ffffff;
+  --node-devops-trigger-border: #ea580c; /* orange-600 */
+  --node-devops-wait-status-bg: #f59e0b;    /* amber-500 */
+  --node-devops-wait-status-text: #ffffff;
+  --node-devops-wait-status-border: #d97706; /* amber-600 */
+  --node-devops-get-logs-bg: #64748b;    /* slate-500 */
+  --node-devops-get-logs-text: #ffffff;
+  --node-devops-get-logs-border: #475569; /* slate-600 */
+
   /* Ralph Loop - AI-driven iterative development node */
   --node-ralph-loop-bg: #3b82f6;     /* blue-500 */
   --node-ralph-loop-text: #ffffff;

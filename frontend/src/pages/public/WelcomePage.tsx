@@ -131,7 +131,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({ pageSlug = 'welcome' }
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             <div className="bg-white/10 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-white/20 transform hover:scale-105 transition-all duration-300">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-xl flex items-center justify-center mb-6">
+              <div className="w-12 h-12 bg-gradient-to-br from-theme-interactive-primary/30 to-theme-interactive-secondary/30 rounded-xl flex items-center justify-center mb-6">
                 <span className="text-2xl">🤖</span>
               </div>
               <h3 className="text-xl font-semibold text-white mb-4">AI Agents</h3>
@@ -139,7 +139,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({ pageSlug = 'welcome' }
             </div>
 
             <div className="bg-white/10 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-white/20 transform hover:scale-105 transition-all duration-300">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500/30 to-cyan-500/30 rounded-xl flex items-center justify-center mb-6">
+              <div className="w-12 h-12 bg-gradient-to-br from-theme-info/30 to-theme-interactive-primary/30 rounded-xl flex items-center justify-center mb-6">
                 <span className="text-2xl">🧠</span>
               </div>
               <h3 className="text-xl font-semibold text-white mb-4">Predictive Analytics</h3>
@@ -147,7 +147,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({ pageSlug = 'welcome' }
             </div>
 
             <div className="bg-white/10 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-white/20 transform hover:scale-105 transition-all duration-300">
-              <div className="w-12 h-12 bg-gradient-to-br from-green-500/30 to-emerald-500/30 rounded-xl flex items-center justify-center mb-6">
+              <div className="w-12 h-12 bg-gradient-to-br from-theme-success/30 to-theme-success/30 rounded-xl flex items-center justify-center mb-6">
                 <span className="text-2xl">⚡</span>
               </div>
               <h3 className="text-xl font-semibold text-white mb-4">Smart Automation</h3>

@@ -35,7 +35,7 @@ export const DevopsTriggerNode: React.FC<NodeProps<DevopsTriggerNodeType>> = ({
       hover:shadow-xl transition-all duration-200
     `}>
       {/* Header */}
-      <div className="px-4 py-3 rounded-t-lg bg-gradient-to-r from-orange-500 to-orange-600">
+      <div className="px-4 py-3 rounded-t-lg bg-node-devops-trigger">
         <div className="flex items-center gap-2 text-white">
           <PlayCircle className="h-4 w-4" />
           <span className="font-medium text-sm">DEVOPS TRIGGER</span>

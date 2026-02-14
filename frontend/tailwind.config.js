@@ -71,6 +71,9 @@ module.exports = {
         'node-page-border': 'var(--node-page-border)',
         'node-mcp-operation': 'var(--node-mcp-operation-bg)',
         'node-mcp-operation-border': 'var(--node-mcp-operation-border)',
+        'node-devops-trigger': 'var(--node-devops-trigger-bg)',
+        'node-devops-wait-status': 'var(--node-devops-wait-status-bg)',
+        'node-devops-get-logs': 'var(--node-devops-get-logs-bg)',
         // Workflow handle colors
         'handle-default': 'var(--handle-default)',
         'handle-input': 'var(--handle-input)',
@@ -127,6 +130,9 @@ module.exports = {
         'node-kb-article': 'var(--node-kb-article-bg)',
         'node-page': 'var(--node-page-bg)',
         'node-mcp-operation': 'var(--node-mcp-operation-bg)',
+        'node-devops-trigger': 'var(--node-devops-trigger-bg)',
+        'node-devops-wait-status': 'var(--node-devops-wait-status-bg)',
+        'node-devops-get-logs': 'var(--node-devops-get-logs-bg)',
         // Workflow handle backgrounds
         'handle-default': 'var(--handle-default)',
         'handle-input': 'var(--handle-input)',
@@ -173,6 +179,9 @@ module.exports = {
         'node-kb-article': 'var(--node-kb-article-border)',
         'node-page': 'var(--node-page-border)',
         'node-mcp-operation': 'var(--node-mcp-operation-border)',
+        'node-devops-trigger': 'var(--node-devops-trigger-border)',
+        'node-devops-wait-status': 'var(--node-devops-wait-status-border)',
+        'node-devops-get-logs': 'var(--node-devops-get-logs-border)',
       },
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui'],

@@ -209,7 +209,7 @@ export const ApprovalResponsePage: React.FC = () => {
     <div className="min-h-screen bg-theme-background flex items-center justify-center p-4">
       <div className="max-w-lg w-full bg-theme-surface rounded-xl shadow-lg border border-theme overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white">
+        <div className="bg-gradient-to-r from-theme-interactive-primary to-theme-interactive-secondary p-6 text-white">
           <h1 className="text-xl font-semibold mb-1">Pipeline Approval Required</h1>
           <p className="text-white/80 text-sm">
             Review and respond to this request

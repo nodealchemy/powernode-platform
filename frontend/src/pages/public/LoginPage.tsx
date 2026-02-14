@@ -178,7 +178,7 @@ export const LoginPage: React.FC = () => {
           {/* Modern Logo and Title */}
           <div className="text-center">
             <Link to="/welcome" className="inline-block group">
-              <div className="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-xl transition-all duration-200 group-hover:scale-105 border bg-gradient-to-br from-blue-600 to-purple-600 border-theme-info">
+              <div className="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-xl transition-all duration-200 group-hover:scale-105 border bg-gradient-to-br from-theme-interactive-primary to-theme-interactive-secondary border-theme-info">
                 <span className="text-white font-bold text-2xl">P</span>
               </div>
             </Link>

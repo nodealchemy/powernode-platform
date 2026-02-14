@@ -161,7 +161,7 @@ export const formatBillingInterval = (interval: string): string => {
  */
 export const getPriorityBadgeClass = (priority: 'featured' | 'popular' | 'new' | 'recommended'): string => {
   const classes = {
-    featured: 'bg-gradient-to-r from-theme-interactive-primary to-blue-600 text-white',
+    featured: 'bg-gradient-to-r from-theme-interactive-primary to-theme-interactive-primary-hover text-white',
     popular: 'bg-theme-warning text-white',
     new: 'bg-theme-success text-white', 
     recommended: 'bg-theme-info text-white'
