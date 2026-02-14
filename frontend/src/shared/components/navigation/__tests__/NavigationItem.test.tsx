@@ -2,6 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { NavigationItem } from '../NavigationItem';
 import type { NavigationItem as NavItem } from '@/shared/types/navigation';
+import * as NavigationContext from '@/shared/hooks/NavigationContext';
 
 const mockNavigate = jest.fn();
 
@@ -55,9 +56,13 @@ describe('NavigationItem', () => {
 
   it('returns null when user lacks permission', () => {
     // Override the mock for this test
-    jest.spyOn(require('@/shared/hooks/NavigationContext'), 'useNavigation').mockReturnValue({
+    jest.spyOn(NavigationContext, 'useNavigation').mockReturnValue({
       hasPermission: () => false,
-    });
+      config: { items: [], sections: [] },
+      state: { expandedItems: [], mobileOpen: false },
+      theme: { variant: 'default' },
+      updateState: jest.fn(),
+    } as unknown as ReturnType<typeof NavigationContext.useNavigation>);
 
     const { container } = renderItem({
       id: 'restricted',

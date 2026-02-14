@@ -104,7 +104,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     } finally {
       setLoading(false);
     }
-  }, [conversation.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [conversation.id]);  
 
   const handleSendMessage = useCallback(async () => {
     if (!inputValue.trim() || sending || !currentUser) return;
@@ -185,7 +185,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     } finally {
       setSending(false);
     }
-  }, [inputValue, sending, currentUser, conversation.id, agentId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [inputValue, sending, currentUser, conversation.id, agentId]);  
 
   const handleTyping = useCallback(() => {
     if (!isTyping) {
@@ -219,7 +219,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
   // Load initial messages
   useEffect(() => {
     loadMessages();
-  }, [conversation.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [conversation.id]);  
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {

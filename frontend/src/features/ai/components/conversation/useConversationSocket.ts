@@ -103,7 +103,7 @@ export function useConversationSocket({
         });
         break;
     }
-  }, [currentUserId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentUserId]);  
 
   // Update ref immediately when callback changes
   handleChannelMessageRef.current = handleChannelMessage;

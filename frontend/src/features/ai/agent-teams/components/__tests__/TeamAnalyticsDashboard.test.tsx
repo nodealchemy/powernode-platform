@@ -128,7 +128,9 @@ describe('TeamAnalyticsDashboard', () => {
     it('shows the generated_at date', () => {
       renderDashboard();
       const formatted = new Date('2026-02-01T00:00:00Z').toLocaleString();
-      expect(screen.getByText(new RegExp(formatted.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))).toBeInTheDocument();
+      const escaped = formatted.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // eslint-disable-next-line security/detect-non-literal-regexp
+      expect(screen.getByText(new RegExp(escaped))).toBeInTheDocument();
     });
   });
 

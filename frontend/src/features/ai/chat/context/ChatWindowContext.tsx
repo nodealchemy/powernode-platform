@@ -68,7 +68,7 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
     });
     broadcastRef.current = bc;
     return () => bc?.close();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);  
 
   // Detached mode: signal ready on mount, signal closed on unmount
   useEffect(() => {

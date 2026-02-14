@@ -46,7 +46,7 @@ export const ChatWindowFloating: React.FC = () => {
       minHeight: MIN_HEIGHT,
       resize: 'both' as const,
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);  
 
   const handleDragStart = useCallback((e: React.PointerEvent) => {
     if (!containerRef.current) return;

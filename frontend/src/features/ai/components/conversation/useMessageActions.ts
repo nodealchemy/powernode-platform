@@ -42,7 +42,7 @@ export function useMessageActions({
     } catch (_error) {
       // Error silently ignored
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);  
 
   const handleRegenerateResponse = useCallback(async (messageId: string) => {
     if (!agentId) {
@@ -77,7 +77,7 @@ export function useMessageActions({
         message: 'Failed to regenerate AI response. Please try again.'
       });
     }
-  }, [conversationId, agentId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [conversationId, agentId]);  
 
   const handleRateMessage = useCallback(async (messageId: string, rating: 'thumbs_up' | 'thumbs_down') => {
     if (!agentId) {
@@ -110,7 +110,7 @@ export function useMessageActions({
         message: 'Failed to submit your feedback. Please try again.'
       });
     }
-  }, [conversationId, agentId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [conversationId, agentId]);  
 
   const handleEditMessage = useCallback(async (messageId: string, newContent: string) => {
     if (!agentId) return;
@@ -130,7 +130,7 @@ export function useMessageActions({
     } finally {
       setEditSaving(false);
     }
-  }, [conversationId, agentId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [conversationId, agentId]);  
 
   const handleDeleteMessage = useCallback(async (message: AiMessage) => {
     if (!agentId) return;
@@ -154,7 +154,7 @@ export function useMessageActions({
     } catch (_error) {
       addNotification({ type: 'error', title: 'Action Failed', message: 'Failed to update message' });
     }
-  }, [conversationId, agentId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [conversationId, agentId]);  
 
   const handleOpenThread = useCallback(async (message: AiMessage) => {
     if (!agentId) return;
@@ -170,7 +170,7 @@ export function useMessageActions({
     } finally {
       setThreadLoading(false);
     }
-  }, [conversationId, agentId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [conversationId, agentId]);  
 
   const handleSendReply = useCallback(async (content: string) => {
     if (!agentId || !threadMessage) return;
@@ -186,7 +186,7 @@ export function useMessageActions({
     } catch (_error) {
       addNotification({ type: 'error', title: 'Reply Failed', message: 'Failed to send reply' });
     }
-  }, [conversationId, agentId, threadMessage]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [conversationId, agentId, threadMessage]);  
 
   return {
     handleCopyMessage,
