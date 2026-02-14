@@ -161,7 +161,7 @@ export const AIAgentsPage: React.FC = () => {
       variant: 'primary' as const,
       icon: Plus,
     }] : []),
-    ...(activeTab !== 'cards' && canCreateAgents ? [{
+    ...(['overview', 'agents'].includes(activeTab) && canCreateAgents ? [{
       id: 'create-agent',
       label: 'Create Agent',
       onClick: () => setShowCreateAgentModal(true),
