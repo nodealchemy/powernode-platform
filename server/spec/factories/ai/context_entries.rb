@@ -4,7 +4,7 @@ FactoryBot.define do
   factory :ai_context_entry, class: "Ai::ContextEntry" do
     association :persistent_context, factory: :ai_persistent_context
     sequence(:entry_key) { |n| "entry_key_#{n}" }
-    entry_type { "factual" }
+    entry_type { "fact" }
     content { { "data" => Faker::Lorem.sentence } }
     content_text { Faker::Lorem.paragraph }
     memory_type { "factual" }
@@ -16,7 +16,7 @@ FactoryBot.define do
     metadata { {} }
 
     trait :procedural do
-      entry_type { "procedural" }
+      entry_type { "knowledge" }
       memory_type { "procedural" }
     end
 

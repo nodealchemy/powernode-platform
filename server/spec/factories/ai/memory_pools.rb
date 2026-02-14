@@ -5,8 +5,8 @@ FactoryBot.define do
     account
     pool_id { SecureRandom.uuid }
     sequence(:name) { |n| "Memory Pool #{n}" }
-    pool_type { "shared_memory" }
-    scope { "team" }
+    pool_type { "shared" }
+    scope { "execution" }
     data { {} }
     metadata { {} }
     access_control { {} }

@@ -46,12 +46,4 @@ FactoryBot.define do
       responded_at { Time.current }
     end
   end
-
-  factory :ai_team_execution, class: "Ai::TeamExecution" do
-    account
-    association :agent_team, factory: :ai_agent_team
-    status { "running" }
-    objective { "Test execution objective" }
-    started_at { Time.current }
-  end
 end
