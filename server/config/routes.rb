@@ -106,9 +106,6 @@ Rails.application.routes.draw do
           end
         end
 
-        # Review notifications
-        resources :review_notifications, only: [ :show, :update ]
-
         # DevOps Approval Tokens (for worker service)
         resources :approval_tokens, only: [ :show ], param: :step_execution_id do
           member do
