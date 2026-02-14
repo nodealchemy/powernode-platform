@@ -67,7 +67,7 @@ export const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar 
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center space-x-3 p-2 rounded-lg text-sm hover:bg-theme-surface-hover transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-theme-surface"
+              className="flex items-center space-x-3 p-2 rounded-lg text-sm hover:bg-theme-surface-hover transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-theme-primary focus:ring-offset-2 focus:ring-offset-theme-surface"
               aria-expanded={showUserMenu}
               aria-haspopup="true"
             >

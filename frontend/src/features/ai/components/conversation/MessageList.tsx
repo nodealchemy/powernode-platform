@@ -219,7 +219,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                           hr: () => <hr className="border-t border-theme dark:border-theme my-4" />,
                           table: ({ children }) => (
                             <div className="overflow-x-auto mb-4">
-                              <table className="min-w-full divide-y divide-gray-300 dark:divide-gray-600">
+                              <table className="min-w-full divide-y divide-theme">
                                 {children}
                               </table>
                             </div>

@@ -96,7 +96,7 @@ const TRIGGER_TYPES = [
   { value: 'schedule', label: 'Schedule (Cron)' },
 ];
 
-const selectClass = 'w-full px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-blue-500';
+const selectClass = 'w-full px-3 py-2 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary';
 const inputClass = selectClass;
 const labelClass = 'block text-sm font-medium text-theme-primary mb-1';
 

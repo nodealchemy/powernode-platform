@@ -91,6 +91,8 @@ import CompoundLearningPage from './ai/CompoundLearningPage';
 import { AuditDashboardPage } from '@/features/ai/audit';
 import { SecurityDashboardPage } from '@/features/ai/security';
 import { EvaluationDashboardPage } from '@/features/ai/evaluation';
+import { FinOpsPage } from '@/features/ai/finops';
+import { McpAppsStandalonePage } from '@/features/ai/mcp-apps';
 
 // Container Orchestration (Sandboxed AI execution)
 import { ContainersPage } from '@/features/devops/containers/pages/ContainersPage';
@@ -450,6 +452,9 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/learning" element={<CompoundLearningPage />} />
         <Route path="/ai/audit" element={<AuditDashboardPage />} />
         <Route path="/ai/security" element={<SecurityDashboardPage />} />
+
+        <Route path="/ai/finops" element={<FinOpsPage />} />
+        <Route path="/ai/mcp-apps" element={<McpAppsStandalonePage />} />
 
         {/* AI Pages - Hidden (no nav, still accessible) */}
         <Route path="/ai/evaluation" element={<EvaluationDashboardPage />} />

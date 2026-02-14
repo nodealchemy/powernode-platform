@@ -282,7 +282,7 @@ export const ApprovalResponsePage: React.FC = () => {
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
                 placeholder={details.requires_comment ? 'A comment is required...' : 'Add an optional comment...'}
-                className="w-full px-3 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                className="w-full px-3 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary text-sm focus:outline-none focus:ring-2 focus:ring-theme-primary resize-none"
                 rows={3}
               />
             </div>

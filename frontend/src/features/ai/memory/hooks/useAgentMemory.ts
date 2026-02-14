@@ -48,18 +48,22 @@ export function useAgentMemory(options: UseAgentMemoryOptions): UseAgentMemoryRe
     setIsLoading(true);
     setError(null);
 
-    const response = await contextApi.getAgentMemory(agentId, 1, 100, filters);
+    try {
+      const response = await contextApi.getAgentMemory(agentId, 1, 100, filters);
 
-    if (response.success && response.data) {
-      setMemories(response.data.memories);
-      setAgent(response.data.agent);
-      setContext(response.data.context);
-      setPagination(response.data.pagination);
-    } else {
-      setError(response.error || 'Failed to fetch agent memory');
+      if (response.success && response.data) {
+        setMemories(response.data.memories);
+        setAgent(response.data.agent);
+        setContext(response.data.context);
+        setPagination(response.data.pagination);
+      } else {
+        setError(response.error || 'Failed to fetch agent memory');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch agent memory');
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   }, [agentId, filters]);
 
   useEffect(() => {

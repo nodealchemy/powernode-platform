@@ -25,7 +25,7 @@ export {
 } from './api/mcpAppsApi';
 
 // Page
-export { McpAppsPage, McpAppsContent } from './pages/McpAppsPage';
+export { McpAppsPage, McpAppsContent, McpAppsStandalonePage } from './pages/McpAppsPage';
 
 // Components
 export { McpAppGallery } from './components/McpAppGallery';

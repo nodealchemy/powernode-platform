@@ -223,7 +223,7 @@ export const LoginPage: React.FC = () => {
                       required
                       data-form-type="email"
                       data-testid="email-input"
-                      className="input-theme block w-full rounded-xl border focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      className="input-theme block w-full rounded-xl border focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-transparent transition-all duration-200"
                       placeholder="Enter your email address"
                       value={formData.email}
                       onChange={(e) => void handleChange(e)}
@@ -250,7 +250,7 @@ export const LoginPage: React.FC = () => {
                       required
                       data-form-type="password"
                       data-testid="password-input"
-                      className="input-theme block w-full pr-12 rounded-xl border focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      className="input-theme block w-full pr-12 rounded-xl border focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-transparent transition-all duration-200"
                       placeholder="Enter your password"
                       value={formData.password}
                       onChange={(e) => void handleChange(e)}

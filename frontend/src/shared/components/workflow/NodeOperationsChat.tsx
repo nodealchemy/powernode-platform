@@ -490,7 +490,7 @@ Position: (${node.position_x}, ${node.position_y})`;
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ask about node configuration, optimization, or modifications..."
-                className="flex-1 resize-none rounded-md border border-theme bg-theme-surface px-3 py-2 text-sm placeholder:text-theme-muted focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 resize-none rounded-md border border-theme bg-theme-surface px-3 py-2 text-sm placeholder:text-theme-muted focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-transparent"
                 rows={2}
                 disabled={sending || loading || initializationFailed}
               />

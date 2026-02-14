@@ -9,7 +9,7 @@ import {
   FlaskConical, Boxes, MessagesSquare,
   Container, Coins, Database,
   Network, Layers, Lock, Rocket, HeartPulse,
-  Play
+  Play, DollarSign, AppWindow
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
 
@@ -188,16 +188,34 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 12
         },
         {
+          id: 'ai-finops',
+          name: 'FinOps',
+          href: '/app/ai/finops',
+          icon: DollarSign,
+          description: 'Monitor AI costs, token usage, budgets, and optimization',
+          permissions: ['ai.finops.view'],
+          order: 13
+        },
+        {
+          id: 'ai-mcp-apps',
+          name: 'MCP Apps',
+          href: '/app/ai/mcp-apps',
+          icon: AppWindow,
+          description: 'Model Context Protocol apps gallery and configuration',
+          permissions: ['ai.agents.read'],
+          order: 14
+        },
+        {
           id: 'ai-sandbox',
           name: 'Sandbox',
           href: '/app/ai/sandbox',
           icon: FlaskConical,
           description: 'Test and experiment with AI capabilities',
           permissions: ['ai.agents.read'],
-          order: 13
+          order: 15
         }
       ],
-      permissions: ['ai.agents.read', 'ai.workflows.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.analytics.read', 'ai.credits.read', 'ai.teams.read'],
+      permissions: ['ai.agents.read', 'ai.workflows.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.analytics.read', 'ai.credits.read', 'ai.teams.read', 'ai.finops.view'],
       collapsible: true,
       defaultExpanded: true,
       order: 10
