@@ -2,6 +2,9 @@
 
 class AiA2aTaskExecutionJob < BaseJob
   include AiJobsConcern
+  include AiProviderCallsConcern
+  include AiCostCalculationConcern
+  include A2aArtifactExtractionConcern
 
   sidekiq_options queue: 'ai_agents', retry: 3
 
@@ -227,10 +230,8 @@ class AiA2aTaskExecutionJob < BaseJob
     message = @task['message'] || {}
     parts = message['parts'] || []
 
-    # Also include simplified input
     input = @task['input'] || {}
 
-    # Combine all text parts
     text_parts = parts.select { |p| p['type'] == 'text' }.map { |p| p['text'] }
     text_parts << input['text'] if input['text'].present? && text_parts.empty?
 
@@ -257,58 +258,16 @@ class AiA2aTaskExecutionJob < BaseJob
       if ollama_compatible_provider?(provider, credentials)
         call_ollama_provider(credentials, prompt, context)
       else
-        call_generic_provider(provider, credentials, prompt, context)
+        call_a2a_generic_provider(provider, credentials, prompt, context)
       end
     else
-      call_generic_provider(provider, credentials, prompt, context)
+      call_a2a_generic_provider(provider, credentials, prompt, context)
     end
   end
 
-  def extract_artifacts(response)
-    artifacts = []
-
-    # Extract code blocks as artifacts
-    response.to_s.scan(/```(\w+)?\n(.*?)```/m) do |lang, code|
-      artifacts << {
-        'id' => SecureRandom.uuid,
-        'name' => "code_#{artifacts.size + 1}.#{lang || 'txt'}",
-        'mime_type' => mime_type_for_language(lang),
-        'parts' => [{ 'type' => 'text', 'text' => code }]
-      }
-    end
-
-    # Extract JSON blocks as data artifacts
-    response.to_s.scan(/```json\n(.*?)```/m) do |json|
-      parsed_data = begin
-        JSON.parse(json[0])
-      rescue JSON::ParserError
-        json[0]
-      end
-      artifacts << {
-        'id' => SecureRandom.uuid,
-        'name' => "data_#{artifacts.size + 1}.json",
-        'mime_type' => 'application/json',
-        'parts' => [{ 'type' => 'data', 'data' => parsed_data }]
-      }
-    end
-
-    artifacts
-  end
-
-  def mime_type_for_language(lang)
-    case lang&.downcase
-    when 'python', 'py' then 'text/x-python'
-    when 'javascript', 'js' then 'text/javascript'
-    when 'typescript', 'ts' then 'text/typescript'
-    when 'ruby', 'rb' then 'text/x-ruby'
-    when 'json' then 'application/json'
-    when 'yaml', 'yml' then 'text/yaml'
-    when 'html' then 'text/html'
-    when 'css' then 'text/css'
-    when 'sql' then 'text/x-sql'
-    when 'bash', 'sh' then 'text/x-shellscript'
-    else 'text/plain'
-    end
+  # Simple generic fallback for A2A (delegates to OpenAI-compatible format)
+  def call_a2a_generic_provider(_provider, credentials, prompt, context)
+    call_openai_provider(credentials, prompt, context)
   end
 
   def store_execution_memory(agent, response, success)
@@ -352,181 +311,5 @@ class AiA2aTaskExecutionJob < BaseJob
     }
 
     backend_api_patch("/api/v1/ai/a2a/tasks/#{@task['task_id']}", payload)
-  end
-
-  # Reuse AI provider methods from AiAgentExecutionJob
-  # These methods are included via AiJobsConcern or can be extracted to a shared module
-
-  def call_openai_provider(credentials, prompt, context)
-    start_time = Time.current
-
-    creds_response = backend_api_post("/api/v1/ai/credentials/#{credentials['id']}/decrypt")
-    return { success: false, error: 'Failed to decrypt credentials' } unless creds_response['success']
-
-    decrypted_creds = creds_response['data']['credentials']
-    api_key = decrypted_creds['api_key']
-    model = decrypted_creds['model'] || 'gpt-3.5-turbo'
-
-    return { success: false, error: 'OpenAI API key not configured' } unless api_key
-
-    messages = context + [{ role: 'user', content: prompt }]
-
-    begin
-      response = make_http_request(
-        'https://api.openai.com/v1/chat/completions',
-        method: :post,
-        headers: {
-          'Authorization' => "Bearer #{api_key}",
-          'Content-Type' => 'application/json'
-        },
-        body: {
-          model: model,
-          messages: messages,
-          max_tokens: 2000
-        }.to_json,
-        timeout: 90
-      )
-
-      response_time = ((Time.current - start_time) * 1000).to_i
-
-      if response.code.to_i == 200
-        data = JSON.parse(response.body)
-        {
-          success: true,
-          response: data.dig('choices', 0, 'message', 'content') || 'No response generated',
-          model: model,
-          metadata: {
-            tokens_used: data.dig('usage', 'total_tokens') || 0,
-            response_time_ms: response_time
-          },
-          cost: (data.dig('usage', 'total_tokens').to_i / 1000.0) * 0.002
-        }
-      else
-        error_data = JSON.parse(response.body) rescue {}
-        { success: false, error: "OpenAI API error: #{error_data.dig('error', 'message') || response.body}" }
-      end
-    rescue StandardError => e
-      { success: false, error: "OpenAI connection failed: #{e.message}" }
-    end
-  end
-
-  def call_anthropic_provider(credentials, prompt, context)
-    start_time = Time.current
-
-    creds_response = backend_api_post("/api/v1/ai/credentials/#{credentials['id']}/decrypt")
-    return { success: false, error: 'Failed to decrypt credentials' } unless creds_response['success']
-
-    decrypted_creds = creds_response['data']['credentials']
-    api_key = decrypted_creds['api_key']
-    model = decrypted_creds['model'] || 'claude-3-sonnet-20240229'
-
-    return { success: false, error: 'Anthropic API key not configured' } unless api_key
-
-    system_message = context.find { |m| m[:role] == 'system' }&.dig(:content) || "You are a helpful AI assistant."
-    user_messages = context.reject { |m| m[:role] == 'system' } + [{ role: 'user', content: prompt }]
-
-    begin
-      response = make_http_request(
-        'https://api.anthropic.com/v1/messages',
-        method: :post,
-        headers: {
-          'x-api-key' => api_key,
-          'Content-Type' => 'application/json',
-          'anthropic-version' => '2023-06-01'
-        },
-        body: {
-          model: model,
-          max_tokens: 2000,
-          system: system_message,
-          messages: user_messages
-        }.to_json,
-        timeout: 90
-      )
-
-      response_time = ((Time.current - start_time) * 1000).to_i
-
-      if response.code.to_i == 200
-        data = JSON.parse(response.body)
-        {
-          success: true,
-          response: data.dig('content', 0, 'text') || 'No response generated',
-          model: model,
-          metadata: {
-            tokens_used: (data.dig('usage', 'output_tokens') || 0) + (data.dig('usage', 'input_tokens') || 0),
-            response_time_ms: response_time
-          },
-          cost: (data.dig('usage', 'input_tokens').to_i / 1000.0) * 0.003 + (data.dig('usage', 'output_tokens').to_i / 1000.0) * 0.015
-        }
-      else
-        error_data = JSON.parse(response.body) rescue {}
-        { success: false, error: "Anthropic API error: #{error_data.dig('error', 'message') || response.body}" }
-      end
-    rescue StandardError => e
-      { success: false, error: "Anthropic connection failed: #{e.message}" }
-    end
-  end
-
-  def call_ollama_provider(credentials, prompt, context)
-    start_time = Time.current
-
-    creds_response = backend_api_post("/api/v1/ai/credentials/#{credentials['id']}/decrypt")
-    return { success: false, error: 'Failed to decrypt credentials' } unless creds_response['success']
-
-    decrypted_creds = creds_response['data']['credentials']
-    base_url = decrypted_creds['base_url'] || 'http://localhost:11434'
-    model = decrypted_creds['model'] || 'llama2'
-
-    messages = context.dup
-    messages << { role: 'user', content: prompt }
-
-    begin
-      response = make_http_request(
-        "#{base_url}/api/chat",
-        method: :post,
-        headers: { 'Content-Type' => 'application/json' },
-        body: {
-          model: model,
-          messages: messages,
-          stream: false
-        }.to_json,
-        timeout: 300
-      )
-
-      response_time = ((Time.current - start_time) * 1000).to_i
-
-      if response.code.to_i == 200
-        data = JSON.parse(response.body)
-        content = data.dig('message', 'content')
-
-        if content && !content.empty?
-          {
-            success: true,
-            response: content,
-            model: model,
-            metadata: {
-              tokens_used: data.dig('eval_count') || 0,
-              response_time_ms: response_time
-            },
-            cost: 0.0
-          }
-        else
-          { success: false, error: 'Empty response from Ollama' }
-        end
-      else
-        { success: false, error: "Ollama API error: #{response.code} - #{response.body}" }
-      end
-    rescue StandardError => e
-      { success: false, error: "Ollama connection failed: #{e.message}" }
-    end
-  end
-
-  def call_generic_provider(provider, credentials, prompt, context)
-    # Fallback to OpenAI-compatible format
-    call_openai_provider(credentials, prompt, context)
-  end
-
-  def ollama_compatible_provider?(provider, credentials)
-    provider_name = provider['name']&.downcase || ''
-    provider_name.include?('ollama')
   end
 end
