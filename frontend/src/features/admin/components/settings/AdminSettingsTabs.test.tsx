@@ -38,7 +38,7 @@ describe('AdminSettingsTabs', () => {
       expect(screen.getAllByText('Overview')).toHaveLength(2); // Desktop and mobile
       expect(screen.getAllByText('Email Settings')).toHaveLength(2); // Desktop and mobile
       expect(screen.getAllByText('Security')).toHaveLength(2); // Desktop and mobile
-      expect(screen.getAllByText('Payment Gateways')).toHaveLength(2); // Desktop and mobile
+      // Payment Gateways is enterpriseOnly — not rendered without enterprise enabled
     });
   });
 
