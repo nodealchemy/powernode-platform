@@ -66,7 +66,7 @@ export const RunnerDetailPage: React.FC = () => {
       setRunner(data);
     } catch (_error) {
       showNotification('Failed to load runner', 'error');
-      navigate('/app/devops/runners');
+      navigate('/app/devops/ci-cd/runners');
     } finally {
       setLoading(false);
     }
@@ -89,7 +89,7 @@ export const RunnerDetailPage: React.FC = () => {
         try {
           await gitProvidersApi.deleteRunner(runner.id);
           showNotification('Runner deleted successfully', 'success');
-          navigate('/app/devops/runners');
+          navigate('/app/devops/ci-cd/runners');
         } catch (_error) {
           showNotification('Failed to delete runner', 'error');
         } finally {
@@ -125,7 +125,7 @@ export const RunnerDetailPage: React.FC = () => {
         breadcrumbs={[
           { label: 'Dashboard', href: '/app' },
           { label: 'DevOps', href: '/app/devops' },
-          { label: 'Runners', href: '/app/devops/runners' },
+          { label: 'Runners', href: '/app/devops/ci-cd/runners' },
           { label: 'Loading...' },
         ]}
       >
@@ -143,14 +143,14 @@ export const RunnerDetailPage: React.FC = () => {
         breadcrumbs={[
           { label: 'Dashboard', href: '/app' },
           { label: 'DevOps', href: '/app/devops' },
-          { label: 'Runners', href: '/app/devops/runners' },
+          { label: 'Runners', href: '/app/devops/ci-cd/runners' },
           { label: 'Not Found' },
         ]}
         actions={[
           {
             id: 'back',
             label: 'Back to Runners',
-            onClick: () => navigate('/app/devops/runners'),
+            onClick: () => navigate('/app/devops/ci-cd/runners'),
             icon: ArrowLeft,
             variant: 'outline',
           },
@@ -170,14 +170,14 @@ export const RunnerDetailPage: React.FC = () => {
       breadcrumbs={[
         { label: 'Dashboard', href: '/app' },
         { label: 'DevOps', href: '/app/devops' },
-        { label: 'Runners', href: '/app/devops/runners' },
+        { label: 'Runners', href: '/app/devops/ci-cd/runners' },
         { label: runner.name },
       ]}
       actions={[
         {
           id: 'back',
           label: 'Back',
-          onClick: () => navigate('/app/devops/runners'),
+          onClick: () => navigate('/app/devops/ci-cd/runners'),
           icon: ArrowLeft,
           variant: 'outline',
         },

@@ -8,7 +8,7 @@ export function NewIntegrationPage() {
   const breadcrumbs = [
     { label: 'Dashboard', href: '/app' },
     { label: 'DevOps', href: '/app/devops' },
-    { label: 'Integrations', href: '/app/devops/integrations' },
+    { label: 'Integrations', href: '/app/devops/connections/integrations' },
     { label: 'Add Integration' }
   ];
 
@@ -20,7 +20,7 @@ export function NewIntegrationPage() {
       actions={[
         {
           label: 'Cancel',
-          onClick: () => navigate('/app/devops/integrations'),
+          onClick: () => navigate('/app/devops/connections/integrations'),
           variant: 'secondary',
         },
       ]}

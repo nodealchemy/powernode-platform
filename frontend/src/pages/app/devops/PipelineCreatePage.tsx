@@ -96,7 +96,7 @@ export const PipelineCreatePage: React.FC = () => {
       });
 
       showNotification('Pipeline created successfully', 'success');
-      navigate(`/app/devops/pipelines/${pipeline.id}`);
+      navigate(`/app/devops/ci-cd/pipelines/${pipeline.id}`);
     } catch (_error) {
       showNotification('Failed to create pipeline', 'error');
     } finally {
@@ -111,14 +111,14 @@ export const PipelineCreatePage: React.FC = () => {
       breadcrumbs={[
         { label: 'Dashboard', href: '/app' },
         { label: 'DevOps', href: '/app/devops' },
-        { label: 'Pipelines', href: '/app/devops/pipelines' },
+        { label: 'Pipelines', href: '/app/devops/ci-cd/pipelines' },
         { label: 'Create' },
       ]}
       actions={[
         {
           id: 'back',
           label: 'Back to Pipelines',
-          onClick: () => navigate('/app/devops/pipelines'),
+          onClick: () => navigate('/app/devops/ci-cd/pipelines'),
           icon: ArrowLeft,
           variant: 'outline',
         },

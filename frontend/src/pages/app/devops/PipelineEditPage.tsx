@@ -86,7 +86,7 @@ export const PipelineEditPage: React.FC = () => {
       );
     } catch (_error) {
       showNotification('Failed to load pipeline', 'error');
-      navigate('/app/devops/pipelines');
+      navigate('/app/devops/ci-cd/pipelines');
     } finally {
       setLoading(false);
     }
@@ -146,7 +146,7 @@ export const PipelineEditPage: React.FC = () => {
       });
 
       showNotification('Pipeline updated successfully', 'success');
-      navigate(`/app/devops/pipelines/${id}`);
+      navigate(`/app/devops/ci-cd/pipelines/${id}`);
     } catch (_error) {
       showNotification('Failed to update pipeline', 'error');
     } finally {
@@ -161,7 +161,7 @@ export const PipelineEditPage: React.FC = () => {
         breadcrumbs={[
           { label: 'Dashboard', href: '/app' },
           { label: 'DevOps', href: '/app/devops' },
-          { label: 'Pipelines', href: '/app/devops/pipelines' },
+          { label: 'Pipelines', href: '/app/devops/ci-cd/pipelines' },
           { label: 'Loading...' },
         ]}
       >
@@ -179,14 +179,14 @@ export const PipelineEditPage: React.FC = () => {
         breadcrumbs={[
           { label: 'Dashboard', href: '/app' },
           { label: 'DevOps', href: '/app/devops' },
-          { label: 'Pipelines', href: '/app/devops/pipelines' },
+          { label: 'Pipelines', href: '/app/devops/ci-cd/pipelines' },
           { label: 'Not Found' },
         ]}
         actions={[
           {
             id: 'back',
             label: 'Back to Pipelines',
-            onClick: () => navigate('/app/devops/pipelines'),
+            onClick: () => navigate('/app/devops/ci-cd/pipelines'),
             icon: ArrowLeft,
             variant: 'outline',
           },
@@ -206,15 +206,15 @@ export const PipelineEditPage: React.FC = () => {
       breadcrumbs={[
         { label: 'Dashboard', href: '/app' },
         { label: 'DevOps', href: '/app/devops' },
-        { label: 'Pipelines', href: '/app/devops/pipelines' },
-        { label: pipeline.name, href: `/app/devops/pipelines/${id}` },
+        { label: 'Pipelines', href: '/app/devops/ci-cd/pipelines' },
+        { label: pipeline.name, href: `/app/devops/ci-cd/pipelines/${id}` },
         { label: 'Edit' },
       ]}
       actions={[
         {
           id: 'cancel',
           label: 'Cancel',
-          onClick: () => navigate(`/app/devops/pipelines/${id}`),
+          onClick: () => navigate(`/app/devops/ci-cd/pipelines/${id}`),
           icon: ArrowLeft,
           variant: 'outline',
         },

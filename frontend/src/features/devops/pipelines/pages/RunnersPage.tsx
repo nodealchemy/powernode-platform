@@ -318,7 +318,7 @@ const RunnersPageContent: React.FC = () => {
                 <RunnerCard
                   key={runner.id}
                   runner={runner}
-                  onClick={() => navigate(`/app/devops/runners/${runner.id}`)}
+                  onClick={() => navigate(`/app/devops/ci-cd/runners/${runner.id}`)}
                   onDelete={() => handleDelete(runner)}
                   canDelete={canManageRunners}
                 />

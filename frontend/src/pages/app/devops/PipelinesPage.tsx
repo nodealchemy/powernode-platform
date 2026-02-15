@@ -60,7 +60,7 @@ export const PipelinesPage: React.FC = () => {
   const handleTrigger = useCallback(async (id: string) => {
     const result = await triggerPipeline(id);
     if (result) {
-      navigate(`/app/devops/pipelines/${id}/runs/${result.id}`);
+      navigate(`/app/devops/ci-cd/pipelines/${id}/runs/${result.id}`);
     }
   }, [triggerPipeline, navigate]);
 
@@ -120,7 +120,7 @@ export const PipelinesPage: React.FC = () => {
           {
             id: 'create-pipeline',
             label: 'Create Pipeline',
-            onClick: () => navigate('/app/devops/pipelines/new'),
+            onClick: () => navigate('/app/devops/ci-cd/pipelines/new'),
             icon: Plus,
             variant: 'primary' as const
           }

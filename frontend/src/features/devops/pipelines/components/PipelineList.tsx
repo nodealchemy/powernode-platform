@@ -208,7 +208,7 @@ export const PipelineList: React.FC<PipelineListProps> = ({
           onDuplicate={() => onDuplicate(pipeline.id)}
           onDelete={() => onDelete(pipeline.id)}
           onExportYaml={() => onExportYaml(pipeline.id)}
-          onClick={() => navigate(`/app/devops/pipelines/${pipeline.id}`)}
+          onClick={() => navigate(`/app/devops/ci-cd/pipelines/${pipeline.id}`)}
         />
       ))}
     </div>

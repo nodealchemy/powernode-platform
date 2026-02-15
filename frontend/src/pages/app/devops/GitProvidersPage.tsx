@@ -181,7 +181,7 @@ export function GitProvidersPage() {
           setIsModalOpen(true);
         } catch (_error) {
           showNotification('Failed to load provider', 'error');
-          navigate('/app/devops/git');
+          navigate('/app/devops/source-control');
         }
       } else if (id === 'new') {
         setEditingProvider(null);
@@ -220,7 +220,7 @@ export function GitProvidersPage() {
     setEditingProvider(null);
     setSelectedProviderType(undefined);
     if (id) {
-      navigate('/app/devops/git');
+      navigate('/app/devops/source-control');
     }
   };
 
@@ -230,7 +230,7 @@ export function GitProvidersPage() {
     setSelectedProviderType(undefined);
     showNotification(editingProvider ? 'Provider updated' : 'Provider created', 'success');
     if (id) {
-      navigate('/app/devops/git');
+      navigate('/app/devops/source-control');
     }
     // Reload providers without full page refresh
     fetchProviders();
@@ -292,7 +292,7 @@ export function GitProvidersPage() {
 
   const handleViewRepositories = (providerId: string) => {
     setOpenMenuId(null);
-    navigate(`/app/devops/repositories?provider=${providerId}`);
+    navigate(`/app/devops/source-control/repositories?provider=${providerId}`);
   };
 
   // Credential management handlers

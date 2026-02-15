@@ -168,7 +168,7 @@ export const ApprovalResponsePage: React.FC = () => {
             Unable to Process Request
           </h1>
           <p className="text-theme-secondary mb-6">{error}</p>
-          <Button onClick={() => navigate('/app/devops/pipelines')} variant="primary">
+          <Button onClick={() => navigate('/app/devops/ci-cd')} variant="primary">
             Go to Dashboard
           </Button>
         </div>
@@ -193,7 +193,7 @@ export const ApprovalResponsePage: React.FC = () => {
               ? 'The pipeline step has been approved and will continue execution.'
               : 'The pipeline step has been rejected and the pipeline will fail.'}
           </p>
-          <Button onClick={() => navigate('/app/devops/pipelines')} variant="primary">
+          <Button onClick={() => navigate('/app/devops/ci-cd')} variant="primary">
             View Pipeline Runs
           </Button>
         </div>
@@ -307,7 +307,7 @@ export const ApprovalResponsePage: React.FC = () => {
           {isExpired && (
             <div className="pt-2">
               <Button
-                onClick={() => navigate('/app/devops/pipelines')}
+                onClick={() => navigate('/app/devops/ci-cd')}
                 variant="primary"
                 className="w-full"
               >

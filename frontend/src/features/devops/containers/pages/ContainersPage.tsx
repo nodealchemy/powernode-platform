@@ -114,7 +114,7 @@ export const ContainersPage: React.FC<ContainersPageProps> = ({
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        basePath="/app/devops/containers"
+        basePath="/app/devops/sandboxes"
         variant="underline"
         className="mb-6"
       >

@@ -80,7 +80,7 @@ export const PipelineDetailPage: React.FC = () => {
     try {
       const run = await devopsPipelinesApi.trigger(id);
       showNotification('Pipeline triggered successfully', 'success');
-      navigate(`/app/devops/pipelines/${id}/runs/${run.id}`);
+      navigate(`/app/devops/ci-cd/pipelines/${id}/runs/${run.id}`);
     } catch (_error) {
       showNotification('Failed to trigger pipeline', 'error');
     } finally {
@@ -94,7 +94,7 @@ export const PipelineDetailPage: React.FC = () => {
     try {
       const newPipeline = await devopsPipelinesApi.duplicate(id);
       showNotification('Pipeline duplicated successfully', 'success');
-      navigate(`/app/devops/pipelines/${newPipeline.id}`);
+      navigate(`/app/devops/ci-cd/pipelines/${newPipeline.id}`);
     } catch (_error) {
       showNotification('Failed to duplicate pipeline', 'error');
     }
@@ -130,7 +130,7 @@ export const PipelineDetailPage: React.FC = () => {
     try {
       await devopsPipelinesApi.delete(id);
       showNotification('Pipeline deleted', 'success');
-      navigate('/app/devops/pipelines');
+      navigate('/app/devops/ci-cd/pipelines');
     } catch (_error) {
       showNotification('Failed to delete pipeline', 'error');
     }
@@ -143,7 +143,7 @@ export const PipelineDetailPage: React.FC = () => {
         breadcrumbs={[
           { label: 'Dashboard', href: '/app' },
           { label: 'DevOps', href: '/app/devops' },
-          { label: 'Pipelines', href: '/app/devops/pipelines' },
+          { label: 'Pipelines', href: '/app/devops/ci-cd/pipelines' },
           { label: 'Loading...' },
         ]}
       >
@@ -161,14 +161,14 @@ export const PipelineDetailPage: React.FC = () => {
         breadcrumbs={[
           { label: 'Dashboard', href: '/app' },
           { label: 'DevOps', href: '/app/devops' },
-          { label: 'Pipelines', href: '/app/devops/pipelines' },
+          { label: 'Pipelines', href: '/app/devops/ci-cd/pipelines' },
           { label: 'Not Found' },
         ]}
         actions={[
           {
             id: 'back',
             label: 'Back to Pipelines',
-            onClick: () => navigate('/app/devops/pipelines'),
+            onClick: () => navigate('/app/devops/ci-cd/pipelines'),
             icon: ArrowLeft,
             variant: 'outline',
           },
@@ -188,14 +188,14 @@ export const PipelineDetailPage: React.FC = () => {
       breadcrumbs={[
         { label: 'Dashboard', href: '/app' },
         { label: 'DevOps', href: '/app/devops' },
-        { label: 'Pipelines', href: '/app/devops/pipelines' },
+        { label: 'Pipelines', href: '/app/devops/ci-cd/pipelines' },
         { label: pipeline.name },
       ]}
       actions={[
         {
           id: 'back',
           label: 'Back',
-          onClick: () => navigate('/app/devops/pipelines'),
+          onClick: () => navigate('/app/devops/ci-cd/pipelines'),
           icon: ArrowLeft,
           variant: 'outline',
         },
@@ -211,7 +211,7 @@ export const PipelineDetailPage: React.FC = () => {
           {
             id: 'edit',
             label: 'Edit',
-            onClick: () => navigate(`/app/devops/pipelines/${id}/edit`),
+            onClick: () => navigate(`/app/devops/ci-cd/pipelines/${id}/edit`),
             icon: Edit,
             variant: 'outline' as const,
           },
@@ -305,7 +305,7 @@ export const PipelineDetailPage: React.FC = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate(`/app/devops/pipelines/${id}/runs`)}
+              onClick={() => navigate(`/app/devops/ci-cd/pipelines/${id}/runs`)}
             >
               View All Runs
             </Button>
@@ -315,7 +315,7 @@ export const PipelineDetailPage: React.FC = () => {
               {runs.map((run) => (
                 <div
                   key={run.id}
-                  onClick={() => navigate(`/app/devops/pipelines/${id}/runs/${run.id}`)}
+                  onClick={() => navigate(`/app/devops/ci-cd/pipelines/${id}/runs/${run.id}`)}
                   className="flex items-center gap-4 p-3 bg-theme-surface-hover rounded-lg hover:bg-theme-surface-active cursor-pointer transition-colors"
                 >
                   <span className="text-sm font-mono text-theme-secondary">#{run.run_number}</span>

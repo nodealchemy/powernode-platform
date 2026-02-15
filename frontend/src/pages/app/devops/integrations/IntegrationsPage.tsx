@@ -122,7 +122,7 @@ export function IntegrationsPage() {
         {
           id: 'add-integration',
           label: 'Add Integration',
-          onClick: () => navigate('/app/devops/integrations/new'),
+          onClick: () => navigate('/app/devops/connections/integrations/new'),
           variant: 'primary',
         },
       ]}

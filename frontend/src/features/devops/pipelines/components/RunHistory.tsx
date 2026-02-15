@@ -299,7 +299,7 @@ export const RunHistory: React.FC<RunHistoryProps> = ({
           run={run}
           isExpanded={expandedId === run.id}
           onToggle={() => toggleExpand(run.id)}
-          onNavigate={() => navigate(`/app/devops/pipelines/${run.id}`)}
+          onNavigate={() => navigate(`/app/devops/ci-cd/pipelines/${run.id}`)}
           onCancel={() => onCancel(run.id)}
           onRetry={() => onRetry(run.id)}
         />
