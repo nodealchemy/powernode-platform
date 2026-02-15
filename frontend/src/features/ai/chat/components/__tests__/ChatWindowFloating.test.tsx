@@ -34,6 +34,7 @@ const mockedUseChatWindow = useChatWindow as jest.Mock;
 
 const createMockState = (overrides: Partial<ChatWindowState> = {}): ChatWindowState => ({
   mode: 'floating',
+  preferredOpenMode: 'floating',
   tabs: [],
   activeTabId: null,
   floatingPosition: { x: 200, y: 150 },

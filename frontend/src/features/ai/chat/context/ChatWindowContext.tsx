@@ -32,7 +32,7 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
 
   const { addNotification } = useNotifications();
   const broadcastRef = useRef<ReturnType<typeof createBroadcastChannel>>(null);
-  const detachedWindowRef = useRef<Window | null>(null);
+  const detachedWindowsRef = useRef<Set<Window>>(new Set());
 
   // Persist state on changes
   useEffect(() => {
@@ -47,8 +47,13 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
           broadcastRef.current?.send({ type: 'state_sync', payload: state });
           break;
         case 'detached_closed':
-          dispatch({ type: 'SET_MODE', payload: 'closed' });
-          detachedWindowRef.current = null;
+          // One detached window closed — prune closed windows from the set
+          detachedWindowsRef.current.forEach(w => {
+            if (w.closed) detachedWindowsRef.current.delete(w);
+          });
+          if (detachedWindowsRef.current.size === 0) {
+            dispatch({ type: 'SET_MODE', payload: 'closed' });
+          }
           break;
         case 'state_sync':
           if (isDetachedMode) {
@@ -173,9 +178,10 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
 
   const setMode = useCallback((mode: ChatWindowMode) => {
     if (mode === 'detached') {
+      const windowName = `powernode_chat_${Date.now()}`;
       const popup = window.open(
         '/chat/detached',
-        'powernode_chat',
+        windowName,
         'width=800,height=600,menubar=no,toolbar=no,location=no,status=no'
       );
       if (!popup) {
@@ -184,19 +190,23 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
           title: 'Popup Blocked',
           message: 'Could not open detached chat. Please allow popups and try again.',
         });
-        dispatch({ type: 'SET_MODE', payload: 'maximized' });
+        if (state.mode === 'closed') {
+          dispatch({ type: 'SET_MODE', payload: 'maximized' });
+        }
         return;
       }
-      detachedWindowRef.current = popup;
+      detachedWindowsRef.current.add(popup);
     }
     dispatch({ type: 'SET_MODE', payload: mode });
 
-    // If docking back from detached, notify the popup
-    if (mode === 'floating' && detachedWindowRef.current) {
-      broadcastRef.current?.send({ type: 'mode_change', payload: 'floating' });
-      detachedWindowRef.current = null;
+    // If docking back from detached, close all detached windows
+    if (mode === 'floating') {
+      if (detachedWindowsRef.current.size > 0) {
+        broadcastRef.current?.send({ type: 'mode_change', payload: 'floating' });
+        detachedWindowsRef.current.clear();
+      }
     }
-  }, [addNotification]);
+  }, [addNotification, state.mode]);
 
   const toggleSidebar = useCallback(() => {
     dispatch({ type: 'TOGGLE_SIDEBAR' });

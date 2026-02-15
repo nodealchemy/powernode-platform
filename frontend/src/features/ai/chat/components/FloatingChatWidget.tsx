@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { Bot } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
@@ -15,15 +15,30 @@ export const FloatingChatWidget: React.FC = () => {
     [state.tabs]
   );
 
-  // Hide when chat is open in any mode, or no permission
+  const handleClick = useCallback(() => {
+    switch (state.mode) {
+      case 'closed':
+        setMode(state.preferredOpenMode);
+        break;
+      case 'detached':
+        // Open another detached window (focuses existing or reopens if closed)
+        setMode('detached');
+        break;
+      case 'floating':
+      case 'maximized':
+        // Already open inline — focus it by toggling to floating
+        setMode('floating');
+        break;
+    }
+  }, [state.mode, state.preferredOpenMode, setMode]);
+
   if (!hasPermission) return null;
-  if (state.mode !== 'closed') return null;
 
   return (
     <div className="fixed bottom-4 right-4 z-50">
       <button
         type="button"
-        onClick={() => setMode('floating')}
+        onClick={handleClick}
         className="relative h-12 w-12 rounded-full bg-theme-interactive-primary text-white shadow-lg hover:bg-theme-interactive-primary-hover flex items-center justify-center transition-all hover:scale-105"
         aria-label="Open AI Chat"
       >

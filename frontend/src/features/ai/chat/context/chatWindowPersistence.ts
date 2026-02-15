@@ -1,4 +1,4 @@
-import type { ChatWindowState, ChatBroadcastMessage, SplitPanel } from './chatWindowTypes';
+import type { ChatWindowState, ChatBroadcastMessage, SplitPanel, PreferredOpenMode } from './chatWindowTypes';
 import { initialChatWindowState } from './chatWindowReducer';
 
 const STORAGE_KEY = 'powernode_chat_window';
@@ -8,7 +8,7 @@ export function saveChatState(state: ChatWindowState): void {
   try {
     const serialized: ChatWindowState = {
       ...state,
-      mode: state.mode === 'detached' ? 'detached' : 'closed',
+      mode: 'closed',
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(serialized));
   } catch {
@@ -55,13 +55,17 @@ export function loadChatState(): ChatWindowState {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const migrated = migrateLegacyState(parsed);
 
+    const preferredOpenMode: PreferredOpenMode =
+      parsed.preferredOpenMode === 'detached' ? 'detached' : 'floating';
+
     return {
       ...initialChatWindowState,
       tabs: (parsed.tabs as ChatWindowState['tabs']) ?? [],
       activeTabId: (parsed.activeTabId as string | null) ?? null,
       floatingPosition: (parsed.floatingPosition as ChatWindowState['floatingPosition']) ?? initialChatWindowState.floatingPosition,
       floatingSize: (parsed.floatingSize as ChatWindowState['floatingSize']) ?? initialChatWindowState.floatingSize,
-      mode: parsed.mode === 'detached' ? 'detached' : 'closed',
+      mode: 'closed',
+      preferredOpenMode,
       showSidebar: migrated.showSidebar ?? true,
       panels: migrated.panels ?? initialChatWindowState.panels,
       activePanelId: migrated.activePanelId ?? initialChatWindowState.activePanelId,

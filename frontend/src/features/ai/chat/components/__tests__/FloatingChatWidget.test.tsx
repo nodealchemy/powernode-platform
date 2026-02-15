@@ -24,6 +24,7 @@ const createMockStore = (user: MockUser = { permissions: ['ai.conversations.crea
 
 const createMockState = (overrides: Partial<ChatWindowState> = {}): ChatWindowState => ({
   mode: 'closed',
+  preferredOpenMode: 'floating',
   tabs: [],
   activeTabId: null,
   floatingPosition: { x: -1, y: -1 },
@@ -82,18 +83,41 @@ describe('FloatingChatWidget', () => {
     expect(screen.queryByLabelText('Open AI Chat')).not.toBeInTheDocument();
   });
 
-  it('hidden when mode is floating', () => {
+  it('always visible when mode is floating', () => {
     renderWidget({ mode: 'floating' });
-    expect(screen.queryByLabelText('Open AI Chat')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Open AI Chat')).toBeInTheDocument();
   });
 
-  it('hidden when mode is maximized', () => {
+  it('always visible when mode is maximized', () => {
     renderWidget({ mode: 'maximized' });
-    expect(screen.queryByLabelText('Open AI Chat')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Open AI Chat')).toBeInTheDocument();
   });
 
-  it('click calls setMode("floating")', () => {
-    const { mockSetMode } = renderWidget({ mode: 'closed' });
+  it('always visible when mode is detached', () => {
+    renderWidget({ mode: 'detached' });
+    expect(screen.getByLabelText('Open AI Chat')).toBeInTheDocument();
+  });
+
+  it('click opens in preferred mode when closed', () => {
+    const { mockSetMode } = renderWidget({ mode: 'closed', preferredOpenMode: 'floating' });
+    fireEvent.click(screen.getByLabelText('Open AI Chat'));
+    expect(mockSetMode).toHaveBeenCalledWith('floating');
+  });
+
+  it('click opens detached when preferred mode is detached', () => {
+    const { mockSetMode } = renderWidget({ mode: 'closed', preferredOpenMode: 'detached' });
+    fireEvent.click(screen.getByLabelText('Open AI Chat'));
+    expect(mockSetMode).toHaveBeenCalledWith('detached');
+  });
+
+  it('click reopens detached window when already detached', () => {
+    const { mockSetMode } = renderWidget({ mode: 'detached' });
+    fireEvent.click(screen.getByLabelText('Open AI Chat'));
+    expect(mockSetMode).toHaveBeenCalledWith('detached');
+  });
+
+  it('click focuses floating when already floating', () => {
+    const { mockSetMode } = renderWidget({ mode: 'floating' });
     fireEvent.click(screen.getByLabelText('Open AI Chat'));
     expect(mockSetMode).toHaveBeenCalledWith('floating');
   });

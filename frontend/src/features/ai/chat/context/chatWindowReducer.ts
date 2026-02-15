@@ -14,6 +14,7 @@ const defaultPanel: SplitPanel = {
 
 export const initialChatWindowState: ChatWindowState = {
   mode: 'closed',
+  preferredOpenMode: 'floating',
   tabs: [],
   activeTabId: null,
   floatingPosition: { x: -1, y: -1 },
@@ -35,8 +36,13 @@ function syncActiveTabId(state: ChatWindowState): string | null {
 
 export function chatWindowReducer(state: ChatWindowState, action: ChatWindowAction): ChatWindowState {
   switch (action.type) {
-    case 'SET_MODE':
-      return { ...state, mode: action.payload };
+    case 'SET_MODE': {
+      const newMode = action.payload;
+      const preferredOpenMode = (newMode === 'floating' || newMode === 'detached')
+        ? newMode
+        : state.preferredOpenMode;
+      return { ...state, mode: newMode, preferredOpenMode };
+    }
 
     case 'OPEN_TAB': {
       const tab = action.payload;

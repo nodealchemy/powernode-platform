@@ -26,8 +26,11 @@ export interface SplitPanel {
   activeTabId: string | null;
 }
 
+export type PreferredOpenMode = 'floating' | 'detached';
+
 export interface ChatWindowState {
   mode: ChatWindowMode;
+  preferredOpenMode: PreferredOpenMode;
   tabs: ChatTab[];
   activeTabId: string | null;
   floatingPosition: FloatingPosition;
