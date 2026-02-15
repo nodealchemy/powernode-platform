@@ -39,6 +39,7 @@ const createMockState = (overrides: Partial<ChatWindowState> = {}): ChatWindowSt
   activeTabId: null,
   floatingPosition: { x: 200, y: 150 },
   floatingSize: { width: 420, height: 520 },
+  detachedSize: { width: 800, height: 600 },
   showSidebar: true,
   panels: [{ id: 'panel-1', tabIds: [], activeTabId: null }],
   activePanelId: 'panel-1',
