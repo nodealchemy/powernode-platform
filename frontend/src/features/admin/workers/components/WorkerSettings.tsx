@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Worker, WorkerConfig, workerApi } from '@/features/system/workers/services/workerApi';
+import { Worker, WorkerConfig, workerApi } from '@/features/admin/workers/services/workerApi';
 import { SettingsCard, ToggleSettingItem, FormField, Input } from '@/features/admin/components/settings/SettingsComponents';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';

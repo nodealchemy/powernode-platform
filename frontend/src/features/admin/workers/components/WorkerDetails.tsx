@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Worker, WorkerDetailsResponse, workerApi, UpdateWorkerData } from '@/features/system/workers/services/workerApi';
+import { Worker, WorkerDetailsResponse, workerApi, UpdateWorkerData } from '@/features/admin/workers/services/workerApi';
 import { WorkerActivityList } from './WorkerActivityList';
 import { WorkerEditForm } from './WorkerEditForm';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';

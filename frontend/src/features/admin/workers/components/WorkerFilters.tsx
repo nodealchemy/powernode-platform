@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { WorkerFiltersState } from '@/pages/app/system/WorkersPage';
+import { WorkerFiltersState } from '@/pages/app/admin/WorkersPage';
 import { Search, Filter, X, ChevronDown } from 'lucide-react';
 
 export interface WorkerFiltersProps {

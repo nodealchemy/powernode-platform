@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CreateWorkerData } from '@/features/system/workers/services/workerApi';
+import { CreateWorkerData } from '@/features/admin/workers/services/workerApi';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { useForm, FormValidationRules } from '@/shared/hooks/useForm';

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Worker } from '@/features/system/workers/services/workerApi';
+import { Worker } from '@/features/admin/workers/services/workerApi';
 import {
   Shield,
   Key,

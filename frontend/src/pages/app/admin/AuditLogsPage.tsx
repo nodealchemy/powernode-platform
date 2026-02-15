@@ -10,12 +10,12 @@ import {
   Filter,
   Activity
 } from 'lucide-react';
-import { AuditLogFilters } from '@/features/system/audit-logs/components/AuditLogFilters';
-import { AuditLogTable } from '@/features/system/audit-logs/components/AuditLogTable';
-import { AuditLogAnalytics } from '@/features/system/audit-logs/components/AuditLogAnalytics';
-import { AuditLogMetrics } from '@/features/system/audit-logs/components/AuditLogMetrics';
-import { AuditLogExport } from '@/features/system/audit-logs/components/AuditLogExport';
-import { auditLogsApi, AuditLog, AuditLogFilters as FilterType } from '@/features/system/audit-logs/services/auditLogsApi';
+import { AuditLogFilters } from '@/features/admin/audit-logs/components/AuditLogFilters';
+import { AuditLogTable } from '@/features/admin/audit-logs/components/AuditLogTable';
+import { AuditLogAnalytics } from '@/features/admin/audit-logs/components/AuditLogAnalytics';
+import { AuditLogMetrics } from '@/features/admin/audit-logs/components/AuditLogMetrics';
+import { AuditLogExport } from '@/features/admin/audit-logs/components/AuditLogExport';
+import { auditLogsApi, AuditLog, AuditLogFilters as FilterType } from '@/features/admin/audit-logs/services/auditLogsApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';

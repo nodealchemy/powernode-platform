@@ -1,7 +1,23 @@
 import React, { useState } from 'react';
-import { Service } from '@/shared/services/system/serviceApi';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+
+// Service management types - serviceApi was removed during system-to-admin migration.
+// These types are retained so the component compiles; the backing API no longer exists.
+interface Service {
+  id: string;
+  name: string;
+  description?: string;
+  status: string;
+  permissions: string;
+  account_name: string;
+  request_count: number;
+  active_recently: boolean;
+  masked_token: string;
+  token?: string;
+  created_at: string;
+  last_seen_at: string | null;
+}
 
 interface ServiceListProps {
   services: Service[];

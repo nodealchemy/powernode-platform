@@ -18,11 +18,8 @@ export * from '@/shared/services/settings/settingsApi';
 
 // Admin services
 export * from '@/shared/services/admin/maintenanceApi';
-
-// System services
-export * from '@/shared/services/system/performanceApi';
-export * from '@/shared/services/system/versionApi';
-export * from '@/shared/services/system/serviceApi';
+export * from '@/shared/services/admin/performanceApi';
+export * from '@/shared/services/admin/versionApi';
 
 // Business services
 export * from '@/shared/services/business/customersApi';

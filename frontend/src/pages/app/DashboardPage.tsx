@@ -16,7 +16,7 @@ import KnowledgeBaseAdminPage from './content/KnowledgeBaseAdminPage';
 import { KnowledgeBaseArticleEditor } from '@/features/content/knowledge-base/components/KnowledgeBaseArticleEditor';
 import MyFilesPage from './content/MyFilesPage';
 import { UsersPage } from './account/UsersPage';
-import { AuditLogsPage } from './system/AuditLogsPage';
+import { AuditLogsPage } from './admin/AuditLogsPage';
 import PrivacyDashboardPage from './privacy/PrivacyDashboardPage';
 import { ApiKeysPage } from './devops/ApiKeysPage';
 import { NotificationsPage } from './account/NotificationsPage';
@@ -36,9 +36,8 @@ import { MySubscriptionsPage } from '@/pages/app/marketplace/MySubscriptionsPage
 import { AdminSettingsPage } from '@/pages/app/admin/AdminSettingsPage';
 import { AdminUsersPage } from '@/pages/app/admin/AdminUsersPage';
 import { AdminRolesPage } from '@/pages/app/admin/AdminRolesPage';
-import { WorkersPage as SystemWorkersPage } from '@/pages/app/system/WorkersPage';
-import { ServicesPage } from '@/pages/app/system/ServicesPage';
-import StorageProvidersPage from '@/pages/app/system/StorageProvidersPage';
+import { WorkersPage as AdminWorkersPage } from '@/pages/app/admin/WorkersPage';
+import AdminStoragePage from '@/pages/app/admin/StorageProvidersPage';
 
 // CI/CD Pages (used in System section for runners)
 import {
@@ -488,9 +487,6 @@ const DashboardPage: React.FC = () => {
         <Route path="/privacy" element={<PrivacyDashboardPage />} />
         {/* Workers moved to admin routes */}
         
-        {/* System Management Pages */}
-        <Route path="/system/services" element={<ServicesPage />} />
-        <Route path="/system/storage" element={<StorageProvidersPage />} />
 
         {/* DevOps Pages - Git, Repositories, Runners, Webhooks, Integrations, API Keys */}
         <Route path="/devops" element={<DevOpsOverviewPage />} />
@@ -531,8 +527,8 @@ const DashboardPage: React.FC = () => {
         <Route path="/devops/docker/:hostId" element={<HostProvider><HostDashboardPage /></HostProvider>} />
         <Route path="/devops/docker/:hostId/containers/:containerId/*" element={<HostProvider><ContainerDetailPage /></HostProvider>} />
 
-        {/* System Pages - Infrastructure only */}
-        <Route path="/system/audit-logs/*" element={<AuditLogsPage />} />
+        {/* Audit Logs */}
+        <Route path="/admin/audit-logs/*" element={<AuditLogsPage />} />
 
         {/* DevOps Pipelines */}
         <Route path="/devops/pipelines" element={<PipelinesPage />} />
@@ -579,8 +575,9 @@ const DashboardPage: React.FC = () => {
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/roles" element={<AdminRolesPage />} />
         <Route path="/admin/marketplace" element={<AdminMarketplacePage />} />
-        <Route path="/system/workers/*" element={<SystemWorkersPage />} />
         <Route path="/admin/maintenance/*" element={<AdminMaintenancePage />} />
+        <Route path="/admin/workers/*" element={<AdminWorkersPage />} />
+        <Route path="/admin/storage" element={<AdminStoragePage />} />
 
         {/* Enterprise routes (dynamically registered via featureRegistry) */}
         {featureRegistry.getRoutes().map((route) => (

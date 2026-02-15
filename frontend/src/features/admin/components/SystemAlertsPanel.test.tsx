@@ -12,7 +12,7 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
 // Mock performance API
 const mockGetActiveAlerts = jest.fn();
 const mockDismissAlert = jest.fn();
-jest.mock('@/shared/services/system/performanceApi', () => ({
+jest.mock('@/shared/services/admin/performanceApi', () => ({
   performanceApi: {
     getActiveAlerts: (...args: any[]) => mockGetActiveAlerts(...args),
     dismissAlert: (...args: any[]) => mockDismissAlert(...args)

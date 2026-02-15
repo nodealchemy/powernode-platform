@@ -4,7 +4,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
-import { workerApi, Worker } from '@/features/system/workers/services/workerApi';
+import { workerApi, Worker } from '@/features/admin/workers/services/workerApi';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { TabContainer } from '@/shared/components/ui/TabContainer';
 import { Card } from '@/shared/components/ui/Card';
@@ -12,7 +12,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { FlexBetween, FlexItemsCenter } from '@/shared/components/ui/FlexContainer';
-import { CreateWorkerModal } from '@/features/system/workers/components/CreateWorkerModal';
+import { CreateWorkerModal } from '@/features/admin/workers/components/CreateWorkerModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import {
   WorkerOverviewTab,

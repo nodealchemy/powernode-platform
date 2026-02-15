@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { workerApi, WorkerActivity, ActivityListResponse } from '@/features/system/workers/services/workerApi';
+import { workerApi, WorkerActivity, ActivityListResponse } from '@/features/admin/workers/services/workerApi';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { formatDistanceToNow, format } from 'date-fns';
 

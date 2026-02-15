@@ -8,7 +8,7 @@ import {
   Calendar,
   RefreshCw
 } from 'lucide-react';
-import { AuditLogFilters as FilterType } from '@/features/system/audit-logs/services/auditLogsApi';
+import { AuditLogFilters as FilterType } from '@/features/admin/audit-logs/services/auditLogsApi';
 import { AuditLogChart } from './AuditLogChart';
 import { SecurityOverview } from './SecurityOverview';
 import { ComplianceMetrics } from './ComplianceMetrics';

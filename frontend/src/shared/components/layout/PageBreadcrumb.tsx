@@ -31,7 +31,6 @@ export const breadcrumbConfigs = {
   account: createBreadcrumbItems('Account'),
   analytics: createBreadcrumbItems('Analytics'),
   business: createBreadcrumbItems('Customer Management'),
-  system: createBreadcrumbItems('System Settings'),
   plans: createBreadcrumbItems('Plans'),
   pages: createBreadcrumbItems('Pages'),
   customers: createBreadcrumbItems('Customers'),

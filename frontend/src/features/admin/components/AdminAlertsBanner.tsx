@@ -8,7 +8,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
-import { performanceApi, PerformanceAlert } from '@/shared/services/system/performanceApi';
+import { performanceApi, PerformanceAlert } from '@/shared/services/admin/performanceApi';
 
 interface AdminAlertsBannerProps {
   maxAlerts?: number;

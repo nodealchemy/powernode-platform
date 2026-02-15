@@ -41,7 +41,6 @@ import { WelcomePage } from '@/pages/public/WelcomePage';
 import { AcceptInvitationPage } from '@/pages/public/AcceptInvitationPage';
 import { PageViewPage } from '@/pages/public/PageViewPage';
 import { McpOAuthCallbackPage } from '@/pages/public/oauth/McpOAuthCallbackPage';
-import { StatusPage } from '@/pages/public/StatusPage';
 import { ApprovalResponsePage } from '@/features/devops/pipelines/pages/ApprovalResponsePage';
 import { ApprovalResponsePage as AiWorkflowApprovalResponsePage } from '@/features/ai/workflows/pages/ApprovalResponsePage';
 import { DetachedChatPage } from '@/features/ai/chat/pages/DetachedChatPage';
@@ -289,11 +288,6 @@ const AppContent: React.FC = () => {
             element={<PageViewPage />}
           />
 
-          {/* Public Status Page */}
-          <Route
-            path="/status"
-            element={<StatusPage />}
-          />
 
           {/* DevOps Pipeline Approval Routes (public, token-based auth) */}
           <Route

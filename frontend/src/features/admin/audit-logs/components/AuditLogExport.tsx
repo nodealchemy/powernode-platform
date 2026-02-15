@@ -7,7 +7,7 @@ import {
   AlertCircle,
   Loader
 } from 'lucide-react';
-import { auditLogsApi, AuditLogFilters as FilterType } from '@/features/system/audit-logs/services/auditLogsApi';
+import { auditLogsApi, AuditLogFilters as FilterType } from '@/features/admin/audit-logs/services/auditLogsApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface AuditLogExportProps {

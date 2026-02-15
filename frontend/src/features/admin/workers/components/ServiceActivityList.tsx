@@ -1,6 +1,35 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Service, ServiceActivity, service_api } from '@/shared/services/system/serviceApi';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+
+// Service management types - serviceApi was removed during system-to-admin migration.
+// These types are retained so the component compiles; the backing API no longer exists.
+interface Service {
+  id: string;
+  name: string;
+  description?: string;
+  status: string;
+  permissions: string;
+  account_name: string;
+  request_count: number;
+  active_recently: boolean;
+  masked_token: string;
+  token?: string;
+  created_at: string;
+  last_seen_at: string | null;
+}
+
+interface ServiceActivity {
+  id: string;
+  action: string;
+  performed_at: string;
+  successful: boolean;
+  failed?: boolean;
+  duration?: number;
+  ip_address?: string;
+  request_path?: string;
+  response_status?: number;
+  error_message?: string;
+}
 
 interface ServiceActivityListProps {
   service: Service;
@@ -46,8 +75,13 @@ export const ServiceActivityList: React.FC<ServiceActivityListProps> = ({ servic
       if (filters.from) params.from = filters.from;
       if (filters.to) params.to = filters.to;
       
-      const response = await service_api.getServiceActivities(service.id, params);
-      
+      // service_api was removed during system-to-admin migration — service management is no longer available
+      const response = {
+        activities: [] as ServiceActivity[],
+        pagination: { page: 1, per_page: 25, total: 0, total_pages: 0 },
+        summary: { total_recent: 0, successful_recent: 0, failed_recent: 0, actions: {} },
+      };
+
       setActivities(response.activities);
       setPagination(response.pagination);
       setSummary(response.summary);

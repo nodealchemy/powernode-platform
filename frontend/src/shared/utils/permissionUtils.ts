@@ -236,8 +236,7 @@ export const canManageBilling = (user: User | null): boolean => {
  * Check if user can manage infrastructure (workers, volumes)
  */
 export const canManageInfrastructure = (user: User | null): boolean => {
-  return hasPermissions(user, [PERMISSIONS.SYSTEM_WORKERS.CREATE]) ||
-         hasPermissions(user, [PERMISSIONS.SYSTEM_WORKERS.UPDATE]);
+  return hasPermissions(user, [PERMISSIONS.ADMIN.ACCESS]);
 };
 
 /**

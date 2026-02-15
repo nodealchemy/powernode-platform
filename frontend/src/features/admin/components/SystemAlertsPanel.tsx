@@ -4,7 +4,7 @@ import {
   AlertTriangle, AlertCircle, CheckCircle, Clock,
   Trash2, Bell, Filter
 } from 'lucide-react';
-import { performanceApi, PerformanceAlert } from '@/shared/services/system/performanceApi';
+import { performanceApi, PerformanceAlert } from '@/shared/services/admin/performanceApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface SystemAlertsPanelProps {

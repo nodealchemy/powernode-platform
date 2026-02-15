@@ -1,9 +1,48 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Service, ServiceDetailsResponse, service_api } from '@/shared/services/system/serviceApi';
 import { ServiceActivityList } from './ServiceActivityList';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { copyToClipboard } from '@/shared/utils/clipboard';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+
+// Service management types - serviceApi was removed during system-to-admin migration.
+// These types are retained so the component compiles; the backing API no longer exists.
+interface Service {
+  id: string;
+  name: string;
+  description?: string;
+  status: string;
+  permissions: string;
+  account_name: string;
+  request_count: number;
+  active_recently: boolean;
+  masked_token: string;
+  token?: string;
+  created_at: string;
+  last_seen_at: string | null;
+}
+
+interface ServiceActivity {
+  id: string;
+  action: string;
+  performed_at: string;
+  successful: boolean;
+  duration?: number;
+  ip_address?: string;
+  request_path?: string;
+  response_status?: number;
+  error_message?: string;
+}
+
+interface ServiceDetailsResponse {
+  service: Service;
+  activity_summary: {
+    total_requests: number;
+    successful_requests: number;
+    failed_requests: number;
+    unique_actions: string[];
+  };
+  recent_activities: ServiceActivity[];
+}
 
 interface ServiceDetailsProps {
   service: Service;
@@ -29,7 +68,12 @@ export const ServiceDetails: React.FC<ServiceDetailsProps> = ({
     try {
       setLoading(true);
       setError(null);
-      const response = await service_api.getService(service.id);
+      // service_api was removed during system-to-admin migration — service management is no longer available
+      const response: ServiceDetailsResponse = {
+        service,
+        activity_summary: { total_requests: 0, successful_requests: 0, failed_requests: 0, unique_actions: [] },
+        recent_activities: [],
+      };
       setDetails(response);
     } catch (error) {
       const errorMessage = error instanceof Error && 'response' in error &&

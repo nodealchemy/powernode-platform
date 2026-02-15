@@ -2,7 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AuditLogExport } from './AuditLogExport';
 
 // Mock auditLogsApi
-jest.mock('@/features/system/audit-logs/services/auditLogsApi', () => ({
+jest.mock('@/features/admin/audit-logs/services/auditLogsApi', () => ({
   auditLogsApi: {
     exportLogs: jest.fn().mockResolvedValue({
       success: true,
@@ -327,7 +327,7 @@ describe('AuditLogExport', () => {
   describe('export functionality', () => {
     it('shows exporting state when export started', async () => {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { auditLogsApi } = require('@/features/system/audit-logs/services/auditLogsApi');
+      const { auditLogsApi } = require('@/features/admin/audit-logs/services/auditLogsApi');
       auditLogsApi.exportLogs.mockImplementation(() => new Promise(() => {})); // Never resolves
 
       render(<AuditLogExport {...defaultProps} />);
@@ -341,7 +341,7 @@ describe('AuditLogExport', () => {
 
     it('shows progress bar during export', async () => {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { auditLogsApi } = require('@/features/system/audit-logs/services/auditLogsApi');
+      const { auditLogsApi } = require('@/features/admin/audit-logs/services/auditLogsApi');
       auditLogsApi.exportLogs.mockImplementation(() => new Promise(() => {}));
 
       render(<AuditLogExport {...defaultProps} />);
@@ -355,7 +355,7 @@ describe('AuditLogExport', () => {
 
     it('disables buttons while exporting', async () => {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { auditLogsApi } = require('@/features/system/audit-logs/services/auditLogsApi');
+      const { auditLogsApi } = require('@/features/admin/audit-logs/services/auditLogsApi');
       auditLogsApi.exportLogs.mockImplementation(() => new Promise(() => {}));
 
       render(<AuditLogExport {...defaultProps} />);
@@ -369,7 +369,7 @@ describe('AuditLogExport', () => {
 
     it('shows success notification on completed export', async () => {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { auditLogsApi } = require('@/features/system/audit-logs/services/auditLogsApi');
+      const { auditLogsApi } = require('@/features/admin/audit-logs/services/auditLogsApi');
       auditLogsApi.exportLogs.mockResolvedValue({
         success: true,
         data: {
@@ -394,7 +394,7 @@ describe('AuditLogExport', () => {
 
     it('shows error notification on failed export', async () => {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { auditLogsApi } = require('@/features/system/audit-logs/services/auditLogsApi');
+      const { auditLogsApi } = require('@/features/admin/audit-logs/services/auditLogsApi');
       auditLogsApi.exportLogs.mockRejectedValue(new Error('Export failed'));
 
       render(<AuditLogExport {...defaultProps} />);
@@ -408,7 +408,7 @@ describe('AuditLogExport', () => {
 
     it('handles job_id response for background exports', async () => {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { auditLogsApi } = require('@/features/system/audit-logs/services/auditLogsApi');
+      const { auditLogsApi } = require('@/features/admin/audit-logs/services/auditLogsApi');
       auditLogsApi.exportLogs.mockResolvedValue({
         success: true,
         data: {

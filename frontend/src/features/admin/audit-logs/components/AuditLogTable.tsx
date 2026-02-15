@@ -12,7 +12,7 @@ import {
   Smartphone,
   ExternalLink
 } from 'lucide-react';
-import { AuditLog } from '@/features/system/audit-logs/services/auditLogsApi';
+import { AuditLog } from '@/features/admin/audit-logs/services/auditLogsApi';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 
 interface AuditLogTableProps {

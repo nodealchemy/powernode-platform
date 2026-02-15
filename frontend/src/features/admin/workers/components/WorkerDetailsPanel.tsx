@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Worker, workerApi, UpdateWorkerData } from '@/features/system/workers/services/workerApi';
+import { Worker, workerApi, UpdateWorkerData } from '@/features/admin/workers/services/workerApi';
 import { formatDateTime } from '@/shared/utils/formatters';
 import { WorkerActivityDashboard } from './WorkerActivityDashboard';
 import { WorkerPermissionsView } from './WorkerPermissionsView';

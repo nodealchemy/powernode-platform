@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Worker, workerApi } from '@/features/system/workers/services/workerApi';
+import { Worker, workerApi } from '@/features/admin/workers/services/workerApi';
 import {
   Activity,
   TrendingUp,

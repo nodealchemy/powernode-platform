@@ -1,5 +1,5 @@
 
-import { Worker } from '@/features/system/workers/services/workerApi';
+import { Worker } from '@/features/admin/workers/services/workerApi';
 
 interface WorkerListProps {
   workers: Worker[];

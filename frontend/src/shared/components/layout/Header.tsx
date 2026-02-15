@@ -195,7 +195,7 @@ export const Header: React.FC<HeaderProps> = ({ user, onLogout, onToggleSidebar 
                       </div>
                       
                       <Link
-                        to="/app/system/admin"
+                        to="/app/admin/settings"
                         className="flex items-center px-4 py-2.5 text-sm text-theme-error hover:bg-theme-error-background transition-colors duration-150"
                         onClick={() => setShowUserMenu(false)}
                       >

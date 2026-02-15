@@ -7,7 +7,7 @@ import { FileUpload } from '@/features/content/files/components/FileUpload';
 import { FileItem } from '@/features/content/files/components/FileItem';
 import { FileDetails } from '@/features/content/files/components/FileDetails';
 import { filesApi, FileObject } from '@/features/content/files/services/filesApi';
-import { storageApi } from '@/features/system/storage/services/storageApi';
+import { storageApi } from '@/features/admin/storage/services/storageApi';
 import { StorageProvider } from '@/shared/types/storage';
 import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';

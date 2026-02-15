@@ -10,7 +10,7 @@ import {
   Clock,
   RefreshCw
 } from 'lucide-react';
-import { AuditLogFilters as FilterType } from '@/features/system/audit-logs/services/auditLogsApi';
+import { AuditLogFilters as FilterType } from '@/features/admin/audit-logs/services/auditLogsApi';
 
 interface AuditLogFiltersProps {
   filters: FilterType;

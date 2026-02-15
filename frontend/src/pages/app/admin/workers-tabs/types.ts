@@ -1,4 +1,4 @@
-import type { Worker } from '@/features/system/workers/services/workerApi';
+import type { Worker } from '@/features/admin/workers/services/workerApi';
 
 export interface WorkerFiltersState {
   search: string;
@@ -73,4 +73,4 @@ export interface WorkerSettingsTabProps {
   onRefresh: () => void;
 }
 
-export type { Worker } from '@/features/system/workers/services/workerApi';
+export type { Worker } from '@/features/admin/workers/services/workerApi';

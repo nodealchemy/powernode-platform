@@ -668,53 +668,6 @@ export const adminNavigationOverrides = {
       defaultExpanded: false,
       order: 22
     },
-    // System section - infrastructure management
-    {
-      id: 'system',
-      name: 'System',
-      items: [
-        {
-          id: 'services',
-          name: 'Services',
-          href: '/app/system/services',
-          icon: '🌐',
-          description: 'Configure service routing, load balancing, and proxy settings',
-          permissions: ['admin.settings.update'],
-          order: 1
-        },
-        {
-          id: 'workers',
-          name: 'Workers',
-          href: '/app/system/workers',
-          icon: '🤖',
-          description: 'Manage background workers and job processing',
-          permissions: ['system.workers.read'],
-          order: 2
-        },
-        {
-          id: 'storage',
-          name: 'File Storage',
-          href: '/app/system/storage',
-          icon: HardDrive,
-          description: 'Configure storage providers for file management',
-          permissions: ['admin.storage.manage', 'admin.storage.read'],
-          order: 3
-        },
-        {
-          id: 'audit-logs',
-          name: 'Audit Logs',
-          href: '/app/system/audit-logs',
-          icon: '📋',
-          description: 'System audit and activity logs',
-          permissions: ['admin.audit.read'],
-          order: 4
-        }
-      ],
-      permissions: ['admin.settings.update', 'system.workers.read', 'admin.storage.manage', 'admin.storage.read', 'admin.audit.read'],
-      collapsible: true,
-      defaultExpanded: false,
-      order: 25
-    },
     // Administration section - super admin features (always last)
     {
       id: 'administration',
@@ -773,9 +726,36 @@ export const adminNavigationOverrides = {
           description: 'System maintenance and health monitoring',
           permissions: ['admin.maintenance.backup', 'admin.maintenance.cleanup'],
           order: 6
+        },
+        {
+          id: 'workers',
+          name: 'Workers',
+          href: '/app/admin/workers',
+          icon: '🤖',
+          description: 'Manage background workers and job processing',
+          permissions: ['admin.settings.read'],
+          order: 7
+        },
+        {
+          id: 'storage',
+          name: 'File Storage',
+          href: '/app/admin/storage',
+          icon: HardDrive,
+          description: 'Configure storage providers for file management',
+          permissions: ['admin.storage.manage', 'admin.storage.read'],
+          order: 8
+        },
+        {
+          id: 'audit-logs',
+          name: 'Audit Logs',
+          href: '/app/admin/audit-logs',
+          icon: '📋',
+          description: 'System audit and activity logs',
+          permissions: ['admin.audit.read'],
+          order: 9
         }
       ],
-      permissions: ['admin.access'],
+      permissions: ['admin.access', 'admin.storage.manage', 'admin.storage.read', 'admin.audit.read'],
       collapsible: true,
       defaultExpanded: false,
       order: 30

@@ -1,5 +1,5 @@
 
-import { Worker, UpdateWorkerData } from '@/features/system/workers/services/workerApi';
+import { Worker, UpdateWorkerData } from '@/features/admin/workers/services/workerApi';
 import { WorkerCard } from './WorkerCard';
 import { WorkerDetailsPanel } from './WorkerDetailsPanel';
 import { ChevronLeft, ChevronRight } from 'lucide-react';

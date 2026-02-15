@@ -2,11 +2,11 @@ import React from 'react';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { FlexBetween, FlexItemsCenter } from '@/shared/components/ui/FlexContainer';
-import { WorkerFilters } from '@/features/system/workers/components/WorkerFilters';
-import { WorkerGrid } from '@/features/system/workers/components/WorkerGrid';
-import { WorkerTable } from '@/features/system/workers/components/WorkerTable';
-import { WorkerActions } from '@/features/system/workers/components/WorkerActions';
-import { workerApi } from '@/features/system/workers/services/workerApi';
+import { WorkerFilters } from '@/features/admin/workers/components/WorkerFilters';
+import { WorkerGrid } from '@/features/admin/workers/components/WorkerGrid';
+import { WorkerTable } from '@/features/admin/workers/components/WorkerTable';
+import { WorkerActions } from '@/features/admin/workers/components/WorkerActions';
+import { workerApi } from '@/features/admin/workers/services/workerApi';
 import { Plus, Grid, List } from 'lucide-react';
 import type { WorkerManagementTabProps, WorkerFiltersState } from './types';
 

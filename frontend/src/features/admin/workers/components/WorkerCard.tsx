@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Worker, UpdateWorkerData } from '@/features/system/workers/services/workerApi';
+import { Worker, UpdateWorkerData } from '@/features/admin/workers/services/workerApi';
 import { formatDate } from '@/shared/utils/formatters';
 import { 
   Eye, 
