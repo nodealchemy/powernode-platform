@@ -283,7 +283,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
             icon="🔗"
             title="Webhooks"
             description="Manage payment gateway webhooks and endpoints"
-            href="/app/devops/webhooks"
+            href="/app/devops/connections/webhooks"
           />
           <ActionCard
             icon="📝"
