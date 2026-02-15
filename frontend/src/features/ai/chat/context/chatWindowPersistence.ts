@@ -64,6 +64,7 @@ export function loadChatState(): ChatWindowState {
       activeTabId: (parsed.activeTabId as string | null) ?? null,
       floatingPosition: (parsed.floatingPosition as ChatWindowState['floatingPosition']) ?? initialChatWindowState.floatingPosition,
       floatingSize: (parsed.floatingSize as ChatWindowState['floatingSize']) ?? initialChatWindowState.floatingSize,
+      detachedSize: (parsed.detachedSize as ChatWindowState['detachedSize']) ?? initialChatWindowState.detachedSize,
       mode: 'closed',
       preferredOpenMode,
       showSidebar: migrated.showSidebar ?? true,

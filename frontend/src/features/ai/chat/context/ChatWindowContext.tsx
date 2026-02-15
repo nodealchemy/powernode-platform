@@ -33,6 +33,8 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
   const { addNotification } = useNotifications();
   const broadcastRef = useRef<ReturnType<typeof createBroadcastChannel>>(null);
   const detachedWindowsRef = useRef<Set<Window>>(new Set());
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   // Persist state on changes
   useEffect(() => {
@@ -44,7 +46,7 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
     const bc = createBroadcastChannel((msg: ChatBroadcastMessage) => {
       switch (msg.type) {
         case 'detached_ready':
-          broadcastRef.current?.send({ type: 'state_sync', payload: state });
+          broadcastRef.current?.send({ type: 'state_sync', payload: stateRef.current });
           break;
         case 'detached_closed':
           // One detached window closed — prune closed windows from the set
@@ -57,7 +59,7 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
           break;
         case 'state_sync':
           if (isDetachedMode) {
-            dispatch({ type: 'HYDRATE_STATE', payload: msg.payload });
+            dispatch({ type: 'HYDRATE_STATE', payload: { ...msg.payload, mode: 'floating' } });
           }
           break;
         case 'mode_change':
@@ -69,22 +71,46 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
         case 'open_tab':
           dispatch({ type: 'OPEN_TAB', payload: msg.payload });
           break;
+        case 'detached_resize':
+          dispatch({ type: 'SET_DETACHED_SIZE', payload: msg.payload });
+          break;
       }
     });
     broadcastRef.current = bc;
     return () => bc?.close();
   }, []);  
 
-  // Detached mode: signal ready on mount, signal closed on unmount
+  // Detached mode: signal ready on mount, track resize, signal closed on unmount
   useEffect(() => {
-    if (isDetachedMode) {
-      broadcastRef.current?.send({ type: 'detached_ready' });
-      const handleUnload = () => {
-        broadcastRef.current?.send({ type: 'detached_closed' });
-      };
-      window.addEventListener('beforeunload', handleUnload);
-      return () => window.removeEventListener('beforeunload', handleUnload);
-    }
+    if (!isDetachedMode) return;
+
+    broadcastRef.current?.send({ type: 'detached_ready' });
+
+    // Track window resize (debounced) and broadcast to parent
+    let resizeTimer: ReturnType<typeof setTimeout>;
+    const handleResize = () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        const size = { width: window.outerWidth, height: window.outerHeight };
+        dispatch({ type: 'SET_DETACHED_SIZE', payload: size });
+        broadcastRef.current?.send({ type: 'detached_resize', payload: size });
+      }, 300);
+    };
+    window.addEventListener('resize', handleResize);
+
+    const handleUnload = () => {
+      // Capture final size before closing
+      const size = { width: window.outerWidth, height: window.outerHeight };
+      broadcastRef.current?.send({ type: 'detached_resize', payload: size });
+      broadcastRef.current?.send({ type: 'detached_closed' });
+    };
+    window.addEventListener('beforeunload', handleUnload);
+
+    return () => {
+      clearTimeout(resizeTimer);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('beforeunload', handleUnload);
+    };
   }, [isDetachedMode]);
 
   // Listen for nav-item CustomEvent to open maximized
@@ -179,10 +205,11 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
   const setMode = useCallback((mode: ChatWindowMode) => {
     if (mode === 'detached') {
       const windowName = `powernode_chat_${Date.now()}`;
+      const { width, height } = stateRef.current.detachedSize;
       const popup = window.open(
         '/chat/detached',
         windowName,
-        'width=800,height=600,menubar=no,toolbar=no,location=no,status=no'
+        `width=${width},height=${height},menubar=no,toolbar=no,location=no,status=no`
       );
       if (!popup) {
         addNotification({
@@ -199,14 +226,19 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
     }
     dispatch({ type: 'SET_MODE', payload: mode });
 
-    // If docking back from detached, close all detached windows
+    // If docking back from detached
     if (mode === 'floating') {
-      if (detachedWindowsRef.current.size > 0) {
+      if (isDetachedMode) {
+        // Detached window docking: tell parent to switch to floating, then close self
+        broadcastRef.current?.send({ type: 'mode_change', payload: 'floating' });
+        window.close();
+      } else if (detachedWindowsRef.current.size > 0) {
+        // Parent docking: tell detached windows to close
         broadcastRef.current?.send({ type: 'mode_change', payload: 'floating' });
         detachedWindowsRef.current.clear();
       }
     }
-  }, [addNotification, state.mode]);
+  }, [addNotification, state.mode, isDetachedMode]);
 
   const toggleSidebar = useCallback(() => {
     dispatch({ type: 'TOGGLE_SIDEBAR' });

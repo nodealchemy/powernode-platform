@@ -35,6 +35,7 @@ export interface ChatWindowState {
   activeTabId: string | null;
   floatingPosition: FloatingPosition;
   floatingSize: FloatingSize;
+  detachedSize: FloatingSize;
   showSidebar: boolean;
   panels: SplitPanel[];
   activePanelId: string;
@@ -53,6 +54,7 @@ export type ChatWindowAction =
   | { type: 'MARK_READ'; payload: string }
   | { type: 'SET_FLOATING_POSITION'; payload: FloatingPosition }
   | { type: 'SET_FLOATING_SIZE'; payload: FloatingSize }
+  | { type: 'SET_DETACHED_SIZE'; payload: FloatingSize }
   | { type: 'HYDRATE_STATE'; payload: ChatWindowState }
   | { type: 'TOGGLE_SIDEBAR' }
   | { type: 'SET_SIDEBAR'; payload: boolean }
@@ -85,4 +87,5 @@ export type ChatBroadcastMessage =
   | { type: 'detached_closed' }
   | { type: 'state_sync'; payload: ChatWindowState }
   | { type: 'mode_change'; payload: ChatWindowMode }
-  | { type: 'open_tab'; payload: ChatTab };
+  | { type: 'open_tab'; payload: ChatTab }
+  | { type: 'detached_resize'; payload: FloatingSize };

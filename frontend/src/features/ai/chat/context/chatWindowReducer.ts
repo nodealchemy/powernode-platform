@@ -19,6 +19,7 @@ export const initialChatWindowState: ChatWindowState = {
   activeTabId: null,
   floatingPosition: { x: -1, y: -1 },
   floatingSize: { width: 420, height: 520 },
+  detachedSize: { width: 800, height: 600 },
   showSidebar: true,
   panels: [{ ...defaultPanel }],
   activePanelId: defaultPanel.id,
@@ -166,6 +167,9 @@ export function chatWindowReducer(state: ChatWindowState, action: ChatWindowActi
 
     case 'SET_FLOATING_SIZE':
       return { ...state, floatingSize: action.payload };
+
+    case 'SET_DETACHED_SIZE':
+      return { ...state, detachedSize: action.payload };
 
     case 'HYDRATE_STATE':
       return { ...action.payload };

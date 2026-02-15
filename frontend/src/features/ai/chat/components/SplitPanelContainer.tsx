@@ -165,7 +165,7 @@ export const SplitPanelContainer: React.FC = () => {
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); closeTab(tab.id); }
                             }}
-                            className="ml-1 p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-theme-danger/10 hover:text-theme-danger transition-all"
+                            className="ml-1 p-0.5 rounded text-theme-tertiary hover:bg-theme-danger/10 hover:text-theme-danger transition-all"
                           >
                             <span className="text-xs leading-none">&times;</span>
                           </span>
@@ -181,14 +181,14 @@ export const SplitPanelContainer: React.FC = () => {
 
               {/* Panel content */}
               <div className="flex-1 relative overflow-hidden">
-                {hasNoTabs ? (
+                {hasNoTabs || !conv || !activeTabInPanel ? (
                   <NewConversationTab onComplete={() => {}} />
-                ) : conv && activeTabInPanel ? (
+                ) : (
                   <AgentConversationComponent
                     conversation={conv}
                     onNewMessage={() => handleNewMessage(activeTabInPanel.id)}
                   />
-                ) : null}
+                )}
               </div>
             </div>
 

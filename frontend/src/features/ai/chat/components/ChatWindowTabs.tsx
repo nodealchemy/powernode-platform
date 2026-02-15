@@ -110,7 +110,7 @@ export const ChatWindowTabs: React.FC<ChatWindowTabsProps> = ({ onNewTab }) => {
                     closeTab(tab.id);
                   }
                 }}
-                className="ml-1 p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-theme-danger/10 hover:text-theme-danger transition-all"
+                className="ml-1 p-0.5 rounded text-theme-tertiary hover:bg-theme-danger/10 hover:text-theme-danger transition-all"
                 title="Close tab"
               >
                 <X className="h-3 w-3" />
