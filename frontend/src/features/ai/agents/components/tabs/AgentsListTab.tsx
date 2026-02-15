@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Brain, Play, Pause, Settings, Clock, MessageSquare, Plus, Search,
 } from 'lucide-react';
-import { useChatWindow } from '@/features/ai/chat/context/ChatWindowContext';
+
 import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
@@ -57,7 +57,6 @@ export const AgentsListTab: React.FC<AgentsListTabProps> = ({
   onChatWithAgent,
 }) => {
   const navigate = useNavigate();
-  const { openConversationMaximized } = useChatWindow();
 
   const renderAgentCard = (agent: AiAgent) => (
     <Card
@@ -140,24 +139,14 @@ export const AgentsListTab: React.FC<AgentsListTabProps> = ({
             <MessageSquare className="h-3 w-3" />Chat
           </Button>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1.5 min-w-[80px] justify-center"
-            onClick={() => openConversationMaximized(agent.id, agent.name)}
-          >
-            Full Chat
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1.5 min-w-[80px] justify-center"
-            onClick={() => onEditAgent(agent)}
-          >
-            <Settings className="h-3 w-3" />Manage
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-1.5 min-w-[80px] justify-center"
+          onClick={() => onEditAgent(agent)}
+        >
+          <Settings className="h-3 w-3" />Manage
+        </Button>
       </div>
     </Card>
   );

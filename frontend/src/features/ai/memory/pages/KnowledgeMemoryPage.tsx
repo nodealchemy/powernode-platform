@@ -19,8 +19,8 @@ export const KnowledgeMemoryPage: React.FC = () => {
 
   const getActiveTab = () => {
     const path = location.pathname;
-    if (path.includes('/memory/agent-memory')) return 'agent-memory';
-    if (path.includes('/memory/contexts')) return 'contexts';
+    if (path.includes('/memory/agent-memory') || path.includes('/knowledge/memory/agent-memory')) return 'agent-memory';
+    if (path.includes('/memory/contexts') || path.includes('/knowledge/memory/contexts')) return 'contexts';
     return 'tiers';
   };
 
@@ -66,7 +66,7 @@ export const KnowledgeMemoryPage: React.FC = () => {
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        basePath="/app/ai/memory"
+        basePath="/app/ai/knowledge/memory"
         variant="underline"
         className="mb-6"
       >
