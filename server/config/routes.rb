@@ -770,9 +770,6 @@ Rails.application.routes.draw do
 
           # Backup management
           get :backups, to: "maintenance#backups"
-          post :backups, to: "maintenance#create_backup"
-          delete "backups/:id", to: "maintenance#delete_backup"
-          post "backups/:id/restore", to: "maintenance#restore_backup"
 
           # Cleanup operations
           get "cleanup/stats", to: "maintenance#cleanup_stats"
@@ -788,13 +785,11 @@ Rails.application.routes.draw do
           post :mode, to: "maintenance#update_mode"
 
           # System health
-          get "health/detailed", to: "maintenance#detailed_health"
           get "health/services", to: "maintenance#service_health"
 
           # Database operations
           get "database/stats", to: "maintenance#database_stats"
           post "database/analyze", to: "maintenance#analyze_database"
-          post "operations/optimize", to: "maintenance#optimize_database"
 
           # Scheduled tasks
           get :tasks, to: "maintenance#list_tasks"

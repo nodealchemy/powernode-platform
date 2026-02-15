@@ -5,30 +5,22 @@ class Rack::Attack
   # CONFIGURATION
   # =========================================================================
 
-  # Enable rate limiting in all environments (can be disabled via env var or admin settings)
-  Rails.application.config.rate_limiting_enabled = !Rails.env.test? && (
-    begin
-      System::SettingsService.rate_limiting_enabled?
-    rescue StandardError
-      ENV["DISABLE_RATE_LIMITING"] != "true" # Fallback to env var if service fails
-    end
-  )
+  # Enable rate limiting in all environments (can be disabled via env var)
+  Rails.application.config.rate_limiting_enabled = !Rails.env.test? && ENV["DISABLE_RATE_LIMITING"] != "true"
 
   # =========================================================================
   # HELPER METHODS
   # =========================================================================
 
-  # Helper method to get rate limits from system settings
+  # Helper method to get rate limits from admin settings
   def self.get_rate_limit(setting_key, fallback_limit)
-    System::SettingsService.rate_limit_setting(setting_key) || fallback_limit
+    AdminSetting.find_by(key: setting_key)&.value&.to_i || fallback_limit
   rescue StandardError
     fallback_limit
   end
 
   # Helper method to check if rate limiting is enabled at runtime
   def self.rate_limiting_enabled?
-    System::SettingsService.rate_limiting_enabled?
-  rescue StandardError
     ENV["DISABLE_RATE_LIMITING"] != "true"
   end
 

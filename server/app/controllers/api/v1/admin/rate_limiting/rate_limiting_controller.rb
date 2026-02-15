@@ -127,7 +127,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
   def status
     begin
       temporarily_disabled = RateLimiting::BaseService.temporarily_disabled?
-      system_enabled = System::SettingsService.rate_limiting_enabled?
+      system_enabled = ENV["DISABLE_RATE_LIMITING"] != "true"
 
       status_info = {
         system_enabled: system_enabled,
@@ -327,7 +327,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
 
     controller_name = parts[1]
     limit_type = determine_limit_type_for_controller(controller_name)
-    System::SettingsService.rate_limit_setting(limit_type)
+    AdminSetting.find_by(key: limit_type)&.value&.to_i
   end
 
   def determine_limit_type_for_controller(controller_name)

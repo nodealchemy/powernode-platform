@@ -215,7 +215,9 @@ module Admin
     # Get settings summary
     # @return [Hash] Settings summary with timestamps
     def settings_summary_data
-      settings = System::SettingsService.load_settings
+      settings = AdminSetting.all.each_with_object({}) do |setting, hash|
+        hash[setting.key.to_sym] = setting.value
+      end
 
       metadata = Rails.cache.fetch("system_settings_metadata", expires_in: 1.year) do
         {
@@ -439,7 +441,7 @@ module Admin
 
           controller_name = parts[1]
           limit_type = determine_limit_type(controller_name)
-          expected_limit = System::SettingsService.rate_limit_setting(limit_type)
+          expected_limit = AdminSetting.find_by(key: limit_type)&.value&.to_i
 
           if expected_limit && current_count >= (expected_limit * 0.8).to_i
             rate_limit_violations += 1

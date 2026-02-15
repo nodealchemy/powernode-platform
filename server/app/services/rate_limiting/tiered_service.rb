@@ -395,7 +395,7 @@ module RateLimiting
 
       def rate_limiting_disabled?
         RateLimiting::BaseService.temporarily_disabled? ||
-          !System::SettingsService.rate_limiting_enabled?
+          ENV["DISABLE_RATE_LIMITING"] == "true"
       rescue StandardError
         false
       end

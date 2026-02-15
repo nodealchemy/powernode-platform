@@ -393,8 +393,6 @@ module Permissions
     "admin.kb.analytics" => "Access knowledge base analytics",
     "admin.kb.settings" => "Configure knowledge base settings",
 
-    # Worker Management - consolidated under system.workers namespace
-
     # Marketplace Administration
     "admin.marketplace.read" => "View marketplace management",
     "admin.marketplace.manage" => "Manage marketplace settings",
@@ -529,46 +527,15 @@ module Permissions
     "system.worker.report" => "Report status",
     "system.worker.execute" => "Execute jobs",
 
-    # Worker Management (for frontend admin interface)
-    "system.workers.read" => "View worker management interface",
-    "system.workers.create" => "Create new workers",
-    "system.workers.update" => "Update worker configurations",
-    "system.workers.delete" => "Delete workers",
-    "system.workers.suspend" => "Suspend workers",
-    "system.workers.activate" => "Activate workers",
-    "system.workers.regenerate" => "Regenerate worker tokens",
-
     # Database Operations
     "system.database.read" => "Direct database read",
     "system.database.write" => "Direct database write",
-    "system.database.backup" => "Perform backups",
-    "system.database.restore" => "Perform restores",
-    "system.database.optimize" => "Optimize database",
 
     # Job Processing
     "system.jobs.process" => "Process background jobs",
     "system.jobs.retry" => "Retry failed jobs",
     "system.jobs.cancel" => "Cancel jobs",
     "system.jobs.schedule" => "Schedule jobs",
-
-    # System Monitoring
-    "system.health.check" => "Perform health checks",
-    "system.health.report" => "Report health status",
-    "system.metrics.collect" => "Collect metrics",
-    "system.metrics.report" => "Report metrics",
-
-    # Cache & Storage
-    "system.cache.read" => "Read from cache",
-    "system.cache.write" => "Write to cache",
-    "system.cache.clear" => "Clear cache",
-    "system.storage.read" => "Read from storage",
-    "system.storage.write" => "Write to storage",
-    "system.storage.clean" => "Clean storage",
-
-    # Service Control
-    "system.service.restart" => "Restart services",
-    "system.service.reload" => "Reload configurations",
-    "system.service.status" => "Check service status",
 
     # Integration Operations
     "system.webhook.process" => "Process webhooks",
@@ -907,7 +874,6 @@ module Permissions
         "system.worker.report",
         "system.worker.execute",
         "system.jobs.process",
-        "system.health.report",
         "system.api.internal"
       ]
     },

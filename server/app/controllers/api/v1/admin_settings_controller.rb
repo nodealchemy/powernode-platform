@@ -28,9 +28,21 @@ class Api::V1::AdminSettingsController < ApplicationController
   # PUT /api/v1/admin_settings
   def update
     settings_params = admin_settings_params
-    updated_settings = System::SettingsService.update_settings(settings_params)
+    updated_settings = {}
 
-    # Update settings metadata timestamp
+    settings_params.each do |key, value|
+      if value.is_a?(Hash)
+        value.each do |sub_key, sub_value|
+          setting_key = "#{key}.#{sub_key}"
+          AdminSetting.find_or_initialize_by(key: setting_key).update!(value: sub_value.to_s)
+          updated_settings[setting_key] = sub_value
+        end
+      else
+        AdminSetting.find_or_initialize_by(key: key.to_s).update!(value: value.to_s)
+        updated_settings[key] = value
+      end
+    end
+
     update_settings_metadata
 
     log_audit_event("admin_settings_update", "SystemSettings",

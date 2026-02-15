@@ -32,9 +32,8 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
       @user = @account.users.build(user_params)
       # First user in account gets owner role (this is handled by User model callback)
 
-      # Handle email verification based on system settings
-      if System::SettingsService.email_verification_required?
-        # Generate verification token for production/development
+      # Handle email verification based on environment settings
+      if ENV["DISABLE_EMAIL_VERIFICATION"] != "true" && !Rails.env.test?
         @user.generate_email_verification_token
       else
         @user.email_verified_at = Time.current
@@ -78,7 +77,7 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
               email: @user.email,
               verification_token: @user.email_verification_token,
               user_name: @user.full_name,
-              smtp_settings: System::SettingsService.get_setting("smtp_settings")
+              smtp_settings: Rails.application.credentials.dig(:mail, :smtp)
             }
           )
         rescue StandardError => e

@@ -4,9 +4,7 @@ class ScheduledTaskService
   include ActiveModel::Model
 
   TASK_TYPES = %w[
-    database_backup
     data_cleanup
-    system_health_check
     report_generation
     custom_command
   ].freeze
@@ -228,12 +226,8 @@ class ScheduledTaskService
 
       begin
         result = case task.task_type
-        when "database_backup"
-                   execute_database_backup_task(task)
         when "data_cleanup"
                    execute_data_cleanup_task(task)
-        when "system_health_check"
-                   execute_health_check_task(task)
         when "report_generation"
                    execute_report_generation_task(task)
         when "custom_command"
@@ -423,12 +417,6 @@ class ScheduledTaskService
       @redis_client ||= Redis.new(url: ENV.fetch("REDIS_URL", "redis://localhost:6379/0"))
     end
 
-    # Task execution methods
-    def execute_database_backup_task(task)
-      backup_type = task.command&.include?("schema") ? "schema_only" : "full"
-      System::DatabaseBackupService.create_backup(backup_type, "Scheduled backup: #{task.name}", task.user)
-    end
-
     def execute_data_cleanup_task(task)
       results = []
 
@@ -458,16 +446,6 @@ class ScheduledTaskService
         success: true,
         output: results.join("; "),
         message: "Data cleanup completed"
-      }
-    end
-
-    def execute_health_check_task(task)
-      System::HealthService.trigger_comprehensive_check
-
-      {
-        success: true,
-        output: "Comprehensive health check completed",
-        message: "System health check completed successfully"
       }
     end
 

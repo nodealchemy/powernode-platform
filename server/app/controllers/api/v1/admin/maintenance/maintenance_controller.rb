@@ -42,66 +42,6 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     )
   end
 
-  # System Health endpoints
-  def system_health
-    health_data = System::HealthService.check_basic_health
-
-    render_success(health_data)
-  end
-
-  def detailed_health
-    detailed_data = System::HealthService.check_detailed_health
-
-    render_success(detailed_data)
-  end
-
-  def trigger_health_check
-    System::HealthService.trigger_comprehensive_check
-
-    render_success(message: "Comprehensive health check triggered")
-  end
-
-  # Database Backup endpoints
-  def list_backups
-    backups = System::DatabaseBackupService.list_backups
-
-    render_success(backups)
-  end
-
-  def create_backup
-    backup_type = params[:type] || "full"
-    description = params[:description]
-
-    backup_job = System::DatabaseBackupService.create_backup(backup_type, description, current_user)
-
-    render_success(
-      data: backup_job,
-      message: "Database backup initiated"
-    )
-  end
-
-  def delete_backup
-    backup_id = params[:id]
-    result = System::DatabaseBackupService.delete_backup(backup_id)
-
-    if result[:success]
-      render_success(message: "Backup deleted successfully")
-    else
-      render_error(result[:error], status: :unprocessable_content)
-    end
-  end
-
-  def restore_backup
-    backup_id = params[:id]
-    result = System::DatabaseBackupService.restore_backup(backup_id, current_user)
-
-    if result[:success]
-      render_success(message: "Database restore initiated")
-    else
-      render_error(result[:error], status: :unprocessable_content)
-    end
-  end
-
   # Data Cleanup endpoints
   def cleanup_stats
     stats = DataCleanupService.get_cleanup_stats
@@ -143,41 +83,6 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     render_success(
       data: result,
       message: "Application cache cleared"
-    )
-  end
-
-  # System Operations endpoints
-  def system_operations
-    operations = System::OperationsService.get_available_operations
-
-    render_success(operations)
-  end
-
-  def restart_services
-    services = params[:services] || [ "all" ]
-    result = System::OperationsService.restart_services(services)
-
-    render_success(
-      data: result,
-      message: "Service restart initiated"
-    )
-  end
-
-  def reindex_database
-    result = System::OperationsService.reindex_database
-
-    render_success(
-      data: result,
-      message: "Database reindexing initiated"
-    )
-  end
-
-  def optimize_database
-    result = System::OperationsService.optimize_database
-
-    render_success(
-      data: result,
-      message: "Database optimization initiated"
     )
   end
 
@@ -371,7 +276,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   end
 
   def require_health_permission
-    require_any_permission("admin.maintenance.mode", "admin.maintenance.backup", "system.admin", "system.health")
+    require_any_permission("admin.maintenance.mode", "admin.maintenance.backup", "system.admin")
   end
 
   def maintenance_mode_enabled?
