@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_12_220729) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_15_003434) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -8592,43 +8592,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_12_220729) do
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "check_vuln_scans_status"
   end
 
-  create_table "system_health_checks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.string "check_name", limit: 100, null: false
-    t.datetime "checked_at", null: false
-    t.datetime "created_at", null: false
-    t.jsonb "details", default: {}
-    t.text "message"
-    t.integer "response_time_ms"
-    t.string "status", limit: 50, null: false
-    t.datetime "updated_at", null: false
-    t.index ["check_name", "checked_at"], name: "idx_system_health_checks_on_name_checked_at"
-    t.index ["checked_at"], name: "idx_system_health_checks_on_checked_at"
-    t.index ["status"], name: "idx_system_health_checks_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['healthy'::character varying::text, 'warning'::character varying::text, 'critical'::character varying::text, 'unknown'::character varying::text])", name: "valid_health_status"
-  end
-
-  create_table "system_operations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.datetime "completed_at"
-    t.datetime "created_at", null: false
-    t.text "description"
-    t.integer "duration_ms"
-    t.text "error_message"
-    t.uuid "initiated_by_id"
-    t.string "operation_type", limit: 100, null: false
-    t.jsonb "parameters", default: {}
-    t.jsonb "result", default: {}
-    t.datetime "started_at", null: false
-    t.string "status", limit: 50, default: "pending", null: false
-    t.datetime "updated_at", null: false
-    t.index ["completed_at"], name: "idx_system_operations_on_completed_at"
-    t.index ["initiated_by_id"], name: "idx_system_operations_on_initiated_by_id"
-    t.index ["initiated_by_id"], name: "index_system_operations_on_initiated_by_id"
-    t.index ["operation_type"], name: "idx_system_operations_on_operation_type"
-    t.index ["started_at"], name: "idx_system_operations_on_started_at"
-    t.index ["status"], name: "idx_system_operations_on_status"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "valid_operation_status"
-  end
-
   create_table "task_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "completed_at"
     t.datetime "created_at", null: false
@@ -9735,7 +9698,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_12_220729) do
   add_foreign_key "supply_chain_vulnerability_scans", "accounts"
   add_foreign_key "supply_chain_vulnerability_scans", "supply_chain_container_images", column: "container_image_id", on_delete: :cascade
   add_foreign_key "supply_chain_vulnerability_scans", "users", column: "triggered_by_id"
-  add_foreign_key "system_operations", "users", column: "initiated_by_id"
   add_foreign_key "task_executions", "scheduled_tasks"
   add_foreign_key "terms_acceptances", "accounts"
   add_foreign_key "terms_acceptances", "users"
