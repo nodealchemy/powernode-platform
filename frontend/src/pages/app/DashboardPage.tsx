@@ -118,6 +118,14 @@ import { ConnectionsPage } from '@/pages/app/devops/ConnectionsPage';
 import { SwarmHubPage } from '@/pages/app/devops/SwarmHubPage';
 import { DockerHubPage } from '@/pages/app/devops/DockerHubPage';
 
+// Marketing Pages
+import { MarketingCampaignsPage } from '@/pages/app/marketing/MarketingCampaignsPage';
+import { MarketingCampaignDetailPage } from '@/pages/app/marketing/MarketingCampaignDetailPage';
+import { MarketingCalendarPage } from '@/pages/app/marketing/MarketingCalendarPage';
+import { MarketingEmailListsPage } from '@/pages/app/marketing/MarketingEmailListsPage';
+import { MarketingSocialPage } from '@/pages/app/marketing/MarketingSocialPage';
+import { MarketingAnalyticsPage } from '@/pages/app/marketing/MarketingAnalyticsPage';
+
 // Supply Chain Pages
 import {
   SupplyChainDashboardPage,
@@ -534,8 +542,16 @@ const DashboardPage: React.FC = () => {
         <Route path="/supply-chain/licenses/violations" element={<LicenseViolationsPage />} />
         <Route path="/supply-chain/licenses/violations/:id" element={<LicenseViolationDetailPage />} />
 
+        {/* Marketing Pages */}
+        <Route path="/marketing/campaigns" element={<MarketingCampaignsPage />} />
+        <Route path="/marketing/campaigns/:id" element={<MarketingCampaignDetailPage />} />
+        <Route path="/marketing/calendar" element={<MarketingCalendarPage />} />
+        <Route path="/marketing/email-lists" element={<MarketingEmailListsPage />} />
+        <Route path="/marketing/social" element={<MarketingSocialPage />} />
+        <Route path="/marketing/analytics" element={<MarketingAnalyticsPage />} />
+
         {/* Business analytics + metrics routes handled by featureRegistry (enterprise) */}
-        
+
         {/* Marketplace Pages */}
         <Route path="/marketplace" element={<MarketplacePage />} />
         <Route path="/marketplace/:type/:id" element={<ItemDetailPage />} />

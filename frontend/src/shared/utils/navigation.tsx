@@ -8,7 +8,8 @@ import {
   CheckCircle2, Scale, Building2, Activity, ShieldCheck,
   FlaskConical, MessagesSquare,
   Container, Coins,
-  Play
+  Play,
+  Megaphone, CalendarDays, Mail, Share2, TrendingUp
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
 
@@ -238,6 +239,62 @@ export const defaultNavigationConfig: NavigationConfig = {
       collapsible: true,
       defaultExpanded: true,
       order: 15
+    },
+    // Marketing section - campaign and content management
+    {
+      id: 'marketing',
+      name: 'Marketing',
+      items: [
+        {
+          id: 'marketing-campaigns',
+          name: 'Campaigns',
+          href: '/app/marketing/campaigns',
+          icon: Megaphone,
+          description: 'Create and manage marketing campaigns',
+          permissions: ['marketing.campaigns.read'],
+          order: 1
+        },
+        {
+          id: 'marketing-calendar',
+          name: 'Calendar',
+          href: '/app/marketing/calendar',
+          icon: CalendarDays,
+          description: 'Content scheduling and planning',
+          permissions: ['marketing.calendar.read'],
+          order: 2
+        },
+        {
+          id: 'marketing-email',
+          name: 'Email Lists',
+          href: '/app/marketing/email-lists',
+          icon: Mail,
+          description: 'Email lists and subscriber management',
+          permissions: ['marketing.email_lists.read'],
+          order: 3
+        },
+        {
+          id: 'marketing-social',
+          name: 'Social',
+          href: '/app/marketing/social',
+          icon: Share2,
+          description: 'Social media account management',
+          permissions: ['marketing.social.read'],
+          order: 4
+        },
+        {
+          id: 'marketing-analytics',
+          name: 'Analytics',
+          href: '/app/marketing/analytics',
+          icon: TrendingUp,
+          description: 'Campaign performance and ROI tracking',
+          permissions: ['marketing.analytics.read'],
+          order: 5
+        }
+      ],
+      permissions: ['marketing.campaigns.read', 'marketing.calendar.read', 'marketing.email_lists.read', 'marketing.social.read', 'marketing.analytics.read'],
+      collapsible: true,
+      defaultExpanded: true,
+      order: 16
     },
     // Account section - personal and team management (less frequent access)
     {
