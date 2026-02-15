@@ -98,7 +98,6 @@ RSpec.describe 'Api::V1::Auth::EmailVerifications', type: :request do
       before do
         allow(WorkerJobService).to receive(:enqueue_notification_email).and_return(true)
         allow_any_instance_of(User).to receive(:generate_email_verification_token).and_return(true)
-        allow(System::SettingsService).to receive(:get_setting).and_return({})
       end
 
       it 'resends verification email' do

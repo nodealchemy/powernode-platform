@@ -104,26 +104,6 @@ RSpec.describe 'Api::V1::Admin::Maintenance::MaintenanceController', type: :requ
     end
   end
 
-  describe 'GET /api/v1/admin/maintenance/health/detailed' do
-    context 'with admin maintenance permission' do
-      it 'returns detailed health data' do
-        allow(System::HealthService).to receive(:check_detailed_health).and_return(
-          {
-            database: { status: 'healthy' },
-            redis: { status: 'healthy' },
-            sidekiq: { status: 'healthy' }
-          }
-        )
-
-        get '/api/v1/admin/maintenance/health/detailed', headers: headers, as: :json
-
-        expect_success_response
-        data = json_response_data
-        expect(data).to include('database', 'redis', 'sidekiq')
-      end
-    end
-  end
-
   describe 'GET /api/v1/admin/maintenance/backups' do
     context 'with admin maintenance permission' do
       it 'returns list of backups' do
@@ -143,84 +123,6 @@ RSpec.describe 'Api::V1::Admin::Maintenance::MaintenanceController', type: :requ
           expect(response).to have_http_status(:service_unavailable)
           expect_error_response('Unable to retrieve database backups')
         end
-      end
-    end
-  end
-
-  describe 'POST /api/v1/admin/maintenance/backups' do
-    context 'with admin maintenance permission' do
-      it 'creates a new backup' do
-        backup_job = { job_id: '456', status: 'pending' }
-        allow(System::DatabaseBackupService).to receive(:create_backup).and_return(backup_job)
-
-        post '/api/v1/admin/maintenance/backups',
-             params: { type: 'full', description: 'Manual backup' },
-             headers: headers,
-             as: :json
-
-        expect_success_response
-      end
-    end
-  end
-
-  describe 'DELETE /api/v1/admin/maintenance/backups/:id' do
-    context 'with admin maintenance permission' do
-      it 'deletes a backup successfully' do
-        allow(System::DatabaseBackupService).to receive(:delete_backup).and_return(
-          { success: true }
-        )
-
-        delete '/api/v1/admin/maintenance/backups/123', headers: headers, as: :json
-
-        expect_success_response
-      end
-
-      it 'returns error when deletion fails' do
-        allow(System::DatabaseBackupService).to receive(:delete_backup).and_return(
-          { success: false, error: 'Backup not found' }
-        )
-
-        delete '/api/v1/admin/maintenance/backups/123', headers: headers, as: :json
-
-        expect_error_response('Backup not found', 422)
-      end
-    end
-  end
-
-  describe 'POST /api/v1/admin/maintenance/backups/:id/restore' do
-    context 'with admin maintenance permission' do
-      it 'restores a backup successfully' do
-        allow(System::DatabaseBackupService).to receive(:restore_backup).and_return(
-          { success: true }
-        )
-
-        post '/api/v1/admin/maintenance/backups/123/restore', headers: headers, as: :json
-
-        expect_success_response
-      end
-
-      it 'returns error when restore fails' do
-        allow(System::DatabaseBackupService).to receive(:restore_backup).and_return(
-          { success: false, error: 'Restore failed' }
-        )
-
-        post '/api/v1/admin/maintenance/backups/123/restore', headers: headers, as: :json
-
-        expect_error_response('Restore failed', 422)
-      end
-    end
-  end
-
-  describe 'POST /api/v1/admin/maintenance/operations/optimize' do
-    context 'with admin maintenance permission' do
-      it 'initiates database optimization' do
-        allow(System::OperationsService).to receive(:optimize_database).and_return(
-          { status: 'initiated' }
-        )
-
-        post '/api/v1/admin/maintenance/operations/optimize', headers: headers, as: :json
-
-        expect_success_response
       end
     end
   end

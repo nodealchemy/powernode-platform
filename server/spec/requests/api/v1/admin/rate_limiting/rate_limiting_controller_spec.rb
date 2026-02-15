@@ -160,7 +160,6 @@ RSpec.describe 'Api::V1::Admin::RateLimiting::RateLimitingController', type: :re
     context 'with admin security permission' do
       it 'returns rate limiting status' do
         allow(RateLimiting::BaseService).to receive(:temporarily_disabled?).and_return(false)
-        allow(System::SettingsService).to receive(:rate_limiting_enabled?).and_return(true)
 
         get '/api/v1/admin/rate_limiting/status', headers: headers, as: :json
 
@@ -171,7 +170,6 @@ RSpec.describe 'Api::V1::Admin::RateLimiting::RateLimitingController', type: :re
 
       it 'includes remaining time when temporarily disabled' do
         allow(RateLimiting::BaseService).to receive(:temporarily_disabled?).and_return(true)
-        allow(System::SettingsService).to receive(:rate_limiting_enabled?).and_return(true)
 
         # Define a redis method on the MemoryStore instance for this test,
         # since MemoryStore doesn't normally have a redis method

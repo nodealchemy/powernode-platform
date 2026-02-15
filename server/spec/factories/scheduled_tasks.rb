@@ -10,19 +10,9 @@ FactoryBot.define do
     success_count { 0 }
     failure_count { 0 }
 
-    trait :database_backup do
-      task_type { "database_backup" }
-      parameters { { "backup_type" => "full" } }
-    end
-
     trait :data_cleanup do
       task_type { "data_cleanup" }
       parameters { { "days_to_keep" => 30 } }
-    end
-
-    trait :system_health_check do
-      task_type { "system_health_check" }
-      parameters { { "check_database" => true, "check_redis" => true } }
     end
 
     trait :report_generation do

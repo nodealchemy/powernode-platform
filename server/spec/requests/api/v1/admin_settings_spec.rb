@@ -54,11 +54,6 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
       end
 
       before do
-        allow(System::SettingsService).to receive(:update_settings).and_return({
-          maintenance_mode: false,
-          registration_enabled: true,
-          session_timeout_minutes: 60
-        })
         allow(Audit::LoggingService.instance).to receive(:log).and_return(nil)
       end
 

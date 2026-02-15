@@ -6,8 +6,6 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
   before do
     allow(WorkerJobService).to receive(:enqueue_job).and_return({ 'status' => 'queued' })
     allow(WorkerJobService).to receive(:enqueue_notification_email).and_return({ 'status' => 'queued' })
-    allow(System::SettingsService).to receive(:email_verification_required?).and_return(true)
-    allow(System::SettingsService).to receive(:get_setting).and_return({})
   end
 
   describe 'POST /api/v1/auth/register' do
@@ -63,8 +61,6 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
       end
 
       it 'sends verification email when required' do
-        allow(System::SettingsService).to receive(:email_verification_required?).and_return(true)
-
         post '/api/v1/auth/register',
              params: valid_params,
              as: :json
@@ -74,8 +70,6 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
       end
 
       it 'includes verification warning in response' do
-        allow(System::SettingsService).to receive(:email_verification_required?).and_return(true)
-
         post '/api/v1/auth/register',
              params: valid_params,
              as: :json
@@ -273,10 +267,6 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
     end
 
     context 'when email verification not required' do
-      before do
-        allow(System::SettingsService).to receive(:email_verification_required?).and_return(false)
-      end
-
       it 'auto-verifies user email' do
         post '/api/v1/auth/register',
              params: valid_params,

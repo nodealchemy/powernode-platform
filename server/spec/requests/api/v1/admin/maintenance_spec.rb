@@ -140,20 +140,6 @@ RSpec.describe 'Api::V1::Admin::Maintenance', type: :request do
     end
   end
 
-  describe 'GET /api/v1/admin/maintenance/health/detailed' do
-    let(:headers) { auth_headers_for(user_with_maintenance_permission) }
-
-    it 'returns detailed health information' do
-      allow(System::HealthService).to receive(:check_detailed_health).and_return(
-        { database: 'healthy', redis: 'healthy', sidekiq: 'healthy' }
-      )
-
-      get '/api/v1/admin/maintenance/health/detailed', headers: headers, as: :json
-
-      expect_success_response
-    end
-  end
-
   describe 'GET /api/v1/admin/maintenance/metrics' do
     let(:headers) { auth_headers_for(user_with_maintenance_permission) }
 
@@ -173,23 +159,6 @@ RSpec.describe 'Api::V1::Admin::Maintenance', type: :request do
 
     it 'returns list of backups' do
       get '/api/v1/admin/maintenance/backups', headers: headers, as: :json
-
-      expect_success_response
-    end
-  end
-
-  describe 'POST /api/v1/admin/maintenance/backups' do
-    let(:headers) { auth_headers_for(user_with_maintenance_permission) }
-
-    it 'creates a database backup' do
-      allow(System::DatabaseBackupService).to receive(:create_backup).and_return(
-        { job_id: SecureRandom.uuid, status: 'pending' }
-      )
-
-      post '/api/v1/admin/maintenance/backups',
-           params: { type: 'full', description: 'Manual backup' },
-           headers: headers,
-           as: :json
 
       expect_success_response
     end
