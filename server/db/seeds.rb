@@ -942,6 +942,9 @@ puts "\n📚 Loading Knowledge Base content..."
 load Rails.root.join('db', 'seeds', 'knowledge_base_permissions.rb')
 load Rails.root.join('db', 'seeds', 'knowledge_base_articles.rb')
 
+puts "\n📣 Loading Marketing Permissions..."
+load Rails.root.join('db', 'seeds', 'marketing_permissions_seed.rb')
+
 # Load AI Providers and Workflows (only in development/test)
 if Rails.env.development? || Rails.env.test?
   puts "\n🤖 Loading Comprehensive AI Providers (OpenAI, Grok, Ollama, Claude)..."
@@ -982,6 +985,12 @@ if Rails.env.development? || Rails.env.test?
 
   puts "\n🧩 Loading AI Skills..."
   load Rails.root.join('db', 'seeds', 'ai_skills_seed.rb')
+
+  puts "\n📋 Loading AI Example Templates..."
+  load Rails.root.join('db', 'seeds', 'ai_example_templates_seed.rb')
+
+  puts "\n🔧 Loading Powernode Development Team..."
+  load Rails.root.join('db', 'seeds', 'ai_dev_team_seed.rb')
 end
 
 # Enterprise Edition seeds (loaded when enterprise engine is present)
@@ -1012,6 +1021,8 @@ if Rails.env.development? || Rails.env.test?
   puts "   DevOps Container Templates: #{Devops::ContainerTemplate.count}"
   puts "   AI DevOps Templates: #{Ai::DevopsTemplate.count}"
   puts "   AI Skills: #{Ai::Skill.count}"
+  puts "   AI Agent Templates: #{Ai::AgentTemplate.count}"
+  puts "   AI Agent Teams: #{Ai::AgentTeam.count}"
 end
 
 # 🔧 Create default site settings
@@ -1059,4 +1070,5 @@ if Rails.env.development? || Rails.env.test?
   puts "   Subscriptions: #{Subscription.count}"
   puts "   Site Settings: #{SiteSetting.count}"
   puts "   Supply Chain Licenses: #{SupplyChain::License.count}"
+  puts "   Marketing Campaigns: #{defined?(Marketing::Campaign) ? Marketing::Campaign.count : 'N/A'}"
 end
