@@ -18,14 +18,10 @@ import MyFilesPage from './content/MyFilesPage';
 import { UsersPage } from './account/UsersPage';
 import { AuditLogsPage } from './admin/AuditLogsPage';
 import PrivacyDashboardPage from './privacy/PrivacyDashboardPage';
-import { ApiKeysPage } from './devops/ApiKeysPage';
 import { NotificationsPage } from './account/NotificationsPage';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { BarChart3, Users } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
-
-// Import system pages
-import WebhookManagementPage from '@/pages/app/devops/WebhooksPage';
 
 // Import marketplace pages
 import { MarketplacePage } from '@/pages/app/marketplace/MarketplacePage';
@@ -39,22 +35,15 @@ import { AdminRolesPage } from '@/pages/app/admin/AdminRolesPage';
 import { WorkersPage as AdminWorkersPage } from '@/pages/app/admin/WorkersPage';
 import AdminStoragePage from '@/pages/app/admin/StorageProvidersPage';
 
-// CI/CD Pages (used in System section for runners)
-import {
-  RunnersPage as AiPipelinesRunnersPage,
-} from '@/features/devops/pipelines';
-
 // Provider Pages
 import { AIProvidersPage } from './ai/AIProvidersPage';
 import { GitProvidersPage } from './devops/GitProvidersPage';
-import { RepositoriesPage } from './devops/RepositoriesPage';
 import { AdminMaintenancePage } from '@/pages/app/admin/AdminMaintenancePage';
 import { AdminMarketplacePage } from '@/pages/app/admin/AdminMarketplacePage';
 // AI Pages - Primary navigation
 import { AIOverviewPage } from './ai/AIOverviewPage';
 import { AIAgentsPage } from './ai/AIAgentsPage';
 import { WorkflowsPage } from './ai/WorkflowsPage';
-import { AIConversationsPage } from './ai/AIConversationsPage';
 import { AIMonitoringPage } from './ai/AIMonitoringPage';
 import GovernancePage from './ai/GovernancePage';
 import SandboxPage from './ai/SandboxPage';
@@ -75,8 +64,6 @@ import { WorkflowValidationStatisticsPage } from './ai/WorkflowValidationStatist
 import { AIAnalyticsPage } from './ai/AIAnalyticsPage';
 import { AgentMemoryPage } from './ai/AgentMemoryPage';
 import { ContextDetailPage } from './ai/ContextDetailPage';
-import { ChatChannelsPage } from '@/features/ai/chat-channels/pages/ChatChannelsPage';
-
 // AI Hidden pages (no nav, still accessible)
 import { SelfHealingDashboard } from '@/features/ai/self-healing/SelfHealingDashboard';
 import { RecommendationsDashboard } from '@/features/ai/learning/RecommendationsDashboard';
@@ -85,61 +72,51 @@ import { TrajectoryInsights } from '@/features/ai/learning/TrajectoryInsights';
 // AI Agent Orchestration pages
 import { SandboxDashboardPage } from '@/features/ai/sandboxes';
 import { AutonomyDashboardPage } from '@/features/ai/autonomy';
-import { KnowledgeMemoryPage } from '@/features/ai/memory';
 import CompoundLearningPage from './ai/CompoundLearningPage';
 import { AuditDashboardPage } from '@/features/ai/audit';
 import { SecurityDashboardPage } from '@/features/ai/security';
 import { EvaluationDashboardPage } from '@/features/ai/evaluation';
-import { FinOpsPage } from '@/features/ai/finops';
-import { McpAppsStandalonePage } from '@/features/ai/mcp-apps';
+// AI Communication hub
+import { CommunicationPage } from './ai/CommunicationPage';
 
 // Container Orchestration (Sandboxed AI execution)
 import { ContainersPage } from '@/features/devops/containers/pages/ContainersPage';
 
-// Docker Swarm Management
+// Docker Swarm detail routes
 import { ClusterProvider } from '@/features/devops/swarm/context/ClusterContext';
-import { SwarmClustersPage } from '@/features/devops/swarm/pages/SwarmClustersPage';
 import { ClusterDashboardPage } from '@/features/devops/swarm/pages/ClusterDashboardPage';
 import { SwarmNodesPage } from '@/features/devops/swarm/pages/SwarmNodesPage';
-import { SwarmServicesPage } from '@/features/devops/swarm/pages/SwarmServicesPage';
 import { SwarmServiceDetailPage } from '@/features/devops/swarm/pages/SwarmServiceDetailPage';
-import { SwarmStacksPage } from '@/features/devops/swarm/pages/SwarmStacksPage';
-import { SwarmNetworksPage } from '@/features/devops/swarm/pages/SwarmNetworksPage';
-import { SwarmSecretsPage } from '@/features/devops/swarm/pages/SwarmSecretsPage';
-import { SwarmDeploymentsPage } from '@/features/devops/swarm/pages/SwarmDeploymentsPage';
-import { SwarmHealthPage } from '@/features/devops/swarm/pages/SwarmHealthPage';
 
-// Docker Host Management
+// Docker Host detail routes
 import { HostProvider } from '@/features/devops/docker/context/HostContext';
-import { DockerHostsPage } from '@/features/devops/docker/pages/DockerHostsPage';
 import { HostDashboardPage } from '@/features/devops/docker/pages/HostDashboardPage';
-import { DockerContainersPage } from '@/features/devops/docker/pages/DockerContainersPage';
 import { ContainerDetailPage } from '@/features/devops/docker/pages/ContainerDetailPage';
-import { DockerImagesPage } from '@/features/devops/docker/pages/DockerImagesPage';
-import { DockerNetworksPage } from '@/features/devops/docker/pages/DockerNetworksPage';
-import { DockerVolumesPage } from '@/features/devops/docker/pages/DockerVolumesPage';
-import { DockerActivitiesPage } from '@/features/devops/docker/pages/DockerActivitiesPage';
-import { DockerHealthPage } from '@/features/devops/docker/pages/DockerHealthPage';
 
 // AI Feature Pages (standalone)
 import TeamsPage from './ai/TeamsPage';
 import DevOpsTemplatesPage from './ai/DevOpsTemplatesPage';
 import { WorkflowAnalyticsPage } from './ai/WorkflowAnalyticsPage';
 
-// Integration Pages
+// Integration detail routes
 import {
-  IntegrationsPage,
   IntegrationDetailPage,
   NewIntegrationPage,
 } from '@/pages/app/devops/integrations';
 
 // DevOps Pages
 import { DevOpsOverviewPage } from '@/pages/app/devops/DevOpsOverviewPage';
-import { PipelinesPage } from '@/pages/app/devops/PipelinesPage';
 import { PipelineCreatePage } from '@/pages/app/devops/PipelineCreatePage';
 import { PipelineDetailPage } from '@/pages/app/devops/PipelineDetailPage';
 import { PipelineEditPage } from '@/pages/app/devops/PipelineEditPage';
 import { RunnerDetailPage } from '@/pages/app/devops/RunnerDetailPage';
+
+// DevOps Hub Pages
+import { SourceControlPage } from '@/pages/app/devops/SourceControlPage';
+import { CiCdPage } from '@/pages/app/devops/CiCdPage';
+import { ConnectionsPage } from '@/pages/app/devops/ConnectionsPage';
+import { SwarmHubPage } from '@/pages/app/devops/SwarmHubPage';
+import { DockerHubPage } from '@/pages/app/devops/DockerHubPage';
 
 // Supply Chain Pages
 import {
@@ -428,8 +405,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/workflows/templates" element={<WorkflowsPage />} />
         <Route path="/ai/workflows/:id" element={<WorkflowDetailPage />} />
         <Route path="/ai/workflows/*" element={<WorkflowsPage />} />
-        <Route path="/ai/conversations" element={<AIConversationsPage />} />
-        <Route path="/ai/chat-channels" element={<ChatChannelsPage />} />
+        <Route path="/ai/communication/*" element={<CommunicationPage />} />
         <Route path="/ai/governance" element={<GovernancePage />} />
         <Route path="/ai/sandbox" element={<SandboxPage />} />
 
@@ -447,13 +423,9 @@ const DashboardPage: React.FC = () => {
         {/* AI Pages - Agent Orchestration */}
         <Route path="/ai/sandboxes" element={<SandboxDashboardPage />} />
         <Route path="/ai/autonomy" element={<AutonomyDashboardPage />} />
-        <Route path="/ai/memory/*" element={<KnowledgeMemoryPage />} />
         <Route path="/ai/learning" element={<CompoundLearningPage />} />
         <Route path="/ai/audit" element={<AuditDashboardPage />} />
         <Route path="/ai/security" element={<SecurityDashboardPage />} />
-
-        <Route path="/ai/finops" element={<FinOpsPage />} />
-        <Route path="/ai/mcp-apps" element={<McpAppsStandalonePage />} />
 
         {/* AI Pages - Hidden (no nav, still accessible) */}
         <Route path="/ai/evaluation" element={<EvaluationDashboardPage />} />
@@ -488,55 +460,57 @@ const DashboardPage: React.FC = () => {
         {/* Workers moved to admin routes */}
         
 
-        {/* DevOps Pages - Git, Repositories, Runners, Webhooks, Integrations, API Keys */}
+        {/* DevOps Pages */}
         <Route path="/devops" element={<DevOpsOverviewPage />} />
-        <Route path="/devops/git" element={<GitProvidersPage />} />
-        <Route path="/devops/git/new" element={<GitProvidersPage />} />
-        <Route path="/devops/git/:id" element={<GitProvidersPage />} />
-        <Route path="/devops/repositories" element={<RepositoriesPage />} />
-        <Route path="/devops/runners" element={<AiPipelinesRunnersPage />} />
-        <Route path="/devops/runners/:id" element={<RunnerDetailPage />} />
-        <Route path="/devops/webhooks" element={<WebhookManagementPage />} />
-        <Route path="/devops/integrations" element={<IntegrationsPage />} />
-        <Route path="/devops/integrations/new" element={<NewIntegrationPage />} />
-        <Route path="/devops/integrations/new/:templateId" element={<NewIntegrationPage />} />
-        <Route path="/devops/integrations/:id/*" element={<IntegrationDetailPage />} />
-        <Route path="/devops/api-keys" element={<ApiKeysPage />} />
-        <Route path="/devops/containers/*" element={<ContainersPage />} />
 
-        {/* Docker Swarm Routes - wrapped with ClusterProvider, named routes before param routes */}
-        <Route path="/devops/swarm" element={<ClusterProvider><SwarmClustersPage /></ClusterProvider>} />
-        <Route path="/devops/swarm/services" element={<ClusterProvider><SwarmServicesPage /></ClusterProvider>} />
-        <Route path="/devops/swarm/stacks" element={<ClusterProvider><SwarmStacksPage /></ClusterProvider>} />
-        <Route path="/devops/swarm/networks" element={<ClusterProvider><SwarmNetworksPage /></ClusterProvider>} />
-        <Route path="/devops/swarm/secrets/*" element={<ClusterProvider><SwarmSecretsPage /></ClusterProvider>} />
-        <Route path="/devops/swarm/deployments" element={<ClusterProvider><SwarmDeploymentsPage /></ClusterProvider>} />
-        <Route path="/devops/swarm/health" element={<ClusterProvider><SwarmHealthPage /></ClusterProvider>} />
-        <Route path="/devops/swarm/:clusterId" element={<ClusterProvider><ClusterDashboardPage /></ClusterProvider>} />
-        <Route path="/devops/swarm/:clusterId/nodes" element={<ClusterProvider><SwarmNodesPage /></ClusterProvider>} />
+        {/* Source Control - detail routes before catch-all */}
+        <Route path="/devops/source-control/providers/new" element={<GitProvidersPage />} />
+        <Route path="/devops/source-control/providers/:id" element={<GitProvidersPage />} />
+        <Route path="/devops/source-control/*" element={<SourceControlPage />} />
+
+        {/* CI/CD - detail routes before catch-all */}
+        <Route path="/devops/ci-cd/pipelines/new" element={<PipelineCreatePage />} />
+        <Route path="/devops/ci-cd/pipelines/:id/edit" element={<PipelineEditPage />} />
+        <Route path="/devops/ci-cd/pipelines/:id/runs/:runId" element={<PipelineDetailPage />} />
+        <Route path="/devops/ci-cd/pipelines/:id/runs" element={<PipelineDetailPage />} />
+        <Route path="/devops/ci-cd/pipelines/:id" element={<PipelineDetailPage />} />
+        <Route path="/devops/ci-cd/runners/:id" element={<RunnerDetailPage />} />
+        <Route path="/devops/ci-cd/*" element={<CiCdPage />} />
+
+        {/* Connections - detail routes before catch-all */}
+        <Route path="/devops/connections/integrations/new/:templateId" element={<NewIntegrationPage />} />
+        <Route path="/devops/connections/integrations/new" element={<NewIntegrationPage />} />
+        <Route path="/devops/connections/integrations/:id/*" element={<IntegrationDetailPage />} />
+        <Route path="/devops/connections/*" element={<ConnectionsPage />} />
+
+        {/* Sandboxes */}
+        <Route path="/devops/sandboxes/*" element={<ContainersPage />} />
+
+        {/* Swarm - static tab routes before :clusterId to prevent "services" etc. matching as an ID */}
+        <Route path="/devops/swarm/services" element={<SwarmHubPage />} />
+        <Route path="/devops/swarm/stacks" element={<SwarmHubPage />} />
+        <Route path="/devops/swarm/networks" element={<SwarmHubPage />} />
+        <Route path="/devops/swarm/secrets" element={<SwarmHubPage />} />
+        <Route path="/devops/swarm/operations" element={<SwarmHubPage />} />
+        {/* Swarm - detail routes before catch-all */}
         <Route path="/devops/swarm/:clusterId/services/:serviceId/*" element={<ClusterProvider><SwarmServiceDetailPage /></ClusterProvider>} />
+        <Route path="/devops/swarm/:clusterId/nodes" element={<ClusterProvider><SwarmNodesPage /></ClusterProvider>} />
+        <Route path="/devops/swarm/:clusterId" element={<ClusterProvider><ClusterDashboardPage /></ClusterProvider>} />
+        <Route path="/devops/swarm/*" element={<SwarmHubPage />} />
 
-        {/* Docker Host Routes - wrapped with HostProvider, named routes before param routes */}
-        <Route path="/devops/docker" element={<HostProvider><DockerHostsPage /></HostProvider>} />
-        <Route path="/devops/docker/containers" element={<HostProvider><DockerContainersPage /></HostProvider>} />
-        <Route path="/devops/docker/images" element={<HostProvider><DockerImagesPage /></HostProvider>} />
-        <Route path="/devops/docker/networks" element={<HostProvider><DockerNetworksPage /></HostProvider>} />
-        <Route path="/devops/docker/volumes" element={<HostProvider><DockerVolumesPage /></HostProvider>} />
-        <Route path="/devops/docker/activities" element={<HostProvider><DockerActivitiesPage /></HostProvider>} />
-        <Route path="/devops/docker/health" element={<HostProvider><DockerHealthPage /></HostProvider>} />
-        <Route path="/devops/docker/:hostId" element={<HostProvider><HostDashboardPage /></HostProvider>} />
+        {/* Docker - static tab routes before :hostId to prevent "containers" etc. matching as an ID */}
+        <Route path="/devops/docker/containers" element={<DockerHubPage />} />
+        <Route path="/devops/docker/images" element={<DockerHubPage />} />
+        <Route path="/devops/docker/networks" element={<DockerHubPage />} />
+        <Route path="/devops/docker/volumes" element={<DockerHubPage />} />
+        <Route path="/devops/docker/monitoring" element={<DockerHubPage />} />
+        {/* Docker - detail routes before catch-all */}
         <Route path="/devops/docker/:hostId/containers/:containerId/*" element={<HostProvider><ContainerDetailPage /></HostProvider>} />
+        <Route path="/devops/docker/:hostId" element={<HostProvider><HostDashboardPage /></HostProvider>} />
+        <Route path="/devops/docker/*" element={<DockerHubPage />} />
 
         {/* Audit Logs */}
         <Route path="/admin/audit-logs/*" element={<AuditLogsPage />} />
-
-        {/* DevOps Pipelines */}
-        <Route path="/devops/pipelines" element={<PipelinesPage />} />
-        <Route path="/devops/pipelines/new" element={<PipelineCreatePage />} />
-        <Route path="/devops/pipelines/:id" element={<PipelineDetailPage />} />
-        <Route path="/devops/pipelines/:id/edit" element={<PipelineEditPage />} />
-        <Route path="/devops/pipelines/:id/runs" element={<PipelineDetailPage />} />
-        <Route path="/devops/pipelines/:id/runs/:runId" element={<PipelineDetailPage />} />
 
         {/* Supply Chain Routes */}
         <Route path="/supply-chain" element={<SupplyChainDashboardPage />} />

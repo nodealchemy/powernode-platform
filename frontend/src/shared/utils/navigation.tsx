@@ -3,13 +3,12 @@ import {
   Home, BarChart3, Users, User, Settings, CreditCard,
   FileText, Package, UserCheck, Store,
   HelpCircle, LogOut, Bot, Brain,
-  HardDrive, Workflow, Server, GitBranch, FolderGit2,
-  Puzzle, BookOpen, UserCog, Key, Shield, FileCode,
+  HardDrive, Workflow, Server, GitBranch,
+  Puzzle, BookOpen, UserCog, Shield, FileCode,
   CheckCircle2, Scale, Building2, Activity, ShieldCheck,
-  FlaskConical, Boxes, MessagesSquare,
-  Container, Coins, Database,
-  Network, Layers, Lock, Rocket, HeartPulse,
-  Play, DollarSign, AppWindow
+  FlaskConical, MessagesSquare,
+  Container, Coins,
+  Play
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
 
@@ -135,19 +134,19 @@ export const defaultNavigationConfig: NavigationConfig = {
         },
         {
           id: 'ai-knowledge',
-          name: 'Knowledge & Memory',
-          href: '/app/ai/memory',
+          name: 'Knowledge',
+          href: '/app/ai/knowledge',
           icon: BookOpen,
-          description: 'Manage agent memory tiers, persistent contexts, and shared knowledge',
+          description: 'Manage agent knowledge, prompts, skills, and memory tiers',
           permissions: ['ai.context.read'],
           order: 7
         },
         {
-          id: 'ai-chat-channels',
-          name: 'Chat Channels',
-          href: '/app/ai/chat-channels',
+          id: 'ai-communication',
+          name: 'Communication',
+          href: '/app/ai/communication',
           icon: MessagesSquare,
-          description: 'Multi-platform chat gateway',
+          description: 'Chat channels and conversation management',
           permissions: ['ai.agents.read'],
           order: 8
         },
@@ -186,24 +185,6 @@ export const defaultNavigationConfig: NavigationConfig = {
           description: 'Manage AI credits and outcome-based billing',
           permissions: ['ai.credits.read'],
           order: 12
-        },
-        {
-          id: 'ai-finops',
-          name: 'FinOps',
-          href: '/app/ai/finops',
-          icon: DollarSign,
-          description: 'Monitor AI costs, token usage, budgets, and optimization',
-          permissions: ['ai.finops.view'],
-          order: 13
-        },
-        {
-          id: 'ai-mcp-apps',
-          name: 'MCP Apps',
-          href: '/app/ai/mcp-apps',
-          icon: AppWindow,
-          description: 'Model Context Protocol apps gallery and configuration',
-          permissions: ['ai.agents.read'],
-          order: 14
         },
         {
           id: 'ai-sandbox',
@@ -400,207 +381,63 @@ export const adminNavigationOverrides = {
           order: 1
         },
         {
-          id: 'git-providers',
-          name: 'Git Providers',
-          href: '/app/devops/git',
+          id: 'source-control',
+          name: 'Source Control',
+          href: '/app/devops/source-control',
           icon: GitBranch,
-          description: 'GitHub, GitLab, Gitea, and other git providers',
-          permissions: ['git.providers.read'],
+          description: 'Git providers and repository management',
+          permissions: ['git.providers.read', 'git.repositories.read'],
           order: 2
         },
         {
-          id: 'repositories',
-          name: 'Repositories',
-          href: '/app/devops/repositories',
-          icon: FolderGit2,
-          description: 'Synced Git repositories from all providers',
-          permissions: ['git.repositories.read'],
+          id: 'ci-cd',
+          name: 'CI/CD',
+          href: '/app/devops/ci-cd',
+          icon: Workflow,
+          description: 'Pipelines and runner management',
+          permissions: ['devops.pipelines.read', 'cicd.runners.read'],
           order: 3
         },
         {
-          id: 'pipelines',
-          name: 'Pipelines',
-          href: '/app/devops/pipelines',
-          icon: Workflow,
-          description: 'DevOps pipelines for automated deployments',
-          permissions: ['devops.pipelines.read'],
+          id: 'connections',
+          name: 'Connections',
+          href: '/app/devops/connections',
+          icon: Puzzle,
+          description: 'Integrations, webhooks, API keys, and file storage',
+          permissions: ['integrations.read', 'webhook.read', 'api.manage_keys', 'admin.storage.read'],
           order: 4
         },
         {
-          id: 'runners',
-          name: 'Runners',
-          href: '/app/devops/runners',
-          icon: Server,
-          description: 'Self-hosted workflow execution agents',
-          permissions: ['cicd.runners.read', 'git.runners.read'],
-          order: 5
-        },
-        {
-          id: 'webhooks',
-          name: 'Webhooks',
-          href: '/app/devops/webhooks',
-          icon: '🔗',
-          description: 'Manage webhook endpoints and events',
-          permissions: ['webhook.read'],
-          order: 6
-        },
-        {
-          id: 'integrations',
-          name: 'Integrations',
-          href: '/app/devops/integrations',
-          icon: Puzzle,
-          description: 'Third-party service integrations and webhooks',
-          permissions: ['integrations.read'],
-          order: 7
-        },
-        {
-          id: 'api-keys',
-          name: 'API Keys',
-          href: '/app/devops/api-keys',
-          icon: Key,
-          description: 'API keys and authentication tokens',
-          permissions: ['api.manage_keys'],
-          order: 8
-        },
-        {
-          id: 'devops-containers',
-          name: 'Containers',
-          href: '/app/devops/containers',
+          id: 'devops-sandboxes',
+          name: 'Sandboxes',
+          href: '/app/devops/sandboxes',
           icon: Container,
           description: 'Sandboxed container execution and resource quotas',
           permissions: ['devops.containers.read'],
-          order: 9
+          order: 5
         },
         {
-          id: 'swarm-clusters',
-          name: 'Swarm Clusters',
+          id: 'swarm',
+          name: 'Swarm',
           href: '/app/devops/swarm',
           icon: Server,
-          description: 'Docker Swarm cluster management and orchestration',
+          description: 'Docker Swarm clusters, services, stacks, and operations',
           permissions: ['swarm.clusters.read'],
-          order: 10
+          order: 6
         },
         {
-          id: 'swarm-services',
-          name: 'Swarm Services',
-          href: '/app/devops/swarm/services',
-          icon: Layers,
-          description: 'Manage Docker Swarm services and replicas',
-          permissions: ['swarm.services.read'],
-          order: 11
-        },
-        {
-          id: 'swarm-stacks',
-          name: 'Stacks',
-          href: '/app/devops/swarm/stacks',
-          icon: Boxes,
-          description: 'Docker Compose stack deployments',
-          permissions: ['swarm.stacks.read'],
-          order: 12
-        },
-        {
-          id: 'swarm-networks',
-          name: 'Networks',
-          href: '/app/devops/swarm/networks',
-          icon: Network,
-          description: 'Docker Swarm overlay networks',
-          permissions: ['swarm.networks.read'],
-          order: 13
-        },
-        {
-          id: 'swarm-secrets',
-          name: 'Secrets & Configs',
-          href: '/app/devops/swarm/secrets',
-          icon: Lock,
-          description: 'Docker Swarm secrets and config objects',
-          permissions: ['swarm.secrets.read'],
-          order: 14
-        },
-        {
-          id: 'swarm-deployments',
-          name: 'Deployments',
-          href: '/app/devops/swarm/deployments',
-          icon: Rocket,
-          description: 'Swarm deployment history and timeline',
-          permissions: ['swarm.deployments.read'],
-          order: 15
-        },
-        {
-          id: 'swarm-health',
-          name: 'Health Monitor',
-          href: '/app/devops/swarm/health',
-          icon: HeartPulse,
-          description: 'Multi-cluster health monitoring and alerts',
-          permissions: ['swarm.events.read'],
-          order: 16
-        },
-        {
-          id: 'docker-hosts',
-          name: 'Docker Hosts',
+          id: 'docker',
+          name: 'Docker',
           href: '/app/devops/docker',
           icon: HardDrive,
-          description: 'Standalone Docker host management',
+          description: 'Docker hosts, containers, images, and monitoring',
           permissions: ['docker.hosts.read'],
-          order: 17
-        },
-        {
-          id: 'docker-containers',
-          name: 'Containers',
-          href: '/app/devops/docker/containers',
-          icon: Container,
-          description: 'Docker container lifecycle management',
-          permissions: ['docker.containers.read'],
-          order: 18
-        },
-        {
-          id: 'docker-images',
-          name: 'Images',
-          href: '/app/devops/docker/images',
-          icon: Layers,
-          description: 'Docker image management and registry pulls',
-          permissions: ['docker.images.read'],
-          order: 19
-        },
-        {
-          id: 'docker-networks',
-          name: 'Docker Networks',
-          href: '/app/devops/docker/networks',
-          icon: Network,
-          description: 'Docker host network management',
-          permissions: ['docker.networks.read'],
-          order: 20
-        },
-        {
-          id: 'docker-volumes',
-          name: 'Docker Volumes',
-          href: '/app/devops/docker/volumes',
-          icon: Database,
-          description: 'Docker host volume management',
-          permissions: ['docker.volumes.read'],
-          order: 21
-        },
-        {
-          id: 'docker-activities',
-          name: 'Docker Activities',
-          href: '/app/devops/docker/activities',
-          icon: Activity,
-          description: 'Docker container lifecycle activity log',
-          permissions: ['docker.activities.read'],
-          order: 22
-        },
-        {
-          id: 'docker-health',
-          name: 'Docker Health',
-          href: '/app/devops/docker/health',
-          icon: HeartPulse,
-          description: 'Docker host health monitoring and alerts',
-          permissions: ['docker.events.read'],
-          order: 23
+          order: 7
         }
       ],
-      permissions: ['git.providers.read', 'git.repositories.read', 'devops.pipelines.read', 'cicd.runners.read', 'webhook.read', 'integrations.read', 'api.manage_keys', 'devops.containers.read', 'swarm.clusters.read', 'swarm.services.read', 'swarm.stacks.read', 'swarm.networks.read', 'swarm.secrets.read', 'swarm.deployments.read', 'swarm.events.read', 'docker.hosts.read', 'docker.containers.read', 'docker.images.read', 'docker.networks.read', 'docker.volumes.read', 'docker.activities.read', 'docker.events.read'],
+      permissions: ['git.providers.read', 'git.repositories.read', 'devops.pipelines.read', 'cicd.runners.read', 'webhook.read', 'integrations.read', 'api.manage_keys', 'admin.storage.read', 'devops.containers.read', 'swarm.clusters.read', 'docker.hosts.read'],
       collapsible: true,
-      defaultExpanded: false,
+      defaultExpanded: true,
       order: 20
     },
     // Supply Chain section - software supply chain security
