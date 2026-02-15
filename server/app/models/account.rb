@@ -164,6 +164,12 @@ class Account < ApplicationRecord
   has_many :supply_chain_license_detections, class_name: "SupplyChain::LicenseDetection", dependent: :destroy
   has_many :supply_chain_build_provenances, class_name: "SupplyChain::BuildProvenance", dependent: :destroy
 
+  # Marketing Campaign associations
+  has_many :marketing_campaigns, class_name: "Marketing::Campaign", dependent: :destroy
+  has_many :marketing_content_calendars, class_name: "Marketing::ContentCalendar", dependent: :destroy
+  has_many :marketing_email_lists, class_name: "Marketing::EmailList", dependent: :destroy
+  has_many :marketing_social_media_accounts, class_name: "Marketing::SocialMediaAccount", dependent: :destroy
+
   # Chat Gateway associations
   has_many :chat_channels, class_name: "Chat::Channel", dependent: :destroy
   has_many :chat_sessions, through: :chat_channels, source: :sessions
