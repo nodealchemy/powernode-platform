@@ -1935,6 +1935,8 @@ Rails.application.routes.draw do
 
           # Executions, Tasks, Messages → TeamExecutionController
           scope controller: "team_execution" do
+            get "/:team_id/executions", action: :list_executions
+            post "/:team_id/executions", action: :start_execution
             get "/executions/:id", action: :show_execution
             post "/executions/:id/pause", action: :pause_execution
             post "/executions/:id/resume", action: :resume_execution
@@ -1965,8 +1967,6 @@ Rails.application.routes.draw do
             get "/:team_id/analytics", action: :analytics
             get "/:team_id/composition_health", action: :composition_health
             put "/:team_id/review_config", action: :update_review_config
-            get "/:team_id/executions", action: :list_executions
-            post "/:team_id/executions", action: :start_execution
           end
 
           # Roles, Channels, Cleanup → TeamRolesChannelsController
