@@ -140,6 +140,50 @@ module Ai
         run_git("worktree", "prune")
       end
 
+      def push_branch(branch_name:, remote: "origin", force: false)
+        validate_branch_name!(branch_name)
+
+        args = ["push", remote, branch_name]
+        args.insert(1, "--force-with-lease") if force
+
+        log_info("Pushing branch #{branch_name} to #{remote}#{force ? ' (force)' : ''}")
+        run_git_output(*args)
+
+        { success: true, branch: branch_name, remote: remote }
+      rescue StandardError => e
+        log_error("Failed to push branch #{branch_name}: #{e.message}")
+        { success: false, error: e.message }
+      end
+
+      def ensure_remote(remote_name:, remote_url:)
+        existing = run_git_output("remote", "get-url", remote_name) rescue nil
+
+        if existing.present?
+          if existing.strip != remote_url
+            run_git_output("remote", "set-url", remote_name, remote_url)
+            log_info("Updated remote #{remote_name} URL to #{remote_url}")
+          end
+        else
+          run_git_output("remote", "add", remote_name, remote_url)
+          log_info("Added remote #{remote_name}: #{remote_url}")
+        end
+
+        { success: true, remote: remote_name, url: remote_url }
+      rescue StandardError => e
+        log_error("Failed to ensure remote #{remote_name}: #{e.message}")
+        { success: false, error: e.message }
+      end
+
+      def fetch_branch(branch_name:, remote: "origin")
+        log_info("Fetching branch #{branch_name} from #{remote}")
+        run_git_output("fetch", remote, branch_name)
+
+        { success: true, branch: branch_name, remote: remote }
+      rescue StandardError => e
+        log_error("Failed to fetch branch #{branch_name}: #{e.message}")
+        { success: false, error: e.message }
+      end
+
       private
 
       def run_git(*args)
@@ -173,6 +217,18 @@ module Ai
         end
 
         copied
+      end
+
+      def validate_branch_name!(name)
+        raise ArgumentError, "Invalid branch name: #{name}" unless name.match?(/\A[a-zA-Z0-9\/_\-\.]+\z/)
+      end
+
+      def log_info(message)
+        Rails.logger.info("[WorktreeManager] #{message}")
+      end
+
+      def log_error(message)
+        Rails.logger.error("[WorktreeManager] #{message}")
       end
 
       def parse_worktree_list(output)

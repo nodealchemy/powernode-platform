@@ -21,6 +21,11 @@ module Ai
       if result[:success]
         session.complete!
 
+        # Auto-create PR on Gitea if configured
+        if session.configuration&.dig("auto_create_pr") != false && session.configuration&.dig("gitea_repository").present?
+          Ai::WorktreePushAndPrJob.perform_later(session.id)
+        end
+
         # Enqueue cleanup if auto_cleanup is enabled
         if session.auto_cleanup
           cleanup_delay = session.configuration.dig("cleanup_delay_seconds") || 0
