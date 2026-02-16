@@ -268,14 +268,91 @@ if admin_account && admin_user
 
   puts "✅ Grok (X.AI) provider created/updated: #{grok_provider.id}"
 
-  # Note: Ollama provider should be configured manually via admin panel
-  # to point to your Ollama instance (local or remote like Open WebUI)
-  ollama_provider = admin_account.ai_providers.find_by(slug: 'ollama')
-  if ollama_provider
-    puts "✅ Ollama provider found: #{ollama_provider.id}"
-  else
-    puts "⚠️  No Ollama provider configured (slug: 'ollama'). Configure manually if needed."
-  end
+  # =============================================================================
+  # OLLAMA (SELF-HOSTED) PROVIDER
+  # =============================================================================
+
+  ollama_provider = create_or_find_ai_provider(admin_account, admin_user, {
+    name: 'Ollama',
+    provider_type: 'ollama',
+    api_base_url: ENV.fetch('OLLAMA_API_ENDPOINT', 'http://localhost:11434'),
+    api_endpoint: "#{ENV.fetch('OLLAMA_API_ENDPOINT', 'http://localhost:11434')}/api/chat",
+    capabilities: [
+      'text_generation',
+      'chat',
+      'conversation',
+      'code_generation',
+      'analysis'
+    ],
+    supported_models: [
+      {
+        'name' => 'Qwen 2.5 14B',
+        'id' => 'qwen2.5:14b',
+        'display_name' => 'Qwen 2.5 14B',
+        'context_length' => 32_768,
+        'max_output_tokens' => 8_192,
+        'cost_per_1k_tokens' => { 'input' => 0.0, 'output' => 0.0 },
+        'capabilities' => %w[text_generation chat code_generation],
+        'recommended_for' => 'Documentation writing, general text generation. Self-hosted, zero cost.'
+      },
+      {
+        'name' => 'Llama 3.1 8B',
+        'id' => 'llama3.1:8b',
+        'display_name' => 'Llama 3.1 8B',
+        'context_length' => 131_072,
+        'max_output_tokens' => 8_192,
+        'cost_per_1k_tokens' => { 'input' => 0.0, 'output' => 0.0 },
+        'capabilities' => %w[text_generation chat code_generation],
+        'recommended_for' => 'General purpose fallback. Self-hosted, zero cost.'
+      },
+      {
+        'name' => 'Qwen 2.5 Coder 14B',
+        'id' => 'qwen2.5-coder:14b',
+        'display_name' => 'Qwen 2.5 Coder 14B',
+        'context_length' => 32_768,
+        'max_output_tokens' => 8_192,
+        'cost_per_1k_tokens' => { 'input' => 0.0, 'output' => 0.0 },
+        'capabilities' => %w[text_generation chat code_generation],
+        'recommended_for' => 'Code generation and review. Self-hosted, zero cost.'
+      }
+    ],
+    configuration_schema: {
+      'auth_type' => 'none',
+      'base_url' => ENV.fetch('OLLAMA_API_ENDPOINT', 'http://localhost:11434'),
+      'supports_streaming' => true,
+      'self_hosted' => true,
+      'max_retries' => 2,
+      'timeout_seconds' => 120,
+      'notes' => 'Self-hosted Ollama instance. Pull models with: ollama pull <model_name>'
+    },
+    rate_limits: {
+      'requests_per_minute' => 1000,
+      'tokens_per_minute' => 10_000_000,
+      'requests_per_day' => 100_000
+    },
+    pricing_info: {
+      'currency' => 'USD',
+      'billing_unit' => 'per_1k_tokens',
+      'has_batch_api' => false,
+      'has_cached_tokens' => false,
+      'self_hosted' => true
+    },
+    documentation_url: 'https://ollama.com/docs',
+    requires_auth: false,
+    supports_streaming: true,
+    supports_functions: false,
+    supports_vision: false,
+    supports_code_execution: false,
+    priority_order: 4,
+    metadata: {
+      'organization' => 'Ollama',
+      'strengths' => %w[privacy zero_cost self_hosted offline_capable],
+      'use_cases' => %w[documentation text_generation code_generation privacy_sensitive],
+      'special_features' => %w[self_hosted zero_cost offline_capable]
+    }
+  })
+
+  puts "✅ Ollama provider created/updated: #{ollama_provider.id}"
 
   # =============================================================================
   # 3. CLAUDE (ANTHROPIC) PROVIDER
@@ -404,7 +481,7 @@ if admin_account && admin_user
   puts "   1. OpenAI          - #{openai_provider.supported_models.length} models (GPT-4o, o1, GPT-3.5)"
   puts "   2. Grok (X.AI)     - #{grok_provider.supported_models.length} models (Grok Beta, Grok Vision)"
   puts "   3. Claude (Anthropic) - #{claude_provider.supported_models.length} models (Opus 4.1, Sonnet 4.5, Haiku 4.5, 3.5 Sonnet)"
-  puts "   4. Ollama          - #{ollama_provider&.supported_models&.length || 'N/A'} (configure manually)"
+  puts "   4. Ollama          - #{ollama_provider.supported_models&.length || 0} models (self-hosted, zero cost)"
 
   puts "\n🎯 Recommended Use Cases:"
   puts "   • Best Coding:         Claude Sonnet 4.5 (world's best coding model)"

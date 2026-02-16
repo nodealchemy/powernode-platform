@@ -50,11 +50,16 @@ agents_data = [
       'cost_tier' => 'premium',
       'model_config' => {
         'provider' => 'anthropic',
-        'model' => 'claude-opus-4-1-20250430',
+        'model' => 'claude-opus-4-1-20250805',
         'temperature' => 0.3,
         'max_tokens' => 8192,
         'response_format' => 'structured_analysis',
         'cost_per_1k' => { 'input' => 0.015, 'output' => 0.075 }
+      },
+      'task_model_overrides' => {
+        'documentation' => 'claude-sonnet-4-5-20250929',
+        'code_review' => 'claude-sonnet-4-5-20250929',
+        'planning' => 'claude-opus-4-1-20250805'
       },
       'system_prompt' => <<~PROMPT.strip
         You are the Project Lead for the Powernode subscription management platform.
@@ -118,6 +123,11 @@ agents_data = [
         'response_format' => 'code_generation',
         'cost_per_1k' => { 'input' => 0.003, 'output' => 0.015 }
       },
+      'task_model_overrides' => {
+        'documentation' => 'ollama/qwen2.5:14b',
+        'code_review' => 'claude-sonnet-4-5-20250929',
+        'planning' => 'claude-sonnet-4-5-20250929'
+      },
       'system_prompt' => <<~PROMPT.strip
         You are the Frontend Developer for the Powernode platform (frontend/ directory).
 
@@ -178,6 +188,11 @@ agents_data = [
         'max_tokens' => 8192,
         'response_format' => 'code_generation',
         'cost_per_1k' => { 'input' => 0.003, 'output' => 0.015 }
+      },
+      'task_model_overrides' => {
+        'documentation' => 'ollama/qwen2.5:14b',
+        'code_review' => 'claude-sonnet-4-5-20250929',
+        'planning' => 'claude-sonnet-4-5-20250929'
       },
       'system_prompt' => <<~PROMPT.strip
         You are the Backend Developer for the Powernode platform (server/ directory).
@@ -243,6 +258,11 @@ agents_data = [
         'response_format' => 'operational',
         'cost_per_1k' => { 'input' => 0.001, 'output' => 0.005 }
       },
+      'task_model_overrides' => {
+        'documentation' => 'ollama/llama3.1:8b',
+        'code_review' => 'claude-haiku-4-5-20251001',
+        'planning' => 'claude-haiku-4-5-20251001'
+      },
       'system_prompt' => <<~PROMPT.strip
         You are the DevOps Engineer for the Powernode platform.
 
@@ -306,6 +326,11 @@ agents_data = [
         'max_tokens' => 4096,
         'response_format' => 'code_generation',
         'cost_per_1k' => { 'input' => 0.00015, 'output' => 0.0006 }
+      },
+      'task_model_overrides' => {
+        'documentation' => 'gpt-4o-mini',
+        'code_review' => 'gpt-4o-mini',
+        'planning' => 'gpt-4o-mini'
       },
       'system_prompt' => <<~PROMPT.strip
         You are the QA/Test Engineer for the Powernode platform.
@@ -373,6 +398,11 @@ agents_data = [
         'max_tokens' => 8192,
         'response_format' => 'documentation',
         'cost_per_1k' => { 'input' => 0.003, 'output' => 0.015 }
+      },
+      'task_model_overrides' => {
+        'documentation' => 'claude-sonnet-4-5-20250929',
+        'code_review' => 'claude-sonnet-4-5-20250929',
+        'planning' => 'claude-sonnet-4-5-20250929'
       },
       'system_prompt' => <<~PROMPT.strip
         You are the Documentation Specialist for the Powernode platform.
@@ -453,6 +483,16 @@ team = Ai::AgentTeam.find_or_create_by!(account: admin_account, name: 'Powernode
     'timeout_seconds' => 3600,
     'retry_on_failure' => true,
     'max_retries' => 3,
+    'skip_on_member_failure' => true,
+    'task_timeout_seconds' => 300,
+    'repository_path' => '/home/rett/Drive/Projects/powernode-platform',
+    'base_branch' => 'develop',
+    'merge_strategy' => 'integration_branch',
+    'runner_execution' => false,
+    'gitea_repository' => 'powernode/powernode-platform',
+    'remote_push_enabled' => true,
+    'pr_auto_create' => true,
+    'pr_target_branch' => 'develop',
     'quality_gates' => {
       'backend' => 'bundle exec rspec',
       'frontend' => 'npx tsc --noEmit && CI=true npm test',
