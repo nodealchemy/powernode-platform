@@ -71,15 +71,33 @@ class Ai::ProviderClientService
     def ollama_send_message(messages, model, **options)
       body = {
         model: model,
-        messages: messages.map { |m| { role: m[:role] || m["role"], content: m[:content] || m["content"] } },
+        messages: messages.map { |m| ollama_format_message(m) },
         stream: options[:stream] || false
       }
+      body[:tools] = options[:tools] if options[:tools].present?
 
       full_url = build_ollama_url("/api/chat")
       request_headers = build_ollama_headers
 
       response = HTTParty.post(full_url, headers: request_headers, body: body.to_json, timeout: 120)
       handle_ollama_chat_response(response)
+    end
+
+    # Format message for Ollama API, preserving tool_calls and tool_call_id
+    def ollama_format_message(m)
+      role = m[:role] || m["role"]
+      msg = { role: role }
+
+      content = m[:content] || m["content"]
+      msg[:content] = content unless content.nil?
+
+      tool_calls = m[:tool_calls] || m["tool_calls"]
+      msg[:tool_calls] = tool_calls if tool_calls.present?
+
+      tool_call_id = m[:tool_call_id] || m["tool_call_id"]
+      msg[:tool_call_id] = tool_call_id if tool_call_id.present?
+
+      msg
     end
 
     # Build Ollama URL handling both standard Ollama and Open WebUI

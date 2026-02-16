@@ -63,7 +63,7 @@ class Ai::ProviderClientService
 
       body = {
         model: model,
-        messages: messages.map { |m| { role: m[:role] || m["role"], content: m[:content] || m["content"] } },
+        messages: messages.map { |m| openai_format_message(m) },
         max_tokens: options[:max_tokens] || 2000,
         temperature: options[:temperature] || 0.7
       }
@@ -74,6 +74,8 @@ class Ai::ProviderClientService
       body[:frequency_penalty] = options[:frequency_penalty] if options[:frequency_penalty]
       body[:functions] = options[:functions] if options[:functions]
       body[:function_call] = options[:function_call] if options[:function_call]
+      body[:tools] = options[:tools] if options[:tools].present?
+      body[:tool_choice] = options[:tool_choice] if options[:tool_choice].present?
 
       response = self.class.post(url, headers: @headers, body: body.to_json)
       handle_chat_response(response)
@@ -96,6 +98,26 @@ class Ai::ProviderClientService
           cost: result[:cost] || 0
         }
       end
+    end
+
+    # Format message for OpenAI API, preserving tool_calls and tool_call_id
+    def openai_format_message(m)
+      role = m[:role] || m["role"]
+      msg = { role: role }
+
+      content = m[:content] || m["content"]
+      msg[:content] = content unless content.nil?
+
+      tool_calls = m[:tool_calls] || m["tool_calls"]
+      msg[:tool_calls] = tool_calls if tool_calls.present?
+
+      tool_call_id = m[:tool_call_id] || m["tool_call_id"]
+      msg[:tool_call_id] = tool_call_id if tool_call_id.present?
+
+      name = m[:name] || m["name"]
+      msg[:name] = name if name.present?
+
+      msg
     end
 
     # Parse OpenAI SSE streaming chunk

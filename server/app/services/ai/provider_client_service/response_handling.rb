@@ -13,10 +13,14 @@ class Ai::ProviderClientService
       raise ValidationError, "Messages must contain at least one message" if messages.nil? || messages.empty?
 
       messages.each_with_index do |msg, index|
-        raise ValidationError, "Message at index #{index}: role is required" unless msg[:role] || msg["role"]
-        raise ValidationError, "Message at index #{index}: content is required" unless msg[:content] || msg["content"]
-
         role = msg[:role] || msg["role"]
+        raise ValidationError, "Message at index #{index}: role is required" unless role
+
+        has_content = msg[:content] || msg["content"]
+        has_tool_calls = msg[:tool_calls] || msg["tool_calls"]
+        unless has_content || (role.to_s == "assistant" && has_tool_calls) || role.to_s == "tool"
+          raise ValidationError, "Message at index #{index}: content is required"
+        end
         unless VALID_ROLES.include?(role.to_s)
           raise ValidationError, "Message at index #{index}: Invalid role '#{role}'. Must be one of: #{VALID_ROLES.join(', ')}"
         end

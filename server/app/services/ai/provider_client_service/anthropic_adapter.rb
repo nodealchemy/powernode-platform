@@ -62,16 +62,21 @@ class Ai::ProviderClientService
                               .map { |m| m[:content] || m["content"] }
                               .join("\n")
 
-      user_messages = messages.reject { |m| (m[:role] || m["role"]) == "system" }
+      user_messages = messages.reject { |m|
+        role = m[:role] || m["role"]
+        role == "system" || role == "tool"
+      }
 
       body = {
         model: model,
-        messages: user_messages.map { |m| { role: m[:role] || m["role"], content: m[:content] || m["content"] } },
+        messages: user_messages.map { |m| anthropic_format_message(m) },
         max_tokens: options[:max_tokens] || 2000
       }
 
       body[:system] = system_content if system_content.present?
       body[:temperature] = options[:temperature] if options[:temperature]
+      body[:tools] = options[:tools] if options[:tools].present?
+      body[:tool_choice] = options[:tool_choice] if options[:tool_choice].present?
 
       response = self.class.post(url, headers: @headers, body: body.to_json)
       handle_chat_response(response)
@@ -92,6 +97,13 @@ class Ai::ProviderClientService
           cost: result[:cost] || 0
         }
       end
+    end
+
+    # Format message for Anthropic API, preserving structured content arrays
+    def anthropic_format_message(m)
+      role = m[:role] || m["role"]
+      content = m[:content] || m["content"]
+      { role: role, content: content }
     end
 
     # Parse Anthropic SSE streaming chunk

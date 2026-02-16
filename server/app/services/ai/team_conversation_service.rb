@@ -330,6 +330,7 @@ module Ai
       team = execution.agent_team
 
       header = "## Plan Ready for Review\n\n"
+      header += "> **This plan requires your approval before execution proceeds.**\n\n"
       header += "**Team**: #{team.name}\n"
       header += "**Objective**: #{execution.objective}\n\n"
 
@@ -395,14 +396,21 @@ module Ai
       user = execution.triggered_by
       return unless user
 
+      lead_agent = execution.agent_team.lead_agent
+
       Notification.create_for_user(
         user,
         type: "ai_plan_review",
         title: "Plan Ready for Review",
         message: "#{execution.agent_team.name} has produced a plan for \"#{execution.objective&.truncate(80)}\". Review and approve to proceed.",
         severity: "info",
-        action_url: "/app/ai/conversations/#{conversation.conversation_id}",
-        category: "ai"
+        action_label: "Review Plan",
+        category: "ai",
+        metadata: {
+          agent_id: lead_agent&.id,
+          agent_name: lead_agent&.name || execution.agent_team.name,
+          conversation_id: conversation.id
+        }
       )
     rescue StandardError => e
       Rails.logger.warn("[TeamConversationService] Failed to create notification: #{e.message}")
