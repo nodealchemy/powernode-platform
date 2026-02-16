@@ -117,6 +117,8 @@ module Api
             tasks_total: execution.tasks_total,
             tasks_completed: execution.tasks_completed,
             tasks_failed: execution.tasks_failed,
+            progress_percentage: execution.progress_percentage,
+            messages_exchanged: execution.messages_exchanged,
             total_tokens_used: execution.total_tokens_used,
             total_cost_usd: execution.total_cost_usd,
             control_signal: execution.try(:control_signal),

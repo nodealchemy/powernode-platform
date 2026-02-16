@@ -140,13 +140,13 @@ module Ai
         JSON.parse(Base64.strict_decode64(encrypted_credentials))
       else
         begin
-          Security::CredentialEncryptionService.decrypt(
+          ::Security::CredentialEncryptionService.decrypt(
             encrypted_credentials,
             namespace: "ai"
           )
-        rescue Security::CredentialEncryptionService::DecryptionError
+        rescue ::Security::CredentialEncryptionService::DecryptionError
           # Retry without namespace for credentials encrypted before namespace was added
-          Security::CredentialEncryptionService.decrypt(encrypted_credentials)
+          ::Security::CredentialEncryptionService.decrypt(encrypted_credentials)
         end
       end
     rescue StandardError => e
@@ -160,12 +160,12 @@ module Ai
       if Rails.env.test?
         Base64.strict_encode64(credentials_hash.to_json)
       else
-        Security::CredentialEncryptionService.encrypt(credentials_hash, namespace: "ai")
+        ::Security::CredentialEncryptionService.encrypt(credentials_hash, namespace: "ai")
       end
     end
 
     def current_encryption_key_id
-      Rails.env.test? ? "test_key" : Security::CredentialEncryptionService.current_key_id("ai")
+      Rails.env.test? ? "test_key" : ::Security::CredentialEncryptionService.current_key_id("ai")
     end
 
     def credentials_format

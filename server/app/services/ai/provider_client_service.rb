@@ -294,9 +294,9 @@ class Ai::ProviderClientService
 
   def setup_client_options
     self.class.base_uri(provider.api_base_url)
-    # Increased timeout for content generation tasks (blog writing, editing, etc.)
-    # 120 seconds should be sufficient for generating 1000-1500 word articles
-    self.class.default_timeout(120)
+    # Increased timeout for content generation and team execution tasks
+    # 300 seconds for large document generation and multi-step orchestration
+    self.class.default_timeout(300)
 
     # Set up common headers
     @headers = {

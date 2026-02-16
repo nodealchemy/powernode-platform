@@ -106,14 +106,6 @@ module ProviderTesting
     def perform_ollama_connection_test(config)
       base_url = build_ollama_base_url(config)
 
-      payload = {
-        model: config["model"] || "llama2",
-        messages: [ { role: "user", content: @test_config[:test_message] } ]
-      }
-
-      # Build the proper API endpoint URL
-      api_url = build_ollama_api_url(base_url, "/api/chat")
-
       # Build headers - include API key if provided (for Open WebUI authentication)
       headers = { "Content-Type" => "application/json" }
       api_key = config["api_key"]
@@ -121,11 +113,42 @@ module ProviderTesting
         headers["Authorization"] = "Bearer #{api_key}"
       end
 
+      # First try a lightweight /api/tags check (fast, no model load needed)
+      tags_url = build_ollama_api_url(base_url, "/api/tags")
+      tags_response = make_http_request(tags_url, method: :get, headers: headers, timeout: 15)
+
+      if tags_response.success?
+        # Tags endpoint works — parse available models
+        models_data = JSON.parse(tags_response.body) rescue {}
+        available_models = models_data["models"] || []
+        return {
+          success: true,
+          status_code: tags_response.code,
+          response_content: "#{available_models.size} models available",
+          provider_response: tags_response.body
+        }
+      end
+
+      # Fall back to chat test if tags endpoint not available
+      test_model = config["model"].presence ||
+                   @provider&.supported_models&.first&.dig("id").presence ||
+                   @provider&.supported_models&.first&.dig("name").presence ||
+                   "llama2"
+
+      payload = {
+        model: test_model,
+        messages: [ { role: "user", content: @test_config[:test_message] } ],
+        stream: false
+      }
+
+      api_url = build_ollama_api_url(base_url, "/api/chat")
+
       response = make_http_request(
         api_url,
         method: :post,
         headers: headers,
-        body: payload.to_json
+        body: payload.to_json,
+        timeout: 30
       )
 
       parse_ollama_response(response)
