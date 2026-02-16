@@ -18,6 +18,7 @@ module Ai
   class AgentTeamExecutionJob < ApplicationJob
     include Ai::TeamExecutionSupport::LlmIntegration
     include Ai::TeamExecutionSupport::TaskTracking
+    include Ai::TeamExecutionSupport::ToolExecution
 
     queue_as :ai_execution
 
@@ -482,13 +483,59 @@ module Ai
 
         timeout_seconds = @team.try(:task_timeout_seconds) || team_config["task_timeout_seconds"] || 300
 
-        result = Timeout.timeout(timeout_seconds) do
-          client = Ai::ProviderClientService.new(credential)
-          client.send_message(messages, model: model, max_tokens: max_tokens, temperature: temperature)
+        # Build tool options for MCP platform tools
+        tool_options = {}
+        if tools_enabled?
+          ptype = provider_type_for(agent)
+          tool_defs = ptype == "anthropic" ? anthropic_tool_definitions(agent) : platform_tool_definitions(agent)
+          tool_options[:tools] = tool_defs if tool_defs.any?
         end
 
-        if result[:success]
-          usage = result.dig(:metadata, :usage) || { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
+        total_tool_calls = 0
+        round = 0
+        result = nil
+        accumulated_usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
+
+        loop do
+          round += 1
+          result = Timeout.timeout(timeout_seconds) do
+            client = Ai::ProviderClientService.new(credential)
+            client.send_message(messages, model: model, max_tokens: max_tokens, temperature: temperature, **tool_options)
+          end
+          break unless result&.dig(:success)
+
+          # Accumulate usage from this round
+          round_usage = result.dig(:metadata, :usage) || {}
+          accumulated_usage.each_key { |k| accumulated_usage[k] += (round_usage[k] || 0) }
+
+          # Check for tool calls in the response
+          ptype = provider_type_for(agent)
+          tool_calls = extract_tool_calls(result[:response], ptype)
+          break if tool_calls.empty?
+
+          # Safety guardrails
+          total_tool_calls += tool_calls.size
+          if round > MAX_TOOL_ROUNDS || total_tool_calls > MAX_TOOL_CALLS_TOTAL
+            log_execution("[ToolExecution] Safety limit reached: round=#{round} calls=#{total_tool_calls}")
+            break
+          end
+
+          log_execution("[ToolExecution] #{agent.name} round #{round}: #{tool_calls.size} tool calls")
+
+          # Append assistant message and tool results to conversation
+          if ptype == "anthropic"
+            messages << { role: "assistant", content: result[:response][:content] }
+          else
+            assistant_msg = result.dig(:response, :choices, 0, :message)
+            messages << assistant_msg.deep_symbolize_keys if assistant_msg
+          end
+
+          tool_results = execute_tool_calls(tool_calls, agent)
+          messages.concat(build_tool_result_messages(tool_results, ptype))
+        end
+
+        if result&.dig(:success)
+          usage = accumulated_usage
           tokens = usage[:total_tokens] || 0
           response_text = extract_response_text(result[:response])
 
@@ -528,7 +575,7 @@ module Ai
 
           { success: true, output: output }
         else
-          error_msg = result[:error] || "Provider returned unsuccessful response"
+          error_msg = result&.dig(:error) || "Provider returned unsuccessful response"
           raise error_msg
         end
       rescue Timeout::Error

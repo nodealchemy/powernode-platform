@@ -134,10 +134,18 @@ module Ai
 
         task_description = original_input.is_a?(Hash) ? (original_input[:task] || original_input["task"] || original_input.to_json) : original_input.to_s
 
+        approval_notice = if requires_plan_approval?
+                           " Your synthesis will be presented to a human reviewer for approval before any actions are taken." \
+                           " Do NOT claim the work is approved, complete, or published — it is a proposal awaiting review." \
+                           " Frame your output as a plan or recommendation, not a finished deliverable."
+                         else
+                           ""
+                         end
+
         messages = [
           {
             role: "system",
-            content: "You are a team lead synthesizing your team's work outputs into a coherent final deliverable."
+            content: "You are a team lead synthesizing your team's work outputs into a coherent final deliverable.#{approval_notice}"
           },
           {
             role: "user",
