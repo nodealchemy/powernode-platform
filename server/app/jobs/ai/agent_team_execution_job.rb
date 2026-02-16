@@ -43,6 +43,7 @@ module Ai
       @input = input.with_indifferent_access
       @context = context.with_indifferent_access
       @started_at = Time.current
+      @conversation_service = ::Ai::TeamConversationService.new(account: @team.account)
 
       # Create TeamExecution record
       @execution = ::Ai::TeamExecution.create!(
@@ -59,6 +60,16 @@ module Ai
       )
 
       @execution.start!
+
+      # Auto-link conversation for activity posting
+      if team_config["post_execution_activity"].present? || @team.coordinator_enabled?
+        begin
+          conversation = @conversation_service.find_or_create_conversation(@team, user: @user)
+          @execution.update!(ai_conversation_id: conversation.id)
+        rescue => e
+          Rails.logger.warn("[AgentTeamExecutionJob] Failed to link conversation: #{e.message}")
+        end
+      end
 
       broadcast_event("execution_started",
         execution_id: @execution.execution_id,
@@ -94,6 +105,9 @@ module Ai
       @members_failed = 0
 
       @execution.update!(tasks_total: @members_total)
+
+      # Post execution started to conversation
+      @conversation_service&.post_execution_started(@execution) rescue nil
 
       # Execute based on coordination strategy
       result = case @team.coordination_strategy
@@ -252,6 +266,7 @@ module Ai
           start_team_task!(task) if task
 
           record_task_assignment(lead_agent, agent, assignment["instructions"])
+          @conversation_service&.post_task_assignment(@execution, agent.name, assignment["instructions"].truncate(200)) rescue nil
 
           agent_input = build_planned_input(assignment, @input)
           result = execute_agent_with_retry(agent, agent_input, member.role)
@@ -395,6 +410,14 @@ module Ai
                          agent.mcp_tool_manifest&.dig("system_prompt").presence ||
                          "You are #{agent.name}, acting as #{role}."
 
+        # Inject relevant compound learnings into system prompt
+        if team_config["compound_learning_injection"] != false
+          learnings_context = inject_relevant_learnings(agent, input)
+          if learnings_context.present?
+            system_content += "\n\n## Relevant Learnings from Past Executions\n#{learnings_context}"
+          end
+        end
+
         user_content = input[:task].presence || input[:prompt].presence || input.to_json
 
         messages = [
@@ -463,6 +486,9 @@ module Ai
             tokens_used: tokens,
             cost_usd: cost
           )
+
+          # Write result to short-term memory for subsequent agents
+          write_to_short_term_memory(agent, role, output)
 
           @execution.add_tokens!(tokens) if tokens.positive?
           @execution.add_cost!(cost) if cost.positive?
@@ -552,7 +578,17 @@ module Ai
       duration_ms = ((Time.current - @started_at) * 1000).to_i
 
       if success
+        if requires_plan_approval?
+          handle_plan_approval(output, duration_ms)
+          return
+        end
+
         @execution.complete!(output || {})
+
+        # Post execution summary to conversation
+        summary_text = output.is_a?(Hash) ? (output[:synthesized_output] || output["synthesized_output"] || output[:response] || output["response"] || "Execution completed successfully.") : "Execution completed successfully."
+        @conversation_service&.post_execution_summary(@execution, summary_text.to_s.truncate(4000)) rescue nil
+
         broadcast_event("execution_completed",
           execution_id: @execution.execution_id,
           result: output,
@@ -606,6 +642,14 @@ module Ai
           execution_id: @execution.execution_id,
           error: error.message,
           severity: "high")
+
+        # Post error to conversation
+        if @execution.conversation.present?
+          @conversation_service&.post_execution_summary(
+            @execution,
+            "Execution failed: #{error.message.truncate(500)}"
+          ) rescue nil
+        end
       end
 
       cleanup_execution_resources
@@ -628,6 +672,7 @@ module Ai
     def record_member_completed(agent_name, success, duration_ms)
       if success
         @members_completed += 1
+        @conversation_service&.post_task_result(@execution, agent_name, "completed in #{duration_ms}ms") rescue nil
       else
         @members_failed += 1
       end
@@ -709,6 +754,30 @@ module Ai
           new_instructions: new_instructions)
         Rails.logger.info("[AgentTeamExecutionJob] Execution #{@execution.execution_id} redirected")
       end
+    end
+
+    def requires_plan_approval?
+      team_config["require_plan_approval"] == true && !@input[:plan_approval]
+    end
+
+    def handle_plan_approval(output, duration_ms)
+      # Store the output on the execution so the service can reference it
+      @execution.update!(output_result: output || {})
+
+      service = Ai::TeamConversationService.new(account: @team.account)
+      service.post_plan_for_approval(@execution)
+
+      Rails.logger.info(
+        "[AgentTeamExecutionJob] Plan posted for approval: execution=#{@execution.execution_id} duration=#{duration_ms}ms"
+      )
+    rescue StandardError => e
+      Rails.logger.error("[AgentTeamExecutionJob] Plan approval failed, completing normally: #{e.message}")
+      # Fallback: complete normally if plan approval fails
+      @execution.complete!(output || {})
+      broadcast_event("execution_completed",
+        execution_id: @execution.execution_id,
+        result: output,
+        duration_ms: duration_ms)
     end
 
     def team_config
@@ -794,6 +863,66 @@ module Ai
         ## Original Task Context
         #{task_desc}
       INPUT
+    end
+
+    def inject_relevant_learnings(agent, input)
+      learnings = Ai::CompoundLearning.where(account: @team.account, status: "active")
+                                       .order(importance_score: :desc, effectiveness_score: :desc)
+                                       .limit(5)
+
+      # Filter by task relevance if possible
+      task_type = @input.is_a?(Hash) ? (@input[:task_type] || @input["task_type"]) : nil
+      if task_type.present?
+        category_map = {
+          "code" => %w[pattern anti_pattern best_practice],
+          "review" => %w[review_finding best_practice],
+          "documentation" => %w[best_practice fact discovery],
+          "testing" => %w[pattern failure_mode],
+          "devops" => %w[pattern performance_insight]
+        }
+        relevant_categories = category_map[task_type]
+        if relevant_categories
+          scoped = Ai::CompoundLearning.where(account: @team.account, status: "active", category: relevant_categories)
+                                        .order(importance_score: :desc)
+                                        .limit(5)
+          learnings = scoped if scoped.any?
+        end
+      end
+
+      return nil unless learnings.any?
+
+      lines = learnings.map do |l|
+        l.record_injection_outcome!(positive: nil) rescue nil
+        "- [#{l.category}] #{l.content.to_s.truncate(200)}"
+      end
+
+      lines.join("\n").truncate(2000)
+    rescue StandardError => e
+      Rails.logger.warn("[AgentTeamExecutionJob] Learning injection failed: #{e.message}")
+      nil
+    end
+
+    def write_to_short_term_memory(agent, role, output)
+      return unless agent && @execution
+
+      Ai::AgentShortTermMemory.create!(
+        account: @team.account,
+        agent: agent,
+        memory_type: "observation",
+        memory_key: "execution:#{@execution.id}:#{agent.id}",
+        memory_value: {
+          execution_id: @execution.id,
+          role: role,
+          output_summary: output[:response].to_s.truncate(500),
+          tokens_used: output[:tokens_used],
+          completed_at: Time.current.iso8601
+        },
+        session_id: @execution.id,
+        ttl_seconds: 86_400,
+        expires_at: 24.hours.from_now
+      )
+    rescue StandardError => e
+      Rails.logger.warn("[AgentTeamExecutionJob] STM write failed: #{e.message}")
     end
 
     def log_execution(message)
