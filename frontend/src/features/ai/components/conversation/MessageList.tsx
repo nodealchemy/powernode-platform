@@ -21,6 +21,7 @@ import { DropdownMenu } from '@/shared/components/ui/DropdownMenu';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { ChatStreamingRenderer } from '@/features/ai/chat/components/ChatStreamingRenderer';
 import { MessageEditor } from '@/features/ai/chat/components/MessageEditor';
+import { PlanApprovalActions } from '@/features/ai/chat/components/PlanApprovalActions';
 import type { AiMessage } from '@/shared/types/ai';
 import { cleanMessageContent, formatTimestamp } from './utils';
 
@@ -38,6 +39,7 @@ interface MessageListProps {
   onSetEditing: (id: string | null) => void;
   onDelete: (message: AiMessage) => void;
   onOpenThread: (message: AiMessage) => void;
+  onPlanAction?: (actionType: string, executionId: string, feedback?: string) => Promise<void>;
 }
 
 export const MessageList: React.FC<MessageListProps> = ({
@@ -53,7 +55,8 @@ export const MessageList: React.FC<MessageListProps> = ({
   onEdit,
   onSetEditing,
   onDelete,
-  onOpenThread
+  onOpenThread,
+  onPlanAction
 }) => {
   const renderMessage = (message: AiMessage) => {
     const isUser = message.sender_type === 'user';
@@ -270,6 +273,15 @@ export const MessageList: React.FC<MessageListProps> = ({
                 </div>
               )}
             </div>
+          )}
+
+          {/* Plan approval actions */}
+          {isAI && message.metadata?.actions && message.metadata?.action_context && onPlanAction && (
+            <PlanApprovalActions
+              actions={message.metadata.actions}
+              actionContext={message.metadata.action_context}
+              onAction={onPlanAction}
+            />
           )}
 
           {/* Message action bar */}

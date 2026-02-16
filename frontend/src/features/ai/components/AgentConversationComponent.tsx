@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
-import { agentsApi } from '@/shared/services/ai';
+import { agentsApi, conversationsApi } from '@/shared/services/ai';
 import { MessageThread } from '@/features/ai/chat/components/MessageThread';
 import type {
   AiConversation,
@@ -78,6 +78,16 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     setThreadLoading,
     threadMessage
   });
+
+  const handlePlanAction = useCallback(async (actionType: string, executionId: string, feedback?: string) => {
+    await conversationsApi.sendPlanResponse(conversation.id, actionType, executionId, feedback);
+    addNotification({
+      type: 'success',
+      title: actionType === 'approve' ? 'Plan Approved' : 'Changes Requested',
+      message: actionType === 'approve' ? 'Plan approved. Execution starting...' : 'Feedback submitted. Revising plan...'
+    });
+    loadMessages();
+  }, [conversation.id]);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -266,6 +276,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
           onSetEditing={setEditingMessageId}
           onDelete={handleDeleteMessage}
           onOpenThread={handleOpenThread}
+          onPlanAction={handlePlanAction}
         />
 
         {/* Input Area */}

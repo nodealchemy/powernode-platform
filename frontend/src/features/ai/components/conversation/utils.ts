@@ -1,5 +1,5 @@
 import { cleanMarkdownContent } from '@/shared/utils/markdownUtils';
-import type { AiMessage } from '@/shared/types/ai';
+import type { AiMessage, MessageAction, ActionContext } from '@/shared/types/ai';
 
 /**
  * Clean message content to remove chunked encoding artifacts.
@@ -56,12 +56,18 @@ export const mapBackendMessage = (msg: Record<string, unknown>): AiMessage => {
     parent_message_id: msg.parent_message_id as string | undefined,
     reply_count: msg.reply_count as number | undefined,
     user_id: msg.user_id as string | undefined,
-    metadata: (msg.metadata as AiMessage['metadata']) || {
-      timestamp: (msg.created_at as string) || new Date().toISOString(),
-      tokens_used: msg.token_count as number | undefined,
-      cost_estimate: msg.cost_usd ? parseFloat(String(msg.cost_usd)) || 0 : undefined,
-      processing: (msg.status as string) === 'processing',
-      error: (msg.status as string) === 'failed'
+    metadata: {
+      ...((msg.metadata as AiMessage['metadata']) || {
+        timestamp: (msg.created_at as string) || new Date().toISOString(),
+        tokens_used: msg.token_count as number | undefined,
+        cost_estimate: msg.cost_usd ? parseFloat(String(msg.cost_usd)) || 0 : undefined,
+        processing: (msg.status as string) === 'processing',
+        error: (msg.status as string) === 'failed'
+      }),
+      ...(msg.content_metadata ? {
+        actions: (msg.content_metadata as Record<string, unknown>).actions as MessageAction[] | undefined,
+        action_context: (msg.content_metadata as Record<string, unknown>).action_context as ActionContext | undefined,
+      } : {})
     }
   };
 };

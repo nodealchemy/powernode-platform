@@ -25,7 +25,7 @@ function snapSizes(sizes: number[]): number[] {
 }
 
 export const SplitPanelContainer: React.FC = () => {
-  const { state, dispatch, closeTab, switchTab, setPanelSizes, setActivePanelId } = useChatWindow();
+  const { state, dispatch, setPanelSizes, setActivePanelId } = useChatWindow();
   const { panels, panelSizes, activePanelId, tabs } = state;
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -135,50 +135,6 @@ export const SplitPanelContainer: React.FC = () => {
               onClick={() => setActivePanelId(panel.id)}
               data-testid={`split-panel-${panel.id}`}
             >
-              {/* Panel tabs */}
-              {panelTabs.length > 1 && (
-                <div className="flex items-center border-b border-theme bg-theme-surface/50 shrink-0">
-                  <div className="flex-1 flex overflow-x-auto scrollbar-thin">
-                    {panelTabs.map(tab => {
-                      const isTabActive = tab.id === panel.activeTabId;
-                      return (
-                        <button
-                          key={tab.id}
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); switchTab(tab.id); }}
-                          className={`group relative flex items-center gap-1.5 px-3 py-1.5 text-xs border-r border-theme whitespace-nowrap transition-colors ${
-                            isTabActive
-                              ? 'bg-theme-background text-theme-primary'
-                              : 'text-theme-secondary hover:bg-theme-surface-hover hover:text-theme-primary'
-                          }`}
-                        >
-                          <span className="truncate max-w-[120px]">{tab.title}</span>
-                          {tab.unreadCount > 0 && (
-                            <span className="inline-flex items-center justify-center h-4 min-w-[16px] px-1 text-[10px] font-bold rounded-full bg-theme-interactive-primary text-white">
-                              {tab.unreadCount > 99 ? '99+' : tab.unreadCount}
-                            </span>
-                          )}
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); closeTab(tab.id); }
-                            }}
-                            className="ml-1 p-0.5 rounded text-theme-tertiary hover:bg-theme-danger/10 hover:text-theme-danger transition-all"
-                          >
-                            <span className="text-xs leading-none">&times;</span>
-                          </span>
-                          {isTabActive && (
-                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-theme-interactive-primary" />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
               {/* Panel content */}
               <div className="flex-1 relative overflow-hidden">
                 {hasNoTabs || !conv || !activeTabInPanel ? (
