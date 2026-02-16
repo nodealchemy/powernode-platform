@@ -2046,8 +2046,6 @@ Rails.application.routes.draw do
         resources :agent_teams do
           member do
             post :execute
-            post :execute_complete      # Internal - called by worker
-            post :execute_failed        # Internal - called by worker
             post :auto_assign_lead
             post :optimize
             get :autonomy_config

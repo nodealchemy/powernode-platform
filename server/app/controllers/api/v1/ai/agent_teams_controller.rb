@@ -17,8 +17,8 @@ module Api
         wrap_parameters false
 
         before_action :authenticate_request
-        before_action :set_team, only: %i[show update destroy execute execute_complete execute_failed add_member remove_member auto_assign_lead optimize autonomy_config update_autonomy_config bind_infrastructure]
-        before_action :authorize_teams_access!, except: %i[execute_complete execute_failed]
+        before_action :set_team, only: %i[show update destroy execute add_member remove_member auto_assign_lead optimize autonomy_config update_autonomy_config bind_infrastructure]
+        before_action :authorize_teams_access!
         before_action :authorize_team_execution!, only: [ :execute ]
 
         # GET /api/v1/ai/agent_teams
@@ -221,24 +221,6 @@ module Api
         rescue StandardError => e
           Rails.logger.error("#{self.class.name}##{action_name} failed: #{e.message}")
           render_error(e.message, status: :unprocessable_content)
-        end
-
-        # POST /api/v1/ai/agent_teams/:id/execution_complete (internal - called by worker)
-        def execute_complete
-          # Store execution results (would typically update a TeamExecution record)
-          log_audit_event("ai_agent_team.execution_completed", @team,
-            metadata: { job_id: params[:job_id], completed_at: params[:completed_at] })
-
-          render_success({ message: "Execution completed recorded" })
-        end
-
-        # POST /api/v1/ai/agent_teams/:id/execution_failed (internal - called by worker)
-        def execute_failed
-          # Store execution failure (would typically update a TeamExecution record)
-          log_audit_event("ai_agent_team.execution_failed", @team,
-            metadata: { job_id: params[:job_id], error: params[:error], failed_at: params[:failed_at] })
-
-          render_success({ message: "Execution failure recorded" })
         end
 
         private
