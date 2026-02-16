@@ -1,5 +1,9 @@
 # frozen_string_literal: true
 
+# DEPRECATED: This orchestrator is superseded by Ai::AgentTeamExecutionJob which handles
+# all team execution via ActiveJob/SolidQueue. This service is retained for reference only.
+# Do not add new functionality here — extend the job instead.
+
 class Ai::AgentTeamOrchestrator
   module LifecycleAndContext
     extend ActiveSupport::Concern
