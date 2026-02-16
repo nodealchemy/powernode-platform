@@ -4,7 +4,7 @@ module Ai
   class TeamMessage < ApplicationRecord
     self.table_name = "ai_team_messages"
 
-    MESSAGE_TYPES = %w[task_assignment task_update task_result question answer escalation coordination broadcast human_input].freeze
+    MESSAGE_TYPES = %w[task_assignment task_update task_result work_plan synthesis question answer escalation coordination broadcast human_input].freeze
     PRIORITIES = %w[low normal high urgent].freeze
 
     # Associations

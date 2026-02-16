@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_16_030003) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_16_062913) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -3359,7 +3359,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_16_030003) do
     t.index ["team_execution_id", "sequence_number"], name: "idx_on_team_execution_id_sequence_number_beb97b4ae3"
     t.index ["team_execution_id"], name: "index_ai_team_messages_on_team_execution_id"
     t.index ["to_role_id"], name: "index_ai_team_messages_on_to_role_id"
-    t.check_constraint "message_type::text = ANY (ARRAY['task_assignment'::character varying::text, 'task_update'::character varying::text, 'task_result'::character varying::text, 'question'::character varying::text, 'answer'::character varying::text, 'escalation'::character varying::text, 'coordination'::character varying::text, 'broadcast'::character varying::text, 'human_input'::character varying::text])", name: "check_team_message_type"
+    t.check_constraint "message_type::text = ANY (ARRAY['task_assignment'::character varying, 'task_update'::character varying, 'task_result'::character varying, 'work_plan'::character varying, 'synthesis'::character varying, 'question'::character varying, 'answer'::character varying, 'escalation'::character varying, 'coordination'::character varying, 'broadcast'::character varying, 'human_input'::character varying]::text[])", name: "check_team_message_type"
   end
 
   create_table "ai_team_roles", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
