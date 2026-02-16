@@ -2,9 +2,10 @@ import React, { useState, useCallback } from 'react';
 import {
   Play, Pause, Square, ChevronDown, ChevronRight,
   Clock, Cpu, DollarSign, AlertTriangle, CheckCircle,
-  XCircle, Loader2, User, RefreshCw, Zap
+  XCircle, Loader2, User, RefreshCw, Zap, FileText, FileJson
 } from 'lucide-react';
 import { Team, TeamExecution } from '@/shared/services/ai/TeamsApiService';
+import { MarkdownRenderer } from '@/shared/components/ui/MarkdownRenderer';
 import api from '@/shared/services/api';
 
 interface MemberCost {
@@ -71,6 +72,28 @@ function formatCost(cost: number | string | null | undefined): string {
   if (!num || num === 0) return '$0.00';
   if (num < 0.01) return `$${num.toFixed(4)}`;
   return `$${num.toFixed(2)}`;
+}
+
+function extractMarkdown(output: Record<string, unknown>): string | null {
+  // The execution output stores the markdown in the 'response' field
+  if (typeof output.response === 'string' && output.response.length > 0) {
+    return output.response;
+  }
+  // Check if the entire output is a string (edge case)
+  if (typeof output === 'string') return output as string;
+  return null;
+}
+
+function downloadContent(content: string, filename: string, mimeType: string): void {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 export const ExecutionsTab: React.FC<ExecutionsTabProps> = ({
@@ -315,22 +338,64 @@ export const ExecutionsTab: React.FC<ExecutionsTabProps> = ({
                       )}
 
                       {/* Output Result */}
-                      {detail?.output_result && Object.keys(detail.output_result).length > 0 && (
-                        <div>
-                          <h4 className="text-sm font-medium text-theme-primary mb-1.5 flex items-center gap-2">
-                            <CheckCircle size={14} className="text-theme-success" />
-                            Output
-                          </h4>
-                          <div className="bg-theme-bg rounded-md p-2.5 border border-theme/50 max-h-48 overflow-y-auto">
-                            <pre className="text-xs text-theme-secondary whitespace-pre-wrap overflow-x-auto">
-                              {typeof detail.output_result === 'string'
-                                ? detail.output_result
-                                : JSON.stringify(detail.output_result, null, 2)
-                              }
-                            </pre>
+                      {detail?.output_result && Object.keys(detail.output_result).length > 0 && (() => {
+                        const outputResult = detail.output_result!;
+                        const mdContent = extractMarkdown(outputResult);
+                        return (
+                          <div>
+                            <h4 className="text-sm font-medium text-theme-primary mb-1.5 flex items-center justify-between">
+                              <span className="flex items-center gap-2">
+                                <CheckCircle size={14} className="text-theme-success" />
+                                Output
+                              </span>
+                              <div className="flex items-center gap-1">
+                                {mdContent && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      downloadContent(mdContent, `${execution.execution_id}-output.md`, 'text/markdown');
+                                    }}
+                                    className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-theme-bg border border-theme/50 text-theme-secondary hover:text-theme-primary hover:border-theme-accent/50 transition-colors"
+                                    title="Download as Markdown"
+                                  >
+                                    <FileText size={12} />
+                                    .md
+                                  </button>
+                                )}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    downloadContent(JSON.stringify(outputResult, null, 2), `${execution.execution_id}-output.json`, 'application/json');
+                                  }}
+                                  className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-theme-bg border border-theme/50 text-theme-secondary hover:text-theme-primary hover:border-theme-accent/50 transition-colors"
+                                  title="Download as JSON"
+                                >
+                                  <FileJson size={12} />
+                                  .json
+                                </button>
+                              </div>
+                            </h4>
+                            <div className="bg-theme-bg rounded-md border border-theme/50 max-h-[480px] overflow-y-auto">
+                              {mdContent ? (
+                                <div className="p-3">
+                                  <MarkdownRenderer
+                                    content={mdContent}
+                                    variant="admin"
+                                    maxWidth="none"
+                                    fontSize="sm"
+                                    enableAdvancedFeatures={false}
+                                    className="execution-output-md"
+                                  />
+                                </div>
+                              ) : (
+                                <pre className="text-xs text-theme-secondary whitespace-pre-wrap overflow-x-auto p-2.5">
+                                  {JSON.stringify(outputResult, null, 2)}
+                                </pre>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
                       {/* Error / Termination */}
                       {execution.termination_reason && (
