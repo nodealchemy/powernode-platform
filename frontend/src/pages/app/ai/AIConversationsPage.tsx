@@ -66,6 +66,19 @@ export const AIConversationsPage: React.FC = () => {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [chatConversationId, setChatConversationId] = useState<string | null>(null);
 
+  // Auto-open conversation from URL query param (?id=...)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const conversationId = params.get('id');
+    if (conversationId) {
+      setChatConversationId(conversationId);
+      // Clean the URL param after consuming it
+      const url = new URL(window.location.href);
+      url.searchParams.delete('id');
+      window.history.replaceState({}, '', url.pathname + url.search);
+    }
+  }, []);
+
   // Check permissions
   const canCreateConversations = currentUser?.permissions?.includes('ai.conversations.create') || false;
   const canManageConversations = currentUser?.permissions?.includes('ai.conversations.manage') || false;

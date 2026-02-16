@@ -2,8 +2,10 @@ import React, { useState, useCallback } from 'react';
 import {
   Play, Pause, Square, ChevronDown, ChevronRight,
   Clock, Cpu, DollarSign, AlertTriangle, CheckCircle,
-  XCircle, Loader2, User, RefreshCw, Zap, FileText, FileJson
+  XCircle, Loader2, User, RefreshCw, Zap, FileText, FileJson,
+  MessageSquare
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Team, TeamExecution } from '@/shared/services/ai/TeamsApiService';
 import { MarkdownRenderer } from '@/shared/components/ui/MarkdownRenderer';
 import api from '@/shared/services/api';
@@ -104,6 +106,7 @@ export const ExecutionsTab: React.FC<ExecutionsTabProps> = ({
   onLoadExecutionTasks,
   getStatusColor,
 }) => {
+  const navigate = useNavigate();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [details, setDetails] = useState<Record<string, ExecutionDetail>>({});
   const [loadingDetail, setLoadingDetail] = useState<string | null>(null);
@@ -192,6 +195,16 @@ export const ExecutionsTab: React.FC<ExecutionsTabProps> = ({
                   </span>
                 </div>
                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  {execution.conversation_id && (
+                    <button
+                      onClick={() => navigate(`/app/ai/communication/conversations?id=${execution.conversation_id}`)}
+                      className="btn-theme btn-theme-sm flex items-center gap-1"
+                      title="Open Team Chat"
+                    >
+                      <MessageSquare size={14} />
+                      <span className="text-xs">Chat</span>
+                    </button>
+                  )}
                   {execution.status === 'running' && (
                     <>
                       <button

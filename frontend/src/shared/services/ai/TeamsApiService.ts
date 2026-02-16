@@ -79,6 +79,7 @@ export interface TeamExecution {
   output_result?: Record<string, unknown>;
   shared_memory?: Record<string, unknown>;
   termination_reason?: string;
+  conversation_id?: string | null;
   performance_metrics?: Record<string, unknown>;
   created_at: string;
 }

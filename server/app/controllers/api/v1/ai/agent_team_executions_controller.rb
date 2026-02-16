@@ -123,6 +123,7 @@ module Api
             total_cost_usd: execution.total_cost_usd,
             control_signal: execution.try(:control_signal),
             termination_reason: execution.termination_reason,
+            conversation_id: execution.ai_conversation_id,
             triggered_by: execution.triggered_by ? {
               id: execution.triggered_by.id,
               name: execution.triggered_by.name

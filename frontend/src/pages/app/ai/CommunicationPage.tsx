@@ -17,6 +17,8 @@ export const CommunicationPage: React.FC = () => {
   const getActiveTab = () => {
     const path = location.pathname;
     if (path.includes('/communication/conversations')) return 'conversations';
+    // Auto-switch to conversations tab when ?id= param is present
+    if (location.search.includes('id=')) return 'conversations';
     return 'channels';
   };
 
