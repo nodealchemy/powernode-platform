@@ -162,7 +162,8 @@ module Ai
         created_at: created_at,
         processed_at: processed_at,
         parent_message_id: parent_message&.message_id,
-        reply_count: child_messages.not_deleted.count
+        reply_count: child_messages.not_deleted.count,
+        content_metadata: content_metadata.presence
       }
     end
 

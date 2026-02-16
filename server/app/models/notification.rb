@@ -35,6 +35,7 @@ class Notification < ApplicationRecord
     workflow_complete
     payment_failed
     account_update
+    ai_plan_review
   ].freeze
 
   # Categories
@@ -45,6 +46,7 @@ class Notification < ApplicationRecord
     account
     system
     workflow
+    ai
   ].freeze
 
   # Callbacks
@@ -114,7 +116,7 @@ class Notification < ApplicationRecord
     NotificationChannel.broadcast_to_account(account, {
       type: "new_notification",
       notification: as_json(
-        only: [ :id, :notification_type, :title, :message, :severity, :action_url, :action_label, :icon, :category, :created_at ],
+        only: [ :id, :notification_type, :title, :message, :severity, :action_url, :action_label, :icon, :category, :metadata, :created_at ],
         methods: [ :read? ]
       )
     })

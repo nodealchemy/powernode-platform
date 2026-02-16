@@ -251,7 +251,8 @@ module Api
         # GET /api/v1/ai/agents/:agent_id/conversations/:id/messages
         def messages
           agent = current_user.account.ai_agents.find(params[:agent_id])
-          conversation = agent.conversations.includes(messages: :user).find(params[:id])
+          conversation = agent.conversations.includes(messages: :user).find_by(id: params[:id]) ||
+                         agent.conversations.includes(messages: :user).find_by!(conversation_id: params[:id])
           msgs = conversation.messages.not_deleted.ordered.page(params[:page] || 1).per(params[:per_page] || 50)
 
           render_success({
