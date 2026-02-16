@@ -1694,6 +1694,7 @@ Rails.application.routes.draw do
           collection do
             get :search
             patch :bulk
+            post :team, action: :create_team
           end
           member do
             post :archive
@@ -1702,9 +1703,16 @@ Rails.application.routes.draw do
             post :pin
             delete :unpin
             get :stats
+            post :plan_response
             post :worker_complete
             post :worker_stream_chunk
             post :worker_error
+
+            # Scheduled messages nested under conversation
+            get "scheduled_messages", action: :scheduled_messages_index
+            post "scheduled_messages", action: :scheduled_messages_create
+            patch "scheduled_messages/:id", action: :scheduled_messages_update, as: :scheduled_message_update
+            delete "scheduled_messages/:id", action: :scheduled_messages_destroy, as: :scheduled_message_destroy
           end
         end
 

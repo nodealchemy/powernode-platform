@@ -157,6 +157,23 @@ class AiConversationChannel < ApplicationCable::Channel
       )
     end
 
+    # Broadcast a message update (e.g., action_context changed)
+    #
+    # @param conversation [Ai::Conversation] The conversation
+    # @param message [Ai::Message] The updated message
+    def broadcast_message_updated(conversation, message)
+      stream_name = conversation.websocket_channel.presence || conversation_stream_name(conversation.id)
+
+      ActionCable.server.broadcast(
+        stream_name,
+        {
+          type: "message_updated",
+          message: serialize_message(message),
+          timestamp: Time.current.iso8601
+        }
+      )
+    end
+
     # Broadcast an error to conversation subscribers
     #
     # @param conversation [Ai::Conversation] The conversation
@@ -213,6 +230,14 @@ class AiConversationChannel < ApplicationCable::Channel
         error: message.failed?,
         error_message: message.error_message
       }.compact
+
+      # Merge content_metadata actions if present
+      if message.respond_to?(:content_metadata) && message.content_metadata.present?
+        metadata = metadata.merge(
+          actions: message.content_metadata["actions"],
+          action_context: message.content_metadata["action_context"]
+        ).compact
+      end
 
       {
         id: message.message_id || message.id,

@@ -189,7 +189,150 @@ module Ai
       render_error("Failed to broadcast error: #{e.message}", status: :unprocessable_content)
     end
 
+    # POST /api/v1/ai/conversations/:id/duplicate
+    def duplicate
+      new_title = params[:title] || "Copy of #{@conversation.title}"
+      include_messages = params[:include_messages] == "true" || params[:include_messages] == true
+
+      new_conversation = current_user.account.ai_conversations.build(
+        user: current_user, agent: @conversation.agent, provider: @conversation.provider,
+        title: new_title, status: "active",
+        is_collaborative: @conversation.is_collaborative?, participants: @conversation.participants
+      )
+
+      if new_conversation.save
+        if include_messages
+          @conversation.messages.ordered.each do |message|
+            new_conversation.messages.create!(
+              role: message.role, content: message.content, message_type: message.message_type,
+              user: message.user, agent: message.agent, sequence_number: message.sequence_number
+            )
+          end
+        end
+
+        render_success({ conversation: serialize_conversation_detail(new_conversation), message: "Conversation duplicated successfully" }, status: :created)
+        log_audit_event("ai.conversations.duplicate", new_conversation, original_conversation_id: @conversation.conversation_id, included_messages: include_messages)
+      else
+        render_validation_error(new_conversation.errors)
+      end
+    rescue StandardError => e
+      Rails.logger.error("#{self.class.name}##{action_name} failed: #{e.message}")
+      render_error("Failed to duplicate conversation: #{e.message}", status: :unprocessable_content)
+    end
+
+    # GET /api/v1/ai/conversations/:id/stats
+    def stats
+      msgs = @conversation.messages.not_deleted
+
+      response_times = []
+      msgs.ordered.each_cons(2) do |msg1, msg2|
+        response_times << (msg2.created_at - msg1.created_at) if msg1.role == "user" && msg2.role == "assistant"
+      end
+
+      first_message = msgs.ordered.first
+      last_message = msgs.ordered.last
+      duration = (first_message && last_message && first_message != last_message) ? (last_message.created_at - first_message.created_at) : 0
+
+      render_success({ stats: {
+        message_count: @conversation.message_count, token_usage: @conversation.total_tokens,
+        avg_response_time: (response_times.any? ? response_times.sum / response_times.size : 0).round(2),
+        duration: duration.round(2), total_cost: @conversation.total_cost&.to_f || 0.0,
+        user_message_count: msgs.user_messages.count, assistant_message_count: msgs.assistant_messages.count,
+        system_message_count: msgs.system_messages.count,
+        first_message_at: first_message&.created_at&.iso8601, last_message_at: last_message&.created_at&.iso8601,
+        status: @conversation.status, is_collaborative: @conversation.is_collaborative?, participant_count: @conversation.participants.size
+      } })
+    rescue StandardError => e
+      render_internal_error("Failed to retrieve conversation stats", exception: e)
+    end
+
+    # =========================================================================
+    # Scheduled Messages CRUD
+    # =========================================================================
+
+    # GET /api/v1/ai/conversations/:id/scheduled_messages
+    def scheduled_messages_index
+      conversation = current_account_conversations.find(params[:conversation_id] || params[:id])
+      scheduled = conversation.scheduled_messages.order(created_at: :desc)
+
+      render_success({
+        scheduled_messages: scheduled.map { |sm| serialize_scheduled_message(sm) }
+      })
+    rescue ActiveRecord::RecordNotFound
+      render_error("Conversation not found", status: :not_found)
+    end
+
+    # POST /api/v1/ai/conversations/:id/scheduled_messages
+    def scheduled_messages_create
+      conversation = current_account_conversations.find(params[:conversation_id] || params[:id])
+
+      sm = conversation.scheduled_messages.build(
+        scheduled_message_params.merge(
+          account: current_user.account,
+          user: current_user
+        )
+      )
+
+      if sm.save
+        render_success({ scheduled_message: serialize_scheduled_message(sm) }, status: :created)
+      else
+        render_validation_error(sm.errors)
+      end
+    rescue ActiveRecord::RecordNotFound
+      render_error("Conversation not found", status: :not_found)
+    end
+
+    # PATCH /api/v1/ai/conversations/:conversation_id/scheduled_messages/:id
+    def scheduled_messages_update
+      conversation = current_account_conversations.find(params[:conversation_id])
+      sm = conversation.scheduled_messages.find(params[:id])
+
+      if sm.update(scheduled_message_params)
+        render_success({ scheduled_message: serialize_scheduled_message(sm) })
+      else
+        render_validation_error(sm.errors)
+      end
+    rescue ActiveRecord::RecordNotFound
+      render_error("Resource not found", status: :not_found)
+    end
+
+    # DELETE /api/v1/ai/conversations/:conversation_id/scheduled_messages/:id
+    def scheduled_messages_destroy
+      conversation = current_account_conversations.find(params[:conversation_id])
+      sm = conversation.scheduled_messages.find(params[:id])
+      sm.destroy!
+
+      render_success({ message: "Scheduled message deleted successfully" })
+    rescue ActiveRecord::RecordNotFound
+      render_error("Resource not found", status: :not_found)
+    end
+
     private
+
+    def scheduled_message_params
+      params.require(:scheduled_message).permit(
+        :scheduling_mode, :message_template, :status,
+        :next_scheduled_at, :max_executions,
+        schedule_config: {}, template_variables: {}
+      )
+    end
+
+    def serialize_scheduled_message(sm)
+      {
+        id: sm.id,
+        scheduling_mode: sm.scheduling_mode,
+        message_template: sm.message_template,
+        template_variables: sm.template_variables,
+        schedule_config: sm.schedule_config,
+        status: sm.status,
+        next_scheduled_at: sm.next_scheduled_at&.iso8601,
+        last_executed_at: sm.last_executed_at&.iso8601,
+        execution_count: sm.execution_count,
+        max_executions: sm.max_executions,
+        created_at: sm.created_at.iso8601,
+        updated_at: sm.updated_at.iso8601
+      }
+    end
 
     def current_account_conversations
       current_user&.account&.ai_conversations || ::Ai::Conversation.none

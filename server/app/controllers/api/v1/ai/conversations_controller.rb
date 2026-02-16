@@ -11,7 +11,7 @@ module Api
         include ::Ai::ConversationManagementActions
         include ::Ai::ConversationSerialization
 
-        before_action :set_conversation, only: [ :show, :update, :destroy, :archive, :unarchive, :duplicate, :stats, :pin, :unpin ]
+        before_action :set_conversation, only: [ :show, :update, :destroy, :archive, :unarchive, :duplicate, :stats, :pin, :unpin, :plan_response ]
         before_action :set_agent_for_nested, only: [ :active ]
         before_action :validate_permissions
 
@@ -73,6 +73,16 @@ module Api
           render_error(e.message, status: :precondition_failed)
         end
 
+        # POST /api/v1/ai/conversations/team
+        def create_team
+          team = current_user.account.ai_agent_teams.find(params[:team_id])
+          service = ::Ai::TeamConversationService.new(account: current_user.account)
+          conversation = service.find_or_create_conversation(team)
+          render_success({ conversation: serialize_conversation_detail(conversation) })
+        rescue ActiveRecord::RecordNotFound
+          render_error("Team not found", status: :not_found)
+        end
+
         # GET /api/v1/ai/conversations/:id
         def show
           render_success({ conversation: serialize_conversation_detail(@conversation) })
@@ -115,35 +125,39 @@ module Api
           render_error("Failed to restore conversation: #{e.message}", status: :unprocessable_content)
         end
 
-        # POST /api/v1/ai/conversations/:id/duplicate
-        def duplicate
-          new_title = params[:title] || "Copy of #{@conversation.title}"
-          include_messages = params[:include_messages] == "true" || params[:include_messages] == true
+        # POST /api/v1/ai/conversations/:id/plan_response
+        def plan_response
+          unless @conversation.team_conversation?
+            return render_error("Plan responses are only available for team conversations", status: :unprocessable_content)
+          end
 
-          new_conversation = current_user.account.ai_conversations.build(
-            user: current_user, agent: @conversation.agent, provider: @conversation.provider,
-            title: new_title, status: "active",
-            is_collaborative: @conversation.is_collaborative?, participants: @conversation.participants
+          action_type = params[:action_type]
+          execution_id = params[:execution_id]
+
+          unless %w[approve request_changes].include?(action_type)
+            return render_error("action_type must be 'approve' or 'request_changes'", status: :bad_request)
+          end
+
+          return render_error("execution_id is required", status: :bad_request) if execution_id.blank?
+
+          service = ::Ai::TeamConversationService.new(account: current_user.account)
+          service.handle_plan_response(
+            @conversation,
+            action: action_type,
+            execution_id: execution_id,
+            feedback: params[:feedback],
+            current_user_id: current_user.id
           )
 
-          if new_conversation.save
-            if include_messages
-              @conversation.messages.ordered.each do |message|
-                new_conversation.messages.create!(
-                  role: message.role, content: message.content, message_type: message.message_type,
-                  user: message.user, agent: message.agent, sequence_number: message.sequence_number
-                )
-              end
-            end
-
-            render_success({ conversation: serialize_conversation_detail(new_conversation), message: "Conversation duplicated successfully" }, status: :created)
-            log_audit_event("ai.conversations.duplicate", new_conversation, original_conversation_id: @conversation.conversation_id, included_messages: include_messages)
-          else
-            render_validation_error(new_conversation.errors)
-          end
+          render_success({ message: "Plan #{action_type == 'approve' ? 'approved' : 'changes requested'} successfully" })
+          log_audit_event("ai.conversations.plan_response", @conversation, action_type: action_type, execution_id: execution_id)
+        rescue ActiveRecord::RecordNotFound => e
+          render_error(e.message, status: :not_found)
+        rescue ArgumentError => e
+          render_error(e.message, status: :unprocessable_content)
         rescue StandardError => e
-          Rails.logger.error("#{self.class.name}##{action_name} failed: #{e.message}")
-          render_error("Failed to duplicate conversation: #{e.message}", status: :unprocessable_content)
+          Rails.logger.error "[CONVERSATIONS] plan_response error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
+          render_internal_error("Failed to process plan response", exception: e)
         end
 
         # POST /api/v1/ai/agents/:agent_id/conversations/:id/send_message
@@ -163,6 +177,32 @@ module Api
             message_type: message_params[:message_type] || "text",
             content_metadata: message_params[:metadata] || {}
           )
+
+          # Auto-classify plan approval intent for team conversations
+          if conversation.team_conversation?
+            service = ::Ai::TeamConversationService.new(account: current_user.account)
+            intent = service.classify_user_intent(conversation, content)
+            if intent.in?([:approve, :request_changes])
+              return render_success({
+                user_message: serialize_message(user_message),
+                assistant_message: nil,
+                plan_action: intent.to_s,
+                conversation: { id: conversation.id, message_count: conversation.reload.message_count }
+              })
+            end
+
+            # Route through coordinator if enabled
+            if conversation.agent_team&.coordinator_enabled?
+              coordinator = ::Ai::CoordinatorService.new(conversation: conversation, user: current_user)
+              coordinator.process_message(content)
+              return render_success({
+                user_message: serialize_message(user_message),
+                assistant_message: nil,
+                coordinator_routed: true,
+                conversation: { id: conversation.id, message_count: conversation.reload.message_count }
+              })
+            end
+          end
 
           # Check for active container instance
           bridge = ::Ai::ContainerChatBridgeService.new(account: current_user.account)
@@ -220,32 +260,6 @@ module Api
           })
         rescue ActiveRecord::RecordNotFound
           render_error("Agent or conversation not found", status: :not_found)
-        end
-
-        # GET /api/v1/ai/conversations/:id/stats
-        def stats
-          msgs = @conversation.messages.not_deleted
-
-          response_times = []
-          msgs.ordered.each_cons(2) do |msg1, msg2|
-            response_times << (msg2.created_at - msg1.created_at) if msg1.role == "user" && msg2.role == "assistant"
-          end
-
-          first_message = msgs.ordered.first
-          last_message = msgs.ordered.last
-          duration = (first_message && last_message && first_message != last_message) ? (last_message.created_at - first_message.created_at) : 0
-
-          render_success({ stats: {
-            message_count: @conversation.message_count, token_usage: @conversation.total_tokens,
-            avg_response_time: (response_times.any? ? response_times.sum / response_times.size : 0).round(2),
-            duration: duration.round(2), total_cost: @conversation.total_cost&.to_f || 0.0,
-            user_message_count: msgs.user_messages.count, assistant_message_count: msgs.assistant_messages.count,
-            system_message_count: msgs.system_messages.count,
-            first_message_at: first_message&.created_at&.iso8601, last_message_at: last_message&.created_at&.iso8601,
-            status: @conversation.status, is_collaborative: @conversation.is_collaborative?, participant_count: @conversation.participants.size
-          } })
-        rescue StandardError => e
-          render_internal_error("Failed to retrieve conversation stats", exception: e)
         end
 
         private

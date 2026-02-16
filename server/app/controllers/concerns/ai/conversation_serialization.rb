@@ -8,13 +8,13 @@ module Ai
 
     def validate_permissions
       case action_name
-      when "index", "show", "stats", "messages", "active", "search"
+      when "index", "show", "stats", "messages", "active", "search", "scheduled_messages_index"
         require_permission("ai.conversations.read")
-      when "create", "duplicate", "send_message"
+      when "create", "duplicate", "send_message", "create_team", "scheduled_messages_create"
         require_permission("ai.conversations.create")
-      when "update", "archive", "unarchive", "pin", "unpin", "bulk"
+      when "update", "archive", "unarchive", "pin", "unpin", "bulk", "plan_response", "scheduled_messages_update"
         require_permission("ai.conversations.update")
-      when "destroy"
+      when "destroy", "scheduled_messages_destroy"
         require_permission("ai.conversations.delete")
       when "worker_complete", "worker_error"
         return if current_worker || current_service
@@ -64,18 +64,25 @@ module Ai
     end
 
     def serialize_conversation(conversation)
-      {
+      data = {
         id: conversation.id, conversation_id: conversation.conversation_id,
         title: conversation.title || "Conversation with #{conversation.provider.name}",
         status: conversation.status, message_count: conversation.message_count,
         total_tokens: conversation.total_tokens, total_cost: conversation.total_cost&.to_f,
         is_collaborative: conversation.is_collaborative?, participant_count: conversation.participants.size,
         pinned: conversation.pinned?, pinned_at: conversation.pinned_at&.iso8601, tags: conversation.tags,
+        conversation_type: conversation.conversation_type,
         created_at: conversation.created_at.iso8601, last_activity_at: conversation.last_activity_at&.iso8601,
         ai_agent: conversation.agent ? { id: conversation.agent.id, name: conversation.agent.name, agent_type: conversation.agent.agent_type } : nil,
         provider: { id: conversation.provider.id, name: conversation.provider.name, provider_type: conversation.provider.provider_type },
         user: { id: conversation.user.id, name: conversation.user.full_name, email: conversation.user.email }
       }
+
+      if conversation.team_conversation? && conversation.agent_team
+        data[:agent_team] = { id: conversation.agent_team.id, name: conversation.agent_team.name }
+      end
+
+      data
     end
 
     def serialize_conversation_detail(conversation)
