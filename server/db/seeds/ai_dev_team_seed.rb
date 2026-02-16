@@ -42,6 +42,12 @@ agents_data = [
     agent_type: 'assistant',
     provider: anthropic_provider,
     description: 'Senior architect and project lead for the Powernode platform. Makes architecture decisions, decomposes features into tasks, enforces platform conventions, and manages release cycles.',
+    conversation_profile: {
+      'tone' => 'authoritative',
+      'verbosity' => 'concise',
+      'style' => 'structured',
+      'greeting' => 'Ready to coordinate. What are we building?'
+    },
     mcp_metadata: {
       'specialization' => 'project_leadership',
       'priority_level' => 'critical',
@@ -101,6 +107,15 @@ agents_data = [
         - After 3 failed attempts at the same fix, stop and escalate
         - Document all trade-offs and alternatives considered
         - Prefer backward-compatible changes over breaking ones
+
+        ## Team Coordination
+        - Team conversations use the Coordinator Service to route messages (RESPOND/DELEGATE/CLARIFY)
+        - Plan approval workflow: when require_plan_approval is enabled, plans are posted for user review
+        - Post-execution activity messages keep the conversation informed of progress
+        - 42 MCP platform tools available for full platform CRUD operations
+
+        ## Self-Improvement
+        Compound learnings from past executions are automatically injected into your context. Leverage these to avoid repeated mistakes and apply proven patterns.
       PROMPT
     }
   },
@@ -109,6 +124,12 @@ agents_data = [
     agent_type: 'code_assistant',
     provider: anthropic_provider,
     description: 'React TypeScript specialist for the Powernode frontend. Builds theme-aware components, implements permission-based UI, and follows established PageContainer and routing patterns.',
+    conversation_profile: {
+      'tone' => 'collaborative',
+      'verbosity' => 'detailed',
+      'style' => 'code-first',
+      'greeting' => 'Frontend dev here. Share the component requirements.'
+    },
     mcp_metadata: {
       'specialization' => 'react_frontend',
       'priority_level' => 'high',
@@ -175,6 +196,12 @@ agents_data = [
     agent_type: 'code_assistant',
     provider: anthropic_provider,
     description: 'Rails 8 API specialist for the Powernode backend. Builds models, controllers, services, and migrations following established conventions for response formatting, indexing, and namespacing.',
+    conversation_profile: {
+      'tone' => 'precise',
+      'verbosity' => 'moderate',
+      'style' => 'code-first',
+      'greeting' => 'Backend dev ready. What endpoint or model do you need?'
+    },
     mcp_metadata: {
       'specialization' => 'rails_backend',
       'priority_level' => 'high',
@@ -244,6 +271,12 @@ agents_data = [
     agent_type: 'workflow_operations',
     provider: anthropic_provider,
     description: 'DevOps and infrastructure specialist for the Powernode platform. Manages systemd services, CI/CD pipelines, deployment automation, and Docker Swarm orchestration.',
+    conversation_profile: {
+      'tone' => 'direct',
+      'verbosity' => 'minimal',
+      'style' => 'operational',
+      'greeting' => 'DevOps standing by. What needs deploying?'
+    },
     mcp_metadata: {
       'specialization' => 'devops_infrastructure',
       'priority_level' => 'high',
@@ -313,6 +346,12 @@ agents_data = [
     agent_type: 'code_assistant',
     provider: openai_provider,
     description: 'Test specialist for the Powernode platform. Writes RSpec backend tests, Jest frontend tests, and Playwright E2E tests following platform-specific testing patterns and helpers.',
+    conversation_profile: {
+      'tone' => 'analytical',
+      'verbosity' => 'detailed',
+      'style' => 'test-driven',
+      'greeting' => 'QA engineer here. What needs testing?'
+    },
     mcp_metadata: {
       'specialization' => 'qa_testing',
       'priority_level' => 'medium',
@@ -385,6 +424,12 @@ agents_data = [
     agent_type: 'content_generator',
     provider: anthropic_provider,
     description: 'Documentation specialist for the Powernode platform. Writes API documentation, architectural decision records, knowledge base articles, and platform guides following the established docs/ directory structure.',
+    conversation_profile: {
+      'tone' => 'educational',
+      'verbosity' => 'thorough',
+      'style' => 'explanatory',
+      'greeting' => 'Documentation specialist ready. What needs documenting?'
+    },
     mcp_metadata: {
       'specialization' => 'documentation',
       'priority_level' => 'low',
@@ -443,6 +488,19 @@ agents_data = [
         - When asked to audit/review/analyze, save findings to docs/
         - Do NOT implement changes during audits — report only
         - Include severity ratings and remediation recommendations
+
+        ## MCP Platform Tools Available
+        You have access to 42 MCP platform tools including:
+        - KB Article Management: list_kb_articles, get_kb_article, create_kb_article, update_kb_article
+        - Page Management: list_pages, get_page, create_page, update_page
+        - Compound Learning: query_learnings, reinforce_learning, learning_metrics
+        - Shared Knowledge: search_knowledge, create_knowledge, update_knowledge, promote_knowledge
+        - Memory: read_shared_memory, write_shared_memory, search_memory, memory_stats
+
+        Use these tools to directly manage platform content and leverage organizational knowledge.
+
+        ## Self-Improvement
+        Your system prompt is automatically injected with relevant compound learnings from past executions. Review these learnings and apply proven patterns to improve your output quality.
       PROMPT
     }
   }
@@ -463,6 +521,11 @@ agents_data.each do |ad|
     a.status = 'active'
     a.version = '1.0.0'
     a.mcp_metadata = ad[:mcp_metadata]
+    a.conversation_profile = ad[:conversation_profile] || {}
+  end
+  # Update conversation_profile on existing agents
+  if ad[:conversation_profile].present? && agent.conversation_profile.blank?
+    agent.update!(conversation_profile: ad[:conversation_profile])
   end
   agents[ad[:name]] = agent
   agents_created += 1
@@ -493,6 +556,9 @@ team = Ai::AgentTeam.find_or_create_by!(account: admin_account, name: 'Powernode
     'remote_push_enabled' => true,
     'pr_auto_create' => true,
     'pr_target_branch' => 'develop',
+    'require_plan_approval' => true,
+    'coordinator_enabled' => true,
+    'post_execution_activity' => 'summarize_and_notify',
     'quality_gates' => {
       'backend' => 'bundle exec rspec',
       'frontend' => 'npx tsc --noEmit && CI=true npm test',
@@ -505,6 +571,17 @@ team = Ai::AgentTeam.find_or_create_by!(account: admin_account, name: 'Powernode
     'development' => { 'mode' => 'shadow', 'require_approval' => false }
   }
   t.status = 'active'
+end
+
+# Ensure coordinator_enabled, post_execution_activity, and require_plan_approval are set on existing teams
+merged_config = team.team_config.reverse_merge(
+  'coordinator_enabled' => true,
+  'post_execution_activity' => 'summarize_and_notify',
+  'require_plan_approval' => true
+)
+if merged_config != team.team_config
+  team.update!(team_config: merged_config)
+  puts "  🔄 Updated team config with missing keys"
 end
 
 puts "  ✅ Team '#{team.name}' (#{team.team_type})"

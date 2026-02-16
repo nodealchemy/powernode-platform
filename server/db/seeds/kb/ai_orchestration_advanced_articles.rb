@@ -2374,4 +2374,357 @@ article.save!
 
 puts "    ✅ CI/CD Pipeline Integration"
 
-puts "  ✅ AI Orchestration Advanced articles created (10 articles)"
+# Article: Team Conversations & Chat
+team_conversations_content = <<~MARKDOWN
+  # Team Conversations & Chat
+
+  Team conversations provide a real-time collaboration interface between users and AI agent teams, enabling natural language interaction with multi-agent systems.
+
+  ## Overview
+
+  When a team has `coordinator_enabled: true`, user messages in the team conversation are routed through a Coordinator Service that decides whether to:
+  - **RESPOND** directly with the lead agent
+  - **DELEGATE** the task to the full team for execution
+  - **CLARIFY** by asking the user for more information
+
+  ## Activity Message Types
+
+  Team conversations display 6 types of activity messages:
+
+  | Type | Description | Visual |
+  |------|-------------|--------|
+  | `execution_started` | Team execution has begun | Blue info card |
+  | `task_assigned` | Task delegated to specific agent | Primary card |
+  | `task_progress` | Agent progress update | Gray card |
+  | `task_completed` | Agent finished their task | Green success card |
+  | `execution_summary` | Final execution results | Sparkles card |
+  | `plan_approval` | Plan requiring user approval | Interactive card with buttons |
+
+  ## Plan Approval Flow
+
+  When `require_plan_approval: true` is set in team config:
+
+  1. Team executes and produces a plan
+  2. Plan is posted to conversation with Approve/Request Changes buttons
+  3. User reviews and takes action:
+     - **Approve**: Execution continues with approved plan
+     - **Request Changes**: Feedback sent back, team revises
+
+  ## Coordinator Routing
+
+  The `CoordinatorService` uses the lead agent's LLM to classify user intent:
+
+  ```
+  User Message → Coordinator LLM → [RESPOND] / [DELEGATE] / [CLARIFY]
+  ```
+
+  - **RESPOND**: Simple questions answered directly by lead agent
+  - **DELEGATE**: Complex tasks trigger full team execution via `AgentTeamExecutionJob`
+  - **CLARIFY**: Ambiguous requests prompt clarification questions
+
+  ## Creating Team Conversations
+
+  Team conversations are automatically created when:
+  - A user opens chat with a team that has `coordinator_enabled: true`
+  - A team execution starts with `post_execution_activity` enabled
+
+  ## Scheduled Messages
+
+  The `ScheduledMessage` model supports deferred message delivery for:
+  - Reminder notifications
+  - Periodic status updates
+  - Delayed task delegation
+
+  ## Related Articles
+
+  - [AI Orchestration Overview](/kb/ai-orchestration-overview)
+  - [Agent Teams & Multi-Agent Orchestration](/kb/agent-teams-multi-agent-orchestration)
+  - [AI Conversations Guide](/kb/ai-conversations-guide)
+MARKDOWN
+
+KnowledgeBase::Article.find_or_create_by!(slug: "team-conversations-chat") do |article|
+  article.title = "Team Conversations & Chat"
+  article.category = ai_cat
+  article.author = author
+  article.status = "published"
+  article.is_public = true
+  article.is_featured = false
+  article.excerpt = "Real-time collaboration interface between users and AI agent teams with coordinator routing, activity messages, and plan approval workflows."
+  article.content = team_conversations_content
+  article.views_count = 0
+  article.likes_count = 0
+  article.published_at = Time.current
+end
+
+puts "    ✅ Team Conversations & Chat"
+
+# Article: MCP Platform Tools Reference
+mcp_platform_tools_content = <<~MARKDOWN
+  # MCP Platform Tools Reference
+
+  Complete reference for all 42 MCP platform tools available to AI agents through the `PlatformApiToolRegistry`.
+
+  ## Tool Categories
+
+  ### Agent Management (5 tools)
+  | Tool | Action | Permission |
+  |------|--------|------------|
+  | `create_agent` | Create new AI agent | `ai.agents.execute` |
+  | `list_agents` | List active agents | `ai.agents.execute` |
+  | `get_agent` | Get agent details | `ai.agents.execute` |
+  | `update_agent` | Update agent config | `ai.agents.execute` |
+  | `execute_agent` | Queue agent execution | `ai.agents.execute` |
+
+  ### Team Management (6 tools)
+  | Tool | Action | Permission |
+  |------|--------|------------|
+  | `create_team` | Create agent team | `ai.agents.execute` |
+  | `list_teams` | List active teams | `ai.agents.execute` |
+  | `get_team` | Get team details + members | `ai.agents.execute` |
+  | `update_team` | Update team config | `ai.agents.execute` |
+  | `add_team_member` | Add agent to team | `ai.agents.execute` |
+  | `execute_team` | Queue team execution | `ai.agents.execute` |
+
+  ### Workflow Management (5 tools)
+  | Tool | Action | Permission |
+  |------|--------|------------|
+  | `create_workflow` | Create workflow | `ai.workflows.execute` |
+  | `list_workflows` | List workflows | `ai.workflows.execute` |
+  | `get_workflow` | Get workflow details | `ai.workflows.execute` |
+  | `update_workflow` | Update workflow | `ai.workflows.execute` |
+  | `execute_workflow` | Queue workflow | `ai.workflows.execute` |
+
+  ### Memory Management (6 tools)
+  | Tool | Action | Permission |
+  |------|--------|------------|
+  | `read_shared_memory` | Read from memory pool | `ai.agents.read` |
+  | `write_shared_memory` | Write to memory pool | `ai.agents.read` |
+  | `search_memory` | Semantic search across tiers | `ai.agents.read` |
+  | `consolidate_memory` | Promote STM to LTM | `ai.agents.read` |
+  | `memory_stats` | Get memory tier statistics | `ai.agents.read` |
+  | `list_pools` | List memory pools | `ai.agents.read` |
+
+  ### KB Article Management (4 tools)
+  | Tool | Action | Permission |
+  |------|--------|------------|
+  | `list_kb_articles` | List KB articles | `kb.manage` |
+  | `get_kb_article` | Get article content | `kb.manage` |
+  | `create_kb_article` | Create KB article | `kb.manage` |
+  | `update_kb_article` | Update KB article | `kb.manage` |
+
+  ### Page Management (4 tools)
+  | Tool | Action | Permission |
+  |------|--------|------------|
+  | `list_pages` | List content pages | `pages.manage` |
+  | `get_page` | Get page content | `pages.manage` |
+  | `create_page` | Create content page | `pages.manage` |
+  | `update_page` | Update content page | `pages.manage` |
+
+  ### Compound Learning (3 tools)
+  | Tool | Action | Permission |
+  |------|--------|------------|
+  | `query_learnings` | Search compound learnings | `ai.agents.read` |
+  | `reinforce_learning` | Boost learning effectiveness | `ai.agents.read` |
+  | `learning_metrics` | Get learning analytics | `ai.agents.read` |
+
+  ### Shared Knowledge (4 tools)
+  | Tool | Action | Permission |
+  |------|--------|------------|
+  | `search_knowledge` | Semantic knowledge search | `ai.agents.read` |
+  | `create_knowledge` | Create knowledge entry | `ai.agents.read` |
+  | `update_knowledge` | Update knowledge entry | `ai.agents.read` |
+  | `promote_knowledge` | Promote access level | `ai.agents.read` |
+
+  ### Other Tools
+  | Tool | Action | Permission |
+  |------|--------|------------|
+  | `query_knowledge_base` | Query RAG knowledge base | `ai.agents.read` |
+  | `get_api_reference` | Get API documentation | `ai.agents.read` |
+  | `create_gitea_repository` | Create Gitea repo | varies |
+  | `dispatch_to_runner` | Dispatch to CI runner | varies |
+  | `trigger_pipeline` | Trigger CI/CD pipeline | `git.pipelines.manage` |
+  | `list_pipelines` | List pipelines | `git.pipelines.manage` |
+  | `get_pipeline_status` | Get pipeline status | `git.pipelines.manage` |
+
+  ## Registering Tools
+
+  ```ruby
+  Ai::Tools::McpPlatformToolRegistrar.register_all!(account: account)
+  ```
+
+  ## Semantic Discovery
+
+  Agents can discover tools by natural language query:
+  ```ruby
+  Ai::Tools::PlatformApiToolRegistry.discover_tools(
+    query: "update documentation",
+    account: account,
+    limit: 5
+  )
+  ```
+
+  ## Related Articles
+
+  - [MCP Servers and Context Management](/kb/mcp-servers-context-management)
+  - [AI Orchestration Overview](/kb/ai-orchestration-overview)
+MARKDOWN
+
+KnowledgeBase::Article.find_or_create_by!(slug: "mcp-platform-tools-reference") do |article|
+  article.title = "MCP Platform Tools Reference"
+  article.category = ai_cat
+  article.author = author
+  article.status = "published"
+  article.is_public = true
+  article.is_featured = false
+  article.excerpt = "Complete reference for all MCP platform tools available to AI agents including agent, team, workflow, memory, KB, page, learning, and knowledge management."
+  article.content = mcp_platform_tools_content
+  article.views_count = 0
+  article.likes_count = 0
+  article.published_at = Time.current
+end
+
+puts "    ✅ MCP Platform Tools Reference"
+
+# Article: Coordinator Service
+coordinator_service_content = <<~MARKDOWN
+  # Coordinator Service
+
+  The Coordinator Service is the intelligence layer that routes user messages in team conversations to the appropriate handling mechanism.
+
+  ## How It Works
+
+  When a user sends a message to a team conversation with `coordinator_enabled: true`:
+
+  1. **Message received** by the `ConversationsController`
+  2. **Coordinator invoked** via `CoordinatorService.new(conversation:, user:).process_message(content)`
+  3. **LLM classification** — the lead agent's model evaluates the message
+  4. **Action taken** based on the classification result
+
+  ## Classification Actions
+
+  ### [RESPOND] - Direct Response
+  The coordinator (lead agent) responds directly without involving the team.
+  - Used for: simple questions, clarifications, status queries
+  - Response appears as a regular assistant message
+
+  ### [DELEGATE] - Team Execution
+  The message triggers a full team execution via `AgentTeamExecutionJob`.
+  - Used for: complex tasks, multi-step work, code generation
+  - Activity messages appear in the conversation showing progress
+
+  ### [CLARIFY] - Request Clarification
+  The coordinator asks the user for more information before proceeding.
+  - Used for: ambiguous requests, missing context
+
+  ## System Prompt Structure
+
+  The coordinator receives a system prompt containing:
+  - Team name and description
+  - Available team members with their roles
+  - Instructions to classify as RESPOND/DELEGATE/CLARIFY
+  - Recent conversation history for context
+
+  ## Configuration
+
+  Enable coordinator routing on a team:
+  ```ruby
+  team.update!(coordinator_enabled: true)
+  ```
+
+  The lead agent (role: 'lead', 'manager', or 'coordinator') is used as the coordinator.
+
+  ## Related Articles
+
+  - [Team Conversations & Chat](/kb/team-conversations-chat)
+  - [Agent Teams & Multi-Agent Orchestration](/kb/agent-teams-multi-agent-orchestration)
+MARKDOWN
+
+KnowledgeBase::Article.find_or_create_by!(slug: "coordinator-service") do |article|
+  article.title = "Coordinator Service"
+  article.category = ai_cat
+  article.author = author
+  article.status = "published"
+  article.is_public = true
+  article.is_featured = false
+  article.excerpt = "How the Coordinator Service routes user messages in team conversations through LLM classification to respond, delegate, or clarify."
+  article.content = coordinator_service_content
+  article.views_count = 0
+  article.likes_count = 0
+  article.published_at = Time.current
+end
+
+puts "    ✅ Coordinator Service"
+
+# Article: Agent Conversation Profiles
+agent_profiles_content = <<~MARKDOWN
+  # Agent Conversation Profiles
+
+  Conversation profiles configure how AI agents present themselves and interact in chat conversations, controlling tone, verbosity, greeting behavior, and response style.
+
+  ## Profile Structure
+
+  Each agent can have a `conversation_profile` JSON attribute:
+
+  ```json
+  {
+    "display_name": "Alex",
+    "avatar_emoji": "🤖",
+    "tone": "professional",
+    "verbosity": "concise",
+    "greeting": "Hello! I'm ready to help with your project.",
+    "style_instructions": "Use bullet points for lists. Include code examples when relevant.",
+    "response_format": "markdown"
+  }
+  ```
+
+  ## Profile Fields
+
+  | Field | Type | Description |
+  |-------|------|-------------|
+  | `display_name` | string | Name shown in chat UI |
+  | `avatar_emoji` | string | Emoji avatar for the agent |
+  | `tone` | string | Communication tone (professional/friendly/technical/casual) |
+  | `verbosity` | string | Response length (concise/normal/detailed/verbose) |
+  | `greeting` | string | Initial greeting when conversation starts |
+  | `style_instructions` | string | Additional style guidance appended to system prompt |
+  | `response_format` | string | Preferred format (markdown/plain/structured) |
+
+  ## How Profiles Affect Chat
+
+  1. **Display**: The `display_name` and `avatar_emoji` appear in the chat message header
+  2. **Greeting**: When a new conversation starts, the `greeting` is sent as the first message
+  3. **System Prompt**: `tone`, `verbosity`, and `style_instructions` are appended to the agent's system prompt
+  4. **Consistency**: Profiles ensure agents maintain consistent personality across conversations
+
+  ## Setting Profiles
+
+  Via the platform tools:
+  ```
+  update_agent(agent_id: "...", conversation_profile: { tone: "friendly", verbosity: "concise" })
+  ```
+
+  Via the frontend: Navigate to the agent's settings and use the Conversation Profile editor.
+
+  ## Related Articles
+
+  - [Creating and Managing AI Agents](/kb/creating-managing-ai-agents)
+  - [AI Conversations Guide](/kb/ai-conversations-guide)
+MARKDOWN
+
+KnowledgeBase::Article.find_or_create_by!(slug: "agent-conversation-profiles") do |article|
+  article.title = "Agent Conversation Profiles"
+  article.category = ai_cat
+  article.author = author
+  article.status = "published"
+  article.is_public = true
+  article.is_featured = false
+  article.excerpt = "Configure how AI agents present themselves in chat with tone, verbosity, greeting, and style settings through conversation profiles."
+  article.content = agent_profiles_content
+  article.views_count = 0
+  article.likes_count = 0
+  article.published_at = Time.current
+end
+
+puts "    ✅ Agent Conversation Profiles"
+
+puts "  ✅ AI Orchestration Advanced articles created (14 articles)"
