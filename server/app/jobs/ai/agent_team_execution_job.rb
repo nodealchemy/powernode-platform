@@ -257,11 +257,12 @@ module Ai
       if work_plan && work_plan["assignments"].present?
         log_execution("[Hierarchical] Work plan generated: #{work_plan['plan_summary']}")
         # Strip AR objects before serializing work plan
-        plan_content = {
-          plan_summary: work_plan["plan_summary"],
-          assignments: work_plan["assignments"].map { |a| a.except("member") },
-          synthesis_notes: work_plan["synthesis_notes"]
+        @serialized_plan = {
+          "plan_summary" => work_plan["plan_summary"],
+          "assignments" => work_plan["assignments"].map { |a| a.except("member") },
+          "synthesis_notes" => work_plan["synthesis_notes"]
         }
+        plan_content = @serialized_plan
         record_team_message(
           message_type: "work_plan",
           content: plan_content,
@@ -343,6 +344,7 @@ module Ai
               strategy: "hierarchical",
               lead: lead_agent.name,
               synthesized_output: synthesized,
+              work_plan: @serialized_plan,
               worker_results: worker_results.map { |r| { agent: r[:agent_name], role: r[:role], success: r[:success] } },
               total_workers: workers.size,
               successful: successful_results.size
@@ -357,6 +359,7 @@ module Ai
         output: {
           strategy: "hierarchical",
           lead: lead_agent.name,
+          work_plan: @serialized_plan,
           results: worker_results.map { |r| { agent: r[:agent_name], role: r[:role], output: r[:output], success: r[:success] } },
           total_workers: workers.size,
           successful: successful_results.size
@@ -881,59 +884,52 @@ module Ai
     end
 
     def reuse_approved_plan(approved_output, workers)
-      # The approved plan is the output from the planning execution.
-      # It may contain a structured work plan in the lead's response, or synthesized output.
-      # Try to extract task assignments from the plan content.
-      plan_text = extract_plan_text(approved_output)
-      return nil if plan_text.blank?
+      return nil unless approved_output.is_a?(Hash)
 
       worker_map = workers.index_by { |m| m.agent.name }
-      assignments = []
 
-      # Parse XML-style task assignments: <task>...<assigned_to>Name</assigned_to>...<description>...</description>...</task>
-      plan_text.scan(/<task>(.*?)<\/task>/m).each do |match|
-        task_xml = match[0]
-        assigned_to = task_xml[/<assigned_to>(.*?)<\/assigned_to>/m, 1]&.strip
-        description = task_xml[/<description>(.*?)<\/description>/m, 1]&.strip
-        details = task_xml[/<details>(.*?)<\/details>/m, 1]&.strip
+      # Primary: check for stored work_plan from Phase 1
+      stored_plan = approved_output["work_plan"] || approved_output[:work_plan]
+      if stored_plan.is_a?(Hash) && (stored_plan["assignments"] || stored_plan[:assignments]).present?
+        raw_assignments = stored_plan["assignments"] || stored_plan[:assignments]
+        assignments = raw_assignments.filter_map do |a|
+          name = a["worker_name"] || a[:worker_name]
+          member = worker_map[name] || workers.find { |m|
+            m.agent.name.include?(name.to_s) || name.to_s.include?(m.agent.name)
+          }
+          next unless member
 
-        next unless assigned_to && description
+          a.merge("member" => member, "agent_id" => member.agent.id)
+        end
 
-        member = worker_map[assigned_to] || workers.find { |m|
-          m.agent.name.include?(assigned_to) || assigned_to.include?(m.agent.name)
-        }
-        next unless member
-
-        assignments << {
-          "worker_name" => member.agent.name,
-          "member" => member,
-          "agent_id" => member.agent.id,
-          "instructions" => [description, details].compact.join("\n\n"),
-          "expected_output" => "Complete the assigned task based on the approved plan",
-          "priority" => "high"
-        }
-      end
-
-      # Fallback: try JSON format from generate_work_plan
-      if assignments.empty?
-        json_match = plan_text.match(/\{[\s\S]*"assignments"[\s\S]*\}/)
-        if json_match
-          begin
-            parsed = JSON.parse(json_match.to_s)
-            return parse_work_plan(json_match.to_s, workers) if parsed["assignments"]
-          rescue JSON::ParserError
-            # Continue to fallback
-          end
+        if assignments.any?
+          log_execution("[ReusePlan] Found #{assignments.size} assignments from stored work_plan")
+          return {
+            "plan_summary" => stored_plan["plan_summary"] || stored_plan[:plan_summary] || "Executing approved plan",
+            "assignments" => assignments,
+            "synthesis_notes" => stored_plan["synthesis_notes"] || stored_plan[:synthesis_notes] || "Combine worker outputs"
+          }
         end
       end
 
-      return nil if assignments.empty?
+      # Fallback: try to extract from synthesized output text
+      plan_text = extract_plan_text(approved_output)
+      return nil if plan_text.blank?
 
-      {
-        "plan_summary" => "Executing approved plan",
-        "assignments" => assignments,
-        "synthesis_notes" => "Combine worker outputs into a comprehensive result"
-      }
+      assignments = []
+
+      # Try JSON format
+      json_match = plan_text.match(/\{[\s\S]*"assignments"[\s\S]*\}/)
+      if json_match
+        begin
+          parsed = JSON.parse(json_match.to_s)
+          return parse_work_plan(json_match.to_s, workers) if parsed["assignments"]
+        rescue JSON::ParserError
+          # Continue
+        end
+      end
+
+      nil
     end
 
     def extract_plan_text(output)
