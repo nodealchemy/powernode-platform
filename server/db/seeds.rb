@@ -108,7 +108,8 @@ administrator_plan = Plan.find_or_create_by!(name: 'Administrator') do |plan|
 end
 
 # Self-Hosted plan (core mode)
-self_hosted_plan = Plan.find_or_create_by!(name: 'Self-Hosted') do |plan|
+self_hosted_plan = Plan.find_or_create_by!(slug: 'self-hosted') do |plan|
+  plan.name = 'Self-Hosted'
   plan.description = 'Self-hosted installation with all features enabled'
   plan.price_cents = 0
   plan.currency = 'USD'

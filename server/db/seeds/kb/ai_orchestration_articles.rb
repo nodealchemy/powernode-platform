@@ -12,13 +12,16 @@ author = User.find_by!(email: "admin@powernode.org")
 ai_overview_content = <<~MARKDOWN
 # AI Orchestration Overview
 
-Powernode's AI Orchestration platform enables you to integrate, manage, and deploy AI capabilities across your organization with enterprise-grade security and governance.
+Powernode's AI Orchestration platform enables you to integrate, manage, and deploy AI capabilities across your organization with enterprise-grade security, multi-agent collaboration, and intelligent cost optimization.
 
 ## What You'll Learn
 
 - Core AI capabilities in Powernode
-- Key concepts: Providers, Agents, Workflows, MCP
-- Common use cases and applications
+- Key concepts: Providers, Agents, Teams, Workflows, MCP
+- Agent-to-Agent (A2A) protocol and federation
+- Compound learning and memory tiers
+- Worktree sandboxes for safe code execution
+- Trust and autonomy system
 - Getting started with AI features
 - Governance and cost management
 
@@ -28,190 +31,138 @@ Powernode's AI Orchestration platform enables you to integrate, manage, and depl
 
 Connect to leading AI providers:
 
-| Provider | Models | Best For |
-|----------|--------|----------|
-| **OpenAI** | GPT-4o, GPT-4, GPT-3.5 | General purpose, coding |
-| **Anthropic** | Claude 3.5 Sonnet, Claude 3 Opus | Analysis, safety-critical |
-| **xAI** | Grok | Real-time information |
-| **Ollama** | Llama, Mistral, CodeLlama | Self-hosted, privacy |
+| Provider | Models | Best For | Cost Tier |
+|----------|--------|----------|-----------|
+| **Anthropic** | Opus 4.1, Sonnet 4.5, Haiku 4.5 | Complex reasoning, coding, agents | $$-$$$$ |
+| **OpenAI** | GPT-4o, GPT-4o Mini, o1 | General purpose, vision, reasoning | $$-$$$$ |
+| **xAI** | Grok Beta, Grok Vision | Real-time information | $$-$$$ |
+| **Ollama** | Qwen 2.5, Llama 3.1, Coder models | Self-hosted, zero cost, privacy | Free |
 
 ### AI Agents
 
-Deploy intelligent agents for automated tasks:
+Deploy intelligent agents with trust-based autonomy:
 
-- **Customer Support** - Handle inquiries and escalations
-- **Content Generation** - Create marketing copy and docs
-- **Data Analysis** - Process and summarize datasets
-- **Code Review** - Automated PR analysis
-- **Research** - Information gathering and synthesis
+- **Code Assistants** - Generate, review, and refactor code
+- **Project Leads** - Decompose tasks and coordinate teams
+- **DevOps Engineers** - Manage pipelines and deployments
+- **QA Engineers** - Write and execute test suites
+- **Documentation Specialists** - Generate and maintain docs
+- **Research Agents** - Information gathering and synthesis
 
-### Workflow Automation
+### Agent Teams
 
-Build complex AI pipelines with visual tools:
+Coordinate multiple agents for complex projects:
 
-```yaml
-Workflow Example: Customer Feedback Analysis
-  Trigger: New feedback received
-  Steps:
-    1. Sentiment Analysis (Claude)
-    2. Topic Classification (GPT-4)
-    3. Priority Scoring (Rules)
-    4. Route to Team (Conditional)
-    5. Generate Response Draft (Claude)
-```
+| Team Type | Description | Use Case |
+|-----------|-------------|----------|
+| **Functional** | Same-skill agents | Parallel code review |
+| **Cross-functional** | Mixed skills | Full-stack feature dev |
+| **Hierarchical** | Lead + subordinates | Managed project work |
+| **Swarm** | Self-organizing | Dynamic task allocation |
+
+**Coordination Strategies:** round_robin, parallel, sequential, manager_led, consensus
+
+### A2A Protocol
+
+Agent-to-Agent communication using JSON-RPC 2.0:
+- Agent discovery and capability cards
+- Task lifecycle management (send, get, cancel)
+- Federation with external agent systems
+- Push notifications for async updates
+
+### Memory Tiers
+
+Four-tier memory architecture:
+
+| Tier | Storage | Purpose | Retention |
+|------|---------|---------|-----------|
+| **Working** | Redis | Ephemeral scratch space | Session only |
+| **Short-term** | PostgreSQL | Recent context with TTL | Hours-days |
+| **Long-term** | pgvector | Semantic knowledge | Persistent |
+| **Shared** | pgvector + ACL | Team-wide knowledge | Persistent |
+
+### Compound Learning
+
+Agents learn from experience:
+- Auto-extraction from success/failure/review events
+- Deduplication via cosine similarity (>=0.92 threshold)
+- Feature-flagged injection into agent context
+- Cross-team promotion of effective learnings
+- Effectiveness tracking and decay
+
+### Trust & Autonomy
+
+Four-tier trust system controls agent autonomy:
+
+| Tier | Score Range | Capabilities |
+|------|-------------|-------------|
+| **Supervised** | 0.0 - 0.39 | Requires approval for all actions |
+| **Monitored** | 0.4 - 0.69 | Can act with logging, human review |
+| **Trusted** | 0.7 - 0.89 | Autonomous within budget limits |
+| **Autonomous** | 0.9 - 1.0 | Self-directed with full tool access |
+
+### Worktree Sandboxes
+
+Git worktree-based isolation for safe agent code execution:
+- Branch naming: `ai/session-{id}/{suffix}`
+- Config auto-copy (.env, .tool-versions)
+- Merge strategies: integration_branch, sequential, manual
+- Health checks and pruning
 
 ### Model Context Protocol (MCP)
 
 Extend agent capabilities with external tools:
+- Database queries and file system access
+- Web browsing and API integrations
+- Custom tool servers
+- OAuth-based tool authentication
 
-- Database queries
-- API integrations
-- File system access
-- Web browsing
-- Custom tools
+### Workflow Automation
 
-## Key Concepts
-
-### Providers
-
-AI Providers are the underlying services that power your agents:
+Build complex AI pipelines:
 
 ```yaml
-Provider Configuration:
-  Name: OpenAI Production
-  Type: openai
-  API Key: sk-... (encrypted)
-  Models:
-    - gpt-4o
-    - gpt-4-turbo
-    - gpt-3.5-turbo
-  Rate Limits:
-    requests_per_minute: 500
-    tokens_per_minute: 100000
-  Fallback: claude-3-sonnet
+Workflow Example: Feature Development
+  Trigger: Task assigned
+  Steps:
+    1. Lead Agent decomposes task (Opus 4.1)
+    2. Backend Dev implements (Sonnet 4.5)
+    3. QA writes tests (GPT-4o Mini)
+    4. Review Agent checks quality (Sonnet 4.5)
+    5. DevOps deploys (Haiku 4.5)
 ```
 
-### Agents
+## Cost Optimization
 
-Agents are AI-powered assistants with specific roles:
+### Task-Specific Model Overrides
+
+Configure per-task model selection to optimize costs:
 
 ```yaml
-Agent Configuration:
-  Name: Support Agent
-  Description: Handles customer support inquiries
-  Provider: openai-production
-  Model: gpt-4o
-  System Prompt: |
-    You are a helpful customer support agent for Powernode.
-    Be professional, empathetic, and solution-oriented.
-    Always verify customer identity before sharing account details.
-  Temperature: 0.7
-  Max Tokens: 2000
-  Tools:
-    - customer_lookup
-    - ticket_creation
-    - knowledge_base_search
+Agent: Backend Developer
+  Default Model: claude-sonnet-4-5
+  Task Overrides:
+    documentation: ollama/qwen2.5:14b  # Free, self-hosted
+    code_review: claude-sonnet-4-5      # Premium quality
+    planning: claude-sonnet-4-5         # Standard
 ```
 
-### Workflows
+### Model Cost Comparison
 
-Workflows orchestrate multiple AI operations:
+| Model | Input/1K | Output/1K | Best For |
+|-------|----------|-----------|----------|
+| Claude Opus 4.1 | $0.015 | $0.075 | Complex reasoning, leadership |
+| Claude Sonnet 4.5 | $0.003 | $0.015 | Coding, general purpose |
+| Claude Haiku 4.5 | $0.001 | $0.005 | Fast tasks, high volume |
+| GPT-4o Mini | $0.00015 | $0.0006 | Simple tasks, testing |
+| Ollama (any) | $0.00 | $0.00 | Documentation, offline |
 
-```yaml
-Workflow Configuration:
-  Name: Content Pipeline
-  Trigger: manual
-  Nodes:
-    - id: research
-      type: agent
-      agent: research-agent
-      input: "Research topic: {{input.topic}}"
+### Budget Controls
 
-    - id: outline
-      type: agent
-      agent: writer-agent
-      input: "Create outline from: {{research.output}}"
-
-    - id: review
-      type: approval
-      approvers: [content-team]
-
-    - id: publish
-      type: action
-      condition: "{{review.approved}}"
-      action: publish_to_cms
-```
-
-### Contexts
-
-Contexts provide agents with relevant information:
-
-```yaml
-Context Configuration:
-  Name: Product Documentation
-  Type: document
-  Sources:
-    - path: /docs/api/**/*.md
-    - url: https://docs.powernode.org/api
-  Refresh: daily
-  Embedding Model: text-embedding-3-large
-  Chunk Size: 1000
-  Overlap: 200
-```
-
-## Use Cases
-
-### Customer Support Automation
-
-Automate first-level support with AI:
-
-**Capabilities:**
-- Answer common questions instantly
-- Classify and route complex issues
-- Generate response drafts for agents
-- Summarize ticket history
-
-**Results:**
-- 40% reduction in response time
-- 60% of inquiries handled automatically
-- Improved customer satisfaction
-
-### Content Generation
-
-Scale content creation with AI assistance:
-
-**Capabilities:**
-- Generate blog posts and articles
-- Create product descriptions
-- Write documentation
-- Translate content
-
-**Workflow Example:**
-```
-Brief → Research → Draft → Review → Edit → Publish
-  ↓        ↓         ↓       ↓        ↓        ↓
-Human    Agent    Agent   Human   Agent   Automated
-```
-
-### Data Analysis
-
-Extract insights from large datasets:
-
-**Capabilities:**
-- Summarize reports and documents
-- Identify trends and patterns
-- Generate visualizations
-- Create executive summaries
-
-### Code Review
-
-Automate code quality checks:
-
-**Capabilities:**
-- Review pull requests
-- Identify security issues
-- Suggest improvements
-- Check documentation
+- Per-agent token and cost limits
+- Trust-tier based budget allocation
+- Automatic throttling on budget exceeded
+- Daily/weekly/monthly spending alerts
 
 ## Getting Started
 
@@ -219,203 +170,77 @@ Automate code quality checks:
 
 1. Navigate to **AI > Providers**
 2. Click **Add Provider**
-3. Select provider type (OpenAI, Anthropic, etc.)
+3. Select provider type (Anthropic, OpenAI, Ollama, etc.)
 4. Enter API credentials
-5. Configure rate limits
+5. Configure rate limits and fallback chain
 6. Test connection
 
 ### Step 2: Create Agent
 
 1. Navigate to **AI > Agents**
 2. Click **Create Agent**
-3. Configure:
-   - Name and description
-   - Provider and model
-   - System prompt
-   - Parameters (temperature, tokens)
-4. Add tools (optional)
-5. Test in playground
+3. Configure: name, provider, model, system prompt, temperature
+4. Assign role profile (developer, reviewer, researcher, etc.)
+5. Add MCP tools (optional)
+6. Test in playground
 
-### Step 3: Build Workflow (Optional)
+### Step 3: Build a Team
 
-1. Navigate to **AI > Workflows**
-2. Click **Create Workflow**
-3. Add trigger node
-4. Connect agent and action nodes
-5. Configure conditions
-6. Test and deploy
-
-## AI Dashboard
-
-### Quick Actions
-
-- **Chat with Agent** - Test agents interactively
-- **Run Workflow** - Execute workflows manually
-- **View Analytics** - Monitor usage and costs
-- **Manage Contexts** - Update knowledge bases
-
-### Key Metrics
-
-| Metric | Description | Target |
-|--------|-------------|--------|
-| Response Time | Average AI response latency | < 2s |
-| Success Rate | Successful completions | > 99% |
-| Cost per Request | Average cost per API call | Monitor |
-| Token Usage | Daily token consumption | Budget |
+1. Navigate to **AI > Teams**
+2. Click **Create Team**
+3. Select team type and coordination strategy
+4. Add agents with roles
+5. Configure channels and review settings
+6. Run first execution
 
 ## Governance and Safety
 
-### Access Control
+### OWASP AI Security
 
-Control who can use AI features:
+Built-in protections following OWASP guidelines:
+- **ASI01/02**: Agent anomaly detection
+- **ASI04/09**: PII redaction service
+- **ASI05**: Memory integrity (SHA-256 checksums)
+- **ASI06/08**: Supply chain and pipeline analysis
 
-```yaml
-Permission Matrix:
-  ai.providers.manage: Admin only
-  ai.agents.create: AI Team, Developers
-  ai.agents.use: All authenticated users
-  ai.workflows.execute: Workflow owners
-  ai.analytics.view: Managers, AI Team
-```
+### Audit & Compliance
 
-### Content Filtering
-
-Configure safety guardrails:
-
-- Input sanitization
-- Output filtering
-- PII detection
-- Topic restrictions
-- Prompt injection protection
-
-### Audit Logging
-
-Track all AI operations:
-
-```yaml
-Audit Log Entry:
-  Timestamp: 2024-01-15T10:30:00Z
-  User: jane@company.com
-  Agent: support-agent
-  Model: gpt-4o
-  Tokens: 1,250
-  Cost: $0.025
-  Duration: 1.8s
-  Status: success
-```
-
-## Cost Management
-
-### Token Tracking
-
-Monitor usage across providers:
-
-```yaml
-Monthly Usage Summary:
-  OpenAI:
-    GPT-4o: 2,500,000 tokens ($50.00)
-    GPT-4: 500,000 tokens ($30.00)
-    GPT-3.5: 5,000,000 tokens ($7.50)
-
-  Anthropic:
-    Claude 3.5 Sonnet: 1,000,000 tokens ($15.00)
-
-  Total: $102.50
-```
-
-### Budget Alerts
-
-Set spending limits:
-
-- Daily budget caps
-- Per-user limits
-- Per-agent limits
-- Automatic throttling
-
-### Optimization Tips
-
-1. **Choose Appropriate Models**
-   - Use GPT-3.5/Claude Haiku for simple tasks
-   - Reserve GPT-4/Opus for complex reasoning
-
-2. **Optimize Prompts**
-   - Be concise and specific
-   - Use system prompts effectively
-   - Cache common responses
-
-3. **Implement Caching**
-   - Cache identical requests
-   - Use semantic caching for similar queries
-
-## Best Practices
-
-### Prompt Engineering
-
-1. **Be Specific**
-   ```
-   ❌ "Summarize this"
-   ✅ "Summarize this customer feedback in 3 bullet points,
-       focusing on product issues and suggested improvements"
-   ```
-
-2. **Provide Context**
-   ```
-   ✅ "You are a senior software engineer reviewing code.
-       Focus on security, performance, and maintainability.
-       Be constructive and explain your suggestions."
-   ```
-
-3. **Set Expectations**
-   ```
-   ✅ "Respond in JSON format with fields:
-       sentiment (positive/negative/neutral),
-       topics (array of strings),
-       summary (max 100 words)"
-   ```
-
-### Agent Design
-
-1. **Single Responsibility**
-   - Each agent should have one clear purpose
-   - Combine agents in workflows for complex tasks
-
-2. **Appropriate Model Selection**
-   - Match model capability to task complexity
-   - Consider latency vs. quality tradeoffs
-
-3. **Robust Error Handling**
-   - Configure fallback providers
-   - Handle rate limits gracefully
-   - Log failures for analysis
+- Full audit trail for all AI operations
+- Per-execution cost and token tracking
+- Review workflows (blocking and shadow modes)
+- Agent trajectory recording for compliance
 
 ## Next Steps
 
 Explore detailed guides:
 
-1. [Configuring AI Providers](/kb/configuring-ai-providers) - Provider setup
-2. [Creating and Managing AI Agents](/kb/creating-managing-ai-agents) - Agent development
-3. [Building AI Workflows](/kb/building-ai-workflows) - Workflow automation
-4. [MCP Servers and Context Management](/kb/mcp-servers-context-management) - Tool integration
-5. [Agent Teams and Multi-Agent Orchestration](/kb/agent-teams-multi-agent) - Team coordination
+1. [Configuring AI Providers](/kb/configuring-ai-providers)
+2. [Creating and Managing AI Agents](/kb/creating-managing-ai-agents)
+3. [Agent Teams and Multi-Agent Orchestration](/kb/agent-teams-multi-agent)
+4. [A2A Protocol](/kb/a2a-protocol-agent-communication)
+5. [Trust & Autonomy System](/kb/trust-autonomy-system)
+6. [Memory Tiers](/kb/memory-tiers-knowledge-management)
+7. [Compound Learning](/kb/compound-learning-system)
 
 ---
 
 Questions about AI features? Contact ai-support@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "ai-orchestration-overview") do |article|
-  article.title = "AI Orchestration Overview"
-  article.category = ai_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = true
-  article.excerpt = "Comprehensive introduction to Powernode's AI capabilities including providers, agents, workflows, and governance for enterprise AI deployment."
-  article.content = ai_overview_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(slug: "ai-orchestration-overview", category: ai_cat)
+article.assign_attributes(
+  title: "AI Orchestration Overview",
+  author: author,
+  status: "published",
+  is_public: true,
+  is_featured: true,
+  excerpt: "Comprehensive introduction to Powernode's AI capabilities including multi-provider support, agent teams, A2A protocol, compound learning, memory tiers, trust system, and worktree sandboxes.",
+  content: ai_overview_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.save!
 
 puts "    ✅ AI Orchestration Overview"
 
@@ -423,21 +248,51 @@ puts "    ✅ AI Orchestration Overview"
 ai_providers_content = <<~MARKDOWN
 # Configuring AI Providers
 
-Connect and manage AI service providers in Powernode to power your agents and workflows with leading language models.
+Connect and manage AI service providers in Powernode to power your agents and workflows with the latest language models.
 
 ## Supported Providers
 
-### OpenAI
+### Anthropic Claude (Recommended)
 
-Industry-leading GPT models for general-purpose AI tasks.
+Industry-leading models for coding, reasoning, and agentic workflows.
 
 **Available Models:**
-| Model | Context | Best For | Cost |
-|-------|---------|----------|------|
-| gpt-4o | 128K | Multimodal, complex reasoning | $$ |
-| gpt-4-turbo | 128K | Extended context tasks | $$$ |
-| gpt-4 | 8K | High-quality output | $$$$ |
-| gpt-3.5-turbo | 16K | Fast, cost-effective | $ |
+| Model | Context | Best For | Cost/1K Input | Cost/1K Output |
+|-------|---------|----------|---------------|----------------|
+| Claude Opus 4.1 | 200K | Complex reasoning, leadership, multi-hour tasks | $0.015 | $0.075 |
+| Claude Sonnet 4.5 | 200K | Best coding model, complex agents, general purpose | $0.003 | $0.015 |
+| Claude Haiku 4.5 | 200K | Fast tasks, parallel execution, cost optimization | $0.001 | $0.005 |
+
+**Configuration:**
+```yaml
+Provider Setup:
+  Name: Anthropic Production
+  Type: anthropic
+  API Key: sk-ant-... (from console.anthropic.com)
+  Base URL: https://api.anthropic.com/v1 (default)
+
+Settings:
+  Default Model: claude-sonnet-4-5-20250929
+  Max Retries: 3
+  Timeout: 120s
+  Rate Limit:
+    requests_per_minute: 4000
+    tokens_per_minute: 400000
+```
+
+**Special Features:** Prompt caching (90% discount on cached tokens), extended thinking, computer use, batch API.
+
+### OpenAI
+
+Broad model ecosystem with vision, reasoning, and embedding capabilities.
+
+**Available Models:**
+| Model | Context | Best For | Cost/1K Input | Cost/1K Output |
+|-------|---------|----------|---------------|----------------|
+| GPT-4o | 128K | Multimodal, function calling | $0.0025 | $0.01 |
+| GPT-4o Mini | 128K | Cost-effective, high volume | $0.00015 | $0.0006 |
+| o1-preview | 128K | Advanced reasoning, math | $0.015 | $0.06 |
+| o1-mini | 128K | Faster reasoning, coding | $0.0011 | $0.0044 |
 
 **Configuration:**
 ```yaml
@@ -452,86 +307,62 @@ Settings:
   Default Model: gpt-4o
   Max Retries: 3
   Timeout: 60s
-  Rate Limit:
-    requests_per_minute: 500
-    tokens_per_minute: 100000
-```
-
-### Anthropic Claude
-
-Safety-focused AI with excellent analysis and writing capabilities.
-
-**Available Models:**
-| Model | Context | Best For | Cost |
-|-------|---------|----------|------|
-| claude-3-5-sonnet | 200K | Balanced performance | $$ |
-| claude-3-opus | 200K | Most capable | $$$$ |
-| claude-3-sonnet | 200K | Good balance | $$ |
-| claude-3-haiku | 200K | Fast, affordable | $ |
-
-**Configuration:**
-```yaml
-Provider Setup:
-  Name: Anthropic Production
-  Type: anthropic
-  API Key: sk-ant-... (from console.anthropic.com)
-  Base URL: https://api.anthropic.com (default)
-
-Settings:
-  Default Model: claude-3-5-sonnet-20241022
-  Max Retries: 3
-  Timeout: 120s
 ```
 
 ### xAI Grok
 
-Real-time information access with distinctive capabilities.
+Real-time information access with X platform integration.
 
 **Available Models:**
-| Model | Context | Best For | Cost |
-|-------|---------|----------|------|
-| grok-2 | 128K | Latest capabilities | $$$ |
-| grok-2-mini | 128K | Faster, lighter | $$ |
-
-**Configuration:**
-```yaml
-Provider Setup:
-  Name: xAI Grok
-  Type: xai
-  API Key: xai-... (from x.ai)
-
-Settings:
-  Default Model: grok-2
-  Max Retries: 3
-```
+| Model | Context | Best For | Cost/1K Input | Cost/1K Output |
+|-------|---------|----------|---------------|----------------|
+| Grok Beta | 131K | Real-time data, conversation | $0.005 | $0.015 |
+| Grok Vision Beta | 8K | Image analysis | $0.005 | $0.015 |
 
 ### Ollama (Self-Hosted)
 
-Run open-source models locally for privacy and cost control.
+Run open-source models locally for zero-cost operation and data privacy.
 
-**Popular Models:**
-| Model | Size | Best For |
-|-------|------|----------|
-| llama3.1 | 8B-70B | General purpose |
-| codellama | 7B-34B | Code generation |
-| mistral | 7B | Fast inference |
-| mixtral | 8x7B | MoE architecture |
+**Available Models (seeded):**
+| Model | Parameters | Context | Best For |
+|-------|-----------|---------|----------|
+| Qwen 2.5 14B | 14B | 32K | Documentation, text generation |
+| Llama 3.1 8B | 8B | 131K | General purpose fallback |
+| Qwen 2.5 Coder 14B | 14B | 32K | Code generation and review |
 
 **Configuration:**
 ```yaml
 Provider Setup:
-  Name: Local Ollama
+  Name: Ollama
   Type: ollama
-  Base URL: http://localhost:11434
+  Base URL: http://localhost:11434  # or remote instance
 
 Settings:
-  Default Model: llama3.1:8b
-  Pull Models on Start: true
-  Available Models:
-    - llama3.1:8b
-    - llama3.1:70b
-    - codellama:13b
+  Auth Type: none
+  Self Hosted: true
+  Streaming: supported
+  Pull Models: ollama pull qwen2.5:14b
 ```
+
+**Remote Ollama Setup:**
+
+To use a remote Ollama instance (e.g., on a GPU server):
+
+1. On the remote host: `OLLAMA_HOST=0.0.0.0 ollama serve`
+2. Pull required models: `ollama pull qwen2.5:14b && ollama pull llama3.1:8b`
+3. Set the endpoint: `OLLAMA_API_ENDPOINT=http://gpu-server:11434`
+4. Configure in Powernode: AI > Providers > Ollama > Edit API Endpoint
+
+### Model Cost Comparison
+
+| Model | Input/1K | Output/1K | Relative Cost | Best For |
+|-------|----------|-----------|---------------|----------|
+| Ollama (any) | $0.000 | $0.000 | Free | Documentation, simple tasks |
+| GPT-4o Mini | $0.00015 | $0.0006 | $ | Testing, QA, high volume |
+| Claude Haiku 4.5 | $0.001 | $0.005 | $$ | DevOps, fast tasks |
+| Claude Sonnet 4.5 | $0.003 | $0.015 | $$$ | Coding, general purpose |
+| GPT-4o | $0.0025 | $0.01 | $$$ | Multimodal, vision |
+| Claude Opus 4.1 | $0.015 | $0.075 | $$$$$ | Architecture, complex reasoning |
 
 ## Adding a Provider
 
@@ -746,19 +577,20 @@ Monitor provider health:
 Need help with provider configuration? Contact ai-support@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "configuring-ai-providers") do |article|
-  article.title = "Configuring AI Providers"
-  article.category = ai_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Complete guide to connecting OpenAI, Anthropic Claude, xAI Grok, and Ollama providers with API configuration, rate limiting, and fallback settings."
-  article.content = ai_providers_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(slug: "configuring-ai-providers", category: ai_cat)
+article.assign_attributes(
+  title: "Configuring AI Providers",
+  author: author,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Complete guide to connecting Anthropic Claude 4.x, OpenAI, xAI Grok, and Ollama providers with model comparison, cost optimization, and remote Ollama configuration.",
+  content: ai_providers_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.save!
 
 puts "    ✅ Configuring AI Providers"
 
@@ -944,6 +776,71 @@ Rate Limits:
     concurrent_requests: 50
     requests_per_minute: 500
 ```
+
+## Role Profiles
+
+Assign predefined role profiles to standardize agent behavior:
+
+### System Profiles
+
+| Profile | Role Type | Focus Areas |
+|---------|-----------|-------------|
+| **Developer** | developer | Code generation, implementation, debugging |
+| **Reviewer** | reviewer | Code review, quality checks, security analysis |
+| **Researcher** | researcher | Information gathering, analysis, synthesis |
+| **Writer** | writer | Documentation, content creation, technical writing |
+| **Planner** | planner | Task decomposition, architecture, roadmapping |
+| **Tester** | tester | Test writing, coverage analysis, QA automation |
+
+Each profile includes:
+- **Prompt templates** defining base behavior
+- **Quality check definitions** for validation
+- **Tool access controls** specifying available MCP tools
+
+### Assigning Profiles
+
+1. Navigate to **AI > Agents > [Agent] > Settings**
+2. Select **Role Profile** from dropdown
+3. Profile settings merge with agent's custom configuration
+4. Custom settings override profile defaults
+
+### Custom Profiles
+
+Create organization-specific profiles:
+1. Navigate to **AI > Role Profiles**
+2. Click **Create Profile**
+3. Define prompt template, quality checks, and tool access
+4. Assign to agents via the Role Profile Selector
+
+## Trust Scores
+
+Agents earn trust through consistent performance:
+
+### Trust Tiers
+
+| Tier | Score Range | Capabilities |
+|------|-------------|-------------|
+| **Supervised** | 0.0 - 0.39 | Requires approval for all actions |
+| **Monitored** | 0.4 - 0.69 | Can act with logging and human review |
+| **Trusted** | 0.7 - 0.89 | Autonomous within budget limits |
+| **Autonomous** | 0.9 - 1.0 | Self-directed with full tool access |
+
+### Trust Dimensions
+
+Trust is calculated across 5 weighted dimensions:
+- **Task Completion** - Success rate of assigned tasks
+- **Code Quality** - Quality scores from reviews
+- **Security Compliance** - Adherence to security policies
+- **Communication** - Clarity and accuracy of outputs
+- **Learning Rate** - Improvement over time
+
+### Viewing Trust Scores
+
+Navigate to **AI > Autonomy** to see:
+- Current trust tier per agent
+- Dimension-level scores
+- Trust score history and trends
+- Budget allocation per tier
 
 ## Agent Types
 
@@ -1212,19 +1109,20 @@ Monitoring:
 Need help creating agents? Contact ai-support@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "creating-managing-ai-agents") do |article|
-  article.title = "Creating and Managing AI Agents"
-  article.category = ai_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Step-by-step guide to building AI agents with custom prompts, tool integration, memory management, versioning, and performance monitoring."
-  article.content = ai_agents_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(slug: "creating-managing-ai-agents", category: ai_cat)
+article.assign_attributes(
+  title: "Creating and Managing AI Agents",
+  author: author,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Step-by-step guide to building AI agents with role profiles, trust scores, custom prompts, tool integration, memory management, and performance monitoring.",
+  content: ai_agents_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.save!
 
 puts "    ✅ Creating and Managing AI Agents"
 
@@ -2283,141 +2181,177 @@ puts "    ✅ MCP Servers and Context Management"
 agent_teams_content = <<~MARKDOWN
 # Agent Teams and Multi-Agent Orchestration
 
-Coordinate multiple AI agents to tackle complex tasks through collaboration, delegation, and specialized roles.
+Coordinate multiple AI agents to tackle complex tasks through collaboration, delegation, and specialized roles using Powernode's team orchestration system.
 
-## Multi-Agent Concepts
+## Team Types
 
-### Why Multi-Agent?
+Powernode supports 4 team types, each optimized for different scenarios:
 
-Single agents have limitations:
-- Context window constraints
-- Specialized vs. general knowledge
-- Complex task decomposition
-- Quality through specialization
+### Functional Teams
 
-Multi-agent systems overcome these by:
-- **Specialization** - Each agent excels at specific tasks
-- **Collaboration** - Agents work together seamlessly
-- **Scalability** - Parallel processing of subtasks
-- **Robustness** - Redundancy and fallbacks
+Same-skill agents working in parallel:
 
-### Agent Team Patterns
+```yaml
+Team: Code Review Squad
+  Type: functional
+  Use Case: Parallel code review from multiple perspectives
+  Members:
+    - Security Reviewer (Claude Sonnet 4.5)
+    - Performance Reviewer (Claude Sonnet 4.5)
+    - Style Reviewer (Claude Haiku 4.5)
+```
+
+### Cross-Functional Teams
+
+Mixed skills for end-to-end delivery:
+
+```yaml
+Team: Feature Delivery
+  Type: cross_functional
+  Use Case: Full-stack feature development
+  Members:
+    - Frontend Developer (Claude Sonnet 4.5)
+    - Backend Developer (Claude Sonnet 4.5)
+    - QA Engineer (GPT-4o Mini)
+    - Documentation (Ollama Qwen 2.5)
+```
+
+### Hierarchical Teams
+
+Lead agent manages subordinate agents:
+
+```yaml
+Team: Powernode Development Team
+  Type: hierarchical
+  Use Case: Managed project work with oversight
+  Members:
+    - Project Lead (Claude Opus 4.1) [LEAD]
+    - Frontend Developer (Claude Sonnet 4.5)
+    - Backend Developer (Claude Sonnet 4.5)
+    - DevOps Engineer (Claude Haiku 4.5)
+    - QA Engineer (GPT-4o Mini)
+    - Doc Specialist (Claude Sonnet 4.5)
+```
+
+### Swarm Teams
+
+Self-organizing agents that dynamically allocate work:
+
+```yaml
+Team: Dynamic Task Force
+  Type: swarm
+  Use Case: Ad-hoc problem solving, incident response
+  Members: Auto-assigned based on task requirements
+```
+
+## Coordination Strategies
+
+| Strategy | Description | Best For |
+|----------|-------------|----------|
+| **round_robin** | Tasks distributed evenly in rotation | Load balancing |
+| **parallel** | All agents work simultaneously on same input | Multi-perspective analysis |
+| **sequential** | Pipeline where output feeds next agent | Staged workflows |
+| **manager_led** | Lead agent plans and delegates | Complex projects |
+| **consensus** | All agents contribute, majority wins | Decision making |
+
+### Manager-Led Example
 
 ```
-                    ┌─────────────┐
-                    │ Coordinator │
-                    └──────┬──────┘
-           ┌───────────────┼───────────────┐
-           ▼               ▼               ▼
-    ┌────────────┐  ┌────────────┐  ┌────────────┐
-    │ Research   │  │   Writer   │  │  Reviewer  │
-    │   Agent    │  │   Agent    │  │   Agent    │
-    └────────────┘  └────────────┘  └────────────┘
+Lead Agent receives task
+  → Decomposes into subtasks
+  → Assigns to specialists by role
+  → Monitors progress
+  → Aggregates results
+  → Quality check
+  → Returns final output
+```
+
+### Sequential Pipeline
+
+```
+Research Agent → Backend Dev → QA Engineer → Doc Specialist
+     ↓              ↓              ↓              ↓
+  Research       Implement       Test         Document
 ```
 
 ## Creating Agent Teams
 
-### Team Configuration
+### Via Dashboard
+
+1. Navigate to **AI > Teams**
+2. Click **Create Team**
+3. Configure team settings:
 
 ```yaml
 Team Configuration:
   Name: Content Creation Team
-  Description: Collaborative team for content production
+  Type: cross_functional
+  Coordination: sequential
+  Description: End-to-end content production pipeline
 
-  Coordinator:
-    Agent: project-manager
-    Role: Orchestrates team activities
-
-  Members:
-    - agent: researcher
-      role: Information gathering
-      skills: [web_search, document_analysis]
-
-    - agent: writer
-      role: Content creation
-      skills: [copywriting, technical_writing]
-
-    - agent: editor
-      role: Review and refinement
-      skills: [grammar, style, fact_checking]
-
-    - agent: seo-specialist
-      role: Optimization
-      skills: [keyword_research, meta_optimization]
-
-  Communication:
-    Pattern: hub_and_spoke  # or 'peer_to_peer', 'hierarchical'
-    Shared Context: true
+  Config:
+    max_iterations: 15
+    timeout_seconds: 3600
+    retry_on_failure: true
+    max_retries: 3
+    quality_gates:
+      backend: bundle exec rspec
+      frontend: npx tsc --noEmit
 ```
 
-### Defining Agent Roles
+4. Add team members with roles
+5. Configure review settings
+6. Create team channels
+
+### Composition Guardrails
+
+Teams validate their composition before execution:
+
+```yaml
+Composition Health Check:
+  Required Roles: [manager, executor]
+  Min Members: 2
+  Max Members: 10
+  Role Balance:
+    managers: 1
+    executors: 1-6
+    reviewers: 0-2
+```
+
+Access the composition health endpoint: `GET /api/v1/ai/agent_teams/{id}/composition_health`
+
+### Team Channels
+
+Persistent communication channels for team coordination:
+
+| Channel Type | Purpose | Example |
+|-------------|---------|---------|
+| **broadcast** | Team-wide announcements | `pn-general` |
+| **topic** | Focused discussions | `pn-code-review` |
+| **escalation** | Bug reports, critical issues | `pn-bugs` |
+| **task** | Work coordination | `pn-deployments` |
+
+Channels include:
+- Participant role restrictions
+- Message schemas for structured communication
+- Routing rules (broadcast, role-based, severity-based)
+
+### Team Roles
 
 Each team member has specific responsibilities:
 
 ```yaml
-Agent: Researcher
-  Role: Information Specialist
-  Responsibilities:
-    - Gather relevant information
-    - Verify facts and sources
-    - Summarize findings
-    - Identify knowledge gaps
-
-  System Prompt: |
-    You are a research specialist on a content team.
-
-    Your responsibilities:
-    1. Search for accurate, up-to-date information
-    2. Verify facts from multiple sources
-    3. Organize findings clearly
-    4. Flag uncertainties or contradictions
-
-    When presenting research:
-    - Include source citations
-    - Note confidence levels
-    - Highlight key insights
-
-  Tools:
-    - web_search
-    - document_retrieval
-    - fact_checker
-```
-
-### Communication Patterns
-
-**Hub and Spoke:**
-```
-All communication through coordinator
-
-Research ──► Coordinator ──► Writer
-                  │
-                  ▼
-               Editor
-```
-
-**Peer to Peer:**
-```
-Direct agent-to-agent communication
-
-Research ◄──► Writer
-    │            │
-    ▼            ▼
-   Editor ◄──► SEO
-```
-
-**Hierarchical:**
-```
-Structured delegation chain
-
-Lead Writer
-    │
-    ├── Research Lead
-    │       ├── Researcher 1
-    │       └── Researcher 2
-    │
-    └── Editor Lead
-            ├── Copy Editor
-            └── Fact Checker
+Role Configuration:
+  Role Name: Backend Developer
+  Role Type: specialist
+  Member Role: executor
+  Capabilities: [rails_development, api_design, database_design]
+  Constraints: [frozen_string_literal, render_success_error]
+  Tools Allowed: [code_generation, file_write, database_operations]
+  Context Access: { backend: true, database: true, seeds: true }
+  Max Concurrent Tasks: 4
+  Can Delegate: false
+  Can Escalate: true
 ```
 
 ## Team Workflows
@@ -2751,19 +2685,20 @@ Team: Enterprise Support
 Need help with agent teams? Contact ai-support@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "agent-teams-multi-agent") do |article|
-  article.title = "Agent Teams and Multi-Agent Orchestration"
-  article.category = ai_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Coordinate multiple AI agents for complex tasks through team collaboration, task delegation, communication patterns, and workflow orchestration."
-  article.content = agent_teams_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(slug: "agent-teams-multi-agent", category: ai_cat)
+article.assign_attributes(
+  title: "Agent Teams and Multi-Agent Orchestration",
+  author: author,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Coordinate multiple AI agents using 4 team types, 5 coordination strategies, composition guardrails, persistent channels, and team execution lifecycle.",
+  content: agent_teams_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.save!
 
 puts "    ✅ Agent Teams and Multi-Agent Orchestration"
 
@@ -4623,6 +4558,73 @@ Error Analysis:
     Add null check before create_ticket call
 ```
 
+## Worktree Sandboxes
+
+For code-generating agents, Powernode provides git worktree-based isolation that allows agents to work on code without affecting the main working tree.
+
+### How Worktree Sandboxes Work
+
+Each agent session gets its own git worktree:
+
+```
+Main Repo (develop branch)
+  ├── ai/session-abc123/backend-fix   (Agent 1 worktree)
+  ├── ai/session-abc123/frontend-ui   (Agent 2 worktree)
+  └── ai/session-abc123/test-suite    (Agent 3 worktree)
+```
+
+### Branch Naming Convention
+
+Worktree branches follow the pattern: `ai/session-{session_id}/{suffix}`
+
+Examples:
+- `ai/session-e7f8g9/feature-auth`
+- `ai/session-e7f8g9/bugfix-login`
+
+### Config Auto-Copy
+
+When a worktree is created, essential config files are automatically copied:
+- `.env` - Environment variables
+- `.tool-versions` - Language version managers
+- Other project-specific configs
+
+### Session Lifecycle
+
+```
+Create Worktree → Lock Session → Agent Executes → Unlock → Merge → Cleanup
+```
+
+1. **Create**: WorktreeSandboxIntegrationService creates isolated worktree
+2. **Lock**: Session locked to prevent concurrent modifications
+3. **Execute**: Agent makes code changes in isolated branch
+4. **Unlock**: Session released after execution
+5. **Merge**: Changes merged using configured strategy
+6. **Cleanup**: Worktree pruned after merge
+
+### Merge Strategies
+
+| Strategy | Description | Use Case |
+|----------|-------------|----------|
+| **integration_branch** | Merge all agent branches into an integration branch | Multiple agents, coordinated merge |
+| **sequential** | Merge branches one by one into target | Ordered, dependent changes |
+| **manual** | Leave branches for human review | Safety-critical changes |
+
+### Health Checks
+
+Monitor worktree health:
+- Stale worktree detection and automatic pruning
+- Lock timeout detection
+- Branch conflict detection
+- Disk space monitoring
+
+### Container Sandboxes
+
+For more isolated execution, container-based sandboxes are also available:
+- Docker-based isolation via SandboxManagerService
+- MCP server containers for tool isolation
+- Resource limits (CPU, memory, disk)
+- Network isolation options
+
 ## Exporting to Production
 
 ### Validation Checklist
@@ -4671,6 +4673,7 @@ Production Readiness:
 ## Related Articles
 
 - [AI Orchestration Overview](/kb/ai-orchestration-overview)
+- [Worktree Sandboxes Deep Dive](/kb/worktree-sandboxes-git-integration)
 - [Creating and Managing AI Agents](/kb/creating-managing-ai-agents)
 - [AI Monitoring Dashboard](/kb/ai-monitoring-dashboard)
 
@@ -4679,19 +4682,20 @@ Production Readiness:
 Need help with the sandbox? Contact ai-support@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "using-ai-sandbox") do |article|
-  article.title = "Using the AI Sandbox"
-  article.category = ai_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Test, experiment, and develop AI capabilities in an isolated sandbox environment with debugging tools and model comparison features."
-  article.content = ai_sandbox_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(slug: "using-ai-sandbox", category: ai_cat)
+article.assign_attributes(
+  title: "Using the AI Sandbox",
+  author: author,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Test and develop AI capabilities in isolated environments including worktree sandboxes for git-based code isolation, container sandboxes, and model comparison.",
+  content: ai_sandbox_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.save!
 
 puts "    ✅ Using the AI Sandbox"
 
@@ -5399,6 +5403,38 @@ Share templates with your team or community:
    - Organization templates
    - Public marketplace (optional)
 
+## RunnerDispatchService
+
+Powernode's RunnerDispatchService provides unified CI/CD runner management:
+
+### Supported Runners
+
+| Runner Type | Platform | Features |
+|-------------|----------|----------|
+| **GitHub Actions** | GitHub | Webhook triggers, status checks, artifacts |
+| **Gitea Actions** | Gitea | Self-hosted, Gitea API, compatible workflows |
+
+### Runner Configuration
+
+```yaml
+Runner Dispatch:
+  Provider: gitea  # or 'github'
+  Repository: powernode/powernode-platform
+  Base Branch: develop
+  Remote Push: enabled
+  PR Auto-Create: true
+  PR Target Branch: develop
+```
+
+### AI-Generated Code Pipeline
+
+When agents produce code changes:
+1. Agent commits to worktree branch
+2. RunnerDispatchService pushes to remote
+3. CI/CD pipeline triggers automatically
+4. Test results reported back to agent
+5. Agent iterates based on CI feedback
+
 ## Integration Examples
 
 ### GitHub Actions Integration
@@ -5428,23 +5464,61 @@ jobs:
             }'
 ```
 
-### GitLab CI Integration
+### Gitea Actions Integration
 
 ```yaml
-# .gitlab-ci.yml
-ai-review:
-  stage: review
-  script:
-    - |
-      curl -X POST $POWERNODE_WEBHOOK \\
-        -H "Content-Type: application/json" \\
-        -d "{
-          \\"event\\": \\"merge_request\\",
-          \\"project_id\\": \\"$CI_PROJECT_ID\\",
-          \\"mr_iid\\": \\"$CI_MERGE_REQUEST_IID\\"
-        }"
-  only:
-    - merge_requests
+# .gitea/workflows/ai-review.yml
+name: AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Trigger Powernode AI Review
+        run: |
+          curl -X POST $POWERNODE_WEBHOOK \\
+            -H "Content-Type: application/json" \\
+            -H "Authorization: Bearer $POWERNODE_API_KEY" \\
+            -d '{
+              "event": "pull_request",
+              "repository": "${{ gitea.repository }}",
+              "pr_number": ${{ gitea.event.number }},
+              "runner_type": "gitea"
+            }'
+```
+
+### CI/CD Pipeline Templates for AI Code
+
+```yaml
+# Template: AI Agent Code Validation
+name: Validate AI-Generated Code
+
+on:
+  push:
+    branches: ['ai/session-*/**']
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Tests
+        run: bundle exec rspec
+      - name: Type Check
+        run: cd frontend && npx tsc --noEmit
+      - name: Pattern Check
+        run: scripts/quick-pattern-check.sh
+      - name: Report to Powernode
+        if: always()
+        run: |
+          curl -X POST $POWERNODE_WEBHOOK/ci-result \\
+            -d '{"status": "${{ job.status }}", "branch": "${{ github.ref }}"}'
 ```
 
 ## Best Practices
@@ -5496,19 +5570,20 @@ ai-review:
 Need help with templates? Contact devops-support@powernode.org
 MARKDOWN
 
-KnowledgeBase::Article.find_or_create_by!(slug: "devops-ai-templates") do |article|
-  article.title = "DevOps AI Templates"
-  article.category = ai_cat
-  article.author = author
-  article.status = "published"
-  article.is_public = true
-  article.is_featured = false
-  article.excerpt = "Pre-built AI workflow templates for DevOps automation including code review, incident response, documentation generation, and security scanning."
-  article.content = devops_templates_content
-  article.views_count = 0
-  article.likes_count = 0
-  article.published_at = Time.current
-end
+article = KnowledgeBase::Article.find_or_initialize_by(slug: "devops-ai-templates", category: ai_cat)
+article.assign_attributes(
+  title: "DevOps AI Templates",
+  author: author,
+  status: "published",
+  is_public: true,
+  is_featured: false,
+  excerpt: "Pre-built AI workflow templates for DevOps automation including code review, incident response, RunnerDispatchService, GitHub and Gitea Actions integration, and CI/CD pipeline templates.",
+  content: devops_templates_content,
+  views_count: article.views_count || 0,
+  likes_count: article.likes_count || 0,
+  published_at: article.published_at || Time.current
+)
+article.save!
 
 puts "    ✅ DevOps AI Templates"
 

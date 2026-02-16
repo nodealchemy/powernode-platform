@@ -72,6 +72,16 @@ common_tags = %w[
   vendor
   troubleshooting
   faq
+  a2a
+  trust
+  memory
+  learning
+  sandbox
+  review
+  role-profiles
+  trajectories
+  orchestration
+  pipeline
 ]
 
 common_tags.each do |tag_name|
@@ -93,6 +103,7 @@ KB_ARTICLE_FILES = %w[
   devops_articles
   supply_chain_articles
   ai_orchestration_articles
+  ai_orchestration_advanced_articles
   getting_started_articles
   billing_articles
   business_analytics_articles
