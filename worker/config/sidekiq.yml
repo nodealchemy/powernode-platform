@@ -27,6 +27,7 @@
   - [ai_workflows, 2]            # AI workflow execution (uses 600s circuit breaker)
   - [ai_agents, 2]               # AI agent operations (uses 600s circuit breaker)
   - [ai_conversations, 2]        # AI conversation processing
+  - [ai_execution, 2]             # AI team execution (multi-agent orchestration)
   - [ai_orchestration, 2]        # AI orchestration (team execution, skill sync, reviews)
   - [ai_workflow_health, 2]      # AI workflow health monitoring and cost checks
   - [ai_workflow_schedules, 2]   # AI workflow scheduled triggers
