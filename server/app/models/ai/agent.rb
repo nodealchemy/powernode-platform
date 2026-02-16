@@ -54,6 +54,10 @@ module Ai
     attribute :mcp_input_schema, :json, default: -> { default_input_schema }
     attribute :mcp_output_schema, :json, default: -> { default_output_schema }
     attribute :mcp_metadata, :json, default: -> { {} }
+    attribute :conversation_profile, :json, default: -> { {} }
+
+    # Scheduled messages
+    has_many :scheduled_messages, through: :conversations, class_name: "Ai::ScheduledMessage"
 
     # Scopes
     scope :active, -> { where(status: "active") }
@@ -89,6 +93,34 @@ module Ai
 
     def skill_slugs
       agent_skills.where(is_active: true).joins(:skill).where(ai_skills: { status: "active" }).pluck("ai_skills.slug")
+    end
+
+    # Conversation profile accessors
+    def conversation_tone
+      conversation_profile["tone"]
+    end
+
+    def conversation_verbosity
+      conversation_profile["verbosity"]
+    end
+
+    def build_system_prompt_with_profile
+      base_prompt = mcp_metadata&.dig("system_prompt") || ""
+      return base_prompt if conversation_profile.blank?
+
+      profile_lines = []
+      profile_lines << "PERSONALITY TRAITS:" if conversation_profile.any?
+      profile_lines << "- Tone: #{conversation_profile['tone']}" if conversation_profile["tone"].present?
+      profile_lines << "- Verbosity: #{conversation_profile['verbosity']}" if conversation_profile["verbosity"].present?
+      profile_lines << "- Style: #{conversation_profile['style']}" if conversation_profile["style"].present?
+      profile_lines << "- Greeting: #{conversation_profile['greeting']}" if conversation_profile["greeting"].present?
+
+      custom_traits = conversation_profile.except("tone", "verbosity", "style", "greeting")
+      custom_traits.each do |key, value|
+        profile_lines << "- #{key.humanize}: #{value}"
+      end
+
+      [base_prompt, profile_lines.join("\n")].reject(&:blank?).join("\n\n")
     end
 
     private

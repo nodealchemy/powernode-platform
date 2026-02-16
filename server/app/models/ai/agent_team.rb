@@ -21,6 +21,7 @@ module Ai
     has_many :ai_team_roles, class_name: "Ai::TeamRole", foreign_key: "agent_team_id", dependent: :destroy
     has_many :ai_team_channels, class_name: "Ai::TeamChannel", foreign_key: "agent_team_id", dependent: :destroy
     has_many :team_executions, class_name: "Ai::TeamExecution", foreign_key: "agent_team_id", dependent: :destroy
+    has_many :conversations, class_name: "Ai::Conversation", foreign_key: "agent_team_id"
     has_many :compound_learnings, class_name: "Ai::CompoundLearning", foreign_key: "ai_agent_team_id", dependent: :nullify
 
     # ==========================================
@@ -134,6 +135,18 @@ module Ai
       update_column(:team_config, (team_config || {}).merge("composition_warnings" => warnings)) if warnings.any?
 
       { warnings: warnings, recommendations: recommendations }
+    end
+
+    def require_plan_approval?
+      team_config&.dig("require_plan_approval") == true
+    end
+
+    def coordinator_enabled?
+      team_config&.dig("coordinator_enabled") != false
+    end
+
+    def lead_agent
+      team_lead&.agent
     end
 
     # Check if team is active

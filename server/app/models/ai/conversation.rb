@@ -13,21 +13,27 @@ module Ai
     belongs_to :user
     belongs_to :agent, class_name: "Ai::Agent", foreign_key: "ai_agent_id", optional: true
     belongs_to :provider, class_name: "Ai::Provider", foreign_key: "ai_provider_id"
+    belongs_to :agent_team, class_name: "Ai::AgentTeam", foreign_key: "agent_team_id", optional: true
     has_many :messages, class_name: "Ai::Message", foreign_key: "ai_conversation_id", dependent: :destroy
+    has_many :scheduled_messages, class_name: "Ai::ScheduledMessage", foreign_key: "conversation_id", dependent: :destroy
 
     # Validations
     validates :conversation_id, presence: true, uniqueness: true
     validates :status, inclusion: { in: %w[active paused completed archived] }
+    validates :conversation_type, inclusion: { in: %w[agent team] }
     validates :message_count, numericality: { greater_than_or_equal_to: 0 }
     validates :total_tokens, numericality: { greater_than_or_equal_to: 0 }
     validates :total_cost, numericality: { greater_than_or_equal_to: 0 }
     validates :websocket_channel, format: { with: /\A[a-z0-9_\-]+\z/ }, allow_blank: true
+    validate :team_conversation_requires_team
 
     # Scopes
     scope :active, -> { where(status: "active") }
     scope :paused, -> { where(status: "paused") }
     scope :completed, -> { where(status: "completed") }
     scope :archived, -> { where(status: "archived") }
+    scope :team_conversations, -> { where(conversation_type: "team") }
+    scope :for_team, ->(team) { where(agent_team_id: team.is_a?(Ai::AgentTeam) ? team.id : team) }
     scope :collaborative, -> { where(is_collaborative: true) }
     scope :recent, -> { order(last_activity_at: :desc) }
     scope :for_user, ->(user) { where(user: user) }
@@ -48,6 +54,10 @@ module Ai
     # Methods
     def active?
       status == "active"
+    end
+
+    def team_conversation?
+      conversation_type == "team"
     end
 
     def can_send_message?
@@ -285,6 +295,12 @@ module Ai
 
       # This could be enhanced with AI-generated summaries
       "Conversation with #{message_count} messages using #{provider.name}"
+    end
+
+    def team_conversation_requires_team
+      if conversation_type == "team" && agent_team_id.blank?
+        errors.add(:agent_team_id, "is required for team conversations")
+      end
     end
   end
 end

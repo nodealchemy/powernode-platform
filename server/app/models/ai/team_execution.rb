@@ -4,12 +4,14 @@ module Ai
   class TeamExecution < ApplicationRecord
     self.table_name = "ai_team_executions"
 
-    STATUSES = %w[pending running paused completed failed cancelled timeout].freeze
+    STATUSES = %w[pending running paused completed failed cancelled timeout awaiting_approval].freeze
 
     # Associations
     belongs_to :account
     belongs_to :agent_team, class_name: "Ai::AgentTeam", foreign_key: "agent_team_id"
     belongs_to :triggered_by, class_name: "User", foreign_key: "triggered_by_id", optional: true
+    belongs_to :conversation, class_name: "Ai::Conversation", foreign_key: "ai_conversation_id", optional: true
+    belongs_to :approval_decided_by, class_name: "User", foreign_key: "approval_decided_by_id", optional: true
 
     has_many :tasks, class_name: "Ai::TeamTask", foreign_key: :team_execution_id, dependent: :destroy
     has_many :messages, class_name: "Ai::TeamMessage", foreign_key: :team_execution_id, dependent: :destroy
@@ -23,7 +25,7 @@ module Ai
     scope :running, -> { where(status: "running") }
     scope :completed, -> { where(status: "completed") }
     scope :failed, -> { where(status: "failed") }
-    scope :active, -> { where(status: %w[pending running paused]) }
+    scope :active, -> { where(status: %w[pending running paused awaiting_approval]) }
     scope :recent, -> { order(created_at: :desc) }
     scope :for_account, ->(account_id) { where(account_id: account_id) }
 
@@ -82,11 +84,24 @@ module Ai
 
     # Status checks
     def active?
-      %w[pending running paused].include?(status)
+      %w[pending running paused awaiting_approval].include?(status)
+    end
+
+    def awaiting_approval?
+      status == "awaiting_approval"
     end
 
     def finished?
       %w[completed failed cancelled timeout].include?(status)
+    end
+
+    def await_approval!(conv)
+      update!(
+        status: "awaiting_approval",
+        completed_at: Time.current,
+        duration_ms: calculate_duration,
+        ai_conversation_id: conv.id
+      )
     end
 
     # Task management
