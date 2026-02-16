@@ -9,7 +9,9 @@ module Ai
 
       def call_agent_llm(agent, messages, purpose: "general")
         provider = agent.provider
-        credential = provider&.provider_credentials&.active&.first
+        credential = provider&.provider_credentials&.active
+                            &.where(account_id: @team&.account_id)&.first
+        credential ||= provider&.provider_credentials&.active&.first
 
         unless credential
           log_execution("[LlmIntegration] No active credential for agent #{agent.name} (provider: #{provider&.name})")
@@ -21,21 +23,28 @@ module Ai
         log_execution("[LlmIntegration] Calling LLM for #{agent.name} (#{purpose}) with model #{model}")
 
         start_time = Time.current
-        response = Ai::ProviderClientService.send_message(
-          provider: provider,
-          credential: credential,
-          model: model,
-          messages: messages,
-          temperature: 0.7
-        )
+        client = Ai::ProviderClientService.new(credential)
+        result = client.send_message(messages, model: model, max_tokens: 4096, temperature: 0.7)
 
         duration = Time.current - start_time
-        tokens_used = response[:usage]&.dig(:total_tokens) || 0
-        cost = calculate_cost(provider, model, response[:usage] || {})
+
+        unless result[:success]
+          log_execution("[LlmIntegration] LLM call unsuccessful for #{agent.name} (#{purpose}): #{result[:error]}")
+          return nil
+        end
+
+        response = result[:response] || {}
+        usage = result.dig(:metadata, :usage) || {}
+        tokens_used = usage[:total_tokens] || 0
+        cost = calculate_cost(provider, model, usage)
 
         track_llm_call(agent, purpose, tokens_used, cost, duration)
 
-        response[:content] || response[:message]&.dig(:content)
+        # Track tokens/cost on the execution
+        @execution&.add_tokens!(tokens_used) if tokens_used.positive?
+        @execution&.add_cost!(cost) if cost.positive?
+
+        extract_llm_response_text(response)
       rescue StandardError => e
         log_execution("[LlmIntegration] LLM call failed for #{agent.name} (#{purpose}): #{e.message}")
         nil
@@ -119,7 +128,8 @@ module Ai
 
       def synthesize_results(lead_agent, worker_results, original_input)
         results_text = worker_results.map do |result|
-          "## #{result[:agent_name]} (#{result[:role]})\n#{result[:output]&.truncate(3000)}"
+          output_text = result[:output].is_a?(Hash) ? (result[:output][:response] || result[:output].to_json) : result[:output].to_s
+          "## #{result[:agent_name]} (#{result[:role]})\n#{output_text.truncate(3000)}"
         end.join("\n\n---\n\n")
 
         task_description = original_input.is_a?(Hash) ? (original_input[:task] || original_input["task"] || original_input.to_json) : original_input.to_s
@@ -167,6 +177,25 @@ module Ai
         @execution_cost = (@execution_cost || 0.0) + cost
 
         log_execution("[LlmIntegration] #{agent.name}/#{purpose}: #{tokens} tokens, $#{'%.4f' % cost}, #{duration.round(2)}s")
+      end
+
+      def extract_llm_response_text(response)
+        return response.to_s unless response.is_a?(Hash)
+
+        # OpenAI format: { choices: [{ message: { content: "..." } }] }
+        text = response.dig(:choices, 0, :message, :content)
+        return text if text.is_a?(String)
+
+        # Anthropic format: { content: [{ type: "text", text: "..." }] }
+        content = response[:content]
+        if content.is_a?(Array)
+          texts = content.select { |c| c[:type] == "text" }.map { |c| c[:text] }
+          return texts.join("\n") if texts.any?
+        end
+
+        return content if content.is_a?(String)
+
+        response[:text] || response.to_s
       end
 
       def calculate_cost(provider, model, usage)

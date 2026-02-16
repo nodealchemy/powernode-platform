@@ -115,7 +115,7 @@ module Ai
                execute_sequential(members)
       when "parallel"
                execute_parallel(members)
-      when "hierarchical"
+      when "hierarchical", "manager_led"
                execute_hierarchical(members)
       when "consensus"
                execute_consensus(members)
@@ -211,11 +211,14 @@ module Ai
         if synthesized.present?
           log_execution("[Parallel] Lead #{lead_member.agent.name} synthesized #{successful_results.size} parallel outputs")
           return {
-            strategy: "parallel",
-            synthesized_output: synthesized,
-            individual_results: results.map { |r| { agent: r[:agent], success: r[:result][:success] } },
-            total_agents: members.size,
-            successful: successful.size
+            success: true,
+            output: {
+              strategy: "parallel",
+              synthesized_output: synthesized,
+              individual_results: results.map { |r| { agent: r[:agent], success: r[:result][:success] } },
+              total_agents: members.size,
+              successful: successful.size
+            }
           }
         end
       end
@@ -243,14 +246,25 @@ module Ai
       lead_agent = lead_member.agent
       log_execution("[Hierarchical] Lead: #{lead_agent.name}, Workers: #{workers.map { |m| m.agent.name }.join(', ')}")
 
-      # Phase 1: Planning — ask lead to create work plan
-      work_plan = generate_work_plan(lead_agent, workers, @input)
+      # Phase 1: Planning — reuse approved plan or generate new work plan
+      work_plan = if @input[:plan_approval] && @input[:approved_plan].present?
+                    log_execution("[Hierarchical] Using approved plan from previous execution")
+                    reuse_approved_plan(@input[:approved_plan], workers)
+                  else
+                    generate_work_plan(lead_agent, workers, @input)
+                  end
 
       if work_plan && work_plan["assignments"].present?
         log_execution("[Hierarchical] Work plan generated: #{work_plan['plan_summary']}")
+        # Strip AR objects before serializing work plan
+        plan_content = {
+          plan_summary: work_plan["plan_summary"],
+          assignments: work_plan["assignments"].map { |a| a.except("member") },
+          synthesis_notes: work_plan["synthesis_notes"]
+        }
         record_team_message(
           message_type: "work_plan",
-          content: work_plan,
+          content: plan_content,
           from_agent: lead_agent
         )
 
@@ -277,11 +291,16 @@ module Ai
             status: result[:success] ? "completed" : "failed"
           })
 
+          member_duration = ((Time.current - (task&.started_at || Time.current)) * 1000).to_i
+
           if result[:success]
             complete_team_task!(task, result[:output], tokens: result[:tokens_used] || 0, cost: result[:cost_usd] || 0.0)
-            record_task_result(agent, result[:output]&.truncate(500) || "completed")
+            output_text = result[:output].is_a?(Hash) ? (result[:output][:response] || result[:output].to_json) : result[:output].to_s
+            record_task_result(agent, output_text.truncate(500))
+            record_member_completed(agent.name, true, member_duration)
           else
             fail_team_task!(task, result[:error] || "unknown error")
+            record_member_completed(agent.name, false, member_duration)
           end
 
           worker_results << result.merge(agent_name: agent.name, role: member.role)
@@ -292,8 +311,12 @@ module Ai
         worker_results = workers.map do |member|
           check_control_signal!
           agent = member.agent
-          lead_directive = "As directed by #{lead_agent.name}: #{@input.is_a?(Hash) ? (@input[:task] || @input['task'] || @input.to_json) : @input}"
-          result = execute_agent_with_retry(agent, lead_directive, member.role)
+          task_text = @input.is_a?(Hash) ? (@input[:task] || @input['task'] || @input.to_json) : @input.to_s
+          delegated_input = { task: "As directed by #{lead_agent.name}: #{task_text}" }
+
+          member_start = Time.current
+          result = execute_agent_with_retry(agent, delegated_input, member.role)
+          member_duration = ((Time.current - member_start) * 1000).to_i
 
           broadcast_progress("member_completed", {
             agent_name: agent.name,
@@ -301,6 +324,7 @@ module Ai
             status: result[:success] ? "completed" : "failed"
           })
 
+          record_member_completed(agent.name, result[:success], member_duration)
           result.merge(agent_name: agent.name, role: member.role)
         end
       end
@@ -314,23 +338,29 @@ module Ai
           log_execution("[Hierarchical] Lead synthesized #{successful_results.size} worker outputs")
           record_team_message(message_type: "synthesis", content: synthesized, from_agent: lead_agent)
           return {
-            strategy: "hierarchical",
-            lead: lead_agent.name,
-            synthesized_output: synthesized,
-            worker_results: worker_results.map { |r| { agent: r[:agent_name], role: r[:role], success: r[:success] } },
-            total_workers: workers.size,
-            successful: successful_results.size
+            success: true,
+            output: {
+              strategy: "hierarchical",
+              lead: lead_agent.name,
+              synthesized_output: synthesized,
+              worker_results: worker_results.map { |r| { agent: r[:agent_name], role: r[:role], success: r[:success] } },
+              total_workers: workers.size,
+              successful: successful_results.size
+            }
           }
         end
       end
 
       # Fallback: return raw results without synthesis
       {
-        strategy: "hierarchical",
-        lead: lead_agent.name,
-        results: worker_results.map { |r| { agent: r[:agent_name], role: r[:role], output: r[:output], success: r[:success] } },
-        total_workers: workers.size,
-        successful: successful_results.size
+        success: successful_results.any?,
+        output: {
+          strategy: "hierarchical",
+          lead: lead_agent.name,
+          results: worker_results.map { |r| { agent: r[:agent_name], role: r[:role], output: r[:output], success: r[:success] } },
+          total_workers: workers.size,
+          successful: successful_results.size
+        }
       }
     end
 
@@ -850,19 +880,82 @@ module Ai
       Rails.logger.warn("[AgentTeamExecutionJob] Memory pool cleanup failed: #{e.message}")
     end
 
+    def reuse_approved_plan(approved_output, workers)
+      # The approved plan is the output from the planning execution.
+      # It may contain a structured work plan in the lead's response, or synthesized output.
+      # Try to extract task assignments from the plan content.
+      plan_text = extract_plan_text(approved_output)
+      return nil if plan_text.blank?
+
+      worker_map = workers.index_by { |m| m.agent.name }
+      assignments = []
+
+      # Parse XML-style task assignments: <task>...<assigned_to>Name</assigned_to>...<description>...</description>...</task>
+      plan_text.scan(/<task>(.*?)<\/task>/m).each do |match|
+        task_xml = match[0]
+        assigned_to = task_xml[/<assigned_to>(.*?)<\/assigned_to>/m, 1]&.strip
+        description = task_xml[/<description>(.*?)<\/description>/m, 1]&.strip
+        details = task_xml[/<details>(.*?)<\/details>/m, 1]&.strip
+
+        next unless assigned_to && description
+
+        member = worker_map[assigned_to] || workers.find { |m|
+          m.agent.name.include?(assigned_to) || assigned_to.include?(m.agent.name)
+        }
+        next unless member
+
+        assignments << {
+          "worker_name" => member.agent.name,
+          "member" => member,
+          "agent_id" => member.agent.id,
+          "instructions" => [description, details].compact.join("\n\n"),
+          "expected_output" => "Complete the assigned task based on the approved plan",
+          "priority" => "high"
+        }
+      end
+
+      # Fallback: try JSON format from generate_work_plan
+      if assignments.empty?
+        json_match = plan_text.match(/\{[\s\S]*"assignments"[\s\S]*\}/)
+        if json_match
+          begin
+            parsed = JSON.parse(json_match.to_s)
+            return parse_work_plan(json_match.to_s, workers) if parsed["assignments"]
+          rescue JSON::ParserError
+            # Continue to fallback
+          end
+        end
+      end
+
+      return nil if assignments.empty?
+
+      {
+        "plan_summary" => "Executing approved plan",
+        "assignments" => assignments,
+        "synthesis_notes" => "Combine worker outputs into a comprehensive result"
+      }
+    end
+
+    def extract_plan_text(output)
+      return output if output.is_a?(String)
+      return nil unless output.is_a?(Hash)
+
+      # Check various locations where the plan text might be
+      output["response"] || output[:response] ||
+        output["synthesized_output"] || output[:synthesized_output] ||
+        output.dig("results", 0, "output", "response") ||
+        output.to_json
+    end
+
     def build_planned_input(assignment, original_input)
       task_desc = original_input.is_a?(Hash) ? (original_input[:task] || original_input["task"] || original_input.to_json) : original_input.to_s
 
-      <<~INPUT
-        ## Your Assignment
-        #{assignment["instructions"]}
-
-        ## Expected Output
-        #{assignment["expected_output"]}
-
-        ## Original Task Context
-        #{task_desc}
-      INPUT
+      {
+        task: "#{assignment['instructions']}\n\nExpected Output: #{assignment['expected_output']}\n\nOriginal Task Context: #{task_desc}",
+        assignment: assignment["instructions"],
+        expected_output: assignment["expected_output"],
+        priority: assignment["priority"]
+      }
     end
 
     def inject_relevant_learnings(agent, input)
