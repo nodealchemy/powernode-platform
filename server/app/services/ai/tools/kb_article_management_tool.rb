@@ -39,7 +39,7 @@ module Ai
       private
 
       def list_articles(params)
-        scope = KnowledgeBase::Article.all
+        scope = ::KnowledgeBase::Article.all
         scope = scope.where(category: find_category(params[:category_slug])) if params[:category_slug].present?
         scope = scope.where(status: params[:status]) if params[:status].present?
         articles = scope.order(updated_at: :desc).limit(50)
@@ -60,8 +60,8 @@ module Ai
         category = find_category(params[:category_slug])
         return { success: false, error: "Category not found: #{params[:category_slug]}" } unless category
 
-        author = User.find_by(email: "admin@powernode.org") || User.first
-        article = KnowledgeBase::Article.create!(
+        author = ::User.find_by(email: "admin@powernode.org") || ::User.first
+        article = ::KnowledgeBase::Article.create!(
           title: params[:title],
           content: params[:content],
           category: category,
@@ -105,15 +105,15 @@ module Ai
 
       def find_article(params)
         if params[:article_id].present?
-          KnowledgeBase::Article.find_by(id: params[:article_id])
+          ::KnowledgeBase::Article.find_by(id: params[:article_id])
         elsif params[:slug].present?
-          KnowledgeBase::Article.find_by(slug: params[:slug])
+          ::KnowledgeBase::Article.find_by(slug: params[:slug])
         end
       end
 
       def find_category(slug)
         return nil unless slug.present?
-        KnowledgeBase::Category.find_by(slug: slug)
+        ::KnowledgeBase::Category.find_by(slug: slug)
       end
 
       def serialize_article_summary(article)

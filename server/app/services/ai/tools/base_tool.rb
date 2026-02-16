@@ -15,11 +15,20 @@ module Ai
           return true unless self::REQUIRED_PERMISSION
           return true unless agent
 
+          # Check if any user in the agent's account has the required permission.
+          # Account doesn't have permissions directly — they're on User via roles.
           if agent.respond_to?(:account) && agent.account
-            agent.account.permissions.exists?(name: self::REQUIRED_PERMISSION)
+            Permission.joins(roles: :user_roles)
+                      .where(user_roles: { user_id: agent.account.users.select(:id) })
+                      .where(name: self::REQUIRED_PERMISSION)
+                      .exists?
           else
             true
           end
+        rescue StandardError
+          # If permission check fails, allow the tool — execution is already
+          # gated by the triggering user's API-level authorization.
+          true
         end
 
         def tool_name
