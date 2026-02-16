@@ -8,14 +8,17 @@ module Ai
       def self.definition
         {
           name: "agent_management",
-          description: "Create, list, or execute AI agents",
+          description: "Create, list, get, update, or execute AI agents",
           parameters: {
-            action: { type: "string", required: true, description: "Action: create_agent, list_agents, execute_agent" },
+            action: { type: "string", required: true, description: "Action: create_agent, list_agents, get_agent, update_agent, execute_agent" },
             agent_id: { type: "string", required: false, description: "Agent ID (for execute)" },
             name: { type: "string", required: false, description: "Agent name (for create)" },
             description: { type: "string", required: false, description: "Agent description (for create)" },
             model: { type: "string", required: false, description: "Model name (for create)" },
-            input: { type: "object", required: false, description: "Execution input (for execute)" }
+            input: { type: "object", required: false, description: "Execution input (for execute)" },
+            system_prompt: { type: "string", required: false, description: "System prompt (for create/update)" },
+            conversation_profile: { type: "object", required: false, description: "Conversation profile (for create/update)" },
+            status: { type: "string", required: false, description: "Agent status (for update)" }
           }
         }
       end
@@ -26,6 +29,8 @@ module Ai
         case params[:action]
         when "create_agent" then create_agent(params)
         when "list_agents" then list_agents
+        when "get_agent" then get_agent(params)
+        when "update_agent" then update_agent(params)
         when "execute_agent" then execute_agent(params)
         else { success: false, error: "Unknown action: #{params[:action]}" }
         end
@@ -56,6 +61,45 @@ module Ai
         { success: true, agent_id: agent.id, status: "execution_queued", message: "Agent execution queued" }
       rescue ActiveRecord::RecordNotFound
         { success: false, error: "Agent not found" }
+      end
+
+      def get_agent(params)
+        agent_record = account.ai_agents.find(params[:agent_id])
+        {
+          success: true,
+          agent: {
+            id: agent_record.id,
+            name: agent_record.name,
+            description: agent_record.description,
+            status: agent_record.status,
+            agent_type: agent_record.agent_type,
+            model: agent_record.model,
+            system_prompt: agent_record.system_prompt,
+            conversation_profile: agent_record.conversation_profile,
+            mcp_metadata: agent_record.mcp_metadata
+          }
+        }
+      rescue ActiveRecord::RecordNotFound
+        { success: false, error: "Agent not found" }
+      end
+
+      def update_agent(params)
+        agent_record = account.ai_agents.find(params[:agent_id])
+        attrs = {}
+        attrs[:name] = params[:name] if params[:name].present?
+        attrs[:description] = params[:description] if params[:description].present?
+        attrs[:status] = params[:status] if params[:status].present?
+        attrs[:system_prompt] = params[:system_prompt] if params[:system_prompt].present?
+        attrs[:conversation_profile] = params[:conversation_profile] if params[:conversation_profile].present?
+        if params[:mcp_metadata].present?
+          attrs[:mcp_metadata] = (agent_record.mcp_metadata || {}).merge(params[:mcp_metadata])
+        end
+        agent_record.update!(attrs)
+        { success: true, agent_id: agent_record.id, name: agent_record.name }
+      rescue ActiveRecord::RecordNotFound
+        { success: false, error: "Agent not found" }
+      rescue ActiveRecord::RecordInvalid => e
+        { success: false, error: e.message }
       end
     end
   end
