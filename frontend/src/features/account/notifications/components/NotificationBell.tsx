@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { useChatWindow } from '@/features/ai/chat/context/ChatWindowContext';
 import {
   BellIcon,
   CheckIcon,
@@ -37,6 +38,8 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   className = '',
 }) => {
   const { isAuthenticated } = useSelector((state: RootState) => state.auth);
+  const navigate = useNavigate();
+  const { openConversationMaximized } = useChatWindow();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -59,6 +62,23 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     created_at: wsNotif.created_at,
   }), []);
 
+  // Handle notification click — open chat for AI types, navigate for others
+  const handleNotificationClick = useCallback((notification: Notification) => {
+    if (notification.type === 'ai_plan_review' && notification.metadata) {
+      const agentId = notification.metadata.agent_id as string | undefined;
+      const conversationId = notification.metadata.conversation_id as string | undefined;
+      if (agentId) {
+        setIsOpen(false);
+        openConversationMaximized(agentId, '', conversationId);
+        return;
+      }
+    }
+    if (notification.action_url) {
+      setIsOpen(false);
+      navigate(notification.action_url);
+    }
+  }, [navigate, openConversationMaximized]);
+
   // WebSocket hook for real-time notification updates
   useNotificationWebSocket({
     onNewNotification: (wsNotif: WebSocketNotification) => {
@@ -71,6 +91,10 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
         prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
       );
       setUnreadCount(prev => Math.max(0, prev - 1));
+    },
+    onNotificationDismissed: (notificationId: string) => {
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      loadUnreadCount();
     },
     onError: (error: string) => {
       // Silent fail for notifications - log in dev only
@@ -248,7 +272,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                         px-4 py-3 hover:bg-theme-surface-hover transition-colors cursor-pointer
                         ${!notification.read ? 'bg-theme-info/10 dark:bg-theme-info/10' : ''}
                       `}
-                      onClick={() => notification.action_url && window.location.assign(notification.action_url)}
+                      onClick={() => handleNotificationClick(notification)}
                     >
                       <div className="flex items-start space-x-3">
                         <div className={`p-2 rounded-lg ${colorClass}`}>

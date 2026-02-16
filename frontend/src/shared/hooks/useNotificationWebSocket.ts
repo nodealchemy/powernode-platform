@@ -8,6 +8,7 @@ type NotificationEventType =
   | 'connection_established'
   | 'new_notification'
   | 'notification_read'
+  | 'notification_dismissed'
   | 'pong'
   | 'error';
 
@@ -22,12 +23,14 @@ export interface WebSocketNotification {
   action_label?: string;
   icon?: string;
   category?: string;
+  metadata?: Record<string, unknown>;
   created_at: string;
 }
 
 interface NotificationWebSocketOptions {
   onNewNotification?: (notification: WebSocketNotification) => void;
   onNotificationRead?: (notificationId: string) => void;
+  onNotificationDismissed?: (notificationId: string) => void;
   onConnected?: () => void;
   onError?: (error: string) => void;
 }
@@ -35,6 +38,7 @@ interface NotificationWebSocketOptions {
 export const useNotificationWebSocket = ({
   onNewNotification,
   onNotificationRead,
+  onNotificationDismissed,
   onConnected,
   onError
 }: NotificationWebSocketOptions) => {
@@ -45,11 +49,13 @@ export const useNotificationWebSocket = ({
   // Store latest callback refs to avoid dependency issues
   const onNewNotificationRef = useRef(onNewNotification);
   const onNotificationReadRef = useRef(onNotificationRead);
+  const onNotificationDismissedRef = useRef(onNotificationDismissed);
   const onConnectedRef = useRef(onConnected);
   const onErrorRef = useRef(onError);
 
   onNewNotificationRef.current = onNewNotification;
   onNotificationReadRef.current = onNotificationRead;
+  onNotificationDismissedRef.current = onNotificationDismissed;
   onConnectedRef.current = onConnected;
   onErrorRef.current = onError;
 
@@ -76,6 +82,12 @@ export const useNotificationWebSocket = ({
       case 'notification_read':
         if (data.notification_id) {
           onNotificationReadRef.current?.(data.notification_id as string);
+        }
+        break;
+
+      case 'notification_dismissed':
+        if (data.notification_id) {
+          onNotificationDismissedRef.current?.(data.notification_id as string);
         }
         break;
 

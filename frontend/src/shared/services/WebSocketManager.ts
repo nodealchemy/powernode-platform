@@ -53,6 +53,10 @@ export class WebSocketManager {
   // Token refresh flag
   private isRefreshingToken: boolean = false;
 
+  // Browser event handlers for auto-reconnect
+  private boundOnlineHandler: (() => void) | null = null;
+  private boundVisibilityHandler: (() => void) | null = null;
+
   private constructor() {
     // Private constructor for singleton
   }
@@ -79,6 +83,7 @@ export class WebSocketManager {
     this.isInitialized = true;
     this.config = config;
     this.connect();
+    this.registerBrowserListeners();
   }
 
   /**
@@ -480,9 +485,43 @@ export class WebSocketManager {
   }
 
   /**
-   * Disconnect from WebSocket server
+   * Register browser event listeners for network recovery auto-reconnect
    */
+  private registerBrowserListeners(): void {
+    this.boundOnlineHandler = () => {
+      if (!this.isConnected && this.config) {
+        this.reconnectAttempts = 0;
+        this.connect();
+      }
+    };
+
+    this.boundVisibilityHandler = () => {
+      if (document.visibilityState === 'visible' && !this.isConnected && this.config) {
+        this.reconnectAttempts = 0;
+        this.connect();
+      }
+    };
+
+    window.addEventListener('online', this.boundOnlineHandler);
+    document.addEventListener('visibilitychange', this.boundVisibilityHandler);
+  }
+
+  /**
+   * Remove browser event listeners
+   */
+  private removeBrowserListeners(): void {
+    if (this.boundOnlineHandler) {
+      window.removeEventListener('online', this.boundOnlineHandler);
+      this.boundOnlineHandler = null;
+    }
+    if (this.boundVisibilityHandler) {
+      document.removeEventListener('visibilitychange', this.boundVisibilityHandler);
+      this.boundVisibilityHandler = null;
+    }
+  }
+
   public disconnect(): void {
+    this.removeBrowserListeners();
     this.isConnecting = false;
     this.isRefreshingToken = false;
     this.isInitialized = false;

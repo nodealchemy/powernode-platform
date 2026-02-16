@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { notificationApi, Notification } from '@/features/account/notifications/services/notificationApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useNotificationWebSocket, WebSocketNotification } from '@/shared/hooks/useNotificationWebSocket';
+import { useChatWindow } from '@/features/ai/chat/context/ChatWindowContext';
 import {
   BellIcon,
   CheckIcon,
@@ -31,6 +33,8 @@ const SEVERITY_COLORS: Record<string, string> = {
 
 export const NotificationsPage: React.FC = () => {
   const { showNotification } = useNotifications();
+  const navigate = useNavigate();
+  const { openConversationMaximized } = useChatWindow();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
@@ -67,6 +71,21 @@ export const NotificationsPage: React.FC = () => {
     );
     setUnreadCount(prev => Math.max(0, prev - 1));
   }, []);
+
+  // Handle notification click — open chat for AI types, navigate for others
+  const handleNotificationClick = useCallback((notification: Notification) => {
+    if (notification.type === 'ai_plan_review' && notification.metadata) {
+      const agentId = notification.metadata.agent_id as string | undefined;
+      const conversationId = notification.metadata.conversation_id as string | undefined;
+      if (agentId) {
+        openConversationMaximized(agentId, '', conversationId);
+        return;
+      }
+    }
+    if (notification.action_url) {
+      navigate(notification.action_url);
+    }
+  }, [navigate, openConversationMaximized]);
 
   // WebSocket connection for real-time notifications
   useNotificationWebSocket({
@@ -230,9 +249,10 @@ export const NotificationsPage: React.FC = () => {
                 return (
                   <div
                     key={notification.id}
-                    className={`px-6 py-4 hover:bg-theme-surface-hover transition-colors ${
+                    className={`px-6 py-4 hover:bg-theme-surface-hover transition-colors cursor-pointer ${
                       !notification.read ? 'bg-theme-info/5' : ''
                     }`}
+                    onClick={() => handleNotificationClick(notification)}
                   >
                     <div className="flex items-start gap-4">
                       <div className={`p-2 rounded-lg flex-shrink-0 ${colorClass}`}>
