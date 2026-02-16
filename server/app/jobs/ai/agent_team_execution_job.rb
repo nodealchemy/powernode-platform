@@ -16,6 +16,9 @@ module Ai
   #   )
   #
   class AgentTeamExecutionJob < ApplicationJob
+    include Ai::TeamExecutionSupport::LlmIntegration
+    include Ai::TeamExecutionSupport::TaskTracking
+
     queue_as :ai_execution
 
     # Retry configuration
@@ -185,6 +188,24 @@ module Ai
         Rails.logger.warn("[AgentTeamExecutionJob] #{failed.count} agents failed in parallel execution")
       end
 
+      # After collecting all results, try to synthesize if lead exists
+      lead_member = members.find { |m| m.role.in?(%w[lead manager coordinator synthesizer]) }
+      successful_results = successful.map { |r| { success: true, agent_name: r[:agent], role: r[:result][:output]&.dig(:role) || "worker", output: r[:result][:output] } }
+
+      if lead_member && successful_results.size > 1
+        synthesized = synthesize_results(lead_member.agent, successful_results, @input)
+        if synthesized.present?
+          log_execution("[Parallel] Lead #{lead_member.agent.name} synthesized #{successful_results.size} parallel outputs")
+          return {
+            strategy: "parallel",
+            synthesized_output: synthesized,
+            individual_results: results.map { |r| { agent: r[:agent], success: r[:result][:success] } },
+            total_agents: members.size,
+            successful: successful.size
+          }
+        end
+      end
+
       {
         success: successful.any?,
         output: {
@@ -197,55 +218,104 @@ module Ai
     end
 
     def execute_hierarchical(members)
-      Rails.logger.info("[AgentTeamExecutionJob] Executing hierarchically with lead agent")
+      lead_member = members.find { |m| m.role.in?(%w[lead manager coordinator]) }
+      workers = members.reject { |m| m == lead_member }
 
-      lead_member = members.find(&:is_lead) || members.first
-      subordinate_members = members.reject { |m| m.id == lead_member.id }
-
-      broadcast_member_progress(lead_member.agent.name, lead_member.role, 0)
-
-      member_start = Time.current
-      lead_result = execute_agent_with_retry(lead_member.agent, @input, lead_member.role)
-      member_duration = ((Time.current - member_start) * 1000).to_i
-      record_member_completed(lead_member.agent.name, lead_result[:success], member_duration)
-
-      unless lead_result[:success]
-        return { success: false, error: "Lead agent failed: #{lead_result[:error]}" }
+      unless lead_member
+        log_execution("[Hierarchical] No lead agent found, falling back to sequential")
+        return execute_sequential(members)
       end
 
-      subordinate_results = []
-      catch(:execution_halted) do
-        subordinate_members.each_with_index do |member, index|
-          if execution_timeout?
-            @execution.timeout!
-            broadcast_event("execution_timeout", execution_id: @execution.execution_id)
-            break
+      lead_agent = lead_member.agent
+      log_execution("[Hierarchical] Lead: #{lead_agent.name}, Workers: #{workers.map { |m| m.agent.name }.join(', ')}")
+
+      # Phase 1: Planning — ask lead to create work plan
+      work_plan = generate_work_plan(lead_agent, workers, @input)
+
+      if work_plan && work_plan["assignments"].present?
+        log_execution("[Hierarchical] Work plan generated: #{work_plan['plan_summary']}")
+        record_team_message(
+          message_type: "work_plan",
+          content: work_plan,
+          from_agent: lead_agent
+        )
+
+        # Phase 2: Delegation — execute workers with plan-specific instructions
+        worker_results = []
+        work_plan["assignments"].each do |assignment|
+          check_control_signal!
+          member = assignment["member"]
+          next unless member
+
+          agent = member.agent
+          task = create_team_task(agent, assignment["instructions"], @input, priority: assignment["priority"] || "medium")
+          start_team_task!(task) if task
+
+          record_task_assignment(lead_agent, agent, assignment["instructions"])
+
+          agent_input = build_planned_input(assignment, @input)
+          result = execute_agent_with_retry(agent, agent_input, member.role)
+
+          broadcast_progress("member_completed", {
+            agent_name: agent.name,
+            role: member.role,
+            status: result[:success] ? "completed" : "failed"
+          })
+
+          if result[:success]
+            complete_team_task!(task, result[:output], tokens: result[:tokens_used] || 0, cost: result[:cost_usd] || 0.0)
+            record_task_result(agent, result[:output]&.truncate(500) || "completed")
+          else
+            fail_team_task!(task, result[:error] || "unknown error")
           end
 
+          worker_results << result.merge(agent_name: agent.name, role: member.role)
+        end
+      else
+        # Fallback: no work plan, use generic role-based delegation
+        log_execution("[Hierarchical] Work plan generation failed, using generic delegation")
+        worker_results = workers.map do |member|
           check_control_signal!
+          agent = member.agent
+          lead_directive = "As directed by #{lead_agent.name}: #{@input.is_a?(Hash) ? (@input[:task] || @input['task'] || @input.to_json) : @input}"
+          result = execute_agent_with_retry(agent, lead_directive, member.role)
 
-          context = @input.merge(
-            lead_directive: lead_result[:output],
-            assigned_role: member.role
-          )
+          broadcast_progress("member_completed", {
+            agent_name: agent.name,
+            role: member.role,
+            status: result[:success] ? "completed" : "failed"
+          })
 
-          broadcast_member_progress(member.agent.name, member.role, index + 1)
-
-          member_start = Time.current
-          result = execute_agent_with_retry(member.agent, context, member.role)
-          member_duration_ms = ((Time.current - member_start) * 1000).to_i
-          record_member_completed(member.agent.name, result[:success], member_duration_ms)
-
-          subordinate_results << { agent: member.agent.name, result: result }
+          result.merge(agent_name: agent.name, role: member.role)
         end
       end
 
+      # Phase 3: Synthesis — ask lead to synthesize all results
+      successful_results = worker_results.select { |r| r[:success] }
+
+      if successful_results.size > 1
+        synthesized = synthesize_results(lead_agent, successful_results, @input)
+        if synthesized.present?
+          log_execution("[Hierarchical] Lead synthesized #{successful_results.size} worker outputs")
+          record_team_message(message_type: "synthesis", content: synthesized, from_agent: lead_agent)
+          return {
+            strategy: "hierarchical",
+            lead: lead_agent.name,
+            synthesized_output: synthesized,
+            worker_results: worker_results.map { |r| { agent: r[:agent_name], role: r[:role], success: r[:success] } },
+            total_workers: workers.size,
+            successful: successful_results.size
+          }
+        end
+      end
+
+      # Fallback: return raw results without synthesis
       {
-        success: true,
-        output: {
-          lead_output: lead_result[:output],
-          subordinate_outputs: subordinate_results.map { |r| { agent: r[:agent], output: r[:result][:output] } }
-        }
+        strategy: "hierarchical",
+        lead: lead_agent.name,
+        results: worker_results.map { |r| { agent: r[:agent_name], role: r[:role], output: r[:output], success: r[:success] } },
+        total_workers: workers.size,
+        successful: successful_results.size
       }
     end
 
@@ -333,6 +403,24 @@ module Ai
         ]
 
         model = agent.try(:model) || agent.mcp_tool_manifest&.dig("model")
+
+        # Check for task-specific model override
+        task_type = @input.is_a?(Hash) ? (@input[:task_type] || @input["task_type"]) : nil
+        if task_type.present?
+          task_override = agent.mcp_metadata&.dig("task_model_overrides", task_type)
+          if task_override.present?
+            Rails.logger.info("[AgentTeamExecutionJob] Using task override model '#{task_override}' for #{agent.name} (task_type: #{task_type})")
+            model = task_override
+
+            # Resolve credential for the override model if it belongs to a different provider
+            override_credential = resolve_credential_for_model(model, agent, credential)
+            if override_credential && override_credential.id != credential.id
+              Rails.logger.info("[AgentTeamExecutionJob] Switching provider from #{credential.provider.name} to #{override_credential.provider.name} for model '#{model}'")
+              credential = override_credential
+            end
+          end
+        end
+
         max_tokens = agent.try(:max_tokens) || agent.mcp_tool_manifest&.dig("max_tokens") || 4096
         temperature = agent.try(:temperature) || agent.mcp_tool_manifest&.dig("temperature") || 0.7
 
@@ -405,6 +493,39 @@ module Ai
         )
         { success: false, error: e.message }
       end
+    end
+
+    def resolve_credential_for_model(model_name, agent, current_credential)
+      # Check if the current provider already has this model
+      current_models = agent.provider.supported_models || []
+      has_model = current_models.any? do |m|
+        m.is_a?(Hash) ? (m["id"] == model_name || m["name"] == model_name) : m.to_s == model_name
+      end
+      return current_credential if has_model
+
+      # Find a provider that has this model in its supported_models
+      target_provider = ::Ai::Provider.where(is_active: true).detect do |p|
+        (p.supported_models || []).any? do |m|
+          m.is_a?(Hash) ? (m["id"] == model_name || m["name"] == model_name) : m.to_s == model_name
+        end
+      end
+
+      unless target_provider
+        Rails.logger.warn("[AgentTeamExecutionJob] No provider found for model '#{model_name}', using agent's default provider")
+        return current_credential
+      end
+
+      target_credential = target_provider.provider_credentials
+                                         .where(is_active: true)
+                                         .where(account_id: @team.account_id)
+                                         .first
+
+      unless target_credential
+        Rails.logger.warn("[AgentTeamExecutionJob] No active credential for provider '#{target_provider.name}', using agent's default")
+        return current_credential
+      end
+
+      target_credential
     end
 
     def execute_agent_with_retry(agent, input, role)
@@ -658,6 +779,29 @@ module Ai
       Rails.logger.info("[AgentTeamExecutionJob] Cleaned up #{count} non-persistent memory pools") if count.positive?
     rescue StandardError => e
       Rails.logger.warn("[AgentTeamExecutionJob] Memory pool cleanup failed: #{e.message}")
+    end
+
+    def build_planned_input(assignment, original_input)
+      task_desc = original_input.is_a?(Hash) ? (original_input[:task] || original_input["task"] || original_input.to_json) : original_input.to_s
+
+      <<~INPUT
+        ## Your Assignment
+        #{assignment["instructions"]}
+
+        ## Expected Output
+        #{assignment["expected_output"]}
+
+        ## Original Task Context
+        #{task_desc}
+      INPUT
+    end
+
+    def log_execution(message)
+      Rails.logger.info("[AgentTeamExecutionJob] #{message}")
+    end
+
+    def broadcast_progress(event_type, payload = {})
+      broadcast_event(event_type, payload.merge(execution_id: @execution&.execution_id))
     end
 
     def job_id_string
