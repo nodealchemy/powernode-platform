@@ -26,6 +26,7 @@ interface UseConversationsReturn {
   loadConversations: (filters?: GlobalConversationFilters) => Promise<void>;
   selectConversation: (id: string) => Promise<void>;
   createConversation: (agentId: string, title?: string) => Promise<ConversationBase | null>;
+  createTeamConversation: (teamId: string, title?: string) => Promise<ConversationBase | null>;
   archiveConversation: (id: string) => Promise<void>;
   deleteConversation: (id: string) => Promise<void>;
   pinConversation: (id: string) => Promise<void>;
@@ -127,6 +128,31 @@ export function useConversations(options: UseConversationsOptions = {}): UseConv
         type: 'error',
         title: 'Create Failed',
         message: 'Failed to create new conversation',
+      });
+      return null;
+    }
+  }, [addNotification, loadConversations, selectConversation]);
+
+  const createTeamConversation = useCallback(async (teamId: string, title?: string): Promise<ConversationBase | null> => {
+    try {
+      const result = await conversationsApi.createTeamConversation(teamId, title);
+
+      if (!mountedRef.current) return null;
+
+      await loadConversations();
+
+      if (result?.id) {
+        await selectConversation(result.id);
+      }
+
+      return result as unknown as ConversationBase;
+    } catch (err) {
+      if (!mountedRef.current) return null;
+      logger.error('Failed to create team conversation', { error: err });
+      addNotification({
+        type: 'error',
+        title: 'Create Failed',
+        message: 'Failed to create team conversation',
       });
       return null;
     }
@@ -363,6 +389,7 @@ export function useConversations(options: UseConversationsOptions = {}): UseConv
     loadConversations,
     selectConversation,
     createConversation,
+    createTeamConversation,
     archiveConversation,
     deleteConversation,
     pinConversation,

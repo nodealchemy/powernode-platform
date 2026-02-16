@@ -152,10 +152,15 @@ export interface AiConversation {
   id: string;
   title: string;
   status: 'active' | 'completed' | 'archived' | 'error';
+  conversation_type?: 'agent' | 'team';
   ai_agent: {
     id: string;
     name: string;
     agent_type: string;
+  };
+  agent_team?: {
+    id: string;
+    name: string;
   };
   metadata: {
     created_by: string;
@@ -168,6 +173,21 @@ export interface AiConversation {
   created_at: string;
   updated_at: string;
   message_count?: number;
+}
+
+export interface MessageAction {
+  type: 'approve' | 'request_changes';
+  label: string;
+  style: 'primary' | 'secondary';
+  icon?: string;
+}
+
+export interface ActionContext {
+  execution_id: string;
+  team_id: string;
+  team_name: string;
+  status: 'pending' | 'approved' | 'changes_requested';
+  resolved_at?: string;
 }
 
 export interface AiMessage {
@@ -196,6 +216,8 @@ export interface AiMessage {
     response_time_ms?: number;
     cost_estimate?: number;
     processing_complete?: boolean;
+    actions?: MessageAction[];
+    action_context?: ActionContext;
     user_rating?: {
       rating: string;
       rated_at: string;
@@ -364,7 +386,7 @@ export interface AccountMetrics {
 
 // WebSocket Message Types
 export interface ConversationChannelMessage {
-  type: 'subscription_confirmed' | 'message_created' | 'ai_response_streaming' | 'ai_response_complete' | 'processing_status' | 'typing_indicator' | 'message_read' | 'conversation_status' | 'error';
+  type: 'subscription_confirmed' | 'message_created' | 'message_updated' | 'ai_response_streaming' | 'ai_response_complete' | 'processing_status' | 'typing_indicator' | 'message_read' | 'conversation_status' | 'error';
   conversation_id?: string;
   status?: string;
   message?: AiMessage;

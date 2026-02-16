@@ -6,6 +6,8 @@ import { ChatStreamingRenderer } from './ChatStreamingRenderer';
 import { MessageActions } from './MessageActions';
 import { MessageEditor } from './MessageEditor';
 import { AttachmentPreview } from './AttachmentPreview';
+import { PlanApprovalActions } from './PlanApprovalActions';
+import { TeamActivityMessage } from './TeamActivityMessage';
 import type { AiMessage } from '@/shared/types/ai';
 
 interface StreamingInfo {
@@ -25,6 +27,7 @@ interface ChatMessageProps {
   onReply?: (messageId: string) => void;
   onViewThread?: (messageId: string) => void;
   onViewEditHistory?: (messageId: string) => void;
+  onPlanAction?: (actionType: string, executionId: string, feedback?: string) => Promise<void>;
   canEdit?: boolean;
   canDelete?: boolean;
 }
@@ -44,6 +47,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   onReply,
   onViewThread,
   onViewEditHistory,
+  onPlanAction,
   canEdit = false,
   canDelete = false,
 }) => {
@@ -68,6 +72,11 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
       setEditSaving(false);
     }
   };
+
+  // Team activity messages (system or AI messages with activity_type in metadata)
+  if ((isSystem || isAi) && message.metadata?.activity_type) {
+    return <TeamActivityMessage message={message} />;
+  }
 
   if (isSystem) {
     return (
@@ -148,6 +157,15 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             <div className="text-sm text-theme-primary prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2">
               <ReactMarkdown>{message.content}</ReactMarkdown>
             </div>
+          )}
+
+          {/* Plan Approval Actions */}
+          {isAi && message.metadata?.actions && message.metadata?.action_context && onPlanAction && (
+            <PlanApprovalActions
+              actions={message.metadata.actions}
+              actionContext={message.metadata.action_context}
+              onAction={onPlanAction}
+            />
           )}
 
           {/* Attachments */}

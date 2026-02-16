@@ -80,6 +80,20 @@ export function useConversationSocket({
         }
         break;
 
+      case 'message_updated':
+        if (data.message) {
+          setMessages(prev => {
+            const existingIndex = prev.findIndex(m => m.id === data.message!.id);
+            if (existingIndex >= 0) {
+              const updated = [...prev];
+              updated[existingIndex] = data.message!;
+              return updated;
+            }
+            return prev;
+          });
+        }
+        break;
+
       case 'typing_indicator':
         if (data.user_id && data.user_id !== currentUserId) {
           setTypingUsers(prev => {

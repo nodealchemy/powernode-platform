@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bot, MoreVertical, Archive, Trash2, MessageSquare, Pin, PinOff, Tag, X } from 'lucide-react';
+import { Bot, MoreVertical, Archive, Trash2, MessageSquare, Pin, PinOff, Tag, X, Users } from 'lucide-react';
 import { Avatar } from '@/shared/components/ui/Avatar';
 import type { ConversationBase } from '@/shared/services/ai/ConversationsApiService';
 
@@ -90,7 +90,8 @@ export const ConversationListItem: React.FC<ConversationListItemProps> = ({
   }, [showTagInput]);
 
   const title = conversation.title || 'New Chat';
-  const agentName = conversation.ai_agent?.name || 'Unknown Agent';
+  const isTeamConversation = conversation.conversation_type === 'team';
+  const agentName = isTeamConversation && conversation.agent_team?.name ? conversation.agent_team.name : (conversation.ai_agent?.name || 'Unknown Agent');
   const timeStr = formatRelativeTime(conversation.last_activity_at || conversation.created_at);
   const tags = conversation.tags || [];
 
@@ -140,7 +141,7 @@ export const ConversationListItem: React.FC<ConversationListItemProps> = ({
 
       <div onClick={selectable ? onClick : undefined} className="flex items-start gap-2.5 flex-1 min-w-0">
         <Avatar size="sm" fallback={agentName}>
-          <Bot className="h-4 w-4" />
+          {isTeamConversation ? <Users className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
         </Avatar>
 
         <div className="flex-1 min-w-0">
@@ -148,6 +149,11 @@ export const ConversationListItem: React.FC<ConversationListItemProps> = ({
             <div className="flex items-center gap-1 min-w-0">
               {conversation.pinned && (
                 <Pin className="h-3 w-3 text-theme-interactive-primary flex-shrink-0" />
+              )}
+              {isTeamConversation && (
+                <span className="text-[9px] font-semibold uppercase px-1 py-0.5 rounded bg-theme-interactive-primary/10 text-theme-interactive-primary flex-shrink-0">
+                  Team
+                </span>
               )}
               <span className="text-sm font-medium text-theme-primary truncate">
                 {title}
