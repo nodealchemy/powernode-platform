@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_15_010000) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_16_030003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -682,6 +682,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_15_010000) do
     t.string "agent_type", limit: 50, null: false
     t.uuid "ai_provider_id", null: false
     t.jsonb "autonomy_config", default: {}
+    t.jsonb "conversation_profile", default: {}, null: false
     t.datetime "created_at", null: false
     t.uuid "creator_id", null: false
     t.text "description"
@@ -1104,10 +1105,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_15_010000) do
 
   create_table "ai_conversations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
+    t.uuid "agent_team_id"
     t.uuid "ai_agent_id"
     t.uuid "ai_provider_id", null: false
     t.jsonb "conversation_context", default: {}
     t.string "conversation_id", limit: 100, null: false
+    t.string "conversation_type", default: "agent", null: false
     t.datetime "created_at", null: false
     t.boolean "is_collaborative", default: false
     t.datetime "last_activity_at", precision: nil
@@ -1127,6 +1130,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_15_010000) do
     t.uuid "websocket_session_id"
     t.index ["account_id", "status"], name: "index_ai_conversations_on_account_id_and_status"
     t.index ["account_id"], name: "index_ai_conversations_on_account_id"
+    t.index ["agent_team_id", "conversation_type"], name: "index_ai_conversations_on_team_type", where: "((conversation_type)::text = 'team'::text)"
+    t.index ["agent_team_id"], name: "index_ai_conversations_on_agent_team_id"
     t.index ["ai_agent_id"], name: "index_ai_conversations_on_ai_agent_id"
     t.index ["ai_provider_id"], name: "index_ai_conversations_on_ai_provider_id"
     t.index ["conversation_id"], name: "index_ai_conversations_on_conversation_id", unique: true
@@ -3003,6 +3008,34 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_15_010000) do
     t.check_constraint "status::text = ANY (ARRAY['inactive'::character varying::text, 'active'::character varying::text, 'paused'::character varying::text, 'expired'::character varying::text, 'deleted'::character varying::text])", name: "check_sandbox_status"
   end
 
+  create_table "ai_scheduled_messages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.integer "daily_iteration_count", default: 0, null: false
+    t.date "daily_iteration_reset_at"
+    t.integer "execution_count", default: 0, null: false
+    t.datetime "last_executed_at"
+    t.datetime "last_scheduled_at"
+    t.integer "max_executions"
+    t.text "message_template", null: false
+    t.datetime "next_scheduled_at"
+    t.jsonb "schedule_config", default: {}, null: false
+    t.boolean "schedule_paused", default: false, null: false
+    t.datetime "schedule_paused_at"
+    t.string "schedule_paused_reason"
+    t.string "scheduling_mode", null: false
+    t.string "status", default: "active", null: false
+    t.jsonb "template_variables", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
+    t.index ["account_id", "status"], name: "index_ai_scheduled_messages_on_account_and_status"
+    t.index ["account_id"], name: "index_ai_scheduled_messages_on_account_id"
+    t.index ["conversation_id"], name: "index_ai_scheduled_messages_on_conversation_id"
+    t.index ["status", "next_scheduled_at"], name: "index_ai_scheduled_messages_on_status_and_next_at"
+    t.index ["user_id"], name: "index_ai_scheduled_messages_on_user_id"
+  end
+
   create_table "ai_security_audit_trails", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.string "action", null: false
@@ -3255,6 +3288,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_15_010000) do
   create_table "ai_team_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.uuid "agent_team_id", null: false
+    t.uuid "ai_conversation_id"
+    t.datetime "approval_decided_at"
+    t.uuid "approval_decided_by_id"
+    t.string "approval_decision"
+    t.text "approval_feedback"
     t.datetime "completed_at"
     t.string "control_signal"
     t.datetime "created_at", null: false
@@ -3285,11 +3323,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_15_010000) do
     t.index ["account_id"], name: "index_ai_team_executions_on_account_id"
     t.index ["agent_team_id", "created_at"], name: "index_ai_team_executions_on_agent_team_id_and_created_at"
     t.index ["agent_team_id"], name: "index_ai_team_executions_on_agent_team_id"
+    t.index ["ai_conversation_id"], name: "index_ai_team_executions_on_ai_conversation_id"
     t.index ["control_signal"], name: "index_ai_team_executions_on_control_signal"
     t.index ["execution_id"], name: "index_ai_team_executions_on_execution_id", unique: true
     t.index ["started_at"], name: "index_ai_team_executions_on_started_at"
     t.index ["triggered_by_id"], name: "index_ai_team_executions_on_triggered_by_id"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'paused'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text, 'timeout'::character varying::text])", name: "check_team_execution_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'paused'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying, 'timeout'::character varying, 'awaiting_approval'::character varying]::text[])", name: "check_team_execution_status"
   end
 
   create_table "ai_team_messages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -9308,6 +9347,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_15_010000) do
   add_foreign_key "ai_context_entries", "ai_persistent_contexts"
   add_foreign_key "ai_context_entries", "users", column: "created_by_user_id"
   add_foreign_key "ai_conversations", "accounts", on_delete: :cascade
+  add_foreign_key "ai_conversations", "ai_agent_teams", column: "agent_team_id"
   add_foreign_key "ai_conversations", "ai_agents", on_delete: :nullify
   add_foreign_key "ai_conversations", "ai_providers", on_delete: :restrict
   add_foreign_key "ai_conversations", "users", on_delete: :restrict
@@ -9459,6 +9499,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_15_010000) do
   add_foreign_key "ai_runner_dispatches", "git_runners"
   add_foreign_key "ai_sandboxes", "accounts"
   add_foreign_key "ai_sandboxes", "users", column: "created_by_id"
+  add_foreign_key "ai_scheduled_messages", "accounts"
+  add_foreign_key "ai_scheduled_messages", "ai_conversations", column: "conversation_id"
+  add_foreign_key "ai_scheduled_messages", "users"
   add_foreign_key "ai_security_audit_trails", "accounts"
   add_foreign_key "ai_shared_context_pools", "ai_workflow_runs", on_delete: :cascade
   add_foreign_key "ai_shared_knowledges", "accounts"
@@ -9480,6 +9523,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_15_010000) do
   add_foreign_key "ai_team_channels", "ai_agent_teams", column: "agent_team_id"
   add_foreign_key "ai_team_executions", "accounts"
   add_foreign_key "ai_team_executions", "ai_agent_teams", column: "agent_team_id"
+  add_foreign_key "ai_team_executions", "ai_conversations"
+  add_foreign_key "ai_team_executions", "users", column: "approval_decided_by_id"
   add_foreign_key "ai_team_executions", "users", column: "triggered_by_id"
   add_foreign_key "ai_team_messages", "ai_team_channels", column: "channel_id"
   add_foreign_key "ai_team_messages", "ai_team_executions", column: "team_execution_id"
