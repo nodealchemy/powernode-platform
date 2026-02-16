@@ -112,7 +112,7 @@ agents_data = [
         - Team conversations use the Coordinator Service to route messages (RESPOND/DELEGATE/CLARIFY)
         - Plan approval workflow: when require_plan_approval is enabled, plans are posted for user review
         - Post-execution activity messages keep the conversation informed of progress
-        - 42 MCP platform tools available for full platform CRUD operations
+        - 44 MCP platform tools available for full platform CRUD operations
 
         ## Self-Improvement
         Compound learnings from past executions are automatically injected into your context. Leverage these to avoid repeated mistakes and apply proven patterns.
@@ -188,6 +188,17 @@ agents_data = [
         - Gate enterprise UI with __ENTERPRISE__ build flag
         - Navigation items: enterpriseOnly: true for enterprise features
         - Core mode: All features unlocked when enterprise submodule absent
+
+        ## MCP Platform Tools Available
+        You have access to 44 MCP platform tools for direct platform interaction:
+        - Agent/Team Management: create, list, get, update agents and teams
+        - KB Articles: list_kb_articles, get_kb_article, create/update_kb_article
+        - Pages: list_pages, get_page, create/update_page
+        - Memory: read/write_shared_memory, search_memory, memory_stats
+        - Learnings: query_learnings, reinforce_learning, learning_metrics
+
+        ## Self-Improvement
+        Compound learnings from past executions are automatically injected into your context. Apply proven patterns and avoid repeated mistakes.
       PROMPT
     }
   },
@@ -263,6 +274,19 @@ agents_data = [
         - Jobs belong in worker/app/jobs/ — NEVER create jobs in server/app/jobs/
         - Worker communicates with server via HTTP API only
         - Never add Sidekiq gems to server/Gemfile
+
+        ## MCP Platform Tools Available
+        You have access to 44 MCP platform tools for direct platform interaction:
+        - Agent/Team Management: create, list, get, update agents and teams
+        - Workflow/Pipeline: create/execute/list workflows, trigger/list/status pipelines
+        - KB Articles: list_kb_articles, get_kb_article, create/update_kb_article
+        - Pages: list_pages, get_page, create/update_page
+        - Memory: read/write_shared_memory, search_memory, consolidate_memory, memory_stats
+        - Learnings: query_learnings, reinforce_learning, learning_metrics
+        - Shared Knowledge: search/create/update/promote_knowledge
+
+        ## Self-Improvement
+        Compound learnings from past executions are automatically injected into your context. Apply proven patterns and avoid repeated mistakes.
       PROMPT
     }
   },
@@ -338,6 +362,17 @@ agents_data = [
         - Container templates for agent sandboxes
         - MCP server containers for tool isolation
         - Image registry management and tagging
+
+        ## MCP Platform Tools Available
+        You have access to 44 MCP platform tools including:
+        - Pipeline Management: trigger_pipeline, list_pipelines, get_pipeline_status
+        - Agent/Team Management: create, list, get, update agents and teams
+        - Workflow: create/execute/list/get/update workflows
+        - Memory: read/write_shared_memory, search_memory, memory_stats
+        - Gitea: create_gitea_repository, dispatch_to_runner
+
+        ## Self-Improvement
+        Compound learnings from past executions are automatically injected into your context. Apply proven patterns and avoid repeated mistakes.
       PROMPT
     }
   },
@@ -416,6 +451,16 @@ agents_data = [
         - Write failing test before implementing feature
         - Cover happy path, error cases, edge cases, and auth failures
         - Test all response codes and error messages for API endpoints
+
+        ## MCP Platform Tools Available
+        You have access to 44 MCP platform tools including:
+        - Agent/Team Management: create, list, get, update agents and teams
+        - Workflow: create/execute/list/get/update workflows
+        - Memory: read/write_shared_memory, search_memory, memory_stats
+        - Learnings: query_learnings, reinforce_learning, learning_metrics
+
+        ## Self-Improvement
+        Compound learnings from past executions are automatically injected into your context. Apply proven patterns and avoid repeated mistakes.
       PROMPT
     }
   },
@@ -490,7 +535,7 @@ agents_data = [
         - Include severity ratings and remediation recommendations
 
         ## MCP Platform Tools Available
-        You have access to 42 MCP platform tools including:
+        You have access to 44 MCP platform tools including:
         - KB Article Management: list_kb_articles, get_kb_article, create_kb_article, update_kb_article
         - Page Management: list_pages, get_page, create_page, update_page
         - Compound Learning: query_learnings, reinforce_learning, learning_metrics
@@ -523,10 +568,18 @@ agents_data.each do |ad|
     a.mcp_metadata = ad[:mcp_metadata]
     a.conversation_profile = ad[:conversation_profile] || {}
   end
-  # Update conversation_profile on existing agents
+  # Update conversation_profile and system_prompt on existing agents
+  updates = {}
   if ad[:conversation_profile].present? && agent.conversation_profile.blank?
-    agent.update!(conversation_profile: ad[:conversation_profile])
+    updates[:conversation_profile] = ad[:conversation_profile]
   end
+  # Always refresh system_prompt from seed data
+  current_prompt = agent.mcp_metadata&.dig('system_prompt')
+  seed_prompt = ad[:mcp_metadata]&.dig('system_prompt')
+  if seed_prompt.present? && current_prompt != seed_prompt
+    updates[:mcp_metadata] = (agent.mcp_metadata || {}).merge('system_prompt' => seed_prompt)
+  end
+  agent.update!(updates) if updates.present?
   agents[ad[:name]] = agent
   agents_created += 1
   model = ad[:mcp_metadata].dig('model_config', 'model')
@@ -547,7 +600,7 @@ team = Ai::AgentTeam.find_or_create_by!(account: admin_account, name: 'Powernode
     'retry_on_failure' => true,
     'max_retries' => 3,
     'skip_on_member_failure' => true,
-    'task_timeout_seconds' => 300,
+    'task_timeout_seconds' => 600,
     'repository_path' => '/home/rett/Drive/Projects/powernode-platform',
     'base_branch' => 'develop',
     'merge_strategy' => 'integration_branch',
@@ -577,8 +630,9 @@ end
 merged_config = team.team_config.reverse_merge(
   'coordinator_enabled' => true,
   'post_execution_activity' => 'summarize_and_notify',
-  'require_plan_approval' => true
-)
+  'require_plan_approval' => true,
+  'compound_learning_injection' => true
+).merge('task_timeout_seconds' => 600)
 if merged_config != team.team_config
   team.update!(team_config: merged_config)
   puts "  🔄 Updated team config with missing keys"
