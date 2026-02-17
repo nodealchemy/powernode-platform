@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_16_100001) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_16_120002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -882,6 +882,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_16_100001) do
     t.boolean "evidence_verified", default: false
     t.string "head_sha", null: false
     t.jsonb "metadata", default: {}
+    t.uuid "mission_id"
     t.integer "pr_number", null: false
     t.integer "remediation_attempts", default: 0
     t.uuid "repository_id"
@@ -895,6 +896,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_16_100001) do
     t.datetime "updated_at", null: false
     t.index ["account_id", "status"], name: "idx_cf_review_states_account_status"
     t.index ["account_id"], name: "index_ai_code_factory_review_states_on_account_id"
+    t.index ["mission_id"], name: "index_ai_code_factory_review_states_on_mission_id"
     t.index ["repository_id", "pr_number", "head_sha"], name: "idx_cf_review_states_repo_pr_sha", unique: true
     t.index ["repository_id"], name: "index_ai_code_factory_review_states_on_repository_id"
     t.index ["risk_contract_id"], name: "index_ai_code_factory_review_states_on_risk_contract_id"
@@ -2265,6 +2267,74 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_16_100001) do
     t.index ["user_id"], name: "index_ai_messages_on_user_id"
   end
 
+  create_table "ai_mission_approvals", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.text "comment"
+    t.datetime "created_at", null: false
+    t.string "decision", null: false
+    t.string "gate", null: false
+    t.jsonb "metadata", default: {}
+    t.uuid "mission_id", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
+    t.index ["account_id"], name: "index_ai_mission_approvals_on_account_id"
+    t.index ["mission_id", "gate"], name: "index_ai_mission_approvals_on_mission_id_and_gate"
+    t.index ["mission_id"], name: "index_ai_mission_approvals_on_mission_id"
+    t.index ["user_id"], name: "index_ai_mission_approvals_on_user_id"
+  end
+
+  create_table "ai_missions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "analysis_result", default: {}
+    t.string "base_branch", default: "main"
+    t.string "branch_name"
+    t.datetime "completed_at"
+    t.jsonb "configuration", default: {}
+    t.uuid "conversation_id"
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id", null: false
+    t.string "current_phase"
+    t.string "deployed_container_id"
+    t.integer "deployed_port"
+    t.string "deployed_url"
+    t.text "description"
+    t.integer "duration_ms"
+    t.jsonb "error_details", default: {}
+    t.text "error_message"
+    t.jsonb "feature_suggestions", default: []
+    t.jsonb "metadata", default: {}
+    t.string "mission_type", null: false
+    t.string "name", null: false
+    t.text "objective"
+    t.jsonb "phase_config", default: {}
+    t.jsonb "phase_history", default: []
+    t.integer "pr_number"
+    t.string "pr_url"
+    t.jsonb "prd_json", default: {}
+    t.uuid "ralph_loop_id"
+    t.uuid "repository_id"
+    t.jsonb "review_result", default: {}
+    t.uuid "review_state_id"
+    t.uuid "risk_contract_id"
+    t.jsonb "selected_feature", default: {}
+    t.datetime "started_at"
+    t.string "status", default: "draft", null: false
+    t.uuid "team_id"
+    t.jsonb "test_result", default: {}
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "mission_type"], name: "index_ai_missions_on_account_id_and_mission_type"
+    t.index ["account_id", "status"], name: "index_ai_missions_on_account_id_and_status"
+    t.index ["account_id"], name: "index_ai_missions_on_account_id"
+    t.index ["conversation_id"], name: "index_ai_missions_on_conversation_id"
+    t.index ["created_by_id"], name: "index_ai_missions_on_created_by_id"
+    t.index ["deployed_port"], name: "index_ai_missions_on_deployed_port", unique: true, where: "(((status)::text = 'active'::text) AND (deployed_port IS NOT NULL))"
+    t.index ["ralph_loop_id"], name: "index_ai_missions_on_ralph_loop_id"
+    t.index ["repository_id"], name: "index_ai_missions_on_repository_id"
+    t.index ["review_state_id"], name: "index_ai_missions_on_review_state_id"
+    t.index ["risk_contract_id"], name: "index_ai_missions_on_risk_contract_id"
+    t.index ["team_id"], name: "index_ai_missions_on_team_id"
+  end
+
   create_table "ai_mock_responses", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.datetime "created_at", null: false
@@ -2826,6 +2896,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_16_100001) do
     t.datetime "last_scheduled_at"
     t.jsonb "learnings", default: []
     t.integer "max_iterations", default: 100
+    t.uuid "mission_id"
     t.string "name", null: false
     t.datetime "next_scheduled_at"
     t.jsonb "prd_json", default: {}
@@ -2847,6 +2918,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_16_100001) do
     t.index ["ai_tool"], name: "index_ai_ralph_loops_on_ai_tool"
     t.index ["created_at"], name: "index_ai_ralph_loops_on_created_at"
     t.index ["default_agent_id"], name: "index_ai_ralph_loops_on_default_agent_id"
+    t.index ["mission_id"], name: "index_ai_ralph_loops_on_mission_id"
     t.index ["next_scheduled_at"], name: "index_ai_ralph_loops_on_next_scheduled_at"
     t.index ["risk_contract_id"], name: "index_ai_ralph_loops_on_risk_contract_id"
     t.index ["schedule_paused", "next_scheduled_at"], name: "index_ralph_loops_on_schedule_state"
@@ -3058,6 +3130,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_16_100001) do
     t.uuid "git_runner_id"
     t.jsonb "input_params", default: {}
     t.text "logs"
+    t.uuid "mission_id"
     t.jsonb "output_result", default: {}
     t.jsonb "runner_labels", default: []
     t.string "status", default: "pending"
@@ -3069,6 +3142,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_16_100001) do
     t.index ["account_id"], name: "index_ai_runner_dispatches_on_account_id"
     t.index ["git_repository_id"], name: "index_ai_runner_dispatches_on_git_repository_id"
     t.index ["git_runner_id"], name: "index_ai_runner_dispatches_on_git_runner_id"
+    t.index ["mission_id"], name: "index_ai_runner_dispatches_on_mission_id"
     t.index ["worktree_id"], name: "index_ai_runner_dispatches_on_worktree_id"
     t.index ["worktree_session_id"], name: "index_ai_runner_dispatches_on_worktree_session_id"
   end
@@ -9422,6 +9496,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_16_100001) do
   add_foreign_key "ai_code_factory_harness_gaps", "ai_code_factory_risk_contracts", column: "risk_contract_id"
   add_foreign_key "ai_code_factory_review_states", "accounts"
   add_foreign_key "ai_code_factory_review_states", "ai_code_factory_risk_contracts", column: "risk_contract_id"
+  add_foreign_key "ai_code_factory_review_states", "ai_missions", column: "mission_id"
   add_foreign_key "ai_code_factory_review_states", "git_repositories", column: "repository_id"
   add_foreign_key "ai_code_factory_risk_contracts", "accounts"
   add_foreign_key "ai_code_factory_risk_contracts", "git_repositories", column: "repository_id"
@@ -9542,6 +9617,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_16_100001) do
   add_foreign_key "ai_messages", "ai_conversations", on_delete: :cascade
   add_foreign_key "ai_messages", "ai_messages", column: "parent_message_id", on_delete: :nullify
   add_foreign_key "ai_messages", "users", on_delete: :nullify
+  add_foreign_key "ai_mission_approvals", "ai_missions", column: "mission_id"
+  add_foreign_key "ai_missions", "ai_agent_teams", column: "team_id"
+  add_foreign_key "ai_missions", "ai_code_factory_review_states", column: "review_state_id"
+  add_foreign_key "ai_missions", "ai_code_factory_risk_contracts", column: "risk_contract_id"
+  add_foreign_key "ai_missions", "ai_conversations", column: "conversation_id"
+  add_foreign_key "ai_missions", "ai_ralph_loops", column: "ralph_loop_id"
+  add_foreign_key "ai_missions", "git_repositories", column: "repository_id"
+  add_foreign_key "ai_missions", "users", column: "created_by_id"
   add_foreign_key "ai_mock_responses", "accounts"
   add_foreign_key "ai_mock_responses", "ai_sandboxes", column: "sandbox_id"
   add_foreign_key "ai_mock_responses", "users", column: "created_by_id"
@@ -9584,6 +9667,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_16_100001) do
   add_foreign_key "ai_ralph_loops", "accounts"
   add_foreign_key "ai_ralph_loops", "ai_agents", column: "default_agent_id", on_delete: :nullify
   add_foreign_key "ai_ralph_loops", "ai_code_factory_risk_contracts", column: "risk_contract_id"
+  add_foreign_key "ai_ralph_loops", "ai_missions", column: "mission_id"
   add_foreign_key "ai_ralph_loops", "devops_container_instances", column: "container_instance_id"
   add_foreign_key "ai_ralph_tasks", "ai_ralph_loops", column: "ralph_loop_id"
   add_foreign_key "ai_recorded_interactions", "accounts"
@@ -9598,6 +9682,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_16_100001) do
   add_foreign_key "ai_routing_decisions", "ai_providers", column: "selected_provider_id"
   add_foreign_key "ai_routing_decisions", "ai_task_complexity_assessments", column: "complexity_assessment_id"
   add_foreign_key "ai_routing_decisions", "ai_workflow_runs", column: "workflow_run_id"
+  add_foreign_key "ai_runner_dispatches", "ai_missions", column: "mission_id"
   add_foreign_key "ai_runner_dispatches", "ai_worktree_sessions", column: "worktree_session_id"
   add_foreign_key "ai_runner_dispatches", "ai_worktrees", column: "worktree_id"
   add_foreign_key "ai_runner_dispatches", "git_repositories"
