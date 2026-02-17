@@ -248,17 +248,14 @@ module Api
           mission = find_mission!
           return unless mission
 
-          prd = {
-            title: mission.selected_feature.dig("title") || mission.name,
-            description: mission.selected_feature.dig("description") || mission.objective,
-            tasks: [{ name: "Implement feature", description: mission.objective }],
-            generated_at: Time.current.iso8601
-          }
-          mission.update!(prd_json: prd)
+          service = ::Ai::Missions::PrdGenerationService.new(mission: mission)
+          prd = service.generate!
 
           orchestrator = ::Ai::Missions::OrchestratorService.new(mission: mission)
           orchestrator.advance!(result: { prd: prd })
           render_success(mission: mission.reload.mission_details)
+        rescue ::Ai::Missions::PrdGenerationService::PrdGenerationError => e
+          render_error(e.message, :unprocessable_content)
         rescue StandardError => e
           render_error(e.message, :unprocessable_content)
         end
@@ -268,16 +265,11 @@ module Api
           mission = find_mission!
           return unless mission
 
-          run_id = SecureRandom.uuid
-          mission.update!(test_result: {
-            run_id: run_id,
-            status: "passed",
-            passed: true,
-            started_at: Time.current.iso8601,
-            completed_at: Time.current.iso8601,
-            summary: "Stub test run — all checks passed"
-          })
-          render_success(test_run: { run_id: run_id, status: "passed" })
+          service = ::Ai::Missions::TestRunnerService.new(mission: mission)
+          result = service.trigger!
+          render_success(test_run: { run_id: result[:run_id], status: result[:status], method: result[:method] })
+        rescue ::Ai::Missions::TestRunnerService::TestRunnerError => e
+          render_error(e.message, :unprocessable_content)
         rescue StandardError => e
           render_error(e.message, :unprocessable_content)
         end
@@ -287,19 +279,21 @@ module Api
           mission = find_mission!
           return unless mission
 
-          result = mission.test_result || {}
-          status = result["status"]
-          # Map stored "passed"/"failed" to lifecycle statuses the worker expects
-          lifecycle_status = case status
-                             when "passed" then "completed"
+          service = ::Ai::Missions::TestRunnerService.new(mission: mission)
+          result = service.check_status
+
+          lifecycle_status = case result[:status]
+                             when "completed" then "completed"
                              when "failed" then "failed"
-                             else status || "unknown"
+                             when "running" then "running"
+                             else result[:status] || "unknown"
                              end
+
           render_success(test_result: {
             status: lifecycle_status,
-            passed: status == "passed",
-            run_id: result["run_id"],
-            results: result
+            passed: result[:passed],
+            run_id: mission.test_result&.dig("run_id"),
+            results: result[:results] || mission.test_result
           })
         end
 

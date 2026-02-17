@@ -12,13 +12,13 @@ module Api
 
         # GET /api/v1/ai/ralph_loops
         def index
-          scope = current_user.account.ai_ralph_loops.order(created_at: :desc)
+          scope = resolved_account.ai_ralph_loops.order(created_at: :desc)
           scope = scope.where(status: params[:status]) if params[:status].present?
           scope = scope.where(default_agent_id: params[:default_agent_id]) if params[:default_agent_id].present?
           scope = apply_pagination(scope)
 
           render_success(items: scope.map(&:loop_summary), pagination: pagination_data(scope))
-          log_audit_event("ai.ralph_loops.list", current_user.account)
+          log_audit_event("ai.ralph_loops.list", resolved_account)
         end
 
         # GET /api/v1/ai/ralph_loops/:id
@@ -29,7 +29,7 @@ module Api
 
         # POST /api/v1/ai/ralph_loops
         def create
-          @ralph_loop = current_user.account.ai_ralph_loops.new(ralph_loop_params)
+          @ralph_loop = resolved_account.ai_ralph_loops.new(ralph_loop_params)
 
           saved = false
           ActiveRecord::Base.transaction do
@@ -220,17 +220,17 @@ module Api
 
         # GET /api/v1/ai/ralph_loops/statistics
         def statistics
-          loops = current_user.account.ai_ralph_loops
+          loops = resolved_account.ai_ralph_loops
           stats = {
             total_loops: loops.count,
             by_status: loops.group(:status).count,
             by_agent: loops.joins(:default_agent).group("ai_agents.name").count,
             total_iterations: ::Ai::RalphIteration.joins(:ralph_loop)
-                                                   .where(ai_ralph_loops: { account_id: current_user.account_id }).count,
+                                                   .where(ai_ralph_loops: { account_id: resolved_account_id }).count,
             total_tasks: ::Ai::RalphTask.joins(:ralph_loop)
-                                         .where(ai_ralph_loops: { account_id: current_user.account_id }).count,
+                                         .where(ai_ralph_loops: { account_id: resolved_account_id }).count,
             completed_tasks: ::Ai::RalphTask.joins(:ralph_loop)
-                                             .where(ai_ralph_loops: { account_id: current_user.account_id })
+                                             .where(ai_ralph_loops: { account_id: resolved_account_id })
                                              .where(status: "passed").count,
             average_iterations_to_complete: loops.completed.average(:current_iteration)&.to_f&.round(1)
           }
@@ -239,14 +239,22 @@ module Api
 
         private
 
+        def resolved_account
+          @resolved_account ||= current_account || current_user&.account
+        end
+
         def set_ralph_loop
-          @ralph_loop = current_user.account.ai_ralph_loops.find_by(id: params[:id])
+          unless resolved_account
+            render_error("Unauthorized", status: :unauthorized)
+            return
+          end
+          @ralph_loop = resolved_account.ai_ralph_loops.find_by(id: params[:id])
           render_error("Ralph loop not found", status: :not_found) unless @ralph_loop
         end
 
         def build_execution_service
           ::Ai::Ralph::ExecutionService.new(
-            ralph_loop: @ralph_loop, account: current_user.account, user: current_user
+            ralph_loop: @ralph_loop, account: resolved_account, user: current_user
           )
         end
 

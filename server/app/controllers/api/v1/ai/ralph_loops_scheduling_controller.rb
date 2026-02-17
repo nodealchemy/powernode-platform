@@ -140,8 +140,18 @@ module Api
           @ralph_loop = find_ralph_loop
         end
 
+        def resolved_account
+          @resolved_account ||= current_account || current_user&.account
+        end
+
         def find_ralph_loop
-          loop_record = current_user.account.ai_ralph_loops.find_by(id: params[:id])
+          account = resolved_account
+          unless account
+            render_error("Unauthorized", status: :unauthorized)
+            return nil
+          end
+
+          loop_record = account.ai_ralph_loops.find_by(id: params[:id])
 
           unless loop_record
             render_error("Ralph loop not found", status: :not_found)
@@ -154,7 +164,7 @@ module Api
         def build_execution_service
           ::Ai::Ralph::ExecutionService.new(
             ralph_loop: @ralph_loop,
-            account: current_user.account,
+            account: resolved_account,
             user: current_user
           )
         end
