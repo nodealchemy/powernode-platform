@@ -8,7 +8,7 @@ import {
   CheckCircle2, Scale, Building2, Activity, ShieldCheck,
   FlaskConical, MessagesSquare,
   Container, Coins,
-  Play, Factory,
+  Play, Factory, Rocket,
   Megaphone, CalendarDays, Mail, Share2, TrendingUp
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
@@ -116,13 +116,22 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 3
         },
         {
+          id: 'ai-missions',
+          name: 'Missions',
+          href: '/app/ai/missions',
+          icon: Rocket,
+          description: 'AI-assisted development missions',
+          permissions: ['ai.missions.read'],
+          order: 4
+        },
+        {
           id: 'ai-workflows',
           name: 'Workflows',
           href: '/app/ai/workflows',
           icon: Workflow,
           description: 'Visual AI orchestration and flow builder',
           permissions: ['ai.workflows.read'],
-          order: 4
+          order: 5
         },
         {
           id: 'ai-code-factory',
@@ -206,7 +215,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 15
         }
       ],
-      permissions: ['ai.agents.read', 'ai.workflows.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.analytics.read', 'ai.credits.read', 'ai.teams.read', 'ai.finops.view', 'ai.code_factory.read'],
+      permissions: ['ai.agents.read', 'ai.workflows.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.analytics.read', 'ai.credits.read', 'ai.teams.read', 'ai.finops.view', 'ai.code_factory.read', 'ai.missions.read'],
       collapsible: true,
       defaultExpanded: true,
       order: 10

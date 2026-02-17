@@ -80,6 +80,9 @@ import { EvaluationDashboardPage } from '@/features/ai/evaluation';
 import { CommunicationPage } from './ai/CommunicationPage';
 // AI Code Factory
 import { CodeFactoryPage } from '@/features/ai/code-factory';
+// AI Missions (lazy-loaded)
+const MissionsPage = React.lazy(() => import('@/features/missions/pages/MissionsPage').then(m => ({ default: m.MissionsPage })));
+const MissionDetailPage = React.lazy(() => import('@/features/missions/pages/MissionDetailPage').then(m => ({ default: m.MissionDetailPage })));
 
 // Container Orchestration (Sandboxed AI execution)
 import { ContainersPage } from '@/features/devops/containers/pages/ContainersPage';
@@ -436,6 +439,12 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/learning" element={<CompoundLearningPage />} />
         <Route path="/ai/audit" element={<AuditDashboardPage />} />
         <Route path="/ai/security" element={<SecurityDashboardPage />} />
+
+        {/* AI Missions - static tab routes before dynamic :missionId */}
+        <Route path="/ai/missions/completed" element={<Suspense fallback={<div className="p-8 text-theme-secondary">Loading...</div>}><MissionsPage /></Suspense>} />
+        <Route path="/ai/missions/all" element={<Suspense fallback={<div className="p-8 text-theme-secondary">Loading...</div>}><MissionsPage /></Suspense>} />
+        <Route path="/ai/missions/:missionId" element={<Suspense fallback={<div className="p-8 text-theme-secondary">Loading...</div>}><MissionDetailPage /></Suspense>} />
+        <Route path="/ai/missions" element={<Suspense fallback={<div className="p-8 text-theme-secondary">Loading...</div>}><MissionsPage /></Suspense>} />
 
         {/* AI Code Factory */}
         <Route path="/ai/code-factory/*" element={<CodeFactoryPage />} />

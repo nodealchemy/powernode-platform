@@ -40,8 +40,8 @@ export const AIOverviewPage: React.FC = () => {
 
   return (
     <PageContainer
-      title="AI Overview"
-      description="AI system dashboard and quick actions"
+      title="AI Dashboard"
+      description="Command center for AI agents, missions, and workflows"
       breadcrumbs={[
         { label: 'Dashboard', href: '/app' },
         { label: 'AI' }

@@ -4,9 +4,10 @@ import { useNotifications } from '@/shared/hooks/useNotifications';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useOverviewData } from './useOverviewData';
 import { OverviewStatsGrid } from './OverviewStatsGrid';
-import { ProviderStatusCards } from './ProviderStatusCards';
 import { QuickActionsPanel } from './QuickActionsPanel';
 import { ActiveExecutionsPanel } from './ActiveExecutionsPanel';
+import { MissionsDashboardPanel } from './MissionsDashboardPanel';
+import { TeamActivityCard } from './TeamActivityCard';
 
 export interface EnhancedAIOverviewHandle {
   refresh: () => void;
@@ -61,9 +62,24 @@ export const EnhancedAIOverview = forwardRef<EnhancedAIOverviewHandle>((_, ref) 
 
   return (
     <div className="space-y-6">
+      {/* Stats Row — compact metrics */}
       <OverviewStatsGrid stats={stats} recentUpdates={recentUpdates} />
-      <ProviderStatusCards />
-      <QuickActionsPanel />
+
+      {/* Main Content — Missions hero + sidebar */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left: Missions (2/3 width) */}
+        <div className="lg:col-span-2">
+          <MissionsDashboardPanel />
+        </div>
+
+        {/* Right: Teams + Quick Actions (1/3 width) */}
+        <div className="space-y-6">
+          <TeamActivityCard />
+          <QuickActionsPanel />
+        </div>
+      </div>
+
+      {/* Activity Feed */}
       <ActiveExecutionsPanel />
     </div>
   );
