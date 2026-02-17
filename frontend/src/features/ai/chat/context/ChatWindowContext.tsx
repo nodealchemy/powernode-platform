@@ -193,6 +193,46 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
     }
   }, [state.mode, addNotification]);
 
+  const openConcierge = useCallback(async () => {
+    try {
+      const conv = await chatApi.createConciergeConversation();
+      if (!conv) {
+        addNotification({
+          type: 'warning',
+          title: 'No Assistant',
+          message: 'No concierge agent configured. Please select an agent manually.',
+        });
+        return;
+      }
+
+      const tab: ChatTab = {
+        id: `tab-${conv.id}`,
+        conversationId: conv.id,
+        agentId: conv.ai_agent?.id || '',
+        agentName: conv.ai_agent?.name || 'Assistant',
+        title: conv.ai_agent?.name || 'Assistant',
+        unreadCount: 0,
+        createdAt: Date.now(),
+      };
+
+      dispatch({ type: 'OPEN_TAB', payload: tab });
+
+      if (state.mode === 'closed') {
+        dispatch({ type: 'SET_MODE', payload: 'floating' });
+      }
+
+      if (state.mode === 'detached') {
+        broadcastRef.current?.send({ type: 'open_tab', payload: tab });
+      }
+    } catch {
+      addNotification({
+        type: 'error',
+        title: 'Chat Error',
+        message: 'Failed to open assistant. Please try again.',
+      });
+    }
+  }, [state.mode, addNotification]);
+
   const closeTab = useCallback((tabId: string) => {
     dispatch({ type: 'CLOSE_TAB', payload: tabId });
   }, []);
@@ -269,6 +309,7 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
     dispatch,
     openConversation,
     openConversationMaximized,
+    openConcierge,
     closeTab,
     switchTab,
     setMode,

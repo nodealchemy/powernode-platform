@@ -6,7 +6,7 @@ import { useChatWindow } from '../context/ChatWindowContext';
 
 export const FloatingChatWidget: React.FC = () => {
   const currentUser = useSelector((state: RootState) => state.auth.user);
-  const { state, setMode } = useChatWindow();
+  const { state, setMode, openConcierge } = useChatWindow();
 
   const hasPermission = currentUser?.permissions?.includes('ai.conversations.create');
 
@@ -15,22 +15,24 @@ export const FloatingChatWidget: React.FC = () => {
     [state.tabs]
   );
 
-  const handleClick = useCallback(() => {
+  const handleClick = useCallback(async () => {
     switch (state.mode) {
       case 'closed':
-        setMode(state.preferredOpenMode);
+        if (state.tabs.length === 0) {
+          await openConcierge();
+        } else {
+          setMode(state.preferredOpenMode);
+        }
         break;
       case 'detached':
-        // Open another detached window (focuses existing or reopens if closed)
         setMode('detached');
         break;
       case 'floating':
       case 'maximized':
-        // Already open inline — focus it by toggling to floating
         setMode('floating');
         break;
     }
-  }, [state.mode, state.preferredOpenMode, setMode]);
+  }, [state.mode, state.preferredOpenMode, state.tabs.length, setMode, openConcierge]);
 
   if (!hasPermission) return null;
 

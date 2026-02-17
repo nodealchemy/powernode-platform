@@ -6,6 +6,10 @@ export interface ChatConversation {
   status: string;
   created_at: string;
   messages: ChatMessage[];
+  ai_agent?: {
+    id: string;
+    name: string;
+  };
 }
 
 export interface ChatMessage {
@@ -45,5 +49,21 @@ export const chatApi = {
       `/ai/agents/${agentId}/conversations/${conversationId}/messages`
     );
     return response.data?.data || [];
-  }
+  },
+
+  createConciergeConversation: async (): Promise<ChatConversation> => {
+    const response = await apiClient.post('/ai/conversations/concierge');
+    return response.data?.data?.conversation;
+  },
+
+  confirmConciergeAction: async (
+    conversationId: string,
+    actionType: string,
+    actionParams: Record<string, unknown> = {}
+  ): Promise<void> => {
+    await apiClient.post(`/ai/conversations/${conversationId}/confirm_action`, {
+      action_type: actionType,
+      action_params: actionParams,
+    });
+  },
 };

@@ -7,8 +7,9 @@ import { MessageActions } from './MessageActions';
 import { MessageEditor } from './MessageEditor';
 import { AttachmentPreview } from './AttachmentPreview';
 import { PlanApprovalActions } from './PlanApprovalActions';
+import { ConciergeActionCard } from './ConciergeActionCard';
 import { TeamActivityMessage } from './TeamActivityMessage';
-import type { AiMessage } from '@/shared/types/ai';
+import type { AiMessage, MessageAction, ActionContext } from '@/shared/types/ai';
 
 interface StreamingInfo {
   isStreaming: boolean;
@@ -19,6 +20,7 @@ interface StreamingInfo {
 
 interface ChatMessageProps {
   message: AiMessage;
+  conversationId?: string;
   streaming?: StreamingInfo;
   onRate?: (messageId: string, rating: 'positive' | 'negative') => void;
   onCancelStream?: () => void;
@@ -39,6 +41,7 @@ function formatTime(dateStr: string): string {
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({
   message,
+  conversationId,
   streaming,
   onRate,
   onCancelStream,
@@ -61,6 +64,8 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   const isActivelyStreaming = streaming?.isStreaming || false;
   const isDeleted = !!message.deleted_at;
   const hasThread = (message.reply_count ?? 0) > 0;
+  const isConciergeAction = Boolean(message.metadata?.concierge_action);
+  const hasPlanActions = isAi && !isConciergeAction && !!message.metadata?.actions && !!message.metadata?.action_context && !!onPlanAction;
 
   const handleEditSave = async (content: string) => {
     if (!onEdit) return;
@@ -160,11 +165,21 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           )}
 
           {/* Plan Approval Actions */}
-          {isAi && message.metadata?.actions && message.metadata?.action_context && onPlanAction && (
+          {hasPlanActions && (
             <PlanApprovalActions
-              actions={message.metadata.actions}
-              actionContext={message.metadata.action_context}
-              onAction={onPlanAction}
+              actions={message.metadata!.actions as MessageAction[]}
+              actionContext={message.metadata!.action_context as ActionContext}
+              onAction={onPlanAction!}
+            />
+          )}
+
+          {/* Concierge Action Card */}
+          {isConciergeAction && !!conversationId && (
+            <ConciergeActionCard
+              conversationId={conversationId}
+              actions={(message.metadata!.actions as unknown as { type: string; label: string; style: string }[]) || []}
+              actionContext={(message.metadata!.action_context as unknown as { type: string; action_type: string; status: string; resolved_at?: string }) || { type: 'concierge_confirmation', action_type: '', status: 'pending' }}
+              actionParams={(message.metadata!.action_params as Record<string, unknown>) || {}}
             />
           )}
 

@@ -1,12 +1,12 @@
 import React from 'react';
-import { Play, UserCheck, CheckCircle2, HelpCircle, Sparkles } from 'lucide-react';
+import { Play, UserCheck, CheckCircle2, HelpCircle, Sparkles, Rocket, AlertTriangle, ShieldCheck } from 'lucide-react';
 import type { AiMessage } from '@/shared/types/ai';
 
 interface TeamActivityMessageProps {
   message: AiMessage;
 }
 
-type ActivityType = 'execution_started' | 'task_assigned' | 'task_progress' | 'task_completed' | 'agent_question' | 'execution_summary';
+type ActivityType = 'execution_started' | 'task_assigned' | 'task_progress' | 'task_completed' | 'agent_question' | 'execution_summary' | 'mission_phase_changed' | 'mission_approval_required' | 'mission_completed' | 'mission_failed';
 
 const activityConfig: Record<ActivityType, {
   icon: React.ElementType;
@@ -49,6 +49,30 @@ const activityConfig: Record<ActivityType, {
     containerClass: 'bg-theme-interactive-primary/5 border-theme-interactive-primary/30',
     iconClass: 'text-theme-interactive-primary',
     label: 'Execution Summary',
+  },
+  mission_phase_changed: {
+    icon: Rocket,
+    containerClass: 'bg-theme-info/10 border-theme-info/30',
+    iconClass: 'text-theme-info',
+    label: 'Mission Update',
+  },
+  mission_approval_required: {
+    icon: ShieldCheck,
+    containerClass: 'bg-theme-warning/10 border-theme-warning/30',
+    iconClass: 'text-theme-warning',
+    label: 'Approval Required',
+  },
+  mission_completed: {
+    icon: CheckCircle2,
+    containerClass: 'bg-theme-success/10 border-theme-success/30',
+    iconClass: 'text-theme-success',
+    label: 'Mission Complete',
+  },
+  mission_failed: {
+    icon: AlertTriangle,
+    containerClass: 'bg-theme-danger/10 border-theme-danger/30',
+    iconClass: 'text-theme-danger',
+    label: 'Mission Failed',
   },
 };
 
