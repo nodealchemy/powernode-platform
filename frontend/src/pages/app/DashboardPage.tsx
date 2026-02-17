@@ -78,6 +78,8 @@ import { SecurityDashboardPage } from '@/features/ai/security';
 import { EvaluationDashboardPage } from '@/features/ai/evaluation';
 // AI Communication hub
 import { CommunicationPage } from './ai/CommunicationPage';
+// AI Code Factory
+import { CodeFactoryPage } from '@/features/ai/code-factory';
 
 // Container Orchestration (Sandboxed AI execution)
 import { ContainersPage } from '@/features/devops/containers/pages/ContainersPage';
@@ -402,7 +404,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/agents/cards" element={<AIAgentsPage />} />
         <Route path="/ai/agents/marketplace" element={<AIAgentsPage />} />
         <Route path="/ai/agents/community" element={<AIAgentsPage />} />
-        <Route path="/ai/agents/:agentId/memory" element={<AgentMemoryPage />} />
+        <Route path="/ai/agents/:agentId/memory/*" element={<AgentMemoryPage />} />
         <Route path="/ai/agents/:agentId/*" element={<AgentDetailPage />} />
         <Route path="/ai/agents/*" element={<AIAgentsPage />} />
         <Route path="/ai/teams" element={<TeamsPage />} />
@@ -434,6 +436,9 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/learning" element={<CompoundLearningPage />} />
         <Route path="/ai/audit" element={<AuditDashboardPage />} />
         <Route path="/ai/security" element={<SecurityDashboardPage />} />
+
+        {/* AI Code Factory */}
+        <Route path="/ai/code-factory/*" element={<CodeFactoryPage />} />
 
         {/* AI Pages - Hidden (no nav, still accessible) */}
         <Route path="/ai/evaluation" element={<EvaluationDashboardPage />} />
@@ -526,9 +531,9 @@ const DashboardPage: React.FC = () => {
         <Route path="/supply-chain/sboms/:id" element={<SbomDetailPage />} />
         <Route path="/supply-chain/sboms/:id/diff/:diffId" element={<SbomDiffPage />} />
         <Route path="/supply-chain/containers" element={<ContainerImagesPage />} />
-        <Route path="/supply-chain/containers/:id" element={<ContainerImageDetailPage />} />
+        <Route path="/supply-chain/containers/:id/*" element={<ContainerImageDetailPage />} />
         <Route path="/supply-chain/attestations" element={<AttestationsPage />} />
-        <Route path="/supply-chain/attestations/:id" element={<AttestationDetailPage />} />
+        <Route path="/supply-chain/attestations/:id/*" element={<AttestationDetailPage />} />
         <Route path="/supply-chain/vendors" element={<VendorsPage />} />
         <Route path="/supply-chain/vendors/risk-dashboard" element={<VendorRiskDashboardPage />} />
         <Route path="/supply-chain/vendors/:id" element={<VendorDetailPage />} />

@@ -8,7 +8,7 @@ import {
   CheckCircle2, Scale, Building2, Activity, ShieldCheck,
   FlaskConical, MessagesSquare,
   Container, Coins,
-  Play,
+  Play, Factory,
   Megaphone, CalendarDays, Mail, Share2, TrendingUp
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
@@ -125,6 +125,15 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 4
         },
         {
+          id: 'ai-code-factory',
+          name: 'Code Factory',
+          href: '/app/ai/code-factory',
+          icon: Factory,
+          description: 'Automated code review, remediation, and evidence loops',
+          permissions: ['ai.code_factory.read'],
+          order: 5
+        },
+        {
           id: 'ai-execution',
           name: 'Execution',
           href: '/app/ai/execution',
@@ -197,7 +206,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 15
         }
       ],
-      permissions: ['ai.agents.read', 'ai.workflows.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.analytics.read', 'ai.credits.read', 'ai.teams.read', 'ai.finops.view'],
+      permissions: ['ai.agents.read', 'ai.workflows.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.analytics.read', 'ai.credits.read', 'ai.teams.read', 'ai.finops.view', 'ai.code_factory.read'],
       collapsible: true,
       defaultExpanded: true,
       order: 10

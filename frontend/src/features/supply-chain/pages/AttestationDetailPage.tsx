@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { ShieldCheck, Download, BookOpen, History, Key } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { TabContainer } from '@/shared/components/ui/TabContainer';
@@ -16,15 +16,28 @@ import { formatDateTime } from '@/shared/utils/formatters';
 
 type TabId = 'overview' | 'provenance' | 'verification';
 
+const getAttestationTabFromPath = (pathname: string): TabId => {
+  const segment = pathname.split('/').filter(Boolean).pop() || '';
+  if (['provenance', 'verification'].includes(segment)) return segment as TabId;
+  return 'overview';
+};
+
 export const AttestationDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const [activeTab, setActiveTab] = useState<TabId>('overview');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<TabId>(() => getAttestationTabFromPath(location.pathname));
   const [actionLoading, setActionLoading] = useState(false);
 
   const { attestation, loading, error, refresh } = useAttestation(id || null);
   const signMutation = useSignAttestation();
   const { showNotification } = useNotifications();
   const [showSignModal, setShowSignModal] = useState(false);
+
+  useEffect(() => {
+    const newTab = getAttestationTabFromPath(location.pathname);
+    if (newTab !== activeTab) setActiveTab(newTab);
+  }, [location.pathname]);
 
   const handleSign = async (signingKeyId?: string) => {
     if (!id) return;
@@ -387,7 +400,13 @@ export const AttestationDetailPage: React.FC = () => {
       <TabContainer
         tabs={tabs}
         activeTab={activeTab}
-        onTabChange={(tabId) => setActiveTab(tabId as TabId)}
+        onTabChange={(tabId) => {
+          const tab = tabId as TabId;
+          const path = tab === 'overview'
+            ? `/app/supply-chain/attestations/${id}`
+            : `/app/supply-chain/attestations/${id}/${tab}`;
+          navigate(path);
+        }}
         variant="underline"
         showContent={false}
       />

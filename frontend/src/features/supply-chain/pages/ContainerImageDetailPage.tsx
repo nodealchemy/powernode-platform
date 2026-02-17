@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { RefreshCw, ShieldCheck, Ban } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { TabContainer } from '@/shared/components/ui/TabContainer';
@@ -17,9 +17,17 @@ import { formatDateTime } from '@/shared/utils/formatters';
 
 type TabId = 'overview' | 'vulnerabilities' | 'sbom' | 'policies';
 
+const getContainerTabFromPath = (pathname: string): TabId => {
+  const segment = pathname.split('/').filter(Boolean).pop() || '';
+  if (['vulnerabilities', 'sbom', 'policies'].includes(segment)) return segment as TabId;
+  return 'overview';
+};
+
 export const ContainerImageDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const [activeTab, setActiveTab] = useState<TabId>('overview');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<TabId>(() => getContainerTabFromPath(location.pathname));
   const [actionLoading, setActionLoading] = useState(false);
 
   const { image, loading, error, refresh } = useContainerImage(id || null);
@@ -27,6 +35,11 @@ export const ContainerImageDetailPage: React.FC = () => {
   const { sbom, loading: sbomLoading } = useContainerSbom(id || null);
   const evaluatePolicies = useEvaluatePolicies();
   const [policyResults, setPolicyResults] = useState<Awaited<ReturnType<typeof evaluatePolicies.mutateAsync>> | null>(null);
+
+  useEffect(() => {
+    const newTab = getContainerTabFromPath(location.pathname);
+    if (newTab !== activeTab) setActiveTab(newTab);
+  }, [location.pathname]);
 
   const handleEvaluatePolicies = async () => {
     if (!id) return;
@@ -295,7 +308,13 @@ export const ContainerImageDetailPage: React.FC = () => {
       <TabContainer
         tabs={tabs}
         activeTab={activeTab}
-        onTabChange={(tabId) => setActiveTab(tabId as TabId)}
+        onTabChange={(tabId) => {
+          const tab = tabId as TabId;
+          const path = tab === 'overview'
+            ? `/app/supply-chain/containers/${id}`
+            : `/app/supply-chain/containers/${id}/${tab}`;
+          navigate(path);
+        }}
         variant="underline"
         showContent={false}
       />

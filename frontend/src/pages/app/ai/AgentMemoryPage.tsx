@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Brain, Database } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { MemoryViewer } from '@/features/ai/memory/components/MemoryViewer';
@@ -85,9 +85,14 @@ function MemoryPoolsTab() {
   );
 }
 
+const getMemoryTabFromPath = (pathname: string): 'agent' | 'pools' => {
+  return pathname.endsWith('/pools') ? 'pools' : 'agent';
+};
+
 export function AgentMemoryPage() {
   const { agentId } = useParams<{ agentId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { showNotification } = useNotifications();
 
   // WebSocket for real-time updates
@@ -104,7 +109,12 @@ export function AgentMemoryPage() {
   const [editingEntry, setEditingEntry] = useState<AiContextEntry | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [activeTab, setActiveTab] = useState<'agent' | 'pools'>('agent');
+  const [activeTab, setActiveTab] = useState<'agent' | 'pools'>(() => getMemoryTabFromPath(location.pathname));
+
+  useEffect(() => {
+    const newTab = getMemoryTabFromPath(location.pathname);
+    if (newTab !== activeTab) setActiveTab(newTab);
+  }, [location.pathname]);
 
   const breadcrumbs = [
     { label: 'Dashboard', href: '/app' },
@@ -279,7 +289,7 @@ export function AgentMemoryPage() {
       <div className="flex gap-1 mb-6 border-b border-theme">
         <button
           type="button"
-          onClick={() => setActiveTab('agent')}
+          onClick={() => navigate(`/app/ai/agents/${agentId}/memory`)}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'agent'
               ? 'border-theme-primary text-theme-primary'
@@ -293,7 +303,7 @@ export function AgentMemoryPage() {
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab('pools')}
+          onClick={() => navigate(`/app/ai/agents/${agentId}/memory/pools`)}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'pools'
               ? 'border-theme-primary text-theme-primary'
