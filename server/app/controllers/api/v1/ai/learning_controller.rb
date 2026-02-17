@@ -139,7 +139,7 @@ module Api
           if benchmark.save
             render_success(benchmark: benchmark_json(benchmark))
           else
-            render_error(benchmark.errors.full_messages.join(", "), status: :unprocessable_entity)
+            render_error(benchmark.errors.full_messages.join(", "), status: :unprocessable_content)
           end
         end
 
@@ -150,7 +150,7 @@ module Api
 
           evaluation_service = ::Ai::Learning::EvaluationService.new(account: current_user.account)
           agent_id = benchmark.target_agent_id
-          return render_error("Benchmark has no target agent", status: :unprocessable_entity) unless agent_id
+          return render_error("Benchmark has no target agent", status: :unprocessable_content) unless agent_id
 
           trend_data = evaluation_service.agent_score_trends(agent_id)
           benchmark.record_results!(trend_data || {})

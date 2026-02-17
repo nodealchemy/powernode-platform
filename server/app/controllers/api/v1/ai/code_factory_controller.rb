@@ -30,7 +30,7 @@ module Api
           if contract.save
             render_success(contract: contract.as_json(include_associations), status: :created)
           else
-            render_error(contract.errors.full_messages.join(", "), :unprocessable_entity)
+            render_error(contract.errors.full_messages.join(", "), :unprocessable_content)
           end
         end
 
@@ -47,7 +47,7 @@ module Api
           if contract.update(contract_params)
             render_success(contract: contract.as_json(include_associations))
           else
-            render_error(contract.errors.full_messages.join(", "), :unprocessable_entity)
+            render_error(contract.errors.full_messages.join(", "), :unprocessable_content)
           end
         end
 
@@ -57,7 +57,7 @@ module Api
           contract.activate!
           render_success(contract: contract.as_json(include_associations))
         rescue StandardError => e
-          render_error(e.message, :unprocessable_entity)
+          render_error(e.message, :unprocessable_content)
         end
 
         # POST /api/v1/ai/code_factory/preflight
@@ -83,7 +83,7 @@ module Api
             reason: result[:reason]
           })
         rescue ::Ai::CodeFactory::PreflightGateService::GateError => e
-          render_error(e.message, :unprocessable_entity)
+          render_error(e.message, :unprocessable_content)
         end
 
         # GET /api/v1/ai/code_factory/review_states
@@ -116,7 +116,7 @@ module Api
           result = service.remediate(findings: params[:findings] || [])
           render_success(remediation: result)
         rescue ::Ai::CodeFactory::RemediationLoopService::RemediationError => e
-          render_error(e.message, :unprocessable_entity)
+          render_error(e.message, :unprocessable_content)
         end
 
         # POST /api/v1/ai/code_factory/review_states/:id/resolve_threads
@@ -126,7 +126,7 @@ module Api
           result = service.resolve_bot_threads(review_state: state)
           render_success(thread_resolution: result)
         rescue ::Ai::CodeFactory::ThreadResolverService::ResolverError => e
-          render_error(e.message, :unprocessable_entity)
+          render_error(e.message, :unprocessable_content)
         end
 
         # POST /api/v1/ai/code_factory/evidence
@@ -144,7 +144,7 @@ module Api
           validation = service.validate_evidence(review_state: state, manifest: manifest)
           render_success(evidence: { manifest_id: manifest.id, validation: validation })
         rescue StandardError => e
-          render_error(e.message, :unprocessable_entity)
+          render_error(e.message, :unprocessable_content)
         end
 
         # GET /api/v1/ai/code_factory/evidence/:id
@@ -179,7 +179,7 @@ module Api
           )
           render_success(harness_gap: gap, status: :created)
         rescue ::Ai::CodeFactory::HarnessGapService::GapError => e
-          render_error(e.message, :unprocessable_entity)
+          render_error(e.message, :unprocessable_content)
         end
 
         # PUT /api/v1/ai/code_factory/harness_gaps/:id/add_case
@@ -209,19 +209,19 @@ module Api
           )
           render_success(result: result)
         rescue ::Ai::CodeFactory::OrchestratorService::OrchestrationError => e
-          render_error(e.message, :unprocessable_entity)
+          render_error(e.message, :unprocessable_content)
         end
 
         private
 
         def authorize_read!
-          unless current_user.has_permission?("ai.code_factory.read")
+          unless has_permission?("ai.code_factory.read")
             render_error("Forbidden", :forbidden)
           end
         end
 
         def authorize_manage!
-          unless current_user.has_permission?("ai.code_factory.manage")
+          unless has_permission?("ai.code_factory.manage")
             render_error("Forbidden", :forbidden)
           end
         end

@@ -17,6 +17,7 @@ module Authentication
       # When WORKER_TOKEN environment variable is set, authenticate using the provided token
       @current_worker = Worker.authenticate(worker_token)
       if @current_worker
+        @current_account = @current_worker.account if @current_worker.account_id.present?
         return # Worker authentication successful via X-Worker-Token
       else
         return render_unauthorized("Invalid or expired worker token")
@@ -33,6 +34,7 @@ module Authentication
       if header.start_with?("swt_") || header == "development_worker_token"
         @current_worker = Worker.authenticate(header)
         if @current_worker
+          @current_account = @current_worker.account if @current_worker.account_id.present?
           return # Worker authentication successful
         else
           return render_unauthorized("Invalid or expired worker token")

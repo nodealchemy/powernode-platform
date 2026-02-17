@@ -2133,6 +2133,36 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
+        # MISSIONS - AI-Assisted Development Hub
+        # ===================================================================
+        scope :missions, controller: "missions" do
+          get "/", action: :index
+          post "/", action: :create
+          post "analyze_repo", action: :analyze_repo
+          get ":id", action: :show
+          patch ":id", action: :update
+          delete ":id", action: :destroy
+          post ":id/start", action: :start
+          post ":id/approve", action: :approve
+          post ":id/reject", action: :reject
+          post ":id/pause", action: :pause
+          post ":id/resume", action: :resume
+          post ":id/cancel", action: :cancel
+          post ":id/retry", action: :retry_phase
+          post ":id/deploy_callback", action: :deploy_callback
+
+          # Worker-called phase endpoints
+          post ":id/advance", action: :advance
+          post ":id/create_branch", action: :create_branch
+          post ":id/generate_prd", action: :generate_prd
+          post ":id/run_tests", action: :run_tests
+          get  ":id/test_status", action: :test_status
+          post ":id/deploy", action: :deploy
+          post ":id/create_pr", action: :create_pr
+          post ":id/cleanup_deployment", action: :cleanup_deployment
+        end
+
+        # ===================================================================
         # CODE FACTORY - Risk contracts, preflight gates, SHA discipline
         # ===================================================================
         scope :code_factory, controller: "code_factory" do

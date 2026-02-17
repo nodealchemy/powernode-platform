@@ -296,6 +296,10 @@ module Permissions
     "ai.code_factory.read" => "View Code Factory risk contracts and review states",
     "ai.code_factory.manage" => "Manage Code Factory contracts, run preflight gates, and remediation",
 
+    # AI Missions
+    "ai.missions.read" => "View missions and mission details",
+    "ai.missions.manage" => "Create, manage, and approve missions",
+
     # DevOps Pipeline Management
     "devops.pipelines.read" => "View DevOps pipelines",
     "devops.pipelines.write" => "Create, update, and delete DevOps pipelines",
@@ -625,6 +629,8 @@ module Permissions
         "ai.teams.manage",
         # AI Discovery, Memory Pools, Code Reviews (read-only)
         "ai.discovery.read", "ai.memory_pools.read", "ai.code_reviews.read",
+        # AI Missions (read-only)
+        "ai.missions.read",
         # File management permissions
         "files.read", "files.create", "files.download", "files.update", "files.delete",
         "storage.read"
@@ -724,7 +730,9 @@ module Permissions
         "ai.discovery.read", "ai.discovery.manage",
         "ai.memory_pools.read", "ai.memory_pools.manage",
         "ai.code_reviews.read", "ai.code_reviews.manage",
-        "ai.autonomy.configure"
+        "ai.autonomy.configure",
+        # AI Missions
+        "ai.missions.read", "ai.missions.manage"
       ]
     },
 
