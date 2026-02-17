@@ -135,6 +135,18 @@ module Devops
       raise NotImplementedError
     end
 
+    def create_branch(owner, repo, new_branch:, old_branch:)
+      raise NotImplementedError
+    end
+
+    def create_pull_request(owner, repo, title:, body:, head:, base:)
+      raise NotImplementedError
+    end
+
+    def merge_pull_request(owner, repo, number, merge_type: "merge")
+      raise NotImplementedError
+    end
+
     protected
 
     def connection

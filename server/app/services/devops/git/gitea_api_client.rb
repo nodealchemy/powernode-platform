@@ -492,6 +492,46 @@ module Devops
       result.map { |tag| normalize_gitea_tag(tag) }
     end
 
+    def create_branch(owner, repo, new_branch:, old_branch:)
+      with_error_handling do
+        payload = {
+          new_branch_name: new_branch,
+          old_branch_name: old_branch
+        }
+        post("/repos/#{owner}/#{repo}/branches", payload)
+        { success: true, branch: new_branch }
+      end
+    end
+
+    def create_pull_request(owner, repo, title:, body:, head:, base:)
+      with_error_handling do
+        payload = {
+          title: title,
+          body: body,
+          head: head,
+          base: base
+        }
+        result = post("/repos/#{owner}/#{repo}/pulls", payload)
+        {
+          success: true,
+          number: result["number"],
+          url: result["html_url"],
+          id: result["id"]
+        }
+      end
+    end
+
+    def merge_pull_request(owner, repo, number, merge_type: "merge")
+      with_error_handling do
+        payload = {
+          Do: merge_type,
+          merge_message_field: ""
+        }
+        post("/repos/#{owner}/#{repo}/pulls/#{number}/merge", payload)
+        { success: true }
+      end
+    end
+
     protected
 
     def configure_auth(conn)
