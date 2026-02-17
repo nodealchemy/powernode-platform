@@ -51,7 +51,16 @@ class AiMissionPlanJob < BaseJob
     })
 
     if prd_result['success']
-      log_info("Mission planning completed", mission_id: mission_id)
+      # Verify ralph_loop was actually created
+      verify = backend_api_get("/api/v1/ai/missions/#{mission_id}")
+      ralph_loop_id = verify.dig('data', 'mission', 'ralph_loop_id') if verify['success']
+
+      unless ralph_loop_id
+        report_failure(mission_id, "PRD generated but failed to create execution loop")
+        return
+      end
+
+      log_info("Mission planning completed", mission_id: mission_id, ralph_loop_id: ralph_loop_id)
     else
       error_msg = prd_result['error'] || 'Planning failed'
       log_error("Mission planning failed", error: error_msg)
