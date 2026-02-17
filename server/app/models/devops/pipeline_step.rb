@@ -24,6 +24,7 @@ module Devops
       generate_attestation
       sign_artifact
       policy_gate
+      code_factory_gate
     ].freeze
 
     # ============================================

@@ -19,6 +19,8 @@ module Ai
     belongs_to :account
     belongs_to :default_agent, class_name: "Ai::Agent", foreign_key: "default_agent_id", optional: true
     belongs_to :container_instance, class_name: "Devops::ContainerInstance", foreign_key: "container_instance_id", optional: true
+    belongs_to :risk_contract, class_name: "Ai::CodeFactory::RiskContract",
+               foreign_key: "risk_contract_id", optional: true
 
     has_many :ralph_tasks, class_name: "Ai::RalphTask",
              foreign_key: "ralph_loop_id", dependent: :destroy
@@ -70,6 +72,10 @@ module Ai
 
     class InvalidTransitionError < StandardError; end
 
+    def code_factory_mode?
+      code_factory_mode == true
+    end
+
     private
 
     def set_defaults
@@ -83,6 +89,7 @@ module Ai
       self.total_tasks ||= 0
       self.completed_tasks ||= 0
       self.failed_tasks ||= 0
+      self.code_factory_mode ||= false
     end
 
     def default_agent_belongs_to_account
