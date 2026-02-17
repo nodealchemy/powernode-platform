@@ -178,6 +178,18 @@ module Api
             content_metadata: message_params[:metadata] || {}
           )
 
+          # Concierge routing — process through ConciergeService
+          if conversation.agent&.is_concierge?
+            concierge = ::Ai::ConciergeService.new(conversation: conversation, user: current_user)
+            concierge.process_message(content)
+            return render_success({
+              user_message: serialize_message(user_message),
+              assistant_message: nil,
+              concierge_routed: true,
+              conversation: { id: conversation.id, message_count: conversation.reload.message_count }
+            })
+          end
+
           # Auto-classify plan approval intent for team conversations
           if conversation.team_conversation?
             service = ::Ai::TeamConversationService.new(account: current_user.account)
@@ -261,6 +273,57 @@ module Api
           })
         rescue ActiveRecord::RecordNotFound
           render_error("Agent or conversation not found", status: :not_found)
+        end
+
+        # POST /api/v1/ai/conversations/concierge
+        def create_concierge
+          agent = current_user.account.ai_agents.default_concierge.first
+          return render_error("No concierge agent configured", status: :not_found) unless agent
+
+          conversation = agent.conversations.active
+            .where(user_id: current_user.id)
+            .order(last_activity_at: :desc).first
+
+          unless conversation
+            ProviderAvailabilityService.validate_agent_provider!(agent)
+            conversation = agent.conversations.create!(
+              conversation_id: SecureRandom.uuid,
+              user_id: current_user.id,
+              account_id: current_user.account_id,
+              ai_provider_id: agent.ai_provider_id,
+              title: "Chat with #{agent.name}",
+              status: "active",
+              conversation_type: "agent",
+              last_activity_at: Time.current
+            )
+          end
+
+          render_success({ conversation: serialize_conversation_detail(conversation) })
+        rescue ProviderAvailabilityService::ProviderUnavailableError => e
+          render_error(e.message, status: :precondition_failed)
+        end
+
+        # POST /api/v1/ai/conversations/:id/confirm_action
+        def confirm_action
+          @conversation = current_user.account.ai_conversations
+            .find_by(id: params[:id]) || current_user.account.ai_conversations.find_by!(conversation_id: params[:id])
+
+          unless @conversation.agent&.is_concierge?
+            return render_error("This action is only available for concierge conversations", status: :unprocessable_content)
+          end
+
+          concierge = ::Ai::ConciergeService.new(conversation: @conversation, user: current_user)
+          concierge.handle_confirmed_action(
+            params[:action_type],
+            params[:action_params]&.to_unsafe_h || params[:action_params]&.permit!&.to_h || {}
+          )
+
+          render_success({ confirmed: true })
+        rescue ActiveRecord::RecordNotFound
+          render_error("Conversation not found", status: :not_found)
+        rescue StandardError => e
+          Rails.logger.error("[CONVERSATIONS] confirm_action error: #{e.message}\n#{e.backtrace.first(5).join("\n")}")
+          render_internal_error("Failed to execute action", exception: e)
         end
 
         private

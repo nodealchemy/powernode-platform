@@ -1695,6 +1695,7 @@ Rails.application.routes.draw do
             get :search
             patch :bulk
             post :team, action: :create_team
+            post :concierge, action: :create_concierge
           end
           member do
             post :archive
@@ -1704,6 +1705,7 @@ Rails.application.routes.draw do
             delete :unpin
             get :stats
             post :plan_response
+            post :confirm_action
             post :worker_complete
             post :worker_stream_chunk
             post :worker_error

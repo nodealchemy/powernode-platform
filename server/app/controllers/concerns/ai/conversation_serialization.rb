@@ -10,9 +10,9 @@ module Ai
       case action_name
       when "index", "show", "stats", "messages", "active", "search", "scheduled_messages_index"
         require_permission("ai.conversations.read")
-      when "create", "duplicate", "send_message", "create_team", "scheduled_messages_create"
+      when "create", "duplicate", "send_message", "create_team", "create_concierge", "scheduled_messages_create"
         require_permission("ai.conversations.create")
-      when "update", "archive", "unarchive", "pin", "unpin", "bulk", "plan_response", "scheduled_messages_update"
+      when "update", "archive", "unarchive", "pin", "unpin", "bulk", "plan_response", "confirm_action", "scheduled_messages_update"
         require_permission("ai.conversations.update")
       when "destroy", "scheduled_messages_destroy"
         require_permission("ai.conversations.delete")
