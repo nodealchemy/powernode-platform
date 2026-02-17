@@ -119,6 +119,27 @@ module Devops
       end
     end
 
+    def delete_file(owner, repo, path, sha, options = {})
+      with_error_handling do
+        payload = {
+          sha: sha,
+          message: options[:message] || "Delete #{path}",
+          branch: options[:branch]
+        }.compact
+        delete_with_body("/repos/#{owner}/#{repo}/contents/#{path}", payload)
+        { success: true }
+      end
+    end
+
+    def search_code(owner, repo, query, options = {})
+      with_error_handling do
+        params = { q: query, limit: options[:limit] || 20 }
+        params[:ref] = options[:ref] if options[:ref]
+        result = get("/repos/#{owner}/#{repo}/contents", params) rescue []
+        { success: true, results: result.is_a?(Array) ? result : [] }
+      end
+    end
+
     def list_branches(owner, repo, options = {})
       page = options[:page] || 1
       per_page = options[:per_page] || 30
@@ -470,7 +491,7 @@ module Devops
 
     def get_file_content(owner, repo, path, ref = nil)
       params = {}
-      params[:ref] = ref if ref
+      params[:ref] = resolve_ref(owner, repo, ref) if ref
       result = get("/repos/#{owner}/#{repo}/contents/#{path}", params)
       normalize_gitea_file_content(result)
     rescue NotFoundError
@@ -540,6 +561,26 @@ module Devops
     end
 
     private
+
+    # Resolve branch/tag refs containing slashes to their commit SHA.
+    # Gitea's contents API mishandles ref query parameters with slashes
+    # (e.g. ?ref=mission/abc-feature). Passing the commit SHA instead
+    # makes the API call succeed directly.
+    def resolve_ref(owner, repo, ref)
+      return ref unless ref.include?("/")
+
+      branch_info = get_branch(owner, repo, ref)
+      branch_info&.dig("commit", "id") || branch_info&.dig("commit", "sha") || ref
+    rescue NotFoundError, ApiError
+      ref
+    end
+
+    def delete_with_body(path, body)
+      response = connection.run_request(:delete, normalize_path(path), body.to_json, {}) do |req|
+        req.headers["Content-Type"] = "application/json"
+      end
+      handle_response(response)
+    end
 
     def webhook_events
       %w[push pull_request pull_request_review issues issue_comment create delete release workflow_run]

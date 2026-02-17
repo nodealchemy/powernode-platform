@@ -125,6 +125,11 @@ module Ai
             learning: extract_learning(result[:output])
           )
 
+          # Set git_branch when commits were made
+          if result[:commit_sha].present?
+            iteration.update_columns(git_branch: ralph_loop.branch)
+          end
+
           iteration.record_token_usage(
             input: result.dig(:tokens, :input) || 0,
             output: result.dig(:tokens, :output) || 0,

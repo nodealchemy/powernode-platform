@@ -62,37 +62,56 @@ module Ai
       private
 
       # Resolve the executor to use
+      # Priority: explicit executor > loop default_agent > capability match > nil
       def resolve_executor
         return task.executor if task.executor.present?
+
+        # Prefer the loop's configured default agent over arbitrary capability match
+        default = ralph_loop.default_agent
+        return default if default
 
         executor = task.find_matching_executor
         return executor if executor
 
-        default = ralph_loop.default_agent
-        return default if default
-
         nil
       end
 
-      MAX_TOOL_CALLS = 5
-
-      # Execute task via AI agent with MCP tool-calling loop
+      # Execute task via AI agent with agentic tool-calling loop
       def execute_via_agent(agent)
         provider = agent.provider
         credential = provider.provider_credentials.active.first
         raise "No active credentials for provider #{provider.name}" unless credential
 
         client = Ai::ProviderClientService.new(credential)
+        provider_type = provider.provider_type
         messages = build_agent_messages(agent)
         options = build_agent_options(agent, provider)
 
-        # MCP tool-calling loop
-        mcp_tools = ralph_loop.available_mcp_tools
-        if mcp_tools.any?
-          options[:functions] = mcp_tools.map { |t| mcp_tool_definition(t) }
+        # Initialize git tool executor if repository is available
+        git_executor = nil
+        if GitToolExecutor.available?(ralph_loop)
+          git_executor = GitToolExecutor.new(ralph_loop: ralph_loop)
+          git_tools = GitToolDefinitions.for_provider(provider_type)
+          options[:tools] = (options[:tools] || []) + git_tools
         end
 
-        result = execute_with_tool_calls(client, messages, options, mcp_tools)
+        # Add MCP tools
+        mcp_tools = ralph_loop.available_mcp_tools
+        if mcp_tools.any?
+          mcp_defs = mcp_tools.map { |t| mcp_tool_definition_for_provider(t, provider_type) }
+          options[:tools] = (options[:tools] || []) + mcp_defs
+        end
+
+        # Run agentic loop
+        loop_runner = AgenticLoop.new(
+          client: client,
+          provider_type: provider_type,
+          account: account,
+          git_tool_executor: git_executor,
+          mcp_tools: mcp_tools
+        )
+
+        result = loop_runner.execute(messages, options)
         normalize_result(result, agent)
       rescue StandardError => e
         Rails.logger.error("Agent execution failed: #{e.message}\n#{e.backtrace.first(5).join("\n")}")
@@ -322,7 +341,7 @@ module Ai
 
       # Build the prompt for AI execution
       def build_prompt
-        <<~PROMPT
+        prompt = <<~PROMPT
           ## Task: #{task.task_key}
 
           #{task.description}
@@ -335,6 +354,18 @@ module Ai
           - Iteration: #{ralph_loop.current_iteration + 1}
           - Repository: #{ralph_loop.repository_url || "Not specified"}
           - Branch: #{ralph_loop.branch}
+        PROMPT
+
+        # Add mission objective context if available
+        if ralph_loop.mission&.objective.present?
+          prompt += <<~MISSION
+
+            ### Mission Objective
+            #{ralph_loop.mission.objective}
+          MISSION
+        end
+
+        prompt += <<~REST
 
           ### Previous Learnings
           #{format_learnings}
@@ -343,7 +374,9 @@ module Ai
           Complete this task according to the acceptance criteria.
           Provide clear output showing what was done.
           Extract any learnings that could help future iterations.
-        PROMPT
+        REST
+
+        prompt
       end
 
       # Format recent learnings for prompt
@@ -368,7 +401,8 @@ module Ai
       end
 
       def build_agent_options(agent, provider)
-        model_config = agent.mcp_metadata&.dig("ollama_config") || agent.mcp_metadata || {}
+        metadata = agent.mcp_metadata || {}
+        model_config = metadata.dig("ollama_config") || metadata.dig("model_config") || metadata
         {
           model: model_config["model"] || provider.default_model,
           max_tokens: model_config["max_tokens"] || 4096,
@@ -377,7 +411,7 @@ module Ai
       end
 
       def default_system_prompt
-        <<~SYSTEM
+        base = <<~SYSTEM
           You are an AI assistant helping with software development tasks.
           You are part of a Ralph Loop - an iterative development cycle.
 
@@ -392,31 +426,72 @@ module Ai
           3. If you learn something useful for future iterations, include it with "Learning:" prefix
           4. Be concise but thorough
         SYSTEM
-      end
 
-      def execute_with_tool_calls(client, messages, options, mcp_tools)
-        MAX_TOOL_CALLS.times do
-          result = client.send_message(messages, options)
-          return result unless has_tool_call?(result)
+        # Inject repository context from mission analysis
+        base += build_repo_context
 
-          tool_call = extract_tool_call(result)
-          mcp_tool = mcp_tools.find { |t| t.name == tool_call[:name] }
-          raise "Unknown tool: #{tool_call[:name]}" unless mcp_tool
+        # Inject PRD task overview
+        base += build_prd_context
 
-          tool_result = Mcp::SyncExecutionService.new(
-            server: mcp_tool.mcp_server,
-            tool: mcp_tool,
-            parameters: tool_call[:arguments],
-            user: nil,
-            account: account
-          ).execute
+        if GitToolExecutor.available?(ralph_loop)
+          base += <<~GIT_INSTRUCTIONS
 
-          messages << { role: "assistant", content: nil, function_call: tool_call }
-          messages << { role: "function", name: tool_call[:name], content: tool_result.to_json }
+            Git Tool Usage:
+            You have access to git tools that operate directly on the repository. Follow this workflow:
+            1. Start by exploring the repo: use `get_repo_info` and `list_files` to understand structure
+            2. Read existing files before modifying: use `read_file` to understand current code
+            3. Write complete files: use `write_file` with the ENTIRE file content (not diffs)
+            4. Use meaningful commit messages that describe the change clearly
+            5. Use `search_code` to find relevant patterns and existing implementations
+            6. After making changes, verify with `read_file` if needed
+          GIT_INSTRUCTIONS
         end
 
-        # Final call without tools after max tool calls
-        client.send_message(messages, options.except(:functions))
+        base
+      end
+
+      def build_repo_context
+        analysis = ralph_loop.mission&.analysis_result
+        return "" if analysis.blank?
+
+        context = "\n"
+
+        # Tech stack
+        if analysis["tech_stack"].present?
+          tech = analysis["tech_stack"]
+          context += "Tech Stack:\n"
+          context += "  Dependencies: #{Array(tech['dependencies']).first(15).join(', ')}\n" if tech["dependencies"]
+          context += "  Dev deps: #{Array(tech['dev_dependencies']).first(10).join(', ')}\n" if tech["dev_dependencies"]
+        end
+
+        # File tree
+        if analysis.dig("structure", "entries").present?
+          entries = analysis["structure"]["entries"]
+          context += "\nRepository Structure:\n"
+          entries.first(30).each do |entry|
+            prefix = entry["type"] == "tree" ? "[dir]" : "[file]"
+            context += "  #{prefix} #{entry['path']}\n"
+          end
+        end
+
+        context
+      end
+
+      def build_prd_context
+        prd = ralph_loop.prd_json
+        return "" if prd.blank? || prd["tasks"].blank?
+
+        tasks = prd["tasks"]
+        completed_keys = ralph_loop.ralph_tasks.where(status: "passed").pluck(:task_key)
+
+        context = "\nPRD Task Overview:\n"
+        tasks.each do |t|
+          key = t["key"] || t["task_key"]
+          status_marker = completed_keys.include?(key) ? "[DONE]" : "[TODO]"
+          context += "  #{status_marker} #{key}: #{t['name'] || t['description']}\n"
+        end
+
+        context
       end
 
       def normalize_result(result, agent)
@@ -424,14 +499,17 @@ module Ai
           return { success: false, error: result[:error], error_code: result[:error_type] }
         end
 
+        output = result[:content] || extract_content(result[:response])
+
         {
           success: true,
-          output: extract_content(result[:response]),
+          output: output,
           checks_passed: true,
-          commit_sha: nil,
+          commit_sha: result[:last_commit_sha],
+          file_changes: result[:file_changes] || [],
           tokens: {
-            input: result.dig(:metadata, :prompt_tokens) || result.dig(:metadata, :tokens_used) || 0,
-            output: result.dig(:metadata, :completion_tokens) || 0
+            input: result.dig(:metadata, :usage, :prompt_tokens) || result.dig(:metadata, :tokens_used) || 0,
+            output: result.dig(:metadata, :usage, :completion_tokens) || 0
           },
           cost: result.dig(:metadata, :cost) || 0,
           executor_type: "agent",
@@ -439,33 +517,24 @@ module Ai
         }
       end
 
-      def mcp_tool_definition(tool)
-        {
-          name: tool.name,
-          description: tool.description || tool.name,
-          parameters: tool.input_schema || {}
-        }
-      end
-
-      def has_tool_call?(result)
-        return false unless result[:success] && result[:response].is_a?(Hash)
-
-        response = result[:response]
-        response[:function_call].present? ||
-          response.dig(:choices, 0, :message, :function_call).present? ||
-          response.dig(:choices, 0, :message, :tool_calls).present?
-      end
-
-      def extract_tool_call(result)
-        response = result[:response]
-
-        fc = response[:function_call] ||
-             response.dig(:choices, 0, :message, :function_call) ||
-             response.dig(:choices, 0, :message, :tool_calls, 0, :function)
-
-        return { name: fc[:name], arguments: fc[:arguments] } if fc
-
-        raise "Could not extract tool call from response"
+      def mcp_tool_definition_for_provider(tool, provider_type)
+        case provider_type
+        when "anthropic"
+          {
+            name: tool.name,
+            description: tool.description || tool.name,
+            input_schema: tool.input_schema || { type: "object", properties: {}, required: [] }
+          }
+        else
+          {
+            type: "function",
+            function: {
+              name: tool.name,
+              description: tool.description || tool.name,
+              parameters: tool.input_schema || { type: "object", properties: {}, required: [] }
+            }
+          }
+        end
       end
 
       def resolve_worktree_path
