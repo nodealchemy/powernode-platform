@@ -247,6 +247,15 @@ class JobsController
       'Maintenance::LogRotationJob',
       # AI Skills jobs
       'AiSkillSyncJob',
+      # AI Mission jobs
+      'AiMissionAnalyzeJob',
+      'AiMissionPlanJob',
+      'AiMissionExecuteJob',
+      'AiMissionTestJob',
+      'AiMissionReviewJob',
+      'AiMissionDeployJob',
+      'AiMissionMergeJob',
+      'AiMissionCleanupJob',
       # Supply chain jobs
       'SupplyChain::QuestionnaireNotificationJob'
     ]

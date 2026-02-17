@@ -57,6 +57,15 @@ class AiCodeFactoryPrdJob < BaseJob
         })
       end
 
+      # Link Ralph Loop to Mission if mission_id is provided
+      mission_id = prd_params['mission_id']
+      if mission_id.present?
+        backend_api_patch("/api/v1/ai/ralph_loops/#{ralph_loop_id}", {
+          ralph_loop: { mission_id: mission_id }
+        })
+        log_info("Linked Ralph Loop to mission", ralph_loop_id: ralph_loop_id, mission_id: mission_id)
+      end
+
       log_info("PRD generated successfully", ralph_loop_id: ralph_loop_id)
     else
       log_error("PRD generation failed", error: result[:error])
