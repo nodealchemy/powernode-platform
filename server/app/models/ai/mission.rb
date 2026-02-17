@@ -59,6 +59,9 @@ module Ai
     before_save :calculate_duration, if: -> { completed_at_changed? && completed_at.present? }
     after_save :broadcast_status_update, if: :saved_change_to_status?
     after_save :broadcast_phase_update, if: :saved_change_to_current_phase?
+    after_save :post_milestone_to_conversation, if: -> {
+      saved_change_to_current_phase? && conversation_id.present?
+    }
 
     # ==================== Instance Methods ====================
 
@@ -155,6 +158,29 @@ module Ai
     end
 
     private
+
+    def post_milestone_to_conversation
+      return unless conversation
+
+      phase = current_phase
+      message = if Ai::Mission::APPROVAL_GATES.include?(phase)
+        "Mission **#{name}** is awaiting **#{phase.humanize}** — review and approve to proceed"
+      elsif phase == "completed"
+        "Mission **#{name}** completed successfully!"
+      else
+        "Mission **#{name}** entered **#{phase.humanize}** phase (#{phase_progress}% complete)"
+      end
+
+      conversation.add_system_message(message, content_metadata: {
+        "activity_type" => "mission_#{Ai::Mission::APPROVAL_GATES.include?(phase) ? 'approval_required' : 'phase_changed'}",
+        "mission_id" => id,
+        "mission_name" => name,
+        "phase" => phase,
+        "phase_progress" => phase_progress
+      })
+    rescue StandardError => e
+      Rails.logger.warn("Failed to post mission milestone to conversation: #{e.message}")
+    end
 
     def set_defaults
       self.status ||= "draft"

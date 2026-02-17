@@ -84,6 +84,8 @@ module Ai
     scope :search_by_text, ->(query) {
       where("name ILIKE ? OR description ILIKE ?", "%#{query}%", "%#{query}%")
     }
+    scope :concierge, -> { where(is_concierge: true) }
+    scope :default_concierge, -> { concierge.active.order(:created_at).limit(1) }
 
     # Callbacks
     before_validation :generate_slug, if: -> { name.present? && (slug.blank? || name_changed?) }
