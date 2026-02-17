@@ -61,6 +61,12 @@ module Ai
         sleep(ITERATION_DELAY)
       end
 
+      # Complete the loop if all tasks are done
+      ralph_loop.reload
+      if ralph_loop.status == "running" && ralph_loop.all_tasks_completed?
+        ralph_loop.complete!
+      end
+
       # Deactivate run_all flag
       deactivate_run_all(ralph_loop)
 

@@ -4,6 +4,7 @@ module Ai
   module TeamExecutionSupport
     module ToolExecution
       extend ActiveSupport::Concern
+      include Ai::ToolCallExtraction
 
       MAX_TOOL_ROUNDS = 10
       MAX_TOOL_CALLS_TOTAL = 30
@@ -72,29 +73,6 @@ module Ai
         { type: "object", properties: properties, required: required }
       end
 
-      # Extract tool calls from provider response, normalized to common format
-      def extract_tool_calls(response, provider_type)
-        case provider_type
-        when "anthropic"
-          content = response[:content]
-          return [] unless content.is_a?(Array)
-
-          content.select { |c| c[:type] == "tool_use" }.map do |tc|
-            { id: tc[:id], name: tc[:name], arguments: tc[:input] || {} }
-          end
-        else
-          # OpenAI / Ollama format
-          tool_calls = response.dig(:choices, 0, :message, :tool_calls)
-          return [] unless tool_calls.is_a?(Array)
-
-          tool_calls.map do |tc|
-            args = tc.dig(:function, :arguments)
-            parsed_args = args.is_a?(String) ? (JSON.parse(args) rescue {}) : (args || {})
-            { id: tc[:id], name: tc.dig(:function, :name), arguments: parsed_args }
-          end
-        end
-      end
-
       # Execute tool calls and return results
       def execute_tool_calls(tool_calls, agent)
         tool_calls.map do |tc|
@@ -122,21 +100,7 @@ module Ai
         { tool_call_id: tc[:id], content: JSON.generate({ success: false, error: e.message }) }
       end
 
-      # Build provider-specific tool result messages
-      def build_tool_result_messages(results, provider_type)
-        case provider_type
-        when "anthropic"
-          content_blocks = results.map do |r|
-            { type: "tool_result", tool_use_id: r[:tool_call_id], content: r[:content] }
-          end
-          [{ role: "user", content: content_blocks }]
-        else
-          # OpenAI / Ollama format
-          results.map do |r|
-            { role: "tool", tool_call_id: r[:tool_call_id], content: r[:content] }
-          end
-        end
-      end
+      # build_tool_result_messages and extract_tool_calls provided by Ai::ToolCallExtraction
     end
   end
 end

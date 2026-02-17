@@ -199,7 +199,7 @@ class Ai::ProviderClientService
         # Safely extract error message - parsed_response could be String, Hash, or nil
         parsed = response.parsed_response
         error_msg = if parsed.is_a?(Hash)
-                      parsed.dig("error") || parsed["message"] || "Unknown error"
+                      parsed.dig("error") || parsed["message"] || parsed["detail"] || "Unknown error"
                     elsif parsed.is_a?(String)
                       parsed
                     else
@@ -258,7 +258,7 @@ class Ai::ProviderClientService
         # Safely extract error message - parsed_response could be String, Hash, or nil
         parsed = response.parsed_response
         error_msg = if parsed.is_a?(Hash)
-                      parsed.dig("error") || parsed["message"] || "Unknown error occurred"
+                      parsed.dig("error") || parsed["message"] || parsed["detail"] || "Unknown error occurred"
                     elsif parsed.is_a?(String)
                       parsed
                     else
