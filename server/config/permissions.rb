@@ -292,6 +292,10 @@ module Permissions
     # AI Autonomy
     "ai.autonomy.configure" => "Configure AI agent autonomy settings",
 
+    # AI Code Factory
+    "ai.code_factory.read" => "View Code Factory risk contracts and review states",
+    "ai.code_factory.manage" => "Manage Code Factory contracts, run preflight gates, and remediation",
+
     # DevOps Pipeline Management
     "devops.pipelines.read" => "View DevOps pipelines",
     "devops.pipelines.write" => "Create, update, and delete DevOps pipelines",

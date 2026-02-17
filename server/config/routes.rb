@@ -2132,6 +2132,29 @@ Rails.application.routes.draw do
           post "task/:id/cancel", to: "a2a#cancel_task", as: :a2a_cancel_task
         end
 
+        # ===================================================================
+        # CODE FACTORY - Risk contracts, preflight gates, SHA discipline
+        # ===================================================================
+        scope :code_factory, controller: "code_factory" do
+          get "contracts", action: :index
+          post "contracts", action: :create
+          get "contracts/:id", action: :show
+          put "contracts/:id", action: :update
+          post "contracts/:id/activate", action: :activate
+          post "preflight", action: :preflight
+          get "review_states", action: :review_states
+          get "review_states/:id", action: :review_state_show
+          post "review_states/:id/remediate", action: :remediate
+          post "review_states/:id/resolve_threads", action: :resolve_threads
+          post "evidence", action: :submit_evidence
+          get "evidence/:id", action: :show_evidence
+          get "harness_gaps", action: :harness_gaps
+          post "harness_gaps", action: :create_harness_gap
+          put "harness_gaps/:id/add_case", action: :add_test_case
+          put "harness_gaps/:id/close", action: :close_harness_gap
+          post "webhook", action: :webhook
+        end
+
         # ACP Protocol - Agent Communication Protocol (Cisco standard)
         # REST-based agent-centric protocol alongside A2A
         scope :acp, as: :acp_protocol do
