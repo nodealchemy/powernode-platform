@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_16_120002) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_17_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -687,6 +687,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_16_120002) do
     t.uuid "creator_id", null: false
     t.text "description"
     t.jsonb "execution_stats", default: {}
+    t.boolean "is_concierge", default: false, null: false
     t.boolean "is_public", default: false
     t.datetime "last_executed_at", precision: nil
     t.integer "max_spawn_depth", default: 3
@@ -704,6 +705,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_16_120002) do
     t.string "trust_level", default: "supervised"
     t.datetime "updated_at", null: false
     t.string "version", limit: 20, default: "1.0.0", null: false
+    t.index ["account_id", "is_concierge"], name: "idx_ai_agents_concierge", where: "(is_concierge = true)"
     t.index ["account_id", "name"], name: "index_ai_agents_on_account_id_and_name"
     t.index ["account_id", "status"], name: "index_ai_agents_on_account_and_status"
     t.index ["account_id"], name: "index_ai_agents_on_account_id"
