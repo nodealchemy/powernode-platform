@@ -89,6 +89,10 @@ class Account < ApplicationRecord
   has_many :ai_code_factory_review_states, class_name: "Ai::CodeFactory::ReviewState", dependent: :destroy
   has_many :ai_code_factory_harness_gaps, class_name: "Ai::CodeFactory::HarnessGap", dependent: :destroy
 
+  # AI Missions
+  has_many :ai_missions, class_name: "Ai::Mission", dependent: :destroy
+  has_many :ai_mission_approvals, class_name: "Ai::MissionApproval", dependent: :destroy
+
   # AI Agent Topology & Discovery
   has_many :ai_agent_connections, class_name: "Ai::AgentConnection", dependent: :destroy
   has_many :ai_discovery_results, class_name: "Ai::DiscoveryResult", dependent: :destroy

@@ -16,6 +16,7 @@ module Ai
     belongs_to :agent_team, class_name: "Ai::AgentTeam", foreign_key: "agent_team_id", optional: true
     has_many :messages, class_name: "Ai::Message", foreign_key: "ai_conversation_id", dependent: :destroy
     has_many :scheduled_messages, class_name: "Ai::ScheduledMessage", foreign_key: "conversation_id", dependent: :destroy
+    has_one :mission, class_name: "Ai::Mission", foreign_key: "conversation_id"
 
     # Validations
     validates :conversation_id, presence: true, uniqueness: true

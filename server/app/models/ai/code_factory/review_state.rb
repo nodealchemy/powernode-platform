@@ -10,6 +10,7 @@ module Ai
       belongs_to :account
       belongs_to :risk_contract, class_name: "Ai::CodeFactory::RiskContract", foreign_key: "risk_contract_id"
       belongs_to :repository, class_name: "Devops::GitRepository", foreign_key: "repository_id", optional: true
+      belongs_to :mission, class_name: "Ai::Mission", foreign_key: "mission_id", optional: true
 
       has_many :evidence_manifests, class_name: "Ai::CodeFactory::EvidenceManifest",
                foreign_key: "review_state_id", dependent: :destroy

@@ -17,6 +17,7 @@ module Ai
     belongs_to :worktree, class_name: "Ai::Worktree", foreign_key: "worktree_id"
     belongs_to :git_runner, class_name: "Devops::GitRunner", foreign_key: "git_runner_id", optional: true
     belongs_to :git_repository, class_name: "Devops::GitRepository", foreign_key: "git_repository_id", optional: true
+    belongs_to :mission, class_name: "Ai::Mission", foreign_key: "mission_id", optional: true
 
     # ==========================================
     # Validations
