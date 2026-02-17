@@ -1450,4 +1450,154 @@ RSpec.describe Devops::Git::GiteaApiClient do
       end
     end
   end
+
+  # =============================================================================
+  # FILE CONTENT (WITH SLASHED REF RESOLUTION)
+  # =============================================================================
+
+  describe '#get_file_content' do
+    context 'with simple ref (no slashes)' do
+      before do
+        stub_request(:get, "#{base_url}/repos/owner/repo/contents/src/app.js")
+          .with(query: { ref: 'main' })
+          .to_return(
+            status: 200,
+            body: {
+              name: 'app.js',
+              path: 'src/app.js',
+              sha: 'abc123',
+              size: 42,
+              type: 'file',
+              encoding: 'base64',
+              content: Base64.strict_encode64('console.log("hello")')
+            }.to_json,
+            headers: { 'Content-Type' => 'application/json' }
+          )
+      end
+
+      it 'passes the ref directly without resolution' do
+        result = client.get_file_content('owner', 'repo', 'src/app.js', 'main')
+
+        expect(result[:path]).to eq('src/app.js')
+        expect(result[:sha]).to eq('abc123')
+        expect(result[:content]).to eq('console.log("hello")')
+      end
+    end
+
+    context 'with slashed ref (e.g. mission/abc-feature)' do
+      before do
+        # Resolve slashed branch name to commit SHA
+        stub_request(:get, "#{base_url}/repos/owner/repo/branches/mission/abc-feature")
+          .to_return(
+            status: 200,
+            body: { name: 'mission/abc-feature', commit: { id: 'resolved_sha_123' } }.to_json,
+            headers: { 'Content-Type' => 'application/json' }
+          )
+
+        # Contents API called with resolved SHA instead of slashed branch name
+        stub_request(:get, "#{base_url}/repos/owner/repo/contents/src/index.css")
+          .with(query: { ref: 'resolved_sha_123' })
+          .to_return(
+            status: 200,
+            body: {
+              name: 'index.css',
+              path: 'src/index.css',
+              sha: 'file_sha_456',
+              size: 20,
+              type: 'file',
+              encoding: 'base64',
+              content: Base64.strict_encode64('body { color: red; }')
+            }.to_json,
+            headers: { 'Content-Type' => 'application/json' }
+          )
+      end
+
+      it 'resolves the branch to a commit SHA before calling contents API' do
+        result = client.get_file_content('owner', 'repo', 'src/index.css', 'mission/abc-feature')
+
+        expect(result).not_to be_nil
+        expect(result[:path]).to eq('src/index.css')
+        expect(result[:sha]).to eq('file_sha_456')
+        expect(result[:content]).to eq('body { color: red; }')
+      end
+    end
+
+    context 'with slashed ref where file does not exist' do
+      before do
+        stub_request(:get, "#{base_url}/repos/owner/repo/branches/mission/xyz")
+          .to_return(
+            status: 200,
+            body: { name: 'mission/xyz', commit: { id: 'commit_abc' } }.to_json,
+            headers: { 'Content-Type' => 'application/json' }
+          )
+
+        stub_request(:get, "#{base_url}/repos/owner/repo/contents/nonexistent.txt")
+          .with(query: { ref: 'commit_abc' })
+          .to_return(status: 404, body: { message: 'Not found' }.to_json)
+      end
+
+      it 'returns nil' do
+        result = client.get_file_content('owner', 'repo', 'nonexistent.txt', 'mission/xyz')
+
+        expect(result).to be_nil
+      end
+    end
+
+    context 'with slashed ref where branch lookup fails' do
+      before do
+        stub_request(:get, "#{base_url}/repos/owner/repo/branches/feature/unknown")
+          .to_return(status: 404, body: { message: 'Not found' }.to_json)
+
+        # Falls through with original ref
+        stub_request(:get, "#{base_url}/repos/owner/repo/contents/README.md")
+          .with(query: { ref: 'feature/unknown' })
+          .to_return(status: 404, body: { message: 'Not found' }.to_json)
+      end
+
+      it 'passes original ref through and returns nil' do
+        result = client.get_file_content('owner', 'repo', 'README.md', 'feature/unknown')
+
+        expect(result).to be_nil
+      end
+    end
+
+    context 'with non-slashed ref that returns 404' do
+      before do
+        stub_request(:get, "#{base_url}/repos/owner/repo/contents/missing.txt")
+          .with(query: { ref: 'main' })
+          .to_return(status: 404, body: { message: 'Not found' }.to_json)
+      end
+
+      it 'returns nil without branch resolution' do
+        result = client.get_file_content('owner', 'repo', 'missing.txt', 'main')
+
+        expect(result).to be_nil
+      end
+    end
+
+    context 'without ref parameter' do
+      before do
+        stub_request(:get, "#{base_url}/repos/owner/repo/contents/README.md")
+          .to_return(
+            status: 200,
+            body: {
+              name: 'README.md',
+              path: 'README.md',
+              sha: 'readme_sha',
+              size: 5,
+              type: 'file',
+              encoding: 'base64',
+              content: Base64.strict_encode64('hello')
+            }.to_json,
+            headers: { 'Content-Type' => 'application/json' }
+          )
+      end
+
+      it 'works without ref' do
+        result = client.get_file_content('owner', 'repo', 'README.md')
+
+        expect(result[:content]).to eq('hello')
+      end
+    end
+  end
 end

@@ -108,16 +108,17 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
         allow(cred_relation).to receive(:active).and_return(cred_relation)
         allow(cred_relation).to receive(:first).and_return(credential)
         allow(provider).to receive(:default_model).and_return("test-model-1")
+        allow(provider).to receive(:provider_type).and_return("openai")
 
         allow(Ai::ProviderClientService).to receive(:new).with(credential).and_return(client)
         allow(ralph_loop).to receive(:available_mcp_tools).and_return([])
       end
 
-      it 'sends messages to the AI provider' do
+      it 'sends messages to the AI provider via agentic loop' do
         allow(client).to receive(:send_message).and_return({
           success: true,
-          response: { content: "Task completed successfully" },
-          metadata: { prompt_tokens: 200, completion_tokens: 100, cost: 0.02 }
+          response: { choices: [{ message: { content: "Task completed successfully" } }] },
+          metadata: { usage: { prompt_tokens: 200, completion_tokens: 100 }, cost: 0.02 }
         })
 
         result = executor.execute
@@ -159,6 +160,7 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
         task.update!(execution_type: "workflow")
         allow(task).to receive(:executor).and_return(nil)
         allow(task).to receive(:find_matching_executor).and_return(workflow)
+        allow(ralph_loop).to receive(:default_agent).and_return(nil)
         allow(task).to receive(:record_execution_attempt!)
         allow(task).to receive(:update!)
         # WorkflowExecutionJob is defined in the worker, not the server
@@ -239,28 +241,35 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
         allow(cred_relation).to receive(:active).and_return(cred_relation)
         allow(cred_relation).to receive(:first).and_return(credential)
         allow(provider).to receive(:default_model).and_return("test-model-1")
+        allow(provider).to receive(:provider_type).and_return("openai")
 
         allow(Ai::ProviderClientService).to receive(:new).and_return(client)
         allow(ralph_loop).to receive(:available_mcp_tools).and_return([mcp_tool])
       end
 
-      it 'handles tool calls in the response' do
-        # Stub Mcp namespace resolution issue
-        stub_const("Ai::Mcp::SyncExecutionService", Mcp::SyncExecutionService) if defined?(Ai::Mcp)
-
-        # First call returns a tool call
+      it 'handles tool calls in the response via agentic loop' do
+        # First call returns an OpenAI-format tool call
         tool_call_response = {
           success: true,
           response: {
-            function_call: { name: "file_read", arguments: { path: "/README.md" } }
-          }
+            choices: [{
+              message: {
+                content: nil,
+                tool_calls: [{
+                  id: "call_123",
+                  function: { name: "file_read", arguments: '{"path":"/README.md"}' }
+                }]
+              }
+            }]
+          },
+          metadata: {}
         }
 
-        # After tool execution, final response
+        # After tool execution, final response with no tool calls
         final_response = {
           success: true,
-          response: { content: "File contents processed" },
-          metadata: { prompt_tokens: 300, completion_tokens: 150, cost: 0.03 }
+          response: { choices: [{ message: { content: "File contents processed" } }] },
+          metadata: { usage: { prompt_tokens: 300, completion_tokens: 150 }, cost: 0.03 }
         }
 
         call_count = 0
@@ -276,6 +285,7 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
         result = executor.execute
 
         expect(result[:success]).to be true
+        expect(result[:output]).to include("File contents processed")
         expect(Mcp::SyncExecutionService).to have_received(:new)
       end
     end
@@ -318,28 +328,6 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
         learnings = executor.send(:format_learnings)
 
         expect(learnings).to eq("No previous learnings")
-      end
-    end
-
-    describe 'has_tool_call?' do
-      it 'returns false for unsuccessful results' do
-        expect(executor.send(:has_tool_call?, { success: false })).to be false
-      end
-
-      it 'returns true when function_call is present' do
-        result = {
-          success: true,
-          response: { function_call: { name: "tool", arguments: {} } }
-        }
-        expect(executor.send(:has_tool_call?, result)).to be true
-      end
-
-      it 'returns false when no tool calls in response' do
-        result = {
-          success: true,
-          response: { content: "just text" }
-        }
-        expect(executor.send(:has_tool_call?, result)).to be false
       end
     end
 
