@@ -15,7 +15,7 @@ Run these commands in parallel:
 - `git status` — see all changed/untracked files in the parent repo
 - `git diff --stat` — see change summary for tracked files
 - `git diff --cached --stat` — see already-staged changes
-- `git -C enterprise status --short` — see changes inside the enterprise submodule
+- `git -C extensions/enterprise status --short` — see changes inside the enterprise submodule
 - `git log --oneline -5` — see recent commit style
 
 ## Step 2: Group Files by Concern
@@ -36,11 +36,11 @@ When changes span both repos, group enterprise changes separately from core.
 
 ### Enterprise submodule (commit FIRST if it has changes)
 
-If `git -C enterprise status` shows changes:
+If `git -C extensions/enterprise status` shows changes:
 1. Group enterprise changes by concern (backend vs frontend)
-2. Stage with `git -C enterprise add <specific-files>`
-3. Commit with `git -C enterprise commit -m "type(scope): description"`
-4. After all enterprise commits, update the submodule pointer in the parent: `git add enterprise`
+2. Stage with `git -C extensions/enterprise add <specific-files>`
+3. Commit with `git -C extensions/enterprise commit -m "type(scope): description"`
+4. After all enterprise commits, update the submodule pointer in the parent: `git add extensions/enterprise`
 
 ### Parent repo
 
@@ -62,6 +62,6 @@ If the enterprise submodule pointer changed (from enterprise commits above), inc
 
 Run these in parallel:
 - `git log --oneline -10` — show parent repo commits
-- `git -C enterprise log --oneline -5` — show enterprise commits
+- `git -C extensions/enterprise log --oneline -5` — show enterprise commits
 
 Show all commits created in both repos.
