@@ -238,6 +238,13 @@
     queue: ai_orchestration
     description: 'Decay stale compound learnings and promote cross-team knowledge'
 
+  # Memory maintenance - daily consolidation, decay, and rot detection
+  ai_memory_maintenance:
+    cron: '0 4 * * *'
+    class: AiMemoryMaintenanceJob
+    queue: ai_orchestration
+    description: 'Run memory tier consolidation, decay pipelines, and auto-archive stale entries'
+
   # Chat session cleanup - idle/close stale sessions every 6 hours
   chat_session_cleanup:
     cron: '0 */6 * * *'
