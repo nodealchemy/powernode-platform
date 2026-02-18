@@ -109,6 +109,35 @@ module Devops
       raise NotImplementedError
     end
 
+    # Runner management - may not be supported by all providers
+    def supports_runners?
+      false
+    end
+
+    def list_runners(owner, repo, scope: :repo)
+      raise NotImplementedError
+    end
+
+    def get_runner(owner, repo, runner_id, scope: :repo)
+      raise NotImplementedError
+    end
+
+    def delete_runner(owner, repo, runner_id, scope: :repo)
+      raise NotImplementedError
+    end
+
+    def runner_registration_token(owner, repo, scope: :repo)
+      raise NotImplementedError
+    end
+
+    def runner_removal_token(owner, repo, scope: :repo)
+      raise NotImplementedError
+    end
+
+    def set_runner_labels(owner, repo, runner_id, labels, scope: :repo)
+      raise NotImplementedError
+    end
+
     # Commit viewing methods - comprehensive git view capabilities
 
     def get_commit(owner, repo, sha)

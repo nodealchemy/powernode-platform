@@ -300,91 +300,101 @@ module Devops
 
     # GitHub Actions Runners (Self-Hosted)
 
-    def list_runners(owner, repo)
-      result = get("/repos/#{owner}/#{repo}/actions/runners")
+    def supports_runners?
+      true
+    end
+
+    def list_runners(owner, repo, scope: :repo)
+      path = case scope
+      when :repo
+        "/repos/#{owner}/#{repo}/actions/runners"
+      when :org
+        "/orgs/#{owner}/actions/runners"
+      else
+        raise ArgumentError, "Invalid scope: #{scope}"
+      end
+
+      result = get(path)
       {
         total_count: result["total_count"],
         runners: (result["runners"] || []).map { |runner| normalize_runner(runner) }
       }
     end
 
-    def list_org_runners(org)
-      result = get("/orgs/#{org}/actions/runners")
-      {
-        total_count: result["total_count"],
-        runners: (result["runners"] || []).map { |runner| normalize_runner(runner) }
-      }
-    end
+    def get_runner(owner, repo, runner_id, scope: :repo)
+      path = case scope
+      when :repo
+        "/repos/#{owner}/#{repo}/actions/runners/#{runner_id}"
+      when :org
+        "/orgs/#{owner}/actions/runners/#{runner_id}"
+      else
+        raise ArgumentError, "Invalid scope: #{scope}"
+      end
 
-    def get_runner(owner, repo, runner_id)
-      result = get("/repos/#{owner}/#{repo}/actions/runners/#{runner_id}")
+      result = get(path)
       normalize_runner(result)
     end
 
-    def get_org_runner(org, runner_id)
-      result = get("/orgs/#{org}/actions/runners/#{runner_id}")
-      normalize_runner(result)
-    end
+    def delete_runner(owner, repo, runner_id, scope: :repo)
+      path = case scope
+      when :repo
+        "/repos/#{owner}/#{repo}/actions/runners/#{runner_id}"
+      when :org
+        "/orgs/#{owner}/actions/runners/#{runner_id}"
+      else
+        raise ArgumentError, "Invalid scope: #{scope}"
+      end
 
-    def delete_runner(owner, repo, runner_id)
       with_error_handling(default_on_not_found: { success: true }) do
-        delete("/repos/#{owner}/#{repo}/actions/runners/#{runner_id}")
+        delete(path)
         { success: true }
       end
     end
 
-    def delete_org_runner(org, runner_id)
-      with_error_handling(default_on_not_found: { success: true }) do
-        delete("/orgs/#{org}/actions/runners/#{runner_id}")
-        { success: true }
+    def runner_registration_token(owner, repo, scope: :repo)
+      path = case scope
+      when :repo
+        "/repos/#{owner}/#{repo}/actions/runners/registration-token"
+      when :org
+        "/orgs/#{owner}/actions/runners/registration-token"
+      else
+        raise ArgumentError, "Invalid scope: #{scope}"
       end
-    end
 
-    def runner_registration_token(owner, repo)
       with_error_handling do
-        result = post("/repos/#{owner}/#{repo}/actions/runners/registration-token")
+        result = post(path)
         { token: result["token"], expires_at: result["expires_at"] }
       end
     end
 
-    def org_runner_registration_token(org)
+    def runner_removal_token(owner, repo, scope: :repo)
+      path = case scope
+      when :repo
+        "/repos/#{owner}/#{repo}/actions/runners/remove-token"
+      when :org
+        "/orgs/#{owner}/actions/runners/remove-token"
+      else
+        raise ArgumentError, "Invalid scope: #{scope}"
+      end
+
       with_error_handling do
-        result = post("/orgs/#{org}/actions/runners/registration-token")
+        result = post(path)
         { token: result["token"], expires_at: result["expires_at"] }
       end
     end
 
-    def runner_removal_token(owner, repo)
-      with_error_handling do
-        result = post("/repos/#{owner}/#{repo}/actions/runners/remove-token")
-        { token: result["token"], expires_at: result["expires_at"] }
+    def set_runner_labels(owner, repo, runner_id, labels, scope: :repo)
+      path = case scope
+      when :repo
+        "/repos/#{owner}/#{repo}/actions/runners/#{runner_id}/labels"
+      when :org
+        "/orgs/#{owner}/actions/runners/#{runner_id}/labels"
+      else
+        raise ArgumentError, "Invalid scope: #{scope}"
       end
-    end
 
-    def org_runner_removal_token(org)
       with_error_handling do
-        result = post("/orgs/#{org}/actions/runners/remove-token")
-        { token: result["token"], expires_at: result["expires_at"] }
-      end
-    end
-
-    def add_runner_labels(owner, repo, runner_id, labels)
-      with_error_handling do
-        result = post("/repos/#{owner}/#{repo}/actions/runners/#{runner_id}/labels", { labels: labels })
-        { success: true, labels: (result["labels"] || []).map { |l| l["name"] } }
-      end
-    end
-
-    def remove_runner_label(owner, repo, runner_id, label)
-      with_error_handling do
-        result = delete("/repos/#{owner}/#{repo}/actions/runners/#{runner_id}/labels/#{label}")
-        { success: true, labels: (result["labels"] || []).map { |l| l["name"] } }
-      end
-    end
-
-    def set_runner_labels(owner, repo, runner_id, labels)
-      with_error_handling do
-        result = put("/repos/#{owner}/#{repo}/actions/runners/#{runner_id}/labels", { labels: labels })
+        result = put(path, { labels: labels })
         { success: true, labels: (result["labels"] || []).map { |l| l["name"] } }
       end
     end
@@ -583,14 +593,14 @@ module Devops
       return nil unless runner
 
       {
-        id: runner["id"].to_s,
-        name: runner["name"],
-        status: runner["status"],
-        busy: runner["busy"] || false,
-        os: runner["os"],
-        labels: (runner["labels"] || []).map { |l| l.is_a?(Hash) ? l["name"] : l },
-        architecture: nil, # GitHub doesn't provide this directly
-        version: nil # GitHub doesn't provide this directly
+        "id" => runner["id"].to_s,
+        "name" => runner["name"],
+        "status" => runner["status"],
+        "busy" => runner["busy"] || false,
+        "os" => runner["os"],
+        "labels" => (runner["labels"] || []).map { |l| l.is_a?(Hash) ? l["name"] : l },
+        "architecture" => nil,
+        "version" => nil
       }
     end
 

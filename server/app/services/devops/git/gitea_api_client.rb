@@ -290,16 +290,20 @@ module Devops
 
     # Act Runner Management
 
-    def list_runners(scope = :repo, owner = nil, repo = nil)
+    def supports_runners?
+      true
+    end
+
+    def list_runners(owner, repo, scope: :repo)
       path = case scope
       when :repo
-               "/repos/#{owner}/#{repo}/actions/runners"
+        "/repos/#{owner}/#{repo}/actions/runners"
       when :org
-               "/orgs/#{owner}/actions/runners"
+        "/orgs/#{owner}/actions/runners"
       when :admin
-               "/admin/actions/runners"
+        "/admin/actions/runners"
       else
-               raise ArgumentError, "Invalid scope: #{scope}"
+        raise ArgumentError, "Invalid scope: #{scope}"
       end
 
       result = get(path)
@@ -309,21 +313,28 @@ module Devops
       []
     end
 
-    def get_runner(runner_id)
+    def get_runner(owner, repo, runner_id, scope: :repo)
       result = get("/admin/actions/runners/#{runner_id}")
       normalize_runner(result)
     end
 
-    def runner_registration_token(scope = :repo, owner = nil, repo = nil)
+    def delete_runner(owner, repo, runner_id, scope: :repo)
+      with_error_handling(default_on_not_found: { success: true }) do
+        delete("/admin/actions/runners/#{runner_id}")
+        { success: true }
+      end
+    end
+
+    def runner_registration_token(owner, repo, scope: :repo)
       path = case scope
       when :repo
-               "/repos/#{owner}/#{repo}/actions/runners/registration-token"
+        "/repos/#{owner}/#{repo}/actions/runners/registration-token"
       when :org
-               "/orgs/#{owner}/actions/runners/registration-token"
+        "/orgs/#{owner}/actions/runners/registration-token"
       when :admin
-               "/admin/actions/runners/registration-token"
+        "/admin/actions/runners/registration-token"
       else
-               raise ArgumentError, "Invalid scope: #{scope}"
+        raise ArgumentError, "Invalid scope: #{scope}"
       end
 
       result = post(path)
@@ -333,21 +344,13 @@ module Devops
       { success: false, error: e.message }
     end
 
-    def delete_runner(runner_id)
-      with_error_handling(default_on_not_found: { success: true }) do
-        delete("/admin/actions/runners/#{runner_id}")
-        { success: true }
-      end
-    end
-
-    def runner_removal_token(scope = :repo, owner = nil, repo = nil)
+    def runner_removal_token(owner, repo, scope: :repo)
       # Gitea doesn't have a separate removal token endpoint
-      # The registration token can be used for removal as well
-      runner_registration_token(scope, owner, repo)
+      runner_registration_token(owner, repo, scope: scope)
     end
 
-    def update_runner_labels(runner_id, labels)
-      runner = get_runner(runner_id)
+    def set_runner_labels(owner, repo, runner_id, labels, scope: :repo)
+      runner = get_runner(owner, repo, runner_id, scope: scope)
       return { success: false, error: "Runner not found" } unless runner
 
       with_error_handling do
@@ -656,15 +659,17 @@ module Devops
     end
 
     def normalize_runner(runner)
+      return nil unless runner
+
       {
-        "id" => runner["id"],
+        "id" => runner["id"].to_s,
         "name" => runner["name"],
         "status" => runner["status"] || (runner["busy"] ? "busy" : "online"),
-        "busy" => runner["busy"],
+        "busy" => runner["busy"] || false,
         "labels" => (runner["labels"] || []).map { |l| l.is_a?(Hash) ? l["name"] : l },
-        "version" => runner["version"],
         "os" => runner["os"],
-        "arch" => runner["arch"]
+        "architecture" => runner["arch"],
+        "version" => runner["version"]
       }
     end
 

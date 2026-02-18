@@ -381,6 +381,75 @@ module Devops
       result.map { |tag| normalize_gitlab_tag(tag) }
     end
 
+    # GitLab CI Runners
+
+    def supports_runners?
+      true
+    end
+
+    def list_runners(owner, repo, scope: :repo)
+      path = case scope
+      when :repo
+        project_path = "#{owner}/#{repo}"
+        "/projects/#{CGI.escape(project_path)}/runners"
+      when :org
+        "/groups/#{CGI.escape(owner)}/runners"
+      when :admin
+        "/runners?type=instance_type"
+      else
+        raise ArgumentError, "Invalid scope: #{scope}"
+      end
+
+      result = get(path)
+      runners = result.is_a?(Array) ? result : (result["runners"] || [])
+      runners.map { |r| normalize_runner(r) }
+    rescue NotFoundError, ApiError
+      []
+    end
+
+    def get_runner(owner, repo, runner_id, scope: :repo)
+      result = get("/runners/#{runner_id}")
+      normalize_runner(result)
+    end
+
+    def delete_runner(owner, repo, runner_id, scope: :repo)
+      with_error_handling(default_on_not_found: { success: true }) do
+        delete("/runners/#{runner_id}")
+        { success: true }
+      end
+    end
+
+    def runner_registration_token(owner, repo, scope: :repo)
+      path = case scope
+      when :repo
+        project_path = "#{owner}/#{repo}"
+        "/projects/#{CGI.escape(project_path)}/runners/reset_registration_token"
+      when :org
+        "/groups/#{CGI.escape(owner)}/runners/reset_registration_token"
+      when :admin
+        "/runners/reset_registration_token"
+      else
+        raise ArgumentError, "Invalid scope: #{scope}"
+      end
+
+      with_error_handling do
+        result = post(path)
+        { token: result["token"], expires_at: result["token_expires_at"] }
+      end
+    end
+
+    def runner_removal_token(owner, repo, scope: :repo)
+      # GitLab does not support separate removal tokens
+      { success: false, error: "Removal tokens not supported by GitLab" }
+    end
+
+    def set_runner_labels(owner, repo, runner_id, labels, scope: :repo)
+      with_error_handling do
+        result = put("/runners/#{runner_id}", { tag_list: labels.join(",") })
+        { success: true, labels: (result["tag_list"] || result["tags"] || labels) }
+      end
+    end
+
     protected
 
     def configure_auth(conn)
@@ -861,6 +930,34 @@ module Devops
         size: nil,
         url: nil
       }
+    end
+
+    def normalize_runner(runner)
+      return nil unless runner
+
+      {
+        "id" => runner["id"].to_s,
+        "name" => runner["description"] || runner["name"] || "Runner ##{runner['id']}",
+        "status" => normalize_gitlab_runner_status(runner["status"] || (runner["online"] == true ? "online" : "offline")),
+        "busy" => runner["active"] == false ? false : (runner["status"] == "running"),
+        "labels" => runner["tag_list"] || [],
+        "os" => runner["platform"] || runner["architecture"],
+        "architecture" => runner["architecture"],
+        "version" => runner["version"]
+      }
+    end
+
+    def normalize_gitlab_runner_status(status)
+      case status&.to_s&.downcase
+      when "online", "active"
+        "online"
+      when "offline", "paused"
+        "offline"
+      when "running"
+        "busy"
+      else
+        status || "offline"
+      end
     end
 
     def normalize_gitlab_tag(tag)
