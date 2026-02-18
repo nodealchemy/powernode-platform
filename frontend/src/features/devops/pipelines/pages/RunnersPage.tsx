@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Server, Search, RefreshCw, Trash2, Activity, Cpu } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
@@ -9,8 +9,8 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useAuth } from '@/shared/hooks/useAuth';
-import { gitProvidersApi } from '@/features/devops/git/services/gitProvidersApi';
-import type { GitRunner, RunnerStats, PaginationInfo } from '@/features/devops/git/types';
+import { useRunners } from '@/features/devops/git/hooks/useRunners';
+import type { GitRunner, RunnerStats } from '@/features/devops/git/types';
 
 const StatusBadge: React.FC<{ status: string; busy: boolean }> = ({ status, busy }) => {
   const getStatusStyles = () => {
@@ -147,48 +147,28 @@ const RunnersPageContent: React.FC = () => {
   const { showNotification } = useNotifications();
   const { currentUser } = useAuth();
   const { confirm, ConfirmationDialog } = useConfirmation();
-  const [runners, setRunners] = useState<GitRunner[]>([]);
-  const [stats, setStats] = useState<RunnerStats | null>(null);
-  const [pagination, setPagination] = useState<PaginationInfo | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [scopeFilter, setScopeFilter] = useState<string>('');
   const [page, setPage] = useState(1);
 
   const canManageRunners = currentUser?.permissions?.includes('git.runners.manage');
 
-  const fetchRunners = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await gitProvidersApi.getRunners({
-        page,
-        per_page: 20,
-        search: searchQuery || undefined,
-        status: statusFilter || undefined,
-      });
-      setRunners(data.runners);
-      setStats(data.stats);
-      setPagination(data.pagination);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch runners');
-    } finally {
-      setLoading(false);
-    }
-  }, [page, searchQuery, statusFilter]);
+  const { runners, stats, pagination, loading, error, refresh, syncRunners, deleteRunner } = useRunners({
+    page,
+    perPage: 20,
+    search: searchQuery || undefined,
+    status: statusFilter || undefined,
+    scope: scopeFilter || undefined,
+  });
 
-  useEffect(() => {
-    fetchRunners();
-  }, [fetchRunners]);
+  const [syncing, setSyncing] = useState(false);
 
   const handleSync = async () => {
     try {
       setSyncing(true);
-      const result = await gitProvidersApi.syncRunners();
+      const result = await syncRunners();
       showNotification(`Synced ${result.synced_count} runners from providers`, 'success');
-      fetchRunners();
     } catch (err) {
       showNotification(err instanceof Error ? err.message : 'Failed to sync runners', 'error');
     } finally {
@@ -204,9 +184,8 @@ const RunnersPageContent: React.FC = () => {
       variant: 'danger',
       onConfirm: async () => {
         try {
-          await gitProvidersApi.deleteRunner(runner.id);
+          await deleteRunner(runner.id);
           showNotification('Runner deleted successfully', 'success');
-          fetchRunners();
         } catch (err) {
           showNotification(err instanceof Error ? err.message : 'Failed to delete runner', 'error');
         }
@@ -232,7 +211,7 @@ const RunnersPageContent: React.FC = () => {
     {
       id: 'refresh',
       label: 'Refresh',
-      onClick: fetchRunners,
+      onClick: refresh,
       variant: 'secondary' as const,
       icon: RefreshCw
     }
@@ -241,7 +220,7 @@ const RunnersPageContent: React.FC = () => {
   return (
     <PageContainer
       title="DevOps Runners"
-      description="Manage self-hosted runners for GitHub Actions and Gitea Actions"
+      description="Manage self-hosted runners for GitHub Actions, Gitea Actions, and GitLab CI"
       breadcrumbs={breadcrumbs}
       actions={actions}
     >
@@ -275,12 +254,25 @@ const RunnersPageContent: React.FC = () => {
             <option value="offline">Offline</option>
             <option value="busy">Busy</option>
           </select>
+          <select
+            value={scopeFilter}
+            onChange={(e) => {
+              setScopeFilter(e.target.value);
+              setPage(1);
+            }}
+            className="px-3 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary"
+          >
+            <option value="">All Scopes</option>
+            <option value="repository">Repository</option>
+            <option value="organization">Organization</option>
+            <option value="enterprise">Enterprise</option>
+          </select>
         </div>
 
         {error && (
           <div className="bg-theme-error/10 border border-theme-error rounded-lg p-4">
             <p className="text-theme-error">{error}</p>
-            <Button onClick={fetchRunners} variant="secondary" size="sm" className="mt-2">
+            <Button onClick={refresh} variant="secondary" size="sm" className="mt-2">
               Try Again
             </Button>
           </div>
@@ -298,11 +290,11 @@ const RunnersPageContent: React.FC = () => {
             <Server className="w-12 h-12 text-theme-secondary mx-auto mb-4" />
             <h3 className="text-lg font-medium text-theme-primary mb-2">No Runners Found</h3>
             <p className="text-theme-secondary mb-4">
-              {searchQuery || statusFilter
+              {searchQuery || statusFilter || scopeFilter
                 ? 'Try adjusting your filters.'
                 : 'Sync runners from your Git providers or add self-hosted runners to get started.'}
             </p>
-            {!searchQuery && !statusFilter && (
+            {!searchQuery && !statusFilter && !scopeFilter && (
               <Button onClick={handleSync} variant="primary">
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Sync Runners
