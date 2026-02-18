@@ -29,6 +29,7 @@ module Security
         # Ensure required claims are present
         enhanced_payload = {
           **payload.with_indifferent_access,
+          type: token_type,
           exp: exp.to_i,
           iat: Time.current.to_i,
           jti: SecureRandom.hex(16), # Unique token identifier
