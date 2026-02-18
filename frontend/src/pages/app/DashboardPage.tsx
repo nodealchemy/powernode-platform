@@ -90,7 +90,6 @@ const CodeFactoryPage = React.lazy(() => import('@/features/ai/code-factory').th
 
 // AI Missions
 const MissionsPage = React.lazy(() => import('@/features/missions/pages/MissionsPage').then(m => ({ default: m.MissionsPage })));
-const MissionDetailPage = React.lazy(() => import('@/features/missions/pages/MissionDetailPage').then(m => ({ default: m.MissionDetailPage })));
 
 // Containers
 const ContainersPage = React.lazy(() => import('@/features/devops/containers/pages/ContainersPage').then(m => ({ default: m.ContainersPage })));
@@ -446,7 +445,7 @@ const DashboardPage: React.FC = () => {
         {/* AI Missions - static tab routes before dynamic :missionId */}
         <Route path="/ai/missions/completed" element={<MissionsPage />} />
         <Route path="/ai/missions/all" element={<MissionsPage />} />
-        <Route path="/ai/missions/:missionId" element={<MissionDetailPage />} />
+        <Route path="/ai/missions/:missionId" element={<MissionsPage />} />
         <Route path="/ai/missions" element={<MissionsPage />} />
 
         {/* AI Code Factory */}
