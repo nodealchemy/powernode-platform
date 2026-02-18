@@ -1,0 +1,121 @@
+# frozen_string_literal: true
+
+module Ai
+  module Autonomy
+    class CapabilityMatrixService
+      # Declarative permission matrix: (trust_tier x action_type) → policy
+      # Policies: :allowed, :requires_approval, :denied
+      DEFAULT_MATRIX = {
+        "supervised" => {
+          "read_data"          => :allowed,
+          "execute_tool"       => :requires_approval,
+          "spawn_agent"        => :denied,
+          "modify_system"      => :denied,
+          "access_credentials" => :denied,
+          "external_api_call"  => :denied,
+          "delete_data"        => :denied,
+          "execute_code"       => :denied,
+          "modify_permissions" => :denied
+        },
+        "monitored" => {
+          "read_data"          => :allowed,
+          "execute_tool"       => :allowed,
+          "spawn_agent"        => :requires_approval,
+          "modify_system"      => :denied,
+          "access_credentials" => :requires_approval,
+          "external_api_call"  => :requires_approval,
+          "delete_data"        => :denied,
+          "execute_code"       => :requires_approval,
+          "modify_permissions" => :denied
+        },
+        "trusted" => {
+          "read_data"          => :allowed,
+          "execute_tool"       => :allowed,
+          "spawn_agent"        => :allowed,
+          "modify_system"      => :requires_approval,
+          "access_credentials" => :allowed,
+          "external_api_call"  => :allowed,
+          "delete_data"        => :requires_approval,
+          "execute_code"       => :allowed,
+          "modify_permissions" => :requires_approval
+        },
+        "autonomous" => {
+          "read_data"          => :allowed,
+          "execute_tool"       => :allowed,
+          "spawn_agent"        => :allowed,
+          "modify_system"      => :allowed,
+          "access_credentials" => :allowed,
+          "external_api_call"  => :allowed,
+          "delete_data"        => :requires_approval,
+          "execute_code"       => :allowed,
+          "modify_permissions" => :requires_approval
+        }
+      }.freeze
+
+      ACTION_TYPES = DEFAULT_MATRIX["supervised"].keys.freeze
+
+      attr_reader :account
+
+      def initialize(account:)
+        @account = account
+      end
+
+      # Check what policy applies for a given agent and action
+      # @param agent [Ai::Agent] The agent
+      # @param action_type [String] The action type
+      # @return [Symbol] :allowed, :requires_approval, or :denied
+      def check(agent:, action_type:)
+        tier = agent_tier(agent)
+        matrix = effective_matrix
+        policy = matrix.dig(tier, action_type.to_s)
+
+        policy&.to_sym || :denied
+      end
+
+      # Get the full capability matrix (with any customizations)
+      # @return [Hash]
+      def full_matrix
+        effective_matrix
+      end
+
+      # Get capabilities for a specific agent
+      # @param agent [Ai::Agent] The agent
+      # @return [Hash]
+      def agent_capabilities(agent:)
+        tier = agent_tier(agent)
+        matrix = effective_matrix
+
+        {
+          agent_id: agent.id,
+          agent_name: agent.name,
+          tier: tier,
+          capabilities: matrix[tier] || {}
+        }
+      end
+
+      private
+
+      def agent_tier(agent)
+        trust_score = Ai::AgentTrustScore.find_by(agent_id: agent.id)
+        trust_score&.tier || "supervised"
+      end
+
+      def effective_matrix
+        custom = guardrail_matrix
+        return DEFAULT_MATRIX if custom.blank?
+
+        # Deep merge: custom overrides default
+        DEFAULT_MATRIX.each_with_object({}) do |(tier, actions), result|
+          result[tier] = actions.merge(custom[tier] || {})
+        end
+      end
+
+      def guardrail_matrix
+        config = Ai::GuardrailConfig.where(account_id: account.id).active.global.first
+        return nil unless config
+
+        config.effective_config[:capability_matrix]
+      end
+    end
+  end
+end

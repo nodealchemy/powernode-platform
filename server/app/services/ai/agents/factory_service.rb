@@ -165,23 +165,42 @@ module Ai
       end
 
       def initialize_trust(agent, parent)
-        # Child starts at supervised, inheriting reduced parent scores
-        parent_trust = parent ? Ai::AgentTrustScore.find_by(agent_id: parent.id) : nil
+        if parent
+          # Use configurable trust inheritance policy
+          policy = resolve_inheritance_policy(parent)
+          trust_engine = Ai::Autonomy::TrustEngineService.new(account: account)
+          trust_engine.inherit_trust(parent, agent, policy: policy)
+        else
+          Ai::AgentTrustScore.create!(
+            account: account,
+            agent: agent,
+            reliability: 0.5,
+            cost_efficiency: 0.5,
+            safety: 1.0,
+            quality: 0.5,
+            speed: 0.5,
+            overall_score: 0.5,
+            tier: "supervised",
+            last_evaluated_at: Time.current,
+            evaluation_count: 0,
+            evaluation_history: []
+          )
+        end
+      end
 
-        Ai::AgentTrustScore.create!(
-          account: account,
-          agent: agent,
-          reliability: parent_trust ? [parent_trust.reliability * 0.5, 0.3].max : 0.5,
-          cost_efficiency: 0.5,
-          safety: 1.0,
-          quality: parent_trust ? [parent_trust.quality * 0.5, 0.3].max : 0.5,
-          speed: 0.5,
-          overall_score: 0.5,
-          tier: "supervised",
-          last_evaluated_at: Time.current,
-          evaluation_count: 0,
-          evaluation_history: []
-        )
+      def resolve_inheritance_policy(parent)
+        # Check guardrail config for custom policy
+        config = Ai::GuardrailConfig.where(account_id: account.id).active.global.first
+        custom_policy = config&.effective_config&.dig(:trust_inheritance_policy)
+        return custom_policy if %w[conservative moderate permissive].include?(custom_policy)
+
+        # Default: policy based on parent tier
+        parent_trust = Ai::AgentTrustScore.find_by(agent_id: parent.id)
+        case parent_trust&.tier
+        when "autonomous" then "moderate"
+        when "trusted" then "moderate"
+        else "conservative"
+        end
       end
 
       def allocate_budget(agent, parent, budget_cents)

@@ -74,6 +74,7 @@ module Ai
       def check_action(agent:, action_type:, action_context: {})
         denial = evaluate_policies(agent, action_type, action_context) ||
                  evaluate_trust_gate(agent, action_type) ||
+                 evaluate_circuit_breaker(agent, action_type) ||
                  evaluate_budget_gate(agent, action_context)
 
         outcome = denial ? "blocked" : "success"
@@ -185,9 +186,26 @@ module Ai
       end
 
       def evaluate_trust_gate(agent, action_type)
-        ts = agent.trust_score
-        return nil unless ts && ts.tier == "supervised" && HIGH_RISK_ACTIONS.include?(action_type.to_s)
-        { allowed: false, reason: "Trust tier '#{ts.tier}' insufficient for '#{action_type}'", enforcement: "block" }
+        # Use capability matrix for tier-based policy enforcement
+        capability_service = Ai::Autonomy::CapabilityMatrixService.new(account: @account)
+        policy = capability_service.check(agent: agent, action_type: action_type)
+
+        case policy
+        when :denied
+          { allowed: false, reason: "Capability matrix denies '#{action_type}' for agent tier", enforcement: "block" }
+        when :requires_approval
+          { allowed: false, reason: "Capability matrix requires approval for '#{action_type}'", enforcement: "approval_required" }
+        else
+          nil
+        end
+      end
+
+      def evaluate_circuit_breaker(agent, action_type)
+        breaker_service = Ai::Autonomy::CircuitBreakerService.new(account: @account)
+        result = breaker_service.check(agent: agent, action_type: action_type)
+        return nil if result[:allowed]
+
+        { allowed: false, reason: result[:reason], enforcement: "circuit_breaker" }
       end
 
       def evaluate_budget_gate(agent, action_context)

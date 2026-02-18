@@ -102,6 +102,122 @@ module Ai
         }
       end
 
+      # Evaluate a specific agent's pending executions
+      # @param agent [Ai::Agent] The agent to evaluate
+      # @return [Hash] Evaluation result
+      def evaluate_pending_for(agent:)
+        trust_score = find_or_create_trust_score(agent)
+
+        recent_executions = Ai::AgentExecution
+          .where(ai_agent_id: agent.id)
+          .where("created_at > ?", trust_score.last_evaluated_at || 30.days.ago)
+          .order(created_at: :desc)
+          .limit(20)
+
+        if recent_executions.empty?
+          return {
+            success: true,
+            agent_id: agent.id,
+            overall_score: trust_score.overall_score,
+            tier: trust_score.tier,
+            message: "No new executions to evaluate"
+          }
+        end
+
+        aggregate_updates = aggregate_execution_metrics(recent_executions)
+        apply_updates!(trust_score, aggregate_updates)
+        tier_change = check_tier_transition(trust_score)
+
+        {
+          success: true,
+          agent_id: agent.id,
+          overall_score: trust_score.overall_score,
+          tier: trust_score.tier,
+          tier_change: tier_change,
+          executions_evaluated: recent_executions.size
+        }
+      end
+
+      # Apply temporal decay to all trust scores
+      # 7-day grace period, 2%/week toward 0.5 baseline, 30% max decay
+      # @return [Array<Hash>] List of agents affected
+      def apply_decay!
+        scores = Ai::AgentTrustScore.where(account_id: account.id)
+          .where("last_evaluated_at < ?", 7.days.ago)
+          .includes(:agent)
+
+        results = []
+        scores.find_each do |trust_score|
+          next unless trust_score.agent
+
+          days_since = (Time.current - trust_score.last_evaluated_at).to_f / 1.day
+          weeks_since = (days_since - 7) / 7.0 # Grace period subtracted
+          next if weeks_since <= 0
+
+          decay_rate = 0.02 # 2% per week
+          baseline = 0.5
+          max_decay = 0.30
+
+          Ai::AgentTrustScore::DIMENSIONS.each do |dim|
+            current = trust_score.send(dim) || 0.5
+            diff = current - baseline
+            next if diff.abs < 0.01
+
+            decay = [diff * decay_rate * weeks_since, diff.abs * max_decay].min
+            decay = diff.negative? ? -decay.abs : decay
+            trust_score.send(:"#{dim}=", (current - decay).clamp(0.0, 1.0).round(4))
+          end
+
+          trust_score.recalculate!
+          results << { agent_id: trust_score.agent_id, tier: trust_score.tier, overall_score: trust_score.overall_score }
+        end
+
+        Rails.logger.info("[TrustEngine] Decay applied to #{results.size} agents")
+        results
+      end
+
+      # Inherit trust from parent to child with configurable policy
+      # @param parent [Ai::Agent] The parent agent
+      # @param child [Ai::Agent] The child agent
+      # @param policy [String] 'conservative', 'moderate', or 'permissive'
+      # @return [Ai::AgentTrustScore] The child's trust score
+      def inherit_trust(parent, child, policy: "conservative")
+        parent_trust = Ai::AgentTrustScore.find_by(agent_id: parent.id)
+        return find_or_create_trust_score(child) unless parent_trust
+
+        multiplier = case policy
+                     when "conservative" then 0.3
+                     when "moderate" then 0.5
+                     when "permissive" then 0.7
+                     else 0.3
+                     end
+
+        initial_tier = case policy
+                       when "conservative" then "supervised"
+                       when "moderate" then "monitored"
+                       when "permissive" then "trusted"
+                       else "supervised"
+                       end
+
+        child_trust = find_or_create_trust_score(child)
+        Ai::AgentTrustScore::DIMENSIONS.each do |dim|
+          parent_val = parent_trust.send(dim) || 0.5
+          inherited = [parent_val * multiplier, 0.2].max
+          child_trust.send(:"#{dim}=", inherited.round(4))
+        end
+
+        child_trust.tier = initial_tier
+        child_trust.evaluation_history = (child_trust.evaluation_history || []) + [{
+          type: "trust_inheritance",
+          parent_agent_id: parent.id,
+          policy: policy,
+          multiplier: multiplier,
+          evaluated_at: Time.current.iso8601
+        }]
+        child_trust.recalculate!
+        child_trust
+      end
+
       # Bulk evaluate all agents that need re-evaluation
       def evaluate_pending
         scores = Ai::AgentTrustScore.needs_evaluation.includes(:agent)
