@@ -256,8 +256,8 @@ Rails.application.routes.draw do
             end
           end
 
-          # Runners sync (for worker service)
-          resources :runners, only: [] do
+          # Runners management (for worker service)
+          resources :runners, only: [ :index ] do
             collection do
               post :sync
             end

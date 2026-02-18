@@ -5,6 +5,15 @@ module Api
     module Internal
       module Git
         class RunnersController < InternalBaseController
+          # GET /api/v1/internal/git/runners
+          # List runners for health check job
+          def index
+            runners = ::Devops::GitRunner.all
+            runners = runners.where(status: params[:status]) if params[:status].present?
+
+            render_success({ runners: runners.map { |r| serialize_runner(r) } })
+          end
+
           # POST /api/v1/internal/git/runners/sync
           # Sync runners from worker job
           def sync
