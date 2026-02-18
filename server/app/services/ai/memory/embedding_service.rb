@@ -156,69 +156,82 @@ module Ai
       def generate_from_provider(text)
         return generate_mock_embedding(text) if Rails.env.test?
 
-        client = build_client
-        return nil unless client
+        credential = build_credential
 
         case @provider&.provider_type
         when "openai"
-          generate_openai_embedding(client, text)
+          return generate_mock_embedding(text) unless credential
+
+          generate_openai_embedding(credential, text)
         when "anthropic"
-          # Anthropic doesn't have embeddings, fall back to mock or another provider
           generate_mock_embedding(text)
         else
           generate_mock_embedding(text)
         end
       rescue StandardError => e
         Rails.logger.error "Embedding generation failed: #{e.message}"
-        nil
+        generate_mock_embedding(text)
       end
 
       def generate_batch_from_provider(texts)
         return texts.map { |t| generate_mock_embedding(t) } if Rails.env.test?
 
-        client = build_client
-        return texts.map { nil } unless client
+        credential = build_credential
 
         case @provider&.provider_type
         when "openai"
-          generate_openai_batch_embeddings(client, texts)
+          return texts.map { |t| generate_mock_embedding(t) } unless credential
+
+          generate_openai_batch_embeddings(credential, texts)
         else
           texts.map { |t| generate_mock_embedding(t) }
         end
       rescue StandardError => e
         Rails.logger.error "Batch embedding generation failed: #{e.message}"
-        texts.map { nil }
+        texts.map { |t| generate_mock_embedding(t) }
       end
 
-      def build_client
+      def build_credential
         return nil unless @provider
 
-        Ai::ProviderClientService.new(
-          provider: @provider,
-          account: @account
-        ).build_client
+        @account.ai_provider_credentials
+          .where(ai_provider_id: @provider.id, is_active: true).first
       end
 
-      def generate_openai_embedding(client, text)
-        response = client.embeddings(
-          parameters: {
-            model: "text-embedding-3-small",
-            input: text
-          }
+      def generate_openai_embedding(credential, text)
+        api_key = credential.credentials["api_key"]
+        return nil unless api_key
+
+        response = HTTParty.post(
+          "https://api.openai.com/v1/embeddings",
+          headers: {
+            "Authorization" => "Bearer #{api_key}",
+            "Content-Type" => "application/json"
+          },
+          body: { model: "text-embedding-3-small", input: text }.to_json,
+          timeout: 30
         )
 
-        response.dig("data", 0, "embedding")
+        parsed = JSON.parse(response.body)
+        parsed.dig("data", 0, "embedding")
       end
 
-      def generate_openai_batch_embeddings(client, texts)
-        response = client.embeddings(
-          parameters: {
-            model: "text-embedding-3-small",
-            input: texts
-          }
+      def generate_openai_batch_embeddings(credential, texts)
+        api_key = credential.credentials["api_key"]
+        return texts.map { nil } unless api_key
+
+        response = HTTParty.post(
+          "https://api.openai.com/v1/embeddings",
+          headers: {
+            "Authorization" => "Bearer #{api_key}",
+            "Content-Type" => "application/json"
+          },
+          body: { model: "text-embedding-3-small", input: texts }.to_json,
+          timeout: 60
         )
 
-        data = response["data"] || []
+        parsed = JSON.parse(response.body)
+        data = parsed["data"] || []
         data.sort_by { |d| d["index"] }.map { |d| d["embedding"] }
       end
 

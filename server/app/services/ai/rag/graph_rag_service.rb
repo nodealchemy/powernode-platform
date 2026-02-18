@@ -11,8 +11,8 @@ module Ai
 
       def initialize(account:)
         @account = account
-        @graph_service = Ai::KnowledgeGraph::GraphService.new(account: account)
-        @hybrid_search = Ai::Rag::HybridSearchService.new(account: account)
+        @graph_service = Ai::KnowledgeGraph::GraphService.new(account)
+        @hybrid_search = Ai::Rag::HybridSearchService.new(account)
         @embedding_service = Ai::Memory::EmbeddingService.new(account: account)
       end
 
@@ -180,7 +180,7 @@ module Ai
 
         # Find document chunks associated with community nodes
         Ai::DocumentChunk
-          .joins("INNER JOIN ai_knowledge_graph_nodes ON ai_knowledge_graph_nodes.source_document_id = ai_document_chunks.ai_document_id")
+          .joins("INNER JOIN ai_knowledge_graph_nodes ON ai_knowledge_graph_nodes.source_document_id = ai_document_chunks.document_id")
           .where(ai_knowledge_graph_nodes: { id: all_node_ids })
           .distinct
           .limit(50)
