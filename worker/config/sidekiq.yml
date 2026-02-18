@@ -189,6 +189,13 @@
     queue: devops_default
     description: 'Sync Docker host container and image state'
 
+  # Git Runner health check - every 5 minutes
+  git_runner_health_check:
+    every: '5m'
+    class: Git::RunnerHealthCheckJob
+    queue: devops_default
+    description: 'Check Git runner health and mark stale runners offline'
+
   # Docker Host health check - every 5 minutes
   docker_health_check:
     every: '5m'
