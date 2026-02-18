@@ -16,7 +16,7 @@ class Ai::RunnerDispatchService
     runners.min_by(&:total_jobs_run)
   end
 
-  def dispatch(worktree:, task_input:, runner:)
+  def dispatch(worktree:, task_input:, runner:, workflow_file: nil)
     repository = resolve_repository
     return { success: false, error: "No repository configured" } unless repository
     return { success: false, error: "No Git provider client available" } unless @client
@@ -24,7 +24,7 @@ class Ai::RunnerDispatchService
     workflow_ref = worktree.branch_name
     run_result = @client.trigger_workflow(
       repository.owner, repository.name,
-      "agent-execution.yml",
+      workflow_file || default_workflow_file,
       workflow_ref,
       {
         worktree_id: worktree.id,
@@ -63,8 +63,7 @@ class Ai::RunnerDispatchService
     repository = dispatch.git_repository
     return unless repository && @client
 
-    runs = @client.list_workflow_runs(repository.owner, repository.name)
-    run = runs&.find { |r| r["id"].to_s == dispatch.workflow_run_id }
+    run = @client.get_workflow_run(repository.owner, repository.name, dispatch.workflow_run_id)
     return unless run
 
     new_status = map_run_status(run["status"], run["conclusion"])
@@ -112,7 +111,7 @@ class Ai::RunnerDispatchService
   def find_credential
     @account.git_provider_credentials
             .joins(:provider)
-            .where(git_providers: { provider_type: %w[github gitea] })
+            .where(git_providers: { provider_type: %w[github gitea gitlab] })
             .where(is_active: true)
             .order(is_default: :desc, created_at: :desc)
             .first
@@ -122,27 +121,8 @@ class Ai::RunnerDispatchService
     credential&.provider&.provider_type
   end
 
-  def dispatch_to_github(task:, runner:, credential:)
-    client = Devops::Git::ApiClient.for(credential)
-    repository = resolve_repository
-    return { success: false, error: "No repository configured" } unless repository
-
-    workflow_ref = @session.base_branch || "main"
-    run_result = client.trigger_workflow(
-      repository.owner, repository.name,
-      "agent-execution.yml",
-      workflow_ref,
-      {
-        session_id: @session.id,
-        task_input: task.to_json,
-        runner_labels: runner.labels.join(",")
-      }
-    )
-
-    { success: true, run_result: run_result, repository: repository }
-  rescue StandardError => e
-    Rails.logger.error "[RunnerDispatch] GitHub dispatch failed: #{e.message}"
-    { success: false, error: e.message }
+  def default_workflow_file
+    "agent-execution.yml"
   end
 
   def resolve_repository
@@ -174,15 +154,17 @@ class Ai::RunnerDispatchService
     return nil unless repository && run_id
 
     provider_type = detect_provider_type
-    base_url = @credential&.credentials&.dig("url")
+    base_url = @credential&.provider&.effective_web_base_url
 
     case provider_type
     when "github"
       "#{base_url}/#{repository.full_name}/actions/runs/#{run_id}"
     when "gitea"
       "#{base_url}/#{repository.full_name}/actions/runs/#{run_id}"
+    when "gitlab"
+      "#{base_url}/#{repository.full_name}/-/pipelines/#{run_id}"
     else
-      "#{base_url}/#{repository.full_name}/actions/runs/#{run_id}"
+      nil
     end
   end
 end

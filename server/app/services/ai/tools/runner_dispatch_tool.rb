@@ -8,7 +8,7 @@ module Ai
       def self.definition
         {
           name: "dispatch_to_runner",
-          description: "Dispatch a worktree execution to a Gitea Runner",
+          description: "Dispatch a worktree execution to a self-hosted runner (GitHub Actions, Gitea Actions, or GitLab CI)",
           parameters: {
             session_id: { type: "string", required: true, description: "Worktree session ID" },
             worktree_id: { type: "string", required: true, description: "Worktree ID" },
