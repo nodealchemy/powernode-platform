@@ -52,6 +52,14 @@ module Ai
       message_type == "task_result"
     end
 
+    def work_plan?
+      message_type == "work_plan"
+    end
+
+    def synthesis?
+      message_type == "synthesis"
+    end
+
     def question?
       message_type == "question"
     end

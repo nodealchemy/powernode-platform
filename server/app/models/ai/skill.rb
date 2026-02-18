@@ -25,6 +25,7 @@ module Ai
                             foreign_key: "ai_skill_id"
     has_many :agent_skills, class_name: "Ai::AgentSkill", foreign_key: "ai_skill_id", dependent: :destroy
     has_many :agents, class_name: "Ai::Agent", through: :agent_skills, source: :agent
+    has_one :knowledge_graph_node, class_name: "Ai::KnowledgeGraphNode", foreign_key: "ai_skill_id", dependent: :nullify
 
     # ==========================================
     # Validations
@@ -47,6 +48,8 @@ module Ai
     # Callbacks
     # ==========================================
     before_validation :generate_slug, on: :create
+    after_commit :sync_to_knowledge_graph, on: [:create, :update]
+    after_destroy :archive_knowledge_graph_node
 
     # ==========================================
     # Public Methods
@@ -101,6 +104,20 @@ module Ai
     end
 
     private
+
+    def sync_to_knowledge_graph
+      return unless account_id.present?
+
+      Ai::SkillGraph::BridgeService.new(Account.find(account_id)).sync_skill(self)
+    rescue StandardError => e
+      Rails.logger.warn "[Ai::Skill] KG sync failed for skill #{id}: #{e.message}"
+    end
+
+    def archive_knowledge_graph_node
+      knowledge_graph_node&.archive!
+    rescue StandardError => e
+      Rails.logger.warn "[Ai::Skill] KG archive failed for skill #{id}: #{e.message}"
+    end
 
     def generate_slug
       return if slug.present?

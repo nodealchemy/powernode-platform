@@ -195,7 +195,6 @@ module Ai
       self.configuration ||= {}
       self.metadata ||= {}
       self.error_details ||= {}
-      self.base_branch ||= "main"
     end
 
     def repository_required_for_development

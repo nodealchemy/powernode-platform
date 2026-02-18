@@ -36,6 +36,8 @@ module Ai
     has_one :trust_score, class_name: "Ai::AgentTrustScore", foreign_key: "agent_id", dependent: :destroy
     has_many :budgets, class_name: "Ai::AgentBudget", foreign_key: "agent_id", dependent: :destroy
     has_many :short_term_memories, class_name: "Ai::AgentShortTermMemory", foreign_key: "agent_id", dependent: :destroy
+    has_many :agent_team_members, class_name: "Ai::AgentTeamMember", foreign_key: "ai_agent_id"
+    has_many :teams, class_name: "Ai::AgentTeam", through: :agent_team_members, source: :agent_team
 
     # Validations
     validates :name, presence: true, length: { maximum: 255 }, uniqueness: { scope: :account_id }
@@ -92,6 +94,7 @@ module Ai
     before_validation :normalize_agent_type
     before_save :update_version_if_mcp_changed
     before_save :ensure_mcp_tool_manifest
+    after_commit :sync_to_knowledge_graph, on: [:create, :update]
 
     def skill_slugs
       agent_skills.where(is_active: true).joins(:skill).where(ai_skills: { status: "active" }).pluck("ai_skills.slug")
@@ -126,6 +129,14 @@ module Ai
     end
 
     private
+
+    def sync_to_knowledge_graph
+      return unless account_id.present?
+
+      Ai::SkillGraph::BridgeService.new(account).sync_agent(self)
+    rescue StandardError => e
+      Rails.logger.warn "[Ai::Agent] KG sync failed for agent #{id}: #{e.message}"
+    end
 
     def generate_slug
       return if name.blank?

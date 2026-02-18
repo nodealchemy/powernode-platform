@@ -161,8 +161,8 @@ module Ai
                            }
         when "anthropic"
                            {
-                             "models" => %w[claude-instant-1 claude-2],
-                             "default_model" => "claude-instant-1",
+                             "models" => %w[claude-opus-4-6 claude-sonnet-4-5-20250929 claude-haiku-4-5-20251001],
+                             "default_model" => "claude-haiku-4-5-20251001",
                              "api_key" => nil,
                              "temperature" => 0.7,
                              "max_tokens" => 2000

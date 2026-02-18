@@ -7,7 +7,7 @@ module Ai
     has_neighbors :embedding
 
     NODE_TYPES = %w[entity concept relation attribute].freeze
-    ENTITY_TYPES = %w[person organization technology event location custom].freeze
+    ENTITY_TYPES = %w[person organization technology event location skill agent team custom].freeze
     STATUSES = %w[active merged archived].freeze
 
     # Associations
@@ -15,6 +15,7 @@ module Ai
     belongs_to :knowledge_base, class_name: "Ai::KnowledgeBase", foreign_key: "knowledge_base_id", optional: true
     belongs_to :source_document, class_name: "Ai::Document", foreign_key: "source_document_id", optional: true
     belongs_to :merged_into, class_name: "Ai::KnowledgeGraphNode", foreign_key: "merged_into_id", optional: true
+    belongs_to :skill, class_name: "Ai::Skill", foreign_key: "ai_skill_id", optional: true
 
     has_many :outgoing_edges, class_name: "Ai::KnowledgeGraphEdge", foreign_key: :source_node_id, dependent: :destroy
     has_many :incoming_edges, class_name: "Ai::KnowledgeGraphEdge", foreign_key: :target_node_id, dependent: :destroy
@@ -35,6 +36,8 @@ module Ai
     scope :with_embeddings, -> { where.not(embedding: nil) }
     scope :for_knowledge_base, ->(kb_id) { where(knowledge_base_id: kb_id) }
     scope :search_by_name, ->(query) { where("name ILIKE ?", "%#{sanitize_sql_like(query)}%") }
+    scope :skill_nodes, -> { where(entity_type: "skill") }
+    scope :for_skill, ->(skill_id) { where(ai_skill_id: skill_id) }
 
     # Get all edges (both incoming and outgoing)
     def edges
