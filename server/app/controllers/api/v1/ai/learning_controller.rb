@@ -175,6 +175,20 @@ module Api
           )
         end
 
+        # POST /api/v1/ai/learning/memory_maintenance (internal, called by worker)
+        def memory_maintenance
+          maintenance = ::Ai::Memory::MaintenanceService.new(account: current_user.account)
+          maintenance_result = maintenance.run_full_maintenance
+
+          rot_service = ::Ai::Context::RotDetectionService.new(account: current_user.account)
+          rot_result = rot_service.auto_archive!
+
+          render_success(
+            maintenance: maintenance_result,
+            rot_detection: rot_result
+          )
+        end
+
         # POST /api/v1/ai/learning/compound_maintenance (internal, called by worker)
         def compound_maintenance
           service = ::Ai::Learning::CompoundLearningService.new(account: current_user.account)
@@ -198,7 +212,7 @@ module Api
             require_permission("ai.analytics.read")
           when "apply_recommendation", "dismiss_recommendation", "create_benchmark", "run_benchmark"
             require_permission("ai.analytics.manage")
-          when "reinforce", "promote", "compound_maintenance"
+          when "reinforce", "promote", "compound_maintenance", "memory_maintenance"
             require_permission("ai.analytics.manage")
           end
         end

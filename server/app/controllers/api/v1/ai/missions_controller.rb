@@ -4,6 +4,8 @@ module Api
   module V1
     module Ai
       class MissionsController < ApplicationController
+        rescue_from WorkerJobService::WorkerServiceError, with: :handle_worker_service_error
+
         before_action :authorize_read!, only: [:index, :show]
         before_action :authorize_manage!, only: [
           :create, :update, :destroy, :start, :approve, :reject,
@@ -234,7 +236,7 @@ module Api
           return unless mission
 
           branch_name = params[:branch_name] || "mission/#{mission.id[0..7]}-#{mission.name.parameterize}"
-          base = params[:base_branch] || mission.base_branch || "main"
+          base = params[:base_branch] || mission.base_branch || mission.repository&.default_branch || "main"
 
           service = ::Ai::Missions::PrManagementService.new(mission: mission)
           result = service.create_branch!(base: base, name: branch_name)
@@ -316,14 +318,14 @@ module Api
               mission.update!(deployed_url: url)
               orchestrator = ::Ai::Missions::OrchestratorService.new(mission: mission)
               orchestrator.advance!(result: { deployed_url: url, stub: true })
-              render_success(deployment: { port: port, url: url, status: "stub", note: e.message })
+              render_success(deployment: { port: port, url: url, status: "stub", note: e.message }, mission: mission.reload.mission_details)
             end
           else
             url = "http://localhost:#{port}"
             mission.update!(deployed_url: url)
             orchestrator = ::Ai::Missions::OrchestratorService.new(mission: mission)
             orchestrator.advance!(result: { deployed_url: url, stub: true })
-            render_success(deployment: { port: port, url: url, status: "stub" })
+            render_success(deployment: { port: port, url: url, status: "stub" }, mission: mission.reload.mission_details)
           end
         rescue ::Ai::Missions::AppLaunchService::LaunchError => e
           render_error(e.message, :unprocessable_content)
@@ -335,7 +337,7 @@ module Api
           return unless mission
 
           head = params[:head] || mission.branch_name
-          base = params[:base] || mission.base_branch || "main"
+          base = params[:base] || mission.base_branch || mission.repository&.default_branch || "main"
           title = params[:title] || "Mission: #{mission.name}"
           body = params[:body] || "Automated PR from mission #{mission.id}\n\n#{mission.objective}"
 
@@ -384,6 +386,10 @@ module Api
         rescue ActiveRecord::RecordNotFound
           render_error("Mission not found", :not_found)
           nil
+        end
+
+        def handle_worker_service_error(exception)
+          render_error("Worker service unavailable: #{exception.message}", :service_unavailable)
         end
 
         def mission_params

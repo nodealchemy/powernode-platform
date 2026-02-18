@@ -17,7 +17,7 @@ module ApiResponse
     response = { success: true }
 
     # Determine actual data (keyword takes precedence, then positional, then extra_data)
-    actual_data = if data.present?
+    actual_data = if !data.nil?
                     data
     elsif positional_data.present? || positional_data.is_a?(Array)
                     positional_data

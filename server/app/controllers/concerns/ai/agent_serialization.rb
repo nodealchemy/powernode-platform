@@ -80,6 +80,7 @@ module Ai
         id: execution.id,
         execution_id: execution.execution_id,
         status: execution.status,
+        output_data: execution.output_data,
         created_at: execution.created_at.iso8601,
         started_at: execution.started_at&.iso8601,
         completed_at: execution.completed_at&.iso8601,

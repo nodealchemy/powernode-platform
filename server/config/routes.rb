@@ -1971,6 +1971,24 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
+        # 10.6. SKILL GRAPH - Skill ↔ Knowledge Graph Integration
+        # ===================================================================
+        scope :skill_graph, controller: "skill_graph" do
+          get "subgraph", action: :subgraph
+          post "sync", action: :sync
+          post "discover", action: :discover
+          post "edges", action: :create_edge
+          patch "edges/:id", action: :update_edge
+          delete "edges/:id", action: :destroy_edge
+          post "auto_detect", action: :auto_detect
+          get "team_coverage/:team_id", action: :team_coverage
+          post "team_gaps/:team_id", action: :team_gaps
+          post "suggest_agents/:team_id", action: :suggest_agents
+          post "compose_team", action: :compose_team
+          get "agent_context/:agent_id", action: :agent_context
+        end
+
+        # ===================================================================
         # 11. TEAMS CONTROLLER - Multi-Agent Team Orchestration
         # ===================================================================
         # Revenue: Tiered subscriptions + agent seat pricing
@@ -2714,6 +2732,7 @@ Rails.application.routes.draw do
           post "reinforce/:id", action: :reinforce
           post "promote", action: :promote
           post "compound_maintenance", action: :compound_maintenance
+          post "memory_maintenance", action: :memory_maintenance
           get "benchmarks", action: :benchmarks
           post "benchmarks", action: :create_benchmark
           post "benchmarks/:id/run", action: :run_benchmark

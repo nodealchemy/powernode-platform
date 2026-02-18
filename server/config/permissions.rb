@@ -300,6 +300,10 @@ module Permissions
     "ai.missions.read" => "View missions and mission details",
     "ai.missions.manage" => "Create, manage, and approve missions",
 
+    # AI Knowledge Graph
+    "ai.knowledge_graph.read" => "View knowledge graph nodes and relationships",
+    "ai.knowledge_graph.manage" => "Create and manage knowledge graph nodes and edges",
+
     # DevOps Pipeline Management
     "devops.pipelines.read" => "View DevOps pipelines",
     "devops.pipelines.write" => "Create, update, and delete DevOps pipelines",
@@ -631,6 +635,8 @@ module Permissions
         "ai.discovery.read", "ai.memory_pools.read", "ai.code_reviews.read",
         # AI Missions (read-only)
         "ai.missions.read",
+        # AI Knowledge Graph (read-only)
+        "ai.knowledge_graph.read",
         # File management permissions
         "files.read", "files.create", "files.download", "files.update", "files.delete",
         "storage.read"
@@ -732,7 +738,9 @@ module Permissions
         "ai.code_reviews.read", "ai.code_reviews.manage",
         "ai.autonomy.configure",
         # AI Missions
-        "ai.missions.read", "ai.missions.manage"
+        "ai.missions.read", "ai.missions.manage",
+        # AI Knowledge Graph
+        "ai.knowledge_graph.read", "ai.knowledge_graph.manage"
       ]
     },
 
@@ -968,7 +976,9 @@ module Permissions
         "ai.discovery.read", "ai.discovery.manage",
         "ai.memory_pools.read", "ai.memory_pools.manage",
         "ai.code_reviews.read", "ai.code_reviews.manage",
-        "ai.autonomy.configure"
+        "ai.autonomy.configure",
+        # AI Knowledge Graph
+        "ai.knowledge_graph.read", "ai.knowledge_graph.manage"
       ]
     }
   }.freeze
