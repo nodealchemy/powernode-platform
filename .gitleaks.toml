@@ -113,7 +113,6 @@ paths = [
     '''config/master\.key\.example$''',
     '''spec/fixtures/''',
     '''test/fixtures/''',
-    '''\.github/workflows/''',
     '''docs/''',
     '''node_modules/''',
     '''vendor/''',
