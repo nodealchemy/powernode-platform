@@ -15,6 +15,7 @@ module Ai
         text = normalize_output(output)
         duration_ms = metadata[:duration_ms] || metadata["duration_ms"]
         cost_usd = metadata[:total_cost_usd] || metadata["total_cost_usd"]
+        discovered_skill_ids = metadata[:discovered_skill_ids] || metadata["discovered_skill_ids"]
 
         # Performance insights
         if duration_ms.present? && duration_ms < 5000
@@ -24,7 +25,8 @@ module Ai
             title: "Fast execution pattern",
             importance: 0.6,
             confidence: 0.7,
-            extraction_method: "auto_success"
+            extraction_method: "auto_success",
+            skill_node_ids: discovered_skill_ids
           )
         end
 
@@ -36,7 +38,8 @@ module Ai
             title: "Cost efficiency pattern",
             importance: 0.6,
             confidence: 0.6,
-            extraction_method: "auto_success"
+            extraction_method: "auto_success",
+            skill_node_ids: discovered_skill_ids
           )
         end
 
@@ -50,7 +53,8 @@ module Ai
             title: "Zero-failure execution",
             importance: 0.65,
             confidence: 0.75,
-            extraction_method: "auto_success"
+            extraction_method: "auto_success",
+            skill_node_ids: discovered_skill_ids
           )
         end
 
@@ -220,8 +224,8 @@ module Ai
         end
       end
 
-      def build_learning(category:, content:, title:, importance:, confidence:, extraction_method:, agent_id: nil)
-        {
+      def build_learning(category:, content:, title:, importance:, confidence:, extraction_method:, agent_id: nil, skill_node_ids: nil)
+        learning = {
           category: category,
           content: content,
           title: title,
@@ -230,6 +234,8 @@ module Ai
           extraction_method: extraction_method,
           source_agent_id: agent_id
         }
+        learning[:metadata] = { "skill_node_ids" => skill_node_ids } if skill_node_ids.present?
+        learning
       end
     end
   end

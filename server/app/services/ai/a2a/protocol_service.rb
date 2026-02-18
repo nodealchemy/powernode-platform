@@ -401,7 +401,51 @@ module Ai
                               (skills.any? { |s| s.include?(w) } ? 0.3 : 0) }
         score += 0.15 if card.success_rate.to_f > 80
         score += 0.1 if card.task_count.to_i > 10
+
+        # Graph distance scoring: boost agents whose skills are graph-close to task requirements
+        begin
+          graph_score = compute_graph_relevance(card, description)
+          score += graph_score if graph_score > 0
+        rescue => e
+          Rails.logger.warn "[A2A Protocol] Graph relevance scoring failed: #{e.message}"
+        end
+
         [score, 1.0].min.round(3)
+      end
+
+      def compute_graph_relevance(card, description)
+        return 0.0 unless @account.ai_knowledge_graph_nodes.active.skill_nodes.exists?
+
+        traversal = Ai::SkillGraph::TraversalService.new(@account).traverse(
+          task_context: description, mode: :auto, token_budget: 500
+        )
+        required_names = (traversal[:discovered_skills] || []).map { |s| s[:name] }.compact
+        return 0.0 if required_names.empty?
+
+        agent_skill_slugs = extract_skill_ids(card)
+        graph_service = Ai::KnowledgeGraph::GraphService.new(@account)
+        total_distance_score = 0.0
+
+        required_names.each do |req_name|
+          req_node = @account.ai_knowledge_graph_nodes.active.skill_nodes.find_by(name: req_name)
+          next unless req_node
+
+          agent_skill_slugs.each do |agent_slug|
+            agent_skill = Ai::Skill.for_account(@account.id).active.find_by(slug: agent_slug)
+            agent_node = agent_skill&.knowledge_graph_node
+            next unless agent_node&.status == "active"
+
+            path = graph_service.shortest_path(source: agent_node, target: req_node)
+            if path.is_a?(Array) && path.any?
+              total_distance_score += 1.0 / (1 + path.size)
+            end
+          end
+        end
+
+        [total_distance_score * 0.1, 0.3].min
+      rescue => e
+        Rails.logger.warn "[A2A Protocol] Graph relevance computation error: #{e.message}"
+        0.0
       end
 
       def extract_skill_ids(card)

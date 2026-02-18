@@ -163,11 +163,21 @@ module Mcp
             next unless tool
 
             # Check if tool supports ALL required capabilities
-            tool_capabilities = tool["capabilities"] || []
+            tool_capabilities = extract_tool_capability_ids(tool)
             if (required_capabilities - tool_capabilities).empty?
               matching_tools << tool unless matching_tools.include?(tool)
             end
           end
+        end
+      end
+
+      # Graph-based fallback: find tools with graph-adjacent capabilities
+      if matching_tools.empty?
+        begin
+          graph_matches = find_tools_via_graph(required_capabilities)
+          matching_tools.concat(graph_matches)
+        rescue => e
+          @logger.warn "[MCP_REGISTRY] Graph-based capability lookup failed: #{e.message}"
         end
       end
 
@@ -629,6 +639,35 @@ module Mcp
 
   def find_tool_by_name(name)
     @tools.values.find { |tool| tool["name"] == name }
+  end
+
+  # Graph-based tool discovery fallback
+  def find_tools_via_graph(required_capabilities)
+    return [] unless @account&.ai_knowledge_graph_nodes&.active&.skill_nodes&.exists?
+
+    graph_service = Ai::KnowledgeGraph::GraphService.new(@account)
+    graph_matched_tool_ids = Set.new
+
+    required_capabilities.each do |cap|
+      cap_skill = Ai::Skill.for_account(@account.id).active.find_by(slug: cap)
+      cap_node = cap_skill&.knowledge_graph_node
+      next unless cap_node&.status == "active"
+
+      neighbors = graph_service.find_neighbors(node: cap_node, depth: 1, relation_types: %w[requires related_to])
+      neighbor_names = neighbors.map { |n| n[:name] }.compact
+
+      neighbor_names.each do |name|
+        tool_ids = @capability_index[name]
+        graph_matched_tool_ids.merge(tool_ids) if tool_ids
+      end
+    end
+
+    graph_matched_tool_ids.filter_map { |tid| @tools[tid] }
+  end
+
+  def extract_tool_capability_ids(tool)
+    caps = tool["capabilities"] || []
+    caps.map { |c| c.is_a?(Hash) ? (c["id"] || c["name"]) : c.to_s }.compact
   end
 
   def generate_tool_id_from_manifest(manifest)

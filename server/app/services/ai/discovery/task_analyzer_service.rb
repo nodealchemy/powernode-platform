@@ -129,7 +129,20 @@ module Ai
           end
         end
 
-        capabilities.presence || ["general"]
+        # Graph-based capability resolution
+        begin
+          if account.ai_knowledge_graph_nodes.active.skill_nodes.exists?
+            traversal = Ai::SkillGraph::TraversalService.new(account).traverse(
+              task_context: text, mode: :auto, token_budget: 1000
+            )
+            graph_skills = (traversal[:discovered_skills] || []).map { |s| s[:slug] || s[:name] }.compact
+            capabilities.concat(graph_skills)
+          end
+        rescue => e
+          Rails.logger.warn "[TaskAnalyzer] Graph-based capability resolution failed: #{e.message}"
+        end
+
+        capabilities.uniq.presence || ["general"]
       end
 
       def find_agents_for_capability(capability, agents)
@@ -148,6 +161,29 @@ module Ai
         end
 
         score += 0.5 if agent.name.downcase.include?(capability.gsub("_", " "))
+
+        # Graph distance scoring boost
+        begin
+          cap_skill = Ai::Skill.for_account(account.id).active.find_by(slug: capability)
+          cap_node = cap_skill&.knowledge_graph_node
+          if cap_node&.status == "active"
+            agent_skill_slugs = agent_skills
+            agent_skill_records = Ai::Skill.for_account(account.id).active.where(slug: agent_skill_slugs)
+            agent_skill_records.each do |s|
+              skill_node = s.knowledge_graph_node
+              next unless skill_node&.status == "active"
+              path = Ai::KnowledgeGraph::GraphService.new(account).shortest_path(
+                source: skill_node, target: cap_node
+              )
+              if path && path[:distance].to_i > 0
+                score += 1.0 / (1 + path[:distance])
+              end
+            end
+          end
+        rescue => e
+          Rails.logger.warn "[TaskAnalyzer] Graph distance scoring failed: #{e.message}"
+        end
+
         score.round(2)
       end
 
@@ -195,7 +231,10 @@ module Ai
         recs = []
 
         gaps.each do |gap|
-          recs << { action: "add_agent", capability: gap, reason: "No agent covers #{gap}" }
+          nearest = find_nearest_skill_via_graph(gap)
+          reason = "No agent covers #{gap}"
+          reason += " (nearest available: #{nearest})" if nearest
+          recs << { action: "add_agent", capability: gap, reason: reason }
         end
 
         if redundant.size > 2
@@ -203,6 +242,20 @@ module Ai
         end
 
         recs
+      end
+
+      def find_nearest_skill_via_graph(capability_slug)
+        cap_skill = Ai::Skill.for_account(account.id).active.find_by(slug: capability_slug)
+        cap_node = cap_skill&.knowledge_graph_node
+        return nil unless cap_node&.status == "active"
+
+        neighbors = Ai::KnowledgeGraph::GraphService.new(account).find_neighbors(
+          node: cap_node, depth: 1, relation_types: %w[requires related_to]
+        )
+        neighbors.first&.dig(:name)
+      rescue => e
+        Rails.logger.warn "[TaskAnalyzer] Nearest skill graph lookup failed: #{e.message}"
+        nil
       end
     end
   end

@@ -7,6 +7,13 @@ class Ai::McpAgentExecutor
     private
 
     def build_execution_context(input_parameters)
+      # Hydrate working memory from database before building context
+      begin
+        Ai::Memory::WorkingMemoryService.new(agent: @agent, account: @account).load_from_database
+      rescue StandardError => e
+        Rails.logger.warn "[ContextAndFormatting] Working memory hydration failed: #{e.message}"
+      end
+
       base_context = {
         agent_id: @agent.id,
         agent_name: @agent.name,
@@ -25,6 +32,45 @@ class Ai::McpAgentExecutor
       # Add agent-specific configuration
       agent_config = @agent.mcp_tool_manifest["configuration"] || {}
       base_context.merge!(agent_config.symbolize_keys)
+
+      # Full memory context injection (all 7 types)
+      begin
+        injector = Ai::Memory::ContextInjectorService.new(agent: @agent, account: @account)
+        memory_token_budget = input_parameters.dig("context", "memory_token_budget") || 4000
+        query_text = input_parameters["input"]
+
+        memory_result = injector.build_context(query: query_text, token_budget: memory_token_budget)
+
+        if memory_result[:context].present?
+          base_context[:additional_context] = [
+            base_context[:additional_context], memory_result[:context]
+          ].compact.join("\n\n")
+          base_context[:memory_breakdown] = memory_result[:breakdown]
+          base_context[:memory_tokens_used] = memory_result[:token_estimate]
+        end
+      rescue StandardError => e
+        Rails.logger.warn "[ContextAndFormatting] Memory context injection failed: #{e.message}"
+      end
+
+      # Skill graph context enrichment (additive — skill navigation maps)
+      begin
+        if @account.ai_knowledge_graph_nodes.active.skill_nodes.exists?
+          mode = input_parameters.dig("context", "skill_graph_mode") || :auto
+          skill_budget = input_parameters.dig("context", "skill_token_budget") || 2000
+          enrichment = Ai::SkillGraph::ContextEnrichmentService.new(@account).enrich(
+            agent: @agent, input_text: input_parameters["input"],
+            mode: mode.to_sym, token_budget: skill_budget
+          )
+          context_block = enrichment[:context_block].presence
+          if context_block
+            base_context[:additional_context] = [
+              base_context[:additional_context], context_block
+            ].compact.join("\n\n")
+          end
+        end
+      rescue StandardError => e
+        Rails.logger.warn "[ContextAndFormatting] Skill graph enrichment failed: #{e.message}"
+      end
 
       base_context
     end

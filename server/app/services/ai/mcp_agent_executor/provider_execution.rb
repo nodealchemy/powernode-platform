@@ -75,6 +75,9 @@ class Ai::McpAgentExecutor
       content_text = if response_data["content"].is_a?(Array)
                        @logger.debug "[MCP_AGENT_EXECUTOR] Content is array with #{response_data['content'].length} blocks"
                        response_data["content"].map { |block| block.is_a?(Hash) ? block["text"] : block.to_s }.join
+      elsif response_data.dig("choices", 0, "message", "content").present?
+                       @logger.debug "[MCP_AGENT_EXECUTOR] Content from OpenAI/Grok choices format"
+                       response_data.dig("choices", 0, "message", "content")
       elsif raw_data.is_a?(String)
                        @logger.debug "[MCP_AGENT_EXECUTOR] Raw data is a string, using directly"
                        raw_data
@@ -94,7 +97,10 @@ class Ai::McpAgentExecutor
       final_result = {
         "output" => content_text,
         "metadata" => {
-          "tokens_used" => response_data.dig("usage", "total_tokens") || response_data[:tokens_used] || result[:tokens_used],
+          "tokens_used" => response_data.dig("usage", "total_tokens") ||
+            (response_data.dig("usage", "input_tokens").to_i + response_data.dig("usage", "output_tokens").to_i).then { |t| t > 0 ? t : nil } ||
+            (response_data["prompt_eval_count"].to_i + response_data["eval_count"].to_i).then { |t| t > 0 ? t : nil } ||
+            0,
           "processing_time_ms" => ((Time.current - @start_time) * 1000).round,
           "model_used" => model,
           "provider" => @agent.provider.provider_type

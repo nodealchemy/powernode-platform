@@ -31,8 +31,10 @@ module Ai
         create_conversation! if mission.conversation_id.blank?
 
         first_phase = mission.phases_for_type.first
-        transition_to_phase!(first_phase)
-        mission.update!(status: "active", started_at: Time.current)
+        ActiveRecord::Base.transaction do
+          mission.update!(status: "active", started_at: Time.current)
+          transition_to_phase!(first_phase)
+        end
 
         dispatch_phase_job!
 
@@ -68,7 +70,7 @@ module Ai
         approval = mission.approvals.create!(
           account: account,
           user: user,
-          gate: gate_for_phase(mission.current_phase),
+          gate: gate_for_phase(gate),
           decision: decision,
           comment: comment,
           metadata: { selected_feature: selected_feature, prd_modifications: prd_modifications }.compact
@@ -125,18 +127,12 @@ module Ai
       def transition_to_phase!(phase)
         mission.update!(current_phase: phase)
         record_phase_entry(phase)
-
-        MissionChannel.broadcast_mission_event(mission.id, "phase_changed", {
-          mission_id: mission.id,
-          phase: phase,
-          phase_progress: mission.phase_progress
-        })
       end
 
       def record_phase_entry(phase)
         history = mission.phase_history || []
         history << { phase: phase, entered_at: Time.current.iso8601 }
-        mission.update_column(:phase_history, history)
+        mission.update!(phase_history: history)
       end
 
       def record_phase_exit(result)
@@ -145,7 +141,7 @@ module Ai
         if current_entry
           current_entry["exited_at"] = Time.current.iso8601
           current_entry["result"] = result if result.present?
-          mission.update_column(:phase_history, history)
+          mission.update!(phase_history: history)
         end
       end
 
@@ -209,6 +205,9 @@ module Ai
           dispatch_phase_job!
         when "awaiting_code_approval"
           transition_to_phase!("executing")
+          dispatch_phase_job!
+        when "previewing"
+          transition_to_phase!("deploying")
           dispatch_phase_job!
         end
       end

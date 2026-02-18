@@ -8,6 +8,7 @@ class Ai::McpAgentExecutor
   include ProviderExecution
   include ValidationAndGuardrails
   include ContextAndFormatting
+  include MemoryWriteback
 
   class ExecutionError < StandardError; end
   class ValidationError < ExecutionError; end
@@ -57,6 +58,9 @@ class Ai::McpAgentExecutor
 
       # Validate output against agent's output schema
       validate_output!(result)
+
+      # Post-execution memory write-back (non-blocking)
+      write_back_to_memory(execution_context, result)
 
       # Format MCP-compliant response
       format_mcp_response(result)

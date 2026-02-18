@@ -88,13 +88,53 @@ module Ai
         matched = required & agent_caps
         unmatched = required - agent_caps
 
+        # Graph-based matching for unmatched capabilities
+        graph_matched = []
+        nearest_available = {}
+        begin
+          if unmatched.any? && @account.ai_knowledge_graph_nodes.active.skill_nodes.exists?
+            graph_service = Ai::KnowledgeGraph::GraphService.new(@account)
+            still_unmatched = []
+
+            unmatched.each do |cap|
+              cap_skill = Ai::Skill.for_account(@account.id).active.find_by(slug: cap)
+              cap_node = cap_skill&.knowledge_graph_node
+              next(still_unmatched << cap) unless cap_node&.status == "active"
+
+              # Check if any agent capability is graph-adjacent
+              found_via_graph = agent_caps.any? do |agent_cap|
+                agent_skill = Ai::Skill.for_account(@account.id).active.find_by(slug: agent_cap)
+                agent_node = agent_skill&.knowledge_graph_node
+                next false unless agent_node&.status == "active"
+                path = graph_service.shortest_path(source: agent_node, target: cap_node)
+                path.is_a?(Array) && path.size <= 2
+              end
+
+              if found_via_graph
+                graph_matched << cap
+              else
+                # Find nearest available skill in graph
+                neighbors = graph_service.find_neighbors(node: cap_node, depth: 2, relation_types: %w[requires related_to])
+                nearest = neighbors.map { |n| n[:name] }.compact & agent_caps
+                nearest_available[cap] = nearest.first if nearest.any?
+                still_unmatched << cap
+              end
+            end
+
+            matched = matched + graph_matched
+            unmatched = still_unmatched
+          end
+        rescue => e
+          Rails.logger.warn "[ACP] Graph-based capability negotiation failed: #{e.message}"
+        end
+
         # Determine negotiation outcome
         compatible = unmatched.empty?
 
         Rails.logger.info "[ACP] Capability negotiation for #{card.name}: " \
           "compatible=#{compatible}, matched=#{matched.size}/#{required.size}"
 
-        success_result(
+        result = {
           agent_id: card.id,
           compatible: compatible,
           matched_capabilities: matched,
@@ -102,7 +142,11 @@ module Ai
           agent_capabilities: agent_caps,
           offered_capabilities: offered,
           negotiated_at: Time.current.iso8601
-        )
+        }
+        result[:graph_matched_capabilities] = graph_matched if graph_matched.any?
+        result[:nearest_available] = nearest_available if nearest_available.any?
+
+        success_result(result)
       rescue StandardError => e
         log_error("negotiate_capabilities", e)
         error_result(e.message, code: "NEGOTIATION_ERROR")

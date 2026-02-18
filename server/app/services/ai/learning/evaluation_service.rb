@@ -49,6 +49,41 @@ module Ai
         }
       end
 
+      # Aggregate evaluation scores per skill node for an agent
+      def skill_performance_breakdown(agent_id:, period: 30.days)
+        results = Ai::EvaluationResult.for_agent(agent_id)
+                                       .in_time_range(period.ago)
+
+        breakdown = {}
+
+        results.find_each do |result|
+          skill_ids = result.feedback&.dig("skill_node_ids") ||
+                      result.feedback&.dig("metadata", "skill_node_ids") || []
+          next if skill_ids.blank?
+
+          avg = result.average_score
+          next unless avg
+
+          Array(skill_ids).each do |skill_id|
+            breakdown[skill_id] ||= { scores: [], count: 0 }
+            breakdown[skill_id][:scores] << avg
+            breakdown[skill_id][:count] += 1
+          end
+        end
+
+        breakdown.transform_values do |data|
+          {
+            average_score: (data[:scores].sum / data[:scores].size).round(2),
+            evaluation_count: data[:count],
+            min_score: data[:scores].min&.round(2),
+            max_score: data[:scores].max&.round(2)
+          }
+        end
+      rescue => e
+        Rails.logger.warn "[EvaluationService] Skill performance breakdown failed: #{e.message}"
+        {}
+      end
+
       private
 
       def average_dimension(results, dimension)

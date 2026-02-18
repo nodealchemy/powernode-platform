@@ -27,6 +27,7 @@ module Ai
 
           provision_workspace(agent) if config[:workspace]
           provision_sandbox(agent) if config[:sandbox]
+          auto_assign_skills_from_parent(agent, parent) if parent
 
           Rails.logger.info("[AgentFactory] Spawned agent #{agent.id} from parent #{parent&.id}")
 
@@ -204,6 +205,24 @@ module Ai
         sandbox_service.create_sandbox(agent: agent)
       rescue StandardError => e
         Rails.logger.warn("[AgentFactory] Failed to provision sandbox for #{agent.id}: #{e.message}")
+      end
+
+      def auto_assign_skills_from_parent(agent, parent)
+        return unless parent.respond_to?(:skills) && parent.skills.any?
+        return unless account.ai_knowledge_graph_nodes.active.skill_nodes.exists?
+
+        bridge = Ai::SkillGraph::BridgeService.new(account)
+        parent.skills.each do |skill|
+          neighbors = bridge.auto_detect_relationships(skill)
+          relevant_ids = (neighbors || []).map { |n| n[:skill_id] }.compact
+          relevant_ids.each do |skill_id|
+            agent.ai_agent_skills.find_or_create_by!(ai_skill_id: skill_id)
+          rescue ActiveRecord::RecordInvalid => e
+            Rails.logger.debug("[AgentFactory] Skill assignment skipped for #{agent.id}: #{e.message}")
+          end
+        end
+      rescue => e
+        Rails.logger.warn("[AgentFactory] Auto skill assignment failed for #{agent.id}: #{e.message}")
       end
 
       def calculate_depth(agent)
