@@ -13,7 +13,7 @@ module Ai
     # Validations
     validates :name, presence: true, uniqueness: { scope: :account_id }
     validates :trigger_type, presence: true, inclusion: {
-      in: %w[workflow_deploy agent_deploy high_cost sensitive_data model_change policy_override manual]
+      in: %w[workflow_deploy agent_deploy high_cost sensitive_data model_change policy_override manual autonomy_action]
     }
     validates :status, presence: true, inclusion: { in: %w[active disabled] }
     validates :timeout_action, inclusion: { in: %w[approve reject escalate] }, allow_nil: true
