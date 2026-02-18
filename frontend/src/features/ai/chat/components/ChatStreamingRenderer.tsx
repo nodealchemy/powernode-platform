@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 
 interface ChatStreamingRendererProps {
   content: string;
@@ -54,7 +56,7 @@ export const ChatStreamingRenderer: React.FC<ChatStreamingRendererProps> = ({
   return (
     <div>
       <div className="text-sm text-theme-primary prose prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-pre:my-2 prose-code:text-xs">
-        <ReactMarkdown>{safeContent}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>{safeContent}</ReactMarkdown>
         {isStreaming && (
           <span className="inline-block w-2 h-4 bg-theme-interactive-primary animate-pulse rounded-sm ml-0.5 align-text-bottom" />
         )}

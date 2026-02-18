@@ -141,6 +141,7 @@ export const SplitPanelContainer: React.FC = () => {
                   <NewConversationTab onComplete={() => {}} />
                 ) : (
                   <AgentConversationComponent
+                    key={conv.id}
                     conversation={conv}
                     onNewMessage={() => handleNewMessage(activeTabInPanel.id)}
                   />

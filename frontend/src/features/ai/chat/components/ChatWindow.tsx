@@ -64,6 +64,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ onDragStart }) => {
                 <NewConversationTab onComplete={() => {}} />
               ) : (
                 <AgentConversationComponent
+                  key={activeConv.id}
                   conversation={activeConv}
                   onNewMessage={() => handleNewMessage(activeTab!.id)}
                 />

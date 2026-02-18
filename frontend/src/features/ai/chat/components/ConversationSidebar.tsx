@@ -184,9 +184,10 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
 
   const sidebarWidth = collapsed ? COLLAPSED_WIDTH : width;
 
-  // Separate pinned and unpinned conversations
+  // Separate pinned, concierge, and regular conversations
   const pinnedConversations = conversations.filter((c) => c.pinned);
-  const unpinnedConversations = conversations.filter((c) => !c.pinned);
+  const conciergeConversations = conversations.filter((c) => !c.pinned && c.ai_agent?.is_concierge);
+  const unpinnedConversations = conversations.filter((c) => !c.pinned && !c.ai_agent?.is_concierge);
 
   const renderConversationItem = (conv: ConversationBase) => (
     <ConversationListItem
@@ -315,9 +316,24 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
               />
             ) : (
               <>
+                {/* Concierge / Assistant section */}
+                {conciergeConversations.length > 0 && (
+                  <div>
+                    <div className="px-3 py-1.5">
+                      <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
+                        Assistant
+                      </span>
+                    </div>
+                    {conciergeConversations.map(renderConversationItem)}
+                  </div>
+                )}
+
                 {/* Pinned section */}
                 {pinnedConversations.length > 0 && (
                   <div>
+                    {conciergeConversations.length > 0 && (
+                      <div className="border-t border-theme" />
+                    )}
                     <div className="px-3 py-1.5">
                       <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
                         Pinned
@@ -330,7 +346,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                 {/* Unpinned / recent section */}
                 {unpinnedConversations.length > 0 && (
                   <div>
-                    {pinnedConversations.length > 0 && (
+                    {(pinnedConversations.length > 0 || conciergeConversations.length > 0) && (
                       <div className="px-3 py-1.5 border-t border-theme">
                         <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
                           Recent

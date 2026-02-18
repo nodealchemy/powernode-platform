@@ -78,6 +78,7 @@ export interface ConversationBase {
     id: string;
     name: string;
     agent_type: string;
+    is_concierge?: boolean;
   } | null;
   agent_team?: {
     id: string;

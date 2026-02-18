@@ -1,5 +1,7 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 import {
   Bot,
   User,
@@ -189,6 +191,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                   {message.sender_type === 'ai' ? (
                     <div className="markdown-content">
                       <ReactMarkdown
+                        remarkPlugins={[remarkGfm, remarkBreaks]}
                         components={{
                           h1: ({ children }) => <h1 className="text-2xl font-bold mb-4 mt-6">{children}</h1>,
                           h2: ({ children }) => <h2 className="text-xl font-bold mb-3 mt-5">{children}</h2>,

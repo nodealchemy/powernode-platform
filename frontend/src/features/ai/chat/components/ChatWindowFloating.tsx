@@ -99,7 +99,7 @@ export const ChatWindowFloating: React.FC = () => {
   return (
     <div
       ref={containerRef}
-      className="fixed z-50 border border-theme rounded-xl shadow-2xl overflow-hidden bg-theme-background"
+      className="fixed z-50 border-2 border-theme rounded-xl shadow-2xl ring-1 ring-black/10 dark:ring-white/10 overflow-hidden bg-theme-background"
       style={initialStyle}
       onPointerMove={handleDragMove}
       onPointerUp={handleDragEnd}
