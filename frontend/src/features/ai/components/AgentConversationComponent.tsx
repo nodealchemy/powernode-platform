@@ -48,6 +48,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
   const currentUser = useSelector((state: RootState) => state.auth.user);
 
   const agentId = conversation.ai_agent?.id;
+  const isConcierge = !!(conversation as AiConversation).ai_agent?.is_concierge;
 
   // WebSocket connection
   const { sendChannelMessage } = useConversationSocket({
@@ -89,8 +90,10 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     loadMessages();
   }, [conversation.id]);
 
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const initialLoadRef = useRef(true);
+
+  const scrollToBottom = useCallback((instant?: boolean) => {
+    messagesEndRef.current?.scrollIntoView({ behavior: instant ? 'instant' : 'smooth' });
   }, []);
 
   const loadMessages = useCallback(async () => {
@@ -177,6 +180,25 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
         return newMessages;
       });
 
+      // For concierge-routed responses, handle the response shape
+      if (response.concierge_routed && response.assistant_message) {
+        setMessages(prev => {
+          const withoutOptimistic = prev.filter(msg => msg.id !== optimisticMessage.id);
+          const userMsg: AiMessage = {
+            id: response.user_message?.id || optimisticMessage.id,
+            sender_type: 'user',
+            sender_info: { name: currentUser.name || 'You' },
+            content: response.user_message?.content || messageContent,
+            created_at: response.user_message?.created_at || new Date().toISOString(),
+            metadata: { timestamp: response.user_message?.created_at || new Date().toISOString() }
+          };
+          const assistantMsg = mapBackendMessage(response.assistant_message as unknown as Record<string, unknown>);
+          return [...withoutOptimistic, userMsg, assistantMsg];
+        });
+        setSending(false);
+        return;
+      }
+
       if (response.error) {
         addNotification({
           type: 'warning',
@@ -234,9 +256,14 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     if (messages.length > 0) {
-      setTimeout(() => {
-        scrollToBottom();
-      }, 100);
+      if (initialLoadRef.current) {
+        // First load: jump to bottom instantly (no animation)
+        initialLoadRef.current = false;
+        setTimeout(() => scrollToBottom(true), 50);
+      } else {
+        // Subsequent messages: smooth scroll
+        setTimeout(() => scrollToBottom(), 100);
+      }
     }
   }, [messages, scrollToBottom]);
 
@@ -277,6 +304,10 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
           onDelete={handleDeleteMessage}
           onOpenThread={handleOpenThread}
           onPlanAction={handlePlanAction}
+          conversationId={conversation.id}
+          isConcierge={isConcierge}
+          onConciergeConfirm={loadMessages}
+          onSuggestedMessage={(text) => { setInputValue(text); }}
         />
 
         {/* Input Area */}

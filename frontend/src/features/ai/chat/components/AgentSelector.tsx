@@ -119,7 +119,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({ selectedAgentId, o
       </button>
 
       {isOpen && (
-        <div className="absolute bottom-full left-0 right-0 mb-1 bg-theme-surface border border-theme rounded-lg shadow-lg z-50 flex flex-col max-h-80">
+        <div className="absolute top-full left-0 right-0 mt-1 bg-theme-surface border border-theme rounded-lg shadow-lg z-50 flex flex-col max-h-80">
           {/* Tab toggle */}
           {onSelectTeam && (
             <div className="flex border-b border-theme flex-shrink-0">

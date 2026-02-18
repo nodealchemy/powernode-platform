@@ -8,6 +8,7 @@ export interface ChatTab {
   title: string;
   unreadCount: number;
   createdAt: number;
+  isConcierge?: boolean;
 }
 
 export interface FloatingPosition {

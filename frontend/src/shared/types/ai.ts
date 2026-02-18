@@ -157,6 +157,7 @@ export interface AiConversation {
     id: string;
     name: string;
     agent_type: string;
+    is_concierge?: boolean;
   };
   agent_team?: {
     id: string;
@@ -218,6 +219,8 @@ export interface AiMessage {
     processing_complete?: boolean;
     actions?: MessageAction[];
     action_context?: ActionContext;
+    concierge_action?: string;
+    action_params?: Record<string, unknown>;
     user_rating?: {
       rating: string;
       rated_at: string;

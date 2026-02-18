@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { Sparkles, Loader2 } from 'lucide-react';
 import { ConversationSidebar } from './ConversationSidebar';
 import { AgentSelector } from './AgentSelector';
 import { useConversations } from '../hooks/useConversations';
@@ -9,12 +10,13 @@ type SearchMode = 'title' | 'messages';
 type SortOption = 'last_activity' | 'created_at' | 'message_count';
 
 export const ChatWindowSidebar: React.FC = () => {
-  const { state, openConversation } = useChatWindow();
+  const { state, openConversation, openConcierge } = useChatWindow();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortBy, setSortBy] = useState<SortOption>('last_activity');
   const [searchMode, setSearchMode] = useState<SearchMode>('title');
   const [showAgentSelector, setShowAgentSelector] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState('');
+  const [conciergeLoading, setConciergeLoading] = useState(false);
 
   const {
     conversations,
@@ -110,9 +112,35 @@ export const ChatWindowSidebar: React.FC = () => {
 
       {/* Agent selector modal overlay */}
       {showAgentSelector && (
-        <div className="absolute inset-0 z-20 bg-theme-background/90 flex flex-col items-center justify-center p-4">
+        <div className="absolute inset-0 z-20 bg-theme-background flex flex-col items-center justify-start p-4 pt-4 overflow-y-auto">
           <div className="w-full max-w-xs space-y-3">
-            <h4 className="text-sm font-semibold text-theme-primary text-center">Select an Agent</h4>
+            <h4 className="text-sm font-semibold text-theme-primary text-center">New Conversation</h4>
+            <button
+              type="button"
+              onClick={async () => {
+                setConciergeLoading(true);
+                try {
+                  await openConcierge();
+                  setShowAgentSelector(false);
+                } finally {
+                  setConciergeLoading(false);
+                }
+              }}
+              disabled={conciergeLoading}
+              className="w-full px-3 py-2.5 text-sm font-medium text-white bg-theme-interactive-primary rounded-md hover:bg-theme-interactive-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            >
+              {conciergeLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              Chat with Concierge
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-px bg-theme-border" />
+              <span className="text-[10px] text-theme-text-tertiary">or choose an agent</span>
+              <div className="flex-1 h-px bg-theme-border" />
+            </div>
             <AgentSelector
               selectedAgentId={selectedAgentId}
               onSelect={setSelectedAgentId}

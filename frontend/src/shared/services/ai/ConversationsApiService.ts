@@ -281,8 +281,8 @@ class ConversationsApiService extends BaseApiService {
    */
   async bulkAction(ids: string[], action: string, params?: Record<string, unknown>): Promise<{ updated_count: number }> {
     const response = await this.patch<{ updated_count: number }>(`${this.basePath}/bulk`, {
-      ids,
-      action,
+      conversation_ids: ids,
+      action_type: action,
       ...params,
     });
     return response;

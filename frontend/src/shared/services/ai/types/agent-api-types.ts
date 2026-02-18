@@ -104,6 +104,7 @@ export interface SendMessageResponse {
     parent_message_id: string | null;
   } | null;
   error?: string;
+  concierge_routed?: boolean;
   conversation: {
     id: string;
     message_count: number;

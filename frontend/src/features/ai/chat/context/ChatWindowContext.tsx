@@ -213,6 +213,7 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
         title: conv.ai_agent?.name || 'Assistant',
         unreadCount: 0,
         createdAt: Date.now(),
+        isConcierge: true,
       };
 
       dispatch({ type: 'OPEN_TAB', payload: tab });

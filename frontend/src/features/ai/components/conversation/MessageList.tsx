@@ -22,6 +22,7 @@ import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { ChatStreamingRenderer } from '@/features/ai/chat/components/ChatStreamingRenderer';
 import { MessageEditor } from '@/features/ai/chat/components/MessageEditor';
 import { PlanApprovalActions } from '@/features/ai/chat/components/PlanApprovalActions';
+import { ConciergeActionCard } from '@/features/ai/chat/components/ConciergeActionCard';
 import type { AiMessage } from '@/shared/types/ai';
 import { cleanMessageContent, formatTimestamp } from './utils';
 
@@ -40,6 +41,10 @@ interface MessageListProps {
   onDelete: (message: AiMessage) => void;
   onOpenThread: (message: AiMessage) => void;
   onPlanAction?: (actionType: string, executionId: string, feedback?: string) => Promise<void>;
+  conversationId?: string;
+  isConcierge?: boolean;
+  onConciergeConfirm?: () => void;
+  onSuggestedMessage?: (text: string) => void;
 }
 
 export const MessageList: React.FC<MessageListProps> = ({
@@ -56,7 +61,11 @@ export const MessageList: React.FC<MessageListProps> = ({
   onSetEditing,
   onDelete,
   onOpenThread,
-  onPlanAction
+  onPlanAction,
+  conversationId,
+  isConcierge,
+  onConciergeConfirm,
+  onSuggestedMessage
 }) => {
   const renderMessage = (message: AiMessage) => {
     const isUser = message.sender_type === 'user';
@@ -284,6 +293,25 @@ export const MessageList: React.FC<MessageListProps> = ({
             />
           )}
 
+          {/* Concierge action card */}
+          {isAI && message.metadata?.concierge_action && conversationId && (
+            <ConciergeActionCard
+              conversationId={conversationId}
+              actions={message.metadata.actions || [
+                { type: 'confirm', label: 'Confirm', style: 'primary' },
+                { type: 'modify', label: 'Modify', style: 'secondary' },
+              ]}
+              actionContext={{
+                type: 'concierge',
+                action_type: message.metadata.concierge_action,
+                status: message.metadata.action_context?.status || 'pending',
+                resolved_at: message.metadata.action_context?.resolved_at,
+              }}
+              actionParams={(message.metadata.action_params || {}) as Record<string, unknown>}
+              onConfirmed={onConciergeConfirm}
+            />
+          )}
+
           {/* Message action bar */}
           {!isProcessing && !isEditing && (
             <div className="flex items-center gap-1 mt-2" role="group" aria-label="Message actions">
@@ -389,7 +417,35 @@ export const MessageList: React.FC<MessageListProps> = ({
   return (
     <div className="flex-1 overflow-y-auto bg-gradient-to-b from-transparent to-theme-surface/10">
       <div className="p-4 space-y-4">
-        {messages.length === 0 ? (
+        {messages.length === 0 && isConcierge ? (
+          <div className="flex flex-col items-center justify-center h-full py-12 px-4">
+            <div className="w-14 h-14 rounded-2xl bg-theme-interactive-primary/10 flex items-center justify-center mb-4">
+              <Bot className="h-7 w-7 text-theme-interactive-primary" />
+            </div>
+            <h3 className="text-lg font-semibold text-theme-primary mb-1">Hi, how can I help?</h3>
+            <p className="text-sm text-theme-secondary mb-6 text-center max-w-sm">
+              I can help you manage missions, analyze repositories, coordinate teams, and more.
+            </p>
+            {onSuggestedMessage && (
+              <div className="flex flex-wrap gap-2 justify-center max-w-md">
+                {[
+                  'Check mission status',
+                  'Create a new mission',
+                  'Analyze a repository',
+                  'Ask a question',
+                ].map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    onClick={() => onSuggestedMessage(suggestion)}
+                    className="px-3 py-1.5 text-sm rounded-full border border-theme bg-theme-surface hover:bg-theme-surface-hover text-theme-primary transition-colors"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : messages.length === 0 ? (
           <EmptyState
             icon={MessageSquare}
             title="Start a conversation"

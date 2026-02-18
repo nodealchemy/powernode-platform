@@ -41,6 +41,11 @@ export function useConversationSocket({
       case 'message_created':
         if (data.message) {
           setMessages(prev => {
+            // Skip if message with this ID already exists (HTTP response beat WebSocket)
+            if (prev.some(msg => msg.id === data.message!.id)) {
+              return prev;
+            }
+
             // Check if we have an optimistic message to replace
             const optimisticIndex = prev.findIndex(msg =>
               msg.metadata?.optimistic &&

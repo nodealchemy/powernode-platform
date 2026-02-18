@@ -35,7 +35,7 @@ export const NewConversationTab: React.FC<NewConversationTabProps> = ({ onComple
   }, [openConcierge, onComplete]);
 
   return (
-    <div className="flex flex-col items-center justify-center h-full p-6 gap-4">
+    <div className="flex flex-col items-center justify-center h-full p-6 gap-4 bg-theme-background">
       <h3 className="text-sm font-semibold text-theme-primary">New Conversation</h3>
 
       {/* Quick start with concierge */}
@@ -50,7 +50,7 @@ export const NewConversationTab: React.FC<NewConversationTabProps> = ({ onComple
         ) : (
           <Sparkles className="h-4 w-4" />
         )}
-        Quick Start with Assistant
+        Chat with Concierge
       </button>
 
       <div className="flex items-center gap-3 w-full max-w-xs">

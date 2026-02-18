@@ -67,6 +67,8 @@ export const mapBackendMessage = (msg: Record<string, unknown>): AiMessage => {
       ...(msg.content_metadata ? {
         actions: (msg.content_metadata as Record<string, unknown>).actions as MessageAction[] | undefined,
         action_context: (msg.content_metadata as Record<string, unknown>).action_context as ActionContext | undefined,
+        concierge_action: (msg.content_metadata as Record<string, unknown>).concierge_action as string | undefined,
+        action_params: (msg.content_metadata as Record<string, unknown>).action_params as Record<string, unknown> | undefined,
       } : {})
     }
   };
