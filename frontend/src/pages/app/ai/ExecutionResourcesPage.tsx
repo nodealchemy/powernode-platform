@@ -1,20 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { LayoutGrid, List, RefreshCw } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { useExecutionResources } from '@/features/ai/execution-resources/hooks/useExecutionResources';
-import { ResourceStatsBar } from '@/features/ai/execution-resources/components/ResourceStatsBar';
-import { ResourceFilterBar } from '@/features/ai/execution-resources/components/ResourceFilterBar';
-import { ResourceCard } from '@/features/ai/execution-resources/components/ResourceCard';
-import { ResourceList } from '@/features/ai/execution-resources/components/ResourceList';
-import { ResourceDetailDrawer } from '@/features/ai/execution-resources/components/ResourceDetailDrawer';
-import type { ResourceType } from '@/features/ai/execution-resources/types';
+import { ResourceListPanel } from '@/features/ai/execution-resources/components/ResourceListPanel';
+import { ResourceDetailPanel } from '@/features/ai/execution-resources/components/ResourceDetailPanel';
 
 interface ExecutionResourcesContentProps {
   refreshKey?: number;
 }
 
 export const ExecutionResourcesContent: React.FC<ExecutionResourcesContentProps> = ({ refreshKey: externalRefreshKey }) => {
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const {
     resources,
     counts,
@@ -26,11 +21,12 @@ export const ExecutionResourcesContent: React.FC<ExecutionResourcesContentProps>
     detailResource,
     detailLoading,
     setFilters,
-    clearFilters,
     setPage,
     selectResource,
     refreshResources,
   } = useExecutionResources();
+
+  const [mobileShowDetail, setMobileShowDetail] = useState(false);
 
   useEffect(() => {
     if (externalRefreshKey && externalRefreshKey > 0) {
@@ -38,108 +34,75 @@ export const ExecutionResourcesContent: React.FC<ExecutionResourcesContentProps>
     }
   }, [externalRefreshKey, refreshResources]);
 
-  const handleTypeClick = (type: ResourceType | undefined) => {
-    setFilters({ type });
+  const handleSelectResource = (resource: import('@/features/ai/execution-resources/types').ExecutionResource) => {
+    selectResource(resource);
+    setMobileShowDetail(true);
+  };
+
+  const handleMobileBack = () => {
+    setMobileShowDetail(false);
+    selectResource(null);
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-theme-primary">Execution Resources</h1>
-          <p className="text-sm text-theme-secondary mt-1">
-            Browse artifacts, branches, memory, and other execution-produced resources
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={refreshResources}
-            className="p-2 rounded-lg hover:bg-theme-surface-hover transition-colors text-theme-secondary"
-            title="Refresh"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-          <div className="flex rounded-lg border border-theme overflow-hidden">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`p-2 ${viewMode === 'grid' ? 'bg-theme-surface-selected text-theme-primary' : 'text-theme-tertiary hover:bg-theme-surface-hover'}`}
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-2 ${viewMode === 'list' ? 'bg-theme-surface-selected text-theme-primary' : 'text-theme-tertiary hover:bg-theme-surface-hover'}`}
-            >
-              <List className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <ResourceStatsBar
-        counts={counts}
-        activeType={filters.type}
-        onTypeClick={handleTypeClick}
-      />
-
-      <ResourceFilterBar
-        filters={filters}
-        onFilterChange={setFilters}
-        onClear={clearFilters}
-      />
-
+    <div className="flex flex-col h-[calc(100vh-280px)]">
       {error && (
-        <div className="p-4 rounded-lg bg-theme-danger/10 text-theme-danger text-sm">
+        <div className="p-3 mb-2 rounded-lg bg-theme-danger/10 text-theme-danger text-sm flex-shrink-0">
           {error}
         </div>
       )}
 
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <RefreshCw className="w-6 h-6 animate-spin text-theme-tertiary" />
-        </div>
-      ) : viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {resources.map((resource, idx) => (
-            <ResourceCard
-              key={`${resource.resource_type}-${resource.id}-${idx}`}
-              resource={resource}
-              onClick={selectResource}
+      {/* Desktop: side-by-side */}
+      <div className="hidden lg:flex flex-1 min-h-0 rounded-lg border border-theme overflow-hidden">
+        <ResourceListPanel
+          resources={resources}
+          counts={counts}
+          loading={loading}
+          selectedResourceId={selectedResource?.id ?? null}
+          onSelectResource={handleSelectResource}
+          pagination={pagination}
+          onPageChange={setPage}
+          filters={filters}
+          onFilterChange={setFilters}
+        />
+        <ResourceDetailPanel
+          resource={selectedResource}
+          detailResource={detailResource}
+          detailLoading={detailLoading}
+        />
+      </div>
+
+      {/* Mobile: list or detail */}
+      <div className="flex lg:hidden flex-1 min-h-0 rounded-lg border border-theme overflow-hidden">
+        {mobileShowDetail && selectedResource ? (
+          <div className="flex-1 flex flex-col">
+            <button
+              onClick={handleMobileBack}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-theme-secondary hover:text-theme-primary border-b border-theme"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to list
+            </button>
+            <ResourceDetailPanel
+              resource={selectedResource}
+              detailResource={detailResource}
+              detailLoading={detailLoading}
             />
-          ))}
-          {resources.length === 0 && (
-            <div className="col-span-full text-center py-12 text-theme-tertiary">
-              No resources found
-            </div>
-          )}
-        </div>
-      ) : (
-        <ResourceList resources={resources} onResourceClick={selectResource} />
-      )}
-
-      {pagination.total_pages > 1 && (
-        <div className="flex items-center justify-center gap-2 pt-4">
-          <button
-            onClick={() => setPage(pagination.current_page - 1)}
-            disabled={pagination.current_page <= 1}
-            className="px-3 py-1.5 text-sm rounded-lg border border-theme text-theme-secondary hover:bg-theme-surface-hover disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Previous
-          </button>
-          <span className="text-sm text-theme-secondary">
-            Page {pagination.current_page} of {pagination.total_pages}
-          </span>
-          <button
-            onClick={() => setPage(pagination.current_page + 1)}
-            disabled={pagination.current_page >= pagination.total_pages}
-            className="px-3 py-1.5 text-sm rounded-lg border border-theme text-theme-secondary hover:bg-theme-surface-hover disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Next
-          </button>
-        </div>
-      )}
-
-      <ResourceDetailDrawer resource={selectedResource} detailResource={detailResource} detailLoading={detailLoading} onClose={() => selectResource(null)} />
+          </div>
+        ) : (
+          <ResourceListPanel
+            resources={resources}
+            counts={counts}
+            loading={loading}
+            selectedResourceId={selectedResource?.id ?? null}
+            onSelectResource={handleSelectResource}
+            pagination={pagination}
+            onPageChange={setPage}
+            filters={filters}
+            onFilterChange={setFilters}
+          />
+        )}
+      </div>
     </div>
   );
 };

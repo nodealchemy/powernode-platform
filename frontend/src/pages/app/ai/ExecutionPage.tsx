@@ -74,7 +74,7 @@ export const ExecutionPage: React.FC = () => {
         onTabChange={setActiveTab}
         basePath="/app/ai/execution"
         variant="underline"
-        className="mb-6"
+        className=""
       >
         <TabPanel tabId="ralph-loops" activeTab={activeTab}>
           <RalphLoopsContent refreshKey={refreshKey} />

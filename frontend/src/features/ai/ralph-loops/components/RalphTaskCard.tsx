@@ -105,15 +105,15 @@ export const RalphTaskCard: React.FC<RalphTaskCardProps> = ({
               (task.status === 'pending' || task.status === 'skipped') && 'text-theme-text-secondary'
             )} />
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-xs text-theme-text-secondary">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-mono text-xs text-theme-text-secondary truncate max-w-[120px]">
                   {task.task_key}
                 </span>
-                <Badge variant={status.variant} size="sm">
+                <Badge variant={status.variant} size="sm" className="flex-shrink-0 whitespace-nowrap">
                   {status.label}
                 </Badge>
                 {task.priority > 0 && (
-                  <span className="text-xs text-theme-text-secondary">
+                  <span className="text-xs text-theme-text-secondary flex-shrink-0">
                     P{task.priority}
                   </span>
                 )}

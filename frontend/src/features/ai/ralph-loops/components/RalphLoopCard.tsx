@@ -63,10 +63,10 @@ export const RalphLoopCard: React.FC<RalphLoopCardProps> = ({
     >
       <CardContent className="p-4">
         {/* Header */}
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3">
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             <div className={cn(
-              'h-10 w-10 rounded-lg flex items-center justify-center',
+              'h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0',
               isRunning ? 'bg-theme-status-info/10' : 'bg-theme-bg-secondary'
             )}>
               <RotateCcw className={cn(
@@ -79,12 +79,12 @@ export const RalphLoopCard: React.FC<RalphLoopCardProps> = ({
                 {loop.name}
               </h3>
               <div className="flex items-center gap-2 text-xs text-theme-text-secondary">
-                <Bot className="w-3 h-3" />
-                <span>{loop.default_agent_name || 'No Agent'}</span>
+                <Bot className="w-3 h-3 flex-shrink-0" />
+                <span className="truncate">{loop.default_agent_name || 'No Agent'}</span>
               </div>
             </div>
           </div>
-          <Badge variant={status.variant} size="sm" className="flex items-center gap-1">
+          <Badge variant={status.variant} size="sm" className="flex items-center gap-1 flex-shrink-0 whitespace-nowrap">
             <StatusIcon className={cn('w-3 h-3', isRunning && 'animate-spin')} />
             {status.label}
           </Badge>

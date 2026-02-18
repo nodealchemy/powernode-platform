@@ -1,22 +1,19 @@
 import React, { useState } from 'react';
-import { Radio, MessageSquare, Wrench, List, Activity, Plus } from 'lucide-react';
+import { Radio, Plus, ArrowLeft } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { TabContainer } from '@/shared/components/ui/TabContainer';
+import { ResizableListPanel } from '@/shared/components/layout/ResizableListPanel';
 import { usePermissions } from '@/shared/hooks/usePermissions';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { useCreateAguiSession, useGetAguiSession, useListAguiEvents } from '../api/aguiApi';
+import { useCreateAguiSession, useGetAguiSession, useListAguiEvents, useListAguiSessions } from '../api/aguiApi';
 import { AguiSessionList } from '../components/AguiSessionList';
-import { AguiTextStream } from '../components/AguiTextStream';
-import { AguiToolCallPanel } from '../components/AguiToolCallPanel';
-import { AguiEventLog } from '../components/AguiEventLog';
-import { AguiRunStatus } from '../components/AguiRunStatus';
+import { AguiSessionDetailPanel } from '../components/AguiSessionDetailPanel';
 import type { AguiSession } from '../types/agui';
 
 export const AguiPage: React.FC = () => {
   const { hasPermission } = usePermissions();
   const { addNotification } = useNotifications();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-  const [detailTab, setDetailTab] = useState('text');
+  const [mobileShowDetail, setMobileShowDetail] = useState(false);
   const createSession = useCreateAguiSession();
 
   const canView = hasPermission('ai.agents.read');
@@ -24,10 +21,11 @@ export const AguiPage: React.FC = () => {
 
   const { data: selectedSession } = useGetAguiSession(selectedSessionId || '');
   const { data: events } = useListAguiEvents(selectedSessionId || '');
+  const { data: sessions } = useListAguiSessions({});
 
   const handleSelectSession = (session: AguiSession) => {
     setSelectedSessionId(session.id);
-    setDetailTab('text');
+    setMobileShowDetail(true);
   };
 
   const handleCreateSession = () => {
@@ -36,6 +34,7 @@ export const AguiPage: React.FC = () => {
       {
         onSuccess: (session) => {
           setSelectedSessionId(session.id);
+          setMobileShowDetail(true);
           addNotification({ type: 'success', message: 'Session created' });
         },
         onError: () => {
@@ -55,82 +54,69 @@ export const AguiPage: React.FC = () => {
   }
 
   const eventList = events || [];
+  const sessionList = sessions || [];
 
-  const detailTabs = [
-    {
-      id: 'text',
-      label: 'Messages',
-      icon: <MessageSquare className="h-4 w-4" />,
-      content: <AguiTextStream events={eventList} />,
-    },
-    {
-      id: 'tools',
-      label: 'Tool Calls',
-      icon: <Wrench className="h-4 w-4" />,
-      content: <AguiToolCallPanel events={eventList} />,
-    },
-    {
-      id: 'events',
-      label: 'Event Log',
-      icon: <List className="h-4 w-4" />,
-      content: <AguiEventLog events={eventList} />,
-    },
-  ];
+  const collapsedIcons = sessionList.slice(0, 8).map((s) => (
+    <button
+      key={s.id}
+      onClick={() => handleSelectSession(s)}
+      className={`p-1.5 rounded transition-colors ${
+        selectedSessionId === s.id
+          ? 'bg-theme-interactive-primary/20 text-theme-interactive-primary'
+          : 'text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover'
+      }`}
+      title={s.thread_id}
+    >
+      <Radio className="h-4 w-4" />
+    </button>
+  ));
 
   return (
-    <div className="space-y-4">
-      {canManage && (
-        <div className="flex justify-end">
+    <div className="flex h-[calc(100vh-280px)]">
+      {/* Mobile back button */}
+      {mobileShowDetail && (
+        <div className="lg:hidden absolute top-2 left-2 z-10">
           <button
-            onClick={handleCreateSession}
-            className="flex items-center gap-2 px-3 py-2 text-sm bg-theme-primary text-theme-on-primary rounded hover:opacity-90"
+            onClick={() => setMobileShowDetail(false)}
+            className="flex items-center gap-1 text-sm text-theme-secondary hover:text-theme-primary"
           >
-            <Plus className="h-4 w-4" />
-            New Session
+            <ArrowLeft className="h-4 w-4" />
+            Sessions
           </button>
         </div>
       )}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Panel: Session List */}
-        <div className="lg:col-span-1">
-          <div className="bg-theme-card border border-theme rounded-lg p-4">
-            <h3 className="text-sm font-semibold text-theme-primary mb-3 flex items-center gap-2">
-              <Radio className="h-4 w-4" />
-              Sessions
-            </h3>
-            <AguiSessionList
-              selectedSessionId={selectedSessionId}
-              onSelectSession={handleSelectSession}
-            />
-          </div>
-        </div>
 
-        {/* Right Panel: Session Detail */}
-        <div className="lg:col-span-2">
-          {selectedSession ? (
-            <div className="space-y-4">
-              {/* Run Status */}
-              <AguiRunStatus session={selectedSession} />
+      {/* Left Panel */}
+      <div className={`${mobileShowDetail ? 'hidden lg:flex' : 'flex'} h-full`}>
+        <ResizableListPanel
+          storageKeyPrefix="agui-panel"
+          title="Sessions"
+          headerAction={
+            canManage ? (
+              <button
+                onClick={handleCreateSession}
+                className="p-1 rounded text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover transition-colors"
+                title="New Session"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            ) : undefined
+          }
+          collapsedContent={<>{collapsedIcons}</>}
+        >
+          <AguiSessionList
+            selectedSessionId={selectedSessionId}
+            onSelectSession={handleSelectSession}
+          />
+        </ResizableListPanel>
+      </div>
 
-              {/* Tabbed Detail View */}
-              <div className="bg-theme-card border border-theme rounded-lg p-4">
-                <TabContainer
-                  tabs={detailTabs}
-                  activeTab={detailTab}
-                  onTabChange={setDetailTab}
-                  variant="underline"
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="bg-theme-card border border-theme rounded-lg p-12 text-center">
-              <Activity className="h-10 w-10 text-theme-muted mx-auto mb-3 opacity-50" />
-              <p className="text-theme-secondary">
-                Select a session to view its events and state.
-              </p>
-            </div>
-          )}
-        </div>
+      {/* Right Panel */}
+      <div className={`${mobileShowDetail ? 'flex' : 'hidden lg:flex'} flex-1 flex-col min-w-0`}>
+        <AguiSessionDetailPanel
+          session={selectedSession || null}
+          events={eventList}
+        />
       </div>
     </div>
   );

@@ -34,3 +34,4 @@ export { AguiTextStream } from './components/AguiTextStream';
 export { AguiToolCallPanel } from './components/AguiToolCallPanel';
 export { AguiEventLog } from './components/AguiEventLog';
 export { AguiRunStatus } from './components/AguiRunStatus';
+export { AguiSessionDetailPanel } from './components/AguiSessionDetailPanel';
