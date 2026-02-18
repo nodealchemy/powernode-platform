@@ -220,6 +220,14 @@ export const ROUTES = {
   learningInsights: '/app/ai/learning/insights',
   chatDetached: '/chat/detached',
 
+  // Missions & Code Factory
+  missions: '/app/ai/missions',
+  missionsCodeFactory: '/app/ai/missions/code-factory',
+
+  // Knowledge sub-tabs
+  skills: '/app/ai/knowledge/skills',
+  knowledgeGraph: '/app/ai/knowledge/graph',
+
   // AI consolidated routes
   infrastructure: '/app/ai/infrastructure',
   modelRouter: '/app/ai/infrastructure/model-router',
