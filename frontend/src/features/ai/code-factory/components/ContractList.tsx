@@ -8,6 +8,7 @@ interface Props {
   onEdit?: (contract: RiskContract) => void;
   onActivate?: (id: string) => void;
   onSave?: (id: string, data: Partial<RiskContract>) => Promise<RiskContract | undefined>;
+  onNavigateToContract?: (contractId: string) => void;
 }
 
 const statusColors: Record<string, string> = {
@@ -23,7 +24,7 @@ const tierColors: Record<string, string> = {
   critical: 'text-theme-error',
 };
 
-export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onActivate, onSave }) => {
+export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onActivate, onSave, onNavigateToContract }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -132,7 +133,52 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
               </div>
             </div>
 
-            {/* Expanded details */}
+            {/* Compact expanded details */}
+            {isExpanded && compact && (
+              <div className="border-t border-theme-border px-4 py-3 space-y-2">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-theme-secondary">Version: </span>
+                    <span className="text-theme-primary">v{contract.version}</span>
+                  </div>
+                  <div>
+                    <span className="text-theme-secondary">Tiers: </span>
+                    <span className="text-theme-primary">{contract.risk_tiers?.length || 0}</span>
+                  </div>
+                  {contract.repository && (
+                    <div className="col-span-2">
+                      <span className="text-theme-secondary">Repo: </span>
+                      <span className="text-theme-primary font-mono">{contract.repository.full_name || contract.repository.name}</span>
+                    </div>
+                  )}
+                  {contract.activated_at && (
+                    <div className="col-span-2">
+                      <span className="text-theme-secondary">Activated: </span>
+                      <span className="text-theme-primary">{new Date(contract.activated_at).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                </div>
+                {(contract.risk_tiers?.length ?? 0) > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {contract.risk_tiers.map((tier, i) => (
+                      <span key={i} className={`px-1.5 py-0.5 rounded text-[10px] font-medium capitalize ${tierColors[tier.tier] || 'text-theme-primary'} bg-theme-secondary-bg`}>
+                        {tier.tier}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {onNavigateToContract && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onNavigateToContract(contract.id); }}
+                    className="text-xs text-theme-accent hover:underline"
+                  >
+                    View Full Contract →
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Full expanded details */}
             {isExpanded && !compact && (
               <div className="border-t border-theme-border px-4 pb-4">
                 {/* Toolbar */}

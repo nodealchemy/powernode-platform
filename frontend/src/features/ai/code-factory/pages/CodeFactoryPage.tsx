@@ -210,6 +210,22 @@ export const CodeFactoryPage: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="card-theme p-4">
                 <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-theme-primary">Active Contracts</h3>
+                  <button
+                    onClick={() => navigateTab('contracts')}
+                    className="text-xs text-theme-accent hover:underline"
+                  >
+                    View All
+                  </button>
+                </div>
+                <ContractList
+                  contracts={contracts.filter(c => c.status === 'active').slice(0, 5)}
+                  compact
+                  onNavigateToContract={handleNavigateToContract}
+                />
+              </div>
+              <div className="card-theme p-4">
+                <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-theme-primary">Recent Runs</h3>
                   <button
                     onClick={() => navigateTab('runs')}
@@ -225,20 +241,111 @@ export const CodeFactoryPage: React.FC = () => {
                   onSelectRun={handleSelectRun}
                 />
               </div>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="card-theme p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-theme-primary">Active Contracts</h3>
+                  <h3 className="text-sm font-semibold text-theme-primary">Harness Gaps</h3>
                   <button
-                    onClick={() => navigateTab('contracts')}
+                    onClick={() => navigateTab('harness-gaps')}
                     className="text-xs text-theme-accent hover:underline"
                   >
                     View All
                   </button>
                 </div>
-                <ContractList
-                  contracts={contracts.filter(c => c.status === 'active').slice(0, 5)}
-                  compact
-                />
+                {harnessGaps.filter(g => g.status === 'open' || g.status === 'in_progress').length === 0 ? (
+                  <div className="text-xs text-theme-success text-center py-4">No open gaps</div>
+                ) : (
+                  <div className="space-y-2">
+                    {harnessGaps
+                      .filter(g => g.status === 'open' || g.status === 'in_progress')
+                      .slice(0, 5)
+                      .map((gap) => (
+                        <div key={gap.id} className="flex items-center gap-2 bg-theme-secondary-bg rounded-lg px-3 py-2">
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                            gap.severity === 'critical' ? 'bg-theme-danger/20 text-theme-danger'
+                              : gap.severity === 'high' ? 'bg-theme-error-bg text-theme-error'
+                              : gap.severity === 'medium' ? 'bg-theme-warning-bg text-theme-warning'
+                              : 'bg-theme-secondary-bg text-theme-secondary'
+                          }`}>
+                            {gap.severity}
+                          </span>
+                          <span className="text-xs font-mono text-theme-primary">{gap.incident_id}</span>
+                          <span className="text-xs text-theme-secondary truncate flex-1">{gap.description}</span>
+                          {gap.test_case_added && (
+                            <span className="text-[10px] text-theme-success flex-shrink-0">{'\u2713'} Test</span>
+                          )}
+                        </div>
+                      ))}
+                    {harnessGaps.filter(g => g.status === 'open' || g.status === 'in_progress').length > 5 && (
+                      <div className="text-[10px] text-theme-secondary text-center">
+                        +{harnessGaps.filter(g => g.status === 'open' || g.status === 'in_progress').length - 5} more
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="card-theme p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-theme-primary">Evidence</h3>
+                  <button
+                    onClick={() => navigateTab('evidence')}
+                    className="text-xs text-theme-accent hover:underline"
+                  >
+                    View All
+                  </button>
+                </div>
+                {(() => {
+                  const manifests = reviewStates.flatMap(rs =>
+                    (rs.evidence_manifests || []).map(m => ({ ...m, pr_number: rs.pr_number }))
+                  );
+                  const verified = manifests.filter(m => m.status === 'verified').length;
+                  const pending = manifests.filter(m => m.status === 'pending').length;
+                  const failed = manifests.filter(m => m.status === 'failed').length;
+
+                  if (manifests.length === 0) {
+                    return <div className="text-xs text-theme-secondary text-center py-4">No evidence captured yet</div>;
+                  }
+
+                  return (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="bg-theme-success-bg rounded-lg p-2 text-center">
+                          <div className="text-lg font-semibold text-theme-success">{verified}</div>
+                          <div className="text-[10px] text-theme-secondary">Verified</div>
+                        </div>
+                        <div className="bg-theme-secondary-bg rounded-lg p-2 text-center">
+                          <div className="text-lg font-semibold text-theme-primary">{pending}</div>
+                          <div className="text-[10px] text-theme-secondary">Pending</div>
+                        </div>
+                        <div className="bg-theme-error-bg rounded-lg p-2 text-center">
+                          <div className="text-lg font-semibold text-theme-error">{failed}</div>
+                          <div className="text-[10px] text-theme-secondary">Failed</div>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        {manifests.slice(0, 4).map((m) => (
+                          <div key={m.id} className="flex items-center justify-between bg-theme-secondary-bg rounded-lg px-3 py-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-xs text-theme-primary capitalize">{m.manifest_type.replace(/_/g, ' ')}</span>
+                              <span className="text-xs text-theme-secondary">PR #{m.pr_number}</span>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span className="text-[10px] text-theme-secondary">{m.assertions.length} assertions</span>
+                              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                                m.status === 'verified' ? 'bg-theme-success-bg text-theme-success'
+                                  : m.status === 'failed' ? 'bg-theme-error-bg text-theme-error'
+                                  : 'bg-theme-secondary-bg text-theme-secondary'
+                              }`}>
+                                {m.status}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>

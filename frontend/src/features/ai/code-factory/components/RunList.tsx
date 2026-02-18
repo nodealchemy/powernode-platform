@@ -207,8 +207,8 @@ export const RunList: React.FC<Props> = ({ reviewStates, compact, initialExpande
   }
 
   const handleRowClick = (state: ReviewState) => {
-    if (compact && onSelectRun) {
-      onSelectRun(state.id);
+    if (compact) {
+      setExpandedId(expandedId === state.id ? null : state.id);
     } else {
       setExpandedId(expandedId === state.id ? null : state.id);
     }
@@ -227,11 +227,9 @@ export const RunList: React.FC<Props> = ({ reviewStates, compact, initialExpande
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  {!compact && (
-                    <span className={`transition-transform text-xs text-theme-secondary ${isExpanded ? 'rotate-90' : ''}`}>
-                      {'\u25B6'}
-                    </span>
-                  )}
+                  <span className={`transition-transform text-xs text-theme-secondary ${isExpanded ? 'rotate-90' : ''}`}>
+                    {'\u25B6'}
+                  </span>
                   <span className="text-sm font-medium text-theme-primary">PR #{state.pr_number}</span>
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[state.status] || ''}`}>
                     {state.status}
@@ -250,6 +248,15 @@ export const RunList: React.FC<Props> = ({ reviewStates, compact, initialExpande
                     {state.risk_contract && <span className="text-theme-accent">{state.risk_contract.name}</span>}
                   </div>
                 )}
+                {compact && (
+                  <div className="flex items-center gap-3 mt-1 ml-5 text-xs text-theme-secondary">
+                    <span>{state.review_findings_count} findings</span>
+                    {state.critical_findings_count > 0 && (
+                      <span className="text-theme-error">{state.critical_findings_count} critical</span>
+                    )}
+                    {state.risk_contract && <span className="text-theme-accent">{state.risk_contract.name}</span>}
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 {state.all_checks_passed && (
@@ -261,6 +268,53 @@ export const RunList: React.FC<Props> = ({ reviewStates, compact, initialExpande
               </div>
             </div>
 
+            {/* Compact expanded details */}
+            {isExpanded && compact && (
+              <div className="border-t border-theme-border px-4 py-3 space-y-2">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-theme-secondary">Findings: </span>
+                    <span className="text-theme-primary">{state.review_findings_count}</span>
+                    {state.critical_findings_count > 0 && (
+                      <span className="text-theme-error ml-1">({state.critical_findings_count} critical)</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-theme-secondary">Remediations: </span>
+                    <span className="text-theme-primary">{state.remediation_attempts}</span>
+                  </div>
+                  <div>
+                    <span className="text-theme-secondary">SHA: </span>
+                    <span className="text-theme-primary font-mono">{state.head_sha?.substring(0, 8)}</span>
+                  </div>
+                  <div>
+                    <span className="text-theme-secondary">Checks: </span>
+                    <span className="text-theme-primary">{state.completed_checks.length}/{state.required_checks.length}</span>
+                  </div>
+                </div>
+                {state.risk_contract && onNavigateToContract && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-theme-secondary">Contract:</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onNavigateToContract(state.risk_contract_id); }}
+                      className="text-xs text-theme-accent hover:underline"
+                    >
+                      {state.risk_contract.name} →
+                    </button>
+                  </div>
+                )}
+                {onSelectRun && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onSelectRun(state.id); }}
+                    className="text-xs text-theme-accent hover:underline"
+                  >
+                    View Full Run →
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Full expanded details */}
             {isExpanded && !compact && (
               <RunCardExpanded state={state} onNavigateToContract={onNavigateToContract} />
             )}
