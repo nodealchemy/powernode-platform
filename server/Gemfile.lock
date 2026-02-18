@@ -1,5 +1,5 @@
 PATH
-  remote: /home/rett/Drive/Projects/powernode-platform/enterprise/server
+  remote: /home/rett/Drive/Projects/powernode-platform/extensions/enterprise/server
   specs:
     powernode_enterprise (0.1.0)
       rails (~> 8.1)

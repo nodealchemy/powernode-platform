@@ -1,4 +1,4 @@
-[submodule "enterprise"]
-	path = enterprise
+[submodule "extensions/enterprise"]
+	path = extensions/enterprise
 	url = git@git.ipnode.net:powernode/powernode-enterprise.git
 	branch = develop

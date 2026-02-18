@@ -8,7 +8,7 @@ Development guidance for **Powernode** subscription platform.
 - **Backend**: Rails 8 API (`./server`) - JWT auth, UUIDv7 primary keys
 - **Frontend**: React TypeScript (`./frontend`) - Theme-aware, Tailwind CSS
 - **Worker**: Sidekiq standalone (`./worker`) - API-only communication
-- **Enterprise**: Git submodule (`./enterprise`) - proprietary features (billing, BaaS, reseller, AI publisher)
+- **Enterprise**: Git submodule (`./extensions/enterprise`) - proprietary features (billing, BaaS, reseller, AI publisher)
 - **Database**: PostgreSQL with native UUID schema
 - **Payments**: Stripe, PayPal with PCI compliance (enterprise only)
 
@@ -39,10 +39,10 @@ For specialist documentation and Task tool delegation, see [MCP_CONFIGURATION.md
 - Release branches: `release/0.2.0` (no "v" prefix)
 - **Staged commits**: Group changes into logical commits by concern (models, services, controllers, frontend, tests, config) — never one monolithic commit
 
-### Enterprise Submodule (`./enterprise`)
-- **Separate git repo** at `enterprise/` — has its own branch, commits, and remote (`git@git.ipnode.net:powernode/powernode-enterprise.git`)
-- **Always check both repos**: `git status` in root AND `git -C enterprise status` — changes in `enterprise/` are invisible to the parent repo's `git status`
-- **Commit order**: Commit inside `enterprise/` first, then update the submodule pointer in the parent repo
+### Enterprise Submodule (`./extensions/enterprise`)
+- **Separate git repo** at `extensions/enterprise/` — has its own branch, commits, and remote (`git@git.ipnode.net:powernode/powernode-enterprise.git`)
+- **Always check both repos**: `git status` in root AND `git -C extensions/enterprise status` — changes in `extensions/enterprise/` are invisible to the parent repo's `git status`
+- **Commit order**: Commit inside `extensions/enterprise/` first, then update the submodule pointer in the parent repo
 - **Path aliases**: Enterprise frontend uses `@enterprise/` for intra-enterprise imports, `@/` for core shared imports
 - **Core mode**: When enterprise submodule is absent, the app runs as single-user self-hosted (all features unlocked, no billing/SaaS)
 - **Feature gating**: `Shared::FeatureGateService.enterprise_loaded?` (backend), `__ENTERPRISE__` build flag (frontend), `enterpriseOnly: true` on nav items
