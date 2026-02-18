@@ -2611,9 +2611,35 @@ Rails.application.routes.draw do
         scope :autonomy, controller: "autonomy" do
           get "trust_scores", action: :trust_scores
           get "trust_scores/:agent_id", action: :show_trust_score
+          post "trust_scores/:agent_id/evaluate", action: :evaluate
+          put "trust_scores/:agent_id/override", action: :override_trust_score
+          post "trust_scores/:agent_id/emergency_demote", action: :emergency_demote
+          post "trust_scores/decay", action: :decay
           get "lineage/:agent_id", action: :lineage
           get "budgets", action: :budgets
+          post "budgets", action: :create_budget
+          put "budgets/:id", action: :update_budget
+          delete "budgets/:id", action: :destroy_budget
+          post "budgets/:id/allocate_child", action: :allocate_child
           get "stats", action: :stats
+          get "capability_matrix", action: :capability_matrix
+          get "capability_matrix/:agent_id", action: :agent_capabilities
+          get "circuit_breakers", action: :circuit_breakers
+          get "circuit_breakers/:agent_id", action: :agent_circuit_breakers
+          post "circuit_breakers/:id/reset", action: :reset_circuit_breaker
+          get "approvals", action: :approval_queue
+          post "approvals/:id/approve", action: :approve_action
+          post "approvals/:id/reject", action: :reject_action
+          get "shadow_executions", action: :shadow_executions
+          get "shadow_executions/:agent_id", action: :agent_shadow_executions
+          get "telemetry", action: :telemetry_events
+          get "telemetry/:agent_id", action: :agent_telemetry
+          get "delegation_policies", action: :delegation_policies
+          get "delegation_policies/:agent_id", action: :agent_delegation_policy
+          post "delegation_policies", action: :create_delegation_policy
+          put "delegation_policies/:id", action: :update_delegation_policy
+          delete "delegation_policies/:id", action: :destroy_delegation_policy
+          get "behavioral_fingerprints/:agent_id", action: :behavioral_fingerprints
         end
 
         # ===================================================================

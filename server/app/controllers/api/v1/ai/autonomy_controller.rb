@@ -4,7 +4,22 @@ module Api
   module V1
     module Ai
       class AutonomyController < ApplicationController
+        include ::Ai::AutonomyWriteActions
+        include ::Ai::AutonomyCapabilityActions
+        include ::Ai::AutonomyCircuitBreakerActions
+        include ::Ai::AutonomyApprovalActions
+        include ::Ai::AutonomyDelegationActions
+        include ::Ai::AutonomyShadowActions
+        include ::Ai::AutonomyTelemetryActions
+
         before_action :validate_permissions
+        before_action :require_write_permission, only: [
+          :evaluate, :override_trust_score, :emergency_demote,
+          :create_budget, :update_budget, :destroy_budget, :allocate_child,
+          :reset_circuit_breaker,
+          :create_delegation_policy, :update_delegation_policy, :destroy_delegation_policy
+        ]
+        before_action :require_approval_permission, only: [:approve_action, :reject_action]
 
         # GET /api/v1/ai/autonomy/trust_scores
         def trust_scores
@@ -72,32 +87,65 @@ module Api
           render_success(data: budgets_scope.map { |b| serialize_budget(b) })
         end
 
+        # POST /api/v1/ai/autonomy/trust_scores/decay
+        def decay
+          return render_error("Unauthorized", status: :forbidden) unless current_worker || current_service
+
+          service = ::Ai::Autonomy::TrustEngineService.new(account: current_account)
+          results = service.apply_decay!
+          render_success(data: results)
+        end
+
+        # GET /api/v1/ai/autonomy/behavioral_fingerprints/:agent_id
+        def behavioral_fingerprints
+          agent = current_account.ai_agents.find(params[:agent_id])
+          service = ::Ai::Autonomy::BehavioralFingerprintService.new(account: current_account)
+          fingerprints = service.fingerprints_for(agent)
+
+          render_success(data: fingerprints.map { |fp| serialize_behavioral_fingerprint(fp) })
+        rescue ActiveRecord::RecordNotFound
+          render_not_found("Agent")
+        end
+
         # GET /api/v1/ai/autonomy/stats
         def stats
-          trust_scores_scope = ::Ai::AgentTrustScore.where(account_id: current_account.id)
+          scores = ::Ai::AgentTrustScore.where(account_id: current_account.id)
           budgets_scope = ::Ai::AgentBudget.where(account_id: current_account.id)
-          lineages_scope = ::Ai::AgentLineage.where(account_id: current_account.id)
+
+          tier_counts = scores.group(:tier).count
+          # SQL-based promotable/demotable counting to avoid N+1
+          pending_promotions = scores.where(
+            "(tier = 'supervised' AND overall_score >= :monitored) OR " \
+            "(tier = 'monitored' AND overall_score >= :trusted) OR " \
+            "(tier = 'trusted' AND overall_score >= :autonomous)",
+            monitored: ::Ai::AgentTrustScore::TIER_THRESHOLDS["monitored"],
+            trusted: ::Ai::AgentTrustScore::TIER_THRESHOLDS["trusted"],
+            autonomous: ::Ai::AgentTrustScore::TIER_THRESHOLDS["autonomous"]
+          ).count
+
+          pending_demotions = scores.where(
+            "(tier = 'monitored' AND overall_score < :monitored) OR " \
+            "(tier = 'trusted' AND overall_score < :trusted) OR " \
+            "(tier = 'autonomous' AND overall_score < :autonomous)",
+            monitored: ::Ai::AgentTrustScore::TIER_THRESHOLDS["monitored"],
+            trusted: ::Ai::AgentTrustScore::TIER_THRESHOLDS["trusted"],
+            autonomous: ::Ai::AgentTrustScore::TIER_THRESHOLDS["autonomous"]
+          ).count
 
           render_success(data: {
-            trust_scores: {
-              total: trust_scores_scope.count,
-              by_tier: ::Ai::AgentTrustScore::TIERS.each_with_object({}) do |tier, h|
-                h[tier] = trust_scores_scope.by_tier(tier).count
-              end,
-              needs_evaluation: trust_scores_scope.needs_evaluation.count,
-              average_score: trust_scores_scope.average(:overall_score)&.round(4) || 0
-            },
+            total_agents: scores.count,
+            supervised: tier_counts["supervised"] || 0,
+            monitored: tier_counts["monitored"] || 0,
+            trusted: tier_counts["trusted"] || 0,
+            autonomous: tier_counts["autonomous"] || 0,
+            pending_promotions: pending_promotions,
+            pending_demotions: pending_demotions,
             budgets: {
               total: budgets_scope.count,
               active: budgets_scope.active.count,
               total_budget_cents: budgets_scope.active.sum(:total_budget_cents),
               total_spent_cents: budgets_scope.active.sum(:spent_cents),
               exceeded: budgets_scope.active.where("spent_cents >= total_budget_cents").count
-            },
-            lineages: {
-              total: lineages_scope.count,
-              active: lineages_scope.active.count,
-              terminated: lineages_scope.terminated.count
             }
           })
         end
@@ -148,6 +196,21 @@ module Api
             termination_reason: lineage_record.termination_reason,
             spawn_depth: lineage_record.spawn_depth,
             active: lineage_record.active?
+          }
+        end
+
+        def serialize_behavioral_fingerprint(fp)
+          {
+            id: fp.id,
+            agent_id: fp.agent_id,
+            metric_name: fp.metric_name,
+            baseline_mean: fp.baseline_mean,
+            baseline_stddev: fp.baseline_stddev,
+            rolling_window_days: fp.rolling_window_days,
+            deviation_threshold: fp.deviation_threshold,
+            observation_count: fp.observation_count,
+            last_observation_at: fp.last_observation_at,
+            anomaly_count: fp.anomaly_count
           }
         end
 

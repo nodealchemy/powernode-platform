@@ -291,6 +291,8 @@ module Permissions
 
     # AI Autonomy
     "ai.autonomy.configure" => "Configure AI agent autonomy settings",
+    "ai.autonomy.manage" => "Manage AI agent trust scores, budgets, and autonomy write operations",
+    "ai.autonomy.approve" => "Approve or reject AI agent autonomy actions",
 
     # AI Code Factory
     "ai.code_factory.read" => "View Code Factory risk contracts and review states",
@@ -736,7 +738,7 @@ module Permissions
         "ai.discovery.read", "ai.discovery.manage",
         "ai.memory_pools.read", "ai.memory_pools.manage",
         "ai.code_reviews.read", "ai.code_reviews.manage",
-        "ai.autonomy.configure",
+        "ai.autonomy.configure", "ai.autonomy.manage", "ai.autonomy.approve",
         # AI Missions
         "ai.missions.read", "ai.missions.manage",
         # AI Knowledge Graph
@@ -976,7 +978,7 @@ module Permissions
         "ai.discovery.read", "ai.discovery.manage",
         "ai.memory_pools.read", "ai.memory_pools.manage",
         "ai.code_reviews.read", "ai.code_reviews.manage",
-        "ai.autonomy.configure",
+        "ai.autonomy.configure", "ai.autonomy.manage", "ai.autonomy.approve",
         # AI Knowledge Graph
         "ai.knowledge_graph.read", "ai.knowledge_graph.manage"
       ]
