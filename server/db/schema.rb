@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_17_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_18_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -587,6 +587,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_17_000001) do
     t.string "parallel_mode", default: "standard"
     t.jsonb "review_config", default: {}
     t.jsonb "shared_memory_config", default: {}
+    t.jsonb "skill_graph_config", default: {}
     t.string "status", default: "active", null: false, comment: "Team status: active, inactive, archived"
     t.integer "task_timeout_seconds", default: 300
     t.jsonb "team_config", default: {}, null: false, comment: "Team-specific configuration (max_iterations, timeout, etc.)"
@@ -1991,6 +1992,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_17_000001) do
 
   create_table "ai_knowledge_graph_nodes", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
+    t.uuid "ai_skill_id"
     t.decimal "confidence", precision: 5, scale: 4, default: "1.0"
     t.datetime "created_at", null: false
     t.text "description"
@@ -2008,6 +2010,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_17_000001) do
     t.uuid "source_document_id"
     t.string "status", default: "active"
     t.datetime "updated_at", null: false
+    t.index ["account_id", "ai_skill_id"], name: "idx_kg_nodes_unique_active_skill", unique: true, where: "((ai_skill_id IS NOT NULL) AND ((status)::text = 'active'::text))"
     t.index ["account_id", "name", "node_type"], name: "index_ai_kg_nodes_unique_active", unique: true, where: "((status)::text = 'active'::text)"
     t.index ["account_id"], name: "index_ai_knowledge_graph_nodes_on_account_id"
     t.index ["embedding"], name: "index_ai_knowledge_graph_nodes_on_embedding", opclass: :vector_cosine_ops, using: :hnsw
@@ -2227,7 +2230,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_17_000001) do
   end
 
   create_table "ai_messages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ai_agent_id", null: false
+    t.uuid "ai_agent_id"
     t.uuid "ai_conversation_id", null: false
     t.jsonb "attachments", default: []
     t.text "content", null: false
@@ -9595,6 +9598,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_17_000001) do
   add_foreign_key "ai_knowledge_graph_nodes", "ai_documents", column: "source_document_id"
   add_foreign_key "ai_knowledge_graph_nodes", "ai_knowledge_bases", column: "knowledge_base_id"
   add_foreign_key "ai_knowledge_graph_nodes", "ai_knowledge_graph_nodes", column: "merged_into_id"
+  add_foreign_key "ai_knowledge_graph_nodes", "ai_skills"
   add_foreign_key "ai_marketplace_categories", "ai_marketplace_categories", column: "parent_id"
   add_foreign_key "ai_marketplace_moderations", "ai_agent_templates", column: "agent_template_id"
   add_foreign_key "ai_marketplace_moderations", "users", column: "reviewed_by_id"
