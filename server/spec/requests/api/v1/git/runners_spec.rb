@@ -135,7 +135,7 @@ RSpec.describe 'Api::V1::Git::Runners', type: :request do
     context 'with proper permissions' do
       before do
         allow_any_instance_of(Devops::GitProviderCredential).to receive(:can_be_used?).and_return(true)
-        allow(Devops::Git::ApiClient).to receive(:for).and_return(double(delete_runner: { success: true }))
+        allow(Devops::Git::ApiClient).to receive(:for).and_return(double(supports_runners?: true, delete_runner: { success: true }))
       end
 
       it 'deletes the runner' do
@@ -172,7 +172,7 @@ RSpec.describe 'Api::V1::Git::Runners', type: :request do
     context 'with proper permissions' do
       before do
         allow_any_instance_of(Devops::GitProviderCredential).to receive(:can_be_used?).and_return(true)
-        allow(Devops::Git::ApiClient).to receive(:for).and_return(double(list_runners: []))
+        allow(Devops::Git::ApiClient).to receive(:for).and_return(double(supports_runners?: true, list_runners: []))
       end
 
       it 'syncs runners for credential' do
@@ -223,7 +223,7 @@ RSpec.describe 'Api::V1::Git::Runners', type: :request do
     context 'with proper permissions' do
       before do
         allow_any_instance_of(Devops::GitProviderCredential).to receive(:can_be_used?).and_return(true)
-        allow(Devops::Git::ApiClient).to receive(:for).and_return(double(runner_registration_token: { token: 'reg-token-123', expires_at: 1.hour.from_now }))
+        allow(Devops::Git::ApiClient).to receive(:for).and_return(double(supports_runners?: true, runner_registration_token: { token: 'reg-token-123', expires_at: 1.hour.from_now }))
       end
 
       it 'returns registration token' do
@@ -261,7 +261,7 @@ RSpec.describe 'Api::V1::Git::Runners', type: :request do
     context 'with proper permissions' do
       before do
         allow_any_instance_of(Devops::GitProviderCredential).to receive(:can_be_used?).and_return(true)
-        allow(Devops::Git::ApiClient).to receive(:for).and_return(double(runner_removal_token: { token: 'rem-token-123', expires_at: 1.hour.from_now }))
+        allow(Devops::Git::ApiClient).to receive(:for).and_return(double(supports_runners?: true, runner_removal_token: { token: 'rem-token-123', expires_at: 1.hour.from_now }))
       end
 
       it 'returns removal token' do
@@ -290,7 +290,7 @@ RSpec.describe 'Api::V1::Git::Runners', type: :request do
     context 'with proper permissions' do
       before do
         allow_any_instance_of(Devops::GitProviderCredential).to receive(:can_be_used?).and_return(true)
-        allow(Devops::Git::ApiClient).to receive(:for).and_return(double(set_runner_labels: { success: true, labels: [ 'label1', 'label2' ] }))
+        allow(Devops::Git::ApiClient).to receive(:for).and_return(double(supports_runners?: true, set_runner_labels: { success: true, labels: [ 'label1', 'label2' ] }))
       end
 
       it 'updates runner labels' do

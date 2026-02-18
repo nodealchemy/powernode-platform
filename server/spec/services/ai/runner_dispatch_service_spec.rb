@@ -128,9 +128,9 @@ RSpec.describe Ai::RunnerDispatchService, type: :service do
     end
 
     before do
-      allow(client).to receive(:list_workflow_runs).and_return([
+      allow(client).to receive(:get_workflow_run).and_return(
         { "id" => 999, "status" => "completed", "conclusion" => "success" }
-      ])
+      )
       allow(client).to receive(:get_workflow_run_jobs).and_return([])
     end
 
@@ -149,9 +149,9 @@ RSpec.describe Ai::RunnerDispatchService, type: :service do
 
     context 'when run is in progress' do
       before do
-        allow(client).to receive(:list_workflow_runs).and_return([
+        allow(client).to receive(:get_workflow_run).and_return(
           { "id" => 999, "status" => "in_progress", "conclusion" => nil }
-        ])
+        )
       end
 
       it 'updates to running status' do
@@ -163,9 +163,9 @@ RSpec.describe Ai::RunnerDispatchService, type: :service do
 
     context 'when run fails' do
       before do
-        allow(client).to receive(:list_workflow_runs).and_return([
+        allow(client).to receive(:get_workflow_run).and_return(
           { "id" => 999, "status" => "completed", "conclusion" => "failure" }
-        ])
+        )
         allow(client).to receive(:get_workflow_run_jobs).and_return([])
       end
 
