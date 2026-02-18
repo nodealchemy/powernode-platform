@@ -235,7 +235,9 @@ class AiConversationChannel < ApplicationCable::Channel
       if message.respond_to?(:content_metadata) && message.content_metadata.present?
         metadata = metadata.merge(
           actions: message.content_metadata["actions"],
-          action_context: message.content_metadata["action_context"]
+          action_context: message.content_metadata["action_context"],
+          concierge_action: message.content_metadata["concierge_action"],
+          action_params: message.content_metadata["action_params"]
         ).compact
       end
 

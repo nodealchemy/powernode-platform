@@ -182,9 +182,10 @@ module Api
           if conversation.agent&.is_concierge?
             concierge = ::Ai::ConciergeService.new(conversation: conversation, user: current_user)
             concierge.process_message(content)
+            assistant_msg = conversation.messages.where.not(role: "user").order(created_at: :desc).first
             return render_success({
               user_message: serialize_message(user_message),
-              assistant_message: nil,
+              assistant_message: assistant_msg ? serialize_message(assistant_msg) : nil,
               concierge_routed: true,
               conversation: { id: conversation.id, message_count: conversation.reload.message_count }
             })

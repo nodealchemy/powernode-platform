@@ -73,7 +73,7 @@ module Ai
         pinned: conversation.pinned?, pinned_at: conversation.pinned_at&.iso8601, tags: conversation.tags,
         conversation_type: conversation.conversation_type,
         created_at: conversation.created_at.iso8601, last_activity_at: conversation.last_activity_at&.iso8601,
-        ai_agent: conversation.agent ? { id: conversation.agent.id, name: conversation.agent.name, agent_type: conversation.agent.agent_type } : nil,
+        ai_agent: conversation.agent ? { id: conversation.agent.id, name: conversation.agent.name, agent_type: conversation.agent.agent_type, is_concierge: conversation.agent.is_concierge? } : nil,
         provider: { id: conversation.provider.id, name: conversation.provider.name, provider_type: conversation.provider.provider_type },
         user: { id: conversation.user.id, name: conversation.user.full_name, email: conversation.user.email }
       }

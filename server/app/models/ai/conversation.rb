@@ -188,14 +188,7 @@ module Ai
     def broadcast_message(message)
       return unless websocket_channel.present?
 
-      ActionCable.server.broadcast(
-        websocket_channel,
-        {
-          type: "message",
-          conversation_id: conversation_id,
-          message: message_data(message)
-        }
-      )
+      AiConversationChannel.broadcast_message_created(self, message)
     end
 
     def broadcast_typing_indicator(user, typing: true)
