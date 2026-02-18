@@ -1,5 +1,5 @@
 // Navigation Context Provider
-import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
@@ -243,14 +243,17 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
     dispatch({ type: 'UPDATE_STATE', payload: updates });
   }, []);
 
-  // Context value
-  const contextValue: NavigationContext = {
-    config: buildNavigationConfig(),
+  // Memoize config to avoid rebuilding every render
+  const config = useMemo(() => buildNavigationConfig(), [buildNavigationConfig]);
+
+  // Memoize context value to prevent unnecessary consumer re-renders
+  const contextValue = useMemo<NavigationContext>(() => ({
+    config,
     state: menuState,
     theme,
     updateState,
     hasPermission
-  };
+  }), [config, menuState, theme, updateState, hasPermission]);
 
   return (
     <NavigationContextProvider.Provider value={contextValue}>

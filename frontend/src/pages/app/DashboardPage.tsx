@@ -6,152 +6,154 @@ import { DashboardLayout } from '@/shared/components/layout/DashboardLayout';
 import { MetricCard } from '@/shared/components/ui/Card';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { featureRegistry } from '@/shared/services/featureRegistry';
-
-// Import all dashboard pages
-import { ProfilePage } from './account/ProfilePage';
-import { PagesPage } from './content/PagesPage';
-import KnowledgeBasePage from './content/KnowledgeBasePage';
-import KnowledgeBaseArticlePage from './content/KnowledgeBaseArticlePage';
-import KnowledgeBaseAdminPage from './content/KnowledgeBaseAdminPage';
-import { KnowledgeBaseArticleEditor } from '@/features/content/knowledge-base/components/KnowledgeBaseArticleEditor';
-import MyFilesPage from './content/MyFilesPage';
-import { UsersPage } from './account/UsersPage';
-import { AuditLogsPage } from './admin/AuditLogsPage';
-import PrivacyDashboardPage from './privacy/PrivacyDashboardPage';
-import { NotificationsPage } from './account/NotificationsPage';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { BarChart3, Users } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 
-// Import marketplace pages
-import { MarketplacePage } from '@/pages/app/marketplace/MarketplacePage';
-import { ItemDetailPage } from '@/pages/app/marketplace/ItemDetailPage';
-import { MySubscriptionsPage } from '@/pages/app/marketplace/MySubscriptionsPage';
+// Context providers used inline in route elements (must be synchronous)
+import { ClusterProvider } from '@/features/devops/swarm/context/ClusterContext';
+import { HostProvider } from '@/features/devops/docker/context/HostContext';
 
-// Import admin pages
-import { AdminSettingsPage } from '@/pages/app/admin/AdminSettingsPage';
-import { AdminUsersPage } from '@/pages/app/admin/AdminUsersPage';
-import { AdminRolesPage } from '@/pages/app/admin/AdminRolesPage';
-import { WorkersPage as AdminWorkersPage } from '@/pages/app/admin/WorkersPage';
-import AdminStoragePage from '@/pages/app/admin/StorageProvidersPage';
+// === Lazy-loaded page components ===
 
-// Provider Pages
-import { AIProvidersPage } from './ai/AIProvidersPage';
-import { GitProvidersPage } from './devops/GitProvidersPage';
-import { AdminMaintenancePage } from '@/pages/app/admin/AdminMaintenancePage';
-import { AdminMarketplacePage } from '@/pages/app/admin/AdminMarketplacePage';
-// AI Pages - Primary navigation
-import { AIOverviewPage } from './ai/AIOverviewPage';
-import { AIAgentsPage } from './ai/AIAgentsPage';
-import { WorkflowsPage } from './ai/WorkflowsPage';
-import { AIMonitoringPage } from './ai/AIMonitoringPage';
-import GovernancePage from './ai/GovernancePage';
-import SandboxPage from './ai/SandboxPage';
+// Account & Content
+const ProfilePage = React.lazy(() => import('./account/ProfilePage').then(m => ({ default: m.ProfilePage })));
+const PagesPage = React.lazy(() => import('./content/PagesPage').then(m => ({ default: m.PagesPage })));
+const KnowledgeBasePage = React.lazy(() => import('./content/KnowledgeBasePage'));
+const KnowledgeBaseArticlePage = React.lazy(() => import('./content/KnowledgeBaseArticlePage'));
+const KnowledgeBaseAdminPage = React.lazy(() => import('./content/KnowledgeBaseAdminPage'));
+const KnowledgeBaseArticleEditor = React.lazy(() => import('@/features/content/knowledge-base/components/KnowledgeBaseArticleEditor').then(m => ({ default: m.KnowledgeBaseArticleEditor })));
+const MyFilesPage = React.lazy(() => import('./content/MyFilesPage'));
+const UsersPage = React.lazy(() => import('./account/UsersPage').then(m => ({ default: m.UsersPage })));
+const AuditLogsPage = React.lazy(() => import('./admin/AuditLogsPage').then(m => ({ default: m.AuditLogsPage })));
+const PrivacyDashboardPage = React.lazy(() => import('./privacy/PrivacyDashboardPage'));
+const NotificationsPage = React.lazy(() => import('./account/NotificationsPage').then(m => ({ default: m.NotificationsPage })));
 
-// AI Pages - New tabbed wrappers
-import { ExecutionPage } from './ai/ExecutionPage';
-import { KnowledgePage } from './ai/KnowledgePage';
-import { InfrastructurePage } from './ai/InfrastructurePage';
-import { AiBillingPage } from './ai/AiBillingPage';
+// Marketplace
+const MarketplacePage = React.lazy(() => import('@/pages/app/marketplace/MarketplacePage').then(m => ({ default: m.MarketplacePage })));
+const ItemDetailPage = React.lazy(() => import('@/pages/app/marketplace/ItemDetailPage').then(m => ({ default: m.ItemDetailPage })));
+const MySubscriptionsPage = React.lazy(() => import('@/pages/app/marketplace/MySubscriptionsPage').then(m => ({ default: m.MySubscriptionsPage })));
+
+// Admin
+const AdminSettingsPage = React.lazy(() => import('@/pages/app/admin/AdminSettingsPage').then(m => ({ default: m.AdminSettingsPage })));
+const AdminUsersPage = React.lazy(() => import('@/pages/app/admin/AdminUsersPage').then(m => ({ default: m.AdminUsersPage })));
+const AdminRolesPage = React.lazy(() => import('@/pages/app/admin/AdminRolesPage').then(m => ({ default: m.AdminRolesPage })));
+const AdminWorkersPage = React.lazy(() => import('@/pages/app/admin/WorkersPage').then(m => ({ default: m.WorkersPage })));
+const AdminStoragePage = React.lazy(() => import('@/pages/app/admin/StorageProvidersPage'));
+const AdminMaintenancePage = React.lazy(() => import('@/pages/app/admin/AdminMaintenancePage').then(m => ({ default: m.AdminMaintenancePage })));
+const AdminMarketplacePage = React.lazy(() => import('@/pages/app/admin/AdminMarketplacePage').then(m => ({ default: m.AdminMarketplacePage })));
+
+// AI Providers
+const AIProvidersPage = React.lazy(() => import('./ai/AIProvidersPage').then(m => ({ default: m.AIProvidersPage })));
+const GitProvidersPage = React.lazy(() => import('./devops/GitProvidersPage').then(m => ({ default: m.GitProvidersPage })));
+
+// AI Primary navigation
+const AIOverviewPage = React.lazy(() => import('./ai/AIOverviewPage').then(m => ({ default: m.AIOverviewPage })));
+const AIAgentsPage = React.lazy(() => import('./ai/AIAgentsPage').then(m => ({ default: m.AIAgentsPage })));
+const WorkflowsPage = React.lazy(() => import('./ai/WorkflowsPage').then(m => ({ default: m.WorkflowsPage })));
+const AIMonitoringPage = React.lazy(() => import('./ai/AIMonitoringPage').then(m => ({ default: m.AIMonitoringPage })));
+const GovernancePage = React.lazy(() => import('./ai/GovernancePage'));
+const SandboxPage = React.lazy(() => import('./ai/SandboxPage'));
+
+// AI Tabbed wrappers
+const ExecutionPage = React.lazy(() => import('./ai/ExecutionPage').then(m => ({ default: m.ExecutionPage })));
+const KnowledgePage = React.lazy(() => import('./ai/KnowledgePage').then(m => ({ default: m.KnowledgePage })));
+const InfrastructurePage = React.lazy(() => import('./ai/InfrastructurePage').then(m => ({ default: m.InfrastructurePage })));
+const AiBillingPage = React.lazy(() => import('./ai/AiBillingPage').then(m => ({ default: m.AiBillingPage })));
 
 // AI Sub-pages
-import { CreateWorkflowPage, AIDebugPage } from './ai';
-import { AgentDetailPage } from './ai/AgentDetailPage';
-import { WorkflowDetailPage } from './ai/WorkflowDetailPage';
-import { WorkflowImportPage } from './ai/WorkflowImportPage';
-import { WorkflowMonitoringPage } from './ai/WorkflowMonitoringPage';
-import { WorkflowValidationStatisticsPage } from './ai/WorkflowValidationStatisticsPage';
-import { AIAnalyticsPage } from './ai/AIAnalyticsPage';
-import { AgentMemoryPage } from './ai/AgentMemoryPage';
-import { ContextDetailPage } from './ai/ContextDetailPage';
-// AI Hidden pages (no nav, still accessible)
-import { SelfHealingDashboard } from '@/features/ai/self-healing/SelfHealingDashboard';
-import { RecommendationsDashboard } from '@/features/ai/learning/RecommendationsDashboard';
-import { TrajectoryInsights } from '@/features/ai/learning/TrajectoryInsights';
+const CreateWorkflowPage = React.lazy(() => import('./ai').then(m => ({ default: m.CreateWorkflowPage })));
+const AIDebugPage = React.lazy(() => import('./ai').then(m => ({ default: m.AIDebugPage })));
+const AgentDetailPage = React.lazy(() => import('./ai/AgentDetailPage').then(m => ({ default: m.AgentDetailPage })));
+const WorkflowDetailPage = React.lazy(() => import('./ai/WorkflowDetailPage').then(m => ({ default: m.WorkflowDetailPage })));
+const WorkflowImportPage = React.lazy(() => import('./ai/WorkflowImportPage').then(m => ({ default: m.WorkflowImportPage })));
+const WorkflowMonitoringPage = React.lazy(() => import('./ai/WorkflowMonitoringPage').then(m => ({ default: m.WorkflowMonitoringPage })));
+const WorkflowValidationStatisticsPage = React.lazy(() => import('./ai/WorkflowValidationStatisticsPage').then(m => ({ default: m.WorkflowValidationStatisticsPage })));
+const AIAnalyticsPage = React.lazy(() => import('./ai/AIAnalyticsPage').then(m => ({ default: m.AIAnalyticsPage })));
+const AgentMemoryPage = React.lazy(() => import('./ai/AgentMemoryPage').then(m => ({ default: m.AgentMemoryPage })));
+const ContextDetailPage = React.lazy(() => import('./ai/ContextDetailPage').then(m => ({ default: m.ContextDetailPage })));
 
-// AI Agent Orchestration pages
-import { SandboxDashboardPage } from '@/features/ai/sandboxes';
-import { AutonomyDashboardPage } from '@/features/ai/autonomy';
-import CompoundLearningPage from './ai/CompoundLearningPage';
-import { AuditDashboardPage } from '@/features/ai/audit';
-import { SecurityDashboardPage } from '@/features/ai/security';
-import { EvaluationDashboardPage } from '@/features/ai/evaluation';
-// AI Communication hub
-import { CommunicationPage } from './ai/CommunicationPage';
-// AI Code Factory
-import { CodeFactoryPage } from '@/features/ai/code-factory';
-// AI Missions (lazy-loaded)
+// AI Hidden pages
+const SelfHealingDashboard = React.lazy(() => import('@/features/ai/self-healing/SelfHealingDashboard').then(m => ({ default: m.SelfHealingDashboard })));
+const RecommendationsDashboard = React.lazy(() => import('@/features/ai/learning/RecommendationsDashboard').then(m => ({ default: m.RecommendationsDashboard })));
+const TrajectoryInsights = React.lazy(() => import('@/features/ai/learning/TrajectoryInsights').then(m => ({ default: m.TrajectoryInsights })));
+
+// AI Orchestration
+const SandboxDashboardPage = React.lazy(() => import('@/features/ai/sandboxes').then(m => ({ default: m.SandboxDashboardPage })));
+const AutonomyDashboardPage = React.lazy(() => import('@/features/ai/autonomy').then(m => ({ default: m.AutonomyDashboardPage })));
+const CompoundLearningPage = React.lazy(() => import('./ai/CompoundLearningPage'));
+const AuditDashboardPage = React.lazy(() => import('@/features/ai/audit').then(m => ({ default: m.AuditDashboardPage })));
+const SecurityDashboardPage = React.lazy(() => import('@/features/ai/security').then(m => ({ default: m.SecurityDashboardPage })));
+const EvaluationDashboardPage = React.lazy(() => import('@/features/ai/evaluation').then(m => ({ default: m.EvaluationDashboardPage })));
+const CommunicationPage = React.lazy(() => import('./ai/CommunicationPage').then(m => ({ default: m.CommunicationPage })));
+const CodeFactoryPage = React.lazy(() => import('@/features/ai/code-factory').then(m => ({ default: m.CodeFactoryPage })));
+
+// AI Missions
 const MissionsPage = React.lazy(() => import('@/features/missions/pages/MissionsPage').then(m => ({ default: m.MissionsPage })));
 const MissionDetailPage = React.lazy(() => import('@/features/missions/pages/MissionDetailPage').then(m => ({ default: m.MissionDetailPage })));
 
-// Container Orchestration (Sandboxed AI execution)
-import { ContainersPage } from '@/features/devops/containers/pages/ContainersPage';
+// Containers
+const ContainersPage = React.lazy(() => import('@/features/devops/containers/pages/ContainersPage').then(m => ({ default: m.ContainersPage })));
 
-// Docker Swarm detail routes
-import { ClusterProvider } from '@/features/devops/swarm/context/ClusterContext';
-import { ClusterDashboardPage } from '@/features/devops/swarm/pages/ClusterDashboardPage';
-import { SwarmNodesPage } from '@/features/devops/swarm/pages/SwarmNodesPage';
-import { SwarmServiceDetailPage } from '@/features/devops/swarm/pages/SwarmServiceDetailPage';
+// Docker Swarm pages
+const ClusterDashboardPage = React.lazy(() => import('@/features/devops/swarm/pages/ClusterDashboardPage').then(m => ({ default: m.ClusterDashboardPage })));
+const SwarmNodesPage = React.lazy(() => import('@/features/devops/swarm/pages/SwarmNodesPage').then(m => ({ default: m.SwarmNodesPage })));
+const SwarmServiceDetailPage = React.lazy(() => import('@/features/devops/swarm/pages/SwarmServiceDetailPage').then(m => ({ default: m.SwarmServiceDetailPage })));
 
-// Docker Host detail routes
-import { HostProvider } from '@/features/devops/docker/context/HostContext';
-import { HostDashboardPage } from '@/features/devops/docker/pages/HostDashboardPage';
-import { ContainerDetailPage } from '@/features/devops/docker/pages/ContainerDetailPage';
+// Docker Host pages
+const HostDashboardPage = React.lazy(() => import('@/features/devops/docker/pages/HostDashboardPage').then(m => ({ default: m.HostDashboardPage })));
+const ContainerDetailPage = React.lazy(() => import('@/features/devops/docker/pages/ContainerDetailPage').then(m => ({ default: m.ContainerDetailPage })));
 
 // AI Feature Pages (standalone)
-import TeamsPage from './ai/TeamsPage';
-import DevOpsTemplatesPage from './ai/DevOpsTemplatesPage';
-import { WorkflowAnalyticsPage } from './ai/WorkflowAnalyticsPage';
+const TeamsPage = React.lazy(() => import('./ai/TeamsPage'));
+const DevOpsTemplatesPage = React.lazy(() => import('./ai/DevOpsTemplatesPage'));
+const WorkflowAnalyticsPage = React.lazy(() => import('./ai/WorkflowAnalyticsPage').then(m => ({ default: m.WorkflowAnalyticsPage })));
 
-// Integration detail routes
-import {
-  IntegrationDetailPage,
-  NewIntegrationPage,
-} from '@/pages/app/devops/integrations';
+// Integration pages
+const IntegrationDetailPage = React.lazy(() => import('@/pages/app/devops/integrations').then(m => ({ default: m.IntegrationDetailPage })));
+const NewIntegrationPage = React.lazy(() => import('@/pages/app/devops/integrations').then(m => ({ default: m.NewIntegrationPage })));
 
 // DevOps Pages
-import { DevOpsOverviewPage } from '@/pages/app/devops/DevOpsOverviewPage';
-import { PipelineCreatePage } from '@/pages/app/devops/PipelineCreatePage';
-import { PipelineDetailPage } from '@/pages/app/devops/PipelineDetailPage';
-import { PipelineEditPage } from '@/pages/app/devops/PipelineEditPage';
-import { RunnerDetailPage } from '@/pages/app/devops/RunnerDetailPage';
+const DevOpsOverviewPage = React.lazy(() => import('@/pages/app/devops/DevOpsOverviewPage').then(m => ({ default: m.DevOpsOverviewPage })));
+const PipelineCreatePage = React.lazy(() => import('@/pages/app/devops/PipelineCreatePage').then(m => ({ default: m.PipelineCreatePage })));
+const PipelineDetailPage = React.lazy(() => import('@/pages/app/devops/PipelineDetailPage').then(m => ({ default: m.PipelineDetailPage })));
+const PipelineEditPage = React.lazy(() => import('@/pages/app/devops/PipelineEditPage').then(m => ({ default: m.PipelineEditPage })));
+const RunnerDetailPage = React.lazy(() => import('@/pages/app/devops/RunnerDetailPage').then(m => ({ default: m.RunnerDetailPage })));
 
 // DevOps Hub Pages
-import { SourceControlPage } from '@/pages/app/devops/SourceControlPage';
-import { CiCdPage } from '@/pages/app/devops/CiCdPage';
-import { ConnectionsPage } from '@/pages/app/devops/ConnectionsPage';
-import { SwarmHubPage } from '@/pages/app/devops/SwarmHubPage';
-import { DockerHubPage } from '@/pages/app/devops/DockerHubPage';
+const SourceControlPage = React.lazy(() => import('@/pages/app/devops/SourceControlPage').then(m => ({ default: m.SourceControlPage })));
+const CiCdPage = React.lazy(() => import('@/pages/app/devops/CiCdPage').then(m => ({ default: m.CiCdPage })));
+const ConnectionsPage = React.lazy(() => import('@/pages/app/devops/ConnectionsPage').then(m => ({ default: m.ConnectionsPage })));
+const SwarmHubPage = React.lazy(() => import('@/pages/app/devops/SwarmHubPage').then(m => ({ default: m.SwarmHubPage })));
+const DockerHubPage = React.lazy(() => import('@/pages/app/devops/DockerHubPage').then(m => ({ default: m.DockerHubPage })));
 
 // Marketing Pages
-import { MarketingCampaignsPage } from '@/pages/app/marketing/MarketingCampaignsPage';
-import { MarketingCampaignDetailPage } from '@/pages/app/marketing/MarketingCampaignDetailPage';
-import { MarketingCalendarPage } from '@/pages/app/marketing/MarketingCalendarPage';
-import { MarketingEmailListsPage } from '@/pages/app/marketing/MarketingEmailListsPage';
-import { MarketingSocialPage } from '@/pages/app/marketing/MarketingSocialPage';
-import { MarketingAnalyticsPage } from '@/pages/app/marketing/MarketingAnalyticsPage';
+const MarketingCampaignsPage = React.lazy(() => import('@/pages/app/marketing/MarketingCampaignsPage').then(m => ({ default: m.MarketingCampaignsPage })));
+const MarketingCampaignDetailPage = React.lazy(() => import('@/pages/app/marketing/MarketingCampaignDetailPage').then(m => ({ default: m.MarketingCampaignDetailPage })));
+const MarketingCalendarPage = React.lazy(() => import('@/pages/app/marketing/MarketingCalendarPage').then(m => ({ default: m.MarketingCalendarPage })));
+const MarketingEmailListsPage = React.lazy(() => import('@/pages/app/marketing/MarketingEmailListsPage').then(m => ({ default: m.MarketingEmailListsPage })));
+const MarketingSocialPage = React.lazy(() => import('@/pages/app/marketing/MarketingSocialPage').then(m => ({ default: m.MarketingSocialPage })));
+const MarketingAnalyticsPage = React.lazy(() => import('@/pages/app/marketing/MarketingAnalyticsPage').then(m => ({ default: m.MarketingAnalyticsPage })));
 
 // Supply Chain Pages
-import {
-  SupplyChainDashboardPage,
-  SbomsPage,
-  SbomDetailPage,
-  SbomDiffPage,
-  ContainerImagesPage,
-  ContainerImageDetailPage,
-  AttestationsPage,
-  AttestationDetailPage,
-  VendorsPage,
-  VendorDetailPage,
-  VendorRiskDashboardPage,
-  AssessmentDetailPage,
-  QuestionnaireDetailPage,
-  LicensePoliciesPage,
-  LicensePolicyFormPage,
-  LicensePolicyDetailPage,
-  LicenseViolationsPage,
-  LicenseViolationDetailPage,
-} from '@/features/supply-chain/pages';
+const SupplyChainDashboardPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.SupplyChainDashboardPage })));
+const SbomsPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.SbomsPage })));
+const SbomDetailPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.SbomDetailPage })));
+const SbomDiffPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.SbomDiffPage })));
+const ContainerImagesPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.ContainerImagesPage })));
+const ContainerImageDetailPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.ContainerImageDetailPage })));
+const AttestationsPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.AttestationsPage })));
+const AttestationDetailPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.AttestationDetailPage })));
+const VendorsPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.VendorsPage })));
+const VendorDetailPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.VendorDetailPage })));
+const VendorRiskDashboardPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.VendorRiskDashboardPage })));
+const AssessmentDetailPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.AssessmentDetailPage })));
+const QuestionnaireDetailPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.QuestionnaireDetailPage })));
+const LicensePoliciesPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.LicensePoliciesPage })));
+const LicensePolicyFormPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.LicensePolicyFormPage })));
+const LicensePolicyDetailPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.LicensePolicyDetailPage })));
+const LicenseViolationsPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.LicenseViolationsPage })));
+const LicenseViolationDetailPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.LicenseViolationDetailPage })));
 
 // Dashboard overview page
 const DashboardOverview: React.FC = () => {
@@ -200,7 +202,7 @@ const DashboardOverview: React.FC = () => {
     { label: 'Dashboard', href: '/app' },
     { label: 'Dashboard' }
   ];
-  
+
   return (
     <PageContainer
       title={`Welcome back, ${user?.name || 'User'}! 👋`}
@@ -251,7 +253,7 @@ const DashboardOverview: React.FC = () => {
               {`${completedCount} of ${totalTasks} complete`}
             </span>
           </div>
-          
+
           <div className="space-y-4">
             <div className="flex items-start space-x-3">
               <div className="flex-shrink-0 mt-1">
@@ -285,7 +287,7 @@ const DashboardOverview: React.FC = () => {
                   {user?.email_verified ? 'Your email address has been verified' : 'Please verify your email address'}
                 </p>
                 {!user?.email_verified && (
-                  <Button 
+                  <Button
                     onClick={() => navigate('/verify-email')}
                     variant="primary"
                     size="xs"
@@ -306,7 +308,7 @@ const DashboardOverview: React.FC = () => {
           <h3 className="text-xl font-semibold text-theme-primary mb-6">
             Quick Actions
           </h3>
-          
+
           <div className="grid grid-cols-1 gap-3">
             <Button
               onClick={() => navigate('/app/ai')}
@@ -389,9 +391,10 @@ const DashboardOverview: React.FC = () => {
 };
 
 const DashboardPage: React.FC = () => {
-  
+
   return (
     <DashboardLayout>
+      <Suspense fallback={<div className="p-8 text-theme-secondary">Loading...</div>}>
       <Routes>
         {/* Dashboard Overview */}
         <Route path="/" element={<DashboardOverview />} />
@@ -400,7 +403,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/notifications" element={<NotificationsPage />} />
 
         {/* Individual Pages - No More Management Page Groupings */}
-        
+
         {/* AI Pages - Primary navigation */}
         <Route path="/ai" element={<AIOverviewPage />} />
         <Route path="/ai/agents/list" element={<AIAgentsPage />} />
@@ -441,10 +444,10 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/security" element={<SecurityDashboardPage />} />
 
         {/* AI Missions - static tab routes before dynamic :missionId */}
-        <Route path="/ai/missions/completed" element={<Suspense fallback={<div className="p-8 text-theme-secondary">Loading...</div>}><MissionsPage /></Suspense>} />
-        <Route path="/ai/missions/all" element={<Suspense fallback={<div className="p-8 text-theme-secondary">Loading...</div>}><MissionsPage /></Suspense>} />
-        <Route path="/ai/missions/:missionId" element={<Suspense fallback={<div className="p-8 text-theme-secondary">Loading...</div>}><MissionDetailPage /></Suspense>} />
-        <Route path="/ai/missions" element={<Suspense fallback={<div className="p-8 text-theme-secondary">Loading...</div>}><MissionsPage /></Suspense>} />
+        <Route path="/ai/missions/completed" element={<MissionsPage />} />
+        <Route path="/ai/missions/all" element={<MissionsPage />} />
+        <Route path="/ai/missions/:missionId" element={<MissionDetailPage />} />
+        <Route path="/ai/missions" element={<MissionsPage />} />
 
         {/* AI Code Factory */}
         <Route path="/ai/code-factory/*" element={<CodeFactoryPage />} />
@@ -473,14 +476,14 @@ const DashboardPage: React.FC = () => {
         <Route path="/content/kb/admin" element={<KnowledgeBaseAdminPage />} />
         <Route path="/content/kb/manage" element={<KnowledgeBaseAdminPage />} />
         {/* Business routes handled by featureRegistry (enterprise) */}
-        
+
         {/* System Pages */}
         <Route path="/profile/*" element={<ProfilePage />} />
 
         {/* Privacy Page */}
         <Route path="/privacy" element={<PrivacyDashboardPage />} />
         {/* Workers moved to admin routes */}
-        
+
 
         {/* DevOps Pages */}
         <Route path="/devops" element={<DevOpsOverviewPage />} />
@@ -573,7 +576,7 @@ const DashboardPage: React.FC = () => {
 
         {/* Admin routes - consistent with navigation */}
         <Route path="/users" element={<UsersPage />} />
-        
+
         {/* Admin management routes */}
         <Route path="/admin/settings/*" element={<AdminSettingsPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
@@ -588,14 +591,11 @@ const DashboardPage: React.FC = () => {
           <Route
             key={route.path}
             path={route.path}
-            element={
-              <Suspense fallback={<div className="p-8 text-theme-secondary">Loading...</div>}>
-                <route.component />
-              </Suspense>
-            }
+            element={<route.component />}
           />
         ))}
       </Routes>
+      </Suspense>
     </DashboardLayout>
   );
 };

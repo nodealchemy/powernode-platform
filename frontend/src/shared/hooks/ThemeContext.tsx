@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { settingsApi } from '@/shared/services/settings/settingsApi';
@@ -30,6 +30,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const [theme, setThemeState] = useState<Theme>('light');
   const [loading, setLoading] = useState(true);
   const [userTheme, setUserTheme] = useState<Theme>('light'); // Store user's preferred theme
+  const themeLoadedRef = useRef(false);
   
   // Get authentication state with null checking
   const authState = useSelector((state: RootState) => state?.auth);
@@ -48,6 +49,8 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         }
 
         if (isAuthenticated && hasValidTokens) {
+          if (themeLoadedRef.current) return;
+          themeLoadedRef.current = true;
           const response = await settingsApi.getUserSettings();
           if (response.success) {
             const userTheme = response.data.user_preferences.theme || 'light';
@@ -89,6 +92,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   // Force light theme when user logs out or tokens become invalid
   useEffect(() => {
     if (!isAuthenticated || !hasValidTokens) {
+      themeLoadedRef.current = false;
       setThemeState('light');
       applyThemeToDocument('light');
     } else if (userTheme) {

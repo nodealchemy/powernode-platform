@@ -85,6 +85,13 @@ const AppContent: React.FC = () => {
         setShowAuthFallback(true);
       }, 5000); // 5 second timeout, then show fallback
 
+      // Hard cutoff - if auth takes > 8s total, give up and go to login
+      const hardTimeoutId = setTimeout(() => {
+        dispatch(clearAuth());
+        setInitializing(false);
+        initializingRef.current = false;
+      }, 8000);
+
       try {
 
         // First, validate token format before attempting API calls
@@ -170,6 +177,7 @@ const AppContent: React.FC = () => {
         dispatch(clearAuth());
       } finally {
         clearTimeout(timeoutId);
+        clearTimeout(hardTimeoutId);
         setInitializing(false);
         initializingRef.current = false; // Reset initialization flag
       }
