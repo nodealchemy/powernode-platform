@@ -95,12 +95,15 @@ module Devops
     end
 
     def workload_percentage
-      # Approximate workload based on recent activity
-      # This is a simplified calculation
       return 0 if offline?
       return 100 if busy?
 
-      50 # Online but not busy
+      active_dispatches = Ai::RunnerDispatch
+        .where(git_runner_id: id, status: %w[dispatched running])
+        .where("created_at >= ?", 1.hour.ago)
+        .count
+
+      (active_dispatches * 25).clamp(0, 100)
     end
 
     def recently_active?
