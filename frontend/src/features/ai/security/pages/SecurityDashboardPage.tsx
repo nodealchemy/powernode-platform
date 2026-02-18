@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Shield, Key, ShieldAlert, CheckSquare } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { TabContainer } from '@/shared/components/ui/TabContainer';
+import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { usePermissions } from '@/shared/hooks/usePermissions';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useProvisionIdentity } from '../api/securityExtApi';
@@ -10,45 +10,24 @@ import { AgentIdentityList } from '../components/AgentIdentityList';
 import { QuarantineList } from '../components/QuarantineList';
 import { AsiComplianceMatrix } from '../components/AsiComplianceMatrix';
 
-export const SecurityDashboardPage: React.FC = () => {
-  const { hasPermission } = usePermissions();
+const securityTabs = [
+  { id: 'identities', label: 'Agent Identities', icon: <Key className="h-4 w-4" /> },
+  { id: 'quarantine', label: 'Quarantine', icon: <ShieldAlert className="h-4 w-4" /> },
+  { id: 'compliance', label: 'ASI Compliance', icon: <CheckSquare className="h-4 w-4" /> },
+];
+
+export const SecurityContent: React.FC = () => {
   const { addNotification } = useNotifications();
   const [activeTab, setActiveTab] = useState('identities');
   const [provisionAgentId, setProvisionAgentId] = useState('');
   const [showProvisionModal, setShowProvisionModal] = useState(false);
-
   const provisionIdentity = useProvisionIdentity();
-
-  const canView = hasPermission('ai.security.manage');
-
-  if (!canView) {
-    return (
-      <PageContainer
-        title="Agent Security"
-        breadcrumbs={[
-          { label: 'Dashboard', href: '/app' },
-          { label: 'AI', href: '/app/ai' },
-          { label: 'Agent Security' },
-        ]}
-      >
-        <div className="text-center py-12">
-          <Shield className="h-12 w-12 text-theme-muted mx-auto mb-4 opacity-50" />
-          <p className="text-theme-secondary">You do not have permission to view security data.</p>
-        </div>
-      </PageContainer>
-    );
-  }
-
-  const handleProvision = () => {
-    setShowProvisionModal(true);
-  };
 
   const handleProvisionSubmit = () => {
     if (!provisionAgentId.trim()) {
       addNotification({ type: 'error', message: 'Agent ID is required' });
       return;
     }
-
     provisionIdentity.mutate({ agent_id: provisionAgentId.trim() }, {
       onSuccess: () => {
         addNotification({ type: 'success', message: 'Identity provisioned successfully' });
@@ -61,49 +40,28 @@ export const SecurityDashboardPage: React.FC = () => {
     });
   };
 
-  const tabs = [
-    {
-      id: 'identities',
-      label: 'Agent Identities',
-      icon: <Key className="h-4 w-4" />,
-      content: <AgentIdentityList onProvision={handleProvision} />,
-    },
-    {
-      id: 'quarantine',
-      label: 'Quarantine',
-      icon: <ShieldAlert className="h-4 w-4" />,
-      content: <QuarantineList />,
-    },
-    {
-      id: 'compliance',
-      label: 'ASI Compliance',
-      icon: <CheckSquare className="h-4 w-4" />,
-      content: <AsiComplianceMatrix />,
-    },
-  ];
-
   return (
-    <PageContainer
-      title="Agent Security"
-      description="Manage agent identities, quarantine zones, and OWASP ASI compliance"
-      breadcrumbs={[
-        { label: 'Dashboard', href: '/app' },
-        { label: 'AI', href: '/app/ai' },
-        { label: 'Agent Security' },
-      ]}
-    >
-      {/* Score Cards */}
+    <div className="space-y-6">
       <SecurityScoreCard />
 
-      {/* Tabbed Content */}
       <TabContainer
-        tabs={tabs}
+        tabs={securityTabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        variant="underline"
-      />
+        variant="pills"
+        size="sm"
+      >
+        <TabPanel tabId="identities" activeTab={activeTab}>
+          <AgentIdentityList onProvision={() => setShowProvisionModal(true)} />
+        </TabPanel>
+        <TabPanel tabId="quarantine" activeTab={activeTab}>
+          <QuarantineList />
+        </TabPanel>
+        <TabPanel tabId="compliance" activeTab={activeTab}>
+          <AsiComplianceMatrix />
+        </TabPanel>
+      </TabContainer>
 
-      {/* Provision Modal */}
       {showProvisionModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black bg-opacity-50" onClick={() => setShowProvisionModal(false)} />
@@ -138,6 +96,42 @@ export const SecurityDashboardPage: React.FC = () => {
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+export const SecurityDashboardPage: React.FC = () => {
+  const { hasPermission } = usePermissions();
+
+  if (!hasPermission('ai.security.manage')) {
+    return (
+      <PageContainer
+        title="Agent Security"
+        breadcrumbs={[
+          { label: 'Dashboard', href: '/app' },
+          { label: 'AI', href: '/app/ai' },
+          { label: 'Agent Security' },
+        ]}
+      >
+        <div className="text-center py-12">
+          <Shield className="h-12 w-12 text-theme-muted mx-auto mb-4 opacity-50" />
+          <p className="text-theme-secondary">You do not have permission to view security data.</p>
+        </div>
+      </PageContainer>
+    );
+  }
+
+  return (
+    <PageContainer
+      title="Agent Security"
+      description="Manage agent identities, quarantine zones, and OWASP ASI compliance"
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/app' },
+        { label: 'AI', href: '/app/ai' },
+        { label: 'Agent Security' },
+      ]}
+    >
+      <SecurityContent />
     </PageContainer>
   );
 };

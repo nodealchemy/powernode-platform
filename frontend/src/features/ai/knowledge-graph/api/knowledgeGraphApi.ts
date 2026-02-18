@@ -33,9 +33,19 @@ const KG_KEYS = {
 export function useKnowledgeNodes(params?: NodeListParams) {
   return useQuery({
     queryKey: KG_KEYS.nodes(params),
-    queryFn: async () => {
+    queryFn: async (): Promise<PaginatedResponse<KnowledgeNode>> => {
       const response = await apiClient.get('/ai/knowledge_graph/nodes', { params });
-      return response.data as PaginatedResponse<KnowledgeNode>;
+      const nodes = response.data?.nodes || [];
+      const totalCount = response.data?.total_count || nodes.length;
+      return {
+        data: nodes,
+        pagination: {
+          current_page: params?.page || 1,
+          total_pages: Math.ceil(totalCount / (params?.per_page || 100)),
+          total_count: totalCount,
+          per_page: params?.per_page || 100,
+        },
+      };
     },
   });
 }
@@ -54,9 +64,18 @@ export function useKnowledgeNodeDetail(id: string, enabled = true) {
 export function useKnowledgeEdges(params?: EdgeListParams) {
   return useQuery({
     queryKey: KG_KEYS.edges(params),
-    queryFn: async () => {
+    queryFn: async (): Promise<PaginatedResponse<KnowledgeEdge>> => {
       const response = await apiClient.get('/ai/knowledge_graph/edges', { params });
-      return response.data as PaginatedResponse<KnowledgeEdge>;
+      const edges = response.data?.edges || [];
+      return {
+        data: edges,
+        pagination: {
+          current_page: params?.page || 1,
+          total_pages: Math.ceil(edges.length / (params?.per_page || 500)),
+          total_count: edges.length,
+          per_page: params?.per_page || 500,
+        },
+      };
     },
   });
 }
@@ -116,8 +135,8 @@ export function useGraphStatistics() {
   return useQuery({
     queryKey: KG_KEYS.statistics(),
     queryFn: async () => {
-      const response = await apiClient.get('/ai/knowledge_graph/nodes', { params: { stats: true } });
-      return response.data?.statistics as GraphStatistics;
+      const response = await apiClient.get('/ai/knowledge_graph/statistics');
+      return response.data as GraphStatistics;
     },
   });
 }

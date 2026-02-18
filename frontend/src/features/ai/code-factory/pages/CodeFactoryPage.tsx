@@ -30,17 +30,22 @@ const TAB_SEGMENTS: Record<TabId, string> = {
   evidence: 'evidence',
 };
 
-const getActiveTabFromPath = (pathname: string): TabId => {
-  const segment = pathname.split('/').filter(Boolean).pop() || '';
-  const match = (Object.entries(TAB_SEGMENTS) as [TabId, string][]).find(
-    ([, seg]) => seg !== '' && seg === segment
-  );
-  return match ? match[0] : 'dashboard';
-};
-
-export const CodeFactoryPage: React.FC = () => {
+export const CodeFactoryContent: React.FC<{
+  basePath?: string;
+  onActionsReady?: (actions: PageAction[]) => void;
+}> = ({ basePath = '/app/ai/code-factory', onActionsReady }) => {
   const location = useLocation();
   const navigate = useNavigate();
+
+  const getActiveTabFromPath = useCallback((pathname: string): TabId => {
+    const suffix = pathname.startsWith(basePath) ? pathname.slice(basePath.length) : '';
+    const segment = suffix.split('/').filter(Boolean)[0] || '';
+    const match = (Object.entries(TAB_SEGMENTS) as [TabId, string][]).find(
+      ([, seg]) => seg !== '' && seg === segment
+    );
+    return match ? match[0] : 'dashboard';
+  }, [basePath]);
+
   const [activeTab, setActiveTab] = useState<TabId>(() => getActiveTabFromPath(location.pathname));
   const [editingContract, setEditingContract] = useState<RiskContract | null>(null);
   const [showEditor, setShowEditor] = useState(false);
@@ -68,7 +73,7 @@ export const CodeFactoryPage: React.FC = () => {
   useEffect(() => {
     const newTab = getActiveTabFromPath(location.pathname);
     if (newTab !== activeTab) setActiveTab(newTab);
-  }, [location.pathname]);
+  }, [location.pathname, getActiveTabFromPath]);
 
   useEffect(() => {
     if (hasReadPermission) {
@@ -83,39 +88,6 @@ export const CodeFactoryPage: React.FC = () => {
     fetchReviewStates();
     fetchHarnessGaps();
   }, [fetchContracts, fetchReviewStates, fetchHarnessGaps]);
-
-  const breadcrumbs = useMemo<BreadcrumbItem[]>(() => {
-    const base: BreadcrumbItem[] = [
-      { label: 'Dashboard', href: '/app' },
-      { label: 'AI', href: '/app/ai' },
-    ];
-    if (activeTab === 'dashboard') {
-      base.push({ label: 'Code Factory' });
-    } else {
-      base.push({ label: 'Code Factory', href: '/app/ai/code-factory' });
-      const tab = TABS.find(t => t.id === activeTab);
-      if (tab) base.push({ label: tab.label });
-    }
-    return base;
-  }, [activeTab]);
-
-  if (!hasReadPermission) {
-    return (
-      <PageContainer
-        title="Code Factory"
-        description="Automated code review, remediation, and evidence loops"
-        breadcrumbs={[
-          { label: 'Dashboard', href: '/app' },
-          { label: 'AI', href: '/app/ai' },
-          { label: 'Code Factory' },
-        ]}
-      >
-        <div className="text-center py-12 text-theme-secondary">
-          You do not have permission to view Code Factory.
-        </div>
-      </PageContainer>
-    );
-  }
 
   const handleCreateContract = () => {
     setEditingContract(null);
@@ -133,22 +105,23 @@ export const CodeFactoryPage: React.FC = () => {
   };
 
   const handleNavigateToContract = (contractId: string) => {
-    navigate('/app/ai/code-factory/contracts');
+    navigate(`${basePath}/contracts`);
     void contractId;
   };
 
   const handleSelectRun = (runId: string) => {
     setSelectedRunId(runId);
-    navigate('/app/ai/code-factory/runs');
+    navigate(`${basePath}/runs`);
   };
 
   const navigateTab = (tab: string) => {
     setSelectedRunId(null);
     const segment = TAB_SEGMENTS[tab as TabId] || '';
-    const path = segment ? `/app/ai/code-factory/${segment}` : '/app/ai/code-factory';
+    const path = segment ? `${basePath}/${segment}` : basePath;
     navigate(path);
   };
 
+  // Bubble up actions to parent
   const actions = useMemo<PageAction[]>(() => {
     const items: PageAction[] = [
       {
@@ -171,13 +144,20 @@ export const CodeFactoryPage: React.FC = () => {
     return items;
   }, [handleRefresh, loading, hasManagePermission]);
 
+  useEffect(() => {
+    if (onActionsReady) onActionsReady(actions);
+  }, [actions, onActionsReady]);
+
+  if (!hasReadPermission) {
+    return (
+      <div className="text-center py-12 text-theme-secondary">
+        You do not have permission to view Code Factory.
+      </div>
+    );
+  }
+
   return (
-    <PageContainer
-      title="Code Factory"
-      description="Automated code review, remediation, and evidence loops"
-      breadcrumbs={breadcrumbs}
-      actions={actions}
-    >
+    <>
       <div className="space-y-6">
         {/* Tab Navigation */}
         <div className="flex space-x-1 border-b border-theme-border">
@@ -393,6 +373,51 @@ export const CodeFactoryPage: React.FC = () => {
           onClose={() => { setShowEditor(false); setEditingContract(null); }}
         />
       )}
+    </>
+  );
+};
+
+export const CodeFactoryPage: React.FC = () => {
+  const location = useLocation();
+  const [actions, setActions] = useState<PageAction[]>([]);
+
+  const getActiveTabFromPath = (pathname: string): TabId => {
+    const segment = pathname.split('/').filter(Boolean).pop() || '';
+    const match = (Object.entries(TAB_SEGMENTS) as [TabId, string][]).find(
+      ([, seg]) => seg !== '' && seg === segment
+    );
+    return match ? match[0] : 'dashboard';
+  };
+
+  const activeTab = getActiveTabFromPath(location.pathname);
+
+  const breadcrumbs = useMemo<BreadcrumbItem[]>(() => {
+    const base: BreadcrumbItem[] = [
+      { label: 'Dashboard', href: '/app' },
+      { label: 'AI', href: '/app/ai' },
+    ];
+    if (activeTab === 'dashboard') {
+      base.push({ label: 'Code Factory' });
+    } else {
+      base.push({ label: 'Code Factory', href: '/app/ai/code-factory' });
+      const tab = TABS.find(t => t.id === activeTab);
+      if (tab) base.push({ label: tab.label });
+    }
+    return base;
+  }, [activeTab]);
+
+  const handleActionsReady = useCallback((newActions: PageAction[]) => {
+    setActions(newActions);
+  }, []);
+
+  return (
+    <PageContainer
+      title="Code Factory"
+      description="Automated code review, remediation, and evidence loops"
+      breadcrumbs={breadcrumbs}
+      actions={actions}
+    >
+      <CodeFactoryContent onActionsReady={handleActionsReady} />
     </PageContainer>
   );
 };

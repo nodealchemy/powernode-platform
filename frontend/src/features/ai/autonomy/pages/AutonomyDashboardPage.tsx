@@ -35,7 +35,7 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, icon: Icon, iconColor
   </Card>
 );
 
-export const AutonomyDashboardPage: React.FC = () => {
+export const AutonomyContent: React.FC = () => {
   const [selectedAgentId, setSelectedAgentId] = useState('');
 
   const { data: stats, isLoading: statsLoading } = useAutonomyStats();
@@ -46,19 +46,11 @@ export const AutonomyDashboardPage: React.FC = () => {
   const isLoading = statsLoading || scoresLoading || budgetsLoading;
 
   if (isLoading) {
-    return (
-      <PageContainer title="Agent Autonomy" description="Monitor agent trust, lineage, and budgets" breadcrumbs={breadcrumbs}>
-        <LoadingSpinner size="lg" className="py-12" message="Loading autonomy data..." />
-      </PageContainer>
-    );
+    return <LoadingSpinner size="lg" className="py-12" message="Loading autonomy data..." />;
   }
 
   return (
-    <PageContainer
-      title="Agent Autonomy"
-      description="Monitor agent trust, lineage, and budgets"
-      breadcrumbs={breadcrumbs}
-    >
+    <>
       {/* Stats Overview */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
         <StatCard label="Total Agents" value={stats?.total_agents ?? 0} icon={Bot} iconColor="text-theme-info" />
@@ -122,8 +114,18 @@ export const AutonomyDashboardPage: React.FC = () => {
 
       {/* Budget Allocations */}
       <BudgetAllocationPanel budgets={budgets ?? []} />
-    </PageContainer>
+    </>
   );
 };
+
+export const AutonomyDashboardPage: React.FC = () => (
+  <PageContainer
+    title="Agent Autonomy"
+    description="Monitor agent trust, lineage, and budgets"
+    breadcrumbs={breadcrumbs}
+  >
+    <AutonomyContent />
+  </PageContainer>
+);
 
 export default AutonomyDashboardPage;

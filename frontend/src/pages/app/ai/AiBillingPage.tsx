@@ -14,6 +14,41 @@ const tabs = [
   { id: 'finops', label: 'FinOps', icon: <DollarSign size={16} />, path: '/finops' },
 ];
 
+export const AiBillingContent: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<string>('credits');
+
+  const billingTabs = [
+    { id: 'credits', label: 'Credits', Icon: Coins },
+    { id: 'outcome-billing', label: 'Outcome Billing', Icon: Receipt },
+    { id: 'finops', label: 'FinOps', Icon: DollarSign },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex gap-1 border-b border-theme-border">
+        {billingTabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === tab.id
+                ? 'border-theme-primary text-theme-primary'
+                : 'border-transparent text-theme-muted hover:text-theme-secondary'
+            }`}
+          >
+            <tab.Icon size={14} />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'credits' && <CreditsContent />}
+      {activeTab === 'outcome-billing' && <OutcomeBillingContent />}
+      {activeTab === 'finops' && <FinOpsContent />}
+    </div>
+  );
+};
+
 export const AiBillingPage: React.FC = () => {
   const location = useLocation();
 

@@ -42,8 +42,9 @@ import { AlertManagementCenter } from '@/features/ai/monitoring/components/Alert
 import { ResourceUtilizationChart } from '@/features/ai/monitoring/components/ResourceUtilizationChart';
 import { WorkflowMonitoringPanel } from '@/features/ai/monitoring/components/WorkflowMonitoringPanel';
 import { AiErrorBoundary } from '@/shared/components/error/AiErrorBoundary';
-import { WorkflowAnalyticsContent } from '@/pages/app/ai/WorkflowAnalyticsPage';
-import { CompoundLearningContent } from '@/pages/app/ai/CompoundLearningPage';
+import { SelfHealingContent } from '@/features/ai/self-healing/SelfHealingDashboard';
+import { EvaluationContent } from '@/features/ai/evaluation/pages/EvaluationDashboardPage';
+import { AiBillingContent } from '@/pages/app/ai/AiBillingPage';
 
 export const AIMonitoringPage: React.FC = () => {
   const { currentUser } = useAuth();
@@ -72,7 +73,7 @@ export const AIMonitoringPage: React.FC = () => {
   // Derive active tab from URL
   const getActiveTab = useCallback(() => {
     const path = location.pathname;
-    const basePath = '/app/ai/monitoring';
+    const basePath = '/app/ai/observability';
     if (path === basePath || path === basePath + '/') return 'overview';
     const segment = path.replace(basePath + '/', '').split('/')[0];
     if (VALID_TAB_IDS.includes(segment as typeof VALID_TAB_IDS[number])) return segment;
@@ -449,8 +450,8 @@ export const AIMonitoringPage: React.FC = () => {
   return (
     <AiErrorBoundary>
       <PageContainer
-        title="AI System Monitoring"
-        description="Comprehensive real-time monitoring of AI providers, agents, workflows, and system health"
+        title="Observability"
+        description="Real-time monitoring of AI providers, agents, workflows, and system health"
         breadcrumbs={getMonitoringBreadcrumbs(activeTab)}
         actions={[
           {
@@ -493,7 +494,7 @@ export const AIMonitoringPage: React.FC = () => {
           )}
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          basePath="/app/ai/monitoring"
+          basePath="/app/ai/observability"
           variant="underline"
           className="mb-6"
         >
@@ -511,9 +512,10 @@ export const AIMonitoringPage: React.FC = () => {
                 onRefresh={refreshAllData}
               />
             </div>
+            <SelfHealingContent />
           </TabPanel>
 
-          <TabPanel tabId="providers" activeTab={activeTab}>
+          <TabPanel tabId="systems" activeTab={activeTab} className="space-y-6">
             <ProviderMonitoringGrid
               providers={providers}
               isLoading={isLoading}
@@ -522,7 +524,6 @@ export const AIMonitoringPage: React.FC = () => {
               onTestProvider={canTestComponents ?
                 async (providerId: string) => {
                   try {
-                    // Use circuit breaker to test provider connectivity
                     await monitoringApi.getCircuitBreaker(`provider_${providerId}`);
                     addNotification({
                       type: 'success',
@@ -540,9 +541,6 @@ export const AIMonitoringPage: React.FC = () => {
                 undefined
               }
             />
-          </TabPanel>
-
-          <TabPanel tabId="agents" activeTab={activeTab}>
             <AgentPerformancePanel
               agents={agents}
               isLoading={isLoading}
@@ -551,7 +549,6 @@ export const AIMonitoringPage: React.FC = () => {
               onTestAgent={canTestComponents ?
                 async (agentId: string) => {
                   try {
-                    // Use circuit breaker to test agent connectivity
                     await monitoringApi.getCircuitBreaker(`agent_${agentId}`);
                     addNotification({
                       type: 'success',
@@ -569,9 +566,6 @@ export const AIMonitoringPage: React.FC = () => {
                 undefined
               }
             />
-          </TabPanel>
-
-          <TabPanel tabId="workflows" activeTab={activeTab}>
             <WorkflowMonitoringPanel
               isLoading={isLoading}
               onRefresh={refreshAllData}
@@ -587,12 +581,8 @@ export const AIMonitoringPage: React.FC = () => {
             />
           </TabPanel>
 
-          <TabPanel tabId="analytics" activeTab={activeTab}>
-            <WorkflowAnalyticsContent />
-          </TabPanel>
-
-          <TabPanel tabId="learning" activeTab={activeTab}>
-            <CompoundLearningContent />
+          <TabPanel tabId="evaluation" activeTab={activeTab}>
+            <EvaluationContent />
           </TabPanel>
 
           <TabPanel tabId="alerts" activeTab={activeTab}>
@@ -613,8 +603,6 @@ export const AIMonitoringPage: React.FC = () => {
                 }
               }}
               onAcknowledgeAlert={async (alertId: string, note?: string) => {
-                // Acknowledge alert - for now just refresh alerts
-                // Full implementation would require backend endpoint
                 addNotification({
                   type: 'info',
                   title: 'Alert Acknowledged',
@@ -623,8 +611,6 @@ export const AIMonitoringPage: React.FC = () => {
                 await refreshAllData();
               }}
               onResolveAlert={async (alertId: string, note?: string) => {
-                // Resolve alert - for now just refresh alerts
-                // Full implementation would require backend endpoint
                 addNotification({
                   type: 'success',
                   title: 'Alert Resolved',
@@ -634,9 +620,15 @@ export const AIMonitoringPage: React.FC = () => {
               }}
             />
           </TabPanel>
+
+          <TabPanel tabId="credits" activeTab={activeTab}>
+            <AiBillingContent />
+          </TabPanel>
         </TabContainer>
       </div>
       </PageContainer>
     </AiErrorBoundary>
   );
 };
+
+export const ObservabilityPage = AIMonitoringPage;

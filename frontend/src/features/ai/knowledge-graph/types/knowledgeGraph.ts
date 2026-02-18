@@ -5,13 +5,14 @@ export type SearchMode = 'hybrid' | 'vector' | 'keyword' | 'graph';
 export interface KnowledgeNode {
   id: string;
   name: string;
+  node_type: string;
   entity_type: EntityType;
   description: string;
-  properties: Record<string, unknown>;
-  embedding_status: 'pending' | 'complete' | 'failed';
-  edge_count: number;
+  confidence: number;
+  mention_count: number;
+  status: string;
+  properties?: Record<string, unknown>;
   created_at: string;
-  updated_at: string;
 }
 
 export interface KnowledgeEdge {

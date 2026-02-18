@@ -140,6 +140,12 @@ export function SkillEditor({ onSaved, onCancel }: SkillEditorProps) {
               />
             </div>
 
+            {/* Dependencies — shown only for existing skills, not create */}
+            {/* For now just show a note, since SkillEditor is create-only */}
+            <div className="text-xs text-theme-tertiary">
+              Dependencies can be configured after creation via the Skill Graph.
+            </div>
+
             {/* Tags */}
             <div>
               <label className="block text-sm font-medium text-theme-primary mb-1">Tags</label>

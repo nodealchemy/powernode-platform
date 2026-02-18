@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { skillsApi } from '../services/skillsApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { Button } from '@/shared/components/ui/Button';
@@ -130,6 +131,7 @@ interface SkillDetailPanelProps {
 }
 
 export function SkillDetailPanel({ skillId, onClose, onUpdated }: SkillDetailPanelProps) {
+  const navigate = useNavigate();
   const { showNotification } = useNotifications();
   const [skill, setSkill] = useState<AiSkill | null>(null);
   const [loading, setLoading] = useState(true);
@@ -238,7 +240,7 @@ export function SkillDetailPanel({ skillId, onClose, onUpdated }: SkillDetailPan
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="bg-theme-surface-secondary rounded-lg p-3 text-center">
             <div className="text-lg font-semibold text-theme-primary">{skill.command_count}</div>
             <div className="text-xs text-theme-tertiary">Commands</div>
@@ -251,6 +253,21 @@ export function SkillDetailPanel({ skillId, onClose, onUpdated }: SkillDetailPan
             <div className="text-lg font-semibold text-theme-primary">{skill.usage_count}</div>
             <div className="text-xs text-theme-tertiary">Uses</div>
           </div>
+          <div className="bg-theme-surface-secondary rounded-lg p-3 text-center">
+            <div className="text-lg font-semibold text-theme-primary">{(skill.metadata?.dependency_count as number) || 0}</div>
+            <div className="text-xs text-theme-tertiary">Dependencies</div>
+          </div>
+        </div>
+
+        {/* Skill Graph Link */}
+        <div className="flex items-center gap-2 text-xs">
+          <button
+            type="button"
+            onClick={() => navigate('/app/ai/knowledge?tab=skill-graph')}
+            className="text-theme-info hover:underline"
+          >
+            View in Skill Graph →
+          </button>
         </div>
 
         {/* Container Info Banner */}

@@ -72,8 +72,8 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
                 <Badge variant={ENTITY_TYPE_BADGE[nodeDetail.entity_type]} size="xs">
                   {nodeDetail.entity_type}
                 </Badge>
-                <Badge variant={nodeDetail.embedding_status === 'complete' ? 'success' : nodeDetail.embedding_status === 'failed' ? 'danger' : 'warning'} size="xs">
-                  {nodeDetail.embedding_status}
+                <Badge variant={nodeDetail.status === 'active' ? 'success' : 'warning'} size="xs">
+                  {nodeDetail.status}
                 </Badge>
               </div>
               {nodeDetail.description && (
@@ -90,7 +90,7 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
                   <span className="text-theme-tertiary">Edges:</span>{' '}
-                  <span className="font-medium text-theme-primary">{nodeDetail.edge_count}</span>
+                  <span className="font-medium text-theme-primary">{nodeDetail.mention_count}</span>
                 </div>
                 <div>
                   <span className="text-theme-tertiary">Neighbors:</span>{' '}
@@ -111,8 +111,8 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
                   <span className="text-theme-secondary">{new Date(nodeDetail.created_at).toLocaleString()}</span>
                 </div>
                 <div>
-                  <span className="text-theme-tertiary">Updated:</span>{' '}
-                  <span className="text-theme-secondary">{new Date(nodeDetail.updated_at).toLocaleString()}</span>
+                  <span className="text-theme-tertiary">Confidence:</span>{' '}
+                  <span className="text-theme-secondary">{(nodeDetail.confidence * 100).toFixed(0)}%</span>
                 </div>
               </div>
             </Card>

@@ -13,14 +13,15 @@ import { ApprovalGateModal } from '../components/mission-detail/ApprovalGateModa
 import { isApprovalGate } from '../types/mission';
 import type { CreateMissionParams } from '../types/mission';
 
-export const MissionsPage: React.FC = () => {
+export const MissionsContent: React.FC<{
+  onActionsReady?: (actions: PageAction[]) => void;
+}> = ({ onActionsReady }) => {
   const { missionId } = useParams<{ missionId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState<MissionTabId>('active');
   const [showWizard, setShowWizard] = useState(false);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
-  // Track if we're on mobile detail view (below lg)
   const [showMobileDetail, setShowMobileDetail] = useState(false);
 
   const {
@@ -75,7 +76,6 @@ export const MissionsPage: React.FC = () => {
 
   const handleTabChange = useCallback((tab: MissionTabId) => {
     setActiveTab(tab);
-    // Only update URL when no mission is selected
     if (!missionId) {
       const base = '/app/ai/missions';
       if (tab === 'active') navigate(base);
@@ -88,22 +88,7 @@ export const MissionsPage: React.FC = () => {
     navigate('/app/ai/missions');
   }, [navigate]);
 
-  // Breadcrumbs
-  const breadcrumbs = useMemo<BreadcrumbItem[]>(() => {
-    const crumbs: BreadcrumbItem[] = [
-      { label: 'Dashboard', href: '/app' },
-      { label: 'AI', href: '/app/ai' },
-    ];
-    if (selectedMission) {
-      crumbs.push({ label: 'Missions', href: '/app/ai/missions' });
-      crumbs.push({ label: selectedMission.name });
-    } else {
-      crumbs.push({ label: 'Missions' });
-    }
-    return crumbs;
-  }, [selectedMission]);
-
-  // Actions: merge list + detail actions
+  // Build actions and bubble up to parent
   const actions = useMemo<PageAction[]>(() => {
     const items: PageAction[] = [
       {
@@ -126,7 +111,6 @@ export const MissionsPage: React.FC = () => {
       });
     }
 
-    // Mission-specific actions when a mission is selected
     if (selectedMission && detailManagePermission) {
       if (selectedMission.status === 'draft') {
         items.push({
@@ -181,27 +165,20 @@ export const MissionsPage: React.FC = () => {
     return items;
   }, [handleRefresh, listLoading, hasManagePermission, selectedMission, detailManagePermission, startMission, pauseMission, cancelMission, retryPhase]);
 
+  useEffect(() => {
+    if (onActionsReady) onActionsReady(actions);
+  }, [actions, onActionsReady]);
+
   if (!hasReadPermission) {
     return (
-      <PageContainer
-        title="Missions"
-        description="AI-assisted development missions"
-        breadcrumbs={breadcrumbs}
-      >
-        <div className="text-center py-12 text-theme-secondary">
-          You do not have permission to view missions.
-        </div>
-      </PageContainer>
+      <div className="text-center py-12 text-theme-secondary">
+        You do not have permission to view missions.
+      </div>
     );
   }
 
   return (
-    <PageContainer
-      title="Missions"
-      description="AI-assisted development missions"
-      breadcrumbs={breadcrumbs}
-      actions={actions}
-    >
+    <>
       <div className="flex h-[calc(100vh-220px)] -mx-6 -mb-6 overflow-hidden">
         {/* Left panel - hidden on mobile when detail is showing */}
         <div className={`${showMobileDetail ? 'hidden lg:flex' : 'flex'}`}>
@@ -269,6 +246,35 @@ export const MissionsPage: React.FC = () => {
           onClose={() => setShowApprovalModal(false)}
         />
       )}
+    </>
+  );
+};
+
+export const MissionsPage: React.FC = () => {
+  const { missionId } = useParams<{ missionId: string }>();
+  const [actions, setActions] = useState<PageAction[]>([]);
+
+  const breadcrumbs = useMemo<BreadcrumbItem[]>(() => {
+    const crumbs: BreadcrumbItem[] = [
+      { label: 'Dashboard', href: '/app' },
+      { label: 'AI', href: '/app/ai' },
+      { label: 'Missions' },
+    ];
+    return crumbs;
+  }, [missionId]);
+
+  const handleActionsReady = useCallback((newActions: PageAction[]) => {
+    setActions(newActions);
+  }, []);
+
+  return (
+    <PageContainer
+      title="Missions"
+      description="AI-assisted development missions"
+      breadcrumbs={breadcrumbs}
+      actions={actions}
+    >
+      <MissionsContent onActionsReady={handleActionsReady} />
     </PageContainer>
   );
 };

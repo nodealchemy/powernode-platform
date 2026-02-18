@@ -151,7 +151,7 @@ export const KnowledgeGraphVisualization: React.FC = () => {
         label: node.name,
         entityType: node.entity_type,
         description: node.description,
-        edgeCount: node.edge_count,
+        edgeCount: node.mention_count,
       } satisfies KGNodeData,
       position: { x: 0, y: 0 },
     }));

@@ -441,21 +441,21 @@ export const contextApi = {
   getEntryTypeColor(type: EntryType): string {
     switch (type) {
       case 'fact':
-        return 'bg-theme-blue text-theme-blue';
+        return 'bg-theme-info/10 text-theme-info';
       case 'preference':
-        return 'bg-theme-amber text-theme-amber';
+        return 'bg-theme-warning/10 text-theme-warning';
       case 'interaction':
-        return 'bg-theme-violet text-theme-violet';
+        return 'bg-theme-accent/10 text-theme-accent';
       case 'knowledge':
-        return 'bg-theme-emerald text-theme-emerald';
+        return 'bg-theme-success/10 text-theme-success';
       case 'skill':
-        return 'bg-theme-cyan text-theme-cyan';
+        return 'bg-theme-info/10 text-theme-info';
       case 'relationship':
-        return 'bg-theme-pink text-theme-pink';
+        return 'bg-theme-accent/10 text-theme-accent';
       case 'goal':
-        return 'bg-theme-rose text-theme-rose';
+        return 'bg-theme-warning/10 text-theme-warning';
       case 'constraint':
-        return 'bg-theme-orange text-theme-orange';
+        return 'bg-theme-error/10 text-theme-error';
       default:
         return 'bg-theme-surface text-theme-secondary';
     }

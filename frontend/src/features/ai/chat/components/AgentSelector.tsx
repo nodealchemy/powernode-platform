@@ -7,6 +7,7 @@ interface Agent {
   name: string;
   agent_type: string;
   status: string;
+  skill_slugs?: string[];
 }
 
 interface AgentTeam {
@@ -187,7 +188,21 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({ selectedAgentId, o
                     }`}
                   >
                     <div className="h-2 w-2 rounded-full bg-theme-success flex-shrink-0" />
-                    <span className="truncate">{agent.name}</span>
+                    <div className="flex-1 min-w-0">
+                      <span className="truncate block">{agent.name}</span>
+                      {agent.skill_slugs && agent.skill_slugs.length > 0 && (
+                        <div className="flex items-center gap-1 mt-0.5">
+                          {agent.skill_slugs.slice(0, 2).map(slug => (
+                            <span key={slug} className="px-1 py-0 text-[9px] rounded bg-theme-info bg-opacity-10 text-theme-info">
+                              {slug}
+                            </span>
+                          ))}
+                          {agent.skill_slugs.length > 2 && (
+                            <span className="text-[9px] text-theme-tertiary">+{agent.skill_slugs.length - 2}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                     <span className="text-xs text-theme-secondary ml-auto flex-shrink-0">{agent.agent_type}</span>
                   </button>
                 ))
@@ -213,7 +228,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({ selectedAgentId, o
                     <span className="truncate">{team.name}</span>
                     <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
                       {team.member_count != null && (
-                        <span className="text-[10px] text-theme-text-tertiary">
+                        <span className="text-[10px] text-theme-tertiary">
                           {team.member_count} members
                         </span>
                       )}

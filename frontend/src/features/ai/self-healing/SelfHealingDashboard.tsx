@@ -35,7 +35,7 @@ interface Correlation {
   suggested_cause: string;
 }
 
-export const SelfHealingDashboard: React.FC = () => {
+export const SelfHealingContent: React.FC<{ refreshKey?: number }> = ({ refreshKey = 0 }) => {
   const [loading, setLoading] = useState(true);
   const [remediationLogs, setRemediationLogs] = useState<RemediationLog[]>([]);
   const [healthSummary, setHealthSummary] = useState<HealthSummary | null>(null);
@@ -65,7 +65,7 @@ export const SelfHealingDashboard: React.FC = () => {
     loadData();
     const interval = setInterval(loadData, 30000);
     return () => clearInterval(interval);
-  }, [loadData]);
+  }, [loadData, refreshKey]);
 
   if (loading && !healthSummary) return <LoadingSpinner />;
 
@@ -76,106 +76,114 @@ export const SelfHealingDashboard: React.FC = () => {
       : 'text-theme-error';
 
   return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <Shield className={`w-8 h-8 ${statusColor}`} />
+              <div>
+                <p className="text-sm text-theme-muted">Status</p>
+                <p className={`text-lg font-semibold ${statusColor}`}>
+                  {healthSummary?.overall_status || 'Unknown'}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <Activity className="w-8 h-8 text-theme-info" />
+              <div>
+                <p className="text-sm text-theme-muted">Actions (1h)</p>
+                <p className="text-lg font-semibold text-theme-primary">
+                  {healthSummary?.remediation_count_1h ?? 0}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-8 h-8 text-theme-warning" />
+              <div>
+                <p className="text-sm text-theme-muted">Success Rate</p>
+                <p className="text-lg font-semibold text-theme-primary">
+                  {healthSummary?.success_rate ?? 0}%
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <Clock className="w-8 h-8 text-theme-muted" />
+              <div>
+                <p className="text-sm text-theme-muted">Open Breakers</p>
+                <p className="text-lg font-semibold text-theme-primary">
+                  {healthSummary?.active_circuit_breakers ?? 0}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {!healthSummary?.feature_flag_enabled && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-theme-warning">
+              <AlertTriangle className="w-5 h-5" />
+              <span className="text-sm font-medium">
+                Self-healing remediation is currently disabled. Enable the feature flag to activate automated actions.
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader title="Remediation Timeline" />
+          <CardContent>
+            <RemediationTimeline logs={remediationLogs} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader title="Cross-System Correlations" />
+          <CardContent>
+            <HealthCorrelationView correlations={correlations} />
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+export const SelfHealingDashboard: React.FC = () => {
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  return (
     <PageContainer
       title="Self-Healing"
       description="Automated remediation and health monitoring"
       actions={[
         {
           label: 'Refresh',
-          onClick: loadData,
+          onClick: () => setRefreshKey((k) => k + 1),
           variant: 'outline',
           icon: RefreshCw,
         },
       ]}
     >
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Shield className={`w-8 h-8 ${statusColor}`} />
-                <div>
-                  <p className="text-sm text-theme-muted">Status</p>
-                  <p className={`text-lg font-semibold ${statusColor}`}>
-                    {healthSummary?.overall_status || 'Unknown'}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Activity className="w-8 h-8 text-theme-info" />
-                <div>
-                  <p className="text-sm text-theme-muted">Actions (1h)</p>
-                  <p className="text-lg font-semibold text-theme-primary">
-                    {healthSummary?.remediation_count_1h ?? 0}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <AlertTriangle className="w-8 h-8 text-theme-warning" />
-                <div>
-                  <p className="text-sm text-theme-muted">Success Rate</p>
-                  <p className="text-lg font-semibold text-theme-primary">
-                    {healthSummary?.success_rate ?? 0}%
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Clock className="w-8 h-8 text-theme-muted" />
-                <div>
-                  <p className="text-sm text-theme-muted">Open Breakers</p>
-                  <p className="text-lg font-semibold text-theme-primary">
-                    {healthSummary?.active_circuit_breakers ?? 0}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {!healthSummary?.feature_flag_enabled && (
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-theme-warning">
-                <AlertTriangle className="w-5 h-5" />
-                <span className="text-sm font-medium">
-                  Self-healing remediation is currently disabled. Enable the feature flag to activate automated actions.
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader title="Remediation Timeline" />
-            <CardContent>
-              <RemediationTimeline logs={remediationLogs} />
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader title="Cross-System Correlations" />
-            <CardContent>
-              <HealthCorrelationView correlations={correlations} />
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      <SelfHealingContent refreshKey={refreshKey} />
     </PageContainer>
   );
 };

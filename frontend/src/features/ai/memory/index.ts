@@ -1,5 +1,5 @@
 // Pages
-export { KnowledgeMemoryPage } from './pages/KnowledgeMemoryPage';
+export { KnowledgeMemoryPage, KnowledgeMemoryContent } from './pages/KnowledgeMemoryPage';
 export { MemoryExplorerPage, MemoryExplorerContent } from './pages/MemoryExplorerPage';
 
 // Content components (tab content for embedding in parent pages)

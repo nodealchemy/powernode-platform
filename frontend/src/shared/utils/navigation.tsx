@@ -6,9 +6,8 @@ import {
   HardDrive, Workflow, Server, GitBranch,
   Puzzle, BookOpen, UserCog, Shield, FileCode,
   CheckCircle2, Scale, Building2, Activity, ShieldCheck,
-  FlaskConical, MessagesSquare,
-  Container, Coins,
-  Play, Factory, Rocket,
+  Container,
+  Play, Rocket,
   Megaphone, CalendarDays, Mail, Share2, TrendingUp
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
@@ -134,15 +133,6 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 5
         },
         {
-          id: 'ai-code-factory',
-          name: 'Code Factory',
-          href: '/app/ai/code-factory',
-          icon: Factory,
-          description: 'Automated code review, remediation, and evidence loops',
-          permissions: ['ai.code_factory.read'],
-          order: 5
-        },
-        {
           id: 'ai-execution',
           name: 'Execution',
           href: '/app/ai/execution',
@@ -161,15 +151,6 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 7
         },
         {
-          id: 'ai-communication',
-          name: 'Communication',
-          href: '/app/ai/communication',
-          icon: MessagesSquare,
-          description: 'Chat channels and conversation management',
-          permissions: ['ai.agents.read'],
-          order: 8
-        },
-        {
           id: 'ai-infrastructure',
           name: 'Infrastructure',
           href: '/app/ai/infrastructure',
@@ -179,11 +160,11 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 9
         },
         {
-          id: 'ai-monitoring',
-          name: 'Monitoring',
-          href: '/app/ai/monitoring',
+          id: 'ai-observability',
+          name: 'Observability',
+          href: '/app/ai/observability',
           icon: Activity,
-          description: 'Real-time AI system monitoring and metrics',
+          description: 'Real-time monitoring, evaluation, and cost tracking',
           permissions: ['ai.analytics.read'],
           order: 10
         },
@@ -196,26 +177,8 @@ export const defaultNavigationConfig: NavigationConfig = {
           permissions: ['ai.workflows.read'],
           order: 11
         },
-        {
-          id: 'ai-billing',
-          name: 'Billing',
-          href: '/app/ai/billing',
-          icon: Coins,
-          description: 'Manage AI credits and outcome-based billing',
-          permissions: ['ai.credits.read'],
-          order: 12
-        },
-        {
-          id: 'ai-sandbox',
-          name: 'Sandbox',
-          href: '/app/ai/sandbox',
-          icon: FlaskConical,
-          description: 'Test and experiment with AI capabilities',
-          permissions: ['ai.agents.read'],
-          order: 15
-        }
       ],
-      permissions: ['ai.agents.read', 'ai.workflows.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.analytics.read', 'ai.credits.read', 'ai.teams.read', 'ai.finops.view', 'ai.code_factory.read', 'ai.missions.read'],
+      permissions: ['ai.agents.read', 'ai.workflows.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.analytics.read', 'ai.teams.read', 'ai.missions.read'],
       collapsible: true,
       defaultExpanded: true,
       order: 10

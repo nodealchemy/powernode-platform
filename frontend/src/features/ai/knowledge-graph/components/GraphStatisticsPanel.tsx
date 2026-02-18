@@ -44,14 +44,14 @@ export const GraphStatisticsPanel: React.FC = () => {
     },
     {
       label: 'Avg Edges / Node',
-      value: stats.avg_edges_per_node.toFixed(1),
+      value: (stats.avg_edges_per_node ?? 0).toFixed(1),
       icon: GitBranch,
       colorClass: 'text-theme-warning',
       bgClass: 'bg-theme-warning',
     },
     {
       label: 'Entity Types',
-      value: Object.keys(stats.by_entity_type).length,
+      value: Object.keys(stats.by_entity_type || {}).length,
       icon: BarChart3,
       colorClass: 'text-theme-interactive-primary',
       bgClass: 'bg-theme-interactive-primary',
@@ -119,7 +119,7 @@ export const GraphStatisticsPanel: React.FC = () => {
                   <Badge variant="info" size="xs">{node.entity_type}</Badge>
                 </div>
                 <span className="text-sm font-semibold text-theme-primary flex-shrink-0">
-                  {node.edge_count} edges
+                  {node.mention_count} mentions
                 </span>
               </div>
             ))}

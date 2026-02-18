@@ -9,14 +9,10 @@ import { fetchSandboxStats } from '../api/sandboxApi';
 import { SandboxList } from '../components/SandboxList';
 import type { SandboxStats } from '../types/sandbox';
 
-export const SandboxDashboardPage: React.FC = () => {
+export const ContainerSandboxContent: React.FC<{ refreshKey?: number }> = ({ refreshKey: externalRefreshKey = 0 }) => {
   const [stats, setStats] = useState<SandboxStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const { hasPermission } = usePermissions();
   const { addNotification } = useNotifications();
-
-  const canCreateSandbox = hasPermission('ai.sandboxes.create');
 
   const loadStats = useCallback(async () => {
     try {
@@ -32,12 +28,7 @@ export const SandboxDashboardPage: React.FC = () => {
 
   useEffect(() => {
     loadStats();
-  }, [loadStats, refreshKey]);
-
-  const handleCreateSandbox = () => {
-    addNotification({ type: 'info', message: 'Create sandbox dialog coming soon' });
-    setRefreshKey((k) => k + 1);
-  };
+  }, [loadStats, externalRefreshKey]);
 
   const statCards = [
     { label: 'Total', value: stats?.total ?? 0, icon: Box, colorClass: 'text-theme-info', bgClass: 'bg-theme-info' },
@@ -47,30 +38,8 @@ export const SandboxDashboardPage: React.FC = () => {
     { label: 'Failed', value: stats?.failed ?? 0, icon: XCircle, colorClass: 'text-theme-error', bgClass: 'bg-theme-error' },
   ];
 
-  const actions = canCreateSandbox
-    ? [
-        {
-          id: 'create-sandbox',
-          label: 'Create Sandbox',
-          onClick: handleCreateSandbox,
-          variant: 'primary' as const,
-          icon: Plus,
-        },
-      ]
-    : [];
-
   return (
-    <PageContainer
-      title="Agent Sandboxes"
-      description="Isolated execution environments for AI agents"
-      breadcrumbs={[
-        { label: 'Dashboard', href: '/app' },
-        { label: 'AI', href: '/app/ai' },
-        { label: 'Sandboxes' },
-      ]}
-      actions={actions}
-    >
-      {/* Stats Bar */}
+    <>
       {statsLoading ? (
         <LoadingSpinner size="sm" className="py-4" />
       ) : (
@@ -94,8 +63,41 @@ export const SandboxDashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* Sandbox List */}
-      <SandboxList refreshKey={refreshKey} />
+      <SandboxList refreshKey={externalRefreshKey} />
+    </>
+  );
+};
+
+export const SandboxDashboardPage: React.FC = () => {
+  const [refreshKey, setRefreshKey] = useState(0);
+  const { hasPermission } = usePermissions();
+
+  const canCreateSandbox = hasPermission('ai.sandboxes.create');
+
+  const actions = canCreateSandbox
+    ? [
+        {
+          id: 'create-sandbox',
+          label: 'Create Sandbox',
+          onClick: () => setRefreshKey((k) => k + 1),
+          variant: 'primary' as const,
+          icon: Plus,
+        },
+      ]
+    : [];
+
+  return (
+    <PageContainer
+      title="Agent Sandboxes"
+      description="Isolated execution environments for AI agents"
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/app' },
+        { label: 'AI', href: '/app/ai' },
+        { label: 'Sandboxes' },
+      ]}
+      actions={actions}
+    >
+      <ContainerSandboxContent refreshKey={refreshKey} />
     </PageContainer>
   );
 };

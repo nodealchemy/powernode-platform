@@ -1,6 +1,7 @@
-import React from 'react';
-import { X, Loader2 } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { X, Loader2, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/Badge';
+import { useSkillGraph } from '@/features/ai/knowledge-graph/api/skillGraphApi';
 import type { AiAgentSkill } from '@/shared/services/ai/types/agent-api-types';
 import type { SkillOption } from './useEditAgentForm';
 
@@ -19,6 +20,40 @@ export const AgentSkillsSection: React.FC<AgentSkillsSectionProps> = ({
   onAssignSkill,
   onRemoveSkill,
 }) => {
+  const { data: graphData } = useSkillGraph();
+
+  const assignedIds = useMemo(() => new Set(assignedSkills.map(s => s.id)), [assignedSkills]);
+
+  // Check for dependency warnings
+  const getAssignWarning = (skillId: string): string | null => {
+    if (!graphData?.edges) return null;
+    // Skill B requires Skill A — warn if Skill A is not assigned
+    const requiredEdges = graphData.edges.filter(
+      e => e.source_skill_id === skillId && e.relation_type === 'requires'
+    );
+    const missing = requiredEdges
+      .filter(e => !assignedIds.has(e.target_skill_id))
+      .map(e => e.target_skill_name || e.target_skill_id);
+    if (missing.length > 0) {
+      return `Requires: ${missing.join(', ')}`;
+    }
+    return null;
+  };
+
+  const getRemoveWarning = (skillId: string): string | null => {
+    if (!graphData?.edges) return null;
+    // Skill A is required by Skill B — warn if Skill B is still assigned
+    const dependentEdges = graphData.edges.filter(
+      e => e.target_skill_id === skillId && e.relation_type === 'requires'
+    );
+    const blocking = dependentEdges
+      .filter(e => assignedIds.has(e.source_skill_id))
+      .map(e => e.source_skill_name || e.source_skill_id);
+    if (blocking.length > 0) {
+      return `Required by: ${blocking.join(', ')}`;
+    }
+    return null;
+  };
   return (
     <div className="space-y-4">
       <h4 className="text-sm font-semibold text-theme-primary border-b border-theme pb-2">
@@ -27,24 +62,37 @@ export const AgentSkillsSection: React.FC<AgentSkillsSectionProps> = ({
 
       {/* Assigned skills display */}
       {assignedSkills.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {assignedSkills.map((skill) => (
-            <Badge
-              key={skill.id}
-              variant="info"
-              size="sm"
-              className="flex items-center gap-1"
-            >
-              {skill.name}
-              <button
-                type="button"
-                onClick={() => onRemoveSkill(skill.id)}
-                className="ml-1 hover:text-theme-status-error"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </Badge>
-          ))}
+        <div className="space-y-1">
+          <div className="flex flex-wrap gap-2">
+            {assignedSkills.map((skill) => {
+              const removeWarn = getRemoveWarning(skill.id);
+              return (
+                <div key={skill.id} className="flex flex-col">
+                  <Badge
+                    variant="info"
+                    size="sm"
+                    className="flex items-center gap-1"
+                  >
+                    {skill.name}
+                    <button
+                      type="button"
+                      onClick={() => onRemoveSkill(skill.id)}
+                      className="ml-1 hover:text-theme-error"
+                      title={removeWarn || undefined}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </Badge>
+                  {removeWarn && (
+                    <span className="flex items-center gap-0.5 text-[10px] text-theme-warning mt-0.5">
+                      <AlertTriangle className="w-2.5 h-2.5" />
+                      {removeWarn}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -74,20 +122,28 @@ export const AgentSkillsSection: React.FC<AgentSkillsSectionProps> = ({
                   return (
                     <label
                       key={skill.id}
-                      className="flex items-center gap-2 cursor-pointer hover:bg-theme-surface-hover p-1.5 rounded text-sm"
+                      className="flex flex-col cursor-pointer hover:bg-theme-surface-hover p-1.5 rounded text-sm"
                     >
-                      <input
-                        type="checkbox"
-                        checked={isAssigned}
-                        onChange={(e) => {
-                          if (e.target.checked) onAssignSkill(skill.id);
-                          else onRemoveSkill(skill.id);
-                        }}
-                        className="w-4 h-4 rounded border-theme text-theme-brand focus:ring-theme-brand"
-                      />
-                      <span className="text-theme-primary truncate" title={skill.name}>
-                        {skill.name}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isAssigned}
+                          onChange={(e) => {
+                            if (e.target.checked) onAssignSkill(skill.id);
+                            else onRemoveSkill(skill.id);
+                          }}
+                          className="w-4 h-4 rounded border-theme text-theme-interactive-primary focus:ring-theme-interactive-primary"
+                        />
+                        <span className="text-theme-primary truncate" title={skill.name}>
+                          {skill.name}
+                        </span>
+                      </div>
+                      {!isAssigned && getAssignWarning(skill.id) && (
+                        <span className="flex items-center gap-0.5 text-[10px] text-theme-warning ml-6 mt-0.5">
+                          <AlertTriangle className="w-2.5 h-2.5" />
+                          {getAssignWarning(skill.id)}
+                        </span>
+                      )}
                     </label>
                   );
                 })}

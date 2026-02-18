@@ -13,9 +13,12 @@ const tabs = [
   { id: 'contexts', label: 'Contexts & Search', icon: <BookOpen size={16} />, path: '/contexts' },
 ];
 
-export const KnowledgeMemoryPage: React.FC = () => {
+/**
+ * Content-only component for embedding in parent pages (e.g., KnowledgePage).
+ * No PageContainer wrapper — avoids double headers when nested.
+ */
+export const KnowledgeMemoryContent: React.FC<{ onActionsReady?: (actions: PageAction[]) => void }> = ({ onActionsReady }) => {
   const location = useLocation();
-  const [actions, setActions] = useState<PageAction[]>([]);
 
   const getActiveTab = () => {
     const path = location.pathname;
@@ -31,27 +34,41 @@ export const KnowledgeMemoryPage: React.FC = () => {
     if (newTab !== activeTab) setActiveTab(newTab);
   }, [location.pathname]);
 
-  // Clear actions on tab change so stale actions don't persist
-  useEffect(() => {
-    setActions([]);
-  }, [activeTab]);
-
   const handleActionsReady = useCallback((newActions: PageAction[]) => {
-    setActions(newActions);
-  }, []);
+    onActionsReady?.(newActions);
+  }, [onActionsReady]);
+
+  return (
+    <TabContainer
+      tabs={tabs}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      basePath="/app/ai/knowledge/memory"
+      variant="underline"
+      className="mb-6"
+    >
+      <TabPanel tabId="tiers" activeTab={activeTab}>
+        <MemoryExplorerContent onActionsReady={handleActionsReady} />
+      </TabPanel>
+      <TabPanel tabId="agent-memory" activeTab={activeTab}>
+        <AgentMemoryContent onActionsReady={handleActionsReady} />
+      </TabPanel>
+      <TabPanel tabId="contexts" activeTab={activeTab}>
+        <ContextsContent onActionsReady={handleActionsReady} />
+      </TabPanel>
+    </TabContainer>
+  );
+};
+
+export const KnowledgeMemoryPage: React.FC = () => {
+  const [actions, setActions] = useState<PageAction[]>([]);
 
   const getBreadcrumbs = () => {
     const base: Array<{ label: string; href?: string }> = [
       { label: 'Dashboard', href: '/app' },
       { label: 'AI', href: '/app/ai' },
     ];
-    const activeTabInfo = tabs.find((t) => t.id === activeTab);
-    if (activeTab === 'tiers') {
-      base.push({ label: 'Knowledge & Memory' });
-    } else {
-      base.push({ label: 'Knowledge & Memory', href: '/app/ai/memory' });
-      if (activeTabInfo) base.push({ label: activeTabInfo.label });
-    }
+    base.push({ label: 'Knowledge & Memory' });
     return base;
   };
 
@@ -62,24 +79,7 @@ export const KnowledgeMemoryPage: React.FC = () => {
       breadcrumbs={getBreadcrumbs()}
       actions={actions}
     >
-      <TabContainer
-        tabs={tabs}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        basePath="/app/ai/knowledge/memory"
-        variant="underline"
-        className="mb-6"
-      >
-        <TabPanel tabId="tiers" activeTab={activeTab}>
-          <MemoryExplorerContent onActionsReady={handleActionsReady} />
-        </TabPanel>
-        <TabPanel tabId="agent-memory" activeTab={activeTab}>
-          <AgentMemoryContent onActionsReady={handleActionsReady} />
-        </TabPanel>
-        <TabPanel tabId="contexts" activeTab={activeTab}>
-          <ContextsContent onActionsReady={handleActionsReady} />
-        </TabPanel>
-      </TabContainer>
+      <KnowledgeMemoryContent onActionsReady={setActions} />
     </PageContainer>
   );
 };

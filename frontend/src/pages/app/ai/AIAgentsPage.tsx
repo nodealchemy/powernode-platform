@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
-  Plus, LayoutDashboard, Brain, CreditCard, ArrowLeft, ShoppingBag, Globe,
+  Plus, LayoutDashboard, Brain, CreditCard, ArrowLeft, ShoppingBag, Globe, Shield,
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
@@ -14,6 +14,7 @@ import { AgentsListTab } from '@/features/ai/agents/components/tabs/AgentsListTa
 import { CardsTab } from '@/features/ai/agents/components/tabs/CardsTab';
 import { AgentMarketplaceContent } from '@/pages/app/ai/AgentMarketplacePage';
 import { CommunityAgentsContent } from '@/features/ai/community-agents/pages/CommunityAgentsPage';
+import { AutonomyContent } from '@/features/ai/autonomy/pages/AutonomyDashboardPage';
 import { useAgentsList } from '@/features/ai/agents/hooks/useAgentsList';
 import { useTeamsList } from '@/features/ai/agents/hooks/useTeamsList';
 import { useAgentCards } from '@/features/ai/agents/hooks/useAgentCards';
@@ -29,6 +30,7 @@ const tabs = [
   { id: 'cards', label: 'Cards', icon: <CreditCard size={16} />, path: '/cards' },
   { id: 'marketplace', label: 'Marketplace', icon: <ShoppingBag size={16} />, path: '/marketplace' },
   { id: 'community', label: 'Community', icon: <Globe size={16} />, path: '/community' },
+  { id: 'autonomy', label: 'Autonomy', icon: <Shield size={16} />, path: '/autonomy' },
 ];
 
 export const AIAgentsPage: React.FC = () => {
@@ -54,6 +56,7 @@ export const AIAgentsPage: React.FC = () => {
     const path = location.pathname;
     if (path.includes('/agents/marketplace')) return 'marketplace';
     if (path.includes('/agents/community')) return 'community';
+    if (path.includes('/agents/autonomy')) return 'autonomy';
     if (path.includes('/agents/list')) return 'agents';
     if (path.includes('/agents/cards')) return 'cards';
     return 'overview';
@@ -225,6 +228,10 @@ export const AIAgentsPage: React.FC = () => {
 
         <TabPanel tabId="community" activeTab={activeTab}>
           <CommunityAgentsContent />
+        </TabPanel>
+
+        <TabPanel tabId="autonomy" activeTab={activeTab}>
+          <AutonomyContent />
         </TabPanel>
 
       </TabContainer>

@@ -1,5 +1,5 @@
 import React, { useCallback, Suspense } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { DashboardLayout } from '@/shared/components/layout/DashboardLayout';
@@ -53,13 +53,13 @@ const AIAgentsPage = React.lazy(() => import('./ai/AIAgentsPage').then(m => ({ d
 const WorkflowsPage = React.lazy(() => import('./ai/WorkflowsPage').then(m => ({ default: m.WorkflowsPage })));
 const AIMonitoringPage = React.lazy(() => import('./ai/AIMonitoringPage').then(m => ({ default: m.AIMonitoringPage })));
 const GovernancePage = React.lazy(() => import('./ai/GovernancePage'));
-const SandboxPage = React.lazy(() => import('./ai/SandboxPage'));
+// SandboxPage absorbed into Execution tabs
 
 // AI Tabbed wrappers
 const ExecutionPage = React.lazy(() => import('./ai/ExecutionPage').then(m => ({ default: m.ExecutionPage })));
 const KnowledgePage = React.lazy(() => import('./ai/KnowledgePage').then(m => ({ default: m.KnowledgePage })));
 const InfrastructurePage = React.lazy(() => import('./ai/InfrastructurePage').then(m => ({ default: m.InfrastructurePage })));
-const AiBillingPage = React.lazy(() => import('./ai/AiBillingPage').then(m => ({ default: m.AiBillingPage })));
+// AiBillingPage absorbed into Observability (Credits & FinOps tabs)
 
 // AI Sub-pages
 const CreateWorkflowPage = React.lazy(() => import('./ai').then(m => ({ default: m.CreateWorkflowPage })));
@@ -74,22 +74,17 @@ const AgentMemoryPage = React.lazy(() => import('./ai/AgentMemoryPage').then(m =
 const ContextDetailPage = React.lazy(() => import('./ai/ContextDetailPage').then(m => ({ default: m.ContextDetailPage })));
 
 // AI Hidden pages
-const SelfHealingDashboard = React.lazy(() => import('@/features/ai/self-healing/SelfHealingDashboard').then(m => ({ default: m.SelfHealingDashboard })));
+// SelfHealingDashboard absorbed into Observability Overview
 const RecommendationsDashboard = React.lazy(() => import('@/features/ai/learning/RecommendationsDashboard').then(m => ({ default: m.RecommendationsDashboard })));
 const TrajectoryInsights = React.lazy(() => import('@/features/ai/learning/TrajectoryInsights').then(m => ({ default: m.TrajectoryInsights })));
 
 // AI Orchestration
-const SandboxDashboardPage = React.lazy(() => import('@/features/ai/sandboxes').then(m => ({ default: m.SandboxDashboardPage })));
-const AutonomyDashboardPage = React.lazy(() => import('@/features/ai/autonomy').then(m => ({ default: m.AutonomyDashboardPage })));
-const CompoundLearningPage = React.lazy(() => import('./ai/CompoundLearningPage'));
-const AuditDashboardPage = React.lazy(() => import('@/features/ai/audit').then(m => ({ default: m.AuditDashboardPage })));
-const SecurityDashboardPage = React.lazy(() => import('@/features/ai/security').then(m => ({ default: m.SecurityDashboardPage })));
-const EvaluationDashboardPage = React.lazy(() => import('@/features/ai/evaluation').then(m => ({ default: m.EvaluationDashboardPage })));
-const CommunicationPage = React.lazy(() => import('./ai/CommunicationPage').then(m => ({ default: m.CommunicationPage })));
-const CodeFactoryPage = React.lazy(() => import('@/features/ai/code-factory').then(m => ({ default: m.CodeFactoryPage })));
+// SandboxDashboardPage → Execution/Containers, AutonomyDashboardPage → Agents/Autonomy, CompoundLearningPage → Knowledge/Learning
+// AuditDashboardPage and SecurityDashboardPage absorbed into GovernancePage tabs
+// EvaluationDashboardPage absorbed into Observability, CodeFactoryPage absorbed into Missions
 
 // AI Missions
-const MissionsPage = React.lazy(() => import('@/features/missions/pages/MissionsPage').then(m => ({ default: m.MissionsPage })));
+const MissionsPageWrapper = React.lazy(() => import('./ai/MissionsPage').then(m => ({ default: m.MissionsPageWrapper })));
 
 // Containers
 const ContainersPage = React.lazy(() => import('@/features/devops/containers/pages/ContainersPage').then(m => ({ default: m.ContainersPage })));
@@ -409,6 +404,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/agents/cards" element={<AIAgentsPage />} />
         <Route path="/ai/agents/marketplace" element={<AIAgentsPage />} />
         <Route path="/ai/agents/community" element={<AIAgentsPage />} />
+        <Route path="/ai/agents/autonomy" element={<AIAgentsPage />} />
         <Route path="/ai/agents/:agentId/memory/*" element={<AgentMemoryPage />} />
         <Route path="/ai/agents/:agentId/*" element={<AgentDetailPage />} />
         <Route path="/ai/agents/*" element={<AIAgentsPage />} />
@@ -420,9 +416,10 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/workflows/templates" element={<WorkflowsPage />} />
         <Route path="/ai/workflows/:id" element={<WorkflowDetailPage />} />
         <Route path="/ai/workflows/*" element={<WorkflowsPage />} />
-        <Route path="/ai/communication/*" element={<CommunicationPage />} />
-        <Route path="/ai/governance" element={<GovernancePage />} />
-        <Route path="/ai/sandbox" element={<SandboxPage />} />
+        <Route path="/ai/communication/conversations" element={<Navigate to="/app/ai/observability/conversations" replace />} />
+        <Route path="/ai/communication/*" element={<Navigate to="/app/ai/teams" replace />} />
+        <Route path="/ai/governance/*" element={<GovernancePage />} />
+        <Route path="/ai/sandbox" element={<Navigate to="/app/ai/execution/testing" replace />} />
 
         {/* AI Pages - Tabbed wrappers */}
         <Route path="/ai/execution/*" element={<ExecutionPage />} />
@@ -432,28 +429,28 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/infrastructure/providers/new" element={<AIProvidersPage />} />
         <Route path="/ai/infrastructure/providers/:id" element={<AIProvidersPage />} />
         <Route path="/ai/infrastructure/*" element={<InfrastructurePage />} />
-        <Route path="/ai/billing/*" element={<AiBillingPage />} />
-        <Route path="/ai/monitoring/*" element={<AIMonitoringPage />} />
+        <Route path="/ai/billing/*" element={<Navigate to="/app/ai/observability/credits" replace />} />
+        <Route path="/ai/observability/*" element={<AIMonitoringPage />} />
+        <Route path="/ai/monitoring/*" element={<Navigate to="/app/ai/observability" replace />} />
 
         {/* AI Pages - Agent Orchestration */}
-        <Route path="/ai/sandboxes" element={<SandboxDashboardPage />} />
-        <Route path="/ai/autonomy" element={<AutonomyDashboardPage />} />
-        <Route path="/ai/learning" element={<CompoundLearningPage />} />
-        <Route path="/ai/audit" element={<AuditDashboardPage />} />
-        <Route path="/ai/security" element={<SecurityDashboardPage />} />
+        <Route path="/ai/sandboxes" element={<Navigate to="/app/ai/execution/containers" replace />} />
+        <Route path="/ai/autonomy" element={<Navigate to="/app/ai/agents/autonomy" replace />} />
+        <Route path="/ai/learning" element={<Navigate to="/app/ai/knowledge/learning" replace />} />
+        <Route path="/ai/audit" element={<Navigate to="/app/ai/governance/audit" replace />} />
+        <Route path="/ai/security" element={<Navigate to="/app/ai/governance/security" replace />} />
 
-        {/* AI Missions - static tab routes before dynamic :missionId */}
-        <Route path="/ai/missions/completed" element={<MissionsPage />} />
-        <Route path="/ai/missions/all" element={<MissionsPage />} />
-        <Route path="/ai/missions/:missionId" element={<MissionsPage />} />
-        <Route path="/ai/missions" element={<MissionsPage />} />
+        {/* AI Missions - code-factory before :missionId, static tabs before dynamic */}
+        <Route path="/ai/missions/code-factory/*" element={<MissionsPageWrapper />} />
+        <Route path="/ai/missions/completed" element={<MissionsPageWrapper />} />
+        <Route path="/ai/missions/all" element={<MissionsPageWrapper />} />
+        <Route path="/ai/missions/:missionId" element={<MissionsPageWrapper />} />
+        <Route path="/ai/missions" element={<MissionsPageWrapper />} />
 
-        {/* AI Code Factory */}
-        <Route path="/ai/code-factory/*" element={<CodeFactoryPage />} />
-
-        {/* AI Pages - Hidden (no nav, still accessible) */}
-        <Route path="/ai/evaluation" element={<EvaluationDashboardPage />} />
-        <Route path="/ai/self-healing" element={<SelfHealingDashboard />} />
+        {/* AI Redirects - Absorbed pages */}
+        <Route path="/ai/code-factory/*" element={<Navigate to="/app/ai/missions/code-factory" replace />} />
+        <Route path="/ai/evaluation" element={<Navigate to="/app/ai/observability/evaluation" replace />} />
+        <Route path="/ai/self-healing" element={<Navigate to="/app/ai/observability" replace />} />
         <Route path="/ai/learning/recommendations" element={<RecommendationsDashboard />} />
         <Route path="/ai/learning/insights" element={<TrajectoryInsights />} />
         <Route path="/ai/analytics/system" element={<AIAnalyticsPage />} />

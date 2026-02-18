@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Search, FileText, Zap } from 'lucide-react';
+import { sanitizeHtml } from '@/shared/utils/sanitizeHtml';
 import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
@@ -88,7 +89,7 @@ export const HybridSearchResults: React.FC = () => {
                         <p
                           key={idx}
                           className="text-xs text-theme-tertiary italic"
-                          dangerouslySetInnerHTML={{ __html: highlight }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(highlight) }}
                         />
                       ))}
                     </div>

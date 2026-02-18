@@ -1,5 +1,5 @@
 import React from 'react';
-import { HeartPulse, Plug, Bot, Workflow, MessageSquare, Bell, BarChart3, Lightbulb } from 'lucide-react';
+import { HeartPulse, Server, MessageSquare, ClipboardCheck, Bell, Coins } from 'lucide-react';
 
 /**
  * Get color class for health score
@@ -36,22 +36,20 @@ export const formatLastUpdate = (date: Date | null): string => {
 };
 
 /**
- * Tab definitions for AI Monitoring
+ * Tab definitions for Observability
  */
 export const MONITORING_TABS: ReadonlyArray<{
-  id: 'overview' | 'providers' | 'agents' | 'workflows' | 'conversations' | 'alerts' | 'analytics' | 'learning';
+  id: 'overview' | 'systems' | 'conversations' | 'evaluation' | 'alerts' | 'credits';
   label: string;
   icon: React.ReactNode;
   path: string;
 }> = [
   { id: 'overview', label: 'System Health', icon: React.createElement(HeartPulse, { size: 16 }), path: '/' },
-  { id: 'providers', label: 'Providers', icon: React.createElement(Plug, { size: 16 }), path: '/providers' },
-  { id: 'agents', label: 'Agents', icon: React.createElement(Bot, { size: 16 }), path: '/agents' },
-  { id: 'workflows', label: 'Workflows', icon: React.createElement(Workflow, { size: 16 }), path: '/workflows' },
+  { id: 'systems', label: 'Systems', icon: React.createElement(Server, { size: 16 }), path: '/systems' },
   { id: 'conversations', label: 'Conversations', icon: React.createElement(MessageSquare, { size: 16 }), path: '/conversations' },
+  { id: 'evaluation', label: 'Evaluation', icon: React.createElement(ClipboardCheck, { size: 16 }), path: '/evaluation' },
   { id: 'alerts', label: 'Alerts', icon: React.createElement(Bell, { size: 16 }), path: '/alerts' },
-  { id: 'analytics', label: 'Analytics', icon: React.createElement(BarChart3, { size: 16 }), path: '/analytics' },
-  { id: 'learning', label: 'Learning', icon: React.createElement(Lightbulb, { size: 16 }), path: '/learning' },
+  { id: 'credits', label: 'Credits & FinOps', icon: React.createElement(Coins, { size: 16 }), path: '/credits' },
 ];
 
 export type MonitoringTabId = typeof MONITORING_TABS[number]['id'];
@@ -68,15 +66,14 @@ export const getMonitoringBreadcrumbs = (activeTab: string) => {
   const baseBreadcrumbs: Array<{ label: string; href?: string }> = [
     { label: 'Dashboard', href: '/app' },
     { label: 'AI', href: '/app/ai' },
-    { label: 'Monitoring' }
   ];
 
-  // Add active tab to breadcrumbs if not the default overview tab
   const activeTabInfo = MONITORING_TABS.find(tab => tab.id === activeTab);
-  if (activeTabInfo && activeTab !== 'overview') {
-    baseBreadcrumbs.push({
-      label: activeTabInfo.label
-    });
+  if (activeTab === 'overview') {
+    baseBreadcrumbs.push({ label: 'Observability' });
+  } else {
+    baseBreadcrumbs.push({ label: 'Observability', href: '/app/ai/observability' });
+    if (activeTabInfo) baseBreadcrumbs.push({ label: activeTabInfo.label });
   }
 
   return baseBreadcrumbs;

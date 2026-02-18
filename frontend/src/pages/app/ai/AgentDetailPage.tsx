@@ -166,6 +166,13 @@ export const AgentDetailPage: React.FC = () => {
                     </div>
                   </div>
                 )}
+                {agent.skill_slugs && agent.skill_slugs.length > 0 && (
+                  <div className="text-xs">
+                    <button type="button" onClick={() => navigate('/app/ai/knowledge?tab=skill-graph')} className="text-theme-info hover:underline">
+                      View skills in graph →
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </Card>

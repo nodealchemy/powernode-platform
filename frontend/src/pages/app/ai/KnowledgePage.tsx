@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { BookOpen, MessageSquare, Puzzle, Database, Share2, Layers } from 'lucide-react';
+import { BookOpen, MessageSquare, Puzzle, Database, Share2, Layers, Lightbulb } from 'lucide-react';
 import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { ContextsContent } from '@/pages/app/ai/ContextsPage';
@@ -8,7 +8,8 @@ import { PromptsContent } from '@/features/ai/prompts/pages/PromptsPage';
 import { SkillsContent } from '@/pages/app/ai/SkillsPage';
 import { RagContent } from '@/pages/app/ai/RagPage';
 import { KnowledgeGraphContent } from '@/features/ai/knowledge-graph';
-import { KnowledgeMemoryPage } from '@/features/ai/memory';
+import { KnowledgeMemoryContent } from '@/features/ai/memory';
+import { CompoundLearningContent } from '@/pages/app/ai/CompoundLearningPage';
 
 const tabs = [
   { id: 'contexts', label: 'Contexts', icon: <BookOpen size={16} />, path: '/contexts' },
@@ -17,6 +18,7 @@ const tabs = [
   { id: 'rag', label: 'RAG', icon: <Database size={16} />, path: '/rag' },
   { id: 'graph', label: 'Knowledge Graph', icon: <Share2 size={16} />, path: '/graph' },
   { id: 'memory', label: 'Memory Tiers', icon: <Layers size={16} />, path: '/memory' },
+  { id: 'learning', label: 'Learning', icon: <Lightbulb size={16} />, path: '/learning' },
 ];
 
 export const KnowledgePage: React.FC = () => {
@@ -30,6 +32,7 @@ export const KnowledgePage: React.FC = () => {
     if (path.includes('/knowledge/rag')) return 'rag';
     if (path.includes('/knowledge/graph')) return 'graph';
     if (path.includes('/knowledge/memory')) return 'memory';
+    if (path.includes('/knowledge/learning')) return 'learning';
     return 'contexts';
   };
 
@@ -95,7 +98,10 @@ export const KnowledgePage: React.FC = () => {
           <KnowledgeGraphContent />
         </TabPanel>
         <TabPanel tabId="memory" activeTab={activeTab}>
-          <KnowledgeMemoryPage />
+          <KnowledgeMemoryContent onActionsReady={handleActionsReady} />
+        </TabPanel>
+        <TabPanel tabId="learning" activeTab={activeTab}>
+          <CompoundLearningContent />
         </TabPanel>
       </TabContainer>
     </PageContainer>

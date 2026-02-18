@@ -1,6 +1,6 @@
 // Sandbox Page - Enterprise AI Agent Testing Infrastructure
 import React, { useState, useEffect } from 'react';
-import { Plus, TestTube, Play, Search, Filter, Beaker, FlaskConical, BarChart3 } from 'lucide-react';
+import { TestTube, Play, Search, Filter, Beaker, FlaskConical, BarChart3 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
@@ -39,9 +39,31 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+function getStatusColor(status: string): string {
+  switch (status) {
+    case 'active': return 'text-theme-success bg-theme-success/10';
+    case 'inactive': return 'text-theme-secondary bg-theme-surface';
+    case 'paused': return 'text-theme-warning bg-theme-warning/10';
+    case 'completed': return 'text-theme-success bg-theme-success/10';
+    case 'running': return 'text-theme-info bg-theme-info/10';
+    case 'failed': return 'text-theme-danger bg-theme-danger/10';
+    case 'passed': return 'text-theme-success bg-theme-success/10';
+    default: return 'text-theme-secondary bg-theme-surface';
+  }
+}
+
 type TabType = 'sandboxes' | 'scenarios' | 'mocks' | 'runs' | 'benchmarks' | 'ab-tests';
 
-const SandboxPage: React.FC = () => {
+const sandboxTabs = [
+  { id: 'sandboxes' as TabType, label: 'Sandboxes', icon: Beaker },
+  { id: 'scenarios' as TabType, label: 'Test Scenarios', icon: TestTube },
+  { id: 'mocks' as TabType, label: 'Mock Responses', icon: FlaskConical },
+  { id: 'runs' as TabType, label: 'Test Runs', icon: Play },
+  { id: 'benchmarks' as TabType, label: 'Benchmarks', icon: BarChart3 },
+  { id: 'ab-tests' as TabType, label: 'A/B Tests', icon: TestTube }
+];
+
+export const SandboxContent: React.FC<{ refreshKey?: number }> = ({ refreshKey: externalRefreshKey = 0 }) => {
   const dispatch = useDispatch<AppDispatch>();
   const [activeTab, setActiveTab] = useState<TabType>('sandboxes');
   const [sandboxes, setSandboxes] = useState<Sandbox[]>([]);
@@ -57,7 +79,6 @@ const SandboxPage: React.FC = () => {
   // WebSocket for real-time sandbox and workflow updates
   useAiOrchestrationWebSocket({
     onWorkflowRunEvent: (event) => {
-      // Refresh sandbox data when workflow runs complete (test runs)
       if (['run_completed', 'run_failed'].includes(event.type)) {
         if (selectedSandbox) {
           loadSandboxData(selectedSandbox.id);
@@ -65,7 +86,6 @@ const SandboxPage: React.FC = () => {
       }
     },
     onBatchEvent: (event) => {
-      // Refresh sandbox data when batch test executions complete
       if (['batch_completed', 'batch_failed', 'batch_progress_update'].includes(event.type)) {
         if (selectedSandbox) {
           loadSandboxData(selectedSandbox.id);
@@ -73,16 +93,6 @@ const SandboxPage: React.FC = () => {
       }
     },
   });
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    if (selectedSandbox) {
-      loadSandboxData(selectedSandbox.id);
-    }
-  }, [selectedSandbox]);
 
   const loadData = async () => {
     try {
@@ -94,7 +104,6 @@ const SandboxPage: React.FC = () => {
       setSandboxes(sandboxesRes.items || []);
       setAbTests(abTestsRes.items || []);
 
-      // Auto-select first sandbox if available
       if (sandboxesRes.items && sandboxesRes.items.length > 0 && !selectedSandbox) {
         setSelectedSandbox(sandboxesRes.items[0]);
       }
@@ -125,6 +134,16 @@ const SandboxPage: React.FC = () => {
       }));
     }
   };
+
+  useEffect(() => {
+    loadData();
+  }, [externalRefreshKey]);
+
+  useEffect(() => {
+    if (selectedSandbox) {
+      loadSandboxData(selectedSandbox.id);
+    }
+  }, [selectedSandbox]);
 
   const handleCreateSandbox = async () => {
     try {
@@ -166,63 +185,8 @@ const SandboxPage: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: string): string => {
-    switch (status) {
-      case 'active': return 'text-theme-success bg-theme-success/10';
-      case 'inactive': return 'text-theme-secondary bg-theme-surface';
-      case 'paused': return 'text-theme-warning bg-theme-warning/10';
-      case 'completed': return 'text-theme-success bg-theme-success/10';
-      case 'running': return 'text-theme-info bg-theme-info/10';
-      case 'failed': return 'text-theme-danger bg-theme-danger/10';
-      case 'passed': return 'text-theme-success bg-theme-success/10';
-      default: return 'text-theme-secondary bg-theme-surface';
-    }
-  };
-
-  const { refreshAction } = useRefreshAction({
-    onRefresh: loadData,
-    loading,
-  });
-
-  const breadcrumbs = [
-    { label: 'Dashboard', href: '/app' },
-    { label: 'AI', href: '/app/ai' },
-    { label: 'Sandbox' }
-  ];
-
-  const tabs = [
-    { id: 'sandboxes' as TabType, label: 'Sandboxes', icon: Beaker },
-    { id: 'scenarios' as TabType, label: 'Test Scenarios', icon: TestTube },
-    { id: 'mocks' as TabType, label: 'Mock Responses', icon: FlaskConical },
-    { id: 'runs' as TabType, label: 'Test Runs', icon: Play },
-    { id: 'benchmarks' as TabType, label: 'Benchmarks', icon: BarChart3 },
-    { id: 'ab-tests' as TabType, label: 'A/B Tests', icon: TestTube }
-  ];
-
   return (
-    <PageContainer
-      title="AI Sandbox & Testing"
-      description="Isolated testing environments for AI agents with recording, playback, and performance profiling"
-      breadcrumbs={breadcrumbs}
-      actions={[
-        refreshAction,
-        {
-          id: 'run-tests',
-          label: 'Run Tests',
-          onClick: handleRunTests,
-          icon: Play,
-          variant: 'secondary' as const,
-          disabled: !selectedSandbox
-        },
-        {
-          id: 'create-sandbox',
-          label: 'Create Sandbox',
-          onClick: handleCreateSandbox,
-          icon: Plus,
-          variant: 'primary' as const
-        }
-      ]}
-    >
+    <>
       {/* Sandbox Selector */}
       {sandboxes.length > 0 && (
         <div className="flex items-center gap-4 mb-6 p-4 bg-theme-surface border border-theme rounded-lg">
@@ -253,7 +217,7 @@ const SandboxPage: React.FC = () => {
       {/* Tabs */}
       <div className="border-b border-theme mb-6">
         <nav className="flex gap-4">
-          {tabs.map(tab => (
+          {sandboxTabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
@@ -563,6 +527,29 @@ const SandboxPage: React.FC = () => {
           )}
         </>
       )}
+    </>
+  );
+};
+
+const SandboxPage: React.FC = () => {
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const { refreshAction } = useRefreshAction({
+    onRefresh: () => setRefreshKey(k => k + 1),
+  });
+
+  return (
+    <PageContainer
+      title="AI Sandbox & Testing"
+      description="Isolated testing environments for AI agents with recording, playback, and performance profiling"
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/app' },
+        { label: 'AI', href: '/app/ai' },
+        { label: 'Sandbox' }
+      ]}
+      actions={[refreshAction]}
+    >
+      <SandboxContent refreshKey={refreshKey} />
     </PageContainer>
   );
 };

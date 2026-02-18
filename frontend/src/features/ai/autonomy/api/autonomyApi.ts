@@ -16,7 +16,7 @@ export function useTrustScores() {
     queryKey: AUTONOMY_KEYS.trustScores(),
     queryFn: async () => {
       const response = await apiClient.get('/ai/autonomy/trust_scores');
-      return response.data?.data as TrustScore[];
+      return (response.data?.data ?? []) as TrustScore[];
     },
   });
 }
@@ -26,7 +26,7 @@ export function useTrustScore(agentId: string) {
     queryKey: AUTONOMY_KEYS.trustScore(agentId),
     queryFn: async () => {
       const response = await apiClient.get(`/ai/autonomy/trust_scores/${agentId}`);
-      return response.data?.data as TrustScore;
+      return (response.data?.data ?? null) as TrustScore;
     },
     enabled: !!agentId,
   });
@@ -37,7 +37,7 @@ export function useAgentLineage(agentId: string) {
     queryKey: AUTONOMY_KEYS.lineage(agentId),
     queryFn: async () => {
       const response = await apiClient.get(`/ai/autonomy/lineage/${agentId}`);
-      return response.data?.data as AgentLineageNode;
+      return (response.data?.data ?? null) as AgentLineageNode;
     },
     enabled: !!agentId,
   });
@@ -48,7 +48,7 @@ export function useAgentBudgets() {
     queryKey: AUTONOMY_KEYS.budgets(),
     queryFn: async () => {
       const response = await apiClient.get('/ai/autonomy/budgets');
-      return response.data?.data as AgentBudget[];
+      return (response.data?.data ?? []) as AgentBudget[];
     },
   });
 }
@@ -58,7 +58,7 @@ export function useAutonomyStats() {
     queryKey: AUTONOMY_KEYS.stats(),
     queryFn: async () => {
       const response = await apiClient.get('/ai/autonomy/stats');
-      return response.data?.data as AutonomyStats;
+      return (response.data?.data ?? {}) as AutonomyStats;
     },
   });
 }

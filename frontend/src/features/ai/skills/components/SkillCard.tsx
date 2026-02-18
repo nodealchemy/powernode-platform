@@ -52,6 +52,9 @@ export function SkillCard({ skill, onToggle, onClick }: SkillCardProps) {
         <span>{skill.command_count} commands</span>
         <span>{skill.connector_count} connectors</span>
         {skill.has_knowledge_base && <span>KB linked</span>}
+        {(skill as AiSkillSummary & { dependency_count?: number }).dependency_count != null && (
+          <span>{(skill as AiSkillSummary & { dependency_count?: number }).dependency_count} deps</span>
+        )}
       </div>
 
       {skill.tags.length > 0 && (
