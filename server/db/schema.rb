@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_18_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_19_000006) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -790,7 +790,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_18_000002) do
     t.index ["account_id"], name: "index_ai_approval_chains_on_account_id"
     t.index ["created_by_id"], name: "index_ai_approval_chains_on_created_by_id"
     t.index ["trigger_type"], name: "index_ai_approval_chains_on_trigger_type"
-    t.check_constraint "trigger_type::text = ANY (ARRAY['workflow_deploy'::character varying::text, 'agent_deploy'::character varying::text, 'high_cost'::character varying::text, 'sensitive_data'::character varying::text, 'model_change'::character varying::text, 'policy_override'::character varying::text, 'manual'::character varying::text])", name: "check_chain_trigger_type"
+    t.check_constraint "trigger_type::text = ANY (ARRAY['workflow_deploy'::character varying, 'agent_deploy'::character varying, 'high_cost'::character varying, 'sensitive_data'::character varying, 'model_change'::character varying, 'policy_override'::character varying, 'manual'::character varying, 'autonomy_action'::character varying]::text[])", name: "check_chain_trigger_type"
   end
 
   create_table "ai_approval_decisions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -833,6 +833,50 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_18_000002) do
     t.index ["request_id"], name: "index_ai_approval_requests_on_request_id", unique: true
     t.index ["requested_by_id"], name: "index_ai_approval_requests_on_requested_by_id"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'approved'::character varying::text, 'rejected'::character varying::text, 'expired'::character varying::text, 'cancelled'::character varying::text])", name: "check_request_status"
+  end
+
+  create_table "ai_behavioral_fingerprints", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "agent_id", null: false
+    t.integer "anomaly_count", default: 0, null: false
+    t.float "baseline_mean", default: 0.0, null: false
+    t.float "baseline_stddev", default: 1.0, null: false
+    t.datetime "created_at", null: false
+    t.float "deviation_threshold", default: 2.0, null: false
+    t.datetime "last_observation_at"
+    t.string "metric_name", null: false
+    t.integer "observation_count", default: 0, null: false
+    t.jsonb "recent_observations", default: [], null: false
+    t.integer "rolling_window_days", default: 7, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "agent_id"], name: "idx_ai_behavioral_fingerprints_account_agent"
+    t.index ["account_id"], name: "index_ai_behavioral_fingerprints_on_account_id"
+    t.index ["agent_id", "metric_name"], name: "idx_ai_behavioral_fingerprints_agent_metric", unique: true
+    t.index ["agent_id"], name: "index_ai_behavioral_fingerprints_on_agent_id"
+  end
+
+  create_table "ai_circuit_breakers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "action_type", null: false
+    t.uuid "agent_id", null: false
+    t.integer "cooldown_seconds", default: 300, null: false
+    t.datetime "created_at", null: false
+    t.integer "failure_count", default: 0, null: false
+    t.integer "failure_threshold", default: 5, null: false
+    t.datetime "half_opened_at"
+    t.jsonb "history", default: [], null: false
+    t.datetime "last_failure_at"
+    t.datetime "last_success_at"
+    t.datetime "opened_at"
+    t.string "state", default: "closed", null: false
+    t.integer "success_count", default: 0, null: false
+    t.integer "success_threshold", default: 3, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "state"], name: "index_ai_circuit_breakers_on_account_id_and_state"
+    t.index ["account_id"], name: "index_ai_circuit_breakers_on_account_id"
+    t.index ["agent_id", "action_type"], name: "index_ai_circuit_breakers_on_agent_id_and_action_type", unique: true
+    t.index ["agent_id"], name: "index_ai_circuit_breakers_on_agent_id"
+    t.check_constraint "state::text = ANY (ARRAY['closed'::character varying, 'open'::character varying, 'half_open'::character varying]::text[])", name: "check_circuit_breaker_state"
   end
 
   create_table "ai_code_factory_evidence_manifests", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1550,6 +1594,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_18_000002) do
     t.index ["detection_id"], name: "index_ai_data_detections_on_detection_id", unique: true
     t.index ["source_type"], name: "index_ai_data_detections_on_source_type"
     t.check_constraint "action_taken::text = ANY (ARRAY['logged'::character varying::text, 'masked'::character varying::text, 'blocked'::character varying::text, 'encrypted'::character varying::text, 'flagged'::character varying::text])", name: "check_detection_action"
+  end
+
+  create_table "ai_delegation_policies", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "agent_id", null: false
+    t.jsonb "allowed_delegate_types", default: [], null: false
+    t.float "budget_delegation_pct", default: 0.5, null: false
+    t.datetime "created_at", null: false
+    t.jsonb "delegatable_actions", default: [], null: false
+    t.string "inheritance_policy", default: "conservative", null: false
+    t.integer "max_depth", default: 3, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "agent_id"], name: "idx_ai_delegation_policies_account_agent"
+    t.index ["account_id"], name: "index_ai_delegation_policies_on_account_id"
+    t.index ["agent_id"], name: "index_ai_delegation_policies_on_agent_id", unique: true
+    t.check_constraint "inheritance_policy::text = ANY (ARRAY['conservative'::character varying, 'moderate'::character varying, 'permissive'::character varying]::text[])", name: "check_delegation_inheritance_policy"
   end
 
   create_table "ai_deployment_risks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -3234,6 +3294,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_18_000002) do
     t.index ["severity"], name: "index_ai_security_audit_trails_on_severity"
   end
 
+  create_table "ai_shadow_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "action_type", null: false
+    t.uuid "agent_id", null: false
+    t.boolean "agreed", default: false, null: false
+    t.float "agreement_score", default: 0.0, null: false
+    t.datetime "created_at", null: false
+    t.jsonb "reference_output", default: {}
+    t.jsonb "shadow_input", default: {}, null: false
+    t.jsonb "shadow_output", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "agent_id", "created_at"], name: "idx_ai_shadow_executions_account_agent_time"
+    t.index ["account_id"], name: "index_ai_shadow_executions_on_account_id"
+    t.index ["agent_id", "agreed"], name: "idx_ai_shadow_executions_agent_agreed"
+    t.index ["agent_id"], name: "index_ai_shadow_executions_on_agent_id"
+  end
+
   create_table "ai_shared_context_pools", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.jsonb "access_control", default: {}
     t.uuid "ai_workflow_run_id", null: false
@@ -3630,6 +3707,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_18_000002) do
     t.index ["slug"], name: "index_ai_team_templates_on_slug", unique: true
     t.index ["team_topology"], name: "index_ai_team_templates_on_team_topology"
     t.check_constraint "team_topology::text = ANY (ARRAY['hierarchical'::character varying::text, 'flat'::character varying::text, 'mesh'::character varying::text, 'pipeline'::character varying::text, 'hybrid'::character varying::text])", name: "check_team_topology"
+  end
+
+  create_table "ai_telemetry_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "agent_id", null: false
+    t.string "correlation_id", null: false
+    t.datetime "created_at", null: false
+    t.string "event_category", null: false
+    t.jsonb "event_data", default: {}, null: false
+    t.string "event_type", null: false
+    t.string "outcome"
+    t.uuid "parent_event_id"
+    t.integer "sequence_number", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "idx_ai_telemetry_events_account_time"
+    t.index ["account_id"], name: "index_ai_telemetry_events_on_account_id"
+    t.index ["agent_id", "event_category", "created_at"], name: "idx_ai_telemetry_events_agent_cat_time"
+    t.index ["agent_id"], name: "index_ai_telemetry_events_on_agent_id"
+    t.index ["correlation_id"], name: "idx_ai_telemetry_events_correlation"
+    t.index ["parent_event_id"], name: "idx_ai_telemetry_events_parent"
   end
 
   create_table "ai_template_usage_metrics", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -9495,6 +9592,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_18_000002) do
   add_foreign_key "ai_approval_requests", "accounts"
   add_foreign_key "ai_approval_requests", "ai_approval_chains", column: "approval_chain_id"
   add_foreign_key "ai_approval_requests", "users", column: "requested_by_id"
+  add_foreign_key "ai_behavioral_fingerprints", "accounts"
+  add_foreign_key "ai_behavioral_fingerprints", "ai_agents", column: "agent_id"
+  add_foreign_key "ai_circuit_breakers", "accounts"
+  add_foreign_key "ai_circuit_breakers", "ai_agents", column: "agent_id"
   add_foreign_key "ai_code_factory_evidence_manifests", "accounts"
   add_foreign_key "ai_code_factory_evidence_manifests", "ai_code_factory_review_states", column: "review_state_id"
   add_foreign_key "ai_code_factory_harness_gaps", "accounts"
@@ -9560,6 +9661,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_18_000002) do
   add_foreign_key "ai_data_connectors", "users", column: "created_by_id"
   add_foreign_key "ai_data_detections", "accounts"
   add_foreign_key "ai_data_detections", "ai_data_classifications", column: "classification_id"
+  add_foreign_key "ai_delegation_policies", "accounts"
+  add_foreign_key "ai_delegation_policies", "ai_agents", column: "agent_id"
   add_foreign_key "ai_deployment_risks", "accounts"
   add_foreign_key "ai_deployment_risks", "ai_pipeline_executions", column: "pipeline_execution_id"
   add_foreign_key "ai_deployment_risks", "users", column: "assessed_by_id"
@@ -9699,6 +9802,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_18_000002) do
   add_foreign_key "ai_scheduled_messages", "ai_conversations", column: "conversation_id"
   add_foreign_key "ai_scheduled_messages", "users"
   add_foreign_key "ai_security_audit_trails", "accounts"
+  add_foreign_key "ai_shadow_executions", "accounts"
+  add_foreign_key "ai_shadow_executions", "ai_agents", column: "agent_id"
   add_foreign_key "ai_shared_context_pools", "ai_workflow_runs", on_delete: :cascade
   add_foreign_key "ai_shared_knowledges", "accounts"
   add_foreign_key "ai_shared_knowledges", "users", column: "created_by_id"
@@ -9734,6 +9839,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_18_000002) do
   add_foreign_key "ai_team_tasks", "ai_team_roles", column: "assigned_role_id"
   add_foreign_key "ai_team_templates", "accounts"
   add_foreign_key "ai_team_templates", "users", column: "created_by_id"
+  add_foreign_key "ai_telemetry_events", "accounts"
+  add_foreign_key "ai_telemetry_events", "ai_agents", column: "agent_id"
   add_foreign_key "ai_template_usage_metrics", "ai_agent_templates", column: "agent_template_id"
   add_foreign_key "ai_test_results", "ai_test_runs", column: "test_run_id"
   add_foreign_key "ai_test_results", "ai_test_scenarios", column: "scenario_id"
