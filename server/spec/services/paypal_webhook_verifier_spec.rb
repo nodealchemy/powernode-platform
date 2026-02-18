@@ -2,6 +2,9 @@
 
 require 'rails_helper'
 
+# Enterprise-only: Billing::PaypalWebhookVerifier is provided by the enterprise submodule
+return unless defined?(Billing::PaypalWebhookVerifier)
+
 RSpec.describe Billing::PaypalWebhookVerifier do
   let(:webhook_headers) do
     {

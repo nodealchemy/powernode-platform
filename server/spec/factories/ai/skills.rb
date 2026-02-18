@@ -6,7 +6,7 @@ FactoryBot.define do
     sequence(:name) { |n| "Skill #{n}" }
     sequence(:slug) { |n| "skill-#{n}" }
     description { Faker::Lorem.sentence }
-    category { "general" }
+    category { "productivity" }
     status { "active" }
     version { "1.0.0" }
     is_enabled { true }
