@@ -308,63 +308,6 @@ describe('useAiMonitoringWebSocket', () => {
       expect(onCostAlert).toHaveBeenCalledWith(mockCostAlert);
     });
 
-    it('calls onRealTimeModeChanged with true when real_time_mode_enabled received', () => {
-      const onRealTimeModeChanged = jest.fn();
-
-      const store = createTestStore({
-        auth: {
-          user: mockUser,
-          access_token: 'test-token',
-          isLoading: false,
-          isAuthenticated: true,
-          error: null,
-        },
-      });
-
-      renderHook(() => useAiMonitoringWebSocket({ onRealTimeModeChanged }), {
-        wrapper: createWrapper(store),
-      });
-
-      const subscribeOptions = getSubscribeOptions();
-      const onMessage = subscribeOptions.onMessage;
-
-      act(() => {
-        onMessage({
-          type: 'real_time_mode_enabled',
-          refresh_interval: 5000,
-        });
-      });
-
-      expect(onRealTimeModeChanged).toHaveBeenCalledWith(true, 5000);
-    });
-
-    it('calls onRealTimeModeChanged with false when real_time_mode_disabled received', () => {
-      const onRealTimeModeChanged = jest.fn();
-
-      const store = createTestStore({
-        auth: {
-          user: mockUser,
-          access_token: 'test-token',
-          isLoading: false,
-          isAuthenticated: true,
-          error: null,
-        },
-      });
-
-      renderHook(() => useAiMonitoringWebSocket({ onRealTimeModeChanged }), {
-        wrapper: createWrapper(store),
-      });
-
-      const subscribeOptions = getSubscribeOptions();
-      const onMessage = subscribeOptions.onMessage;
-
-      act(() => {
-        onMessage({ type: 'real_time_mode_disabled' });
-      });
-
-      expect(onRealTimeModeChanged).toHaveBeenCalledWith(false);
-    });
-
     it('calls onError when error message received', () => {
       const onError = jest.fn();
 
@@ -532,112 +475,6 @@ describe('useAiMonitoringWebSocket', () => {
     });
   });
 
-  describe('startRealTimeMonitoring', () => {
-    it('sends start_real_time_monitoring message when connected', async () => {
-      const store = createTestStore({
-        auth: {
-          user: mockUser,
-          access_token: 'test-token',
-          isLoading: false,
-          isAuthenticated: true,
-          error: null,
-        },
-      });
-
-      const { result } = renderHook(() => useAiMonitoringWebSocket({}), {
-        wrapper: createWrapper(store),
-      });
-
-      await act(async () => {
-        await result.current.startRealTimeMonitoring();
-      });
-
-      expect(mockSendMessage).toHaveBeenCalledWith(
-        'AiWorkflowMonitoringChannel',
-        'start_real_time_monitoring',
-        {}
-      );
-    });
-
-    it('returns false when not connected', async () => {
-      mockIsConnected = false;
-
-      const store = createTestStore({
-        auth: {
-          user: mockUser,
-          access_token: 'test-token',
-          isLoading: false,
-          isAuthenticated: true,
-          error: null,
-        },
-      });
-
-      const { result } = renderHook(() => useAiMonitoringWebSocket({}), {
-        wrapper: createWrapper(store),
-      });
-
-      let requestResult: boolean | undefined;
-      await act(async () => {
-        requestResult = await result.current.startRealTimeMonitoring();
-      });
-
-      expect(requestResult).toBe(false);
-    });
-  });
-
-  describe('stopRealTimeMonitoring', () => {
-    it('sends stop_real_time_monitoring message when connected', async () => {
-      const store = createTestStore({
-        auth: {
-          user: mockUser,
-          access_token: 'test-token',
-          isLoading: false,
-          isAuthenticated: true,
-          error: null,
-        },
-      });
-
-      const { result } = renderHook(() => useAiMonitoringWebSocket({}), {
-        wrapper: createWrapper(store),
-      });
-
-      await act(async () => {
-        await result.current.stopRealTimeMonitoring();
-      });
-
-      expect(mockSendMessage).toHaveBeenCalledWith(
-        'AiWorkflowMonitoringChannel',
-        'stop_real_time_monitoring',
-        {}
-      );
-    });
-
-    it('returns false when not connected', async () => {
-      mockIsConnected = false;
-
-      const store = createTestStore({
-        auth: {
-          user: mockUser,
-          access_token: 'test-token',
-          isLoading: false,
-          isAuthenticated: true,
-          error: null,
-        },
-      });
-
-      const { result } = renderHook(() => useAiMonitoringWebSocket({}), {
-        wrapper: createWrapper(store),
-      });
-
-      let requestResult: boolean | undefined;
-      await act(async () => {
-        requestResult = await result.current.stopRealTimeMonitoring();
-      });
-
-      expect(requestResult).toBe(false);
-    });
-  });
-
   describe('return values', () => {
     it('returns all expected properties', () => {
       const store = createTestStore({
@@ -657,8 +494,6 @@ describe('useAiMonitoringWebSocket', () => {
       expect(result.current).toHaveProperty('isConnected');
       expect(result.current).toHaveProperty('requestDashboardStats');
       expect(result.current).toHaveProperty('requestActiveExecutions');
-      expect(result.current).toHaveProperty('startRealTimeMonitoring');
-      expect(result.current).toHaveProperty('stopRealTimeMonitoring');
       expect(result.current).toHaveProperty('error');
     });
 

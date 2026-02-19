@@ -10,8 +10,6 @@ type MonitoringEventType =
   | 'active_executions'
   | 'system_alert'
   | 'cost_alert'
-  | 'real_time_mode_enabled'
-  | 'real_time_mode_disabled'
   | 'error';
 
 // Event payload interfaces
@@ -55,7 +53,6 @@ interface AiMonitoringWebSocketOptions {
   onActiveExecutions?: (executions: WorkflowExecution[]) => void;
   onSystemAlert?: (alert: SystemAlert) => void;
   onCostAlert?: (alert: CostAlert) => void;
-  onRealTimeModeChanged?: (enabled: boolean, refreshInterval?: number) => void;
   onError?: (error: string) => void;
 }
 
@@ -64,7 +61,6 @@ export const useAiMonitoringWebSocket = ({
   onActiveExecutions,
   onSystemAlert,
   onCostAlert,
-  onRealTimeModeChanged,
   onError
 }: AiMonitoringWebSocketOptions) => {
   const { isConnected, subscribe, sendMessage, error: connectionError } = useWebSocket();
@@ -76,14 +72,12 @@ export const useAiMonitoringWebSocket = ({
   const onActiveExecutionsRef = useRef(onActiveExecutions);
   const onSystemAlertRef = useRef(onSystemAlert);
   const onCostAlertRef = useRef(onCostAlert);
-  const onRealTimeModeChangedRef = useRef(onRealTimeModeChanged);
   const onErrorRef = useRef(onError);
 
   onDashboardStatsRef.current = onDashboardStats;
   onActiveExecutionsRef.current = onActiveExecutions;
   onSystemAlertRef.current = onSystemAlert;
   onCostAlertRef.current = onCostAlert;
-  onRealTimeModeChangedRef.current = onRealTimeModeChanged;
   onErrorRef.current = onError;
 
   // Type guard for WebSocket message data
@@ -122,14 +116,6 @@ export const useAiMonitoringWebSocket = ({
         if (data.cost_data) {
           onCostAlertRef.current?.(data.cost_data as CostAlert);
         }
-        break;
-
-      case 'real_time_mode_enabled':
-        onRealTimeModeChangedRef.current?.(true, data.refresh_interval as number | undefined);
-        break;
-
-      case 'real_time_mode_disabled':
-        onRealTimeModeChangedRef.current?.(false);
         break;
 
       case 'error':
@@ -183,24 +169,6 @@ export const useAiMonitoringWebSocket = ({
     return sendMessage('AiWorkflowMonitoringChannel', 'get_active_executions', {});
   }, [isConnected, sendMessage]);
 
-  // Start real-time monitoring mode
-  const startRealTimeMonitoring = useCallback(async () => {
-    if (!isConnected) {
-      return false;
-    }
-
-    return sendMessage('AiWorkflowMonitoringChannel', 'start_real_time_monitoring', {});
-  }, [isConnected, sendMessage]);
-
-  // Stop real-time monitoring mode
-  const stopRealTimeMonitoring = useCallback(async () => {
-    if (!isConnected) {
-      return false;
-    }
-
-    return sendMessage('AiWorkflowMonitoringChannel', 'stop_real_time_monitoring', {});
-  }, [isConnected, sendMessage]);
-
   // Auto-subscribe when connected
   useEffect(() => {
     if (isConnected) {
@@ -226,8 +194,6 @@ export const useAiMonitoringWebSocket = ({
     isConnected,
     requestDashboardStats,
     requestActiveExecutions,
-    startRealTimeMonitoring,
-    stopRealTimeMonitoring,
     error: connectionError
   };
 };

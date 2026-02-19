@@ -2,8 +2,6 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useLocation } from 'react-router-dom';
 import {
   AlertTriangle,
-  Pause,
-  Play,
   RefreshCw
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
@@ -88,14 +86,11 @@ export const AIMonitoringPage: React.FC = () => {
   }, [location.pathname, getActiveTab]);
 
   const [timeRange, setTimeRange] = useState('1h');
-  const [isRealTimeEnabled, setIsRealTimeEnabled] = useState(false);
 
   // WebSocket hook for real-time updates
   const {
     isConnected: wsConnected,
     requestDashboardStats,
-    startRealTimeMonitoring,
-    stopRealTimeMonitoring,
     error: wsError
   } = useAiMonitoringWebSocket({
     onDashboardStats: (stats: DashboardStats) => {
@@ -133,9 +128,6 @@ export const AIMonitoringPage: React.FC = () => {
         title: 'System Alert',
         message: alert.message
       });
-    },
-    onRealTimeModeChanged: (enabled: boolean) => {
-      setIsRealTimeEnabled(enabled);
     },
     onError: (errorMessage: string) => {
       addNotificationRef.current({
@@ -396,27 +388,6 @@ export const AIMonitoringPage: React.FC = () => {
     fetchMonitoringData();
   }, [fetchMonitoringData]);
 
-  // Toggle real-time monitoring via WebSocket
-  const toggleRealTimeMonitoring = useCallback(async () => {
-    if (isRealTimeEnabled) {
-      await stopRealTimeMonitoring();
-      setIsRealTimeEnabled(false);
-      addNotification({
-        type: 'info',
-        title: 'Real-time Monitoring Disabled',
-        message: 'Switched to manual refresh mode'
-      });
-    } else {
-      await startRealTimeMonitoring();
-      setIsRealTimeEnabled(true);
-      addNotification({
-        type: 'info',
-        title: 'Real-time Monitoring Enabled',
-        message: 'Now receiving live WebSocket updates'
-      });
-    }
-  }, [isRealTimeEnabled, startRealTimeMonitoring, stopRealTimeMonitoring, addNotification]);
-
   // Refresh all data
   const refreshAllData = useCallback(async () => {
     // Fetch via REST API for full data
@@ -453,29 +424,18 @@ export const AIMonitoringPage: React.FC = () => {
         title="Observability"
         description="Real-time monitoring of AI providers, agents, workflows, and system health"
         breadcrumbs={getMonitoringBreadcrumbs(activeTab)}
-        actions={[
-          {
-          label: isRealTimeEnabled ? 'Disable Real-time' : 'Enable Real-time',
-          onClick: toggleRealTimeMonitoring,
-          icon: isRealTimeEnabled ? Pause : Play,
-          variant: isRealTimeEnabled ? 'outline' : 'primary',
-          disabled: !isConnected
-        },
-        {
+        actions={[{
           label: 'Refresh',
           onClick: refreshAllData,
           icon: RefreshCw,
           variant: 'outline',
           disabled: !isConnected || isLoading
-        }
-      ]}
+        }]}
     >
       <div className="space-y-6">
         {/* Connection Status & Controls */}
         <MonitoringStatusBar
           isConnected={isConnected}
-          isRealTimeEnabled={isRealTimeEnabled}
-          wsConnected={wsConnected}
           systemHealth={systemHealth}
           lastUpdate={lastUpdate}
           timeRange={timeRange}

@@ -11,8 +11,6 @@ import {
 
 interface MonitoringStatusBarProps {
   isConnected: boolean;
-  isRealTimeEnabled: boolean;
-  wsConnected: boolean;
   systemHealth: HealthStatus | null;
   lastUpdate: Date | null;
   timeRange: string;
@@ -21,8 +19,6 @@ interface MonitoringStatusBarProps {
 
 export const MonitoringStatusBar: React.FC<MonitoringStatusBarProps> = ({
   isConnected,
-  isRealTimeEnabled,
-  wsConnected,
   systemHealth,
   lastUpdate,
   timeRange,
@@ -43,7 +39,6 @@ export const MonitoringStatusBar: React.FC<MonitoringStatusBarProps> = ({
           <div className={`h-3 w-3 rounded-full ${getConnectionStatusColor(isConnected)}`} />
           <span className="text-sm font-medium text-theme-primary">
             {isConnected ? 'Connected' : 'Disconnected'}
-            {isRealTimeEnabled && ' (Real-time)'}
           </span>
         </div>
 
@@ -88,11 +83,6 @@ export const MonitoringStatusBar: React.FC<MonitoringStatusBarProps> = ({
           <option value="7d">Last 7 days</option>
         </Select>
 
-        {wsConnected && (
-          <Badge variant={isRealTimeEnabled ? 'success' : 'secondary'} className="ml-2">
-            {isRealTimeEnabled ? 'Live' : 'Manual'}
-          </Badge>
-        )}
       </div>
     </div>
   );
