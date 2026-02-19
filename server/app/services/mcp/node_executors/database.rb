@@ -2,7 +2,7 @@
 
 module Mcp
   module NodeExecutors
-    # Database node executor - executes database operations
+    # Database node executor - dispatches database operations to worker
     #
     # Configuration:
     # - connection_id: Reference to stored database connection
@@ -14,6 +14,8 @@ module Mcp
     # - limit: Result limit
     #
     class Database < Base
+      include Concerns::WorkerDispatch
+
       ALLOWED_OPERATIONS = %w[query insert update delete count exists].freeze
 
       protected
@@ -30,22 +32,20 @@ module Mcp
 
         validate_configuration!(operation, table, query)
 
-        execution_context = {
+        payload = {
           operation: operation,
           table: table,
           query: query,
           data: data,
           where: where_conditions,
           limit: limit,
-          started_at: Time.current
+          connection_id: configuration["connection_id"],
+          node_id: @node.node_id
         }
 
         log_info "Database operation: #{operation} on #{table || 'custom query'}"
 
-        # Execute the operation
-        result = execute_operation(execution_context)
-
-        build_output(execution_context, result)
+        dispatch_to_worker("Mcp::McpDatabaseExecutionJob", payload)
       end
 
       private
@@ -63,12 +63,10 @@ module Mcp
           raise ArgumentError, "table is required for #{operation} operation"
         end
 
-        # Security: Prevent SQL injection by checking for dangerous patterns
         validate_query_safety!(query) if query.present?
       end
 
       def validate_query_safety!(query)
-        # Block dangerous statements in user queries
         dangerous_patterns = [
           /;\s*(DROP|ALTER|TRUNCATE|CREATE|GRANT|REVOKE)/i,
           /--.*$/,
@@ -83,79 +81,6 @@ module Mcp
         end
       end
 
-      def execute_operation(context)
-        # NOTE: This is a simulation. In production, this would:
-        # 1. Retrieve the database connection from connection_id
-        # 2. Execute the actual database operation
-        # 3. Return the results
-
-        case context[:operation]
-        when "query"
-          simulate_query(context)
-        when "insert"
-          simulate_insert(context)
-        when "update"
-          simulate_update(context)
-        when "delete"
-          simulate_delete(context)
-        when "count"
-          simulate_count(context)
-        when "exists"
-          simulate_exists(context)
-        end
-      end
-
-      def simulate_query(context)
-        {
-          rows: [],
-          row_count: 0,
-          columns: [],
-          query_executed: context[:query]
-        }
-      end
-
-      def simulate_insert(context)
-        {
-          inserted_id: SecureRandom.uuid,
-          rows_affected: 1,
-          table: context[:table],
-          data_inserted: context[:data]
-        }
-      end
-
-      def simulate_update(context)
-        {
-          rows_affected: 0,
-          table: context[:table],
-          data_updated: context[:data],
-          conditions: context[:where]
-        }
-      end
-
-      def simulate_delete(context)
-        {
-          rows_affected: 0,
-          table: context[:table],
-          conditions: context[:where]
-        }
-      end
-
-      def simulate_count(context)
-        {
-          count: 0,
-          table: context[:table],
-          conditions: context[:where]
-        }
-      end
-
-      def simulate_exists(context)
-        {
-          exists: false,
-          table: context[:table],
-          conditions: context[:where]
-        }
-      end
-
       def resolve_value(value)
         return nil if value.nil?
 
@@ -165,26 +90,6 @@ module Mcp
         else
           value
         end
-      end
-
-      def build_output(context, result)
-        {
-          output: {
-            operation_executed: true,
-            operation: context[:operation],
-            table: context[:table]
-          },
-          data: result.merge(
-            operation: context[:operation],
-            executed_at: Time.current.iso8601,
-            duration_ms: ((Time.current - context[:started_at]) * 1000).round
-          ),
-          metadata: {
-            node_id: @node.node_id,
-            node_type: "database",
-            executed_at: Time.current.iso8601
-          }
-        }
       end
     end
   end

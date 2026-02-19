@@ -681,8 +681,23 @@ module Mcp
     end
 
     def generate_version_recommendation(v1_runs, v2_runs)
-      # Simple recommendation based on overall metrics
-      "version2" # Placeholder
+      v1_success = calculate_success_rate(v1_runs)
+      v2_success = calculate_success_rate(v2_runs)
+      v1_avg_dur = v1_runs.where(status: "completed").average(:duration_ms)&.to_i || 0
+      v2_avg_dur = v2_runs.where(status: "completed").average(:duration_ms)&.to_i || 0
+      v1_avg_cost = v1_runs.average(:total_cost)&.to_f || 0
+      v2_avg_cost = v2_runs.average(:total_cost)&.to_f || 0
+
+      v1_score = v1_success * 0.5 - (v1_avg_dur / 10_000.0) * 0.3 - (v1_avg_cost * 100) * 0.2
+      v2_score = v2_success * 0.5 - (v2_avg_dur / 10_000.0) * 0.3 - (v2_avg_cost * 100) * 0.2
+
+      if v2_score > v1_score
+        { recommendation: "version2", reason: "Better overall score (success rate: #{v2_success}%, avg duration: #{v2_avg_dur}ms)" }
+      elsif v1_score > v2_score
+        { recommendation: "version1", reason: "Better overall score (success rate: #{v1_success}%, avg duration: #{v1_avg_dur}ms)" }
+      else
+        { recommendation: "either", reason: "Both versions perform similarly" }
+      end
     end
 
     def count_total_executions(workflows, time_range)
@@ -720,8 +735,12 @@ module Mcp
     end
 
     def rank_workflows_by_success(workflows, time_range)
-      # Simplified ranking
-      workflows.limit(5)
+      workflows.left_joins(:workflow_runs)
+               .where("ai_workflow_runs.created_at >= ? OR ai_workflow_runs.id IS NULL", time_range.ago)
+               .group("ai_workflows.id")
+               .having("COUNT(ai_workflow_runs.id) > 0")
+               .order(Arel.sql("CAST(SUM(CASE WHEN ai_workflow_runs.status = 'completed' THEN 1 ELSE 0 END) AS FLOAT) / NULLIF(COUNT(ai_workflow_runs.id), 0) DESC"))
+               .limit(5)
     end
 
     def rank_workflows_by_cost(workflows, time_range)
@@ -741,7 +760,19 @@ module Mcp
     end
 
     def analyze_account_resource_usage(workflows, time_range)
-      { analysis: "Not yet implemented" }
+      runs = Ai::WorkflowRun.joins(:workflow)
+                             .where(ai_workflows: { account_id: account.id })
+                             .where("ai_workflow_runs.created_at >= ?", time_range.ago)
+
+      {
+        total_executions: runs.count,
+        total_cost: runs.sum(:total_cost).to_f.round(4),
+        total_duration_ms: runs.where(status: "completed").sum(:duration_ms),
+        avg_cost_per_run: runs.average(:total_cost)&.to_f&.round(6) || 0,
+        avg_duration_ms: runs.where(status: "completed").average(:duration_ms)&.to_i || 0,
+        workflows_used: runs.distinct.count(:ai_workflow_id),
+        by_status: runs.group(:status).count
+      }
     end
 
     def analyze_account_cost_distribution(workflows, time_range)
@@ -752,7 +783,27 @@ module Mcp
     end
 
     def generate_account_recommendations(workflows, time_range)
-      []
+      recommendations = []
+      runs = Ai::WorkflowRun.joins(:workflow)
+                             .where(ai_workflows: { account_id: account.id })
+                             .where("ai_workflow_runs.created_at >= ?", time_range.ago)
+
+      failure_rate = calculate_failure_rate(runs)
+      if failure_rate > 0.15
+        recommendations << { type: :reliability, priority: :high, message: "Overall failure rate is #{(failure_rate * 100).round(1)}%. Review error handling in frequently failing workflows." }
+      end
+
+      total_cost = runs.sum(:total_cost).to_f
+      if total_cost > 50.0
+        recommendations << { type: :cost, priority: :medium, message: "Spending $#{total_cost.round(2)} in the period. Consider caching or provider optimization." }
+      end
+
+      inactive_count = workflows.where.not(id: runs.select(:ai_workflow_id).distinct).count
+      if inactive_count > 0
+        recommendations << { type: :cleanup, priority: :low, message: "#{inactive_count} workflows have no executions in the period. Consider archiving unused workflows." }
+      end
+
+      recommendations
     end
 
     def severity_score(severity)
@@ -760,13 +811,40 @@ module Mcp
     end
 
     def convert_to_csv(data)
-      # CSV conversion logic
-      data.to_json # Placeholder
+      require "csv"
+      CSV.generate do |csv|
+        overview = data.dig(:analytics, :overview) || {}
+        csv << %w[metric value]
+        overview.each { |key, value| csv << [key.to_s, value.to_s] }
+
+        csv << []
+        csv << %w[trend_date executions success_rate cost]
+        trends = data.dig(:analytics, :trends, :execution_trend) || {}
+        success_trends = data.dig(:analytics, :trends, :success_rate_trend) || {}
+        cost_trends = data.dig(:analytics, :trends, :cost_trend) || {}
+        trends.each do |date, count|
+          csv << [date.to_s, count, success_trends[date], cost_trends[date]]
+        end
+      end
     end
 
     def generate_pdf_report(data)
-      # PDF generation logic
-      data.to_json # Placeholder
+      begin
+        require "prawn"
+        pdf = Prawn::Document.new
+        pdf.text "Workflow Analytics Report", size: 20
+        pdf.text "Generated: #{data[:generated_at]}", size: 10
+        pdf.move_down 20
+
+        overview = data.dig(:analytics, :overview) || {}
+        overview.each do |key, value|
+          pdf.text "#{key.to_s.humanize}: #{value}", size: 12
+        end
+
+        pdf.render
+      rescue LoadError
+        { error: "PDF generation requires prawn gem. Add 'gem \"prawn\"' to Gemfile." }
+      end
     end
 
     def calculate_duration_percentage(duration, all_executions)

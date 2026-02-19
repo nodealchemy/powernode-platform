@@ -233,8 +233,14 @@ module Api
 
         # POST /api/v1/ai/monitoring/stop
         def stop_monitoring
-          render_success(message: "Monitoring stop requested", account_id: current_user.account_id, timestamp: Time.current.iso8601)
-          log_audit_event("ai.monitoring.stop", current_user.account)
+          account = current_user.account
+
+          account.ai_agents.where(monitoring_enabled: true).update_all(monitoring_enabled: false) if account.ai_agents.column_names.include?("monitoring_enabled")
+
+          render_success(message: "Monitoring stopped", account_id: account.id, timestamp: Time.current.iso8601)
+          log_audit_event("ai.monitoring.stop", account)
+        rescue StandardError => e
+          render_internal_error("Failed to stop monitoring", exception: e)
         end
 
         private
