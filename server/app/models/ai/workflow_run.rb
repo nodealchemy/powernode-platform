@@ -85,6 +85,7 @@ module Ai
     after_update :log_status_changes, if: :saved_change_to_status?
     after_update :calculate_duration, if: :saved_change_to_completed_at?
     after_update :copy_variables_to_output, if: -> { saved_change_to_status? && status == "completed" }
+    after_update :cascade_cancellation_to_nodes, if: -> { saved_change_to_status? && status == "cancelled" }
 
     # Accessor methods for data stored in metadata
     def trigger_context
@@ -170,6 +171,14 @@ module Ai
       if runtime_context["variables"].present? && output_variables.empty?
         update_column(:output_variables, runtime_context["variables"])
       end
+    end
+
+    def cascade_cancellation_to_nodes
+      active_nodes = node_executions.where(status: %w[pending running queued waiting_approval])
+      return unless active_nodes.exists?
+
+      count = active_nodes.update_all(status: "cancelled", cancelled_at: Time.current)
+      Rails.logger.info "[AI_WORKFLOW_RUN] Cascade-cancelled #{count} active node(s) for run #{run_id}"
     end
 
     def generate_run_id
