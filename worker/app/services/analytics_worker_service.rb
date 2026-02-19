@@ -265,10 +265,24 @@ class AnalyticsWorkerService < BaseWorkerService
       ltv_cents: ltv_cents,
       arpu_cents: arpu_cents,
       growth_rate: growth_rate,
-      trial_conversions: 0, # Would need trial data to calculate
+      trial_conversions: count_trial_conversions(account_id, date),
       refunds_cents: refunds_cents,
       net_revenue_cents: net_revenue_cents
     }
+  end
+
+  def count_trial_conversions(account_id, date)
+    trial_params = {
+      account_id: account_id,
+      converted_after: date.beginning_of_month.iso8601,
+      converted_before: date.end_of_month.iso8601,
+      status: 'active',
+      was_trial: true
+    }
+    trial_response = api_client.get("/api/v1/subscriptions", trial_params)
+    trial_response[:success] ? trial_response[:data].size : 0
+  rescue StandardError
+    0
   end
 
   def get_previous_snapshot(account_id, date)
@@ -278,52 +292,96 @@ class AnalyticsWorkerService < BaseWorkerService
   end
 
   def calculate_customer_growth(subscriptions, start_date, end_date)
-    # Customer acquisition and growth calculations
+    new_customers = subscriptions.count { |s| Date.parse(s['created_at']) >= start_date }
+    total = subscriptions.count
+    active_at_start = subscriptions.count { |s| Date.parse(s['created_at']) < start_date }
+    growth_rate = active_at_start > 0 ? ((new_customers.to_f / active_at_start) * 100).round(2) : 0.0
+
     {
-      new_customers: subscriptions.count { |s| Date.parse(s['created_at']) >= start_date },
-      total_customers: subscriptions.count,
-      growth_rate: 0.0 # Would need historical data to calculate
+      new_customers: new_customers,
+      total_customers: total,
+      growth_rate: growth_rate
     }
   end
 
   def calculate_revenue_growth(account_id, start_date, end_date)
-    # Revenue growth calculations
-    current_period_revenue = 0 # Would fetch from API
-    previous_period_revenue = 0 # Would fetch from API
-    
+    period_length = (end_date - start_date).to_i
+    previous_start = start_date - period_length.days
+    previous_end = start_date - 1.day
+
+    current_response = api_client.get("/api/v1/payments", {
+      account_id: account_id, start_date: start_date.iso8601,
+      end_date: end_date.iso8601, status: 'succeeded'
+    })
+    current_payments = current_response[:success] ? current_response[:data] : []
+    current_period_revenue = current_payments.sum { |p| p['amount_cents'] || 0 }
+
+    previous_response = api_client.get("/api/v1/payments", {
+      account_id: account_id, start_date: previous_start.iso8601,
+      end_date: previous_end.iso8601, status: 'succeeded'
+    })
+    previous_payments = previous_response[:success] ? previous_response[:data] : []
+    previous_period_revenue = previous_payments.sum { |p| p['amount_cents'] || 0 }
+
+    growth_rate = previous_period_revenue > 0 ?
+      (((current_period_revenue - previous_period_revenue).to_f / previous_period_revenue) * 100).round(2) : 0.0
+
     {
       current_period: current_period_revenue,
       previous_period: previous_period_revenue,
-      growth_rate: 0.0,
+      growth_rate: growth_rate,
       growth_amount: current_period_revenue - previous_period_revenue
     }
   end
 
   def calculate_churn_analysis(subscriptions, start_date, end_date)
-    # Churn analysis calculations
     cancelled = subscriptions.select { |s| s['cancelled_at'] && Date.parse(s['cancelled_at']) >= start_date }
-    
+    active_at_start = subscriptions.count { |s| Date.parse(s['created_at']) < start_date }
+    churn_rate = active_at_start > 0 ? ((cancelled.size.to_f / active_at_start) * 100).round(2) : 0.0
+
     {
       total_churned: cancelled.size,
-      churn_rate: 0.0,
-      reasons: cancelled.group_by { |s| s['cancellation_reason'] }.transform_values(&:size)
+      churn_rate: churn_rate,
+      reasons: cancelled.group_by { |s| s['cancellation_reason'] || 'unspecified' }.transform_values(&:size)
     }
   end
 
   def calculate_cohort_metrics(subscriptions, start_date, end_date)
-    # Cohort analysis would be more complex
-    # This is a simplified version
+    # Group subscriptions by creation month (cohorts)
+    cohorts = subscriptions.group_by { |s| Date.parse(s['created_at']).beginning_of_month.to_s }
+    retention_rates = {}
+
+    cohorts.each do |month, subs|
+      total = subs.size
+      still_active = subs.count { |s| s['cancelled_at'].nil? || Date.parse(s['cancelled_at']) > end_date }
+      retention_rates[month] = total > 0 ? ((still_active.to_f / total) * 100).round(2) : 0.0
+    end
+
     {
-      cohorts: [],
-      retention_rates: {}
+      cohorts: cohorts.map { |month, subs| { month: month, size: subs.size } },
+      retention_rates: retention_rates
     }
   end
 
   def calculate_ltv_analysis(subscriptions, account_id)
-    # Simplified LTV analysis
+    active_subs = subscriptions.select { |s| s['status'] == 'active' }
+    return { average_ltv: 0, ltv_by_plan: {}, ltv_trend: [] } if active_subs.empty?
+
+    # Group by plan and compute average monthly revenue per plan
+    by_plan = active_subs.group_by { |s| s.dig('plan', 'name') || 'unknown' }
+    ltv_by_plan = {}
+
+    by_plan.each do |plan_name, subs|
+      avg_monthly = subs.sum { |s| (s.dig('plan', 'price_cents') || 0) * (s['quantity'] || 1) } / subs.size
+      ltv_by_plan[plan_name] = avg_monthly * 12 # Annualized estimate
+    end
+
+    total_monthly = active_subs.sum { |s| (s.dig('plan', 'price_cents') || 0) * (s['quantity'] || 1) }
+    average_ltv = (total_monthly / active_subs.size) * 12
+
     {
-      average_ltv: 0,
-      ltv_by_plan: {},
+      average_ltv: average_ltv,
+      ltv_by_plan: ltv_by_plan,
       ltv_trend: []
     }
   end

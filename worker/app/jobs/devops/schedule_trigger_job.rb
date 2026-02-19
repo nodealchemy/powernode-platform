@@ -62,8 +62,8 @@ module Devops
       # Update schedule with last run time
       update_schedule(schedule["id"])
 
-      # Queue pipeline execution
-      PipelineExecutionJob.perform_async(pipeline_run_id)
+      # Delegate pipeline execution to server
+      api_client.post("/api/v1/internal/devops/pipeline_runs/#{pipeline_run_id}/execute")
 
       log_info "Pipeline run created", pipeline_run_id: pipeline_run_id, schedule_id: schedule["id"]
     end

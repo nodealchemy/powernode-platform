@@ -90,36 +90,33 @@ class AiExecutionCancellationJob < BaseJob
 
   def cancel_openai_operations
     log_info("Cancelling OpenAI operations for execution #{@execution['id']}")
-    
-    # OpenAI doesn't have a direct cancellation API
-    # We rely on request timeouts and status tracking
-    # Mark any streaming connections as cancelled
-    
+
+    # OpenAI does not have a direct cancellation API for chat completions.
+    # Mark the execution as cancelled so any in-flight streaming connections
+    # are closed on the next read cycle.
     stream_id = @execution['metadata']['openai_stream_id']
     if stream_id.present?
-      # Cancel streaming connection if applicable
       cancel_openai_stream(stream_id)
+    else
+      log_info("No active OpenAI stream to cancel — relying on timeout")
     end
   end
 
   def cancel_anthropic_operations
     log_info("Cancelling Anthropic operations for execution #{@execution['id']}")
-    
-    # Similar to OpenAI, Anthropic doesn't have direct cancellation
-    # We handle this through timeout and status management
-    
+
+    # Anthropic Messages API does not support cancellation.
+    # The execution will be marked as cancelled; any in-flight request
+    # will complete but its result will be discarded.
     message_id = @execution['metadata']['anthropic_message_id']
-    if message_id.present?
-      # Log the cancellation attempt
-      log_info("Attempted to cancel Anthropic message #{message_id}")
-    end
+    log_info("Anthropic cancellation not supported by API — execution will be marked cancelled",
+             message_id: message_id)
   end
 
   def cancel_generic_provider_operations
-    log_info("Cancelling generic provider operations for execution #{@execution['id']}")
-    
-    # Generic cancellation logic for other providers
-    # This can be extended based on provider capabilities
+    provider_name = @execution.dig('ai_agent', 'ai_provider', 'name') || 'unknown'
+    log_info("Provider '#{provider_name}' does not support active cancellation — marking execution as cancelled",
+             execution_id: @execution['id'])
   end
 
   def cancel_ollama_request(request_id)

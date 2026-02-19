@@ -293,11 +293,12 @@ class BillingWorkerService < BaseWorkerService
   end
 
   def calculate_renewal_amount(subscription, plan)
-    base_amount = plan['price_cents'] * subscription['quantity']
-    
-    # Apply any proration or discounts here
-    # For now, return base amount
-    base_amount
+    response = api_client.post('/api/v1/internal/billing/calculate_renewal', {
+      subscription_id: subscription['id'], plan_id: plan['id']
+    })
+    response.dig(:data, 'amount') || (plan['price_cents'] * subscription['quantity'])
+  rescue StandardError
+    plan['price_cents'] * subscription['quantity']
   end
 
   def handle_renewal_failure(subscription_id, error, retry_attempt)
@@ -330,34 +331,63 @@ class BillingWorkerService < BaseWorkerService
     { success: false, error: error, retry_scheduled: retry_attempt < 3 }
   end
 
-  # Gateway-specific methods would be implemented here
   def create_stripe_subscription(subscription_data, payment_method, options)
-    # Stripe subscription creation logic
-    { success: true, stripe_subscription_id: "sub_#{SecureRandom.hex(12)}" }
+    response = api_client.post('/api/v1/internal/billing/create_subscription', {
+      gateway: 'stripe', subscription: subscription_data,
+      payment_method: payment_method, options: options
+    })
+    response[:success] ? response[:data] : { success: false, error: response[:error] }
+  rescue StandardError => e
+    { success: false, error: e.message }
   end
 
   def create_paypal_subscription(subscription_data, payment_method, options)
-    # PayPal subscription creation logic  
-    { success: true, paypal_agreement_id: "I-#{SecureRandom.hex(12).upcase}" }
+    response = api_client.post('/api/v1/internal/billing/create_subscription', {
+      gateway: 'paypal', subscription: subscription_data,
+      payment_method: payment_method, options: options
+    })
+    response[:success] ? response[:data] : { success: false, error: response[:error] }
+  rescue StandardError => e
+    { success: false, error: e.message }
   end
 
   def process_stripe_renewal(subscription, amount, retry_attempt)
-    # Stripe renewal processing logic
-    { success: true, charge_id: "ch_#{SecureRandom.hex(12)}" }
+    response = api_client.post('/api/v1/internal/billing/process_renewal', {
+      gateway: 'stripe', subscription_id: subscription['id'],
+      amount: amount, retry_attempt: retry_attempt
+    })
+    response[:success] ? response[:data] : { success: false, error: response[:error] }
+  rescue StandardError => e
+    { success: false, error: e.message }
   end
 
   def process_paypal_renewal(subscription, amount, retry_attempt)
-    # PayPal renewal processing logic
-    { success: true, transaction_id: "#{SecureRandom.hex(12).upcase}" }
+    response = api_client.post('/api/v1/internal/billing/process_renewal', {
+      gateway: 'paypal', subscription_id: subscription['id'],
+      amount: amount, retry_attempt: retry_attempt
+    })
+    response[:success] ? response[:data] : { success: false, error: response[:error] }
+  rescue StandardError => e
+    { success: false, error: e.message }
   end
 
   def cancel_stripe_subscription(stripe_subscription_id, immediate)
-    # Stripe cancellation logic
-    { success: true }
+    response = api_client.post('/api/v1/internal/billing/cancel_subscription', {
+      gateway: 'stripe', gateway_subscription_id: stripe_subscription_id,
+      immediate: immediate
+    })
+    response[:success] ? { success: true } : { success: false, error: response[:error] }
+  rescue StandardError => e
+    { success: false, error: e.message }
   end
 
   def cancel_paypal_subscription(paypal_agreement_id, reason)
-    # PayPal cancellation logic
-    { success: true }
+    response = api_client.post('/api/v1/internal/billing/cancel_subscription', {
+      gateway: 'paypal', gateway_agreement_id: paypal_agreement_id,
+      reason: reason
+    })
+    response[:success] ? { success: true } : { success: false, error: response[:error] }
+  rescue StandardError => e
+    { success: false, error: e.message }
   end
 end

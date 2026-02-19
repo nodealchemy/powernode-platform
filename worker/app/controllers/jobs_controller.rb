@@ -220,7 +220,7 @@ class JobsController
       'Devops::ApprovalNotificationJob',
       'Devops::ApprovalExpiryJob',
       'Devops::StepExecutionJob',
-      'Devops::PipelineExecutionJob',
+      # Devops::PipelineExecutionJob removed — pipeline execution delegated to server
       'Devops::ProviderSyncJob',
       'Devops::ScheduleTriggerJob',
       'Devops::SecurityScanJob',

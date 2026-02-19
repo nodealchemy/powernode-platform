@@ -70,16 +70,12 @@ class AiCodeFactoryEvidenceJob < BaseJob
   private
 
   def capture_url_evidence(url)
-    # Placeholder for Playwright browser evidence capture
-    # In production, this would launch a headless browser, navigate to the URL,
-    # capture screenshots, console logs, and network traces
     {
       'type' => 'screenshot',
       'url' => url,
-      'sha256' => Digest::SHA256.hexdigest("#{url}:#{Time.current.to_i}"),
-      'size_bytes' => 0,
-      'captured_at' => Time.current.iso8601,
-      'status' => 'placeholder'
+      'status' => 'not_available',
+      'reason' => 'Browser evidence capture requires Playwright setup',
+      'captured_at' => Time.current.iso8601
     }
   rescue StandardError => e
     log_warn("Evidence capture failed for URL", url: url, error: e.message)
@@ -91,9 +87,8 @@ class AiCodeFactoryEvidenceJob < BaseJob
       'type' => config['type'] || 'element_exists',
       'selector' => config['selector'],
       'expected' => config['expected'],
-      'actual' => nil,
-      'passed' => nil,
-      'status' => 'pending'
+      'status' => 'skipped',
+      'reason' => 'Assertion evaluation requires browser runtime'
     }
   end
 

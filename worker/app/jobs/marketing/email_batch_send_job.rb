@@ -48,8 +48,10 @@ module Marketing
     private
 
     def send_email(campaign_id, recipient_id)
-      # Email sending stub - would integrate with email provider (SendGrid, SES, etc.)
-      log_info("Sending email", campaign_id: campaign_id, recipient_id: recipient_id)
+      api_client.post('/api/v1/internal/notifications/send', {
+        template: 'marketing_campaign', user_id: recipient_id,
+        data: { campaign_id: campaign_id }
+      })
     end
   end
 end

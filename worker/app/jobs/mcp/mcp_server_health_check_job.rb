@@ -153,8 +153,20 @@ module Mcp
     end
 
     def ping_websocket_server(server)
-      # WebSocket ping would be implemented here
-      { healthy: true }
+      require 'net/http'
+
+      begin
+        uri = URI.parse(server[:url].sub('ws://', 'http://').sub('wss://', 'https://'))
+        http = Net::HTTP.new(uri.host, uri.port)
+        http.use_ssl = uri.scheme == 'https'
+        http.read_timeout = 5
+        http.open_timeout = 5
+
+        response = Net::HTTP.get_response(uri)
+        { healthy: response.code.to_i < 500 }
+      rescue StandardError => e
+        { healthy: false, error: e.message }
+      end
     end
 
     def ping_http_server(server)

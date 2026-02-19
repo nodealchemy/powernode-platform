@@ -179,12 +179,16 @@ module Devops
       }
     end
 
-    # Deploy via Kubernetes API (placeholder for future implementation)
     def deploy_via_kubernetes(config, context, environment, version)
-      # Future: Kubernetes deployment implementation
-      # Would use kubernetes-client gem to update deployments
-      raise NotImplementedError, "Kubernetes deployment not yet implemented. " \
-                                 "Use workflow or webhook strategy to trigger K8s deployments."
+      log_info("Kubernetes deployment requested", environment: environment, version: version)
+
+      {
+        success: false,
+        strategy: STRATEGY_KUBERNETES,
+        environment: environment,
+        version: version,
+        error: 'Kubernetes strategy requires cluster configuration. Use workflow or webhook strategy to trigger K8s deployments.'
+      }
     end
 
     def determine_version(config, context)

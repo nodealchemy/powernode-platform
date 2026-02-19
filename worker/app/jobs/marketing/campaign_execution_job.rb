@@ -30,12 +30,26 @@ module Marketing
 
     def dispatch_email(campaign)
       log_info("Dispatching email campaign", campaign_id: campaign["id"])
-      # Would enqueue EmailBatchSendJob for each batch
+      recipients = api_client.get("/api/v1/internal/marketing/campaigns/#{campaign['id']}/recipients")
+      recipient_list = recipients.dig("data", "recipients") || []
+
+      recipient_list.each_slice(100).with_index do |batch, index|
+        Marketing::EmailBatchSendJob.perform_async(
+          campaign['id'], index + 1, batch.map { |r| r['id'] }
+        )
+      end
     end
 
     def dispatch_social(campaign)
       log_info("Dispatching social campaign", campaign_id: campaign["id"])
-      # Would enqueue SocialMediaPostJob for each platform
+      contents = api_client.get("/api/v1/marketing/campaigns/#{campaign['id']}/contents")
+      (contents.dig("data", "contents") || []).each do |content|
+        next unless content['social_account_id']
+
+        Marketing::SocialMediaPostJob.perform_async(
+          campaign['id'], content['social_account_id'], content['id']
+        )
+      end
     end
 
     def dispatch_multi_channel(campaign)
@@ -44,9 +58,8 @@ module Marketing
       dispatch_email(campaign) if channels.include?("email")
 
       social_channels = channels & %w[twitter linkedin facebook instagram]
-      social_channels.each do |channel|
-        log_info("Dispatching social post", campaign_id: campaign["id"], channel: channel)
-        # Would enqueue SocialMediaPostJob per channel
+      if social_channels.any?
+        dispatch_social(campaign)
       end
     end
   end

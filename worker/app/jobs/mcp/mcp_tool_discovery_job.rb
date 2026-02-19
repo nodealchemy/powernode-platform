@@ -129,8 +129,7 @@ module Mcp
     end
 
     def discover_websocket_tools(server)
-      # WebSocket tool discovery would be implemented here
-      { success: true, tools: [] }
+      { success: false, tools: [], error: 'WebSocket transport not yet supported for tool discovery' }
     end
 
     def discover_http_tools(server)

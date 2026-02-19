@@ -43,14 +43,27 @@ class AiCodeFactoryRunJob < BaseJob
       pr_number: pr_number, risk_tier: risk_tier, review_state_id: review_state_id
     })
 
-    # Step 2: REVIEW - AI code review would be triggered here
-    # In production, this would invoke CodeReviewAgent via the server API
+    # Step 2: REVIEW - Trigger AI code review via server
     log_info("Code review phase", review_state_id: review_state_id)
     broadcast_status(account_id, 'review_started', { pr_number: pr_number })
 
-    # Step 3: REMEDIATION - Check for findings and remediate
-    # Would dispatch AiCodeFactoryRemediationJob if findings exist
-    log_info("Checking for remediation needs")
+    review_result = backend_api_post("/api/v1/internal/ai/code_reviews", {
+      pr_number: pr_number, repository_id: repository_id,
+      review_state_id: review_state_id, head_sha: head_sha
+    })
+
+    # Step 3: REMEDIATION - If findings, dispatch remediation job
+    if review_result['success'] && review_result.dig('data', 'findings')&.any?
+      log_info("Findings detected, dispatching remediation", findings_count: review_result.dig('data', 'findings').size)
+      AiCodeFactoryRemediationJob.perform_async({
+        'review_state_id' => review_state_id,
+        'findings' => review_result.dig('data', 'findings'),
+        'account_id' => account_id,
+        'pr_number' => pr_number
+      })
+    else
+      log_info("No remediation needed")
+    end
 
     # Step 4: EVIDENCE - Capture if required
     if evidence_required

@@ -42,15 +42,40 @@ module Devops
 
         logs << log_info("Executing action", action: action)
 
-        # For now, we'll skip actual action execution
-        # This would require implementing action runners for various action types
-        logs << log_warn("Action execution not fully implemented", action: action)
+        # Attempt resolution via configured runners
+        runner_config = context.dig(:pipeline_run, :pipeline, :runner_config)
+        if runner_config && runner_config['enabled']
+          logs << log_info("Dispatching action to runner", action: action, runner: runner_config['type'])
+          begin
+            response = api_client.post("/api/v1/internal/devops/runners/dispatch", {
+              action: action,
+              inputs: inputs,
+              runner_config: runner_config,
+              context: { run_id: context.dig(:pipeline_run, :id) }
+            })
+
+            if response.dig("data", "dispatched")
+              return {
+                outputs: {
+                  action: action,
+                  dispatched: true,
+                  runner_job_id: response.dig("data", "job_id")
+                },
+                logs: logs.join("\n")
+              }
+            end
+          rescue StandardError => e
+            logs << log_warn("Runner dispatch failed", error: e.message)
+          end
+        end
+
+        logs << log_warn("No runner configured for action", action: action)
 
         {
           outputs: {
             action: action,
             skipped: true,
-            reason: "Action execution not yet implemented"
+            reason: "No runner configured for action '#{action}'. Configure a runner in pipeline settings."
           },
           logs: logs.join("\n")
         }

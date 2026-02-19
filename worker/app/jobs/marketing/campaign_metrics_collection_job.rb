@@ -31,16 +31,17 @@ module Marketing
     def collect_metrics_for(campaign)
       log_info("Collecting metrics", campaign_id: campaign["id"], type: campaign["campaign_type"])
 
-      # In production, this would:
-      # 1. Query email provider APIs for delivery/open/click stats
-      # 2. Query social media APIs for engagement metrics
-      # 3. Aggregate and post back to server
+      # Fetch current statistics from server (aggregates from provider webhooks)
+      metrics = with_api_retry do
+        api_client.get("/api/v1/marketing/campaigns/#{campaign['id']}/statistics")
+      end
 
-      # Stub: report metrics back to server
+      # Post aggregated metrics snapshot
       with_api_retry do
         api_client.post("/api/v1/internal/marketing/metrics", {
           campaign_id: campaign["id"],
           channel: campaign["campaign_type"],
+          metrics: metrics.dig("data", "statistics") || {},
           metric_date: Date.current.to_s,
           collected_at: Time.current.iso8601
         })

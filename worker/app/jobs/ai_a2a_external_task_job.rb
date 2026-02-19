@@ -179,9 +179,81 @@ class AiA2aExternalTaskJob < BaseJob
   end
 
   def execute_streaming_request(endpoint_url, headers, request_body, start_time)
-    # For streaming, we use SSE and accumulate results
-    # This is a simplified implementation - full SSE would require async handling
-    execute_standard_request(endpoint_url, headers, request_body, start_time)
+    timeout = @task.dig('metadata', 'timeout') || DEFAULT_TIMEOUT
+
+    begin
+      uri = URI(endpoint_url)
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = uri.scheme == 'https'
+      http.read_timeout = timeout
+      http.open_timeout = 30
+
+      request = Net::HTTP::Post.new(uri)
+      headers.each { |k, v| request[k] = v }
+      request['Accept'] = 'text/event-stream'
+      request.body = request_body.to_json
+
+      accumulated_content = ""
+      final_data = nil
+
+      http.request(request) do |response|
+        if response.code.to_i >= 200 && response.code.to_i < 300
+          response.read_body do |chunk|
+            chunk.split("\n").each do |line|
+              next if line.strip.empty?
+              next unless line.start_with?('data: ')
+
+              json_str = line.sub('data: ', '')
+              next if json_str == '[DONE]'
+
+              begin
+                event_data = JSON.parse(json_str)
+                if event_data['status']&.dig('state') == 'completed'
+                  final_data = event_data
+                elsif event_data.dig('message', 'parts')
+                  text = event_data['message']['parts']
+                    .select { |p| p['type'] == 'text' }
+                    .map { |p| p['text'] }
+                    .join
+                  accumulated_content += text
+                end
+              rescue JSON::ParserError
+                next
+              end
+            end
+          end
+        else
+          return parse_a2a_error(response.body, response.code, ((Time.current - start_time) * 1000).to_i)
+        end
+      end
+
+      duration_ms = ((Time.current - start_time) * 1000).to_i
+
+      if final_data
+        parse_a2a_response(final_data.to_json, duration_ms)
+      else
+        {
+          success: true,
+          output: { 'content' => accumulated_content },
+          duration_ms: duration_ms
+        }
+      end
+
+    rescue Net::ReadTimeout, Net::OpenTimeout, Timeout::Error => e
+      {
+        success: false,
+        error: "Streaming timeout: #{e.message}",
+        error_code: 'TIMEOUT',
+        duration_ms: ((Time.current - start_time) * 1000).to_i
+      }
+    rescue StandardError => e
+      {
+        success: false,
+        error: "Streaming connection failed: #{e.message}",
+        error_code: 'CONNECTION_ERROR',
+        duration_ms: ((Time.current - start_time) * 1000).to_i
+      }
+    end
   end
 
   def parse_a2a_response(body, duration_ms)
@@ -318,11 +390,15 @@ class AiA2aExternalTaskJob < BaseJob
   end
 
   def schedule_poll_job(external_task_id)
-    # Schedule a polling job to check on the external task status
-    # This would be a separate job that polls the external endpoint
-    log_info("External task requires polling",
+    log_info("Scheduling poll for external task",
       task_id: @task['task_id'],
       external_task_id: external_task_id
+    )
+
+    # Re-enqueue this job with a delay to poll the external task
+    AiA2aExternalTaskJob.perform_in(
+      15, # Poll after 15 seconds
+      @task['id']
     )
   end
 end

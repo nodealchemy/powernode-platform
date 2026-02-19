@@ -148,8 +148,8 @@ module Devops
 
       pipeline_run_id = response.dig("data", "pipeline_run", "id")
 
-      # Queue pipeline execution
-      PipelineExecutionJob.perform_async(pipeline_run_id)
+      # Delegate pipeline execution to server
+      api_client.post("/api/v1/internal/devops/pipeline_runs/#{pipeline_run_id}/execute")
 
       pipeline_run_id
     end

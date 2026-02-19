@@ -74,15 +74,34 @@ class AiContainerAgentJob < BaseJob
   end
 
   def deploy_to_swarm(execution_id:, service_spec:, cluster_data:)
-    # Mark as running
-    update_container_status(execution_id, "running")
+    update_container_status(execution_id, "deploying")
+    api_endpoint = cluster_data['api_endpoint']
 
-    # The actual Docker Swarm API call would go through the cluster's API endpoint
-    # For now, we record the deployment intent and let the infrastructure handle it
-    log_info("[ContainerAgent] Service spec prepared for Swarm deployment",
-             execution_id: execution_id,
-             service_name: service_spec["Name"],
-             image: service_spec.dig("TaskTemplate", "ContainerSpec", "Image"))
+    require 'net/http'
+
+    uri = URI("#{api_endpoint}/services/create")
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = uri.scheme == 'https'
+    http.read_timeout = 30
+    http.open_timeout = 10
+
+    request = Net::HTTP::Post.new(uri)
+    request['Content-Type'] = 'application/json'
+    request.body = service_spec.to_json
+
+    response = http.request(request)
+
+    if response.code.to_i.between?(200, 299)
+      update_container_status(execution_id, "running")
+      parsed = JSON.parse(response.body) rescue {}
+      log_info("[ContainerAgent] Swarm service created",
+               execution_id: execution_id, service_id: parsed['ID'])
+      { service_id: parsed['ID'] }
+    else
+      update_container_status(execution_id, "failed",
+                              error: "Swarm deploy failed: HTTP #{response.code}")
+      raise "Swarm deploy failed: #{response.body}"
+    end
   rescue StandardError => e
     log_error("[ContainerAgent] Swarm deployment failed", e,
               execution_id: execution_id)

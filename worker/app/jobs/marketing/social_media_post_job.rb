@@ -19,22 +19,19 @@ module Marketing
 
       content = content_data["data"]["content"]
 
-      # Post via adapter (stub - actual posting handled server-side via adapter factory)
-      log_info("Social media post dispatched",
-               campaign_id: campaign_id,
-               channel: content["channel"],
-               social_account_id: social_account_id)
-
-      # Report result back to server
-      with_api_retry do
-        api_client.post("/api/v1/internal/marketing/post_result", {
-          campaign_id: campaign_id,
-          social_account_id: social_account_id,
-          content_id: content_id,
-          status: "posted",
-          posted_at: Time.current.iso8601
+      # Publish via server-side adapter
+      result = with_api_retry do
+        api_client.post("/api/v1/internal/marketing/campaigns/#{campaign_id}/publish", {
+          channel: content['channel'], social_account_id: social_account_id,
+          content_id: content_id
         })
       end
+
+      log_info("Social media post published",
+               campaign_id: campaign_id,
+               channel: content["channel"],
+               social_account_id: social_account_id,
+               success: result["success"])
     end
   end
 end
