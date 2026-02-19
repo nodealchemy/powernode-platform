@@ -67,10 +67,10 @@ export function ResourceListPanel({
     <div className="flex flex-wrap gap-1 px-3 py-2 border-b border-theme">
       <button
         onClick={() => onFilterChange({ type: undefined })}
-        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+        className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
           !filters.type
-            ? 'bg-theme-interactive-primary text-white'
-            : 'bg-theme-surface text-theme-secondary hover:bg-theme-surface-hover'
+            ? 'bg-theme-interactive-primary/10 text-theme-accent'
+            : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
         }`}
       >
         All ({counts.total || 0})
@@ -84,10 +84,10 @@ export function ResourceListPanel({
           <button
             key={type}
             onClick={() => onFilterChange({ type: filters.type === type ? undefined : type })}
-            className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+            className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
               filters.type === type
-                ? 'bg-theme-interactive-primary text-white'
-                : 'bg-theme-surface text-theme-secondary hover:bg-theme-surface-hover'
+                ? 'bg-theme-interactive-primary/10 text-theme-accent'
+                : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
             }`}
           >
             <Icon className="w-3 h-3" />

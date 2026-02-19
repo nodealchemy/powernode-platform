@@ -100,10 +100,10 @@ export const ParallelSessionListPanel: React.FC<ParallelSessionListPanelProps> =
             <button
               key={tab.key}
               onClick={() => { setActiveTab(tab.key); setFocusIndex(-1); }}
-              className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors ${
+              className={`flex-1 px-2 py-1 text-xs font-medium rounded transition-colors ${
                 activeTab === tab.key
-                  ? 'bg-theme-interactive-primary text-white'
-                  : 'text-theme-secondary hover:bg-theme-surface-hover'
+                  ? 'bg-theme-interactive-primary/10 text-theme-accent'
+                  : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
               }`}
             >
               {tab.label}
