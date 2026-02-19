@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useRef } from 'react';
+import { logger } from '@/shared/utils/logger';
 
 export interface AISystemEvent {
   type: 'agent_executed' | 'workflow_completed' | 'workflow_failed' | 'provider_health_changed' | 'conversation_started' | 'conversation_ended';
@@ -110,7 +111,7 @@ class AIOrchestrationMonitor {
           const data = JSON.parse(event.data);
           this.handleMessage(data);
         } catch (err) {
-          console.error('[AIOrchestrationMonitor] Error parsing WebSocket message:', err);
+          logger.error('[AIOrchestrationMonitor] Error parsing WebSocket message:', err);
         }
       };
 
@@ -128,7 +129,7 @@ class AIOrchestrationMonitor {
       };
 
     } catch (err) {
-      console.error('[AIOrchestrationMonitor] Connection error:', err);
+      logger.error('[AIOrchestrationMonitor] Connection error:', err);
       this.scheduleReconnect();
     }
   }
@@ -192,7 +193,7 @@ class AIOrchestrationMonitor {
       try {
         handler(event);
       } catch (err) {
-        console.error('[AIOrchestrationMonitor] Error in event handler:', err);
+        logger.error('[AIOrchestrationMonitor] Error in event handler:', err);
       }
     });
   }
@@ -202,7 +203,7 @@ class AIOrchestrationMonitor {
       try {
         handler(metrics);
       } catch (err) {
-        console.error('[AIOrchestrationMonitor] Error in metrics handler:', err);
+        logger.error('[AIOrchestrationMonitor] Error in metrics handler:', err);
       }
     });
   }

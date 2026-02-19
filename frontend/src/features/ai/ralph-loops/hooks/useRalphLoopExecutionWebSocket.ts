@@ -1,5 +1,6 @@
 // WebSocket hook for real-time Ralph Loop execution monitoring
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { logger } from '@/shared/utils/logger';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
 
 // Ralph Loop event types
@@ -115,9 +116,7 @@ export const useRalphLoopExecutionWebSocket = (
 
   // Handle errors
   const handleError = useCallback((errorMessage: string) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('[RalphLoopExecutionWebSocket] Error:', errorMessage);
-    }
+    logger.warn(`[RalphLoopExecutionWebSocket] Error: ${errorMessage}`);
   }, []);
 
   // Subscribe to Ralph Loop events

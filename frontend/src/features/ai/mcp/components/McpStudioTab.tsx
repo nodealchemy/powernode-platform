@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { RefreshCw, AlertCircle } from 'lucide-react';
 import { McpFlowCanvas } from './McpFlowCanvas';
 import { McpToolLog, type ToolLogEntry } from './McpToolLog';
@@ -10,19 +10,8 @@ export const McpStudioTab: React.FC = () => {
   const { agents, servers, tools, connections, isLoading, error, refetch } = useMcpTopology();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
-  // Build a synthetic tool log from the topology data
-  // In production this would come from a real-time execution feed
-  const toolLogEntries: ToolLogEntry[] = useMemo(() => {
-    // Generate entries from tools as placeholder log
-    return tools.slice(0, 20).map((tool, i) => ({
-      id: `log-${tool.id}-${i}`,
-      timestamp: new Date(Date.now() - i * 60000).toISOString(),
-      serverName: tool.serverName,
-      toolName: tool.name,
-      status: 'completed' as const,
-      durationMs: Math.floor(Math.random() * 500) + 50,
-    }));
-  }, [tools]);
+  // Tool log entries — populated by real-time execution feed when available
+  const toolLogEntries: ToolLogEntry[] = [];
 
   if (isLoading) {
     return (

@@ -5,6 +5,7 @@ import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import { workflowsApi } from '@/shared/services/ai';
 import { AiWorkflow, AIOrchestrationMessage } from '@/shared/types/workflow';
 import { getErrorMessage } from '@/shared/utils/typeGuards';
+import { logger } from '@/shared/utils/logger';
 import { useWorkflowDetail } from '../hooks/useWorkflowDetail';
 import { useWorkflowRuns } from '../hooks/useWorkflowRuns';
 import { parseInputToParameters } from './workflow-detail';
@@ -148,7 +149,7 @@ export function useWorkflowDetailModal(workflowId: string, isOpen: boolean, init
         message: 'Workflow has been updated successfully.'
       });
     } catch (err) {
-      console.error('[WorkflowDetailModal] Failed to update workflow:', err);
+      logger.error('[WorkflowDetailModal] Failed to update workflow:', err);
       addNotification({
         type: 'error',
         title: 'Update Failed',

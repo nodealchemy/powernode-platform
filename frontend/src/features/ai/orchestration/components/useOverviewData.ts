@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { agentsApi, providersApi } from '@/shared/services/ai';
+import { agentsApi, providersApi, conversationsApi } from '@/shared/services/ai';
 import { workflowsApi } from '@/shared/services/ai';
 import { useAIOrchestrationMonitor, resetAIOrchestrationMonitor } from '../services/aiOrchestrationMonitor';
 import type { AISystemMetrics } from '../services/aiOrchestrationMonitor';
@@ -60,10 +60,10 @@ interface WorkflowItem {
 
 interface ConversationItem {
   id: string;
-  title: string;
-  status: 'active' | 'completed' | 'archived';
+  title: string | null;
+  status: 'active' | 'paused' | 'completed' | 'archived';
   created_at: string;
-  messages_count: number;
+  message_count: number;
 }
 
 interface ApiListResponse<T> {
@@ -165,12 +165,6 @@ export function useOverviewData() {
       let providers: ProviderItem[] = [];
       if (providersRes.status === 'fulfilled') {
         providers = extractItems(providersRes.value as ApiListResponse<ProviderItem>, 'providers');
-      } else {
-        providers = [
-          { id: '1', name: 'OpenAI', is_active: true, health_status: 'healthy' },
-          { id: '2', name: 'Anthropic', is_active: true, health_status: 'healthy' },
-          { id: '3', name: 'Ollama', is_active: false, health_status: 'degraded' },
-        ];
       }
       const activeProviders = providers.filter((p) => p.is_active);
       const healthyProviders = providers.filter((p) => p.health_status === 'healthy');
@@ -182,13 +176,6 @@ export function useOverviewData() {
       let agents: AgentItem[] = [];
       if (agentsRes.status === 'fulfilled') {
         agents = extractItems(agentsRes.value as ApiListResponse<AgentItem>, 'agents');
-      } else {
-        agents = [
-          { id: '1', name: 'Content Creator', status: 'active', type: 'text-generation', success_rate: 96, execution_count: 245 },
-          { id: '2', name: 'Data Analyzer', status: 'active', type: 'data-analysis', success_rate: 94, execution_count: 180 },
-          { id: '3', name: 'Code Assistant', status: 'inactive', type: 'code-generation', success_rate: 89, execution_count: 120 },
-          { id: '4', name: 'Customer Support', status: 'active', type: 'conversation', success_rate: 98, execution_count: 340 },
-        ];
       }
       const activeAgents = agents.filter((a) => a.status === 'active');
       const agentSuccessRate = agents.length > 0
@@ -199,38 +186,30 @@ export function useOverviewData() {
       let workflows: WorkflowItem[] = [];
       if (workflowsRes.status === 'fulfilled') {
         workflows = extractItems(workflowsRes.value as ApiListResponse<WorkflowItem>, 'workflows');
-      } else {
-        workflows = [
-          { id: '1', name: 'Customer Support Flow', status: 'published', last_run: new Date().toISOString() },
-          { id: '2', name: 'Content Moderation', status: 'published', last_run: new Date(Date.now() - 1800000).toISOString() },
-          { id: '3', name: 'Lead Generation', status: 'draft', last_run: new Date(Date.now() - 7200000).toISOString() },
-          { id: '4', name: 'Data Processing', status: 'published', last_run: new Date(Date.now() - 3600000).toISOString() },
-        ];
       }
       const activeWorkflows = workflows.filter((w) => w.status === 'active' || w.status === 'published');
-      const executingWorkflows = Math.floor(activeWorkflows.length * 0.1);
 
-      // Mock conversations
-      const conversations: ConversationItem[] = [
-        { id: '1', title: 'Customer Support Chat', status: 'active', created_at: new Date().toISOString(), messages_count: 15 },
-        { id: '2', title: 'Product Inquiry', status: 'completed', created_at: new Date(Date.now() - 1800000).toISOString(), messages_count: 8 },
-        { id: '3', title: 'Technical Support', status: 'active', created_at: new Date(Date.now() - 3600000).toISOString(), messages_count: 23 },
-        { id: '4', title: 'Billing Question', status: 'completed', created_at: new Date(Date.now() - 7200000).toISOString(), messages_count: 5 },
-        { id: '5', title: 'Feature Request', status: 'active', created_at: new Date(Date.now() - 900000).toISOString(), messages_count: 12 },
-      ];
+      // Fetch real conversations
+      let conversations: ConversationItem[] = [];
+      try {
+        const convRes = await conversationsApi.getConversations({ per_page: 100 });
+        conversations = (convRes?.items || []) as ConversationItem[];
+      } catch {
+        // Conversations API unavailable — use empty array
+      }
       const activeConversations = conversations.filter((c) => c.status === 'active');
       const todayConversations = conversations.filter((c) => new Date(c.created_at).toDateString() === new Date().toDateString());
 
       const totalExecutionsMonth = agents.reduce((acc, agent) => acc + (agent.execution_count || 0), 0);
-      const totalExecutionsToday = Math.floor(totalExecutionsMonth * 0.05);
-      const overallSuccessRate = (agentSuccessRate + (workflows.length > 0 ? 92 : 0)) / 2;
+      const workflowSuccessRate = workflows.length > 0 ? agentSuccessRate : 0;
+      const overallSuccessRate = agents.length > 0 ? (agentSuccessRate + workflowSuccessRate) / (workflows.length > 0 ? 2 : 1) : 0;
 
       setStats({
         providers: { total: providers.length, active: activeProviders.length, health_status: providerHealthStatus },
-        agents: { total: agents.length, active: activeAgents.length, executing: Math.floor(activeAgents.length * 0.15), success_rate: Math.round(agentSuccessRate) },
-        workflows: { total: workflows.length, active: activeWorkflows.length, executing: executingWorkflows, success_rate: 92 },
+        agents: { total: agents.length, active: activeAgents.length, executing: 0, success_rate: Math.round(agentSuccessRate) },
+        workflows: { total: workflows.length, active: activeWorkflows.length, executing: 0, success_rate: Math.round(workflowSuccessRate) },
         conversations: { total: conversations.length, active: activeConversations.length, today: todayConversations.length },
-        executions: { total_month: totalExecutionsMonth, total_today: totalExecutionsToday, success_rate: Math.round(overallSuccessRate), avg_response_time: Math.floor(Math.random() * 1000) + 500 },
+        executions: { total_month: totalExecutionsMonth, total_today: 0, success_rate: Math.round(overallSuccessRate), avg_response_time: 0 },
       });
     } catch (err) {
       let errorMessage = 'Failed to load AI system data';

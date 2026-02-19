@@ -43,7 +43,7 @@ export const CreateProviderModal: React.FC<CreateProviderModalProps> = ({
         slug: formData.slug,
         description: formData.description,
         api_base_url: formData.api_base_url || undefined,
-        api_endpoint: formData.api_base_url || 'https://api.example.com/v1',
+        api_endpoint: formData.api_base_url || undefined,
         capabilities: formData.capabilities,
         documentation_url: formData.documentation_url || undefined,
         status_url: formData.status_url || undefined,
@@ -198,13 +198,14 @@ export const CreateProviderModal: React.FC<CreateProviderModalProps> = ({
 
         <div>
           <label className="block text-sm font-medium text-theme-secondary mb-1">
-            API Base URL
+            API Base URL *
           </label>
           <Input
             value={formData.api_base_url}
             onChange={(e) => handleInputChange('api_base_url', e.target.value)}
             placeholder="https://api.provider.com/v1"
             type="url"
+            required
           />
         </div>
 
@@ -266,7 +267,7 @@ export const CreateProviderModal: React.FC<CreateProviderModalProps> = ({
           </Button>
           <Button
             type="submit"
-            disabled={loading || !formData.name || !formData.slug}
+            disabled={loading || !formData.name || !formData.slug || !formData.api_base_url}
             className="flex items-center gap-2"
           >
             <Plus className="h-4 w-4" />

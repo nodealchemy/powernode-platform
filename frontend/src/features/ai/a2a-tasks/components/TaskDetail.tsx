@@ -18,6 +18,7 @@ import { Input } from '@/shared/components/ui/Input';
 import { Loading } from '@/shared/components/ui/Loading';
 import { a2aTasksApiService } from '@/shared/services/ai';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { logger } from '@/shared/utils/logger';
 import { cn } from '@/shared/utils/cn';
 import { formatDateTime } from '@/shared/utils/formatters';
 import type { A2aTaskJson, A2aArtifact } from '@/shared/services/ai/types/a2a-types';
@@ -108,7 +109,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
       addNotification({ type: 'success', title: 'Cancelled', message: 'Task has been cancelled' });
       await loadTask(); // Reload to get updated task state
     } catch (err) {
-      console.error('[TaskDetail] Failed to cancel task:', err);
+      logger.error('[TaskDetail] Failed to cancel task:', err);
       addNotification({ type: 'error', title: 'Error', message: 'Failed to cancel task' });
     } finally {
       setActionLoading(null);
@@ -130,7 +131,7 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
       addNotification({ type: 'success', title: 'Input Sent', message: 'Input provided to task' });
       await loadTask(); // Reload to get updated task state
     } catch (err) {
-      console.error('[TaskDetail] Failed to provide input:', err);
+      logger.error('[TaskDetail] Failed to provide input:', err);
       addNotification({ type: 'error', title: 'Error', message: 'Failed to provide input' });
     } finally {
       setActionLoading(null);

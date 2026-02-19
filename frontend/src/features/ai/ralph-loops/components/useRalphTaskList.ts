@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ralphLoopsApi } from '@/shared/services/ai/RalphLoopsApiService';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
+import { logger } from '@/shared/utils/logger';
 import type {
   RalphTask,
   RalphTaskSummary,
@@ -76,7 +77,7 @@ export function useRalphTaskList({
         const response = await ralphLoopsApi.getTask(loopId, taskId);
         setTaskDetails(prev => ({ ...prev, [taskId]: response.task }));
       } catch (err) {
-        console.error('[RalphTaskList] Failed to load task details:', err);
+        logger.error('[RalphTaskList] Failed to load task details:', err);
       } finally {
         setLoadingDetails(prev => {
           const next = new Set(prev);
@@ -159,7 +160,7 @@ export function useRalphTaskList({
       setConfiguringTask(null);
       loadTasks();
     } catch (err) {
-      console.error('[RalphTaskList] Failed to save task config:', err);
+      logger.error('[RalphTaskList] Failed to save task config:', err);
     } finally {
       setSavingConfig(false);
     }
@@ -173,7 +174,7 @@ export function useRalphTaskList({
         const response = await ralphLoopsApi.getTask(loopId, taskId);
         setTaskDetails(prev => ({ ...prev, [taskId]: response.task }));
       } catch (err) {
-        console.error('[RalphTaskList] Failed to load task details:', err);
+        logger.error('[RalphTaskList] Failed to load task details:', err);
       } finally {
         setLoadingDetails(prev => {
           const next = new Set(prev);

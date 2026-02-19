@@ -5,6 +5,7 @@ import { workflowsApi } from '@/shared/services/ai';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { AiWorkflowRun, AIOrchestrationMessage } from '@/shared/types/workflow';
 import { getErrorMessage } from '@/shared/utils/typeGuards';
+import { logger } from '@/shared/utils/logger';
 
 interface UseWorkflowRunsOptions {
   workflowId: string;
@@ -76,7 +77,7 @@ export const useWorkflowRuns = ({
       });
       setWorkflowRuns(response.items || []);
     } catch (err) {
-      console.error('[useWorkflowRuns] Failed to load runs:', err);
+      logger.error('[useWorkflowRuns] Failed to load runs:', err);
       setRunsError('Failed to load execution history. Please try again.');
     } finally {
       setRunsLoading(false);
