@@ -65,9 +65,9 @@ module Ai
       def recent_devops_events(time_range)
         events = []
 
-        Devops::PipelineRun.where("created_at >= ?", time_range.ago)
+        Devops::PipelineRun.where("devops_pipeline_runs.created_at >= ?", time_range.ago)
                            .joins(:pipeline)
-                           .where(ci_cd_pipelines: { account_id: @account.id })
+                           .where(devops_pipelines: { account_id: @account.id })
                            .each do |run|
           events << {
             type: "pipeline_run",
@@ -137,8 +137,8 @@ module Ai
 
       def pipeline_success_rate
         runs = Devops::PipelineRun.joins(:pipeline)
-                                   .where(ci_cd_pipelines: { account_id: @account.id })
-                                   .where("ci_cd_pipeline_runs.created_at >= ?", 24.hours.ago)
+                                   .where(devops_pipelines: { account_id: @account.id })
+                                   .where("devops_pipeline_runs.created_at >= ?", 24.hours.ago)
         return 100.0 if runs.count.zero?
 
         (runs.where(status: "success").count.to_f / runs.count * 100).round(1)
@@ -161,10 +161,10 @@ module Ai
 
       def recent_deployments
         Devops::PipelineRun.joins(:pipeline)
-                           .where(ci_cd_pipelines: { account_id: @account.id })
+                           .where(devops_pipelines: { account_id: @account.id })
                            .where(trigger_type: %w[push release])
-                           .where("ci_cd_pipeline_runs.created_at >= ?", 24.hours.ago)
-                           .order(created_at: :desc)
+                           .where("devops_pipeline_runs.created_at >= ?", 24.hours.ago)
+                           .order("devops_pipeline_runs.created_at": :desc)
                            .limit(10)
                            .map do |run|
           {
