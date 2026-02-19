@@ -139,8 +139,10 @@ export function useSkillDiscovery() {
 
 export function useSkillRecommendations() {
   return useMutation({
-    mutationFn: async (teamId: string): Promise<SkillRecommendation[]> => {
-      const response = await apiClient.post(`/ai/skill_graph/suggest_agents/${teamId}`);
+    mutationFn: async ({ teamId, taskContext }: { teamId: string; taskContext?: string }): Promise<SkillRecommendation[]> => {
+      const response = await apiClient.post(`/ai/skill_graph/suggest_agents/${teamId}`, {
+        task_context: taskContext || 'Fill uncovered skill gaps for this team',
+      });
       return response.data?.data?.recommendations || response.data?.recommendations || [];
     },
   });

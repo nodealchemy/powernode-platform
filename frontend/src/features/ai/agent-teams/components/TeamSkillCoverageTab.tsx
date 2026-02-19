@@ -35,7 +35,7 @@ export const TeamSkillCoverageTab: React.FC<TeamSkillCoverageTabProps> = ({ team
   const [recommendations, setRecommendations] = useState<SkillRecommendation[]>([]);
 
   const handleSuggest = () => {
-    recommendMutation.mutate(teamId, {
+    recommendMutation.mutate({ teamId }, {
       onSuccess: (data) => setRecommendations(data),
     });
   };
@@ -113,7 +113,7 @@ export const TeamSkillCoverageTab: React.FC<TeamSkillCoverageTabProps> = ({ team
       </Card>
 
       {/* Agent-to-Skill Matrix */}
-      {coverage.agent_skill_mapping.length > 0 && (
+      {coverage.agent_skill_mapping?.length > 0 && (
         <Card className="p-4">
           <h4 className="text-sm font-semibold text-theme-primary mb-3 flex items-center gap-2">
             <Users size={16} />
@@ -146,16 +146,16 @@ export const TeamSkillCoverageTab: React.FC<TeamSkillCoverageTabProps> = ({ team
       )}
 
       {/* Skill Gaps */}
-      {coverage.uncovered_skills.length > 0 && (
+      {coverage.uncovered_skills?.length > 0 && (
         <Card className="p-4">
           <h4 className="text-sm font-semibold text-theme-primary mb-3 flex items-center gap-2">
             <AlertTriangle size={16} className="text-theme-warning" />
             Skill Gaps ({coverage.uncovered_skills.length})
           </h4>
           <div className="space-y-1">
-            {coverage.uncovered_skills.map(skill => (
+            {coverage.uncovered_skills.map((skill, idx) => (
               <div
-                key={skill.id}
+                key={skill.id || skill.name || idx}
                 className="flex items-center justify-between p-2 rounded-lg border border-theme bg-theme-surface"
               >
                 <span className="text-sm text-theme-primary">{skill.name}</span>
