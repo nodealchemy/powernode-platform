@@ -179,7 +179,7 @@ export const NodeExecutionCard: React.FC<NodeExecutionCardProps> = ({
                   {(node.cost || node.cost_usd) && ((node.cost || node.cost_usd) ?? 0) > 0 && (
                     <span className="flex items-center gap-1">
                       <DollarSign className="h-3 w-3" />
-                      ${(node.cost || node.cost_usd || 0).toFixed(4)}
+                      ${Number(node.cost || node.cost_usd || 0).toFixed(4)}
                     </span>
                   )}
                 </div>
