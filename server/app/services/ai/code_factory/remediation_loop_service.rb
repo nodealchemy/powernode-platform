@@ -109,16 +109,40 @@ module Ai
       end
 
       def attempt_file_remediation(file_path:, findings:, review_state:, agent:)
-        # Build fix prompt from findings
         prompt = build_fix_prompt(file_path: file_path, findings: findings)
+        remediation_agent = agent || find_remediation_agent
 
-        @logger.info("[CodeFactory::RemediationLoop] Attempting fix for #{file_path} (#{findings.size} findings)")
+        unless remediation_agent
+          @logger.warn("[CodeFactory::RemediationLoop] No remediation agent available for #{file_path}")
+          return { success: false, error: "no_remediation_agent" }
+        end
 
-        # For now, return success placeholder - actual AI execution would go through
-        # AgentOrchestrationService or direct provider call
-        { success: true, file_path: file_path }
+        @logger.info("[CodeFactory::RemediationLoop] Attempting fix for #{file_path} (#{findings.size} findings) with agent #{remediation_agent.name}")
+
+        result = execute_agent_task(remediation_agent, prompt)
+
+        if result[:success]
+          { success: true, file_path: file_path, patch: result[:output], agent_id: remediation_agent.id }
+        else
+          { success: false, error: result[:error] || "Agent failed to produce fix" }
+        end
       rescue StandardError => e
         @logger.warn("[CodeFactory::RemediationLoop] File remediation failed for #{file_path}: #{e.message}")
+        { success: false, error: e.message }
+      end
+
+      def find_remediation_agent
+        @account.ai_agents
+          .active
+          .where(agent_type: %w[code_review coder general])
+          .first
+      end
+
+      def execute_agent_task(agent, prompt)
+        service = Ai::AgentOrchestrationService.new(@account)
+        result = service.execute(agent_id: agent.id, input: prompt)
+        { success: result[:status] == "completed", output: result[:output], error: result[:error] }
+      rescue StandardError => e
         { success: false, error: e.message }
       end
 

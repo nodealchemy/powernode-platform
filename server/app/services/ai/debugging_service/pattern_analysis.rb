@@ -45,12 +45,27 @@ class Ai::DebuggingService
     end
 
     def get_system_load_metrics
-      # Placeholder for system metrics
+      load_avg = if File.exist?("/proc/loadavg")
+                   parts = File.read("/proc/loadavg").split
+                   { load_1m: parts[0].to_f, load_5m: parts[1].to_f, load_15m: parts[2].to_f }
+                 else
+                   { load_1m: 0.0, load_5m: 0.0, load_15m: 0.0 }
+                 end
+
+      memory = if File.exist?("/proc/meminfo")
+                 meminfo = File.read("/proc/meminfo")
+                 total = meminfo[/MemTotal:\s+(\d+)/, 1].to_f
+                 available = meminfo[/MemAvailable:\s+(\d+)/, 1].to_f
+                 total.positive? ? ((1 - available / total) * 100).round(1) : 0.0
+               else
+                 0.0
+               end
+
       {
-        cpu_usage: 0.0,
-        memory_usage: 0.0,
-        active_connections: 0,
-        queue_size: 0
+        cpu_usage: load_avg[:load_1m],
+        memory_usage: memory,
+        active_connections: count_active_executions,
+        queue_size: @account.ai_agent_executions.where(status: "pending").count
       }
     end
 
@@ -67,10 +82,17 @@ class Ai::DebuggingService
     end
 
     def get_queue_statuses
-      # Placeholder for queue status information
+      pending = @account.ai_agent_executions.where(status: "pending")
+      running = @account.ai_agent_executions.where(status: "running")
+
+      avg_wait = pending.where.not(created_at: nil)
+                        .pluck(:created_at)
+                        .map { |t| (Time.current - t).round(2) }
+                        .then { |waits| waits.any? ? (waits.sum / waits.size).round(2) : 0 }
+
       {
-        default: { size: 0, latency: 0 },
-        ai_processing: { size: 0, latency: 0 }
+        pending: { size: pending.count, avg_wait_seconds: avg_wait },
+        running: { size: running.count }
       }
     end
 
@@ -126,8 +148,19 @@ class Ai::DebuggingService
     end
 
     def detect_configuration_drifts(executions)
-      # Placeholder for configuration drift detection
-      []
+      drifts = []
+      agent_ids = executions.map(&:ai_agent_id).uniq.compact
+      agent_ids.each do |agent_id|
+        agent = Ai::Agent.find_by(id: agent_id)
+        next unless agent
+
+        agent_execs = executions.select { |e| e.ai_agent_id == agent_id }
+        configs = agent_execs.filter_map { |e| e.input_parameters&.dig("configuration") }.uniq
+        if configs.size > 1
+          drifts << "Agent '#{agent.name}' used #{configs.size} different configurations across #{agent_execs.size} executions"
+        end
+      end
+      drifts
     end
 
     def generate_pattern_recommendations(executions)

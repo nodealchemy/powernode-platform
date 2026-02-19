@@ -192,11 +192,26 @@ module Ai
         end
 
         def provider_usage
-          {}
+          start_time = time_range.ago
+          Ai::AgentExecution
+            .joins(:provider)
+            .where(account_id: account.id)
+            .where("ai_agent_executions.created_at >= ?", start_time)
+            .group("ai_providers.name")
+            .count
         end
 
         def model_usage
-          {}
+          start_time = time_range.ago
+          Ai::AgentExecution
+            .where(account_id: account.id)
+            .where("ai_agent_executions.created_at >= ?", start_time)
+            .where.not(performance_metrics: nil)
+            .pluck(:performance_metrics)
+            .each_with_object(Hash.new(0)) do |metrics, counts|
+              model = metrics&.dig("model") || "unknown"
+              counts[model] += 1
+            end
         end
 
         def token_usage
@@ -219,7 +234,7 @@ module Ai
         end
 
         def pending_jobs_count
-          0
+          workflow_runs.where(status: %w[pending initializing]).count
         end
       end
     end

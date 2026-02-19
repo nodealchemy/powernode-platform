@@ -425,12 +425,113 @@ module Ai
     end
 
     def perform_sync(connector)
-      # Placeholder for actual sync implementations
-      {
-        success: true,
-        documents_count: 0,
-        message: "Sync completed for #{connector.connector_type}"
-      }
+      kb = connector.knowledge_base
+      connector.update!(last_sync_started_at: Time.current, sync_status: "syncing")
+
+      documents = fetch_connector_documents(connector)
+      synced_count = 0
+
+      documents.each do |doc_data|
+        doc = kb.documents.find_or_initialize_by(
+          source_url: doc_data[:url],
+          source_type: connector.connector_type
+        )
+
+        next if doc.persisted? && doc.checksum == Digest::SHA256.hexdigest(doc_data[:content].to_s)
+
+        doc.assign_attributes(
+          name: doc_data[:name] || File.basename(doc_data[:url].to_s),
+          content: doc_data[:content],
+          content_type: doc_data[:content_type] || "text/plain",
+          content_size_bytes: doc_data[:content]&.bytesize,
+          metadata: doc_data[:metadata] || {},
+          status: "pending"
+        )
+        doc.save!
+
+        chunks = chunk_content(doc.content, kb.chunking_strategy, kb.chunk_size, kb.chunk_overlap)
+        doc.chunks.destroy_all if doc.chunks.any?
+
+        chunks.each_with_index do |chunk_content, idx|
+          chunk = Ai::DocumentChunk.create!(
+            document: doc,
+            knowledge_base: kb,
+            sequence_number: idx + 1,
+            content: chunk_content,
+            token_count: estimate_tokens(chunk_content),
+            start_offset: 0,
+            end_offset: chunk_content.length
+          )
+
+          embedding = generate_embedding(chunk_content, kb.embedding_model, kb.embedding_provider)
+          chunk.set_embedding!(embedding, kb.embedding_model) if embedding
+        end
+
+        doc.update!(checksum: Digest::SHA256.hexdigest(doc.content.to_s), status: "indexed")
+        synced_count += 1
+      end
+
+      kb.update_stats!
+      connector.update!(last_sync_completed_at: Time.current, sync_status: "completed")
+
+      { success: true, synced: synced_count, message: "Sync completed for #{connector.connector_type}" }
+    rescue StandardError => e
+      connector.update!(sync_status: "failed", last_sync_error: e.message)
+      raise Ai::RagServiceError, "Sync failed: #{e.message}"
+    end
+
+    def fetch_connector_documents(connector)
+      config = connector.connection_config || {}
+
+      case connector.connector_type
+      when "api"
+        fetch_api_documents(config)
+      when "file"
+        fetch_file_documents(config)
+      else
+        Rails.logger.warn "[RagService] Unknown connector type: #{connector.connector_type}"
+        []
+      end
+    end
+
+    def fetch_api_documents(config)
+      url = config["url"]
+      return [] unless url.present?
+
+      response = HTTParty.get(url, headers: config["headers"] || {}, timeout: 30)
+      return [] unless response.success?
+
+      parsed = JSON.parse(response.body)
+      documents = parsed.is_a?(Array) ? parsed : [parsed]
+
+      documents.map do |doc|
+        {
+          url: doc["url"] || url,
+          name: doc["title"] || doc["name"],
+          content: doc["content"] || doc["body"] || doc.to_json,
+          content_type: doc["content_type"] || "text/plain",
+          metadata: doc.except("content", "body")
+        }
+      end
+    rescue StandardError => e
+      Rails.logger.error "[RagService] API fetch failed: #{e.message}"
+      []
+    end
+
+    def fetch_file_documents(config)
+      path = config["path"]
+      return [] unless path.present? && File.exist?(path)
+
+      if File.directory?(path)
+        Dir.glob(File.join(path, "**", "*")).select { |f| File.file?(f) }.map do |file|
+          { url: file, name: File.basename(file), content: File.read(file), content_type: "text/plain" }
+        end
+      else
+        [{ url: path, name: File.basename(path), content: File.read(path), content_type: "text/plain" }]
+      end
+    rescue StandardError => e
+      Rails.logger.error "[RagService] File fetch failed: #{e.message}"
+      []
     end
   end
 end

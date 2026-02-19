@@ -98,9 +98,13 @@ module Ai
       end
 
       def build_callback_url
-        base = Rails.application.config.respond_to?(:webhook_base_url) ?
-          Rails.application.config.webhook_base_url :
-          ENV.fetch("WEBHOOK_BASE_URL", "https://app.example.com")
+        base = if Rails.application.config.respond_to?(:webhook_base_url)
+                 Rails.application.config.webhook_base_url
+               else
+                 ENV["WEBHOOK_BASE_URL"]
+               end
+
+        raise LaunchError, "WEBHOOK_BASE_URL must be configured (set env var or Rails config)" unless base.present?
 
         "#{base}/api/v1/ai/missions/#{mission.id}/deploy_callback"
       end

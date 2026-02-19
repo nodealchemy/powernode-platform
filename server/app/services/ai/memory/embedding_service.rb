@@ -160,17 +160,18 @@ module Ai
 
         case @provider&.provider_type
         when "openai"
-          return generate_mock_embedding(text) unless credential
-
+          raise EmbeddingError, "No OpenAI credentials configured" unless credential
           generate_openai_embedding(credential, text)
-        when "anthropic"
-          generate_mock_embedding(text)
+        when "ollama"
+          generate_ollama_embedding(text)
         else
-          generate_mock_embedding(text)
+          openai_fallback = find_openai_fallback
+          if openai_fallback
+            generate_openai_embedding(openai_fallback, text)
+          else
+            raise EmbeddingError, "No embedding provider available. #{@provider&.provider_type || 'Unknown'} does not support embeddings. Configure an OpenAI or Ollama provider."
+          end
         end
-      rescue StandardError => e
-        Rails.logger.error "Embedding generation failed: #{e.message}"
-        generate_mock_embedding(text)
       end
 
       def generate_batch_from_provider(texts)
@@ -180,16 +181,21 @@ module Ai
 
         case @provider&.provider_type
         when "openai"
-          return texts.map { |t| generate_mock_embedding(t) } unless credential
-
+          raise EmbeddingError, "No OpenAI credentials configured" unless credential
           generate_openai_batch_embeddings(credential, texts)
+        when "ollama"
+          texts.map { |t| generate_ollama_embedding(t) }
         else
-          texts.map { |t| generate_mock_embedding(t) }
+          openai_fallback = find_openai_fallback
+          if openai_fallback
+            generate_openai_batch_embeddings(openai_fallback, texts)
+          else
+            raise EmbeddingError, "No embedding provider available for batch generation. Configure an OpenAI or Ollama provider."
+          end
         end
-      rescue StandardError => e
-        Rails.logger.error "Batch embedding generation failed: #{e.message}"
-        texts.map { |t| generate_mock_embedding(t) }
       end
+
+      class EmbeddingError < StandardError; end
 
       def build_credential
         return nil unless @provider
@@ -233,6 +239,35 @@ module Ai
         parsed = JSON.parse(response.body)
         data = parsed["data"] || []
         data.sort_by { |d| d["index"] }.map { |d| d["embedding"] }
+      end
+
+      def find_openai_fallback
+        openai_provider = Ai::Provider
+          .where(account_id: @account.id, provider_type: "openai")
+          .active
+          .first
+        return nil unless openai_provider
+
+        @account.ai_provider_credentials
+          .where(ai_provider_id: openai_provider.id, is_active: true).first
+      end
+
+      def generate_ollama_embedding(text)
+        ollama_url = @provider.configuration&.dig("base_url") || ENV.fetch("OLLAMA_URL", "http://localhost:11434")
+        model = @provider.configuration&.dig("embedding_model") || "nomic-embed-text"
+
+        response = HTTParty.post(
+          "#{ollama_url}/api/embeddings",
+          headers: { "Content-Type" => "application/json" },
+          body: { model: model, prompt: text }.to_json,
+          timeout: 30
+        )
+
+        parsed = JSON.parse(response.body)
+        embedding = parsed["embedding"]
+        raise EmbeddingError, "Ollama returned no embedding: #{parsed['error'] || 'unknown error'}" unless embedding
+
+        embedding
       end
 
       # Generate deterministic mock embedding for testing

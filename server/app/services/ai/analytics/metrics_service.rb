@@ -410,8 +410,15 @@ module Ai
       end
 
       def calculate_availability(since)
-        # Calculate as percentage of time with no errors
-        99.9 # Placeholder
+        total_runs = workflow_runs.where("ai_workflow_runs.created_at >= ?", since)
+                                  .where.not(status: %w[running initializing pending])
+                                  .count
+        return nil if total_runs.zero?
+
+        successful = workflow_runs.where("ai_workflow_runs.created_at >= ?", since)
+                                  .where(status: "completed")
+                                  .count
+        (successful.to_f / total_runs * 100).round(2)
       end
 
       def calculate_error_budget(runs)

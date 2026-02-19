@@ -311,13 +311,29 @@ module Ai
     end
 
     def execute_workflow_in_sandbox(sandbox, scenario)
-      # In a real implementation, execute workflow with sandbox context
-      { executed: true, workflow_id: scenario.target_workflow_id, sandbox_id: sandbox.id }
+      orchestrator = Mcp::AiWorkflowOrchestrator.new(account: account)
+      result = orchestrator.execute(scenario.target_workflow_id, sandbox_mode: true)
+      { executed: true, workflow_id: scenario.target_workflow_id, sandbox_id: sandbox.id, output: result }
+    rescue StandardError => e
+      { executed: false, workflow_id: scenario.target_workflow_id, error: e.message }
     end
 
     def execute_agent_in_sandbox(sandbox, scenario)
-      # In a real implementation, execute agent with sandbox context
-      { executed: true, agent_id: scenario.target_agent_id, sandbox_id: sandbox.id }
+      execution = Ai::AgentExecution.create!(
+        account: account,
+        agent: scenario.target_agent,
+        user: sandbox.created_by,
+        provider: scenario.target_agent.provider,
+        input_parameters: scenario.input_data,
+        status: "pending",
+        tokens_used: 0,
+        cost_usd: 0,
+        webhook_attempts: 0
+      )
+      execution.start_execution!
+      { executed: true, agent_id: scenario.target_agent_id, sandbox_id: sandbox.id, execution_id: execution.id }
+    rescue StandardError => e
+      { executed: false, agent_id: scenario.target_agent_id, error: e.message }
     end
 
     def determine_provider_type(scenario)
@@ -338,19 +354,43 @@ module Ai
     end
 
     def collect_benchmark_samples(benchmark, count)
+      scenario = Ai::TestScenario.new(
+        account: account,
+        sandbox: benchmark.sandbox,
+        target_workflow: benchmark.target_workflow,
+        target_agent: benchmark.target_agent,
+        input_data: benchmark.baseline_metrics["input_data"] || {},
+        scenario_type: "benchmark"
+      )
+
       results = []
       count.times do
-        start_time = Time.current
-        # Execute target and collect metrics
-        latency = (Time.current - start_time) * 1000
-
-        results << {
-          latency_ms: latency,
-          tokens_used: 0, # Would be populated from actual execution
-          cost_usd: 0
-        }
+        start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        begin
+          output = execute_target(benchmark.sandbox || create_ephemeral_sandbox, scenario)
+          duration = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start
+          results << {
+            latency_ms: (duration * 1000).round(2),
+            tokens_used: output[:tokens_used] || 0,
+            cost_usd: output[:cost_usd] || 0,
+            success: !output[:error]
+          }
+        rescue StandardError => e
+          duration = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start
+          results << { latency_ms: (duration * 1000).round(2), tokens_used: 0, cost_usd: 0, success: false, error: e.message }
+        end
       end
       results
+    end
+
+    def create_ephemeral_sandbox
+      Ai::Sandbox.create!(
+        account: account,
+        name: "benchmark-#{SecureRandom.hex(4)}",
+        sandbox_type: "ephemeral",
+        status: "active",
+        expires_at: 1.hour.from_now
+      )
     end
 
     def aggregate_results(results)

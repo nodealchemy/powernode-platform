@@ -293,7 +293,7 @@ class Ai::WorkflowAutoFixService
       }
     when "api_call", "http_request"
       {
-        "url" => "https://api.example.com/endpoint",
+        "url" => "<configure_api_endpoint_url>",
         "method" => "GET",
         "headers" => {}
       }

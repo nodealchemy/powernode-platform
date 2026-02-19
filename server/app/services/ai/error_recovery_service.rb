@@ -292,12 +292,10 @@ class Ai::ErrorRecoveryService
   end
 
   def get_alternative_models(provider, current_model)
-    # This would be provider-specific model mapping
-    case provider.slug
-    when "openai"
-      [ "gpt-3.5-turbo", "gpt-4" ].reject { |m| m == current_model }
-    when "anthropic"
-      [ "claude-3-sonnet-20240229", "claude-3-haiku-20240307" ].reject { |m| m == current_model }
+    configured_models = provider.configuration&.dig("supported_models")
+    if configured_models.is_a?(Array) && configured_models.any?
+      configured_models.filter_map { |m| m.is_a?(Hash) ? m["id"] : m.to_s }
+                       .reject { |m| m == current_model }
     else
       []
     end
