@@ -80,19 +80,21 @@ export const ChatWindowFloating: React.FC = () => {
     dispatch({ type: 'SET_FLOATING_POSITION', payload: { x: rect.left, y: rect.top } });
   }, [dispatch]);
 
-  // ResizeObserver to track manual CSS resize
+  // ResizeObserver to track manual CSS resize (use borderBoxSize to match box-sizing: border-box)
   useEffect(() => {
     if (!containerRef.current) return;
     const el = containerRef.current;
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        const { width, height } = entry.contentRect;
+        const boxSize = entry.borderBoxSize?.[0];
+        const width = boxSize ? boxSize.inlineSize : entry.contentRect.width;
+        const height = boxSize ? boxSize.blockSize : entry.contentRect.height;
         if (width >= MIN_WIDTH && height >= MIN_HEIGHT) {
           dispatch({ type: 'SET_FLOATING_SIZE', payload: { width, height } });
         }
       }
     });
-    observer.observe(el);
+    observer.observe(el, { box: 'border-box' });
     return () => observer.disconnect();
   }, [dispatch]);
 

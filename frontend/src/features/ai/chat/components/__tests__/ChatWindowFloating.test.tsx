@@ -119,8 +119,8 @@ describe('ChatWindowFloating', () => {
     expect(wrapper.style.height).toBe('520px');
   });
 
-  it('sets up ResizeObserver', () => {
+  it('sets up ResizeObserver with border-box', () => {
     render(<ChatWindowFloating />);
-    expect(mockObserve).toHaveBeenCalled();
+    expect(mockObserve).toHaveBeenCalledWith(expect.any(HTMLElement), { box: 'border-box' });
   });
 });
