@@ -83,25 +83,6 @@ class AiWorkflowMonitoringChannel < ApplicationCable::Channel
     transmit_error(e.message)
   end
 
-  # Start real-time monitoring
-  def start_real_time_monitoring(_data = {})
-    # Enable real-time updates (actual implementation would involve
-    # more sophisticated streaming or polling mechanisms)
-    transmit({
-      type: "real_time_mode_enabled",
-      refresh_interval: 1000, # milliseconds
-      timestamp: Time.current.iso8601
-    })
-  end
-
-  # Stop real-time monitoring
-  def stop_real_time_monitoring(_data = {})
-    transmit({
-      type: "real_time_mode_disabled",
-      timestamp: Time.current.iso8601
-    })
-  end
-
   # Class methods for broadcasting
   class << self
     def broadcast_dashboard_update(account_id)
