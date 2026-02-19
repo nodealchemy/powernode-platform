@@ -201,9 +201,10 @@ module Ai
                         .where(ai_workflows: { account_id: account.id })
                         .where(created_at: date_range)
 
-      # Calculate time saved (estimate: average workflow saves 15 min vs manual)
       successful_runs = workflow_runs.where(status: "completed").count
-      time_saved = successful_runs * 0.25 # 15 min per successful run
+      avg_execution_hours = workflow_runs.where(status: "completed").average(:duration_ms)&.to_f&./(3_600_000) || 0
+      manual_baseline = account.settings&.dig("ai_manual_baseline_hours")&.to_f || 0.25
+      time_saved = [successful_runs * (manual_baseline - avg_execution_hours), 0].max
 
       # Update metric
       metric.assign_attributes(

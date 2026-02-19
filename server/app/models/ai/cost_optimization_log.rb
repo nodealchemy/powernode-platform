@@ -239,13 +239,22 @@ module Ai
 
         next if cheaper_alternatives.empty?
 
+        cheapest_alt = cheaper_alternatives.min_by { |p| p.configuration&.dig("pricing", "cost_per_1k_tokens")&.to_f || Float::INFINITY }
+        alt_rate = cheapest_alt&.configuration&.dig("pricing", "cost_per_1k_tokens")&.to_f
+        current_rate = provider.configuration&.dig("pricing", "cost_per_1k_tokens")&.to_f
+        estimated_savings = if current_rate&.positive? && alt_rate
+                              cost * ((current_rate - alt_rate) / current_rate).clamp(0, 1)
+                            else
+                              0
+                            end
+
         opportunities << {
           optimization_type: "provider_switch",
           resource_type: "provider",
           resource_id: provider_id,
-          description: "Consider switching from #{provider.name} to a more cost-effective provider",
+          description: "Consider switching from #{provider.name} to #{cheapest_alt&.name || 'a more cost-effective provider'}",
           current_cost_usd: cost,
-          potential_savings_usd: cost * 0.2, # Conservative 20% estimate
+          potential_savings_usd: estimated_savings.round(2),
           recommendation: {
             current_provider: provider.name,
             alternatives: cheaper_alternatives.map(&:name).first(3),
@@ -277,16 +286,22 @@ module Ai
                                     .where("created_at >= ?", 7.days.ago)
                                     .sum(:total_cost)
 
+        avg_cost = count.positive? ? total_cost / count : 0
+        batch_overhead_factor = 0.6
+        estimated_batch_cost = avg_cost * batch_overhead_factor * count
+        estimated_savings = [total_cost - estimated_batch_cost, 0].max
+
         opportunities << {
           optimization_type: "batching",
           resource_type: "workflow",
           resource_id: workflow_id,
           description: "High-volume workflow '#{workflow.name}' could benefit from batch processing",
           current_cost_usd: total_cost,
-          potential_savings_usd: total_cost * 0.15, # 15% batch savings estimate
+          potential_savings_usd: estimated_savings.round(2),
           recommendation: {
             workflow_name: workflow.name,
             executions_7d: count,
+            avg_cost_per_execution: avg_cost.round(4),
             suggestion: "Implement batch processing for similar requests"
           }
         }
@@ -314,15 +329,28 @@ module Ai
         agent = Ai::Agent.find_by(id: agent_id)
         next unless agent && cost > 5.0
 
+        exec_count = Ai::AgentExecution
+                       .where(ai_agent_id: agent_id)
+                       .where("created_at >= ?", 7.days.ago)
+                       .count
+        unique_inputs = Ai::AgentExecution
+                          .where(ai_agent_id: agent_id)
+                          .where("created_at >= ?", 7.days.ago)
+                          .distinct
+                          .count(:input_parameters)
+        duplicate_ratio = exec_count.positive? ? (1.0 - unique_inputs.to_f / exec_count).clamp(0, 1) : 0
+        estimated_savings = (cost * duplicate_ratio).round(2)
+
         opportunities << {
           optimization_type: "caching",
           resource_type: "agent",
           resource_id: agent_id,
           description: "Agent '#{agent.name}' has high usage - consider response caching",
           current_cost_usd: cost,
-          potential_savings_usd: cost * 0.25, # 25% caching savings estimate
+          potential_savings_usd: estimated_savings,
           recommendation: {
             agent_name: agent.name,
+            duplicate_request_ratio: (duplicate_ratio * 100).round(1),
             suggestion: "Implement semantic caching for similar prompts"
           }
         }

@@ -61,7 +61,6 @@ module Ai
     # ==================== Callbacks ====================
     before_validation :set_defaults
     before_save :update_version_if_capabilities_changed
-    after_save :sync_metrics_from_tasks
     after_create :broadcast_card_created
     after_update :broadcast_card_updated
 
@@ -287,11 +286,6 @@ module Ai
         schemes: authentication["schemes"] || [ "bearer" ],
         credentials: authentication["credentials_url"]
       }.compact
-    end
-
-    def sync_metrics_from_tasks
-      # Async metric sync
-      # AiAgentCardMetricsSyncJob.perform_later(id)
     end
 
     def broadcast_card_created

@@ -203,18 +203,18 @@ module Ai
     end
 
     def calculate_cost(tokens)
-      # This would be enhanced with provider-specific pricing
-      # For now, use a simple calculation
-      provider_cost_per_1k_tokens = case provider.slug
-      when "openai"
-                                      0.002  # GPT-3.5 pricing
-      when "anthropic"
-                                      0.008  # Claude pricing
-      else
-                                      0.001  # Default
-      end
+      pricing = provider.configuration&.dig("pricing") || {}
+      input_rate = pricing["input_per_token"]&.to_f
+      output_rate = pricing["output_per_token"]&.to_f
 
-      (tokens / 1000.0) * provider_cost_per_1k_tokens
+      if input_rate || output_rate
+        input_tokens = token_usage&.dig("input")&.to_i || tokens
+        output_tokens = token_usage&.dig("output")&.to_i || 0
+        (input_tokens * (input_rate || 0)) + (output_tokens * (output_rate || 0))
+      else
+        cost_per_1k = pricing["cost_per_1k_tokens"]&.to_f || 0
+        (tokens / 1000.0) * cost_per_1k
+      end
     end
 
     def trigger_webhook
