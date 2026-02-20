@@ -1,11 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { skillsApi } from './services/skillsApi';
+import { skillLifecycleApi } from './services/skillLifecycleApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { TabContainer } from '@/shared/components/layout/TabContainer';
 import { SkillCard } from './components/SkillCard';
 import { SkillDetailPanel } from './components/SkillDetailPanel';
 import { SkillEditor } from './components/SkillEditor';
+import { ResearchModal } from './components/ResearchModal';
+import { ProposalsList } from './components/ProposalsList';
+import { SkillGraphEmbed } from './components/SkillGraphEmbed';
+import { OptimizationDashboard } from './components/OptimizationDashboard';
 import type { AiSkillSummary, SkillCategory, SkillFilters } from './types';
 import type { PageAction } from '@/shared/components/layout/PageContainer';
 
@@ -28,6 +33,8 @@ const ALL_CATEGORIES: { value: SkillCategory | ''; label: string }[] = [
   { value: 'skill_management', label: 'Management' },
 ];
 
+type TopTab = 'skills' | 'graph' | 'proposals' | 'optimization';
+
 export function SkillsPage({ onActionsReady }: SkillsPageProps) {
   const { showNotification } = useNotifications();
   const [skills, setSkills] = useState<AiSkillSummary[]>([]);
@@ -37,6 +44,9 @@ export function SkillsPage({ onActionsReady }: SkillsPageProps) {
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
   const [showEditor, setShowEditor] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<TopTab>('skills');
+  const [pendingCount, setPendingCount] = useState(0);
+  const [showResearch, setShowResearch] = useState(false);
 
   const loadSkills = useCallback(async () => {
     setLoading(true);
@@ -53,10 +63,18 @@ export function SkillsPage({ onActionsReady }: SkillsPageProps) {
     setLoading(false);
   }, [selectedCategory, searchQuery, showNotification]);
 
+  const loadPendingCount = useCallback(async () => {
+    const response = await skillLifecycleApi.getProposals(1, 'proposed');
+    if (response.success && response.data) {
+      setPendingCount(response.data.proposals.length);
+    }
+  }, []);
+
   const { refreshAction } = useRefreshAction({
     onRefresh: async () => {
       setIsRefreshing(true);
       await loadSkills();
+      await loadPendingCount();
       setIsRefreshing(false);
     },
     loading: isRefreshing,
@@ -64,12 +82,19 @@ export function SkillsPage({ onActionsReady }: SkillsPageProps) {
 
   useEffect(() => {
     loadSkills();
-  }, [loadSkills]);
+    loadPendingCount();
+  }, [loadSkills, loadPendingCount]);
 
   useEffect(() => {
     if (onActionsReady) {
       onActionsReady([
         refreshAction,
+        {
+          id: 'research',
+          label: 'Research',
+          onClick: () => setShowResearch(true),
+          variant: 'secondary',
+        },
         {
           id: 'new-skill',
           label: 'New Skill',
@@ -93,6 +118,11 @@ export function SkillsPage({ onActionsReady }: SkillsPageProps) {
     }
   };
 
+  const handleProposalCreated = () => {
+    setActiveTab('proposals');
+    loadPendingCount();
+  };
+
   if (showEditor) {
     return (
       <SkillEditor
@@ -105,73 +135,114 @@ export function SkillsPage({ onActionsReady }: SkillsPageProps) {
     );
   }
 
+  const topTabs = [
+    { id: 'skills', label: 'Skills' },
+    { id: 'graph', label: 'Skill Graph' },
+    {
+      id: 'proposals',
+      label: 'Proposals',
+      badge: pendingCount > 0 ? { count: pendingCount, variant: 'warning' as const } : undefined,
+    },
+    { id: 'optimization', label: 'Optimization' },
+  ];
+
   return (
     <div className="space-y-6">
-      {/* Search */}
-      <div>
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search skills..."
-          className="w-full max-w-md px-3 py-2 bg-theme-surface border border-theme rounded-md text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary"
-        />
-      </div>
-
-      {/* Category Tabs */}
+      {/* Top-level Tabs */}
       <TabContainer
-        tabs={ALL_CATEGORIES.map((cat) => ({
-          id: cat.value || 'all',
-          label: cat.label,
-        }))}
-        activeTab={selectedCategory || 'all'}
-        onTabChange={(tabId) => setSelectedCategory(tabId === 'all' ? '' : tabId)}
-        variant="underline"
-        size="sm"
-        compact
+        tabs={topTabs}
+        activeTab={activeTab}
+        onTabChange={(tabId) => setActiveTab(tabId as TopTab)}
+        variant="pills"
+        size="md"
       />
 
-      {/* Skills Grid */}
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="animate-pulse bg-theme-surface border border-theme rounded-lg p-5">
-              <div className="h-5 bg-theme-surface-secondary rounded w-3/4 mb-3" />
-              <div className="h-3 bg-theme-surface-secondary rounded w-1/2 mb-3" />
-              <div className="h-8 bg-theme-surface-secondary rounded mb-3" />
-            </div>
-          ))}
-        </div>
-      ) : skills.length === 0 ? (
-        <div className="text-center py-12 text-theme-tertiary">
-          <p className="text-lg">No skills found</p>
-          <p className="text-sm mt-1">
-            {searchQuery || selectedCategory
-              ? 'Try adjusting your search or filters'
-              : 'Create your first skill to get started'}
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {skills.map((skill) => (
-            <SkillCard
-              key={skill.id}
-              skill={skill}
-              onToggle={handleToggle}
-              onClick={(id) => setSelectedSkillId(id)}
+      {/* Skills Tab */}
+      {activeTab === 'skills' && (
+        <div className="space-y-6">
+          {/* Search */}
+          <div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search skills..."
+              className="w-full max-w-md px-3 py-2 bg-theme-surface border border-theme rounded-md text-theme-primary placeholder-theme-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary"
             />
-          ))}
+          </div>
+
+          {/* Category Tabs */}
+          <TabContainer
+            tabs={ALL_CATEGORIES.map((cat) => ({
+              id: cat.value || 'all',
+              label: cat.label,
+            }))}
+            activeTab={selectedCategory || 'all'}
+            onTabChange={(tabId) => setSelectedCategory(tabId === 'all' ? '' : tabId)}
+            variant="underline"
+            size="sm"
+            compact
+          />
+
+          {/* Skills Grid */}
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="animate-pulse bg-theme-surface border border-theme rounded-lg p-5">
+                  <div className="h-5 bg-theme-surface-secondary rounded w-3/4 mb-3" />
+                  <div className="h-3 bg-theme-surface-secondary rounded w-1/2 mb-3" />
+                  <div className="h-8 bg-theme-surface-secondary rounded mb-3" />
+                </div>
+              ))}
+            </div>
+          ) : skills.length === 0 ? (
+            <div className="text-center py-12 text-theme-tertiary">
+              <p className="text-lg">No skills found</p>
+              <p className="text-sm mt-1">
+                {searchQuery || selectedCategory
+                  ? 'Try adjusting your search or filters'
+                  : 'Create your first skill to get started'}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {skills.map((skill) => (
+                <SkillCard
+                  key={skill.id}
+                  skill={skill}
+                  onToggle={handleToggle}
+                  onClick={(id) => setSelectedSkillId(id)}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Detail Panel */}
+          {selectedSkillId && (
+            <SkillDetailPanel
+              skillId={selectedSkillId}
+              onClose={() => setSelectedSkillId(null)}
+              onUpdated={loadSkills}
+            />
+          )}
         </div>
       )}
 
-      {/* Detail Panel */}
-      {selectedSkillId && (
-        <SkillDetailPanel
-          skillId={selectedSkillId}
-          onClose={() => setSelectedSkillId(null)}
-          onUpdated={loadSkills}
-        />
-      )}
+      {/* Skill Graph Tab */}
+      {activeTab === 'graph' && <SkillGraphEmbed />}
+
+      {/* Proposals Tab */}
+      {activeTab === 'proposals' && <ProposalsList />}
+
+      {/* Optimization Tab */}
+      {activeTab === 'optimization' && <OptimizationDashboard />}
+
+      {/* Research Modal */}
+      <ResearchModal
+        isOpen={showResearch}
+        onClose={() => setShowResearch(false)}
+        onProposalCreated={handleProposalCreated}
+      />
     </div>
   );
 }
