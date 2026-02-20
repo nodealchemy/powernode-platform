@@ -1,14 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Brain, Server, Route, AppWindow, Workflow, Key, Activity } from 'lucide-react';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { Brain, Server, Route, AppWindow, Workflow, Activity } from 'lucide-react';
+import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { AiProvidersPage as AiProvidersComponent } from '@/features/ai/providers/components/AiProvidersPage';
 import { McpBrowserContent } from '@/pages/app/ai/McpBrowserPage';
 import { ModelRouterContent } from '@/pages/app/ai/ModelRouterPage';
 import { McpAppsContent } from '@/features/ai/mcp-apps';
 import { McpStudioTab } from '@/features/ai/mcp/components/McpStudioTab';
-import { McpTokensTab } from '@/features/ai/mcp-server/components/McpTokensTab';
 import { McpSessionsTab } from '@/features/ai/mcp-server/components/McpSessionsTab';
 
 const tabs = [
@@ -17,7 +16,6 @@ const tabs = [
   { id: 'model-router', label: 'Model Router', icon: <Route size={16} />, path: '/model-router' },
   { id: 'mcp-apps', label: 'MCP Apps', icon: <AppWindow size={16} />, path: '/mcp-apps' },
   { id: 'mcp-studio', label: 'MCP Studio', icon: <Workflow size={16} />, path: '/mcp-studio' },
-  { id: 'mcp-tokens', label: 'MCP Tokens', icon: <Key size={16} />, path: '/mcp-tokens' },
   { id: 'mcp-sessions', label: 'MCP Sessions', icon: <Activity size={16} />, path: '/mcp-sessions' },
 ];
 
@@ -26,7 +24,6 @@ export const InfrastructurePage: React.FC = () => {
 
   const getActiveTab = () => {
     const path = location.pathname;
-    if (path.includes('/infrastructure/mcp-tokens')) return 'mcp-tokens';
     if (path.includes('/infrastructure/mcp-sessions')) return 'mcp-sessions';
     if (path.includes('/infrastructure/mcp-studio')) return 'mcp-studio';
     if (path.includes('/infrastructure/mcp-apps')) return 'mcp-apps';
@@ -36,11 +33,25 @@ export const InfrastructurePage: React.FC = () => {
   };
 
   const [activeTab, setActiveTab] = useState(getActiveTab());
+  const [actions, setActions] = useState<PageAction[]>([]);
 
   useEffect(() => {
     const newTab = getActiveTab();
     if (newTab !== activeTab) setActiveTab(newTab);
   }, [location.pathname]);
+
+  // Reset actions to default Refresh when switching tabs
+  useEffect(() => {
+    setActions([{
+      label: 'Refresh',
+      onClick: () => window.location.reload(),
+      variant: 'outline',
+    }]);
+  }, [activeTab]);
+
+  const handleActionsReady = useCallback((newActions: PageAction[]) => {
+    setActions(newActions);
+  }, []);
 
   const getBreadcrumbs = () => {
     const base: Array<{ label: string; href?: string }> = [
@@ -62,6 +73,7 @@ export const InfrastructurePage: React.FC = () => {
       title="Infrastructure"
       description="Configure AI providers, MCP servers, and model routing"
       breadcrumbs={getBreadcrumbs()}
+      actions={actions}
     >
       <TabContainer
         tabs={tabs}
@@ -72,7 +84,7 @@ export const InfrastructurePage: React.FC = () => {
         className="mb-6"
       >
         <TabPanel tabId="providers" activeTab={activeTab}>
-          <AiProvidersComponent />
+          <AiProvidersComponent onActionsReady={handleActionsReady} />
         </TabPanel>
         <TabPanel tabId="mcp" activeTab={activeTab}>
           <McpBrowserContent />
@@ -86,11 +98,8 @@ export const InfrastructurePage: React.FC = () => {
         <TabPanel tabId="mcp-studio" activeTab={activeTab}>
           <McpStudioTab />
         </TabPanel>
-        <TabPanel tabId="mcp-tokens" activeTab={activeTab}>
-          <McpTokensTab />
-        </TabPanel>
         <TabPanel tabId="mcp-sessions" activeTab={activeTab}>
-          <McpSessionsTab />
+          <McpSessionsTab onActionsReady={handleActionsReady} />
         </TabPanel>
       </TabContainer>
     </PageContainer>

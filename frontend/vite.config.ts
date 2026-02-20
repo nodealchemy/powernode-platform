@@ -98,6 +98,11 @@ export default defineConfig(({ mode }: { mode: string }) => {
       
       // API proxy - use 127.0.0.1 to force IPv4 (Rails binds to IPv4)
       proxy: {
+        '/.well-known': {
+          target: 'http://127.0.0.1:3000',
+          changeOrigin: true,
+          secure: false,
+        },
         '/api/v1': {
           target: 'http://127.0.0.1:3000/api/v1',
           changeOrigin: true,

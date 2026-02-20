@@ -41,6 +41,7 @@ import { WelcomePage } from '@/pages/public/WelcomePage';
 import { AcceptInvitationPage } from '@/pages/public/AcceptInvitationPage';
 import { PageViewPage } from '@/pages/public/PageViewPage';
 import { McpOAuthCallbackPage } from '@/pages/public/oauth/McpOAuthCallbackPage';
+import { OAuthConsentPage } from '@/pages/public/oauth/OAuthConsentPage';
 import { ApprovalResponsePage } from '@/features/devops/pipelines/pages/ApprovalResponsePage';
 import { ApprovalResponsePage as AiWorkflowApprovalResponsePage } from '@/features/ai/workflows/pages/ApprovalResponsePage';
 import { DetachedChatPage } from '@/features/ai/chat/pages/DetachedChatPage';
@@ -327,7 +328,11 @@ const AppContent: React.FC = () => {
             }
           />
 
-          {/* OAuth callback routes */}
+          {/* OAuth routes */}
+          <Route
+            path="/app/oauth/authorize"
+            element={<OAuthConsentPage />}
+          />
           <Route
             path="/oauth/mcp/callback"
             element={<McpOAuthCallbackPage />}

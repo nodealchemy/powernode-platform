@@ -1,13 +1,28 @@
-import React, { useState } from 'react';
-import { Trash2, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Trash2 } from 'lucide-react';
 import { useMcpSessions, useRevokeMcpSession } from '../hooks/useMcpServer';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import type { PageAction } from '@/shared/components/layout/PageContainer';
 
-export const McpSessionsTab: React.FC = () => {
+interface McpSessionsTabProps {
+  onActionsReady?: (actions: PageAction[]) => void;
+}
+
+export const McpSessionsTab: React.FC<McpSessionsTabProps> = ({ onActionsReady }) => {
   const { data: sessions, isLoading, refetch } = useMcpSessions();
   const revokeSession = useRevokeMcpSession();
   const { addNotification } = useNotifications();
   const [revokeConfirmId, setRevokeConfirmId] = useState<string | null>(null);
+
+  useEffect(() => {
+    onActionsReady?.([
+      {
+        label: 'Refresh',
+        onClick: () => refetch(),
+        variant: 'outline',
+      },
+    ]);
+  }, [onActionsReady, refetch]);
 
   const handleRevoke = async (id: string) => {
     try {
@@ -47,30 +62,20 @@ export const McpSessionsTab: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <button
-          onClick={() => refetch()}
-          className="inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-sm bg-theme-tertiary text-theme-secondary hover:bg-theme-secondary"
-        >
-          <RefreshCw size={14} />
-          Refresh
-        </button>
-      </div>
-
-      <div className="overflow-hidden rounded-lg border border-theme-border">
+      <div className="overflow-hidden rounded-lg bg-theme-surface border border-theme">
         <table className="w-full text-sm">
-          <thead className="bg-theme-secondary">
-            <tr className="text-left text-theme-secondary">
-              <th className="px-4 py-3 font-medium">User</th>
-              <th className="px-4 py-3 font-medium">Client</th>
-              <th className="px-4 py-3 font-medium">Protocol</th>
-              <th className="px-4 py-3 font-medium">IP</th>
-              <th className="px-4 py-3 font-medium">Last Activity</th>
-              <th className="px-4 py-3 font-medium">Status</th>
-              <th className="px-4 py-3 font-medium">Actions</th>
+          <thead className="bg-theme-background border-b border-theme">
+            <tr className="text-left">
+              <th className="px-4 py-3 text-xs font-medium text-theme-tertiary uppercase tracking-wider">User</th>
+              <th className="px-4 py-3 text-xs font-medium text-theme-tertiary uppercase tracking-wider">Client</th>
+              <th className="px-4 py-3 text-xs font-medium text-theme-tertiary uppercase tracking-wider">Protocol</th>
+              <th className="px-4 py-3 text-xs font-medium text-theme-tertiary uppercase tracking-wider">IP</th>
+              <th className="px-4 py-3 text-xs font-medium text-theme-tertiary uppercase tracking-wider">Last Activity</th>
+              <th className="px-4 py-3 text-xs font-medium text-theme-tertiary uppercase tracking-wider">Status</th>
+              <th className="px-4 py-3 text-xs font-medium text-theme-tertiary uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-theme-border">
+          <tbody className="divide-y divide-theme">
             {(!sessions || sessions.length === 0) ? (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-theme-tertiary">
@@ -79,7 +84,7 @@ export const McpSessionsTab: React.FC = () => {
               </tr>
             ) : (
               sessions.map((session) => (
-                <tr key={session.id} className="bg-theme-primary hover:bg-theme-secondary/50">
+                <tr key={session.id} className="hover:bg-theme-surface transition-colors">
                   <td className="px-4 py-3 text-theme-primary font-medium">{session.user_name}</td>
                   <td className="px-4 py-3 text-theme-secondary">{getClientName(session.client_info)}</td>
                   <td className="px-4 py-3 font-mono text-xs text-theme-secondary">{session.protocol_version}</td>
@@ -102,7 +107,7 @@ export const McpSessionsTab: React.FC = () => {
                           </button>
                           <button
                             onClick={() => setRevokeConfirmId(null)}
-                            className="rounded px-2 py-1 text-xs bg-theme-tertiary text-theme-secondary"
+                            className="rounded px-2 py-1 text-xs bg-theme-background text-theme-secondary"
                           >
                             Cancel
                           </button>
