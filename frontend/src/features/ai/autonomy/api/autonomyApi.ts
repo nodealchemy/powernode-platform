@@ -13,6 +13,9 @@ import type {
   ShadowExecution,
   TelemetryEvent,
   DelegationPolicy,
+  BudgetCheckResponse,
+  BudgetAlertItem,
+  PaginatedTransactions,
 } from '../types/autonomy';
 
 const AUTONOMY_KEYS = {
@@ -20,6 +23,7 @@ const AUTONOMY_KEYS = {
   trustScores: () => [...AUTONOMY_KEYS.all, 'trust-scores'] as const,
   trustScore: (agentId: string) => [...AUTONOMY_KEYS.all, 'trust-score', agentId] as const,
   lineage: (agentId: string) => [...AUTONOMY_KEYS.all, 'lineage', agentId] as const,
+  lineageForest: () => [...AUTONOMY_KEYS.all, 'lineage-forest'] as const,
   budgets: () => [...AUTONOMY_KEYS.all, 'budgets'] as const,
   stats: () => [...AUTONOMY_KEYS.all, 'stats'] as const,
   capabilityMatrix: () => [...AUTONOMY_KEYS.all, 'capability-matrix'] as const,
@@ -34,6 +38,10 @@ const AUTONOMY_KEYS = {
   delegationPolicies: () => [...AUTONOMY_KEYS.all, 'delegation-policies'] as const,
   agentDelegationPolicy: (agentId: string) => [...AUTONOMY_KEYS.all, 'delegation-policy', agentId] as const,
   behavioralFingerprints: (agentId: string) => [...AUTONOMY_KEYS.all, 'fingerprints', agentId] as const,
+  budgetTransactions: (budgetId: string) => [...AUTONOMY_KEYS.all, 'budget-transactions', budgetId] as const,
+  budgetCheck: (budgetId: string) => [...AUTONOMY_KEYS.all, 'budget-check', budgetId] as const,
+  budgetAlerts: () => [...AUTONOMY_KEYS.all, 'budget-alerts'] as const,
+  pricing: () => [...AUTONOMY_KEYS.all, 'pricing'] as const,
 };
 
 // ===== Read Queries =====
@@ -67,6 +75,19 @@ export function useAgentLineage(agentId: string) {
       return (response.data?.data ?? null) as AgentLineageNode;
     },
     enabled: !!agentId,
+  });
+}
+
+export function useAgentLineageForest() {
+  return useQuery({
+    queryKey: AUTONOMY_KEYS.lineageForest(),
+    queryFn: async () => {
+      const response = await apiClient.get('/ai/autonomy/lineage');
+      return (response.data?.data ?? { trees: [], orphans: [] }) as {
+        trees: AgentLineageNode[];
+        orphans: AgentLineageNode[];
+      };
+    },
   });
 }
 
@@ -213,6 +234,40 @@ export function useBehavioralFingerprints(agentId: string) {
       return (response.data?.data ?? []) as BehavioralFingerprint[];
     },
     enabled: !!agentId,
+  });
+}
+
+export function useBudgetTransactions(budgetId: string, page = 1, perPage = 25) {
+  return useQuery({
+    queryKey: [...AUTONOMY_KEYS.budgetTransactions(budgetId), page, perPage],
+    queryFn: async () => {
+      const response = await apiClient.get(`/ai/autonomy/budgets/${budgetId}/transactions`, {
+        params: { page, per_page: perPage },
+      });
+      return (response.data?.data ?? { transactions: [], pagination: { page: 1, per_page: perPage, total: 0, total_pages: 0 } }) as PaginatedTransactions;
+    },
+    enabled: !!budgetId,
+  });
+}
+
+export function useBudgetCheck(budgetId: string) {
+  return useQuery({
+    queryKey: AUTONOMY_KEYS.budgetCheck(budgetId),
+    queryFn: async () => {
+      const response = await apiClient.get(`/ai/autonomy/budgets/${budgetId}/check`);
+      return (response.data?.data ?? null) as BudgetCheckResponse;
+    },
+    enabled: !!budgetId,
+  });
+}
+
+export function useBudgetAlerts() {
+  return useQuery({
+    queryKey: AUTONOMY_KEYS.budgetAlerts(),
+    queryFn: async () => {
+      const response = await apiClient.get('/ai/autonomy/budgets/alerts');
+      return (response.data?.data ?? []) as BudgetAlertItem[];
+    },
   });
 }
 

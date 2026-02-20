@@ -53,7 +53,7 @@ export const TelemetryEventStream: React.FC = () => {
       <CardContent>
         {events && events.length > 0 ? (
           <div className="max-h-96 overflow-y-auto">
-            {events.slice(0, 50).map(e => (
+            {events.map(e => (
               <EventRow key={e.id} event={e} />
             ))}
           </div>

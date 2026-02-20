@@ -8,10 +8,10 @@ interface BudgetRegimeIndicatorProps {
 }
 
 const REGIME_CONFIG: Record<BudgetRegime['level'], { variant: 'success' | 'info' | 'warning' | 'default'; label: string }> = {
-  HIGH: { variant: 'success', label: 'High Availability' },
-  MEDIUM: { variant: 'info', label: 'Moderate' },
-  LOW: { variant: 'warning', label: 'Low Budget' },
-  CRITICAL: { variant: 'default', label: 'Critical' },
+  NORMAL: { variant: 'success', label: 'Normal' },
+  CAUTIOUS: { variant: 'info', label: 'Cautious' },
+  CRITICAL: { variant: 'warning', label: 'Critical' },
+  EXHAUSTED: { variant: 'default', label: 'Exhausted' },
 };
 
 export const BudgetRegimeIndicator: React.FC<BudgetRegimeIndicatorProps> = ({ regime }) => {

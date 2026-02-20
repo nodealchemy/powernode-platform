@@ -25,13 +25,14 @@ interface LineageNodeProps {
 
 const LineageNode: React.FC<LineageNodeProps> = ({ node, depth = 0 }) => {
   const [expanded, setExpanded] = useState(depth < 2);
-  const hasChildren = node.children.length > 0;
+  const children = node.children ?? [];
+  const hasChildren = children.length > 0;
 
   return (
     <div>
       <div
         className={cn(
-          'flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-theme-bg-secondary transition-colors',
+          'flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-theme-surface-hover transition-colors',
           hasChildren && 'cursor-pointer'
         )}
         style={{ paddingLeft: `${depth * 24 + 12}px` }}
@@ -39,15 +40,15 @@ const LineageNode: React.FC<LineageNodeProps> = ({ node, depth = 0 }) => {
       >
         {hasChildren ? (
           expanded ? (
-            <ChevronDown className="h-4 w-4 text-theme-muted shrink-0" />
+            <ChevronDown className="h-4 w-4 text-theme-secondary shrink-0" />
           ) : (
-            <ChevronRight className="h-4 w-4 text-theme-muted shrink-0" />
+            <ChevronRight className="h-4 w-4 text-theme-secondary shrink-0" />
           )
         ) : (
           <span className="w-4 shrink-0" />
         )}
 
-        <div className="h-7 w-7 rounded-md bg-theme-info bg-opacity-10 flex items-center justify-center shrink-0">
+        <div className="h-7 w-7 rounded-md bg-theme-info/10 flex items-center justify-center shrink-0">
           {depth === 0 ? (
             <GitBranch className="h-4 w-4 text-theme-info" />
           ) : (
@@ -57,7 +58,7 @@ const LineageNode: React.FC<LineageNodeProps> = ({ node, depth = 0 }) => {
 
         <div className="flex-1 min-w-0 flex items-center gap-2">
           <span className="text-sm font-medium text-theme-primary truncate">{node.name}</span>
-          <span className="text-xs text-theme-muted">({node.type})</span>
+          <span className="text-xs text-theme-secondary">({node.type})</span>
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
@@ -74,7 +75,7 @@ const LineageNode: React.FC<LineageNodeProps> = ({ node, depth = 0 }) => {
 
       {expanded && hasChildren && (
         <div>
-          {node.children.map((child) => (
+          {children.map((child) => (
             <LineageNode key={child.id} node={child} depth={depth + 1} />
           ))}
         </div>
@@ -89,7 +90,7 @@ interface AgentLineageTreeProps {
 
 export const AgentLineageTree: React.FC<AgentLineageTreeProps> = ({ root }) => {
   return (
-    <div className="rounded-lg border border-theme-border bg-theme-bg-primary divide-y divide-theme-border">
+    <div className="rounded-lg border border-theme bg-theme-surface divide-y divide-theme">
       <LineageNode node={root} />
     </div>
   );

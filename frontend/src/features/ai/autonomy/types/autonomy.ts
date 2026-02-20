@@ -38,6 +38,8 @@ export interface AgentBudget {
   remaining_cents: number;
   exceeded: boolean;
   parent_budget_id?: string;
+  period_start: string;
+  period_end: string;
   created_at: string;
 }
 
@@ -169,8 +171,45 @@ export interface DelegationPolicy {
 }
 
 export interface BudgetRegime {
-  level: 'HIGH' | 'MEDIUM' | 'LOW' | 'CRITICAL';
+  level: 'NORMAL' | 'CAUTIOUS' | 'CRITICAL' | 'EXHAUSTED';
   utilization_pct: number;
   remaining_cents: number;
   message: string;
+}
+
+export interface BudgetTransaction {
+  id: string;
+  budget_id: string;
+  execution_id?: string;
+  transaction_type: 'debit' | 'credit' | 'reservation' | 'release' | 'rollover' | 'adjustment';
+  amount_cents: number;
+  running_balance_cents: number;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface BudgetCheckResponse {
+  allowed: boolean;
+  remaining_cents: number;
+  utilization_ratio: number;
+}
+
+export interface BudgetAlertItem {
+  budget_id: string;
+  agent_id: string;
+  agent_name: string;
+  level: 'warning' | 'danger' | 'exhausted';
+  utilization_pct: number;
+  remaining_cents: number;
+  total_budget_cents: number;
+}
+
+export interface PaginatedTransactions {
+  transactions: BudgetTransaction[];
+  pagination: {
+    page: number;
+    per_page: number;
+    total: number;
+    total_pages: number;
+  };
 }

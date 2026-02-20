@@ -7,7 +7,7 @@ import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/components/ui/Tabs';
-import { useAutonomyStats, useTrustScores, useAgentBudgets, useAgentLineage } from '../api/autonomyApi';
+import { useAutonomyStats, useTrustScores, useAgentBudgets, useAgentLineage, useAgentLineageForest } from '../api/autonomyApi';
 import { TrustScoreCard } from '../components/TrustScoreCard';
 import { AgentLineageTree } from '../components/AgentLineageTree';
 import { BudgetAllocationPanel } from '../components/BudgetAllocationPanel';
@@ -54,10 +54,10 @@ function computeBudgetRegime(stats: AutonomyStats): BudgetRegime | null {
   const remaining = stats.budgets.total_budget_cents - stats.budgets.total_spent_cents;
   let level: BudgetRegime['level'];
   let message: string;
-  if (pct >= 90) { level = 'CRITICAL'; message = 'Budget nearly exhausted — immediate attention required'; }
-  else if (pct >= 75) { level = 'LOW'; message = 'Budget running low — consider reducing agent spend'; }
-  else if (pct >= 50) { level = 'MEDIUM'; message = 'Budget utilization is moderate'; }
-  else { level = 'HIGH'; message = 'Budget availability is healthy'; }
+  if (pct >= 100) { level = 'EXHAUSTED'; message = 'Budget exhausted — new executions blocked'; }
+  else if (pct >= 80) { level = 'CRITICAL'; message = 'Budget is critically low — only essential operations permitted'; }
+  else if (pct >= 50) { level = 'CAUTIOUS'; message = 'Budget utilization is moderate'; }
+  else { level = 'NORMAL'; message = 'Budget availability is healthy'; }
   return { level, utilization_pct: pct, remaining_cents: remaining, message };
 }
 
@@ -104,7 +104,9 @@ const LineageTab: React.FC<{
   selectedAgentId: string;
   onAgentSelect: (id: string) => void;
 }> = ({ trustScores, selectedAgentId, onAgentSelect }) => {
-  const { data: lineage } = useAgentLineage(selectedAgentId);
+  const { data: forest, isLoading: forestLoading } = useAgentLineageForest();
+  const { data: singleLineage } = useAgentLineage(selectedAgentId);
+  const [showOrphans, setShowOrphans] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -112,13 +114,13 @@ const LineageTab: React.FC<{
         <CardHeader title="Agent Lineage" />
         <CardContent>
           <div className="mb-4">
-            <label className="block text-sm text-theme-muted mb-1">Select Agent</label>
+            <label className="block text-sm text-theme-muted mb-1">Filter by Agent (optional)</label>
             <select
-              className="w-full max-w-xs rounded-md border border-theme-border bg-theme-bg-primary text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info"
+              className="w-full max-w-xs rounded-md border border-theme bg-theme-surface text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info"
               value={selectedAgentId}
               onChange={(e) => onAgentSelect(e.target.value)}
             >
-              <option value="">Choose an agent...</option>
+              <option value="">All agents (forest view)</option>
               {trustScores.map((s) => (
                 <option key={s.agent_id} value={s.agent_id}>
                   {s.agent_name}
@@ -126,12 +128,48 @@ const LineageTab: React.FC<{
               ))}
             </select>
           </div>
-          {lineage ? (
-            <AgentLineageTree root={lineage} />
+
+          {selectedAgentId ? (
+            singleLineage ? (
+              <AgentLineageTree root={singleLineage} />
+            ) : (
+              <p className="text-sm text-theme-muted py-4 text-center">Loading lineage...</p>
+            )
+          ) : forestLoading ? (
+            <p className="text-sm text-theme-muted py-4 text-center">Loading lineage forest...</p>
+          ) : forest && forest.trees.length > 0 ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {forest.trees.map((tree) => (
+                <div key={tree.id} className="border border-theme rounded-lg p-3">
+                  <AgentLineageTree root={tree} />
+                </div>
+              ))}
+            </div>
           ) : (
             <p className="text-sm text-theme-muted py-4 text-center">
-              {selectedAgentId ? 'Loading lineage...' : 'Select an agent to view its lineage tree.'}
+              No lineage trees found. Agent lineage is created when agents are organized into team hierarchies.
             </p>
+          )}
+
+          {!selectedAgentId && forest && forest.orphans.length > 0 && (
+            <div className="mt-4">
+              <button
+                onClick={() => setShowOrphans(!showOrphans)}
+                className="text-sm text-theme-info hover:underline flex items-center gap-1"
+              >
+                <GitBranch className="h-3.5 w-3.5" />
+                {showOrphans ? 'Hide' : 'Show'} Standalone Agents ({forest.orphans.length})
+              </button>
+              {showOrphans && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mt-3">
+                  {forest.orphans.map((agent) => (
+                    <div key={agent.id} className="border border-theme rounded-lg p-3">
+                      <AgentLineageTree root={agent} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>
