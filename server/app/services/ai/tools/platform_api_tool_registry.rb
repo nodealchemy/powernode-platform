@@ -58,7 +58,22 @@ module Ai
         "search_knowledge" => "Ai::Tools::SharedKnowledgeTool",
         "create_knowledge" => "Ai::Tools::SharedKnowledgeTool",
         "update_knowledge" => "Ai::Tools::SharedKnowledgeTool",
-        "promote_knowledge" => "Ai::Tools::SharedKnowledgeTool"
+        "promote_knowledge" => "Ai::Tools::SharedKnowledgeTool",
+        # Skills
+        "list_skills" => "Ai::Tools::SkillTool",
+        "get_skill" => "Ai::Tools::SkillTool",
+        "discover_skills" => "Ai::Tools::SkillTool",
+        "get_skill_context" => "Ai::Tools::SkillTool",
+        "skill_health" => "Ai::Tools::SkillTool",
+        "skill_metrics" => "Ai::Tools::SkillTool",
+        # Knowledge graph
+        "search_knowledge_graph" => "Ai::Tools::KnowledgeGraphTool",
+        "reason_knowledge_graph" => "Ai::Tools::KnowledgeGraphTool",
+        "get_graph_node" => "Ai::Tools::KnowledgeGraphTool",
+        "list_graph_nodes" => "Ai::Tools::KnowledgeGraphTool",
+        "get_graph_neighbors" => "Ai::Tools::KnowledgeGraphTool",
+        "graph_statistics" => "Ai::Tools::KnowledgeGraphTool",
+        "get_subgraph" => "Ai::Tools::KnowledgeGraphTool"
       }.freeze
 
       def self.available_tools(agent: nil)

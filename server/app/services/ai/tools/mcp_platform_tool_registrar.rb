@@ -24,13 +24,13 @@ module Ai
           end
         end
 
-        def execute_tool(tool_id, params:, account:, user: nil, agent_id: nil)
+        def execute_tool(tool_id, params:, account:, user: nil, agent_id: nil, token: nil)
           tool_name = tool_id.delete_prefix("#{TOOL_ID_PREFIX}.")
           tool_class = find_tool_class(tool_name)
           raise ArgumentError, "Unknown platform tool: #{tool_name}" unless tool_class
 
           # SECURITY: Enforce permission at execution time (defense-in-depth)
-          enforce_permission!(user: user, tool_class: tool_class, tool_id: tool_id)
+          enforce_permission!(user: user, tool_class: tool_class, tool_id: tool_id, token: token)
 
           # Rate limiting per agent
           if agent_id
@@ -53,7 +53,7 @@ module Ai
 
         private
 
-        def enforce_permission!(user:, tool_class:, tool_id:)
+        def enforce_permission!(user:, tool_class:, tool_id:, token: nil)
           required = tool_class::REQUIRED_PERMISSION
           return if required.nil?
 
@@ -65,6 +65,13 @@ module Ai
           unless user.has_permission?(required)
             raise ::Mcp::ProtocolService::PermissionDeniedError,
                   "Permission denied for #{tool_id}: requires '#{required}'"
+          end
+
+          # Token permission intersection: if an MCP token is present with scoped
+          # permissions, the token must also grant the required permission
+          if token&.permissions.present? && !token.has_permission?(required)
+            raise ::Mcp::ProtocolService::PermissionDeniedError,
+                  "Token does not grant permission for #{tool_id}: requires '#{required}'"
           end
         end
 
