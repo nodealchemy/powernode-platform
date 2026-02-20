@@ -5,7 +5,16 @@ require "rails_helper"
 RSpec.describe "MCP Streamable HTTP", type: :request do
   let(:account) { create(:account) }
   let(:user) { user_with_permissions("ai.agents.read", "ai.workflows.read", "ai.workflows.execute", account: account) }
-  let(:headers) { auth_headers_for(user) }
+  let(:oauth_app) { create(:oauth_application, :mcp_client) }
+  let(:oauth_token) do
+    create(:oauth_access_token, oauth_app: oauth_app, resource_owner_id: user.id, scopes: "read write")
+  end
+  let(:headers) do
+    {
+      "Authorization" => "Bearer #{oauth_token.plaintext_token}",
+      "Content-Type" => "application/json"
+    }
+  end
   let(:mcp_endpoint) { "/api/v1/mcp/message" }
 
   def jsonrpc_request(method:, params: {}, id: 1)
@@ -17,199 +26,71 @@ RSpec.describe "MCP Streamable HTTP", type: :request do
   end
 
   # ===========================================================================
-  # Section 1: Authentication
+  # Section 1: Authentication (OAuth 2.1)
   # ===========================================================================
   describe "Authentication" do
-    describe "per-user MCP token auth" do
-      let(:token_result) { UserToken.create_token_for_user(user, type: "mcp", name: "test-token") }
-      let(:raw_token) { token_result[:token] }
-      let(:user_token) { token_result[:user_token] }
-
-      it "authenticates with pnmcp_ prefixed token" do
-        mcp_headers = {
-          "Authorization" => "Bearer pnmcp_#{raw_token}",
-          "Content-Type" => "application/json"
-        }
-
-        post mcp_endpoint, params: jsonrpc_request(method: "ping"), headers: mcp_headers
-
-        expect(response).to have_http_status(:ok)
-        expect(json_response["result"]).to eq({})
-      end
-
-      it "authenticates without pnmcp_ prefix for backward compatibility" do
-        mcp_headers = {
-          "Authorization" => "Bearer #{raw_token}",
-          "Content-Type" => "application/json"
-        }
-
-        post mcp_endpoint, params: jsonrpc_request(method: "ping"), headers: mcp_headers
-
-        expect(response).to have_http_status(:ok)
-        expect(json_response["result"]).to eq({})
-      end
-
-      it "sets @mcp_token for permission intersection" do
-        mcp_headers = {
-          "Authorization" => "Bearer pnmcp_#{raw_token}",
-          "Content-Type" => "application/json"
-        }
-
-        # Verify that the token is passed through to platform tool calls
-        allow(::Ai::Tools::McpPlatformToolRegistrar).to receive(:execute_tool) do |_tool_id, **kwargs|
-          expect(kwargs[:token]).to be_a(UserToken)
-          expect(kwargs[:token].id).to eq(user_token.id)
-          { success: true }
-        end
-
-        post mcp_endpoint,
-             params: jsonrpc_request(method: "tools/call", params: { "name" => "platform.list_agents", "arguments" => {} }),
-             headers: mcp_headers
-
-        expect(response).to have_http_status(:ok)
-      end
-
-      it "calls touch_last_used! on the token" do
-        mcp_headers = {
-          "Authorization" => "Bearer pnmcp_#{raw_token}",
-          "Content-Type" => "application/json"
-        }
-
-        expect { post mcp_endpoint, params: jsonrpc_request(method: "ping"), headers: mcp_headers }
-          .to change { user_token.reload.last_used_at }
-      end
-
-      it "rejects expired MCP token" do
-        user_token.update_columns(created_at: 3.hours.ago, expires_at: 1.hour.ago)
-
-        mcp_headers = {
-          "Authorization" => "Bearer pnmcp_#{raw_token}",
-          "Content-Type" => "application/json"
-        }
-
-        post mcp_endpoint, params: jsonrpc_request(method: "ping"), headers: mcp_headers
-
-        # Falls through to JWT fallback which also fails
-        expect(response).to have_http_status(:unauthorized)
-      end
-
-      it "rejects revoked MCP token" do
-        user_token.revoke!
-
-        mcp_headers = {
-          "Authorization" => "Bearer pnmcp_#{raw_token}",
-          "Content-Type" => "application/json"
-        }
-
-        post mcp_endpoint, params: jsonrpc_request(method: "ping"), headers: mcp_headers
-
-        # Falls through to JWT fallback which also fails
-        expect(response).to have_http_status(:unauthorized)
-      end
-
-      it "rejects token when user is inactive" do
-        user.update!(status: "inactive")
-
-        mcp_headers = {
-          "Authorization" => "Bearer pnmcp_#{raw_token}",
-          "Content-Type" => "application/json"
-        }
-
-        post mcp_endpoint, params: jsonrpc_request(method: "ping"), headers: mcp_headers
-
-        expect(response).to have_http_status(:ok)
-        expect(json_response["error"]["code"]).to eq(-32001)
-      end
-
-      it "rejects token when account is inactive" do
-        account.update!(status: "suspended")
-
-        mcp_headers = {
-          "Authorization" => "Bearer pnmcp_#{raw_token}",
-          "Content-Type" => "application/json"
-        }
-
-        post mcp_endpoint, params: jsonrpc_request(method: "ping"), headers: mcp_headers
-
-        expect(response).to have_http_status(:ok)
-        expect(json_response["error"]["code"]).to eq(-32001)
-      end
-    end
-
-    describe "static env token auth" do
-      let(:static_token) { "test-static-mcp-token-12345" }
-
-      before do
-        allow(ENV).to receive(:[]).and_call_original
-        allow(ENV).to receive(:[]).with("POWERNODE_MCP_TOKEN").and_return(static_token)
-        allow(ENV).to receive(:fetch).and_call_original
-        allow(ENV).to receive(:[]).with("POWERNODE_MCP_USER_EMAIL").and_return(user.email)
-      end
-
-      it "authenticates with static env token" do
-        mcp_headers = {
-          "Authorization" => "Bearer #{static_token}",
-          "Content-Type" => "application/json"
-        }
-
-        post mcp_endpoint, params: jsonrpc_request(method: "ping"), headers: mcp_headers
-
-        expect(response).to have_http_status(:ok)
-        expect(json_response["result"]).to eq({})
-      end
-
-      it "rejects invalid static token (falls through to JWT which also fails)" do
-        mcp_headers = {
-          "Authorization" => "Bearer wrong-token",
-          "Content-Type" => "application/json"
-        }
-
-        post mcp_endpoint, params: jsonrpc_request(method: "ping"), headers: mcp_headers
-
-        # Token doesn't match static env var → falls through to JWT → JWT rejects → 401
-        expect(response).to have_http_status(:unauthorized)
-      end
-    end
-
-    describe "JWT fallback auth" do
-      it "authenticates with valid JWT" do
+    describe "Doorkeeper OAuth token auth" do
+      it "authenticates with a valid OAuth access token" do
         post mcp_endpoint, params: jsonrpc_request(method: "ping"), headers: headers
 
         expect(response).to have_http_status(:ok)
         expect(json_response["result"]).to eq({})
       end
-    end
 
-    describe "auth priority" do
-      let(:token_result) { UserToken.create_token_for_user(user, type: "mcp", name: "priority-test") }
-      let(:raw_token) { token_result[:token] }
-      let(:static_token) { "static-priority-token" }
-
-      before do
-        allow(ENV).to receive(:[]).and_call_original
-        allow(ENV).to receive(:[]).with("POWERNODE_MCP_TOKEN").and_return(static_token)
-        allow(ENV).to receive(:fetch).and_call_original
-        allow(ENV).to receive(:[]).with("POWERNODE_MCP_USER_EMAIL").and_return(user.email)
-      end
-
-      it "prioritizes MCP token over static token and JWT" do
-        # Use the MCP token — should authenticate via user token path (not static)
-        mcp_headers = {
-          "Authorization" => "Bearer pnmcp_#{raw_token}",
+      it "returns 401 for expired OAuth token" do
+        expired_token = create(:oauth_access_token, :expired, oauth_app: oauth_app, resource_owner_id: user.id)
+        expired_headers = {
+          "Authorization" => "Bearer #{expired_token.plaintext_token}",
           "Content-Type" => "application/json"
         }
 
-        post mcp_endpoint, params: jsonrpc_request(method: "ping"), headers: mcp_headers
+        post mcp_endpoint, params: jsonrpc_request(method: "ping"), headers: expired_headers
 
-        expect(response).to have_http_status(:ok)
-        expect(json_response["result"]).to eq({})
-        # Verify the token was used (last_used_at updated)
-        expect(token_result[:user_token].reload.last_used_at).to be_present
+        expect(response).to have_http_status(:unauthorized)
+        expect(response.headers["WWW-Authenticate"]).to include("resource_metadata")
+      end
+
+      it "returns 401 for revoked OAuth token" do
+        revoked_token = create(:oauth_access_token, :revoked, oauth_app: oauth_app, resource_owner_id: user.id)
+        revoked_headers = {
+          "Authorization" => "Bearer #{revoked_token.plaintext_token}",
+          "Content-Type" => "application/json"
+        }
+
+        post mcp_endpoint, params: jsonrpc_request(method: "ping"), headers: revoked_headers
+
+        expect(response).to have_http_status(:unauthorized)
+      end
+
+      it "returns 401 when user is inactive" do
+        user.update!(status: "inactive")
+
+        post mcp_endpoint, params: jsonrpc_request(method: "ping"), headers: headers
+
+        expect(response).to have_http_status(:unauthorized)
+      end
+
+      it "returns 401 when account is inactive" do
+        account.update!(status: "suspended")
+
+        post mcp_endpoint, params: jsonrpc_request(method: "ping"), headers: headers
+
+        expect(response).to have_http_status(:unauthorized)
       end
     end
 
-    describe "invalid auth" do
-      it "returns error with invalid bearer token" do
+    describe "OAuth discovery trigger" do
+      it "returns 401 with WWW-Authenticate header when no token provided" do
+        post mcp_endpoint,
+             params: jsonrpc_request(method: "ping"),
+             headers: { "Content-Type" => "application/json" }
+
+        expect(response).to have_http_status(:unauthorized)
+        expect(response.headers["WWW-Authenticate"]).to include("Bearer")
+        expect(response.headers["WWW-Authenticate"]).to include("/.well-known/oauth-protected-resource")
+      end
+
+      it "returns 401 with WWW-Authenticate header for invalid token" do
         invalid_headers = {
           "Authorization" => "Bearer totally-invalid-token",
           "Content-Type" => "application/json"
@@ -217,16 +98,18 @@ RSpec.describe "MCP Streamable HTTP", type: :request do
 
         post mcp_endpoint, params: jsonrpc_request(method: "ping"), headers: invalid_headers
 
-        # Falls through all auth modes — JWT fallback returns unauthorized
         expect(response).to have_http_status(:unauthorized)
+        expect(response.headers["WWW-Authenticate"]).to include("resource_metadata")
       end
 
-      it "returns error with missing authorization header" do
+      it "returns JSON error body (not JSON-RPC) on auth failure" do
         post mcp_endpoint,
              params: jsonrpc_request(method: "ping"),
              headers: { "Content-Type" => "application/json" }
 
-        expect(response).to have_http_status(:unauthorized)
+        body = JSON.parse(response.body)
+        expect(body).to have_key("error")
+        expect(body).not_to have_key("jsonrpc")
       end
     end
   end
@@ -366,17 +249,17 @@ RSpec.describe "MCP Streamable HTTP", type: :request do
   # ===========================================================================
   describe "initialize method" do
     before do
-      allow(::Mcp::ProtocolService).to receive(:negotiate_protocol_version).and_return("2025-06-18")
+      allow(::Mcp::ProtocolService).to receive(:negotiate_protocol_version).and_return("2025-11-25")
     end
 
     it "returns capabilities, serverInfo, and protocolVersion" do
       post mcp_endpoint,
-           params: jsonrpc_request(method: "initialize", params: { "protocolVersion" => "2025-06-18" }),
+           params: jsonrpc_request(method: "initialize", params: { "protocolVersion" => "2025-11-25" }),
            headers: headers
 
       expect(response).to have_http_status(:ok)
       result = json_response["result"]
-      expect(result["protocolVersion"]).to eq("2025-06-18")
+      expect(result["protocolVersion"]).to eq("2025-11-25")
       expect(result["capabilities"]).to be_a(Hash)
       expect(result["serverInfo"]).to include("name" => "Powernode AI Platform")
       expect(result["serverInfo"]["version"]).to be_a(String)
@@ -385,14 +268,14 @@ RSpec.describe "MCP Streamable HTTP", type: :request do
     it "creates an McpSession in the database" do
       expect {
         post mcp_endpoint,
-             params: jsonrpc_request(method: "initialize", params: { "protocolVersion" => "2025-06-18" }),
+             params: jsonrpc_request(method: "initialize", params: { "protocolVersion" => "2025-11-25" }),
              headers: headers
       }.to change(McpSession, :count).by(1)
     end
 
     it "sets Mcp-Session-Id response header" do
       post mcp_endpoint,
-           params: jsonrpc_request(method: "initialize", params: { "protocolVersion" => "2025-06-18" }),
+           params: jsonrpc_request(method: "initialize", params: { "protocolVersion" => "2025-11-25" }),
            headers: headers
 
       expect(response.headers["Mcp-Session-Id"]).to be_present
@@ -400,13 +283,13 @@ RSpec.describe "MCP Streamable HTTP", type: :request do
 
     it "creates session with correct user, account, and protocol_version" do
       post mcp_endpoint,
-           params: jsonrpc_request(method: "initialize", params: { "protocolVersion" => "2025-06-18" }),
+           params: jsonrpc_request(method: "initialize", params: { "protocolVersion" => "2025-11-25" }),
            headers: headers
 
       session = McpSession.last
       expect(session.user_id).to eq(user.id)
       expect(session.account_id).to eq(account.id)
-      expect(session.protocol_version).to eq("2025-06-18")
+      expect(session.protocol_version).to eq("2025-11-25")
     end
 
     it "stores client_info from params" do
@@ -414,7 +297,7 @@ RSpec.describe "MCP Streamable HTTP", type: :request do
 
       post mcp_endpoint,
            params: jsonrpc_request(method: "initialize", params: {
-             "protocolVersion" => "2025-06-18",
+             "protocolVersion" => "2025-11-25",
              "clientInfo" => client_info
            }),
            headers: headers
@@ -437,7 +320,7 @@ RSpec.describe "MCP Streamable HTTP", type: :request do
 
     it "sets expires_at on the session" do
       post mcp_endpoint,
-           params: jsonrpc_request(method: "initialize", params: { "protocolVersion" => "2025-06-18" }),
+           params: jsonrpc_request(method: "initialize", params: { "protocolVersion" => "2025-11-25" }),
            headers: headers
 
       session = McpSession.last
@@ -572,16 +455,9 @@ RSpec.describe "MCP Streamable HTTP", type: :request do
       expect(json_response["error"]).to be_present
     end
 
-    it "passes token for permission intersection on platform tool call" do
-      token_result = UserToken.create_token_for_user(user, type: "mcp", name: "tool-test")
-      mcp_headers = {
-        "Authorization" => "Bearer pnmcp_#{token_result[:token]}",
-        "Content-Type" => "application/json"
-      }
-
+    it "passes user and account for permission check on platform tool call" do
       allow(::Ai::Tools::McpPlatformToolRegistrar).to receive(:execute_tool) do |tool_id, **kwargs|
         expect(tool_id).to eq("platform.list_agents")
-        expect(kwargs[:token]).to eq(token_result[:user_token])
         expect(kwargs[:user]).to eq(user)
         expect(kwargs[:account]).to eq(account)
         { success: true, agents: [] }
@@ -592,7 +468,7 @@ RSpec.describe "MCP Streamable HTTP", type: :request do
              "name" => "platform.list_agents",
              "arguments" => {}
            }),
-           headers: mcp_headers
+           headers: headers
 
       expect(response).to have_http_status(:ok)
     end
@@ -945,14 +821,14 @@ RSpec.describe "MCP Streamable HTTP", type: :request do
   # ===========================================================================
   describe "DELETE /message" do
     before do
-      allow(::Mcp::ProtocolService).to receive(:negotiate_protocol_version).and_return("2025-06-18")
+      allow(::Mcp::ProtocolService).to receive(:negotiate_protocol_version).and_return("2025-11-25")
     end
 
     let!(:session) do
       McpSession.create!(
         user: user,
         account: account,
-        protocol_version: "2025-06-18",
+        protocol_version: "2025-11-25",
         client_info: {},
         ip_address: "127.0.0.1",
         user_agent: "test",
@@ -1009,7 +885,29 @@ RSpec.describe "MCP Streamable HTTP", type: :request do
     it "MCP-Protocol-Version matches the controller constant" do
       post mcp_endpoint, params: jsonrpc_request(method: "ping"), headers: headers
 
-      expect(response.headers["MCP-Protocol-Version"]).to eq("2025-06-18")
+      expect(response.headers["MCP-Protocol-Version"]).to eq("2025-11-25")
+    end
+
+    it "includes MCP-Protocol-Version on auth error response (401)" do
+      invalid_headers = {
+        "Authorization" => "Bearer invalid.jwt.token",
+        "Content-Type" => "application/json"
+      }
+
+      post mcp_endpoint, params: jsonrpc_request(method: "ping"), headers: invalid_headers
+
+      # Auth failures return 401 but still include MCP headers (set_mcp_headers runs before auth)
+      expect(response).to have_http_status(:unauthorized)
+      expect(response.headers["MCP-Protocol-Version"]).to eq("2025-11-25")
+    end
+
+    it "includes MCP-Protocol-Version when auth header is missing (401)" do
+      post mcp_endpoint,
+           params: jsonrpc_request(method: "ping"),
+           headers: { "Content-Type" => "application/json" }
+
+      expect(response).to have_http_status(:unauthorized)
+      expect(response.headers["MCP-Protocol-Version"]).to eq("2025-11-25")
     end
   end
 
@@ -1018,14 +916,14 @@ RSpec.describe "MCP Streamable HTTP", type: :request do
   # ===========================================================================
   describe "Session activity tracking" do
     before do
-      allow(::Mcp::ProtocolService).to receive(:negotiate_protocol_version).and_return("2025-06-18")
+      allow(::Mcp::ProtocolService).to receive(:negotiate_protocol_version).and_return("2025-11-25")
     end
 
     it "updates last_activity_at when Mcp-Session-Id is present" do
       session = McpSession.create!(
         user: user,
         account: account,
-        protocol_version: "2025-06-18",
+        protocol_version: "2025-11-25",
         client_info: {},
         ip_address: "127.0.0.1",
         user_agent: "test",

@@ -61,5 +61,12 @@ FactoryBot.define do
       association :owner, factory: :user
       owner_type { "User" }
     end
+
+    trait :mcp_client do
+      confidential { false }
+      redirect_uri { "http://127.0.0.1:3456/callback" }
+      scopes { "read write workflows files" }
+      metadata { { registered_via: "mcp_dynamic_registration" } }
+    end
   end
 end
