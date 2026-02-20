@@ -258,3 +258,31 @@
     class: AiTeamMessageCleanupJob
     queue: ai_orchestration
     description: 'Clean up old AI team messages based on channel retention policy'
+
+  # Trust score decay - apply temporal decay to idle agents
+  ai_trust_decay:
+    cron: '0 2 * * *'
+    class: AiTrustDecayJob
+    queue: ai_orchestration
+    description: 'Apply temporal decay to trust scores of idle agents'
+
+  # Budget rollover - create new period budgets for expired ones
+  ai_budget_rollover:
+    cron: '0 * * * *'
+    class: AiBudgetRolloverJob
+    queue: ai_orchestration
+    description: 'Roll over expired agent budgets to new periods'
+
+  # Budget reconciliation - verify transaction ledger matches spent_cents
+  ai_budget_reconciliation:
+    cron: '0 4 * * *'
+    class: AiBudgetReconciliationJob
+    queue: ai_orchestration
+    description: 'Reconcile budget transaction ledger with spent_cents totals'
+
+  # AI model pricing sync - fetch latest pricing from LiteLLM
+  ai_pricing_sync:
+    cron: '0 1 * * *'
+    class: AiPricingSyncJob
+    queue: ai_orchestration
+    description: 'Sync AI model pricing from LiteLLM community data'

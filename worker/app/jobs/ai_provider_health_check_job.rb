@@ -263,10 +263,13 @@ class AiProviderHealthCheckJob < BaseJob
   end
 
   def broadcast_health_status(health_report)
-    begin
-      AiWorkflowMonitoringChannel.broadcast_provider_health(health_report)
-    rescue StandardError => e
-      log_error("Failed to broadcast provider health status", e)
+    with_api_retry(max_attempts: 1) do
+      api_client.post("/api/v1/ai/autonomy/broadcast", {
+        broadcast_type: "provider_health",
+        data: health_report
+      })
     end
+  rescue StandardError => e
+    log_error("Failed to broadcast provider health status", e)
   end
 end

@@ -24,9 +24,18 @@ class AiAgentExecutionJob < BaseJob
       return
     end
 
+    # Budget pre-check (single API call, cached)
+    budget_check = check_budget_gate
+    if budget_check && !budget_check[:allowed]
+      fail_agent_execution("Budget exhausted: #{budget_check[:remaining_cents]} cents remaining")
+      log_warn("Agent execution blocked by budget gate", agent_execution_id: agent_execution_id)
+      return
+    end
+
     begin
       # Update status to running
       update_execution_status('running')
+      emit_telemetry("agent_execution_started")
 
       # Execute the AI agent
       result = execute_ai_agent_with_multi_turn
@@ -192,6 +201,15 @@ class AiAgentExecutionJob < BaseJob
     begin
       loop do
         conversation_turns += 1
+
+        # Multi-turn budget check (single API call per turn)
+        if conversation_turns > 1
+          turn_budget_check = check_budget_gate
+          if turn_budget_check && !turn_budget_check[:allowed]
+            log_warn("Budget exhausted during multi-turn execution", turn: conversation_turns)
+            break
+          end
+        end
 
         # Execute single turn
         turn_result = execute_ai_agent_turn(conversation_history, conversation_turns)
@@ -392,6 +410,31 @@ class AiAgentExecutionJob < BaseJob
     }
 
     backend_api_patch("/api/v1/ai/executions/#{@agent_execution['id']}", payload)
+
+    # Emit telemetry and trigger trust evaluation after successful execution
+    emit_telemetry("agent_execution_completed", outcome: "success", data: { duration_ms: result[:duration_ms], cost: result[:cost] })
+    trigger_trust_evaluation(result)
+  end
+
+  def check_budget_gate
+    agent_id = @agent_execution.dig('ai_agent', 'id')
+    return nil unless agent_id
+
+    response = backend_api_get("/api/v1/ai/autonomy/budgets/alerts")
+    return nil unless response['success']
+
+    # Check if this specific agent has a budget alert at exhausted level
+    alerts = response['data'] || []
+    agent_alert = alerts.find { |a| a['agent_id'] == agent_id && a['level'] == 'exhausted' }
+
+    if agent_alert
+      { allowed: false, remaining_cents: agent_alert['remaining_cents'] || 0 }
+    else
+      { allowed: true }
+    end
+  rescue StandardError => e
+    log_warn("Budget gate check failed, allowing execution", error: e.message)
+    nil
   end
 
   def fail_agent_execution(error_message)
@@ -404,5 +447,37 @@ class AiAgentExecutionJob < BaseJob
     }
 
     backend_api_patch("/api/v1/ai/executions/#{@agent_execution['id']}", payload)
+    emit_telemetry("agent_execution_failed", outcome: "failure", data: { error: error_message })
+  end
+
+  def trigger_trust_evaluation(result)
+    agent_id = @agent_execution.dig('ai_agent', 'id')
+    return unless agent_id
+
+    backend_api_post("/api/v1/ai/autonomy/trust_scores/#{agent_id}/evaluate_from_execution", {
+      execution_id: @agent_execution['id'],
+      success: result[:success],
+      duration_ms: result[:duration_ms],
+      cost: result[:cost],
+      tokens_used: result[:tokens_used]
+    })
+  rescue StandardError => e
+    log_warn("Trust evaluation after execution failed (non-fatal)", error: e.message)
+  end
+
+  def emit_telemetry(event_type, outcome: nil, data: {})
+    agent_id = @agent_execution.dig('ai_agent', 'id')
+    return unless agent_id
+
+    backend_api_post("/api/v1/ai/autonomy/telemetry", {
+      agent_id: agent_id,
+      event_category: "action",
+      event_type: event_type,
+      outcome: outcome,
+      correlation_id: @agent_execution['id'],
+      event_data: data.merge(execution_id: @agent_execution['id'])
+    })
+  rescue StandardError => e
+    log_warn("Telemetry emission failed (non-fatal)", error: e.message)
   end
 end

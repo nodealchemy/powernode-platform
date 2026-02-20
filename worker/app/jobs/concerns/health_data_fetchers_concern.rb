@@ -46,7 +46,12 @@ module HealthDataFetchersConcern
   end
 
   def broadcast_health_status(health_report)
-    AiWorkflowMonitoringChannel.broadcast_health_status(health_report)
+    with_api_retry(max_attempts: 1) do
+      api_client.post("/api/v1/ai/autonomy/broadcast", {
+        broadcast_type: "health_status",
+        data: health_report
+      })
+    end
   rescue StandardError => e
     log_error("Failed to broadcast health status: #{e.message}")
   end
