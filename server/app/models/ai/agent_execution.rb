@@ -44,6 +44,8 @@ module Ai
     # Callbacks
     before_validation :set_execution_id, on: :create
     after_update :trigger_webhook, if: :saved_change_to_status?
+    after_update :propagate_cost_to_budget, if: -> { saved_change_to_cost_usd? && cost_usd.present? && cost_usd > 0 }
+    after_update :trigger_trust_evaluation, if: -> { saved_change_to_status? && %w[completed failed].include?(status) }
 
     # Methods
     def pending?
@@ -222,6 +224,26 @@ module Ai
       return unless finished?
 
       AiWebhookDeliveryJob.perform_later(id)
+    end
+
+    def propagate_cost_to_budget
+      budget = Ai::AgentBudget.where(agent_id: ai_agent_id, account_id: account_id).active.first
+      return unless budget
+
+      cost_cents = (cost_usd * 100).round
+      budget.debit!(cost_cents, execution: self, metadata: {
+        provider: provider&.name,
+        model: agent&.model,
+        tokens: tokens_used
+      })
+    rescue StandardError => e
+      Rails.logger.error("[AgentExecution] Cost propagation failed for execution #{id}: #{e.message}")
+    end
+
+    def trigger_trust_evaluation
+      Ai::Autonomy::TrustEngineService.new(account: account).evaluate(agent: agent, execution: self)
+    rescue StandardError => e
+      Rails.logger.error("[AgentExecution] Trust evaluation failed for execution #{id}: #{e.message}")
     end
   end
 end

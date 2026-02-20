@@ -12,7 +12,7 @@ module Ai
 
     has_many :child_events, class_name: "Ai::TelemetryEvent", foreign_key: "parent_event_id", dependent: :nullify
 
-    validates :event_category, presence: true
+    validates :event_category, presence: true, inclusion: { in: EVENT_CATEGORIES }
     validates :event_type, presence: true
     validates :correlation_id, presence: true
 

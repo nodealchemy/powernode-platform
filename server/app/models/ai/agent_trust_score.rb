@@ -43,13 +43,15 @@ module Ai
     # ==========================================
 
     # Recalculate overall score from dimensions
-    def recalculate!
+    # @param skip_tier [Boolean] If true, do not recalculate tier (used by emergency_demote!)
+    # @param count_evaluation [Boolean] If true, increment evaluation_count (false for decay)
+    def recalculate!(skip_tier: false, count_evaluation: true)
       weights = { reliability: 0.25, cost_efficiency: 0.15, safety: 0.30, quality: 0.20, speed: 0.10 }
 
       self.overall_score = weights.sum { |dim, weight| (send(dim) || 0.5) * weight }
-      self.tier = calculate_tier
+      self.tier = calculate_tier unless skip_tier
       self.last_evaluated_at = Time.current
-      self.evaluation_count = (evaluation_count || 0) + 1
+      self.evaluation_count = (evaluation_count || 0) + 1 if count_evaluation
 
       # Append to evaluation history (keep last 50)
       history = (evaluation_history || []).last(49)
@@ -66,7 +68,10 @@ module Ai
 
     # Check if agent can be promoted to the next tier
     def promotable?
-      next_tier = TIERS[TIERS.index(tier) + 1]
+      idx = TIERS.index(tier)
+      return false unless idx
+
+      next_tier = TIERS[idx + 1]
       return false unless next_tier
 
       overall_score >= TIER_THRESHOLDS[next_tier]
@@ -91,7 +96,7 @@ module Ai
           evaluated_at: Time.current.iso8601
         }]
       )
-      recalculate!
+      recalculate!(skip_tier: true)
     end
 
     private

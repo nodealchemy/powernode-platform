@@ -17,6 +17,7 @@ module Ai
     validates :parent_agent_id, presence: true
     validates :child_agent_id, presence: true
     validates :spawned_at, presence: true
+    validates :parent_agent_id, uniqueness: { scope: :child_agent_id, message: "lineage relationship already exists" }
     validate :parent_and_child_differ
     validate :no_circular_lineage
 
@@ -75,7 +76,10 @@ module Ai
       visited = Set.new
 
       while current_id && !visited.include?(current_id)
-        return if current_id == child_agent_id
+        if current_id == child_agent_id
+          errors.add(:base, "would create a circular lineage")
+          return
+        end
 
         visited.add(current_id)
         parent_record = self.class.for_child(current_id).active.first
