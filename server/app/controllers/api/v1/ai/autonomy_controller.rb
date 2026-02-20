@@ -16,6 +16,7 @@ module Api
         before_action :require_write_permission, only: [
           :evaluate, :override_trust_score, :emergency_demote,
           :create_budget, :update_budget, :destroy_budget, :allocate_child,
+          :rollover_budget, :sync_pricing, :update_pricing,
           :reset_circuit_breaker,
           :create_delegation_policy, :update_delegation_policy, :destroy_delegation_policy
         ]
@@ -46,30 +47,59 @@ module Api
           end
         end
 
+        # GET /api/v1/ai/autonomy/lineage
+        def lineage_forest
+          trust_scores_map = ::Ai::AgentTrustScore
+            .where(account_id: current_account.id)
+            .index_by(&:agent_id)
+
+          parent_ids = ::Ai::AgentLineage
+            .where(account_id: current_account.id)
+            .active
+            .distinct
+            .pluck(:parent_agent_id)
+
+          child_ids = ::Ai::AgentLineage
+            .where(account_id: current_account.id)
+            .active
+            .distinct
+            .pluck(:child_agent_id)
+
+          # Root agents: appear as parents but never as children
+          root_ids = parent_ids - child_ids
+
+          # Orphans: agents with no lineage at all
+          all_lineage_ids = (parent_ids + child_ids).uniq
+          orphan_agents = current_account.ai_agents.active.where.not(id: all_lineage_ids)
+
+          roots = current_account.ai_agents.where(id: root_ids).order(:name)
+          trees = roots.map { |agent| build_lineage_tree(agent, trust_scores_map, depth: 0) }
+
+          orphan_trees = orphan_agents.order(:name).map do |agent|
+            {
+              id: agent.id,
+              name: agent.name,
+              type: agent.agent_type,
+              status: agent.status,
+              trust_level: trust_scores_map[agent.id]&.tier,
+              depth: 0,
+              children: []
+            }
+          end
+
+          render_success(data: { trees: trees, orphans: orphan_trees })
+        end
+
         # GET /api/v1/ai/autonomy/lineage/:agent_id
         def lineage
           agent = current_account.ai_agents.find(params[:agent_id])
 
-          children = ::Ai::AgentLineage
+          # Batch preload all trust scores to avoid N+1 in recursive tree building
+          trust_scores_map = ::Ai::AgentTrustScore
             .where(account_id: current_account.id)
-            .for_parent(agent.id)
-            .includes(:child_agent)
-            .recent
+            .index_by(&:agent_id)
 
-          parents = ::Ai::AgentLineage
-            .where(account_id: current_account.id)
-            .for_child(agent.id)
-            .includes(:parent_agent)
-            .recent
-
-          render_success(data: {
-            agent_id: agent.id,
-            agent_name: agent.name,
-            children: children.map { |l| serialize_lineage(l, direction: :child) },
-            parents: parents.map { |l| serialize_lineage(l, direction: :parent) },
-            total_children: children.size,
-            total_parents: parents.size
-          })
+          render_success(data: build_lineage_tree(agent, trust_scores_map, depth: 0))
         rescue ActiveRecord::RecordNotFound
           render_not_found("Agent")
         end
@@ -91,8 +121,17 @@ module Api
         def decay
           return render_error("Unauthorized", status: :forbidden) unless current_worker || current_service
 
-          service = ::Ai::Autonomy::TrustEngineService.new(account: current_account)
-          results = service.apply_decay!
+          if current_account
+            service = ::Ai::Autonomy::TrustEngineService.new(account: current_account)
+            results = service.apply_decay!
+          else
+            results = []
+            Account.find_each do |acct|
+              service = ::Ai::Autonomy::TrustEngineService.new(account: acct)
+              results.concat(service.apply_decay!)
+            end
+          end
+
           render_success(data: results)
         end
 
@@ -115,9 +154,10 @@ module Api
           tier_counts = scores.group(:tier).count
           # SQL-based promotable/demotable counting to avoid N+1
           pending_promotions = scores.where(
+            "evaluation_count >= 10 AND (" \
             "(tier = 'supervised' AND overall_score >= :monitored) OR " \
             "(tier = 'monitored' AND overall_score >= :trusted) OR " \
-            "(tier = 'trusted' AND overall_score >= :autonomous)",
+            "(tier = 'trusted' AND overall_score >= :autonomous))",
             monitored: ::Ai::AgentTrustScore::TIER_THRESHOLDS["monitored"],
             trusted: ::Ai::AgentTrustScore::TIER_THRESHOLDS["trusted"],
             autonomous: ::Ai::AgentTrustScore::TIER_THRESHOLDS["autonomous"]
@@ -147,6 +187,44 @@ module Api
               total_spent_cents: budgets_scope.active.sum(:spent_cents),
               exceeded: budgets_scope.active.where("spent_cents >= total_budget_cents").count
             }
+          })
+        end
+
+        # POST /api/v1/ai/autonomy/broadcast
+        def relay_broadcast
+          return render_error("Unauthorized", status: :forbidden) unless current_worker || current_service
+
+          broadcast_type = params[:broadcast_type]
+          data = params[:data]&.to_unsafe_h || {}
+
+          case broadcast_type
+          when "cost_status"
+            Account.find_each do |acct|
+              AiWorkflowMonitoringChannel.broadcast_cost_alert(acct.id, data)
+            end
+          when "health_status"
+            Account.find_each do |acct|
+              AiWorkflowMonitoringChannel.broadcast_system_alert(acct.id, data)
+            end
+          when "provider_health"
+            Account.find_each do |acct|
+              AiWorkflowMonitoringChannel.broadcast_system_alert(acct.id, data.merge(source: "provider_health"))
+            end
+          else
+            return render_error("Unknown broadcast type: #{broadcast_type}", status: :unprocessable_entity)
+          end
+
+          render_success(data: { broadcast: true, type: broadcast_type })
+        end
+
+        # GET /api/v1/ai/autonomy/cost_thresholds
+        def cost_thresholds
+          render_success(data: {
+            hourly_warning: 50.0,
+            hourly_critical: 100.0,
+            daily_warning: 500.0,
+            daily_critical: 1000.0,
+            spike_percentage: 200
           })
         end
 
@@ -183,19 +261,30 @@ module Api
           data
         end
 
-        def serialize_lineage(lineage_record, direction:)
-          agent = direction == :child ? lineage_record.child_agent : lineage_record.parent_agent
+        def build_lineage_tree(agent, trust_scores_map, depth:, visited: Set.new)
+          visited.add(agent.id)
+
+          child_lineages = ::Ai::AgentLineage
+            .where(account_id: current_account.id)
+            .for_parent(agent.id)
+            .active
+            .includes(:child_agent)
+
+          children = child_lineages.filter_map do |lineage|
+            child = lineage.child_agent
+            next if child.nil? || visited.include?(child.id)
+
+            build_lineage_tree(child, trust_scores_map, depth: depth + 1, visited: visited)
+          end
 
           {
-            id: lineage_record.id,
-            agent_id: agent&.id,
-            agent_name: agent&.name,
-            direction: direction,
-            spawned_at: lineage_record.spawned_at,
-            terminated_at: lineage_record.terminated_at,
-            termination_reason: lineage_record.termination_reason,
-            spawn_depth: lineage_record.spawn_depth,
-            active: lineage_record.active?
+            id: agent.id,
+            name: agent.name,
+            type: agent.agent_type,
+            status: agent.status,
+            trust_level: trust_scores_map[agent.id]&.tier,
+            depth: depth,
+            children: children
           }
         end
 

@@ -2615,12 +2615,19 @@ Rails.application.routes.draw do
           put "trust_scores/:agent_id/override", action: :override_trust_score
           post "trust_scores/:agent_id/emergency_demote", action: :emergency_demote
           post "trust_scores/decay", action: :decay
+          get "lineage", action: :lineage_forest
           get "lineage/:agent_id", action: :lineage
           get "budgets", action: :budgets
+          get "budgets/expired", action: :expired_budgets
+          get "budgets/reconcile", action: :reconcile_budgets
+          get "budgets/alerts", action: :budget_alerts
           post "budgets", action: :create_budget
           put "budgets/:id", action: :update_budget
           delete "budgets/:id", action: :destroy_budget
           post "budgets/:id/allocate_child", action: :allocate_child
+          get "budgets/:id/check", action: :check_budget
+          post "budgets/:id/rollover", action: :rollover_budget
+          get "budgets/:id/transactions", action: :budget_transactions
           get "stats", action: :stats
           get "capability_matrix", action: :capability_matrix
           get "capability_matrix/:agent_id", action: :agent_capabilities
@@ -2633,6 +2640,7 @@ Rails.application.routes.draw do
           get "shadow_executions", action: :shadow_executions
           get "shadow_executions/:agent_id", action: :agent_shadow_executions
           get "telemetry", action: :telemetry_events
+          post "telemetry", action: :create_telemetry_event
           get "telemetry/:agent_id", action: :agent_telemetry
           get "delegation_policies", action: :delegation_policies
           get "delegation_policies/:agent_id", action: :agent_delegation_policy
@@ -2640,6 +2648,15 @@ Rails.application.routes.draw do
           put "delegation_policies/:id", action: :update_delegation_policy
           delete "delegation_policies/:id", action: :destroy_delegation_policy
           get "behavioral_fingerprints/:agent_id", action: :behavioral_fingerprints
+          post "broadcast", action: :relay_broadcast
+          get "cost_thresholds", action: :cost_thresholds
+          post "trust_scores/:agent_id/evaluate_from_execution", action: :evaluate_from_execution
+          post "budgets/rollover_expired", action: :rollover_expired
+          get "pricing/lookup", action: :pricing_lookup
+          # Pricing
+          post "pricing/sync", action: :sync_pricing
+          get "pricing", action: :pricing_catalog
+          patch "pricing/:model_id", action: :update_pricing
         end
 
         # ===================================================================

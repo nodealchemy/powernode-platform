@@ -8,6 +8,7 @@ module Ai
     def telemetry_events
       service = ::Ai::Autonomy::TelemetryService.new(account: current_account)
       events = service.query_events(
+        agent_id: params[:agent_id],
         category: params[:category],
         limit: params[:limit]&.to_i || 100
       )
@@ -26,7 +27,40 @@ module Ai
       render_not_found("Agent")
     end
 
+    # POST /api/v1/ai/autonomy/telemetry
+    def create_telemetry_event
+      account = resolve_account_for_agent(params[:agent_id])
+      return render_error("Agent not found", status: :not_found) unless account
+
+      agent = account.ai_agents.find(params[:agent_id])
+      service = ::Ai::Autonomy::TelemetryService.new(account: account)
+
+      event = service.record_event(
+        agent: agent,
+        category: params[:event_category],
+        event_type: params[:event_type],
+        data: params[:event_data]&.to_unsafe_h || {},
+        correlation_id: params[:correlation_id],
+        parent_event_id: params[:parent_event_id],
+        outcome: params[:outcome]
+      )
+
+      render_success(data: serialize_telemetry_event(event), status: :created)
+    rescue ActiveRecord::RecordNotFound
+      render_not_found("Agent")
+    rescue ActiveRecord::RecordInvalid => e
+      render_error(e.message, status: :unprocessable_entity)
+    end
+
     private
+
+    def resolve_account_for_agent(agent_id)
+      if current_account
+        current_account
+      elsif current_worker || current_service
+        Ai::Agent.find_by(id: agent_id)&.account
+      end
+    end
 
     def serialize_telemetry_event(event)
       {
