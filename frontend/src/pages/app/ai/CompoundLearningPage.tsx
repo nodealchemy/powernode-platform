@@ -1,17 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, ArrowUpRight } from 'lucide-react';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { promoteCrossTeam } from '@/features/ai/learning/services/compoundLearningApi';
 import { CompoundMetricsDashboard } from '@/features/ai/learning/components/CompoundMetricsDashboard';
 import { LearningsList } from '@/features/ai/learning/components/LearningsList';
 
 type TabType = 'metrics' | 'learnings';
 
+interface CompoundLearningContentProps {
+  onActionsReady?: (actions: PageAction[]) => void;
+}
+
 // Extracted content component (everything inside PageContainer) for embedding in tabbed pages
-export const CompoundLearningContent: React.FC = () => {
+export const CompoundLearningContent: React.FC<CompoundLearningContentProps> = ({ onActionsReady }) => {
   const [activeTab, setActiveTab] = useState<TabType>('metrics');
-  const [refreshKey, _setRefreshKey] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const { refreshAction } = useRefreshAction({
+    onRefresh: useCallback(() => {
+      setRefreshKey((k) => k + 1);
+    }, []),
+  });
+
+  useEffect(() => {
+    onActionsReady?.([refreshAction]);
+  }, [onActionsReady, refreshAction]);
 
   const tabs = [
     { id: 'metrics' as const, label: 'Metrics' },

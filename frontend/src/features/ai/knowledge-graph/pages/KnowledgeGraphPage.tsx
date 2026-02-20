@@ -1,15 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { GitBranch, Search, Network, Wrench } from 'lucide-react';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer } from '@/shared/components/ui/TabContainer';
 import { usePermissions } from '@/shared/hooks/usePermissions';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { KnowledgeGraphVisualization } from '../components/KnowledgeGraphVisualization';
 import { SkillGraphVisualization } from '../components/SkillGraphVisualization';
 import { HybridSearchResults } from '../components/HybridSearchResults';
 
-export const KnowledgeGraphContent: React.FC = () => {
+interface KnowledgeGraphContentProps {
+  onActionsReady?: (actions: PageAction[]) => void;
+}
+
+export const KnowledgeGraphContent: React.FC<KnowledgeGraphContentProps> = ({ onActionsReady }) => {
   const { hasPermission } = usePermissions();
   const [activeTab, setActiveTab] = useState('graph-explorer');
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const { refreshAction } = useRefreshAction({
+    onRefresh: useCallback(() => {
+      setRefreshKey((k) => k + 1);
+    }, []),
+  });
+
+  useEffect(() => {
+    onActionsReady?.([refreshAction]);
+  }, [onActionsReady, refreshAction]);
 
   const canView = hasPermission('ai.knowledge_graph.read');
 
@@ -27,19 +43,19 @@ export const KnowledgeGraphContent: React.FC = () => {
       id: 'graph-explorer',
       label: 'Graph Explorer',
       icon: <GitBranch className="h-4 w-4" />,
-      content: <KnowledgeGraphVisualization />,
+      content: <KnowledgeGraphVisualization key={`graph-${refreshKey}`} />,
     },
     {
       id: 'skill-graph',
       label: 'Skill Graph',
       icon: <Wrench className="h-4 w-4" />,
-      content: <SkillGraphVisualization />,
+      content: <SkillGraphVisualization key={`skill-${refreshKey}`} />,
     },
     {
       id: 'hybrid-search',
       label: 'Hybrid Search',
       icon: <Search className="h-4 w-4" />,
-      content: <HybridSearchResults />,
+      content: <HybridSearchResults key={`search-${refreshKey}`} />,
     },
   ];
 

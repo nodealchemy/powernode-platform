@@ -95,13 +95,13 @@ export const KnowledgePage: React.FC = () => {
           <RagContent onActionsReady={handleActionsReady} />
         </TabPanel>
         <TabPanel tabId="graph" activeTab={activeTab}>
-          <KnowledgeGraphContent />
+          <KnowledgeGraphContent onActionsReady={handleActionsReady} />
         </TabPanel>
         <TabPanel tabId="memory" activeTab={activeTab}>
           <KnowledgeMemoryContent onActionsReady={handleActionsReady} />
         </TabPanel>
         <TabPanel tabId="learning" activeTab={activeTab}>
-          <CompoundLearningContent />
+          <CompoundLearningContent onActionsReady={handleActionsReady} />
         </TabPanel>
       </TabContainer>
     </PageContainer>
