@@ -54,6 +54,7 @@ module Ai
         "query_learnings" => "Ai::Tools::LearningTool",
         "reinforce_learning" => "Ai::Tools::LearningTool",
         "learning_metrics" => "Ai::Tools::LearningTool",
+        "create_learning" => "Ai::Tools::LearningTool",
         # Shared knowledge
         "search_knowledge" => "Ai::Tools::SharedKnowledgeTool",
         "create_knowledge" => "Ai::Tools::SharedKnowledgeTool",
@@ -66,6 +67,10 @@ module Ai
         "get_skill_context" => "Ai::Tools::SkillTool",
         "skill_health" => "Ai::Tools::SkillTool",
         "skill_metrics" => "Ai::Tools::SkillTool",
+        "create_skill" => "Ai::Tools::SkillTool",
+        "update_skill" => "Ai::Tools::SkillTool",
+        "delete_skill" => "Ai::Tools::SkillTool",
+        "toggle_skill" => "Ai::Tools::SkillTool",
         # Knowledge graph
         "search_knowledge_graph" => "Ai::Tools::KnowledgeGraphTool",
         "reason_knowledge_graph" => "Ai::Tools::KnowledgeGraphTool",
@@ -73,7 +78,8 @@ module Ai
         "list_graph_nodes" => "Ai::Tools::KnowledgeGraphTool",
         "get_graph_neighbors" => "Ai::Tools::KnowledgeGraphTool",
         "graph_statistics" => "Ai::Tools::KnowledgeGraphTool",
-        "get_subgraph" => "Ai::Tools::KnowledgeGraphTool"
+        "get_subgraph" => "Ai::Tools::KnowledgeGraphTool",
+        "extract_to_knowledge_graph" => "Ai::Tools::KnowledgeGraphTool"
       }.freeze
 
       def self.available_tools(agent: nil)

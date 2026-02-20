@@ -8,9 +8,11 @@ module Ai
       def self.definition
         {
           name: "knowledge_graph",
-          description: "Search, reason over, and explore the knowledge graph: hybrid search (vector+keyword+graph), multi-hop reasoning, node operations, neighbor traversal, subgraph extraction, and statistics",
+          description: "Search, reason over, explore, and extract to the knowledge graph: hybrid search (vector+keyword+graph), multi-hop reasoning, node operations, neighbor traversal, subgraph extraction, LLM extraction from text, and statistics",
           parameters: {
-            action: { type: "string", required: true, description: "Action: search, reason, get_node, list_nodes, get_neighbors, statistics, subgraph" },
+            action: { type: "string", required: true, description: "Action: search, reason, get_node, list_nodes, get_neighbors, statistics, subgraph, extract" },
+            text: { type: "string", required: false, description: "Text to extract entities and relations from (for extract)" },
+            source_label: { type: "string", required: false, description: "Optional label for the extraction source (for extract)" },
             query: { type: "string", required: false, description: "Search query (for search/reason/list_nodes)" },
             node_id: { type: "string", required: false, description: "Node ID (for get_node/get_neighbors)" },
             node_ids: { type: "array", required: false, description: "Array of node IDs (for subgraph)" },
@@ -39,7 +41,8 @@ module Ai
         when "get_neighbors" then get_neighbors(params)
         when "statistics" then get_statistics
         when "subgraph" then get_subgraph(params)
-        else { success: false, error: "Unknown action: #{params[:action]}. Valid actions: search, reason, get_node, list_nodes, get_neighbors, statistics, subgraph" }
+        when "extract" then extract(params)
+        else { success: false, error: "Unknown action: #{params[:action]}. Valid actions: search, reason, get_node, list_nodes, get_neighbors, statistics, subgraph, extract" }
         end
       end
 
@@ -145,6 +148,26 @@ module Ai
         { success: false, error: e.message }
       end
 
+      def extract(params)
+        return { success: false, error: "text is required" } if params[:text].blank?
+
+        result = extraction_service.extract_from_text(
+          text: params[:text],
+          source_label: params[:source_label]
+        )
+
+        {
+          success: true,
+          **result[:stats],
+          nodes: result[:nodes].map { |n| serialize_node(n) },
+          edges: result[:edges].map { |e| { id: e.id, source: e.source_node_id, target: e.target_node_id, relation_type: e.relation_type } }
+        }
+      rescue Ai::KnowledgeGraph::ExtractionServiceError => e
+        { success: false, error: e.message }
+      rescue StandardError => e
+        { success: false, error: e.message }
+      end
+
       def graph_service
         @graph_service ||= Ai::KnowledgeGraph::GraphService.new(account)
       end
@@ -155,6 +178,10 @@ module Ai
 
       def reasoning_service
         @reasoning_service ||= Ai::KnowledgeGraph::MultiHopReasoningService.new(account)
+      end
+
+      def extraction_service
+        @extraction_service ||= Ai::KnowledgeGraph::ExtractionService.new(account)
       end
 
       def serialize_node(node)

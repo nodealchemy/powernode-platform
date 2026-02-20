@@ -8,14 +8,19 @@ module Ai
       def self.definition
         {
           name: "skill_management",
-          description: "Manage and discover AI skills: list, get details, discover relevant skills for a task, get enriched context, and check skill graph health",
+          description: "Manage and discover AI skills: list, get details, discover relevant skills, create/update/delete/toggle skills, get enriched context, and check skill graph health",
           parameters: {
-            action: { type: "string", required: true, description: "Action: list_skills, get_skill, discover_skills, get_skill_context, skill_health, skill_metrics" },
-            skill_id: { type: "string", required: false, description: "Skill ID (for get_skill)" },
+            action: { type: "string", required: true, description: "Action: list_skills, get_skill, discover_skills, get_skill_context, skill_health, skill_metrics, create_skill, update_skill, delete_skill, toggle_skill" },
+            skill_id: { type: "string", required: false, description: "Skill ID (for get_skill, update_skill, delete_skill, toggle_skill)" },
+            name: { type: "string", required: false, description: "Skill name (for create_skill, update_skill)" },
+            description: { type: "string", required: false, description: "Skill description (for create_skill, update_skill)" },
+            system_prompt: { type: "string", required: false, description: "System prompt template (for create_skill, update_skill)" },
+            commands: { type: "array", required: false, description: "Slash commands array (for create_skill, update_skill)" },
+            tags: { type: "array", required: false, description: "Tags array (for create_skill, update_skill)" },
             status: { type: "string", required: false, description: "Filter by status: active/inactive/draft (for list_skills)" },
-            category: { type: "string", required: false, description: "Filter by category (for list_skills)" },
+            category: { type: "string", required: false, description: "Filter by category (for list_skills, create_skill)" },
             search: { type: "string", required: false, description: "Search query for skill name/description (for list_skills)" },
-            enabled: { type: "string", required: false, description: "Filter by enabled: true/false (for list_skills)" },
+            enabled: { type: "string", required: false, description: "Filter by enabled: true/false (for list_skills); or boolean to set (for toggle_skill)" },
             page: { type: "integer", required: false, description: "Page number (for list_skills, default 1)" },
             per_page: { type: "integer", required: false, description: "Results per page (for list_skills, default 20)" },
             task_context: { type: "string", required: false, description: "Task description to discover relevant skills (for discover_skills)" },
@@ -37,7 +42,11 @@ module Ai
         when "get_skill_context" then get_skill_context(params)
         when "skill_health" then skill_health
         when "skill_metrics" then skill_metrics
-        else { success: false, error: "Unknown action: #{params[:action]}. Valid actions: list_skills, get_skill, discover_skills, get_skill_context, skill_health, skill_metrics" }
+        when "create_skill" then create_skill(params)
+        when "update_skill" then update_skill(params)
+        when "delete_skill" then delete_skill(params)
+        when "toggle_skill" then toggle_skill(params)
+        else { success: false, error: "Unknown action: #{params[:action]}. Valid actions: list_skills, get_skill, discover_skills, get_skill_context, skill_health, skill_metrics, create_skill, update_skill, delete_skill, toggle_skill" }
         end
       end
 
@@ -119,6 +128,66 @@ module Ai
       def skill_metrics
         metrics = health_score_service.calculate
         { success: true, **metrics }
+      rescue StandardError => e
+        { success: false, error: e.message }
+      end
+
+      def create_skill(params)
+        return { success: false, error: "name is required" } if params[:name].blank?
+
+        attributes = { name: params[:name] }
+        attributes[:description] = params[:description] if params[:description].present?
+        attributes[:category] = params[:category] if params[:category].present?
+        attributes[:system_prompt] = params[:system_prompt] if params[:system_prompt].present?
+        attributes[:commands] = Array(params[:commands]) if params[:commands].present?
+        attributes[:tags] = Array(params[:tags]) if params[:tags].present?
+
+        skill = skill_service.create_skill(attributes: attributes)
+        { success: true, skill: skill.skill_details }
+      rescue Ai::SkillService::ValidationError => e
+        { success: false, error: e.message }
+      rescue StandardError => e
+        { success: false, error: e.message }
+      end
+
+      def update_skill(params)
+        return { success: false, error: "skill_id is required" } if params[:skill_id].blank?
+
+        attributes = {}
+        attributes[:name] = params[:name] if params[:name].present?
+        attributes[:description] = params[:description] if params[:description].present?
+        attributes[:category] = params[:category] if params[:category].present?
+        attributes[:system_prompt] = params[:system_prompt] if params[:system_prompt].present?
+        attributes[:commands] = Array(params[:commands]) if params.key?(:commands)
+        attributes[:tags] = Array(params[:tags]) if params.key?(:tags)
+
+        skill = skill_service.update_skill(skill_id: params[:skill_id], attributes: attributes)
+        { success: true, skill: skill.skill_details }
+      rescue Ai::SkillService::NotFoundError, Ai::SkillService::ValidationError => e
+        { success: false, error: e.message }
+      rescue StandardError => e
+        { success: false, error: e.message }
+      end
+
+      def delete_skill(params)
+        return { success: false, error: "skill_id is required" } if params[:skill_id].blank?
+
+        skill_service.delete_skill(skill_id: params[:skill_id])
+        { success: true, message: "Skill deleted successfully" }
+      rescue Ai::SkillService::NotFoundError, Ai::SkillService::ValidationError => e
+        { success: false, error: e.message }
+      rescue StandardError => e
+        { success: false, error: e.message }
+      end
+
+      def toggle_skill(params)
+        return { success: false, error: "skill_id is required" } if params[:skill_id].blank?
+
+        enabled = ActiveModel::Type::Boolean.new.cast(params[:enabled])
+        skill = skill_service.toggle_skill(skill_id: params[:skill_id], enabled: enabled)
+        { success: true, skill_id: skill.id, enabled: skill.active? }
+      rescue Ai::SkillService::NotFoundError => e
+        { success: false, error: e.message }
       rescue StandardError => e
         { success: false, error: e.message }
       end

@@ -325,8 +325,8 @@ module Ai
         scope.limit(filters[:limit] || 50)
       end
 
-      private
-
+      # Store a learning with embedding generation and deduplication.
+      # Returns true if a new learning was created, false if a near-duplicate was found and boosted.
       def store_learning(learning_data, team: nil, execution: nil)
         content = learning_data[:content]
         return false if content.blank?
@@ -401,6 +401,8 @@ module Ai
         Rails.logger.warn("[CompoundLearning] Failed to store learning: #{e.message}")
         false
       end
+
+      private
 
       def build_execution_metadata(execution)
         {

@@ -51,6 +51,42 @@ module Ai
         @embedding_service = Ai::Memory::EmbeddingService.new(account: account)
       end
 
+      # Extract entities and relations from arbitrary text (no document required)
+      def extract_from_text(text:, source_label: nil)
+        raise ExtractionServiceError, "Text is required" if text.blank?
+
+        stats = { nodes_created: 0, nodes_existing: 0, edges_created: 0, edges_existing: 0 }
+        all_nodes = {}
+        all_edges = []
+
+        chunks = split_for_extraction(text)
+
+        chunks.each do |chunk|
+          extraction = extract_entities_and_relations(chunk)
+          next unless extraction
+
+          extraction["entities"]&.each do |entity|
+            node = find_or_create_node(entity, document: nil, existing_nodes: all_nodes, stats: stats)
+            all_nodes[entity["name"].downcase] = node if node
+          end
+
+          extraction["relations"]&.each do |relation|
+            edge = create_edge_from_relation(relation, document: nil, nodes: all_nodes, stats: stats)
+            all_edges << edge if edge
+          end
+        end
+
+        Rails.logger.info(
+          "[ExtractionService] Extracted from text#{source_label ? " (#{source_label})" : ''}: " \
+          "#{stats[:nodes_created]} new nodes, #{stats[:edges_created]} new edges"
+        )
+
+        { nodes: all_nodes.values.compact, edges: all_edges.compact, stats: stats }
+      rescue StandardError => e
+        Rails.logger.error "[ExtractionService] Text extraction failed: #{e.message}"
+        raise ExtractionServiceError, "Extraction failed: #{e.message}"
+      end
+
       # Extract entities and relations from a document
       def extract_from_document(document:)
         content = document.content
@@ -233,14 +269,16 @@ module Ai
         end
 
         # Create new node
-        node = @graph_service.create_node(
+        create_attrs = {
           name: name,
           node_type: "entity",
           entity_type: map_entity_type(entity["type"]),
-          description: entity["description"],
-          source_document_id: document.id,
-          knowledge_base_id: document.knowledge_base_id
-        )
+          description: entity["description"]
+        }
+        create_attrs[:source_document_id] = document.id if document
+        create_attrs[:knowledge_base_id] = document.knowledge_base_id if document
+
+        node = @graph_service.create_node(**create_attrs)
 
         stats[:nodes_created] += 1
         node
@@ -279,13 +317,15 @@ module Ai
           return existing
         end
 
-        edge = @graph_service.create_edge(
+        edge_attrs = {
           source: source_node,
           target: target_node,
           relation_type: relation_type,
-          label: relation["description"],
-          source_document_id: document.id
-        )
+          label: relation["description"]
+        }
+        edge_attrs[:source_document_id] = document.id if document
+
+        edge = @graph_service.create_edge(**edge_attrs)
 
         stats[:edges_created] += 1
         edge

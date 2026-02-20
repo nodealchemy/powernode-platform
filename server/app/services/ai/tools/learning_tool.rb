@@ -8,10 +8,12 @@ module Ai
       def self.definition
         {
           name: "compound_learning",
-          description: "Query compound learnings, reinforce effective patterns, or get learning metrics",
+          description: "Query compound learnings, create new learnings, reinforce effective patterns, or get learning metrics",
           parameters: {
-            action: { type: "string", required: true, description: "Action: query_learnings, reinforce_learning, learning_metrics" },
+            action: { type: "string", required: true, description: "Action: query_learnings, reinforce_learning, learning_metrics, create_learning" },
             learning_id: { type: "string", required: false, description: "Learning ID (for reinforce)" },
+            title: { type: "string", required: false, description: "Learning title (for create_learning)" },
+            content: { type: "string", required: false, description: "Learning content (for create_learning)" },
             category: { type: "string", required: false, description: "Filter by category (pattern/anti_pattern/best_practice/discovery/fact/failure_mode/review_finding/performance_insight)" },
             scope: { type: "string", required: false, description: "Filter by scope (team/global)" },
             status: { type: "string", required: false, description: "Filter by status (active/superseded/archived)" },
@@ -28,7 +30,8 @@ module Ai
         when "query_learnings" then query_learnings(params)
         when "reinforce_learning" then reinforce_learning(params)
         when "learning_metrics" then learning_metrics
-        else { success: false, error: "Unknown action: #{params[:action]}" }
+        when "create_learning" then create_learning(params)
+        else { success: false, error: "Unknown action: #{params[:action]}. Valid actions: query_learnings, reinforce_learning, learning_metrics, create_learning" }
         end
       end
 
@@ -78,6 +81,37 @@ module Ai
           success: true,
           metrics: metrics
         }
+      rescue StandardError => e
+        { success: false, error: e.message }
+      end
+
+      def create_learning(params)
+        return { success: false, error: "content is required" } if params[:content].blank?
+
+        valid_categories = Ai::CompoundLearning::CATEGORIES
+        category = params[:category].presence || "discovery"
+        unless valid_categories.include?(category)
+          return { success: false, error: "Invalid category: #{category}. Valid: #{valid_categories.join(', ')}" }
+        end
+
+        service = Ai::Learning::CompoundLearningService.new(account: account)
+        stored = service.store_learning(
+          {
+            title: params[:title],
+            content: params[:content],
+            category: category,
+            extraction_method: "manual",
+            source_execution_successful: true,
+            importance: 0.5,
+            confidence: 0.5
+          }
+        )
+
+        if stored
+          { success: true, message: "Learning created successfully" }
+        else
+          { success: true, message: "Similar learning already exists and was reinforced" }
+        end
       rescue StandardError => e
         { success: false, error: e.message }
       end
