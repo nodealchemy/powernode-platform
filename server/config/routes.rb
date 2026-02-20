@@ -2843,6 +2843,16 @@ Rails.application.routes.draw do
 
       # MCP hosting routes are in enterprise/server/config/routes.rb
       namespace :mcp do
+        # MCP Streamable HTTP endpoint for external MCP clients (e.g., Claude Code)
+        post "message", to: "streamable_http#message"
+        delete "message", to: "streamable_http#terminate_session"
+
+        # MCP token management (per-user MCP tokens)
+        resources :tokens, only: [:index, :create, :destroy], controller: "tokens"
+
+        # MCP session management (view/revoke active sessions)
+        resources :sessions, only: [:index, :show, :destroy], controller: "sessions"
+
         # Container orchestration routes moved to namespace :devops
 
         # ===================================================================
