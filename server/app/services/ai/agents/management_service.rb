@@ -37,6 +37,12 @@ module Ai
         provider = resolve_provider(provider_id)
         return Result.new(success?: false, error: "AI provider not found") if provider_id.present? && provider.nil?
 
+        # Check budget gate
+        active_budget = Ai::AgentBudget.where(agent_id: agent.id, account_id: account.id).active.first
+        if active_budget&.over_budget?
+          return Result.new(success?: false, error: "Agent budget exhausted. Remaining: $#{(active_budget.remaining_cents / 100.0).round(2)}")
+        end
+
         execution = agent.execute(
           input_parameters,
           user: user,

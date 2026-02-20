@@ -6,18 +6,21 @@ class Ai::ProviderManagementService
 
     class_methods do
       # Look up pricing for a model by exact match, then prefix match
+      # DB-backed pricing (populated by PricingSyncService) takes precedence
       def model_pricing_for(model_id)
         return nil unless model_id.is_a?(String)
 
-        # Exact match first
-        return MODEL_PRICING[model_id] if MODEL_PRICING.key?(model_id)
+        # 1. DB-backed pricing (populated by PricingSyncService)
+        db_pricing = ::Ai::ModelPricing.find_by(model_id: model_id)&.pricing_hash
+        return db_pricing if db_pricing
 
-        # Prefix match (e.g. "gpt-4o-mini-2024-07-18" matches "gpt-4o-mini")
-        MODEL_PRICING.each do |key, pricing|
-          return pricing if model_id.start_with?(key)
-        end
+        # 2. Prefix match on DB
+        prefix_match = ::Ai::ModelPricing.where("? LIKE model_id || '%'", model_id).order(model_id: :desc).first&.pricing_hash
+        return prefix_match if prefix_match
 
-        nil
+        # 3. Fall back to hardcoded constant (last resort)
+        MODEL_PRICING[model_id] ||
+          MODEL_PRICING.find { |key, _| model_id.start_with?(key) }&.last
       end
 
       # Sync models for all active providers

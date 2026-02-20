@@ -306,12 +306,22 @@ module Ai
       end
 
       def serialize_skill_node(node)
+        props = node.properties || {}
+        skill = node.ai_skill_id.present? ? ::Ai::Skill.find_by(id: node.ai_skill_id) : nil
+
         {
           id: node.id,
           name: node.name,
           skill_id: node.ai_skill_id,
+          category: props["category"] || skill&.category || "uncategorized",
+          status: props["status"] || skill&.status || "active",
           description: node.description,
-          properties: node.properties,
+          command_count: skill&.agent_skills&.count || 0,
+          connector_count: 0,
+          dependency_count: account.ai_knowledge_graph_edges
+            .where(source_node_id: node.id)
+            .or(account.ai_knowledge_graph_edges.where(target_node_id: node.id))
+            .count,
           confidence: node.confidence,
           created_at: node.created_at
         }

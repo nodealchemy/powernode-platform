@@ -4,10 +4,10 @@ module Ai
   module Autonomy
     class BudgetAwareContextService
       REGIMES = {
-        "HIGH" => { threshold: 0.0, max: 0.5, message: "Budget utilization is high. Prioritize cost-efficient approaches." },
-        "MEDIUM" => { threshold: 0.5, max: 0.75, message: "Budget is moderate. Balance quality with cost." },
-        "LOW" => { threshold: 0.75, max: 0.9, message: "Budget is running low. Use minimal-cost operations only." },
-        "CRITICAL" => { threshold: 0.9, max: 1.0, message: "Budget is critically low. Only essential operations permitted." }
+        "NORMAL" => { threshold: 0.0, max: 0.5, message: "Budget availability is healthy. Full operations permitted." },
+        "CAUTIOUS" => { threshold: 0.5, max: 0.8, message: "Budget is moderate. Balance quality with cost." },
+        "CRITICAL" => { threshold: 0.8, max: 1.0, message: "Budget is critically low. Only essential operations permitted." },
+        "EXHAUSTED" => { threshold: 1.0, max: Float::INFINITY, message: "Budget is exhausted. New executions blocked." }
       }.freeze
 
       attr_reader :account

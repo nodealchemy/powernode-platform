@@ -163,12 +163,12 @@ module Ai
             diff = current - baseline
             next if diff.abs < 0.01
 
-            decay = [diff * decay_rate * weeks_since, diff.abs * max_decay].min
-            decay = diff.negative? ? -decay.abs : decay
+            magnitude = [diff.abs * decay_rate * weeks_since, diff.abs * max_decay].min
+            decay = diff.positive? ? magnitude : -magnitude
             trust_score.send(:"#{dim}=", (current - decay).clamp(0.0, 1.0).round(4))
           end
 
-          trust_score.recalculate!
+          trust_score.recalculate!(count_evaluation: false)
           results << { agent_id: trust_score.agent_id, tier: trust_score.tier, overall_score: trust_score.overall_score }
         end
 
@@ -206,7 +206,6 @@ module Ai
           child_trust.send(:"#{dim}=", inherited.round(4))
         end
 
-        child_trust.tier = initial_tier
         child_trust.evaluation_history = (child_trust.evaluation_history || []) + [{
           type: "trust_inheritance",
           parent_agent_id: parent.id,
@@ -215,12 +214,18 @@ module Ai
           evaluated_at: Time.current.iso8601
         }]
         child_trust.recalculate!
+
+        # Cap inherited tier to the policy's maximum
+        tier_idx = Ai::AgentTrustScore::TIERS.index(initial_tier) || 0
+        computed_idx = Ai::AgentTrustScore::TIERS.index(child_trust.tier) || 0
+        child_trust.update!(tier: initial_tier) if computed_idx > tier_idx
+
         child_trust
       end
 
       # Bulk evaluate all agents that need re-evaluation
       def evaluate_pending
-        scores = Ai::AgentTrustScore.needs_evaluation.includes(:agent)
+        scores = Ai::AgentTrustScore.where(account_id: account.id).needs_evaluation.includes(:agent)
         results = []
 
         scores.find_each do |trust_score|
@@ -255,7 +260,7 @@ module Ai
           ts.safety = 1.0
           ts.quality = 0.5
           ts.speed = 0.5
-          ts.overall_score = 0.5
+          ts.overall_score = 0.65
           ts.tier = "supervised"
           ts.evaluation_count = 0
           ts.evaluation_history = []
@@ -275,39 +280,67 @@ module Ai
       def calculate_reliability(execution)
         case execution.try(:status)
         when "completed" then 1.0
+        when "completed_with_warnings" then 0.7
+        when "timeout" then 0.3
         when "failed" then 0.0
-        when "cancelled" then 0.3
+        when "cancelled" then 0.5
         else 0.5
         end
       end
 
       def calculate_cost_efficiency(execution)
+        cost = execution.try(:cost_usd) || 0
         tokens = execution.try(:tokens_used) || 0
-        return 0.5 if tokens.zero?
+        return 0.5 if tokens.zero? && cost.zero?
 
-        # Lower token usage = higher efficiency (normalize to 0-1)
-        # Assuming average execution uses ~2000 tokens
-        efficiency = 1.0 - ([tokens, 10_000].min.to_f / 10_000)
-        [efficiency, 0.0].max
+        # Factor 1: Budget remaining ratio (if budget exists)
+        budget = Ai::AgentBudget.where(agent_id: execution.try(:ai_agent_id)).active.first
+        budget_ratio = if budget && budget.total_budget_cents > 0
+                         1.0 - budget.utilization_ratio
+                       else
+                         0.5
+                       end
+
+        # Factor 2: Cost vs expected (normalize against model pricing)
+        cost_score = if cost > 0 && tokens > 0
+                       cost_per_1k = (cost / (tokens / 1000.0))
+                       # Lower cost per 1K tokens = higher efficiency
+                       [1.0 - (cost_per_1k / 0.05).clamp(0.0, 1.0), 0.0].max
+                     else
+                       0.5
+                     end
+
+        (budget_ratio * 0.4 + cost_score * 0.6).round(4)
       end
 
       def calculate_safety(execution)
-        # Check for safety violations in execution
         violations = execution.try(:error_details)&.dig("safety_violations")
         return 0.0 if violations.present? && violations.any?
 
         guardrail_blocked = execution.try(:error_details)&.dig("guardrail_blocked")
         return 0.2 if guardrail_blocked
 
+        # Factor in anomaly signals from execution metadata
+        anomaly_score = execution.try(:performance_metrics)&.dig("anomaly_score")
+        return (1.0 - anomaly_score.to_f).clamp(0.0, 1.0) if anomaly_score.present?
+
+        # Factor in PII redaction trigger count
+        pii_triggers = execution.try(:performance_metrics)&.dig("pii_triggers")
+        return 0.7 if pii_triggers.to_i > 0
+
         1.0
       end
 
       def calculate_quality(execution)
-        # Use evaluation results if available
         eval_score = execution.try(:performance_metrics)&.dig("quality_score")
-        return eval_score if eval_score.present?
+        return eval_score.to_f.clamp(0.0, 1.0) if eval_score.present?
 
-        # Fallback to completion status
+        review_score = execution.try(:performance_metrics)&.dig("review_approval_rate")
+        return review_score.to_f.clamp(0.0, 1.0) if review_score.present?
+
+        user_feedback = execution.try(:performance_metrics)&.dig("user_rating")
+        return (user_feedback.to_f / 5.0).clamp(0.0, 1.0) if user_feedback.present?
+
         execution.try(:status) == "completed" ? 0.7 : 0.3
       end
 
@@ -390,17 +423,23 @@ module Ai
 
       def aggregate_execution_metrics(executions)
         totals = { reliability: 0.0, cost_efficiency: 0.0, safety: 0.0, quality: 0.0, speed: 0.0 }
-        count = executions.size.to_f
+        total_weight = 0.0
 
-        executions.each do |exec|
-          totals[:reliability] += calculate_reliability(exec)
-          totals[:cost_efficiency] += calculate_cost_efficiency(exec)
-          totals[:safety] += calculate_safety(exec)
-          totals[:quality] += calculate_quality(exec)
-          totals[:speed] += calculate_speed(exec)
+        executions.each_with_index do |exec, idx|
+          # Exponential decay: more recent executions get higher weight
+          weight = Math.exp(-0.05 * idx)
+          total_weight += weight
+
+          totals[:reliability] += calculate_reliability(exec) * weight
+          totals[:cost_efficiency] += calculate_cost_efficiency(exec) * weight
+          totals[:safety] += calculate_safety(exec) * weight
+          totals[:quality] += calculate_quality(exec) * weight
+          totals[:speed] += calculate_speed(exec) * weight
         end
 
-        totals.transform_values { |v| v / count }
+        return totals.transform_values { 0.5 } if total_weight.zero?
+
+        totals.transform_values { |v| (v / total_weight).round(4) }
       end
     end
   end

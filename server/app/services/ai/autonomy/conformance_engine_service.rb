@@ -59,6 +59,7 @@ module Ai
 
           # Check if the required prior event exists within the window
           prior_exists = Ai::TelemetryEvent
+            .where(account_id: account.id)
             .for_agent(agent.id)
             .where(event_type: required)
             .where("created_at >= ?", window.seconds.ago)

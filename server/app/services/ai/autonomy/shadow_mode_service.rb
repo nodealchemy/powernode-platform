@@ -36,6 +36,9 @@ module Ai
       # @param reference [Hash] Reference output
       # @return [Hash] { agreed: Boolean, score: Float, details: Hash }
       def compare_outputs(shadow, reference)
+        shadow = shadow.deep_stringify_keys if shadow.respond_to?(:deep_stringify_keys)
+        reference = reference.deep_stringify_keys if reference.respond_to?(:deep_stringify_keys)
+
         return { agreed: false, score: 0.0, details: { reason: "empty_reference" } } if reference.blank?
         return { agreed: true, score: 1.0, details: { reason: "exact_match" } } if shadow == reference
 
@@ -55,7 +58,7 @@ module Ai
       # @param window [ActiveSupport::Duration] Time window (default: 7 days)
       # @return [Hash] { rate: Float, total: Integer, agreed: Integer }
       def agreement_rate(agent:, window: 7.days)
-        executions = Ai::ShadowExecution.for_agent(agent.id)
+        executions = Ai::ShadowExecution.where(account_id: account.id).for_agent(agent.id)
           .where("created_at >= ?", window.ago)
 
         total = executions.count

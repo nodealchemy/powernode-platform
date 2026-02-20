@@ -55,7 +55,7 @@ module Ai
         root = event
         seen = Set.new([event.id])
         while root.parent_event_id.present?
-          parent = Ai::TelemetryEvent.find_by(id: root.parent_event_id)
+          parent = Ai::TelemetryEvent.where(account_id: account.id).find_by(id: root.parent_event_id)
           break unless parent
           break if seen.include?(parent.id)
 
@@ -89,7 +89,7 @@ module Ai
       end
 
       def collect_children(event, chain, visited)
-        children = Ai::TelemetryEvent.where(parent_event_id: event.id).ordered
+        children = Ai::TelemetryEvent.where(account_id: account.id, parent_event_id: event.id).ordered
         children.each do |child|
           next if visited.include?(child.id)
 
