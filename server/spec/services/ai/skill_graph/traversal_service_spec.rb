@@ -9,6 +9,8 @@ RSpec.describe Ai::SkillGraph::TraversalService, type: :service do
   # Prevent after_commit callback from auto-creating KG nodes
   before do
     allow_any_instance_of(Ai::Skill).to receive(:sync_to_knowledge_graph)
+    allow_any_instance_of(Ai::Agent).to receive(:sync_to_knowledge_graph)
+    allow_any_instance_of(Ai::Memory::EmbeddingService).to receive(:generate).and_return(Array.new(1536, 0.1))
   end
 
   describe "#traverse" do
