@@ -286,3 +286,27 @@
     class: AiPricingSyncJob
     queue: ai_orchestration
     description: 'Sync AI model pricing from LiteLLM community data'
+
+  # Skill lifecycle daily maintenance - conflict scan, auto-resolve, stale decay
+  ai_skill_lifecycle_daily:
+    cron: '15 4 * * *'
+    class: AiSkillLifecycleMaintenanceJob
+    queue: ai_orchestration
+    args: ['daily']
+    description: 'Daily skill lifecycle maintenance: conflict scan, auto-resolve, stale decay'
+
+  # Skill lifecycle weekly maintenance - prompt refinements, gap detection, effectiveness
+  ai_skill_lifecycle_weekly:
+    cron: '0 5 * * 0'
+    class: AiSkillLifecycleMaintenanceJob
+    queue: ai_orchestration
+    args: ['weekly']
+    description: 'Weekly skill lifecycle maintenance: prompt refinements, gap detection'
+
+  # Skill lifecycle monthly maintenance - re-embed, comprehensive health report
+  ai_skill_lifecycle_monthly:
+    cron: '0 3 1 * *'
+    class: AiSkillLifecycleMaintenanceJob
+    queue: ai_orchestration
+    args: ['monthly']
+    description: 'Monthly skill lifecycle maintenance: re-embed skills, health report'

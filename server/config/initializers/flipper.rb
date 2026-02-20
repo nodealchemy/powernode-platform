@@ -22,6 +22,11 @@ Rails.application.config.after_initialize do
     agent_evaluation
     cross_system_triggers
     enterprise_mode
+    skill_lifecycle_research
+    skill_lifecycle_auto_create
+    skill_conflict_auto_resolve
+    skill_self_learning
+    skill_optimization
   ]
 
   flags.each do |flag|
