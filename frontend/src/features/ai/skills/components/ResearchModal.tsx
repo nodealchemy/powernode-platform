@@ -99,7 +99,7 @@ export function ResearchModal({ isOpen, onClose, onProposalCreated }: ResearchMo
                   className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
                     sources.includes(source.id)
                       ? 'bg-theme-primary text-white border-transparent'
-                      : 'bg-theme-surface text-theme-secondary border-theme hover:bg-theme-surface-secondary'
+                      : 'text-theme-secondary border-theme hover:bg-theme-surface-hover'
                   }`}
                 >
                   {source.label}
