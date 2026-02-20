@@ -23,9 +23,10 @@ export function useSkillGraph() {
     queryKey: SG_KEYS.graph(),
     queryFn: async (): Promise<SkillGraphResult> => {
       const response = await apiClient.get('/ai/skill_graph/subgraph');
+      const payload = response.data?.data || response.data;
       return {
-        nodes: response.data?.nodes || [],
-        edges: response.data?.edges || [],
+        nodes: payload?.nodes || [],
+        edges: payload?.edges || [],
       };
     },
   });

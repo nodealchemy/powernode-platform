@@ -16,7 +16,7 @@ import {
   Connection,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Wrench, Search, RefreshCw } from 'lucide-react';
+import { Wrench, Search, RefreshCw, Unlink } from 'lucide-react';
 import { Card } from '@/shared/components/ui/Card';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
@@ -105,6 +105,7 @@ export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = (
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [searchFilter, setSearchFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
+  const [showUnconnected, setShowUnconnected] = useState(false);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [connectModal, setConnectModal] = useState<{ source: string; target: string } | null>(null);
@@ -113,6 +114,21 @@ export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = (
   const { data: graphData, isLoading: graphLoading } = useSkillGraph();
   const createEdge = useCreateSkillEdge();
   const syncSkills = useSyncSkills();
+
+  const connectedNodeIds = useMemo(() => {
+    if (!graphData?.edges) return new Set<string>();
+    const ids = new Set<string>();
+    for (const e of graphData.edges) {
+      ids.add(e.source_skill_id);
+      ids.add(e.target_skill_id);
+    }
+    return ids;
+  }, [graphData]);
+
+  const unconnectedCount = useMemo(() => {
+    if (!graphData?.nodes) return 0;
+    return graphData.nodes.filter(n => !connectedNodeIds.has(n.id)).length;
+  }, [graphData, connectedNodeIds]);
 
   const categories = useMemo(() => {
     if (!graphData?.nodes) return [];
@@ -123,6 +139,9 @@ export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = (
   const filteredNodes = useMemo(() => {
     if (!graphData?.nodes) return [];
     let filtered = graphData.nodes;
+    if (!showUnconnected) {
+      filtered = filtered.filter(n => connectedNodeIds.has(n.id));
+    }
     if (searchFilter) {
       const q = searchFilter.toLowerCase();
       filtered = filtered.filter(n => n.name.toLowerCase().includes(q));
@@ -131,7 +150,7 @@ export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = (
       filtered = filtered.filter(n => n.category === categoryFilter);
     }
     return filtered;
-  }, [graphData, searchFilter, categoryFilter]);
+  }, [graphData, searchFilter, categoryFilter, showUnconnected, connectedNodeIds]);
 
   useEffect(() => {
     if (graphLoading) {
@@ -256,6 +275,17 @@ export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = (
             ))}
           </div>
 
+          {unconnectedCount > 0 && (
+            <Button
+              variant={showUnconnected ? 'primary' : 'secondary'}
+              size="sm"
+              onClick={() => setShowUnconnected(!showUnconnected)}
+            >
+              <Unlink className="h-3.5 w-3.5 mr-1" />
+              {showUnconnected ? 'Hide' : 'Show'} unconnected ({unconnectedCount})
+            </Button>
+          )}
+
           <Button
             variant="secondary"
             size="sm"
@@ -274,8 +304,10 @@ export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = (
       ) : nodes.length === 0 ? (
         <EmptyState
           icon={Wrench}
-          title="No skills found"
-          description="The skill graph is empty or no skills match your filters."
+          title="No connected skills found"
+          description={unconnectedCount > 0
+            ? `${unconnectedCount} unconnected skill${unconnectedCount !== 1 ? 's' : ''} hidden. Click "Show unconnected" to reveal them.`
+            : 'The skill graph is empty. Sync skills to populate it.'}
         />
       ) : (
         <div className="relative h-[600px] rounded-lg border border-theme bg-theme-surface">
