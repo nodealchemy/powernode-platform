@@ -1447,8 +1447,9 @@ skills_data = [
 skills_created = 0
 
 skills_data.each do |sd|
-  skill = Ai::Skill.find_or_initialize_by(slug: sd[:name].parameterize, account: nil)
+  skill = Ai::Skill.find_or_initialize_by(slug: sd[:name].parameterize)
   skill.assign_attributes(
+    account: admin_account,
     name: sd[:name],
     description: sd[:description],
     category: sd[:category],

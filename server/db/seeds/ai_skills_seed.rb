@@ -409,7 +409,7 @@ server_link_count = 0
 skills_data.each do |data|
   skill = Ai::Skill.find_or_initialize_by(slug: data[:slug])
   skill.assign_attributes(
-    account: nil,
+    account: account,
     name: data[:name],
     description: data[:description],
     category: data[:category],
