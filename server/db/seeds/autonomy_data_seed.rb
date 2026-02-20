@@ -138,6 +138,10 @@ if delete_ids.any?
   Ai::Conversation.where(ai_agent_id: delete_ids).update_all(ai_agent_id: nil)
   Ai::AgentTemplate.where(source_agent_id: delete_ids).update_all(source_agent_id: nil) if defined?(Ai::AgentTemplate)
 
+  # Clean telemetry and shadow executions before agent deletion
+  Ai::TelemetryEvent.where(agent_id: delete_ids).delete_all
+  Ai::ShadowExecution.where(agent_id: delete_ids).delete_all if defined?(Ai::ShadowExecution)
+
   # Cascading associations (executions, trust_scores, budgets, etc.) auto-delete
   Ai::Agent.where(id: delete_ids).destroy_all
 
@@ -172,6 +176,10 @@ end
 agents = Ai::Agent.where(account: admin_account, name: KEEP_AGENT_NAMES)
   .index_by(&:name)
 
+# Also include the concierge agent
+concierge = Ai::Agent.find_by(account: admin_account, is_concierge: true)
+agents[concierge.name] = concierge if concierge
+
 if agents.size < KEEP_AGENT_NAMES.size
   missing = KEEP_AGENT_NAMES - agents.keys
   Rails.logger.warn "[AutonomySeed] Missing agents: #{missing.join(', ')} — seeding partial data"
@@ -183,7 +191,8 @@ end
 TRUST_PROFILES = {
   "Visual Design Assistant"          => { tier: "supervised", rel: 0.20, cost: 0.30, safety: 0.30, qual: 0.20, speed: 0.30, evals: 3  },
   "Process Automation Optimizer"     => { tier: "supervised", rel: 0.35, cost: 0.35, safety: 0.40, qual: 0.30, speed: 0.35, evals: 5  },
-  "Powernode Documentation Specialist" => { tier: "supervised", rel: 0.40, cost: 0.40, safety: 0.45, qual: 0.35, speed: 0.35, evals: 8  },
+  "Powernode Documentation Specialist" => { tier: "monitored",  rel: 0.40, cost: 0.40, safety: 0.45, qual: 0.35, speed: 0.35, evals: 8  },
+  "Powernode Assistant"                => { tier: "trusted",    rel: 0.85, cost: 0.80, safety: 0.90, qual: 0.80, speed: 0.80, evals: 40 },
   "Powernode Project Lead"           => { tier: "monitored",  rel: 0.55, cost: 0.50, safety: 0.60, qual: 0.45, speed: 0.50, evals: 12 },
   "Claude Research Analyst"          => { tier: "monitored",  rel: 0.60, cost: 0.55, safety: 0.60, qual: 0.50, speed: 0.55, evals: 15 },
   "Powernode DevOps Engineer"        => { tier: "monitored",  rel: 0.70, cost: 0.60, safety: 0.75, qual: 0.60, speed: 0.60, evals: 20 },
@@ -239,20 +248,20 @@ Rails.logger.info "[AutonomySeed] Created/updated #{trust_created} trust scores"
 # Budgets (monthly, current month)
 # ---------------------------------------------------------------------------
 BUDGET_PROFILES = {
-  # Supervised agents — $10 budget, low spend
-  "Visual Design Assistant"          => { total: 1000,  spent: 50   },
-  "Process Automation Optimizer"     => { total: 1000,  spent: 120  },
-  "Powernode Documentation Specialist" => { total: 1000,  spent: 200  },
-  # Monitored agents — $25 budget, moderate spend
-  "Powernode Project Lead"           => { total: 2500,  spent: 1250 },
-  "Claude Research Analyst"          => { total: 2500,  spent: 1500 },
-  "Powernode DevOps Engineer"        => { total: 2500,  spent: 1750 },
-  # Trusted agents — $50 budget, high spend
-  "Powernode Frontend Developer"     => { total: 5000,  spent: 3800 },
-  "Powernode QA/Test Engineer"       => { total: 5000,  spent: 4000 },
-  "Powernode Backend Developer"      => { total: 5000,  spent: 4200 },
-  # Critical utilization
-  "Infrastructure Health Monitor"    => { total: 5000,  spent: 4600 }
+  # Supervised agents — $10 budget (Visual Design Assistant, Process Automation Optimizer)
+  "Visual Design Assistant"          => { total: 1000,  spent: 0 },
+  "Process Automation Optimizer"     => { total: 1000,  spent: 0 },
+  # Monitored agent — $10 budget (Documentation Specialist)
+  "Powernode Documentation Specialist" => { total: 1000,  spent: 0 },
+  # Monitored agents — $25 budget
+  "Powernode Project Lead"           => { total: 2500,  spent: 0 },
+  "Claude Research Analyst"          => { total: 2500,  spent: 0 },
+  "Powernode DevOps Engineer"        => { total: 2500,  spent: 0 },
+  # Trusted agents — $50 budget
+  "Powernode Frontend Developer"     => { total: 5000,  spent: 0 },
+  "Powernode QA/Test Engineer"       => { total: 5000,  spent: 0 },
+  "Powernode Backend Developer"      => { total: 5000,  spent: 0 },
+  "Infrastructure Health Monitor"    => { total: 5000,  spent: 0 }
 }.freeze
 
 period_start = Time.current.beginning_of_month
@@ -394,6 +403,37 @@ end
 Rails.logger.info "[AutonomySeed] Created/updated #{dp_created} delegation policies"
 
 # ---------------------------------------------------------------------------
+# Lineage Records (from team hierarchy)
+# ---------------------------------------------------------------------------
+lineage_created = 0
+
+LEAD_ROLES = %w[manager lead coordinator].freeze
+
+Ai::AgentTeam.where(account: admin_account, name: KEEP_TEAM_NAMES).each do |team|
+  lead_member = team.members.where(role: LEAD_ROLES).first
+  next unless lead_member
+
+  lead_agent = Ai::Agent.find_by(id: lead_member.ai_agent_id)
+  next unless lead_agent
+
+  team.members.where.not(role: LEAD_ROLES).each do |member|
+    child_agent = Ai::Agent.find_by(id: member.ai_agent_id)
+    next unless child_agent
+
+    Ai::AgentLineage.find_or_create_by!(
+      account: admin_account,
+      parent_agent_id: lead_agent.id,
+      child_agent_id: child_agent.id
+    ) do |lineage|
+      lineage.spawned_at = Time.current
+    end
+    lineage_created += 1
+  end
+end
+
+Rails.logger.info "[AutonomySeed] Created/updated #{lineage_created} lineage records"
+
+# ---------------------------------------------------------------------------
 # Telemetry Events (3 per agent = 30 total, correlated chains)
 # ---------------------------------------------------------------------------
 
@@ -463,6 +503,7 @@ Rails.logger.info "[AutonomySeed]   Budgets: #{Ai::AgentBudget.where(account_id:
 Rails.logger.info "[AutonomySeed]   Circuit breakers: #{Ai::CircuitBreaker.where(account_id: admin_account.id).count}"
 Rails.logger.info "[AutonomySeed]   Fingerprints: #{Ai::BehavioralFingerprint.where(account_id: admin_account.id).count}"
 Rails.logger.info "[AutonomySeed]   Delegation policies: #{Ai::DelegationPolicy.where(account_id: admin_account.id).count}"
+Rails.logger.info "[AutonomySeed]   Lineage records: #{Ai::AgentLineage.where(account_id: admin_account.id).count}"
 Rails.logger.info "[AutonomySeed]   Telemetry events: #{Ai::TelemetryEvent.where(account_id: admin_account.id).count}"
 
 puts "\n🤖 Autonomy Data Seeding Summary:"
@@ -472,5 +513,6 @@ puts "   Budgets: #{Ai::AgentBudget.where(account_id: admin_account.id).count}"
 puts "   Circuit breakers: #{Ai::CircuitBreaker.where(account_id: admin_account.id).count}"
 puts "   Fingerprints: #{Ai::BehavioralFingerprint.where(account_id: admin_account.id).count}"
 puts "   Delegation policies: #{Ai::DelegationPolicy.where(account_id: admin_account.id).count}"
+puts "   Lineage records: #{Ai::AgentLineage.where(account_id: admin_account.id).count}"
 puts "   Telemetry events: #{Ai::TelemetryEvent.where(account_id: admin_account.id).count}"
 puts "✅ Autonomy data seeding completed!"

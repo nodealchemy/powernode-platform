@@ -998,6 +998,34 @@ if Rails.env.development? || Rails.env.test?
 
   puts "\n🤖 Loading Autonomy Data (consolidation + seeding)..."
   load Rails.root.join('db', 'seeds', 'autonomy_data_seed.rb')
+
+  # Seed AI model pricing from hardcoded constant
+  if defined?(Ai::ProviderManagementService::MODEL_PRICING) && Ai::ModelPricing.count == 0
+    puts "\n💰 Seeding AI model pricing..."
+    Ai::ProviderManagementService::MODEL_PRICING.each do |model_id, pricing|
+      provider_type = case model_id
+                      when /^gpt-|^o[34]/ then "openai"
+                      when /^claude/ then "anthropic"
+                      when /^gemini/ then "google"
+                      when /^grok/ then "xai"
+                      when /^llama|^mixtral/ then "groq"
+                      when /^mistral|^codestral/ then "mistral"
+                      when /^command/ then "cohere"
+                      else "unknown"
+                      end
+
+      Ai::ModelPricing.find_or_create_by!(model_id: model_id, provider_type: provider_type) do |mp|
+        mp.input_per_1k = pricing["input"]
+        mp.output_per_1k = pricing["output"]
+        mp.cached_input_per_1k = pricing["cached_input"] || 0
+        mp.tier = pricing["tier"]
+        mp.source = "constant_fallback"
+        mp.last_synced_at = Time.current
+        mp.metadata = {}
+      end
+    end
+    puts "✅ Seeded #{Ai::ModelPricing.count} model pricings"
+  end
 end
 
 # Enterprise Edition seeds (loaded when enterprise engine is present)
