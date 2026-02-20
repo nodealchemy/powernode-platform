@@ -10,6 +10,7 @@ module Ai
       STALE_USAGE_CAP = 5
       ORPHAN_MIN_AGE = 30
       ORPHAN_EXTENDED_AGE = 60
+      RESOLVED_COOLDOWN_DAYS = 30
 
       attr_reader :account
 
@@ -325,24 +326,37 @@ module Ai
 
       private
 
-      # Idempotent: skip conflicts where an active one already exists for the same combo
+      # Idempotent: skip conflicts where an active OR recently resolved/dismissed one
+      # already exists for the same combo. The cooldown prevents re-scanning from
+      # recreating conflicts whose underlying condition hasn't changed.
       def create_conflict_if_new(skill_a_id:, skill_b_id:, conflict_type:, severity:, auto_resolvable:, **attrs)
-        existing = Ai::SkillConflict.where(account: account, conflict_type: conflict_type)
-          .active
+        base_scope = Ai::SkillConflict.where(account: account, conflict_type: conflict_type)
+
+        # Check for active conflicts
+        active_scope = base_scope.active.where(skill_a_id: skill_a_id)
+        # Check for recently resolved/dismissed conflicts (within cooldown)
+        cooldown_scope = base_scope.where(status: %w[resolved dismissed])
+          .where("resolved_at > ?", RESOLVED_COOLDOWN_DAYS.days.ago)
           .where(skill_a_id: skill_a_id)
 
         if skill_b_id
-          existing = existing.where(skill_b_id: skill_b_id)
+          active_scope = active_scope.where(skill_b_id: skill_b_id)
             .or(
-              Ai::SkillConflict.where(account: account, conflict_type: conflict_type)
-                .active
+              base_scope.active
+                .where(skill_a_id: skill_b_id, skill_b_id: skill_a_id)
+            )
+          cooldown_scope = cooldown_scope.where(skill_b_id: skill_b_id)
+            .or(
+              base_scope.where(status: %w[resolved dismissed])
+                .where("resolved_at > ?", RESOLVED_COOLDOWN_DAYS.days.ago)
                 .where(skill_a_id: skill_b_id, skill_b_id: skill_a_id)
             )
         else
-          existing = existing.where(skill_b_id: nil)
+          active_scope = active_scope.where(skill_b_id: nil)
+          cooldown_scope = cooldown_scope.where(skill_b_id: nil)
         end
 
-        return nil if existing.exists?
+        return nil if active_scope.exists? || cooldown_scope.exists?
 
         conflict = Ai::SkillConflict.create!(
           account: account,

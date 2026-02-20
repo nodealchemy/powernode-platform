@@ -253,7 +253,11 @@ module Api
         def conflicts
           authorize_permission!("ai.skills.read")
           conflicts = ::Ai::SkillConflict.where(account: current_account)
-          conflicts = conflicts.where(status: params[:status]) if params[:status].present?
+          conflicts = if params[:status].present?
+                        conflicts.where(status: params[:status])
+                      else
+                        conflicts.active
+                      end
           conflicts = conflicts.where(conflict_type: params[:type]) if params[:type].present?
           conflicts = conflicts.order(priority_score: :desc).limit(params[:limit]&.to_i || 50)
           render_success(conflicts: conflicts.map { |c| conflict_summary(c) })
