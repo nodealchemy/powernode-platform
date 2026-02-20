@@ -9,6 +9,7 @@ class Ai::McpAgentExecutor
   include ValidationAndGuardrails
   include ContextAndFormatting
   include MemoryWriteback
+  include SecurityGateIntegration
 
   class ExecutionError < StandardError; end
   class ValidationError < ExecutionError; end
@@ -32,8 +33,12 @@ class Ai::McpAgentExecutor
     # Validate input parameters against agent's input schema
     validate_input_parameters!(input_parameters)
 
-    # Run guardrail input check
+    # Run pre-execution security gate (OWASP security stack)
     input_text = input_parameters["input"].to_s
+    security_block = run_pre_execution_security_gate(input_text, input_parameters)
+    return security_block if security_block
+
+    # Run guardrail input check (non-security rails)
     guardrail_result = run_input_guardrails(input_text)
     if guardrail_result[:blocked]
       return format_guardrail_block(guardrail_result, stage: :input)
@@ -49,9 +54,19 @@ class Ai::McpAgentExecutor
     begin
       result = execute_with_provider(provider_client, execution_context)
 
-      # Run guardrail output check
+      # Run post-execution security gate (PII redaction + output safety)
       output_text = result["output"].to_s
-      output_guardrail = run_output_guardrails(output_text, input_text: input_text)
+      post_gate = run_post_execution_security_gate(output_text)
+      if post_gate.is_a?(Hash)
+        if post_gate.key?("error")
+          return post_gate # Output blocked by security gate
+        elsif post_gate[:redacted_text]
+          result["output"] = post_gate[:redacted_text]
+        end
+      end
+
+      # Run guardrail output check (non-security rails)
+      output_guardrail = run_output_guardrails(result["output"].to_s, input_text: input_text)
       if output_guardrail[:blocked]
         return format_guardrail_block(output_guardrail, stage: :output)
       end
@@ -61,6 +76,9 @@ class Ai::McpAgentExecutor
 
       # Post-execution memory write-back (non-blocking)
       write_back_to_memory(execution_context, result)
+
+      # Record security telemetry (fire-and-forget)
+      record_security_telemetry(result)
 
       # Format MCP-compliant response
       format_mcp_response(result)

@@ -24,7 +24,7 @@ module Ai
         return allow_result unless @config&.is_active?
 
         violations = []
-        input_rail = InputRail.new(config: @config)
+        input_rail = InputRail.new(config: @config, account: @account)
 
         @config.input_rails.each do |rail_spec|
           result = input_rail.check(text: text, rail: rail_spec, metadata: metadata)
@@ -38,7 +38,7 @@ module Ai
         return allow_result unless @config&.is_active?
 
         violations = []
-        output_rail = OutputRail.new(config: @config)
+        output_rail = OutputRail.new(config: @config, account: @account)
 
         @config.output_rails.each do |rail_spec|
           result = output_rail.check(text: text, rail: rail_spec, input_text: input_text, metadata: metadata)

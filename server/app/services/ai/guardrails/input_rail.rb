@@ -11,8 +11,9 @@ module Ai
         language_detection
       ].freeze
 
-      def initialize(config:)
+      def initialize(config:, account: nil)
         @config = config
+        @account = account
       end
 
       BORDERLINE_LOW_THRESHOLD = 0.3
@@ -65,6 +66,23 @@ module Ai
       end
 
       def check_prompt_injection(text, rail)
+        # Delegate to comprehensive security service when account is available
+        if @account
+          result = Ai::Security::AgentAnomalyDetectionService.new(account: @account)
+                     .detect_prompt_injection(text: text)
+          if result[:detected] && result[:confidence] >= 0.6
+            return {
+              passed: false,
+              rail: "prompt_injection",
+              severity: result[:confidence] >= 0.8 ? :critical : :warning,
+              message: "Prompt injection detected (confidence: #{result[:confidence].round(4)})",
+              confidence: result[:confidence]
+            }
+          end
+          return { passed: true, rail: "prompt_injection" }
+        end
+
+        # Fallback to pattern-based detection
         sensitivity = rail["sensitivity"] || "medium"
         patterns = injection_patterns(sensitivity)
 
@@ -83,6 +101,24 @@ module Ai
       end
 
       def check_pii(text, rail)
+        # Delegate to comprehensive PII service when account is available
+        if @account
+          result = Ai::Security::PiiRedactionService.new(account: @account).scan(text: text)
+          if result[:pii_found]
+            types = result[:detections].map { |d| d[:type] }.uniq
+            max_confidence = result[:detections].map { |d| d[:confidence] }.max || 0.0
+            return {
+              passed: false,
+              rail: "pii_detection",
+              severity: max_confidence >= 0.8 ? :critical : :warning,
+              message: "PII detected: #{types.join(', ')}",
+              details: { pii_types: types, detection_count: result[:detections].size }
+            }
+          end
+          return { passed: true, rail: "pii_detection" }
+        end
+
+        # Fallback to simple pattern-based detection
         sensitivity = rail["sensitivity"] || @config.pii_sensitivity || 0.8
         pii_types = rail["pii_types"] || %w[email phone ssn credit_card]
 

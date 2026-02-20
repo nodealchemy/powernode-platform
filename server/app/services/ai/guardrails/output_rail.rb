@@ -12,8 +12,9 @@ module Ai
         structured_output
       ].freeze
 
-      def initialize(config:)
+      def initialize(config:, account: nil)
         @config = config
+        @account = account
       end
 
       def check(text:, rail:, input_text: nil, metadata: {})
@@ -81,6 +82,24 @@ module Ai
       end
 
       def check_pii_leakage(text, rail)
+        # Delegate to comprehensive PII service when account is available
+        if @account
+          result = Ai::Security::PiiRedactionService.new(account: @account).scan(text: text)
+          if result[:pii_found]
+            types = result[:detections].map { |d| d[:type] }.uniq
+            max_confidence = result[:detections].map { |d| d[:confidence] }.max || 0.0
+            return {
+              passed: false,
+              rail: "pii_detection",
+              severity: max_confidence >= 0.8 ? :critical : :warning,
+              message: "PII detected in output: #{types.join(', ')}",
+              details: { pii_types: types, detection_count: result[:detections].size }
+            }
+          end
+          return { passed: true, rail: "pii_detection" }
+        end
+
+        # Fallback to simple pattern-based detection
         sensitivity = rail["sensitivity"] || @config.pii_sensitivity || 0.8
         detections = []
 
@@ -272,7 +291,25 @@ module Ai
         end
       end
 
-      def check_credential_leak(text, _rail)
+      def check_credential_leak(text, rail)
+        # Delegate to PII service for credential detection when account is available
+        if @account
+          result = Ai::Security::PiiRedactionService.new(account: @account).scan(text: text)
+          credential_types = result[:detections].select { |d| d[:classification] == "restricted" }
+          if credential_types.any?
+            types = credential_types.map { |d| d[:type] }.uniq
+            return {
+              passed: false,
+              rail: "credential_leak",
+              severity: :critical,
+              message: "Credentials detected in output: #{types.join(', ')}",
+              details: { credential_types: types }
+            }
+          end
+          return { passed: true, rail: "credential_leak" }
+        end
+
+        # Fallback to simple pattern-based detection
         credential_patterns = [
           /(?:api[_-]?key|apikey)\s*[:=]\s*\S{20,}/i,
           /(?:secret|password|passwd|pwd)\s*[:=]\s*\S{8,}/i,
