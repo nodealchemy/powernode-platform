@@ -23,9 +23,16 @@ module Ai
     has_and_belongs_to_many :mcp_servers,
                             join_table: "ai_skills_mcp_servers",
                             foreign_key: "ai_skill_id"
+    belongs_to :parent_skill, class_name: "Ai::Skill", foreign_key: "parent_skill_id", optional: true
+    has_many :child_skills, class_name: "Ai::Skill", foreign_key: "parent_skill_id", dependent: :nullify
     has_many :agent_skills, class_name: "Ai::AgentSkill", foreign_key: "ai_skill_id", dependent: :destroy
     has_many :agents, class_name: "Ai::Agent", through: :agent_skills, source: :agent
     has_one :knowledge_graph_node, class_name: "Ai::KnowledgeGraphNode", foreign_key: "ai_skill_id", dependent: :nullify
+    has_many :versions, class_name: "Ai::SkillVersion", foreign_key: "ai_skill_id", dependent: :destroy
+    has_many :usage_records, class_name: "Ai::SkillUsageRecord", foreign_key: "ai_skill_id", dependent: :destroy
+    has_many :proposals, class_name: "Ai::SkillProposal", foreign_key: "created_skill_id", dependent: :nullify
+    has_many :conflicts_as_a, class_name: "Ai::SkillConflict", foreign_key: "skill_a_id", dependent: :destroy
+    has_many :conflicts_as_b, class_name: "Ai::SkillConflict", foreign_key: "skill_b_id", dependent: :nullify
 
     # ==========================================
     # Validations
@@ -103,6 +110,47 @@ module Ai
       increment!(:usage_count)
     end
 
+    def record_usage!(outcome:, agent: nil, duration_ms: nil, execution_id: nil, execution_type: nil)
+      usage_records.create!(
+        account: account,
+        ai_agent_id: agent&.id,
+        outcome: outcome,
+        duration_ms: duration_ms,
+        execution_id: execution_id,
+        execution_type: execution_type
+      )
+
+      if outcome == "success"
+        increment!(:positive_usage_count)
+      else
+        increment!(:negative_usage_count)
+      end
+
+      update!(last_used_at: Time.current)
+      recalculate_effectiveness! if (positive_usage_count + negative_usage_count) >= 5
+    end
+
+    def recalculate_effectiveness!
+      kg_confidence = knowledge_graph_node&.confidence || 0.5
+      usage_rate = usage_success_rate
+      learning_eff = compound_learning_effectiveness
+
+      score = (0.3 * kg_confidence + 0.5 * usage_rate + 0.2 * learning_eff).round(4)
+      update!(effectiveness_score: score)
+    end
+
+    def usage_success_rate
+      total = positive_usage_count + negative_usage_count
+      return 0.5 if total.zero?
+
+      (positive_usage_count.to_f / total).round(4)
+    end
+
+    def active_conflicts
+      Ai::SkillConflict.where(status: %w[detected reviewing])
+        .where("skill_a_id = :id OR skill_b_id = :id", id: id)
+    end
+
     private
 
     def sync_to_knowledge_graph
@@ -130,6 +178,16 @@ module Ai
         self.slug = "#{base_slug}-#{counter}"
         counter += 1
       end
+    end
+
+    def compound_learning_effectiveness
+      return 0.5 unless account_id.present?
+
+      learnings = Ai::CompoundLearning.active.for_account(account_id)
+                    .where("tags @> ?", [slug].to_json)
+      return 0.5 if learnings.empty?
+
+      learnings.average(:effectiveness_score)&.to_f || 0.5
     end
   end
 end

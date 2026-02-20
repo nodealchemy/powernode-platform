@@ -3,7 +3,7 @@
 module Ai
   class ImprovementRecommendation < ApplicationRecord
     STATUSES = %w[pending approved applied dismissed].freeze
-    RECOMMENDATION_TYPES = %w[provider_switch team_composition timeout_adjustment model_upgrade cost_optimization].freeze
+    RECOMMENDATION_TYPES = %w[provider_switch team_composition timeout_adjustment model_upgrade cost_optimization skill_consolidation skill_connection prompt_refinement skill_creation].freeze
 
     belongs_to :account
     belongs_to :approved_by, class_name: "User", foreign_key: "approved_by_id", optional: true

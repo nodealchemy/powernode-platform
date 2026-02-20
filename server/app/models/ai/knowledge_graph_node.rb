@@ -70,6 +70,11 @@ module Ai
       update!(embedding: embedding_vector)
     end
 
+    # Virtual attribute set by pgvector's nearest_neighbors scope
+    def neighbor_distance
+      self[:neighbor_distance]
+    end
+
     # Degree (number of connections)
     def degree
       outgoing_edges.count + incoming_edges.count

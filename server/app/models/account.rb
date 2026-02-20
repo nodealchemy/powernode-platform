@@ -93,6 +93,12 @@ class Account < ApplicationRecord
   has_many :ai_missions, class_name: "Ai::Mission", dependent: :destroy
   has_many :ai_mission_approvals, class_name: "Ai::MissionApproval", dependent: :destroy
 
+  # AI Skill Lifecycle associations
+  has_many :ai_skill_proposals, class_name: "Ai::SkillProposal", dependent: :destroy
+  has_many :ai_skill_conflicts, class_name: "Ai::SkillConflict", dependent: :destroy
+  has_many :ai_skill_versions, class_name: "Ai::SkillVersion", dependent: :destroy
+  has_many :ai_skill_usage_records, class_name: "Ai::SkillUsageRecord", dependent: :destroy
+
   # AI Agent Topology & Discovery
   has_many :ai_agent_connections, class_name: "Ai::AgentConnection", dependent: :destroy
   has_many :ai_discovery_results, class_name: "Ai::DiscoveryResult", dependent: :destroy
