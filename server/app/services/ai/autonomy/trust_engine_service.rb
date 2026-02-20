@@ -19,6 +19,10 @@ module Ai
       MIN_EVALUATIONS_FOR_PROMOTION = 10
       # Consecutive successful executions needed for promotion consideration
       MIN_CONSECUTIVE_SUCCESSES = 5
+      # Cooling-off period after demotion before promotion is allowed
+      PROMOTION_COOLDOWN_HOURS = 24
+      # Minimum hours at current tier before promotion is considered
+      MIN_HOURS_AT_CURRENT_TIER = 12
 
       attr_reader :account
 
@@ -73,6 +77,9 @@ module Ai
 
         # Update agent trust_level
         agent.update!(trust_level: "supervised") if agent.respond_to?(:trust_level=)
+
+        # Cancel all running executions for this agent
+        cancel_running_executions(agent, reason)
 
         Rails.logger.warn(
           "[TrustEngine] EMERGENCY DEMOTION: agent=#{agent.id} " \
@@ -371,18 +378,21 @@ module Ai
           trust_score.reload
 
           if trust_score.promotable? && trust_score.evaluation_count >= MIN_EVALUATIONS_FOR_PROMOTION
-            previous = trust_score.tier
-            new_tier = next_tier(trust_score.tier)
+            # Cooling-off: skip promotion if recently demoted or too soon at current tier
+            if !recently_demoted?(trust_score) && !too_soon_for_promotion?(trust_score)
+              previous = trust_score.tier
+              new_tier = next_tier(trust_score.tier)
 
-            if new_tier && trust_score.overall_score >= TIER_THRESHOLDS[new_tier]
-              trust_score.update!(tier: new_tier)
+              if new_tier && trust_score.overall_score >= TIER_THRESHOLDS[new_tier]
+                trust_score.update!(tier: new_tier)
 
-              # Update agent model if it has trust_level
-              if trust_score.agent.respond_to?(:trust_level=)
-                trust_score.agent.update!(trust_level: new_tier)
+                # Update agent model if it has trust_level
+                if trust_score.agent.respond_to?(:trust_level=)
+                  trust_score.agent.update!(trust_level: new_tier)
+                end
+
+                return { type: "promotion", from: previous, to: new_tier }
               end
-
-              return { type: "promotion", from: previous, to: new_tier }
             end
           elsif trust_score.demotable?
             previous = trust_score.tier
@@ -419,6 +429,48 @@ module Ai
         Ai::AgentTrustScore::DIMENSIONS.each_with_object({}) do |dim, hash|
           hash[dim] = trust_score.send(dim)&.round(4)
         end
+      end
+
+      # Cancel all running executions for an agent (called during emergency demotion)
+      def cancel_running_executions(agent, reason)
+        agent.executions.running.find_each do |execution|
+          execution.cancel_execution!("Emergency demotion: #{reason}")
+        rescue StandardError => e
+          Rails.logger.error("[TrustEngine] Failed to cancel execution #{execution.id}: #{e.message}")
+        end
+      end
+
+      # Check if agent was recently demoted (within PROMOTION_COOLDOWN_HOURS)
+      def recently_demoted?(trust_score)
+        history = trust_score.evaluation_history || []
+        history.any? do |entry|
+          entry_type = entry["type"] || entry[:type]
+          evaluated_at = entry["evaluated_at"] || entry[:evaluated_at]
+          next false unless entry_type.to_s.include?("demotion") || entry_type.to_s.include?("emergency")
+          next false unless evaluated_at
+
+          Time.parse(evaluated_at.to_s) >= PROMOTION_COOLDOWN_HOURS.hours.ago
+        rescue StandardError
+          false
+        end
+      end
+
+      # Check if agent has been at current tier for less than MIN_HOURS_AT_CURRENT_TIER
+      def too_soon_for_promotion?(trust_score)
+        history = trust_score.evaluation_history || []
+        last_tier_change = history.select do |entry|
+          entry_type = entry["type"] || entry[:type]
+          %w[promotion demotion trust_inheritance].include?(entry_type.to_s)
+        end.last
+
+        return false unless last_tier_change
+
+        evaluated_at = last_tier_change["evaluated_at"] || last_tier_change[:evaluated_at]
+        return false unless evaluated_at
+
+        Time.parse(evaluated_at.to_s) >= MIN_HOURS_AT_CURRENT_TIER.hours.ago
+      rescue StandardError
+        false
       end
 
       def aggregate_execution_metrics(executions)

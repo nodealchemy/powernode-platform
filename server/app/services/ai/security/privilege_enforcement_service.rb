@@ -18,6 +18,10 @@ module Ai
       # Check whether an agent is allowed to perform a given action on a resource.
       # Returns { allowed: bool, reason: String|nil, policy_id: UUID|nil }
       def check_action!(agent:, action:, resource: nil)
+        # Quarantine gate: block if agent is under active quarantine
+        quarantine_denial = evaluate_quarantine_gate(agent)
+        return quarantine_denial if quarantine_denial
+
         policies = policies_for_agent(agent: agent)
 
         policies.each do |policy|
@@ -32,12 +36,16 @@ module Ai
         { allowed: true, reason: nil, policy_id: nil }
       rescue StandardError => e
         Rails.logger.error "[PrivilegeEnforcement] check_action! error: #{e.message}"
-        { allowed: true, reason: nil, policy_id: nil }
+        { allowed: false, reason: "Privilege check error (fail-closed)", policy_id: nil }
       end
 
       # Check whether an agent is allowed to use a specific tool.
       # Returns { allowed: bool, reason: String|nil, policy_id: UUID|nil }
       def check_tool!(agent:, tool_name:, arguments: {})
+        # Quarantine gate: block if agent is under active quarantine
+        quarantine_denial = evaluate_quarantine_gate(agent)
+        return quarantine_denial if quarantine_denial
+
         policies = policies_for_agent(agent: agent)
 
         policies.each do |policy|
@@ -51,12 +59,16 @@ module Ai
         { allowed: true, reason: nil, policy_id: nil }
       rescue StandardError => e
         Rails.logger.error "[PrivilegeEnforcement] check_tool! error: #{e.message}"
-        { allowed: true, reason: nil, policy_id: nil }
+        { allowed: false, reason: "Tool check error (fail-closed)", policy_id: nil }
       end
 
       # Check whether inter-agent communication is permitted.
       # Returns { allowed: bool, reason: String|nil, policy_id: UUID|nil }
       def check_communication!(from_agent:, to_agent:, message_type: "default")
+        # Quarantine gate: block if sender is under active quarantine
+        quarantine_denial = evaluate_quarantine_gate(from_agent)
+        return quarantine_denial if quarantine_denial
+
         from_policies = policies_for_agent(agent: from_agent)
 
         from_policies.each do |policy|
@@ -74,7 +86,7 @@ module Ai
         { allowed: true, reason: nil, policy_id: nil }
       rescue StandardError => e
         Rails.logger.error "[PrivilegeEnforcement] check_communication! error: #{e.message}"
-        { allowed: true, reason: nil, policy_id: nil }
+        { allowed: false, reason: "Communication check error (fail-closed)", policy_id: nil }
       end
 
       # Detect privilege escalation patterns in an agent's recent action history.
@@ -144,6 +156,36 @@ module Ai
         { escalation_score: 0.0, escalated: false, recommended_action: "error" }
       end
 
+      # Enforce escalation detection: detect escalation, then quarantine if warranted.
+      def enforce_escalation!(agent:)
+        result = detect_escalation(agent: agent)
+        return result unless result[:escalated]
+
+        quarantine_service = Ai::Security::QuarantineService.new(account: @account)
+
+        case result[:recommended_action]
+        when "quarantine"
+          quarantine_service.quarantine!(
+            agent: agent,
+            severity: "high",
+            reason: "Privilege escalation detected (score: #{result[:escalation_score]})",
+            source: "anomaly_detection"
+          )
+        when "restrict_capabilities"
+          quarantine_service.quarantine!(
+            agent: agent,
+            severity: "medium",
+            reason: "Privilege escalation pattern detected (score: #{result[:escalation_score]})",
+            source: "anomaly_detection"
+          )
+        end
+
+        result
+      rescue StandardError => e
+        Rails.logger.error "[PrivilegeEnforcement] enforce_escalation! error: #{e.message}"
+        result || { escalation_score: 0.0, escalated: false, recommended_action: "error" }
+      end
+
       # Load all applicable policies for an agent, sorted by priority.
       def policies_for_agent(agent:)
         trust_tier = trust_tier_for_agent(agent)
@@ -152,6 +194,13 @@ module Ai
       end
 
       private
+
+      def evaluate_quarantine_gate(agent)
+        return nil unless Ai::QuarantineRecord.where(agent_id: agent.id, account: @account).active.exists?
+
+        log_enforcement(agent, "quarantine_gate", "blocked")
+        { allowed: false, reason: "Agent is under active quarantine", policy_id: nil }
+      end
 
       def evaluate_policy_action(policy, action, resource)
         unless policy.action_allowed?(action)

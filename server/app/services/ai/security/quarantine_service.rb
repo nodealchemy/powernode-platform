@@ -197,6 +197,8 @@ module Ai
       end
 
       # Auto-restore agents whose scheduled_restore_at has passed.
+      # Skips high/critical severity (require human approval).
+      # Re-evaluates low/medium before restoring — extends quarantine if still anomalous.
       # Returns an array of restored record IDs.
       def auto_restore_expired!
         restored_ids = []
@@ -205,11 +207,24 @@ module Ai
           agent = Ai::Agent.find_by(id: record.agent_id)
           next unless agent
 
+          # High/critical severity quarantines require human approval — skip auto-restore
+          if %w[high critical].include?(record.severity)
+            Rails.logger.info "[QuarantineService] Skipping auto-restore for #{record.id}: #{record.severity} severity requires human approval"
+            next
+          end
+
+          # Re-evaluate agent before restoring low/medium quarantines
+          if agent_still_anomalous?(agent)
+            extend_quarantine!(record)
+            Rails.logger.info "[QuarantineService] Extended quarantine #{record.id}: agent still anomalous"
+            next
+          end
+
           remove_restrictions(agent, record)
           record.update!(
             status: "restored",
             restored_at: Time.current,
-            restoration_notes: "Auto-restored after scheduled_restore_at"
+            restoration_notes: "Auto-restored after scheduled_restore_at (re-evaluation passed)"
           )
           restored_ids << record.id
 
@@ -325,6 +340,34 @@ module Ai
         end
       rescue StandardError => e
         Rails.logger.error "[QuarantineService] remove_restrictions: #{e.message}"
+      end
+
+      # Check if agent is still showing anomalous behavior
+      def agent_still_anomalous?(agent)
+        analysis = Ai::Security::AgentAnomalyDetectionService.new(account: @account)
+                     .analyze_agent(agent: agent, window_minutes: 60)
+        %w[high critical].include?(analysis[:risk_level])
+      rescue StandardError => e
+        Rails.logger.error "[QuarantineService] agent_still_anomalous? error: #{e.message}"
+        true # Fail-closed: assume still anomalous on error
+      end
+
+      # Extend a quarantine by pushing the scheduled_restore_at forward
+      def extend_quarantine!(record)
+        new_restore = Time.current + (record.cooldown_minutes || 60).minutes
+        record.update!(
+          scheduled_restore_at: new_restore,
+          restoration_notes: "Auto-restore deferred: agent still anomalous at #{Time.current.iso8601}"
+        )
+
+        audit_log("quarantine_extended", agent_id: record.agent_id, outcome: "quarantined",
+                  details: {
+                    quarantine_id: record.id,
+                    severity: record.severity,
+                    new_restore_at: new_restore.iso8601
+                  })
+      rescue StandardError => e
+        Rails.logger.error "[QuarantineService] extend_quarantine! error: #{e.message}"
       end
 
       def audit_log(action, agent: nil, agent_id: nil, outcome:, severity_level: "info", details: {})

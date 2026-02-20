@@ -48,6 +48,10 @@ module Ai
         }
         @redis.setex(session_redis_key(session_id), SESSION_TTL.to_i, session_data.to_json)
 
+        # Initialize atomic sequence counter
+        seq_key = "#{session_redis_key(session_id)}:seq"
+        @redis.setex(seq_key, SESSION_TTL.to_i, "0")
+
         audit_log("session_established", outcome: "allowed",
                   details: { session_id: session_id, agent_a: agent_a.id, agent_b: agent_b.id, task_id: task_id })
 
@@ -178,8 +182,9 @@ module Ai
           Ai::EncryptedMessage.for_session(session_id).delivered.find_each(&:mark_expired!)
         end
 
-        # Delete session key from Redis
+        # Delete session key and sequence counter from Redis
         @redis.del(session_redis_key(session_id))
+        @redis.del("#{session_redis_key(session_id)}:seq")
 
         audit_log("session_closed", outcome: "allowed", details: { session_id: session_id })
 
@@ -209,16 +214,8 @@ module Ai
       end
 
       def increment_sequence(session_id)
-        key = session_redis_key(session_id)
-        session = load_session(session_id)
-        return 0 unless session
-
-        new_seq = (session["sequence"] || 0) + 1
-        session["sequence"] = new_seq
-        ttl = @redis.ttl(key)
-        ttl = SESSION_TTL.to_i if ttl <= 0
-        @redis.setex(key, ttl, session.to_json)
-        new_seq
+        seq_key = "#{session_redis_key(session_id)}:seq"
+        @redis.incr(seq_key).to_i
       end
 
       def derive_session_key(shared_secret, salt)

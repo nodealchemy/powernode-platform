@@ -72,6 +72,10 @@ module Ai
 
       # Real-time gate check before a single action executes.
       def check_action(agent:, action_type:, action_context: {})
+        # Quarantine gate: block if agent is under active quarantine
+        quarantine_denial = evaluate_quarantine_gate(agent)
+        return quarantine_denial if quarantine_denial
+
         denial = evaluate_policies(agent, action_type, action_context) ||
                  evaluate_trust_gate(agent, action_type) ||
                  evaluate_circuit_breaker(agent, action_type) ||
@@ -89,7 +93,7 @@ module Ai
         denial || { allowed: true, reason: nil, enforcement: nil }
       rescue StandardError => e
         Rails.logger.error "[AgentAnomalyDetection] check_action error: #{e.message}"
-        { allowed: true, reason: nil, enforcement: nil }
+        { allowed: false, reason: "Security gate error (fail-closed)", enforcement: "fail_closed" }
       end
 
       # Detect prompt injection in arbitrary text.
@@ -109,6 +113,49 @@ module Ai
       rescue StandardError => e
         Rails.logger.error "[AgentAnomalyDetection] detect_prompt_injection error: #{e.message}"
         { detected: false, patterns: [], confidence: 0.0, action_taken: "error" }
+      end
+
+      # Enforce rogue detection: detect rogue behavior, then quarantine/demote if needed.
+      def enforce_rogue_detection!(agent:)
+        result = detect_rogue_behavior(agent: agent)
+        return result unless result[:rogue]
+
+        case result[:recommended_action]
+        when "emergency_demote_and_suspend"
+          Ai::Autonomy::TrustEngineService.new(account: @account).emergency_demote!(
+            agent: agent,
+            reason: "Rogue behavior: #{result[:indicators].size} indicator(s)"
+          )
+          Ai::Security::QuarantineService.new(account: @account).quarantine!(
+            agent: agent,
+            severity: "critical",
+            reason: "Rogue behavior detected: emergency demote and suspend",
+            source: "anomaly_detection"
+          )
+        when "demote_to_supervised"
+          Ai::Autonomy::TrustEngineService.new(account: @account).emergency_demote!(
+            agent: agent,
+            reason: "Rogue behavior: demote to supervised"
+          )
+          Ai::Security::QuarantineService.new(account: @account).quarantine!(
+            agent: agent,
+            severity: "high",
+            reason: "Rogue behavior detected: demote to supervised",
+            source: "anomaly_detection"
+          )
+        when "increase_monitoring"
+          Ai::Security::QuarantineService.new(account: @account).quarantine!(
+            agent: agent,
+            severity: "low",
+            reason: "Rogue indicators detected: increased monitoring",
+            source: "anomaly_detection"
+          )
+        end
+
+        result
+      rescue StandardError => e
+        Rails.logger.error "[AgentAnomalyDetection] enforce_rogue_detection! error: #{e.message}"
+        result || { rogue: false, indicators: [], recommended_action: "error" }
       end
 
       # Detect rogue agent behavior by checking multiple indicators.
@@ -171,7 +218,13 @@ module Ai
 
       private
 
-      # --- Policy / trust / budget gates ---
+      # --- Quarantine / policy / trust / budget gates ---
+
+      def evaluate_quarantine_gate(agent)
+        return nil unless Ai::QuarantineRecord.where(agent_id: agent.id, account: @account).active.exists?
+
+        { allowed: false, reason: "Agent is under active quarantine", enforcement: "quarantine_block" }
+      end
 
       def evaluate_policies(agent, action_type, action_context)
         return nil unless defined?(PowernodeEnterprise::Engine)
@@ -182,6 +235,9 @@ module Ai
           log_policy_check(agent, policy, action_type, result)
           return { allowed: false, reason: result[:reason], enforcement: result[:enforcement] } if policy.blocking?
         end
+        nil
+      rescue StandardError => e
+        Rails.logger.error "[AgentAnomalyDetection] evaluate_policies error: #{e.message}"
         nil
       end
 
@@ -198,6 +254,9 @@ module Ai
         else
           nil
         end
+      rescue StandardError => e
+        Rails.logger.error "[AgentAnomalyDetection] evaluate_trust_gate error: #{e.message}"
+        nil
       end
 
       def evaluate_circuit_breaker(agent, action_type)
@@ -206,6 +265,9 @@ module Ai
         return nil if result[:allowed]
 
         { allowed: false, reason: result[:reason], enforcement: "circuit_breaker" }
+      rescue StandardError => e
+        Rails.logger.error "[AgentAnomalyDetection] evaluate_circuit_breaker error: #{e.message}"
+        nil
       end
 
       def evaluate_budget_gate(agent, action_context)
@@ -213,6 +275,9 @@ module Ai
         cost = action_context[:estimated_cost_cents].to_i
         return nil unless budget && cost.positive? && budget.remaining_cents < cost
         { allowed: false, reason: "Budget exhausted (remaining: #{budget.remaining_cents} cents)", enforcement: "block" }
+      rescue StandardError => e
+        Rails.logger.error "[AgentAnomalyDetection] evaluate_budget_gate error: #{e.message}"
+        nil
       end
 
       # --- Anomaly checks (return Array of anomaly hashes) ---

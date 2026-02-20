@@ -45,21 +45,21 @@ module Ai
     # Methods
     # ==========================================
     def action_allowed?(action)
-      return false if denied_actions.include?(action)
+      return false if denied_actions.include?("*") || denied_actions.include?(action)
       return true if allowed_actions.empty? || allowed_actions.include?(action) || allowed_actions.include?("*")
 
       false
     end
 
     def tool_allowed?(tool_name)
-      return false if denied_tools.include?(tool_name)
+      return false if denied_tools.include?("*") || denied_tools.include?(tool_name)
       return true if allowed_tools.empty? || allowed_tools.include?(tool_name) || allowed_tools.include?("*")
 
       false
     end
 
     def resource_allowed?(resource)
-      return false if denied_resources.include?(resource)
+      return false if denied_resources.include?("*") || denied_resources.include?(resource)
       return true if allowed_resources.empty? || allowed_resources.include?(resource) || allowed_resources.include?("*")
 
       false
@@ -70,12 +70,24 @@ module Ai
       return true if rules.blank?
 
       blocked = rules["blocked_pairs"] || []
-      return false if blocked.any? { |pair| pair.include?(from_agent_id) && pair.include?(to_agent_id) }
+      return false if blocked.any? { |pair| pair_matches?(pair, from_agent_id, to_agent_id) }
 
       allowed = rules["allowed_pairs"]
       return true if allowed.nil?
 
-      allowed.any? { |pair| pair.include?(from_agent_id) && pair.include?(to_agent_id) }
+      allowed.any? { |pair| pair_matches?(pair, from_agent_id, to_agent_id) }
+    end
+
+    private
+
+    # Match a communication pair, treating "*" as a wildcard that matches any agent ID.
+    def pair_matches?(pair, from_agent_id, to_agent_id)
+      return false unless pair.is_a?(Array) && pair.size == 2
+
+      (pair[0] == "*" || pair[0] == from_agent_id) &&
+        (pair[1] == "*" || pair[1] == to_agent_id) ||
+        (pair[0] == "*" || pair[0] == to_agent_id) &&
+        (pair[1] == "*" || pair[1] == from_agent_id)
     end
   end
 end
