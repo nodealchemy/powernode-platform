@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_19_000006) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_19_214918) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -853,6 +853,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_19_000006) do
     t.index ["account_id"], name: "index_ai_behavioral_fingerprints_on_account_id"
     t.index ["agent_id", "metric_name"], name: "idx_ai_behavioral_fingerprints_agent_metric", unique: true
     t.index ["agent_id"], name: "index_ai_behavioral_fingerprints_on_agent_id"
+  end
+
+  create_table "ai_budget_transactions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "ai_agent_budget_id", null: false
+    t.uuid "ai_agent_execution_id"
+    t.integer "amount_cents", null: false
+    t.datetime "created_at", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.integer "running_balance_cents", null: false
+    t.string "transaction_type", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_budget_transactions_on_account_id"
+    t.index ["ai_agent_budget_id"], name: "index_ai_budget_transactions_on_ai_agent_budget_id"
+    t.index ["ai_agent_execution_id"], name: "index_ai_budget_transactions_on_ai_agent_execution_id"
+    t.index ["created_at"], name: "index_ai_budget_transactions_on_created_at"
+    t.index ["transaction_type"], name: "index_ai_budget_transactions_on_transaction_type"
   end
 
   create_table "ai_circuit_breakers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2428,6 +2445,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_19_000006) do
     t.index ["sandbox_id", "provider_type"], name: "index_ai_mock_responses_on_sandbox_id_and_provider_type"
     t.index ["sandbox_id"], name: "index_ai_mock_responses_on_sandbox_id"
     t.check_constraint "match_type::text = ANY (ARRAY['exact'::character varying::text, 'contains'::character varying::text, 'regex'::character varying::text, 'semantic'::character varying::text, 'always'::character varying::text])", name: "check_mock_match_type"
+  end
+
+  create_table "ai_model_pricings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.decimal "cached_input_per_1k", precision: 12, scale: 8, default: "0.0"
+    t.datetime "created_at", null: false
+    t.decimal "input_per_1k", precision: 12, scale: 8, null: false
+    t.datetime "last_synced_at"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "model_id", null: false
+    t.decimal "output_per_1k", precision: 12, scale: 8, null: false
+    t.string "provider_type", null: false
+    t.string "source", null: false
+    t.string "tier"
+    t.datetime "updated_at", null: false
+    t.index ["model_id", "provider_type"], name: "index_ai_model_pricings_on_model_id_and_provider_type", unique: true
+    t.index ["provider_type"], name: "index_ai_model_pricings_on_provider_type"
+    t.index ["source"], name: "index_ai_model_pricings_on_source"
   end
 
   create_table "ai_model_routing_rules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -9594,6 +9628,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_19_000006) do
   add_foreign_key "ai_approval_requests", "users", column: "requested_by_id"
   add_foreign_key "ai_behavioral_fingerprints", "accounts"
   add_foreign_key "ai_behavioral_fingerprints", "ai_agents", column: "agent_id"
+  add_foreign_key "ai_budget_transactions", "accounts"
+  add_foreign_key "ai_budget_transactions", "ai_agent_budgets"
+  add_foreign_key "ai_budget_transactions", "ai_agent_executions"
   add_foreign_key "ai_circuit_breakers", "accounts"
   add_foreign_key "ai_circuit_breakers", "ai_agents", column: "agent_id"
   add_foreign_key "ai_code_factory_evidence_manifests", "accounts"
