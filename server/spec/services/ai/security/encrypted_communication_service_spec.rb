@@ -129,6 +129,43 @@ RSpec.describe Ai::Security::EncryptedCommunicationService, type: :service do
     end
   end
 
+  describe "atomic sequence numbers" do
+    let(:session_id) { service.establish_session!(agent_a: agent_a, agent_b: agent_b) }
+
+    it "uses atomic Redis INCR for sequence numbers" do
+      redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://localhost:6379"))
+      seq_key = "powernode:encrypted_session:#{session_id}:seq"
+
+      # Initial value should be "0"
+      expect(redis.get(seq_key)).to eq("0")
+
+      msg1 = service.encrypt(
+        session_id: session_id,
+        from_agent_id: agent_a.id,
+        to_agent_id: agent_b.id,
+        plaintext: "Message 1"
+      )
+
+      # After first encrypt, seq should be 1
+      expect(redis.get(seq_key).to_i).to eq(1)
+      expect(msg1.sequence_number).to eq(1)
+    end
+
+    it "produces monotonically increasing sequence numbers" do
+      messages = 3.times.map do |i|
+        service.encrypt(
+          session_id: session_id,
+          from_agent_id: agent_a.id,
+          to_agent_id: agent_b.id,
+          plaintext: "Message #{i}"
+        )
+      end
+
+      sequences = messages.map(&:sequence_number)
+      expect(sequences).to eq([1, 2, 3])
+    end
+  end
+
   describe "#close_session!" do
     let(:session_id) { service.establish_session!(agent_a: agent_a, agent_b: agent_b) }
 

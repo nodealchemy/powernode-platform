@@ -120,6 +120,74 @@ RSpec.describe Ai::Security::PrivilegeEnforcementService, type: :service do
     end
   end
 
+  describe "fail-closed behavior" do
+    it "returns allowed: false on check_action! error" do
+      allow(service).to receive(:policies_for_agent).and_raise(StandardError, "DB error")
+
+      result = service.check_action!(agent: agent, action: "read_data")
+      expect(result[:allowed]).to be false
+    end
+
+    it "returns allowed: false on check_tool! error" do
+      allow(service).to receive(:policies_for_agent).and_raise(StandardError, "DB error")
+
+      result = service.check_tool!(agent: agent, tool_name: "search")
+      expect(result[:allowed]).to be false
+    end
+
+    it "returns allowed: false on check_communication! error" do
+      agent_b = create(:ai_agent, account: account, provider: provider)
+      allow(service).to receive(:policies_for_agent).and_raise(StandardError, "DB error")
+
+      result = service.check_communication!(from_agent: agent, to_agent: agent_b)
+      expect(result[:allowed]).to be false
+    end
+  end
+
+  describe "quarantine gate" do
+    before do
+      create(:ai_quarantine_record, account: account, agent_id: agent.id, status: "active")
+    end
+
+    it "blocks check_action! for quarantined agents" do
+      result = service.check_action!(agent: agent, action: "read_data")
+      expect(result[:allowed]).to be false
+      expect(result[:reason]).to include("quarantine")
+    end
+
+    it "blocks check_tool! for quarantined agents" do
+      result = service.check_tool!(agent: agent, tool_name: "search")
+      expect(result[:allowed]).to be false
+      expect(result[:reason]).to include("quarantine")
+    end
+
+    it "blocks check_communication! for quarantined agents" do
+      agent_b = create(:ai_agent, account: account, provider: provider)
+      result = service.check_communication!(from_agent: agent, to_agent: agent_b)
+      expect(result[:allowed]).to be false
+      expect(result[:reason]).to include("quarantine")
+    end
+  end
+
+  describe "#enforce_escalation!" do
+    it "returns non-escalated result for clean agents" do
+      result = service.enforce_escalation!(agent: agent)
+      expect(result[:escalated]).to be false
+    end
+
+    it "quarantines agents with high escalation scores" do
+      allow(service).to receive(:detect_escalation).and_return({
+        escalation_score: 0.9,
+        escalated: true,
+        recommended_action: "quarantine"
+      })
+
+      expect {
+        service.enforce_escalation!(agent: agent)
+      }.to change(Ai::QuarantineRecord, :count).by(1)
+    end
+  end
+
   describe "#detect_escalation" do
     it "returns low escalation score with no history" do
       result = service.detect_escalation(agent: agent)

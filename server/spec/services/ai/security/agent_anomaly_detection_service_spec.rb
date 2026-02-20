@@ -102,8 +102,8 @@ RSpec.describe Ai::Security::AgentAnomalyDetectionService, type: :service do
     it "allows normal actions" do
       result = service.check_action(
         agent: agent,
-        action_type: "generate_text",
-        action_context: { action_type: "generate_text" }
+        action_type: "read_data",
+        action_context: { action_type: "read_data" }
       )
 
       expect(result[:allowed]).to be true
@@ -196,6 +196,57 @@ RSpec.describe Ai::Security::AgentAnomalyDetectionService, type: :service do
 
       expect(result[:rogue]).to be false
       expect(result[:indicators]).to be_empty
+    end
+  end
+
+  describe "#check_action fail-closed behavior" do
+    it "returns allowed: false on unexpected errors" do
+      allow(service).to receive(:evaluate_policies).and_raise(StandardError, "unexpected")
+
+      result = service.check_action(
+        agent: agent,
+        action_type: "generate_text",
+        action_context: {}
+      )
+
+      expect(result[:allowed]).to be false
+      expect(result[:enforcement]).to eq("fail_closed")
+    end
+  end
+
+  describe "#check_action quarantine gate" do
+    it "blocks quarantined agents" do
+      create(:ai_quarantine_record, account: account, agent_id: agent.id, status: "active")
+
+      result = service.check_action(
+        agent: agent,
+        action_type: "generate_text",
+        action_context: {}
+      )
+
+      expect(result[:allowed]).to be false
+      expect(result[:enforcement]).to eq("quarantine_block")
+    end
+  end
+
+  describe "#enforce_rogue_detection!" do
+    it "returns result with rogue: false for clean agents" do
+      result = service.enforce_rogue_detection!(agent: agent)
+
+      expect(result[:rogue]).to be false
+    end
+
+    it "quarantines agents with rogue indicators" do
+      # Stub detect_rogue_behavior to return rogue
+      allow(service).to receive(:detect_rogue_behavior).and_return({
+        rogue: true,
+        indicators: [{ type: "test", severity: "high" }],
+        recommended_action: "demote_to_supervised"
+      })
+
+      expect {
+        service.enforce_rogue_detection!(agent: agent)
+      }.to change(Ai::QuarantineRecord, :count).by(1)
     end
   end
 

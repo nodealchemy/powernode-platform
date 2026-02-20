@@ -176,6 +176,66 @@ RSpec.describe Ai::Security::QuarantineService, type: :service do
     end
   end
 
+  describe "#auto_restore_expired! with re-evaluation" do
+    it "skips high severity quarantines" do
+      record = create(:ai_quarantine_record, :high,
+        account: account,
+        agent_id: agent.id,
+        status: "active",
+        scheduled_restore_at: 1.minute.ago)
+
+      restored_ids = service.auto_restore_expired!
+      expect(restored_ids).not_to include(record.id)
+      expect(record.reload.status).to eq("active")
+    end
+
+    it "skips critical severity quarantines" do
+      record = create(:ai_quarantine_record,
+        account: account,
+        agent_id: agent.id,
+        severity: "critical",
+        status: "active",
+        scheduled_restore_at: 1.minute.ago)
+
+      restored_ids = service.auto_restore_expired!
+      expect(restored_ids).not_to include(record.id)
+    end
+
+    it "extends quarantine when agent is still anomalous" do
+      record = create(:ai_quarantine_record, :restorable,
+        account: account,
+        agent_id: agent.id,
+        severity: "low")
+
+      # Stub the anomaly analysis to return high risk
+      allow_any_instance_of(Ai::Security::AgentAnomalyDetectionService)
+        .to receive(:analyze_agent).and_return({ risk_level: "high", anomalies: [{ type: "test" }] })
+
+      original_restore = record.scheduled_restore_at
+      restored_ids = service.auto_restore_expired!
+
+      expect(restored_ids).not_to include(record.id)
+      record.reload
+      expect(record.status).to eq("active")
+      expect(record.scheduled_restore_at).to be > original_restore
+    end
+
+    it "restores low severity quarantine when agent is no longer anomalous" do
+      record = create(:ai_quarantine_record, :restorable,
+        account: account,
+        agent_id: agent.id,
+        severity: "low")
+
+      # Stub the anomaly analysis to return low risk
+      allow_any_instance_of(Ai::Security::AgentAnomalyDetectionService)
+        .to receive(:analyze_agent).and_return({ risk_level: "low", anomalies: [] })
+
+      restored_ids = service.auto_restore_expired!
+      expect(restored_ids).to include(record.id)
+      expect(record.reload.status).to eq("restored")
+    end
+  end
+
   describe "#restorable_records" do
     it "returns records past their scheduled restore time" do
       restorable = create(:ai_quarantine_record, :restorable,
