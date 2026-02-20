@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_20_000005) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_20_052301) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -7694,6 +7694,29 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_20_000005) do
     t.index ["vault_path"], name: "index_mcp_servers_on_vault_path", unique: true, where: "(vault_path IS NOT NULL)"
   end
 
+  create_table "mcp_sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "client_info", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "expires_at"
+    t.string "ip_address"
+    t.datetime "last_activity_at"
+    t.jsonb "metadata", default: {}
+    t.string "protocol_version"
+    t.datetime "revoked_at"
+    t.string "session_token", null: false
+    t.string "status", default: "active", null: false
+    t.datetime "updated_at", null: false
+    t.string "user_agent"
+    t.uuid "user_id", null: false
+    t.index ["account_id", "status"], name: "index_mcp_sessions_on_account_id_and_status"
+    t.index ["account_id"], name: "index_mcp_sessions_on_account_id"
+    t.index ["expires_at"], name: "index_mcp_sessions_on_expires_at"
+    t.index ["session_token"], name: "index_mcp_sessions_on_session_token", unique: true
+    t.index ["user_id", "status"], name: "index_mcp_sessions_on_user_id_and_status"
+    t.index ["user_id"], name: "index_mcp_sessions_on_user_id"
+  end
+
   create_table "mcp_tool_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "completed_at"
     t.datetime "created_at", null: false
@@ -9427,7 +9450,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_20_000005) do
     t.index ["user_id"], name: "index_user_tokens_on_user_id"
     t.check_constraint "expires_at > created_at", name: "valid_expiration"
     t.check_constraint "length(token_digest::text) >= 32", name: "valid_token_digest_length"
-    t.check_constraint "token_type::text = ANY (ARRAY['access'::character varying::text, 'refresh'::character varying::text, 'api_key'::character varying::text, '2fa'::character varying::text, 'impersonation'::character varying::text])", name: "valid_token_type"
+    t.check_constraint "token_type::text = ANY (ARRAY['access'::character varying, 'refresh'::character varying, 'api_key'::character varying, '2fa'::character varying, 'impersonation'::character varying, 'mcp'::character varying]::text[])", name: "valid_token_type"
   end
 
   create_table "users", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -10279,6 +10302,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_20_000005) do
   add_foreign_key "mcp_server_subscriptions", "accounts"
   add_foreign_key "mcp_server_subscriptions", "mcp_hosted_servers", column: "hosted_server_id"
   add_foreign_key "mcp_servers", "accounts"
+  add_foreign_key "mcp_sessions", "accounts"
+  add_foreign_key "mcp_sessions", "users"
   add_foreign_key "mcp_tool_executions", "mcp_tools"
   add_foreign_key "mcp_tool_executions", "users"
   add_foreign_key "mcp_tools", "mcp_servers"
