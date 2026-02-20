@@ -18,6 +18,15 @@ const CATEGORY_OPTIONS: { value: SkillCategory; label: string }[] = [
   { value: 'enterprise_search', label: 'Enterprise Search' },
   { value: 'bio_research', label: 'Bio Research' },
   { value: 'skill_management', label: 'Skill Management' },
+  { value: 'code_intelligence', label: 'Code Intelligence' },
+  { value: 'testing_qa', label: 'Testing & QA' },
+  { value: 'devops', label: 'DevOps' },
+  { value: 'security', label: 'Security' },
+  { value: 'sre_observability', label: 'SRE & Observability' },
+  { value: 'database_ops', label: 'Database Ops' },
+  { value: 'release_management', label: 'Release Management' },
+  { value: 'research', label: 'Research' },
+  { value: 'documentation', label: 'Documentation' },
 ];
 
 interface SkillEditorProps {

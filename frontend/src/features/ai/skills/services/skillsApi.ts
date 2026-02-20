@@ -147,6 +147,15 @@ export const skillsApi = {
       enterprise_search: 'Enterprise Search',
       bio_research: 'Bio Research',
       skill_management: 'Skill Management',
+      code_intelligence: 'Code Intelligence',
+      testing_qa: 'Testing & QA',
+      devops: 'DevOps',
+      security: 'Security',
+      sre_observability: 'SRE & Observability',
+      database_ops: 'Database Ops',
+      release_management: 'Release Management',
+      research: 'Research',
+      documentation: 'Documentation',
     };
     return labels[category] || category;
   },
@@ -164,6 +173,15 @@ export const skillsApi = {
       enterprise_search: '🔍',
       bio_research: '🧬',
       skill_management: '🛠️',
+      code_intelligence: '🧠',
+      testing_qa: '🧪',
+      devops: '🔧',
+      security: '🔒',
+      sre_observability: '📡',
+      database_ops: '🗄️',
+      release_management: '🚀',
+      research: '🔬',
+      documentation: '📝',
     };
     return icons[category] || '📦';
   },

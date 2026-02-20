@@ -9,7 +9,16 @@ export type SkillCategory =
   | 'data'
   | 'enterprise_search'
   | 'bio_research'
-  | 'skill_management';
+  | 'skill_management'
+  | 'code_intelligence'
+  | 'testing_qa'
+  | 'devops'
+  | 'security'
+  | 'sre_observability'
+  | 'database_ops'
+  | 'release_management'
+  | 'research'
+  | 'documentation';
 
 export type SkillStatus = 'active' | 'inactive' | 'draft';
 

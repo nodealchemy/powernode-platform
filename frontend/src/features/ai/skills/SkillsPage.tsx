@@ -31,6 +31,15 @@ const ALL_CATEGORIES: { value: SkillCategory | ''; label: string }[] = [
   { value: 'enterprise_search', label: 'Search' },
   { value: 'bio_research', label: 'Bio' },
   { value: 'skill_management', label: 'Management' },
+  { value: 'code_intelligence', label: 'Code Intel' },
+  { value: 'testing_qa', label: 'Testing' },
+  { value: 'devops', label: 'DevOps' },
+  { value: 'security', label: 'Security' },
+  { value: 'sre_observability', label: 'SRE' },
+  { value: 'database_ops', label: 'Database' },
+  { value: 'release_management', label: 'Releases' },
+  { value: 'research', label: 'Research' },
+  { value: 'documentation', label: 'Docs' },
 ];
 
 type TopTab = 'skills' | 'graph' | 'proposals' | 'optimization';
