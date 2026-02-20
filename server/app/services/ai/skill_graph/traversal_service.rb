@@ -138,7 +138,8 @@ module Ai
 
         # Score and add seeds first
         seeds.each do |seed|
-          similarity = seed.respond_to?(:neighbor_distance) ? (1.0 - seed.neighbor_distance) : 0.8
+          nd = seed.respond_to?(:neighbor_distance) ? seed.neighbor_distance : nil
+          similarity = nd ? (1.0 - nd) : 0.8
           score = similarity
 
           skill = Ai::Skill.find_by(id: seed.ai_skill_id)
