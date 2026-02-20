@@ -172,6 +172,29 @@ cd frontend && CI=true npm test
 
 ---
 
+## MCP Knowledge Integration
+
+When connected to the Powernode MCP server, use these tools proactively:
+
+### When to Query
+- **Before architectural changes**: Search the knowledge graph (`platform.search_knowledge_graph`) for existing patterns, decisions, and relationships
+- **Before implementing features**: Query shared knowledge (`platform.search_knowledge`) for relevant procedures, code snippets, and best practices
+- **Before creating new code patterns**: Check compound learnings (`platform.query_learnings`) for established patterns and anti-patterns
+- **When exploring unfamiliar code areas**: Use skill discovery (`platform.discover_skills`) with a task description to find relevant capabilities
+
+### When to Contribute
+- **After solving a non-trivial bug**: Create a learning (`platform.create_learning`, category: `discovery` or `pattern`) documenting the root cause and fix
+- **After establishing a new pattern**: Create a learning (category: `best_practice`) or shared knowledge entry (`platform.create_knowledge`)
+- **When discovering project architecture insights**: Extract to knowledge graph (`platform.extract_to_knowledge_graph`) with a text summary of entities and relationships found
+- **After implementing a reusable capability**: Create or update a skill (`platform.create_skill`) to codify the approach
+
+### When NOT to Contribute
+- Do not create learnings for trivial fixes (typos, simple renames)
+- Do not extract to knowledge graph from speculative or unverified analysis
+- Do not create skills for one-off operations
+
+---
+
 ## File Organization
 
 **NEVER save files to project root**. Use:
