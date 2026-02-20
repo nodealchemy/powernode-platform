@@ -118,6 +118,7 @@ class Account < ApplicationRecord
 
   # MCP (Model Context Protocol) associations
   has_many :mcp_servers, dependent: :destroy
+  has_many :mcp_sessions, dependent: :destroy
 
   # Git Provider associations
   has_many :git_provider_credentials, class_name: "Devops::GitProviderCredential", dependent: :destroy

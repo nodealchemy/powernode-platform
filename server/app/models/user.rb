@@ -37,6 +37,8 @@ class User < ApplicationRecord
            foreign_key: "impersonated_user_id",
            dependent: :destroy
   has_many :notifications, dependent: :destroy
+  has_many :user_tokens, dependent: :destroy
+  has_many :mcp_sessions, dependent: :destroy
 
   # Serialization
   serialize :preferences, coder: JSON

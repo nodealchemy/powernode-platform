@@ -4,7 +4,7 @@ class UserToken < ApplicationRecord
   belongs_to :user
 
   # Token types
-  TOKEN_TYPES = %w[access refresh api_key 2fa impersonation].freeze
+  TOKEN_TYPES = %w[access refresh api_key 2fa impersonation mcp].freeze
 
   # Default expiration times
   EXPIRATION_TIMES = {
@@ -12,7 +12,8 @@ class UserToken < ApplicationRecord
     refresh: 30.days,
     api_key: 1.year,
     "2fa" => 10.minutes,
-    impersonation: 8.hours
+    impersonation: 8.hours,
+    mcp: 1.year
   }.freeze
 
   # Validations
