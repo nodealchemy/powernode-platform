@@ -130,6 +130,13 @@ export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = (
     return graphData.nodes.filter(n => !connectedNodeIds.has(n.id)).length;
   }, [graphData, connectedNodeIds]);
 
+  // Auto-show all nodes when no edges exist (otherwise the graph appears empty)
+  useEffect(() => {
+    if (graphData && graphData.nodes.length > 0 && (!graphData.edges || graphData.edges.length === 0)) {
+      setShowUnconnected(true);
+    }
+  }, [graphData]);
+
   const categories = useMemo(() => {
     if (!graphData?.nodes) return [];
     const cats = new Set(graphData.nodes.map(n => n.category));

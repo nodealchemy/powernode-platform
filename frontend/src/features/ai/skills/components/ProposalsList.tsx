@@ -89,7 +89,7 @@ export function ProposalsList() {
               onClick={() => setStatusFilter(f.value)}
               className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
                 statusFilter === f.value
-                  ? 'bg-theme-primary text-white border-transparent'
+                  ? 'bg-theme-interactive-primary text-theme-surface border-transparent'
                   : 'text-theme-secondary border-theme hover:bg-theme-surface-hover'
               }`}
             >
