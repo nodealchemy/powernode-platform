@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_19_214918) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_20_000005) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -3395,6 +3395,113 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_19_214918) do
     t.index ["tags"], name: "index_ai_shared_knowledges_on_tags", using: :gin
   end
 
+  create_table "ai_skill_conflicts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.boolean "auto_resolvable", default: false
+    t.string "conflict_type", null: false
+    t.datetime "created_at", null: false
+    t.datetime "detected_at"
+    t.uuid "edge_id"
+    t.uuid "node_a_id"
+    t.uuid "node_b_id"
+    t.float "priority_score"
+    t.jsonb "resolution_details", default: {}
+    t.string "resolution_strategy"
+    t.datetime "resolved_at"
+    t.uuid "resolved_by_id"
+    t.string "severity", null: false
+    t.float "similarity_score"
+    t.uuid "skill_a_id", null: false
+    t.uuid "skill_b_id"
+    t.string "status", default: "detected", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_skill_conflicts_on_account_id"
+    t.index ["skill_a_id", "skill_b_id", "conflict_type"], name: "idx_skill_conflicts_unique_active", unique: true, where: "((status)::text <> ALL ((ARRAY['resolved'::character varying, 'dismissed'::character varying])::text[]))"
+    t.index ["skill_a_id"], name: "index_ai_skill_conflicts_on_skill_a_id"
+    t.index ["skill_b_id"], name: "index_ai_skill_conflicts_on_skill_b_id"
+  end
+
+  create_table "ai_skill_proposals", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.boolean "auto_approved", default: false
+    t.string "category"
+    t.jsonb "commands", default: []
+    t.float "confidence_score", default: 0.0
+    t.datetime "created_at", null: false
+    t.uuid "created_skill_id"
+    t.text "description"
+    t.jsonb "metadata", default: {}
+    t.string "name", null: false
+    t.jsonb "overlap_analysis", default: {}
+    t.uuid "parent_proposal_id"
+    t.datetime "proposed_at"
+    t.uuid "proposed_by_agent_id"
+    t.uuid "proposed_by_user_id"
+    t.text "rejection_reason"
+    t.jsonb "research_report", default: {}
+    t.datetime "reviewed_at"
+    t.uuid "reviewed_by_id"
+    t.string "slug"
+    t.string "status", default: "draft", null: false
+    t.jsonb "suggested_dependencies", default: []
+    t.text "system_prompt"
+    t.jsonb "tags", default: []
+    t.string "trust_tier_at_proposal"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "name"], name: "idx_skill_proposals_unique_active_name", unique: true, where: "((status)::text <> ALL ((ARRAY['rejected'::character varying, 'created'::character varying])::text[]))"
+    t.index ["account_id"], name: "index_ai_skill_proposals_on_account_id"
+    t.index ["parent_proposal_id"], name: "index_ai_skill_proposals_on_parent_proposal_id"
+    t.index ["proposed_by_agent_id"], name: "index_ai_skill_proposals_on_proposed_by_agent_id"
+    t.index ["proposed_by_user_id"], name: "index_ai_skill_proposals_on_proposed_by_user_id"
+  end
+
+  create_table "ai_skill_usage_records", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "ai_agent_id"
+    t.uuid "ai_skill_id", null: false
+    t.float "confidence_delta"
+    t.text "context_summary"
+    t.datetime "created_at", null: false
+    t.integer "duration_ms"
+    t.uuid "execution_id"
+    t.string "execution_type"
+    t.jsonb "metadata", default: {}
+    t.string "outcome", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_skill_usage_records_on_account_id"
+    t.index ["ai_agent_id", "created_at"], name: "index_ai_skill_usage_records_on_ai_agent_id_and_created_at"
+    t.index ["ai_skill_id", "outcome"], name: "index_ai_skill_usage_records_on_ai_skill_id_and_outcome"
+    t.index ["created_at"], name: "index_ai_skill_usage_records_on_created_at"
+  end
+
+  create_table "ai_skill_versions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.float "ab_traffic_pct", default: 0.0
+    t.uuid "account_id", null: false
+    t.uuid "ai_skill_id", null: false
+    t.text "change_reason"
+    t.string "change_type", default: "manual"
+    t.jsonb "commands", default: []
+    t.datetime "created_at", null: false
+    t.uuid "created_by_agent_id"
+    t.uuid "created_by_user_id"
+    t.float "effectiveness_score", default: 0.5
+    t.integer "failure_count", default: 0
+    t.boolean "is_ab_variant", default: false
+    t.boolean "is_active", default: false
+    t.jsonb "metadata", default: {}
+    t.integer "success_count", default: 0
+    t.text "system_prompt"
+    t.jsonb "tags", default: []
+    t.datetime "updated_at", null: false
+    t.integer "usage_count", default: 0
+    t.string "version", null: false
+    t.index ["account_id"], name: "index_ai_skill_versions_on_account_id"
+    t.index ["ai_skill_id", "version"], name: "index_ai_skill_versions_on_ai_skill_id_and_version", unique: true
+    t.index ["ai_skill_id"], name: "index_ai_skill_versions_on_ai_skill_id"
+    t.index ["created_by_agent_id"], name: "index_ai_skill_versions_on_created_by_agent_id"
+    t.index ["created_by_user_id"], name: "index_ai_skill_versions_on_created_by_user_id"
+  end
+
   create_table "ai_skills", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id"
     t.jsonb "activation_rules", default: {}
@@ -3403,10 +3510,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_19_214918) do
     t.jsonb "commands", default: []
     t.datetime "created_at", null: false
     t.text "description"
+    t.decimal "effectiveness_score", precision: 5, scale: 4, default: "0.5"
     t.boolean "is_enabled", default: true, null: false
     t.boolean "is_system", default: false, null: false
+    t.datetime "last_optimized_at"
+    t.datetime "last_used_at"
+    t.jsonb "lifecycle_metadata", default: {}
     t.jsonb "metadata", default: {}
     t.string "name", null: false
+    t.integer "negative_usage_count", default: 0
+    t.uuid "parent_skill_id"
+    t.integer "positive_usage_count", default: 0
     t.string "slug", null: false
     t.string "status", default: "active"
     t.text "system_prompt"
@@ -3418,6 +3532,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_19_214918) do
     t.index ["ai_knowledge_base_id"], name: "index_ai_skills_on_ai_knowledge_base_id"
     t.index ["category"], name: "index_ai_skills_on_category"
     t.index ["is_system"], name: "index_ai_skills_on_is_system"
+    t.index ["parent_skill_id"], name: "index_ai_skills_on_parent_skill_id"
     t.index ["slug"], name: "index_ai_skills_on_slug", unique: true
     t.index ["status"], name: "index_ai_skills_on_status"
     t.index ["tags"], name: "index_ai_skills_on_tags", using: :gin
@@ -9844,8 +9959,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_19_214918) do
   add_foreign_key "ai_shared_context_pools", "ai_workflow_runs", on_delete: :cascade
   add_foreign_key "ai_shared_knowledges", "accounts"
   add_foreign_key "ai_shared_knowledges", "users", column: "created_by_id"
+  add_foreign_key "ai_skill_conflicts", "accounts"
+  add_foreign_key "ai_skill_conflicts", "ai_skills", column: "skill_a_id"
+  add_foreign_key "ai_skill_conflicts", "ai_skills", column: "skill_b_id"
+  add_foreign_key "ai_skill_conflicts", "users", column: "resolved_by_id"
+  add_foreign_key "ai_skill_proposals", "accounts"
+  add_foreign_key "ai_skill_proposals", "ai_agents", column: "proposed_by_agent_id"
+  add_foreign_key "ai_skill_proposals", "ai_skill_proposals", column: "parent_proposal_id"
+  add_foreign_key "ai_skill_proposals", "ai_skills", column: "created_skill_id"
+  add_foreign_key "ai_skill_proposals", "users", column: "proposed_by_user_id"
+  add_foreign_key "ai_skill_proposals", "users", column: "reviewed_by_id"
+  add_foreign_key "ai_skill_usage_records", "accounts"
+  add_foreign_key "ai_skill_usage_records", "ai_agents"
+  add_foreign_key "ai_skill_usage_records", "ai_skills"
+  add_foreign_key "ai_skill_versions", "accounts"
+  add_foreign_key "ai_skill_versions", "ai_agents", column: "created_by_agent_id"
+  add_foreign_key "ai_skill_versions", "ai_skills"
+  add_foreign_key "ai_skill_versions", "users", column: "created_by_user_id"
   add_foreign_key "ai_skills", "accounts"
   add_foreign_key "ai_skills", "ai_knowledge_bases", column: "ai_knowledge_base_id"
+  add_foreign_key "ai_skills", "ai_skills", column: "parent_skill_id"
   add_foreign_key "ai_skills_mcp_servers", "ai_skills"
   add_foreign_key "ai_skills_mcp_servers", "mcp_servers"
   add_foreign_key "ai_sla_contracts", "accounts"
