@@ -4,9 +4,21 @@ module Api
   module V1
     module Oauth
       class ApplicationsController < ApplicationController
+        skip_before_action :authenticate_request, only: [:lookup]
         before_action -> { require_permission("oauth.applications.read") }, only: %i[index show]
         before_action -> { require_permission("oauth.applications.manage") }, only: %i[create update destroy regenerate_secret suspend activate revoke]
         before_action :set_application, only: %i[show update destroy regenerate_secret suspend activate revoke tokens revoke_tokens]
+
+        # GET /api/v1/oauth/applications/lookup?uid=CLIENT_ID
+        # Public endpoint for consent page to display app name/scopes
+        def lookup
+          app = OauthApplication.where(status: "active").find_by(uid: params[:uid])
+          if app
+            render_success(name: app.name, scopes: app.scopes.to_s.split(" "))
+          else
+            render_error("Application not found", :not_found)
+          end
+        end
 
         # GET /api/v1/oauth/applications
         def index

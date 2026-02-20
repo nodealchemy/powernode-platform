@@ -17,8 +17,22 @@ Rails.application.routes.draw do
   # =========================================================================
   scope "/.well-known" do
     get "agent-card.json", to: "well_known#agent_card"
+    get "oauth-protected-resource", to: "well_known#oauth_protected_resource"
+    get "oauth-authorization-server", to: "well_known#oauth_authorization_server"
+    # RFC 8414 path-based discovery: clients like Claude Code try
+    # /.well-known/oauth-authorization-server/<resource-path> first
+    get "oauth-protected-resource/*path", to: "well_known#oauth_protected_resource"
+    get "oauth-authorization-server/*path", to: "well_known#oauth_authorization_server"
   end
 
+
+  # Doorkeeper OAuth 2.1 endpoints — outside namespace to avoid controller resolution issues
+  # (namespace would prefix module path, causing Api::V1::Doorkeeper::* lookups to fail)
+  scope '/api/v1', as: 'api_v1' do
+    use_doorkeeper do
+      skip_controllers :applications, :authorized_applications
+    end
+  end
 
   # API Routes
   namespace :api do
@@ -434,14 +448,14 @@ Rails.application.routes.draw do
         put :cookies, action: :update_cookie_preferences
       end
 
-      # OAuth 2.0 Provider (Doorkeeper) - Standard OAuth endpoints
-      use_doorkeeper do
-        # Skip default controllers, we use custom API controllers
-        skip_controllers :applications, :authorized_applications
-      end
-
       # OAuth Applications Management API
       namespace :oauth do
+        # Public lookup for consent page (no auth needed)
+        get 'applications/lookup', to: 'applications#lookup'
+
+        # RFC 7591 Dynamic Client Registration (public, no auth)
+        post :register, to: "registrations#create"
+
         resources :applications do
           member do
             post :regenerate_secret
@@ -2846,9 +2860,6 @@ Rails.application.routes.draw do
         # MCP Streamable HTTP endpoint for external MCP clients (e.g., Claude Code)
         post "message", to: "streamable_http#message"
         delete "message", to: "streamable_http#terminate_session"
-
-        # MCP token management (per-user MCP tokens)
-        resources :tokens, only: [:index, :create, :destroy], controller: "tokens"
 
         # MCP session management (view/revoke active sessions)
         resources :sessions, only: [:index, :show, :destroy], controller: "sessions"

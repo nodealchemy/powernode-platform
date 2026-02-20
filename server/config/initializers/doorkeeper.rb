@@ -1,12 +1,31 @@
 # frozen_string_literal: true
 
 Doorkeeper.configure do
-  # Reuse our existing JWT authentication for resource owner
+  # API-only mode: no CSRF, no sessions, JSON responses instead of 302 redirects
+  api_only
+
+  # Resource owner authenticator for the OAuth authorization endpoint.
+  # Supports two flows:
+  # 1. Frontend consent page POSTs with JWT in Authorization header
+  # 2. Direct browser hit redirects to frontend consent page
   resource_owner_authenticator do
-    # Check for current user from our JWT authentication
-    request.env["current_user"] || warden.authenticate!(scope: :user)
-  rescue StandardError
-    nil
+    # Try JWT from Authorization header first (frontend consent approval)
+    if request.env["current_user"]
+      request.env["current_user"]
+    elsif request.headers["Authorization"]&.start_with?("Bearer ")
+      token = request.headers["Authorization"].split(" ", 2).last
+      begin
+        decoded = Security::JwtService.decode(token)
+        User.find_by(id: decoded["sub"] || decoded["user_id"]) if decoded
+      rescue StandardError
+        nil
+      end
+    else
+      # Browser-based flow: redirect to frontend consent page with OAuth params
+      query = request.query_string.present? ? "?#{request.query_string}" : ""
+      redirect_to("/app/oauth/authorize#{query}", allow_other_host: true)
+      nil
+    end
   end
 
   # Resource owner from bearer token
@@ -26,16 +45,21 @@ Doorkeeper.configure do
   end
 
   # ===================================================================
-  # OAuth 2.0 Grant Types Configuration
+  # OAuth 2.1 Grant Types Configuration
   # ===================================================================
 
-  # Authorization Code Grant - for web applications
+  # Authorization Code Grant + Refresh Token (OAuth 2.1 drops password & implicit)
   grant_flows %w[
     authorization_code
     client_credentials
     refresh_token
-    password
   ]
+
+  # PKCE is mandatory for all authorization code grants (OAuth 2.1)
+  force_pkce
+
+  # Only allow S256 challenge method (plain is insecure)
+  pkce_code_challenge_methods %w[S256]
 
   # Skip authorization for trusted applications
   skip_authorization do |_resource_owner, client|
@@ -106,23 +130,42 @@ Doorkeeper.configure do
   # Application Configuration
   # ===================================================================
 
-  # Enable PKCE (Proof Key for Code Exchange)
-  force_ssl_in_redirect_uri !Rails.env.development?
+  # SSL enforcement for redirect URIs — allow http:// for loopback addresses (RFC 8252 §7.3)
+  force_ssl_in_redirect_uri do |uri|
+    next false if uri.blank?
+
+    parsed = URI.parse(uri) rescue nil
+    next true unless parsed
+
+    loopback_hosts = %w[127.0.0.1 localhost ::1 [::1]]
+    if loopback_hosts.include?(parsed.host)
+      false # Loopback addresses are exempt from SSL requirement
+    else
+      !Rails.env.development?
+    end
+  end
 
   # Allow wildcard redirect URIs for development
   if Rails.env.development?
     allow_blank_redirect_uri true
   end
 
-  # Client credentials can only access public resources
-  allow_grant_flow_for_client client_credentials: ->(client) { client.application.machine_client? }
+  # Client credentials grant is restricted to machine clients only.
+  # Lambda syntax avoids Doorkeeper Option DSL &block capture ambiguity.
+  # Doorkeeper passes the OauthApplication directly (not a client wrapper).
+  allow_grant_flow_for_client ->(grant_flow, application) {
+    if grant_flow == "client_credentials"
+      application.machine_client?
+    else
+      true
+    end
+  }
 
   # ===================================================================
   # Base Controller
   # ===================================================================
 
-  # Use custom base controller for API consistency
-  base_controller "Api::V1::BaseController" if defined?(Api::V1::BaseController)
+  # base_controller is not needed with api_only — Doorkeeper uses ActionController::API
 
   # ===================================================================
   # OpenID Connect (optional, for future enhancement)

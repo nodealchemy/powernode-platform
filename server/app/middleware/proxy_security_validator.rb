@@ -57,7 +57,7 @@ class ProxySecurityValidator
     [ status, headers, response ]
   rescue StandardError => e
     Rails.logger.error "ProxySecurityValidator error: #{e.message}"
-    @app.call(env)
+    [500, { "Content-Type" => "application/json" }, [{ error: "Internal server error" }.to_json]]
   end
 
   private

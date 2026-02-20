@@ -1,81 +1,53 @@
 # frozen_string_literal: true
 
-# Triple-mode authentication for MCP Streamable HTTP endpoints.
-# Supports (in priority order):
-#   1. Per-user MCP token (UserToken type=mcp) — database-backed, scoped permissions
-#   2. Static MCP token via POWERNODE_MCP_TOKEN env var (for quick setup / single-user)
-#   3. JWT fallback via the existing Authentication concern (for browser/API clients)
+# MCP OAuth 2.1 authentication for Streamable HTTP endpoints.
+# Accepts Doorkeeper OAuth access tokens only (Bearer tokens from the OAuth 2.1 flow).
+# Returns HTTP 401 with WWW-Authenticate header on auth failure to trigger
+# the MCP client's OAuth discovery and token refresh flow (RFC 9728).
 module McpTokenAuthentication
   extend ActiveSupport::Concern
+
+  PROTECTED_RESOURCE_PATH = "/.well-known/oauth-protected-resource"
 
   private
 
   def authenticate_mcp_request
-    token = extract_bearer_token
+    token_string = extract_bearer_token
 
-    # Priority 1: Per-user MCP token (strip pnmcp_ prefix if present)
-    if token.present?
-      raw_token = token.delete_prefix("pnmcp_")
-      user_token = UserToken.find_by_token(raw_token)
-
-      if user_token&.token_type == "mcp"
-        authenticate_via_user_token(user_token)
-        return
-      end
-    end
-
-    # Priority 2: Static env token — only if bearer token matches the env var
-    if static_mcp_token_present? && token.present? &&
-       ActiveSupport::SecurityUtils.secure_compare(token, ENV["POWERNODE_MCP_TOKEN"])
-      resolve_mcp_user
+    unless token_string.present?
+      render_oauth_unauthorized("No access token provided")
       return
     end
 
-    # Priority 3: JWT fallback
-    authenticate_via_jwt
-  end
+    doorkeeper_token = Doorkeeper::AccessToken.by_token(token_string)
 
-  def authenticate_via_user_token(user_token)
-    user = user_token.user
-    if user&.active? && user.account&.active?
-      @current_user = user
-      @current_account = user.account
-      @mcp_token = user_token
-      user_token.touch_last_used!(ip: request.remote_ip, user_agent: request.user_agent)
+    if doorkeeper_token&.accessible?
+      authenticate_via_doorkeeper_token(doorkeeper_token)
     else
-      render_jsonrpc_error(nil, -32001, "User or account inactive")
+      render_oauth_unauthorized("Invalid or expired access token")
     end
   end
 
-  def static_mcp_token_present?
-    ENV["POWERNODE_MCP_TOKEN"].present?
-  end
+  def authenticate_via_doorkeeper_token(doorkeeper_token)
+    user = User.find_by(id: doorkeeper_token.resource_owner_id)
 
-  def authenticate_via_jwt
-    # Delegate to the standard Authentication concern
-    authenticate_request
-  end
-
-  def resolve_mcp_user
-    email = ENV["POWERNODE_MCP_USER_EMAIL"]
-
-    if email.present?
-      user = User.includes(:account).find_by(email: email)
-      if user&.active? && user.account&.active?
-        @current_user = user
-        @current_account = user.account
-        return
-      end
+    unless user&.active? && user&.account&.active?
+      render_oauth_unauthorized("User or account inactive")
+      return
     end
 
-    # Fallback: first active user (core single-user mode)
-    user = User.includes(:account).where(status: "active").order(:created_at).first
-    if user&.account&.active?
-      @current_user = user
-      @current_account = user.account
-    else
-      render_jsonrpc_error(nil, -32001, "No active user found for MCP authentication")
-    end
+    @current_user = user
+    @current_account = user.account
+    @doorkeeper_token = doorkeeper_token
+  end
+
+  def render_oauth_unauthorized(message)
+    resource_url = "#{request.base_url}#{PROTECTED_RESOURCE_PATH}"
+    response.set_header(
+      "WWW-Authenticate",
+      %(Bearer resource_metadata="#{resource_url}")
+    )
+    render json: { error: message }, status: :unauthorized
   end
 
   def extract_bearer_token

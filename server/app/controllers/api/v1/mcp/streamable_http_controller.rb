@@ -6,12 +6,12 @@ module Api
       class StreamableHttpController < ApplicationController
         include McpTokenAuthentication
 
-        MCP_PROTOCOL_VERSION = "2025-06-18"
+        MCP_PROTOCOL_VERSION = "2025-11-25"
         SESSION_TTL = 24.hours
 
         skip_before_action :authenticate_request
-        before_action :authenticate_mcp_request
         before_action :set_mcp_headers
+        before_action :authenticate_mcp_request
         before_action :track_session_activity
 
         # POST /api/v1/mcp/message
@@ -83,6 +83,7 @@ module Api
         end
 
         def parse_request_body
+          request.body.rewind
           JSON.parse(request.body.read)
         rescue JSON::ParserError
           render_jsonrpc_error(nil, -32700, "Parse error: invalid JSON")
@@ -142,12 +143,12 @@ module Api
         # MCP Method Handlers
         # =====================================================================
 
-        def handle_initialize(params, _message_id)
+        def handle_initialize(params, message_id)
           client_version = params["protocolVersion"]
           negotiated = ::Mcp::ProtocolService.negotiate_protocol_version(client_version)
 
           unless negotiated
-            render_jsonrpc_error(nil, -32602, "Unsupported protocol version: #{client_version}")
+            render_jsonrpc_error(message_id, -32602, "Unsupported protocol version: #{client_version}")
             return nil
           end
 
@@ -211,8 +212,7 @@ module Api
               tool_name,
               params: arguments,
               account: current_account,
-              user: current_user,
-              token: @mcp_token
+              user: current_user
             )
           else
             protocol_service = build_protocol_service
