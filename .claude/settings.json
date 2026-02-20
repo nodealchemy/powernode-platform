@@ -1,11 +1,11 @@
 {
   "env": {
-    "POWERNODE_ROOT": "/home/rett/Drive/Projects/powernode-platform"
+    "POWERNODE_ROOT": "/opt/powernode"
   },
   "mcpServers": {
     "filesystem": {
       "command": "mcp-server-filesystem",
-      "args": ["/home/rett/Drive/Projects/powernode-platform"]
+      "args": ["/opt/powernode"]
     },
     "sequential-thinking": {
       "command": "mcp-server-sequential-thinking",

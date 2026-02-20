@@ -24,43 +24,43 @@ Run applicable checks sequentially. Capture output from each.
 
 ### 1. Pattern Validation
 ```bash
-cd /home/rett/Drive/Projects/powernode-platform && ./scripts/pattern-validation.sh
+cd $PROJECT_DIR && ./scripts/pattern-validation.sh
 ```
 
 ### 2. Quick Pattern Check
 ```bash
-cd /home/rett/Drive/Projects/powernode-platform && ./scripts/quick-pattern-check.sh
+cd $PROJECT_DIR && ./scripts/quick-pattern-check.sh
 ```
 
 ### 3. TypeScript Type Check
 ```bash
-cd /home/rett/Drive/Projects/powernode-platform/frontend && npx tsc --noEmit 2>&1
+cd $PROJECT_DIR/frontend && npx tsc --noEmit 2>&1
 ```
 
 ### 4. Ruby Syntax Check
 Check all `.rb` files changed since last commit:
 ```bash
-cd /home/rett/Drive/Projects/powernode-platform/server && git diff --name-only HEAD -- '*.rb' | xargs -I{} ruby -c {} 2>&1
+cd $PROJECT_DIR/server && git diff --name-only HEAD -- '*.rb' | xargs -I{} ruby -c {} 2>&1
 ```
 Also check untracked `.rb` files:
 ```bash
-cd /home/rett/Drive/Projects/powernode-platform/server && git ls-files --others --exclude-standard -- '*.rb' | xargs -I{} ruby -c {} 2>&1
+cd $PROJECT_DIR/server && git ls-files --others --exclude-standard -- '*.rb' | xargs -I{} ruby -c {} 2>&1
 ```
 
 ### 5. Frozen String Literal Pragma
 Scan for Ruby files missing the pragma:
 ```bash
-grep -rL "frozen_string_literal: true" /home/rett/Drive/Projects/powernode-platform/server/app/ --include="*.rb" | head -20
+grep -rL "frozen_string_literal: true" $PROJECT_DIR/server/app/ --include="*.rb" | head -20
 ```
 
 ### 6. Console.log Scan
 ```bash
-grep -rn "console\.log" /home/rett/Drive/Projects/powernode-platform/frontend/src/ --include="*.ts" --include="*.tsx" | head -20
+grep -rn "console\.log" $PROJECT_DIR/frontend/src/ --include="*.ts" --include="*.tsx" | head -20
 ```
 
 ### 7. Hardcoded Color Scan
 ```bash
-grep -rn "bg-\(red\|blue\|green\|yellow\|gray\|slate\|zinc\|neutral\|stone\)" /home/rett/Drive/Projects/powernode-platform/frontend/src/ --include="*.tsx" | grep -v "theme" | head -20
+grep -rn "bg-\(red\|blue\|green\|yellow\|gray\|slate\|zinc\|neutral\|stone\)" $PROJECT_DIR/frontend/src/ --include="*.tsx" | grep -v "theme" | head -20
 ```
 
 ## Output

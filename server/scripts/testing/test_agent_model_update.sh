@@ -29,7 +29,9 @@ echo "==========================================="
 echo "Verifying update in database..."
 echo "==========================================="
 
-cd /home/rett/Drive/Projects/powernode-platform/server && rails runner "
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SERVER_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+cd "$SERVER_DIR" && rails runner "
 agent = AiAgent.find('0199b1da-1f5b-7ffa-8b11-c295285e1911')
 puts 'Model in configuration: ' + (agent.configuration['model'] || 'NOT SET')
 puts 'Max tokens: ' + (agent.configuration['max_tokens']&.to_s || 'NOT SET')

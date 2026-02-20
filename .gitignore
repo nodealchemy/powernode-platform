@@ -308,3 +308,6 @@ worker/spec/examples.txt
 # Ad-hoc test scripts with potential secrets
 server/scripts/test_*.sh
 server/scripts/trigger_*.sh
+
+# Test output artifacts
+rspec_results.json

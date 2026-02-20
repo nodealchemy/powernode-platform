@@ -187,5 +187,5 @@ group :development, :test do
 end
 
 # Enterprise Edition (loaded conditionally when submodule is present)
-enterprise_path = File.expand_path("../extensions/enterprise/server", __dir__)
-gem "powernode_enterprise", path: enterprise_path if File.exist?(enterprise_path)
+enterprise_path = File.join(__dir__, "..", "extensions", "enterprise", "server")
+gem "powernode_enterprise", path: "../extensions/enterprise/server" if File.exist?(enterprise_path)

@@ -11,7 +11,7 @@ Implemented the save functionality for the WorkerSettings component, which allow
 
 ### 1. Frontend Save Handler (`WorkerSettings.tsx`)
 
-**File**: `/home/rett/Drive/Projects/powernode-platform/frontend/src/features/workers/components/WorkerSettings.tsx`
+**File**: `frontend/src/features/workers/components/WorkerSettings.tsx`
 
 #### Changes Made:
 
@@ -55,7 +55,7 @@ Implemented the save functionality for the WorkerSettings component, which allow
 
 ### 2. Parent Component Integration (`WorkerDetailsPanel.tsx`)
 
-**File**: `/home/rett/Drive/Projects/powernode-platform/frontend/src/features/workers/components/WorkerDetailsPanel.tsx`
+**File**: `frontend/src/features/workers/components/WorkerDetailsPanel.tsx`
 
 #### Changes Made (Lines 718-730):
 
@@ -228,7 +228,7 @@ end
 
 The frontend API service already has the methods defined (but they will fail until backend is implemented):
 
-**File**: `/home/rett/Drive/Projects/powernode-platform/frontend/src/features/workers/services/workerApi.ts`
+**File**: `frontend/src/features/workers/services/workerApi.ts`
 
 ```typescript
 // Already implemented in API service (Lines 236-273)
