@@ -154,6 +154,256 @@ module Api
           render_error("Agent not found", status: :not_found)
         end
 
+        # ===================================================================
+        # Lifecycle - Research & Proposals
+        # ===================================================================
+
+        # POST /api/v1/ai/skill_graph/research
+        def research
+          authorize_permission!("ai.skills.create")
+          topic = params[:topic]
+          return render_error("topic required", status: :bad_request) if topic.blank?
+
+          sources = params[:sources] || %w[knowledge_graph knowledge_bases mcp]
+          agent = params[:agent_id].present? ? current_account.ai_agents.find_by(id: params[:agent_id]) : nil
+
+          result = research_service.research(topic: topic, sources: sources, requesting_agent: agent)
+          render_success(result)
+        rescue StandardError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
+        # GET /api/v1/ai/skill_graph/proposals
+        def list_proposals
+          authorize_permission!("ai.skills.read")
+          proposals = ::Ai::SkillProposal.where(account: current_account)
+          proposals = proposals.by_status(params[:status]) if params[:status].present?
+          proposals = proposals.order(created_at: :desc).limit(params[:limit]&.to_i || 50)
+          render_success(proposals: proposals.map(&:proposal_summary))
+        end
+
+        # POST /api/v1/ai/skill_graph/proposals
+        def create_proposal
+          authorize_permission!("ai.skills.create")
+          proposal = lifecycle_service.create_proposal(attributes: proposal_params)
+          render_success(proposal: proposal.proposal_summary)
+        rescue ActiveRecord::RecordInvalid => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
+        # GET /api/v1/ai/skill_graph/proposals/:id
+        def show_proposal
+          authorize_permission!("ai.skills.read")
+          proposal = current_account.ai_skill_proposals.find(params[:id])
+          render_success(proposal: proposal.proposal_summary)
+        rescue ActiveRecord::RecordNotFound
+          render_error("Proposal not found", status: :not_found)
+        end
+
+        # POST /api/v1/ai/skill_graph/proposals/:id/submit
+        def submit_proposal
+          authorize_permission!("ai.skills.create")
+          proposal = lifecycle_service.submit_proposal(proposal_id: params[:id])
+          render_success(proposal: proposal.proposal_summary)
+        rescue ActiveRecord::RecordNotFound
+          render_error("Proposal not found", status: :not_found)
+        rescue StandardError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
+        # POST /api/v1/ai/skill_graph/proposals/:id/approve
+        def approve_proposal
+          authorize_permission!("ai.skills.update")
+          proposal = lifecycle_service.approve_proposal(proposal_id: params[:id], reviewer: current_user)
+          render_success(proposal: proposal.proposal_summary)
+        rescue ActiveRecord::RecordNotFound
+          render_error("Proposal not found", status: :not_found)
+        rescue StandardError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
+        # POST /api/v1/ai/skill_graph/proposals/:id/reject
+        def reject_proposal
+          authorize_permission!("ai.skills.update")
+          reason = params[:reason] || "No reason provided"
+          proposal = lifecycle_service.reject_proposal(proposal_id: params[:id], reviewer: current_user, reason: reason)
+          render_success(proposal: proposal.proposal_summary)
+        rescue ActiveRecord::RecordNotFound
+          render_error("Proposal not found", status: :not_found)
+        rescue StandardError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
+        # POST /api/v1/ai/skill_graph/proposals/:id/create_skill
+        def create_skill_from_proposal
+          authorize_permission!("ai.skills.create")
+          result = lifecycle_service.create_skill_from_proposal(proposal_id: params[:id])
+          render_success(skill: result[:skill].skill_summary, proposal: result[:proposal].proposal_summary)
+        rescue ActiveRecord::RecordNotFound
+          render_error("Proposal not found", status: :not_found)
+        rescue StandardError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
+        # ===================================================================
+        # Conflicts & Health
+        # ===================================================================
+
+        # GET /api/v1/ai/skill_graph/conflicts
+        def conflicts
+          authorize_permission!("ai.skills.read")
+          conflicts = ::Ai::SkillConflict.where(account: current_account)
+          conflicts = conflicts.where(status: params[:status]) if params[:status].present?
+          conflicts = conflicts.where(conflict_type: params[:type]) if params[:type].present?
+          conflicts = conflicts.order(priority_score: :desc).limit(params[:limit]&.to_i || 50)
+          render_success(conflicts: conflicts.map { |c| conflict_summary(c) })
+        end
+
+        # POST /api/v1/ai/skill_graph/conflicts/:id/resolve
+        def resolve_conflict
+          authorize_permission!("ai.knowledge_graph.manage")
+          conflict = current_account.ai_skill_conflicts.find(params[:id])
+          auto_repair_service.resolve_conflict(conflict, user: current_user)
+          render_success(conflict: conflict_summary(conflict.reload))
+        rescue ActiveRecord::RecordNotFound
+          render_error("Conflict not found", status: :not_found)
+        rescue StandardError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
+        # POST /api/v1/ai/skill_graph/conflicts/:id/dismiss
+        def dismiss_conflict
+          authorize_permission!("ai.knowledge_graph.manage")
+          conflict = current_account.ai_skill_conflicts.find(params[:id])
+          conflict.dismiss!(user: current_user)
+          render_success(conflict: conflict_summary(conflict.reload))
+        rescue ActiveRecord::RecordNotFound
+          render_error("Conflict not found", status: :not_found)
+        end
+
+        # POST /api/v1/ai/skill_graph/scan
+        def scan_conflicts
+          authorize_permission!("ai.knowledge_graph.manage")
+          result = conflict_detection_service.scan_all
+          render_success(result)
+        end
+
+        # GET /api/v1/ai/skill_graph/health
+        def health_score
+          authorize_permission!("ai.skills.read")
+          result = health_score_service.comprehensive_report
+          render_success(result)
+        end
+
+        # ===================================================================
+        # Evolution - Metrics, Versions & A/B Testing
+        # ===================================================================
+
+        # GET /api/v1/ai/skill_graph/skills/:skill_id/metrics
+        def skill_metrics
+          authorize_permission!("ai.skills.read")
+          result = evolution_service.skill_metrics(skill_id: params[:skill_id])
+          render_success(result)
+        rescue StandardError => e
+          render_error(e.message, status: :not_found)
+        end
+
+        # GET /api/v1/ai/skill_graph/skills/:skill_id/versions
+        def version_history
+          authorize_permission!("ai.skills.read")
+          result = evolution_service.version_history(skill_id: params[:skill_id])
+          render_success(versions: result)
+        rescue StandardError => e
+          render_error(e.message, status: :not_found)
+        end
+
+        # POST /api/v1/ai/skill_graph/skills/:skill_id/evolve
+        def propose_evolution
+          authorize_permission!("ai.skills.update")
+          version = evolution_service.propose_evolution(skill_id: params[:skill_id])
+          render_success(version: version.version_summary)
+        rescue StandardError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
+        # POST /api/v1/ai/skill_graph/versions/:id/activate
+        def activate_version
+          authorize_permission!("ai.skills.update")
+          evolution_service.activate_version(version_id: params[:id])
+          render_success(activated: true)
+        rescue StandardError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
+        # POST /api/v1/ai/skill_graph/skills/:skill_id/ab_test
+        def start_ab_test
+          authorize_permission!("ai.skills.update")
+          result = evolution_service.start_ab_test(
+            skill_id: params[:skill_id],
+            variant_version_id: params[:variant_version_id],
+            traffic_pct: params[:traffic_pct]&.to_f || 0.2
+          )
+          render_success(result)
+        rescue StandardError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
+        # POST /api/v1/ai/skill_graph/skills/:skill_id/end_ab_test
+        def end_ab_test
+          authorize_permission!("ai.skills.update")
+          result = evolution_service.end_ab_test(skill_id: params[:skill_id])
+          render_success(result)
+        rescue StandardError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
+        # POST /api/v1/ai/skill_graph/record_outcome
+        def record_outcome
+          authorize_permission!("ai.skills.update")
+          evolution_service.record_outcome(
+            skill_id: params[:skill_id],
+            successful: params[:successful] == true || params[:successful] == "true"
+          )
+          render_success(recorded: true)
+        rescue StandardError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
+        # ===================================================================
+        # Optimization & Maintenance
+        # ===================================================================
+
+        # POST /api/v1/ai/skill_graph/optimize
+        def run_optimization
+          authorize_permission!("ai.knowledge_graph.manage")
+          operation = params[:operation]&.to_sym || :full
+          result = optimization_service.on_demand(operation: operation)
+          render_success(result)
+        rescue StandardError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
+        # POST /api/v1/ai/skill_graph/maintenance/daily
+        def maintenance_daily
+          authorize_permission!("ai.analytics.manage")
+          result = optimization_service.daily_maintenance
+          render_success(result)
+        end
+
+        # POST /api/v1/ai/skill_graph/maintenance/weekly
+        def maintenance_weekly
+          authorize_permission!("ai.analytics.manage")
+          result = optimization_service.weekly_maintenance
+          render_success(result)
+        end
+
+        # POST /api/v1/ai/skill_graph/maintenance/monthly
+        def maintenance_monthly
+          authorize_permission!("ai.analytics.manage")
+          result = optimization_service.monthly_maintenance
+          render_success(result)
+        end
+
         private
 
         def authorize_permission!(permission)
@@ -176,6 +426,59 @@ module Api
 
         def enrichment_service
           @enrichment_service ||= ::Ai::SkillGraph::ContextEnrichmentService.new(current_account)
+        end
+
+        def research_service
+          @research_service ||= ::Ai::SkillGraph::ResearchService.new(current_account)
+        end
+
+        def lifecycle_service
+          @lifecycle_service ||= ::Ai::SkillGraph::LifecycleService.new(current_account)
+        end
+
+        def conflict_detection_service
+          @conflict_detection_service ||= ::Ai::SkillGraph::ConflictDetectionService.new(current_account)
+        end
+
+        def auto_repair_service
+          @auto_repair_service ||= ::Ai::SkillGraph::AutoRepairService.new(current_account)
+        end
+
+        def evolution_service
+          @evolution_service ||= ::Ai::SkillGraph::EvolutionService.new(current_account)
+        end
+
+        def health_score_service
+          @health_score_service ||= ::Ai::SkillGraph::HealthScoreService.new(current_account)
+        end
+
+        def optimization_service
+          @optimization_service ||= ::Ai::SkillGraph::OptimizationService.new(current_account)
+        end
+
+        def proposal_params
+          params.permit(:name, :description, :category, :system_prompt, :agent_id,
+                        commands: [:name, :description, :argument_hint],
+                        tags: [])
+                .to_h
+                .merge(account: current_account, proposed_by_user: current_user)
+        end
+
+        def conflict_summary(conflict)
+          {
+            id: conflict.id,
+            conflict_type: conflict.conflict_type,
+            severity: conflict.severity,
+            status: conflict.status,
+            skill_a: { id: conflict.skill_a_id, name: conflict.skill_a.name },
+            skill_b: conflict.skill_b ? { id: conflict.skill_b_id, name: conflict.skill_b.name } : nil,
+            similarity_score: conflict.similarity_score,
+            priority_score: conflict.priority_score,
+            auto_resolvable: conflict.auto_resolvable,
+            resolution_strategy: conflict.resolution_strategy,
+            detected_at: conflict.detected_at,
+            resolved_at: conflict.resolved_at
+          }
         end
 
         def serialize_edge(edge)

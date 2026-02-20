@@ -1986,6 +1986,38 @@ Rails.application.routes.draw do
           post "suggest_agents/:team_id", action: :suggest_agents
           post "compose_team", action: :compose_team
           get "agent_context/:agent_id", action: :agent_context
+
+          # Lifecycle - proposals
+          post "research", action: :research
+          get "proposals", action: :list_proposals
+          post "proposals", action: :create_proposal
+          get "proposals/:id", action: :show_proposal
+          post "proposals/:id/submit", action: :submit_proposal
+          post "proposals/:id/approve", action: :approve_proposal
+          post "proposals/:id/reject", action: :reject_proposal
+          post "proposals/:id/create_skill", action: :create_skill_from_proposal
+
+          # Conflicts & Health
+          get "conflicts", action: :conflicts
+          post "conflicts/:id/resolve", action: :resolve_conflict
+          post "conflicts/:id/dismiss", action: :dismiss_conflict
+          post "scan", action: :scan_conflicts
+          get "health", action: :health_score
+
+          # Evolution
+          get "skills/:skill_id/metrics", action: :skill_metrics
+          get "skills/:skill_id/versions", action: :version_history
+          post "skills/:skill_id/evolve", action: :propose_evolution
+          post "versions/:id/activate", action: :activate_version
+          post "skills/:skill_id/ab_test", action: :start_ab_test
+          post "skills/:skill_id/end_ab_test", action: :end_ab_test
+          post "record_outcome", action: :record_outcome
+
+          # Optimization & Maintenance
+          post "optimize", action: :run_optimization
+          post "maintenance/daily", action: :maintenance_daily
+          post "maintenance/weekly", action: :maintenance_weekly
+          post "maintenance/monthly", action: :maintenance_monthly
         end
 
         # ===================================================================
