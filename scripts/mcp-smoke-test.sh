@@ -1,6 +1,6 @@
 #!/bin/bash
 # frozen: MCP Platform Smoke Test
-# Exercises all 72 MCP tools across 14 categories via JSON-RPC 2.0
+# Exercises all 78 MCP tools across 14 categories via JSON-RPC 2.0
 # Requires: backend running on localhost:3000, jq, curl
 #
 # Usage:
@@ -250,10 +250,10 @@ if should_run_phase 0; then
 fi
 
 # ─────────────────────────────────────────────────
-# PHASE 1: Knowledge, Skills, Agents, Teams, Memory (32 tools)
+# PHASE 1: Knowledge, Skills, Agents, Teams, Memory (38 tools)
 # ─────────────────────────────────────────────────
 if should_run_phase 1; then
-  start_phase "PHASE 1: Knowledge & Agent Foundation (32 tools)"
+  start_phase "PHASE 1: Knowledge & Agent Foundation (38 tools)"
 
   echo ""
   echo "--- Knowledge Graph (7 ops) ---"
@@ -313,6 +313,39 @@ if should_run_phase 1; then
 
   RESP=$(mcp_call "platform.search_knowledge" '{"query":"MCP endpoints","limit":5}')
   tally "search_knowledge" "$RESP"
+
+  echo ""
+  echo "--- RAG Knowledge Bases (6 ops) ---"
+  RESP=$(mcp_call "platform.list_knowledge_bases")
+  tally "list_knowledge_bases" "$RESP"
+
+  RESP=$(mcp_call "platform.create_knowledge_base" '{"name":"Smoke Test KB","description":"Auto-created by MCP smoke test for RAG lifecycle verification"}')
+  tally "create_knowledge_base" "$RESP"
+  SMOKE_KB_ID=$(extract_id "$RESP" ".knowledge_base.id .id")
+  CREATED_IDS="$CREATED_IDS knowledge_base:$SMOKE_KB_ID"
+
+  if [ -n "$SMOKE_KB_ID" ] && [ "$SMOKE_KB_ID" != "null" ]; then
+    RESP=$(mcp_call "platform.add_document" "{\"knowledge_base_id\":\"${SMOKE_KB_ID}\",\"name\":\"Smoke Test Doc\",\"content\":\"# MCP Smoke Test\\n\\nThis document verifies the RAG document lifecycle.\\nIt covers chunking, embedding, and hybrid search capabilities.\\nKeywords: smoke test, MCP, RAG, knowledge base, verification.\"}")
+    tally "add_document" "$RESP"
+    SMOKE_DOC_ID=$(extract_id "$RESP" ".document.id .id")
+
+    if [ -n "$SMOKE_DOC_ID" ] && [ "$SMOKE_DOC_ID" != "null" ]; then
+      RESP=$(mcp_call "platform.process_document" "{\"knowledge_base_id\":\"${SMOKE_KB_ID}\",\"document_id\":\"${SMOKE_DOC_ID}\"}")
+      tally "process_document" "$RESP"
+
+      RESP=$(mcp_call "platform.search_documents" "{\"knowledge_base_id\":\"${SMOKE_KB_ID}\",\"query\":\"RAG verification\",\"mode\":\"hybrid\",\"top_k\":3}")
+      tally "search_documents" "$RESP"
+
+      RESP=$(mcp_call "platform.delete_document" "{\"knowledge_base_id\":\"${SMOKE_KB_ID}\",\"document_id\":\"${SMOKE_DOC_ID}\"}")
+      tally "delete_document" "$RESP"
+    else
+      echo "  SKIP  No document ID for process/search/delete"
+      PHASE_FAIL=$((PHASE_FAIL + 3))
+    fi
+  else
+    echo "  SKIP  No KB ID for add/process/search/delete"
+    PHASE_FAIL=$((PHASE_FAIL + 4))
+  fi
 
   echo ""
   echo "--- Skills (5 ops) ---"
@@ -517,7 +550,7 @@ fi
 if should_run_phase 4; then
   start_phase "PHASE 4: Verification (5 tools)"
 
-  RESP=$(mcp_call "platform.create_learning" '{"category":"best_practice","content":"MCP smoke test verified all 72 platform tools across 14 categories with 100% coverage.","source_type":"manual","tags":"smoke-test,verification"}')
+  RESP=$(mcp_call "platform.create_learning" '{"category":"best_practice","content":"MCP smoke test verified all 78 platform tools across 14 categories with 100% coverage.","source_type":"manual","tags":"smoke-test,verification"}')
   tally "create_learning (results)" "$RESP"
 
   RESP=$(mcp_call "platform.recent_events" '{"limit":10}')
@@ -760,6 +793,14 @@ if [ "$SKIP_CLEANUP" = "false" ] && [ -n "$CREATED_IDS" ]; then
       team)
         mcp_call "platform.update_team" "{\"team_id\":\"${id}\",\"status\":\"archived\"}" > /dev/null 2>&1
         echo "  Archived team: $id"
+        ;;
+      knowledge_base)
+        if [ -n "$JWT" ]; then
+          api DELETE "/ai/knowledge_bases/${id}" > /dev/null 2>&1
+          echo "  Deleted knowledge base: $id"
+        else
+          echo "  SKIP  No JWT for KB cleanup ($id)"
+        fi
         ;;
       workflow)
         mcp_call "platform.update_workflow" "{\"workflow_id\":\"${id}\",\"status\":\"archived\"}" > /dev/null 2>&1
