@@ -23,6 +23,46 @@ module Ai
         }
       end
 
+      def self.action_definitions
+        {
+          "search_knowledge" => {
+            description: "Search shared knowledge entries using semantic and keyword search",
+            parameters: {
+              query: { type: "string", required: true, description: "Search query" },
+              content_type: { type: "string", required: false, description: "Filter by content type" },
+              access_level: { type: "string", required: false, description: "Filter by access level" },
+              limit: { type: "integer", required: false, description: "Max results (default 10)" }
+            }
+          },
+          "create_knowledge" => {
+            description: "Create a new shared knowledge entry",
+            parameters: {
+              title: { type: "string", required: true, description: "Entry title" },
+              content: { type: "string", required: true, description: "Entry content" },
+              content_type: { type: "string", required: false, description: "Content type (default: text)" },
+              access_level: { type: "string", required: false, description: "Access level (default: team)" },
+              tags: { type: "array", required: false, description: "Tags array" }
+            }
+          },
+          "update_knowledge" => {
+            description: "Update an existing shared knowledge entry",
+            parameters: {
+              entry_id: { type: "string", required: true, description: "Knowledge entry ID" },
+              content: { type: "string", required: false, description: "Updated content" },
+              access_level: { type: "string", required: false, description: "Updated access level" },
+              tags: { type: "array", required: false, description: "Updated tags" }
+            }
+          },
+          "promote_knowledge" => {
+            description: "Promote a shared knowledge entry to a higher access level",
+            parameters: {
+              entry_id: { type: "string", required: true, description: "Knowledge entry ID to promote" },
+              access_level: { type: "string", required: false, description: "Target access level (auto-determined if omitted)" }
+            }
+          }
+        }
+      end
+
       protected
 
       def call(params)

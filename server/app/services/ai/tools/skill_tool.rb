@@ -32,6 +32,89 @@ module Ai
         }
       end
 
+      def self.action_definitions
+        {
+          "list_skills" => {
+            description: "List AI skills with optional filters and pagination",
+            parameters: {
+              category: { type: "string", required: false, description: "Filter by category" },
+              status: { type: "string", required: false, description: "Filter by status: active/inactive/draft" },
+              enabled: { type: "string", required: false, description: "Filter by enabled: true/false" },
+              search: { type: "string", required: false, description: "Search query for name/description" },
+              page: { type: "integer", required: false, description: "Page number (default 1)" },
+              per_page: { type: "integer", required: false, description: "Results per page (default 20)" }
+            }
+          },
+          "get_skill" => {
+            description: "Get detailed information about a specific AI skill",
+            parameters: {
+              skill_id: { type: "string", required: true, description: "Skill ID" }
+            }
+          },
+          "discover_skills" => {
+            description: "Discover relevant AI skills for a given task using graph traversal",
+            parameters: {
+              task_context: { type: "string", required: true, description: "Task description to discover relevant skills" },
+              mode: { type: "string", required: false, description: "Traversal mode: auto/manifest (default: auto)" },
+              token_budget: { type: "integer", required: false, description: "Max token budget (default 2000)" }
+            }
+          },
+          "get_skill_context" => {
+            description: "Get enriched context for an input text using skill graph",
+            parameters: {
+              input_text: { type: "string", required: true, description: "Input text for context enrichment" },
+              agent_id: { type: "string", required: false, description: "Agent ID for manifest mode" },
+              mode: { type: "string", required: false, description: "Traversal mode: auto/manifest (default: auto)" },
+              token_budget: { type: "integer", required: false, description: "Max token budget (default 2000)" }
+            }
+          },
+          "skill_health" => {
+            description: "Get a comprehensive health report for the skill graph",
+            parameters: {}
+          },
+          "skill_metrics" => {
+            description: "Get skill graph health score and metrics",
+            parameters: {}
+          },
+          "create_skill" => {
+            description: "Create a new AI skill",
+            parameters: {
+              name: { type: "string", required: true, description: "Skill name" },
+              description: { type: "string", required: false, description: "Skill description" },
+              category: { type: "string", required: false, description: "Skill category" },
+              system_prompt: { type: "string", required: false, description: "System prompt template" },
+              commands: { type: "array", required: false, description: "Slash commands array" },
+              tags: { type: "array", required: false, description: "Tags array" }
+            }
+          },
+          "update_skill" => {
+            description: "Update an existing AI skill's configuration",
+            parameters: {
+              skill_id: { type: "string", required: true, description: "Skill ID" },
+              name: { type: "string", required: false, description: "New skill name" },
+              description: { type: "string", required: false, description: "New skill description" },
+              category: { type: "string", required: false, description: "Skill category" },
+              system_prompt: { type: "string", required: false, description: "System prompt template" },
+              commands: { type: "array", required: false, description: "Slash commands array" },
+              tags: { type: "array", required: false, description: "Tags array" }
+            }
+          },
+          "delete_skill" => {
+            description: "Delete an AI skill permanently",
+            parameters: {
+              skill_id: { type: "string", required: true, description: "Skill ID to delete" }
+            }
+          },
+          "toggle_skill" => {
+            description: "Enable or disable an AI skill",
+            parameters: {
+              skill_id: { type: "string", required: true, description: "Skill ID" },
+              enabled: { type: "string", required: true, description: "Set to true or false" }
+            }
+          }
+        }
+      end
+
       protected
 
       def call(params)

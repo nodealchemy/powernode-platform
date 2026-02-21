@@ -22,6 +22,47 @@ module Ai
         }
       end
 
+      def self.action_definitions
+        {
+          "list_pages" => {
+            description: "List content pages with optional status filter",
+            parameters: {
+              status: { type: "string", required: false, description: "Filter by status (draft/published)" }
+            }
+          },
+          "get_page" => {
+            description: "Get a content page by ID or slug",
+            parameters: {
+              page_id: { type: "string", required: false, description: "Page ID" },
+              slug: { type: "string", required: false, description: "Page slug (alternative to ID)" }
+            }
+          },
+          "create_page" => {
+            description: "Create a new content page",
+            parameters: {
+              title: { type: "string", required: true, description: "Page title" },
+              content: { type: "string", required: true, description: "Page content in markdown" },
+              slug: { type: "string", required: false, description: "Page slug (auto-generated if omitted)" },
+              status: { type: "string", required: false, description: "Status (default: draft)" },
+              meta_description: { type: "string", required: false, description: "SEO meta description" },
+              meta_keywords: { type: "string", required: false, description: "SEO meta keywords comma-separated" }
+            }
+          },
+          "update_page" => {
+            description: "Update an existing content page",
+            parameters: {
+              page_id: { type: "string", required: true, description: "Page ID" },
+              title: { type: "string", required: false, description: "New page title" },
+              content: { type: "string", required: false, description: "New page content" },
+              slug: { type: "string", required: false, description: "New slug" },
+              status: { type: "string", required: false, description: "New status" },
+              meta_description: { type: "string", required: false, description: "SEO meta description" },
+              meta_keywords: { type: "string", required: false, description: "SEO meta keywords" }
+            }
+          }
+        }
+      end
+
       protected
 
       def call(params)

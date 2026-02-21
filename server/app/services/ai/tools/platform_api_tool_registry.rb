@@ -77,6 +77,12 @@ module Ai
         "update_skill" => "Ai::Tools::SkillTool",
         "delete_skill" => "Ai::Tools::SkillTool",
         "toggle_skill" => "Ai::Tools::SkillTool",
+        # Knowledge quality
+        "verify_learning" => "Ai::Tools::KnowledgeQualityTool",
+        "dispute_learning" => "Ai::Tools::KnowledgeQualityTool",
+        "resolve_contradiction" => "Ai::Tools::KnowledgeQualityTool",
+        "rate_knowledge" => "Ai::Tools::KnowledgeQualityTool",
+        "knowledge_health" => "Ai::Tools::KnowledgeQualityTool",
         # Knowledge graph
         "search_knowledge_graph" => "Ai::Tools::KnowledgeGraphTool",
         "reason_knowledge_graph" => "Ai::Tools::KnowledgeGraphTool",
@@ -112,7 +118,14 @@ module Ai
       end
 
       def self.tool_definitions(agent: nil)
-        available_tools(agent: agent).map { |name, klass| klass.definition.merge(name: name) }
+        available_tools(agent: agent).map do |name, klass|
+          action_defs = klass.action_definitions
+          if action_defs.key?(name)
+            action_defs[name].merge(name: name)
+          else
+            klass.definition.merge(name: name)  # fallback for unmatched tools
+          end
+        end
       end
 
       # Discover tools by natural language query (semantic search)

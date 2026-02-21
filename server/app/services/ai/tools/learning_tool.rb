@@ -23,6 +23,39 @@ module Ai
         }
       end
 
+      def self.action_definitions
+        {
+          "query_learnings" => {
+            description: "Query compound learnings with optional filters and keyword search",
+            parameters: {
+              query: { type: "string", required: false, description: "Search query for learnings" },
+              category: { type: "string", required: false, description: "Filter by category (pattern/anti_pattern/best_practice/discovery/fact/failure_mode/review_finding/performance_insight)" },
+              scope: { type: "string", required: false, description: "Filter by scope (team/global)" },
+              status: { type: "string", required: false, description: "Filter by status (active/superseded/archived)" },
+              limit: { type: "integer", required: false, description: "Max results (default 20)" }
+            }
+          },
+          "reinforce_learning" => {
+            description: "Reinforce a compound learning by recording a positive outcome and boosting importance",
+            parameters: {
+              learning_id: { type: "string", required: true, description: "Learning ID to reinforce" }
+            }
+          },
+          "learning_metrics" => {
+            description: "Get compound learning metrics and effectiveness statistics",
+            parameters: {}
+          },
+          "create_learning" => {
+            description: "Create a new compound learning entry",
+            parameters: {
+              content: { type: "string", required: true, description: "Learning content" },
+              title: { type: "string", required: false, description: "Learning title" },
+              category: { type: "string", required: false, description: "Category (default: discovery)" }
+            }
+          }
+        }
+      end
+
       protected
 
       def call(params)
@@ -65,7 +98,7 @@ module Ai
         learning = Ai::CompoundLearning.find_by(id: params[:learning_id], account: account)
         return { success: false, error: "Learning not found" } unless learning
 
-        learning.record_injection_outcome!(positive: true)
+        learning.record_injection_outcome!(successful: true)
         learning.boost_importance!(0.05)
 
         { success: true, learning_id: learning.id, new_importance: learning.importance_score.to_f.round(4) }

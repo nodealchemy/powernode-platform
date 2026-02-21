@@ -23,6 +23,51 @@ module Ai
         }
       end
 
+      def self.action_definitions
+        {
+          "create_agent" => {
+            description: "Create a new AI agent with the specified configuration",
+            parameters: {
+              name: { type: "string", required: true, description: "Agent name" },
+              description: { type: "string", required: false, description: "Agent description" },
+              model: { type: "string", required: false, description: "Model name (defaults to provider default)" },
+              agent_type: { type: "string", required: false, description: "Agent type (default: assistant)" },
+              system_prompt: { type: "string", required: false, description: "System prompt" },
+              conversation_profile: { type: "object", required: false, description: "Conversation profile configuration" }
+            }
+          },
+          "list_agents" => {
+            description: "List all active AI agents in the current account",
+            parameters: {}
+          },
+          "get_agent" => {
+            description: "Get detailed information about a specific AI agent",
+            parameters: {
+              agent_id: { type: "string", required: true, description: "Agent ID" }
+            }
+          },
+          "update_agent" => {
+            description: "Update an existing AI agent's configuration",
+            parameters: {
+              agent_id: { type: "string", required: true, description: "Agent ID" },
+              name: { type: "string", required: false, description: "New agent name" },
+              description: { type: "string", required: false, description: "New agent description" },
+              status: { type: "string", required: false, description: "Agent status" },
+              system_prompt: { type: "string", required: false, description: "System prompt" },
+              conversation_profile: { type: "object", required: false, description: "Conversation profile configuration" },
+              mcp_metadata: { type: "object", required: false, description: "MCP metadata to merge" }
+            }
+          },
+          "execute_agent" => {
+            description: "Queue execution of an AI agent with the given input",
+            parameters: {
+              agent_id: { type: "string", required: true, description: "Agent ID to execute" },
+              input: { type: "object", required: false, description: "Execution input" }
+            }
+          }
+        }
+      end
+
       protected
 
       def call(params)
@@ -69,7 +114,7 @@ module Ai
       end
 
       def get_agent(params)
-        agent_record = account.ai_agents.find(params[:agent_id] || params[:id])
+        agent_record = account.ai_agents.find(params[:agent_id])
         {
           success: true,
           agent: {
@@ -89,7 +134,7 @@ module Ai
       end
 
       def update_agent(params)
-        agent_record = account.ai_agents.find(params[:agent_id] || params[:id])
+        agent_record = account.ai_agents.find(params[:agent_id])
         attrs = {}
         attrs[:name] = params[:name] if params[:name].present?
         attrs[:description] = params[:description] if params[:description].present?

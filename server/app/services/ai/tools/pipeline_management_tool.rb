@@ -18,6 +18,30 @@ module Ai
         }
       end
 
+      def self.action_definitions
+        {
+          "trigger_pipeline" => {
+            description: "Trigger a DevOps pipeline for a repository",
+            parameters: {
+              repository_id: { type: "string", required: true, description: "Repository ID" },
+              branch: { type: "string", required: false, description: "Branch to build" }
+            }
+          },
+          "list_pipelines" => {
+            description: "List DevOps pipelines, optionally filtered by repository",
+            parameters: {
+              repository_id: { type: "string", required: false, description: "Filter by repository ID" }
+            }
+          },
+          "get_pipeline_status" => {
+            description: "Get the current status of a specific pipeline",
+            parameters: {
+              pipeline_id: { type: "string", required: true, description: "Pipeline ID" }
+            }
+          }
+        }
+      end
+
       protected
 
       def call(params)

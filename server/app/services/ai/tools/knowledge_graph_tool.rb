@@ -30,6 +30,72 @@ module Ai
         }
       end
 
+      # Keys MUST match TOOLS hash (external names), not ACTION_ALIASES (internal names).
+      # McpPlatformToolRegistrar.ACTION_ALIASES handles the mapping at execution time.
+      def self.action_definitions
+        {
+          "search_knowledge_graph" => {
+            description: "Search the knowledge graph using hybrid retrieval (vector + keyword + graph)",
+            parameters: {
+              query: { type: "string", required: true, description: "Search query" },
+              mode: { type: "string", required: false, description: "Search mode: hybrid/vector/keyword/graph (default: hybrid)" },
+              top_k: { type: "integer", required: false, description: "Max results (default 10)" },
+              knowledge_base_id: { type: "string", required: false, description: "Filter by knowledge base" }
+            }
+          },
+          "reason_knowledge_graph" => {
+            description: "Perform multi-hop reasoning over the knowledge graph",
+            parameters: {
+              query: { type: "string", required: true, description: "Reasoning query" },
+              max_hops: { type: "integer", required: false, description: "Max reasoning hops (default 3)" },
+              top_k: { type: "integer", required: false, description: "Max results (default 5)" }
+            }
+          },
+          "get_graph_node" => {
+            description: "Get detailed information about a specific knowledge graph node",
+            parameters: {
+              node_id: { type: "string", required: true, description: "Node ID" }
+            }
+          },
+          "list_graph_nodes" => {
+            description: "List knowledge graph nodes with optional filters and pagination",
+            parameters: {
+              node_type: { type: "string", required: false, description: "Filter by node type" },
+              entity_type: { type: "string", required: false, description: "Filter by entity type" },
+              query: { type: "string", required: false, description: "Search query" },
+              knowledge_base_id: { type: "string", required: false, description: "Filter by knowledge base" },
+              page: { type: "integer", required: false, description: "Page number" },
+              per_page: { type: "integer", required: false, description: "Results per page (default 20)" }
+            }
+          },
+          "get_graph_neighbors" => {
+            description: "Get neighboring nodes and edges for a specific graph node",
+            parameters: {
+              node_id: { type: "string", required: true, description: "Node ID" },
+              depth: { type: "integer", required: false, description: "Traversal depth (default 1, max 5)" },
+              relation_types: { type: "array", required: false, description: "Filter by relation types" }
+            }
+          },
+          "graph_statistics" => {
+            description: "Get knowledge graph statistics (node counts, edge counts, etc.)",
+            parameters: {}
+          },
+          "get_subgraph" => {
+            description: "Extract a subgraph containing the specified nodes and their connections",
+            parameters: {
+              node_ids: { type: "array", required: true, description: "Array of node IDs" }
+            }
+          },
+          "extract_to_knowledge_graph" => {
+            description: "Extract entities and relationships from text and add them to the knowledge graph",
+            parameters: {
+              text: { type: "string", required: true, description: "Text to extract entities and relations from" },
+              source_label: { type: "string", required: false, description: "Label for the extraction source" }
+            }
+          }
+        }
+      end
+
       protected
 
       def call(params)

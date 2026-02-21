@@ -20,6 +20,44 @@ module Ai
         }
       end
 
+      def self.action_definitions
+        {
+          "create_workflow" => {
+            description: "Create a new AI workflow with the specified configuration",
+            parameters: {
+              name: { type: "string", required: true, description: "Workflow name" },
+              description: { type: "string", required: false, description: "Workflow description" }
+            }
+          },
+          "list_workflows" => {
+            description: "List all active AI workflows in the current account",
+            parameters: {}
+          },
+          "get_workflow" => {
+            description: "Get detailed information about a specific workflow",
+            parameters: {
+              workflow_id: { type: "string", required: true, description: "Workflow ID" }
+            }
+          },
+          "update_workflow" => {
+            description: "Update an existing workflow's configuration",
+            parameters: {
+              workflow_id: { type: "string", required: true, description: "Workflow ID" },
+              name: { type: "string", required: false, description: "New workflow name" },
+              description: { type: "string", required: false, description: "New workflow description" },
+              status: { type: "string", required: false, description: "Workflow status" }
+            }
+          },
+          "execute_workflow" => {
+            description: "Queue execution of an AI workflow with the given input",
+            parameters: {
+              workflow_id: { type: "string", required: true, description: "Workflow ID to execute" },
+              input: { type: "object", required: false, description: "Execution input" }
+            }
+          }
+        }
+      end
+
       protected
 
       def call(params)

@@ -22,16 +22,60 @@ module Ai
         }
       end
 
+      def self.action_definitions
+        {
+          "write_shared_memory" => {
+            description: "Write a value to shared memory in a specific pool",
+            parameters: {
+              pool_id: { type: "string", required: false, description: "Memory pool ID (default: 'default')" },
+              key: { type: "string", required: true, description: "Data key (dot-separated for nesting)" },
+              value: { type: "object", required: true, description: "Value to write" }
+            }
+          },
+          "read_shared_memory" => {
+            description: "Read a value from shared memory in a specific pool",
+            parameters: {
+              pool_id: { type: "string", required: false, description: "Memory pool ID (default: 'default')" },
+              key: { type: "string", required: true, description: "Data key to read" }
+            }
+          },
+          "search_memory" => {
+            description: "Search across memory tiers by keyword query",
+            parameters: {
+              query: { type: "string", required: true, description: "Search query" },
+              agent_id: { type: "string", required: false, description: "Target agent ID" },
+              limit: { type: "integer", required: false, description: "Max results (default 10)" }
+            }
+          },
+          "consolidate_memory" => {
+            description: "Run memory consolidation pipeline for an agent (promotes across tiers)",
+            parameters: {
+              agent_id: { type: "string", required: false, description: "Target agent ID" }
+            }
+          },
+          "memory_stats" => {
+            description: "Get memory usage statistics across all tiers",
+            parameters: {
+              agent_id: { type: "string", required: false, description: "Agent ID (omit for account-wide stats)" }
+            }
+          },
+          "list_pools" => {
+            description: "List all memory pools in the current account",
+            parameters: {}
+          }
+        }
+      end
+
       protected
 
       def call(params)
         case params[:action]
         when "read_shared_memory"
-          pool = resolve_pool(params[:pool_id] || params[:pool])
+          pool = resolve_pool(params[:pool_id])
           data = pool.read_data(params[:key], agent_id: agent&.id)
           { success: true, key: params[:key], value: data }
         when "write_shared_memory"
-          pool = resolve_pool(params[:pool_id] || params[:pool])
+          pool = resolve_pool(params[:pool_id])
           pool.write_data(params[:key], params[:value], agent_id: agent&.id)
           { success: true, key: params[:key], written: true }
         when "search_memory" then search_memory(params)

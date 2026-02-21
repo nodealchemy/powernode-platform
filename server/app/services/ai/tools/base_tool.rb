@@ -11,6 +11,15 @@ module Ai
           raise NotImplementedError, "#{name} must implement .definition"
         end
 
+        # Returns per-action tool definitions keyed by external registry name.
+        # Single-action tools inherit this default which strips the :action param.
+        # Multi-action tools override to provide focused per-action schemas.
+        def action_definitions
+          defn = definition
+          params = (defn[:parameters] || {}).except(:action)
+          { defn[:name] => { description: defn[:description], parameters: params } }
+        end
+
         def permitted?(agent:)
           return true unless self::REQUIRED_PERMISSION
           return true unless agent

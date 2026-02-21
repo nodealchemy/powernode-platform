@@ -25,6 +25,55 @@ module Ai
         }
       end
 
+      def self.action_definitions
+        {
+          "list_knowledge_bases" => {
+            description: "List all RAG knowledge bases in the current account",
+            parameters: {}
+          },
+          "create_knowledge_base" => {
+            description: "Create a new RAG knowledge base for document storage and retrieval",
+            parameters: {
+              name: { type: "string", required: true, description: "Knowledge base name" },
+              description: { type: "string", required: false, description: "Knowledge base description" }
+            }
+          },
+          "add_document" => {
+            description: "Add a document to a RAG knowledge base",
+            parameters: {
+              knowledge_base_id: { type: "string", required: true, description: "Knowledge base ID" },
+              name: { type: "string", required: true, description: "Document name" },
+              content: { type: "string", required: true, description: "Document content" },
+              content_type: { type: "string", required: false, description: "Content type (default: text/plain)" },
+              source_url: { type: "string", required: false, description: "Source URL for the document" }
+            }
+          },
+          "process_document" => {
+            description: "Process a document: chunk and embed it for RAG retrieval",
+            parameters: {
+              knowledge_base_id: { type: "string", required: true, description: "Knowledge base ID" },
+              document_id: { type: "string", required: true, description: "Document ID to process" }
+            }
+          },
+          "search_documents" => {
+            description: "Search across RAG knowledge base documents using hybrid retrieval",
+            parameters: {
+              query: { type: "string", required: true, description: "Search query" },
+              knowledge_base_id: { type: "string", required: false, description: "Knowledge base ID (defaults to most recent)" },
+              mode: { type: "string", required: false, description: "Search mode: hybrid, vector, keyword, graph (default: hybrid)" },
+              top_k: { type: "integer", required: false, description: "Max results (default 5)" }
+            }
+          },
+          "delete_document" => {
+            description: "Delete a document from a RAG knowledge base",
+            parameters: {
+              knowledge_base_id: { type: "string", required: true, description: "Knowledge base ID" },
+              document_id: { type: "string", required: true, description: "Document ID to delete" }
+            }
+          }
+        }
+      end
+
       protected
 
       def call(params)

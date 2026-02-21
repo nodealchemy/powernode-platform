@@ -25,6 +25,56 @@ module Ai
         }
       end
 
+      def self.action_definitions
+        {
+          "create_team" => {
+            description: "Create a new AI agent team with the specified configuration",
+            parameters: {
+              name: { type: "string", required: true, description: "Team name" },
+              description: { type: "string", required: false, description: "Team description" },
+              team_type: { type: "string", required: false, description: "Team type (default: sequential)" },
+              coordination_strategy: { type: "string", required: false, description: "Coordination strategy (default: manager_led)" }
+            }
+          },
+          "list_teams" => {
+            description: "List all active AI agent teams in the current account",
+            parameters: {}
+          },
+          "get_team" => {
+            description: "Get detailed information about a specific team including its members",
+            parameters: {
+              team_id: { type: "string", required: true, description: "Team ID" }
+            }
+          },
+          "update_team" => {
+            description: "Update an existing team's configuration",
+            parameters: {
+              team_id: { type: "string", required: true, description: "Team ID" },
+              name: { type: "string", required: false, description: "New team name" },
+              description: { type: "string", required: false, description: "New team description" },
+              coordination_strategy: { type: "string", required: false, description: "Coordination strategy" },
+              team_config: { type: "object", required: false, description: "Team configuration to merge" },
+              review_config: { type: "object", required: false, description: "Review configuration to merge" }
+            }
+          },
+          "add_team_member" => {
+            description: "Add an AI agent as a member of a team",
+            parameters: {
+              team_id: { type: "string", required: true, description: "Team ID" },
+              agent_id: { type: "string", required: true, description: "Agent ID to add" },
+              role: { type: "string", required: false, description: "Member role (default: worker)" }
+            }
+          },
+          "execute_team" => {
+            description: "Queue execution of a team workflow",
+            parameters: {
+              team_id: { type: "string", required: true, description: "Team ID to execute" },
+              input: { type: "object", required: false, description: "Execution input" }
+            }
+          }
+        }
+      end
+
       protected
 
       def call(params)
@@ -74,7 +124,7 @@ module Ai
       end
 
       def get_team(params)
-        team = account.ai_agent_teams.find(params[:team_id] || params[:id])
+        team = account.ai_agent_teams.find(params[:team_id])
         members = team.members.includes(:agent).map do |m|
           { agent_name: m.agent.name, role: m.role, is_lead: m.is_lead }
         end
@@ -106,7 +156,7 @@ module Ai
       end
 
       def update_team(params)
-        team = account.ai_agent_teams.find(params[:team_id] || params[:id])
+        team = account.ai_agent_teams.find(params[:team_id])
         attrs = {}
         attrs[:name] = params[:name] if params[:name].present?
         attrs[:description] = params[:description] if params[:description].present?

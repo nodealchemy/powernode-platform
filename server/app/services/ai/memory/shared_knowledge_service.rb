@@ -301,6 +301,24 @@ module Ai
         { success: false, error: "Failed to compute stats", stats: {} }
       end
 
+      # Batch recalculate quality scores for entries not recalculated in 24h
+      def recalculate_all_quality(batch_size: 100)
+        scope = Ai::SharedKnowledge.where(account: @account)
+          .where("last_quality_recalc_at < ? OR last_quality_recalc_at IS NULL", 24.hours.ago)
+
+        recalculated = 0
+        scope.find_each(batch_size: batch_size) do |entry|
+          entry.recalculate_quality_score!
+          recalculated += 1
+        end
+
+        Rails.logger.info("[SharedKnowledge] Batch quality recalc complete: #{recalculated} entries updated")
+        { success: true, recalculated: recalculated }
+      rescue StandardError => e
+        Rails.logger.error("[SharedKnowledge] Batch quality recalc failed: #{e.message}")
+        { success: false, error: e.message, recalculated: 0 }
+      end
+
       # Build LLM context from relevant shared knowledge within a token budget
       def build_context(query:, agent: nil, token_budget: 2000)
         char_budget = token_budget * CHARS_PER_TOKEN

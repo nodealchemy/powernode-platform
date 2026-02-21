@@ -24,6 +24,49 @@ module Ai
         }
       end
 
+      def self.action_definitions
+        {
+          "list_kb_articles" => {
+            description: "List Knowledge Base articles with optional category and status filters",
+            parameters: {
+              category_slug: { type: "string", required: false, description: "Filter by category slug" },
+              status: { type: "string", required: false, description: "Filter by status (draft/review/published/archived)" }
+            }
+          },
+          "get_kb_article" => {
+            description: "Get a Knowledge Base article by ID or slug",
+            parameters: {
+              article_id: { type: "string", required: false, description: "Article ID" },
+              slug: { type: "string", required: false, description: "Article slug (alternative to ID)" }
+            }
+          },
+          "create_kb_article" => {
+            description: "Create a new Knowledge Base article in a category",
+            parameters: {
+              title: { type: "string", required: true, description: "Article title" },
+              content: { type: "string", required: true, description: "Article content in markdown" },
+              category_slug: { type: "string", required: true, description: "Category slug" },
+              status: { type: "string", required: false, description: "Status (default: draft)" },
+              excerpt: { type: "string", required: false, description: "Article excerpt" },
+              is_featured: { type: "boolean", required: false, description: "Featured flag" },
+              tags: { type: "array", required: false, description: "Tag names" }
+            }
+          },
+          "update_kb_article" => {
+            description: "Update an existing Knowledge Base article",
+            parameters: {
+              article_id: { type: "string", required: true, description: "Article ID" },
+              title: { type: "string", required: false, description: "New article title" },
+              content: { type: "string", required: false, description: "New article content" },
+              excerpt: { type: "string", required: false, description: "New article excerpt" },
+              status: { type: "string", required: false, description: "New status" },
+              is_featured: { type: "boolean", required: false, description: "Featured flag" },
+              tags: { type: "array", required: false, description: "Tag names" }
+            }
+          }
+        }
+      end
+
       protected
 
       def call(params)
