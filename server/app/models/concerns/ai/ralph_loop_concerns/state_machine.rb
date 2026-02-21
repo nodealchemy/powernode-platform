@@ -5,6 +5,8 @@ module Ai
     module StateMachine
       extend ActiveSupport::Concern
 
+      TERMINAL_STATUSES = %w[completed cancelled failed].freeze
+
       # State transition methods
 
       def start!

@@ -52,6 +52,20 @@ module Ai
         Rails.cache.delete_matched("ai:dashboard:#{account_id}:*")
       end
 
+      # Provider health metrics for MCP introspection tool
+      # @param ops_time_range [ActiveSupport::Duration] Time range for analysis
+      # @return [Array<Hash>] Per-provider health data
+      def provider_metrics(ops_time_range = 1.hour)
+        ops_provider_metrics(ops_time_range)
+      end
+
+      # Cost analysis for MCP introspection tool
+      # @param ops_time_range [ActiveSupport::Duration] Time range for analysis
+      # @return [Hash] Cost breakdown data
+      def cost_analysis(ops_time_range = 1.hour)
+        ops_cost_analysis(ops_time_range)
+      end
+
       private
 
       def workflows
