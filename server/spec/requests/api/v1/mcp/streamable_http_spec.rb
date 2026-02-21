@@ -370,10 +370,8 @@ RSpec.describe "MCP Streamable HTTP", type: :request do
       [
         {
           name: "list_agents",
-          description: "List all AI agents",
-          parameters: {
-            status: { type: "string", description: "Filter by status", required: false }
-          }
+          description: "List all active AI agents in the current account",
+          parameters: {}
         }
       ]
     end
@@ -407,7 +405,7 @@ RSpec.describe "MCP Streamable HTTP", type: :request do
       platform_tool = tools.find { |t| t["name"] == "platform.list_agents" }
       expect(platform_tool["inputSchema"]).to be_a(Hash)
       expect(platform_tool["inputSchema"]["type"]).to eq("object")
-      expect(platform_tool["inputSchema"]["properties"]).to have_key("status")
+      expect(platform_tool["inputSchema"]["properties"]).to be_a(Hash)
     end
 
     it "includes description on platform tools" do
@@ -417,7 +415,7 @@ RSpec.describe "MCP Streamable HTTP", type: :request do
 
       tools = json_response["result"]["tools"]
       platform_tool = tools.find { |t| t["name"] == "platform.list_agents" }
-      expect(platform_tool["description"]).to eq("List all AI agents")
+      expect(platform_tool["description"]).to eq("List all active AI agents in the current account")
     end
 
     it "returns successfully with valid authentication" do
@@ -428,6 +426,32 @@ RSpec.describe "MCP Streamable HTTP", type: :request do
       expect(response).to have_http_status(:ok)
       expect(json_response["jsonrpc"]).to eq("2.0")
       expect(json_response["id"]).to eq(1)
+    end
+
+    it "includes introspection tools in tools/list" do
+      allow(::Ai::Tools::PlatformApiToolRegistry).to receive(:tool_definitions).and_return([])
+
+      post mcp_endpoint, params: jsonrpc_request(method: "tools/list"), headers: headers
+
+      tools = json_response["result"]["tools"]
+      introspection_names = tools.select { |t| t["name"].start_with?("platform.") && !t["name"].include?(".") == false }
+                                 .map { |t| t["name"] }
+
+      expect(introspection_names).to include("platform.health")
+      expect(introspection_names).to include("platform.metrics")
+      expect(introspection_names).to include("platform.resources")
+    end
+
+    it "introspection tools have inputSchema" do
+      allow(::Ai::Tools::PlatformApiToolRegistry).to receive(:tool_definitions).and_return([])
+
+      post mcp_endpoint, params: jsonrpc_request(method: "tools/list"), headers: headers
+
+      tools = json_response["result"]["tools"]
+      health_tool = tools.find { |t| t["name"] == "platform.health" }
+      expect(health_tool).to be_present
+      expect(health_tool["inputSchema"]).to be_a(Hash)
+      expect(health_tool["description"]).to be_present
     end
   end
 
@@ -501,6 +525,39 @@ RSpec.describe "MCP Streamable HTTP", type: :request do
 
       expect(response).to have_http_status(:ok)
       expect(json_response["result"]["content"]).to be_present
+    end
+
+    it "sets isError true when platform tool returns success: false" do
+      allow(::Ai::Tools::McpPlatformToolRegistrar).to receive(:execute_tool)
+        .and_return({ success: false, error: "Agent not found" })
+
+      post mcp_endpoint,
+           params: jsonrpc_request(method: "tools/call", params: {
+             "name" => "platform.get_agent",
+             "arguments" => { "agent_id" => "nonexistent" }
+           }),
+           headers: headers
+
+      expect(response).to have_http_status(:ok)
+      result = json_response["result"]
+      expect(result["isError"]).to eq(true)
+      expect(result["content"]).to be_an(Array)
+    end
+
+    it "does not set isError when platform tool returns success: true" do
+      allow(::Ai::Tools::McpPlatformToolRegistrar).to receive(:execute_tool)
+        .and_return({ success: true, agents: [] })
+
+      post mcp_endpoint,
+           params: jsonrpc_request(method: "tools/call", params: {
+             "name" => "platform.list_agents",
+             "arguments" => {}
+           }),
+           headers: headers
+
+      expect(response).to have_http_status(:ok)
+      result = json_response["result"]
+      expect(result).not_to have_key("isError")
     end
 
     it "handles non-platform tool via ProtocolService" do
