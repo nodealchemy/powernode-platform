@@ -8,7 +8,7 @@ module Ai
     # Unlike StorageService shared learning methods (which use MemoryPool), this service operates
     # directly on the Ai::SharedKnowledge model with vector embeddings.
     class SharedKnowledgeService
-      SIMILARITY_THRESHOLD = 0.85
+      SIMILARITY_THRESHOLD = 0.5
       DEDUP_THRESHOLD = 0.92
       MAX_RESULTS = 20
       CHARS_PER_TOKEN = 4

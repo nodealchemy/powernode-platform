@@ -60,7 +60,7 @@ module Ai
     def self.semantic_search(query_embedding, account_id:, threshold: 0.6, limit: 20)
       return [] if query_embedding.blank?
 
-      active.where(account_id: account_id)
+      where(account_id: account_id, status: %w[active verified])
         .nearest_neighbors(:embedding, query_embedding, distance: "cosine")
         .limit(limit)
         .to_a
