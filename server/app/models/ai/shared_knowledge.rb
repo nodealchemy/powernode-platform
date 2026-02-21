@@ -80,5 +80,68 @@ module Ai
         .to_a
         .select { |e| e.neighbor_distance <= distance_threshold }
     end
+
+    # Record an explicit 1-5 rating and trigger quality recalculation
+    def record_rating!(score)
+      score = score.to_i.clamp(1, 5)
+      update!(
+        rating_sum: rating_sum + score,
+        rating_count: self.rating_count + 1
+      )
+      recalculate_quality_score!
+    end
+
+    # Recalculate quality score using a weighted multi-factor formula
+    def recalculate_quality_score!
+      structural = calculate_structural_quality
+      usage = calculate_usage_factor
+      rating = calculate_rating_factor
+      recency = calculate_recency_factor
+
+      new_score = (
+        structural * 0.30 +
+        usage * 0.25 +
+        rating * 0.25 +
+        recency * 0.20
+      ).round(4)
+
+      update!(
+        quality_score: [new_score, 1.0].min,
+        last_quality_recalc_at: Time.current
+      )
+    end
+
+    private
+
+    def calculate_structural_quality
+      score = 0.3
+      score += [content.to_s.length / 2000.0, 0.2].min
+      score += 0.1 if content.to_s.match?(/^#+\s/m)
+      score += 0.1 if content.to_s.match?(/^[-*]\s/m)
+      score += 0.1 if content.to_s.match?(/```/)
+      score += [tags.to_a.length * 0.03, 0.1].min
+      [score, 1.0].min
+    end
+
+    def calculate_usage_factor
+      return 0.1 if usage_count.zero?
+
+      [Math.log10(usage_count + 1) / 3.0, 1.0].min
+    end
+
+    def calculate_rating_factor
+      return 0.5 if rating_count.zero?
+
+      avg = rating_sum.to_f / rating_count
+      (avg - 1.0) / 4.0 # Normalize 1-5 to 0-1
+    end
+
+    def calculate_recency_factor
+      return 0.8 if last_used_at.nil?
+
+      days_ago = ((Time.current - last_used_at) / 1.day).to_f
+      decayed = Math.exp(-0.01 * days_ago)
+      [decayed, 0.2].max
+    end
   end
 end

@@ -11,7 +11,7 @@ module Ai
     # ==========================================
     CATEGORIES = %w[pattern anti_pattern best_practice discovery fact failure_mode review_finding performance_insight].freeze
     SCOPES = %w[team global].freeze
-    STATUSES = %w[active deprecated superseded].freeze
+    STATUSES = %w[active deprecated superseded verified disproven].freeze
     EXTRACTION_METHODS = %w[marker auto_success auto_failure review evaluation].freeze
 
     # ==========================================
@@ -45,6 +45,8 @@ module Ai
     scope :team_scope, -> { where(scope: "team") }
     scope :by_category, ->(cat) { where(category: cat) }
     scope :high_importance, -> { where("importance_score >= ?", 0.7) }
+    scope :verified, -> { where(status: "verified") }
+    scope :disproven, -> { where(status: "disproven") }
     scope :with_tag, ->(tag) { where("tags @> ?", [tag].to_json) }
     scope :with_embedding, -> { where.not(embedding: nil) }
     scope :recent, -> { order(created_at: :desc) }
@@ -118,6 +120,34 @@ module Ai
       increment!(:access_count)
     end
 
+    def verify!(user:)
+      update!(
+        status: "verified",
+        verified_at: Time.current,
+        verified_by_id: user.id
+      )
+      boost_importance!(0.15)
+      update!(confidence_score: [confidence_score + 0.1, 1.0].min)
+    end
+
+    def disprove!(user:, reason:)
+      update!(
+        status: "disproven",
+        disproven_at: Time.current,
+        disproven_by_id: user.id,
+        contradiction_note: reason,
+        importance_score: 0.05,
+        confidence_score: 0.1
+      )
+    end
+
+    def resolve_contradiction!(note:)
+      update!(
+        contradiction_resolved_at: Time.current,
+        contradiction_note: note
+      )
+    end
+
     def supersede!(new_learning)
       update!(status: "superseded", superseded_by: new_learning)
     end
@@ -147,6 +177,9 @@ module Ai
         source_execution_successful: source_execution_successful,
         ai_agent_team_id: ai_agent_team_id,
         source_agent_id: source_agent_id,
+        verified_at: verified_at&.iso8601,
+        disproven_at: disproven_at&.iso8601,
+        contradiction_note: contradiction_note,
         promoted_at: promoted_at&.iso8601,
         last_injected_at: last_injected_at&.iso8601,
         created_at: created_at&.iso8601,

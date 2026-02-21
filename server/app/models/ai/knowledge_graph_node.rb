@@ -79,5 +79,36 @@ module Ai
     def degree
       outgoing_edges.count + incoming_edges.count
     end
+
+    # Exponential confidence decay based on last_seen_at age, floor at 0.05
+    def decay_confidence!
+      return if decay_rate.nil? || decay_rate.zero?
+      return if confidence.nil?
+
+      reference = last_seen_at || updated_at
+      days_since = ((Time.current - reference) / 1.day).to_i
+      return if days_since < 1
+
+      decayed = confidence * ((1 - decay_rate) ** days_since)
+      update!(confidence: [decayed, 0.05].max)
+    end
+
+    # Recalculate quality score based on confidence, mention count, and connections
+    def recalculate_quality_score!
+      confidence_factor = confidence || 0.5
+      mention_factor = [Math.log10(mention_count + 1) / 3.0, 1.0].min
+      connection_factor = [degree / 20.0, 1.0].min
+
+      new_score = (
+        confidence_factor * 0.50 +
+        mention_factor * 0.30 +
+        connection_factor * 0.20
+      ).round(4)
+
+      update!(
+        quality_score: [new_score, 1.0].min,
+        last_quality_recalc_at: Time.current
+      )
+    end
   end
 end
