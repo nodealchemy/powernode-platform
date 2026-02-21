@@ -27,11 +27,11 @@ module Ai
       def call(params)
         case params[:action]
         when "read_shared_memory"
-          pool = account.ai_memory_pools.find_by!(pool_id: params[:pool_id])
+          pool = resolve_pool(params[:pool_id] || params[:pool])
           data = pool.read_data(params[:key], agent_id: agent&.id)
           { success: true, key: params[:key], value: data }
         when "write_shared_memory"
-          pool = account.ai_memory_pools.find_by!(pool_id: params[:pool_id])
+          pool = resolve_pool(params[:pool_id] || params[:pool])
           pool.write_data(params[:key], params[:value], agent_id: agent&.id)
           { success: true, key: params[:key], written: true }
         when "search_memory" then search_memory(params)
@@ -43,11 +43,29 @@ module Ai
         end
       rescue ActiveRecord::RecordNotFound
         { success: false, error: "Memory pool not found" }
+      rescue ActiveRecord::RecordInvalid => e
+        { success: false, error: e.message }
       rescue ArgumentError => e
         { success: false, error: e.message }
       end
 
       private
+
+      def resolve_pool(pool_id)
+        return account.ai_memory_pools.find_by!(pool_id: pool_id) if pool_id.present? && pool_id != "default"
+
+        # Find or create a default pool for the account
+        account.ai_memory_pools.find_or_create_by!(pool_id: "default") do |pool|
+          pool.name = "Default Memory Pool"
+          pool.pool_type = "shared"
+          pool.scope = "persistent"
+          pool.data = {}
+          pool.access_control = {}
+          pool.metadata = {}
+          pool.retention_policy = {}
+          pool.version = 1
+        end
+      end
 
       def search_memory(params)
         return { success: false, error: "Query is required" } if params[:query].blank?
@@ -55,9 +73,26 @@ module Ai
         target_agent = params[:agent_id].present? ? account.ai_agents.find_by(id: params[:agent_id]) : agent
         return { success: false, error: "Agent not found" } unless target_agent
 
-        router = Ai::Memory::RouterService.new(agent: target_agent, account: account)
-        results = router.semantic_search(params[:query], limit: (params[:limit] || 10).to_i)
-        { success: true, results: results }
+        # RouterService.semantic_search requires a vector embedding, not raw text.
+        # Fall back to keyword-based search across memory tiers.
+        limit = (params[:limit] || 10).to_i
+        query = params[:query]
+
+        sanitized = ActiveRecord::Base.sanitize_sql_like(query)
+        results = []
+        # Search short-term memory (memory_key + memory_value jsonb)
+        stm = Ai::AgentShortTermMemory.where(agent_id: target_agent.id)
+                .where("memory_key ILIKE :q OR memory_value::text ILIKE :q", q: "%#{sanitized}%")
+                .limit(limit)
+        results += stm.map { |m| { tier: "short_term", key: m.memory_key, value: m.memory_value, created_at: m.created_at&.iso8601 } }
+
+        # Search compound learnings (long-term)
+        ltm = Ai::CompoundLearning.where(account: account)
+                .where("content ILIKE ?", "%#{query}%")
+                .active.limit(limit)
+        results += ltm.map { |l| { tier: "long_term", content: l.content, category: l.category, created_at: l.created_at&.iso8601 } }
+
+        { success: true, query: query, results: results, count: results.size }
       rescue StandardError => e
         { success: false, error: e.message }
       end
@@ -66,8 +101,9 @@ module Ai
         target_agent = params[:agent_id].present? ? account.ai_agents.find_by(id: params[:agent_id]) : agent
         return { success: false, error: "Agent not found" } unless target_agent
 
-        router = Ai::Memory::RouterService.new(agent: target_agent, account: account)
-        result = router.consolidate
+        # MaintenanceService handles tier promotion: short_term → long_term → shared
+        maintenance = Ai::Memory::MaintenanceService.new(account: account)
+        result = maintenance.run_consolidation_pipeline(agent: target_agent)
         { success: true, consolidated: result }
       rescue StandardError => e
         { success: false, error: e.message }
@@ -84,7 +120,7 @@ module Ai
           stm_count = Ai::AgentShortTermMemory.joins(:agent).where(ai_agents: { account_id: account.id }).count
           ltm_count = Ai::CompoundLearning.where(account: account).active.count
           shared_count = Ai::SharedKnowledge.where(account: account).count
-          pools_count = Ai::MemoryPool.joins("INNER JOIN ai_agent_teams ON ai_memory_pools.ai_agent_team_id = ai_agent_teams.id").where(ai_agent_teams: { account_id: account.id }).count
+          pools_count = Ai::MemoryPool.where(account_id: account.id).count
 
           { success: true, stats: { short_term: stm_count, long_term: ltm_count, shared: shared_count, pools: pools_count } }
         end
@@ -93,12 +129,10 @@ module Ai
       end
 
       def list_pools(params = {})
-        pools = Ai::MemoryPool.joins("INNER JOIN ai_agent_teams ON ai_memory_pools.ai_agent_team_id = ai_agent_teams.id")
-                              .where(ai_agent_teams: { account_id: account.id })
-                              .limit(50)
+        pools = Ai::MemoryPool.where(account_id: account.id).limit(50)
         {
           success: true,
-          pools: pools.map { |p| { id: p.id, pool_id: p.pool_id, team_id: p.ai_agent_team_id, entries_count: p.entries_count } }
+          pools: pools.map { |p| { id: p.id, pool_id: p.pool_id, name: p.name, pool_type: p.pool_type } }
         }
       rescue StandardError => e
         { success: false, error: e.message }

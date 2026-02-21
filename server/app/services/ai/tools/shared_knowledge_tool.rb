@@ -75,7 +75,7 @@ module Ai
         attrs[:tags] = Array(params[:tags]) if params[:tags].present?
         attrs[:access_level] = params[:access_level] if params[:access_level].present?
 
-        result = knowledge_service.update(params[:entry_id], **attrs)
+        result = knowledge_service.update(entry_id: params[:entry_id], **attrs)
         result
       end
 
@@ -85,7 +85,7 @@ module Ai
         new_level = params[:access_level] || next_access_level(params[:entry_id])
         return { success: false, error: "Could not determine promotion level" } unless new_level
 
-        result = knowledge_service.promote(params[:entry_id], new_access_level: new_level)
+        result = knowledge_service.promote(entry_id: params[:entry_id], new_access_level: new_level)
         result
       end
 

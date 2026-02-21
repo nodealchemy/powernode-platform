@@ -40,7 +40,7 @@ module Ai
       def query_learnings(params)
         scope = Ai::CompoundLearning.where(account: account)
         scope = scope.where(category: params[:category]) if params[:category].present?
-        scope = scope.where(scope_type: params[:scope]) if params[:scope].present?
+        scope = scope.where(scope: params[:scope]) if params[:scope].present?
         scope = scope.where(status: params[:status] || "active")
 
         if params[:query].present?
@@ -122,13 +122,13 @@ module Ai
           title: learning.title,
           content: learning.content.to_s.truncate(500),
           category: learning.category,
-          scope: learning.scope_type,
+          scope: learning.scope,
           status: learning.status,
           importance_score: learning.importance_score.to_f.round(4),
           effectiveness_score: learning.effectiveness_score.to_f.round(4),
           injection_count: learning.injection_count,
-          positive_outcomes: learning.positive_outcomes,
-          source_type: learning.source_type,
+          positive_outcomes: learning.positive_outcome_count,
+          source_type: learning.extraction_method,
           created_at: learning.created_at&.iso8601
         }
       end

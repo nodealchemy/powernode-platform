@@ -185,7 +185,7 @@ module Ai
 
         enabled = ActiveModel::Type::Boolean.new.cast(params[:enabled])
         skill = skill_service.toggle_skill(skill_id: params[:skill_id], enabled: enabled)
-        { success: true, skill_id: skill.id, enabled: skill.active? }
+        { success: true, skill_id: skill.id, enabled: skill.is_enabled }
       rescue Ai::SkillService::NotFoundError => e
         { success: false, error: e.message }
       rescue StandardError => e
