@@ -60,10 +60,10 @@ module Ai
           used_chars += traj_chars
         end
 
-        # 5. Include shared learnings from cross-execution learning
-        if types.include?("shared_learnings") && (query.present? || task.present?)
+        # 5. Include shared knowledge from pgvector semantic search
+        if (types.include?("shared_learnings") || types.include?("shared_knowledge")) && (query.present? || task.present?)
           search_query = query || extract_task_query(task)
-          learnings_context, learnings_chars = inject_shared_learnings(
+          learnings_context, learnings_chars = inject_shared_knowledge(
             budget_chars - used_chars,
             search_query
           )
@@ -101,7 +101,7 @@ module Ai
             working: context_parts.count { |p| p.start_with?("## Current State") },
             experiential: context_parts.count { |p| p.start_with?("## Relevant Experience") },
             trajectories: context_parts.count { |p| p.start_with?("## Past Trajectories") },
-            shared_learnings: context_parts.count { |p| p.start_with?("## Shared Learnings") },
+            shared_knowledge: context_parts.count { |p| p.start_with?("## Shared Knowledge") },
             compound_learnings: context_parts.count { |p| p.start_with?("## Compound Learnings") },
             graph_rag: context_parts.count { |p| p.start_with?("## Graph Knowledge") }
           }
@@ -220,21 +220,27 @@ module Ai
         [ context_text, context_text.length ]
       end
 
-      def inject_shared_learnings(char_budget, query)
-        return [ nil, 0 ] if query.blank?
+      def inject_shared_knowledge(char_budget, query)
+        return [nil, 0] if query.blank?
 
-        storage = Ai::Memory::StorageService.new(account: @account)
-        context_text = storage.build_learning_context(
+        service = Ai::Memory::SharedKnowledgeService.new(account: @account)
+        result = service.build_context(
           query: query,
-          max_chars: char_budget
+          agent: @agent,
+          token_budget: char_budget / CHARS_PER_TOKEN
         )
 
-        return [ nil, 0 ] if context_text.blank?
+        context_text = result[:context]
+        return [nil, 0] if context_text.blank?
 
-        [ context_text, context_text.length ]
+        if context_text.length > char_budget
+          context_text = context_text.truncate(char_budget)
+        end
+
+        [context_text, context_text.length]
       rescue StandardError => e
-        Rails.logger.warn("[ContextInjector] Shared learnings injection failed: #{e.message}")
-        [ nil, 0 ]
+        Rails.logger.warn("[ContextInjector] Shared knowledge injection failed: #{e.message}")
+        [nil, 0]
       end
 
       def inject_compound_learnings(char_budget, query)

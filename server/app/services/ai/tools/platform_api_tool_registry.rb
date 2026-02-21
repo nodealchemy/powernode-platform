@@ -39,6 +39,12 @@ module Ai
         "list_pools" => "Ai::Tools::MemoryTool",
         # Knowledge & RAG
         "query_knowledge_base" => "Ai::Tools::KnowledgeTool",
+        "list_knowledge_bases" => "Ai::Tools::RagManagementTool",
+        "create_knowledge_base" => "Ai::Tools::RagManagementTool",
+        "add_document" => "Ai::Tools::RagManagementTool",
+        "process_document" => "Ai::Tools::RagManagementTool",
+        "search_documents" => "Ai::Tools::RagManagementTool",
+        "delete_document" => "Ai::Tools::RagManagementTool",
         "get_api_reference" => "Ai::Tools::ApiReferenceTool",
         # KB Article management
         "list_kb_articles" => "Ai::Tools::KbArticleManagementTool",

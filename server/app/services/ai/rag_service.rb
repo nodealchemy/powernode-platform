@@ -384,17 +384,12 @@ module Ai
       (text.length / 4.0).ceil
     end
 
-    def generate_embedding(text, model, provider)
-      embedding_service = Ai::EmbeddingService.new(account: account)
+    def generate_embedding(text, _model = nil, _provider = nil)
+      embedding_service = Ai::Memory::EmbeddingService.new(account: account)
 
       begin
-        result = embedding_service.generate(
-          text: text,
-          model: model,
-          provider: provider
-        )
-        result[:embedding]
-      rescue Ai::EmbeddingService::EmbeddingError => e
+        embedding_service.generate(text)
+      rescue Ai::Memory::EmbeddingService::EmbeddingError => e
         Rails.logger.error "[RagService] Embedding generation failed: #{e.message}"
         raise Ai::RagServiceError, "Failed to generate embedding: #{e.message}"
       rescue StandardError => e
