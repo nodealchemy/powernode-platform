@@ -39,12 +39,17 @@ module Ai
       private
 
       def create_agent(params)
+        provider = account.ai_providers.where(is_active: true).first
+        creator = user || account.users.first
+
         agent = account.ai_agents.create!(
           name: params[:name],
           description: params[:description],
-          model: params[:model] || "claude-sonnet-4",
+          model: params[:model] || provider&.default_model || "claude-sonnet-4",
           status: "active",
-          agent_type: "assistant"
+          agent_type: params[:agent_type] || "assistant",
+          creator: creator,
+          provider: provider
         )
         { success: true, agent_id: agent.id, name: agent.name }
       rescue ActiveRecord::RecordInvalid => e
@@ -64,7 +69,7 @@ module Ai
       end
 
       def get_agent(params)
-        agent_record = account.ai_agents.find(params[:agent_id])
+        agent_record = account.ai_agents.find(params[:agent_id] || params[:id])
         {
           success: true,
           agent: {
@@ -84,7 +89,7 @@ module Ai
       end
 
       def update_agent(params)
-        agent_record = account.ai_agents.find(params[:agent_id])
+        agent_record = account.ai_agents.find(params[:agent_id] || params[:id])
         attrs = {}
         attrs[:name] = params[:name] if params[:name].present?
         attrs[:description] = params[:description] if params[:description].present?

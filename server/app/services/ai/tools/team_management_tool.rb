@@ -44,7 +44,9 @@ module Ai
       def create_team(params)
         team = account.ai_agent_teams.create!(
           name: params[:name],
+          description: params[:description],
           team_type: params[:team_type] || "sequential",
+          coordination_strategy: params[:coordination_strategy] || "manager_led",
           status: "active"
         )
         { success: true, team_id: team.id, name: team.name }
@@ -56,9 +58,8 @@ module Ai
         team = account.ai_agent_teams.find(params[:team_id])
         agent = account.ai_agents.find(params[:agent_id])
         member = team.members.create!(
-          ai_agent: agent,
-          role: params[:role] || "worker",
-          status: "active"
+          agent: agent,
+          role: params[:role] || "worker"
         )
         { success: true, member_id: member.id }
       rescue ActiveRecord::RecordNotFound => e
@@ -73,9 +74,9 @@ module Ai
       end
 
       def get_team(params)
-        team = account.ai_agent_teams.find(params[:team_id])
+        team = account.ai_agent_teams.find(params[:team_id] || params[:id])
         members = team.members.includes(:agent).map do |m|
-          { agent_name: m.agent.name, role: m.role, status: m.status }
+          { agent_name: m.agent.name, role: m.role, is_lead: m.is_lead }
         end
         {
           success: true,
@@ -87,7 +88,6 @@ module Ai
             coordination_strategy: team.coordination_strategy,
             team_config: team.team_config,
             review_config: team.review_config,
-            coordinator_enabled: team.coordinator_enabled,
             members: members
           }
         }
@@ -106,7 +106,7 @@ module Ai
       end
 
       def update_team(params)
-        team = account.ai_agent_teams.find(params[:team_id])
+        team = account.ai_agent_teams.find(params[:team_id] || params[:id])
         attrs = {}
         attrs[:name] = params[:name] if params[:name].present?
         attrs[:description] = params[:description] if params[:description].present?
