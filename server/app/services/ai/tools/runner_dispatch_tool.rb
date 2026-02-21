@@ -28,6 +28,8 @@ module Ai
         return { success: false, error: "No available runner" } unless runner
 
         service.dispatch(worktree: worktree, task_input: params[:task_input] || {}, runner: runner)
+      rescue ActiveRecord::RecordNotFound => e
+        { success: false, error: e.message }
       end
     end
   end

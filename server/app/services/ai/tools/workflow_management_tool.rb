@@ -41,7 +41,8 @@ module Ai
           description: params[:description],
           status: "active",
           version: "1.0.0",
-          slug: params[:name]&.parameterize
+          slug: params[:name]&.parameterize,
+          creator: user
         )
         { success: true, workflow_id: workflow.id, name: workflow.name }
       rescue ActiveRecord::RecordInvalid => e

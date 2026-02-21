@@ -15,11 +15,12 @@ module Ai
       return { success: false, error: 'No active Gitea credential found' } unless credential
 
       client = Devops::Git::ApiClient.for(credential)
-      owner = credential.credentials['username'] || credential.name
 
       repo = create_repository(client)
       return repo unless repo[:success] != false
 
+      # Extract owner from API response — credential name may not match Gitea username
+      owner = repo.dig("owner", "login") || credential.credentials['username'] || credential.name
       files = create_initial_files(client, owner)
 
       {
@@ -36,8 +37,7 @@ module Ai
     private
 
     def find_gitea_credential
-      gitea_provider = Devops::GitProvider.where(account: account).find_by(provider_type: 'gitea') ||
-                       Devops::GitProvider.find_by(provider_type: 'gitea')
+      gitea_provider = Devops::GitProvider.find_by(provider_type: 'gitea')
       return nil unless gitea_provider
 
       account.git_provider_credentials
