@@ -237,7 +237,8 @@ class RagApiService extends BaseApiService {
   ): Promise<{ embedded_count: number }> {
     return this.post(
       `${this.basePath}/knowledge_bases/${knowledgeBaseId}/embed`,
-      { document_id: documentId }
+      { document_id: documentId },
+      { timeout: 60000 }
     );
   }
 
@@ -256,7 +257,8 @@ class RagApiService extends BaseApiService {
   ): Promise<QueryResult> {
     return this.post<QueryResult>(
       `${this.basePath}/knowledge_bases/${knowledgeBaseId}/query`,
-      data
+      data,
+      { timeout: 30000 }
     );
   }
 
