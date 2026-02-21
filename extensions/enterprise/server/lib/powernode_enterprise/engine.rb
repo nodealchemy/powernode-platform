@@ -14,6 +14,13 @@ module PowernodeEnterprise
       end
     end
 
+    # Exclude decorators from Zeitwerk autoloading — they use class_eval and
+    # do not define constants matching their file paths.
+    initializer "powernode_enterprise.ignore_decorators", before: :set_autoload_paths do
+      decorators_path = root.join("app", "decorators")
+      Rails.autoloaders.main.ignore(decorators_path) if decorators_path.exist?
+    end
+
     # Load decorators that extend core models
     config.to_prepare do
       Dir[PowernodeEnterprise::Engine.root.join("app", "decorators", "**", "*_decorator.rb")].each do |decorator|

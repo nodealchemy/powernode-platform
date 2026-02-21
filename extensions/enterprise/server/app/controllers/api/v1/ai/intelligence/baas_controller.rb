@@ -4,7 +4,7 @@ module Api
   module V1
     module Ai
       module Intelligence
-        class BaasController < ApplicationController
+        class BaaSController < ApplicationController
           include EnterpriseFeatureGate
           require_enterprise_feature "intelligence"
           before_action :validate_permissions
