@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_20_052301) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_21_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -1144,8 +1144,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_20_052301) do
     t.string "category", null: false
     t.decimal "confidence_score", precision: 5, scale: 4, default: "0.5", null: false
     t.text "content", null: false
+    t.text "contradiction_note"
+    t.datetime "contradiction_resolved_at"
     t.datetime "created_at", null: false
     t.decimal "decay_rate", precision: 5, scale: 4, default: "0.003"
+    t.datetime "disproven_at"
+    t.uuid "disproven_by_id"
     t.decimal "effectiveness_score", precision: 5, scale: 4
     t.vector "embedding", limit: 1536
     t.datetime "expires_at"
@@ -1166,6 +1170,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_20_052301) do
     t.jsonb "tags", default: [], null: false
     t.string "title", limit: 255
     t.datetime "updated_at", null: false
+    t.datetime "verified_at"
+    t.uuid "verified_by_id"
     t.index ["account_id", "category"], name: "index_ai_compound_learnings_on_account_id_and_category"
     t.index ["account_id", "scope"], name: "index_ai_compound_learnings_on_account_id_and_scope"
     t.index ["account_id", "status"], name: "index_ai_compound_learnings_on_account_id_and_status"
@@ -2072,10 +2078,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_20_052301) do
     t.uuid "ai_skill_id"
     t.decimal "confidence", precision: 5, scale: 4, default: "1.0"
     t.datetime "created_at", null: false
+    t.decimal "decay_rate", precision: 5, scale: 4, default: "0.001"
     t.text "description"
     t.vector "embedding", limit: 1536
     t.string "entity_type"
     t.uuid "knowledge_base_id"
+    t.datetime "last_quality_recalc_at"
     t.datetime "last_seen_at"
     t.integer "mention_count", default: 1
     t.uuid "merged_into_id"
@@ -2084,6 +2092,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_20_052301) do
     t.string "node_type", null: false
     t.ltree "path"
     t.jsonb "properties", default: {}
+    t.decimal "quality_score", precision: 5, scale: 4
     t.uuid "source_document_id"
     t.string "status", default: "active"
     t.datetime "updated_at", null: false
@@ -3378,9 +3387,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_20_052301) do
     t.uuid "created_by_id"
     t.vector "embedding", limit: 1536
     t.string "integrity_hash"
+    t.datetime "last_quality_recalc_at"
     t.datetime "last_used_at"
     t.jsonb "provenance", default: {}
     t.decimal "quality_score", precision: 5, scale: 4
+    t.integer "rating_count", default: 0, null: false
+    t.integer "rating_sum", default: 0, null: false
     t.uuid "source_id"
     t.string "source_type"
     t.string "tags", default: [], array: true
