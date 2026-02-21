@@ -41,7 +41,7 @@ export const SkillGraphStatisticsPanel: React.FC<SkillGraphStatisticsPanelProps>
     { label: 'Total Skills', value: stats.totalSkills, icon: Wrench, colorClass: 'text-theme-info', bgClass: 'bg-theme-info' },
     { label: 'Dependencies', value: stats.totalDeps, icon: Link2, colorClass: 'text-theme-success', bgClass: 'bg-theme-success' },
     { label: 'Avg Deps / Skill', value: stats.avgDeps.toFixed(1), icon: GitBranch, colorClass: 'text-theme-warning', bgClass: 'bg-theme-warning' },
-    { label: 'Categories', value: stats.categories.length, icon: LayoutGrid, colorClass: 'text-theme-interactive-primary', bgClass: 'bg-theme-interactive-primary' },
+    { label: 'Categories', value: stats.categories.length, icon: LayoutGrid, colorClass: 'text-theme-interactive-primary', bgClass: 'bg-theme-surface-selected' },
   ];
 
   return (
@@ -58,7 +58,7 @@ export const SkillGraphStatisticsPanel: React.FC<SkillGraphStatisticsPanelProps>
                     {typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}
                   </p>
                 </div>
-                <div className={`h-10 w-10 ${stat.bgClass} bg-opacity-10 rounded-lg flex items-center justify-center`}>
+                <div className={`h-10 w-10 ${stat.bgClass} rounded-lg flex items-center justify-center`}>
                   <Icon className={`h-5 w-5 ${stat.colorClass}`} />
                 </div>
               </div>

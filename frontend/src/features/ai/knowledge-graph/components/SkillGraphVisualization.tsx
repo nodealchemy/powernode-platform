@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   ReactFlow,
   MiniMap,
@@ -14,6 +14,7 @@ import {
   Handle,
   Position,
   Connection,
+  type ReactFlowInstance,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Wrench, Search, RefreshCw, Unlink } from 'lucide-react';
@@ -82,7 +83,7 @@ function SkillGraphNode({ data }: { data: SkillGraphNodeData }) {
           </div>
         </div>
         {data.dependencyCount > 0 && (
-          <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-theme-warning bg-opacity-10 text-theme-warning flex-shrink-0">
+          <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-theme-warning text-theme-warning flex-shrink-0">
             {data.dependencyCount} deps
           </span>
         )}
@@ -110,6 +111,7 @@ export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = (
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [connectModal, setConnectModal] = useState<{ source: string; target: string } | null>(null);
   const [connectRelation, setConnectRelation] = useState<SkillEdgeRelation>('requires');
+  const rfInstance = useRef<ReactFlowInstance | null>(null);
 
   const { data: graphData, isLoading: graphLoading } = useSkillGraph();
   const createEdge = useCreateSkillEdge();
@@ -216,6 +218,11 @@ export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = (
     setNodes(arrangedNodes);
     setEdges(flowEdges);
     setLoading(false);
+
+    // Fit viewport after layout changes (toggle, filter, search)
+    setTimeout(() => {
+      rfInstance.current?.fitView({ padding: 0.3 });
+    }, 50);
   }, [graphData, filteredNodes, graphLoading, setNodes, setEdges]);
 
   const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
@@ -325,6 +332,7 @@ export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = (
             onEdgesChange={onEdgesChange}
             onNodeClick={onNodeClick}
             onConnect={onConnect}
+            onInit={(instance) => { rfInstance.current = instance; }}
             nodeTypes={nodeTypes}
             fitView
             fitViewOptions={{ padding: 0.3 }}
