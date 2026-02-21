@@ -996,6 +996,9 @@ if Rails.env.development? || Rails.env.test?
   puts "\n🤖 Loading AI Concierge Agent..."
   load Rails.root.join('db', 'seeds', 'ai_concierge_seed.rb')
 
+  puts "\n📚 Loading RAG Knowledge Base seed..."
+  load Rails.root.join('db', 'seeds', 'ai_knowledge_base_seed.rb')
+
   puts "\n🤖 Loading Autonomy Data (consolidation + seeding)..."
   load Rails.root.join('db', 'seeds', 'autonomy_data_seed.rb')
 
