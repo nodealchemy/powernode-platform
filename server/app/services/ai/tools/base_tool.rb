@@ -36,9 +36,10 @@ module Ai
         end
       end
 
-      def initialize(account:, agent: nil)
+      def initialize(account:, agent: nil, user: nil)
         @account = account
         @agent = agent
+        @user = user
       end
 
       def execute(params:)
@@ -73,7 +74,7 @@ module Ai
 
       private
 
-      attr_reader :account, :agent
+      attr_reader :account, :agent, :user
     end
   end
 end

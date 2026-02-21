@@ -205,15 +205,23 @@ module Api
             return nil
           end
 
-          # Route platform tools directly to McpPlatformToolRegistrar
-          # (bypasses RegistryService in-memory lookup which doesn't persist platform tools)
+          # Route platform tools: try PlatformApiToolRegistry first, then
+          # fall back to Introspection tools (platform.health, platform.metrics, etc.)
           if tool_name.start_with?("platform.")
-            result = ::Ai::Tools::McpPlatformToolRegistrar.execute_tool(
-              tool_name,
-              params: arguments,
-              account: current_account,
-              user: current_user
-            )
+            begin
+              result = ::Ai::Tools::McpPlatformToolRegistrar.execute_tool(
+                tool_name,
+                params: arguments,
+                account: current_account,
+                user: current_user
+              )
+            rescue ArgumentError
+              result = ::Ai::Introspection::McpToolRegistrar.execute_tool(
+                tool_name,
+                params: arguments.symbolize_keys,
+                account: current_account
+              )
+            end
           else
             protocol_service = build_protocol_service
             result = protocol_service.invoke_tool(

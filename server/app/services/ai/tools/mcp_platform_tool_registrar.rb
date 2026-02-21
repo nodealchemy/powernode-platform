@@ -5,6 +5,20 @@ module Ai
     class McpPlatformToolRegistrar
       TOOL_ID_PREFIX = "platform"
 
+      # Maps MCP registry keys to internal tool action names where they differ.
+      # Most tools use identical registry/action names; only KnowledgeGraphTool
+      # uses shortened internal names (e.g. "search" instead of "search_knowledge_graph").
+      ACTION_ALIASES = {
+        "search_knowledge_graph" => "search",
+        "reason_knowledge_graph" => "reason",
+        "get_graph_node" => "get_node",
+        "list_graph_nodes" => "list_nodes",
+        "get_graph_neighbors" => "get_neighbors",
+        "graph_statistics" => "statistics",
+        "get_subgraph" => "subgraph",
+        "extract_to_knowledge_graph" => "extract"
+      }.freeze
+
       class << self
         def register_all!(account:)
           registry = ::Mcp::RegistryService.new(account: account)
@@ -47,8 +61,18 @@ module Ai
             "user=#{user&.id} account=#{account.id} agent=#{agent_id}"
           )
 
-          tool_instance = tool_class.new(account: account)
-          tool_instance.execute(params: params.symbolize_keys)
+          execution_params = params.symbolize_keys
+
+          # Multi-action tools use an :action param to route internally.
+          # Auto-inject the registry key as the action when the tool class
+          # handles multiple registry entries (e.g. create_agent, list_agents
+          # all map to AgentManagementTool).
+          if tool_class.definition[:parameters]&.key?(:action) && !execution_params.key?(:action)
+            execution_params[:action] = ACTION_ALIASES.fetch(tool_name, tool_name)
+          end
+
+          tool_instance = tool_class.new(account: account, user: user)
+          tool_instance.execute(params: execution_params)
         end
 
         private
@@ -131,6 +155,14 @@ module Ai
         end
 
         def find_tool_class(tool_name)
+          # Look up via the registry hash first (handles multi-action tools
+          # where multiple registry keys map to one tool class)
+          class_name = PlatformApiToolRegistry::TOOLS[tool_name]
+          if class_name
+            return class_name.constantize rescue nil
+          end
+
+          # Fall back to matching by definition name (single-action tools)
           tool_classes.find { |klass| klass.definition[:name] == tool_name }
         end
       end
