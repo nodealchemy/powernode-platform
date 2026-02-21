@@ -28,9 +28,9 @@ export interface KnowledgeEdge {
 }
 
 export interface NodeDetail extends KnowledgeNode {
-  neighbors: NeighborInfo[];
-  incoming_edges: KnowledgeEdge[];
-  outgoing_edges: KnowledgeEdge[];
+  neighbors?: NeighborInfo[];
+  incoming_edges?: KnowledgeEdge[];
+  outgoing_edges?: KnowledgeEdge[];
 }
 
 export interface NeighborInfo {

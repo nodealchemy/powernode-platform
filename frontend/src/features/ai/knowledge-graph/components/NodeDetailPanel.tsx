@@ -94,7 +94,7 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
                 </div>
                 <div>
                   <span className="text-theme-tertiary">Neighbors:</span>{' '}
-                  <span className="font-medium text-theme-primary">{nodeDetail.neighbors.length}</span>
+                  <span className="font-medium text-theme-primary">{nodeDetail.neighbors?.length ?? 0}</span>
                 </div>
               </div>
             </Card>
@@ -135,14 +135,14 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
             )}
 
             {/* Outgoing Edges */}
-            {nodeDetail.outgoing_edges.length > 0 && (
+            {(nodeDetail.outgoing_edges?.length ?? 0) > 0 && (
               <div>
                 <h4 className="text-sm font-semibold text-theme-primary mb-2 flex items-center gap-1">
                   <ArrowRight className="h-4 w-4" />
-                  Outgoing ({nodeDetail.outgoing_edges.length})
+                  Outgoing ({nodeDetail.outgoing_edges?.length})
                 </h4>
                 <div className="space-y-1">
-                  {nodeDetail.outgoing_edges.map((edge) => (
+                  {nodeDetail.outgoing_edges?.map((edge) => (
                     <button
                       key={edge.id}
                       onClick={() => onNodeSelect(edge.target_id)}
@@ -161,14 +161,14 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
             )}
 
             {/* Incoming Edges */}
-            {nodeDetail.incoming_edges.length > 0 && (
+            {(nodeDetail.incoming_edges?.length ?? 0) > 0 && (
               <div>
                 <h4 className="text-sm font-semibold text-theme-primary mb-2 flex items-center gap-1">
                   <ArrowLeft className="h-4 w-4" />
-                  Incoming ({nodeDetail.incoming_edges.length})
+                  Incoming ({nodeDetail.incoming_edges?.length})
                 </h4>
                 <div className="space-y-1">
-                  {nodeDetail.incoming_edges.map((edge) => (
+                  {nodeDetail.incoming_edges?.map((edge) => (
                     <button
                       key={edge.id}
                       onClick={() => onNodeSelect(edge.source_id)}

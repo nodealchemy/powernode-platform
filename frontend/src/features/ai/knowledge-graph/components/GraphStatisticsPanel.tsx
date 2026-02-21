@@ -53,8 +53,8 @@ export const GraphStatisticsPanel: React.FC = () => {
       label: 'Entity Types',
       value: Object.keys(stats.by_entity_type || {}).length,
       icon: BarChart3,
-      colorClass: 'text-theme-interactive-primary',
-      bgClass: 'bg-theme-interactive-primary',
+      colorClass: 'text-theme-error',
+      bgClass: 'bg-theme-error',
     },
   ];
 
