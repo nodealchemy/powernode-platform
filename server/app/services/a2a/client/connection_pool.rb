@@ -104,7 +104,8 @@ module A2a
     end
 
     # Simple connection pool wrapper (if connection_pool gem not available)
-    module ConnectionPool
+    # Guarded to avoid conflict with the connection_pool gem's ::ConnectionPool class
+    module ConnectionPoolShim
       class Wrapper
         def initialize(size:, timeout:, &block)
           @size = size

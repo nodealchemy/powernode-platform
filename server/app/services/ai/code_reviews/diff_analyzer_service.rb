@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Ai
-  module CodeReview
+  module CodeReviews
     class DiffAnalyzerService
       CHANGE_TYPES = %w[new_code modification deletion refactor rename].freeze
 

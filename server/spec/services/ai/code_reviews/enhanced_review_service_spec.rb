@@ -2,30 +2,7 @@
 
 require 'rails_helper'
 
-# Ai::CodeReview is a model class (not a module), so Zeitwerk cannot autoload
-# Ai::CodeReview::EnhancedReviewService or DiffAnalyzerService.
-# We load both service files by extracting their class bodies and evaluating
-# them as standalone top-level constants.
-
-# Load DiffAnalyzerService first (dependency)
-_da_path = Rails.root.join('app/services/ai/code_review/diff_analyzer_service.rb')
-_da_lines = File.readlines(_da_path)
-_da_start = _da_lines.index { |l| l.strip.start_with?('class DiffAnalyzerService') }
-_da_body = _da_lines[(_da_start + 1)...-3].join
-DiffAnalyzerServiceForReview = Class.new
-DiffAnalyzerServiceForReview.class_eval(_da_body, _da_path.to_s, _da_start + 2)
-
-# Load EnhancedReviewService
-_er_path = Rails.root.join('app/services/ai/code_review/enhanced_review_service.rb')
-_er_lines = File.readlines(_er_path)
-_er_start = _er_lines.index { |l| l.strip.start_with?('class EnhancedReviewService') }
-_er_body = _er_lines[(_er_start + 1)...-3].join
-# Replace DiffAnalyzerService.new with DiffAnalyzerServiceForReview.new
-_er_body = _er_body.gsub('DiffAnalyzerService.new', 'DiffAnalyzerServiceForReview.new')
-EnhancedReviewServiceTestKlass = Class.new
-EnhancedReviewServiceTestKlass.class_eval(_er_body, _er_path.to_s, _er_start + 2)
-
-RSpec.describe EnhancedReviewServiceTestKlass, type: :service do
+RSpec.describe Ai::CodeReviews::EnhancedReviewService, type: :service do
   let(:account) { create(:account) }
 
   subject(:service) { described_class.new(account: account) }

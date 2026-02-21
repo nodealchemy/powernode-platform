@@ -2,17 +2,7 @@
 
 require 'rails_helper'
 
-# Ai::CodeReview is a model class (not a module), so Zeitwerk cannot autoload
-# Ai::CodeReview::DiffAnalyzerService. We bypass Zeitwerk entirely by building
-# the class with Class.new and assigning it to a top-level test constant.
-_path = Rails.root.join('app/services/ai/code_review/diff_analyzer_service.rb')
-_lines = File.readlines(_path)
-_start = _lines.index { |l| l.strip.start_with?('class DiffAnalyzerService') }
-_body = _lines[(_start + 1)...-3].join
-DiffAnalyzerServiceTestKlass = Class.new
-DiffAnalyzerServiceTestKlass.class_eval(_body, _path.to_s, _start + 2)
-
-RSpec.describe DiffAnalyzerServiceTestKlass, type: :service do
+RSpec.describe Ai::CodeReviews::DiffAnalyzerService, type: :service do
   subject(:analyzer) { described_class.new }
 
   describe '#analyze' do

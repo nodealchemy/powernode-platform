@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Ai
-  module CodeReview
+  module CodeReviews
     class EnhancedReviewService
       SEVERITY_LEVELS = %w[info warning critical].freeze
       COMMENT_TYPES = %w[issue suggestion praise question].freeze

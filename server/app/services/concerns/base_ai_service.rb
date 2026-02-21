@@ -22,18 +22,18 @@
 module BaseAiService
   extend ActiveSupport::Concern
 
+  # Legacy exception aliases for backward compatibility
+  # New code should use AiExceptions module directly
+  ServiceError = AiExceptions::ServiceError
+  ValidationError = AiExceptions::ValidationError
+  ExecutionError = AiExceptions::ExecutionError
+
   included do
     include ActiveModel::Model
     include ActiveModel::Attributes
 
     attr_accessor :account, :user
     attr_reader :logger, :telemetry
-
-    # Legacy exception aliases for backward compatibility
-    # New code should use AiExceptions module directly
-    ServiceError = AiExceptions::ServiceError
-    ValidationError = AiExceptions::ValidationError
-    ExecutionError = AiExceptions::ExecutionError
   end
 
   # =============================================================================

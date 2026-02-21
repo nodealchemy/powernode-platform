@@ -2,7 +2,18 @@
 
 module Devops
   module StepHandlers
-    class CodeFactoryGateHandler < BaseHandler
+    class CodeFactoryGateHandler
+      class HandlerError < StandardError; end
+
+      attr_reader :step_execution, :step, :pipeline_run, :context
+
+      def initialize(step_execution:, context: {})
+        @step_execution = step_execution
+        @step = step_execution.pipeline_step
+        @pipeline_run = step_execution.pipeline_run
+        @context = context.with_indifferent_access
+      end
+
       def execute
         changed_files = resolve_input("changed_files") || []
         pr_number = resolve_input("pr_number")&.to_i
@@ -45,7 +56,19 @@ module Devops
       private
 
       def account
-        @account ||= step.pipeline&.account
+        @account ||= pipeline_run&.account
+      end
+
+      def resolve_input(key)
+        context[key] || step.configuration&.dig("inputs", key)
+      end
+
+      def success_result(**outputs)
+        { success: true, outputs: outputs, error: nil }
+      end
+
+      def failure_result(message)
+        { success: false, outputs: {}, error: message }
       end
     end
   end
