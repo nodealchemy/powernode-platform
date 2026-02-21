@@ -193,7 +193,11 @@ module Api
             }
           end
 
-          { "tools" => (agent_tools["tools"] || []) + platform_tools }
+          introspection_tools = ::Ai::Introspection::McpToolRegistrar::INTROSPECTION_TOOLS.map do |defn|
+            { "name" => defn[:id], "description" => defn[:description], "inputSchema" => defn[:input_schema] }
+          end
+
+          { "tools" => (agent_tools["tools"] || []) + platform_tools + introspection_tools }
         end
 
         def handle_tools_call(params)
@@ -234,11 +238,13 @@ module Api
           end
 
           # Wrap in MCP content format
-          {
+          response_payload = {
             content: [
               { type: "text", text: result.to_json }
             ]
           }
+          response_payload[:isError] = true if result.is_a?(Hash) && result[:success] == false
+          response_payload
         end
 
         def handle_resources_list(params)
@@ -297,7 +303,7 @@ module Api
         end
 
         def build_input_schema(parameters)
-          return { "type" => "object", "properties" => {} } if parameters.blank?
+          return { "type" => "object", "properties" => {}, "required" => [] } if parameters.blank?
 
           properties = {}
           required = []
