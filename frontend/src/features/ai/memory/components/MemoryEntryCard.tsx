@@ -51,7 +51,7 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
                 {entry.key}
               </span>
               <Badge variant={TIER_BADGE_VARIANT[entry.tier] || 'default'} size="sm">
-                {entry.tier.replace('_', ' ')}
+                {entry.tier?.replace('_', ' ') ?? 'unknown'}
               </Badge>
               {entry.memory_type && (
                 <Badge variant="outline" size="sm">

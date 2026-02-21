@@ -258,7 +258,7 @@ class RagApiService extends BaseApiService {
     return this.post<QueryResult>(
       `${this.basePath}/knowledge_bases/${knowledgeBaseId}/query`,
       data,
-      { timeout: 30000 }
+      { timeout: 60000 }
     );
   }
 
