@@ -1,9 +1,13 @@
 import { SkillGraphVisualization } from '@/features/ai/knowledge-graph/components/SkillGraphVisualization';
 
-export function SkillGraphEmbed() {
+interface SkillGraphEmbedProps {
+  onViewSkill?: (skillId: string) => void;
+}
+
+export function SkillGraphEmbed({ onViewSkill }: SkillGraphEmbedProps) {
   return (
     <div data-testid="skill-graph-embed">
-      <SkillGraphVisualization />
+      <SkillGraphVisualization onViewSkill={onViewSkill} />
     </div>
   );
 }

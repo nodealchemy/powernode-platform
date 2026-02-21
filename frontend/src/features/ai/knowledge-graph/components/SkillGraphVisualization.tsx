@@ -99,9 +99,10 @@ const nodeTypes: NodeTypes = {
 
 interface SkillGraphVisualizationProps {
   onNodeSelect?: (nodeId: string) => void;
+  onViewSkill?: (skillId: string) => void;
 }
 
-export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = ({ onNodeSelect: externalNodeSelect }) => {
+export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = ({ onNodeSelect: externalNodeSelect, onViewSkill }) => {
   const [loading, setLoading] = useState(true);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [searchFilter, setSearchFilter] = useState('');
@@ -371,6 +372,7 @@ export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = (
         graphData={graphData || { nodes: [], edges: [] }}
         onClose={() => setSelectedNodeId(null)}
         onNodeSelect={setSelectedNodeId}
+        onViewSkill={onViewSkill}
       />
 
       {/* Connection Modal */}

@@ -12,6 +12,7 @@ interface SkillNodeDetailPanelProps {
   graphData: SkillGraphResult;
   onClose: () => void;
   onNodeSelect: (nodeId: string) => void;
+  onViewSkill?: (skillId: string) => void;
 }
 
 const RELATION_BADGE_VARIANT: Record<SkillEdgeRelation, 'warning' | 'info' | 'success' | 'default'> = {
@@ -26,6 +27,7 @@ export const SkillNodeDetailPanel: React.FC<SkillNodeDetailPanelProps> = ({
   graphData,
   onClose,
   onNodeSelect,
+  onViewSkill,
 }) => {
   const navigate = useNavigate();
 
@@ -184,7 +186,13 @@ export const SkillNodeDetailPanel: React.FC<SkillNodeDetailPanelProps> = ({
             variant="secondary"
             size="sm"
             className="w-full"
-            onClick={() => navigate('/app/ai/skills')}
+            onClick={() => {
+              if (onViewSkill && node.skill_id) {
+                onViewSkill(node.skill_id);
+              } else {
+                navigate('/app/ai/knowledge/skills');
+              }
+            }}
           >
             <Wrench className="h-3.5 w-3.5 mr-1.5" />
             View Full Skill

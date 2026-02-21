@@ -238,7 +238,14 @@ export function SkillsPage({ onActionsReady }: SkillsPageProps) {
       )}
 
       {/* Skill Graph Tab */}
-      {activeTab === 'graph' && <SkillGraphEmbed />}
+      {activeTab === 'graph' && (
+        <SkillGraphEmbed
+          onViewSkill={(skillId) => {
+            setActiveTab('skills');
+            setSelectedSkillId(skillId);
+          }}
+        />
+      )}
 
       {/* Proposals Tab */}
       {activeTab === 'proposals' && <ProposalsList />}
