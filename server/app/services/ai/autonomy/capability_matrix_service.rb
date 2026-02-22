@@ -52,6 +52,22 @@ module Ai
         }
       }.freeze
 
+      # Normalize common action aliases to canonical matrix keys.
+      # The security gate passes generic action types (e.g. "execute") that must
+      # map to the specific matrix vocabulary.
+      ACTION_ALIASES = {
+        "execute" => "execute_tool",
+        "run" => "execute_tool",
+        "generate" => "execute_tool",
+        "call_api" => "external_api_call",
+        "api_call" => "external_api_call",
+        "spawn" => "spawn_agent",
+        "create_agent" => "spawn_agent",
+        "read" => "read_data",
+        "delete" => "delete_data",
+        "modify" => "modify_system"
+      }.freeze
+
       ACTION_TYPES = DEFAULT_MATRIX["supervised"].keys.freeze
 
       attr_reader :account
@@ -67,7 +83,8 @@ module Ai
       def check(agent:, action_type:)
         tier = agent_tier(agent)
         matrix = effective_matrix
-        policy = matrix.dig(tier, action_type.to_s)
+        canonical = normalize_action(action_type.to_s)
+        policy = matrix.dig(tier, canonical)
 
         policy&.to_sym || :denied
       end
@@ -94,6 +111,12 @@ module Ai
       end
 
       private
+
+      def normalize_action(action_type)
+        return action_type if ACTION_TYPES.include?(action_type)
+
+        ACTION_ALIASES[action_type] || action_type
+      end
 
       def agent_tier(agent)
         trust_score = Ai::AgentTrustScore.find_by(agent_id: agent.id)

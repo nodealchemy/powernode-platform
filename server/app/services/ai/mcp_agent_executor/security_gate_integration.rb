@@ -14,7 +14,10 @@ class Ai::McpAgentExecutor
       result = gate.pre_execution_gate(
         input_text: input_text,
         action_type: "execute",
-        action_context: action_context.merge(agent_id: @agent.id)
+        action_context: action_context.merge(
+          agent_id: @agent.id,
+          user_id: @execution&.user_id
+        )
       )
 
       return nil if result[:allowed]

@@ -77,7 +77,7 @@ module Ai
         return quarantine_denial if quarantine_denial
 
         denial = evaluate_policies(agent, action_type, action_context) ||
-                 evaluate_trust_gate(agent, action_type) ||
+                 evaluate_trust_gate(agent, action_type, action_context) ||
                  evaluate_circuit_breaker(agent, action_type) ||
                  evaluate_budget_gate(agent, action_context)
 
@@ -241,7 +241,7 @@ module Ai
         nil
       end
 
-      def evaluate_trust_gate(agent, action_type)
+      def evaluate_trust_gate(agent, action_type, action_context = {})
         # Use capability matrix for tier-based policy enforcement
         capability_service = Ai::Autonomy::CapabilityMatrixService.new(account: @account)
         policy = capability_service.check(agent: agent, action_type: action_type)
@@ -250,6 +250,10 @@ module Ai
         when :denied
           { allowed: false, reason: "Capability matrix denies '#{action_type}' for agent tier", enforcement: "block" }
         when :requires_approval
+          # When a human user initiates execution, the approval is implicit
+          user_id = action_context[:user_id] || action_context["user_id"]
+          return nil if user_id.present?
+
           { allowed: false, reason: "Capability matrix requires approval for '#{action_type}'", enforcement: "approval_required" }
         else
           nil
