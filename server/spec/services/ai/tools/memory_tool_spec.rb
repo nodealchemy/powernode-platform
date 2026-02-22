@@ -16,11 +16,13 @@ RSpec.describe Ai::Tools::MemoryTool do
       expect(defn[:parameters]).to include(:action, :pool_id, :key)
     end
 
-    it "marks action, pool_id, and key as required" do
+    it "marks action as required" do
       params = described_class.definition[:parameters]
       expect(params[:action][:required]).to be true
-      expect(params[:pool_id][:required]).to be true
-      expect(params[:key][:required]).to be true
+      # pool_id and key are optional in the base definition but
+      # required per-action (see action_definitions)
+      expect(params[:pool_id][:required]).to be false
+      expect(params[:key][:required]).to be false
     end
   end
 
@@ -71,7 +73,8 @@ RSpec.describe Ai::Tools::MemoryTool do
 
     context "parameter validation" do
       it "raises ArgumentError when required params are missing" do
-        expect { tool.execute(params: { action: "read_shared_memory" }) }.to raise_error(ArgumentError, /Missing required parameters/)
+        # action is the only required param in the base definition
+        expect { tool.execute(params: {}) }.to raise_error(ArgumentError, /Missing required parameters/)
       end
     end
   end

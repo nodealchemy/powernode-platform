@@ -77,26 +77,32 @@ FactoryBot.define do
 
     trait :positive_roi do
       ai_cost_usd { 50.00 }
-      total_cost_usd { 60.00 }
-      total_value_usd { 300.00 }
-      roi_percentage { 400.00 }
-      net_benefit_usd { 240.00 }
+      infrastructure_cost_usd { 10.00 }
+      # total_cost_usd recalculated to 60 by callback
+      time_saved_value_usd { 200.00 }
+      error_reduction_value_usd { 50.00 }
+      throughput_value_usd { 50.00 }
+      # total_value_usd recalculated to 300 by callback
     end
 
     trait :negative_roi do
       ai_cost_usd { 200.00 }
-      total_cost_usd { 250.00 }
-      total_value_usd { 100.00 }
-      roi_percentage { -60.00 }
-      net_benefit_usd { -150.00 }
+      infrastructure_cost_usd { 50.00 }
+      # total_cost_usd recalculated to 250 by callback
+      time_saved_value_usd { 50.00 }
+      error_reduction_value_usd { 30.00 }
+      throughput_value_usd { 20.00 }
+      # total_value_usd recalculated to 100 by callback
     end
 
     trait :break_even do
-      ai_cost_usd { 100.00 }
-      total_cost_usd { 100.00 }
-      total_value_usd { 100.00 }
-      roi_percentage { 0.00 }
-      net_benefit_usd { 0.00 }
+      ai_cost_usd { 80.00 }
+      infrastructure_cost_usd { 20.00 }
+      # total_cost_usd recalculated to 100 by callback
+      time_saved_value_usd { 60.00 }
+      error_reduction_value_usd { 20.00 }
+      throughput_value_usd { 20.00 }
+      # total_value_usd recalculated to 100 by callback
     end
 
     trait :with_baseline do

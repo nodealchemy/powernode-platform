@@ -10,6 +10,8 @@ RSpec.describe 'Api::V1::Mcp::Hosting', type: :request do
   let(:hosting_service) { instance_double(Mcp::HostingService) }
 
   before do
+    # Routes for MCP hosting are defined in the enterprise submodule
+    skip 'MCP hosting routes require enterprise module' unless Rails.application.routes.url_helpers.method_defined?(:api_v1_mcp_hosting_servers_path)
     allow(Mcp::HostingService).to receive(:new).with(account).and_return(hosting_service)
   end
 

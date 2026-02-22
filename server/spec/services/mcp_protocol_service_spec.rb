@@ -9,7 +9,7 @@ RSpec.describe Mcp::ProtocolService, type: :service do
 
   describe '#initialize' do
     it 'initializes with default protocol version' do
-      expect(service.instance_variable_get(:@protocol_version)).to eq('2025-06-18')
+      expect(service.instance_variable_get(:@protocol_version)).to eq(Mcp::ProtocolService::DEFAULT_VERSION)
     end
 
     it 'sets up registry and transport services' do

@@ -18,7 +18,7 @@ RSpec.describe Ai::AgentAutonomyService, type: :service do
     let(:agent_params) { { name: "Test Agent", description: "A test agent", role: "worker" } }
 
     before do
-      allow(team).to receive(:ai_agent_team_members).and_return(members_relation)
+      allow(team).to receive(:members).and_return(members_relation)
       allow(Ai::GuardrailConfig).to receive(:where).with(account: account).and_return(
         double('relation', active: Ai::GuardrailConfig.none)
       )
@@ -44,7 +44,7 @@ RSpec.describe Ai::AgentAutonomyService, type: :service do
       allow(Ai::Agent).to receive(:new).and_return(agent)
 
       expect(members_relation).to receive(:create!).with(
-        hash_including(ai_agent: agent, role: "worker")
+        hash_including(agent: agent, role: "worker")
       ).and_return(double('member'))
 
       service.create_agent_for_team(team, agent_params, user)
@@ -101,7 +101,7 @@ RSpec.describe Ai::AgentAutonomyService, type: :service do
     let(:agent) { create(:ai_agent, account: account) }
     let(:team) { double('team', name: "Test Team") }
     let(:member) do
-      double('member', role: "worker", ai_agent: agent).tap do |m|
+      double('member', role: "worker", agent: agent).tap do |m|
         allow(m).to receive(:update!).and_return(true)
       end
     end
@@ -145,7 +145,7 @@ RSpec.describe Ai::AgentAutonomyService, type: :service do
     let(:agent) { double('agent', id: SecureRandom.uuid, name: "Agent 1") }
     let(:team) { double('team', name: "Test Team") }
     let(:member) do
-      double('member', ai_agent: agent).tap do |m|
+      double('member', agent: agent).tap do |m|
         allow(m).to receive(:destroy!).and_return(true)
       end
     end
@@ -181,8 +181,8 @@ RSpec.describe Ai::AgentAutonomyService, type: :service do
         members_result = double('members_result')
         allow(members_result).to receive(:empty?).and_return(true)
         members_relation = double('members_relation')
-        allow(members_relation).to receive(:includes).with(:ai_agent).and_return(members_result)
-        allow(team).to receive(:ai_agent_team_members).and_return(members_relation)
+        allow(members_relation).to receive(:includes).with(:agent).and_return(members_result)
+        allow(team).to receive(:members).and_return(members_relation)
       end
 
       it 'returns nil' do
@@ -194,12 +194,12 @@ RSpec.describe Ai::AgentAutonomyService, type: :service do
       let(:agent1) { create(:ai_agent, account: account, status: "active", created_at: 60.days.ago) }
       let(:agent2) { create(:ai_agent, account: account, status: "active", created_at: 1.day.ago) }
       let(:member1) do
-        double('member1', ai_agent: agent1, role: "worker").tap do |m|
+        double('member1', agent: agent1, role: "worker").tap do |m|
           allow(m).to receive(:update!).and_return(true)
         end
       end
       let(:member2) do
-        double('member2', ai_agent: agent2, role: "worker").tap do |m|
+        double('member2', agent: agent2, role: "worker").tap do |m|
           allow(m).to receive(:update!).and_return(true)
         end
       end
@@ -212,8 +212,8 @@ RSpec.describe Ai::AgentAutonomyService, type: :service do
           double('lead_relation', update_all: true)
         )
         members_relation = double('members_relation')
-        allow(members_relation).to receive(:includes).with(:ai_agent).and_return(members_proxy)
-        allow(team).to receive(:ai_agent_team_members).and_return(members_relation)
+        allow(members_relation).to receive(:includes).with(:agent).and_return(members_proxy)
+        allow(team).to receive(:members).and_return(members_relation)
       end
 
       it 'assigns the best-scoring agent as lead' do
@@ -229,8 +229,8 @@ RSpec.describe Ai::AgentAutonomyService, type: :service do
         allow(members_proxy).to receive(:map) { |&block| [member1, member2].map(&block) }
         allow(members_proxy).to receive(:where).with(role: "lead").and_return(lead_relation)
         members_relation = double('members_relation')
-        allow(members_relation).to receive(:includes).with(:ai_agent).and_return(members_proxy)
-        allow(team).to receive(:ai_agent_team_members).and_return(members_relation)
+        allow(members_relation).to receive(:includes).with(:agent).and_return(members_proxy)
+        allow(team).to receive(:members).and_return(members_relation)
 
         expect(lead_relation).to receive(:update_all).with(role: "worker")
         service.auto_assign_lead(team)

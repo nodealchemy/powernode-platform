@@ -4,7 +4,8 @@ require "rails_helper"
 
 RSpec.describe Ai::Tools::WorkflowManagementTool do
   let(:account) { create(:account) }
-  let(:tool) { described_class.new(account: account) }
+  let(:user) { create(:user, account: account) }
+  let(:tool) { described_class.new(account: account, user: user) }
 
   describe ".definition" do
     it "returns a valid tool definition" do

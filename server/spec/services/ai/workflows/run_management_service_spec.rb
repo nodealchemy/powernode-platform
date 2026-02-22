@@ -105,13 +105,13 @@ RSpec.describe Ai::Workflows::RunManagementService, type: :service do
   describe "#retry_run" do
     let(:failed_run) { create(:ai_workflow_run, :failed, workflow: workflow, account: account) }
 
-    it "returns failure due to retry trigger type validation" do
-      # The service uses trigger_type: "retry" which is not in the allowed list
-      # This is a known service limitation
+    it "returns failure due to retry trigger type violating check constraint" do
+      # The service uses trigger_type: "retry" which is not in the DB check constraint
+      # Valid types: manual, webhook, schedule, event, api_call
       result = service.retry_run(failed_run)
 
       expect(result).to be_failure
-      expect(result.error).to include("Trigger type")
+      expect(result.error).to include("ai_workflow_runs_trigger_type_check")
     end
 
     it "fails when run is not in a retryable state" do

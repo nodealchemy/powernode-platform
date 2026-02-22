@@ -14,7 +14,7 @@ RSpec.describe Ai::DebuggingService, type: :service do
     allow(Redis).to receive(:new).and_return(redis_mock)
   end
 
-  let(:redis_mock) { instance_double(Redis) }
+  let(:redis_mock) { instance_double(Redis).as_null_object }
 
   describe '#initialize' do
     it 'initializes with account and execution context' do

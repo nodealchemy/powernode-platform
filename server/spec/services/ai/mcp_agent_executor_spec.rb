@@ -7,7 +7,8 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
   let(:provider) { create(:ai_provider, account: account) }
   let(:agent) { create(:ai_agent, account: account, provider: provider) }
   let(:execution) do
-    double('execution', execution_id: SecureRandom.uuid).tap do |e|
+    double('execution', id: SecureRandom.uuid, execution_id: SecureRandom.uuid, status: 'running',
+           cost_usd: 0.0, agent_id: nil, account_id: nil).as_null_object.tap do |e|
       allow(e).to receive(:update!)
     end
   end
@@ -31,6 +32,13 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
       allow(ai_executions_rel).to receive(:where).and_return(ai_executions_rel)
       allow(ai_executions_rel).to receive(:count).and_return(0)
       allow(account).to receive(:subscription).and_return(nil)
+
+      # Stub security gate (runs before guardrails)
+      security_gate = instance_double(Ai::Security::SecurityGateService)
+      allow(Ai::Security::SecurityGateService).to receive(:new).and_return(security_gate)
+      allow(security_gate).to receive(:pre_execution_gate).and_return({ allowed: true, checks: [], degraded: false })
+      allow(security_gate).to receive(:post_execution_gate).and_return({ allowed: true, checks: [], degraded: false })
+      allow(security_gate).to receive(:record_execution_telemetry)
 
       # Stub guardrails
       allow(Ai::Guardrails::Pipeline).to receive(:new).and_return(guardrail_pipeline)

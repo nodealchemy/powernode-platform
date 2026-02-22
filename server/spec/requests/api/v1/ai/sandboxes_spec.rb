@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::Sandboxes', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account) }
+  let(:user) { create(:user, account: account, permissions: %w[ai.sandboxes.read ai.sandboxes.create ai.sandboxes.update ai.sandboxes.delete ai.sandboxes.manage ai.sandboxes.test ai.sandboxes.benchmark]) }
 
   let(:headers) { auth_headers_for(user) }
 

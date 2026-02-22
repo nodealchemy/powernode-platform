@@ -115,9 +115,8 @@ RSpec.describe Ai::Marketplace::InstallationService do
 
     context "when workflow creation fails" do
       before do
-        allow_any_instance_of(Ai::Workflow).to receive(:persisted?).and_return(false)
-        allow_any_instance_of(Ai::Workflow).to receive(:errors).and_return(
-          double(full_messages: ["Name can't be blank"])
+        allow(account.ai_workflows).to receive(:create!).and_raise(
+          ActiveRecord::RecordInvalid.new(Ai::Workflow.new)
         )
       end
 
@@ -128,6 +127,7 @@ RSpec.describe Ai::Marketplace::InstallationService do
     end
 
     context "with workflow nodes and edges from template" do
+      let(:agent) { create(:ai_agent, account: account) }
       let(:complex_template) do
         create(:ai_workflow_template, :published,
                account: account,
@@ -137,7 +137,7 @@ RSpec.describe Ai::Marketplace::InstallationService do
                    { "node_id" => "start", "node_type" => "start", "name" => "Start",
                      "position" => { "x" => 0, "y" => 0 }, "configuration" => { "enabled" => true } },
                    { "node_id" => "agent", "node_type" => "ai_agent", "name" => "Agent",
-                     "position" => { "x" => 200, "y" => 0 }, "configuration" => { "model" => "gpt-4" } },
+                     "position" => { "x" => 200, "y" => 0 }, "configuration" => { "model" => "gpt-4", "agent_id" => agent.id } },
                    { "node_id" => "end", "node_type" => "end", "name" => "End",
                      "position" => { "x" => 400, "y" => 0 }, "configuration" => { "enabled" => true } }
                  ],

@@ -93,7 +93,7 @@ RSpec.describe Ai::Discovery::McpScannerService, type: :service do
     end
 
     context 'when agent has matching skills' do
-      # The service uses agent.ai_agent_skills which doesn't exist on Ai::Agent.
+      # The service checks respond_to?(:ai_agent_skills) but calls agent.agent_skills.
       # Use a plain double to avoid the "does not implement" error.
       let(:agent) do
         double('agent',
@@ -111,7 +111,7 @@ RSpec.describe Ai::Discovery::McpScannerService, type: :service do
           allow(a).to receive(:respond_to?).with(:model).and_return(false)
 
           skill_relation = double('skill_relation')
-          allow(a).to receive(:ai_agent_skills).and_return(skill_relation)
+          allow(a).to receive(:agent_skills).and_return(skill_relation)
           allow(skill_relation).to receive(:pluck).with(:name).and_return(["code", "search"])
         end
       end
@@ -141,7 +141,7 @@ RSpec.describe Ai::Discovery::McpScannerService, type: :service do
           allow(a).to receive(:respond_to?).with(:capabilities).and_return(false)
 
           skill_relation = double('skill_relation')
-          allow(a).to receive(:ai_agent_skills).and_return(skill_relation)
+          allow(a).to receive(:agent_skills).and_return(skill_relation)
           allow(skill_relation).to receive(:pluck).with(:name).and_return(["unrelated_skill"])
         end
       end
@@ -167,7 +167,7 @@ RSpec.describe Ai::Discovery::McpScannerService, type: :service do
           allow(a).to receive(:respond_to?).with(:capabilities).and_return(false)
 
           skill_relation = double('skill_relation')
-          allow(a).to receive(:ai_agent_skills).and_return(skill_relation)
+          allow(a).to receive(:agent_skills).and_return(skill_relation)
           allow(skill_relation).to receive(:pluck).with(:name).and_return([])
         end
       end

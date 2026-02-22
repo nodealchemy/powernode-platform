@@ -154,7 +154,7 @@ RSpec.describe Ai::Providers::Sync::Cohere do
 
     context "with no credentials" do
       let(:provider_without_creds) do
-        create(:ai_provider, account: account, name: "Cohere", slug: "cohere-2", provider_type: "cohere",
+        create(:ai_provider, account: account, name: "Cohere No Creds", slug: "cohere-no-creds", provider_type: "cohere",
                api_base_url: "https://api.cohere.com/v1")
       end
 

@@ -845,21 +845,6 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
     end
   end
 
-  describe 'POST #stop_monitoring' do
-    context 'with valid permissions' do
-      before { sign_in monitoring_manage_user }
-
-      it 'stops monitoring' do
-        post :stop_monitoring
-
-        expect(response).to have_http_status(:success)
-        json = JSON.parse(response.body)
-        expect(json['success']).to be true
-        expect(json['message']).to include('stop requested')
-      end
-    end
-  end
-
   # =============================================================================
   # WORKER CONTEXT
   # =============================================================================

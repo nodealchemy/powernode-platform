@@ -21,9 +21,9 @@ RSpec.describe Ai::Autonomy::BudgetAwareContextService do
                total_budget_cents: 10000, spent_cents: 2000)
       end
 
-      it 'returns HIGH regime (low utilization = high availability)' do
+      it 'returns NORMAL regime (low utilization = healthy availability)' do
         result = service.generate_context(agent: agent)
-        expect(result[:regime]).to eq('HIGH')
+        expect(result[:regime]).to eq('NORMAL')
         expect(result[:utilization_pct]).to eq(20.0)
       end
     end

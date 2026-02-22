@@ -4,7 +4,9 @@ require "rails_helper"
 
 RSpec.describe Ai::Tools::AgentManagementTool do
   let(:account) { create(:account) }
-  let(:tool) { described_class.new(account: account) }
+  let(:user) { create(:user, account: account) }
+  let!(:provider) { create(:ai_provider, account: account, is_active: true) }
+  let(:tool) { described_class.new(account: account, user: user) }
 
   describe ".definition" do
     it "returns a valid tool definition" do

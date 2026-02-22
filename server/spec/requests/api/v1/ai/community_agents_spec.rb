@@ -4,9 +4,9 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Ai::CommunityAgents', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, permissions: ['ai.agents.read', 'ai.agents.create', 'ai.agents.update', 'ai.agents.delete']) }
+  let(:user) { create(:user, account: account, permissions: %w[ai.community_agents.read ai.community_agents.create ai.community_agents.update ai.community_agents.delete ai.community_agents.manage ai.community_agents.rate ai.community_agents.report]) }
   let(:other_account) { create(:account) }
-  let(:other_user) { create(:user, account: other_account, permissions: ['ai.agents.read']) }
+  let(:other_user) { create(:user, account: other_account, permissions: %w[ai.community_agents.read]) }
 
   let(:headers) { auth_headers_for(user) }
   let(:other_headers) { auth_headers_for(other_user) }

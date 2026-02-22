@@ -101,7 +101,7 @@ RSpec.describe Ai::Providers::Sync::Grok do
 
     context "with no credentials" do
       let(:provider_without_creds) do
-        create(:ai_provider, account: account, name: "Grok", slug: "grok-2", provider_type: "grok",
+        create(:ai_provider, account: account, name: "Grok No Creds", slug: "grok-no-creds", provider_type: "grok",
                api_base_url: "https://api.x.ai/v1")
       end
 

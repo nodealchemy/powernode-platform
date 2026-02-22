@@ -139,7 +139,7 @@ RSpec.describe Ai::Providers::Sync::Google do
 
     context "with no credentials" do
       let(:provider_without_creds) do
-        create(:ai_provider, account: account, name: "Google", slug: "google-2", provider_type: "google",
+        create(:ai_provider, account: account, name: "Google No Creds", slug: "google-no-creds", provider_type: "google",
                api_base_url: "https://generativelanguage.googleapis.com/v1beta")
       end
 

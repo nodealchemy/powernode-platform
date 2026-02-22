@@ -112,7 +112,7 @@ RSpec.describe Ai::Providers::Sync::Mistral do
 
     context "with no credentials" do
       let(:provider_without_creds) do
-        create(:ai_provider, account: account, name: "Mistral", slug: "mistral-2", provider_type: "mistral",
+        create(:ai_provider, account: account, name: "Mistral No Creds", slug: "mistral-no-creds", provider_type: "mistral",
                api_base_url: "https://api.mistral.ai/v1")
       end
 

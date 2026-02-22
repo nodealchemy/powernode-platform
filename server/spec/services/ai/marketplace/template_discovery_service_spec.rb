@@ -146,7 +146,9 @@ RSpec.describe Ai::Marketplace::TemplateDiscoveryService do
       it "sorts by name" do
         result = service.discover(sort_by: "name")
         names = result[:templates].map(&:name)
-        expect(names).to eq(names.sort)
+        # PostgreSQL ORDER BY uses locale-aware collation, verify order matches DB sort
+        db_sorted = Ai::WorkflowTemplate.where(id: result[:templates].map(&:id)).order(:name).pluck(:name)
+        expect(names).to eq(db_sorted)
       end
 
       it "defaults to usage_count desc" do

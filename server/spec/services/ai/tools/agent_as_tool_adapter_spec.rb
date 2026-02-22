@@ -53,7 +53,7 @@ RSpec.describe Ai::Tools::AgentAsToolAdapter do
         expect(result[:success]).to be true
         expect(result[:execution_id]).to be_present
         expect(result[:agent_name]).to eq(target_agent.name)
-        expect(result[:status]).to eq("queued")
+        expect(result[:status]).to eq("pending")
         expect(result[:message]).to include(target_agent.name)
       end
 
@@ -66,11 +66,11 @@ RSpec.describe Ai::Tools::AgentAsToolAdapter do
       it "stores invocation metadata in the execution" do
         adapter.execute(params: { prompt: "Run analysis", context: { file: "test.rb" } })
         execution = Ai::AgentExecution.last
-        expect(execution.input_data["prompt"]).to eq("Run analysis")
-        expect(execution.input_data["context"]).to eq({ "file" => "test.rb" })
-        expect(execution.input_data["invocation_type"]).to eq("agent_as_tool")
-        expect(execution.metadata["source"]).to eq("agent_as_tool")
-        expect(execution.metadata["calling_agent_id"]).to eq(calling_agent.id)
+        expect(execution.input_parameters["prompt"]).to eq("Run analysis")
+        expect(execution.input_parameters["context"]).to eq({ "file" => "test.rb" })
+        expect(execution.input_parameters["invocation_type"]).to eq("agent_as_tool")
+        expect(execution.execution_context["source"]).to eq("agent_as_tool")
+        expect(execution.execution_context["calling_agent_id"]).to eq(calling_agent.id)
       end
     end
 
@@ -104,7 +104,7 @@ RSpec.describe Ai::Tools::AgentAsToolAdapter do
         result = adapter.execute(params: { prompt: "Test" })
         expect(result[:success]).to be true
         execution = Ai::AgentExecution.last
-        expect(execution.input_data["invoked_by"]).to eq("tool_adapter")
+        expect(execution.input_parameters["invoked_by"]).to eq("tool_adapter")
       end
     end
   end

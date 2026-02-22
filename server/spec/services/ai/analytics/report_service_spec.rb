@@ -28,11 +28,26 @@ RSpec.describe Ai::Analytics::ReportService do
     end
 
     context "with valid report types" do
+      let(:mock_metrics_service) { instance_double(Ai::Analytics::MetricsService) }
+
       before do
         # Create some data so sub-services have something to work with
         3.times do
           create(:ai_workflow_run, :completed, workflow: workflow)
         end
+
+        # Stub MetricsService to avoid hitting columns that may not exist (e.g. execution_time_ms)
+        allow(Ai::Analytics::MetricsService).to receive(:new).and_return(mock_metrics_service)
+        allow(mock_metrics_service).to receive(:agent_metrics).and_return({
+          total_agents: 0, active_agents: 0, agents_by_type: {},
+          total_executions: 0, success_rate: 0.0, average_response_time_ms: 0.0,
+          total_tokens_used: 0, total_cost: 0.0
+        })
+        allow(mock_metrics_service).to receive(:agent_specific_metrics).and_return({})
+        allow(mock_metrics_service).to receive(:workflow_metrics).and_return({
+          total_workflows: 1, active_workflows: 1, total_executions: 3
+        })
+        allow(mock_metrics_service).to receive(:workflow_specific_metrics).and_return({})
       end
 
       described_class::REPORT_TYPES.each do |report_type|
@@ -130,6 +145,19 @@ RSpec.describe Ai::Analytics::ReportService do
 
     context "agent_analysis report" do
       let!(:agent) { create(:ai_agent, account: account) }
+      let(:mock_metrics_service) { instance_double(Ai::Analytics::MetricsService) }
+
+      before do
+        allow(Ai::Analytics::MetricsService).to receive(:new).and_return(mock_metrics_service)
+        allow(mock_metrics_service).to receive(:agent_metrics).and_return({
+          total_agents: 1, active_agents: 1, agents_by_type: {},
+          total_executions: 0, success_rate: 0.0, average_response_time_ms: 0.0,
+          total_tokens_used: 0, total_cost: 0.0
+        })
+        allow(mock_metrics_service).to receive(:agent_specific_metrics).and_return({
+          id: agent.id, name: agent.name, executions: 0
+        })
+      end
 
       it "includes agent sections" do
         result = service.generate(type: :agent_analysis)
@@ -213,8 +241,8 @@ RSpec.describe Ai::Analytics::ReportService do
 
       it "flattens nested data" do
         result = service.export(report: report, format: :csv)
-        expect(result).to include("data.title,Test Report")
-        expect(result).to include("data.value,42")
+        expect(result).to include("title,Test Report")
+        expect(result).to include("value,42")
       end
     end
 

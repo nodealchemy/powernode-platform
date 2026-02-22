@@ -16,7 +16,7 @@ RSpec.describe Ai::Guardrails::OutputRail, type: :service do
   describe 'BUILT_IN_RAILS' do
     it 'defines expected built-in rail types' do
       expect(described_class::BUILT_IN_RAILS).to contain_exactly(
-        'token_limit', 'toxicity', 'pii_detection', 'hallucination_check', 'format_validation'
+        'token_limit', 'toxicity', 'pii_detection', 'hallucination_check', 'format_validation', 'structured_output'
       )
     end
   end

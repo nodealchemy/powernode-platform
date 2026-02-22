@@ -76,8 +76,10 @@ RSpec.configure do |config|
     # DELETE only needs RowExclusiveLock, avoiding deadlocks entirely.
     retries = 0
     begin
+      # Clear join tables first to avoid FK violations during deletion
+      ActiveRecord::Base.connection.execute("DELETE FROM role_permissions")
       DatabaseCleaner.clean_with(:deletion, except: %w[ar_internal_metadata schema_migrations])
-    rescue ActiveRecord::Deadlocked, ActiveRecord::LockWaitTimeout => e
+    rescue ActiveRecord::Deadlocked, ActiveRecord::LockWaitTimeout, ActiveRecord::InvalidForeignKey => e
       retries += 1
       if retries <= 3
         sleep(retries * 2)

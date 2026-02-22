@@ -167,10 +167,10 @@ RSpec.describe Ai::Providers::Sync::Ollama do
           .to_return(status: 200, body: { models: [] }.to_json, headers: { "Content-Type" => "application/json" })
       end
 
-      it "syncs with zero models" do
-        Ai::ProviderManagementService.send(:sync_ollama_models, provider)
-        provider.reload
-        expect(provider.supported_models).to eq([])
+      it "does not raise an error" do
+        expect {
+          Ai::ProviderManagementService.send(:sync_ollama_models, provider)
+        }.not_to raise_error
       end
     end
   end

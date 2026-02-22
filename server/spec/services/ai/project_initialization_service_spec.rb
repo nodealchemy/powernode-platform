@@ -50,7 +50,6 @@ RSpec.describe Ai::ProjectInitializationService, type: :service do
 
     context 'when no gitea credential is found' do
       before do
-        allow(git_providers_relation).to receive(:find_by).with(provider_type: 'gitea').and_return(nil)
         allow(Devops::GitProvider).to receive(:find_by).with(provider_type: 'gitea').and_return(nil)
       end
 
@@ -64,7 +63,7 @@ RSpec.describe Ai::ProjectInitializationService, type: :service do
 
     context 'when gitea credential is found via account git_providers' do
       before do
-        allow(git_providers_relation).to receive(:find_by).with(provider_type: 'gitea').and_return(git_provider)
+        allow(Devops::GitProvider).to receive(:find_by).with(provider_type: 'gitea').and_return(git_provider)
 
         allow(cred_relation).to receive(:where).and_return(cred_relation)
         allow(cred_relation).to receive(:order).and_return(cred_relation)

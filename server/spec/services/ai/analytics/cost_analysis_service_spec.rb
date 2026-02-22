@@ -565,14 +565,14 @@ RSpec.describe Ai::Analytics::CostAnalysisService do
     end
 
     it "uses the service time_range by default" do
-      expect(service).to receive(:roi_summary_metrics).with(30.days).and_call_original
+      expect(service).to receive(:roi_summary_metrics).with(30.days).at_least(:once).and_call_original
       expect(service).to receive(:roi_trends).with(30.days).and_call_original
 
       service.roi_dashboard
     end
 
     it "accepts a custom period" do
-      expect(service).to receive(:roi_summary_metrics).with(7.days).and_call_original
+      expect(service).to receive(:roi_summary_metrics).with(7.days).at_least(:once).and_call_original
 
       service.roi_dashboard(period: 7.days)
     end
@@ -595,14 +595,18 @@ RSpec.describe Ai::Analytics::CostAnalysisService do
 
     context "with ROI metrics and cost attributions" do
       before do
+        # Callback recalculates total_value_usd = time_saved_value_usd + error_reduction_value_usd + throughput_value_usd
+        # and total_cost_usd = ai_cost_usd + infrastructure_cost_usd
+        # So we set component values that produce the desired totals
         create(:ai_roi_metric,
                account: account,
                period_date: 5.days.ago.to_date,
                ai_cost_usd: 10.0,
                infrastructure_cost_usd: 2.0,
-               total_cost_usd: 12.0,
-               total_value_usd: 100.0,
                time_saved_hours: 5.0,
+               time_saved_value_usd: 50.0,
+               error_reduction_value_usd: 30.0,
+               throughput_value_usd: 20.0,
                tasks_completed: 50,
                tasks_automated: 40)
       end
@@ -613,6 +617,7 @@ RSpec.describe Ai::Analytics::CostAnalysisService do
         expect(result[:costs][:ai]).to eq(10.0)
         expect(result[:costs][:infrastructure]).to eq(2.0)
         expect(result[:costs][:total]).to eq(12.0)
+        # total_value = 50 + 30 + 20 = 100
         expect(result[:value][:total]).to eq(100.0)
         expect(result[:roi][:is_positive]).to be true
       end
@@ -666,15 +671,17 @@ RSpec.describe Ai::Analytics::CostAnalysisService do
 
     context "with metrics for specific days" do
       before do
+        # Callback recalculates total_cost_usd and total_value_usd from components
         create(:ai_roi_metric,
                account: account,
                metric_type: "account_total",
                period_type: "daily",
                period_date: Date.current,
-               total_cost_usd: 10.0,
-               total_value_usd: 50.0,
-               roi_percentage: 400.0,
-               net_benefit_usd: 40.0,
+               ai_cost_usd: 8.0,
+               infrastructure_cost_usd: 2.0,
+               time_saved_value_usd: 30.0,
+               error_reduction_value_usd: 10.0,
+               throughput_value_usd: 10.0,
                tasks_completed: 20,
                time_saved_hours: 3.0)
       end
@@ -683,6 +690,7 @@ RSpec.describe Ai::Analytics::CostAnalysisService do
         result = service.roi_daily_metrics(days: 7)
 
         today_entry = result.find { |d| d[:date] == Date.current }
+        # total_cost = 8 + 2 = 10, total_value = 30 + 10 + 10 = 50
         expect(today_entry[:cost]).to eq(10.0)
         expect(today_entry[:value]).to eq(50.0)
         expect(today_entry[:tasks]).to eq(20)
@@ -812,13 +820,17 @@ RSpec.describe Ai::Analytics::CostAnalysisService do
     context "with sufficient data" do
       before do
         10.times do |i|
+          # Callback recalculates totals from components
           create(:ai_roi_metric,
                  account: account,
                  period_date: (10 - i).days.ago.to_date,
-                 total_cost_usd: 10.0 + i,
-                 total_value_usd: 50.0 + (i * 2),
+                 ai_cost_usd: 8.0 + i,
+                 infrastructure_cost_usd: 2.0,
+                 time_saved_value_usd: 30.0 + i,
+                 error_reduction_value_usd: 10.0 + (i * 0.5),
+                 throughput_value_usd: 10.0 + (i * 0.5),
                  tasks_completed: 20 + i,
-                 roi_percentage: 100.0 + i)
+                 time_saved_hours: 2.0 + (i * 0.1))
         end
       end
 

@@ -9,6 +9,10 @@ RSpec.describe Ai::Introspection::PlatformIntrospectionService do
 
   before do
     allow(Redis).to receive(:new).and_return(mock_redis)
+    # Allow common Redis operations used by embedding/knowledge graph callbacks
+    allow(mock_redis).to receive(:get).and_return(nil)
+    allow(mock_redis).to receive(:set)
+    allow(mock_redis).to receive(:setex)
   end
 
   describe "#initialize" do

@@ -106,7 +106,7 @@ RSpec.describe Ai::Providers::Sync::Anthropic do
     end
 
     context "with no credentials" do
-      let(:provider_without_creds) { create(:ai_provider, :anthropic, account: account) }
+      let(:provider_without_creds) { create(:ai_provider, :anthropic, account: account, name: "Anthropic No Creds", slug: "anthropic-no-creds") }
 
       it "calls handle_sync_failure" do
         expect {

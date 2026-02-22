@@ -327,13 +327,13 @@ RSpec.describe Ai::MonitoringHealthService, type: :service do
   # Class methods
   # ===========================================================================
 
-  describe ".invalidate_provider_health_cache" do
+  describe "HealthChecks.invalidate_provider_health_cache" do
     it "clears provider health cache for an account" do
       expect(Rails.cache).to receive(:delete)
         .with("ai:monitoring:provider_health:#{account.id}")
       allow(Rails.cache).to receive(:delete_matched)
 
-      described_class.invalidate_provider_health_cache(account.id)
+      described_class::HealthChecks.invalidate_provider_health_cache(account.id)
     end
   end
 end

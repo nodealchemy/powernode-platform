@@ -44,7 +44,9 @@ RSpec.describe Ai::Tools::BaseTool do
   describe "#execute" do
     it "raises NotImplementedError from #call" do
       tool = described_class.new(account: account)
-      expect { tool.execute(params: {}) }.to raise_error(NotImplementedError, /must implement #call/)
+      # validate_params! calls .definition first, which raises NotImplementedError
+      # before reaching #call — so we match the broader pattern
+      expect { tool.execute(params: {}) }.to raise_error(NotImplementedError, /must implement/)
     end
   end
 

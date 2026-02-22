@@ -221,12 +221,12 @@ RSpec.describe 'Api::V1::Ai::Roi', type: :request do
     end
   end
 
-  describe 'GET /api/v1/ai/roi/metrics' do
+  describe 'GET /api/v1/ai/roi/calculations/metrics' do
     let!(:metric) { create(:ai_roi_metric, account: account) }
 
     context 'with proper permissions' do
       it 'returns ROI metrics' do
-        get '/api/v1/ai/roi/metrics', headers: headers, as: :json
+        get '/api/v1/ai/roi/calculations/metrics', headers: headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -234,19 +234,19 @@ RSpec.describe 'Api::V1::Ai::Roi', type: :request do
       end
 
       it 'filters by metric_type' do
-        get '/api/v1/ai/roi/metrics?metric_type=daily', headers: headers, as: :json
+        get '/api/v1/ai/roi/calculations/metrics?metric_type=daily', headers: headers, as: :json
 
         expect_success_response
       end
     end
   end
 
-  describe 'GET /api/v1/ai/roi/metrics/:id' do
+  describe 'GET /api/v1/ai/roi/calculations/metrics/:id' do
     let(:metric) { create(:ai_roi_metric, account: account) }
 
     context 'with proper permissions' do
       it 'returns metric details' do
-        get "/api/v1/ai/roi/metrics/#{metric.id}", headers: headers, as: :json
+        get "/api/v1/ai/roi/calculations/metrics/#{metric.id}", headers: headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -254,20 +254,20 @@ RSpec.describe 'Api::V1::Ai::Roi', type: :request do
       end
 
       it 'returns not found for non-existent metric' do
-        get "/api/v1/ai/roi/metrics/#{SecureRandom.uuid}", headers: headers, as: :json
+        get "/api/v1/ai/roi/calculations/metrics/#{SecureRandom.uuid}", headers: headers, as: :json
 
         expect_error_response('Metric not found', 404)
       end
     end
   end
 
-  describe 'GET /api/v1/ai/roi/projections' do
+  describe 'GET /api/v1/ai/roi/calculations/projections' do
     context 'with proper permissions' do
       it 'returns projection data' do
         projections = { projected_cost: 100, projected_savings: 200 }
         allow(roi_service).to receive(:roi_projections).and_return(projections)
 
-        get '/api/v1/ai/roi/projections', headers: headers, as: :json
+        get '/api/v1/ai/roi/calculations/projections', headers: headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -277,7 +277,7 @@ RSpec.describe 'Api::V1::Ai::Roi', type: :request do
       it 'handles insufficient data gracefully' do
         allow(roi_service).to receive(:roi_projections).and_return(nil)
 
-        get '/api/v1/ai/roi/projections', headers: headers, as: :json
+        get '/api/v1/ai/roi/calculations/projections', headers: headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -287,13 +287,13 @@ RSpec.describe 'Api::V1::Ai::Roi', type: :request do
     end
   end
 
-  describe 'GET /api/v1/ai/roi/recommendations' do
+  describe 'GET /api/v1/ai/roi/calculations/recommendations' do
     context 'with proper permissions' do
       it 'returns recommendations' do
         recommendations = [ { type: 'cost_reduction', suggestion: 'Use smaller model' } ]
         allow(roi_service).to receive(:roi_recommendations).and_return(recommendations)
 
-        get '/api/v1/ai/roi/recommendations', headers: headers, as: :json
+        get '/api/v1/ai/roi/calculations/recommendations', headers: headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -302,13 +302,13 @@ RSpec.describe 'Api::V1::Ai::Roi', type: :request do
     end
   end
 
-  describe 'GET /api/v1/ai/roi/compare' do
+  describe 'GET /api/v1/ai/roi/calculations/compare' do
     context 'with proper permissions' do
       it 'returns period comparison' do
         comparison = { current: {}, previous: {}, change: {} }
         allow(roi_service).to receive(:roi_compare_periods).and_return(comparison)
 
-        get '/api/v1/ai/roi/compare', headers: headers, as: :json
+        get '/api/v1/ai/roi/calculations/compare', headers: headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -318,7 +318,7 @@ RSpec.describe 'Api::V1::Ai::Roi', type: :request do
       it 'accepts custom periods' do
         allow(roi_service).to receive(:roi_compare_periods).and_return({})
 
-        get '/api/v1/ai/roi/compare?current_period=7&previous_period=14', headers: headers, as: :json
+        get '/api/v1/ai/roi/calculations/compare?current_period=7&previous_period=14', headers: headers, as: :json
 
         expect_success_response
         expect(roi_service).to have_received(:roi_compare_periods)
@@ -327,13 +327,13 @@ RSpec.describe 'Api::V1::Ai::Roi', type: :request do
     end
   end
 
-  describe 'POST /api/v1/ai/roi/calculate' do
+  describe 'POST /api/v1/ai/roi/calculations/calculate' do
     context 'with proper permissions' do
       it 'calculates ROI for today by default' do
         metric = double(summary: { roi: 1.5 })
         allow(roi_service).to receive(:roi_calculate_for_date).and_return(metric)
 
-        post '/api/v1/ai/roi/calculate', headers: headers, as: :json
+        post '/api/v1/ai/roi/calculations/calculate', headers: headers, as: :json
 
         expect_success_response
         expect(roi_service).to have_received(:roi_calculate_for_date).with(date: Date.current)
@@ -343,7 +343,7 @@ RSpec.describe 'Api::V1::Ai::Roi', type: :request do
         metric = double(summary: { roi: 1.5 })
         allow(roi_service).to receive(:roi_calculate_for_date).and_return(metric)
 
-        post '/api/v1/ai/roi/calculate',
+        post '/api/v1/ai/roi/calculations/calculate',
              params: { date: '2024-01-01' }, headers: headers, as: :json
 
         expect_success_response
@@ -352,7 +352,7 @@ RSpec.describe 'Api::V1::Ai::Roi', type: :request do
       it 'calculates ROI for date range' do
         allow(roi_service).to receive(:roi_calculate_for_range).and_return([])
 
-        post '/api/v1/ai/roi/calculate',
+        post '/api/v1/ai/roi/calculations/calculate',
              params: { start_date: '2024-01-01', end_date: '2024-01-31' },
              headers: headers, as: :json
 
@@ -362,20 +362,20 @@ RSpec.describe 'Api::V1::Ai::Roi', type: :request do
 
     context 'without ai.roi.manage permission' do
       it 'returns forbidden error' do
-        post '/api/v1/ai/roi/calculate', headers: read_only_headers, as: :json
+        post '/api/v1/ai/roi/calculations/calculate', headers: read_only_headers, as: :json
 
         expect_error_response('Permission denied: ai.roi.manage', 403)
       end
     end
   end
 
-  describe 'POST /api/v1/ai/roi/aggregate' do
+  describe 'POST /api/v1/ai/roi/calculations/aggregate' do
     context 'with proper permissions' do
       it 'aggregates metrics' do
         result = { period_type: 'weekly', metrics: {} }
         allow(roi_service).to receive(:roi_aggregate_metrics).and_return(result)
 
-        post '/api/v1/ai/roi/aggregate', headers: headers, as: :json
+        post '/api/v1/ai/roi/calculations/aggregate', headers: headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -385,7 +385,7 @@ RSpec.describe 'Api::V1::Ai::Roi', type: :request do
       it 'accepts custom period type' do
         allow(roi_service).to receive(:roi_aggregate_metrics).and_return({})
 
-        post '/api/v1/ai/roi/aggregate',
+        post '/api/v1/ai/roi/calculations/aggregate',
              params: { period_type: 'monthly' }, headers: headers, as: :json
 
         expect_success_response
@@ -396,7 +396,7 @@ RSpec.describe 'Api::V1::Ai::Roi', type: :request do
 
     context 'without ai.roi.manage permission' do
       it 'returns forbidden error' do
-        post '/api/v1/ai/roi/aggregate', headers: read_only_headers, as: :json
+        post '/api/v1/ai/roi/calculations/aggregate', headers: read_only_headers, as: :json
 
         expect_error_response('Permission denied: ai.roi.manage', 403)
       end

@@ -98,7 +98,7 @@ RSpec.describe Ai::Providers::Sync::Groq do
 
     context "with no credentials" do
       let(:provider_without_creds) do
-        create(:ai_provider, account: account, name: "Groq", slug: "groq-2", provider_type: "groq",
+        create(:ai_provider, account: account, name: "Groq No Creds", slug: "groq-no-creds", provider_type: "groq",
                api_base_url: "https://api.groq.com/openai/v1")
       end
 

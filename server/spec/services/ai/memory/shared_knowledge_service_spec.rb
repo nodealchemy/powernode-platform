@@ -134,7 +134,7 @@ RSpec.describe Ai::Memory::SharedKnowledgeService, type: :service do
 
       expect(result[:success]).to be true
       expect(result[:entries]).to be_an(Array)
-      expect(result[:count]).to be >= 0
+      expect(result[:count]).to be > 0
     end
 
     it "filters by content type" do

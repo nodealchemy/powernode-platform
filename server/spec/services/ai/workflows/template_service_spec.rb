@@ -14,13 +14,14 @@ RSpec.describe Ai::Workflows::TemplateService, type: :service do
   # ===========================================================================
 
   describe "#create_from_workflow" do
-    it "returns failure due to source_workflow_id not being a real column (service bug)" do
-      # The service's build_template_data sets source_workflow_id which doesn't exist
-      # on ai_workflow_templates table. This is a known service limitation.
+    it "creates a template from a workflow" do
+      # source_workflow_id is stored inside the metadata JSON column, not as a DB column
       result = service.create_from_workflow(workflow, name: "My Template", description: "Test")
 
-      expect(result).to be_failure
-      expect(result.error).to include("source_workflow_id")
+      expect(result).to be_success
+      expect(result.template).to be_persisted
+      expect(result.template.name).to eq("My Template")
+      expect(result.template.metadata["source_workflow_id"]).to eq(workflow.id)
     end
 
     it "returns failure when template name is blank" do

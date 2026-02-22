@@ -182,7 +182,10 @@ RSpec.describe Ai::ReviewWorkflowService, type: :service do
 
     let(:mock_task) do
       double('task', status: 'waiting', output_data: {}, update!: true,
-             team_execution: double('exec', agent_team: team))
+             reload: true,
+             team_execution: double('exec', agent_team: team)).tap do |t|
+        allow(t).to receive(:with_lock).and_yield
+      end
     end
 
     let(:review) do

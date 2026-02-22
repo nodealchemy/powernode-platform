@@ -905,20 +905,20 @@ RSpec.describe Devops::Git::GiteaApiClient do
       end
 
       it 'returns normalized runners' do
-        runners = client.list_runners(:repo, 'owner', 'repo')
+        runners = client.list_runners('owner', 'repo')
 
         expect(runners.length).to eq(2)
-        expect(runners.first['id']).to eq(10)
+        expect(runners.first['id']).to eq('10')
         expect(runners.first['name']).to eq('act-runner-1')
         expect(runners.first['status']).to eq('online')
         expect(runners.first['busy']).to be false
         expect(runners.first['labels']).to eq([ 'ubuntu-latest', 'docker' ])
         expect(runners.first['os']).to eq('linux')
-        expect(runners.first['arch']).to eq('amd64')
+        expect(runners.first['architecture']).to eq('amd64')
       end
 
       it 'infers status from busy flag when status missing' do
-        runners = client.list_runners(:repo, 'owner', 'repo')
+        runners = client.list_runners('owner', 'repo')
 
         expect(runners.last['status']).to eq('busy')
         expect(runners.last['busy']).to be true
@@ -932,7 +932,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
       end
 
       it 'calls org endpoint' do
-        runners = client.list_runners(:org, 'myorg')
+        runners = client.list_runners('myorg', nil, scope: :org)
 
         expect(runners.length).to eq(2)
       end
@@ -945,7 +945,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
       end
 
       it 'calls admin endpoint' do
-        runners = client.list_runners(:admin)
+        runners = client.list_runners(nil, nil, scope: :admin)
 
         expect(runners.length).to eq(2)
       end
@@ -953,7 +953,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
 
     context 'with invalid scope' do
       it 'raises ArgumentError' do
-        expect { client.list_runners(:invalid, 'owner', 'repo') }
+        expect { client.list_runners('owner', 'repo', scope: :invalid) }
           .to raise_error(ArgumentError, /Invalid scope/)
       end
     end
@@ -965,7 +965,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
       end
 
       it 'returns empty array' do
-        runners = client.list_runners(:repo, 'owner', 'repo')
+        runners = client.list_runners('owner', 'repo')
         expect(runners).to eq([])
       end
     end
@@ -989,9 +989,9 @@ RSpec.describe Devops::Git::GiteaApiClient do
     end
 
     it 'returns normalized runner' do
-      runner = client.get_runner(10)
+      runner = client.get_runner(nil, nil, 10)
 
-      expect(runner['id']).to eq(10)
+      expect(runner['id']).to eq('10')
       expect(runner['name']).to eq('act-runner-1')
       expect(runner['status']).to eq('online')
     end
@@ -1009,7 +1009,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
       end
 
       it 'returns registration token' do
-        result = client.runner_registration_token(:repo, 'owner', 'repo')
+        result = client.runner_registration_token('owner', 'repo')
 
         expect(result[:token]).to eq('registration_token_abc123')
       end
@@ -1026,7 +1026,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
       end
 
       it 'returns organization registration token' do
-        result = client.runner_registration_token(:org, 'myorg')
+        result = client.runner_registration_token('myorg', nil, scope: :org)
 
         expect(result[:token]).to eq('org_token_123')
       end
@@ -1043,7 +1043,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
       end
 
       it 'returns admin registration token' do
-        result = client.runner_registration_token(:admin)
+        result = client.runner_registration_token(nil, nil, scope: :admin)
 
         expect(result[:token]).to eq('admin_token_456')
       end
@@ -1058,7 +1058,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
       it 'returns error hash and logs error' do
         expect(Rails.logger).to receive(:error).with(/Failed to get runner registration token/)
 
-        result = client.runner_registration_token(:repo, 'owner', 'repo')
+        result = client.runner_registration_token('owner', 'repo')
         expect(result[:success]).to be false
         expect(result[:error]).to be_present
       end
@@ -1066,7 +1066,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
 
     context 'with invalid scope' do
       it 'raises ArgumentError' do
-        expect { client.runner_registration_token(:invalid) }
+        expect { client.runner_registration_token(nil, nil, scope: :invalid) }
           .to raise_error(ArgumentError, /Invalid scope/)
       end
     end

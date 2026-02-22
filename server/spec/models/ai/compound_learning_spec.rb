@@ -173,6 +173,100 @@ RSpec.describe Ai::CompoundLearning, type: :model do
   # SCOPES
   # ============================================================================
 
+  # ============================================================================
+  # AFTER_COMMIT CALLBACKS
+  # ============================================================================
+
+  describe "after_commit callbacks" do
+    before do
+      allow(WorkerJobService).to receive(:enqueue_ai_promote_learning)
+      allow(WorkerJobService).to receive(:enqueue_ai_dedup_learning)
+      allow(WorkerJobService).to receive(:enqueue_ai_update_graph_node)
+    end
+
+    describe ":enqueue_promotion_check" do
+      let(:learning) do
+        create(:ai_compound_learning,
+          account: account,
+          ai_agent_team: team,
+          scope: "team",
+          access_count: 1
+        )
+      end
+
+      it "enqueues promotion when access_count crosses 2" do
+        learning.update!(access_count: 2)
+
+        expect(WorkerJobService).to have_received(:enqueue_ai_promote_learning).with(learning.id)
+      end
+
+      it "does not enqueue when access_count stays below 2" do
+        learning.update!(access_count: 1)
+
+        expect(WorkerJobService).not_to have_received(:enqueue_ai_promote_learning)
+      end
+
+      it "does not enqueue when access_count was already >= 2" do
+        learning.update_column(:access_count, 3)
+        learning.update!(access_count: 4)
+
+        expect(WorkerJobService).not_to have_received(:enqueue_ai_promote_learning)
+      end
+
+      it "does not enqueue for global scope learnings" do
+        global = create(:ai_compound_learning, :global,
+          account: account,
+          access_count: 1
+        )
+        global.update!(access_count: 2)
+
+        expect(WorkerJobService).not_to have_received(:enqueue_ai_promote_learning)
+      end
+    end
+
+    describe ":enqueue_graph_update_on_status_change" do
+      let(:learning) { create(:ai_compound_learning, account: account, ai_agent_team: team) }
+
+      it "enqueues graph update when status changes to verified" do
+        node = create(:ai_knowledge_graph_node,
+          account: account,
+          properties: { "source_learning_id" => learning.id }
+        )
+
+        learning.update!(status: "verified")
+
+        expect(WorkerJobService).to have_received(:enqueue_ai_update_graph_node).with(node.id)
+      end
+
+      it "enqueues graph update when status changes to disproven" do
+        node = create(:ai_knowledge_graph_node,
+          account: account,
+          properties: { "source_learning_id" => learning.id }
+        )
+
+        learning.update!(status: "disproven")
+
+        expect(WorkerJobService).to have_received(:enqueue_ai_update_graph_node).with(node.id)
+      end
+
+      it "does not enqueue when status changes to deprecated" do
+        learning.update!(status: "deprecated")
+
+        expect(WorkerJobService).not_to have_received(:enqueue_ai_update_graph_node)
+      end
+
+      it "does not enqueue when non-status fields change" do
+        learning.update!(importance_score: 0.9)
+
+        expect(WorkerJobService).not_to have_received(:enqueue_ai_update_graph_node)
+      end
+    end
+  end
+
+  # ============================================================================
+  # SCOPES
+  # ============================================================================
+
   describe "scopes" do
     let!(:active_learning) { create(:ai_compound_learning, account: account, ai_agent_team: team) }
     let!(:verified_learning) { create(:ai_compound_learning, account: account, ai_agent_team: team, status: "verified") }

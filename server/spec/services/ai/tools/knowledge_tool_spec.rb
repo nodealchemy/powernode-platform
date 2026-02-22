@@ -11,7 +11,7 @@ RSpec.describe Ai::Tools::KnowledgeTool do
       defn = described_class.definition
       expect(defn[:name]).to eq("query_knowledge_base")
       expect(defn[:description]).to be_present
-      expect(defn[:parameters]).to include(:query, :knowledge_base_id, :limit)
+      expect(defn[:parameters]).to include(:query, :knowledge_base_id, :top_k)
     end
 
     it "marks query as required" do
@@ -27,6 +27,15 @@ RSpec.describe Ai::Tools::KnowledgeTool do
 
   describe "#execute" do
     context "with a valid query" do
+      let(:knowledge_base) { create(:ai_knowledge_base, account: account, status: "active") }
+
+      before do
+        knowledge_base # ensure it exists
+        search_service = instance_double(Ai::Rag::HybridSearchService)
+        allow(Ai::Rag::HybridSearchService).to receive(:new).and_return(search_service)
+        allow(search_service).to receive(:search).and_return({ results: [], metadata: {} })
+      end
+
       it "returns results" do
         result = tool.execute(params: { query: "How to deploy?" })
         expect(result[:success]).to be true
@@ -34,13 +43,12 @@ RSpec.describe Ai::Tools::KnowledgeTool do
         expect(result).to have_key(:results_count)
       end
 
-      it "respects limit parameter" do
-        result = tool.execute(params: { query: "test query", limit: 3 })
+      it "respects top_k parameter" do
+        result = tool.execute(params: { query: "test query", top_k: 3 })
         expect(result[:success]).to be true
       end
 
-      it "defaults limit to 5" do
-        # The limit just constrains the query, verify no error
+      it "defaults top_k to 5" do
         result = tool.execute(params: { query: "test" })
         expect(result[:success]).to be true
       end
