@@ -163,8 +163,20 @@ module Ai
       return unless conversation
 
       phase = current_phase
+      previous_phase = saved_change_to_current_phase&.first
+
+      # Resolve the previous approval gate message if we just left one
+      resolve_approval_message(previous_phase) if previous_phase && Ai::Mission::APPROVAL_GATES.include?(previous_phase)
+
+      gate_labels = {
+        "awaiting_feature_approval" => "feature approval",
+        "awaiting_prd_approval" => "PRD approval",
+        "awaiting_code_approval" => "code review approval",
+        "previewing" => "merge approval"
+      }.freeze
+
       message = if Ai::Mission::APPROVAL_GATES.include?(phase)
-        "Mission **#{name}** is awaiting **#{phase.humanize}** — review and approve to proceed"
+        "Mission **#{name}** requires **#{gate_labels[phase] || phase.humanize}** — review and approve to proceed"
       elsif phase == "completed"
         "Mission **#{name}** completed successfully!"
       else
@@ -178,8 +190,49 @@ module Ai
         "phase" => phase,
         "phase_progress" => phase_progress
       })
+
+      # Push a real-time notification for approval gates
+      if Ai::Mission::APPROVAL_GATES.include?(phase)
+        notify_approval_required(gate_labels[phase] || phase.humanize)
+      end
     rescue StandardError => e
       Rails.logger.warn("Failed to post mission milestone to conversation: #{e.message}")
+    end
+
+    def resolve_approval_message(gate_phase)
+      pending_msg = conversation.messages
+                                .where(role: "system")
+                                .order(created_at: :desc)
+                                .find { |m|
+                                  m.content_metadata&.dig("activity_type") == "mission_approval_required" &&
+                                    m.content_metadata&.dig("mission_id") == id &&
+                                    m.content_metadata&.dig("phase") == gate_phase
+                                }
+
+      return unless pending_msg
+
+      updated_metadata = pending_msg.content_metadata.deep_dup
+      updated_metadata["resolved"] = true
+      updated_metadata["resolved_at"] = Time.current.iso8601
+      pending_msg.update!(content_metadata: updated_metadata)
+    rescue StandardError => e
+      Rails.logger.warn("Failed to resolve approval message: #{e.message}")
+    end
+
+    def notify_approval_required(gate_label)
+      Notification.create_for_user(
+        created_by,
+        type: "ai_plan_review",
+        title: "Mission awaiting #{gate_label}",
+        message: "\"#{name}\" requires #{gate_label} before it can continue.",
+        severity: "warning",
+        category: "ai",
+        action_url: "/app/ai/missions/#{id}",
+        action_label: "Review Mission",
+        metadata: { mission_id: id, phase: current_phase }
+      )
+    rescue StandardError => e
+      Rails.logger.warn("Failed to create approval notification: #{e.message}")
     end
 
     def set_defaults

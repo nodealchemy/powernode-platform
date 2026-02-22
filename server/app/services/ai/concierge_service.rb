@@ -32,6 +32,8 @@ module Ai
     end
 
     def handle_confirmed_action(action_type, params)
+      resolve_pending_action(action_type)
+
       case action_type
       when "create_mission"
         create_mission(params)
@@ -387,6 +389,24 @@ module Ai
       end
 
       parts.join("\n")
+    end
+
+    def resolve_pending_action(action_type)
+      message = @conversation.messages
+                              .where(role: "assistant")
+                              .order(created_at: :desc)
+                              .find { |m|
+                                m.content_metadata&.dig("concierge_action") &&
+                                  m.content_metadata&.dig("action_context", "status") == "pending" &&
+                                  m.content_metadata&.dig("action_context", "action_type") == action_type
+                              }
+
+      return unless message
+
+      updated_metadata = message.content_metadata.deep_dup
+      updated_metadata["action_context"]["status"] = "confirmed"
+      updated_metadata["action_context"]["resolved_at"] = Time.current.iso8601
+      message.update!(content_metadata: updated_metadata)
     end
 
     def find_credential
