@@ -15,6 +15,7 @@ module Ai
             .active
             .frequently_accessed
             .where("access_count >= ?", PROMOTION_THRESHOLD)
+            .where("last_event_processed_at IS NULL OR last_event_processed_at < ?", 24.hours.ago)
 
           scope = scope.for_session(session_id) if session_id.present?
 

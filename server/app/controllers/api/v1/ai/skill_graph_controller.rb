@@ -387,23 +387,45 @@ module Api
           render_error(e.message, status: :unprocessable_content)
         end
 
+        # POST /api/v1/ai/skill_graph/conflict_check (event-driven, called by worker)
+        def conflict_check
+          authorize_permission!("ai.knowledge_graph.manage") unless current_worker
+
+          skill = ::Ai::Skill.find_by(id: params[:skill_id])
+          return render_error("Skill not found", status: :not_found) unless skill
+
+          # Run targeted duplicate + overlap detection for this skill
+          duplicates = conflict_detection_service.detect_duplicates
+          overlapping = conflict_detection_service.detect_overlapping
+          total = duplicates.size + overlapping.size
+
+          render_success(
+            skill_id: skill.id,
+            conflicts_found: total,
+            duplicates: duplicates.size,
+            overlapping: overlapping.size
+          )
+        rescue StandardError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
         # POST /api/v1/ai/skill_graph/maintenance/daily
         def maintenance_daily
-          authorize_permission!("ai.analytics.manage")
+          authorize_permission!("ai.analytics.manage") unless current_worker
           result = optimization_service.daily_maintenance
           render_success(result)
         end
 
         # POST /api/v1/ai/skill_graph/maintenance/weekly
         def maintenance_weekly
-          authorize_permission!("ai.analytics.manage")
+          authorize_permission!("ai.analytics.manage") unless current_worker
           result = optimization_service.weekly_maintenance
           render_success(result)
         end
 
         # POST /api/v1/ai/skill_graph/maintenance/monthly
         def maintenance_monthly
-          authorize_permission!("ai.analytics.manage")
+          authorize_permission!("ai.analytics.manage") unless current_worker
           result = optimization_service.monthly_maintenance
           render_success(result)
         end

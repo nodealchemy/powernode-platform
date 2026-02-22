@@ -70,6 +70,9 @@ module Ai
           stored_count += 1 if stored
         end
 
+        # 5. Boost confidence for previously injected learnings on successful outcome
+        boost_injected_learnings_on_success(execution) if successful
+
         Rails.logger.info("[CompoundLearning] Extracted #{stored_count} learnings from execution #{execution.id}")
         stored_count
       rescue StandardError => e
@@ -136,7 +139,9 @@ module Ai
 
         ranked.each do |learning|
           category_label = "[#{learning.category}]"
-          line = "- #{category_label} #{learning.title || learning.content.truncate(100)}: #{learning.content.truncate(200)}"
+          freshness = learning_freshness(learning.updated_at)
+          freshness_label = freshness == "fresh" ? "" : " [#{freshness}]"
+          line = "- #{category_label}#{freshness_label} #{learning.title || learning.content.truncate(100)}: #{learning.content.truncate(200)}"
           break if used_chars + line.length > char_budget
 
           lines << line
@@ -230,14 +235,22 @@ module Ai
       def decay_and_consolidate
         decayed = 0
         archived = 0
+        skipped = 0
 
-        # Decay old learnings
-        Ai::CompoundLearning.active.for_account(@account.id)
+        # Decay old learnings (skip recently event-processed)
+        scope = Ai::CompoundLearning.active.for_account(@account.id)
           .where("updated_at < ?", 7.days.ago)
-          .find_each do |learning|
-            learning.decay_importance!
-            decayed += 1
-          end
+          .where("last_event_processed_at IS NULL OR last_event_processed_at < ?", 24.hours.ago)
+
+        scope.find_each do |learning|
+          learning.decay_importance!
+          decayed += 1
+        end
+
+        skipped = Ai::CompoundLearning.active.for_account(@account.id)
+          .where("updated_at < ?", 7.days.ago)
+          .where("last_event_processed_at >= ?", 24.hours.ago)
+          .count
 
         # Archive very low importance learnings older than 30 days
         Ai::CompoundLearning.active.for_account(@account.id)
@@ -248,8 +261,8 @@ module Ai
             archived += 1
           end
 
-        Rails.logger.info("[CompoundLearning] Maintenance: decayed=#{decayed} archived=#{archived}")
-        { decayed: decayed, archived: archived }
+        Rails.logger.info("[CompoundLearning] Maintenance: decayed=#{decayed} archived=#{archived} skipped_by_event=#{skipped}")
+        { decayed: decayed, archived: archived, skipped_by_event: skipped }
       end
 
       # ==================================================
@@ -379,7 +392,7 @@ module Ai
         end
 
         # Create new learning
-        Ai::CompoundLearning.create!(
+        new_learning = Ai::CompoundLearning.create!(
           account: @account,
           ai_agent_team: team,
           source_agent_id: learning_data[:source_agent_id] || learning_data[:agent_id],
@@ -396,6 +409,13 @@ module Ai
           scope: "team"
         )
 
+        # Enqueue async dedup check for the new learning
+        begin
+          WorkerJobService.enqueue_ai_dedup_learning(new_learning.id)
+        rescue StandardError => e
+          Rails.logger.warn("[CompoundLearning] Failed to enqueue dedup check: #{e.message}")
+        end
+
         true
       rescue ActiveRecord::RecordInvalid => e
         Rails.logger.warn("[CompoundLearning] Failed to store learning: #{e.message}")
@@ -403,6 +423,35 @@ module Ai
       end
 
       private
+
+      def boost_injected_learnings_on_success(execution)
+        # Find learnings injected into this execution (those with recent injection timestamps)
+        execution_start = execution.respond_to?(:created_at) ? execution.created_at : 1.hour.ago
+        recently_injected = Ai::CompoundLearning
+          .for_account(@account.id)
+          .where(status: %w[active verified])
+          .where("injection_count >= ?", 1)
+          .where("last_injected_at >= ?", execution_start)
+
+        recently_injected.find_each do |learning|
+          learning.update_column(:confidence_score, [learning.confidence_score + 0.02, 1.0].min)
+        end
+      rescue StandardError => e
+        Rails.logger.warn("[CompoundLearning] Confidence boost failed: #{e.message}")
+      end
+
+      def learning_freshness(updated_at)
+        return "stale" unless updated_at
+
+        age_days = (Time.current - updated_at) / 1.day
+        if age_days < 7
+          "fresh"
+        elsif age_days < 30
+          "aging"
+        else
+          "stale"
+        end
+      end
 
       def build_execution_metadata(execution)
         {

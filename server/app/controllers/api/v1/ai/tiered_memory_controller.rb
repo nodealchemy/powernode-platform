@@ -119,6 +119,25 @@ module Api
           render_error(e.message, status: :unprocessable_content)
         end
 
+        # POST /api/v1/ai/memory/consolidate_entry (event-driven, called by worker)
+        def consolidate_entry
+          entry = ::Ai::AgentShortTermMemory.find_by(id: params[:entry_id])
+          return render_error("Entry not found", status: :not_found) unless entry
+          return render_success(consolidated: false, reason: "expired") if entry.expired?
+
+          # Promote to long-term via embedding-based consolidation
+          agent = entry.agent
+          router = ::Ai::Memory::RouterService.new(account: current_account, agent: agent)
+          result = router.consolidate!(session_id: entry.session_id)
+
+          entry.update_column(:last_event_processed_at, Time.current) if entry.respond_to?(:last_event_processed_at)
+
+          render_success(data: result)
+        rescue StandardError => e
+          Rails.logger.error("#{self.class.name}##{action_name} failed: #{e.message}")
+          render_error(e.message, status: :unprocessable_content)
+        end
+
         # GET /api/v1/ai/memory/shared_knowledge
         def shared_knowledge
           scope = ::Ai::SharedKnowledge
@@ -139,7 +158,7 @@ module Api
 
         def set_agent
           # These actions don't require an agent
-          return if %w[shared_knowledge consolidate_all decay_all shared_maintenance].include?(action_name)
+          return if %w[shared_knowledge consolidate_all decay_all shared_maintenance consolidate_entry].include?(action_name)
 
           @agent = current_account.ai_agents.find(params[:agent_id])
         rescue ActiveRecord::RecordNotFound
@@ -152,7 +171,7 @@ module Api
           case action_name
           when "index", "stats", "shared_knowledge"
             require_permission("ai.memory.read")
-          when "create", "consolidate", "consolidate_all", "decay_all", "shared_maintenance"
+          when "create", "consolidate", "consolidate_all", "decay_all", "shared_maintenance", "consolidate_entry"
             require_permission("ai.memory.write")
           when "destroy"
             require_permission("ai.memory.write")

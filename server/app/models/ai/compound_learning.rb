@@ -38,6 +38,12 @@ module Ai
     validates :confidence_score, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 }
 
     # ==========================================
+    # Callbacks
+    # ==========================================
+    after_commit :enqueue_promotion_check, if: :promotion_threshold_crossed?
+    after_commit :enqueue_graph_update_on_status_change, if: :saved_change_to_status?
+
+    # ==========================================
     # Scopes
     # ==========================================
     scope :active, -> { where(status: "active") }
@@ -190,6 +196,29 @@ module Ai
     end
 
     private
+
+    def promotion_threshold_crossed?
+      saved_change_to_access_count? && access_count >= 2 && access_count_before_last_save.to_i < 2 && scope == "team"
+    end
+
+    def enqueue_promotion_check
+      WorkerJobService.enqueue_ai_promote_learning(id)
+    rescue StandardError => e
+      Rails.logger.warn("[CompoundLearning] Failed to enqueue promotion: #{e.message}")
+    end
+
+    def enqueue_graph_update_on_status_change
+      return unless status.in?(%w[verified disproven])
+
+      # Find linked KG nodes and trigger recalculation
+      nodes = Ai::KnowledgeGraphNode.where(account_id: account_id)
+        .where("properties->>'source_learning_id' = ?", id)
+      nodes.find_each do |node|
+        WorkerJobService.enqueue_ai_update_graph_node(node.id)
+      rescue StandardError => e
+        Rails.logger.warn("[CompoundLearning] Failed to enqueue graph update for node #{node.id}: #{e.message}")
+      end
+    end
 
     def recalculate_effectiveness!
       return unless injection_count >= 3

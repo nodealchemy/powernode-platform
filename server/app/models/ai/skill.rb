@@ -58,6 +58,7 @@ module Ai
     # ==========================================
     before_validation :generate_slug, on: :create
     after_commit :sync_to_knowledge_graph, on: [:create, :update]
+    after_commit :enqueue_conflict_check, on: [:create, :update]
     after_destroy :archive_knowledge_graph_node
 
     # ==========================================
@@ -161,6 +162,12 @@ module Ai
       Ai::SkillGraph::BridgeService.new(Account.find(account_id)).sync_skill(self)
     rescue StandardError => e
       Rails.logger.warn "[Ai::Skill] KG sync failed for skill #{id}: #{e.message}"
+    end
+
+    def enqueue_conflict_check
+      WorkerJobService.enqueue_ai_skill_conflict_check(id)
+    rescue StandardError => e
+      Rails.logger.warn "[Ai::Skill] Conflict check enqueue failed for skill #{id}: #{e.message}"
     end
 
     def archive_knowledge_graph_node

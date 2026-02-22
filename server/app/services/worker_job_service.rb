@@ -277,6 +277,55 @@ class WorkerJobService
     end
 
     # ==========================================
+    # Knowledge Event-Driven Jobs
+    # ==========================================
+
+    # Enqueue learning promotion when access_count crosses threshold
+    def enqueue_ai_promote_learning(learning_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiPromoteLearningJob",
+        "args" => [learning_id],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # Enqueue STM entry consolidation to LTM
+    def enqueue_ai_consolidate_memory_entry(entry_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiConsolidateMemoryEntryJob",
+        "args" => [entry_id],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # Enqueue dedup check after learning creation
+    def enqueue_ai_dedup_learning(learning_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiDedupLearningJob",
+        "args" => [learning_id],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # Enqueue KG node recalculation after learning verification/disproval
+    def enqueue_ai_update_graph_node(node_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiUpdateGraphNodeJob",
+        "args" => [node_id],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # Enqueue skill conflict check after skill creation/update
+    def enqueue_ai_skill_conflict_check(skill_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiSkillConflictCheckJob",
+        "args" => [skill_id],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # ==========================================
     # DevOps Jobs (CI/CD Pipelines, Integrations)
     # ==========================================
 

@@ -8,7 +8,7 @@ module Ai
     # Unlike StorageService shared learning methods (which use MemoryPool), this service operates
     # directly on the Ai::SharedKnowledge model with vector embeddings.
     class SharedKnowledgeService
-      SIMILARITY_THRESHOLD = 0.5
+      SIMILARITY_THRESHOLD = 0.3
       DEDUP_THRESHOLD = 0.92
       MAX_RESULTS = 20
       CHARS_PER_TOKEN = 4
@@ -105,6 +105,7 @@ module Ai
           entry.touch_usage!
           serialized = serialize_entry(entry)
           serialized[:similarity] = (1.0 - entry.neighbor_distance).round(4) if entry.respond_to?(:neighbor_distance) && entry.neighbor_distance
+          serialized[:freshness] = freshness_indicator(entry.updated_at)
           serialized
         end
 
@@ -306,15 +307,21 @@ module Ai
         scope = Ai::SharedKnowledge.where(account: @account)
           .where.not("provenance @> ?", { archived: true }.to_json)
           .where("last_quality_recalc_at < ? OR last_quality_recalc_at IS NULL", 24.hours.ago)
+          .where("last_event_processed_at IS NULL OR last_event_processed_at < ?", 24.hours.ago)
 
         recalculated = 0
+        skipped = Ai::SharedKnowledge.where(account: @account)
+          .where.not("provenance @> ?", { archived: true }.to_json)
+          .where("last_event_processed_at >= ?", 24.hours.ago)
+          .count
+
         scope.find_each(batch_size: batch_size) do |entry|
           entry.recalculate_quality_score!
           recalculated += 1
         end
 
-        Rails.logger.info("[SharedKnowledge] Batch quality recalc complete: #{recalculated} entries updated")
-        { success: true, recalculated: recalculated }
+        Rails.logger.info("[SharedKnowledge] Batch quality recalc: #{recalculated} updated, #{skipped} skipped by event-driven")
+        { success: true, recalculated: recalculated, skipped_by_event: skipped }
       rescue StandardError => e
         Rails.logger.error("[SharedKnowledge] Batch quality recalc failed: #{e.message}")
         { success: false, error: e.message, recalculated: 0 }
@@ -436,6 +443,19 @@ module Ai
           "text"
         else
           "text"
+        end
+      end
+
+      def freshness_indicator(updated_at)
+        return "stale" unless updated_at
+
+        age_days = (Time.current - updated_at) / 1.day
+        if age_days < 7
+          "fresh"
+        elsif age_days < 30
+          "aging"
+        else
+          "stale"
         end
       end
 

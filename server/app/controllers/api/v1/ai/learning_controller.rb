@@ -8,7 +8,7 @@ module Api
 
         # GET /api/v1/ai/learning/recommendations
         def recommendations
-          recs = ::Ai::ImprovementRecommendation.where(account: current_user.account)
+          recs = ::Ai::ImprovementRecommendation.where(account: current_account)
                                                  .recent(params[:limit]&.to_i || 50)
 
           recs = recs.where(status: params[:status]) if params[:status].present?
@@ -21,7 +21,7 @@ module Api
 
         # POST /api/v1/ai/learning/recommendations/:id/apply
         def apply_recommendation
-          recommender = ::Ai::Learning::ImprovementRecommender.new(account: current_user.account)
+          recommender = ::Ai::Learning::ImprovementRecommender.new(account: current_account)
           recommendation = recommender.apply_recommendation!(params[:id], user: current_user)
 
           if recommendation
@@ -34,7 +34,7 @@ module Api
         # POST /api/v1/ai/learning/recommendations/:id/dismiss
         def dismiss_recommendation
           recommendation = ::Ai::ImprovementRecommendation.find_by(
-            id: params[:id], account: current_user.account
+            id: params[:id], account: current_account
           )
 
           if recommendation
@@ -47,8 +47,8 @@ module Api
 
         # GET /api/v1/ai/learning/agent_trends
         def agent_trends
-          evaluation_service = ::Ai::Learning::EvaluationService.new(account: current_user.account)
-          agents = current_user.account.ai_agents.where(status: "active")
+          evaluation_service = ::Ai::Learning::EvaluationService.new(account: current_account)
+          agents = current_account.ai_agents.where(status: "active")
 
           trends = agents.filter_map do |agent|
             trend_data = evaluation_service.agent_score_trends(agent.id)
@@ -69,7 +69,7 @@ module Api
 
         # GET /api/v1/ai/learning/compound_metrics
         def compound_metrics
-          service = ::Ai::Learning::CompoundLearningService.new(account: current_user.account)
+          service = ::Ai::Learning::CompoundLearningService.new(account: current_account)
           metrics = service.compound_metrics
 
           render_success(metrics: metrics)
@@ -77,7 +77,7 @@ module Api
 
         # GET /api/v1/ai/learning/learnings
         def learnings
-          service = ::Ai::Learning::CompoundLearningService.new(account: current_user.account)
+          service = ::Ai::Learning::CompoundLearningService.new(account: current_account)
           results = service.list_learnings(
             status: params[:status] || "active",
             category: params[:category],
@@ -95,7 +95,7 @@ module Api
 
         # POST /api/v1/ai/learning/reinforce/:id
         def reinforce
-          service = ::Ai::Learning::CompoundLearningService.new(account: current_user.account)
+          service = ::Ai::Learning::CompoundLearningService.new(account: current_account)
           learning = service.reinforce_learning(params[:id])
 
           if learning
@@ -107,7 +107,7 @@ module Api
 
         # POST /api/v1/ai/learning/promote
         def promote
-          service = ::Ai::Learning::CompoundLearningService.new(account: current_user.account)
+          service = ::Ai::Learning::CompoundLearningService.new(account: current_account)
           count = service.promote_cross_team
 
           render_success(promoted_count: count)
@@ -115,7 +115,7 @@ module Api
 
         # GET /api/v1/ai/learning/benchmarks
         def benchmarks
-          benchmarks = ::Ai::PerformanceBenchmark.where(account: current_user.account)
+          benchmarks = ::Ai::PerformanceBenchmark.where(account: current_account)
           benchmarks = benchmarks.where(status: params[:status]) if params[:status].present?
           benchmarks = benchmarks.for_agent(params[:agent_id]) if params[:agent_id].present?
           benchmarks = benchmarks.order(created_at: :desc).limit(params[:limit]&.to_i || 50)
@@ -128,7 +128,7 @@ module Api
         # POST /api/v1/ai/learning/benchmarks
         def create_benchmark
           benchmark = ::Ai::PerformanceBenchmark.new(
-            account: current_user.account,
+            account: current_account,
             name: params[:name],
             target_agent_id: params[:agent_id],
             target_workflow_id: params[:workflow_id],
@@ -145,10 +145,10 @@ module Api
 
         # POST /api/v1/ai/learning/benchmarks/:id/run
         def run_benchmark
-          benchmark = ::Ai::PerformanceBenchmark.find_by(id: params[:id], account: current_user.account)
+          benchmark = ::Ai::PerformanceBenchmark.find_by(id: params[:id], account: current_account)
           return render_error("Benchmark not found", status: :not_found) unless benchmark
 
-          evaluation_service = ::Ai::Learning::EvaluationService.new(account: current_user.account)
+          evaluation_service = ::Ai::Learning::EvaluationService.new(account: current_account)
           agent_id = benchmark.target_agent_id
           return render_error("Benchmark has no target agent", status: :unprocessable_content) unless agent_id
 
@@ -164,7 +164,7 @@ module Api
         # GET /api/v1/ai/learning/evaluation_results
         def evaluation_results
           results = ::Ai::EvaluationResult.joins(:execution)
-                                           .where(ai_agent_executions: { account_id: current_user.account.id })
+                                           .where(ai_agent_executions: { account_id: current_account.id })
 
           results = results.for_agent(params[:agent_id]) if params[:agent_id].present?
           results = results.in_time_range(params[:from]&.to_datetime, params[:to]&.to_datetime) if params[:from].present?
@@ -177,10 +177,10 @@ module Api
 
         # POST /api/v1/ai/learning/memory_maintenance (internal, called by worker)
         def memory_maintenance
-          maintenance = ::Ai::Memory::MaintenanceService.new(account: current_user.account)
+          maintenance = ::Ai::Memory::MaintenanceService.new(account: current_account)
           maintenance_result = maintenance.run_full_maintenance
 
-          rot_service = ::Ai::Context::RotDetectionService.new(account: current_user.account)
+          rot_service = ::Ai::Context::RotDetectionService.new(account: current_account)
           rot_result = rot_service.auto_archive!
 
           render_success(
@@ -191,7 +191,7 @@ module Api
 
         # POST /api/v1/ai/learning/knowledge_doc_sync (internal, called by worker)
         def knowledge_doc_sync
-          service = ::Ai::KnowledgeDocSyncService.new(account: current_user.account)
+          service = ::Ai::KnowledgeDocSyncService.new(account: current_account)
           result = service.sync_all!
 
           if result[:success]
@@ -203,7 +203,10 @@ module Api
 
         # POST /api/v1/ai/learning/knowledge_graph_maintenance (internal, called by worker)
         def knowledge_graph_maintenance
-          nodes = ::Ai::KnowledgeGraphNode.active.where(account: current_user.account)
+          all_nodes = ::Ai::KnowledgeGraphNode.active.where(account: current_account)
+          # Skip nodes recently processed by event-driven jobs
+          nodes = all_nodes.where("last_event_processed_at IS NULL OR last_event_processed_at < ?", 24.hours.ago)
+          skipped = all_nodes.where("last_event_processed_at >= ?", 24.hours.ago).count
 
           decayed = 0
           recalculated = 0
@@ -218,18 +221,105 @@ module Api
             Rails.logger.warn("[KnowledgeGraphMaintenance] Failed for node #{node.id}: #{e.message}")
           end
 
+          Rails.logger.info("[KnowledgeGraphMaintenance] decayed=#{decayed} recalculated=#{recalculated} skipped_by_event=#{skipped}")
+
           render_success(
             decayed: decayed,
-            recalculated: recalculated
+            recalculated: recalculated,
+            skipped_by_event: skipped
           )
         rescue StandardError => e
           Rails.logger.error("#{self.class.name}##{action_name} failed: #{e.message}")
           render_error(e.message, status: :unprocessable_content)
         end
 
+        # POST /api/v1/ai/learning/promote_learning (event-driven, called by worker)
+        def promote_learning
+          learning = ::Ai::CompoundLearning.find_by(id: params[:learning_id], account: current_account)
+          return render_error("Learning not found", status: :not_found) unless learning
+
+          service = ::Ai::Learning::CompoundLearningService.new(account: current_account)
+
+          # Check if already promoted globally
+          existing_global = ::Ai::CompoundLearning.active
+            .for_account(current_account.id)
+            .global_scope
+            .where("content ILIKE ?", "%#{learning.content.truncate(100)}%")
+
+          if existing_global.exists?
+            render_success(promoted: false, reason: "already_global")
+          else
+            promoted = ::Ai::CompoundLearning.create!(
+              account: current_account,
+              category: learning.category,
+              content: learning.content,
+              title: learning.title,
+              importance_score: learning.importance_score,
+              confidence_score: learning.confidence_score,
+              scope: "global",
+              extraction_method: learning.extraction_method,
+              tags: learning.tags,
+              applicable_domains: learning.applicable_domains,
+              embedding: learning.embedding,
+              promoted_at: Time.current,
+              metadata: { promoted_from_team: learning.ai_agent_team_id, original_id: learning.id }
+            )
+            learning.update_column(:last_event_processed_at, Time.current) if learning.respond_to?(:last_event_processed_at)
+            render_success(promoted: true, learning_id: promoted.id)
+          end
+        rescue StandardError => e
+          Rails.logger.error("[PromoteLearning] Failed: #{e.message}")
+          render_error(e.message, status: :unprocessable_content)
+        end
+
+        # POST /api/v1/ai/learning/dedup_check (event-driven, called by worker)
+        def dedup_check
+          learning = ::Ai::CompoundLearning.find_by(id: params[:learning_id], account: current_account)
+          return render_error("Learning not found", status: :not_found) unless learning
+          return render_success(dedup: false, reason: "no_embedding") unless learning.embedding.present?
+
+          duplicates = ::Ai::CompoundLearning.find_similar(
+            learning.embedding,
+            account_id: current_account.id,
+            threshold: 0.92
+          ).where.not(id: learning.id)
+
+          if duplicates.any?
+            existing = duplicates.first
+            existing.boost_importance!(0.03)
+            learning.deprecate!
+            render_success(dedup: true, merged_into: existing.id)
+          else
+            learning.update_column(:last_event_processed_at, Time.current) if learning.respond_to?(:last_event_processed_at)
+            render_success(dedup: false, reason: "unique")
+          end
+        rescue StandardError => e
+          Rails.logger.error("[DedupCheck] Failed: #{e.message}")
+          render_error(e.message, status: :unprocessable_content)
+        end
+
+        # POST /api/v1/ai/learning/update_graph_node (event-driven, called by worker)
+        def update_graph_node
+          node = ::Ai::KnowledgeGraphNode.find_by(id: params[:node_id], account: current_account)
+          return render_error("Node not found", status: :not_found) unless node
+
+          node.decay_confidence!
+          node.recalculate_quality_score!
+          node.update_column(:last_event_processed_at, Time.current) if node.respond_to?(:last_event_processed_at)
+
+          render_success(
+            node_id: node.id,
+            confidence: node.confidence,
+            quality_score: node.quality_score
+          )
+        rescue StandardError => e
+          Rails.logger.error("[UpdateGraphNode] Failed: #{e.message}")
+          render_error(e.message, status: :unprocessable_content)
+        end
+
         # POST /api/v1/ai/learning/compound_maintenance (internal, called by worker)
         def compound_maintenance
-          service = ::Ai::Learning::CompoundLearningService.new(account: current_user.account)
+          service = ::Ai::Learning::CompoundLearningService.new(account: current_account)
 
           maintenance_result = service.decay_and_consolidate
           promotion_count = service.promote_cross_team
@@ -243,6 +333,12 @@ module Api
         private
 
         def validate_permissions
+          # Worker bypass for internal maintenance endpoints (same pattern as TieredMemoryController)
+          if current_worker
+            return if %w[compound_maintenance memory_maintenance knowledge_doc_sync knowledge_graph_maintenance
+                         promote_learning dedup_check update_graph_node].include?(action_name)
+          end
+
           case action_name
           when "recommendations", "agent_trends", "cache_metrics", "evaluation_results", "benchmarks"
             require_permission("ai.analytics.read")
@@ -251,6 +347,8 @@ module Api
           when "apply_recommendation", "dismiss_recommendation", "create_benchmark", "run_benchmark"
             require_permission("ai.analytics.manage")
           when "reinforce", "promote", "compound_maintenance", "memory_maintenance", "knowledge_doc_sync", "knowledge_graph_maintenance"
+            require_permission("ai.analytics.manage")
+          when "promote_learning", "dedup_check", "update_graph_node"
             require_permission("ai.analytics.manage")
           end
         end

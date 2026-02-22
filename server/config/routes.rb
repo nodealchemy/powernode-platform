@@ -2032,6 +2032,8 @@ Rails.application.routes.draw do
           post "maintenance/daily", action: :maintenance_daily
           post "maintenance/weekly", action: :maintenance_weekly
           post "maintenance/monthly", action: :maintenance_monthly
+          # Event-driven single-skill conflict check (called by worker jobs)
+          post "conflict_check", action: :conflict_check
         end
 
         # ===================================================================
@@ -2724,6 +2726,8 @@ Rails.application.routes.draw do
         post "memory/consolidate", to: "tiered_memory#consolidate_all"
         post "memory/decay", to: "tiered_memory#decay_all"
         post "memory/shared_maintenance", to: "tiered_memory#shared_maintenance"
+        # Event-driven single-entry consolidation (called by worker jobs)
+        post "memory/consolidate_entry", to: "tiered_memory#consolidate_entry"
 
         # ===================================================================
         # 23. SECURITY - Anomaly detection & PII scanning
@@ -2824,6 +2828,10 @@ Rails.application.routes.draw do
           post "memory_maintenance", action: :memory_maintenance
           post "knowledge_doc_sync", action: :knowledge_doc_sync
           post "knowledge_graph_maintenance", action: :knowledge_graph_maintenance
+          # Event-driven single-entity endpoints (called by worker jobs)
+          post "promote_learning", action: :promote_learning
+          post "dedup_check", action: :dedup_check
+          post "update_graph_node", action: :update_graph_node
           get "benchmarks", action: :benchmarks
           post "benchmarks", action: :create_benchmark
           post "benchmarks/:id/run", action: :run_benchmark

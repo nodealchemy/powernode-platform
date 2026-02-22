@@ -40,6 +40,7 @@ module Ai
     # Callbacks
     # ==========================================
     before_create :set_expiration
+    after_commit :enqueue_consolidation_check, if: :consolidation_threshold_crossed?
 
     # ==========================================
     # Methods
@@ -66,6 +67,16 @@ module Ai
     end
 
     private
+
+    def consolidation_threshold_crossed?
+      saved_change_to_access_count? && access_count >= 3 && access_count_before_last_save.to_i < 3
+    end
+
+    def enqueue_consolidation_check
+      WorkerJobService.enqueue_ai_consolidate_memory_entry(id)
+    rescue StandardError => e
+      Rails.logger.warn("[AgentShortTermMemory] Failed to enqueue consolidation: #{e.message}")
+    end
 
     def set_expiration
       self.ttl_seconds ||= DEFAULT_TTL

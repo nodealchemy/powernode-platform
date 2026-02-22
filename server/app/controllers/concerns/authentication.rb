@@ -121,6 +121,7 @@ module Authentication
 
   def handle_worker_token(payload)
     @current_worker = Worker.find(payload[:sub])
+    @current_account = @current_worker.account if @current_worker.account_id.present?
     @current_jwt_payload = payload
   end
 

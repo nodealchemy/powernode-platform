@@ -184,6 +184,9 @@ module Ai
 
       def learning_health
         scope = Ai::CompoundLearning.where(account: account)
+        event_processed_24h = scope.where("last_event_processed_at >= ?", 24.hours.ago).count
+        batch_only_24h = scope.active.where("updated_at >= ?", 24.hours.ago)
+          .where("last_event_processed_at IS NULL OR last_event_processed_at < ?", 24.hours.ago).count
         {
           total: scope.count,
           active: scope.active.count,
@@ -194,12 +197,15 @@ module Ai
           avg_importance: scope.active.average(:importance_score)&.to_f&.round(4) || 0,
           avg_confidence: scope.active.average(:confidence_score)&.to_f&.round(4) || 0,
           avg_effectiveness: scope.active.where("injection_count >= 3").average(:effectiveness_score)&.to_f&.round(4) || 0,
-          high_importance_count: scope.active.high_importance.count
+          high_importance_count: scope.active.high_importance.count,
+          event_processed_24h: event_processed_24h,
+          batch_only_24h: batch_only_24h
         }
       end
 
       def shared_knowledge_health
         scope = Ai::SharedKnowledge.where(account: account)
+        event_processed_24h = scope.where("last_event_processed_at >= ?", 24.hours.ago).count
         {
           total: scope.count,
           avg_quality: scope.average(:quality_score)&.to_f&.round(4) || 0,
@@ -207,19 +213,22 @@ module Ai
           avg_rating: scope.where("rating_count > 0").average("rating_sum::float / rating_count")&.to_f&.round(2) || 0,
           total_usage: scope.sum(:usage_count),
           with_embeddings: scope.with_embedding.count,
-          stale_count: scope.where("last_quality_recalc_at < ? OR last_quality_recalc_at IS NULL", 24.hours.ago).count
+          stale_count: scope.where("last_quality_recalc_at < ? OR last_quality_recalc_at IS NULL", 24.hours.ago).count,
+          event_processed_24h: event_processed_24h
         }
       end
 
       def graph_health
         scope = Ai::KnowledgeGraphNode.where(account: account)
+        event_processed_24h = scope.where("last_event_processed_at >= ?", 24.hours.ago).count
         {
           total_nodes: scope.count,
           active_nodes: scope.active.count,
           avg_confidence: scope.active.where.not(confidence: nil).average(:confidence)&.to_f&.round(4) || 0,
           low_confidence_count: scope.active.where("confidence < ?", 0.3).count,
           with_embeddings: scope.with_embeddings.count,
-          total_edges: Ai::KnowledgeGraphEdge.joins(:source_node).where(ai_knowledge_graph_nodes: { account_id: account.id }).count
+          total_edges: Ai::KnowledgeGraphEdge.joins(:source_node).where(ai_knowledge_graph_nodes: { account_id: account.id }).count,
+          event_processed_24h: event_processed_24h
         }
       end
 
