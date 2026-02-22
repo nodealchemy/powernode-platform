@@ -60,11 +60,11 @@ RSpec.describe WellKnownController, type: :controller do
       expect(json["bearer_methods_supported"]).to include("header")
     end
 
-    it "returns all 8 Doorkeeper scopes" do
+    it "returns MCP-allowed scopes" do
       get :oauth_protected_resource
 
       json = JSON.parse(response.body)
-      expected_scopes = %w[read write admin billing users webhooks workflows files]
+      expected_scopes = %w[read write workflows files]
       expect(json["scopes_supported"]).to match_array(expected_scopes)
     end
   end
@@ -81,11 +81,11 @@ RSpec.describe WellKnownController, type: :controller do
       expect(json["code_challenge_methods_supported"]).to include("S256")
     end
 
-    it "returns all 8 Doorkeeper scopes" do
+    it "returns MCP-allowed scopes" do
       get :oauth_authorization_server
 
       json = JSON.parse(response.body)
-      expected_scopes = %w[read write admin billing users webhooks workflows files]
+      expected_scopes = %w[read write workflows files]
       expect(json["scopes_supported"]).to match_array(expected_scopes)
     end
 

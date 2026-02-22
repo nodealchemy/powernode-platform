@@ -45,6 +45,6 @@ class WellKnownController < ActionController::API
   private
 
   def oauth_scopes
-    %w[read write admin billing users webhooks workflows files]
+    %w[read write workflows files]
   end
 end

@@ -16,8 +16,13 @@ Doorkeeper.configure do
       token = request.headers["Authorization"].split(" ", 2).last
       begin
         decoded = Security::JwtService.decode(token)
-        User.find_by(id: decoded["sub"] || decoded["user_id"]) if decoded
-      rescue StandardError
+        if decoded
+          user = User.find_by(id: decoded["sub"] || decoded["user_id"])
+          Rails.logger.warn("[Doorkeeper] JWT valid but user not found: sub=#{decoded['sub']}") unless user
+          user
+        end
+      rescue StandardError => e
+        Rails.logger.warn("[Doorkeeper] JWT decode failed: #{e.message}")
         nil
       end
     else
