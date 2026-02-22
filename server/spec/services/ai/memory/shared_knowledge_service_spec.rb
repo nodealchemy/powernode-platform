@@ -416,6 +416,68 @@ RSpec.describe Ai::Memory::SharedKnowledgeService, type: :service do
   end
 
   # ===========================================================================
+  # recalculate_all_quality
+  # ===========================================================================
+
+  describe "#recalculate_all_quality" do
+    before do
+      embeddings = 3.times.map { Array.new(1536) { rand(-1.0..1.0) } }
+      call_count = 0
+      allow_any_instance_of(Ai::Memory::EmbeddingService)
+        .to receive(:generate) do
+          idx = call_count % embeddings.size
+          call_count += 1
+          embeddings[idx]
+        end
+    end
+
+    it "recalculates stale entries" do
+      entry = create(:ai_shared_knowledge, account: account,
+                     last_quality_recalc_at: 2.days.ago)
+      old_score = entry.quality_score
+
+      result = service.recalculate_all_quality
+
+      expect(result[:success]).to be true
+      expect(result[:recalculated]).to be >= 1
+
+      entry.reload
+      expect(entry.last_quality_recalc_at).to be_within(2.seconds).of(Time.current)
+    end
+
+    it "skips entries recalculated within 24 hours" do
+      create(:ai_shared_knowledge, account: account,
+             last_quality_recalc_at: 1.hour.ago)
+
+      result = service.recalculate_all_quality
+
+      expect(result[:success]).to be true
+      expect(result[:recalculated]).to eq(0)
+    end
+
+    it "skips archived entries" do
+      create(:ai_shared_knowledge, account: account,
+             last_quality_recalc_at: 2.days.ago,
+             provenance: { "archived" => true, "archived_at" => 1.day.ago.iso8601 })
+
+      result = service.recalculate_all_quality
+
+      expect(result[:success]).to be true
+      expect(result[:recalculated]).to eq(0)
+    end
+
+    it "recalculates entries that have never been scored" do
+      create(:ai_shared_knowledge, account: account,
+             last_quality_recalc_at: nil)
+
+      result = service.recalculate_all_quality
+
+      expect(result[:success]).to be true
+      expect(result[:recalculated]).to be >= 1
+    end
+  end
+
+  # ===========================================================================
   # build_context
   # ===========================================================================
 

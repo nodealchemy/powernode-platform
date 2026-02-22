@@ -273,11 +273,40 @@ RSpec.describe Api::V1::Ai::TieredMemoryController, type: :controller do
       shared = instance_double(Ai::Memory::SharedKnowledgeService)
       allow(Ai::Memory::SharedKnowledgeService).to receive(:new).and_return(shared)
       allow(shared).to receive(:import_from_learnings).and_return({ imported: 3 })
+      allow(shared).to receive(:recalculate_all_quality).and_return({ success: true, recalculated: 5 })
       allow(shared).to receive(:stats).and_return({ total: 10, active: 8 })
 
       post :shared_maintenance
       expect(response).to have_http_status(:ok)
       expect(json_response['success']).to be true
+    end
+
+    it 'calls import, recalculate, and stats in sequence' do
+      shared = instance_double(Ai::Memory::SharedKnowledgeService)
+      allow(Ai::Memory::SharedKnowledgeService).to receive(:new).and_return(shared)
+
+      expect(shared).to receive(:import_from_learnings).ordered.and_return({ imported: 2 })
+      expect(shared).to receive(:recalculate_all_quality).ordered.and_return({ success: true, recalculated: 3 })
+      expect(shared).to receive(:stats).ordered.and_return({ total: 5 })
+
+      post :shared_maintenance
+    end
+
+    it 'includes quality_recalc in response' do
+      shared = instance_double(Ai::Memory::SharedKnowledgeService)
+      allow(Ai::Memory::SharedKnowledgeService).to receive(:new).and_return(shared)
+      allow(shared).to receive(:import_from_learnings).and_return({ imported: 1 })
+      allow(shared).to receive(:recalculate_all_quality).and_return({ success: true, recalculated: 7 })
+      allow(shared).to receive(:stats).and_return({ total: 10 })
+
+      post :shared_maintenance
+      expect(response).to have_http_status(:ok)
+
+      data = json_response['data']
+      expect(data).to have_key('import_result')
+      expect(data).to have_key('quality_recalc')
+      expect(data).to have_key('stats')
+      expect(data['quality_recalc']['recalculated']).to eq(7)
     end
   end
 

@@ -332,6 +332,60 @@ RSpec.describe "Api::V1::Ai::LearningController", type: :request do
   end
 
   # =========================================================================
+  # KNOWLEDGE GRAPH MAINTENANCE (POST /api/v1/ai/learning/knowledge_graph_maintenance)
+  # =========================================================================
+  describe "POST /api/v1/ai/learning/knowledge_graph_maintenance" do
+    let(:path) { "/api/v1/ai/learning/knowledge_graph_maintenance" }
+
+    it 'returns 401 when unauthenticated' do
+      post path, headers: { 'Content-Type' => 'application/json' }
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    it 'returns 403 when user lacks ai.analytics.manage permission' do
+      post path, headers: auth_headers_for(read_user)
+      expect(response).to have_http_status(:forbidden)
+    end
+
+    it 'returns success with decayed and recalculated counts' do
+      create(:ai_knowledge_graph_node, account: account, confidence: 0.8,
+             decay_rate: 0.1, last_seen_at: 5.days.ago)
+      create(:ai_knowledge_graph_node, account: account, confidence: 0.6,
+             decay_rate: 0.05, last_seen_at: 10.days.ago)
+
+      post path, headers: auth_headers_for(manage_user)
+      expect(response).to have_http_status(:success)
+      expect(json_response['success']).to eq(true)
+      expect(json_response_data['decayed']).to eq(2)
+      expect(json_response_data['recalculated']).to eq(2)
+    end
+
+    it 'skips archived nodes' do
+      create(:ai_knowledge_graph_node, :archived, account: account)
+      create(:ai_knowledge_graph_node, account: account, confidence: 0.7,
+             decay_rate: 0.1, last_seen_at: 3.days.ago)
+
+      post path, headers: auth_headers_for(manage_user)
+      expect(response).to have_http_status(:success)
+      expect(json_response_data['decayed']).to eq(1)
+    end
+
+    it 'continues processing when individual nodes fail' do
+      good_node = create(:ai_knowledge_graph_node, account: account,
+                         confidence: 0.8, decay_rate: 0.1, last_seen_at: 5.days.ago)
+      bad_node = create(:ai_knowledge_graph_node, account: account,
+                        confidence: 0.5, decay_rate: 0.05, last_seen_at: 3.days.ago)
+
+      allow_any_instance_of(Ai::KnowledgeGraphNode).to receive(:decay_confidence!).and_call_original
+      allow(bad_node).to receive(:decay_confidence!).and_raise(StandardError, "DB error")
+
+      # Even with one failure, endpoint should still return success for the batch
+      post path, headers: auth_headers_for(manage_user)
+      expect(response).to have_http_status(:success)
+    end
+  end
+
+  # =========================================================================
   # COMPOUND MAINTENANCE (POST /api/v1/ai/learning/compound_maintenance)
   # =========================================================================
   describe "POST /api/v1/ai/learning/compound_maintenance" do

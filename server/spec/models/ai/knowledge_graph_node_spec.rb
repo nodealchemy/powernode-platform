@@ -110,4 +110,89 @@ RSpec.describe Ai::KnowledgeGraphNode, type: :model do
       expect(node.degree).to eq(2)
     end
   end
+
+  describe "#decay_confidence!" do
+    it "decays confidence based on age and decay_rate" do
+      node = create(:ai_knowledge_graph_node, account: account,
+                    confidence: 1.0, decay_rate: 0.1,
+                    last_seen_at: 10.days.ago, updated_at: 10.days.ago)
+
+      node.decay_confidence!
+      node.reload
+
+      # After 10 days with decay_rate=0.1: 1.0 * (0.9^10) ≈ 0.3487
+      expect(node.confidence).to be < 0.4
+      expect(node.confidence).to be > 0.3
+    end
+
+    it "floors confidence at 0.05" do
+      node = create(:ai_knowledge_graph_node, account: account,
+                    confidence: 0.1, decay_rate: 0.5,
+                    last_seen_at: 30.days.ago, updated_at: 30.days.ago)
+
+      node.decay_confidence!
+      node.reload
+
+      expect(node.confidence).to eq(0.05)
+    end
+
+    it "skips decay when decay_rate is zero" do
+      node = create(:ai_knowledge_graph_node, account: account,
+                    confidence: 0.8, decay_rate: 0.0,
+                    last_seen_at: 30.days.ago)
+
+      node.decay_confidence!
+      node.reload
+
+      expect(node.confidence).to eq(0.8)
+    end
+
+    it "skips decay when last seen less than 1 day ago" do
+      node = create(:ai_knowledge_graph_node, account: account,
+                    confidence: 0.8, decay_rate: 0.1,
+                    last_seen_at: 6.hours.ago)
+
+      node.decay_confidence!
+      node.reload
+
+      expect(node.confidence).to eq(0.8)
+    end
+  end
+
+  describe "#recalculate_quality_score!" do
+    it "computes weighted score from confidence, mentions, and connections" do
+      node = create(:ai_knowledge_graph_node, account: account,
+                    confidence: 0.8, mention_count: 10)
+
+      # Add connections to increase degree
+      3.times do
+        target = create(:ai_knowledge_graph_node, account: account)
+        create(:ai_knowledge_graph_edge, account: account, source_node: node, target_node: target)
+      end
+
+      node.recalculate_quality_score!
+      node.reload
+
+      expect(node.quality_score).to be > 0
+      expect(node.quality_score).to be <= 1.0
+      expect(node.last_quality_recalc_at).to be_within(2.seconds).of(Time.current)
+    end
+
+    it "sets higher score for nodes with more connections and mentions" do
+      low_node = create(:ai_knowledge_graph_node, account: account,
+                        confidence: 0.3, mention_count: 1)
+      high_node = create(:ai_knowledge_graph_node, account: account,
+                         confidence: 0.9, mention_count: 100)
+
+      5.times do
+        target = create(:ai_knowledge_graph_node, account: account)
+        create(:ai_knowledge_graph_edge, account: account, source_node: high_node, target_node: target)
+      end
+
+      low_node.recalculate_quality_score!
+      high_node.recalculate_quality_score!
+
+      expect(high_node.reload.quality_score).to be > low_node.reload.quality_score
+    end
+  end
 end
