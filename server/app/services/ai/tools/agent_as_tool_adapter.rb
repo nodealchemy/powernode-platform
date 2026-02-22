@@ -45,6 +45,14 @@ module Ai
 
       protected
 
+      # Override to use target-specific definition (no agent_id needed)
+      def validate_params!(params)
+        defn = self.class.definition_for(@target_agent)
+        required = defn.dig(:parameters)&.select { |_, v| v[:required] }&.keys || []
+        missing = required.select { |k| params[k].blank? }
+        raise ArgumentError, "Missing required parameters: #{missing.join(', ')}" if missing.any?
+      end
+
       def call(params)
         prompt = params[:prompt] || params["prompt"]
         context = params[:context] || params["context"] || {}
@@ -72,7 +80,7 @@ module Ai
           raise ArgumentError, "Invalid target agent"
         end
 
-        unless @target_agent.is_active?
+        unless @target_agent.status == "active"
           raise ArgumentError, "Target agent '#{@target_agent.name}' is not active"
         end
 
@@ -83,23 +91,34 @@ module Ai
 
       def create_execution(prompt, context)
         Ai::AgentExecution.create!(
-          ai_agent: @target_agent,
+          agent: @target_agent,
           account: @account,
-          user_id: @agent&.respond_to?(:user_id) ? @agent.user_id : nil,
+          provider: @target_agent.provider,
+          user: resolve_user,
           execution_id: UUID7.generate,
-          status: "queued",
-          input_data: {
+          status: "pending",
+          input_parameters: {
             prompt: prompt,
             context: context,
             invoked_by: @agent&.name || "tool_adapter",
             invocation_type: "agent_as_tool"
           },
-          metadata: {
+          execution_context: {
             source: "agent_as_tool",
             calling_agent_id: @agent&.id,
             priority: "normal"
           }
         )
+      end
+
+      def resolve_user
+        if @agent&.respond_to?(:creator) && @agent.creator
+          @agent.creator
+        elsif @target_agent.respond_to?(:creator) && @target_agent.creator
+          @target_agent.creator
+        else
+          @account.users.first
+        end
       end
     end
   end

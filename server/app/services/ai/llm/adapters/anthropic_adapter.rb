@@ -348,7 +348,12 @@ module Ai
 
         def handle_error(status, parsed)
           error_msg = if parsed.is_a?(Hash)
-                        parsed.dig("error", "message") || parsed["error"] || "Unknown error"
+                        error_value = parsed["error"]
+                        if error_value.is_a?(Hash)
+                          error_value["message"] || error_value.to_json
+                        else
+                          error_value || "Unknown error"
+                        end
                       else
                         parsed.to_s
                       end

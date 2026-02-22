@@ -20,7 +20,7 @@ module Ai
       if service.approve(request: request, approver: current_user, comments: params[:comments])
         render_success(data: serialize_approval_request(request.reload))
       else
-        render_error("Cannot approve this request", status: :unprocessable_entity)
+        render_error("Cannot approve this request", status: :unprocessable_content)
       end
     rescue ActiveRecord::RecordNotFound
       render_not_found("Approval request")
@@ -34,7 +34,7 @@ module Ai
       if service.reject(request: request, approver: current_user, comments: params[:comments])
         render_success(data: serialize_approval_request(request.reload))
       else
-        render_error("Cannot reject this request", status: :unprocessable_entity)
+        render_error("Cannot reject this request", status: :unprocessable_content)
       end
     rescue ActiveRecord::RecordNotFound
       render_not_found("Approval request")

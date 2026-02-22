@@ -197,7 +197,9 @@ module Ai
                 name: node_data[:name],
                 description: node_data[:description],
                 configuration: node_data[:configuration] || { enabled: true },
-                position: node_data[:position]
+                position: node_data[:position],
+                is_start_node: node_data[:node_type] == "start",
+                is_end_node: node_data[:node_type] == "end"
               )
             end
           end

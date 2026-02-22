@@ -226,11 +226,11 @@ module Api
             by_status: loops.group(:status).count,
             by_agent: loops.joins(:default_agent).group("ai_agents.name").count,
             total_iterations: ::Ai::RalphIteration.joins(:ralph_loop)
-                                                   .where(ai_ralph_loops: { account_id: resolved_account_id }).count,
+                                                   .where(ai_ralph_loops: { account_id: resolved_account.id }).count,
             total_tasks: ::Ai::RalphTask.joins(:ralph_loop)
-                                         .where(ai_ralph_loops: { account_id: resolved_account_id }).count,
+                                         .where(ai_ralph_loops: { account_id: resolved_account.id }).count,
             completed_tasks: ::Ai::RalphTask.joins(:ralph_loop)
-                                             .where(ai_ralph_loops: { account_id: resolved_account_id })
+                                             .where(ai_ralph_loops: { account_id: resolved_account.id })
                                              .where(status: "passed").count,
             average_iterations_to_complete: loops.completed.average(:current_iteration)&.to_f&.round(1)
           }

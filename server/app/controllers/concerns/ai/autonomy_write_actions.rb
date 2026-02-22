@@ -24,7 +24,7 @@ module Ai
       reason = params[:reason]
 
       unless ::Ai::AgentTrustScore::TIERS.include?(tier)
-        return render_error("Invalid tier: #{tier}", status: :unprocessable_entity)
+        return render_error("Invalid tier: #{tier}", status: :unprocessable_content)
       end
 
       previous_tier = trust_score.tier
@@ -77,7 +77,7 @@ module Ai
     rescue ActiveRecord::RecordNotFound
       render_not_found("Agent")
     rescue ActiveRecord::RecordInvalid => e
-      render_error(e.message, status: :unprocessable_entity)
+      render_error(e.message, status: :unprocessable_content)
     end
 
     # PUT budgets/:id
@@ -89,7 +89,7 @@ module Ai
     rescue ActiveRecord::RecordNotFound
       render_not_found("Budget")
     rescue ActiveRecord::RecordInvalid => e
-      render_error(e.message, status: :unprocessable_entity)
+      render_error(e.message, status: :unprocessable_content)
     end
 
     # DELETE budgets/:id
@@ -111,7 +111,7 @@ module Ai
       if child_budget
         render_success(data: serialize_budget(child_budget), status: :created)
       else
-        render_error("Insufficient budget remaining", status: :unprocessable_entity)
+        render_error("Insufficient budget remaining", status: :unprocessable_content)
       end
     rescue ActiveRecord::RecordNotFound
       render_not_found("Budget or Agent")
@@ -144,7 +144,7 @@ module Ai
       if new_budget
         render_success(data: serialize_budget(new_budget), status: :created)
       else
-        render_error("Budget cannot be rolled over", status: :unprocessable_entity)
+        render_error("Budget cannot be rolled over", status: :unprocessable_content)
       end
     rescue ActiveRecord::RecordNotFound
       render_not_found("Budget")
@@ -248,7 +248,7 @@ module Ai
     rescue ActiveRecord::RecordNotFound
       render_not_found("Pricing")
     rescue ActiveRecord::RecordInvalid => e
-      render_error(e.message, status: :unprocessable_entity)
+      render_error(e.message, status: :unprocessable_content)
     end
 
     # POST trust_scores/:agent_id/evaluate_from_execution

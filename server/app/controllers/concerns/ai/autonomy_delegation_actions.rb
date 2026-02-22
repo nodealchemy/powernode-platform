@@ -43,7 +43,7 @@ module Ai
     rescue ActiveRecord::RecordNotFound
       render_not_found("Agent")
     rescue ActiveRecord::RecordInvalid => e
-      render_error(e.message, status: :unprocessable_entity)
+      render_error(e.message, status: :unprocessable_content)
     end
 
     # PUT /api/v1/ai/autonomy/delegation_policies/:id
@@ -55,7 +55,7 @@ module Ai
     rescue ActiveRecord::RecordNotFound
       render_not_found("Delegation policy")
     rescue ActiveRecord::RecordInvalid => e
-      render_error(e.message, status: :unprocessable_entity)
+      render_error(e.message, status: :unprocessable_content)
     end
 
     # DELETE /api/v1/ai/autonomy/delegation_policies/:id

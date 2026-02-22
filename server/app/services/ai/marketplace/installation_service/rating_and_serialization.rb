@@ -120,7 +120,7 @@ module Ai
             } : nil,
             custom_configuration: subscription.configuration,
             user_rating: subscription.metadata&.dig("rating"),
-            installation_notes: subscription.subscription_notes
+            installation_notes: subscription.metadata&.dig("subscription_notes")
           )
         end
       end

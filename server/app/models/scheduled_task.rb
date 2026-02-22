@@ -7,7 +7,7 @@ class ScheduledTask < ApplicationRecord
   # Validations
   validates :name, presence: true, uniqueness: true, length: { maximum: 255 }
   validates :task_type, presence: true, inclusion: {
-    in: %w[data_cleanup report_generation custom_command]
+    in: %w[database_backup data_cleanup system_health_check report_generation custom_command]
   }
   validates :cron_expression, presence: true
   validates :is_active, inclusion: { in: [ true, false ] }

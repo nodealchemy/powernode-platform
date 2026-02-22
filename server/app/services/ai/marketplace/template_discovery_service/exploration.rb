@@ -80,7 +80,7 @@ module Ai
           template = ::Ai::WorkflowTemplate.find(template_id)
 
           # Get installation history
-          subscriptions = template.subscriptions.order(subscribed_at: :desc)
+          subscriptions = template.subscriptions
 
           {
             total_installs: template.usage_count,
@@ -89,6 +89,7 @@ module Ai
             installs_this_week: subscriptions.where("subscribed_at >= ?", 1.week.ago).count,
             installs_this_month: subscriptions.where("subscribed_at >= ?", 1.month.ago).count,
             installs_by_day: subscriptions.where("subscribed_at >= ?", 30.days.ago)
+                                          .reorder(nil)
                                           .group("DATE(subscribed_at)")
                                           .count
                                           .transform_keys(&:to_s),

@@ -49,7 +49,7 @@ module Ai
     rescue ActiveRecord::RecordNotFound
       render_not_found("Agent")
     rescue ActiveRecord::RecordInvalid => e
-      render_error(e.message, status: :unprocessable_entity)
+      render_error(e.message, status: :unprocessable_content)
     end
 
     private

@@ -189,10 +189,10 @@ module Ai
       return unless new_record?
       return unless workflow.present?
 
-      self.total_nodes = workflow.workflow_nodes.count
-      self.completed_nodes = 0
-      self.failed_nodes = 0
-      self.total_cost = 0.0
+      self.total_nodes = workflow.workflow_nodes.count if total_nodes.zero?
+      self.completed_nodes ||= 0
+      self.failed_nodes ||= 0
+      self.total_cost ||= 0.0
 
       if runtime_context.blank?
         self.runtime_context = {

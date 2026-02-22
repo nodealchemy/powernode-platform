@@ -94,7 +94,7 @@ module Ai
         if @account
           McpTool.joins(:mcp_server)
                  .where(mcp_servers: { account_id: @account.id })
-                 .where(is_active: true)
+                 .where(enabled: true)
                  .find_each do |tool|
             tools << {
               id: "mcp.#{tool.id}",
@@ -119,7 +119,7 @@ module Ai
 
         # Agent-as-tool entries
         if @account
-          Ai::Agent.where(account_id: @account.id, is_active: true)
+          Ai::Agent.where(account_id: @account.id, status: "active")
                    .where.not(agent_type: "workflow_optimizer")
                    .find_each do |agent|
             tools << {

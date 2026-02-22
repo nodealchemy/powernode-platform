@@ -10,7 +10,7 @@ module Ai
 
         def initialize(api_key:, base_url:, provider_name:, extra_headers: {})
           @api_key = api_key
-          @base_url = base_url.to_s.chomp("/")
+          @base_url = base_url.to_s.sub(/\/+\z/, "")
           @provider_name = provider_name
           @headers = build_headers(extra_headers)
         end

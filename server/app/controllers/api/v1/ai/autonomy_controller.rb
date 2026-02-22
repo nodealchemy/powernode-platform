@@ -94,12 +94,27 @@ module Api
         def lineage
           agent = current_account.ai_agents.find(params[:agent_id])
 
-          # Batch preload all trust scores to avoid N+1 in recursive tree building
           trust_scores_map = ::Ai::AgentTrustScore
             .where(account_id: current_account.id)
             .index_by(&:agent_id)
 
-          render_success(data: build_lineage_tree(agent, trust_scores_map, depth: 0))
+          children_tree = build_lineage_tree(agent, trust_scores_map, depth: 0)
+          parent_ids = ::Ai::AgentLineage
+            .where(account_id: current_account.id, child_agent_id: agent.id)
+            .active
+            .pluck(:parent_agent_id)
+
+          parents = current_account.ai_agents.where(id: parent_ids).map do |p|
+            { id: p.id, name: p.name, type: p.agent_type, status: p.status }
+          end
+
+          render_success(data: {
+            agent_id: agent.id,
+            children: children_tree[:children],
+            parents: parents,
+            total_children: count_descendants(children_tree),
+            total_parents: parents.size
+          })
         rescue ActiveRecord::RecordNotFound
           render_not_found("Agent")
         end
@@ -211,7 +226,7 @@ module Api
               AiWorkflowMonitoringChannel.broadcast_system_alert(acct.id, data.merge(source: "provider_health"))
             end
           else
-            return render_error("Unknown broadcast type: #{broadcast_type}", status: :unprocessable_entity)
+            return render_error("Unknown broadcast type: #{broadcast_type}", status: :unprocessable_content)
           end
 
           render_success(data: { broadcast: true, type: broadcast_type })
@@ -286,6 +301,12 @@ module Api
             depth: depth,
             children: children
           }
+        end
+
+        def count_descendants(tree)
+          return 0 unless tree[:children]
+
+          tree[:children].size + tree[:children].sum { |c| count_descendants(c) }
         end
 
         def serialize_behavioral_fingerprint(fp)

@@ -143,7 +143,9 @@ module Ai
               name: node_data[:name],
               description: node_data[:description],
               configuration: config,
-              position: node_data[:position]
+              position: node_data[:position],
+              is_start_node: node_data[:node_type] == "start",
+              is_end_node: node_data[:node_type] == "end"
             )
             node_mapping[node_data[:node_id]] = node
           end

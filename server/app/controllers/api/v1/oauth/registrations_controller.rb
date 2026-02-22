@@ -68,7 +68,7 @@ module Api
             scope: scopes.join(" ")
           }, status: :created
         rescue ActiveRecord::RecordInvalid => e
-          render json: { error: "registration_failed", error_description: e.message }, status: :unprocessable_entity
+          render json: { error: "registration_failed", error_description: e.message }, status: :unprocessable_content
         end
 
         private
