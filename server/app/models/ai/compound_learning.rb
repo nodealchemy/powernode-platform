@@ -22,6 +22,8 @@ module Ai
     belongs_to :source_agent, class_name: "Ai::Agent", foreign_key: "source_agent_id", optional: true
     belongs_to :source_execution, class_name: "Ai::TeamExecution", foreign_key: "source_execution_id", optional: true
     belongs_to :superseded_by, class_name: "Ai::CompoundLearning", foreign_key: "superseded_by_id", optional: true
+    belongs_to :verified_by, class_name: "User", foreign_key: "verified_by_id", optional: true
+    belongs_to :disproven_by, class_name: "User", foreign_key: "disproven_by_id", optional: true
 
     has_many :superseding, class_name: "Ai::CompoundLearning", foreign_key: :superseded_by_id
 
