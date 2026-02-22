@@ -73,13 +73,13 @@ Doorkeeper.configure do
   # Token Configuration
   # ===================================================================
 
-  # Access token expiration (2 hours)
-  access_token_expires_in 2.hours
+  # Access token expiration (24h in dev for long Claude Code sessions, 2h otherwise)
+  access_token_expires_in Rails.env.development? ? 24.hours : 2.hours
 
   # Refresh token expiration (30 days)
   custom_access_token_expires_in do |context|
     if context.grant_type == Doorkeeper::OAuth::CLIENT_CREDENTIALS
-      1.hour # Shorter for client credentials
+      Rails.env.development? ? 24.hours : 1.hour
     else
       2.hours
     end
@@ -111,17 +111,7 @@ Doorkeeper.configure do
   # Optional scopes
   optional_scopes :read, :write, :admin, :billing, :users, :webhooks, :workflows, :files
 
-  # Scope descriptions for authorization page
-  scope_descriptions = {
-    read: "Read access to your data",
-    write: "Write access to create and modify data",
-    admin: "Administrative access",
-    billing: "Access to billing and subscription data",
-    users: "Access to user management",
-    webhooks: "Access to webhook configuration",
-    workflows: "Access to AI workflows and automation",
-    files: "Access to file management"
-  }
+  # Scope descriptions are maintained in the OAuth consent UI (frontend)
 
   # Enforce configured scopes
   enforce_configured_scopes
