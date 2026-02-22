@@ -28,6 +28,10 @@ class Ai::McpAgentExecutor
 
   # Execute agent with MCP protocol
   def execute(input_parameters)
+    # Normalize to string keys — callers may pass symbol keys (Agent#execute)
+    # while internal code expects string keys (JSON-style)
+    input_parameters = input_parameters.stringify_keys if input_parameters.respond_to?(:stringify_keys)
+
     @logger.info "[MCP_AGENT_EXECUTOR] Starting execution for agent #{@agent.id}"
 
     # Validate input parameters against agent's input schema

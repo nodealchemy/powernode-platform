@@ -10,9 +10,13 @@ class Ai::ProviderClientService
     def openai_generate_text(prompt, model, **options)
       url = "/chat/completions"
 
+      messages = []
+      messages << { role: "system", content: options[:system_prompt] } if options[:system_prompt].present?
+      messages << { role: "user", content: prompt }
+
       body = {
         model: model,
-        messages: [ { role: "user", content: prompt } ],
+        messages: messages,
         max_tokens: options[:max_tokens] || 2000,
         temperature: options[:temperature] || 0.7
       }

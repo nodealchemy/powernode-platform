@@ -441,6 +441,7 @@ module Ai
         end
 
         system_content = agent.system_prompt.presence ||
+                         agent.mcp_metadata&.dig("system_prompt").presence ||
                          agent.mcp_tool_manifest&.dig("system_prompt").presence ||
                          "You are #{agent.name}, acting as #{role}."
 
@@ -459,7 +460,11 @@ module Ai
           { role: "user", content: user_content }
         ]
 
-        model = agent.try(:model) || agent.mcp_tool_manifest&.dig("model")
+        model_config = agent.mcp_metadata&.dig("model_config") || {}
+        model = agent.try(:model) ||
+                model_config["model"] ||
+                agent.mcp_tool_manifest&.dig("model") ||
+                agent.provider&.supported_models&.first&.dig("id")
 
         # Check for task-specific model override
         task_type = @input.is_a?(Hash) ? (@input[:task_type] || @input["task_type"]) : nil
@@ -478,8 +483,12 @@ module Ai
           end
         end
 
-        max_tokens = agent.try(:max_tokens) || agent.mcp_tool_manifest&.dig("max_tokens") || 4096
-        temperature = agent.try(:temperature) || agent.mcp_tool_manifest&.dig("temperature") || 0.7
+        max_tokens = agent.try(:max_tokens) ||
+                     model_config["max_tokens"] ||
+                     agent.mcp_tool_manifest&.dig("max_tokens") || 4096
+        temperature = agent.try(:temperature) ||
+                      model_config["temperature"] ||
+                      agent.mcp_tool_manifest&.dig("temperature") || 0.7
 
         timeout_seconds = @team.try(:task_timeout_seconds) || team_config["task_timeout_seconds"] || 300
 

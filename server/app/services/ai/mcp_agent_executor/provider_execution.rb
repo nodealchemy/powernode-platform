@@ -12,10 +12,21 @@ class Ai::McpAgentExecutor
       # Build prompt from context
       prompt = build_prompt_from_context(execution_context)
 
-      # Get model configuration
-      model = @agent.mcp_tool_manifest["model"] || @agent.provider.supported_models.first&.dig("id")
-      max_tokens = execution_context.dig(:context, "max_tokens") || @agent.mcp_tool_manifest["max_tokens"] || 2000
-      temperature = execution_context.dig(:context, "temperature") || @agent.mcp_tool_manifest["temperature"] || 0.7
+      # Get model configuration from mcp_metadata (primary) or mcp_tool_manifest (fallback)
+      model_config = @agent.mcp_metadata&.dig("model_config") || {}
+      model = model_config["model"] ||
+              @agent.mcp_tool_manifest&.dig("model") ||
+              @agent.provider.supported_models.first&.dig("id")
+      max_tokens = execution_context.dig(:context, "max_tokens") ||
+                   model_config["max_tokens"] ||
+                   2000
+      temperature = execution_context.dig(:context, "temperature") ||
+                    model_config["temperature"] ||
+                    0.7
+
+      # System prompt: mcp_metadata is the primary source
+      system_prompt = @agent.mcp_metadata&.dig("system_prompt") ||
+                      @agent.mcp_tool_manifest&.dig("system_prompt")
 
       # Execute via provider client service
       # Note: generate_text expects prompt as positional argument
@@ -24,7 +35,7 @@ class Ai::McpAgentExecutor
         model: model,
         max_tokens: max_tokens,
         temperature: temperature,
-        system_prompt: @agent.mcp_tool_manifest["system_prompt"]
+        system_prompt: system_prompt
       )
 
       @logger.debug "[MCP_AGENT_EXECUTOR] Provider response received: class=#{result.class.name} keys=#{result.keys.inspect} success=#{result[:success]}"
