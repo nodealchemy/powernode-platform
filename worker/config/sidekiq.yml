@@ -310,3 +310,24 @@
     queue: ai_orchestration
     args: ['monthly']
     description: 'Monthly skill lifecycle maintenance: re-embed skills, health report'
+
+  # Shared knowledge maintenance - import learnings and recalculate quality scores
+  ai_shared_knowledge_maintenance:
+    cron: '30 4 * * *'
+    class: AiSharedKnowledgeMaintenanceJob
+    queue: ai_orchestration
+    description: 'Import high-importance learnings into shared knowledge and recalculate quality scores'
+
+  # Knowledge graph maintenance - decay confidence and recalculate quality scores
+  ai_knowledge_graph_maintenance:
+    cron: '45 4 * * *'
+    class: AiKnowledgeGraphMaintenanceJob
+    queue: ai_orchestration
+    description: 'Decay knowledge graph node confidence and recalculate quality scores'
+
+  # Knowledge documentation sync - export MCP knowledge to markdown fallback docs
+  ai_knowledge_doc_sync:
+    cron: '30 5 * * *'  # Daily at 5:30 AM UTC (after all maintenance jobs)
+    class: AiKnowledgeDocSyncJob
+    queue: maintenance
+    description: 'Sync MCP knowledge stores to markdown docs for offline fallback'

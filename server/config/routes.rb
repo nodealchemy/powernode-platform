@@ -2822,6 +2822,8 @@ Rails.application.routes.draw do
           post "promote", action: :promote
           post "compound_maintenance", action: :compound_maintenance
           post "memory_maintenance", action: :memory_maintenance
+          post "knowledge_doc_sync", action: :knowledge_doc_sync
+          post "knowledge_graph_maintenance", action: :knowledge_graph_maintenance
           get "benchmarks", action: :benchmarks
           post "benchmarks", action: :create_benchmark
           post "benchmarks/:id/run", action: :run_benchmark

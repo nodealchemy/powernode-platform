@@ -189,6 +189,44 @@ module Api
           )
         end
 
+        # POST /api/v1/ai/learning/knowledge_doc_sync (internal, called by worker)
+        def knowledge_doc_sync
+          service = ::Ai::KnowledgeDocSyncService.new(account: current_user.account)
+          result = service.sync_all!
+
+          if result[:success]
+            render_success(data: result)
+          else
+            render_error(result[:error], status: :unprocessable_content)
+          end
+        end
+
+        # POST /api/v1/ai/learning/knowledge_graph_maintenance (internal, called by worker)
+        def knowledge_graph_maintenance
+          nodes = ::Ai::KnowledgeGraphNode.active.where(account: current_user.account)
+
+          decayed = 0
+          recalculated = 0
+
+          nodes.find_each do |node|
+            node.decay_confidence!
+            decayed += 1
+
+            node.recalculate_quality_score!
+            recalculated += 1
+          rescue StandardError => e
+            Rails.logger.warn("[KnowledgeGraphMaintenance] Failed for node #{node.id}: #{e.message}")
+          end
+
+          render_success(
+            decayed: decayed,
+            recalculated: recalculated
+          )
+        rescue StandardError => e
+          Rails.logger.error("#{self.class.name}##{action_name} failed: #{e.message}")
+          render_error(e.message, status: :unprocessable_content)
+        end
+
         # POST /api/v1/ai/learning/compound_maintenance (internal, called by worker)
         def compound_maintenance
           service = ::Ai::Learning::CompoundLearningService.new(account: current_user.account)
@@ -212,7 +250,7 @@ module Api
             require_permission("ai.analytics.read")
           when "apply_recommendation", "dismiss_recommendation", "create_benchmark", "run_benchmark"
             require_permission("ai.analytics.manage")
-          when "reinforce", "promote", "compound_maintenance", "memory_maintenance"
+          when "reinforce", "promote", "compound_maintenance", "memory_maintenance", "knowledge_doc_sync", "knowledge_graph_maintenance"
             require_permission("ai.analytics.manage")
           end
         end
