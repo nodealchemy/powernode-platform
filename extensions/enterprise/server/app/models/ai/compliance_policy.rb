@@ -82,7 +82,86 @@ module Ai
     def evaluate(context)
       return { allowed: true, reason: nil } unless active?
 
-      # Evaluate conditions against context
+      # Delegate to type-specific evaluator when available
+      case policy_type
+      when "rate_limit"
+        evaluate_rate_limit(context)
+      when "cost_limit"
+        evaluate_cost_limit(context)
+      when "output_filter"
+        evaluate_output_filter(context)
+      else
+        evaluate_generic(context)
+      end
+    end
+
+    private
+
+    # Rate limit: count recent executions against configured thresholds
+    def evaluate_rate_limit(context)
+      limits = conditions["limits"] || {}
+      agent_id = context[:agent_id] || context["agent_id"]
+      user_id = context[:user_id] || context["user_id"]
+
+      limits.each do |scope_key, threshold|
+        count = count_executions_for(scope_key, agent_id: agent_id, user_id: user_id)
+        next if count.nil? # skip scopes we cannot evaluate (missing user/account)
+
+        if count >= threshold.to_i
+          return {
+            allowed: !blocking?,
+            reason: "Policy '#{name}' rate limit exceeded: #{scope_key} (#{count}/#{threshold})",
+            enforcement: enforcement_level
+          }
+        end
+      end
+
+      { allowed: true, reason: nil }
+    end
+
+    # Cost limit: check estimated or actual cost against threshold
+    def evaluate_cost_limit(context)
+      threshold = conditions["cost_threshold_usd"]&.to_f
+      return { allowed: true, reason: nil } unless threshold
+
+      actual_cost = (context[:cost_usd] || context["cost_usd"])&.to_f
+      return { allowed: true, reason: nil } unless actual_cost # no cost data yet — allow
+
+      if actual_cost > threshold
+        return {
+          allowed: !blocking?,
+          reason: "Policy '#{name}' cost cap exceeded: $#{actual_cost} > $#{threshold}",
+          enforcement: enforcement_level
+        }
+      end
+
+      { allowed: true, reason: nil }
+    end
+
+    # Output filter: check text content against configured patterns (used in post-execution)
+    def evaluate_output_filter(context)
+      text = context[:output_text] || context["output_text"] || ""
+      return { allowed: true, reason: nil } if text.blank?
+
+      regex_rules = conditions["regex_rules"] || []
+      regex_rules.each do |rule|
+        pattern = rule["pattern"]
+        next unless pattern
+
+        if text.match?(Regexp.new(pattern))
+          return {
+            allowed: !blocking?,
+            reason: "Policy '#{name}' output filter matched: #{rule['name']}",
+            enforcement: enforcement_level
+          }
+        end
+      end
+
+      { allowed: true, reason: nil }
+    end
+
+    # Generic: literal condition matching for custom policy types
+    def evaluate_generic(context)
       conditions.each do |key, expected|
         actual = context[key.to_sym] || context[key.to_s]
         unless matches_condition?(actual, expected)
@@ -96,8 +175,6 @@ module Ai
 
       { allowed: true, reason: nil }
     end
-
-    private
 
     def matches_condition?(actual, expected)
       case expected
@@ -115,6 +192,30 @@ module Ai
         return actual == expected
       end
       true
+    end
+
+    # Count recent agent executions for a given rate limit scope
+    def count_executions_for(scope_key, agent_id: nil, user_id: nil)
+      window = case scope_key.to_s
+               when /per_hour/ then 1.hour.ago
+               when /per_day/ then 1.day.ago
+               when /per_minute/ then 1.minute.ago
+               else return nil
+               end
+
+      scope = Ai::AgentExecution.where(account_id: account_id).where("created_at >= ?", window)
+
+      case scope_key.to_s
+      when /per_user/
+        return nil unless user_id
+        scope = scope.where(user_id: user_id)
+      when /per_account/
+        # account-wide — no additional filter needed
+      else
+        return nil
+      end
+
+      scope.count
     end
   end
 end
