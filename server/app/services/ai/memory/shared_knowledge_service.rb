@@ -304,6 +304,7 @@ module Ai
       # Batch recalculate quality scores for entries not recalculated in 24h
       def recalculate_all_quality(batch_size: 100)
         scope = Ai::SharedKnowledge.where(account: @account)
+          .where.not("provenance @> ?", { archived: true }.to_json)
           .where("last_quality_recalc_at < ? OR last_quality_recalc_at IS NULL", 24.hours.ago)
 
         recalculated = 0
