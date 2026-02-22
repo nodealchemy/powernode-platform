@@ -92,7 +92,7 @@ export const ConciergeActionCard: React.FC<ConciergeActionCardProps> = ({
       <div className="flex items-center gap-1.5 mb-2">
         <Icon className="h-3.5 w-3.5 text-theme-interactive-primary" />
         <span className="text-xs font-medium text-theme-secondary">
-          {actionContext.action_type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+          {String(actionContext.action_type || '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
         </span>
       </div>
 

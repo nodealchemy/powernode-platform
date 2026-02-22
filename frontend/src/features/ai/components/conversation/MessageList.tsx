@@ -81,9 +81,10 @@ export const MessageList: React.FC<MessageListProps> = ({
     const canDelete = isUser && currentUser?.id === message.user_id;
 
     if (isSystem) {
+      const isResolved = message.metadata?.resolved;
       return (
         <div key={message.id} className="flex justify-center my-4">
-          <div className="bg-theme-surface border border-theme px-3 py-1 rounded-full text-sm text-theme-muted shadow-sm">
+          <div className={`bg-theme-surface border border-theme px-3 py-1 rounded-full text-sm shadow-sm ${isResolved ? 'text-theme-muted/50 line-through' : 'text-theme-muted'}`}>
             {cleanMessageContent(message.content)}
           </div>
         </div>
@@ -288,7 +289,7 @@ export const MessageList: React.FC<MessageListProps> = ({
           )}
 
           {/* Plan approval actions */}
-          {isAI && message.metadata?.actions && message.metadata?.action_context && onPlanAction && (
+          {isAI && message.metadata?.actions && message.metadata?.action_context && !message.metadata?.concierge_action && onPlanAction && (
             <PlanApprovalActions
               actions={message.metadata.actions}
               actionContext={message.metadata.action_context}
@@ -306,7 +307,7 @@ export const MessageList: React.FC<MessageListProps> = ({
               ]}
               actionContext={{
                 type: 'concierge',
-                action_type: message.metadata.concierge_action,
+                action_type: (message.metadata.action_context as unknown as Record<string, string>)?.action_type || (message.metadata as Record<string, string>).action_type || '',
                 status: message.metadata.action_context?.status || 'pending',
                 resolved_at: message.metadata.action_context?.resolved_at,
               }}

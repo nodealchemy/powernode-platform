@@ -180,21 +180,12 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
         return newMessages;
       });
 
-      // For concierge-routed responses, handle the response shape
+      // For concierge-routed responses, re-map the assistant message with full metadata
       if (response.concierge_routed && response.assistant_message) {
-        setMessages(prev => {
-          const withoutOptimistic = prev.filter(msg => msg.id !== optimisticMessage.id);
-          const userMsg: AiMessage = {
-            id: response.user_message?.id || optimisticMessage.id,
-            sender_type: 'user',
-            sender_info: { name: currentUser.name || 'You' },
-            content: response.user_message?.content || messageContent,
-            created_at: response.user_message?.created_at || new Date().toISOString(),
-            metadata: { timestamp: response.user_message?.created_at || new Date().toISOString() }
-          };
-          const assistantMsg = mapBackendMessage(response.assistant_message as unknown as Record<string, unknown>);
-          return [...withoutOptimistic, userMsg, assistantMsg];
-        });
+        const mappedAssistant = mapBackendMessage(response.assistant_message as unknown as Record<string, unknown>);
+        setMessages(prev => prev.map(msg =>
+          msg.id === mappedAssistant.id ? mappedAssistant : msg
+        ));
         setSending(false);
         return;
       }
