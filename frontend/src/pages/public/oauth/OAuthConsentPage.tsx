@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { isAxiosError } from 'axios';
 import { Shield, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { apiClient } from '@/shared/services/apiClient';
@@ -48,8 +49,9 @@ export const OAuthConsentPage: React.FC = () => {
 
     try {
       const response = await apiClient.get(`/oauth/applications/lookup?uid=${clientId}`);
+      const appData = response.data?.data;
       setClientInfo({
-        name: response.data?.name || 'Unknown Application',
+        name: appData?.name || 'Unknown Application',
         scopes: scope.split(' ').filter(Boolean),
       });
     } catch {
@@ -68,23 +70,33 @@ export const OAuthConsentPage: React.FC = () => {
     setError(null);
 
     try {
-      const response = await apiClient.post('/oauth/authorize', {
-        client_id: clientId,
-        redirect_uri: redirectUri,
-        response_type: responseType,
-        scope,
-        state,
-        code_challenge: codeChallenge,
-        code_challenge_method: codeChallengeMethod,
-      });
+      const params: Record<string, string> = {};
+      if (clientId) params.client_id = clientId;
+      if (redirectUri) params.redirect_uri = redirectUri;
+      if (responseType) params.response_type = responseType;
+      if (scope) params.scope = scope;
+      if (state) params.state = state;
+      if (codeChallenge) params.code_challenge = codeChallenge;
+      if (codeChallengeMethod) params.code_challenge_method = codeChallengeMethod;
+
+      const response = await apiClient.post('/oauth/authorize', params);
 
       // Doorkeeper returns redirect_uri with auth code
       const redirectTo = response.data?.redirect_uri || response.headers?.location;
       if (redirectTo) {
         window.location.href = redirectTo;
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authorization failed');
+    } catch (err: unknown) {
+      if (isAxiosError(err) && err.response?.data) {
+        const data = err.response.data;
+        if (data.redirect_uri) {
+          window.location.href = data.redirect_uri;
+          return;
+        }
+        setError(data.error_description || data.error || 'Authorization failed');
+      } else {
+        setError(err instanceof Error ? err.message : 'Authorization failed');
+      }
       setSubmitting(false);
     }
   };
