@@ -13,8 +13,8 @@ module Ai
           providers = ::Ai::Provider.where(account_id: account.id)
 
           providers.map do |provider|
-            executions = node_executions.where("ai_node_executions.created_at >= ?", start_time)
-                                       .where("ai_node_executions.metadata->>'provider_id' = ?", provider.id.to_s)
+            executions = node_executions.where("ai_workflow_node_executions.created_at >= ?", start_time)
+                                       .where("ai_workflow_node_executions.metadata->>'provider_id' = ?", provider.id.to_s)
 
             cost = executions.sum(:cost).to_f
             tokens = calculate_tokens(executions)
@@ -37,7 +37,7 @@ module Ai
           start_time = time_range.ago
 
           agents.map do |agent|
-            executions = node_executions.where("ai_node_executions.created_at >= ?", start_time)
+            executions = node_executions.where("ai_workflow_node_executions.created_at >= ?", start_time)
                                        .joins(:node)
                                        .where("ai_workflow_nodes.configuration->>'agent_id' = ?", agent.id.to_s)
 
@@ -79,7 +79,7 @@ module Ai
 
           model_costs = {}
 
-          node_executions.where("ai_node_executions.created_at >= ?", start_time)
+          node_executions.where("ai_workflow_node_executions.created_at >= ?", start_time)
                         .pluck(:metadata, :cost).each do |metadata, cost|
             model = metadata&.dig("model") || "unknown"
             model_costs[model] ||= { cost: 0.0, count: 0, tokens: { input: 0, output: 0 } }
@@ -226,8 +226,8 @@ module Ai
         def calculate_retry_cost
           start_time = time_range.ago
 
-          node_executions.where("ai_node_executions.created_at >= ?", start_time)
-                        .where("ai_node_executions.retry_count > 0")
+          node_executions.where("ai_workflow_node_executions.created_at >= ?", start_time)
+                        .where("ai_workflow_node_executions.retry_count > 0")
                         .sum(:cost).to_f
         end
 

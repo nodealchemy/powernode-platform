@@ -183,7 +183,7 @@ module Ai
         # Get executions through workflow node executions that reference this agent
         node_executions = ::Ai::WorkflowNodeExecution.joins(:node)
                                              .where("ai_workflow_nodes.configuration->>'agent_id' = ?", agent.id.to_s)
-                                             .where("ai_node_executions.created_at >= ?", start_time)
+                                             .where("ai_workflow_node_executions.created_at >= ?", start_time)
 
         {
           agent_id: agent.id,
@@ -194,7 +194,7 @@ module Ai
           success_rate: calculate_node_success_rate(node_executions),
           average_response_time_ms: node_executions.where(status: "completed").average(:execution_time_ms)&.to_f&.round(2),
           total_cost: node_executions.sum(:cost).to_f.round(6),
-          execution_timeline: node_executions.group("DATE(ai_node_executions.created_at)").count.transform_keys(&:to_s)
+          execution_timeline: node_executions.group("DATE(ai_workflow_node_executions.created_at)").count.transform_keys(&:to_s)
         }
       end
 
@@ -219,8 +219,8 @@ module Ai
       def provider_executions(provider, since)
         ::Ai::WorkflowNodeExecution.joins(workflow_run: :workflow)
                           .where(ai_workflows: { account_id: account.id })
-                          .where("ai_node_executions.metadata->>'provider_id' = ?", provider.id.to_s)
-                          .where("ai_node_executions.created_at >= ?", since)
+                          .where("ai_workflow_node_executions.metadata->>'provider_id' = ?", provider.id.to_s)
+                          .where("ai_workflow_node_executions.created_at >= ?", since)
       end
 
       # =============================================================================
@@ -269,18 +269,18 @@ module Ai
       def count_agent_executions(since)
         ::Ai::WorkflowNodeExecution.joins(workflow_run: :workflow)
                           .where(ai_workflows: { account_id: account.id })
-                          .joins("INNER JOIN ai_workflow_nodes ON ai_workflow_nodes.id = ai_node_executions.ai_workflow_node_id")
+                          .joins("INNER JOIN ai_workflow_nodes ON ai_workflow_nodes.id = ai_workflow_node_executions.ai_workflow_node_id")
                           .where("ai_workflow_nodes.node_type = ?", "ai_agent")
-                          .where("ai_node_executions.created_at >= ?", since)
+                          .where("ai_workflow_node_executions.created_at >= ?", since)
                           .count
       end
 
       def calculate_agent_success_rate(since)
         executions = ::Ai::WorkflowNodeExecution.joins(workflow_run: :workflow)
                                        .where(ai_workflows: { account_id: account.id })
-                                       .joins("INNER JOIN ai_workflow_nodes ON ai_workflow_nodes.id = ai_node_executions.ai_workflow_node_id")
+                                       .joins("INNER JOIN ai_workflow_nodes ON ai_workflow_nodes.id = ai_workflow_node_executions.ai_workflow_node_id")
                                        .where("ai_workflow_nodes.node_type = ?", "ai_agent")
-                                       .where("ai_node_executions.created_at >= ?", since)
+                                       .where("ai_workflow_node_executions.created_at >= ?", since)
 
         total = executions.where.not(status: %w[running pending]).count
         return nil if total.zero?
@@ -292,9 +292,9 @@ module Ai
       def calculate_agent_avg_response_time(since)
         ::Ai::WorkflowNodeExecution.joins(workflow_run: :workflow)
                           .where(ai_workflows: { account_id: account.id })
-                          .joins("INNER JOIN ai_workflow_nodes ON ai_workflow_nodes.id = ai_node_executions.ai_workflow_node_id")
+                          .joins("INNER JOIN ai_workflow_nodes ON ai_workflow_nodes.id = ai_workflow_node_executions.ai_workflow_node_id")
                           .where("ai_workflow_nodes.node_type = ?", "ai_agent")
-                          .where("ai_node_executions.created_at >= ?", since)
+                          .where("ai_workflow_node_executions.created_at >= ?", since)
                           .where(status: "completed")
                           .average(:execution_time_ms)&.to_f&.round(2)
       end
@@ -303,9 +303,9 @@ module Ai
         total = 0
         ::Ai::WorkflowNodeExecution.joins(workflow_run: :workflow)
                           .where(ai_workflows: { account_id: account.id })
-                          .joins("INNER JOIN ai_workflow_nodes ON ai_workflow_nodes.id = ai_node_executions.ai_workflow_node_id")
+                          .joins("INNER JOIN ai_workflow_nodes ON ai_workflow_nodes.id = ai_workflow_node_executions.ai_workflow_node_id")
                           .where("ai_workflow_nodes.node_type = ?", "ai_agent")
-                          .where("ai_node_executions.created_at >= ?", since)
+                          .where("ai_workflow_node_executions.created_at >= ?", since)
                           .pluck(:metadata).each do |metadata|
           usage = metadata&.dig("token_usage") || {}
           total += (usage["input_tokens"] || 0) + (usage["output_tokens"] || 0)
@@ -316,9 +316,9 @@ module Ai
       def calculate_agent_cost(since)
         ::Ai::WorkflowNodeExecution.joins(workflow_run: :workflow)
                           .where(ai_workflows: { account_id: account.id })
-                          .joins("INNER JOIN ai_workflow_nodes ON ai_workflow_nodes.id = ai_node_executions.ai_workflow_node_id")
+                          .joins("INNER JOIN ai_workflow_nodes ON ai_workflow_nodes.id = ai_workflow_node_executions.ai_workflow_node_id")
                           .where("ai_workflow_nodes.node_type = ?", "ai_agent")
-                          .where("ai_node_executions.created_at >= ?", since)
+                          .where("ai_workflow_node_executions.created_at >= ?", since)
                           .sum(:cost).to_f.round(6)
       end
 
@@ -346,15 +346,15 @@ module Ai
       def count_node_executions(since)
         ::Ai::WorkflowNodeExecution.joins(workflow_run: :workflow)
                           .where(ai_workflows: { account_id: account.id })
-                          .where("ai_node_executions.created_at >= ?", since)
+                          .where("ai_workflow_node_executions.created_at >= ?", since)
                           .count
       end
 
       def count_retries(since)
         ::Ai::WorkflowNodeExecution.joins(workflow_run: :workflow)
                           .where(ai_workflows: { account_id: account.id })
-                          .where("ai_node_executions.created_at >= ?", since)
-                          .where("ai_node_executions.retry_count > 0")
+                          .where("ai_workflow_node_executions.created_at >= ?", since)
+                          .where("ai_workflow_node_executions.retry_count > 0")
                           .count
       end
 
@@ -436,7 +436,7 @@ module Ai
 
       def analyze_node_performance(workflow, since)
         workflow.nodes.map do |node|
-          executions = node.executions.where("ai_node_executions.created_at >= ?", since)
+          executions = node.executions.where("ai_workflow_node_executions.created_at >= ?", since)
 
           {
             node_id: node.node_id,

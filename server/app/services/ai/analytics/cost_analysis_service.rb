@@ -60,7 +60,7 @@ module Ai
         start_time = time_range.ago
 
         workflow_cost = workflow_runs.where("ai_workflow_runs.created_at >= ?", start_time).sum(:total_cost).to_f
-        node_cost = node_executions.where("ai_node_executions.created_at >= ?", start_time).sum(:cost).to_f
+        node_cost = node_executions.where("ai_workflow_node_executions.created_at >= ?", start_time).sum(:cost).to_f
 
         {
           total: workflow_cost.round(6),

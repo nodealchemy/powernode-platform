@@ -193,11 +193,17 @@ module Ai
           avg_daily_tasks = recent_metrics.average(:tasks_completed).to_f
           avg_daily_roi = recent_metrics.average(:roi_percentage).to_f
 
-          first_half = recent_metrics.first(recent_metrics.count / 2)
-          second_half = recent_metrics.last(recent_metrics.count / 2)
+          half = recent_metrics.count / 2
+          first_half = recent_metrics.first(half)
+          second_half = recent_metrics.last(half)
 
-          cost_growth = second_half.average(:total_cost_usd).to_f - first_half.average(:total_cost_usd).to_f
-          value_growth = second_half.average(:total_value_usd).to_f - first_half.average(:total_value_usd).to_f
+          first_avg_cost = first_half.sum(&:total_cost_usd) / first_half.size.to_f
+          second_avg_cost = second_half.sum(&:total_cost_usd) / second_half.size.to_f
+          first_avg_value = first_half.sum(&:total_value_usd) / first_half.size.to_f
+          second_avg_value = second_half.sum(&:total_value_usd) / second_half.size.to_f
+
+          cost_growth = second_avg_cost - first_avg_cost
+          value_growth = second_avg_value - first_avg_value
 
           {
             based_on_days: recent_metrics.count,
@@ -321,7 +327,7 @@ module Ai
           current_end = Date.current
           current_start = current_period.ago.to_date
           previous_end = current_start - 1.day
-          previous_start = previous_end - previous_period.to_i.days + 1.day
+          previous_start = previous_end - (previous_period / 1.day).to_i.days + 1.day
 
           current_summary = roi_summary_for_range(current_start, current_end)
           previous_summary = roi_summary_for_range(previous_start, previous_end)

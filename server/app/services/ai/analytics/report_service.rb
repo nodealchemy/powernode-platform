@@ -475,7 +475,7 @@ module Ai
           node_executions = ::Ai::WorkflowNodeExecution.joins(:node, workflow_run: :workflow)
                                               .where(ai_workflows: { account_id: account.id })
                                               .where("ai_workflow_nodes.configuration->>'agent_id' = ?", agent.id.to_s)
-                                              .where("ai_node_executions.created_at >= ?", start_time)
+                                              .where("ai_workflow_node_executions.created_at >= ?", start_time)
 
           total = node_executions.count
           next nil if total.zero?
