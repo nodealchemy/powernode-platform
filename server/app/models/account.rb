@@ -5,11 +5,9 @@ class Account < ApplicationRecord
 
   # Associations
   has_many :users, dependent: :destroy
-  has_one :subscription, dependent: :destroy
   has_many :invitations, dependent: :destroy
   has_many :account_delegations, class_name: "Account::Delegation", dependent: :destroy
   has_many :audit_logs, dependent: :destroy
-  has_many :payment_methods, dependent: :destroy
   has_many :webhook_events, dependent: :destroy
   has_many :workers, dependent: :destroy
   has_many :api_keys, dependent: :destroy
@@ -218,10 +216,6 @@ class Account < ApplicationRecord
   has_many :federation_partners, class_name: "FederationPartner", dependent: :destroy
   has_many :ai_dag_executions, class_name: "Ai::DagExecution", dependent: :destroy
 
-  # Subscription-related associations
-  has_many :invoices, through: :subscription
-  has_many :payments
-
   # Validations
   validates :name, presence: true, length: { minimum: 2, maximum: 100 }
   validates :subdomain, format: { with: /\A[a-z0-9\-]+\z/, message: "can only contain lowercase letters, numbers, and hyphens" },
@@ -269,18 +263,22 @@ class Account < ApplicationRecord
   end
 
   def current_subscription
+    return nil unless respond_to?(:subscription)
     subscription
   end
 
   def has_active_subscription?
+    return false unless respond_to?(:subscription)
     subscription&.active? || false
   end
 
   def subscription_status
+    return "none" unless respond_to?(:subscription)
     subscription&.status || "none"
   end
 
   def on_trial?
+    return false unless respond_to?(:subscription)
     subscription&.on_trial? || false
   end
 
