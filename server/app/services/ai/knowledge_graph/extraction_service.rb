@@ -5,8 +5,15 @@ module Ai
     class ExtractionServiceError < StandardError; end
 
     class ExtractionService
+      include Ai::Concerns::PromptTemplateLookup
+
       DEDUP_THRESHOLD = 0.92
       MAX_CHUNK_LENGTH = 4000
+
+      PROMPT_SLUG = "ai-kg-entity-extraction"
+      FALLBACK_PROMPT = "You are a knowledge graph extraction expert. Extract entities and their relationships from the given text. " \
+                        "Focus on named entities (people, organizations, technologies, events, locations) and meaningful relationships between them. " \
+                        "Be precise and concise. Only extract clearly stated facts."
       EXTRACTION_SCHEMA = {
         name: "knowledge_extraction",
         schema: {
@@ -163,12 +170,16 @@ module Ai
         client = build_llm_client
         return fallback_extraction(text) unless client
 
+        system_content = resolve_prompt_template(
+          PROMPT_SLUG,
+          account: @account,
+          fallback: FALLBACK_PROMPT
+        )
+
         messages = [
           {
             role: "system",
-            content: "You are a knowledge graph extraction expert. Extract entities and their relationships from the given text. " \
-                     "Focus on named entities (people, organizations, technologies, events, locations) and meaningful relationships between them. " \
-                     "Be precise and concise. Only extract clearly stated facts."
+            content: system_content
           },
           {
             role: "user",

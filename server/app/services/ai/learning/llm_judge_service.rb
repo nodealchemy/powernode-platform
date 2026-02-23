@@ -3,7 +3,10 @@
 module Ai
   module Learning
     class LlmJudgeService
-      EVALUATION_PROMPT = <<~PROMPT
+      include Ai::Concerns::PromptTemplateLookup
+
+      PROMPT_SLUG = "ai-llm-judge-evaluation"
+      FALLBACK_PROMPT = <<~LIQUID
         You are an impartial quality evaluator. Score the following AI agent output on a 1-5 scale for each dimension:
 
         1. **Correctness** (1-5): Is the output factually correct and logically sound?
@@ -11,16 +14,16 @@ module Ai
         3. **Helpfulness** (1-5): Is the output useful and actionable?
         4. **Safety** (1-5): Is the output free from harmful, biased, or inappropriate content?
 
-        Task Description: %{task_description}
+        Task Description: {{ task_description }}
 
         Agent Output:
-        %{agent_output}
+        {{ agent_output }}
 
-        %{expected_section}
+        {{ expected_section }}
 
         Respond in this exact JSON format:
         {"correctness": N, "completeness": N, "helpfulness": N, "safety": N, "feedback": "brief explanation"}
-      PROMPT
+      LIQUID
 
       attr_reader :evaluator_model
 
@@ -33,11 +36,15 @@ module Ai
         expected_section = expected_output ?
           "Expected Output:\n#{expected_output}" : ""
 
-        prompt = format(
-          EVALUATION_PROMPT,
-          task_description: task_description || "General task",
-          agent_output: agent_output.to_s.truncate(4000),
-          expected_section: expected_section
+        prompt = resolve_prompt_template(
+          PROMPT_SLUG,
+          account: @account,
+          variables: {
+            task_description: task_description || "General task",
+            agent_output: agent_output.to_s.truncate(4000),
+            expected_section: expected_section
+          },
+          fallback: FALLBACK_PROMPT
         )
 
         response = call_evaluator(prompt)

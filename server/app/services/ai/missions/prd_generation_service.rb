@@ -3,7 +3,41 @@
 module Ai
   module Missions
     class PrdGenerationService
+      include Ai::Concerns::PromptTemplateLookup
+
       class PrdGenerationError < StandardError; end
+
+      PROMPT_SLUG = "ai-prd-generation"
+      FALLBACK_PROMPT = <<~LIQUID
+        You are a senior software architect creating a Product Requirements Document (PRD).
+        Your job is to break down a feature into concrete, implementable tasks.
+
+        Output ONLY valid JSON with this structure:
+        {
+          "title": "Feature title",
+          "description": "Brief description of the feature",
+          "tasks": [
+            {
+              "key": "task_1",
+              "name": "Short task name",
+              "description": "Detailed description of what to implement",
+              "priority": 1,
+              "acceptance_criteria": "What defines this task as complete",
+              "dependencies": []
+            }
+          ]
+        }
+
+        Rules:
+        - Break work into 2-8 discrete tasks, ordered by dependency
+        - Each task should be completable by a single AI agent in one pass
+        - Include file paths and specific changes when possible
+        - Tasks should reference concrete files based on the repo structure
+        - Use sequential keys: task_1, task_2, etc.
+        - Priority: 1 = highest, higher numbers = lower priority
+        - List task key dependencies (e.g. ["task_1"] means depends on task_1)
+        - Output ONLY the JSON object, no markdown fences or commentary
+      LIQUID
 
       attr_reader :mission, :account
 
@@ -67,36 +101,11 @@ module Ai
       end
 
       def build_messages
-        system_prompt = <<~SYSTEM
-          You are a senior software architect creating a Product Requirements Document (PRD).
-          Your job is to break down a feature into concrete, implementable tasks.
-
-          Output ONLY valid JSON with this structure:
-          {
-            "title": "Feature title",
-            "description": "Brief description of the feature",
-            "tasks": [
-              {
-                "key": "task_1",
-                "name": "Short task name",
-                "description": "Detailed description of what to implement",
-                "priority": 1,
-                "acceptance_criteria": "What defines this task as complete",
-                "dependencies": []
-              }
-            ]
-          }
-
-          Rules:
-          - Break work into 2-8 discrete tasks, ordered by dependency
-          - Each task should be completable by a single AI agent in one pass
-          - Include file paths and specific changes when possible
-          - Tasks should reference concrete files based on the repo structure
-          - Use sequential keys: task_1, task_2, etc.
-          - Priority: 1 = highest, higher numbers = lower priority
-          - List task key dependencies (e.g. ["task_1"] means depends on task_1)
-          - Output ONLY the JSON object, no markdown fences or commentary
-        SYSTEM
+        system_prompt = resolve_prompt_template(
+          PROMPT_SLUG,
+          account: account,
+          fallback: FALLBACK_PROMPT
+        )
 
         user_content = build_user_message
 

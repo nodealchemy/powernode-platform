@@ -3,9 +3,20 @@
 module Ai
   module Rag
     class AgenticRagService
+      include Ai::Concerns::PromptTemplateLookup
+
       MAX_ROUNDS = 3
       MIN_RELEVANT_RESULTS = 3
       MIN_AVG_SCORE = 0.6
+
+      REFORMULATE_SLUG = "ai-rag-query-reformulation"
+      REFORMULATE_FALLBACK = "You are a search query optimizer. Given an original query and search gaps, " \
+                             "generate a better search query that might retrieve more relevant results. " \
+                             "Return only the improved query text, nothing else."
+
+      SYNTHESIS_SLUG = "ai-rag-answer-synthesis"
+      SYNTHESIS_FALLBACK = "You are a helpful assistant. Answer the question based only on the provided context. " \
+                           "If the context doesn't contain enough information, say so. Be concise and factual."
 
       def initialize(account)
         @account = account
@@ -125,12 +136,16 @@ module Ai
       end
 
       def llm_reformulate(client, original_query, current_query, gaps)
+        system_content = resolve_prompt_template(
+          REFORMULATE_SLUG,
+          account: @account,
+          fallback: REFORMULATE_FALLBACK
+        )
+
         messages = [
           {
             role: "system",
-            content: "You are a search query optimizer. Given an original query and search gaps, " \
-                     "generate a better search query that might retrieve more relevant results. " \
-                     "Return only the improved query text, nothing else."
+            content: system_content
           },
           {
             role: "user",
@@ -174,11 +189,16 @@ module Ai
         context = results.first(5).map { |r| r[:content] }.compact.join("\n\n---\n\n")
         return simple_synthesis(results) if context.blank?
 
+        synthesis_content = resolve_prompt_template(
+          SYNTHESIS_SLUG,
+          account: @account,
+          fallback: SYNTHESIS_FALLBACK
+        )
+
         messages = [
           {
             role: "system",
-            content: "You are a helpful assistant. Answer the question based only on the provided context. " \
-                     "If the context doesn't contain enough information, say so. Be concise and factual."
+            content: synthesis_content
           },
           {
             role: "user",

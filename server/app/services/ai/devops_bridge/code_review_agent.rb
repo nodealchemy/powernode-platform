@@ -3,7 +3,23 @@
 module Ai
   module DevopsBridge
     class CodeReviewAgent
+      include Ai::Concerns::PromptTemplateLookup
+
       REVIEW_DIMENSIONS = %w[security performance correctness style].freeze
+      PROMPT_SLUG = "ai-code-review-dimension"
+      FALLBACK_PROMPT = <<~LIQUID
+        Review the following pull request diff focusing on {{ dimension }} issues.
+
+        Repository: {{ repository_name }}
+        PR Title: {{ pr_title }}
+        PR Description: {{ pr_description }}
+
+        Diff:
+        {{ diff }}
+
+        Provide specific, actionable feedback for any {{ dimension }} issues found.
+        Format each finding as: [SEVERITY] file:line - description
+      LIQUID
 
       def initialize(account:)
         @account = account
@@ -64,19 +80,18 @@ module Ai
       end
 
       def build_review_prompt(context, dimension)
-        <<~PROMPT
-          Review the following pull request diff focusing on #{dimension} issues.
-
-          Repository: #{context[:repository_name]}
-          PR Title: #{context[:title]}
-          PR Description: #{context[:description]}
-
-          Diff:
-          #{context[:diff].truncate(8000)}
-
-          Provide specific, actionable feedback for any #{dimension} issues found.
-          Format each finding as: [SEVERITY] file:line - description
-        PROMPT
+        resolve_prompt_template(
+          PROMPT_SLUG,
+          account: @account,
+          variables: {
+            dimension: dimension,
+            repository_name: context[:repository_name],
+            pr_title: context[:title],
+            pr_description: context[:description],
+            diff: context[:diff].truncate(8000)
+          },
+          fallback: FALLBACK_PROMPT
+        )
       end
 
       def execute_agent(agent, prompt)

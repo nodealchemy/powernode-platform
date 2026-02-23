@@ -222,12 +222,32 @@ module Ai
             result[:tool_call_id] = msg[:tool_call_id] || msg["tool_call_id"]
           end
 
-          # Assistant messages with tool calls
+          # Assistant messages with tool calls — ensure OpenAI nested format
           if msg[:tool_calls] || msg["tool_calls"]
-            result[:tool_calls] = msg[:tool_calls] || msg["tool_calls"]
+            raw_calls = msg[:tool_calls] || msg["tool_calls"]
+            result[:tool_calls] = raw_calls.map { |tc| normalize_tool_call(tc) }
           end
 
           result
+        end
+
+        # Ensure tool call is in OpenAI nested format {type: "function", function: {name, arguments}}
+        def normalize_tool_call(tc)
+          # Already in OpenAI format — pass through
+          if tc[:type] == "function" || tc["type"] == "function"
+            return tc
+          end
+
+          # Convert from flat canonical format {id, name, arguments}
+          tc_name = tc[:name] || tc["name"]
+          tc_args = tc[:arguments] || tc["arguments"] || {}
+          tc_args = tc_args.to_json unless tc_args.is_a?(String)
+
+          {
+            id: tc[:id] || tc["id"],
+            type: "function",
+            function: { name: tc_name, arguments: tc_args }
+          }
         end
 
         def build_openai_response(parsed, model)

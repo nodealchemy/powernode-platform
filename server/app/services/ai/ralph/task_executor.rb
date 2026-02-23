@@ -14,6 +14,25 @@ module Ai
     # - community: Community agent invocation
     #
     class TaskExecutor
+      include Ai::Concerns::PromptTemplateLookup
+
+      SYSTEM_PROMPT_SLUG = "ai-ralph-executor-default"
+      FALLBACK_SYSTEM_PROMPT = <<~LIQUID
+        You are an AI assistant helping with software development tasks.
+        You are part of a Ralph Loop - an iterative development cycle.
+
+        Current loop: {{ loop_name }}
+        Repository: {{ repository_url }}
+        Branch: {{ branch }}
+        Iteration: {{ current_iteration }} of {{ max_iterations }}
+
+        Instructions:
+        1. Complete the task according to the acceptance criteria
+        2. Provide clear, actionable output
+        3. If you learn something useful for future iterations, include it with "Learning:" prefix
+        4. Be concise but thorough
+      LIQUID
+
       attr_reader :task, :ralph_loop, :account
 
       def initialize(task:, ralph_loop: nil)
@@ -411,21 +430,18 @@ module Ai
       end
 
       def default_system_prompt
-        base = <<~SYSTEM
-          You are an AI assistant helping with software development tasks.
-          You are part of a Ralph Loop - an iterative development cycle.
-
-          Current loop: #{ralph_loop.name}
-          Repository: #{ralph_loop.repository_url || "Not specified"}
-          Branch: #{ralph_loop.branch || "main"}
-          Iteration: #{ralph_loop.current_iteration + 1} of #{ralph_loop.max_iterations}
-
-          Instructions:
-          1. Complete the task according to the acceptance criteria
-          2. Provide clear, actionable output
-          3. If you learn something useful for future iterations, include it with "Learning:" prefix
-          4. Be concise but thorough
-        SYSTEM
+        base = resolve_prompt_template(
+          SYSTEM_PROMPT_SLUG,
+          account: account,
+          variables: {
+            loop_name: ralph_loop.name,
+            repository_url: ralph_loop.repository_url || "Not specified",
+            branch: ralph_loop.branch || "main",
+            current_iteration: (ralph_loop.current_iteration + 1).to_s,
+            max_iterations: ralph_loop.max_iterations.to_s
+          },
+          fallback: FALLBACK_SYSTEM_PROMPT
+        ) || ""
 
         # Inject repository context from mission analysis
         base += build_repo_context

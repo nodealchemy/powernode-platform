@@ -255,16 +255,23 @@ module Ai
           end
 
           # Handle assistant messages with tool_calls (convert to tool_use content blocks)
+          # Supports both flat format {id, name, arguments} and OpenAI nested {id, function: {name, arguments}}
           if role == "assistant" && (msg[:tool_calls] || msg["tool_calls"])
             tool_calls = msg[:tool_calls] || msg["tool_calls"]
             content_blocks = []
             content_blocks << { type: "text", text: content } if content.present?
             tool_calls.each do |tc|
+              tc_name = tc[:name] || tc["name"] ||
+                        tc.dig(:function, :name) || tc.dig("function", "name")
+              tc_input = tc[:arguments] || tc["arguments"] ||
+                         tc.dig(:function, :arguments) || tc.dig("function", "arguments") || {}
+              tc_input = JSON.parse(tc_input) if tc_input.is_a?(String)
+
               content_blocks << {
                 type: "tool_use",
                 id: tc[:id] || tc["id"],
-                name: tc[:name] || tc.dig("function", "name"),
-                input: tc[:arguments] || tc.dig("function", "arguments") || {}
+                name: tc_name,
+                input: tc_input
               }
             end
             return { role: "assistant", content: content_blocks }

@@ -3,8 +3,15 @@
 module Ai
   module Rag
     class RerankingService
+      include Ai::Concerns::PromptTemplateLookup
+
       BATCH_SIZE = 10
       FALLBACK_MODEL = "gpt-4.1"
+
+      PROMPT_SLUG = "ai-rag-relevance-scoring"
+      FALLBACK_PROMPT = "You are a relevance scoring expert. Score each passage for relevance to the query. " \
+                        "Return a relevance score between 0.0 (irrelevant) and 1.0 (highly relevant) for each passage. " \
+                        "Consider semantic relevance, not just keyword matching."
 
       RERANKING_SCHEMA = {
         name: "relevance_scores",
@@ -80,12 +87,16 @@ module Ai
           "[#{offset + idx}] #{content}"
         end.join("\n\n")
 
+        system_content = resolve_prompt_template(
+          PROMPT_SLUG,
+          account: @account,
+          fallback: FALLBACK_PROMPT
+        )
+
         messages = [
           {
             role: "system",
-            content: "You are a relevance scoring expert. Score each passage for relevance to the query. " \
-                     "Return a relevance score between 0.0 (irrelevant) and 1.0 (highly relevant) for each passage. " \
-                     "Consider semantic relevance, not just keyword matching."
+            content: system_content
           },
           {
             role: "user",

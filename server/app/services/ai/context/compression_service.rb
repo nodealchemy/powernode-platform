@@ -3,9 +3,14 @@
 module Ai
   module Context
     class CompressionService
+      include Ai::Concerns::PromptTemplateLookup
+
       CHARS_PER_TOKEN = 4
       MAX_ENTRY_TOKENS = 500
       COMPRESSION_RATIO_TARGET = 0.5
+
+      PROMPT_SLUG = "ai-context-compression"
+      FALLBACK_PROMPT = "Compress the following text to roughly half its length while preserving all key facts, names, and numbers. Output only the compressed text."
 
       def initialize(account:)
         @account = account
@@ -84,9 +89,15 @@ module Ai
         provider = find_economy_provider
         return nil unless provider
 
+        system_content = resolve_prompt_template(
+          PROMPT_SLUG,
+          account: @account,
+          fallback: FALLBACK_PROMPT
+        )
+
         response = provider.generate(
           messages: [
-            { role: "system", content: "Compress the following text to roughly half its length while preserving all key facts, names, and numbers. Output only the compressed text." },
+            { role: "system", content: system_content },
             { role: "user", content: content.truncate(2000) }
           ],
           max_tokens: (content.length / (CHARS_PER_TOKEN * 2)),
