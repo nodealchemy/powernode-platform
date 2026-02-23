@@ -3,6 +3,7 @@
 class Api::V1::Auth::RegistrationsController < ApplicationController
   # Rate limiting is now included in ApplicationController
   include UserSerialization
+  include RefreshTokenCookie
 
   skip_before_action :authenticate_request, only: [ :create ]
   before_action :require_saas_mode, only: [ :create ]
@@ -65,6 +66,7 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
       end
 
       tokens = Security::JwtService.generate_user_tokens(@user)
+      set_refresh_cookie(tokens[:refresh_token])
       @user.record_login!
 
       # Send verification email if not auto-verified
@@ -91,7 +93,6 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
         account: account_data(@account),
         subscription: @subscription ? subscription_data(@subscription) : nil,
         access_token: tokens[:access_token],
-        refresh_token: tokens[:refresh_token],
         expires_at: tokens[:expires_at]
       }
 
