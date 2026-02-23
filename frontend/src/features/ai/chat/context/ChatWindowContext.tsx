@@ -122,7 +122,7 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
     return () => window.removeEventListener('powernode:open-chat-maximized', handler);
   }, []);
 
-  const openConversation = useCallback(async (agentId: string, agentName: string, conversationId?: string) => {
+  const openConversation = useCallback(async (agentId: string, agentName: string, conversationId?: string, tabProps?: Partial<ChatTab>) => {
     try {
       let convId = conversationId;
       if (!convId) {
@@ -138,6 +138,7 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
         title: agentName,
         unreadCount: 0,
         createdAt: Date.now(),
+        ...tabProps,
       };
 
       dispatch({ type: 'OPEN_TAB', payload: tab });

@@ -2,19 +2,24 @@ import React, { useState, useCallback } from 'react';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { ConversationSidebar } from './ConversationSidebar';
 import { AgentSelector } from './AgentSelector';
+import { SessionSearch } from './SessionSearch';
 import { useConversations } from '../hooks/useConversations';
 import { useChatWindow } from '../context/ChatWindowContext';
+import { useNotifications } from '@/shared/hooks/useNotifications';
+import { logger } from '@/shared/utils/logger';
 
 type StatusFilter = 'all' | 'active' | 'archived';
 type SearchMode = 'title' | 'messages';
 type SortOption = 'last_activity' | 'created_at' | 'message_count';
 
 export const ChatWindowSidebar: React.FC = () => {
-  const { state, openConversation, openConcierge } = useChatWindow();
+  const { state, dispatch, openConversation, openConcierge } = useChatWindow();
+  const { addNotification } = useNotifications();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortBy, setSortBy] = useState<SortOption>('last_activity');
   const [searchMode, setSearchMode] = useState<SearchMode>('title');
   const [showAgentSelector, setShowAgentSelector] = useState(false);
+  const [showWorkspaceCreator, setShowWorkspaceCreator] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState('');
   const [conciergeLoading, setConciergeLoading] = useState(false);
 
@@ -41,14 +46,34 @@ export const ChatWindowSidebar: React.FC = () => {
     : null;
   const activeConversationId = activeTab?.conversationId ?? null;
 
+  // Split conversations into workspace vs regular for the sidebar sections
+  const workspaceConversations = conversations.filter(c => c.conversation_type === 'team' && c.agent_team?.team_type === 'workspace');
+  const regularConversations = conversations.filter(c => !(c.conversation_type === 'team' && c.agent_team?.team_type === 'workspace'));
+
   const handleSelectConversation = useCallback((id: string) => {
     const conv = conversations.find(c => c.id === id);
     if (conv) {
+      const isTeam = conv.conversation_type === 'team';
+      const isWorkspace = isTeam && conv.agent_team?.team_type === 'workspace';
       const agentId = conv.ai_agent?.id || '';
-      const agentName = conv.ai_agent?.name || 'AI Assistant';
+      const agentName = isTeam
+        ? (conv.agent_team?.name || conv.title || 'Workspace')
+        : (conv.ai_agent?.name || 'AI Assistant');
       openConversation(agentId, agentName, id);
+
+      // Sync workspace flag on every selection (corrects stale state)
+      const tab = state.tabs.find(t => t.conversationId === id);
+      if (tab) {
+        dispatch({ type: 'UPDATE_TAB', payload: {
+          id: tab.id,
+          changes: {
+            isWorkspace,
+            teamId: isWorkspace && conv.agent_team ? conv.agent_team.id : undefined,
+          },
+        } });
+      }
     }
-  }, [conversations, openConversation]);
+  }, [conversations, openConversation, state.tabs, dispatch]);
 
   const handleNewChat = useCallback(() => {
     setShowAgentSelector(true);
@@ -85,14 +110,37 @@ export const ChatWindowSidebar: React.FC = () => {
     await searchMessages(query);
   }, [searchMessages]);
 
+  const handleCreateWorkspace = useCallback(async (name: string, agentIds: string[]) => {
+    try {
+      const { workspacesApi } = await import('@/shared/services/ai/WorkspacesApiService');
+      const result = await workspacesApi.createWorkspace(name, agentIds);
+      const convId = result.workspace.id;
+      const primaryAgentId = result.primary_agent?.id || agentIds[0] || '';
+
+      await openConversation(primaryAgentId, name, convId, {
+        isWorkspace: true,
+        teamId: result.team.id,
+      });
+
+      setShowWorkspaceCreator(false);
+      loadConversations();
+      addNotification({ type: 'success', title: 'Workspace created', message: `"${name}" is ready` });
+    } catch (err) {
+      logger.error('Failed to create workspace', err);
+      addNotification({ type: 'error', title: 'Failed to create workspace', message: 'Please try again' });
+    }
+  }, [openConversation, loadConversations, addNotification]);
+
   return (
     <div className="relative h-full">
       <ConversationSidebar
-        conversations={conversations}
+        conversations={regularConversations}
+        workspaceConversations={workspaceConversations}
         activeConversationId={activeConversationId}
         loading={loading}
         onSelectConversation={handleSelectConversation}
         onNewChat={handleNewChat}
+        onNewWorkspace={() => setShowWorkspaceCreator(true)}
         onArchive={archiveConversation}
         onDelete={deleteConversation}
         onPin={pinConversation}
@@ -163,6 +211,16 @@ export const ChatWindowSidebar: React.FC = () => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Workspace creator modal overlay */}
+      {showWorkspaceCreator && (
+        <div className="absolute inset-0 z-20">
+          <SessionSearch
+            onCreateWorkspace={handleCreateWorkspace}
+            onClose={() => setShowWorkspaceCreator(false)}
+          />
         </div>
       )}
     </div>

@@ -83,6 +83,7 @@ export interface ConversationBase {
   agent_team?: {
     id: string;
     name: string;
+    team_type?: string;
   };
   ai_provider: {
     id: string;

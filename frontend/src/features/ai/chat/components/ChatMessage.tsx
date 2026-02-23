@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Bot, User, StopCircle, MessageSquareReply } from 'lucide-react';
+import { parseMentions } from '@/features/ai/components/conversation/utils';
 import { Avatar } from '@/shared/components/ui/Avatar';
 import { ChatStreamingRenderer } from './ChatStreamingRenderer';
 import { MessageActions } from './MessageActions';
@@ -66,6 +67,19 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   const hasThread = (message.reply_count ?? 0) > 0;
   const isConciergeAction = Boolean(message.metadata?.concierge_action);
   const hasPlanActions = isAi && !isConciergeAction && !!message.metadata?.actions && !!message.metadata?.action_context && !!onPlanAction;
+
+  // Extract mention names for highlighting
+  const mentionNames = (message.metadata?.mentions as Array<{ id: string; name: string }> | undefined)?.map(m => m.name);
+
+  const renderWithMentions = (text: string): React.ReactNode => {
+    const parts = parseMentions(text, mentionNames);
+    if (parts.length === 1 && parts[0].type === 'text') return text;
+    return parts.map((part, i) =>
+      part.type === 'mention'
+        ? <span key={i} className="inline bg-theme-interactive-primary/15 text-theme-interactive-primary font-medium rounded px-1">{part.value}</span>
+        : <React.Fragment key={i}>{part.value}</React.Fragment>
+    );
+  };
 
   const handleEditSave = async (content: string) => {
     if (!onEdit) return;
@@ -149,7 +163,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
               saving={editSaving}
             />
           ) : isUser ? (
-            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+            <p className="text-sm whitespace-pre-wrap">{renderWithMentions(message.content)}</p>
           ) : isActivelyStreaming ? (
             <ChatStreamingRenderer
               content={message.content}

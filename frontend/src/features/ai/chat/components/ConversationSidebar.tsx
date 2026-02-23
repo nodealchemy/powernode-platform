@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Plus, PanelLeftClose, PanelLeft, Loader2, CheckSquare, X, Archive, Trash2, Pin, Tag } from 'lucide-react';
+import { Plus, PanelLeftClose, PanelLeft, Loader2, CheckSquare, X, Archive, Trash2, Pin, Tag, Users } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { ConversationSearch } from './ConversationSearch';
@@ -39,6 +39,8 @@ interface ConversationSidebarProps {
   onSortChange?: (sort: SortOption) => void;
   searchMode?: SearchMode;
   onSearchModeChange?: (mode: SearchMode) => void;
+  workspaceConversations?: ConversationBase[];
+  onNewWorkspace?: () => void;
 }
 
 export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
@@ -62,6 +64,8 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   onSortChange,
   searchMode,
   onSearchModeChange,
+  workspaceConversations = [],
+  onNewWorkspace,
 }) => {
   const [width, setWidth] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -231,6 +235,17 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                 <Plus className="h-3.5 w-3.5 mr-1" />
                 New
               </Button>
+              {onNewWorkspace && (
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  iconOnly
+                  onClick={onNewWorkspace}
+                  title="New workspace"
+                >
+                  <Users className="h-3.5 w-3.5" />
+                </Button>
+              )}
               {onBulkAction && (
                 <Button
                   variant={selectMode ? 'secondary' : 'ghost'}
@@ -328,10 +343,26 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                   </div>
                 )}
 
+                {/* Workspaces section */}
+                {workspaceConversations.length > 0 && (
+                  <div>
+                    {conciergeConversations.length > 0 && (
+                      <div className="border-t border-theme" />
+                    )}
+                    <div className="px-3 py-1.5 flex items-center gap-1.5">
+                      <Users className="h-3 w-3 text-theme-text-tertiary" />
+                      <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
+                        Workspaces
+                      </span>
+                    </div>
+                    {workspaceConversations.map(renderConversationItem)}
+                  </div>
+                )}
+
                 {/* Pinned section */}
                 {pinnedConversations.length > 0 && (
                   <div>
-                    {conciergeConversations.length > 0 && (
+                    {(conciergeConversations.length > 0 || workspaceConversations.length > 0) && (
                       <div className="border-t border-theme" />
                     )}
                     <div className="px-3 py-1.5">
@@ -346,7 +377,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                 {/* Unpinned / recent section */}
                 {unpinnedConversations.length > 0 && (
                   <div>
-                    {(pinnedConversations.length > 0 || conciergeConversations.length > 0) && (
+                    {(pinnedConversations.length > 0 || conciergeConversations.length > 0 || workspaceConversations.length > 0) && (
                       <div className="px-3 py-1.5 border-t border-theme">
                         <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
                           Recent

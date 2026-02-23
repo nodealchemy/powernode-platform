@@ -60,6 +60,7 @@ import { chatChannelsApi } from '@/shared/services/ai/ChatChannelsApiService';
 import { communityAgentsApi } from '@/shared/services/ai/CommunityAgentsApiService';
 import { containerExecutionApi } from '@/shared/services/ai/ContainerExecutionApiService';
 import { ralphLoopsApi } from '@/shared/services/ai/RalphLoopsApiService';
+import { workspacesApi } from '@/shared/services/ai/WorkspacesApiService';
 
 export { BaseApiService } from '@/shared/services/ai/BaseApiService';
 export type {
@@ -504,6 +505,14 @@ export type {
 
 // Re-export Ralph Loops service (Autonomous AI Agent Loops)
 export { ralphLoopsApi };
+
+// Re-export Workspaces service (MCP Client Identity & Team Chat)
+export { workspacesApi };
+export type {
+  McpSessionInfo,
+  WorkspaceInfo,
+  WorkspaceMember,
+} from '@/shared/services/ai/WorkspacesApiService';
 export type {
   RalphLoopStatus,
   RalphTaskStatus,
@@ -564,6 +573,8 @@ export const aiApi = {
   containerExecution: containerExecutionApi,
   // Ralph Loops (Autonomous AI Agent Loops)
   ralphLoops: ralphLoopsApi,
+  // Workspaces (MCP Client Identity & Team Chat)
+  workspaces: workspacesApi,
 } as const;
 
 export default aiApi;

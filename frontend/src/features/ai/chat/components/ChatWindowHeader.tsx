@@ -13,9 +13,11 @@ import {
   Archive,
   Trash2,
   Clock,
+  Users,
 } from 'lucide-react';
 import { useChatWindow } from '../context/ChatWindowContext';
 import { ScheduledMessagesPanel } from './ScheduledMessagesPanel';
+import { WorkspaceMembersPanel } from './WorkspaceMembersPanel';
 import { conversationsApi } from '@/shared/services/ai';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
@@ -28,6 +30,7 @@ export const ChatWindowHeader: React.FC<ChatWindowHeaderProps> = ({ onPointerDow
   const { addNotification } = useNotifications();
   const [showActions, setShowActions] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
+  const [showMembers, setShowMembers] = useState(false);
 
   const activeTab = state.tabs.find(t => t.id === state.activeTabId);
   const isMaximized = state.mode === 'maximized';
@@ -120,6 +123,26 @@ export const ChatWindowHeader: React.FC<ChatWindowHeaderProps> = ({ onPointerDow
           </div>
         )}
 
+        {/* Workspace members (only for workspace tabs) */}
+        {activeTab?.isWorkspace && activeTab?.conversationId && (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setShowMembers(!showMembers); }}
+              className="p-1.5 rounded-md hover:bg-theme-surface-hover text-theme-secondary transition-colors"
+              title="Workspace members"
+            >
+              <Users className="h-4 w-4" />
+            </button>
+            {showMembers && (
+              <WorkspaceMembersPanel
+                conversationId={activeTab.conversationId}
+                onClose={() => setShowMembers(false)}
+              />
+            )}
+          </div>
+        )}
+
         {/* Actions menu (all modes, when a tab is active) */}
         {activeTab && (
           <div className="relative">
@@ -135,6 +158,7 @@ export const ChatWindowHeader: React.FC<ChatWindowHeaderProps> = ({ onPointerDow
               <div
                 className="absolute right-0 top-full mt-1 z-50 bg-theme-surface border border-theme rounded-lg shadow-lg py-1 min-w-[140px]"
                 onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
               >
                 <button
                   type="button"

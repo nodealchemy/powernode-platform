@@ -129,7 +129,12 @@ export const ScheduledMessagesPanel: React.FC<ScheduledMessagesPanelProps> = ({
   const activeMessages = messages.filter(m => m.status === 'active' || m.status === 'paused');
 
   return (
-    <div className="absolute right-0 top-full mt-1 z-50 w-96 bg-theme-surface border border-theme rounded-lg shadow-lg">
+    <div
+      className="absolute right-0 top-full mt-1 z-50 w-96 bg-theme-surface border border-theme rounded-lg shadow-lg select-auto"
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-theme">
         <div className="flex items-center gap-2">

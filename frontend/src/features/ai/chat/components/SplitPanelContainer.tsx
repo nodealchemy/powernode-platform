@@ -43,7 +43,9 @@ export const SplitPanelContainer: React.FC = () => {
         id: tab.conversationId,
         title: tab.title,
         status: 'active',
+        conversation_type: tab.isWorkspace ? 'team' : 'agent',
         ai_agent: { id: tab.agentId, name: tab.agentName, agent_type: 'assistant', is_concierge: tab.isConcierge },
+        agent_team: tab.teamId ? { id: tab.teamId, name: tab.title } : undefined,
         metadata: {
           created_by: '',
           total_messages: 0,

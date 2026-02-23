@@ -9,6 +9,8 @@ export interface ChatTab {
   unreadCount: number;
   createdAt: number;
   isConcierge?: boolean;
+  isWorkspace?: boolean;
+  teamId?: string;
 }
 
 export interface FloatingPosition {
@@ -69,7 +71,7 @@ export type ChatWindowAction =
 export interface ChatWindowContextValue {
   state: ChatWindowState;
   dispatch: React.Dispatch<ChatWindowAction>;
-  openConversation: (agentId: string, agentName: string, conversationId?: string) => Promise<void>;
+  openConversation: (agentId: string, agentName: string, conversationId?: string, tabProps?: Partial<ChatTab>) => Promise<void>;
   openConversationMaximized: (agentId: string, agentName: string, conversationId?: string) => Promise<void>;
   openConcierge: () => Promise<void>;
   closeTab: (tabId: string) => void;

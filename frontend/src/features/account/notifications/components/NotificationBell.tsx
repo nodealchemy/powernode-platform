@@ -57,13 +57,22 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     action_label: wsNotif.action_label,
     icon: wsNotif.icon,
     category: wsNotif.category || 'general',
-    metadata: {},
+    metadata: wsNotif.metadata || {},
     read: false,
     created_at: wsNotif.created_at,
   }), []);
 
   // Handle notification click — open chat for AI types, navigate for others
   const handleNotificationClick = useCallback((notification: Notification) => {
+    if (notification.type === 'ai_concierge_message' && notification.metadata) {
+      const agentId = notification.metadata.agent_id as string | undefined;
+      const conversationId = notification.metadata.conversation_id as string | undefined;
+      if (agentId || conversationId) {
+        setIsOpen(false);
+        openConversationMaximized(agentId || '', '', conversationId);
+        return;
+      }
+    }
     if (notification.type === 'ai_plan_review' && notification.metadata) {
       const agentId = notification.metadata.agent_id as string | undefined;
       const conversationId = notification.metadata.conversation_id as string | undefined;

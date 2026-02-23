@@ -237,9 +237,11 @@ export interface AiMessage {
   }>;
   created_at: string;
   sender_info?: {
+    id?: string;
     name: string;
     avatar_url?: string;
     provider?: string;
+    agent_type?: string;
   };
 }
 
