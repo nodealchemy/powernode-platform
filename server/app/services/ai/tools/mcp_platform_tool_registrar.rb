@@ -38,7 +38,7 @@ module Ai
           end
         end
 
-        def execute_tool(tool_id, params:, account:, user: nil, agent_id: nil, token: nil)
+        def execute_tool(tool_id, params:, account:, user: nil, agent_id: nil, token: nil, mcp_agent: nil)
           tool_name = tool_id.delete_prefix("#{TOOL_ID_PREFIX}.")
           tool_class = find_tool_class(tool_name)
           raise ArgumentError, "Unknown platform tool: #{tool_name}" unless tool_class
@@ -71,7 +71,7 @@ module Ai
             execution_params[:action] = ACTION_ALIASES.fetch(tool_name, tool_name)
           end
 
-          tool_instance = tool_class.new(account: account, user: user)
+          tool_instance = tool_class.new(account: account, user: user, agent: mcp_agent)
           tool_instance.execute(params: execution_params)
         end
 

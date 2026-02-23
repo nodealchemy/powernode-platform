@@ -57,6 +57,7 @@ module Ai
         existing << tool_entry
         Rails.cache.write(cache_key, existing, expires_in: 24.hours)
 
+        ::Mcp::SessionNotifier.notify_tools_changed(account)
         Rails.logger.info "[SemanticToolDiscovery] Registered dynamic tool '#{name}' for account #{account.id}"
         tool_entry
       end
@@ -67,6 +68,8 @@ module Ai
         existing = Rails.cache.read(cache_key) || []
         existing.reject! { |t| t[:name] == name }
         Rails.cache.write(cache_key, existing, expires_in: 24.hours)
+
+        ::Mcp::SessionNotifier.notify_tools_changed(account)
       end
 
       private

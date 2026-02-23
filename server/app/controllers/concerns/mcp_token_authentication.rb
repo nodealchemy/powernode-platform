@@ -39,6 +39,21 @@ module McpTokenAuthentication
     @current_user = user
     @current_account = user.account
     @doorkeeper_token = doorkeeper_token
+
+    # Capture OAuth application on the MCP session if present
+    link_mcp_session_to_application(doorkeeper_token)
+  end
+
+  def link_mcp_session_to_application(doorkeeper_token)
+    return unless doorkeeper_token.application_id.present?
+
+    session = McpSession.active.find_by(
+      user: @current_user,
+      account: @current_account
+    )
+    return unless session
+
+    session.update_columns(oauth_application_id: doorkeeper_token.application_id) if session.oauth_application_id.nil?
   end
 
   def render_oauth_unauthorized(message)

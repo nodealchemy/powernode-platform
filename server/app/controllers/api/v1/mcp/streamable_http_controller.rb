@@ -4,10 +4,13 @@ module Api
   module V1
     module Mcp
       class StreamableHttpController < ApplicationController
+        include ActionController::Live
         include McpTokenAuthentication
 
         MCP_PROTOCOL_VERSION = "2025-11-25"
         SESSION_TTL = 24.hours
+        SSE_KEEPALIVE_INTERVAL = 30 # seconds
+        ALLOWED_WORKSPACE_EVENTS = %w[message_created ai_response_complete agent_joined agent_left mention].freeze
 
         skip_before_action :authenticate_request
         before_action :set_mcp_headers
@@ -16,6 +19,7 @@ module Api
 
         # POST /api/v1/mcp/message
         # Handles all JSON-RPC 2.0 MCP messages
+        # Supports SSE streaming when client sends Accept: text/event-stream
         def message
           body = parse_request_body
           return if performed?
@@ -36,6 +40,12 @@ module Api
           # Notifications (no id) get 202 Accepted
           if message_id.nil?
             handle_notification(method, params)
+            return
+          end
+
+          # Stream tools/call responses as SSE when client accepts it
+          if streaming_accepted? && method == "tools/call"
+            handle_streaming_tools_call(params, message_id)
             return
           end
 
@@ -67,6 +77,72 @@ module Api
           end
 
           head :ok
+        end
+
+        # GET /api/v1/mcp/message
+        # Opens an SSE stream for push notifications (MCP notifications + workspace events)
+        # Agent identity is optional — sessions without agents receive MCP notifications only
+        def stream
+          session = find_mcp_session
+          return head :bad_request unless session
+
+          agent = session.ai_agent
+
+          response.headers["Content-Type"] = "text/event-stream"
+          response.headers["Cache-Control"] = "no-cache"
+          response.headers["X-Accel-Buffering"] = "no"
+          response.headers["Connection"] = "keep-alive"
+
+          sse = ActionController::Live::SSE.new(response.stream, retry: 5000)
+
+          # Session channel always subscribed; workspace channels only when agent-bound
+          session_channel = "mcp_session:#{session.session_token}"
+          all_channels = [session_channel]
+          all_channels += workspace_channels_for_agent(agent) if agent
+
+          # Send initial connected event
+          sse.write({ type: "session/connected", channels: all_channels.size }, event: "open")
+
+          # Subscribe to all channels via ActionCable's adapter-agnostic pubsub
+          pubsub = ActionCable.server.pubsub
+          callbacks = {}
+
+          all_channels.each do |channel|
+            callback = proc do |raw_message|
+              data = JSON.parse(raw_message) rescue next
+
+              if data["jsonrpc"] == "2.0" && data["method"].is_a?(String)
+                # MCP JSON-RPC 2.0 notification — spec-compliant event: message
+                sse.write(data, event: "message")
+              else
+                # Workspace event — forward with event type name
+                event_type = data["type"] || data[:type]
+                next unless ALLOWED_WORKSPACE_EVENTS.include?(event_type.to_s)
+
+                sse.write(data, event: event_type.to_s)
+              end
+            end
+
+            callbacks[channel] = callback
+            pubsub.subscribe(channel, callback)
+          end
+
+          # Keepalive loop — sends pings and refreshes session TTL
+          loop do
+            sleep SSE_KEEPALIVE_INTERVAL
+            sse.write({ type: "ping", timestamp: Time.current.iso8601 }, event: "ping")
+            session.touch_activity!
+          end
+        rescue ActionController::Live::ClientDisconnected, IOError, Errno::EPIPE
+          # Client disconnected — normal cleanup
+        ensure
+          # Unsubscribe from all channels
+          callbacks&.each do |channel, callback|
+            pubsub&.unsubscribe(channel, callback)
+          rescue StandardError
+            nil
+          end
+          sse&.close rescue nil
         end
 
         private
@@ -163,6 +239,16 @@ module Api
             expires_at: SESSION_TTL.from_now
           )
 
+          # Link OAuth application identity — the auth concern's link_mcp_session_to_application
+          # runs before_action but the session doesn't exist yet on initialize requests
+          if @doorkeeper_token&.application_id.present?
+            session.update_columns(oauth_application_id: @doorkeeper_token.application_id)
+          end
+
+          # Resolve and bind MCP client agent identity to the session
+          agent = mcp_client_agent
+          session.link_agent!(agent) if agent
+
           protocol_service = build_protocol_service
 
           response.set_header("Mcp-Session-Id", session.session_token)
@@ -217,7 +303,8 @@ module Api
                 tool_name,
                 params: arguments,
                 account: current_account,
-                user: current_user
+                user: current_user,
+                mcp_agent: mcp_client_agent
               )
             rescue ArgumentError
               result = ::Ai::Introspection::McpToolRegistrar.execute_tool(
@@ -324,6 +411,72 @@ module Api
             account: current_account,
             connection_id: request.headers["Mcp-Session-Id"] || SecureRandom.uuid
           )
+        end
+
+        def streaming_accepted?
+          request.headers["Accept"]&.include?("text/event-stream")
+        end
+
+        def handle_streaming_tools_call(params, message_id)
+          response.headers["Content-Type"] = "text/event-stream"
+          response.headers["Cache-Control"] = "no-cache"
+          response.headers["X-Accel-Buffering"] = "no"
+
+          sse = ActionController::Live::SSE.new(response.stream, retry: 5000)
+
+          begin
+            result = handle_tools_call(params)
+
+            if performed?
+              # handle_tools_call rendered a JSON error (e.g. missing param) — extract and re-emit as SSE
+              return
+            end
+
+            sse.write({
+              jsonrpc: "2.0",
+              id: message_id,
+              result: result
+            }, event: "message")
+          rescue ::Mcp::ProtocolService::PermissionDeniedError => e
+            sse.write({ jsonrpc: "2.0", id: message_id, error: { code: -32001, message: e.message } }, event: "message")
+          rescue ::Mcp::ProtocolService::ToolNotFoundError => e
+            sse.write({ jsonrpc: "2.0", id: message_id, error: { code: -32601, message: e.message } }, event: "message")
+          rescue ::Mcp::ProtocolService::SchemaValidationError, ArgumentError => e
+            sse.write({ jsonrpc: "2.0", id: message_id, error: { code: -32602, message: e.message } }, event: "message")
+          rescue StandardError => e
+            Rails.logger.error "[MCP StreamableHTTP] Streaming error: #{e.class}: #{e.message}\n#{e.backtrace&.first(5)&.join("\n")}"
+            sse.write({ jsonrpc: "2.0", id: message_id, error: { code: -32603, message: "Internal error: #{e.message}" } }, event: "message")
+          ensure
+            sse&.close rescue nil
+          end
+        end
+
+        def find_mcp_session
+          session_id = request.headers["Mcp-Session-Id"]
+          return nil unless session_id.present?
+
+          McpSession.active.find_by(session_token: session_id)
+        end
+
+        def workspace_channels_for_agent(agent)
+          ::Ai::Conversation
+            .joins(agent_team: :members)
+            .where(ai_agent_team_members: { ai_agent_id: agent.id })
+            .where(ai_agent_teams: { team_type: "workspace" })
+            .pluck(:websocket_channel)
+            .compact
+        end
+
+        def mcp_client_agent
+          @mcp_client_agent ||= begin
+            return nil unless @doorkeeper_token
+
+            ::Ai::McpClientIdentityService.new(
+              account: current_account,
+              user: current_user,
+              doorkeeper_token: @doorkeeper_token
+            ).resolve_agent
+          end
         end
 
         def current_user

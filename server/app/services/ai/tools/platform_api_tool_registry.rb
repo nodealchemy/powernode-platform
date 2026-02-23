@@ -91,7 +91,25 @@ module Ai
         "get_graph_neighbors" => "Ai::Tools::KnowledgeGraphTool",
         "graph_statistics" => "Ai::Tools::KnowledgeGraphTool",
         "get_subgraph" => "Ai::Tools::KnowledgeGraphTool",
-        "extract_to_knowledge_graph" => "Ai::Tools::KnowledgeGraphTool"
+        "extract_to_knowledge_graph" => "Ai::Tools::KnowledgeGraphTool",
+        # Concierge
+        "send_concierge_message" => "Ai::Tools::ConciergeTool",
+        "confirm_concierge_action" => "Ai::Tools::ConciergeTool",
+        "list_conversations" => "Ai::Tools::ConciergeTool",
+        "get_conversation_messages" => "Ai::Tools::ConciergeTool",
+        # Workspace
+        "create_workspace" => "Ai::Tools::WorkspaceTool",
+        "send_message" => "Ai::Tools::WorkspaceTool",
+        "invite_agent" => "Ai::Tools::WorkspaceTool",
+        "list_messages" => "Ai::Tools::WorkspaceTool",
+        "list_workspaces" => "Ai::Tools::WorkspaceTool",
+        "active_sessions" => "Ai::Tools::WorkspaceTool",
+        # Activity monitoring
+        "get_activity_feed" => "Ai::Tools::ActivityMonitorTool",
+        "get_mission_status" => "Ai::Tools::ActivityMonitorTool",
+        "get_notifications" => "Ai::Tools::ActivityMonitorTool",
+        "dismiss_notification" => "Ai::Tools::ActivityMonitorTool",
+        "get_system_health" => "Ai::Tools::ActivityMonitorTool"
       }.freeze
 
       def self.available_tools(agent: nil)

@@ -1,0 +1,277 @@
+# frozen_string_literal: true
+
+module Ai
+  module Tools
+    class WorkspaceTool < BaseTool
+      REQUIRED_PERMISSION = "ai.conversations.create"
+
+      def self.definition
+        {
+          name: "workspace",
+          description: "Create and manage workspace conversations for multi-agent collaboration (user + MCP clients + concierge)",
+          parameters: {
+            action: { type: "string", required: true, description: "Action: create_workspace, send_message, invite_agent, list_messages, list_workspaces, active_sessions" },
+            name: { type: "string", required: false, description: "Workspace name (for create_workspace)" },
+            agent_ids: { type: "array", required: false, description: "Agent IDs to include (for create_workspace)" },
+            include_concierge: { type: "boolean", required: false, description: "Auto-add concierge agent (for create_workspace, default: false)" },
+            conversation_id: { type: "string", required: false, description: "Workspace conversation ID (for send_message, invite_agent, list_messages)" },
+            message: { type: "string", required: false, description: "Message content (for send_message)" },
+            agent_id: { type: "string", required: false, description: "Agent ID (for invite_agent)" },
+            limit: { type: "integer", required: false, description: "Max results (default 20)" }
+          }
+        }
+      end
+
+      def self.action_definitions
+        {
+          "create_workspace" => {
+            description: "Create a workspace conversation with selected agents. The calling MCP client is automatically added.",
+            parameters: {
+              name: { type: "string", required: true, description: "Workspace name" },
+              agent_ids: { type: "array", required: false, description: "Additional agent IDs to include" },
+              include_concierge: { type: "boolean", required: false, description: "Auto-add concierge agent (default: false)" }
+            }
+          },
+          "send_message" => {
+            description: "Send a message to a workspace conversation attributed to this MCP client agent",
+            parameters: {
+              conversation_id: { type: "string", required: true, description: "Workspace conversation ID" },
+              message: { type: "string", required: true, description: "Message content" }
+            }
+          },
+          "invite_agent" => {
+            description: "Invite an agent to a workspace conversation",
+            parameters: {
+              conversation_id: { type: "string", required: true, description: "Workspace conversation ID" },
+              agent_id: { type: "string", required: true, description: "Agent ID to invite (or 'concierge' for default concierge)" }
+            }
+          },
+          "list_messages" => {
+            description: "Retrieve messages from a workspace conversation",
+            parameters: {
+              conversation_id: { type: "string", required: true, description: "Workspace conversation ID" },
+              limit: { type: "integer", required: false, description: "Max messages (default 20, max 100)" }
+            }
+          },
+          "list_workspaces" => {
+            description: "List workspace conversations the current user participates in",
+            parameters: {
+              limit: { type: "integer", required: false, description: "Max results (default 10)" }
+            }
+          },
+          "active_sessions" => {
+            description: "List active MCP client sessions that can be invited to workspaces",
+            parameters: {}
+          }
+        }
+      end
+
+      protected
+
+      def call(params)
+        return { success: false, error: "User context required for workspace tools" } unless user
+
+        case params[:action]
+        when "create_workspace" then create_workspace(params)
+        when "send_message" then send_workspace_message(params)
+        when "invite_agent" then invite_agent(params)
+        when "list_messages" then list_messages(params)
+        when "list_workspaces" then list_workspaces(params)
+        when "active_sessions" then list_active_sessions(params)
+        else
+          { success: false, error: "Unknown action: #{params[:action]}. Valid: create_workspace, send_message, invite_agent, list_messages, list_workspaces, active_sessions" }
+        end
+      end
+
+      private
+
+      def workspace_service
+        @workspace_service ||= Ai::WorkspaceService.new(account: account, user: user)
+      end
+
+      def create_workspace(params)
+        return { success: false, error: "name is required" } if params[:name].blank?
+
+        agent_ids = Array(params[:agent_ids])
+
+        # Auto-add the calling MCP client agent if present
+        agent_ids.unshift(agent.id) if agent&.agent_type == "mcp_client" && !agent_ids.include?(agent.id)
+
+        # Optionally add concierge
+        if params[:include_concierge]
+          concierge = account.ai_agents.default_concierge.first
+          agent_ids << concierge.id if concierge && !agent_ids.include?(concierge.id)
+        end
+
+        result = workspace_service.create_workspace(name: params[:name], agent_ids: agent_ids)
+
+        {
+          success: true,
+          workspace: {
+            team_id: result[:team].id,
+            team_name: result[:team].name,
+            conversation_id: result[:conversation].conversation_id,
+            conversation_db_id: result[:conversation].id,
+            members: result[:team].members.includes(:agent).map { |m|
+              { agent_id: m.ai_agent_id, name: m.agent_name, role: m.role, agent_type: m.agent_agent_type }
+            }
+          }
+        }
+      rescue StandardError => e
+        Rails.logger.error("[WorkspaceTool] create_workspace error: #{e.message}")
+        { success: false, error: "Failed to create workspace: #{e.message}" }
+      end
+
+      def send_workspace_message(params)
+        return { success: false, error: "conversation_id is required" } if params[:conversation_id].blank?
+        return { success: false, error: "message is required" } if params[:message].blank?
+
+        conversation = find_workspace_conversation(params[:conversation_id])
+        return { success: false, error: "Workspace conversation not found" } unless conversation
+
+        # Send message attributed to this MCP client agent (not the user)
+        sending_agent = agent&.agent_type == "mcp_client" ? agent : nil
+        message = conversation.add_message(
+          "assistant",
+          params[:message],
+          agent: sending_agent
+        )
+
+        {
+          success: true,
+          conversation_id: conversation.conversation_id,
+          message_id: message.message_id,
+          sender: sending_agent&.name || "Unknown"
+        }
+      rescue StandardError => e
+        Rails.logger.error("[WorkspaceTool] send_message error: #{e.message}")
+        { success: false, error: "Failed to send message: #{e.message}" }
+      end
+
+      def invite_agent(params)
+        return { success: false, error: "conversation_id is required" } if params[:conversation_id].blank?
+        return { success: false, error: "agent_id is required" } if params[:agent_id].blank?
+
+        conversation = find_workspace_conversation(params[:conversation_id])
+        return { success: false, error: "Workspace conversation not found" } unless conversation
+
+        target_agent = if params[:agent_id] == "concierge"
+                         account.ai_agents.default_concierge.first
+        else
+                         account.ai_agents.find_by(id: params[:agent_id])
+        end
+        return { success: false, error: "Agent not found" } unless target_agent
+
+        workspace_service.invite_agent(workspace_conversation: conversation, agent: target_agent)
+
+        {
+          success: true,
+          conversation_id: conversation.conversation_id,
+          invited_agent: { id: target_agent.id, name: target_agent.name, agent_type: target_agent.agent_type }
+        }
+      rescue StandardError => e
+        Rails.logger.error("[WorkspaceTool] invite_agent error: #{e.message}")
+        { success: false, error: "Failed to invite agent: #{e.message}" }
+      end
+
+      def list_messages(params)
+        return { success: false, error: "conversation_id is required" } if params[:conversation_id].blank?
+
+        conversation = find_workspace_conversation(params[:conversation_id])
+        return { success: false, error: "Workspace conversation not found" } unless conversation
+
+        limit = (params[:limit] || 20).to_i.clamp(1, 100)
+        messages = conversation.messages.not_deleted.ordered.includes(:user, :agent).last(limit)
+
+        {
+          success: true,
+          conversation_id: conversation.conversation_id,
+          count: messages.size,
+          messages: messages.map { |m| serialize_message(m) }
+        }
+      end
+
+      def list_workspaces(params)
+        limit = (params[:limit] || 10).to_i.clamp(1, 50)
+        workspaces = workspace_service.list_workspaces.limit(limit)
+
+        {
+          success: true,
+          count: workspaces.size,
+          workspaces: workspaces.map { |c| serialize_workspace(c) }
+        }
+      end
+
+      def list_active_sessions(_params)
+        sessions = workspace_service.active_mcp_sessions
+
+        {
+          success: true,
+          count: sessions.size,
+          sessions: sessions.map { |s| serialize_session(s) }
+        }
+      end
+
+      # --- Helpers ---
+
+      def find_workspace_conversation(conversation_id)
+        Ai::Conversation.where(account: account)
+          .joins(:agent_team)
+          .where(ai_agent_teams: { team_type: "workspace" })
+          .find_by(id: conversation_id) ||
+          Ai::Conversation.where(account: account)
+            .joins(:agent_team)
+            .where(ai_agent_teams: { team_type: "workspace" })
+            .find_by(conversation_id: conversation_id)
+      end
+
+      def serialize_message(message)
+        {
+          id: message.message_id,
+          role: message.role,
+          content: message.content.to_s.truncate(2000),
+          sender: message.user&.name || message.agent&.name || "Unknown",
+          sender_type: message.user.present? ? "user" : "agent",
+          agent_type: message.agent&.agent_type,
+          created_at: message.created_at&.iso8601
+        }
+      end
+
+      def serialize_workspace(conversation)
+        team = conversation.agent_team
+        {
+          conversation_id: conversation.conversation_id,
+          title: conversation.title,
+          status: conversation.status,
+          team_name: team&.name,
+          member_count: team&.members&.count || 0,
+          message_count: conversation.message_count,
+          last_activity_at: conversation.last_activity_at&.iso8601
+        }
+      end
+
+      def serialize_session(session)
+        {
+          id: session.id,
+          display_name: session.display_name || session.ai_agent&.name,
+          agent: session.ai_agent ? {
+            id: session.ai_agent.id,
+            name: session.ai_agent.name,
+            agent_type: session.ai_agent.agent_type,
+            status: session.ai_agent.status
+          } : nil,
+          oauth_application: session.oauth_application ? {
+            id: session.oauth_application.id,
+            name: session.oauth_application.name
+          } : nil,
+          user: {
+            id: session.user.id,
+            name: session.user.name || session.user.email
+          },
+          last_activity_at: session.last_activity_at&.iso8601,
+          created_at: session.created_at&.iso8601
+        }
+      end
+    end
+  end
+end
