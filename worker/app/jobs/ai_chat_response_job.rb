@@ -13,9 +13,6 @@ class AiChatResponseJob < BaseJob
 
   sidekiq_options queue: 'ai_conversations', retry: 2
 
-  # Minimum interval (seconds) between streaming chunk broadcasts
-  STREAM_BROADCAST_INTERVAL = 0.15
-
   def execute(conversation_id, message_id, agent_id, account_id)
     validate_required_params(
       { 'conversation_id' => conversation_id, 'message_id' => message_id,

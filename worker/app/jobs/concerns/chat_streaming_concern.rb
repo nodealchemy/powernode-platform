@@ -3,6 +3,9 @@
 module ChatStreamingConcern
   extend ActiveSupport::Concern
 
+  # Minimum interval (seconds) between streaming chunk broadcasts
+  STREAM_BROADCAST_INTERVAL = 0.15
+
   private
 
   def call_openai_streaming(api_key, base_url, model, messages, temperature, max_tokens)

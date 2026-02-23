@@ -4,8 +4,11 @@ module Ai
   # ConversationResponseJob - Generates AI responses for conversation messages
   #
   # Enqueued by AiConversationChannel#trigger_ai_response when a user sends
-  # a message via WebSocket. Loads conversation history, calls the AI provider,
-  # and broadcasts the response back via the conversation channel.
+  # a message via WebSocket. Loads conversation history, calls the AI provider
+  # via Ai::Llm::Client, and broadcasts the response back via the channel.
+  #
+  # When the agent has tools enabled (default), the LLM can call platform tools
+  # (search_knowledge, query_learnings, etc.) via AgentToolBridgeService.
   #
   class ConversationResponseJob < ApplicationJob
     queue_as :ai_execution
@@ -29,14 +32,10 @@ module Ai
         return
       end
 
-      # Build conversation history for AI
-      messages_for_ai = build_messages_for_ai(conversation, agent)
-
-      # Generate AI response
-      result = generate_response(credential, agent, messages_for_ai)
+      messages = build_messages_for_ai(conversation, agent)
+      result = generate_response(credential, agent, messages)
 
       if result[:success]
-        # Create assistant message
         assistant_message = conversation.add_assistant_message(
           result[:content],
           message_type: "text",
@@ -45,11 +44,11 @@ module Ai
           processing_metadata: {
             model: result[:model],
             finish_reason: result[:finish_reason],
-            usage: result[:usage]
-          }
+            usage: result[:usage],
+            tool_calls: result[:tool_calls]
+          }.compact
         )
 
-        # Broadcast the completed AI response
         AiConversationChannel.broadcast_ai_complete(conversation, assistant_message)
       else
         broadcast_error(conversation, result[:error] || "Failed to generate AI response")
@@ -68,7 +67,6 @@ module Ai
         messages << { role: "system", content: agent.system_prompt }
       end
 
-      # Include last 20 messages for context window
       conversation.messages.order(sequence_number: :asc).last(20).each do |msg|
         messages << { role: msg.role, content: msg.content }
       end
@@ -78,53 +76,45 @@ module Ai
 
     def generate_response(credential, agent, messages)
       model = agent.model || credential.ai_provider.default_model
+      llm_client = Ai::Llm::Client.new(provider: credential.provider, credential: credential)
+      tool_bridge = Ai::AgentToolBridgeService.new(agent: agent)
 
-      client = ::Ai::ProviderClientService.new(credential)
-
-      result = client.send_message(messages, {
-        model: model,
+      opts = {
         temperature: agent.temperature || 0.7,
         max_tokens: agent.max_tokens || 2048
-      })
+      }
 
-      if result[:success]
-        response_data = result[:response]
-        content = extract_content(response_data)
+      # Extract system message as a separate parameter
+      system_msg = messages.find { |m| m[:role] == "system" }
+      if system_msg
+        opts[:system_prompt] = system_msg[:content]
+        messages = messages.reject { |m| m[:role] == "system" }
+      end
 
+      if tool_bridge.tools_enabled? && tool_bridge.tool_definitions_for_llm.any?
+        result = tool_bridge.execute_tool_loop(
+          llm_client: llm_client, messages: messages, model: model, **opts
+        )
         {
-          success: true,
-          content: content,
+          success: result[:content].present?,
+          content: result[:content],
           model: model,
-          usage: response_data&.dig(:usage),
-          finish_reason: response_data&.dig(:choices, 0, :finish_reason) || "stop"
+          usage: result[:usage],
+          finish_reason: result[:finish_reason] || "stop",
+          tool_calls: result[:tool_calls_log].presence
         }
       else
-        { success: false, error: result[:error] || "Provider returned an error" }
+        response = llm_client.complete(messages: messages, model: model, **opts)
+        if response.success?
+          { success: true, content: response.content, model: model,
+            usage: response.usage, finish_reason: response.finish_reason || "stop" }
+        else
+          { success: false, error: "Provider returned no content" }
+        end
       end
     rescue StandardError => e
       Rails.logger.error "[ConversationResponseJob] Provider error: #{e.message}"
       { success: false, error: "AI service error: #{e.message}" }
-    end
-
-    def extract_content(data)
-      return "" unless data
-
-      if data.is_a?(String)
-        data
-      elsif data[:content].is_a?(Array)
-        data[:content].map { |c| c[:text] || c["text"] }.compact.join("\n")
-      elsif data[:content].is_a?(String)
-        data[:content]
-      elsif data[:choices].is_a?(Array)
-        data[:choices].first&.dig(:message, :content) ||
-          data[:choices].first&.dig("message", "content") || ""
-      elsif data[:message].is_a?(Hash)
-        data[:message][:content] || data[:message]["content"] || ""
-      elsif data[:response]
-        data[:response]
-      else
-        data.to_s
-      end
     end
 
     def calculate_cost(usage, provider)
