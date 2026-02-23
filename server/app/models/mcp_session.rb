@@ -4,6 +4,8 @@ class McpSession < ApplicationRecord
   # Associations
   belongs_to :user
   belongs_to :account
+  belongs_to :oauth_application, class_name: "Doorkeeper::Application", foreign_key: "oauth_application_id", optional: true
+  belongs_to :ai_agent, class_name: "Ai::Agent", foreign_key: "ai_agent_id", optional: true
 
   # Constants
   STATUSES = %w[active expired revoked].freeze
@@ -23,6 +25,7 @@ class McpSession < ApplicationRecord
 
   # Callbacks
   before_validation :set_defaults, on: :create
+  after_update :deactivate_agent_on_end, if: -> { saved_change_to_status? && !active? }
 
   # Instance methods
   def revoke!
@@ -45,7 +48,16 @@ class McpSession < ApplicationRecord
     status == "revoked"
   end
 
+  # Links this session to an MCP client agent identity
+  def link_agent!(agent)
+    update!(ai_agent_id: agent.id, display_name: agent.name)
+  end
+
   private
+
+  def deactivate_agent_on_end
+    Ai::McpClientIdentityService.deactivate_agent(self)
+  end
 
   def set_defaults
     self.session_token ||= SecureRandom.uuid

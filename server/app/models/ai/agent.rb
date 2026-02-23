@@ -49,11 +49,12 @@ module Ai
     validates :slug, presence: true, uniqueness: { scope: :account_id }, length: { maximum: 150 },
                      format: { with: /\A[a-z0-9\-_]+\z/, message: "can only contain lowercase letters, numbers, hyphens, and underscores" }
     validates :agent_type, presence: true, inclusion: {
-      in: %w[assistant code_assistant data_analyst content_generator image_generator workflow_optimizer workflow_operations monitor],
+      in: %w[assistant code_assistant data_analyst content_generator image_generator workflow_optimizer workflow_operations monitor mcp_client],
       message: "is not included in the list"
     }
     validates :status, inclusion: { in: %w[active inactive paused error archived] }
     validates :version, format: { with: /\A\d+\.\d+\.\d+\z/, message: "must be in semantic version format (x.y.z)" }
+    validate :model_matches_provider, if: -> { provider.present? && mcp_metadata&.dig("model_config", "model").present? }
 
     # JSON attributes for MCP data
     attribute :mcp_tool_manifest, :json, default: -> { {} }
@@ -92,6 +93,8 @@ module Ai
     }
     scope :concierge, -> { where(is_concierge: true) }
     scope :default_concierge, -> { concierge.active.order(:created_at).limit(1) }
+    scope :mcp_clients, -> { where(agent_type: "mcp_client") }
+    scope :active_mcp_clients, -> { mcp_clients.active }
 
     # Callbacks
     before_validation :generate_slug, if: -> { name.present? && (slug.blank? || name_changed?) }
@@ -99,6 +102,8 @@ module Ai
     before_save :update_version_if_mcp_changed
     before_save :ensure_mcp_tool_manifest
     after_commit :sync_to_knowledge_graph, on: [:create, :update]
+    after_commit :notify_mcp_resources_changed, on: [:create, :destroy]
+    after_commit :notify_mcp_resources_changed, if: :saved_change_to_status?
 
     def skill_slugs
       agent_skills.where(is_active: true).joins(:skill).where(ai_skills: { status: "active" }).pluck("ai_skills.slug")
@@ -134,12 +139,40 @@ module Ai
 
     private
 
+    # Prevent model/provider mismatches (e.g. grok-3 on Anthropic provider)
+    def model_matches_provider
+      model = mcp_metadata.dig("model_config", "model")
+      return if model.blank?
+
+      ptype = provider.provider_type
+      valid = case ptype
+              when "anthropic" then model.start_with?("claude")
+              when "openai"
+                # OpenAI-compatible providers may host non-OpenAI models (e.g. Grok via X.AI)
+                # Only block models that are clearly from a different provider family
+                !model.start_with?("claude")
+              when "ollama" then true
+              else true
+              end
+
+      unless valid
+        supported = provider.supported_models.map { |m| m["id"] }.first(5).join(", ")
+        errors.add(:base, "Model '#{model}' is incompatible with #{ptype} provider. Supported: #{supported}")
+      end
+    end
+
     def sync_to_knowledge_graph
       return unless account_id.present?
 
       Ai::SkillGraph::BridgeService.new(account).sync_agent(self)
     rescue StandardError => e
       Rails.logger.warn "[Ai::Agent] KG sync failed for agent #{id}: #{e.message}"
+    end
+
+    def notify_mcp_resources_changed
+      ::Mcp::SessionNotifier.notify_resources_changed(account)
+    rescue StandardError => e
+      Rails.logger.warn "[Ai::Agent] MCP resource notification failed: #{e.message}"
     end
 
     def generate_slug

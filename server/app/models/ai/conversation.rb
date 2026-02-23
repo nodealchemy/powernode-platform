@@ -63,16 +63,20 @@ module Ai
       conversation_type == "team"
     end
 
+    def workspace_conversation?
+      agent_team&.team_type == "workspace"
+    end
+
     def can_send_message?
       %w[active paused].include?(status)
     end
 
-    def add_message(role, content, user: nil, **options)
+    def add_message(role, content, user: nil, agent: nil, **options)
       raise ArgumentError, "Cannot add message to inactive conversation" unless can_send_message?
 
       message = messages.build(
         user: user,
-        ai_agent_id: ai_agent_id,
+        ai_agent_id: (agent || self.agent)&.id,
         message_id: UUID7.generate,
         role: role,
         content: content,
@@ -191,6 +195,7 @@ module Ai
       return unless websocket_channel.present?
 
       AiConversationChannel.broadcast_message_created(self, message)
+      notify_mcp_sessions_of_message(message)
     end
 
     def broadcast_typing_indicator(user, typing: true)
@@ -240,6 +245,44 @@ module Ai
     end
 
     private
+
+    def notify_mcp_sessions_of_message(message)
+      return unless agent_team.present?
+
+      # Find MCP client agents in this workspace team
+      mcp_agent_ids = agent_team.members
+        .joins(:agent)
+        .where(ai_agents: { agent_type: "mcp_client" })
+        .pluck(:ai_agent_id)
+
+      return if mcp_agent_ids.empty?
+
+      # Skip notifying the agent that sent this message (avoid echo)
+      mcp_agent_ids -= [message.ai_agent_id] if message.ai_agent_id.present?
+      return if mcp_agent_ids.empty?
+
+      sessions = McpSession.active.where(ai_agent_id: mcp_agent_ids)
+      return if sessions.empty?
+
+      notification = {
+        type: "message_created",
+        conversation_id: conversation_id,
+        workspace: agent_team.name,
+        message: {
+          id: message.message_id,
+          role: message.role,
+          content: message.content.to_s.truncate(500),
+          sender: message.user&.name || message.agent&.name || "Unknown",
+          created_at: message.created_at&.iso8601
+        }
+      }.to_json
+
+      sessions.find_each do |session|
+        ActionCable.server.pubsub.broadcast("mcp_session:#{session.session_token}", notification)
+      end
+    rescue StandardError => e
+      Rails.logger.warn("[Conversation] Failed to notify MCP sessions: #{e.message}")
+    end
 
     def set_conversation_id
       self.conversation_id ||= SecureRandom.uuid

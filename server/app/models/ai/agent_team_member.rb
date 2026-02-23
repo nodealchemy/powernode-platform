@@ -47,6 +47,9 @@ module Ai
     scope :researchers, -> { where(role: "researcher") }
     scope :writers, -> { where(role: "writer") }
     scope :reviewers, -> { where(role: "reviewer") }
+    scope :by_agent_names, ->(names) {
+      includes(:agent).where(ai_agents: { name: names })
+    }
 
     # ==========================================
     # Callbacks

@@ -36,6 +36,7 @@ class Notification < ApplicationRecord
     payment_failed
     account_update
     ai_plan_review
+    ai_concierge_message
   ].freeze
 
   # Categories

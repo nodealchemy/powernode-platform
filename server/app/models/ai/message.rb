@@ -151,6 +151,7 @@ module Ai
         status: status,
         user: user&.full_name,
         user_id: user_id,
+        sender_info: build_sender_info,
         sequence_number: sequence_number,
         token_count: token_count,
         cost_usd: cost_usd,
@@ -165,6 +166,16 @@ module Ai
         reply_count: child_messages.not_deleted.count,
         content_metadata: content_metadata.presence
       }
+    end
+
+    def build_sender_info
+      if role == "user"
+        { name: user&.full_name || "User", type: "user" }
+      elsif agent
+        { name: agent.name, agent_type: agent.agent_type, agent_id: agent.id }
+      else
+        { name: conversation.agent&.name || "AI Assistant", agent_type: conversation.agent&.agent_type }
+      end
     end
 
     def thread_messages

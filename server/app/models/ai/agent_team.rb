@@ -7,7 +7,7 @@ module Ai
     # ==========================================
     # Constants
     # ==========================================
-    TEAM_TYPES = %w[hierarchical mesh sequential parallel].freeze
+    TEAM_TYPES = %w[hierarchical mesh sequential parallel workspace].freeze
     COORDINATION_STRATEGIES = %w[manager_led consensus auction round_robin priority_based].freeze
     STATUSES = %w[active inactive archived].freeze
     PARALLEL_MODES = %w[standard worktree].freeze
@@ -48,6 +48,7 @@ module Ai
     scope :mesh, -> { where(team_type: "mesh") }
     scope :sequential, -> { where(team_type: "sequential") }
     scope :parallel, -> { where(team_type: "parallel") }
+    scope :workspaces, -> { where(team_type: "workspace") }
 
     # ==========================================
     # Callbacks
@@ -213,6 +214,9 @@ module Ai
     end
 
     def validate_coordination_compatibility
+      # Workspace teams are flexible - skip coordination validation
+      return if team_type == "workspace"
+
       # Hierarchical teams should use manager_led coordination
       if team_type == "hierarchical" && coordination_strategy == "consensus"
         errors.add(:coordination_strategy, "hierarchical teams should use manager_led or priority_based coordination")
