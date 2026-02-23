@@ -14,11 +14,12 @@ import {
   Trash2,
   Clock,
   Users,
+  Eraser,
 } from 'lucide-react';
 import { useChatWindow } from '../context/ChatWindowContext';
 import { ScheduledMessagesPanel } from './ScheduledMessagesPanel';
 import { WorkspaceMembersPanel } from './WorkspaceMembersPanel';
-import { conversationsApi } from '@/shared/services/ai';
+import { conversationsApi, agentsApi } from '@/shared/services/ai';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface ChatWindowHeaderProps {
@@ -64,6 +65,22 @@ export const ChatWindowHeader: React.FC<ChatWindowHeaderProps> = ({ onPointerDow
       addNotification({ type: 'success', message: 'Conversation archived' });
     } catch {
       addNotification({ type: 'error', message: 'Failed to archive conversation' });
+    }
+    setShowActions(false);
+  }, [activeTab, addNotification]);
+
+  const handleClearChat = useCallback(async () => {
+    if (!activeTab?.agentId || !activeTab?.conversationId) return;
+    if (!window.confirm('Clear all messages in this conversation? This cannot be undone.')) return;
+    try {
+      await agentsApi.clearMessages(activeTab.agentId, activeTab.conversationId);
+      addNotification({ type: 'success', message: 'Chat cleared' });
+      // Notify the conversation component to reset its local message state
+      window.dispatchEvent(new CustomEvent('powernode:chat-cleared', {
+        detail: { conversationId: activeTab.conversationId }
+      }));
+    } catch {
+      addNotification({ type: 'error', message: 'Failed to clear messages' });
     }
     setShowActions(false);
   }, [activeTab, addNotification]);
@@ -180,6 +197,13 @@ export const ChatWindowHeader: React.FC<ChatWindowHeaderProps> = ({ onPointerDow
                   className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-theme-primary hover:bg-theme-surface-hover transition-colors"
                 >
                   <Archive className="h-3.5 w-3.5" /> Archive
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearChat}
+                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-theme-primary hover:bg-theme-surface-hover transition-colors"
+                >
+                  <Eraser className="h-3.5 w-3.5" /> Clear chat
                 </button>
                 <div className="border-t border-theme my-1" />
                 <button

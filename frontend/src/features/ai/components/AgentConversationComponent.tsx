@@ -46,6 +46,11 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
   const pendingMentionsRef = useRef<Array<{ id: string; name: string }>>([]);
   pendingMentionsRef.current = pendingMentions;
 
+  // Cursor-based pagination state
+  const [hasOlder, setHasOlder] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [oldestCursor, setOldestCursor] = useState<number | null>(null);
+
   // Dedup wrapper: ensures no two messages share the same ID (last write wins)
   const setMessages: typeof setMessagesRaw = useCallback((update) => {
     setMessagesRaw(prev => {
@@ -127,9 +132,10 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     try {
       setLoading(true);
       const response = await agentsApi.getMessages(agentId, conversation.id);
-      const rawMessages = Array.isArray(response) ? response : [];
-      const mapped = rawMessages.map((msg: AiMessage) => mapBackendMessage(msg as unknown as Record<string, unknown>));
+      const mapped = (response.messages || []).map((msg: AiMessage) => mapBackendMessage(msg as unknown as Record<string, unknown>));
       setMessages(mapped);
+      setHasOlder(response.pagination?.has_older ?? false);
+      setOldestCursor(response.pagination?.oldest_cursor ?? null);
     } catch (_error) {
       addNotification({
         type: 'error',
@@ -139,7 +145,41 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     } finally {
       setLoading(false);
     }
-  }, [conversation.id]);  
+  }, [conversation.id]);
+
+  const loadOlderMessages = useCallback(async () => {
+    if (!agentId || !hasOlder || loadingOlder || !oldestCursor) return;
+    try {
+      setLoadingOlder(true);
+      const response = await agentsApi.getMessages(agentId, conversation.id, { before: oldestCursor });
+      const mapped = (response.messages || []).map((msg: AiMessage) => mapBackendMessage(msg as unknown as Record<string, unknown>));
+      setMessages(prev => [...mapped, ...prev]);
+      setHasOlder(response.pagination?.has_older ?? false);
+      setOldestCursor(response.pagination?.oldest_cursor ?? null);
+    } catch (_error) {
+      addNotification({
+        type: 'error',
+        title: 'Load Failed',
+        message: 'Failed to load older messages'
+      });
+    } finally {
+      setLoadingOlder(false);
+    }
+  }, [conversation.id, agentId, hasOlder, loadingOlder, oldestCursor]);
+
+  const handleClearChat = useCallback(async () => {
+    if (!agentId) return;
+    if (!window.confirm('Clear all messages in this conversation? This cannot be undone.')) return;
+    try {
+      await agentsApi.clearMessages(agentId, conversation.id);
+      setMessages([]);
+      setHasOlder(false);
+      setOldestCursor(null);
+      addNotification({ type: 'success', title: 'Chat Cleared', message: 'All messages have been cleared' });
+    } catch (_error) {
+      addNotification({ type: 'error', title: 'Error', message: 'Failed to clear messages' });
+    }
+  }, [conversation.id, agentId]);  
 
   const handleInputChange = useCallback((value: string) => {
     inputValueRef.current = value;
@@ -289,13 +329,28 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     }
   }, [conversation.id]);
 
+  // Listen for chat-cleared events from the header
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.conversationId === conversation.id) {
+        setMessages([]);
+        setHasOlder(false);
+        setOldestCursor(null);
+      }
+    };
+    window.addEventListener('powernode:chat-cleared', handler);
+    return () => window.removeEventListener('powernode:chat-cleared', handler);
+  }, [conversation.id]);
+
   // Load initial messages
   useEffect(() => {
     loadMessages();
   }, [conversation.id]);
 
-  // Auto-scroll to bottom when messages change
+  // Auto-scroll to bottom when messages change (skip when loading older messages)
   useEffect(() => {
+    if (loadingOlder) return;
     if (messages.length > 0) {
       if (initialLoadRef.current) {
         // First load: jump to bottom instantly (no animation)
@@ -306,7 +361,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
         setTimeout(() => scrollToBottom(), 100);
       }
     }
-  }, [messages, scrollToBottom]);
+  }, [messages, scrollToBottom, loadingOlder]);
 
   if (loading) {
     return (
@@ -349,6 +404,10 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
           isConcierge={isConcierge}
           onConciergeConfirm={loadMessages}
           onSuggestedMessage={handleSendMessage}
+          hasOlder={hasOlder}
+          loadingOlder={loadingOlder}
+          onLoadOlder={loadOlderMessages}
+          onClearChat={handleClearChat}
         />
 
         {/* Input Area */}

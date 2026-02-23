@@ -66,6 +66,10 @@ interface MessageListProps {
   isConcierge?: boolean;
   onConciergeConfirm?: () => void;
   onSuggestedMessage?: (text: string) => void;
+  hasOlder?: boolean;
+  loadingOlder?: boolean;
+  onLoadOlder?: () => void;
+  onClearChat?: () => void;
 }
 
 export const MessageList = React.memo<MessageListProps>(({
@@ -86,8 +90,33 @@ export const MessageList = React.memo<MessageListProps>(({
   conversationId,
   isConcierge,
   onConciergeConfirm,
-  onSuggestedMessage
+  onSuggestedMessage,
+  hasOlder,
+  loadingOlder,
+  onLoadOlder,
+  onClearChat: _onClearChat,
 }) => {
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  const previousScrollHeightRef = React.useRef<number>(0);
+
+  // Preserve scroll position after prepending older messages
+  React.useEffect(() => {
+    if (!loadingOlder && scrollContainerRef.current && previousScrollHeightRef.current > 0) {
+      const newHeight = scrollContainerRef.current.scrollHeight;
+      scrollContainerRef.current.scrollTop = newHeight - previousScrollHeightRef.current;
+      previousScrollHeightRef.current = 0;
+    }
+  }, [messages, loadingOlder]);
+
+  // Scroll detection: trigger loadOlder when scrolled near top
+  const handleScroll = React.useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container || !hasOlder || loadingOlder) return;
+    if (container.scrollTop < 100) {
+      previousScrollHeightRef.current = container.scrollHeight;
+      onLoadOlder?.();
+    }
+  }, [hasOlder, loadingOlder, onLoadOlder]);
   const renderMessage = (message: AiMessage) => {
     const isUser = message.sender_type === 'user';
     const isAI = message.sender_type === 'ai';
@@ -491,8 +520,23 @@ export const MessageList = React.memo<MessageListProps>(({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-gradient-to-b from-transparent to-theme-surface/10">
+    <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto bg-gradient-to-b from-transparent to-theme-surface/10">
       <div className="p-4 space-y-4">
+        {/* Loading older messages indicator */}
+        {loadingOlder && (
+          <div className="flex items-center justify-center py-3">
+            <Loader2 className="h-4 w-4 animate-spin text-theme-secondary mr-2" />
+            <span className="text-xs text-theme-secondary">Loading older messages...</span>
+          </div>
+        )}
+
+        {/* Beginning of conversation indicator */}
+        {!hasOlder && messages.length > 0 && !loadingOlder && (
+          <div className="flex items-center justify-center py-2">
+            <span className="text-xs text-theme-muted">Beginning of conversation</span>
+          </div>
+        )}
+
         {messages.length === 0 && isConcierge ? (
           <div className="flex flex-col items-center justify-center h-full py-12 px-4">
             <div className="w-14 h-14 rounded-2xl bg-theme-interactive-primary/10 flex items-center justify-center mb-4">

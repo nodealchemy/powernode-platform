@@ -77,8 +77,8 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
       const conv = await agentsApi.getConversation(effectiveAgentId, conversationId);
       setConversation(conv);
 
-      const msgs = await agentsApi.getMessages(effectiveAgentId, conversationId);
-      setMessages(msgs);
+      const response = await agentsApi.getMessages(effectiveAgentId, conversationId);
+      setMessages(response.messages);
 
       try {
         const conversationStats = await conversationsApi.getConversationStats(conversationId);

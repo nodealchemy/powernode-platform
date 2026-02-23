@@ -127,8 +127,8 @@ export const NodeOperationsChat: React.FC<NodeOperationsChatProps> = ({
 
   const loadMessages = useCallback(async (agentId: string, conversationId: string) => {
     try {
-      const messages = await agentsApi.getMessages(agentId, conversationId);
-      setMessages(messages.reverse()); // Reverse to show oldest first
+      const response = await agentsApi.getMessages(agentId, conversationId);
+      setMessages([...(response.messages || [])].reverse()); // Reverse to show oldest first
       scrollToBottom();
     } catch (_error) {
       // Error loading messages - will display empty state

@@ -470,14 +470,57 @@ class AgentsApiService extends BaseApiService {
   }
 
   /**
-   * Get conversation messages
+   * Get conversation messages with cursor-based pagination
    * GET /api/v1/ai/agents/:agent_id/conversations/:id/messages
    */
-  async getMessages(agentId: string, conversationId: string): Promise<AiMessage[]> {
+  async getMessages(
+    agentId: string,
+    conversationId: string,
+    params?: { before?: number; after?: number; limit?: number }
+  ): Promise<{
+    messages: AiMessage[];
+    pagination: {
+      has_older: boolean;
+      oldest_cursor: number | null;
+      newest_cursor: number | null;
+      total_count: number;
+    };
+  }> {
     const path = this.buildPath(this.resource, agentId, 'conversations', conversationId, 'messages');
-    const response = await this.get<{ messages: AiMessage[] }>(path);
-    // Handle both wrapped and direct array responses
-    return Array.isArray(response) ? response : (response.messages || []);
+    const query = params ? '?' + new URLSearchParams(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => [k, String(v)])
+    ).toString() : '';
+    const response = await this.get<{
+      messages: AiMessage[];
+      pagination: {
+        has_older: boolean;
+        oldest_cursor: number | null;
+        newest_cursor: number | null;
+        total_count: number;
+      };
+    }>(path + query);
+    // Handle legacy responses that return a bare array
+    if (Array.isArray(response)) {
+      return {
+        messages: response,
+        pagination: { has_older: false, oldest_cursor: null, newest_cursor: null, total_count: response.length }
+      };
+    }
+    return {
+      messages: response.messages || [],
+      pagination: response.pagination || { has_older: false, oldest_cursor: null, newest_cursor: null, total_count: 0 }
+    };
+  }
+
+  /**
+   * Clear all messages in a conversation (soft-delete)
+   * POST /api/v1/ai/agents/:agent_id/conversations/:id/clear_messages
+   */
+  async clearMessages(agentId: string, conversationId: string): Promise<{ cleared_count: number }> {
+    const path = this.buildPath(this.resource, agentId, 'conversations', conversationId, 'clear_messages');
+    return this.post<{ cleared_count: number }>(path, {});
   }
 
   /**
