@@ -334,7 +334,6 @@ print(e.get('message_id','') + '\t' + e.get('sender','?') + '\t' + e.get('conten
 }
 
 # --- SSE Connection ---
-# Uses process substitution instead of pipe to avoid subshell variable scope issues.
 run_sse_loop() {
   local token session_id
   token=$(get_token) || { log "ERROR: No token available"; return 1; }
@@ -342,47 +341,44 @@ run_sse_loop() {
 
   log "Connecting to SSE: $SSE_ENDPOINT (session: ${session_id:0:12}...)"
 
-  local current_event="" current_data="" curl_pid
-
-  # Start curl in background, read from its fd
-  exec 3< <(curl -sS -N \
+  # Pipe curl directly into the read loop.
+  curl -sS -N \
     --max-time 0 \
     -H "Authorization: Bearer $token" \
     -H "Mcp-Session-Id: $session_id" \
     -H "Accept: text/event-stream" \
     -H "Cache-Control: no-cache" \
-    "$SSE_ENDPOINT" 2>>"$LOG_FILE"; echo "___CURL_EXIT___")
-  curl_pid=$!
+    "$SSE_ENDPOINT" 2>>"$LOG_FILE" | {
+    set +eo pipefail  # Disable errexit in subshell — process_sse_event may fail non-fatally
+    local current_event="" current_data=""
 
-  while IFS= read -r line <&3; do
-    # Strip trailing \r
-    line="${line%$'\r'}"
+    log "SSE read loop started"
 
-    if [[ "$line" == "___CURL_EXIT___" ]]; then
-      break
-    elif [[ "$line" == event:* ]]; then
-      current_event="${line#event: }"
-    elif [[ "$line" == data:* ]]; then
-      # Handle multi-line data by appending
-      if [[ -z "$current_data" ]]; then
-        current_data="${line#data: }"
-      else
-        current_data="${current_data}${line#data: }"
+    while IFS= read -r line; do
+      line="${line%$'\r'}"
+
+      if [[ "$line" == event:* ]]; then
+        current_event="${line#event: }"
+      elif [[ "$line" == data:* ]]; then
+        if [[ -z "$current_data" ]]; then
+          current_data="${line#data: }"
+        else
+          current_data="${current_data}${line#data: }"
+        fi
+      elif [[ -z "$line" ]]; then
+        if [[ -n "$current_event" && -n "$current_data" ]]; then
+          process_sse_event "$current_event" "$current_data" || log "process_sse_event failed for $current_event"
+        fi
+        current_event=""
+        current_data=""
       fi
-    elif [[ -z "$line" ]]; then
-      # Empty line = end of SSE frame
-      if [[ -n "$current_event" && -n "$current_data" ]]; then
-        process_sse_event "$current_event" "$current_data"
-      fi
-      current_event=""
-      current_data=""
-    fi
-  done
+    done
 
-  exec 3<&-
-  wait "$curl_pid" 2>/dev/null || true
+    log "SSE read loop exited"
+  }
+  local exit_code=$?
 
-  log "SSE connection closed"
+  log "SSE connection closed (exit: $exit_code)"
   return 1
 }
 
@@ -422,10 +418,12 @@ _run_daemon_loop() {
 }
 
 _cleanup() {
+  # Prevent re-entry from signal during cleanup
+  trap '' EXIT SIGTERM SIGINT
   log "Daemon shutting down..."
   rm -f "$PID_FILE"
-  # Kill child processes (curl etc.)
-  kill -- -$$ 2>/dev/null || true
+  # Kill all children (curl etc.)
+  kill 0 2>/dev/null || true
   log "Daemon stopped"
 }
 
@@ -463,13 +461,18 @@ stop_daemon() {
   if ! is_running; then
     log_and_echo "Daemon is not running"
     rm -f "$PID_FILE"
+    # Kill any orphaned curl SSE connections from previous runs
+    pkill -f "curl.*Mcp-Session-Id.*text/event-stream.*${SSE_ENDPOINT}" 2>/dev/null || true
     return 0
   fi
 
   local pid
   pid=$(cat "$PID_FILE")
   log_and_echo "Stopping daemon (PID: $pid)..."
-  kill "$pid" 2>/dev/null || true
+
+  # Kill the entire process group to catch curl child processes.
+  # The daemon runs with its own PGID (equal to its PID via setsid).
+  kill -- -"$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
 
   # Wait for clean shutdown (up to 5s)
   local i=0
@@ -480,8 +483,11 @@ stop_daemon() {
 
   if kill -0 "$pid" 2>/dev/null; then
     log_and_echo "Force-killing daemon..."
-    kill -9 "$pid" 2>/dev/null || true
+    kill -9 -- -"$pid" 2>/dev/null || kill -9 "$pid" 2>/dev/null || true
   fi
+
+  # Safety net: kill any lingering curl SSE connections for this endpoint
+  pkill -f "curl.*Mcp-Session-Id.*text/event-stream.*${SSE_ENDPOINT}" 2>/dev/null || true
 
   rm -f "$PID_FILE"
   log_and_echo "Daemon stopped"
