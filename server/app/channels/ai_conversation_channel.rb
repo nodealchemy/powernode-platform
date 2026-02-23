@@ -254,6 +254,7 @@ class AiConversationChannel < ApplicationCable::Channel
         content: message.content,
         sender_type: sender_type,
         sender_info: sender_info,
+        sequence_number: message.sequence_number,
         created_at: message.created_at&.iso8601,
         metadata: metadata
       }

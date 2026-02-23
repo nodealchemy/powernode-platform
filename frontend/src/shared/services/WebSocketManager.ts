@@ -43,6 +43,11 @@ export class WebSocketManager {
   private subscriptions: Map<string, Set<ChannelSubscription>> = new Map();
   private subscribedChannels: Set<string> = new Set();
 
+  // Deferred unsubscribe timers — prevents React StrictMode double-mount from
+  // sending unsubscribe→subscribe (the unsubscribe can arrive at the server
+  // AFTER the resubscribe, killing the active subscription)
+  private pendingUnsubscribes: Map<string, NodeJS.Timeout> = new Map();
+
   // Timeouts
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private connectDebounceTimeout: NodeJS.Timeout | null = null;
@@ -278,10 +283,15 @@ export class WebSocketManager {
         return;
       }
 
-      // Handle subscription confirmation
+      // Handle subscription confirmation — track by full channelKey (channel + params)
       if (data.type === 'confirm_subscription') {
         const identifier = JSON.parse(data.identifier);
-        this.subscribedChannels.add(identifier.channel);
+        const { channel, ...params } = identifier;
+        const channelKey = this.getChannelKey(channel, params);
+        this.subscribedChannels.add(channelKey);
+        if (process.env.NODE_ENV === 'development') {
+          console.debug(`[WebSocket] Subscription confirmed: ${channel} (key=${channelKey})`);
+        }
         return;
       }
 
@@ -390,6 +400,17 @@ export class WebSocketManager {
     const { channel, params } = subscription;
     const channelKey = this.getChannelKey(channel, params);
 
+    // Cancel any pending deferred unsubscribe for this channel key
+    // (React StrictMode: mount1 cleanup schedules unsubscribe, mount2 cancels it)
+    const pendingTimer = this.pendingUnsubscribes.get(channelKey);
+    if (pendingTimer) {
+      clearTimeout(pendingTimer);
+      this.pendingUnsubscribes.delete(channelKey);
+      if (process.env.NODE_ENV === 'development') {
+        console.debug(`[WebSocket] Subscribe: cancelled pending unsubscribe for ${channel}`);
+      }
+    }
+
     // Add subscription to the set
     const isNew = !this.subscriptions.has(channelKey);
     if (isNew) {
@@ -397,8 +418,9 @@ export class WebSocketManager {
     }
     this.subscriptions.get(channelKey)!.add(subscription);
 
-    // Send subscription message if connected
-    if (this.ws?.readyState === WebSocket.OPEN) {
+    // Send subscription message if connected and this is a genuinely new channel
+    // (or if it was previously unsubscribed from the server)
+    if (this.ws?.readyState === WebSocket.OPEN && !this.subscribedChannels.has(channelKey)) {
       this.sendSubscriptionMessage(channel, params);
     }
 
@@ -426,19 +448,31 @@ export class WebSocketManager {
     if (subscriptions) {
       subscriptions.delete(subscription);
 
-      // If no more subscriptions for this channel, unsubscribe from server
+      // If no more local listeners, defer the server-side unsubscribe.
+      // This prevents React StrictMode's unmount→remount cycle from sending
+      // an unsubscribe that races with (and kills) the subsequent resubscribe.
       if (subscriptions.size === 0) {
         this.subscriptions.delete(channelKey);
 
-        if (this.ws?.readyState === WebSocket.OPEN) {
-          this.sendUnsubscriptionMessage(channel, params);
-        }
-
-        this.subscribedChannels.delete(channel);
-
         if (process.env.NODE_ENV === 'development') {
-          console.debug(`[WebSocket] Unsubscribe: ${channel} (last listener removed, server notified=${this.ws?.readyState === WebSocket.OPEN})`);
+          console.debug(`[WebSocket] Unsubscribe: ${channel} (last listener removed, deferring server unsubscribe 300ms)`);
         }
+
+        // Defer server-side unsubscribe — if a new subscribe arrives within
+        // 300ms (StrictMode remount), the timer is cancelled in subscribe()
+        const timer = setTimeout(() => {
+          this.pendingUnsubscribes.delete(channelKey);
+          this.subscribedChannels.delete(channelKey);
+
+          if (this.ws?.readyState === WebSocket.OPEN) {
+            this.sendUnsubscriptionMessage(channel, params);
+            if (process.env.NODE_ENV === 'development') {
+              console.debug(`[WebSocket] Unsubscribe: ${channel} (deferred unsubscribe sent to server)`);
+            }
+          }
+        }, 300);
+
+        this.pendingUnsubscribes.set(channelKey, timer);
       } else if (process.env.NODE_ENV === 'development') {
         console.debug(`[WebSocket] Unsubscribe: ${channel} (${subscriptions.size} listeners remaining)`);
       }
@@ -479,6 +513,14 @@ export class WebSocketManager {
    */
   private resubscribeAllChannels(): void {
     if (this.subscriptions.size === 0) return;
+
+    // New connection — no channels are confirmed yet
+    this.subscribedChannels.clear();
+
+    // Cancel any pending deferred unsubscribes (stale from old connection)
+    this.pendingUnsubscribes.forEach(timer => clearTimeout(timer));
+    this.pendingUnsubscribes.clear();
+
     this.subscriptions.forEach((subs, channelKey) => {
       const separatorIdx = channelKey.indexOf('::');
       const channel = separatorIdx >= 0 ? channelKey.substring(0, separatorIdx) : channelKey;
@@ -609,6 +651,10 @@ export class WebSocketManager {
       clearTimeout(this.connectDebounceTimeout);
       this.connectDebounceTimeout = null;
     }
+
+    // Clear pending deferred unsubscribes
+    this.pendingUnsubscribes.forEach(timer => clearTimeout(timer));
+    this.pendingUnsubscribes.clear();
 
     // Close WebSocket connection
     if (this.ws) {
