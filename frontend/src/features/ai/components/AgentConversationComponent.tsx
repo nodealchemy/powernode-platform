@@ -11,6 +11,7 @@ import type {
 import type { ConversationBase } from '@/shared/services/ai/ConversationsApiService';
 import { cleanStreamingContent, mapBackendMessage } from './conversation/utils';
 import { useConversationSocket } from './conversation/useConversationSocket';
+import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import { useMessageActions } from './conversation/useMessageActions';
 import { MessageList } from './conversation/MessageList';
 import { MessageComposer } from './conversation/MessageComposer';
@@ -50,6 +51,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
   const [hasOlder, setHasOlder] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [oldestCursor, setOldestCursor] = useState<number | null>(null);
+  const newestCursorRef = useRef<number | null>(null);
 
   // Dedup wrapper: ensures no two messages share the same ID (last write wins)
   const setMessages: typeof setMessagesRaw = useCallback((update) => {
@@ -76,6 +78,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
 
   const agentId = conversation.ai_agent?.id;
   const isConcierge = !!(conversation as AiConversation).ai_agent?.is_concierge;
+  const { isConnected } = useWebSocket();
 
   // WebSocket connection
   const { sendChannelMessage } = useConversationSocket({
@@ -136,6 +139,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
       setMessages(mapped);
       setHasOlder(response.pagination?.has_older ?? false);
       setOldestCursor(response.pagination?.oldest_cursor ?? null);
+      newestCursorRef.current = response.pagination?.newest_cursor ?? null;
     } catch (_error) {
       addNotification({
         type: 'error',
@@ -146,6 +150,21 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
       setLoading(false);
     }
   }, [conversation.id]);
+
+  // Catch up on messages missed during WebSocket disconnection or tab blur
+  const catchUpMissedMessages = useCallback(async () => {
+    if (!agentId || !newestCursorRef.current || loading) return;
+    try {
+      const response = await agentsApi.getMessages(agentId, conversation.id, { after: newestCursorRef.current });
+      if (response.messages?.length > 0) {
+        const mapped = response.messages.map((msg: AiMessage) => mapBackendMessage(msg as unknown as Record<string, unknown>));
+        setMessages(prev => [...prev, ...mapped]);
+        newestCursorRef.current = response.pagination?.newest_cursor ?? newestCursorRef.current;
+      }
+    } catch (_error) {
+      // Silent — catch-up is best-effort
+    }
+  }, [conversation.id, agentId, loading]);
 
   const loadOlderMessages = useCallback(async () => {
     if (!agentId || !hasOlder || loadingOlder || !oldestCursor) return;
@@ -342,6 +361,36 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     window.addEventListener('powernode:chat-cleared', handler);
     return () => window.removeEventListener('powernode:chat-cleared', handler);
   }, [conversation.id]);
+
+  // Keep newestCursorRef in sync with messages (covers WebSocket-delivered messages)
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg.sequence_number && lastMsg.sequence_number > (newestCursorRef.current ?? 0)) {
+        newestCursorRef.current = lastMsg.sequence_number;
+      }
+    }
+  }, [messages]);
+
+  // Catch up on missed messages when tab/window regains focus
+  useEffect(() => {
+    const handler = () => {
+      if (document.visibilityState === 'visible') {
+        catchUpMissedMessages();
+      }
+    };
+    document.addEventListener('visibilitychange', handler);
+    return () => document.removeEventListener('visibilitychange', handler);
+  }, [catchUpMissedMessages]);
+
+  // Catch up on missed messages when WebSocket reconnects
+  const wasConnectedRef = useRef(isConnected);
+  useEffect(() => {
+    if (isConnected && !wasConnectedRef.current) {
+      catchUpMissedMessages();
+    }
+    wasConnectedRef.current = isConnected;
+  }, [isConnected, catchUpMissedMessages]);
 
   // Load initial messages
   useEffect(() => {

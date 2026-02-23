@@ -72,11 +72,35 @@ export class WebSocketManager {
   }
 
   /**
-   * Initialize the WebSocket connection
-   * Only initializes once, subsequent calls are ignored
+   * Initialize the WebSocket connection.
+   * On first call, sets up the connection and browser listeners.
+   * On subsequent calls, updates the config (e.g., new auth token) and
+   * reconnects if the WebSocket URL has changed.
    */
   public initialize(config: WebSocketConfig): void {
     if (this.isInitialized) {
+      // Config changed (e.g., token refresh) — update getUrl and reconnect if URL differs
+      const oldUrl = this.config?.getUrl();
+      this.config = config;
+      const newUrl = config.getUrl();
+      if (oldUrl !== newUrl && this.ws) {
+        // URL changed (new token) — close old connection and reconnect
+        // Subscriptions are preserved in the map and resubscribed on reconnect
+        this.reconnectAttempts = 0;
+        const oldWs = this.ws;
+        // Detach handlers so stale close/error events don't interfere
+        oldWs.onopen = null;
+        oldWs.onmessage = null;
+        oldWs.onclose = null;
+        oldWs.onerror = null;
+        this.ws = null;
+        this.isConnecting = false;
+        this.isConnected = false;
+        if (oldWs.readyState === WebSocket.OPEN || oldWs.readyState === WebSocket.CONNECTING) {
+          oldWs.close(1000, 'Token refresh');
+        }
+        this.connect();
+      }
       return;
     }
 
@@ -173,10 +197,15 @@ export class WebSocketManager {
       this.reconnectTimeout = null;
     }
 
-    // Close any existing connection
+    // Close any existing connection, detaching handlers to prevent stale events
     if (this.ws) {
-      this.ws.close();
+      const oldWs = this.ws;
+      oldWs.onopen = null;
+      oldWs.onmessage = null;
+      oldWs.onclose = null;
+      oldWs.onerror = null;
       this.ws = null;
+      oldWs.close();
     }
 
     try {
@@ -233,10 +262,17 @@ export class WebSocketManager {
           this.isRefreshingToken = true;
           this.notifyStateListeners(false, 'Session expired');
 
-          // Close connection to prevent reconnection loops
+          // Close connection, detaching handlers to prevent reconnection loops
           if (this.ws) {
-            this.ws.close();
+            const oldWs = this.ws;
+            oldWs.onopen = null;
+            oldWs.onmessage = null;
+            oldWs.onclose = null;
+            oldWs.onerror = null;
             this.ws = null;
+            this.isConnected = false;
+            this.isConnecting = false;
+            oldWs.close();
           }
         }
         return;
@@ -249,8 +285,19 @@ export class WebSocketManager {
         return;
       }
 
-      // Handle subscription rejection
+      // Handle subscription rejection — clean up local state
       if (data.type === 'reject_subscription') {
+        try {
+          const identifier = JSON.parse(data.identifier);
+          const { channel, ...params } = identifier;
+          const channelKey = this.getChannelKey(channel, params);
+          const subs = this.subscriptions.get(channelKey);
+          if (subs) {
+            subs.forEach(sub => sub.onError?.('Subscription rejected by server'));
+          }
+        } catch (_e) {
+          // Ignore parse errors
+        }
         return;
       }
 
@@ -305,6 +352,10 @@ export class WebSocketManager {
       this.reconnectAttempts += 1;
       const backoffTime = Math.min(3000 * Math.pow(1.5, this.reconnectAttempts - 1), 30000);
 
+      if (process.env.NODE_ENV === 'development') {
+        console.debug(`[WebSocket] Connection closed (code=${event.code}), reconnecting in ${backoffTime}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}, subscriptions=${this.subscriptions.size})`);
+      }
+
       if (this.reconnectAttempts <= this.maxReconnectAttempts) {
         this.reconnectTimeout = setTimeout(() => {
           this.connect();
@@ -340,7 +391,8 @@ export class WebSocketManager {
     const channelKey = this.getChannelKey(channel, params);
 
     // Add subscription to the set
-    if (!this.subscriptions.has(channelKey)) {
+    const isNew = !this.subscriptions.has(channelKey);
+    if (isNew) {
       this.subscriptions.set(channelKey, new Set());
     }
     this.subscriptions.get(channelKey)!.add(subscription);
@@ -348,6 +400,11 @@ export class WebSocketManager {
     // Send subscription message if connected
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.sendSubscriptionMessage(channel, params);
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      const count = this.subscriptions.get(channelKey)!.size;
+      console.debug(`[WebSocket] Subscribe: ${channel} (${count} listeners, new=${isNew}, wsOpen=${this.ws?.readyState === WebSocket.OPEN})`);
     }
 
     // Return unsubscribe function
@@ -378,6 +435,12 @@ export class WebSocketManager {
         }
 
         this.subscribedChannels.delete(channel);
+
+        if (process.env.NODE_ENV === 'development') {
+          console.debug(`[WebSocket] Unsubscribe: ${channel} (last listener removed, server notified=${this.ws?.readyState === WebSocket.OPEN})`);
+        }
+      } else if (process.env.NODE_ENV === 'development') {
+        console.debug(`[WebSocket] Unsubscribe: ${channel} (${subscriptions.size} listeners remaining)`);
       }
     }
   }
@@ -415,10 +478,16 @@ export class WebSocketManager {
    * Resubscribe to all channels after reconnection
    */
   private resubscribeAllChannels(): void {
-    this.subscriptions.forEach((_, channelKey) => {
-      const [channel, paramsStr] = channelKey.split('::');
+    if (this.subscriptions.size === 0) return;
+    this.subscriptions.forEach((subs, channelKey) => {
+      const separatorIdx = channelKey.indexOf('::');
+      const channel = separatorIdx >= 0 ? channelKey.substring(0, separatorIdx) : channelKey;
+      const paramsStr = separatorIdx >= 0 ? channelKey.substring(separatorIdx + 2) : undefined;
       const params = paramsStr ? JSON.parse(paramsStr) : undefined;
       this.sendSubscriptionMessage(channel, params);
+      if (process.env.NODE_ENV === 'development') {
+        console.debug(`[WebSocket] Resubscribed: ${channel} (${subs.size} listeners)`);
+      }
     });
   }
 
