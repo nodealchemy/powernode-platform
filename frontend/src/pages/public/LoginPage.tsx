@@ -114,15 +114,9 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handle2FASuccess = async (data: unknown) => {
-    // Save tokens from successful 2FA verification
-    const authData = data as { access_token?: string; refresh_token?: string };
-    if (authData.access_token) {
-      localStorage.setItem('access_token', authData.access_token);
-    }
-    if (authData.refresh_token) {
-      localStorage.setItem('refresh_token', authData.refresh_token);
-    }
+  const handle2FASuccess = async (_data: unknown) => {
+    // Tokens are managed by Redux (access_token) and HttpOnly cookies (refresh_token)
+    // No localStorage writes needed
 
     try {
       // Get current user to update auth state properly

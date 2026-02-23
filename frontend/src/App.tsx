@@ -41,7 +41,7 @@ import '@/assets/styles/deprecated-css-override.css';
 
 const AppContent: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { isAuthenticated, access_token, refresh_token, user } = useSelector((state: RootState) => state.auth);
+  const { isAuthenticated, access_token, user } = useSelector((state: RootState) => state.auth);
   const [initializing, setInitializing] = React.useState(true);
   const [showAuthFallback, setShowAuthFallback] = React.useState(false);
   const initializingRef = React.useRef(false); // Prevent double initialization
@@ -73,13 +73,8 @@ const AppContent: React.FC = () => {
 
       try {
 
-        // First, validate token format before attempting API calls
+        // Validate token format if we have one in memory (e.g., from a previous session's Redux persist)
         if (access_token && !isValidTokenFormat(access_token)) {
-          dispatch(forceTokenClear());
-          // Continue to check impersonation token instead of returning early
-        }
-
-        if (refresh_token && !isValidTokenFormat(refresh_token)) {
           dispatch(forceTokenClear());
           // Continue to check impersonation token instead of returning early
         }
@@ -87,7 +82,7 @@ const AppContent: React.FC = () => {
         // Check for impersonation first, even if regular tokens are invalid
         const impersonationToken = localStorage.getItem('impersonationToken');
 
-        if (impersonationToken || (access_token && !user)) {
+        if (impersonationToken || !user) {
           
           // PRIORITY: If we have an impersonation token, validate it first
           if (impersonationToken) {
@@ -115,40 +110,35 @@ const AppContent: React.FC = () => {
               return;
             }
             
-            // If that fails, try to refresh the access token
-            if (refresh_token) {
-              try {
-                await dispatch(refreshAccessToken()).unwrap();
-                
-                // After refresh, check for impersonation session again
-                const impersonationToken = localStorage.getItem('impersonationToken');
-                if (impersonationToken) {
-                  try {
-                    const impersonationData = await dispatch(checkImpersonationStatus()).unwrap();
-                    if (impersonationData && impersonationData.valid) {
-                      return; // Skip regular user fetch
-                    } else {
-                      localStorage.removeItem('impersonationToken');
-                    }
-                  } catch (impersonationError) {
+            // If that fails, try to refresh the access token (uses HttpOnly cookie)
+            try {
+              await dispatch(refreshAccessToken()).unwrap();
+
+              // After refresh, check for impersonation session again
+              const impersonationToken = localStorage.getItem('impersonationToken');
+              if (impersonationToken) {
+                try {
+                  const impersonationData = await dispatch(checkImpersonationStatus()).unwrap();
+                  if (impersonationData && impersonationData.valid) {
+                    return; // Skip regular user fetch
+                  } else {
                     localStorage.removeItem('impersonationToken');
                   }
-                }
-                
-                // If no valid impersonation, get regular user
-                await dispatch(getCurrentUser(true)).unwrap(); // silentAuth = true during initialization
-              } catch (refreshError) {
-                // Check if this is a token invalidity error
-                if (isTokenInvalidError(refreshError)) {
-                  dispatch(forceTokenClear());
-                } else {
-                  // Clear all auth data if both attempts fail
-                  dispatch(clearAuth());
+                } catch (impersonationError) {
+                  localStorage.removeItem('impersonationToken');
                 }
               }
-            } else {
-              // No refresh token available, clear auth data
-              dispatch(clearAuth());
+
+              // If no valid impersonation, get regular user
+              await dispatch(getCurrentUser(true)).unwrap(); // silentAuth = true during initialization
+            } catch (refreshError) {
+              // Check if this is a token invalidity error
+              if (isTokenInvalidError(refreshError)) {
+                dispatch(forceTokenClear());
+              } else {
+                // No valid refresh cookie or refresh failed — user needs to log in
+                dispatch(clearAuth());
+              }
             }
           }
         }

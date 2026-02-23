@@ -52,27 +52,18 @@ export const isTokenInvalidError = (error: unknown): boolean => {
  * Clears all authentication tokens from localStorage
  */
 export const clearStoredTokens = (): void => {
-  try {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-  } catch (error) {
-    // Silently handle localStorage errors (e.g., when storage is disabled)
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('Failed to clear stored tokens:', error);
-    }
-  }
+  // Tokens are now stored in Redux state (access_token) and HttpOnly cookies (refresh_token)
+  // No localStorage cleanup needed for auth tokens
+  // Impersonation tokens remain in localStorage and are cleared separately
 };
 
 /**
  * Checks if tokens exist in localStorage
  */
 export const hasStoredTokens = (): boolean => {
-  try {
-    return !!(localStorage.getItem('access_token') || localStorage.getItem('refresh_token'));
-  } catch (error) {
-    // Handle localStorage errors gracefully
-    return false;
-  }
+  // Tokens are stored in Redux state and HttpOnly cookies, not localStorage
+  // This function is kept for backward compatibility but always returns false
+  return false;
 };
 
 /**

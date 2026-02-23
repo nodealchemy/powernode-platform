@@ -5,6 +5,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { CheckCircle, AlertTriangle, Mail, ArrowRight } from 'lucide-react';
 
 import { authApi } from '@/features/account/auth/services/authAPI';
+import { store } from '@/shared/services';
 
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { ErrorHandler } from '@/shared/utils/errorHandling';
@@ -77,7 +78,7 @@ const EmailVerificationPage: React.FC = () => {
 
   const handleContinue = () => {
     // Redirect to login page or dashboard depending on authentication state
-    const accessToken = localStorage.getItem('access_token');
+    const accessToken = store.getState().auth.access_token;
     if (accessToken) {
       navigate('/app');
     } else {

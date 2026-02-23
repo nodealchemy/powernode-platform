@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { store } from '@/shared/services';
 import type { CiCdPipelineRun } from '@/types/devops-pipelines';
 
 export interface CiCdPipelineEvent {
@@ -50,7 +51,7 @@ class CiCdWebSocketManager {
     this.isIntentionallyClosed = false;
 
     try {
-      const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+      const token = store.getState().auth.access_token;
       if (!token) return;
 
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -208,20 +209,11 @@ export function useCiCdWebSocket(
   onEventRef.current = onEvent;
 
   useEffect(() => {
-    const userStr = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser');
-    if (!userStr) return;
-
-    let user: { account?: { id?: string } } | null = null;
-    try {
-      user = JSON.parse(userStr);
-    } catch {
-      return;
-    }
-
-    if (!user?.account?.id) return;
+    const accountId = store.getState().auth.user?.account?.id;
+    if (!accountId) return;
 
     const manager = getWsManager();
-    manager.connect(user.account.id, pipelineId);
+    manager.connect(accountId, pipelineId);
 
     // Check connection status periodically
     const statusCheck = setInterval(() => {

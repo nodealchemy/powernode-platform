@@ -70,9 +70,8 @@ export const AccountSwitcher: React.FC<AccountSwitcherProps> = ({ className = ''
     try {
       const response = await accountSwitcherApi.switchAccount(account.id);
 
-      // Update tokens in localStorage
-      localStorage.setItem('access_token', response.access_token);
-      localStorage.setItem('refresh_token', response.refresh_token);
+      // Access token is managed by Redux state; refresh token is in HttpOnly cookie
+      // Page reload below will bootstrap auth from cookie
 
       showNotification(`Switched to ${account.name}`, 'success');
 
@@ -96,9 +95,8 @@ export const AccountSwitcher: React.FC<AccountSwitcherProps> = ({ className = ''
     try {
       const response = await accountSwitcherApi.switchToPrimary();
 
-      // Update tokens in localStorage
-      localStorage.setItem('access_token', response.access_token);
-      localStorage.setItem('refresh_token', response.refresh_token);
+      // Access token is managed by Redux state; refresh token is in HttpOnly cookie
+      // Page reload below will bootstrap auth from cookie
 
       showNotification('Switched back to primary account', 'success');
 
