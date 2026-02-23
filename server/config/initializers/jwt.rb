@@ -47,6 +47,10 @@ Rails.application.configure do
   config.jwt_issuer = ENV.fetch("JWT_ISSUER", "powernode-platform")
   config.jwt_audience = ENV.fetch("JWT_AUDIENCE", "powernode-api")
 
+  # Grace period: tokens issued before this date are allowed without iss/aud claims
+  # Set to deployment timestamp on first deploy with claims enforcement
+  config.jwt_claims_enforcement_date = Time.parse(ENV.fetch("JWT_CLAIMS_ENFORCEMENT_DATE", "2026-02-23T00:00:00Z"))
+
   # Token expiration defaults (can be overridden per token type)
   config.jwt_access_token_expiration = 15.minutes
   config.jwt_refresh_token_expiration = 7.days

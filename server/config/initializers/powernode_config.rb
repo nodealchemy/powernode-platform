@@ -34,4 +34,7 @@ Rails.application.configure do
   config.worker_token = Rails.env.production? ?
     Rails.application.credentials.worker_token :
     ENV.fetch("WORKER_TOKEN", "development_worker_token")
+
+  # Legacy authentication toggle (disable to reject swt_/development_worker_token paths)
+  config.legacy_auth_enabled = ENV.fetch("LEGACY_AUTH_ENABLED", "true") == "true"
 end

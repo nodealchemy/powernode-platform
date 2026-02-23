@@ -3,14 +3,13 @@
 module Security
   class JwtService
     # Token types supported by the system
-    TOKEN_TYPES = %w[access refresh worker service impersonation api_key 2fa].freeze
+    TOKEN_TYPES = %w[access refresh worker impersonation api_key 2fa].freeze
 
     # Default expiration times for different token types
     EXPIRATION_TIMES = {
       access: 15.minutes,
       refresh: 7.days,
       worker: 30.days,
-      service: 1.year,
       impersonation: 8.hours,
       api_key: 1.year,
       "2fa" => 10.minutes
@@ -33,7 +32,9 @@ module Security
           exp: exp.to_i,
           iat: Time.current.to_i,
           jti: SecureRandom.hex(16), # Unique token identifier
-          version: CURRENT_TOKEN_VERSION
+          version: CURRENT_TOKEN_VERSION,
+          iss: Rails.application.config.jwt_issuer,
+          aud: Rails.application.config.jwt_audience
         }
 
         # Use appropriate algorithm
@@ -45,9 +46,17 @@ module Security
       def decode(token, algorithm: nil)
         algorithm ||= default_algorithm
 
+        decode_options = {
+          algorithm: algorithm,
+          verify_iss: true,
+          iss: Rails.application.config.jwt_issuer,
+          verify_aud: true,
+          aud: Rails.application.config.jwt_audience
+        }
+
         # Try decoding with current secret
         begin
-          decoded = JWT.decode(token, verification_key(algorithm), true, { algorithm: algorithm })[0]
+          decoded = JWT.decode(token, verification_key(algorithm), true, decode_options)[0]
           payload = HashWithIndifferentAccess.new(decoded)
         rescue JWT::VerificationError => e
           # If verification fails, check if we're in a secret rotation grace period
@@ -57,7 +66,7 @@ module Security
             # Try decoding with old secret during grace period
             begin
               old_key = algorithm == "HS256" ? rotation_data[:old_secret] : rotation_data[:old_secret]
-              decoded = JWT.decode(token, old_key, true, { algorithm: algorithm })[0]
+              decoded = JWT.decode(token, old_key, true, decode_options)[0]
               payload = HashWithIndifferentAccess.new(decoded)
 
               Rails.logger.info "Token verified with old secret during grace period (expires: #{rotation_data[:grace_period_ends_at]})"
@@ -66,6 +75,36 @@ module Security
               raise StandardError, "Invalid token: #{e.message}"
             end
           else
+            raise StandardError, "Invalid token: #{e.message}"
+          end
+        rescue JWT::InvalidIssuerError, JWT::InvalidAudError => e
+          # Grace period for tokens issued before claims enforcement
+          # Allow tokens without iss/aud for 7 days after deployment
+          begin
+            # Decode without iss/aud verification to check iat
+            raw_decoded = JWT.decode(token, verification_key(algorithm), true, {
+              algorithm: algorithm,
+              verify_iss: false,
+              verify_aud: false
+            })[0]
+            raw_payload = HashWithIndifferentAccess.new(raw_decoded)
+
+            # Check if token was issued before claims enforcement
+            grace_cutoff = (Rails.application.config.jwt_claims_enforcement_date || Time.current).to_i
+            if raw_payload[:iat] && raw_payload[:iat] < grace_cutoff
+              Rails.logger.warn "JWT grace period: allowing token without iss/aud claims (issued: #{Time.at(raw_payload[:iat])})"
+
+              # Check blacklist
+              jti = raw_payload[:jti]
+              if jti && JwtBlacklistService.blacklisted?(jti)
+                raise StandardError, "Invalid token: Token has been blacklisted"
+              end
+
+              raw_payload
+            else
+              raise StandardError, "Invalid token: #{e.message}"
+            end
+          rescue JWT::DecodeError
             raise StandardError, "Invalid token: #{e.message}"
           end
         end
@@ -109,21 +148,6 @@ module Security
         {
           access_token: encode(worker_payload.merge(type: "worker")),
           expires_at: EXPIRATION_TIMES[:worker].from_now
-        }
-      end
-
-      # Generate service tokens for internal communication
-      def generate_service_token(service_name, metadata: {})
-        service_payload = {
-          sub: service_name,
-          type: "service",
-          service: service_name,
-          version: CURRENT_TOKEN_VERSION
-        }.merge(metadata)
-
-        {
-          token: encode(service_payload),
-          expires_at: EXPIRATION_TIMES[:service].from_now
         }
       end
 
