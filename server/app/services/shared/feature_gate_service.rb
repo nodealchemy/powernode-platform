@@ -57,6 +57,18 @@ module Shared
       true
     end
 
+    # Check if running in core (self-hosted) mode
+    # @return [Boolean]
+    def self.core_mode?
+      !enterprise_loaded?
+    end
+
+    # Check if billing features are available
+    # @return [Boolean]
+    def self.billing_enabled?
+      enterprise_enabled?
+    end
+
     # Toggle the enterprise_mode Flipper flag
     # @param enabled [Boolean]
     # @return [Boolean] new state

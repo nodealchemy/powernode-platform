@@ -45,12 +45,12 @@ module Admin
         active_accounts: Account.where(status: "active").count,
         suspended_accounts: Account.where(status: "suspended").count,
         cancelled_accounts: Account.where(status: "cancelled").count,
-        total_subscriptions: Subscription.count,
-        active_subscriptions: Subscription.where(status: %w[active trialing]).count,
-        trial_subscriptions: Subscription.where(status: "trialing").count,
-        total_revenue: Payment.where(status: "completed").sum(:amount_cents) || 0,
+        total_subscriptions: subscription_class&.count || 0,
+        active_subscriptions: subscription_class&.where(status: %w[active trialing])&.count || 0,
+        trial_subscriptions: subscription_class&.where(status: "trialing")&.count || 0,
+        total_revenue: payment_class&.where(status: "completed")&.sum(:amount_cents) || 0,
         monthly_revenue: calculate_monthly_revenue,
-        failed_payments: Payment.where(status: "failed").where("created_at > ?", 30.days.ago).count,
+        failed_payments: payment_class&.where(status: "failed")&.where("created_at > ?", 30.days.ago)&.count || 0,
         webhook_events_today: webhook_events_today_count,
         system_health: calculate_system_health,
         uptime: calculate_uptime
@@ -114,8 +114,8 @@ module Admin
         active_accounts: Account.where(status: "active").count,
         total_users: User.count,
         active_users: User.where(status: "active").count,
-        total_subscriptions: Subscription.count,
-        active_subscriptions: Subscription.where(status: %w[active trialing]).count,
+        total_subscriptions: subscription_class&.count || 0,
+        active_subscriptions: subscription_class&.where(status: %w[active trialing])&.count || 0,
         total_revenue: calculate_total_revenue,
         monthly_growth: calculate_monthly_growth
       }
@@ -206,7 +206,7 @@ module Admin
                      else
                        []
                      end,
-        subscription_trends: Subscription.group(:status).count,
+        subscription_trends: subscription_class ? subscription_class.group(:status).count : {},
         churn_rate: calculate_global_churn_rate,
         customer_growth: calculate_customer_growth
       }
@@ -232,7 +232,9 @@ module Admin
     private
 
     def calculate_monthly_revenue
-      Payment.where(
+      return 0 unless payment_class
+
+      payment_class.where(
         status: "completed",
         created_at: Date.current.beginning_of_month..Date.current.end_of_month
       ).sum(:amount_cents) || 0
@@ -246,7 +248,7 @@ module Admin
     end
 
     def calculate_system_health
-      failed_payments = Payment.where(status: "failed", created_at: 24.hours.ago..Time.current).count
+      failed_payments = payment_class&.where(status: "failed", created_at: 24.hours.ago..Time.current)&.count || 0
       error_logs = AuditLog.where(action: "system_error", created_at: 24.hours.ago..Time.current).count
 
       if error_logs > 10 || failed_payments > 50
@@ -465,20 +467,26 @@ module Admin
     end
 
     def calculate_total_revenue
-      Payment.where(status: "completed").sum(:amount_cents) / 100.0
+      return 0 unless payment_class
+
+      payment_class.where(status: "completed").sum(:amount_cents) / 100.0
     end
 
     def calculate_monthly_growth
-      current_month = Subscription.where(created_at: Date.current.beginning_of_month..Date.current.end_of_month).count
-      last_month = Subscription.where(created_at: 1.month.ago.beginning_of_month..1.month.ago.end_of_month).count
+      return 0 unless subscription_class
+
+      current_month = subscription_class.where(created_at: Date.current.beginning_of_month..Date.current.end_of_month).count
+      last_month = subscription_class.where(created_at: 1.month.ago.beginning_of_month..1.month.ago.end_of_month).count
 
       return 0 if last_month.zero?
       ((current_month - last_month) / last_month.to_f * 100).round(2)
     end
 
     def calculate_global_churn_rate
-      active_subscriptions = Subscription.where(status: %w[active trialing]).count
-      cancelled_this_month = Subscription.where(
+      return 0 unless subscription_class
+
+      active_subscriptions = subscription_class.where(status: %w[active trialing]).count
+      cancelled_this_month = subscription_class.where(
         status: "cancelled",
         updated_at: Date.current.beginning_of_month..Date.current.end_of_month
       ).count
@@ -489,6 +497,14 @@ module Admin
 
     def calculate_customer_growth
       Account.group_by_month(:created_at, last: 12).count
+    end
+
+    def subscription_class
+      defined?(Billing::Subscription) ? Billing::Subscription : nil
+    end
+
+    def payment_class
+      defined?(Billing::Payment) ? Billing::Payment : nil
     end
 
     def log_admin_action(action, resource, metadata = {})

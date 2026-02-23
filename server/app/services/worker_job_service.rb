@@ -99,6 +99,7 @@ class WorkerJobService
 
     # Enqueue billing automation job
     def enqueue_billing_automation(subscription_id = nil, delay: 0)
+      return nil unless Shared::FeatureGateService.billing_enabled?
       payload = {
         "job_class" => "Billing::BillingAutomationJob",
         "args" => subscription_id ? [ subscription_id ] : [],
@@ -111,6 +112,7 @@ class WorkerJobService
 
     # Enqueue billing scheduler job
     def enqueue_billing_scheduler(date, delay: 0)
+      return nil unless Shared::FeatureGateService.billing_enabled?
       payload = {
         "job_class" => "Billing::BillingSchedulerJob",
         "args" => [ date ],
@@ -123,6 +125,7 @@ class WorkerJobService
 
     # Enqueue billing cleanup job
     def enqueue_billing_cleanup(delay: 0)
+      return nil unless Shared::FeatureGateService.billing_enabled?
       payload = {
         "job_class" => "Billing::BillingCleanupJob",
         "args" => [],
@@ -135,6 +138,7 @@ class WorkerJobService
 
     # Enqueue payment retry job
     def enqueue_payment_retry(payment_id, reason, retry_attempt)
+      return nil unless Shared::FeatureGateService.billing_enabled?
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "Billing::PaymentRetryJob",
         "args" => [ payment_id, reason, retry_attempt ],
@@ -149,6 +153,7 @@ class WorkerJobService
     # @option options [Integer] :delay Delay in seconds before job runs
     # @option options [Time] :run_at Time to run the job
     def enqueue_subscription_lifecycle(action, subscription_id, **options)
+      return nil unless Shared::FeatureGateService.billing_enabled?
       delay = options.delete(:delay) || 0
       run_at = options.delete(:run_at)
 
