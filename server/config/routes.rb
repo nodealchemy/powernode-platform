@@ -1644,6 +1644,7 @@ Rails.application.routes.draw do
               post :complete
               post :archive
               get :messages
+              post :clear_messages
               get :export
             end
 

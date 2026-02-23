@@ -282,6 +282,7 @@ module Api
         end
 
         # GET /api/v1/ai/agents/:agent_id/conversations/:id/messages
+        # Supports cursor-based pagination via `before` and `after` (sequence_number cursors)
         def messages
           agent = current_user.account.ai_agents.find(params[:agent_id])
           conversation = agent.conversations.includes(messages: :user).find_by(id: params[:id]) ||
@@ -304,12 +305,66 @@ module Api
 
           raise ActiveRecord::RecordNotFound unless conversation
 
-          msgs = conversation.messages.not_deleted.ordered.page(params[:page] || 1).per(params[:per_page] || 50)
+          limit = (params[:limit] || 50).to_i.clamp(1, 200)
+          scope = conversation.messages.not_deleted
+
+          if params[:before].present?
+            # Loading older messages (scroll up)
+            msgs = scope.where("sequence_number < ?", params[:before].to_i)
+                        .order(sequence_number: :desc)
+                        .limit(limit)
+                        .to_a.reverse
+          elsif params[:after].present?
+            # Loading newer messages (real-time catch-up)
+            msgs = scope.where("sequence_number > ?", params[:after].to_i)
+                        .order(sequence_number: :asc)
+                        .limit(limit)
+                        .to_a
+          else
+            # Initial load: newest messages first, reversed into chronological order
+            msgs = scope.order(sequence_number: :desc).limit(limit).to_a.reverse
+          end
+
+          total_count = scope.count
+          oldest_seq = scope.minimum(:sequence_number)
+          has_older = msgs.any? && msgs.first.sequence_number > (oldest_seq || 0)
 
           render_success({
             messages: msgs.map { |m| serialize_message(m) },
-            pagination: { current_page: msgs.current_page, per_page: msgs.limit_value, total_pages: msgs.total_pages, total_count: msgs.total_count }
+            pagination: {
+              has_older: has_older,
+              oldest_cursor: msgs.first&.sequence_number,
+              newest_cursor: msgs.last&.sequence_number,
+              total_count: total_count
+            }
           })
+        rescue ActiveRecord::RecordNotFound
+          render_error("Agent or conversation not found", status: :not_found)
+        end
+
+        # POST /api/v1/ai/agents/:agent_id/conversations/:id/clear_messages
+        def clear_messages
+          agent = current_user.account.ai_agents.find(params[:agent_id])
+          conversation = agent.conversations.find_by(id: params[:id]) ||
+                         agent.conversations.find_by(conversation_id: params[:id])
+
+          if conversation.nil?
+            conversation = ::Ai::Conversation
+              .joins(agent_team: :members)
+              .where(ai_agent_team_members: { ai_agent_id: agent.id })
+              .find_by(id: params[:id]) ||
+            ::Ai::Conversation
+              .joins(agent_team: :members)
+              .where(ai_agent_team_members: { ai_agent_id: agent.id })
+              .find_by(conversation_id: params[:id])
+          end
+
+          raise ActiveRecord::RecordNotFound unless conversation
+
+          count = conversation.messages.not_deleted.update_all(deleted_at: Time.current)
+          conversation.update!(message_count: 0)
+
+          render_success({ cleared_count: count })
         rescue ActiveRecord::RecordNotFound
           render_error("Agent or conversation not found", status: :not_found)
         end
