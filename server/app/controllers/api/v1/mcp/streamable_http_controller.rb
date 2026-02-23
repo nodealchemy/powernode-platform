@@ -12,6 +12,12 @@ module Api
         SSE_KEEPALIVE_INTERVAL = 30 # seconds
         ALLOWED_WORKSPACE_EVENTS = %w[message_created ai_response_complete agent_joined agent_left mention].freeze
 
+        # Session-level dedup: prevents duplicate SSE events across multiple
+        # concurrent stream connections for the same MCP session.
+        # Hash<session_token => { mutex: Mutex, ids: Set, last_access: Time }>
+        @@sse_dedup_registry = {}
+        @@sse_dedup_registry_mutex = Mutex.new
+
         skip_before_action :authenticate_request
         before_action :set_mcp_headers
         before_action :authenticate_mcp_request
@@ -98,7 +104,12 @@ module Api
           # Session channel always subscribed; workspace channels only when agent-bound
           session_channel = "mcp_session:#{session.session_token}"
           all_channels = [session_channel]
-          all_channels += workspace_channels_for_agent(agent) if agent
+          workspace_channel_set = Set.new
+          if agent
+            ws_channels = workspace_channels_for_agent(agent)
+            all_channels += ws_channels
+            workspace_channel_set = ws_channels.to_set
+          end
 
           # Send initial connected event
           sse.write({ type: "session/connected", channels: all_channels.size }, event: "open")
@@ -107,7 +118,13 @@ module Api
           pubsub = ActionCable.server.pubsub
           callbacks = {}
 
+          # Session-level dedup: prevents duplicate events across multiple
+          # concurrent SSE connections for the same session (e.g., daemon reconnects).
+          dedup = sse_dedup_for_session(session.session_token)
+
           all_channels.each do |channel|
+            is_workspace_channel = workspace_channel_set.include?(channel)
+
             callback = proc do |raw_message|
               data = JSON.parse(raw_message) rescue next
 
@@ -118,6 +135,38 @@ module Api
                 # Workspace event — forward with event type name
                 event_type = data["type"] || data[:type]
                 next unless ALLOWED_WORKSPACE_EVENTS.include?(event_type.to_s)
+
+                # For workspace channels, only forward if this agent is @mentioned.
+                # Checks both structured metadata mentions and text @Name patterns.
+                # Structural events (agent_joined/agent_left) pass through unfiltered.
+                if is_workspace_channel && %w[message_created ai_response_complete].include?(event_type.to_s)
+                  msg = data["message"] || {}
+                  mentions = msg.dig("metadata", "mentions") ||
+                             msg.dig("content_metadata", "mentions") || []
+                  agent_mentioned = false
+
+                  if mentions.any?
+                    mentioned_ids = mentions.filter_map { |m| m["id"] || m[:id] }
+                    mentioned_names = mentions.filter_map { |m| m["name"] || m[:name] }
+                    agent_mentioned = mentioned_ids.include?(agent&.id) ||
+                                      mentioned_names.include?(agent&.name)
+                  end
+
+                  # Fallback: check for @AgentName in message content (agent-to-agent path)
+                  unless agent_mentioned
+                    content = (msg["content"] || "").to_s
+                    agent_mentioned = agent&.name.present? && content.include?("@#{agent.name}")
+                  end
+
+                  next unless agent_mentioned
+                end
+
+                # Deduplicate: same message can arrive via session + workspace channels,
+                # and also across concurrent SSE connections for the same session.
+                msg_id = (data["message"].is_a?(Hash) && data["message"]["id"]) || data["message_id"]
+                if msg_id.present?
+                  next if sse_dedup_seen?(dedup, msg_id)
+                end
 
                 sse.write(data, event: event_type.to_s)
               end
@@ -485,6 +534,36 @@ module Api
 
         def current_account
           @current_account
+        end
+
+        # --- Session-level SSE dedup helpers ---
+
+        def sse_dedup_for_session(session_token)
+          @@sse_dedup_registry_mutex.synchronize do
+            # Evict stale entries (older than 1 hour)
+            cutoff = 1.hour.ago
+            @@sse_dedup_registry.delete_if { |_, v| v[:last_access] < cutoff }
+
+            @@sse_dedup_registry[session_token] ||= {
+              mutex: Mutex.new,
+              ids: Set.new,
+              last_access: Time.current
+            }
+          end
+        end
+
+        # Returns true if msg_id was already seen (duplicate), false if first time.
+        def sse_dedup_seen?(dedup, msg_id)
+          dedup[:mutex].synchronize do
+            dedup[:last_access] = Time.current
+            if dedup[:ids].include?(msg_id)
+              true
+            else
+              dedup[:ids] << msg_id
+              dedup[:ids].delete(dedup[:ids].first) if dedup[:ids].size > 200
+              false
+            end
+          end
         end
       end
     end

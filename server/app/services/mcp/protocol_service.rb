@@ -395,9 +395,7 @@ module Mcp
     {
       "name" => tool["name"],
       "description" => tool["description"],
-      "type" => tool["type"] || "ai_agent",
-      "version" => tool["version"] || "1.0.0",
-      "capabilities" => tool["capabilities"] || []
+      "inputSchema" => tool["inputSchema"] || { "type" => "object", "properties" => {}, "required" => [] }
     }
   end
 
