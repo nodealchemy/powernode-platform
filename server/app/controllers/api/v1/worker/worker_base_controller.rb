@@ -20,10 +20,13 @@ module Api
         end
 
         def valid_worker_token?(token)
-          # Compare with configured worker token
           expected_token = ENV["WORKER_SERVICE_TOKEN"] ||
-                           Rails.application.credentials.dig(:worker, :service_token) ||
-                           "development_worker_service_token_that_persists_across_restarts"
+                           Rails.application.credentials.dig(:worker, :service_token)
+
+          # Only use hardcoded fallback in development/test environments
+          if expected_token.blank? && Rails.env.local?
+            expected_token = "development_worker_service_token_that_persists_across_restarts"
+          end
 
           return false unless expected_token.present?
 

@@ -5,7 +5,7 @@ module Authentication
 
   included do
     before_action :authenticate_request
-    attr_reader :current_user, :current_account, :current_worker, :current_service, :current_jwt_payload
+    attr_reader :current_user, :current_account, :current_worker, :current_jwt_payload
   end
 
   private
@@ -30,7 +30,11 @@ module Authentication
 
     begin
       # Try worker authentication first if token looks like a worker token (legacy or development)
-      if header.start_with?("swt_") || header == "development_worker_token"
+      if header.start_with?("swt_") || (Rails.env.local? && header == "development_worker_token")
+        unless Rails.application.config.legacy_auth_enabled
+          return render_unauthorized("Legacy authentication disabled")
+        end
+        Rails.logger.warn "[DEPRECATED] Legacy worker token authentication used. Migrate to JWT worker tokens."
         @current_worker = Worker.authenticate(header)
         if @current_worker
           return # Worker authentication successful
@@ -49,8 +53,6 @@ module Authentication
         handle_worker_token(payload)
       when "impersonation"
         handle_impersonation_jwt_token(payload)
-      when "service"
-        handle_service_token(payload)
       else
         return render_unauthorized("Invalid token type")
       end
@@ -122,11 +124,6 @@ module Authentication
     @current_jwt_payload = payload
   end
 
-  def handle_service_token(payload)
-    @current_service = payload[:service]
-    @current_jwt_payload = payload
-  end
-
   def handle_impersonation_jwt_token(payload)
     # Get impersonation session ID from JWT metadata
     session_id = payload[:session_id]
@@ -149,8 +146,6 @@ module Authentication
 
     # Add impersonation header for client identification
     response.set_header("X-Impersonation-Active", "true")
-    response.set_header("X-Impersonator-Email", @impersonator.email)
-    response.set_header("X-Impersonation-Session", @impersonation_session.id)
   end
 
   def impersonating?
@@ -200,7 +195,6 @@ module Authentication
     # Fallback to database checks
     return current_user.has_permission?(permission_name) if current_user
     return current_worker.has_permission?(permission_name) if current_worker
-    return true if @current_service # Service tokens have implied permissions
     false
   end
 

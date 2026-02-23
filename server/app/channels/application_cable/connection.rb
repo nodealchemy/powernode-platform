@@ -37,6 +37,7 @@ module ApplicationCable
             end
           else
             # Fallback to UserToken authentication for legacy support
+            Rails.logger.warn "[DEPRECATED] UserToken authentication used for ActionCable. Migrate to JWT tokens."
             user_token = UserToken.authenticate(token)
 
             if user_token&.user&.active?
