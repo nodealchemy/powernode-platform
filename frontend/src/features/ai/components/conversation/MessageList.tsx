@@ -16,6 +16,7 @@ import {
   MessageSquareReply,
   Pencil,
   Trash2,
+  Terminal,
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Avatar } from '@/shared/components/ui/Avatar';
@@ -26,7 +27,25 @@ import { MessageEditor } from '@/features/ai/chat/components/MessageEditor';
 import { PlanApprovalActions } from '@/features/ai/chat/components/PlanApprovalActions';
 import { ConciergeActionCard } from '@/features/ai/chat/components/ConciergeActionCard';
 import type { AiMessage } from '@/shared/types/ai';
-import { cleanMessageContent, formatTimestamp } from './utils';
+import { cleanMessageContent, formatTimestamp, parseMentions } from './utils';
+
+/** Extract plain text from React children tree */
+function extractTextContent(node: React.ReactNode): string {
+  if (typeof node === 'string') return node;
+  if (typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(extractTextContent).join('');
+  if (React.isValidElement(node)) {
+    return extractTextContent((node.props as { children?: React.ReactNode }).children);
+  }
+  return '';
+}
+
+/** Extract the actionable label from a suggestion (text before em-dash/separator) */
+function extractSuggestionLabel(text: string): string {
+  const cleaned = text.replace(/^\d+\.\s*/, '').replace(/^[-*]\s*/, '').trim();
+  const parts = cleaned.split(/\s*[—–]\s*|\s+-\s+/);
+  return parts[0].trim();
+}
 
 interface MessageListProps {
   messages: AiMessage[];
@@ -49,7 +68,7 @@ interface MessageListProps {
   onSuggestedMessage?: (text: string) => void;
 }
 
-export const MessageList: React.FC<MessageListProps> = ({
+export const MessageList = React.memo<MessageListProps>(({
   messages,
   currentUser,
   editingMessageId,
@@ -79,13 +98,37 @@ export const MessageList: React.FC<MessageListProps> = ({
     const isEditing = editingMessageId === message.id;
     const canEdit = isUser && currentUser?.id === message.user_id;
     const canDelete = isUser && currentUser?.id === message.user_id;
+    const isClickableSuggestion = isConcierge && isAI && !!onSuggestedMessage;
+
+    // Extract mention names for highlighting
+    const mentionNames = (message.metadata?.mentions as Array<{ id: string; name: string }> | undefined)?.map(m => m.name);
+
+    /** Render text with @mention highlights */
+    const renderWithMentions = (text: string): React.ReactNode => {
+      const parts = parseMentions(text, mentionNames);
+      if (parts.length === 1 && parts[0].type === 'text') return text;
+      return parts.map((part, i) =>
+        part.type === 'mention'
+          ? <span key={i} className="inline bg-theme-interactive-primary/15 text-theme-interactive-primary font-medium rounded px-1">{part.value}</span>
+          : <React.Fragment key={i}>{part.value}</React.Fragment>
+      );
+    };
+
+    /** Process React children, highlighting mentions in string nodes */
+    const processChildren = (children: React.ReactNode): React.ReactNode => {
+      if (!mentionNames || mentionNames.length === 0) return children;
+      return React.Children.map(children, child => {
+        if (typeof child === 'string') return renderWithMentions(child);
+        return child;
+      });
+    };
 
     if (isSystem) {
       const isResolved = message.metadata?.resolved;
       return (
         <div key={message.id} className="flex justify-center my-4">
           <div className={`bg-theme-surface border border-theme px-3 py-1 rounded-full text-sm shadow-sm ${isResolved ? 'text-theme-muted/50 line-through' : 'text-theme-muted'}`}>
-            {cleanMessageContent(message.content)}
+            {cleanMessageContent(message.content, 'system')}
           </div>
         </div>
       );
@@ -137,6 +180,8 @@ export const MessageList: React.FC<MessageListProps> = ({
             <div className="flex items-center justify-center w-full h-full">
               {isUser ? (
                 <User className="h-4 w-4" aria-hidden="true" />
+              ) : message.sender_info?.agent_type === 'mcp_client' ? (
+                <Terminal className="h-4 w-4" aria-hidden="true" />
               ) : (
                 <Bot className="h-4 w-4" aria-hidden="true" />
               )}
@@ -149,6 +194,12 @@ export const MessageList: React.FC<MessageListProps> = ({
             <span className="text-sm font-semibold text-theme-primary">
               {message.sender_info?.name || (isUser ? 'You' : 'AI Assistant')}
             </span>
+            {message.sender_info?.agent_type === 'mcp_client' && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-theme-info/10 text-theme-info rounded-full">
+                <Terminal className="h-2.5 w-2.5" aria-hidden="true" />
+                MCP
+              </span>
+            )}
             <span className="text-xs text-theme-secondary">
               {formatTimestamp(message.created_at)}
             </span>
@@ -183,7 +234,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                 </div>
               ) : message.metadata?.streaming ? (
                 <ChatStreamingRenderer
-                  content={cleanMessageContent(message.content)}
+                  content={cleanMessageContent(message.content, 'assistant')}
                   isStreaming={true}
                   tokenCount={message.metadata?.tokens_used}
                 />
@@ -198,10 +249,31 @@ export const MessageList: React.FC<MessageListProps> = ({
                           h2: ({ children }) => <h2 className="text-xl font-bold mb-3 mt-5">{children}</h2>,
                           h3: ({ children }) => <h3 className="text-lg font-bold mb-2 mt-4">{children}</h3>,
                           h4: ({ children }) => <h4 className="text-base font-bold mb-2 mt-3">{children}</h4>,
-                          p: ({ children }) => <p className="mb-4">{children}</p>,
-                          ul: ({ children }) => <ul className="list-disc list-inside mb-4 ml-4">{children}</ul>,
-                          ol: ({ children }) => <ol className="list-decimal list-inside mb-4 ml-4">{children}</ol>,
-                          li: ({ children }) => <li className="mb-1">{children}</li>,
+                          p: ({ children }) => <p className="mb-4">{processChildren(children)}</p>,
+                          ul: ({ children }) => (
+                            <ul className={isClickableSuggestion ? "list-none space-y-1.5 mb-4" : "list-disc list-inside mb-4 ml-4"}>{children}</ul>
+                          ),
+                          ol: ({ children }) => (
+                            <ol className={isClickableSuggestion ? "list-none space-y-1.5 mb-4" : "list-decimal list-inside mb-4 ml-4"}>{children}</ol>
+                          ),
+                          li: ({ children }) => {
+                            if (isClickableSuggestion) {
+                              const text = extractTextContent(children);
+                              const label = extractSuggestionLabel(text);
+                              return (
+                                <li
+                                  className="py-2 px-3 rounded-lg border border-theme/40 cursor-pointer hover:bg-theme-interactive-primary/10 hover:border-theme-interactive-primary/40 transition-all duration-150"
+                                  onClick={() => onSuggestedMessage!(label)}
+                                  role="button"
+                                  tabIndex={0}
+                                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSuggestedMessage!(label); } }}
+                                >
+                                  {children}
+                                </li>
+                              );
+                            }
+                            return <li className="mb-1">{children}</li>;
+                          },
                           pre: ({ children }) => (
                             <pre className="bg-theme-surface dark:bg-theme-surface p-4 rounded-lg overflow-x-auto mb-4 text-sm text-theme-primary dark:text-theme-primary">
                               {children}
@@ -254,12 +326,12 @@ export const MessageList: React.FC<MessageListProps> = ({
                           em: ({ children }) => <em className="italic">{children}</em>,
                         }}
                       >
-                        {cleanMessageContent(message.content)}
+                        {cleanMessageContent(message.content, 'assistant')}
                       </ReactMarkdown>
                     </div>
                   ) : (
                     <div className="whitespace-pre-wrap">
-                      {cleanMessageContent(message.content)}
+                      {renderWithMentions(cleanMessageContent(message.content, message.sender_type))}
                     </div>
                   )}
                 </div>
@@ -477,4 +549,4 @@ export const MessageList: React.FC<MessageListProps> = ({
       </div>
     </div>
   );
-};
+});

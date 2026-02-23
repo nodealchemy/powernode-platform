@@ -70,7 +70,7 @@ export function useConversationSocket({
         if (data.message) {
           const cleanedMessage = {
             ...data.message,
-            content: cleanMessageContent(data.message.content || '')
+            content: cleanMessageContent(data.message.content || '', 'assistant')
           };
           setMessages(prev => {
             const existingIndex = prev.findIndex(m => m.id === cleanedMessage.id);

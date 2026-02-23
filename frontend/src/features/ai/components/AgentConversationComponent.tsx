@@ -2,14 +2,14 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
-import { agentsApi, conversationsApi } from '@/shared/services/ai';
+import { agentsApi, conversationsApi, workspacesApi } from '@/shared/services/ai';
 import { MessageThread } from '@/features/ai/chat/components/MessageThread';
 import type {
   AiConversation,
   AiMessage,
 } from '@/shared/types/ai';
 import type { ConversationBase } from '@/shared/services/ai/ConversationsApiService';
-import { cleanMessageContent, mapBackendMessage } from './conversation/utils';
+import { cleanStreamingContent, mapBackendMessage } from './conversation/utils';
 import { useConversationSocket } from './conversation/useConversationSocket';
 import { useMessageActions } from './conversation/useMessageActions';
 import { MessageList } from './conversation/MessageList';
@@ -29,10 +29,11 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
   onConversationUpdate: _onConversationUpdate,
   onNewMessage
 }) => {
-  const [messages, setMessages] = useState<AiMessage[]>([]);
+  const [messages, setMessagesRaw] = useState<AiMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [inputValue, setInputValue] = useState('');
+  const inputValueRef = useRef('');
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const [isTyping, setIsTyping] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
@@ -40,6 +41,27 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
   const [threadMessage, setThreadMessage] = useState<AiMessage | null>(null);
   const [threadMessages, setThreadMessages] = useState<AiMessage[]>([]);
   const [threadLoading, setThreadLoading] = useState(false);
+  const [workspaceMembers, setWorkspaceMembers] = useState<Array<{ id: string; name: string; role: string; agent_type: string; is_lead: boolean }>>([]);
+  const [pendingMentions, setPendingMentions] = useState<Array<{ id: string; name: string }>>([]);
+  const pendingMentionsRef = useRef<Array<{ id: string; name: string }>>([]);
+  pendingMentionsRef.current = pendingMentions;
+
+  // Dedup wrapper: ensures no two messages share the same ID (last write wins)
+  const setMessages: typeof setMessagesRaw = useCallback((update) => {
+    setMessagesRaw(prev => {
+      const next = typeof update === 'function' ? update(prev) : update;
+      const seen = new Set<string>();
+      const deduped: AiMessage[] = [];
+      for (let i = next.length - 1; i >= 0; i--) {
+        if (!seen.has(next[i].id)) {
+          seen.add(next[i].id);
+          deduped.push(next[i]);
+        }
+      }
+      deduped.reverse();
+      return deduped;
+    });
+  }, []);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
@@ -119,11 +141,17 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     }
   }, [conversation.id]);  
 
-  const handleSendMessage = useCallback(async () => {
-    if (!inputValue.trim() || sending || !currentUser) return;
+  const handleInputChange = useCallback((value: string) => {
+    inputValueRef.current = value;
+    setInputValue(value);
+  }, []);
 
-    const messageContent = inputValue.trim();
+  const handleSendMessage = useCallback(async (overrideText?: string) => {
+    const messageContent = (typeof overrideText === 'string' ? overrideText : inputValueRef.current).trim();
+    if (!messageContent || sending || !currentUser) return;
+
     setInputValue('');
+    inputValueRef.current = '';
     setSending(true);
 
     // Create optimistic message for immediate UI feedback
@@ -146,7 +174,13 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
         throw new Error('No agent associated with this conversation');
       }
 
-      const response = await agentsApi.sendMessage(agentId, conversation.id, messageContent);
+      // Include mention metadata when mentions are present
+      const currentMentions = pendingMentionsRef.current;
+      const messagePayload = currentMentions.length > 0
+        ? { content: messageContent, metadata: { mentions: currentMentions } }
+        : messageContent;
+
+      const response = await agentsApi.sendMessage(agentId, conversation.id, messagePayload);
 
       const userMsg: AiMessage = {
         id: response.user_message?.id || optimisticMessage.id,
@@ -159,14 +193,17 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
 
       setMessages(prev => {
         const withoutOptimistic = prev.filter(msg => msg.id !== optimisticMessage.id);
-        const newMessages = [...withoutOptimistic, userMsg];
+
+        // Dedup: WebSocket may have already delivered these before the HTTP response
+        const hasUserMsg = withoutOptimistic.some(msg => msg.id === userMsg.id);
+        const newMessages = hasUserMsg ? [...withoutOptimistic] : [...withoutOptimistic, userMsg];
 
         if (response.assistant_message) {
           const assistantMsg: AiMessage = {
             id: response.assistant_message.id,
             sender_type: 'ai',
             sender_info: { name: 'AI Assistant' },
-            content: cleanMessageContent(response.assistant_message.content || ''),
+            content: cleanStreamingContent(response.assistant_message.content || ''),
             created_at: response.assistant_message.created_at || new Date().toISOString(),
             metadata: {
               timestamp: response.assistant_message.created_at || new Date().toISOString(),
@@ -174,7 +211,9 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
               cost_estimate: parseFloat(response.assistant_message.cost_usd) || 0
             }
           };
-          newMessages.push(assistantMsg);
+          if (!newMessages.some(msg => msg.id === assistantMsg.id)) {
+            newMessages.push(assistantMsg);
+          }
         }
 
         return newMessages;
@@ -205,10 +244,11 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
         message: 'Failed to send message. Please try again.'
       });
       setInputValue(messageContent);
+      inputValueRef.current = messageContent;
     } finally {
       setSending(false);
     }
-  }, [inputValue, sending, currentUser, conversation.id, agentId]);  
+  }, [sending, currentUser, conversation.id, agentId]);
 
   const handleTyping = useCallback(() => {
     if (!isTyping) {
@@ -239,10 +279,20 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     };
   }, []);
 
+  // Fetch workspace members for mention autocomplete
+  useEffect(() => {
+    const conv = conversation as AiConversation;
+    if (conv.conversation_type === 'team' && conv.agent_team) {
+      workspacesApi.getWorkspace(conversation.id)
+        .then(res => setWorkspaceMembers(res.members || []))
+        .catch(() => {}); // Non-critical — autocomplete just won't work
+    }
+  }, [conversation.id]);
+
   // Load initial messages
   useEffect(() => {
     loadMessages();
-  }, [conversation.id]);  
+  }, [conversation.id]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -298,16 +348,18 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
           conversationId={conversation.id}
           isConcierge={isConcierge}
           onConciergeConfirm={loadMessages}
-          onSuggestedMessage={(text) => { setInputValue(text); }}
+          onSuggestedMessage={handleSendMessage}
         />
 
         {/* Input Area */}
         <MessageComposer
           value={inputValue}
-          onChange={setInputValue}
+          onChange={handleInputChange}
           onSend={handleSendMessage}
           onTyping={handleTyping}
           sending={sending}
+          members={workspaceMembers}
+          onMentionsChange={setPendingMentions}
         />
       </div>
 
