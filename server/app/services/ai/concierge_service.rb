@@ -5,6 +5,9 @@ module Ai
     INTENTS = %w[create_mission check_status analyze_repo approve_action question delegate_to_team code_review deploy general_chat].freeze
     CONFIRM_REQUIRED = %w[create_mission delegate_to_team code_review deploy].freeze
 
+    # Provider types that support function/tool calling
+    TOOL_CAPABLE_PROVIDERS = %w[openai anthropic].freeze
+
     def initialize(conversation:, user:)
       @conversation = conversation
       @agent = conversation.agent
@@ -12,17 +15,14 @@ module Ai
       @account = user.account
     end
 
+    # Primary entry point — routes to tool-bridge or legacy action-grammar
     def process_message(content)
-      response_text = call_concierge(content)
-      action, body = parse_action(response_text)
+      credential = find_credential
 
-      case action
-      when :confirm
-        handle_confirm(body)
-      when :action
-        execute_action(body)
+      if credential && tool_bridge_available?(credential)
+        process_with_tools(content, credential)
       else
-        handle_respond(body)
+        process_with_action_grammar(content, credential)
       end
     rescue StandardError => e
       Rails.logger.error("[ConciergeService] Error: #{e.message}")
@@ -33,6 +33,12 @@ module Ai
 
     def handle_confirmed_action(action_type, params)
       resolve_pending_action(action_type)
+
+      # Tool-bridge confirmations carry the _tool_name marker
+      if params["_tool_name"].present?
+        handle_tool_bridge_confirmation(params)
+        return
+      end
 
       case action_type
       when "create_mission"
@@ -79,14 +85,101 @@ module Ai
 
     private
 
-    def call_concierge(content)
-      credential = find_credential
+    # =========================================================================
+    # Tool-bridge path (primary — for OpenAI/Anthropic providers)
+    # =========================================================================
+
+    def process_with_tools(content, credential)
+      llm_client = Ai::Llm::Client.new(provider: credential.provider, credential: credential)
+      tool_bridge = Ai::ConciergeToolBridge.new(
+        agent: @agent, account: @account,
+        conversation: @conversation, user: @user
+      )
+
+      messages = build_tool_messages(content)
+      model = concierge_model || credential.provider.default_model
+
+      result = tool_bridge.execute_tool_loop(
+        llm_client: llm_client, messages: messages, model: model,
+        temperature: 0.3, max_tokens: 4096,
+        system_prompt: concierge_tool_system_prompt
+      )
+
+      # The tool loop returns the final text after all tool calls are done.
+      # Tool actions (including confirmation cards) have already been executed
+      # via dispatch_tool_call during the loop.
+      if result[:content].present?
+        @conversation.add_assistant_message(
+          result[:content],
+          processing_metadata: {
+            mode: "tool_bridge",
+            tool_calls: result[:tool_calls_log].presence,
+            usage: result[:usage]
+          }.compact
+        )
+      end
+    rescue StandardError => e
+      Rails.logger.warn("[ConciergeService] Tool bridge failed, falling back: #{e.message}")
+      process_with_action_grammar(content, find_credential)
+    end
+
+    def tool_bridge_available?(credential)
+      return false unless @agent&.persisted?
+      return false unless credential&.provider
+
+      TOOL_CAPABLE_PROVIDERS.include?(credential.provider.provider_type)
+    end
+
+    def build_tool_messages(user_content)
+      messages = []
+
+      @conversation.messages.not_deleted.ordered.last(15).each do |msg|
+        messages << { role: msg.role, content: msg.content }
+      end
+
+      messages << { role: "user", content: user_content }
+      messages
+    end
+
+    def concierge_tool_system_prompt
+      parts = []
+
+      # Static prompt from the agent's DB record (editable via API/UI)
+      base_prompt = @agent&.build_system_prompt_with_profile.presence
+      parts << base_prompt if base_prompt
+
+      # Dynamic runtime context (live data: missions, repos, teams, workspace members)
+      parts << build_context_section
+
+      parts.join("\n\n")
+    end
+
+    # =========================================================================
+    # Action-grammar path (fallback — for Ollama and non-tool providers)
+    # =========================================================================
+
+    def process_with_action_grammar(content, credential = nil)
+      response_text = call_concierge_legacy(content, credential)
+      action, body = parse_action(response_text)
+
+      case action
+      when :confirm
+        handle_confirm(body)
+      when :action
+        execute_action(body)
+      else
+        handle_respond(body)
+      end
+    end
+
+    def call_concierge_legacy(content, credential = nil)
+      credential ||= find_credential
       unless credential
         return "[RESPOND] I'm unable to process your request right now — no AI provider is configured."
       end
 
       client = Ai::ProviderClientService.new(credential)
-      messages = build_messages(content)
+      messages = build_legacy_messages(content)
 
       result = client.send_message(messages, model: concierge_model, max_tokens: 2048, temperature: 0.3)
 
@@ -98,9 +191,9 @@ module Ai
       end
     end
 
-    def build_messages(user_content)
+    def build_legacy_messages(user_content)
       messages = []
-      messages << { role: "system", content: system_prompt }
+      messages << { role: "system", content: legacy_system_prompt }
 
       @conversation.messages.not_deleted.ordered.last(10).each do |msg|
         messages << { role: msg.role, content: msg.content }
@@ -110,24 +203,44 @@ module Ai
       messages
     end
 
-    def system_prompt
+    def legacy_system_prompt
       parts = []
 
-      parts << <<~INTRO
-        You are the Powernode Assistant, an intelligent concierge for the Powernode platform.
-        You help users navigate and use all platform capabilities through natural language.
-      INTRO
+      # Static prompt from the agent's DB record (editable via API/UI)
+      base_prompt = @agent&.build_system_prompt_with_profile.presence
+      parts << base_prompt if base_prompt
 
-      parts << <<~CAPABILITIES
-        PLATFORM CAPABILITIES:
-        - **Missions**: Create and manage development missions that automate coding workflows through 12 phases (analyze → plan → execute → test → review → deploy → merge)
-        - **Teams**: Orchestrate AI agent teams for collaborative task execution
-        - **Code Factory**: Automated code review and quality analysis
-        - **Repositories**: Manage and analyze Git repositories
-        - **Workflows**: Build and run automated AI workflows
-      CAPABILITIES
+      # Dynamic runtime context (live data: missions, repos, teams, workspace members)
+      parts << build_context_section
 
-      # Active missions context
+      # Action-grammar markers — tightly coupled to parse_action, must stay in code
+      parts << <<~INSTRUCTIONS
+        Based on the user's message, respond with ONE of these markers:
+
+        [RESPOND] message — Reply directly when you can answer without taking action.
+        [ACTION:check_status] — Query and report on active missions, teams, or executions.
+        [ACTION:analyze_repo] repo_name — Trigger repository analysis.
+        [ACTION:approve_action] gate_info — Handle an approval gate response.
+        [ACTION:question] — Answer a question using your knowledge.
+        [CONFIRM:create_mission] {"name": "...", "repository": "...", "objective": "...", "mission_type": "development"} — Propose creating a mission (requires user confirmation).
+        [CONFIRM:delegate_to_team] {"team": "...", "objective": "..."} — Propose delegating to a team (requires user confirmation).
+        [CONFIRM:code_review] {"repository": "...", "branch": "..."} — Propose a code review (requires user confirmation).
+        [CONFIRM:deploy] {"mission_id": "..."} — Propose deployment (requires user confirmation).
+
+        Always start your response with exactly one marker. For CONFIRM actions, include a human-readable description after the JSON.
+      INSTRUCTIONS
+
+      parts.join("\n\n")
+    end
+
+    # =========================================================================
+    # Shared context builder (used by both paths)
+    # =========================================================================
+
+    def build_context_section
+      parts = []
+
+      # Active missions
       active_missions = @account.ai_missions.in_progress.limit(5)
       if active_missions.any?
         mission_lines = active_missions.map { |m| "- #{m.name} (#{m.mission_type}, phase: #{m.current_phase}, #{m.phase_progress}% complete)" }
@@ -150,24 +263,69 @@ module Ai
         parts << "AVAILABLE TEAMS:\n#{team_lines.join("\n")}"
       end
 
-      parts << <<~INSTRUCTIONS
-        Based on the user's message, respond with ONE of these markers:
+      # Available agents (exclude the concierge itself)
+      agents = @account.ai_agents.active.where.not(id: @agent&.id).limit(10)
+      if agents.any?
+        agent_lines = agents.map { |a| "- #{a.name} (#{a.agent_type})" }
+        parts << "AVAILABLE AGENTS:\n#{agent_lines.join("\n")}"
+      end
 
-        [RESPOND] message — Reply directly when you can answer without taking action.
-        [ACTION:check_status] — Query and report on active missions, teams, or executions.
-        [ACTION:analyze_repo] repo_name — Trigger repository analysis.
-        [ACTION:approve_action] gate_info — Handle an approval gate response.
-        [ACTION:question] — Answer a question using your knowledge.
-        [CONFIRM:create_mission] {"name": "...", "repository": "...", "objective": "...", "mission_type": "development"} — Propose creating a mission (requires user confirmation).
-        [CONFIRM:delegate_to_team] {"team": "...", "objective": "..."} — Propose delegating to a team (requires user confirmation).
-        [CONFIRM:code_review] {"repository": "...", "branch": "..."} — Propose a code review (requires user confirmation).
-        [CONFIRM:deploy] {"mission_id": "..."} — Propose deployment (requires user confirmation).
-
-        Always start your response with exactly one marker. For CONFIRM actions, include a human-readable description after the JSON.
-      INSTRUCTIONS
+      # Workspace members (when in a workspace conversation)
+      if @conversation.workspace_conversation? && @conversation.agent_team
+        team = @conversation.agent_team
+        members = team.members.includes(:agent).where.not(ai_agent_id: @agent&.id)
+        if members.any?
+          member_lines = members.map do |m|
+            caps = m.capabilities.present? ? " [#{m.capabilities.join(', ')}]" : ""
+            "- #{m.agent.name} (role: #{m.role}, type: #{m.agent.agent_type}#{caps})"
+          end
+          parts << "WORKSPACE MEMBERS (available for delegation):\n#{member_lines.join("\n")}"
+        end
+      end
 
       parts.join("\n\n")
     end
+
+    # =========================================================================
+    # Tool-bridge confirmation handler
+    # =========================================================================
+
+    def handle_tool_bridge_confirmation(params)
+      tool_name = params.delete("_tool_name")
+      tool_bridge = Ai::AgentToolBridgeService.new(agent: @agent, account: @account)
+
+      result_json = tool_bridge.dispatch_tool_call(name: tool_name, arguments: params)
+      result = JSON.parse(result_json)
+
+      if result["error"]
+        @conversation.add_assistant_message("Action failed: #{result['message'] || result['error']}")
+      else
+        @conversation.add_assistant_message("Done! #{summarize_tool_result(tool_name, result)}")
+      end
+    rescue JSON::ParserError
+      @conversation.add_assistant_message("Action completed.")
+    end
+
+    def summarize_tool_result(tool_name, result)
+      # Provide a human-friendly summary based on the tool type
+      case tool_name
+      when /^execute_/
+        result["status"] ? "Status: #{result['status']}" : "Execution started."
+      when /^create_/
+        id = result["id"] || result["data"]&.dig("id")
+        id ? "Created successfully (ID: #{id})" : "Created successfully."
+      when /^trigger_/
+        "Pipeline triggered."
+      when "dispatch_to_runner"
+        "Job dispatched to runner."
+      else
+        "Completed successfully."
+      end
+    end
+
+    # =========================================================================
+    # Legacy action handlers (used by action-grammar path)
+    # =========================================================================
 
     def parse_action(response_text)
       text = response_text.to_s.strip
@@ -205,7 +363,6 @@ module Ai
       params = data[:params]
       description = data[:description]
 
-      # Post the proposal as an assistant message with action metadata
       @conversation.add_assistant_message(
         description.presence || "I'd like to #{intent.humanize.downcase}. Shall I proceed?",
         content_metadata: {
@@ -234,7 +391,6 @@ module Ai
       when "approve_action"
         handle_approval(data[:body])
       when "question"
-        # For questions, the LLM response is already the answer
         @conversation.add_assistant_message(data[:body])
       else
         @conversation.add_assistant_message(data[:body].presence || "Action completed.")
@@ -265,7 +421,6 @@ module Ai
         return
       end
 
-      # Create a temporary mission for analysis
       mission = @account.ai_missions.create!(
         name: "Analysis: #{repo.full_name}",
         mission_type: "research",
@@ -281,7 +436,6 @@ module Ai
       analysis_text = format_analysis_result(result, repo)
       @conversation.add_assistant_message(analysis_text)
 
-      # Clean up the temporary mission
       mission.update!(status: "completed", completed_at: Time.current)
     rescue StandardError => e
       @conversation.add_assistant_message("Repository analysis failed: #{e.message}")
@@ -358,6 +512,10 @@ module Ai
       @conversation.add_assistant_message("Approval handling noted. Please use the mission detail page for formal approvals.")
     end
 
+    # =========================================================================
+    # Shared helpers
+    # =========================================================================
+
     def find_repository(identifier)
       return nil if identifier.blank?
       Devops::GitRepository.where(account_id: @account.id)
@@ -393,13 +551,13 @@ module Ai
 
     def resolve_pending_action(action_type)
       message = @conversation.messages
-                              .where(role: "assistant")
-                              .order(created_at: :desc)
-                              .find { |m|
-                                m.content_metadata&.dig("concierge_action") &&
-                                  m.content_metadata&.dig("action_context", "status") == "pending" &&
-                                  m.content_metadata&.dig("action_context", "action_type") == action_type
-                              }
+                                .where(role: "assistant")
+                                .order(created_at: :desc)
+                                .find { |m|
+                                  m.content_metadata&.dig("concierge_action") &&
+                                    m.content_metadata&.dig("action_context", "status") == "pending" &&
+                                    m.content_metadata&.dig("action_context", "action_type") == action_type
+                                }
 
       return unless message
 

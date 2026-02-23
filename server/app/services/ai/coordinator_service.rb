@@ -66,10 +66,16 @@ module Ai
     def system_prompt
       parts = []
 
-      parts << "You are the coordinator for the \"#{@team.name}\" team."
-      parts << "Description: #{@team.description}" if @team.description.present?
+      # Read base prompt from the coordinator agent's DB record (editable via agents API)
+      base_prompt = @coordinator&.build_system_prompt_with_profile.presence
+      if base_prompt
+        parts << base_prompt
+      else
+        parts << "You are the coordinator for the \"#{@team.name}\" team."
+        parts << "Description: #{@team.description}" if @team.description.present?
+      end
 
-      # Member capabilities
+      # Dynamic team member listing (live DB query — stays in code)
       members = @team.members.includes(:agent)
       if members.any?
         member_lines = members.map do |m|
@@ -78,12 +84,7 @@ module Ai
         parts << "Team members:\n#{member_lines.join("\n")}"
       end
 
-      # Conversation profile traits
-      profile = @coordinator&.conversation_profile
-      if profile.is_a?(Hash) && profile["traits"].present?
-        parts << "Your personality traits: #{profile['traits'].join(', ')}"
-      end
-
+      # Action-grammar markers (coupled to parse_action — stays in code)
       parts << <<~INSTRUCTIONS
         Based on the user's message, choose ONE action by starting your response with the appropriate marker:
 
