@@ -462,24 +462,22 @@ class Api::V1::AuditLogsController < ApplicationController
 
     # Check if it's a worker token (swt_ prefix)
     if token.starts_with?("swt_")
-      worker = Worker.find_by(token: token, status: "active")
+      worker = Worker.authenticate(token)
       return if worker.present?
       render_unauthorized("Invalid worker token")
       return
     end
 
-    # Otherwise try JWT decode for service tokens
+    # Otherwise try JWT decode for service tokens via JwtService
     begin
-      payload = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: "HS256").first
+      payload = Security::JwtService.decode(token)
 
-      # Accept service tokens from worker
-      if payload["service"] == "backend" && payload["type"] == "service"
-        # Service token is valid, allow access
+      if payload[:service] == "backend" && payload[:type] == "service"
         return
       end
 
       render_unauthorized("Invalid service token")
-    rescue JWT::DecodeError, JWT::ExpiredSignature => e
+    rescue StandardError => e
       Rails.logger.warn "Invalid service token for audit log creation: #{e.message}"
       render_unauthorized("Invalid or expired service token")
     end

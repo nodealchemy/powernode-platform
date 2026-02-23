@@ -152,11 +152,29 @@ class Api::V1::ReconciliationController < ApplicationController
   end
 
   def authenticate_service_request
+    # Primary: Try JWT service token from Authorization header
+    auth_header = request.headers["Authorization"]
+    if auth_header&.start_with?("Bearer ")
+      token = auth_header.split(" ", 2).last
+      begin
+        payload = Security::JwtService.decode(token)
+        if payload[:type] == "service" && payload[:service].present?
+          return # JWT service token valid
+        end
+      rescue StandardError
+        # Fall through to legacy X-Service-Token check
+      end
+    end
+
+    # Fallback: Legacy X-Service-Token header (deprecated)
     service_token = request.headers["X-Service-Token"]
     expected_token = Rails.application.credentials.dig(:worker_service, :api_token)
 
-    unless service_token == expected_token
-      render_error("Unauthorized service request", status: :unauthorized)
+    if service_token.present? && expected_token.present? && ActiveSupport::SecurityUtils.secure_compare(service_token, expected_token)
+      Rails.logger.warn "[DEPRECATED] X-Service-Token header used for reconciliation auth. Migrate to JWT service token."
+      return
     end
+
+    render_error("Unauthorized service request", status: :unauthorized)
   end
 end
