@@ -117,6 +117,8 @@ class AiConversationChannel < ApplicationCable::Channel
         stream_name,
         {
           type: "message_created",
+          conversation_id: conversation.conversation_id,
+          workspace: conversation.agent_team&.name,
           message: serialize_message(message),
           timestamp: Time.current.iso8601
         }
@@ -209,15 +211,20 @@ class AiConversationChannel < ApplicationCable::Channel
       end
 
       # Build sender_info from available data
+      # Per-message agent attribution: use the message's own agent first,
+      # then fall back to the conversation's primary agent
       sender_info = if message.user.present?
                       {
                         id: message.user.id,
                         name: message.user.name || message.user.full_name || message.user.email
                       }
       elsif message.assistant_message?
+                      msg_agent = message.agent
                       {
-                        name: message.conversation&.agent&.name || "AI Assistant"
-                      }
+                        id: msg_agent&.id,
+                        name: msg_agent&.name || message.conversation&.agent&.name || "AI Assistant",
+                        agent_type: msg_agent&.agent_type
+                      }.compact
       else
                       {}
       end
@@ -237,7 +244,8 @@ class AiConversationChannel < ApplicationCable::Channel
           actions: message.content_metadata["actions"],
           action_context: message.content_metadata["action_context"],
           concierge_action: message.content_metadata["concierge_action"],
-          action_params: message.content_metadata["action_params"]
+          action_params: message.content_metadata["action_params"],
+          mentions: message.content_metadata["mentions"]
         ).compact
       end
 
