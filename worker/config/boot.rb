@@ -25,9 +25,6 @@ require_relative '../app/controllers/jobs_controller'
 require_relative '../app/services/firebase_service'
 require_relative '../app/services/twilio_service'
 
-# Require exceptions first (used by jobs)
-require_relative '../app/exceptions/billing_exceptions'
-
 # Require base job first
 require_relative '../app/jobs/base_job'
 
@@ -55,4 +52,41 @@ excluded_files = [
 
 job_files.each do |f|
   require f unless excluded_files.include?(f)
+end
+
+# Load enterprise worker extensions when the enterprise submodule is present
+enterprise_worker = File.expand_path('../../../extensions/enterprise/worker', __dir__)
+
+if Dir.exist?(enterprise_worker)
+  # Conditionally require payment provider gems (only needed for enterprise billing)
+  begin
+    require 'stripe'
+  rescue LoadError
+    # Stripe gem not available — billing reconciliation will be limited
+  end
+
+  begin
+    require 'paypal-sdk-rest'
+  rescue LoadError
+    # PayPal gem not available — PayPal reconciliation will be limited
+  end
+
+  # Load enterprise exceptions first (used by enterprise jobs)
+  enterprise_exceptions = File.join(enterprise_worker, 'app', 'exceptions', 'billing_exceptions.rb')
+  require enterprise_exceptions if File.exist?(enterprise_exceptions)
+
+  # Load enterprise concerns (BEFORE enterprise job classes)
+  enterprise_concerns = Dir[File.join(enterprise_worker, 'app', 'jobs', 'concerns', '**', '*.rb')].sort
+  enterprise_concerns.each { |f| require f }
+
+  # Load enterprise jobs
+  enterprise_jobs = Dir[File.join(enterprise_worker, 'app', 'jobs', '**', '*.rb')].sort
+  enterprise_jobs.each do |f|
+    next if enterprise_concerns.include?(f) # Skip already-loaded concerns
+    require f
+  end
+
+  # Load enterprise services
+  enterprise_services = Dir[File.join(enterprise_worker, 'app', 'services', '**', '*.rb')].sort
+  enterprise_services.each { |f| require f }
 end

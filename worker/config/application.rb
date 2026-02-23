@@ -59,8 +59,19 @@ class PowernodeWorker
         schedule_file = File.join(@root || File.expand_path('../..', __dir__), 'config', 'sidekiq.yml')
         if File.exist?(schedule_file)
           Sidekiq.schedule = YAML.safe_load(ERB.new(File.read(schedule_file)).result, permitted_classes: [Symbol], aliases: true).fetch(:schedule, {})
-          SidekiqScheduler::Scheduler.instance.reload_schedule!
         end
+
+        # Merge enterprise billing schedules when available
+        enterprise_schedule = File.join(@root || File.expand_path('../..', __dir__), '..', 'extensions', 'enterprise', 'worker', 'config', 'sidekiq_billing.yml')
+        if File.exist?(enterprise_schedule)
+          billing_config = YAML.safe_load(ERB.new(File.read(enterprise_schedule)).result, permitted_classes: [Symbol])
+          if billing_config && billing_config[:schedule]
+            existing = Sidekiq.schedule || {}
+            Sidekiq.schedule = existing.merge(billing_config[:schedule])
+          end
+        end
+
+        SidekiqScheduler::Scheduler.instance.reload_schedule!
       end
     end
 

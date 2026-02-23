@@ -46,8 +46,8 @@ gem 'mini_exiftool', '~> 2.11'     # EXIF data extraction
 gem 'streamio-ffmpeg', '~> 3.0'    # Video/audio processing
 
 # Payment providers (for reconciliation)
-gem 'stripe', '~> 18.0'
-gem 'paypal-sdk-rest', '~> 1.7'
+gem 'stripe', '~> 18.0', require: false
+gem 'paypal-sdk-rest', '~> 1.7', require: false
 
 # Document generation
 gem 'prawn', '~> 2.4'               # PDF generation
