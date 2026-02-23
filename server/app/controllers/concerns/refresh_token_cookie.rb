@@ -3,6 +3,10 @@
 module RefreshTokenCookie
   extend ActiveSupport::Concern
 
+  included do
+    include ActionController::Cookies
+  end
+
   private
 
   def set_refresh_cookie(token)

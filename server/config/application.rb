@@ -64,6 +64,9 @@ module Server
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
 
+    # Add cookie middleware for HttpOnly refresh token cookies (WP8 security hardening)
+    config.middleware.use ActionDispatch::Cookies
+
     # Track boot time for uptime calculations
     config.boot_time = Time.current
 
