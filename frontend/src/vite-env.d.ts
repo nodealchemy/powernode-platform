@@ -24,22 +24,11 @@ interface ImportMeta {
 declare const __ENTERPRISE__: boolean;
 
 // Enterprise module declarations — TS types for enterprise modules resolved by Vite alias.
-// Prevents TS from following tsconfig paths into enterprise source files
-// (enterprise has no node_modules and can't resolve react/etc from its directory).
-declare module '@enterprise/pages/admin/AdminSettingsPaymentGatewaysTabPage' {
-  import { ComponentType } from 'react';
-  const Component: ComponentType;
-  export default Component;
-}
-
-declare module '@enterprise/pages/public/RegisterPage' {
-  import { ComponentType } from 'react';
-  const Component: ComponentType;
-  export default Component;
-}
-
-declare module '@enterprise/pages/public/PlanSelectionPage' {
-  import { ComponentType } from 'react';
-  const Component: ComponentType;
-  export default Component;
+// Wildcard declaration covers all @enterprise/* imports so TypeScript doesn't try to
+// resolve into enterprise source files (which have no node_modules of their own).
+// Vite's Rollup build will catch any missing modules at build time.
+declare module '@enterprise/*' {
+  const value: any;
+  export default value;
+  export = value;
 }

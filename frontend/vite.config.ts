@@ -53,12 +53,10 @@ export default defineConfig(({ mode }: { mode: string }) => {
     ],
     
     resolve: {
-      // Resolve shared packages from core node_modules when processing
-      // enterprise source files (enterprise dir has no own node_modules)
-      dedupe: [
-        'react', 'react-dom', 'react-redux', '@reduxjs/toolkit',
-        'react-router-dom', 'lucide-react', 'axios',
-      ],
+      // Resolve ALL packages from core node_modules when processing
+      // enterprise source files (enterprise dir has no own node_modules).
+      // Derived from package.json so it stays in sync automatically.
+      dedupe: Object.keys(packageJson.dependencies || {}),
       alias: {
         '@': path.resolve(__dirname, './src'),
         '@/shared': path.resolve(__dirname, './src/shared'),
