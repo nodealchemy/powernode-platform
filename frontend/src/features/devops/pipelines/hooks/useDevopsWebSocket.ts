@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import type { DevopsPipelineRun } from '@/types/devops-pipelines';
+import { store } from '@/shared/services';
+import type { CiCdPipelineRun } from '@/types/devops-pipelines';
 
-export interface DevopsPipelineEvent {
+export interface CiCdPipelineEvent {
   type: 'run_created' | 'run_updated' | 'run_completed' | 'step_updated' | 'subscribed';
-  pipeline_run?: Partial<DevopsPipelineRun>;
+  pipeline_run?: Partial<CiCdPipelineRun>;
   pipeline_run_id?: string;
   step_execution?: {
     id: string;
@@ -19,9 +20,9 @@ export interface DevopsPipelineEvent {
   message?: string;
 }
 
-type EventHandler = (event: DevopsPipelineEvent) => void;
+type EventHandler = (event: CiCdPipelineEvent) => void;
 
-class DevopsWebSocketManager {
+class CiCdWebSocketManager {
   private ws: WebSocket | null = null;
   private eventHandlers: Map<string, Set<EventHandler>> = new Map();
   private reconnectAttempts = 0;
@@ -50,7 +51,7 @@ class DevopsWebSocketManager {
     this.isIntentionallyClosed = false;
 
     try {
-      const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+      const token = store.getState().auth.access_token;
       if (!token) return;
 
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -64,9 +65,9 @@ class DevopsWebSocketManager {
         this.reconnectAttempts = 0;
         this.startHeartbeat();
 
-        // Subscribe to DevOps pipeline channel
+        // Subscribe to CI/CD pipeline channel
         const identifier: Record<string, string> = {
-          channel: 'DevopsPipelineChannel',
+          channel: 'CiCdPipelineChannel',
           account_id: accountId,
         };
         if (pipelineId) {
@@ -83,7 +84,7 @@ class DevopsWebSocketManager {
         try {
           const data = JSON.parse(event.data);
           this.handleMessage(data);
-        } catch (_error) {
+        } catch (error) {
           // Ignore parse errors
         }
       };
@@ -98,12 +99,12 @@ class DevopsWebSocketManager {
       this.ws.onerror = () => {
         // Error handled by onclose
       };
-    } catch (_error) {
+    } catch (error) {
       this.scheduleReconnect();
     }
   }
 
-  private handleMessage(data: { type?: string; message?: DevopsPipelineEvent }) {
+  private handleMessage(data: { type?: string; message?: CiCdPipelineEvent }) {
     if (data.type === 'ping') {
       this.send({ type: 'pong' });
       return;
@@ -143,14 +144,14 @@ class DevopsWebSocketManager {
     }, this.reconnectDelay * Math.pow(2, this.reconnectAttempts));
   }
 
-  private notifyHandlers(event: DevopsPipelineEvent) {
+  private notifyHandlers(event: CiCdPipelineEvent) {
     // Notify all handlers - both global and pipeline-specific
     // The backend already filters by pipeline_id on subscription
     this.eventHandlers.forEach((handlers) => {
       handlers.forEach((handler) => {
         try {
           handler(event);
-        } catch (_error) {
+        } catch (error) {
           // Ignore handler errors
         }
       });
@@ -185,43 +186,34 @@ class DevopsWebSocketManager {
 }
 
 // Singleton instance
-let wsManager: DevopsWebSocketManager | null = null;
+let wsManager: CiCdWebSocketManager | null = null;
 
-function getWsManager(): DevopsWebSocketManager {
+function getWsManager(): CiCdWebSocketManager {
   if (!wsManager) {
-    wsManager = new DevopsWebSocketManager();
+    wsManager = new CiCdWebSocketManager();
   }
   return wsManager;
 }
 
 /**
- * Hook for subscribing to DevOps pipeline WebSocket updates
+ * Hook for subscribing to CI/CD pipeline WebSocket updates
  * @param pipelineId - Optional pipeline ID to subscribe to specific pipeline updates
  * @param onEvent - Callback for handling events
  */
-export function useDevopsWebSocket(
+export function useCiCdWebSocket(
   pipelineId?: string,
-  onEvent?: (event: DevopsPipelineEvent) => void
+  onEvent?: (event: CiCdPipelineEvent) => void
 ) {
   const [isConnected, setIsConnected] = useState(false);
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
 
   useEffect(() => {
-    const userStr = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser');
-    if (!userStr) return;
-
-    let user: { account?: { id?: string } } | null = null;
-    try {
-      user = JSON.parse(userStr);
-    } catch (_error) {
-      return;
-    }
-
-    if (!user?.account?.id) return;
+    const accountId = store.getState().auth.user?.account?.id;
+    if (!accountId) return;
 
     const manager = getWsManager();
-    manager.connect(user.account.id, pipelineId);
+    manager.connect(accountId, pipelineId);
 
     // Check connection status periodically
     const statusCheck = setInterval(() => {
@@ -245,12 +237,12 @@ export function useDevopsWebSocket(
 /**
  * Hook specifically for pipeline runs list with automatic refresh
  */
-export function useDevopsRunsWebSocket(
+export function useCiCdRunsWebSocket(
   pipelineId: string | undefined,
-  onRunCreated?: (run: Partial<DevopsPipelineRun>) => void,
-  onRunUpdated?: (run: Partial<DevopsPipelineRun>) => void
+  onRunCreated?: (run: Partial<CiCdPipelineRun>) => void,
+  onRunUpdated?: (run: Partial<CiCdPipelineRun>) => void
 ) {
-  const { isConnected } = useDevopsWebSocket(pipelineId, (event) => {
+  const { isConnected } = useCiCdWebSocket(pipelineId, (event) => {
     if (event.type === 'run_created' && event.pipeline_run) {
       onRunCreated?.(event.pipeline_run);
     } else if ((event.type === 'run_updated' || event.type === 'run_completed') && event.pipeline_run) {
@@ -261,7 +253,7 @@ export function useDevopsRunsWebSocket(
   return { isConnected };
 }
 
-export function disconnectDevopsWebSocket() {
+export function disconnectCiCdWebSocket() {
   if (wsManager) {
     wsManager.disconnect();
     wsManager = null;

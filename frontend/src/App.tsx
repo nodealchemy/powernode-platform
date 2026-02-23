@@ -1,28 +1,15 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Provider, useDispatch, useSelector } from 'react-redux';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { RootState, AppDispatch } from '@/shared/services';
 import { store } from '@/shared/services';
 import { getCurrentUser, refreshAccessToken, clearAuth, forceTokenClear, checkImpersonationStatus } from '@/shared/services/slices/authSlice';
-import { fetchPlatformConfig } from '@/shared/services/slices/configSlice';
 import { isTokenInvalidError, isValidTokenFormat } from '@/shared/utils/tokenUtils';
 
 // Theme Provider
 import { ThemeProvider } from '@/shared/hooks/ThemeContext';
 import { BreadcrumbProvider } from '@/shared/hooks/BreadcrumbContext';
 import { FooterProvider } from '@/shared/contexts/FooterContext';
-
-// React Query client
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      staleTime: 30_000,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
 
 // Components
 import { ProtectedRoute } from '@/shared/components/ui/ProtectedRoute';
@@ -32,6 +19,8 @@ import { NotificationContainer } from '@/shared/components/ui/NotificationContai
 
 // Pages
 import { LoginPage } from '@/pages/public/LoginPage';
+import { RegisterPage } from '@/pages/public/RegisterPage';
+import { PlanSelectionPage } from '@/pages/public/PlanSelectionPage';
 import { DashboardPage } from '@/pages/app/DashboardPage';
 import { ForgotPasswordPage } from '@/pages/public/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/public/ResetPasswordPage';
@@ -41,10 +30,9 @@ import { WelcomePage } from '@/pages/public/WelcomePage';
 import { AcceptInvitationPage } from '@/pages/public/AcceptInvitationPage';
 import { PageViewPage } from '@/pages/public/PageViewPage';
 import { McpOAuthCallbackPage } from '@/pages/public/oauth/McpOAuthCallbackPage';
-import { OAuthConsentPage } from '@/pages/public/oauth/OAuthConsentPage';
+import { StatusPage } from '@/pages/public/StatusPage';
 import { ApprovalResponsePage } from '@/features/devops/pipelines/pages/ApprovalResponsePage';
 import { ApprovalResponsePage as AiWorkflowApprovalResponsePage } from '@/features/ai/workflows/pages/ApprovalResponsePage';
-import { DetachedChatPage } from '@/features/ai/chat/pages/DetachedChatPage';
 
 import './App.css';
 import '@/assets/styles/themes.css';
@@ -53,7 +41,7 @@ import '@/assets/styles/deprecated-css-override.css';
 
 const AppContent: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { isAuthenticated, access_token, refresh_token, user } = useSelector((state: RootState) => state.auth);
+  const { isAuthenticated, access_token, user } = useSelector((state: RootState) => state.auth);
   const [initializing, setInitializing] = React.useState(true);
   const [showAuthFallback, setShowAuthFallback] = React.useState(false);
   const initializingRef = React.useRef(false); // Prevent double initialization
@@ -69,9 +57,6 @@ const AppContent: React.FC = () => {
 
     // Try to restore user session if we have a token
     const initializeAuth = async () => {
-      // Fetch platform config (enterprise state, feature flags) in parallel with auth
-      dispatch(fetchPlatformConfig());
-
       // CRITICAL: If user is already loaded (e.g., from login), skip initialization
       if (user && access_token) {
         // User already authenticated and loaded, complete initialization immediately
@@ -86,22 +71,10 @@ const AppContent: React.FC = () => {
         setShowAuthFallback(true);
       }, 5000); // 5 second timeout, then show fallback
 
-      // Hard cutoff - if auth takes > 8s total, give up and go to login
-      const hardTimeoutId = setTimeout(() => {
-        dispatch(clearAuth());
-        setInitializing(false);
-        initializingRef.current = false;
-      }, 8000);
-
       try {
 
-        // First, validate token format before attempting API calls
+        // Validate token format if we have one in memory (e.g., from a previous session's Redux persist)
         if (access_token && !isValidTokenFormat(access_token)) {
-          dispatch(forceTokenClear());
-          // Continue to check impersonation token instead of returning early
-        }
-
-        if (refresh_token && !isValidTokenFormat(refresh_token)) {
           dispatch(forceTokenClear());
           // Continue to check impersonation token instead of returning early
         }
@@ -109,7 +82,7 @@ const AppContent: React.FC = () => {
         // Check for impersonation first, even if regular tokens are invalid
         const impersonationToken = localStorage.getItem('impersonationToken');
 
-        if (impersonationToken || (access_token && !user)) {
+        if (impersonationToken || !user) {
           
           // PRIORITY: If we have an impersonation token, validate it first
           if (impersonationToken) {
@@ -121,7 +94,7 @@ const AppContent: React.FC = () => {
               } else {
                 localStorage.removeItem('impersonationToken');
               }
-            } catch (_error) {
+            } catch (impersonationError) {
               localStorage.removeItem('impersonationToken');
             }
           }
@@ -137,55 +110,49 @@ const AppContent: React.FC = () => {
               return;
             }
             
-            // If that fails, try to refresh the access token
-            if (refresh_token) {
-              try {
-                await dispatch(refreshAccessToken()).unwrap();
-                
-                // After refresh, check for impersonation session again
-                const impersonationToken = localStorage.getItem('impersonationToken');
-                if (impersonationToken) {
-                  try {
-                    const impersonationData = await dispatch(checkImpersonationStatus()).unwrap();
-                    if (impersonationData && impersonationData.valid) {
-                      return; // Skip regular user fetch
-                    } else {
-                      localStorage.removeItem('impersonationToken');
-                    }
-                  } catch (_error) {
+            // If that fails, try to refresh the access token (uses HttpOnly cookie)
+            try {
+              await dispatch(refreshAccessToken()).unwrap();
+
+              // After refresh, check for impersonation session again
+              const impersonationToken = localStorage.getItem('impersonationToken');
+              if (impersonationToken) {
+                try {
+                  const impersonationData = await dispatch(checkImpersonationStatus()).unwrap();
+                  if (impersonationData && impersonationData.valid) {
+                    return; // Skip regular user fetch
+                  } else {
                     localStorage.removeItem('impersonationToken');
                   }
-                }
-                
-                // If no valid impersonation, get regular user
-                await dispatch(getCurrentUser(true)).unwrap(); // silentAuth = true during initialization
-              } catch (refreshError) {
-                // Check if this is a token invalidity error
-                if (isTokenInvalidError(refreshError)) {
-                  dispatch(forceTokenClear());
-                } else {
-                  // Clear all auth data if both attempts fail
-                  dispatch(clearAuth());
+                } catch (impersonationError) {
+                  localStorage.removeItem('impersonationToken');
                 }
               }
-            } else {
-              // No refresh token available, clear auth data
-              dispatch(clearAuth());
+
+              // If no valid impersonation, get regular user
+              await dispatch(getCurrentUser(true)).unwrap(); // silentAuth = true during initialization
+            } catch (refreshError) {
+              // Check if this is a token invalidity error
+              if (isTokenInvalidError(refreshError)) {
+                dispatch(forceTokenClear());
+              } else {
+                // No valid refresh cookie or refresh failed — user needs to log in
+                dispatch(clearAuth());
+              }
             }
           }
         }
-      } catch (_error) {
+      } catch (error) {
         dispatch(clearAuth());
       } finally {
         clearTimeout(timeoutId);
-        clearTimeout(hardTimeoutId);
         setInitializing(false);
         initializingRef.current = false; // Reset initialization flag
       }
     };
 
     void initializeAuth();
-   
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch]); // Remove access_token, refresh_token, user to prevent infinite loop
 
   const handleAuthFallback = () => {
@@ -211,11 +178,15 @@ const AppContent: React.FC = () => {
           {/* Public routes */}
           <Route
             path="/plans"
-            element={<Navigate to="/login" replace />}
+            element={
+              <PublicRoute>
+                <PlanSelectionPage />
+              </PublicRoute>
+            }
           />
           <Route
             path="/pricing"
-            element={<Navigate to="/login" replace />}
+            element={<Navigate to="/plans" replace />}
           />
           <Route
             path="/login"
@@ -227,7 +198,11 @@ const AppContent: React.FC = () => {
           />
           <Route
             path="/register"
-            element={<Navigate to="/login" replace />}
+            element={
+              <PublicRoute>
+                <RegisterPage />
+              </PublicRoute>
+            }
           />
           <Route
             path="/forgot-password"
@@ -297,14 +272,19 @@ const AppContent: React.FC = () => {
             element={<PageViewPage />}
           />
 
-
-          {/* DevOps Pipeline Approval Routes (public, token-based auth) */}
+          {/* Public Status Page */}
           <Route
-            path="/devops/approve/:token"
+            path="/status"
+            element={<StatusPage />}
+          />
+
+          {/* CI/CD Pipeline Approval Routes (public, token-based auth) */}
+          <Route
+            path="/ci-cd/approve/:token"
             element={<ApprovalResponsePage />}
           />
           <Route
-            path="/devops/reject/:token"
+            path="/ci-cd/reject/:token"
             element={<ApprovalResponsePage />}
           />
 
@@ -318,21 +298,7 @@ const AppContent: React.FC = () => {
             element={<AiWorkflowApprovalResponsePage />}
           />
 
-          {/* Detached Chat Window */}
-          <Route
-            path="/chat/detached"
-            element={
-              <ProtectedRoute>
-                <DetachedChatPage />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* OAuth routes */}
-          <Route
-            path="/app/oauth/authorize"
-            element={<OAuthConsentPage />}
-          />
+          {/* OAuth callback routes */}
           <Route
             path="/oauth/mcp/callback"
             element={<McpOAuthCallbackPage />}
@@ -368,15 +334,13 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <Provider store={store}>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <BreadcrumbProvider>
-            <FooterProvider>
-              <AppContent />
-            </FooterProvider>
-          </BreadcrumbProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
+      <ThemeProvider>
+        <BreadcrumbProvider>
+          <FooterProvider>
+            <AppContent />
+          </FooterProvider>
+        </BreadcrumbProvider>
+      </ThemeProvider>
     </Provider>
   );
 };

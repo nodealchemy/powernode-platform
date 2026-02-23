@@ -15,18 +15,13 @@ export const isTokenInvalidError = (error: unknown): boolean => {
   if (error instanceof Error) {
     errorMessage = error.message;
   } else if (error && typeof error === 'object') {
-    // Handle axios-style errors with type-safe property access
-    const errorObj = error as Record<string, unknown>;
-    if ('response' in errorObj && errorObj.response && typeof errorObj.response === 'object') {
-      const response = errorObj.response as Record<string, unknown>;
-      if ('status' in response && typeof response.status === 'number') {
-        statusCode = response.status;
-      }
+    // Handle axios-style errors
+    if ('response' in error && error.response && typeof error.response === 'object') {
+      const response = error.response as any;
+      if ('status' in response) statusCode = response.status;
       if ('data' in response && response.data && typeof response.data === 'object') {
-        const responseData = response.data as Record<string, unknown>;
-        errorMessage = (typeof responseData.error === 'string' ? responseData.error : null) ||
-                       (typeof responseData.message === 'string' ? responseData.message : null) ||
-                       errorMessage;
+        const responseData = response.data as any;
+        errorMessage = responseData.error || responseData.message || errorMessage;
       }
     }
   }
@@ -57,27 +52,18 @@ export const isTokenInvalidError = (error: unknown): boolean => {
  * Clears all authentication tokens from localStorage
  */
 export const clearStoredTokens = (): void => {
-  try {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-  } catch (error) {
-    // Silently handle localStorage errors (e.g., when storage is disabled)
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('Failed to clear stored tokens:', error);
-    }
-  }
+  // Tokens are now stored in Redux state (access_token) and HttpOnly cookies (refresh_token)
+  // No localStorage cleanup needed for auth tokens
+  // Impersonation tokens remain in localStorage and are cleared separately
 };
 
 /**
  * Checks if tokens exist in localStorage
  */
 export const hasStoredTokens = (): boolean => {
-  try {
-    return !!(localStorage.getItem('access_token') || localStorage.getItem('refresh_token'));
-  } catch (_error) {
-    // Handle localStorage errors gracefully
-    return false;
-  }
+  // Tokens are stored in Redux state and HttpOnly cookies, not localStorage
+  // This function is kept for backward compatibility but always returns false
+  return false;
 };
 
 /**
@@ -114,13 +100,13 @@ export const getTokenExpiry = (token: string): Date | null => {
     const parts = token.split('.');
     const payload = JSON.parse(atob(parts[1]));
     
-    if (!('exp' in payload) || payload.exp === null || payload.exp === undefined) return null;
+    if (!payload.hasOwnProperty('exp') || payload.exp === null || payload.exp === undefined) return null;
     
     const expNumber = Number(payload.exp);
     if (isNaN(expNumber)) return null;
     
     return new Date(expNumber * 1000);
-  } catch (_error) {
+  } catch {
     return null;
   }
 };

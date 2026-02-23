@@ -82,13 +82,13 @@ class AuthAPI {
   }
 
   async logout() {
+    // Server will delete the refresh HttpOnly cookie
     return api.post('/auth/logout');
   }
 
-  async refreshToken(refreshToken: string) {
-    return api.post<RefreshTokenResponse>('/auth/refresh', {
-      refresh_token: refreshToken,
-    });
+  async refreshToken() {
+    // Refresh token is sent automatically via HttpOnly cookie
+    return api.post<RefreshTokenResponse>('/auth/refresh');
   }
 
   async getCurrentUser(silentAuth = false) {

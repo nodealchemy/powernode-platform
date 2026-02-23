@@ -1,7 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
-import { store } from '@/shared/services/index';
-import { refreshAccessToken, clearAuth, stopImpersonation } from '@/shared/services/slices/authSlice';
-import { logger } from '@/shared/utils/logger';
+import { store } from './index';
+import { refreshAccessToken, clearAuth, stopImpersonation } from './slices/authSlice';
 
 // Get environment variable with Vite/CRA/Jest compatibility
 const getEnvVar = (viteKey: string, craKey: string, defaultValue: string = ''): string => {
@@ -64,7 +63,7 @@ const getAPIBaseURL = (): string => {
           // Direct access - use port 3000 for backend
           return `${currentProtocol}//${currentHostname}:3000${apiPath}`;
         }
-      } catch (_err) {
+      } catch (e) {
         // Fallback if URL parsing fails
         const fallback = `${currentProtocol}//${currentHostname}:3000/api/v1`;
         return fallback;
@@ -86,7 +85,8 @@ class APIClient {
   constructor(baseURL: string) {
     this.client = axios.create({
       baseURL,
-      timeout: 10000,
+      timeout: 30000,
+      withCredentials: true,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -95,18 +95,13 @@ class APIClient {
     this.setupInterceptors();
   }
 
-  getBaseURL(): string {
-    return this.client.defaults.baseURL || '/api/v1';
-  }
-
   private setupInterceptors() {
     // Request interceptor to add auth token
     this.client.interceptors.request.use(
       (config) => {
         const state = store.getState();
 
-        // IMPORTANT: Prefer localStorage token over Redux state to avoid race conditions
-        // During login, localStorage is updated before React re-renders, so it has the latest token
+        // Check for impersonation token in localStorage (stays in localStorage - admin-only, session-scoped)
         const impersonationToken = localStorage.getItem('impersonationToken');
 
         // Determine which token to use
@@ -116,8 +111,8 @@ class APIClient {
           // Use impersonation token if actively impersonating
           token = impersonationToken;
         } else {
-          // Prefer localStorage token (most up-to-date), fall back to Redux state
-          token = localStorage.getItem('access_token') || state.auth.access_token;
+          // Use access token from Redux state only (no localStorage)
+          token = state.auth.access_token;
         }
 
         if (token) {
@@ -138,9 +133,9 @@ class APIClient {
         // Suppress console logging for silent auth requests
         const isSilentAuth = originalRequest?.silentAuth === true;
 
-        // Only log non-silent auth errors
-        if (!isSilentAuth && error.response?.status !== 401) {
-          logger.error('[API Error]', error);
+        // Only log non-silent auth errors during development
+        if (!isSilentAuth && process.env.NODE_ENV === 'development' && error.response?.status !== 401) {
+          console.error('[API Error]', error);
         }
 
         if (error.response?.status === 401 && !originalRequest._retry) {
@@ -151,7 +146,7 @@ class APIClient {
             try {
               // Try to gracefully end the impersonation session
               await store.dispatch(stopImpersonation());
-            } catch (_err) {
+            } catch (stopError) {
               store.dispatch(clearAuth());
             }
             return Promise.reject(error);
@@ -207,27 +202,27 @@ class APIClient {
   }
 
   // HTTP Methods
-   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async get<T = any>(url: string, config?: AxiosRequestConfig & { silentAuth?: boolean }): Promise<AxiosResponse<T>> {
     return this.client.get(url, config);
   }
 
-   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async post<T = any>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.post(url, data, config);
   }
 
-   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async put<T = any>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.put(url, data, config);
   }
 
-   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async patch<T = any>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.patch(url, data, config);
   }
 
-   
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.delete(url, config);
   }

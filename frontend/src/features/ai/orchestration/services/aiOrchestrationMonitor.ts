@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useRef } from 'react';
-import { logger } from '@/shared/utils/logger';
+import { store } from '@/shared/services';
 
 export interface AISystemEvent {
   type: 'agent_executed' | 'workflow_completed' | 'workflow_failed' | 'provider_health_changed' | 'conversation_started' | 'conversation_ended';
@@ -59,23 +59,13 @@ class AIOrchestrationMonitor {
     if (this.ws?.readyState === WebSocket.OPEN) return;
 
     try {
-      // Get authentication token and account info
-      const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
-      const userStr = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser');
-      
-      if (!token || !userStr) {
+      // Get authentication token and account info from Redux store
+      const state = store.getState();
+      const token = state.auth.access_token;
+      const accountId = state.auth.user?.account?.id;
+
+      if (!token || !accountId) {
         // Continue without WebSocket but still allow the component to function
-        return;
-      }
-
-      let user: { account?: { id?: string } } | null = null;
-      try {
-        user = JSON.parse(userStr);
-      } catch {
-        return;
-      }
-
-      if (!user?.account?.id) {
         return;
       }
 
@@ -101,7 +91,7 @@ class AIOrchestrationMonitor {
           identifier: JSON.stringify({
             channel: 'AiOrchestrationChannel',
             type: 'account',
-            id: user!.account!.id
+            id: accountId
           })
         });
       };
@@ -110,8 +100,8 @@ class AIOrchestrationMonitor {
         try {
           const data = JSON.parse(event.data);
           this.handleMessage(data);
-        } catch (err) {
-          logger.error('[AIOrchestrationMonitor] Error parsing WebSocket message:', err);
+        } catch (error) {
+          console.error('Failed to parse WebSocket message:', error);
         }
       };
 
@@ -124,12 +114,12 @@ class AIOrchestrationMonitor {
         }
       };
 
-      this.ws.onerror = () => {
-        // WebSocket connection error - reconnect will be attempted
+      this.ws.onerror = (error) => {
+        console.error('AI Orchestration monitor error:', error);
       };
 
-    } catch (err) {
-      logger.error('[AIOrchestrationMonitor] Connection error:', err);
+    } catch (error) {
+      console.error('Failed to create WebSocket connection:', error);
       this.scheduleReconnect();
     }
   }
@@ -192,8 +182,8 @@ class AIOrchestrationMonitor {
     this.eventHandlers.forEach(handler => {
       try {
         handler(event);
-      } catch (err) {
-        logger.error('[AIOrchestrationMonitor] Error in event handler:', err);
+      } catch (error) {
+        console.error('Error in event handler:', error);
       }
     });
   }
@@ -202,8 +192,8 @@ class AIOrchestrationMonitor {
     this.metricsHandlers.forEach(handler => {
       try {
         handler(metrics);
-      } catch (err) {
-        logger.error('[AIOrchestrationMonitor] Error in metrics handler:', err);
+      } catch (error) {
+        console.error('Error in metrics handler:', error);
       }
     });
   }
@@ -268,11 +258,10 @@ export function useAIOrchestrationMonitor() {
 
   useEffect(() => {
     // Reset monitor if authentication changes
-    const currentToken = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
-    const currentUser = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser');
-    
+    const currentToken = store.getState().auth.access_token;
+
     // If no auth, don't create monitor
-    if (!currentToken || !currentUser) {
+    if (!currentToken) {
       if (monitorRef.current) {
         monitorRef.current.disconnect();
         monitorRef.current = null;
