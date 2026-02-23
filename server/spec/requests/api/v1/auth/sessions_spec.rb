@@ -20,8 +20,9 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
         expect(response_data['data']['user']).to be_present
         expect(response_data['data']['account']).to be_present
         expect(response_data['data']['access_token']).to be_present
-        expect(response_data['data']['refresh_token']).to be_present
         expect(response_data['data']['expires_at']).to be_present
+        # Refresh token is now in HttpOnly cookie, not in response body
+        expect(response.cookies['refresh_token']).to be_present
       end
 
       it 'creates audit log entry' do
@@ -215,8 +216,9 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
 
         response_data = json_response
         expect(response_data['data']['access_token']).to eq('new-access-token')
-        expect(response_data['data']['refresh_token']).to eq('new-refresh-token')
         expect(response_data['data']['expires_at']).to be_present
+        # Refresh token is now in HttpOnly cookie, not in response body
+        expect(response.cookies['refresh_token']).to eq('new-refresh-token')
       end
     end
 
@@ -395,7 +397,8 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
         response_data = json_response
         expect(response_data['data']['user']).to be_present
         expect(response_data['data']['access_token']).to be_present
-        expect(response_data['data']['refresh_token']).to be_present
+        # Refresh token is now in HttpOnly cookie, not in response body
+        expect(response.cookies['refresh_token']).to be_present
       end
 
       it 'creates audit log entry' do

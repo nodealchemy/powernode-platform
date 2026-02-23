@@ -240,11 +240,12 @@ RSpec.describe 'Authentication Security', type: :request do
         password: TestUsers::PASSWORD
       }, as: :json
 
-      refresh_token = json_response_data['refresh_token']
+      # Refresh token is now in HttpOnly cookie, not response body
+      refresh_token = response.cookies['refresh_token']
       headers = auth_headers_for(user)
 
-      # Logout
-      post '/api/v1/auth/logout', params: { refresh_token: refresh_token }, headers: headers, as: :json
+      # Logout — pass refresh token via cookie (set automatically by test framework)
+      post '/api/v1/auth/logout', headers: headers, as: :json
 
       expect(response).to have_http_status(200)
 

@@ -201,69 +201,15 @@ describe('tokenUtils', () => {
   });
 
   describe('clearStoredTokens', () => {
-    it('removes both access and refresh tokens from localStorage', () => {
+    it('is a no-op since tokens are no longer stored in localStorage (WP8: HttpOnly cookies)', () => {
       clearStoredTokens();
-
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith('access_token');
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith('refresh_token');
-      expect(localStorageMock.removeItem).toHaveBeenCalledTimes(2);
-    });
-
-    it('does not throw if localStorage operations fail', () => {
-      localStorageMock.removeItem.mockImplementation(() => {
-        throw new Error('Storage error');
-      });
-      
-      expect(() => clearStoredTokens()).not.toThrow();
+      // No localStorage operations expected — tokens are in HttpOnly cookies now
+      expect(localStorageMock.removeItem).not.toHaveBeenCalled();
     });
   });
 
   describe('hasStoredTokens', () => {
-    it('returns true when access token exists', () => {
-      localStorageMock.getItem.mockImplementation((key) => {
-        if (key === 'access_token') return 'access-token-value';
-        return null;
-      });
-
-      expect(hasStoredTokens()).toBe(true);
-    });
-
-    it('returns true when refresh token exists', () => {
-      localStorageMock.getItem.mockImplementation((key) => {
-        if (key === 'refresh_token') return 'refresh-token-value';
-        return null;
-      });
-
-      expect(hasStoredTokens()).toBe(true);
-    });
-
-    it('returns true when both tokens exist', () => {
-      localStorageMock.getItem.mockImplementation((key) => {
-        if (key === 'access_token') return 'access-token-value';
-        if (key === 'refresh_token') return 'refresh-token-value';
-        return null;
-      });
-
-      expect(hasStoredTokens()).toBe(true);
-    });
-
-    it('returns false when no tokens exist', () => {
-      localStorageMock.getItem.mockReturnValue(null);
-      
-      expect(hasStoredTokens()).toBe(false);
-    });
-
-    it('returns false when tokens are empty strings', () => {
-      localStorageMock.getItem.mockReturnValue('');
-      
-      expect(hasStoredTokens()).toBe(false);
-    });
-
-    it('handles localStorage errors gracefully', () => {
-      localStorageMock.getItem.mockImplementation(() => {
-        throw new Error('Storage not available');
-      });
-      
+    it('always returns false since tokens are no longer stored in localStorage (WP8: HttpOnly cookies)', () => {
       expect(hasStoredTokens()).toBe(false);
     });
   });
@@ -417,17 +363,8 @@ describe('tokenUtils', () => {
     });
 
     it('handles complete authentication error workflow', () => {
-      // Use a fresh mock for this test to ensure isolation
-      const mockGetItem = jest.fn((key) => {
-        if (key === 'access_token') return 'expired-token';
-        if (key === 'refresh_token') return 'expired-refresh';
-        return null;
-      });
-
-      // Apply the new mock
-      localStorageMock.getItem = mockGetItem;
-
-      expect(hasStoredTokens()).toBe(true);
+      // Since WP8 (HttpOnly cookies), tokens are no longer in localStorage
+      expect(hasStoredTokens()).toBe(false);
 
       // API error occurs
       const authError = {
@@ -441,11 +378,8 @@ describe('tokenUtils', () => {
 
       expect(isTokenInvalidError(authError)).toBe(true);
 
-      // Clear tokens after error
+      // clearStoredTokens is a no-op now
       clearStoredTokens();
-
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith('access_token');
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith('refresh_token');
     });
 
     it('handles token format validation and expiry checking', () => {
@@ -493,17 +427,10 @@ describe('tokenUtils', () => {
 
   describe('edge cases and error handling', () => {
     it('handles localStorage being unavailable', () => {
-      // Mock localStorage methods to throw errors
-      localStorageMock.getItem.mockImplementation(() => {
-        throw new Error('localStorage not available');
-      });
-      localStorageMock.removeItem.mockImplementation(() => {
-        throw new Error('localStorage not available');
-      });
-      
+      // With WP8, these functions no longer access localStorage at all
       expect(() => hasStoredTokens()).not.toThrow();
       expect(hasStoredTokens()).toBe(false);
-      
+
       expect(() => clearStoredTokens()).not.toThrow();
     });
 

@@ -34,8 +34,9 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
         expect(response_data['data']['user']).to be_present
         expect(response_data['data']['account']).to be_present
         expect(response_data['data']['access_token']).to be_present
-        expect(response_data['data']['refresh_token']).to be_present
         expect(response_data['data']['expires_at']).to be_present
+        # Refresh token is now in HttpOnly cookie, not in response body
+        expect(response.cookies['refresh_token']).to be_present
       end
 
       it 'auto-generates subdomain from account name' do

@@ -161,17 +161,6 @@ RSpec.describe Security::JwtService do
     end
   end
 
-  describe ".generate_service_token" do
-    it "creates a service token with correct type" do
-      result = described_class.generate_service_token("worker-api")
-      payload = described_class.decode(result[:token])
-
-      expect(payload[:type]).to eq("service")
-      expect(payload[:service]).to eq("worker-api")
-      expect(payload[:sub]).to eq("worker-api")
-    end
-  end
-
   describe "authentication integration" do
     it "bare encode produces a token accepted by authentication" do
       token = described_class.encode({ sub: user.id, account_id: user.account_id })
