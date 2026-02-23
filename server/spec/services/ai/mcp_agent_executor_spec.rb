@@ -19,7 +19,19 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
     let(:input_parameters) { { "input" => "Hello, world!" } }
     let(:validator) { instance_double(JsonSchemaValidator) }
     let(:guardrail_pipeline) { instance_double(Ai::Guardrails::Pipeline) }
-    let(:provider_client) { instance_double(Ai::ProviderClientService) }
+    let(:llm_client) { instance_double(Ai::Llm::Client) }
+    let(:tool_bridge) { instance_double(Ai::AgentToolBridgeService) }
+
+    let(:llm_response) do
+      Ai::Llm::Response.new(
+        content: "Hello! How can I help you?",
+        tool_calls: [],
+        finish_reason: "stop",
+        model: "test-model-1",
+        provider: "custom",
+        usage: { prompt_tokens: 20, completion_tokens: 30, total_tokens: 50 }
+      )
+    end
 
     before do
       # Stub validation
@@ -33,7 +45,7 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
       allow(ai_executions_rel).to receive(:count).and_return(0)
       allow(account).to receive(:subscription).and_return(nil)
 
-      # Stub security gate (runs before guardrails)
+      # Stub security gate
       security_gate = instance_double(Ai::Security::SecurityGateService)
       allow(Ai::Security::SecurityGateService).to receive(:new).and_return(security_gate)
       allow(security_gate).to receive(:pre_execution_gate).and_return({ allowed: true, checks: [], degraded: false })
@@ -45,8 +57,8 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
       allow(guardrail_pipeline).to receive(:check_input).and_return({ allowed: true, violations: [], blocked: false })
       allow(guardrail_pipeline).to receive(:check_output).and_return({ allowed: true, violations: [], blocked: false })
 
-      # Stub provider client
-      credential = double('credential')
+      # Stub provider credential chain (used by both get_provider_client and build_llm_client)
+      credential = double('credential', provider: provider, credentials: { "api_key" => "test-key" })
       provider_credentials = double('provider_credentials')
       allow(agent).to receive(:provider).and_return(provider)
       allow(provider).to receive(:is_active?).and_return(true)
@@ -54,20 +66,19 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
       allow(provider_credentials).to receive(:where).and_return(provider_credentials)
       allow(provider_credentials).to receive(:active).and_return(provider_credentials)
       allow(provider_credentials).to receive(:first).and_return(credential)
-      allow(Ai::ProviderClientService).to receive(:new).with(credential).and_return(provider_client)
+      allow(Ai::Llm::Client).to receive(:new).and_return(llm_client)
+      allow(Ai::ProviderClientService).to receive(:new).and_return(double('provider_client').as_null_object)
+
+      # Stub tool bridge — tools disabled by default for simpler specs
+      allow(Ai::AgentToolBridgeService).to receive(:new).and_return(tool_bridge)
+      allow(tool_bridge).to receive(:tools_enabled?).and_return(false)
+      allow(tool_bridge).to receive(:tool_definitions_for_llm).and_return([])
+
+      # Stub simple completion
+      allow(llm_client).to receive(:complete).and_return(llm_response)
     end
 
     context 'successful execution' do
-      before do
-        allow(provider_client).to receive(:generate_text).and_return({
-          success: true,
-          data: {
-            "content" => [{ "text" => "Hello! How can I help you?" }],
-            "usage" => { "total_tokens" => 50 }
-          }
-        })
-      end
-
       it 'returns an MCP-formatted response' do
         result = executor.execute(input_parameters)
 
@@ -83,6 +94,39 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
 
         expect(result["telemetry"]["tokens_used"]).to eq(50)
         expect(result["telemetry"]["execution_time_ms"]).to be_a(Integer)
+      end
+    end
+
+    context 'with tools enabled' do
+      let(:tool_loop_result) do
+        {
+          content: "Based on the knowledge search, permissions work like this...",
+          usage: { prompt_tokens: 55, completion_tokens: 40, total_tokens: 125 },
+          tool_calls_log: [{ iteration: 1, tool: "search_knowledge", duration_ms: 50 }],
+          finish_reason: "stop"
+        }
+      end
+
+      before do
+        allow(tool_bridge).to receive(:tools_enabled?).and_return(true)
+        allow(tool_bridge).to receive(:tool_definitions_for_llm).and_return([
+          { name: "search_knowledge", description: "Search knowledge", parameters: { type: "object", properties: {} } }
+        ])
+        allow(tool_bridge).to receive(:execute_tool_loop).and_return(tool_loop_result)
+      end
+
+      it 'executes the agentic tool loop via the bridge' do
+        result = executor.execute(input_parameters)
+
+        expect(result["result"]["output"]).to eq("Based on the knowledge search, permissions work like this...")
+        expect(result["result"]["metadata"]["tool_call_count"]).to eq(1)
+        expect(tool_bridge).to have_received(:execute_tool_loop)
+      end
+
+      it 'includes accumulated tokens in metadata' do
+        result = executor.execute(input_parameters)
+
+        expect(result["result"]["metadata"]["tokens_used"]).to eq(125)
       end
     end
 
@@ -117,13 +161,9 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
 
     context 'when output guardrail blocks' do
       before do
-        allow(provider_client).to receive(:generate_text).and_return({
-          success: true,
-          data: {
-            "content" => [{ "text" => "Harmful content" }],
-            "usage" => { "total_tokens" => 10 }
-          }
-        })
+        allow(llm_client).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: "Harmful content", usage: { total_tokens: 10 })
+        )
 
         allow(guardrail_pipeline).to receive(:check_output).and_return({
           blocked: true,
@@ -138,13 +178,11 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
       end
     end
 
-    context 'when provider returns an error' do
+    context 'when LLM returns no content' do
       before do
-        allow(provider_client).to receive(:generate_text).and_return({
-          success: false,
-          error: "Model not found",
-          status_code: 404
-        })
+        allow(llm_client).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: nil, finish_reason: "error")
+        )
       end
 
       it 'returns an error response' do
@@ -152,22 +190,6 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
 
         expect(result).to have_key("error")
         expect(result["error"]["type"]).to eq("Ai::McpAgentExecutor::ProviderError")
-      end
-    end
-
-    context 'when provider returns auth error' do
-      before do
-        allow(provider_client).to receive(:generate_text).and_return({
-          success: false,
-          error: { "type" => "authentication_error", "message" => "Invalid API key" },
-          status_code: 401
-        })
-      end
-
-      it 'returns an error response with provider error type' do
-        result = executor.execute(input_parameters)
-
-        expect(result["error"]).to be_present
       end
     end
 

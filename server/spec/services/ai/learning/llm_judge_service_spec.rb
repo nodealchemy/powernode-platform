@@ -160,9 +160,9 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
     end
   end
 
-  describe "EVALUATION_PROMPT" do
+  describe "FALLBACK_PROMPT" do
     it "includes all four dimensions" do
-      prompt = described_class::EVALUATION_PROMPT
+      prompt = described_class::FALLBACK_PROMPT
       expect(prompt).to include("Correctness")
       expect(prompt).to include("Completeness")
       expect(prompt).to include("Helpfulness")
@@ -170,7 +170,7 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
     end
 
     it "requests JSON format response" do
-      expect(described_class::EVALUATION_PROMPT).to include("JSON format")
+      expect(described_class::FALLBACK_PROMPT).to include("JSON format")
     end
   end
 end
