@@ -261,6 +261,20 @@ module Ai
       mcp_agent_ids -= [message.ai_agent_id] if message.ai_agent_id.present?
       return if mcp_agent_ids.empty?
 
+      # For workspace conversations, only notify MCP clients that are either:
+      #   1. The primary agent (concierge) — always receives messages
+      #   2. Explicitly @mentioned in structured metadata or text content
+      # This prevents non-mentioned agents from receiving every message.
+      if workspace_conversation?
+        mentioned_agent_ids = resolve_mentioned_mcp_agents(message, mcp_agent_ids)
+
+        # Primary agent always receives; others only when @mentioned
+        mcp_agent_ids = mcp_agent_ids.select do |agent_id|
+          agent_id == ai_agent_id || mentioned_agent_ids.include?(agent_id)
+        end
+        return if mcp_agent_ids.empty?
+      end
+
       sessions = McpSession.active.where(ai_agent_id: mcp_agent_ids)
       return if sessions.empty?
 
@@ -282,6 +296,33 @@ module Ai
       end
     rescue StandardError => e
       Rails.logger.warn("[Conversation] Failed to notify MCP sessions: #{e.message}")
+    end
+
+    # Resolve which MCP agents are @mentioned in a message, checking both
+    # structured content_metadata and raw @Name text patterns in the content.
+    def resolve_mentioned_mcp_agents(message, candidate_agent_ids)
+      # 1. Structured mentions from content_metadata (frontend path)
+      structured_names = Array(message.content_metadata&.dig("mentions")).filter_map { |m| m["name"] || m[:name] }
+      mentioned_ids = if structured_names.present?
+        agent_team.members.by_agent_names(structured_names).pluck(:ai_agent_id)
+      else
+        []
+      end
+
+      # 2. Text @mentions from content (agent-to-agent tool path)
+      #    Only scan if structured mentions didn't already match all candidates
+      if mentioned_ids.empty? || (candidate_agent_ids - mentioned_ids).any?
+        content = message.content.to_s
+        if content.include?("@")
+          mcp_agents = Ai::Agent.where(id: candidate_agent_ids).pluck(:id, :name)
+          mcp_agents.each do |agent_id, agent_name|
+            next if mentioned_ids.include?(agent_id)
+            mentioned_ids << agent_id if content.include?("@#{agent_name}")
+          end
+        end
+      end
+
+      mentioned_ids
     end
 
     def set_conversation_id
