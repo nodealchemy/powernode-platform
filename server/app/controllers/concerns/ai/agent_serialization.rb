@@ -37,6 +37,7 @@ module Ai
         status: agent.status,
         version: agent.version,
         is_public: agent.is_public,
+        is_concierge: agent.is_concierge?,
         skill_slugs: agent.skill_slugs,
         created_at: agent.created_at.iso8601,
         updated_at: agent.updated_at.iso8601,

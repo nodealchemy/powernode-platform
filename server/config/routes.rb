@@ -1733,6 +1733,19 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
+        # WORKSPACES - Multi-agent collaborative conversations
+        # ===================================================================
+        resources :workspaces, only: [:index, :create, :show] do
+          collection do
+            get :active_sessions
+          end
+          member do
+            post :invite
+            delete "members/:agent_id", action: :remove_member, as: :remove_member
+          end
+        end
+
+        # ===================================================================
         # 5. MONITORING CONTROLLER - Consolidated monitoring & health
         # ===================================================================
         resource :monitoring, only: [], controller: :monitoring do
@@ -2869,6 +2882,7 @@ Rails.application.routes.draw do
       namespace :mcp do
         # MCP Streamable HTTP endpoint for external MCP clients (e.g., Claude Code)
         post "message", to: "streamable_http#message"
+        get "message", to: "streamable_http#stream"
         delete "message", to: "streamable_http#terminate_session"
 
         # MCP session management (view/revoke active sessions)

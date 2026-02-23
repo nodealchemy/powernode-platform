@@ -180,13 +180,33 @@ module Api
 
           # Concierge routing — process through ConciergeService
           if conversation.agent&.is_concierge?
-            concierge = ::Ai::ConciergeService.new(conversation: conversation, user: current_user)
-            concierge.process_message(content)
-            assistant_msg = conversation.messages.where.not(role: "user").order(created_at: :desc).first
+            # Resolve mentions early to determine if concierge should respond
+            mentioned_ids = nil
+            if conversation.workspace_conversation?
+              mentioned_ids = resolve_mentioned_agent_ids(conversation, params.dig(:message, :metadata))
+            end
+
+            # Concierge responds when: no mentions (broadcast) OR concierge is explicitly mentioned
+            concierge_targeted = mentioned_ids.nil? || mentioned_ids.include?(conversation.ai_agent_id)
+
+            if concierge_targeted
+              concierge = ::Ai::ConciergeService.new(conversation: conversation, user: current_user)
+              concierge.process_message(content)
+            end
+
+            assistant_msg = concierge_targeted ?
+              conversation.messages.where.not(role: "user").order(created_at: :desc).first : nil
+
+            # Dispatch workspace responses only when agents are explicitly @mentioned
+            if conversation.workspace_conversation? && mentioned_ids.present?
+              dispatch_workspace_responses(conversation, user_message, mentioned_agent_ids: mentioned_ids)
+              notify_mentioned_mcp_clients(conversation, user_message, mentioned_ids)
+            end
+
             return render_success({
               user_message: serialize_message(user_message),
               assistant_message: assistant_msg ? serialize_message(assistant_msg) : nil,
-              concierge_routed: true,
+              concierge_routed: concierge_targeted,
               conversation: { id: conversation.id, message_count: conversation.reload.message_count }
             })
           end
@@ -265,7 +285,25 @@ module Api
         def messages
           agent = current_user.account.ai_agents.find(params[:agent_id])
           conversation = agent.conversations.includes(messages: :user).find_by(id: params[:id]) ||
-                         agent.conversations.includes(messages: :user).find_by!(conversation_id: params[:id])
+                         agent.conversations.includes(messages: :user).find_by(conversation_id: params[:id])
+
+          # Fall back to team membership lookup for workspace conversations
+          # (workspace conversations belong to the concierge, not the MCP client)
+          if conversation.nil?
+            conversation = ::Ai::Conversation
+              .joins(agent_team: :members)
+              .where(ai_agent_team_members: { ai_agent_id: agent.id })
+              .includes(messages: :user)
+              .find_by(id: params[:id]) ||
+            ::Ai::Conversation
+              .joins(agent_team: :members)
+              .where(ai_agent_team_members: { ai_agent_id: agent.id })
+              .includes(messages: :user)
+              .find_by(conversation_id: params[:id])
+          end
+
+          raise ActiveRecord::RecordNotFound unless conversation
+
           msgs = conversation.messages.not_deleted.ordered.page(params[:page] || 1).per(params[:per_page] || 50)
 
           render_success({
@@ -335,11 +373,98 @@ module Api
           render_error("Agent not found", status: :not_found)
         end
 
+        # Dispatch background response jobs for non-primary workspace team members
+        # When mentioned_agent_ids is present, only dispatches to those specific agents.
+        # When nil, dispatches to all eligible agents (broadcast behavior).
+        def dispatch_workspace_responses(conversation, trigger_message, mentioned_agent_ids: nil)
+          team = conversation.agent_team
+          return unless team&.team_type == "workspace"
+
+          primary_agent_id = conversation.ai_agent_id
+
+          team.members.includes(:agent).each do |member|
+            agent = member.agent
+            next if agent.id == primary_agent_id
+            next if agent.agent_type == "mcp_client" # Notified via SSE; respond through their own mechanisms
+            next unless agent.status == "active"
+            next unless agent.provider&.is_active?
+
+            # If mentions were specified, only dispatch to mentioned agents
+            next if mentioned_agent_ids.present? && !mentioned_agent_ids.include?(agent.id)
+
+            WorkerJobService.enqueue_workspace_response(
+              conversation.id,
+              trigger_message.id,
+              agent.id,
+              conversation.account_id
+            )
+          rescue WorkerJobService::WorkerServiceError => e
+            Rails.logger.warn("[WORKSPACE] Failed to dispatch response for agent #{agent.id}: #{e.message}")
+          end
+        end
+
+        # Resolve @mention names from message metadata to agent IDs
+        def resolve_mentioned_agent_ids(conversation, raw_metadata)
+          mentions = raw_metadata&.dig("mentions") || raw_metadata&.dig(:mentions)
+          return nil if mentions.blank? || !mentions.is_a?(Array)
+
+          team = conversation.agent_team
+          return nil unless team
+
+          mentioned_members = team.members.by_agent_names(
+            mentions.map { |m| m["name"] || m[:name] }.compact
+          )
+          agent_ids = mentioned_members.map(&:ai_agent_id)
+          agent_ids.presence
+        end
+
+        # Send targeted mention notifications to MCP client agents
+        def notify_mentioned_mcp_clients(conversation, message, mentioned_agent_ids)
+          return if mentioned_agent_ids.blank?
+
+          team = conversation.agent_team
+          return unless team
+
+          mcp_members = team.members.includes(:agent)
+            .where(ai_agent_id: mentioned_agent_ids)
+            .where(ai_agents: { agent_type: "mcp_client" })
+
+          return if mcp_members.empty?
+
+          mcp_members.each do |member|
+            sessions = McpSession.active.where(ai_agent_id: member.ai_agent_id)
+            next if sessions.empty?
+
+            notification = {
+              type: "mention",
+              conversation_id: conversation.conversation_id,
+              workspace: team.name,
+              mentioned_agent_id: member.ai_agent_id,
+              message: {
+                id: message.message_id,
+                role: message.role,
+                content: message.content.to_s.truncate(500),
+                sender: message.user&.name || "Unknown",
+                created_at: message.created_at&.iso8601
+              }
+            }.to_json
+
+            sessions.find_each do |session|
+              ActionCable.server.pubsub.broadcast("mcp_session:#{session.session_token}", notification)
+            end
+          end
+        rescue StandardError => e
+          Rails.logger.warn("[WORKSPACE] Failed to notify mentioned MCP clients: #{e.message}")
+        end
+
         def set_conversation
-          @conversation = current_user.account.ai_conversations
+          account = current_user&.account || current_account
+          return render_error("Conversation not found", status: :not_found) unless account
+
+          @conversation = account.ai_conversations
                            .includes(:user, :agent, :provider, messages: [:user])
                            .find_by(id: params[:id]) ||
-                         current_user.account.ai_conversations
+                         account.ai_conversations
                            .includes(:user, :agent, :provider, messages: [:user])
                            .find_by(conversation_id: params[:id])
           render_error("Conversation not found", status: :not_found) unless @conversation

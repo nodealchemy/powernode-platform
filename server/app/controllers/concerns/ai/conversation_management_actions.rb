@@ -100,6 +100,7 @@ module Ai
 
     # POST /api/v1/ai/conversations/:id/worker_complete
     # Internal endpoint for worker to broadcast completed chat response
+    # Accepts optional agent_id param for workspace responses (message attribution)
     def worker_complete
       conversation = current_account_conversations.find_by(id: params[:id]) ||
                      current_account_conversations.find_by(conversation_id: params[:id])
@@ -108,8 +109,15 @@ module Ai
       content = params[:content]
       return render_error("Content required", status: :bad_request) if content.blank?
 
+      # Resolve agent for message attribution (workspace responses specify their own agent)
+      responding_agent = nil
+      if params[:agent_id].present?
+        responding_agent = conversation.account.ai_agents.find_by(id: params[:agent_id])
+      end
+
       assistant_message = conversation.add_assistant_message(
         content,
+        agent: responding_agent,
         message_type: "text",
         token_count: params[:token_count]&.to_i || 0,
         cost_usd: params[:cost_usd]&.to_f || 0.0,
@@ -335,7 +343,8 @@ module Ai
     end
 
     def current_account_conversations
-      current_user&.account&.ai_conversations || ::Ai::Conversation.none
+      account = current_user&.account || current_account
+      account&.ai_conversations || ::Ai::Conversation.none
     end
   end
 end

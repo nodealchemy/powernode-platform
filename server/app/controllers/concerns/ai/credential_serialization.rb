@@ -35,7 +35,7 @@ module Ai
         credential_keys: credential.credentials&.keys || []
       )
 
-      if current_user&.has_permission?("ai.credentials.decrypt")
+      if current_user&.has_permission?("ai.credentials.decrypt") || current_worker
         result[:credentials] = credential.credentials
       end
 

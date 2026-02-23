@@ -93,6 +93,10 @@ module Api
 
         # DELETE /api/v1/ai/agents/:id
         def destroy
+          if @agent.is_concierge?
+            return render_error("Cannot delete the concierge agent", status: :unprocessable_entity)
+          end
+
           agent_name = @agent.name
           @agent.destroy
 
@@ -258,7 +262,10 @@ module Api
         # =============================================================================
 
         def set_agent
-          @agent = current_user.account.ai_agents.find(params[:agent_id] || params[:id])
+          account = current_user&.account || current_account
+          return render_error("Agent not found", status: :not_found) unless account
+
+          @agent = account.ai_agents.find(params[:agent_id] || params[:id])
         rescue ActiveRecord::RecordNotFound
           render_error("Agent not found", status: :not_found)
         end

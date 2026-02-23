@@ -78,6 +78,15 @@ class WorkerJobService
       })
     end
 
+    # Enqueue workspace response job for a non-primary team member agent
+    def enqueue_workspace_response(conversation_id, message_id, agent_id, account_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiWorkspaceResponseJob",
+        "args" => [conversation_id, message_id, agent_id, account_id],
+        "queue" => "ai_conversations"
+      })
+    end
+
     # Enqueue AI agent execution job
     def enqueue_ai_agent_execution(agent_execution_id)
       new.make_worker_request("POST", "/api/v1/jobs", {

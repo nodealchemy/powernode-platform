@@ -79,7 +79,7 @@ module Ai
       }
 
       if conversation.team_conversation? && conversation.agent_team
-        data[:agent_team] = { id: conversation.agent_team.id, name: conversation.agent_team.name }
+        data[:agent_team] = { id: conversation.agent_team.id, name: conversation.agent_team.name, team_type: conversation.agent_team.team_type }
       end
 
       data
