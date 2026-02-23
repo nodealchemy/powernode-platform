@@ -73,11 +73,9 @@ describe('authApi', () => {
 
       mockApi.post.mockResolvedValue(createMockAxiosResponse(mockResponse));
 
-      const result = await authApi.refreshToken('refresh_token123');
+      const result = await authApi.refreshToken();
 
-      expect(mockApi.post).toHaveBeenCalledWith('/auth/refresh', {
-        refresh_token: 'refresh_token123'
-      });
+      expect(mockApi.post).toHaveBeenCalledWith('/auth/refresh');
       expect(result.data).toEqual(mockResponse);
     });
   });
