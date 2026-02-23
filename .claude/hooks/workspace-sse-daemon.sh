@@ -1,0 +1,568 @@
+#!/usr/bin/env bash
+# Workspace SSE Daemon — maintains an SSE connection to the Powernode MCP endpoint
+# and writes workspace events (mentions, messages) to a JSONL inbox file.
+#
+# Usage:
+#   workspace-sse-daemon.sh start   — Start daemon in background
+#   workspace-sse-daemon.sh stop    — Stop running daemon
+#   workspace-sse-daemon.sh status  — Show daemon status
+#   workspace-sse-daemon.sh tail    — Tail recent events
+#   workspace-sse-daemon.sh refresh — Force token refresh
+
+set -eo pipefail
+
+# --- Configuration ---
+PLATFORM_URL="${POWERNODE_URL:-http://localhost:3000}"
+SSE_ENDPOINT="${PLATFORM_URL}/api/v1/mcp/message"
+SERVER_DIR="${POWERNODE_ROOT:-/opt/powernode}/server"
+
+INBOX_FILE="/tmp/powernode_workspace_inbox.jsonl"
+PID_FILE="/tmp/powernode_sse_daemon.pid"
+LOG_FILE="/tmp/powernode_sse_daemon.log"
+TOKEN_FILE="/tmp/powernode_sse_token.txt"
+SESSION_FILE="/tmp/powernode_sse_session.txt"
+SEEN_FILE="/tmp/powernode_sse_seen_ids.txt"
+
+# Known identifiers
+OAUTH_APP_ID="019c82df-099c-7ac1-bc37-b0d60622c828"
+AGENT_ID="019c8809-a94d-79ef-adac-d0c3bb741eff"
+RESOURCE_OWNER_ID="019c0d95-0db5-7a8e-ae19-629a783d2b70"
+
+MAX_INBOX_LINES=100
+TOKEN_REFRESH_INTERVAL=1800  # 30 minutes
+MAX_BACKOFF=30
+NUDGE_COOLDOWN=10  # seconds between tmux nudges (prevents spam)
+
+# --- Tmux Nudge ---
+# Finds the tmux pane running Claude Code and injects a prompt to trigger
+# the UserPromptSubmit hook, which reads the inbox and shows the message.
+_last_nudge=0
+
+nudge_claude() {
+  local now
+  now=$(date +%s)
+
+  # Rate-limit: don't nudge more often than NUDGE_COOLDOWN seconds
+  if (( now - _last_nudge < NUDGE_COOLDOWN )); then
+    log "Nudge skipped (cooldown)"
+    return
+  fi
+
+  # Find the tmux pane running claude
+  local target
+  target=$(tmux list-panes -a -F '#{session_name}:#{window_index}.#{pane_index} #{pane_current_command}' 2>/dev/null \
+    | grep -m1 ' claude$' \
+    | cut -d' ' -f1) || true
+
+  if [[ -z "$target" ]]; then
+    log "Nudge: no tmux pane running claude found"
+    return
+  fi
+
+  # Send text first with -l (literal), pause, then Enter separately.
+  # The delay lets Claude Code's input handler process the text before
+  # receiving Enter as a distinct keypress event.
+  tmux send-keys -t "$target" -l "check workspace messages" 2>/dev/null && \
+    sleep 0.2 && \
+    tmux send-keys -t "$target" Enter 2>/dev/null && {
+    _last_nudge=$now
+    log "Nudge sent to tmux pane $target"
+  } || {
+    log "Nudge: tmux send-keys failed for $target"
+  }
+}
+
+# --- Logging ---
+log() {
+  echo "[$(date -Iseconds)] $*" >> "$LOG_FILE"
+}
+
+log_and_echo() {
+  local msg="[$(date -Iseconds)] $*"
+  echo "$msg" >> "$LOG_FILE"
+  echo "$msg"
+}
+
+# --- Token Management ---
+refresh_token() {
+  log "Refreshing OAuth token via rails runner..."
+
+  local ruby_script
+  ruby_script=$(cat <<RUBY
+app = Doorkeeper::Application.find("$OAUTH_APP_ID")
+token = Doorkeeper::AccessToken.create!(
+  application: app,
+  resource_owner_id: "$RESOURCE_OWNER_ID",
+  scopes: "read write",
+  expires_in: 7200,
+  use_refresh_token: false
+)
+print token.plaintext_token || token.token
+RUBY
+)
+
+  local new_token
+  new_token=$(cd "$SERVER_DIR" && bin/rails runner "$ruby_script" 2>>"$LOG_FILE")
+
+  if [[ -n "$new_token" && ${#new_token} -gt 10 ]]; then
+    echo -n "$new_token" > "$TOKEN_FILE"
+    log "Token refreshed successfully (${#new_token} chars)"
+    return 0
+  else
+    log "ERROR: Token refresh failed — got empty or short response"
+    return 1
+  fi
+}
+
+get_token() {
+  if [[ -f "$TOKEN_FILE" && -s "$TOKEN_FILE" ]]; then
+    cat "$TOKEN_FILE"
+  else
+    return 1
+  fi
+}
+
+# --- MCP Session Management ---
+ensure_session() {
+  if [[ -f "$SESSION_FILE" && -s "$SESSION_FILE" ]]; then
+    local existing
+    existing=$(cat "$SESSION_FILE")
+    local check_script="s = McpSession.active.find_by(session_token: \"$existing\"); print s ? \"active\" : \"expired\""
+    local status
+    status=$(cd "$SERVER_DIR" && bin/rails runner "$check_script" 2>>"$LOG_FILE") || true
+    if [[ "$status" == "active" ]]; then
+      return 0
+    fi
+    log "Session $existing expired, creating new one"
+  fi
+
+  local session_script
+  session_script=$(cat <<RUBY
+session = McpSession.active
+  .where(ai_agent_id: "$AGENT_ID")
+  .order(last_activity_at: :desc)
+  .first
+
+unless session
+  user = User.find("$RESOURCE_OWNER_ID")
+  session = McpSession.create!(
+    user: user,
+    account: user.account,
+    protocol_version: "2025-11-25",
+    client_info: { name: "workspace-sse-daemon", version: "1.0" },
+    ip_address: "127.0.0.1",
+    user_agent: "workspace-sse-daemon/1.0",
+    expires_at: 24.hours.from_now,
+    oauth_application_id: "$OAUTH_APP_ID",
+    ai_agent_id: "$AGENT_ID"
+  )
+end
+print session.session_token
+RUBY
+)
+
+  local session_token
+  session_token=$(cd "$SERVER_DIR" && bin/rails runner "$session_script" 2>>"$LOG_FILE")
+
+  if [[ -n "$session_token" ]]; then
+    echo -n "$session_token" > "$SESSION_FILE"
+    log "MCP session: $session_token"
+    return 0
+  else
+    log "ERROR: Failed to get/create MCP session"
+    return 1
+  fi
+}
+
+# --- Deduplication ---
+mark_seen() {
+  local msg_id="$1"
+  echo "$msg_id" >> "$SEEN_FILE"
+  # Keep file bounded
+  if [[ -f "$SEEN_FILE" ]]; then
+    local count
+    count=$(wc -l < "$SEEN_FILE")
+    if (( count > 500 )); then
+      tail -200 "$SEEN_FILE" > "${SEEN_FILE}.tmp" && mv "${SEEN_FILE}.tmp" "$SEEN_FILE"
+    fi
+  fi
+}
+
+is_seen() {
+  local msg_id="$1"
+  [[ -n "$msg_id" && -f "$SEEN_FILE" ]] && grep -qF "$msg_id" "$SEEN_FILE"
+}
+
+# --- Inbox Management ---
+write_event() {
+  local json="$1"
+  echo "$json" >> "$INBOX_FILE"
+  if [[ -f "$INBOX_FILE" ]]; then
+    local count
+    count=$(wc -l < "$INBOX_FILE")
+    if (( count > MAX_INBOX_LINES )); then
+      tail -$((MAX_INBOX_LINES / 2)) "$INBOX_FILE" > "${INBOX_FILE}.tmp" && mv "${INBOX_FILE}.tmp" "$INBOX_FILE"
+    fi
+  fi
+}
+
+# --- SSE Event Processor ---
+# Uses python3 for robust JSON parsing — avoids shell string escaping nightmares.
+# Reads the raw SSE data JSON and writes a normalized inbox entry.
+process_sse_event() {
+  local event_type="$1"
+  local data="$2"
+
+  # Skip non-workspace events
+  case "$event_type" in
+    ping|open) return ;;
+    message) return ;;  # MCP JSON-RPC notifications
+    message_created|mention|ai_response_complete) ;;
+    *) log "Ignoring event type: $event_type"; return ;;
+  esac
+
+  # Use python3 for all JSON operations — safe against any content.
+  # Handles two broadcast formats:
+  #   1. ActionCable channel: {type, message: {id, sender_type, sender_info: {name}, content, ...}}
+  #   2. MCP session pubsub:  {type, conversation_id, workspace, message: {id, sender, content, ...}}
+  local result
+  result=$(python3 -c "
+import json, sys
+from datetime import datetime, timezone
+
+raw = sys.argv[1]
+event_type = sys.argv[2]
+seen_file = sys.argv[3]
+
+try:
+    d = json.loads(raw)
+except json.JSONDecodeError:
+    sys.exit(1)
+
+# The event may have a nested 'message' object (both broadcast formats do)
+msg = d.get('message', {}) if isinstance(d.get('message'), dict) else {}
+
+# Extract message_id for dedup — try message.id first, then top-level
+msg_id = str(msg.get('id', '') or d.get('message_id', '') or '')
+
+# Check dedup
+if msg_id:
+    try:
+        with open(seen_file, 'r') as f:
+            if msg_id in f.read():
+                print('DEDUP')
+                sys.exit(0)
+    except FileNotFoundError:
+        pass
+
+# Extract sender — multiple possible locations:
+#   - message.sender (MCP pubsub format: plain string)
+#   - message.sender_info.name (ActionCable format: object)
+#   - top-level sender_name (manual/test broadcasts)
+sender = ''
+if isinstance(msg.get('sender'), str) and msg['sender']:
+    sender = msg['sender']
+elif isinstance(msg.get('sender_info'), dict):
+    sender = msg['sender_info'].get('name', '')
+if not sender:
+    sender = d.get('sender_name', '') or d.get('sender', '') or ''
+    if isinstance(sender, dict):
+        sender = sender.get('name', '')
+sender = sender or 'Unknown'
+
+# Extract content — from message.content or top-level
+content = str(msg.get('content', '') or d.get('content', '') or '')
+
+# Extract workspace name — top-level only (MCP pubsub format has it)
+workspace = str(d.get('workspace', '') or d.get('workspace_name', '') or '')
+
+# Conversation ID — top-level or from d
+conv_id = str(d.get('conversation_id', '') or '')
+
+entry = {
+    'ts': datetime.now(timezone.utc).isoformat(),
+    'event': event_type,
+    'workspace': workspace,
+    'sender': sender,
+    'content': content,
+    'message_id': msg_id,
+    'conversation_id': conv_id,
+    'read': False
+}
+
+print(json.dumps(entry))
+" "$data" "$event_type" "$SEEN_FILE" 2>>"$LOG_FILE") || return
+
+  if [[ "$result" == "DEDUP" ]]; then
+    log "Dedup: skipping duplicate event"
+    return
+  fi
+
+  if [[ -n "$result" ]]; then
+    write_event "$result"
+    # Extract fields via python (tab-delimited to preserve names with spaces)
+    local fields msg_id sender content
+    fields=$(echo "$result" | python3 -c "
+import sys, json
+e = json.load(sys.stdin)
+print(e.get('message_id','') + '\t' + e.get('sender','?') + '\t' + e.get('content','')[:120])
+" 2>/dev/null) || fields="?\t?\t?"
+    IFS=$'\t' read -r msg_id sender content <<< "$fields"
+    [[ -n "$msg_id" ]] && mark_seen "$msg_id"
+    log "EVENT [$event_type] from $sender"
+
+    # Desktop notification
+    if command -v notify-send &>/dev/null; then
+      local urgency="normal"
+      [[ "$event_type" == "mention" ]] && urgency="critical"
+      notify-send -u "$urgency" -i dialog-information -a "Powernode" \
+        "$sender" "$content" 2>/dev/null || true
+    fi
+
+    # Nudge Claude Code via tmux — skip our own agent's messages to avoid loops
+    if [[ "$sender" != *Claude\ Code* ]]; then
+      nudge_claude
+    fi
+  fi
+}
+
+# --- SSE Connection ---
+# Uses process substitution instead of pipe to avoid subshell variable scope issues.
+run_sse_loop() {
+  local token session_id
+  token=$(get_token) || { log "ERROR: No token available"; return 1; }
+  session_id=$(cat "$SESSION_FILE" 2>/dev/null) || { log "ERROR: No session available"; return 1; }
+
+  log "Connecting to SSE: $SSE_ENDPOINT (session: ${session_id:0:12}...)"
+
+  local current_event="" current_data="" curl_pid
+
+  # Start curl in background, read from its fd
+  exec 3< <(curl -sS -N \
+    --max-time 0 \
+    -H "Authorization: Bearer $token" \
+    -H "Mcp-Session-Id: $session_id" \
+    -H "Accept: text/event-stream" \
+    -H "Cache-Control: no-cache" \
+    "$SSE_ENDPOINT" 2>>"$LOG_FILE"; echo "___CURL_EXIT___")
+  curl_pid=$!
+
+  while IFS= read -r line <&3; do
+    # Strip trailing \r
+    line="${line%$'\r'}"
+
+    if [[ "$line" == "___CURL_EXIT___" ]]; then
+      break
+    elif [[ "$line" == event:* ]]; then
+      current_event="${line#event: }"
+    elif [[ "$line" == data:* ]]; then
+      # Handle multi-line data by appending
+      if [[ -z "$current_data" ]]; then
+        current_data="${line#data: }"
+      else
+        current_data="${current_data}${line#data: }"
+      fi
+    elif [[ -z "$line" ]]; then
+      # Empty line = end of SSE frame
+      if [[ -n "$current_event" && -n "$current_data" ]]; then
+        process_sse_event "$current_event" "$current_data"
+      fi
+      current_event=""
+      current_data=""
+    fi
+  done
+
+  exec 3<&-
+  wait "$curl_pid" 2>/dev/null || true
+
+  log "SSE connection closed"
+  return 1
+}
+
+# --- Daemon Loop ---
+_run_daemon_loop() {
+  trap '_cleanup' EXIT SIGTERM SIGINT
+
+  local backoff=1
+  local last_token_refresh
+  last_token_refresh=$(date +%s)
+
+  while true; do
+    # Periodic token refresh
+    local now
+    now=$(date +%s)
+    if (( now - last_token_refresh > TOKEN_REFRESH_INTERVAL )); then
+      log "Periodic token refresh..."
+      if refresh_token; then
+        last_token_refresh=$now
+        backoff=1
+      fi
+    fi
+
+    # Ensure session is valid
+    ensure_session || { sleep "$backoff"; continue; }
+
+    # Run SSE connection (blocks until disconnect)
+    if run_sse_loop; then
+      backoff=1
+    else
+      log "SSE disconnected, reconnecting in ${backoff}s..."
+      sleep "$backoff"
+      backoff=$(( backoff * 2 ))
+      (( backoff > MAX_BACKOFF )) && backoff=$MAX_BACKOFF
+    fi
+  done
+}
+
+_cleanup() {
+  log "Daemon shutting down..."
+  rm -f "$PID_FILE"
+  # Kill child processes (curl etc.)
+  kill -- -$$ 2>/dev/null || true
+  log "Daemon stopped"
+}
+
+# --- Daemon Control ---
+start_daemon() {
+  if is_running; then
+    log_and_echo "Daemon already running (PID: $(cat "$PID_FILE"))"
+    return 0
+  fi
+
+  log_and_echo "Starting workspace SSE daemon..."
+
+  # Ensure token
+  if [[ ! -f "$TOKEN_FILE" ]] || [[ ! -s "$TOKEN_FILE" ]]; then
+    log_and_echo "No token found, refreshing..."
+    refresh_token || { log_and_echo "ERROR: Cannot start without token"; return 1; }
+  fi
+
+  # Ensure session
+  ensure_session || { log_and_echo "ERROR: Cannot start without MCP session"; return 1; }
+
+  # Launch daemon in background via nohup
+  nohup "$0" _daemon >> "$LOG_FILE" 2>&1 &
+  local daemon_pid=$!
+  disown "$daemon_pid" 2>/dev/null || true
+  echo "$daemon_pid" > "$PID_FILE"
+
+  log_and_echo "Daemon started (PID: $daemon_pid)"
+  log_and_echo "  Inbox:   $INBOX_FILE"
+  log_and_echo "  Log:     $LOG_FILE"
+  log_and_echo "  Session: $(cat "$SESSION_FILE" 2>/dev/null | head -c 12)..."
+}
+
+stop_daemon() {
+  if ! is_running; then
+    log_and_echo "Daemon is not running"
+    rm -f "$PID_FILE"
+    return 0
+  fi
+
+  local pid
+  pid=$(cat "$PID_FILE")
+  log_and_echo "Stopping daemon (PID: $pid)..."
+  kill "$pid" 2>/dev/null || true
+
+  # Wait for clean shutdown (up to 5s)
+  local i=0
+  while (( i < 10 )) && kill -0 "$pid" 2>/dev/null; do
+    sleep 0.5
+    i=$((i + 1))
+  done
+
+  if kill -0 "$pid" 2>/dev/null; then
+    log_and_echo "Force-killing daemon..."
+    kill -9 "$pid" 2>/dev/null || true
+  fi
+
+  rm -f "$PID_FILE"
+  log_and_echo "Daemon stopped"
+}
+
+is_running() {
+  [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null
+}
+
+show_status() {
+  if is_running; then
+    local pid
+    pid=$(cat "$PID_FILE")
+    echo "Workspace SSE daemon: RUNNING (PID: $pid)"
+    local inbox_count=0
+    [[ -f "$INBOX_FILE" ]] && inbox_count=$(wc -l < "$INBOX_FILE")
+    echo "  Inbox:   $INBOX_FILE ($inbox_count events)"
+    echo "  Log:     $LOG_FILE"
+    echo "  Token:   $TOKEN_FILE ($(stat -c%s "$TOKEN_FILE" 2>/dev/null || echo 0) bytes)"
+    echo "  Session: $(cat "$SESSION_FILE" 2>/dev/null || echo 'none')"
+    echo ""
+    local unread=0
+    [[ -f "$INBOX_FILE" ]] && unread=$(grep -c '"read": false' "$INBOX_FILE" 2>/dev/null || true)
+    echo "  Unread events: ${unread:-0}"
+    echo ""
+    echo "  Last 3 log entries:"
+    tail -3 "$LOG_FILE" 2>/dev/null | sed 's/^/    /'
+  else
+    echo "Workspace SSE daemon: STOPPED"
+    if [[ -f "$PID_FILE" ]]; then
+      echo "  (stale PID file exists — daemon may have crashed)"
+    fi
+  fi
+}
+
+tail_events() {
+  if [[ ! -f "$INBOX_FILE" ]]; then
+    echo "No events (inbox file does not exist)"
+    return
+  fi
+
+  local count
+  count=$(wc -l < "$INBOX_FILE")
+  echo "Last 10 events (of $count total):"
+  echo ""
+
+  tail -10 "$INBOX_FILE" | python3 -c "
+import json, sys
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        e = json.loads(line)
+        ts = e.get('ts', '?')
+        evt = e.get('event', '?')
+        sender = e.get('sender', '?')
+        content = e.get('content', '')[:60]
+        status = 'read' if e.get('read') else 'UNREAD'
+        print(f'  [{ts}] ({evt}) {sender}: {content} [{status}]')
+    except json.JSONDecodeError:
+        print(f'  [parse error] {line[:60]}')
+" 2>/dev/null
+}
+
+# --- Main ---
+case "${1:-}" in
+  start)
+    start_daemon
+    ;;
+  stop)
+    stop_daemon
+    ;;
+  status)
+    show_status
+    ;;
+  tail)
+    tail_events
+    ;;
+  refresh)
+    refresh_token && echo "Token refreshed" || echo "Token refresh failed"
+    ;;
+  _daemon)
+    # Internal: called by start_daemon via nohup
+    _run_daemon_loop
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|status|tail|refresh}"
+    exit 1
+    ;;
+esac
