@@ -44,24 +44,24 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
         raise ActiveRecord::RecordInvalid.new(@user)
       end
 
-      # Create subscription if plan is selected
-      plan_id = params[:plan_id] || params.dig(:user, :plan_id)
-      if plan_id.present?
-        plan = Plan.find_by(id: plan_id, status: "active", is_public: true)
-        if plan
-          # Create subscription with trial period
-          @subscription = @account.build_subscription(
-            plan: plan,
-            status: "trialing",
-            quantity: 1,
-            trial_start: Time.current,
-            trial_end: Time.current + plan.trial_days.days,
-            current_period_start: Time.current,
-            current_period_end: Time.current + plan.trial_days.days
-          )
-          @subscription.save!
-
-          # Note: Plan-based role assignment not implemented in single-role system
+      # Create subscription if plan is selected (enterprise billing only)
+      if Shared::FeatureGateService.billing_enabled?
+        plan_id = params[:plan_id] || params.dig(:user, :plan_id)
+        if plan_id.present?
+          plan = Billing::Plan.find_by(id: plan_id, status: "active", is_public: true)
+          if plan
+            # Create subscription with trial period
+            @subscription = @account.build_subscription(
+              plan: plan,
+              status: "trialing",
+              quantity: 1,
+              trial_start: Time.current,
+              trial_end: Time.current + plan.trial_days.days,
+              current_period_start: Time.current,
+              current_period_end: Time.current + plan.trial_days.days
+            )
+            @subscription.save!
+          end
         end
       end
 

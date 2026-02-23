@@ -75,7 +75,7 @@ class Api::V1::ReportsController < ApplicationController
                 name: "plan_id",
                 type: "select",
                 label: "Plan",
-                options: Plan.pluck(:name),
+                options: (defined?(Billing::Plan) ? Billing::Plan.pluck(:name) : []),
                 required: false
               }
             ]
@@ -608,7 +608,12 @@ class Api::V1::ReportsController < ApplicationController
   def export_subscription_data_csv
     require "csv"
 
-    subscriptions = @account_scope ? @account_scope.subscriptions : Subscription.all
+    subscription_class = defined?(Billing::Subscription) ? Billing::Subscription : nil
+    subscriptions = if subscription_class
+      @account_scope ? @account_scope.subscriptions : subscription_class.all
+    else
+      return CSV.generate(headers: true) { |csv| csv << ["Billing not available"] }
+    end
     subscriptions = subscriptions.includes(:account, :plan)
 
     CSV.generate(headers: true) do |csv|

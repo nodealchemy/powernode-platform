@@ -282,12 +282,7 @@ Rails.application.routes.draw do
           end
         end
 
-        # Internal subscriptions for worker dunning
-        resources :subscriptions, only: [ :show ] do
-          member do
-            post :dunning
-          end
-        end
+        # Internal subscriptions for worker dunning (enterprise only, see enterprise routes)
 
         # Email sending for worker notifications
         namespace :emails do
@@ -349,18 +344,7 @@ Rails.application.routes.draw do
           end
         end
 
-        # Billing endpoints for worker service
-        namespace :billing do
-          post :process_renewal
-          post :retry_payment
-          post :process_payment
-          post :generate_invoice
-          post :suspend_subscription
-          post :cancel_subscription
-          post :cleanup
-          post :health_report
-          post :reactivate_suspended_accounts
-        end
+        # Billing endpoints for worker service (enterprise only, see enterprise routes)
 
         # Internal AI endpoints (for worker service)
         namespace :ai do
@@ -714,16 +698,7 @@ Rails.application.routes.draw do
       end
       resources :permissions, only: [ :index, :show ]
 
-      # Plans management (admin only for create/update/delete)
-      resources :plans do
-        collection do
-          get :status
-        end
-        member do
-          post :duplicate
-          put :toggle_status
-        end
-      end
+      # Plans management is in enterprise/server/config/routes.rb
 
       # Site settings management (admin only)
       resources :site_settings do
@@ -749,6 +724,10 @@ Rails.application.routes.draw do
         post :activate_account, on: :member
         get :metrics, on: :member
         get :health, on: :member
+
+        # Extensions management
+        get :extensions, on: :member
+        put "extensions/:slug/toggle", on: :member, action: :toggle_extension
 
         # Development / enterprise toggle
         get :development, on: :member
@@ -970,36 +949,12 @@ Rails.application.routes.draw do
 
       # Predictive analytics, reseller routes are in enterprise/server/config/routes.rb
 
-      # Payment reconciliation endpoints (service-to-service)
-      namespace :reconciliation do
-        get :stripe_payments
-        get :paypal_payments
-        post :report
-        post :corrections
-        post :flags
-        post :investigations
-      end
+      # Payment reconciliation is in enterprise/server/config/routes.rb
 
-      # Webhook sync endpoints (service-to-service)
+      # Webhook endpoints (billing webhooks are in enterprise routes)
       namespace :webhooks do
-        # External webhook receivers (inbound from providers)
-        post "stripe", to: "stripe#handle"
-        post "paypal", to: "paypal#handle"
+        # Git webhook receiver (core)
         post "git/:provider_type", to: "git#handle"
-
-        namespace :stripe_sync, path: "stripe" do
-          post :invoice_paid
-          post :invoice_failed
-          post :subscription_updated
-          post :subscription_canceled
-          post :payment_succeeded
-          post :payment_failed
-          post :setup_intent_succeeded
-          post :payment_method_attached
-          post :payment_method_detached
-          post :unhandled_event
-          post :activate_subscription
-        end
 
         # Generic webhook event processing (for worker service)
         resources :events, only: [ :show, :update ] do
@@ -1009,16 +964,6 @@ Rails.application.routes.draw do
             patch :failed
           end
         end
-
-        # Generic webhook processing endpoints (for worker service compatibility)
-        post :payment_succeeded
-        post :payment_failed
-        post :subscription_updated
-        post :subscription_cancelled
-        post :subscription_activated
-        post :payment_method_attached
-        post :payment_intent_succeeded
-        post :payment_intent_failed
       end
 
       # Webhook events resource (top-level for worker compatibility)

@@ -597,10 +597,14 @@ class Api::V1::AnalyticsController < ApplicationController
         []
       end
     else
-      Subscription.active.joins(:plan)
-                .group("plans.name")
-                .count
-                .map { |plan_name, count| { plan: plan_name, customers: count } }
+      if defined?(Billing::Subscription)
+        Billing::Subscription.active.joins(:plan)
+                  .group("plans.name")
+                  .count
+                  .map { |plan_name, count| { plan: plan_name, customers: count } }
+      else
+        []
+      end
     end
   end
 
@@ -611,7 +615,7 @@ class Api::V1::AnalyticsController < ApplicationController
                       sub = @account_scope.subscription
                       sub&.active? ? [ sub ] : []
     else
-                      Subscription.active.to_a
+                      defined?(Billing::Subscription) ? Billing::Subscription.active.to_a : []
     end
 
     segments = {
@@ -673,17 +677,22 @@ class Api::V1::AnalyticsController < ApplicationController
         0
       end
     else
-      Subscription.where(status: status)
-                  .where(created_at: Date.current.beginning_of_day..Date.current.end_of_day)
-                  .count
+      if defined?(Billing::Subscription)
+        Billing::Subscription.where(status: status)
+                    .where(created_at: Date.current.beginning_of_day..Date.current.end_of_day)
+                    .count
+      else
+        0
+      end
     end
   end
 
   def count_todays_payments(status)
+    return 0 unless defined?(Billing::Payment)
     base_query = if @account_scope
-                  Payment.joins(subscription: :account).where(subscriptions: { accounts: { id: @account_scope.id } })
+                  Billing::Payment.joins(invoice: { subscription: :account }).where(accounts: { id: @account_scope.id })
     else
-                  Payment.all
+                  Billing::Payment.all
     end
     base_query.where(status: status)
               .where(created_at: Date.current.beginning_of_day..Date.current.end_of_day)
@@ -691,10 +700,11 @@ class Api::V1::AnalyticsController < ApplicationController
   end
 
   def calculate_todays_revenue
+    return 0 unless defined?(Billing::Payment)
     base_query = if @account_scope
-                  Payment.joins(subscription: :account).where(subscriptions: { accounts: { id: @account_scope.id } })
+                  Billing::Payment.joins(invoice: { subscription: :account }).where(accounts: { id: @account_scope.id })
     else
-                  Payment.all
+                  Billing::Payment.all
     end
     successful_payments = base_query.where(status: :successful)
                                    .where(created_at: Date.current.beginning_of_day..Date.current.end_of_day)
@@ -714,30 +724,41 @@ class Api::V1::AnalyticsController < ApplicationController
       if @account_scope
         sub = @account_scope.subscription
         new_subs = (sub && sub.created_at.between?(date.beginning_of_day, date.end_of_day)) ? 1 : 0
+      elsif subscription_class
+        new_subs = subscription_class.where(created_at: date.beginning_of_day..date.end_of_day).count
       else
-        new_subs = Subscription.where(created_at: date.beginning_of_day..date.end_of_day).count
+        new_subs = 0
       end
 
       # Count payments for this day
-      base_payments = if @account_scope
-                       Payment.joins(subscription: :account).where(subscriptions: { accounts: { id: @account_scope.id } })
+      if defined?(Billing::Payment)
+        base_payments = if @account_scope
+                         Billing::Payment.joins(invoice: { subscription: :account }).where(accounts: { id: @account_scope.id })
+        else
+                         Billing::Payment.all
+        end
+        payments = base_payments.where(status: :successful)
+                               .where(created_at: date.beginning_of_day..date.end_of_day)
+        revenue = (payments.sum(:amount_cents) / 100.0).round(2)
+        payments_count = payments.count
       else
-                       Payment.all
+        revenue = 0
+        payments_count = 0
       end
-      payments = base_payments.where(status: :successful)
-                             .where(created_at: date.beginning_of_day..date.end_of_day)
-
-      revenue = (payments.sum(:amount_cents) / 100.0).round(2)
 
       trend_data.unshift({
         date: date.iso8601,
         new_subscriptions: new_subs,
         revenue: revenue,
-        payments_count: payments.count
+        payments_count: payments_count
       })
     end
 
     trend_data
+  end
+
+  def subscription_class
+    defined?(Billing::Subscription) ? Billing::Subscription : nil
   end
 
   def broadcast_analytics_update(data)

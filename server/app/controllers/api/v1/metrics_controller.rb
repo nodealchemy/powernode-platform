@@ -106,9 +106,9 @@ module Api
       def business_health_metrics
         {
           total_users: User.count,
-          active_subscriptions: Subscription.active.count,
-          total_revenue_cents: Subscription.active.joins(:plan).sum("plans.price"),
-          successful_payments_today: Payment.successful.where("created_at >= ?", 1.day.ago).count
+          active_subscriptions: subscription_class&.active&.count || 0,
+          total_revenue_cents: (subscription_class&.active&.joins(:plan)&.sum("plans.price")) || 0,
+          successful_payments_today: defined?(Billing::Payment) ? Billing::Payment.successful.where("created_at >= ?", 1.day.ago).count : 0
         }
       rescue StandardError => e
         Rails.logger.error "Business metrics error: #{e.message}"
@@ -129,30 +129,38 @@ module Api
 
       def subscription_metrics
         {
-          total: Subscription.count,
-          active: Subscription.active.count,
-          cancelled: Subscription.cancelled.count,
-          expired: Subscription.expired.count,
-          trial: Subscription.trial.count,
-          by_plan: Subscription.joins(:plan).group("plans.name").count,
-          monthly_revenue_cents: Subscription.active.joins(:plan).sum("plans.price"),
-          churn_rate_percent: calculate_churn_rate,
-          new_this_month: Subscription.where("created_at >= ?", 1.month.ago).count
+          subscriptions: if subscription_class
+            {
+              total: subscription_class.count,
+              active: subscription_class.active.count,
+              cancelled: subscription_class.cancelled.count,
+              expired: subscription_class.expired.count,
+              trial: subscription_class.trial.count,
+              by_plan: subscription_class.joins(:plan).group("plans.name").count,
+              monthly_revenue_cents: subscription_class.active.joins(:plan).sum("plans.price"),
+              mrr: (subscription_class.active.joins(:plan).sum("plans.price") / 100.0).round(2),
+              new_this_month: subscription_class.where("created_at >= ?", 1.month.ago).count
+            }
+          else
+            { total: 0, active: 0, cancelled: 0, expired: 0, trial: 0, by_plan: {}, monthly_revenue_cents: 0, mrr: 0, new_this_month: 0 }
+          end,
+          churn_rate_percent: calculate_churn_rate
         }
       end
 
       def payment_metrics
+        return { total: 0, successful: 0, failed: 0, pending: 0, total_amount_cents: 0, today: 0, this_week: 0, this_month: 0, by_provider: {}, average_amount_cents: 0 } unless defined?(Billing::Payment)
         {
-          total: Payment.count,
-          successful: Payment.successful.count,
-          failed: Payment.failed.count,
-          pending: Payment.pending.count,
-          total_amount_cents: Payment.successful.sum(:amount_cents),
-          today: Payment.where("created_at >= ?", 1.day.ago).count,
-          this_week: Payment.where("created_at >= ?", 1.week.ago).count,
-          this_month: Payment.where("created_at >= ?", 1.month.ago).count,
-          by_provider: Payment.group(:provider).count,
-          average_amount_cents: Payment.successful.average(:amount_cents)&.round
+          total: Billing::Payment.count,
+          successful: Billing::Payment.successful.count,
+          failed: Billing::Payment.failed.count,
+          pending: Billing::Payment.pending.count,
+          total_amount_cents: Billing::Payment.successful.sum(:amount_cents),
+          today: Billing::Payment.where("created_at >= ?", 1.day.ago).count,
+          this_week: Billing::Payment.where("created_at >= ?", 1.week.ago).count,
+          this_month: Billing::Payment.where("created_at >= ?", 1.month.ago).count,
+          by_provider: Billing::Payment.group(:provider).count,
+          average_amount_cents: Billing::Payment.successful.average(:amount_cents)&.round
         }
       end
 
@@ -206,16 +214,18 @@ module Api
       end
 
       def calculate_churn_rate
+        return 0.0 unless subscription_class
+
         current_month_start = Date.current.beginning_of_month
         last_month_start = 1.month.ago.beginning_of_month
         last_month_end = 1.month.ago.end_of_month
 
-        active_last_month = Subscription.where(
+        active_last_month = subscription_class.where(
           "created_at <= ? AND (cancelled_at IS NULL OR cancelled_at > ?)",
           last_month_end, last_month_end
         ).count
 
-        cancelled_last_month = Subscription.where(
+        cancelled_last_month = subscription_class.where(
           cancelled_at: last_month_start..last_month_end
         ).count
 
@@ -225,6 +235,10 @@ module Api
       rescue StandardError => e
         Rails.logger.error "Failed to calculate churn rate: #{e.message}"
         0
+      end
+
+      def subscription_class
+        defined?(Billing::Subscription) ? Billing::Subscription : nil
       end
 
       def calculate_database_size

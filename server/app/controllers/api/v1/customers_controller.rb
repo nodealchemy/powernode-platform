@@ -11,7 +11,9 @@ class Api::V1::CustomersController < ApplicationController
     accounts_query = build_accounts_query
 
     total_count = accounts_query.count
-    accounts = accounts_query.includes(:users, :subscription, subscription: :plan)
+    includes_list = [:users]
+    includes_list += [:subscription, { subscription: :plan }] if Shared::FeatureGateService.billing_enabled?
+    accounts = accounts_query.includes(*includes_list)
                               .limit(per_page)
                               .offset((page - 1) * per_page)
 
@@ -30,7 +32,9 @@ class Api::V1::CustomersController < ApplicationController
   end
 
   def show
-    account = Account.includes(:users, :subscription, subscription: :plan).find(params[:id])
+    includes_list = [:users]
+    includes_list += [:subscription, { subscription: :plan }] if Shared::FeatureGateService.billing_enabled?
+    account = Account.includes(*includes_list).find(params[:id])
 
     render_success(
       data: {
@@ -48,10 +52,10 @@ class Api::V1::CustomersController < ApplicationController
       # Create account
       @account = Account.create!(account_data.merge(status: "active"))
 
-      # Create subscription if plan provided
-      if plan_id.present?
-        plan = Plan.find(plan_id)
-        @subscription = Subscription.create!(
+      # Create subscription if plan provided (enterprise billing only)
+      if plan_id.present? && Shared::FeatureGateService.billing_enabled?
+        plan = Billing::Plan.find(plan_id)
+        @subscription = Billing::Subscription.create!(
           account: @account,
           plan: plan,
           status: "active",
@@ -268,7 +272,7 @@ class Api::V1::CustomersController < ApplicationController
     {
       total_customers: Account.count,
       active_customers: Account.where(status: "active").count,
-      active_subscriptions: Subscription.where(status: [ "active", "trialing" ]).count,
+      active_subscriptions: subscription_class ? subscription_class.where(status: [ "active", "trialing" ]).count : 0,
       new_this_month: Account.where(created_at: current_time.beginning_of_month..current_time.end_of_month).count,
       total_mrr: calculate_total_mrr,
       churn_rate: calculate_churn_rate
@@ -276,7 +280,8 @@ class Api::V1::CustomersController < ApplicationController
   end
 
   def calculate_total_mrr
-    Subscription.includes(:plan).where(status: [ "active", "trialing" ]).to_a.sum do |subscription|
+    return 0 unless subscription_class
+    subscription_class.includes(:plan).where(status: [ "active", "trialing" ]).to_a.sum do |subscription|
       case subscription.plan.billing_cycle
       when "monthly"
         subscription.plan.price_cents
@@ -296,6 +301,10 @@ class Api::V1::CustomersController < ApplicationController
 
     return 0 if customers_at_start == 0
     (churned_customers.to_f / customers_at_start * 100).round(2)
+  end
+
+  def subscription_class
+    defined?(Billing::Subscription) ? Billing::Subscription : nil
   end
 
   def broadcast_customer_change(event_type, account)
