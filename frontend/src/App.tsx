@@ -19,8 +19,13 @@ import { NotificationContainer } from '@/shared/components/ui/NotificationContai
 
 // Pages
 import { LoginPage } from '@/pages/public/LoginPage';
-import { RegisterPage } from '@/pages/public/RegisterPage';
-import { PlanSelectionPage } from '@/pages/public/PlanSelectionPage';
+// Registration and plan selection are enterprise features, lazy-loaded when available
+const RegisterPage = (typeof __ENTERPRISE__ !== 'undefined' && __ENTERPRISE__)
+  ? React.lazy(() => import('@enterprise/pages/public/RegisterPage'))
+  : () => React.createElement('div', { className: 'p-8 text-center text-theme-secondary' }, 'Registration is available in Enterprise edition.');
+const PlanSelectionPage = (typeof __ENTERPRISE__ !== 'undefined' && __ENTERPRISE__)
+  ? React.lazy(() => import('@enterprise/pages/public/PlanSelectionPage'))
+  : () => React.createElement('div', { className: 'p-8 text-center text-theme-secondary' }, 'Plan selection is available in Enterprise edition.');
 import { DashboardPage } from '@/pages/app/DashboardPage';
 import { ForgotPasswordPage } from '@/pages/public/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/public/ResetPasswordPage';
@@ -180,7 +185,9 @@ const AppContent: React.FC = () => {
             path="/plans"
             element={
               <PublicRoute>
-                <PlanSelectionPage />
+                <React.Suspense fallback={<LoadingSpinner message="Loading..." />}>
+                  <PlanSelectionPage />
+                </React.Suspense>
               </PublicRoute>
             }
           />
@@ -200,7 +207,9 @@ const AppContent: React.FC = () => {
             path="/register"
             element={
               <PublicRoute>
-                <RegisterPage />
+                <React.Suspense fallback={<LoadingSpinner message="Loading..." />}>
+                  <RegisterPage />
+                </React.Suspense>
               </PublicRoute>
             }
           />

@@ -31,3 +31,15 @@ declare module '@enterprise/pages/admin/AdminSettingsPaymentGatewaysTabPage' {
   const Component: ComponentType;
   export default Component;
 }
+
+declare module '@enterprise/pages/public/RegisterPage' {
+  import { ComponentType } from 'react';
+  const Component: ComponentType;
+  export default Component;
+}
+
+declare module '@enterprise/pages/public/PlanSelectionPage' {
+  import { ComponentType } from 'react';
+  const Component: ComponentType;
+  export default Component;
+}
