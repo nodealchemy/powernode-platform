@@ -3,12 +3,14 @@ import { api } from '@/shared/services/api';
 
 interface ConfigState {
   enterpriseEnabled: boolean;
+  billingEnabled: boolean;
   coreMode: boolean;
   isLoaded: boolean;
 }
 
 const initialState: ConfigState = {
   enterpriseEnabled: false,
+  billingEnabled: false,
   coreMode: true,
   isLoaded: false,
 };
@@ -30,6 +32,7 @@ const configSlice = createSlice({
       const features = action.payload?.features;
       if (features) {
         state.enterpriseEnabled = features.enterprise_enabled ?? false;
+        state.billingEnabled = features.billing_enabled ?? false;
         state.coreMode = features.core_mode ?? true;
       }
       state.isLoaded = true;

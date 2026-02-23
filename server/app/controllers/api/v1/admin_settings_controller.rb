@@ -132,6 +132,89 @@ class Api::V1::AdminSettingsController < ApplicationController
   end
 
   # =============================================================================
+  # EXTENSIONS MANAGEMENT
+  # =============================================================================
+
+  # GET /api/v1/admin_settings/extensions
+  def extensions
+    extensions_dir = Rails.root.join("..", "extensions")
+    extensions = []
+
+    if extensions_dir.directory?
+      extensions_dir.children.select(&:directory?).each do |ext_dir|
+        meta_file = ext_dir.join("extension.json")
+        next unless meta_file.exist?
+
+        begin
+          meta = JSON.parse(meta_file.read)
+          slug = meta["slug"] || ext_dir.basename.to_s
+          extensions << {
+            slug: slug,
+            name: meta["name"] || slug.titleize,
+            description: meta["description"],
+            icon: meta["icon"],
+            version: meta["version"],
+            author: meta["author"],
+            homepage: meta["homepage"],
+            capabilities: meta["capabilities"] || [],
+            installed: extension_installed?(slug),
+            enabled: extension_enabled?(slug, meta)
+          }
+        rescue JSON::ParserError => e
+          Rails.logger.warn "Invalid extension.json in #{ext_dir.basename}: #{e.message}"
+        end
+      end
+    end
+
+    render_success(extensions: extensions)
+  end
+
+  # PUT /api/v1/admin_settings/extensions/:slug/toggle
+  def toggle_extension
+    slug = params[:slug]
+    extensions_dir = Rails.root.join("..", "extensions", slug)
+    meta_file = extensions_dir.join("extension.json")
+
+    unless meta_file.exist?
+      return render_error("Extension '#{slug}' not found", :not_found)
+    end
+
+    meta = JSON.parse(meta_file.read)
+    feature_flag = meta["feature_flag"]
+
+    unless feature_flag.present?
+      return render_error("Extension '#{slug}' does not support toggling", :unprocessable_content)
+    end
+
+    unless extension_installed?(slug)
+      return render_error("Extension '#{slug}' engine is not loaded", :unprocessable_content)
+    end
+
+    enabled = ActiveModel::Type::Boolean.new.cast(params[:enabled])
+
+    if defined?(Flipper)
+      if enabled
+        Flipper.enable(feature_flag.to_sym)
+      else
+        Flipper.disable(feature_flag.to_sym)
+      end
+    end
+
+    new_state = extension_enabled?(slug, meta)
+
+    log_audit_event("extension_toggle", "SystemSettings",
+                    metadata: { extension: slug, enabled: new_state })
+
+    render_success(
+      slug: slug,
+      enabled: new_state,
+      message: "#{meta['name'] || slug.titleize} #{new_state ? 'enabled' : 'disabled'}"
+    )
+  rescue JSON::ParserError
+    render_error("Invalid extension metadata for '#{slug}'", :unprocessable_content)
+  end
+
+  # =============================================================================
   # DEVELOPMENT / ENTERPRISE TOGGLE
   # =============================================================================
 
@@ -317,6 +400,33 @@ class Api::V1::AdminSettingsController < ApplicationController
   # =============================================================================
   # HELPERS
   # =============================================================================
+
+  # Check if an extension's engine is loaded in the Rails runtime
+  def extension_installed?(slug)
+    case slug
+    when "enterprise"
+      Shared::FeatureGateService.enterprise_loaded?
+    else
+      false
+    end
+  end
+
+  # Check if an extension is enabled via its feature flag
+  def extension_enabled?(slug, meta)
+    case slug
+    when "enterprise"
+      Shared::FeatureGateService.enterprise_enabled?
+    else
+      flag = meta["feature_flag"]
+      return false unless flag.present? && defined?(Flipper)
+
+      begin
+        Flipper.enabled?(flag.to_sym)
+      rescue StandardError
+        false
+      end
+    end
+  end
 
   def update_settings_metadata
     metadata = Rails.cache.fetch("system_settings_metadata") || { created_at: Time.current }

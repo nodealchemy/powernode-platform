@@ -1,5 +1,18 @@
 import { api } from '@/shared/services/api';
 
+export interface ExtensionInfo {
+  slug: string;
+  name: string;
+  description: string;
+  icon: string;
+  version: string;
+  author: string;
+  homepage?: string;
+  capabilities: string[];
+  installed: boolean;
+  enabled: boolean;
+}
+
 export interface DevelopmentFeatureFlag {
   name: string;
   enabled: boolean;
@@ -499,6 +512,43 @@ class AdminSettingsApi {
         return 'gray';
       default:
         return 'gray';
+    }
+  }
+
+  // Extensions Management
+  async getExtensions(): Promise<{ success: boolean; data?: { extensions: ExtensionInfo[] }; error?: string }> {
+    try {
+      const response = await api.get('/admin_settings/extensions');
+      const responseData = response.data;
+      if (responseData.success !== undefined) {
+        return responseData;
+      }
+      return { success: true, data: responseData };
+    } catch (error) {
+      const errorMessage =
+        error && typeof error === 'object' && 'response' in error
+          ? (error as { response?: { data?: { error?: string } } }).response?.data?.error ||
+            'Failed to fetch extensions'
+          : 'Failed to fetch extensions';
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  async toggleExtension(slug: string, enabled: boolean): Promise<{ success: boolean; data?: { slug: string; enabled: boolean; message: string }; error?: string }> {
+    try {
+      const response = await api.put(`/admin_settings/extensions/${slug}/toggle`, { enabled });
+      const responseData = response.data;
+      if (responseData.success !== undefined) {
+        return responseData;
+      }
+      return { success: true, data: responseData };
+    } catch (error) {
+      const errorMessage =
+        error && typeof error === 'object' && 'response' in error
+          ? (error as { response?: { data?: { error?: string } } }).response?.data?.error ||
+            'Failed to toggle extension'
+          : 'Failed to toggle extension';
+      return { success: false, error: errorMessage };
     }
   }
 

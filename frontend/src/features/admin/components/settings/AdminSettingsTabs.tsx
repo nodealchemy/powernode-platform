@@ -5,7 +5,7 @@ import { useSelector } from 'react-redux';
 import {
   CreditCard, Mail, Gauge,
   LayoutDashboard, ShieldAlert,
-  Network, Lock, Wrench
+  Network, Lock, Wrench, Puzzle
 } from 'lucide-react';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
@@ -16,10 +16,11 @@ interface AdminSettingsTab {
   id: string;
   label: string;
   href: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   description: string;
   requiredPermissions?: string[];
   enterpriseOnly?: boolean;
+  enterpriseInstalledOnly?: boolean;
 }
 
 const adminSettingsTabs: AdminSettingsTab[] = [
@@ -30,6 +31,14 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     icon: LayoutDashboard,
     description: 'System overview and quick admin actions'
     // No specific permissions required - covered by parent admin.settings.read
+  },
+  {
+    id: 'extensions',
+    label: 'Extensions',
+    href: '/app/admin/settings/extensions',
+    icon: Puzzle,
+    description: 'Manage platform extensions and modules',
+    requiredPermissions: ['admin.settings.read']
   },
   {
     id: 'payment-gateways',
@@ -86,8 +95,7 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     href: '/app/admin/settings/development',
     icon: Wrench,
     description: 'Development tools and enterprise mode toggle',
-    requiredPermissions: ['admin.settings.read'],
-    enterpriseOnly: true
+    requiredPermissions: ['admin.settings.read']
   }
 ];
 
@@ -99,13 +107,19 @@ export const AdminSettingsTabs: React.FC<AdminSettingsTabsProps> = ({ className 
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);
-  const { enterpriseEnabled } = useSelector((state: RootState) => state.config);
-  const enterpriseAvailable = (typeof __ENTERPRISE__ !== 'undefined' && __ENTERPRISE__) && enterpriseEnabled;
+  const { enterpriseEnabled, coreMode } = useSelector((state: RootState) => state.config);
+  const enterpriseBuild = typeof __ENTERPRISE__ !== 'undefined' && __ENTERPRISE__;
+  const enterpriseAvailable = enterpriseBuild && enterpriseEnabled;
+  const enterpriseInstalled = enterpriseBuild && !coreMode;
 
   // Filter tabs based on user permissions and enterprise availability
   const availableTabs = adminSettingsTabs.filter(tab => {
-    // Hide enterprise-only tabs when enterprise is not available
+    // Hide enterprise-only tabs when enterprise is not available (installed + enabled)
     if (tab.enterpriseOnly && !enterpriseAvailable) {
+      return false;
+    }
+    // Hide enterprise-installed-only tabs when enterprise engine is not loaded
+    if (tab.enterpriseInstalledOnly && !enterpriseInstalled) {
       return false;
     }
     if (!tab.requiredPermissions || tab.requiredPermissions.length === 0) {

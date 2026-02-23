@@ -20,10 +20,12 @@ import AdminSettingsRateLimitingTabPage from './AdminSettingsRateLimitingTabPage
 import { AdminSettingsPerformanceTabPage } from './AdminSettingsPerformanceTabPage';
 import { AdminSettingsProxyTabPage } from './AdminSettingsProxyTabPage';
 import { AdminSettingsDevelopmentTabPage } from './AdminSettingsDevelopmentTabPage';
+import { AdminSettingsExtensionsTabPage } from './AdminSettingsExtensionsTabPage';
 
 // Tab definitions for breadcrumbs
 const settingsTabs = [
   { id: 'overview', label: 'Overview', path: '/app/admin/settings', icon: '📊' },
+  { id: 'extensions', label: 'Extensions', path: '/app/admin/settings/extensions', icon: '🧩' },
   { id: 'payment-gateways', label: 'Payment Gateways', path: '/app/admin/settings/payment-gateways', icon: '💳' },
   { id: 'email', label: 'Email Settings', path: '/app/admin/settings/email', icon: '📧' },
   { id: 'proxy', label: 'Reverse Proxy', path: '/app/admin/settings/proxy', icon: '🌐' },
@@ -94,6 +96,7 @@ export const AdminSettingsPage: React.FC = () => {
           <Route path="/overview" element={<Navigate to="/app/admin/settings" replace />} />
           
           {/* Admin Settings Tabs */}
+          <Route path="/extensions" element={<AdminSettingsExtensionsTabPage />} />
           <Route path="/payment-gateways" element={<AdminSettingsPaymentGatewaysTabPage />} />
           <Route path="/email" element={<AdminSettingsEmailTabPage />} />
           <Route path="/proxy" element={<AdminSettingsProxyTabPage />} />
