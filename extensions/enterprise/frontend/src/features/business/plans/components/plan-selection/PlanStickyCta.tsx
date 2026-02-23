@@ -1,6 +1,6 @@
 import React from 'react';
 import { CheckIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
-import { Plan } from '@/features/business/plans/services/plansApi';
+import { Plan } from '@enterprise/features/business/plans/services/plansApi';
 
 interface PlanStickyCtaProps {
   selectedPlan: Plan | null;

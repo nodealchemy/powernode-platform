@@ -1,5 +1,5 @@
 
-import { Plan } from '@/features/business/plans/services/plansApi';
+import { Plan } from '@enterprise/features/business/plans/services/plansApi';
 import { Button } from '@/shared/components/ui/Button';
 import {
   calculateDiscountedPrice,

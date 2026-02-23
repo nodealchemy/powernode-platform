@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
-import { Plan } from '@/features/business/plans/services/plansApi';
+import { Plan } from '@enterprise/features/business/plans/services/plansApi';
 
 interface PlanComparisonModalProps {
   isOpen: boolean;

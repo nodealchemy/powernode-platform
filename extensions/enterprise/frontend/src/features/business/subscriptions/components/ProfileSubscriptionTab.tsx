@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/shared/services';
-import { fetchSubscriptions, createSubscription, updateSubscription, setAvailablePlans } from '@/shared/services/slices/subscriptionSlice';
+import { fetchSubscriptions, createSubscription, updateSubscription, setAvailablePlans } from '@enterprise/shared/slices/subscriptionSlice';
 import { CurrentPlanSummary } from './CurrentPlanSummary';
 import { SubscriptionModal } from './SubscriptionModal';
-import { useSubscriptionWebSocket } from '@/shared/hooks/useSubscriptionWebSocket';
+import { useSubscriptionWebSocket } from '@enterprise/shared/hooks/useSubscriptionWebSocket';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { SubscriptionPlan, Subscription } from '@/shared/types';
 

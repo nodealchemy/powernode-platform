@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SubscriptionPlanCard } from './SubscriptionPlanCard';
-import { Plan } from '@/features/business/plans/services/plansApi';
+import { Plan } from '@enterprise/features/business/plans/services/plansApi';
 
 // Mock Button component
 jest.mock('@/shared/components/ui/Button', () => ({

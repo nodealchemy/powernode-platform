@@ -7,8 +7,8 @@ import {
   plansApi,
   Plan,
   DetailedPlan
-} from '@/features/business/plans/services/plansApi';
-import { PlanFormModal } from '@/features/admin/components/PlanFormModal';
+} from '@enterprise/features/business/plans/services/plansApi';
+import { PlanFormModal } from '@enterprise/features/admin/components/PlanFormModal';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { plansApi, Plan } from '@/features/business/plans/services/plansApi';
+import { plansApi, Plan } from '@enterprise/features/business/plans/services/plansApi';
 import {
   CheckIcon,
   ShieldCheckIcon,
@@ -8,8 +8,8 @@ import {
   ScaleIcon,
   ArrowRightIcon
 } from '@heroicons/react/24/outline';
-import { PlanCard } from '@/features/business/plans/components/PlanCard';
-import { AnnualSavingsCalculator } from '@/features/business/plans/components/AnnualSavingsCalculator';
+import { PlanCard } from '@enterprise/features/business/plans/components/PlanCard';
+import { AnnualSavingsCalculator } from '@enterprise/features/business/plans/components/AnnualSavingsCalculator';
 import {
   PlanComparisonModal,
   PublicFooter,
@@ -19,7 +19,7 @@ import {
   isPlanPopular,
   getAllPlanFeatures,
   planHasFeature
-} from '@/features/business/plans/components/plan-selection';
+} from '@enterprise/features/business/plans/components/plan-selection';
 
 
 export const PlanSelectionPage: React.FC = () => {

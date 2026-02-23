@@ -10,7 +10,7 @@ import { register, clearError } from '@/shared/services/slices/authSlice';
 
 import { addNotification } from '@/shared/services/slices/uiSlice';
 
-import { plansApi, Plan } from '@/features/business/plans/services/plansApi';
+import { plansApi, Plan } from '@enterprise/features/business/plans/services/plansApi';
 
 import { getErrorMessage } from '@/shared/utils/errorHandling';
 import ErrorAlert from '@/shared/components/ui/ErrorAlert';

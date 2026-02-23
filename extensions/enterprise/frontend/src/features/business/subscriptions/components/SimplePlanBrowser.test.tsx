@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SimplePlanBrowser } from './SimplePlanBrowser';
-import { Plan } from '@/features/business/plans/services/plansApi';
+import { Plan } from '@enterprise/features/business/plans/services/plansApi';
 import { Subscription } from '@/shared/types';
 
 describe('SimplePlanBrowser', () => {

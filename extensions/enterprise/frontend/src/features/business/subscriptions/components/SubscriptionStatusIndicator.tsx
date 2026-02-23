@@ -1,5 +1,5 @@
 
-import { useSubscriptionLifecycle } from '@/shared/hooks/useSubscriptionLifecycle';
+import { useSubscriptionLifecycle } from '@enterprise/shared/hooks/useSubscriptionLifecycle';
 import { Subscription } from '@/shared/types';
 
 interface SubscriptionStatusIndicatorProps {

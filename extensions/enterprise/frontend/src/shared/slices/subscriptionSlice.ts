@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { subscriptionService, CreateSubscriptionRequest, UpdateSubscriptionRequest } from '@/features/business/subscriptions/services/subscriptionService';
+import { subscriptionService, CreateSubscriptionRequest, UpdateSubscriptionRequest } from '@enterprise/features/business/subscriptions/services/subscriptionService';
 import { Subscription, SubscriptionPlan } from '@/shared/types';
 
 interface SubscriptionState {

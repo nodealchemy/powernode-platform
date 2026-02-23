@@ -1,4 +1,4 @@
-import { Plan } from '@/features/business/plans/services/plansApi';
+import { Plan } from '@enterprise/features/business/plans/services/plansApi';
 
 /**
  * Feature labels for better display

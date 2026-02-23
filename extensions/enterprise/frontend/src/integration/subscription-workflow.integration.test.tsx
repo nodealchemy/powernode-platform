@@ -4,7 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { authApi } from '@/features/account/auth/services/authAPI';
-import { plansApi } from '@/features/business/plans/services/plansApi';
+import { plansApi } from '@enterprise/features/business/plans/services/plansApi';
 import { createMockPlan } from '@/shared/utils/test-utils';
 
 // Mock all APIs
