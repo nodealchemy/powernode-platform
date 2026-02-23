@@ -33,18 +33,20 @@ TOKEN_REFRESH_INTERVAL=1800  # 30 minutes
 MAX_BACKOFF=30
 NUDGE_COOLDOWN=10  # seconds between tmux nudges (prevents spam)
 
-# --- Tmux Nudge ---
-# Finds the tmux pane running Claude Code and injects a prompt to trigger
-# the UserPromptSubmit hook, which reads the inbox and shows the message.
+# --- Tmux Injection ---
+# Finds the tmux pane running Claude Code and injects the message content
+# directly as a prompt. Slash commands (/clear, /commit) are passed through
+# as-is so Claude Code handles them natively.
 _last_nudge=0
 
 nudge_claude() {
+  local message_content="${1:-}"
   local now
   now=$(date +%s)
 
-  # Rate-limit: don't nudge more often than NUDGE_COOLDOWN seconds
+  # Rate-limit: don't inject more often than NUDGE_COOLDOWN seconds
   if (( now - _last_nudge < NUDGE_COOLDOWN )); then
-    log "Nudge skipped (cooldown)"
+    log "Inject skipped (cooldown)"
     return
   fi
 
@@ -55,20 +57,25 @@ nudge_claude() {
     | cut -d' ' -f1) || true
 
   if [[ -z "$target" ]]; then
-    log "Nudge: no tmux pane running claude found"
+    log "Inject: no tmux pane running claude found"
     return
   fi
 
-  # Send text first with -l (literal), pause, then Enter separately.
-  # The delay lets Claude Code's input handler process the text before
-  # receiving Enter as a distinct keypress event.
-  tmux send-keys -t "$target" -l "check workspace messages" 2>/dev/null && \
+  # Strip leading @mention of our agent name (the user is talking to us)
+  local cleaned
+  cleaned=$(echo "$message_content" | sed 's/^@Claude Code ([^)]*) #[0-9]* *//')
+
+  # Use the actual message content as the prompt, or a default fallback
+  local prompt="${cleaned:-check workspace messages}"
+
+  # Send text with -l (literal) to handle special chars, pause, then Enter.
+  tmux send-keys -t "$target" -l "$prompt" 2>/dev/null && \
     sleep 0.2 && \
     tmux send-keys -t "$target" Enter 2>/dev/null && {
     _last_nudge=$now
-    log "Nudge sent to tmux pane $target"
+    log "Injected to tmux pane $target: ${prompt:0:60}"
   } || {
-    log "Nudge: tmux send-keys failed for $target"
+    log "Inject: tmux send-keys failed for $target"
   }
 }
 
@@ -319,9 +326,9 @@ print(e.get('message_id','') + '\t' + e.get('sender','?') + '\t' + e.get('conten
         "$sender" "$content" 2>/dev/null || true
     fi
 
-    # Nudge Claude Code via tmux — skip our own agent's messages to avoid loops
+    # Inject into Claude Code via tmux — skip our own agent's messages to avoid loops
     if [[ "$sender" != *Claude\ Code* ]]; then
-      nudge_claude
+      nudge_claude "$content"
     fi
   fi
 }
