@@ -256,6 +256,9 @@ dist
 # Claude Flow system metrics and cache
 .claude-flow/
 
+# Claude Code worktrees (temporary isolated git worktrees from agent execution)
+.claude/worktrees/
+
 # IDE and editor files (consolidated)
 .vscode/
 .idea/
