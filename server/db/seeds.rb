@@ -57,84 +57,90 @@ else
   end
 end
 
-# Create default plans
-administrator_plan = Plan.find_or_create_by!(name: 'Administrator') do |plan|
-  plan.description = 'Special plan for system administrators'
-  plan.price_cents = 0
-  plan.currency = 'USD'
-  plan.billing_interval = 'monthly'
-  plan.trial_period_days = 0
-  plan.features = {
-    # Core Features (all included for admin)
-    'community_access' => true,
-    'dashboard_access' => true,
-    'mobile_responsive' => true,
-    'email_notifications' => true,
-    'basic_reporting' => true,
-    'standard_support' => true,
-    'basic_analytics' => true,
-    # Advanced Features (all included for admin)
-    'email_support' => true,
-    'advanced_analytics' => true,
-    'priority_support' => true,
-    'api_access' => true,
-    'custom_branding' => true,
-    'data_export' => true,
-    'team_collaboration' => true,
-    'webhook_integrations' => true,
-    # Enterprise Features (all included for admin)
-    'custom_fields' => true,
-    'advanced_filters' => true,
-    'custom_integrations' => true,
-    'dedicated_support' => true,
-    'white_label' => true,
-    'sso_integration' => true,
-    'advanced_security' => true,
-    'audit_logs' => true,
-    'sla_guarantees' => true,
-    # Marketplace Publishing (unlimited for admins)
-    'marketplace_publish_enabled' => true,
-    'marketplace_publish_limit' => nil
-  }
-  plan.limits = {
-    'max_users' => 9999,
-    'max_api_keys' => 100,
-    'max_webhooks' => 100,
-    'max_workers' => 100,
-    'max_repositories' => 9999
-  }
-  plan.is_public = false # Hidden from public view
-  plan.slug = 'administrator'
-end
+# Create default plans (only when billing models are available)
+if defined?(Billing::Plan) || defined?(Plan)
+  plan_class = defined?(Billing::Plan) ? Billing::Plan : Plan
 
-# Self-Hosted plan (core mode)
-self_hosted_plan = Plan.find_or_create_by!(slug: 'self-hosted') do |plan|
-  plan.name = 'Self-Hosted'
-  plan.description = 'Self-hosted installation with all features enabled'
-  plan.price_cents = 0
-  plan.currency = 'USD'
-  plan.billing_interval = 'monthly'
-  plan.trial_period_days = 0
-  plan.features = {
-    'community_access' => true, 'dashboard_access' => true, 'mobile_responsive' => true,
-    'email_notifications' => true, 'basic_reporting' => true, 'standard_support' => true,
-    'basic_analytics' => true, 'email_support' => true, 'advanced_analytics' => true,
-    'priority_support' => true, 'api_access' => true, 'custom_branding' => true,
-    'data_export' => true, 'team_collaboration' => true, 'webhook_integrations' => true,
-    'custom_fields' => true, 'advanced_filters' => true, 'custom_integrations' => true,
-    'dedicated_support' => true, 'white_label' => true, 'sso_integration' => true,
-    'advanced_security' => true, 'audit_logs' => true, 'sla_guarantees' => true,
-    'marketplace_publish_enabled' => true, 'marketplace_publish_limit' => nil
-  }
-  plan.limits = {
-    'max_users' => 1, 'max_api_keys' => 100, 'max_webhooks' => 100,
-    'max_workers' => 100, 'max_repositories' => 9999
-  }
-  plan.is_public = false
-  plan.slug = 'self-hosted'
-end
+  administrator_plan = plan_class.find_or_create_by!(name: 'Administrator') do |plan|
+    plan.description = 'Special plan for system administrators'
+    plan.price_cents = 0
+    plan.currency = 'USD'
+    plan.billing_interval = 'monthly'
+    plan.trial_period_days = 0
+    plan.features = {
+      # Core Features (all included for admin)
+      'community_access' => true,
+      'dashboard_access' => true,
+      'mobile_responsive' => true,
+      'email_notifications' => true,
+      'basic_reporting' => true,
+      'standard_support' => true,
+      'basic_analytics' => true,
+      # Advanced Features (all included for admin)
+      'email_support' => true,
+      'advanced_analytics' => true,
+      'priority_support' => true,
+      'api_access' => true,
+      'custom_branding' => true,
+      'data_export' => true,
+      'team_collaboration' => true,
+      'webhook_integrations' => true,
+      # Enterprise Features (all included for admin)
+      'custom_fields' => true,
+      'advanced_filters' => true,
+      'custom_integrations' => true,
+      'dedicated_support' => true,
+      'white_label' => true,
+      'sso_integration' => true,
+      'advanced_security' => true,
+      'audit_logs' => true,
+      'sla_guarantees' => true,
+      # Marketplace Publishing (unlimited for admins)
+      'marketplace_publish_enabled' => true,
+      'marketplace_publish_limit' => nil
+    }
+    plan.limits = {
+      'max_users' => 9999,
+      'max_api_keys' => 100,
+      'max_webhooks' => 100,
+      'max_workers' => 100,
+      'max_repositories' => 9999
+    }
+    plan.is_public = false # Hidden from public view
+    plan.slug = 'administrator'
+  end
 
-puts "✅ Created #{Plan.count} plans"
+  # Self-Hosted plan (core mode)
+  self_hosted_plan = plan_class.find_or_create_by!(slug: 'self-hosted') do |plan|
+    plan.name = 'Self-Hosted'
+    plan.description = 'Self-hosted installation with all features enabled'
+    plan.price_cents = 0
+    plan.currency = 'USD'
+    plan.billing_interval = 'monthly'
+    plan.trial_period_days = 0
+    plan.features = {
+      'community_access' => true, 'dashboard_access' => true, 'mobile_responsive' => true,
+      'email_notifications' => true, 'basic_reporting' => true, 'standard_support' => true,
+      'basic_analytics' => true, 'email_support' => true, 'advanced_analytics' => true,
+      'priority_support' => true, 'api_access' => true, 'custom_branding' => true,
+      'data_export' => true, 'team_collaboration' => true, 'webhook_integrations' => true,
+      'custom_fields' => true, 'advanced_filters' => true, 'custom_integrations' => true,
+      'dedicated_support' => true, 'white_label' => true, 'sso_integration' => true,
+      'advanced_security' => true, 'audit_logs' => true, 'sla_guarantees' => true,
+      'marketplace_publish_enabled' => true, 'marketplace_publish_limit' => nil
+    }
+    plan.limits = {
+      'max_users' => 1, 'max_api_keys' => 100, 'max_webhooks' => 100,
+      'max_workers' => 100, 'max_repositories' => 9999
+    }
+    plan.is_public = false
+    plan.slug = 'self-hosted'
+  end
+
+  puts "✅ Created #{plan_class.count} plans"
+else
+  puts "⏭️  Skipping plan creation (billing not loaded)"
+end
 
 # Create system worker (required for worker-backend communication)
 puts "🔧 Creating system worker..."
@@ -1036,7 +1042,7 @@ end
 
 # Enterprise Edition seeds (loaded when enterprise engine is present)
 if defined?(PowernodeEnterprise::Engine)
-  enterprise_seeds = Rails.root.join('..', 'enterprise', 'server', 'db', 'seeds')
+  enterprise_seeds = Rails.root.join('..', 'extensions', 'enterprise', 'server', 'db', 'seeds')
   if Dir.exist?(enterprise_seeds)
     puts "\n🏢 Loading Enterprise Edition seeds..."
     Dir[enterprise_seeds.join('*.rb')].sort.each { |f| load f }
@@ -1047,7 +1053,8 @@ end
 puts "\n🎉 Seeding complete!"
 puts "   Permissions: #{Permission.count}"
 puts "   Roles: #{Role.count}"
-puts "   Plans: #{Plan.count}"
+plan_class = defined?(Billing::Plan) ? Billing::Plan : (defined?(Plan) ? Plan : nil)
+puts "   Plans: #{plan_class&.count || 0}"
 puts "   Workers: #{Worker.count}"
 puts "   Public Pages: #{Page.count}"
 puts "   KB Categories: #{KnowledgeBase::Category.count}"
@@ -1108,7 +1115,11 @@ puts "✅ Created #{SupplyChain::License.count} licenses"
 if Rails.env.development? || Rails.env.test?
   puts "   Accounts: #{Account.count}"
   puts "   Users: #{User.count}"
-  puts "   Subscriptions: #{Subscription.count}"
+  if defined?(Billing::Subscription)
+    puts "   Subscriptions: #{Billing::Subscription.count}"
+  elsif defined?(Subscription)
+    puts "   Subscriptions: #{Subscription.count}"
+  end
   puts "   Site Settings: #{SiteSetting.count}"
   puts "   Supply Chain Licenses: #{SupplyChain::License.count}"
   puts "   Marketing Campaigns: #{defined?(Marketing::Campaign) ? Marketing::Campaign.count : 'N/A'}"

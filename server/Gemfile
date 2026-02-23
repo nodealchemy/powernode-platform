@@ -23,8 +23,8 @@ gem "money-rails"
 gem "aasm"
 
 # Payment gateway integrations
-gem "stripe"
-gem "paypal-sdk-rest"
+gem "stripe", require: false
+gem "paypal-sdk-rest", require: false
 
 
 # HTTP client for webhook processing
