@@ -936,6 +936,9 @@ if Rails.env.development? || Rails.env.test?
   puts "\n🤖 Loading Autonomy Data (consolidation + seeding)..."
   load Rails.root.join('db', 'seeds', 'autonomy_data_seed.rb')
 
+  puts "\n🧠 Loading AI Memory Pools..."
+  load Rails.root.join('db', 'seeds', 'ai_memory_pools_seed.rb')
+
   # Seed AI model pricing from hardcoded constant
   if defined?(Ai::ProviderManagementService::MODEL_PRICING) && Ai::ModelPricing.count == 0
     puts "\n💰 Seeding AI model pricing..."
@@ -996,6 +999,7 @@ if Rails.env.development? || Rails.env.test?
   puts "   AI Skills: #{Ai::Skill.count}"
   puts "   AI Agent Templates: #{Ai::AgentTemplate.count}"
   puts "   AI Agent Teams: #{Ai::AgentTeam.count}"
+  puts "   AI Memory Pools: #{Ai::MemoryPool.count}"
 end
 
 # 🔧 Create default site settings
