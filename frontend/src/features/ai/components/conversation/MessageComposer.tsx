@@ -46,6 +46,23 @@ export const MessageComposer = React.memo<MessageComposerProps>(({
     onChange,
   });
 
+  // Auto-focus the input when the composer mounts (chat opened)
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  // Auto-resize textarea to fit content (up to max-height)
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+    // Sync highlight backdrop height
+    if (backdropRef.current) {
+      backdropRef.current.style.height = `${el.scrollHeight}px`;
+    }
+  }, [value]);
+
   useEffect(() => {
     onMentionsChange?.(
       mention.pendingMentions.map(m => ({ id: m.id, name: m.name }))
@@ -64,12 +81,25 @@ export const MessageComposer = React.memo<MessageComposerProps>(({
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (mention.handleKeyDown(e)) return;
 
-    // Enter sends, Shift+Enter and Ctrl+Enter insert newlines
-    if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
-      e.preventDefault();
-      onSend();
+    if (e.key === 'Enter') {
+      if (e.ctrlKey || e.shiftKey) {
+        // Ctrl+Enter or Shift+Enter: insert a newline
+        e.preventDefault();
+        const textarea = e.currentTarget as HTMLTextAreaElement;
+        const { selectionStart, selectionEnd } = textarea;
+        const newValue = value.slice(0, selectionStart) + '\n' + value.slice(selectionEnd);
+        onChange(newValue);
+        // Set cursor position after React re-renders
+        requestAnimationFrame(() => {
+          textarea.selectionStart = textarea.selectionEnd = selectionStart + 1;
+        });
+      } else {
+        // Plain Enter: send message
+        e.preventDefault();
+        onSend();
+      }
     }
-  }, [onSend, mention.handleKeyDown]);
+  }, [onSend, value, onChange, mention.handleKeyDown]);
 
   const handleScroll = useCallback(() => {
     if (backdropRef.current && inputRef.current) {
@@ -135,8 +165,8 @@ export const MessageComposer = React.memo<MessageComposerProps>(({
           onKeyDown={handleKeyDown}
           onScroll={handleScroll}
           placeholder={members && members.length > 0
-            ? "Message... (@ to mention)"
-            : "Message..."
+            ? "Message... (@ to mention, Ctrl+Enter for new line)"
+            : "Message... (Ctrl+Enter for new line)"
           }
           rows={1}
           className="relative z-10 w-full min-h-[44px] max-h-[120px] px-4 py-2.5 pr-14 rounded-2xl border-none resize-none bg-transparent text-theme-primary placeholder-theme-muted focus:outline-none disabled:text-theme-muted"
