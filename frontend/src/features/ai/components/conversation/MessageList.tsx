@@ -70,6 +70,7 @@ interface MessageListProps {
   loadingOlder?: boolean;
   onLoadOlder?: () => void;
   onClearChat?: () => void;
+  onMentionClick?: (name: string) => void;
 }
 
 export const MessageList = React.memo<MessageListProps>(({
@@ -95,6 +96,7 @@ export const MessageList = React.memo<MessageListProps>(({
   loadingOlder,
   onLoadOlder,
   onClearChat: _onClearChat,
+  onMentionClick,
 }) => {
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
   const previousScrollHeightRef = React.useRef<number>(0);
@@ -138,7 +140,14 @@ export const MessageList = React.memo<MessageListProps>(({
       if (parts.length === 1 && parts[0].type === 'text') return text;
       return parts.map((part, i) =>
         part.type === 'mention'
-          ? <span key={i} className="inline bg-theme-interactive-primary/15 text-theme-interactive-primary font-medium rounded px-1">{part.value}</span>
+          ? <span
+              key={i}
+              className={`inline bg-theme-interactive-primary/15 text-theme-interactive-primary font-medium rounded px-1${onMentionClick ? ' cursor-pointer hover:bg-theme-interactive-primary/25 transition-colors' : ''}`}
+              onClick={onMentionClick ? (e) => { e.stopPropagation(); onMentionClick(part.value); } : undefined}
+              role={onMentionClick ? 'button' : undefined}
+              tabIndex={onMentionClick ? 0 : undefined}
+              onKeyDown={onMentionClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onMentionClick(part.value); } } : undefined}
+            >{part.value}</span>
           : <React.Fragment key={i}>{part.value}</React.Fragment>
       );
     };

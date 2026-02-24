@@ -205,6 +205,22 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     setInputValue(value);
   }, []);
 
+  const handleMentionClick = useCallback((name: string) => {
+    const current = inputValueRef.current;
+    const needsSpace = current.length > 0 && !current.endsWith(' ');
+    const newValue = current + (needsSpace ? ' ' : '') + name + ' ';
+    inputValueRef.current = newValue;
+    setInputValue(newValue);
+    // Focus the composer textarea so the user can continue typing
+    requestAnimationFrame(() => {
+      const input = document.querySelector<HTMLTextAreaElement>('[data-testid="message-input"]');
+      if (input) {
+        input.focus();
+        input.setSelectionRange(newValue.length, newValue.length);
+      }
+    });
+  }, []);
+
   const handleSendMessage = useCallback(async (overrideText?: string) => {
     const messageContent = (typeof overrideText === 'string' ? overrideText : inputValueRef.current).trim();
     if (!messageContent || sending || !currentUser) return;
@@ -457,6 +473,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
           loadingOlder={loadingOlder}
           onLoadOlder={loadOlderMessages}
           onClearChat={handleClearChat}
+          onMentionClick={handleMentionClick}
         />
 
         {/* Input Area */}
