@@ -2,6 +2,7 @@ import { useCallback, useRef, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
+import { logger } from '@/shared/utils/logger';
 
 interface SettingsWebSocketOptions {
   onSettingsUpdate?: (data: unknown) => void;
@@ -86,7 +87,7 @@ export const useSettingsWebSocket = ({
     // Only subscribe if user has an account
     if (!user?.account?.id) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('[SettingsWebSocket] Cannot subscribe: user account not available');
+        logger.warn('[SettingsWebSocket] Cannot subscribe: user account not available');
       }
       return;
     }

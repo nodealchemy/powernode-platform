@@ -1,5 +1,6 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
+import { logger } from '@/shared/utils/logger';
 
 // AI Orchestration event types
 type WorkflowEventType =
@@ -371,7 +372,7 @@ export const useAiOrchestrationWebSocket = ({
   const subscribeToWorkflow = useCallback((workflowId: string): (() => void) => {
     if (!isConnected) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('[AiOrchestrationWebSocket] Cannot subscribe: not connected');
+        logger.warn('[AiOrchestrationWebSocket] Cannot subscribe: not connected');
       }
       return () => {};
     }
@@ -407,7 +408,7 @@ export const useAiOrchestrationWebSocket = ({
   const subscribeToWorkflowRun = useCallback((workflowId: string, runId: string): (() => void) => {
     if (!isConnected) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('[AiOrchestrationWebSocket] Cannot subscribe: not connected');
+        logger.warn('[AiOrchestrationWebSocket] Cannot subscribe: not connected');
       }
       return () => {};
     }
@@ -442,7 +443,7 @@ export const useAiOrchestrationWebSocket = ({
   const subscribeToAgent = useCallback((agentId: string): (() => void) => {
     if (!isConnected) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('[AiOrchestrationWebSocket] Cannot subscribe: not connected');
+        logger.warn('[AiOrchestrationWebSocket] Cannot subscribe: not connected');
       }
       return () => {};
     }
@@ -477,7 +478,7 @@ export const useAiOrchestrationWebSocket = ({
   const subscribeToAgentTeam = useCallback((teamId: string): (() => void) => {
     if (!isConnected) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('[AiOrchestrationWebSocket] Cannot subscribe: not connected');
+        logger.warn('[AiOrchestrationWebSocket] Cannot subscribe: not connected');
       }
       return () => {};
     }
@@ -512,7 +513,7 @@ export const useAiOrchestrationWebSocket = ({
   const subscribeToBatch = useCallback((batchId: string): (() => void) => {
     if (!isConnected) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('[AiOrchestrationWebSocket] Cannot subscribe: not connected');
+        logger.warn('[AiOrchestrationWebSocket] Cannot subscribe: not connected');
       }
       return () => {};
     }
@@ -547,7 +548,7 @@ export const useAiOrchestrationWebSocket = ({
   const subscribeToCircuitBreaker = useCallback((circuitBreakerId: string): (() => void) => {
     if (!isConnected) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('[AiOrchestrationWebSocket] Cannot subscribe: not connected');
+        logger.warn('[AiOrchestrationWebSocket] Cannot subscribe: not connected');
       }
       return () => {};
     }
@@ -582,7 +583,7 @@ export const useAiOrchestrationWebSocket = ({
   const subscribeToProvider = useCallback((providerId: string): (() => void) => {
     if (!isConnected) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('[AiOrchestrationWebSocket] Cannot subscribe: not connected');
+        logger.warn('[AiOrchestrationWebSocket] Cannot subscribe: not connected');
       }
       return () => {};
     }

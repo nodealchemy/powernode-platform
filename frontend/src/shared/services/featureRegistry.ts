@@ -12,16 +12,30 @@ export interface FeatureNavItem {
   icon?: string;
   permission?: string;
   section?: string;
+  order?: number;
+}
+
+export interface FeatureNavSection {
+  id: string;
+  name: string;
+  items: FeatureNavItem[];
+  icon?: string;
+  permissions?: string[];
+  collapsible?: boolean;
+  defaultExpanded?: boolean;
+  order?: number;
 }
 
 interface FeatureRegistryState {
   routes: Map<string, FeatureRoute[]>;
   navItems: Map<string, FeatureNavItem[]>;
+  navSections: Map<string, FeatureNavSection[]>;
 }
 
 const state: FeatureRegistryState = {
   routes: new Map(),
   navItems: new Map(),
+  navSections: new Map(),
 };
 
 export const featureRegistry = {
@@ -62,6 +76,31 @@ export const featureRegistry = {
   },
 
   /**
+   * Register navigation sections for a namespace
+   */
+  registerNavSections(namespace: string, sections: FeatureNavSection[]): void {
+    const existing = state.navSections.get(namespace) || [];
+    state.navSections.set(namespace, [...existing, ...sections]);
+  },
+
+  /**
+   * Get all registered nav sections, optionally filtered by namespace
+   */
+  getNavSections(namespace?: string): FeatureNavSection[] {
+    if (namespace) {
+      return state.navSections.get(namespace) || [];
+    }
+    return Array.from(state.navSections.values()).flat();
+  },
+
+  /**
+   * Get all registered namespace identifiers
+   */
+  getRegisteredNamespaces(): string[] {
+    return Array.from(state.routes.keys());
+  },
+
+  /**
    * Check if any routes are registered for a namespace
    */
   hasRoutes(namespace: string): boolean {
@@ -75,5 +114,6 @@ export const featureRegistry = {
   clear(): void {
     state.routes.clear();
     state.navItems.clear();
+    state.navSections.clear();
   },
 };

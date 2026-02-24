@@ -1,2 +1,2 @@
-// Enterprise build constant — set by vite.config.ts based on enterprise/ directory existence
-declare const __ENTERPRISE__: boolean;
+// Extension slugs discovered at build time — set by vite.config.ts based on extensions/ directory scan
+declare const __EXTENSIONS__: string[];

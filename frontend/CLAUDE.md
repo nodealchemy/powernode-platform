@@ -14,7 +14,14 @@ React TypeScript frontend for Powernode.
 
 ## MCP-First Frontend Workflow
 
-**Always query MCP before writing frontend code.** Use domain-specific queries:
+**Always query MCP before writing frontend code.** This is mandatory, not optional.
+
+### Session Start (MANDATORY — every session touching frontend code)
+
+Before writing any code:
+1. `platform.query_learnings` — check for existing patterns/gotchas in the area being modified
+2. `platform.search_knowledge` — find relevant procedures/references for the component/feature
+3. `platform.search_knowledge_graph` — understand component relationships and page hierarchy
 
 ### Before Creating/Modifying
 

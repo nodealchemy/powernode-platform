@@ -38,7 +38,7 @@ describe('AdminSettingsTabs', () => {
       expect(screen.getAllByText('Overview')).toHaveLength(2); // Desktop and mobile
       expect(screen.getAllByText('Email Settings')).toHaveLength(2); // Desktop and mobile
       expect(screen.getAllByText('Security')).toHaveLength(2); // Desktop and mobile
-      // Payment Gateways is enterpriseOnly — not rendered without enterprise enabled
+      // Payment Gateways requires enterprise extension — not rendered without it
     });
   });
 
@@ -254,7 +254,7 @@ describe('AdminSettingsTabs', () => {
               }
             },
             config: {
-              enterpriseEnabled: false,
+              loadedExtensions: [],
               coreMode: true,
               isLoaded: true,
             }
@@ -305,7 +305,7 @@ describe('AdminSettingsTabs', () => {
               }
             },
             config: {
-              enterpriseEnabled: false,
+              loadedExtensions: [],
               coreMode: true,
               isLoaded: true,
             }

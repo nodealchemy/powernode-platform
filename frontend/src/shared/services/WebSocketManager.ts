@@ -12,6 +12,8 @@
  * - Proper subscription routing to multiple components
  */
 
+import { logger } from '@/shared/utils/logger';
+
 interface WebSocketConfig {
   getUrl: () => string;
   onConnect?: () => void;
@@ -289,9 +291,7 @@ export class WebSocketManager {
         const { channel, ...params } = identifier;
         const channelKey = this.getChannelKey(channel, params);
         this.subscribedChannels.add(channelKey);
-        if (process.env.NODE_ENV === 'development') {
-          console.debug(`[WebSocket] Subscription confirmed: ${channel} (key=${channelKey})`);
-        }
+        logger.debug(`[WebSocket] Subscription confirmed: ${channel} (key=${channelKey})`);
         return;
       }
 
@@ -327,14 +327,14 @@ export class WebSocketManager {
             try {
               sub.onMessage?.(data.message);
             } catch (error) {
-              console.error('[WebSocket] Handler error:', error);
+              logger.error('[WebSocket] Handler error', error);
             }
           });
         }
       }
 
     } catch (error) {
-      console.error('[WebSocket] Message parsing error:', error);
+      logger.error('[WebSocket] Message parsing error', error);
     }
   }
 
@@ -362,9 +362,7 @@ export class WebSocketManager {
       this.reconnectAttempts += 1;
       const backoffTime = Math.min(3000 * Math.pow(1.5, this.reconnectAttempts - 1), 30000);
 
-      if (process.env.NODE_ENV === 'development') {
-        console.debug(`[WebSocket] Connection closed (code=${event.code}), reconnecting in ${backoffTime}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}, subscriptions=${this.subscriptions.size})`);
-      }
+      logger.debug(`[WebSocket] Connection closed (code=${event.code}), reconnecting in ${backoffTime}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}, subscriptions=${this.subscriptions.size})`);
 
       if (this.reconnectAttempts <= this.maxReconnectAttempts) {
         this.reconnectTimeout = setTimeout(() => {
@@ -406,9 +404,7 @@ export class WebSocketManager {
     if (pendingTimer) {
       clearTimeout(pendingTimer);
       this.pendingUnsubscribes.delete(channelKey);
-      if (process.env.NODE_ENV === 'development') {
-        console.debug(`[WebSocket] Subscribe: cancelled pending unsubscribe for ${channel}`);
-      }
+      logger.debug(`[WebSocket] Subscribe: cancelled pending unsubscribe for ${channel}`);
     }
 
     // Add subscription to the set
@@ -424,10 +420,7 @@ export class WebSocketManager {
       this.sendSubscriptionMessage(channel, params);
     }
 
-    if (process.env.NODE_ENV === 'development') {
-      const count = this.subscriptions.get(channelKey)!.size;
-      console.debug(`[WebSocket] Subscribe: ${channel} (${count} listeners, new=${isNew}, wsOpen=${this.ws?.readyState === WebSocket.OPEN})`);
-    }
+    logger.debug(`[WebSocket] Subscribe: ${channel} (${this.subscriptions.get(channelKey)!.size} listeners, new=${isNew}, wsOpen=${this.ws?.readyState === WebSocket.OPEN})`);
 
     // Return unsubscribe function
     return () => {
@@ -454,9 +447,7 @@ export class WebSocketManager {
       if (subscriptions.size === 0) {
         this.subscriptions.delete(channelKey);
 
-        if (process.env.NODE_ENV === 'development') {
-          console.debug(`[WebSocket] Unsubscribe: ${channel} (last listener removed, deferring server unsubscribe 300ms)`);
-        }
+        logger.debug(`[WebSocket] Unsubscribe: ${channel} (last listener removed, deferring server unsubscribe 300ms)`);
 
         // Defer server-side unsubscribe — if a new subscribe arrives within
         // 300ms (StrictMode remount), the timer is cancelled in subscribe()
@@ -466,15 +457,13 @@ export class WebSocketManager {
 
           if (this.ws?.readyState === WebSocket.OPEN) {
             this.sendUnsubscriptionMessage(channel, params);
-            if (process.env.NODE_ENV === 'development') {
-              console.debug(`[WebSocket] Unsubscribe: ${channel} (deferred unsubscribe sent to server)`);
-            }
+            logger.debug(`[WebSocket] Unsubscribe: ${channel} (deferred unsubscribe sent to server)`);
           }
         }, 300);
 
         this.pendingUnsubscribes.set(channelKey, timer);
-      } else if (process.env.NODE_ENV === 'development') {
-        console.debug(`[WebSocket] Unsubscribe: ${channel} (${subscriptions.size} listeners remaining)`);
+      } else {
+        logger.debug(`[WebSocket] Unsubscribe: ${channel} (${subscriptions.size} listeners remaining)`);
       }
     }
   }
@@ -527,9 +516,7 @@ export class WebSocketManager {
       const paramsStr = separatorIdx >= 0 ? channelKey.substring(separatorIdx + 2) : undefined;
       const params = paramsStr ? JSON.parse(paramsStr) : undefined;
       this.sendSubscriptionMessage(channel, params);
-      if (process.env.NODE_ENV === 'development') {
-        console.debug(`[WebSocket] Resubscribed: ${channel} (${subs.size} listeners)`);
-      }
+      logger.debug(`[WebSocket] Resubscribed: ${channel} (${subs.size} listeners)`);
     });
   }
 

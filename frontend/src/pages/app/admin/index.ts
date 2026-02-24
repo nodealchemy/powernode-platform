@@ -15,5 +15,3 @@ export { AdminUsersPage } from './AdminUsersPage';
 // Admin Roles Management
 export { AdminRolesPage } from './AdminRolesPage';
 
-// Admin Marketplace Management
-export { default as AdminMarketplacePage } from './AdminMarketplacePage';

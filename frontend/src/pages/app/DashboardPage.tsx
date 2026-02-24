@@ -29,11 +29,6 @@ const AuditLogsPage = React.lazy(() => import('./admin/AuditLogsPage').then(m =>
 const PrivacyDashboardPage = React.lazy(() => import('./privacy/PrivacyDashboardPage'));
 const NotificationsPage = React.lazy(() => import('./account/NotificationsPage').then(m => ({ default: m.NotificationsPage })));
 
-// Marketplace
-const MarketplacePage = React.lazy(() => import('@/pages/app/marketplace/MarketplacePage').then(m => ({ default: m.MarketplacePage })));
-const ItemDetailPage = React.lazy(() => import('@/pages/app/marketplace/ItemDetailPage').then(m => ({ default: m.ItemDetailPage })));
-const MySubscriptionsPage = React.lazy(() => import('@/pages/app/marketplace/MySubscriptionsPage').then(m => ({ default: m.MySubscriptionsPage })));
-
 // Admin
 const AdminSettingsPage = React.lazy(() => import('@/pages/app/admin/AdminSettingsPage').then(m => ({ default: m.AdminSettingsPage })));
 const AdminUsersPage = React.lazy(() => import('@/pages/app/admin/AdminUsersPage').then(m => ({ default: m.AdminUsersPage })));
@@ -41,8 +36,6 @@ const AdminRolesPage = React.lazy(() => import('@/pages/app/admin/AdminRolesPage
 const AdminWorkersPage = React.lazy(() => import('@/pages/app/admin/WorkersPage').then(m => ({ default: m.WorkersPage })));
 const AdminStoragePage = React.lazy(() => import('@/pages/app/admin/StorageProvidersPage'));
 const AdminMaintenancePage = React.lazy(() => import('@/pages/app/admin/AdminMaintenancePage').then(m => ({ default: m.AdminMaintenancePage })));
-const AdminMarketplacePage = React.lazy(() => import('@/pages/app/admin/AdminMarketplacePage').then(m => ({ default: m.AdminMarketplacePage })));
-
 // AI Providers
 const AIProvidersPage = React.lazy(() => import('./ai/AIProvidersPage').then(m => ({ default: m.AIProvidersPage })));
 const GitProvidersPage = React.lazy(() => import('./devops/GitProvidersPage').then(m => ({ default: m.GitProvidersPage })));
@@ -121,33 +114,7 @@ const ConnectionsPage = React.lazy(() => import('@/pages/app/devops/ConnectionsP
 const SwarmHubPage = React.lazy(() => import('@/pages/app/devops/SwarmHubPage').then(m => ({ default: m.SwarmHubPage })));
 const DockerHubPage = React.lazy(() => import('@/pages/app/devops/DockerHubPage').then(m => ({ default: m.DockerHubPage })));
 
-// Marketing Pages
-const MarketingCampaignsPage = React.lazy(() => import('@/pages/app/marketing/MarketingCampaignsPage').then(m => ({ default: m.MarketingCampaignsPage })));
-const MarketingCampaignDetailPage = React.lazy(() => import('@/pages/app/marketing/MarketingCampaignDetailPage').then(m => ({ default: m.MarketingCampaignDetailPage })));
-const MarketingCalendarPage = React.lazy(() => import('@/pages/app/marketing/MarketingCalendarPage').then(m => ({ default: m.MarketingCalendarPage })));
-const MarketingEmailListsPage = React.lazy(() => import('@/pages/app/marketing/MarketingEmailListsPage').then(m => ({ default: m.MarketingEmailListsPage })));
-const MarketingSocialPage = React.lazy(() => import('@/pages/app/marketing/MarketingSocialPage').then(m => ({ default: m.MarketingSocialPage })));
-const MarketingAnalyticsPage = React.lazy(() => import('@/pages/app/marketing/MarketingAnalyticsPage').then(m => ({ default: m.MarketingAnalyticsPage })));
-
-// Supply Chain Pages
-const SupplyChainDashboardPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.SupplyChainDashboardPage })));
-const SbomsPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.SbomsPage })));
-const SbomDetailPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.SbomDetailPage })));
-const SbomDiffPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.SbomDiffPage })));
-const ContainerImagesPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.ContainerImagesPage })));
-const ContainerImageDetailPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.ContainerImageDetailPage })));
-const AttestationsPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.AttestationsPage })));
-const AttestationDetailPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.AttestationDetailPage })));
-const VendorsPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.VendorsPage })));
-const VendorDetailPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.VendorDetailPage })));
-const VendorRiskDashboardPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.VendorRiskDashboardPage })));
-const AssessmentDetailPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.AssessmentDetailPage })));
-const QuestionnaireDetailPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.QuestionnaireDetailPage })));
-const LicensePoliciesPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.LicensePoliciesPage })));
-const LicensePolicyFormPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.LicensePolicyFormPage })));
-const LicensePolicyDetailPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.LicensePolicyDetailPage })));
-const LicenseViolationsPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.LicenseViolationsPage })));
-const LicenseViolationDetailPage = React.lazy(() => import('@/features/supply-chain/pages').then(m => ({ default: m.LicenseViolationDetailPage })));
+// Marketing routes handled by featureRegistry (marketing extension)
 
 // Dashboard overview page
 const DashboardOverview: React.FC = () => {
@@ -329,21 +296,6 @@ const DashboardOverview: React.FC = () => {
                 <div className="text-left">
                   <p className="font-medium text-theme-primary">DevOps</p>
                   <p className="text-xs text-theme-tertiary">Pipelines, containers, and infrastructure</p>
-                </div>
-              </div>
-              <span className="text-theme-tertiary">→</span>
-            </Button>
-
-            <Button
-              onClick={() => navigate('/app/supply-chain')}
-              variant="secondary"
-              className="flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover w-full"
-            >
-              <div className="flex items-center space-x-3">
-                <span className="text-2xl">🔗</span>
-                <div className="text-left">
-                  <p className="font-medium text-theme-primary">Supply Chain</p>
-                  <p className="text-xs text-theme-tertiary">SBOMs, attestations, and compliance</p>
                 </div>
               </div>
               <span className="text-theme-tertiary">→</span>
@@ -533,42 +485,13 @@ const DashboardPage: React.FC = () => {
         {/* Audit Logs */}
         <Route path="/admin/audit-logs/*" element={<AuditLogsPage />} />
 
-        {/* Supply Chain Routes */}
-        <Route path="/supply-chain" element={<SupplyChainDashboardPage />} />
-        <Route path="/supply-chain/sboms" element={<SbomsPage />} />
-        <Route path="/supply-chain/sboms/:id" element={<SbomDetailPage />} />
-        <Route path="/supply-chain/sboms/:id/diff/:diffId" element={<SbomDiffPage />} />
-        <Route path="/supply-chain/containers" element={<ContainerImagesPage />} />
-        <Route path="/supply-chain/containers/:id/*" element={<ContainerImageDetailPage />} />
-        <Route path="/supply-chain/attestations" element={<AttestationsPage />} />
-        <Route path="/supply-chain/attestations/:id/*" element={<AttestationDetailPage />} />
-        <Route path="/supply-chain/vendors" element={<VendorsPage />} />
-        <Route path="/supply-chain/vendors/risk-dashboard" element={<VendorRiskDashboardPage />} />
-        <Route path="/supply-chain/vendors/:id" element={<VendorDetailPage />} />
-        <Route path="/supply-chain/vendors/:id/assessments/:assessmentId" element={<AssessmentDetailPage />} />
-        <Route path="/supply-chain/vendors/:id/questionnaires/:questionnaireId" element={<QuestionnaireDetailPage />} />
-        <Route path="/supply-chain/licenses" element={<LicensePoliciesPage />} />
-        <Route path="/supply-chain/licenses/policies" element={<LicensePoliciesPage />} />
-        <Route path="/supply-chain/licenses/policies/new" element={<LicensePolicyFormPage />} />
-        <Route path="/supply-chain/licenses/policies/:id/edit" element={<LicensePolicyFormPage />} />
-        <Route path="/supply-chain/licenses/policies/:id" element={<LicensePolicyDetailPage />} />
-        <Route path="/supply-chain/licenses/violations" element={<LicenseViolationsPage />} />
-        <Route path="/supply-chain/licenses/violations/:id" element={<LicenseViolationDetailPage />} />
+        {/* Supply Chain routes handled by featureRegistry (supply-chain extension) */}
 
-        {/* Marketing Pages */}
-        <Route path="/marketing/campaigns" element={<MarketingCampaignsPage />} />
-        <Route path="/marketing/campaigns/:id" element={<MarketingCampaignDetailPage />} />
-        <Route path="/marketing/calendar" element={<MarketingCalendarPage />} />
-        <Route path="/marketing/email-lists" element={<MarketingEmailListsPage />} />
-        <Route path="/marketing/social" element={<MarketingSocialPage />} />
-        <Route path="/marketing/analytics" element={<MarketingAnalyticsPage />} />
+        {/* Marketing routes handled by featureRegistry (marketing extension) */}
 
         {/* Business analytics + metrics routes handled by featureRegistry (enterprise) */}
 
-        {/* Marketplace Pages */}
-        <Route path="/marketplace" element={<MarketplacePage />} />
-        <Route path="/marketplace/:type/:id" element={<ItemDetailPage />} />
-        <Route path="/marketplace/subscriptions" element={<MySubscriptionsPage />} />
+        {/* Marketplace routes handled by featureRegistry (enterprise) */}
 
         {/* Admin routes - consistent with navigation */}
         <Route path="/users" element={<UsersPage />} />
@@ -577,7 +500,6 @@ const DashboardPage: React.FC = () => {
         <Route path="/admin/settings/*" element={<AdminSettingsPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/roles" element={<AdminRolesPage />} />
-        <Route path="/admin/marketplace" element={<AdminMarketplacePage />} />
         <Route path="/admin/maintenance/*" element={<AdminMaintenancePage />} />
         <Route path="/admin/workers/*" element={<AdminWorkersPage />} />
         <Route path="/admin/storage" element={<AdminStoragePage />} />

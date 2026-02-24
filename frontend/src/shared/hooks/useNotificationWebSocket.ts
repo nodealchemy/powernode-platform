@@ -2,6 +2,7 @@ import { useCallback, useRef, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
+import { logger } from '@/shared/utils/logger';
 
 // Notification event types
 type NotificationEventType =
@@ -115,7 +116,7 @@ export const useNotificationWebSocket = ({
     // Only subscribe if user has an account
     if (!user?.account?.id) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('[NotificationWebSocket] Cannot subscribe: user account not available');
+        logger.warn('[NotificationWebSocket] Cannot subscribe: user account not available');
       }
       return;
     }

@@ -1,5 +1,6 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
+import { logger } from '@/shared/utils/logger';
 
 interface AnalyticsWebSocketOptions {
   onAnalyticsUpdate?: (data: unknown) => void;
@@ -53,7 +54,7 @@ export const useAnalyticsWebSocket = ({
     // Only subscribe if account_id is provided
     if (!accountId) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('[AnalyticsWebSocket] Cannot subscribe: account_id not provided');
+        logger.warn('[AnalyticsWebSocket] Cannot subscribe: account_id not provided');
       }
       return;
     }

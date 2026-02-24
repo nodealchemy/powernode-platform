@@ -39,6 +39,22 @@ export default defineConfig(({ mode }: { mode: string }) => {
   const allowedHosts = getAllowedHosts();
   const additionalHosts = env.VITE_ALLOWED_HOSTS ? env.VITE_ALLOWED_HOSTS.split(',') : [];
 
+  // Dynamic extension discovery
+  const extensionsDir = path.resolve(__dirname, '../extensions');
+  const extensionAliases: Record<string, string> = {};
+  const discoveredSlugs: string[] = [];
+
+  if (fs.existsSync(extensionsDir)) {
+    for (const slug of fs.readdirSync(extensionsDir)) {
+      const manifestPath = path.resolve(extensionsDir, slug, 'extension.json');
+      const frontendSrc = path.resolve(extensionsDir, slug, 'frontend/src');
+      if (fs.existsSync(manifestPath) && fs.existsSync(frontendSrc)) {
+        extensionAliases[`@ext/${slug}`] = frontendSrc;
+        discoveredSlugs.push(slug);
+      }
+    }
+  }
+
   return {
     base: '/',
 
@@ -63,9 +79,7 @@ export default defineConfig(({ mode }: { mode: string }) => {
         '@/features': path.resolve(__dirname, './src/features'),
         '@/pages': path.resolve(__dirname, './src/pages'),
         '@/assets': path.resolve(__dirname, './src/assets'),
-        ...(fs.existsSync(path.resolve(__dirname, '../extensions/enterprise/frontend/src'))
-          ? { '@enterprise': path.resolve(__dirname, '../extensions/enterprise/frontend/src') }
-          : {}),
+        ...extensionAliases,
       },
     },
     
@@ -159,7 +173,7 @@ export default defineConfig(({ mode }: { mode: string }) => {
     define: {
       'process.env.NODE_ENV': JSON.stringify(mode),
       'process.env.REACT_APP_VERSION': JSON.stringify(packageJson.version),
-      '__ENTERPRISE__': JSON.stringify(fs.existsSync(path.resolve(__dirname, '../extensions/enterprise/frontend/src'))),
+      '__EXTENSIONS__': JSON.stringify(discoveredSlugs),
     },
     
     optimizeDeps: {

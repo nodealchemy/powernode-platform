@@ -252,7 +252,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
           <div className="py-8">
             <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
               <div className="flex flex-wrap items-center gap-6 text-sm text-theme-tertiary">
-                <span>© {footerData?.copyright_year || new Date().getFullYear()} {footerData?.site_name || 'Powernode'}. {footerData?.copyright_text || 'All rights reserved.'}</span>
+                <span>© {footerData?.copyright_year || new Date().getFullYear()} {footerData?.copyright_text || 'Everett C. Haimes III. All rights reserved.'}</span>
                 <div className="flex items-center space-x-6">
                   <Link to="/pages/privacy" className="text-theme-tertiary hover:text-theme-primary transition-colors duration-200" data-testid="footer-privacy">
                     Privacy Policy

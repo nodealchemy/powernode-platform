@@ -13,6 +13,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { BellIcon as BellIconSolid } from '@heroicons/react/24/solid';
 import { notificationApi, Notification } from '../services/notificationApi';
+import { logger } from '@/shared/utils/logger';
 import { RootState } from '@/shared/services';
 import { useNotificationWebSocket, WebSocketNotification } from '@/shared/hooks/useNotificationWebSocket';
 
@@ -108,7 +109,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     onError: (error: string) => {
       // Silent fail for notifications - log in dev only
       if (process.env.NODE_ENV === 'development') {
-        console.warn('[NotificationBell] WebSocket error:', error);
+        logger.warn('[NotificationBell] WebSocket error', { error });
       }
     }
   });

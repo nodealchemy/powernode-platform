@@ -7,8 +7,7 @@ import type { NavigationItem, NavigationSection } from '@/shared/types/navigatio
 import { NavigationContext, NavigationConfig, MenuState, NavigationTheme } from '@/shared/types/navigation';
 import { hasAccess } from '@/shared/utils/permissionUtils';
 import { defaultNavigationConfig, adminNavigationOverrides } from '@/shared/utils/navigation';
-
-declare const __ENTERPRISE__: boolean;
+import { featureRegistry } from '@/shared/services/featureRegistry';
 
 // Menu state reducer
 type MenuAction =
@@ -69,33 +68,28 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
 }) => {
   const location = useLocation();
   const { user } = useSelector((state: RootState) => state.auth);
-  const { enterpriseEnabled } = useSelector((state: RootState) => state.config);
+  const { loadedExtensions } = useSelector((state: RootState) => state.config);
   const [menuState, dispatch] = useReducer(menuReducer, initialMenuState);
-
-  // Enterprise is available only when both build-time flag AND runtime toggle are on
-  const enterpriseAvailable = (typeof __ENTERPRISE__ !== 'undefined' && __ENTERPRISE__) && enterpriseEnabled;
 
   // Check if user has admin access (permission-based)
   const hasAdminPermissions = hasAccess(user, ['admin.access']) ||
                              hasAccess(user, ['users.manage']) ||
                              hasAccess(user, ['workers.manage']);
 
-  // Helper: filter enterpriseOnly items from an array
-  const filterEnterpriseItems = useCallback((items: NavigationItem[]): NavigationItem[] => {
-    if (enterpriseAvailable) return items;
-    return items.filter(item => !item.enterpriseOnly);
-  }, [enterpriseAvailable]);
+  // Helper: filter items whose extensionSlug is not loaded
+  const filterExtensionItems = useCallback((items: NavigationItem[]): NavigationItem[] => {
+    return items.filter(item => !item.extensionSlug || loadedExtensions.includes(item.extensionSlug));
+  }, [loadedExtensions]);
 
-  // Helper: filter enterpriseOnly sections and their items
-  const filterEnterpriseSections = useCallback((sections: NavigationSection[]): NavigationSection[] => {
-    if (enterpriseAvailable) return sections;
+  // Helper: filter sections and their items by extensionSlug
+  const filterExtensionSections = useCallback((sections: NavigationSection[]): NavigationSection[] => {
     return sections
-      .filter(section => !section.enterpriseOnly)
+      .filter(section => !section.extensionSlug || loadedExtensions.includes(section.extensionSlug))
       .map(section => ({
         ...section,
-        items: section.items.filter(item => !item.enterpriseOnly)
+        items: section.items.filter(item => !item.extensionSlug || loadedExtensions.includes(item.extensionSlug))
       }));
-  }, [enterpriseAvailable]);
+  }, [loadedExtensions]);
 
   // Build navigation config based on user permissions
   const buildNavigationConfig = useCallback((): NavigationConfig => {
@@ -106,13 +100,51 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
       config.sections = [...(config.sections || []), ...adminNavigationOverrides.sections];
     }
 
-    // Filter enterprise-only at all levels: sections, items within sections, top-level items, userMenuItems, quickActions
-    if (config.sections) {
-      config.sections = filterEnterpriseSections(config.sections);
+    // Merge extension-registered nav sections
+    const extensionSections = featureRegistry.getNavSections();
+    if (extensionSections.length > 0) {
+      const convertedSections = extensionSections.map(section => ({
+        id: section.id,
+        name: section.name,
+        items: section.items.map(item => ({
+          id: item.label.toLowerCase().replace(/\s+/g, '-'),
+          name: item.label,
+          href: item.path,
+          icon: item.icon || 'Puzzle',
+          description: '',
+          permissions: item.permission ? [item.permission] : [],
+          order: item.order,
+        })),
+        permissions: section.permissions,
+        collapsible: section.collapsible,
+        defaultExpanded: section.defaultExpanded,
+        order: section.order,
+      }));
+      config.sections = [...(config.sections || []), ...convertedSections];
     }
-    config.items = filterEnterpriseItems(config.items);
-    config.userMenuItems = filterEnterpriseItems(config.userMenuItems);
-    config.quickActions = filterEnterpriseItems(config.quickActions);
+
+    // Merge extension-registered nav items (top-level, like Marketplace)
+    const extensionItems = featureRegistry.getNavItems();
+    if (extensionItems.length > 0) {
+      const convertedItems = extensionItems.map(item => ({
+        id: item.label.toLowerCase().replace(/\s+/g, '-'),
+        name: item.label,
+        href: item.path,
+        icon: item.icon || 'Puzzle',
+        description: '',
+        permissions: item.permission ? [item.permission] : [],
+        order: item.order,
+      }));
+      config.items = [...config.items, ...convertedItems];
+    }
+
+    // Filter extension-gated items at all levels
+    if (config.sections) {
+      config.sections = filterExtensionSections(config.sections);
+    }
+    config.items = filterExtensionItems(config.items);
+    config.userMenuItems = filterExtensionItems(config.userMenuItems);
+    config.quickActions = filterExtensionItems(config.quickActions);
 
     // Sort items by order
     config.items.sort((a, b) => (a.order || 99) - (b.order || 99));
@@ -123,7 +155,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
     }
 
     return config;
-  }, [hasAdminPermissions, filterEnterpriseItems, filterEnterpriseSections]);
+  }, [hasAdminPermissions, filterExtensionItems, filterExtensionSections]);
 
   // Permission checker - ONLY use permissions, ignore roles
   const hasPermission = useCallback((permissions?: string[]): boolean => {

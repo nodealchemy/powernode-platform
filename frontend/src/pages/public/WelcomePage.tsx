@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
 import { Link } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 
+import { RootState } from '@/shared/services';
 import { MarkdownRenderer } from '@/shared/components/ui/MarkdownRenderer';
 
 import { PublicPageContainer } from '@/shared/components/layout/PublicPageContainer';
@@ -17,6 +19,7 @@ interface WelcomePageProps {
 }
 
 export const WelcomePage: React.FC<WelcomePageProps> = ({ pageSlug = 'welcome' }) => {
+  const registrationEnabled = useSelector((state: RootState) => state.config.registrationEnabled);
   const [page, setPage] = useState<Page | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,9 +62,11 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({ pageSlug = 'welcome' }
             <button onClick={() => loadPage?.()} className="inline-flex items-center justify-center px-6 py-3 border-2 border-white/30 hover:border-white/60 text-white hover:text-white font-semibold rounded-xl transition-all duration-200">
               Try Again
             </button>
-            <Link to="/plans" className="inline-flex items-center justify-center px-6 py-3 bg-theme-info-solid hover:bg-theme-interactive-primary-hover text-white font-semibold rounded-xl transition-all duration-200">
-              View Plans
-            </Link>
+            {registrationEnabled && (
+              <Link to="/plans" className="inline-flex items-center justify-center px-6 py-3 bg-theme-info-solid hover:bg-theme-interactive-primary-hover text-white font-semibold rounded-xl transition-all duration-200">
+                View Plans
+              </Link>
+            )}
           </div>
         </div>
       </PublicPageContainer>
@@ -163,9 +168,11 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({ pageSlug = 'welcome' }
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Get Started Today</h2>
           <p className="text-xl text-white/80 mb-8">Experience the power of AI-driven automation.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/register" className="inline-flex items-center justify-center px-8 py-4 bg-theme-surface hover:bg-theme-surface-hover text-theme-primary font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl">
-              Create Account
-            </Link>
+            {registrationEnabled && (
+              <Link to="/register" className="inline-flex items-center justify-center px-8 py-4 bg-theme-surface hover:bg-theme-surface-hover text-theme-primary font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl">
+                Create Account
+              </Link>
+            )}
             <Link to="/login" className="inline-flex items-center justify-center px-8 py-4 border-2 border-white/30 hover:border-white/60 text-white hover:text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105">
               Sign In
             </Link>

@@ -43,7 +43,7 @@ export const FooterProvider: React.FC<FooterProviderProps> = ({ children }) => {
       // Set fallback data if API fails
       setFooterData({
         site_name: 'Powernode',
-        copyright_text: 'All rights reserved.',
+        copyright_text: 'Everett C. Haimes III. All rights reserved.',
         copyright_year: new Date().getFullYear().toString(),
         footer_description: 'Powerful subscription management platform designed to help businesses grow.',
         contact_email: '',

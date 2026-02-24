@@ -1,14 +1,12 @@
 // Navigation Configuration
 import {
   Home, BarChart3, Users, User, Settings, CreditCard,
-  FileText, Package, UserCheck, Store,
+  FileText, Package, UserCheck,
   HelpCircle, LogOut, Bot, Brain,
   HardDrive, Workflow, Server, GitBranch,
-  Puzzle, BookOpen, UserCog, Shield, FileCode,
-  CheckCircle2, Scale, Building2, Activity, ShieldCheck,
+  Puzzle, BookOpen, UserCog, Activity, ShieldCheck,
   Container,
-  Play, Rocket,
-  Megaphone, CalendarDays, Mail, Share2, TrendingUp
+  Play, Rocket
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
 
@@ -23,65 +21,9 @@ export const defaultNavigationConfig: NavigationConfig = {
       permissions: [],
       order: 1
     },
-    {
-      id: 'marketplace',
-      name: 'Marketplace',
-      href: '/app/marketplace',
-      icon: Store,
-      description: 'Browse apps, manage subscriptions, and create your own',
-      permissions: [],
-      order: 2
-    }
   ],
 
   sections: [
-    // Business section - enterprise SaaS monetization features
-    {
-      id: 'business',
-      name: 'Business',
-      enterpriseOnly: true,
-      items: [
-        {
-          id: 'customers',
-          name: 'Customers',
-          href: '/app/business/customers',
-          icon: Users,
-          description: 'Customer management and insights',
-          permissions: [],
-          order: 1
-        },
-        {
-          id: 'plans',
-          name: 'Plans',
-          href: '/app/business/plans',
-          icon: Package,
-          description: 'Manage pricing and subscription tiers',
-          permissions: [],
-          order: 2
-        },
-        {
-          id: 'analytics',
-          name: 'Analytics',
-          href: '/app/business/analytics',
-          icon: BarChart3,
-          description: 'Revenue and growth metrics',
-          permissions: [],
-          order: 3
-        },
-        {
-          id: 'reports',
-          name: 'Reports',
-          href: '/app/business/reports',
-          icon: FileText,
-          description: 'Financial and usage reports',
-          permissions: ['analytics.read'],
-          order: 4
-        }
-      ],
-      collapsible: true,
-      defaultExpanded: true,
-      order: 5
-    },
     // AI section - primary differentiating feature
     {
       id: 'ai',
@@ -221,63 +163,8 @@ export const defaultNavigationConfig: NavigationConfig = {
       defaultExpanded: true,
       order: 15
     },
-    // Marketing section - campaign and content management
-    {
-      id: 'marketing',
-      name: 'Marketing',
-      items: [
-        {
-          id: 'marketing-campaigns',
-          name: 'Campaigns',
-          href: '/app/marketing/campaigns',
-          icon: Megaphone,
-          description: 'Create and manage marketing campaigns',
-          permissions: ['marketing.campaigns.read'],
-          order: 1
-        },
-        {
-          id: 'marketing-calendar',
-          name: 'Calendar',
-          href: '/app/marketing/calendar',
-          icon: CalendarDays,
-          description: 'Content scheduling and planning',
-          permissions: ['marketing.calendar.read'],
-          order: 2
-        },
-        {
-          id: 'marketing-email',
-          name: 'Email Lists',
-          href: '/app/marketing/email-lists',
-          icon: Mail,
-          description: 'Email lists and subscriber management',
-          permissions: ['marketing.email_lists.read'],
-          order: 3
-        },
-        {
-          id: 'marketing-social',
-          name: 'Social',
-          href: '/app/marketing/social',
-          icon: Share2,
-          description: 'Social media account management',
-          permissions: ['marketing.social.read'],
-          order: 4
-        },
-        {
-          id: 'marketing-analytics',
-          name: 'Analytics',
-          href: '/app/marketing/analytics',
-          icon: TrendingUp,
-          description: 'Campaign performance and ROI tracking',
-          permissions: ['marketing.analytics.read'],
-          order: 5
-        }
-      ],
-      permissions: ['marketing.campaigns.read', 'marketing.calendar.read', 'marketing.email_lists.read', 'marketing.social.read', 'marketing.analytics.read'],
-      collapsible: true,
-      defaultExpanded: true,
-      order: 16
-    },
-    // Account section - personal and team management (less frequent access)
+    // Marketing section — registered dynamically via marketing extension (featureRegistry)
+    // Account section - personal and team management
     {
       id: 'account',
       name: 'Account',
@@ -307,103 +194,14 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: CreditCard,
           description: 'Invoices and payment processing',
           permissions: ['admin.billing.read'],
-          enterpriseOnly: true,
+          extensionSlug: 'enterprise',
           order: 3
         }
       ],
       collapsible: true,
-      defaultExpanded: false,
-      order: 18
+      defaultExpanded: true,
+      order: 3
     },
-  ],
-  
-  userMenuItems: [
-    {
-      id: 'profile',
-      name: 'My Profile',
-      href: '/app/profile',
-      icon: User,
-      description: 'Personal information and preferences'
-    },
-    {
-      id: 'account-settings',
-      name: 'Account Settings',
-      href: '/app/profile',
-      icon: Settings,
-      description: 'Account configuration and security'
-    },
-    {
-      id: 'billing-center',
-      name: 'Billing Center',
-      href: '/app/account/billing',
-      icon: CreditCard,
-      description: 'Subscription and payment details',
-      enterpriseOnly: true
-    },
-    {
-      id: 'help-support',
-      name: 'Help & Support',
-      href: 'mailto:support@powernode.com',
-      icon: HelpCircle,
-      description: 'Get help and contact support',
-      isExternal: true
-    },
-    {
-      id: 'logout',
-      name: 'Sign Out',
-      href: '#logout',
-      icon: LogOut,
-      description: 'Sign out of your account'
-    }
-  ],
-  
-  quickActions: [
-    {
-      id: 'create-plan',
-      name: 'Create Plan',
-      href: '/app/business/plans/new',
-      icon: Package,
-      description: 'Set up a new subscription plan',
-      enterpriseOnly: true
-    },
-    {
-      id: 'invite-team',
-      name: 'Invite Team Member',
-      href: '/app/users',
-      icon: UserCheck,
-      description: 'Add someone to your team'
-    },
-    {
-      id: 'view-analytics',
-      name: 'View Analytics',
-      href: '/app/business/analytics',
-      icon: BarChart3,
-      description: 'Check your latest metrics',
-      enterpriseOnly: true
-    },
-    {
-      id: 'configure-payments',
-      name: 'Configure Payments',
-      href: '/app/admin/settings/payment-gateways',
-      icon: CreditCard,
-      description: 'Set up payment processing',
-      permissions: ['admin.billing.manage_gateways'],
-      enterpriseOnly: true
-    },
-    {
-      id: 'create-ai-agent',
-      name: 'Create AI Agent',
-      href: '/app/ai/agents',
-      icon: Bot,
-      description: 'Create a new AI agent for automation',
-      permissions: ['ai.agents.create']
-    }
-  ]
-};
-
-// Admin-specific navigation overrides
-export const adminNavigationOverrides = {
-  sections: [
     // DevOps section - developer and operations tools
     {
       id: 'devops',
@@ -476,73 +274,97 @@ export const adminNavigationOverrides = {
       permissions: ['git.providers.read', 'git.repositories.read', 'devops.pipelines.read', 'cicd.runners.read', 'webhook.read', 'integrations.read', 'api.manage_keys', 'admin.storage.read', 'devops.containers.read', 'swarm.clusters.read', 'docker.hosts.read'],
       collapsible: true,
       defaultExpanded: true,
-      order: 20
+      order: 11
     },
-    // Supply Chain section - software supply chain security
+  ],
+  
+  userMenuItems: [
     {
-      id: 'supply-chain',
-      name: 'Supply Chain',
-      items: [
-        {
-          id: 'sc-overview',
-          name: 'Overview',
-          href: '/app/supply-chain',
-          icon: Shield,
-          description: 'Supply chain security dashboard',
-          permissions: ['supply_chain.read'],
-          order: 1
-        },
-        {
-          id: 'sc-sboms',
-          name: 'SBOMs',
-          href: '/app/supply-chain/sboms',
-          icon: FileCode,
-          description: 'Software Bill of Materials',
-          permissions: ['supply_chain.read'],
-          order: 2
-        },
-        {
-          id: 'sc-attestations',
-          name: 'Attestations',
-          href: '/app/supply-chain/attestations',
-          icon: CheckCircle2,
-          description: 'Build provenance and attestations',
-          permissions: ['supply_chain.read'],
-          order: 3
-        },
-        {
-          id: 'sc-containers',
-          name: 'Container Images',
-          href: '/app/supply-chain/containers',
-          icon: Package,
-          description: 'Container image security',
-          permissions: ['supply_chain.read'],
-          order: 4
-        },
-        {
-          id: 'sc-licenses',
-          name: 'License Compliance',
-          href: '/app/supply-chain/licenses',
-          icon: Scale,
-          description: 'License policies and violations',
-          permissions: ['supply_chain.read'],
-          order: 5
-        },
-        {
-          id: 'sc-vendors',
-          name: 'Vendor Risk',
-          href: '/app/supply-chain/vendors',
-          icon: Building2,
-          description: 'Third-party vendor management',
-          permissions: ['supply_chain.read'],
-          order: 6
-        }
-      ],
-      permissions: ['supply_chain.read'],
-      collapsible: true,
-      defaultExpanded: false,
-      order: 22
+      id: 'profile',
+      name: 'My Profile',
+      href: '/app/profile',
+      icon: User,
+      description: 'Personal information and preferences'
     },
+    {
+      id: 'account-settings',
+      name: 'Account Settings',
+      href: '/app/profile',
+      icon: Settings,
+      description: 'Account configuration and security'
+    },
+    {
+      id: 'billing-center',
+      name: 'Billing Center',
+      href: '/app/account/billing',
+      icon: CreditCard,
+      description: 'Subscription and payment details',
+      extensionSlug: 'enterprise'
+    },
+    {
+      id: 'help-support',
+      name: 'Help & Support',
+      href: 'mailto:support@powernode.com',
+      icon: HelpCircle,
+      description: 'Get help and contact support',
+      isExternal: true
+    },
+    {
+      id: 'logout',
+      name: 'Sign Out',
+      href: '#logout',
+      icon: LogOut,
+      description: 'Sign out of your account'
+    }
+  ],
+  
+  quickActions: [
+    {
+      id: 'create-plan',
+      name: 'Create Plan',
+      href: '/app/business/plans/new',
+      icon: Package,
+      description: 'Set up a new subscription plan',
+      extensionSlug: 'enterprise'
+    },
+    {
+      id: 'invite-team',
+      name: 'Invite Team Member',
+      href: '/app/users',
+      icon: UserCheck,
+      description: 'Add someone to your team'
+    },
+    {
+      id: 'view-analytics',
+      name: 'View Analytics',
+      href: '/app/business/analytics',
+      icon: BarChart3,
+      description: 'Check your latest metrics',
+      extensionSlug: 'enterprise'
+    },
+    {
+      id: 'configure-payments',
+      name: 'Configure Payments',
+      href: '/app/admin/settings/payment-gateways',
+      icon: CreditCard,
+      description: 'Set up payment processing',
+      permissions: ['admin.billing.manage_gateways'],
+      extensionSlug: 'enterprise'
+    },
+    {
+      id: 'create-ai-agent',
+      name: 'Create AI Agent',
+      href: '/app/ai/agents',
+      icon: Bot,
+      description: 'Create a new AI agent for automation',
+      permissions: ['ai.agents.create']
+    }
+  ]
+};
+
+// Admin-specific navigation overrides
+export const adminNavigationOverrides = {
+  sections: [
     // Administration section - super admin features (always last)
     {
       id: 'administration',
@@ -574,15 +396,6 @@ export const adminNavigationOverrides = {
           description: 'User impersonation for support and debugging',
           permissions: ['admin.impersonation.read'],
           order: 3
-        },
-        {
-          id: 'admin-marketplace',
-          name: 'Marketplace',
-          href: '/app/admin/marketplace',
-          icon: Store,
-          description: 'Manage marketplace listings and plugins',
-          permissions: ['admin.marketplace.read'],
-          order: 4
         },
         {
           id: 'settings',

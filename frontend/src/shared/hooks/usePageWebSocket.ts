@@ -2,6 +2,7 @@ import { useCallback, useRef, useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
+import { logger } from '@/shared/utils/logger';
 
 // Page types that determine auto-subscription behavior
 export type PageType =
@@ -260,7 +261,7 @@ export const usePageWebSocket = ({
   const subscribeToChannel = useCallback((channel: ChannelType) => {
     if (!isConnected || !accountId) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn(`[PageWebSocket] Cannot subscribe to ${channel}: not connected or no account`);
+        logger.warn(`[PageWebSocket] Cannot subscribe to ${channel}: not connected or no account`);
       }
       return;
     }

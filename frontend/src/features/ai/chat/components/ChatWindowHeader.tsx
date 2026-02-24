@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   Minimize2,
   Maximize2,
@@ -27,11 +27,25 @@ interface ChatWindowHeaderProps {
 }
 
 export const ChatWindowHeader: React.FC<ChatWindowHeaderProps> = ({ onPointerDown }) => {
-  const { state, setMode, isDetachedMode, toggleSidebar } = useChatWindow();
+  const { state, setMode, isDetachedMode, toggleSidebar, closeTab } = useChatWindow();
   const { addNotification } = useNotifications();
   const [showActions, setShowActions] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
+  const membersRef = useRef<HTMLDivElement>(null);
+  const actionsRef = useRef<HTMLDivElement>(null);
+  const scheduleRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showMembers && !showActions && !showSchedule) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (showMembers && membersRef.current && !membersRef.current.contains(e.target as Node)) setShowMembers(false);
+      if (showActions && actionsRef.current && !actionsRef.current.contains(e.target as Node)) setShowActions(false);
+      if (showSchedule && scheduleRef.current && !scheduleRef.current.contains(e.target as Node)) setShowSchedule(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMembers, showActions, showSchedule]);
 
   const activeTab = state.tabs.find(t => t.id === state.activeTabId);
   const isMaximized = state.mode === 'maximized';
@@ -90,12 +104,13 @@ export const ChatWindowHeader: React.FC<ChatWindowHeaderProps> = ({ onPointerDow
     if (!window.confirm('Delete this conversation? This cannot be undone.')) return;
     try {
       await conversationsApi.deleteConversation(activeTab.conversationId);
+      closeTab(activeTab.id);
       addNotification({ type: 'success', message: 'Conversation deleted' });
     } catch {
       addNotification({ type: 'error', message: 'Failed to delete conversation' });
     }
     setShowActions(false);
-  }, [activeTab, addNotification]);
+  }, [activeTab, addNotification, closeTab]);
 
   return (
     <div
@@ -122,7 +137,7 @@ export const ChatWindowHeader: React.FC<ChatWindowHeaderProps> = ({ onPointerDow
       <div className="flex items-center gap-1 shrink-0">
         {/* Schedule button */}
         {activeTab?.conversationId && (
-          <div className="relative">
+          <div className="relative" ref={scheduleRef}>
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setShowSchedule(!showSchedule); }}
@@ -142,7 +157,7 @@ export const ChatWindowHeader: React.FC<ChatWindowHeaderProps> = ({ onPointerDow
 
         {/* Workspace members (only for workspace tabs) */}
         {activeTab?.isWorkspace && activeTab?.conversationId && (
-          <div className="relative">
+          <div className="relative" ref={membersRef}>
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setShowMembers(!showMembers); }}
@@ -162,7 +177,7 @@ export const ChatWindowHeader: React.FC<ChatWindowHeaderProps> = ({ onPointerDow
 
         {/* Actions menu (all modes, when a tab is active) */}
         {activeTab && (
-          <div className="relative">
+          <div className="relative" ref={actionsRef}>
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setShowActions(!showActions); }}

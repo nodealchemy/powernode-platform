@@ -2,16 +2,16 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { api } from '@/shared/services/api';
 
 interface ConfigState {
-  enterpriseEnabled: boolean;
-  billingEnabled: boolean;
+  loadedExtensions: string[];
   coreMode: boolean;
+  registrationEnabled: boolean;
   isLoaded: boolean;
 }
 
 const initialState: ConfigState = {
-  enterpriseEnabled: false,
-  billingEnabled: false,
+  loadedExtensions: [],
   coreMode: true,
+  registrationEnabled: false,
   isLoaded: false,
 };
 
@@ -31,9 +31,11 @@ const configSlice = createSlice({
     builder.addCase(fetchPlatformConfig.fulfilled, (state, action) => {
       const features = action.payload?.features;
       if (features) {
-        state.enterpriseEnabled = features.enterprise_enabled ?? false;
-        state.billingEnabled = features.billing_enabled ?? false;
         state.coreMode = features.core_mode ?? true;
+        state.registrationEnabled = features.registration_enabled ?? false;
+        state.loadedExtensions = (features.loaded_extensions || []).map(
+          (ext: { slug: string }) => ext.slug
+        );
       }
       state.isLoaded = true;
     });

@@ -10,7 +10,7 @@ import {
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 
-declare const __ENTERPRISE__: boolean;
+declare const __EXTENSIONS__: string[];
 
 interface AdminSettingsTab {
   id: string;
@@ -19,8 +19,8 @@ interface AdminSettingsTab {
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   description: string;
   requiredPermissions?: string[];
-  enterpriseOnly?: boolean;
-  enterpriseInstalledOnly?: boolean;
+  extensionSlug?: string;
+  extensionInstalledOnly?: boolean;
 }
 
 const adminSettingsTabs: AdminSettingsTab[] = [
@@ -47,7 +47,7 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     icon: CreditCard,
     description: 'Configure Stripe, PayPal, and other payment providers',
     requiredPermissions: ['admin.billing.manage_gateways'],
-    enterpriseOnly: true
+    extensionSlug: 'enterprise'
   },
   {
     id: 'email',
@@ -107,19 +107,18 @@ export const AdminSettingsTabs: React.FC<AdminSettingsTabsProps> = ({ className 
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);
-  const { enterpriseEnabled, coreMode } = useSelector((state: RootState) => state.config);
-  const enterpriseBuild = typeof __ENTERPRISE__ !== 'undefined' && __ENTERPRISE__;
-  const enterpriseAvailable = enterpriseBuild && enterpriseEnabled;
+  const { loadedExtensions, coreMode } = useSelector((state: RootState) => state.config);
+  const enterpriseBuild = typeof __EXTENSIONS__ !== 'undefined' && __EXTENSIONS__.includes('enterprise');
   const enterpriseInstalled = enterpriseBuild && !coreMode;
 
   // Filter tabs based on user permissions and enterprise availability
   const availableTabs = adminSettingsTabs.filter(tab => {
-    // Hide enterprise-only tabs when enterprise is not available (installed + enabled)
-    if (tab.enterpriseOnly && !enterpriseAvailable) {
+    // Hide extension-specific tabs when the required extension is not available
+    if (tab.extensionSlug && !loadedExtensions.includes(tab.extensionSlug)) {
       return false;
     }
-    // Hide enterprise-installed-only tabs when enterprise engine is not loaded
-    if (tab.enterpriseInstalledOnly && !enterpriseInstalled) {
+    // Hide tabs requiring an extension to be installed (build-time)
+    if (tab.extensionInstalledOnly && !enterpriseInstalled) {
       return false;
     }
     if (!tab.requiredPermissions || tab.requiredPermissions.length === 0) {

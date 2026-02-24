@@ -30,6 +30,7 @@ export const LoginPage: React.FC = () => {
   const location = useLocation();
   
   const { error } = useSelector((state: RootState) => state.auth);
+  const registrationEnabled = useSelector((state: RootState) => state.config.registrationEnabled);
   
   const [formData, setFormData] = useState({
     email: '',
@@ -316,32 +317,36 @@ export const LoginPage: React.FC = () => {
                 </div>
           </form>
 
-            {/* Modern Divider */}
-            <div className="mt-8">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-theme" />
+            {registrationEnabled && (
+              <>
+                {/* Modern Divider */}
+                <div className="mt-8">
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-theme" />
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="px-4 font-medium bg-theme-surface text-theme-secondary">
+                        New to Powernode?
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-4 font-medium bg-theme-surface text-theme-secondary">
-                    New to Powernode?
-                  </span>
-                </div>
-              </div>
-            </div>
 
-            <div className="mt-6 text-center">
-              <Link
-                to="/plans"
-                className="btn-theme btn-theme-secondary w-full inline-flex justify-center items-center space-x-2 py-3 px-4 border border-theme rounded-xl text-sm font-semibold transition-all duration-200 shadow-md hover:shadow-lg"
-              >
-                <span>Create your account</span>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-              </Link>
-            </div>
-            
+                <div className="mt-6 text-center">
+                  <Link
+                    to="/plans"
+                    className="btn-theme btn-theme-secondary w-full inline-flex justify-center items-center space-x-2 py-3 px-4 border border-theme rounded-xl text-sm font-semibold transition-all duration-200 shadow-md hover:shadow-lg"
+                  >
+                    <span>Create your account</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  </Link>
+                </div>
+              </>
+            )}
+
             {/* Enhanced Trust Indicators */}
             <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs text-theme-tertiary">
               <div className="flex items-center space-x-2">

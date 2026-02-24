@@ -1,10 +1,12 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Provider, useDispatch, useSelector } from 'react-redux';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { RootState, AppDispatch } from '@/shared/services';
 import { store } from '@/shared/services';
 import { getCurrentUser, refreshAccessToken, clearAuth, forceTokenClear, checkImpersonationStatus } from '@/shared/services/slices/authSlice';
 import { isTokenInvalidError, isValidTokenFormat } from '@/shared/utils/tokenUtils';
+import { loadAllExtensions } from '@/shared/services/extensionLoader';
 
 // Theme Provider
 import { ThemeProvider } from '@/shared/hooks/ThemeContext';
@@ -20,11 +22,11 @@ import { NotificationContainer } from '@/shared/components/ui/NotificationContai
 // Pages
 import { LoginPage } from '@/pages/public/LoginPage';
 // Registration and plan selection are enterprise features, lazy-loaded when available
-const RegisterPage = (typeof __ENTERPRISE__ !== 'undefined' && __ENTERPRISE__)
-  ? React.lazy(() => import('@enterprise/pages/public/RegisterPage'))
+const RegisterPage = (typeof __EXTENSIONS__ !== 'undefined' && __EXTENSIONS__.includes('enterprise'))
+  ? React.lazy(() => import('@ext/enterprise/pages/public/RegisterPage'))
   : () => React.createElement('div', { className: 'p-8 text-center text-theme-secondary' }, 'Registration is available in Enterprise edition.');
-const PlanSelectionPage = (typeof __ENTERPRISE__ !== 'undefined' && __ENTERPRISE__)
-  ? React.lazy(() => import('@enterprise/pages/public/PlanSelectionPage'))
+const PlanSelectionPage = (typeof __EXTENSIONS__ !== 'undefined' && __EXTENSIONS__.includes('enterprise'))
+  ? React.lazy(() => import('@ext/enterprise/pages/public/PlanSelectionPage'))
   : () => React.createElement('div', { className: 'p-8 text-center text-theme-secondary' }, 'Plan selection is available in Enterprise edition.');
 import { DashboardPage } from '@/pages/app/DashboardPage';
 import { ForgotPasswordPage } from '@/pages/public/ForgotPasswordPage';
@@ -44,12 +46,29 @@ import '@/assets/styles/themes.css';
 import '@/assets/styles/public-theme.css';
 import '@/assets/styles/deprecated-css-override.css';
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
 const AppContent: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { isAuthenticated, access_token, user } = useSelector((state: RootState) => state.auth);
   const [initializing, setInitializing] = React.useState(true);
   const [showAuthFallback, setShowAuthFallback] = React.useState(false);
   const initializingRef = React.useRef(false); // Prevent double initialization
+
+  // Load all discovered extensions
+  useEffect(() => {
+    loadAllExtensions().catch(() => {
+      // Extension loading failure is non-fatal
+    });
+  }, []);
 
   // Auth initialization with proper dependencies to prevent double execution
   useEffect(() => {
@@ -342,15 +361,17 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <Provider store={store}>
-      <ThemeProvider>
-        <BreadcrumbProvider>
-          <FooterProvider>
-            <AppContent />
-          </FooterProvider>
-        </BreadcrumbProvider>
-      </ThemeProvider>
-    </Provider>
+    <QueryClientProvider client={queryClient}>
+      <Provider store={store}>
+        <ThemeProvider>
+          <BreadcrumbProvider>
+            <FooterProvider>
+              <AppContent />
+            </FooterProvider>
+          </BreadcrumbProvider>
+        </ThemeProvider>
+      </Provider>
+    </QueryClientProvider>
   );
 };
 
