@@ -59,9 +59,10 @@ module Ai
             }
           },
           "execute_agent" => {
-            description: "Queue execution of an AI agent with the given input",
+            description: "Queue execution of a server-side AI agent (assistant type only). " \
+                         "Cannot execute MCP client agents — use @mention in workspace messages to reach them.",
             parameters: {
-              agent_id: { type: "string", required: true, description: "Agent ID to execute" },
+              agent_id: { type: "string", required: true, description: "Agent ID, slug, or exact name" },
               input: { type: "object", required: false, description: "Execution input" }
             }
           }
@@ -107,10 +108,20 @@ module Ai
       end
 
       def execute_agent(params)
-        agent = account.ai_agents.find(params[:agent_id])
+        identifier = params[:agent_id]
+        agent = resolve_agent(identifier)
+        return { success: false, error: "Agent not found for identifier: #{identifier}" } unless agent
+
+        if agent.agent_type == "mcp_client"
+          return {
+            success: false,
+            error: "Cannot execute MCP client agent '#{agent.name}'. " \
+                   "MCP clients are external tools that cannot be executed server-side. " \
+                   "To reach this agent, write '@#{agent.name}' in a workspace message instead."
+          }
+        end
+
         { success: true, agent_id: agent.id, status: "execution_queued", message: "Agent execution queued" }
-      rescue ActiveRecord::RecordNotFound
-        { success: false, error: "Agent not found" }
       end
 
       def get_agent(params)
@@ -150,6 +161,15 @@ module Ai
         { success: false, error: "Agent not found" }
       rescue ActiveRecord::RecordInvalid => e
         { success: false, error: e.message }
+      end
+
+      # Flexible agent lookup: try UUID, then slug, then name match
+      def resolve_agent(identifier)
+        return nil if identifier.blank?
+
+        account.ai_agents.find_by(id: identifier) ||
+          account.ai_agents.find_by(slug: identifier) ||
+          account.ai_agents.find_by(name: identifier)
       end
     end
   end
