@@ -156,21 +156,49 @@ class AiWorkspaceResponseJob < BaseJob
     full_system = [workspace_context, system_prompt].reject(&:blank?).join("\n\n")
     messages << { role: 'system', content: full_system } if full_system.present?
 
-    # Add recent messages from conversation in chronological order
+    # Collect recent messages in chronological order
     # (recent_messages come from the API in desc order — reverse to asc for the LLM)
-    if conversation_data && conversation_data['recent_messages'].is_a?(Array)
-      conversation_data['recent_messages'].reverse.last(20).each do |msg|
-        next if msg['role'] == 'system'
+    recent = if conversation_data && conversation_data['recent_messages'].is_a?(Array)
+      conversation_data['recent_messages'].reverse.last(20)
+    else
+      []
+    end
 
-        messages << { role: msg['role'], content: msg['content'] }
+    # Find the trigger message that caused this job to be dispatched
+    trigger_msg = recent.find { |m| m['id'] == @message_id || m['message_id'] == @message_id }
+
+    # Build conversation history with proper role mapping for the LLM.
+    # In workspace conversations, all messages may be role: "assistant" (from agents).
+    # We map the trigger message to "user" so the LLM knows what to respond to,
+    # and preceding messages become alternating context.
+    recent.each do |msg|
+      next if msg['role'] == 'system'
+
+      is_trigger = trigger_msg && (msg['id'] == trigger_msg['id'] || msg['message_id'] == trigger_msg['message_id'])
+      sender_name = msg.dig('sender_info', 'name') || msg['user'] || 'Unknown'
+
+      if is_trigger
+        # Present the trigger message as "user" so the LLM responds to it
+        messages << { role: 'user', content: "[#{sender_name}]: #{msg['content']}" }
+      elsif msg['role'] == 'user'
+        messages << { role: 'user', content: msg['content'] }
+      else
+        # Other assistant messages become context; prefix with sender for attribution
+        messages << { role: 'assistant', content: "[#{sender_name}]: #{msg['content']}" }
       end
     end
 
-    # Trim trailing assistant messages so the array ends with the user's message.
-    # By the time this job runs, the concierge has already responded, placing an
-    # assistant message at the end of history. The LLM needs a user message last
-    # to know what to respond to.
-    messages.pop while messages.last && messages.last[:role] == 'assistant'
+    # If trigger wasn't found in recent messages (e.g., older than the last 10),
+    # ensure we still end with a user message so the LLM has something to respond to.
+    if messages.last && messages.last[:role] != 'user'
+      if trigger_msg
+        # This shouldn't happen, but safety fallback
+        messages << { role: 'user', content: trigger_msg['content'] }
+      else
+        # Strip trailing assistant messages as before (legacy fallback)
+        messages.pop while messages.last && messages.last[:role] == 'assistant'
+      end
+    end
 
     messages
   end
@@ -195,11 +223,19 @@ class AiWorkspaceResponseJob < BaseJob
     agent_name = agent['name'] || 'AI Assistant'
     participant_list = participants.any? ? participants.join(", ") : "multiple agents"
 
+    # Find who sent the trigger message for @mention context
+    recent = conversation_data&.dig('recent_messages') || []
+    trigger_msg = recent.find { |m| m['id'] == @message_id || m['message_id'] == @message_id }
+    sender_name = trigger_msg&.dig('sender_info', 'name') || trigger_msg&.dig('user') ||
+                  'a participant'
+
     <<~CONTEXT.strip
-      You are participating in a collaborative workspace called "#{workspace_name}".
+      You are #{agent_name}, participating in a collaborative workspace called "#{workspace_name}".
       Other participants: #{participant_list}.
-      A user has sent a message. Respond from your perspective as #{agent_name}.
-      Keep your response focused and concise — other agents are also responding.
+
+      You were @mentioned by #{sender_name}. Read the conversation history and respond
+      directly to the message that @mentioned you. Be helpful, focused, and concise.
+      Do NOT simulate or roleplay other participants — only respond as yourself.
     CONTEXT
   end
 
