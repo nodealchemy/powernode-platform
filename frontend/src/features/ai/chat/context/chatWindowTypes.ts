@@ -29,7 +29,7 @@ export interface SplitPanel {
   activeTabId: string | null;
 }
 
-export type PreferredOpenMode = 'floating' | 'detached';
+export type PreferredOpenMode = 'floating' | 'maximized' | 'detached';
 
 export interface ChatWindowState {
   mode: ChatWindowMode;
@@ -74,6 +74,7 @@ export interface ChatWindowContextValue {
   openConversation: (agentId: string, agentName: string, conversationId?: string, tabProps?: Partial<ChatTab>) => Promise<void>;
   openConversationMaximized: (agentId: string, agentName: string, conversationId?: string) => Promise<void>;
   openConcierge: () => Promise<void>;
+  openInNewTab: () => void;
   closeTab: (tabId: string) => void;
   switchTab: (tabId: string) => void;
   setMode: (mode: ChatWindowMode) => void;

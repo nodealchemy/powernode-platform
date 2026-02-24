@@ -29,7 +29,7 @@ export const FloatingChatWidget: React.FC = () => {
         break;
       case 'floating':
       case 'maximized':
-        setMode('floating');
+        setMode('closed');
         break;
     }
   }, [state.mode, state.preferredOpenMode, state.tabs.length, setMode, openConcierge]);

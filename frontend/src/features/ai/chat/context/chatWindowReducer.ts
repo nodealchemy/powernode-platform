@@ -39,7 +39,7 @@ export function chatWindowReducer(state: ChatWindowState, action: ChatWindowActi
   switch (action.type) {
     case 'SET_MODE': {
       const newMode = action.payload;
-      const preferredOpenMode = (newMode === 'floating' || newMode === 'detached')
+      const preferredOpenMode = (newMode === 'floating' || newMode === 'maximized' || newMode === 'detached')
         ? newMode
         : state.preferredOpenMode;
       return { ...state, mode: newMode, preferredOpenMode };

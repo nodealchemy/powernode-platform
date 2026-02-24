@@ -56,7 +56,9 @@ export function loadChatState(): ChatWindowState {
     const migrated = migrateLegacyState(parsed);
 
     const preferredOpenMode: PreferredOpenMode =
-      parsed.preferredOpenMode === 'detached' ? 'detached' : 'floating';
+      parsed.preferredOpenMode === 'detached' ? 'detached'
+      : parsed.preferredOpenMode === 'maximized' ? 'maximized'
+      : 'floating';
 
     return {
       ...initialChatWindowState,

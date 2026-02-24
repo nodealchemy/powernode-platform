@@ -3,6 +3,7 @@ import {
   Minimize2,
   Maximize2,
   ExternalLink,
+  AppWindow,
   X,
   ArrowDownToLine,
   PanelLeft,
@@ -27,7 +28,7 @@ interface ChatWindowHeaderProps {
 }
 
 export const ChatWindowHeader: React.FC<ChatWindowHeaderProps> = ({ onPointerDown }) => {
-  const { state, setMode, isDetachedMode, toggleSidebar, closeTab } = useChatWindow();
+  const { state, setMode, isDetachedMode, toggleSidebar, closeTab, openInNewTab } = useChatWindow();
   const { addNotification } = useNotifications();
   const [showActions, setShowActions] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
@@ -263,6 +264,14 @@ export const ChatWindowHeader: React.FC<ChatWindowHeaderProps> = ({ onPointerDow
                 <Maximize2 className="h-4 w-4" />
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => openInNewTab()}
+              className="p-1.5 rounded-md hover:bg-theme-surface-hover text-theme-secondary transition-colors"
+              title="Open in new tab"
+            >
+              <AppWindow className="h-4 w-4" />
+            </button>
             <button
               type="button"
               onClick={() => setMode('detached')}

@@ -306,12 +306,27 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
     dispatch({ type: 'SET_PANEL_SIZES', payload: sizes });
   }, []);
 
+  const openInNewTab = useCallback(() => {
+    const tab = window.open('/chat/detached', '_blank');
+    if (!tab) {
+      addNotification({
+        type: 'warning',
+        title: 'Popup Blocked',
+        message: 'Could not open chat in a new tab. Please allow popups and try again.',
+      });
+      return;
+    }
+    detachedWindowsRef.current.add(tab);
+    dispatch({ type: 'SET_MODE', payload: 'detached' });
+  }, [addNotification]);
+
   const value: ChatWindowContextValue = {
     state,
     dispatch,
     openConversation,
     openConversationMaximized,
     openConcierge,
+    openInNewTab,
     closeTab,
     switchTab,
     setMode,
