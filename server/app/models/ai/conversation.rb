@@ -74,6 +74,14 @@ module Ai
     def add_message(role, content, user: nil, agent: nil, **options)
       raise ArgumentError, "Cannot add message to inactive conversation" unless can_send_message?
 
+      # Auto-detect @mentions in workspace conversations and add to content_metadata
+      if workspace_conversation? && content.present? && content.include?("@")
+        detected = auto_detect_mentions(content)
+        if detected.present?
+          options[:content_metadata] = (options[:content_metadata] || {}).merge("mentions" => detected)
+        end
+      end
+
       message = messages.build(
         user: user,
         ai_agent_id: (agent || self.agent)&.id,
@@ -198,6 +206,13 @@ module Ai
       notify_mcp_sessions_of_message(message)
     end
 
+    def broadcast_ai_complete(message)
+      return unless websocket_channel.present?
+
+      AiConversationChannel.broadcast_ai_complete(self, message)
+      notify_mcp_sessions_of_message(message, event_type: "ai_response_complete")
+    end
+
     def broadcast_typing_indicator(user, typing: true)
       return unless websocket_channel.present?
 
@@ -246,7 +261,27 @@ module Ai
 
     private
 
-    def notify_mcp_sessions_of_message(message)
+    # Auto-detect @mentions of workspace team members in message content.
+    # Returns array of { "id" => agent_id, "name" => agent_name } hashes.
+    def auto_detect_mentions(content)
+      return [] unless agent_team.present?
+
+      members = agent_team.members.includes(:agent).to_a
+      members.sort_by! { |m| -(m.agent&.name&.length || 0) }
+
+      detected = []
+      members.each do |member|
+        name = member.agent&.name
+        next if name.blank?
+        next unless content.include?("@#{name}")
+
+        detected << { "id" => member.ai_agent_id, "name" => name }
+      end
+
+      detected
+    end
+
+    def notify_mcp_sessions_of_message(message, event_type: "message_created")
       return unless agent_team.present?
 
       # Find MCP client agents in this workspace team
@@ -278,14 +313,16 @@ module Ai
       sessions = McpSession.active.where(ai_agent_id: mcp_agent_ids)
       return if sessions.empty?
 
+      # For ai_response_complete, send full content (it replaces the truncated message_created)
+      content_limit = event_type == "ai_response_complete" ? 4000 : 500
       notification = {
-        type: "message_created",
+        type: event_type,
         conversation_id: conversation_id,
         workspace: agent_team.name,
         message: {
           id: message.message_id,
           role: message.role,
-          content: message.content.to_s.truncate(500),
+          content: message.content.to_s.truncate(content_limit),
           sender: message.user&.name || message.agent&.name || "Unknown",
           created_at: message.created_at&.iso8601
         }

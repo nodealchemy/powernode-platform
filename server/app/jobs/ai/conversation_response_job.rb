@@ -49,7 +49,7 @@ module Ai
           }.compact
         )
 
-        AiConversationChannel.broadcast_ai_complete(conversation, assistant_message)
+        conversation.broadcast_ai_complete(assistant_message)
       else
         broadcast_error(conversation, result[:error] || "Failed to generate AI response")
       end

@@ -118,9 +118,10 @@ module Api
           pubsub = ActionCable.server.pubsub
           callbacks = {}
 
-          # Session-level dedup: prevents duplicate events across multiple
-          # concurrent SSE connections for the same session (e.g., daemon reconnects).
-          dedup = sse_dedup_for_session(session.session_token)
+          # Per-connection dedup: prevents duplicate events within a single SSE
+          # connection when the same message arrives via multiple channels
+          # (e.g., both mcp_session: and workspace channel).
+          dedup = { mutex: Mutex.new, ids: Set.new }
 
           all_channels.each do |channel|
             is_workspace_channel = workspace_channel_set.include?(channel)
@@ -163,9 +164,12 @@ module Api
 
                 # Deduplicate: same message can arrive via session + workspace channels,
                 # and also across concurrent SSE connections for the same session.
+                # Include event_type in dedup key so ai_response_complete passes through
+                # even when message_created was already seen for the same message.
                 msg_id = (data["message"].is_a?(Hash) && data["message"]["id"]) || data["message_id"]
                 if msg_id.present?
-                  next if sse_dedup_seen?(dedup, msg_id)
+                  dedup_key = "#{event_type}:#{msg_id}"
+                  next if sse_dedup_seen?(dedup, dedup_key)
                 end
 
                 sse.write(data, event: event_type.to_s)
