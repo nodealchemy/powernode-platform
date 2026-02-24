@@ -45,7 +45,7 @@ resolve_identifiers() {
   result=$(cd "$SERVER_DIR" && bin/rails runner '
 agent = Ai::Agent.find_by(agent_type: "mcp_client", status: "active")
 abort "No active mcp_client agent found" unless agent
-app = Doorkeeper::Application.find_by(name: "Powernode MCP Server")
+app = Doorkeeper::Application.find_by(name: "Claude Code (powernode)")
 app ||= Doorkeeper::Application.first
 abort "No OAuth application found" unless app
 owner = agent.account.users.order(:created_at).first
@@ -93,9 +93,9 @@ nudge_claude() {
     return
   fi
 
-  # Strip leading @mention of our agent name (the user is talking to us)
+  # Strip leading @mention of our agent name and trailing punctuation/space
   local cleaned
-  cleaned=$(echo "$message_content" | sed 's/^@Claude Code ([^)]*) #[0-9]* *//')
+  cleaned=$(echo "$message_content" | sed 's/^@Claude Code ([^)]*) #[0-9]*[, :]* *//')
 
   # Use the actual message content as the prompt, or a default fallback
   local prompt="${cleaned:-check workspace messages}"
@@ -284,13 +284,18 @@ msg = d.get('message', {}) if isinstance(d.get('message'), dict) else {}
 # Extract message_id for dedup — try message.id first, then top-level
 msg_id = str(msg.get('id', '') or d.get('message_id', '') or '')
 
-# Check dedup
+# Check dedup — but allow ai_response_complete to update existing entries
+# (message_created fires with partial streaming content, ai_response_complete has the full text)
+is_update = False
 if msg_id:
     try:
         with open(seen_file, 'r') as f:
             if msg_id in f.read():
-                print('DEDUP')
-                sys.exit(0)
+                if event_type == 'ai_response_complete':
+                    is_update = True  # Fall through to build full entry with UPDATE: prefix
+                else:
+                    print('DEDUP')
+                    sys.exit(0)
     except FileNotFoundError:
         pass
 
@@ -329,11 +334,55 @@ entry = {
     'read': False
 }
 
-print(json.dumps(entry))
+prefix = 'UPDATE:' if is_update else ''
+print(prefix + json.dumps(entry))
 " "$data" "$event_type" "$SEEN_FILE" 2>>"$LOG_FILE") || return
 
   if [[ "$result" == "DEDUP" ]]; then
     log "Dedup: skipping duplicate event"
+    return
+  fi
+
+  if [[ "$result" == UPDATE:* ]]; then
+    # ai_response_complete with full content — replace the partial entry in inbox
+    local updated_json="${result#UPDATE:}"
+    local update_msg_id
+    update_msg_id=$(echo "$updated_json" | python3 -c "import sys,json; print(json.load(sys.stdin).get('message_id',''))" 2>/dev/null) || true
+
+    if [[ -n "$update_msg_id" && -f "$INBOX_FILE" ]]; then
+      # Replace the line containing this message_id with the updated entry
+      python3 -c "
+import sys, json
+
+msg_id = sys.argv[1]
+new_entry = sys.argv[2]
+inbox = sys.argv[3]
+
+lines = []
+replaced = False
+with open(inbox, 'r') as f:
+    for line in f:
+        line = line.rstrip('\n')
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+            if entry.get('message_id') == msg_id:
+                lines.append(new_entry)
+                replaced = True
+                continue
+        except (json.JSONDecodeError, AttributeError):
+            pass
+        lines.append(line)
+
+if not replaced:
+    lines.append(new_entry)
+
+with open(inbox, 'w') as f:
+    f.write('\n'.join(lines) + '\n')
+" "$update_msg_id" "$updated_json" "$INBOX_FILE" 2>>"$LOG_FILE"
+      log "UPDATE [$event_type] msg_id=$update_msg_id — replaced partial with complete content"
+    fi
     return
   fi
 
