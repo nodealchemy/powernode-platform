@@ -7,7 +7,7 @@ module Ai
     private
 
     def validate_permissions
-      return if current_worker || current_service
+      return if current_worker
 
       permission_map = {
         %w[index show my_agents public_agents agent_types statistics skills executions_index execution_show execution_logs conversations_index conversation_show conversation_messages stats analytics connections] => "ai.agents.read",

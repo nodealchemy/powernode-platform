@@ -34,12 +34,12 @@ Rails.application.config.after_initialize do
   end
 
   # Auto-enable enterprise flags when enterprise engine is loaded
-  if defined?(PowernodeEnterprise::Engine)
+  if Powernode::ExtensionRegistry.loaded?("enterprise")
     # Master toggle
     Flipper.enable(:enterprise_mode) unless Flipper.enabled?(:enterprise_mode)
 
     # Register and enable individual enterprise feature flags
-    if defined?(PowernodeEnterprise::Features::ENTERPRISE_FLAGS)
+    if Powernode::ExtensionRegistry.loaded?("enterprise") && defined?(PowernodeEnterprise::Features::ENTERPRISE_FLAGS)
       PowernodeEnterprise::Features::ENTERPRISE_FLAGS.each do |flag|
         Flipper.add(flag) unless Flipper.exist?(flag)
         Flipper.enable(flag) unless Flipper.enabled?(flag)

@@ -5,7 +5,7 @@ module EnterpriseAware
 
   class_methods do
     def enterprise?
-      defined?(PowernodeEnterprise::Engine)
+      Powernode::ExtensionRegistry.loaded?("enterprise")
     end
   end
 

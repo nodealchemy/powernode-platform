@@ -561,7 +561,7 @@ class Api::V1::ReportsController < ApplicationController
       return export_subscription_data_csv
     end
 
-    unless defined?(PowernodeEnterprise::Engine)
+    unless Powernode::ExtensionRegistry.loaded?("enterprise")
       return CSV.generate(headers: true) { |csv| csv << ["Enterprise feature required"] }
     end
 

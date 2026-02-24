@@ -66,7 +66,7 @@ module Ai
 
     # PATCH /api/v1/ai/agents/:agent_id/executions/:execution_id
     def execution_update
-      require_permission("ai.agents.update") unless current_worker || current_service
+      require_permission("ai.agents.update") unless current_worker
 
       result = execution_service.update(execution_update_params)
 

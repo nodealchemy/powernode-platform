@@ -11,7 +11,7 @@ module Ai
 
       # Scan all MCP servers for tools and agent mappings
       def scan
-        servers = defined?(PowernodeEnterprise::Engine) ? Mcp::HostedServer.where(account: account) : Mcp::HostedServer.none
+        servers = Powernode::ExtensionRegistry.loaded?("enterprise") ? Mcp::HostedServer.where(account: account) : Mcp::HostedServer.none
         agents = Ai::Agent.where(account: account)
 
         discovered_tools = []

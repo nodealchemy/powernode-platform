@@ -229,7 +229,7 @@ class Api::V1::SettingsController < ApplicationController
   end
 
   def formatted_copyright_text
-    copyright_template = AdminSetting.find_by(key: "copyright_text")&.value || "© {year} Powernode Platform. All rights reserved."
+    copyright_template = AdminSetting.find_by(key: "copyright_text")&.value || "© {year} Everett C. Haimes III. All rights reserved."
     copyright_template.gsub("{year}", Date.current.year.to_s)
   end
 end

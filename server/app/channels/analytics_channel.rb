@@ -43,7 +43,7 @@ class AnalyticsChannel < ApplicationCable::Channel
       return
     end
 
-    unless defined?(PowernodeEnterprise::Engine)
+    unless Powernode::ExtensionRegistry.loaded?("enterprise")
       transmit({
         type: "analytics_update",
         data: {

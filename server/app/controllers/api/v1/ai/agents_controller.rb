@@ -277,7 +277,7 @@ module Api
             @execution = ::Ai::AgentExecution.joins(:agent)
                                              .where(ai_agents: { account_id: current_user.account_id })
                                              .find_by!(execution_id: execution_id)
-          elsif current_worker || current_service
+          elsif current_worker
             @execution = ::Ai::AgentExecution.find_by!(execution_id: execution_id)
           else
             render_unauthorized("Authentication required")

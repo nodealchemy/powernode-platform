@@ -57,7 +57,7 @@ module Ai
     def resolve_account_for_agent(agent_id)
       if current_account
         current_account
-      elsif current_worker || current_service
+      elsif current_worker
         Ai::Agent.find_by(id: agent_id)&.account
       end
     end

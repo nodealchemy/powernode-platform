@@ -55,7 +55,7 @@ module Ai
 
     # PATCH /api/v1/ai/workflow_runs/:run_id
     def run_update_direct
-      unless current_worker || current_service
+      unless current_worker
         return render_error("Unauthorized: this endpoint is for worker services only", status: :forbidden)
       end
 
@@ -234,7 +234,7 @@ module Ai
 
     # GET /api/v1/ai/workflows/runs/lookup/:run_id
     def runs_lookup
-      workflow_run = if current_worker || current_service
+      workflow_run = if current_worker
                       ::Ai::WorkflowRun.find_by!(run_id: params[:run_id])
       else
                       ::Ai::WorkflowRun.joins(:workflow)
@@ -267,7 +267,7 @@ module Ai
       if params[:workflow_id].present?
         workflow = current_user.account.ai_workflows.find(params[:workflow_id])
         workflow.runs
-      elsif current_worker || current_service
+      elsif current_worker
         ::Ai::WorkflowRun.all
       else
         ::Ai::WorkflowRun.joins(:workflow).where(ai_workflows: { account_id: current_user.account_id })

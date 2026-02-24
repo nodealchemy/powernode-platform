@@ -259,7 +259,7 @@ module Api
         end
 
         def validate_permissions
-          return if current_worker || current_service
+          return if current_worker
 
           permission_map = {
             %w[index show tasks task iterations iteration learnings progress statistics] => "ai.workflows.read",

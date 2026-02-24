@@ -4,7 +4,6 @@ module Devops
   class IntegrationTemplate < ApplicationRecord
     # ==================== Concerns ====================
     include Auditable
-    include MarketplacePublishable
 
     # ==================== Table Name ====================
     self.table_name = "devops_integration_templates"
@@ -16,7 +15,6 @@ module Devops
     # ==================== Associations ====================
     belongs_to :account, optional: true
     has_many :instances, class_name: "Devops::IntegrationInstance", foreign_key: "integration_template_id", dependent: :restrict_with_error
-    has_many :subscriptions, as: :subscribable, class_name: "Marketplace::Subscription", dependent: :destroy
 
     # Backward compatibility alias
     def integration_instances

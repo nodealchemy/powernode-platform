@@ -134,7 +134,7 @@ module Api
 
         # POST /api/v1/ai/autonomy/trust_scores/decay
         def decay
-          return render_error("Unauthorized", status: :forbidden) unless current_worker || current_service
+          return render_error("Unauthorized", status: :forbidden) unless current_worker
 
           if current_account
             service = ::Ai::Autonomy::TrustEngineService.new(account: current_account)
@@ -207,7 +207,7 @@ module Api
 
         # POST /api/v1/ai/autonomy/broadcast
         def relay_broadcast
-          return render_error("Unauthorized", status: :forbidden) unless current_worker || current_service
+          return render_error("Unauthorized", status: :forbidden) unless current_worker
 
           broadcast_type = params[:broadcast_type]
           data = params[:data]&.to_unsafe_h || {}
@@ -246,7 +246,7 @@ module Api
         private
 
         def validate_permissions
-          return if current_worker || current_service
+          return if current_worker
 
           require_permission("ai.agents.read")
         end

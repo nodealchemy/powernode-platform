@@ -166,7 +166,7 @@ module Api
         end
 
         def validate_permissions
-          return if current_worker || current_service
+          return if current_worker
 
           case action_name
           when "index", "stats", "shared_knowledge"

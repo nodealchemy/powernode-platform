@@ -22,16 +22,6 @@ module Permissions
     # User Impersonation
     "users.impersonate" => "Impersonate other users",
 
-    # Billing & Subscriptions
-    "billing.read" => "View billing information",
-    "billing.update" => "Update payment methods",
-    "billing.cancel" => "Cancel subscriptions",
-    "plans.read" => "View subscription plans",
-    "plans.create" => "Create subscription plans",
-    "plans.manage" => "Manage subscription plans",
-    "invoice.read" => "View invoices",
-    "invoice.download" => "Download invoices",
-
     # Content Management
     "page.create" => "Create pages",
     "page.read" => "View pages",
@@ -70,42 +60,6 @@ module Permissions
     "kb.publish" => "Publish knowledge base articles",
     "kb.manage" => "Manage knowledge base categories and settings",
     "kb.moderate" => "Moderate knowledge base comments",
-
-    # Marketplace - Apps
-    "app.read" => "View marketplace apps",
-    "app.create" => "Create marketplace apps",
-    "app.update" => "Update own apps",
-    "app.delete" => "Delete own apps",
-    "app.publish" => "Publish own apps",
-    "app.manage_features" => "Manage app features",
-    "app.manage_plans" => "Manage app plans",
-    "app.read_analytics" => "View app analytics",
-
-    # Marketplace - App Subscriptions
-    "subscription.read" => "View app subscriptions",
-    "subscription.create" => "Subscribe to apps",
-    "subscription.manage" => "Manage subscriptions",
-    "subscription.cancel" => "Cancel subscriptions",
-    "subscription.upgrade" => "Upgrade subscriptions",
-    "subscription.read_usage" => "View subscription usage",
-
-    # Marketplace - Reviews
-    "review.read" => "View app reviews",
-    "review.create" => "Write app reviews",
-    "review.update" => "Update own reviews",
-    "review.delete" => "Delete own reviews",
-    "review.moderate" => "Moderate reviews",
-
-    # Marketplace - Publishing (Feature Templates)
-    "marketplace.publish" => "Publish feature templates to the marketplace",
-    "marketplace.templates.read" => "View own published marketplace templates",
-    "marketplace.templates.manage" => "Manage own marketplace templates",
-
-    # Marketplace - Listings
-    "listing.read" => "View marketplace listings",
-    "listing.create" => "Create marketplace listings",
-    "listing.update" => "Update own listings",
-    "listing.delete" => "Delete own listings",
 
     # AI Orchestration - Providers
     "ai.providers.read" => "View available AI providers",
@@ -371,13 +325,6 @@ module Permissions
     "admin.role.delete" => "Delete roles",
     "admin.role.assign" => "Assign roles",
 
-    # Billing Administration
-    "admin.billing.read" => "View all billing",
-    "admin.billing.override" => "Override billing",
-    "admin.billing.refund" => "Process refunds",
-    "admin.billing.credit" => "Issue credits",
-    "admin.billing.manage_gateways" => "Manage payment gateways",
-
     # System Settings
     "admin.settings.read" => "View settings",
     "admin.settings.update" => "Update settings",
@@ -406,28 +353,6 @@ module Permissions
     "admin.kb.moderate" => "Moderate all content and comments",
     "admin.kb.analytics" => "Access knowledge base analytics",
     "admin.kb.settings" => "Configure knowledge base settings",
-
-    # Marketplace Administration
-    "admin.marketplace.read" => "View marketplace management",
-    "admin.marketplace.manage" => "Manage marketplace settings",
-    "admin.marketplace.export" => "Export marketplace data",
-    "admin.marketplace.templates.review" => "Review and approve marketplace template submissions",
-    "admin.marketplace.templates.feature" => "Feature marketplace templates",
-    "admin.app.read" => "View all apps",
-    "admin.app.update" => "Update any app",
-    "admin.app.delete" => "Delete any app",
-    "admin.app.approve" => "Approve apps for publication",
-    "admin.app.suspend" => "Suspend apps",
-    "admin.listing.read" => "View all listings",
-    "admin.listing.update" => "Update any listing",
-    "admin.listing.delete" => "Delete any listing",
-    "admin.listing.approve" => "Approve listings",
-    "admin.listing.feature" => "Feature listings",
-    "admin.review.read" => "View all reviews",
-    "admin.review.moderate" => "Moderate reviews",
-    "admin.review.delete" => "Delete reviews",
-    "admin.subscription.read" => "View all subscriptions",
-    "admin.subscription.manage" => "Manage any subscription",
 
     # Circuit Breaker Administration
     "admin.circuit_breakers.read" => "View circuit breakers",
@@ -462,8 +387,6 @@ module Permissions
     "admin.ai.workflow_executions.manage" => "Manage any workflow execution",
     "admin.ai.analytics.read" => "View AI system analytics",
     "admin.ai.monitoring.read" => "View AI system monitoring",
-    "admin.ai.templates.approve" => "Approve AI templates for marketplace",
-    "admin.ai.marketplace.manage" => "Manage AI marketplace",
 
     # File Management Administration
     "admin.files.read" => "View all files across accounts",
@@ -608,21 +531,13 @@ module Permissions
       permissions: [
         "user.read", "user.edit_self",
         "team.read",
-        "billing.read",
         "page.read",
         "analytics.read",
         "report.read",
         "api.read",
         "webhook.read",
-        "invoice.read",
         "audit.read",
         "kb.read",
-        # Marketplace permissions
-        "app.read",
-        "listing.read",
-        "subscription.read", "subscription.create", "subscription.manage", "subscription.cancel",
-        "subscription.read_usage",
-        "review.read",
         # Basic AI permissions
         "ai.providers.read", "ai.agents.read", "ai.executions.read",
         "ai.workflows.read", "ai.workflow_executions.read",
@@ -654,24 +569,14 @@ module Permissions
         # All member permissions
         "user.read", "user.edit_self",
         "team.read", "team.invite", "team.remove", "team.assign_roles",
-        "billing.read", "billing.update",
-        "plans.read", "plans.manage",
         "page.read", "page.create", "page.update", "page.delete", "page.publish",
         "analytics.read", "analytics.export",
         "report.read", "report.generate", "report.export",
         "api.read", "api.write", "api.manage_keys",
         "webhook.read", "webhook.create", "webhook.update", "webhook.delete",
-        "invoice.read", "invoice.download",
         "audit.read", "audit.export", "audit.manage",
         # Knowledge base permissions
         "kb.read", "kb.create", "kb.update", "kb.publish", "kb.manage",
-        # Marketplace permissions
-        "app.read", "app.create", "app.update", "app.delete", "app.publish",
-        "app.manage_features", "app.manage_plans", "app.read_analytics",
-        "listing.read", "listing.create", "listing.update", "listing.delete",
-        "subscription.read", "subscription.create", "subscription.manage",
-        "subscription.cancel", "subscription.upgrade", "subscription.read_usage",
-        "review.read", "review.create", "review.update", "review.delete", "review.moderate",
         # Full AI permissions for managers
         "ai.providers.read", "ai.providers.create", "ai.providers.update", "ai.providers.delete", "ai.providers.test",
         "ai.credentials.read", "ai.credentials.create", "ai.credentials.update",
@@ -746,25 +651,6 @@ module Permissions
       ]
     },
 
-    # Billing administrator
-    "billing_admin" => {
-      display_name: "Billing Administrator",
-      description: "Manages billing, subscriptions, and financial operations",
-      role_type: "user",
-      permissions: [
-        "user.read", "user.edit_self",
-        "team.read",
-        "billing.read", "billing.update", "billing.cancel",
-        "plans.read", "plans.create", "plans.manage",
-        "invoice.read", "invoice.download",
-        "analytics.read",
-        "report.read", "report.generate",
-        "admin.billing.read", "admin.billing.override",
-        "admin.billing.refund", "admin.billing.credit",
-        "audit.read"
-      ]
-    },
-
     # App developer with marketplace focus
     "developer" => {
       display_name: "App Developer",
@@ -773,8 +659,6 @@ module Permissions
       permissions: [
         "user.read", "user.edit_self",
         "team.read",
-        "billing.read", "billing.update",
-        "plans.read",
         "page.read",
         "analytics.read", "analytics.export",
         "report.read", "report.generate",
@@ -782,15 +666,7 @@ module Permissions
         "webhook.read", "webhook.create", "webhook.update", "webhook.delete",
         # Knowledge base permissions
         "kb.read", "kb.create", "kb.update", "kb.publish", "kb.manage",
-        "invoice.read", "invoice.download",
-        "audit.read",
-        # Full marketplace permissions
-        "app.read", "app.create", "app.update", "app.delete", "app.publish",
-        "app.manage_features", "app.manage_plans", "app.read_analytics",
-        "listing.read", "listing.create", "listing.update", "listing.delete",
-        "subscription.read", "subscription.create", "subscription.manage",
-        "subscription.cancel", "subscription.upgrade", "subscription.read_usage",
-        "review.read", "review.create", "review.update", "review.delete", "review.moderate"
+        "audit.read"
       ]
     },
 
@@ -802,7 +678,6 @@ module Permissions
       permissions: [
         "user.read", "user.edit_self",
         "team.read",
-        "billing.read",
         "page.read", "page.create", "page.update", "page.publish",
         "analytics.read",
         "report.read",
@@ -826,7 +701,6 @@ module Permissions
         "admin.user.read", "admin.user.create", "admin.user.update", "admin.user.suspend",
         "users.impersonate",
         "admin.role.read", "admin.role.assign",
-        "admin.billing.read", "admin.billing.override",
         "admin.settings.read", "admin.settings.update",
         "admin.audit.read", "admin.audit.export", "admin.audit.manage",
         "admin.kb.read", "admin.kb.manage", "admin.kb.analytics",
@@ -909,7 +783,6 @@ module Permissions
         # Basic user permissions
         "user.read", "user.edit_self",
         "team.read",
-        "billing.read",
         "analytics.read", "analytics.export",
         "report.read", "report.generate",
         "api.read", "api.write", "api.manage_keys",

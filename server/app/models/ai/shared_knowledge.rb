@@ -55,7 +55,8 @@ module Ai
     def touch_usage!
       update_columns(
         usage_count: usage_count + 1,
-        last_used_at: Time.current
+        last_used_at: Time.current,
+        updated_at: Time.current
       )
     end
 

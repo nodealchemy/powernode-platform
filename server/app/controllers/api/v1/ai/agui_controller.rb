@@ -111,7 +111,7 @@ module Api
         private
 
         def validate_permissions
-          return if current_worker || current_service
+          return if current_worker
 
           require_permission("ai.agents.read")
         end

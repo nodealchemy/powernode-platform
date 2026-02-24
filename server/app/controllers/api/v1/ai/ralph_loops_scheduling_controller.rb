@@ -170,7 +170,7 @@ module Api
         end
 
         def validate_permissions
-          return if current_worker || current_service
+          return if current_worker
 
           permission_map = {
             %w[parse_prd] => "ai.workflows.create",

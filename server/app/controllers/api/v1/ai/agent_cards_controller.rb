@@ -144,7 +144,7 @@ module Api
         end
 
         def validate_permissions
-          return if current_worker || current_service
+          return if current_worker
 
           permission_map = {
             %w[index show a2a discover find_for_task] => "ai.agents.read",

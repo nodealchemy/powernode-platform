@@ -17,7 +17,7 @@ module Ai
       when "destroy", "scheduled_messages_destroy"
         require_permission("ai.conversations.delete")
       when "worker_complete", "worker_error"
-        return if current_worker || current_service
+        return if current_worker
         require_permission("ai.conversations.update")
       end
     end

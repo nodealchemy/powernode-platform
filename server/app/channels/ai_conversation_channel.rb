@@ -136,6 +136,7 @@ class AiConversationChannel < ApplicationCable::Channel
         stream_name,
         {
           type: "ai_response_streaming",
+          conversation_id: conversation.conversation_id,
           message: serialize_message(message),
           timestamp: Time.current.iso8601
         }
@@ -153,6 +154,7 @@ class AiConversationChannel < ApplicationCable::Channel
         stream_name,
         {
           type: "ai_response_complete",
+          conversation_id: conversation.conversation_id,
           message: serialize_message(message),
           timestamp: Time.current.iso8601
         }
@@ -170,6 +172,7 @@ class AiConversationChannel < ApplicationCable::Channel
         stream_name,
         {
           type: "message_updated",
+          conversation_id: conversation.conversation_id,
           message: serialize_message(message),
           timestamp: Time.current.iso8601
         }
@@ -187,6 +190,7 @@ class AiConversationChannel < ApplicationCable::Channel
         stream_name,
         {
           type: "error",
+          conversation_id: conversation.conversation_id,
           message: error_message,
           timestamp: Time.current.iso8601
         }

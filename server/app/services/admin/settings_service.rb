@@ -198,7 +198,7 @@ module Admin
       return {} unless user.can?("view_global_analytics")
 
       {
-        total_revenue: if defined?(PowernodeEnterprise::Engine)
+        total_revenue: if Powernode::ExtensionRegistry.loaded?("enterprise")
                        RevenueSnapshot.where(account_id: nil)
                                       .order(:snapshot_date)
                                       .last(30)

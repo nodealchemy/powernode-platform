@@ -186,6 +186,6 @@ group :development, :test do
   gem "rswag-specs", "~> 2.13"
 end
 
-# Enterprise Edition (loaded conditionally when submodule is present)
-enterprise_path = File.join(__dir__, "..", "extensions", "enterprise", "server")
-gem "powernode_enterprise", path: "../extensions/enterprise/server" if File.exist?(enterprise_path)
+# Extension gems (dynamically discovered from extensions/*/extension.json)
+require_relative "../extensions_loader_helper"
+discover_extension_gems.each { |slug, path| gem "powernode_#{slug.tr('-', '_')}", path: path }

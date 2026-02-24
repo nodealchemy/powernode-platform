@@ -13,7 +13,7 @@ class Api::V1::SiteSettingsController < ApplicationController
       # Add defaults for missing settings
       defaults = {
         "site_name" => "Powernode",
-        "copyright_text" => "All rights reserved.",
+        "copyright_text" => "Everett C. Haimes III. All rights reserved.",
         "copyright_year" => Date.current.year.to_s,
         "footer_description" => "Powerful subscription management platform designed to help businesses grow."
       }

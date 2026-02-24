@@ -85,7 +85,7 @@ module Ai
 
     def write_data(key, value, agent_id:)
       raise ArgumentError, "Access denied" unless accessible_by?(agent_id)
-      raise ArgumentError, "Only owner can write" unless owner_agent_id == agent_id
+      raise ArgumentError, "Only owner can write" unless writable_by?(agent_id)
 
       keys = key.to_s.split(".")
       update_nested_hash(data, keys, value)
@@ -96,7 +96,7 @@ module Ai
 
     def merge_data(data_hash, agent_id:)
       raise ArgumentError, "Access denied" unless accessible_by?(agent_id)
-      raise ArgumentError, "Only owner can write" unless owner_agent_id == agent_id
+      raise ArgumentError, "Only owner can write" unless writable_by?(agent_id)
 
       self.data = data.deep_merge(data_hash)
       self.last_accessed_at = Time.current
@@ -109,6 +109,14 @@ module Ai
 
       allowed_agents = access_control.dig("agents") || []
       allowed_agents.include?(agent_id)
+    end
+
+    # Write access: owner always, shared/public pools allow any accessible agent
+    def writable_by?(agent_id)
+      return true if owner_agent_id == agent_id
+      return true if pool_type == "shared" && access_control.dig("public") == true
+
+      false
     end
 
     def grant_access(agent_id)

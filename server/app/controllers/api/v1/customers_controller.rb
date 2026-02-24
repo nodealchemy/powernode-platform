@@ -44,6 +44,10 @@ class Api::V1::CustomersController < ApplicationController
   end
 
   def create
+    if Shared::FeatureGateService.core_mode?
+      return render_error("Account creation is not available in core mode", :forbidden)
+    end
+
     account_data = customer_params.slice(:name, :subdomain)
     user_data = customer_params.slice(:name, :email)
     plan_id = customer_params[:plan_id]

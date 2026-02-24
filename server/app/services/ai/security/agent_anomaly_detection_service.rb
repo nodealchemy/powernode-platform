@@ -82,7 +82,7 @@ module Ai
                  evaluate_budget_gate(agent, action_context)
 
         outcome = denial ? "blocked" : "success"
-        if defined?(PowernodeEnterprise::Engine)
+        if Powernode::ExtensionRegistry.loaded?("enterprise")
           Ai::ComplianceAuditEntry.log!(
             account: @account, action_type: "agent_action_check",
             resource_type: "Ai::Agent", resource_id: agent.id, outcome: outcome,
@@ -199,7 +199,7 @@ module Ai
             rogue_detected: rogue[:rogue], rogue_indicators: rogue[:indicators] }
         end
 
-        violations = if defined?(PowernodeEnterprise::Engine)
+        violations = if Powernode::ExtensionRegistry.loaded?("enterprise")
                        Ai::PolicyViolation.where(account: @account)
                                           .where("detected_at >= ?", period_hours.hours.ago).unresolved
                      else
@@ -227,7 +227,7 @@ module Ai
       end
 
       def evaluate_policies(agent, action_type, action_context)
-        return nil unless defined?(PowernodeEnterprise::Engine)
+        return nil unless Powernode::ExtensionRegistry.loaded?("enterprise")
 
         Ai::CompliancePolicy.where(account: @account).active.ordered_by_priority.each do |policy|
           result = policy.evaluate(action_context.merge(action_type: action_type))
@@ -455,7 +455,7 @@ module Ai
       # --- Audit logging ---
 
       def log_analysis_audit(agent, anomalies, risk_level)
-        return unless defined?(PowernodeEnterprise::Engine)
+        return unless Powernode::ExtensionRegistry.loaded?("enterprise")
 
         Ai::ComplianceAuditEntry.log!(
           account: @account, action_type: "agent_anomaly_analysis",
@@ -469,7 +469,7 @@ module Ai
       end
 
       def log_policy_check(agent, policy, action_type, result)
-        return unless defined?(PowernodeEnterprise::Engine)
+        return unless Powernode::ExtensionRegistry.loaded?("enterprise")
 
         Ai::ComplianceAuditEntry.log!(
           account: @account, action_type: "agent_policy_evaluation",
@@ -483,7 +483,7 @@ module Ai
       end
 
       def record_injection_detection(matches, confidence, action_taken, text, context)
-        if defined?(PowernodeEnterprise::Engine)
+        if Powernode::ExtensionRegistry.loaded?("enterprise")
           classification = Ai::DataClassification.where(account: @account).by_level("restricted").first
           if classification
             classification.record_detection!(
@@ -511,7 +511,7 @@ module Ai
       end
 
       def record_rogue_detection(agent, indicators, recommended_action)
-        if defined?(PowernodeEnterprise::Engine)
+        if Powernode::ExtensionRegistry.loaded?("enterprise")
           policy = Ai::CompliancePolicy.where(account: @account).active.by_type("audit").first
           if policy
             policy.record_violation!(

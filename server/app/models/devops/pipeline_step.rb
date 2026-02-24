@@ -17,13 +17,6 @@ module Devops
       deploy
       notify
       custom
-      sbom_generate
-      vulnerability_scan
-      compliance_export
-      remediation_plan
-      generate_attestation
-      sign_artifact
-      policy_gate
       code_factory_gate
     ].freeze
 
@@ -42,7 +35,7 @@ module Devops
     # Validations
     # ============================================
     validates :name, presence: true, uniqueness: { scope: :ci_cd_pipeline_id }
-    validates :step_type, presence: true, inclusion: { in: STEP_TYPES }
+    validates :step_type, presence: true, inclusion: { in: ->(record) { STEP_TYPES + Devops::StepHandlerRegistry.all_types } }
     validates :position, presence: true, numericality: { greater_than_or_equal_to: 0 }
 
     validate :prompt_template_required_for_claude_execute
@@ -68,6 +61,11 @@ module Devops
     end
 
     def handler_class
+      # Check dynamic registry first (extension-provided step types)
+      registered = Devops::StepHandlerRegistry.handler_for(step_type)
+      return registered if registered
+
+      # Fall back to core handler lookup
       "Devops::StepHandlers::#{step_type.camelize}Handler".constantize
     rescue NameError
       Devops::StepHandlers::CustomHandler

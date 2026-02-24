@@ -209,7 +209,7 @@ module Api
                            ::Ai::WorkflowRun.joins(:workflow)
                                       .where(ai_workflows: { account_id: current_user.account_id })
                                       .find_by!(run_id: run_id_param)
-          elsif current_worker || current_service
+          elsif current_worker
                            ::Ai::WorkflowRun.find_by!(run_id: run_id_param)
           else
                            render_unauthorized("Authentication required")
@@ -221,11 +221,11 @@ module Api
 
         def build_runs_scope
           if params[:workflow_id].present?
-            workflow = (current_worker || current_service) ?
+            workflow = current_worker ?
               ::Ai::Workflow.find(params[:workflow_id]) :
               current_user.account.ai_workflows.find(params[:workflow_id])
             workflow.runs
-          elsif current_worker || current_service
+          elsif current_worker
             ::Ai::WorkflowRun.joins(:workflow)
           else
             ::Ai::WorkflowRun.joins(:workflow).where(ai_workflows: { account_id: current_user.account_id })
@@ -233,7 +233,7 @@ module Api
         end
 
         def validate_permissions
-          return if current_worker || current_service
+          return if current_worker
 
           permission_map = {
             %w[index show statistics] => "ai.workflows.read",

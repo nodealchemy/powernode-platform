@@ -161,7 +161,7 @@ module Api
         end
 
         def validate_permissions
-          return if current_worker || current_service
+          return if current_worker
 
           permission_map = {
             %w[index show status merge_operations conflicts file_locks] => "ai.workflows.read",

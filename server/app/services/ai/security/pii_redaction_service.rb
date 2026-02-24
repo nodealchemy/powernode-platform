@@ -200,7 +200,7 @@ module Ai
         if high_confidence.any?
           Rails.logger.warn "[PiiRedaction] Unsafe output detected: #{high_confidence.size} PII item(s) above confidence #{max_confidence}"
 
-          if defined?(PowernodeEnterprise::Engine)
+          if Powernode::ExtensionRegistry.loaded?("enterprise")
             Ai::ComplianceAuditEntry.log!(
               account: @account,
               action_type: "pii_output_gate",
@@ -258,7 +258,7 @@ module Ai
       # Run account-specific DataClassification pattern scanning.
       def run_classification_scan(text)
         detections = []
-        return detections unless defined?(PowernodeEnterprise::Engine)
+        return detections unless Powernode::ExtensionRegistry.loaded?("enterprise")
 
         classifications = Ai::DataClassification.where(account: @account)
 
@@ -358,7 +358,7 @@ module Ai
 
       # Log detections to Ai::DataDetection via DataClassification.
       def log_detections(detections, context, action)
-        return unless defined?(PowernodeEnterprise::Engine)
+        return unless Powernode::ExtensionRegistry.loaded?("enterprise")
 
         detections.each do |detection|
           classification = find_or_default_classification(detection[:classification])
@@ -381,7 +381,7 @@ module Ai
 
       # Record a policy enforcement event via CompliancePolicy violations.
       def record_policy_enforcement(detections, classification_level, context)
-        return unless defined?(PowernodeEnterprise::Engine)
+        return unless Powernode::ExtensionRegistry.loaded?("enterprise")
 
         policy = Ai::CompliancePolicy.where(account: @account)
                                      .active
@@ -434,7 +434,7 @@ module Ai
 
       # Find a DataClassification for the given level, falling back to a default.
       def find_or_default_classification(level)
-        return nil unless defined?(PowernodeEnterprise::Engine)
+        return nil unless Powernode::ExtensionRegistry.loaded?("enterprise")
 
         Ai::DataClassification.where(account: @account)
                               .by_level(level)

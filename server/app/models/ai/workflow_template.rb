@@ -2,13 +2,6 @@
 
 module Ai
   class WorkflowTemplate < ApplicationRecord
-    include MarketplaceReviewable
-    include MarketplacePublishable
-
-    # Associations - Marketplace subscriptions (replaces deprecated installations)
-    has_many :subscriptions, as: :subscribable, class_name: "Marketplace::Subscription", dependent: :destroy
-    has_many :subscribing_accounts, through: :subscriptions, source: :account
-
     # Optional associations
     belongs_to :account, optional: true
     belongs_to :created_by_user, class_name: "User", foreign_key: :created_by_user_id, optional: true

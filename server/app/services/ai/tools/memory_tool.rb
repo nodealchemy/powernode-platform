@@ -72,11 +72,11 @@ module Ai
         case params[:action]
         when "read_shared_memory"
           pool = resolve_pool(params[:pool_id])
-          data = pool.read_data(params[:key], agent_id: agent&.id)
+          data = pool.read_data(params[:key], agent_id: resolved_agent_id)
           { success: true, key: params[:key], value: data }
         when "write_shared_memory"
           pool = resolve_pool(params[:pool_id])
-          pool.write_data(params[:key], params[:value], agent_id: agent&.id)
+          pool.write_data(params[:key], params[:value], agent_id: resolved_agent_id)
           { success: true, key: params[:key], written: true }
         when "search_memory" then search_memory(params)
         when "consolidate_memory" then consolidate_memory(params)
@@ -95,16 +95,34 @@ module Ai
 
       private
 
+      # Resolve the effective agent ID for memory operations.
+      # Falls back to the MCP session's linked agent when no agent is in context.
+      def resolved_agent_id
+        return agent.id if agent.present?
+
+        # For MCP OAuth sessions: look up the session's linked ai_agent_id
+        return nil unless user.present?
+
+        mcp_session = McpSession.active
+          .where(user: user, account: account)
+          .where.not(ai_agent_id: nil)
+          .order(last_activity_at: :desc)
+          .first
+        mcp_session&.ai_agent_id
+      end
+
       def resolve_pool(pool_id)
         return account.ai_memory_pools.find_by!(pool_id: pool_id) if pool_id.present? && pool_id != "default"
 
         # Find or create a default pool for the account
+        current_agent_id = resolved_agent_id
         account.ai_memory_pools.find_or_create_by!(pool_id: "default") do |pool|
           pool.name = "Default Memory Pool"
           pool.pool_type = "shared"
           pool.scope = "persistent"
+          pool.owner_agent_id = current_agent_id
           pool.data = {}
-          pool.access_control = {}
+          pool.access_control = { "public" => true }
           pool.metadata = {}
           pool.retention_policy = {}
           pool.version = 1
@@ -114,7 +132,15 @@ module Ai
       def search_memory(params)
         return { success: false, error: "Query is required" } if params[:query].blank?
 
-        target_agent = params[:agent_id].present? ? account.ai_agents.find_by(id: params[:agent_id]) : agent
+        target_agent = if params[:agent_id].present?
+          account.ai_agents.find_by(id: params[:agent_id])
+        elsif agent.present?
+          agent
+        else
+          # Fallback: resolve from MCP session
+          aid = resolved_agent_id
+          account.ai_agents.find_by(id: aid) if aid
+        end
         return { success: false, error: "Agent not found" } unless target_agent
 
         # RouterService.semantic_search requires a vector embedding, not raw text.
@@ -142,7 +168,14 @@ module Ai
       end
 
       def consolidate_memory(params)
-        target_agent = params[:agent_id].present? ? account.ai_agents.find_by(id: params[:agent_id]) : agent
+        target_agent = if params[:agent_id].present?
+          account.ai_agents.find_by(id: params[:agent_id])
+        elsif agent.present?
+          agent
+        else
+          aid = resolved_agent_id
+          account.ai_agents.find_by(id: aid) if aid
+        end
         return { success: false, error: "Agent not found" } unless target_agent
 
         # MaintenanceService handles tier promotion: short_term → long_term → shared

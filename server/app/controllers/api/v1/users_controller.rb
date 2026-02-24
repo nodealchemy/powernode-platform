@@ -198,6 +198,7 @@ class Api::V1::UsersController < ApplicationController
   # The concern's user_data method properly handles permissions
 
   def assign_default_roles(user)
+    return unless Shared::FeatureGateService.billing_enabled?
     return unless current_account.subscription&.plan
 
     # Assign all default roles from the plan using new permission-based system

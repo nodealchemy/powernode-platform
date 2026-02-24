@@ -43,7 +43,7 @@ module Ai
     private
 
     def require_approval_permission
-      return if current_worker || current_service
+      return if current_worker
 
       require_permission("ai.autonomy.approve")
     end

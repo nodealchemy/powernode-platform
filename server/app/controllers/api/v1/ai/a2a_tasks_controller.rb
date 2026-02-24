@@ -242,7 +242,7 @@ module Api
         end
 
         def validate_permissions
-          return if current_worker || current_service
+          return if current_worker
 
           permission_map = {
             %w[index show details events events_poll artifacts artifact] => "ai.agents.read",

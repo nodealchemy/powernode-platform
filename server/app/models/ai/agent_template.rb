@@ -12,7 +12,7 @@ module Ai
     has_many :template_usage_metrics, class_name: "Ai::TemplateUsageMetric", foreign_key: "agent_template_id", dependent: :destroy
 
     # Enterprise associations - marketplace monetization & publishing
-    if defined?(PowernodeEnterprise::Engine)
+    if Powernode::ExtensionRegistry.loaded?("enterprise")
       belongs_to :publisher, class_name: "Ai::PublisherAccount", foreign_key: "publisher_id", optional: true
       has_many :marketplace_transactions, class_name: "Ai::MarketplaceTransaction", foreign_key: "agent_template_id"
     end

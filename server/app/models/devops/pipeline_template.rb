@@ -4,9 +4,6 @@ module Devops
   # Template for CI/CD pipelines that can be published to the marketplace
   # Captures pipeline definitions, steps, and triggers for reuse
   class PipelineTemplate < ApplicationRecord
-    include MarketplacePublishable
-    include MarketplaceReviewable
-
     # ============================================
     # Constants
     # ============================================
@@ -20,10 +17,6 @@ module Devops
     belongs_to :account
     belongs_to :created_by_user, class_name: "User", foreign_key: :created_by_user_id, optional: true
     belongs_to :source_pipeline, class_name: "Devops::Pipeline", foreign_key: :source_pipeline_id, optional: true
-
-    # Marketplace subscriptions
-    has_many :subscriptions, as: :subscribable, class_name: "Marketplace::Subscription", dependent: :destroy
-    has_many :subscribing_accounts, through: :subscriptions, source: :account
 
     # ============================================
     # Validations

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 RSpec.describe SiteSetting, type: :model do
@@ -291,7 +293,7 @@ RSpec.describe SiteSetting, type: :model do
     it 'handles complete footer configuration' do
       # Set up footer settings
       SiteSetting.set('site_name', 'Powernode Platform', is_public: true)
-      SiteSetting.set('copyright_text', '© 2025 Powernode', is_public: true)
+      SiteSetting.set('copyright_text', '© 2026 Everett C. Haimes III', is_public: true)
       SiteSetting.set('social_twitter', 'https://twitter.com/powernode', is_public: true)
       SiteSetting.set('footer_cache_enabled', true, setting_type: 'boolean')
 
@@ -300,7 +302,7 @@ RSpec.describe SiteSetting, type: :model do
 
       expect(footer_data).to include(
         'site_name' => 'Powernode Platform',
-        'copyright_text' => '© 2025 Powernode',
+        'copyright_text' => '© 2026 Everett C. Haimes III',
         'social_twitter' => 'https://twitter.com/powernode'
       )
     end
