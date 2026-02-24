@@ -27,7 +27,7 @@ module Ai
 
       # Calculate the overall health score (0-100) with component breakdown
       def calculate
-        active_skills = Ai::Skill.for_account(account.id).active
+        active_skills = Ai::Skill.for_account(account.id).active.enabled
         total_active = active_skills.count
 
         return empty_score if total_active.zero?
@@ -64,7 +64,7 @@ module Ai
       def comprehensive_report
         health = calculate
 
-        skills = Ai::Skill.for_account(account.id).active
+        skills = Ai::Skill.for_account(account.id).active.enabled
 
         {
           health: health,

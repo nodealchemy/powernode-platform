@@ -215,7 +215,7 @@ module Ai
       def detect_stale_skills
         created = []
 
-        stale_skills = Ai::Skill.for_account(account.id).active
+        stale_skills = Ai::Skill.for_account(account.id).active.enabled
           .where("ai_skills.created_at < ?", STALE_MIN_AGE.days.ago)
           .where("ai_skills.usage_count < ?", STALE_USAGE_CAP)
           .where(
@@ -251,7 +251,7 @@ module Ai
       def detect_orphan_skills
         created = []
 
-        orphan_skills = Ai::Skill.for_account(account.id).active
+        orphan_skills = Ai::Skill.for_account(account.id).active.enabled
           .where("ai_skills.created_at < ?", ORPHAN_MIN_AGE.days.ago)
           .left_joins(:agent_skills)
           .where(ai_agent_skills: { id: nil })
@@ -292,7 +292,7 @@ module Ai
       def detect_version_drift
         created = []
 
-        skills = Ai::Skill.for_account(account.id).active.pluck(:id, :name)
+        skills = Ai::Skill.for_account(account.id).active.enabled.pluck(:id, :name)
         prefix_groups = skills.group_by { |_, name| name.to_s.split(/\s+/).first&.downcase }.select { |_, v| v.size > 1 }
 
         prefix_groups.each do |_prefix, group|

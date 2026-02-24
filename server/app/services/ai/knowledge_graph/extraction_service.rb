@@ -12,7 +12,10 @@ module Ai
 
       PROMPT_SLUG = "ai-kg-entity-extraction"
       FALLBACK_PROMPT = "You are a knowledge graph extraction expert. Extract entities and their relationships from the given text. " \
-                        "Focus on named entities (people, organizations, technologies, events, locations) and meaningful relationships between them. " \
+                        "Classify each entity as: person (individual humans), organization (companies, teams, institutions), " \
+                        "technology (languages, frameworks, tools, protocols, platforms, libraries, services), " \
+                        "event (dated occurrences, releases, incidents), or location (geographic places). " \
+                        "Never use 'custom' — always pick the closest match. When in doubt, classify software-related entities as 'technology'. " \
                         "Be precise and concise. Only extract clearly stated facts."
       EXTRACTION_SCHEMA = {
         name: "knowledge_extraction",
@@ -213,7 +216,7 @@ module Ai
 
           entities << {
             "name" => name,
-            "type" => "custom",
+            "type" => infer_entity_type(name),
             "description" => nil
           }
         end
@@ -350,10 +353,44 @@ module Ai
       end
 
       def map_entity_type(type)
-        return nil if type.blank?
+        return "technology" if type.blank?
 
+        normalized = type.to_s.downcase.strip
         valid_types = Ai::KnowledgeGraphNode::ENTITY_TYPES
-        valid_types.include?(type) ? type : "custom"
+
+        return normalized if valid_types.include?(normalized)
+
+        # Map common LLM variations to valid types
+        case normalized
+        when /tool|framework|library|platform|service|protocol|language|software|api|database|gem|package/
+          "technology"
+        when /company|team|group|institution|corp|inc/
+          "organization"
+        when /human|user|developer|engineer|manager|author/
+          "person"
+        when /release|incident|deploy|conference|meeting/
+          "event"
+        when /city|country|region|server|datacenter/
+          "location"
+        else
+          "custom"
+        end
+      end
+
+      def infer_entity_type(name)
+        # Rule-based type inference for fallback NER extraction
+        tech_patterns = /\b(Rails|Ruby|React|Docker|Redis|PostgreSQL|Sidekiq|Nginx|
+          Node|Python|Java|Go|Rust|TypeScript|JavaScript|CSS|HTML|
+          API|SDK|CLI|MCP|SSE|JWT|OAuth|REST|GraphQL|WebSocket|
+          AWS|Azure|GCP|Heroku|Vercel|Gitea|GitHub|GitLab|
+          Stripe|PayPal|Slack|Tailwind|Webpack|Vite|Turbo)\b/xi
+
+        org_patterns = /\b(Inc|Corp|Ltd|LLC|Company|Team|Group|Foundation|Institute)\b/i
+
+        return "technology" if name.match?(tech_patterns)
+        return "organization" if name.match?(org_patterns)
+
+        "custom"
       end
 
       def common_word?(word)

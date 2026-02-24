@@ -11,6 +11,7 @@ class Ai::McpAgentExecutor
 
       write_experiential_memory(execution_context, result)
       write_working_memory_state(execution_context, result)
+      write_short_term_memory(execution_context, result)
       extract_and_store_facts(result)
       extract_compound_learnings(result)
 
@@ -58,6 +59,34 @@ class Ai::McpAgentExecutor
       working_memory.persist_to_database("task_state")
     rescue StandardError => e
       @logger.warn "[MemoryWriteback] Working memory write failed: #{e.message}"
+    end
+
+    # Write to short-term memory for consolidation pipeline (STM→LTM→shared)
+    # After 3 accesses, the STM callback auto-enqueues consolidation to CompoundLearning
+    def write_short_term_memory(execution_context, result)
+      return unless @agent && @execution
+
+      execution_id = execution_context[:execution_id] || @execution.try(:execution_id) || @execution.try(:id)
+      return unless execution_id
+
+      Ai::AgentShortTermMemory.create!(
+        account: @account,
+        agent: @agent,
+        memory_type: "general",
+        memory_key: "execution:#{execution_id}:summary",
+        memory_value: {
+          "input_summary" => execution_context[:input].to_s.truncate(300),
+          "output_summary" => result.dig("output").to_s.truncate(300),
+          "execution_id" => execution_id,
+          "agent_type" => @agent.agent_type,
+          "completed_at" => Time.current.iso8601
+        },
+        session_id: execution_id,
+        ttl_seconds: 86_400,
+        expires_at: 24.hours.from_now
+      )
+    rescue StandardError => e
+      @logger.warn "[MemoryWriteback] STM write failed: #{e.message}"
     end
 
     # Scan output for marker-based facts and store them
