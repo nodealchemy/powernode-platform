@@ -64,6 +64,7 @@ MAX_INBOX_LINES=100
 TOKEN_REFRESH_INTERVAL=1800  # 30 minutes
 MAX_BACKOFF=30
 NUDGE_COOLDOWN=10  # seconds between tmux nudges (prevents spam)
+SSE_READ_TIMEOUT=90  # seconds — server pings every 30s; 3 missed pings = stale connection
 
 # --- Tmux Injection ---
 # Finds the tmux pane running Claude Code and injects the message content
@@ -234,7 +235,10 @@ get_token() {
 }
 
 # --- MCP Session Management ---
+# The daemon shares the CLI's MCP session rather than creating its own.
+# This prevents session conflicts when expire_previous_sessions! runs.
 ensure_session() {
+  # Check if our stored session is still active
   if [[ -f "$SESSION_FILE" && -s "$SESSION_FILE" ]]; then
     local existing
     existing=$(cat "$SESSION_FILE")
@@ -244,43 +248,29 @@ ensure_session() {
     if [[ "$status" == "active" ]]; then
       return 0
     fi
-    log "Session $existing expired, creating new one"
+    log "Session ${existing:0:12}... expired, looking for CLI session"
   fi
 
+  # Find the CLI's active session (same agent ID, created by handle_initialize)
   local session_script
   session_script=$(cat <<RUBY
 session = McpSession.active
   .where(ai_agent_id: "$AGENT_ID")
   .order(last_activity_at: :desc)
   .first
-
-unless session
-  user = User.find("$RESOURCE_OWNER_ID")
-  session = McpSession.create!(
-    user: user,
-    account: user.account,
-    protocol_version: "2025-11-25",
-    client_info: { name: "workspace-sse-daemon", version: "1.0" },
-    ip_address: "127.0.0.1",
-    user_agent: "workspace-sse-daemon/1.0",
-    expires_at: 24.hours.from_now,
-    oauth_application_id: "$OAUTH_APP_ID",
-    ai_agent_id: "$AGENT_ID"
-  )
-end
-print session.session_token
+print session.session_token if session
 RUBY
 )
 
   local session_token
-  session_token=$(cd "$SERVER_DIR" && bin/rails runner "$session_script" 2>>"$LOG_FILE")
+  session_token=$(cd "$SERVER_DIR" && bin/rails runner "$session_script" 2>>"$LOG_FILE") || true
 
   if [[ -n "$session_token" ]]; then
     echo -n "$session_token" > "$SESSION_FILE"
-    log "MCP session: $session_token"
+    log "Sharing CLI session: ${session_token:0:12}..."
     return 0
   else
-    log "ERROR: Failed to get/create MCP session"
+    log "No active CLI session found — waiting for CLI to connect"
     return 1
   fi
 }
@@ -494,7 +484,9 @@ run_sse_loop() {
 
   log "Connecting to SSE: $SSE_ENDPOINT (session: ${session_id:0:12}...)"
 
-  # Pipe curl directly into the read loop.
+  # Pipe curl into the read loop. When the read loop exits (timeout or EOF),
+  # the pipe breaks and curl receives SIGPIPE on next write. To handle cases
+  # where curl doesn't write (stale connection), _cleanup kills all children.
   curl -sS -N \
     --max-time 0 \
     -H "Authorization: Bearer $token" \
@@ -502,12 +494,12 @@ run_sse_loop() {
     -H "Accept: text/event-stream" \
     -H "Cache-Control: no-cache" \
     "$SSE_ENDPOINT" 2>>"$LOG_FILE" | {
-    set +eo pipefail  # Disable errexit in subshell — process_sse_event may fail non-fatally
+    set +eo pipefail  # Disable errexit — process_sse_event may fail non-fatally
     local current_event="" current_data=""
 
-    log "SSE read loop started"
+    log "SSE read loop started (read timeout: ${SSE_READ_TIMEOUT}s)"
 
-    while IFS= read -r line; do
+    while IFS= read -t "$SSE_READ_TIMEOUT" -r line; do
       line="${line%$'\r'}"
 
       if [[ "$line" == event:* ]]; then
@@ -527,12 +519,31 @@ run_sse_loop() {
       fi
     done
 
-    log "SSE read loop exited"
+    log "SSE read loop exited (read timeout or EOF)"
   }
   local exit_code=$?
 
-  log "SSE connection closed (exit: $exit_code)"
+  # Kill any orphan curl processes for this SSE endpoint to prevent duplicates.
+  # When the read loop exits via timeout, curl may linger since there's no SIGPIPE
+  # (no data flowing = no broken-pipe signal).
+  _kill_orphan_curls
+
+  log "SSE connection closed (exit: $exit_code) — will reconnect"
   return 1
+}
+
+_kill_orphan_curls() {
+  local pids
+  pids=$(pgrep -f "curl.*${SSE_ENDPOINT}" 2>/dev/null) || return 0
+  for pid in $pids; do
+    kill "$pid" 2>/dev/null
+  done
+  sleep 0.5
+  # Force-kill any that survived
+  pids=$(pgrep -f "curl.*${SSE_ENDPOINT}" 2>/dev/null) || return 0
+  for pid in $pids; do
+    kill -9 "$pid" 2>/dev/null
+  done
 }
 
 # --- Daemon Loop ---
@@ -578,7 +589,9 @@ _cleanup() {
   trap '' EXIT SIGTERM SIGINT
   log "Daemon shutting down..."
   rm -f "$PID_FILE"
-  # Kill all children (curl etc.)
+  # Kill orphan curl SSE connections
+  _kill_orphan_curls
+  # Kill all children
   kill 0 2>/dev/null || true
   log "Daemon stopped"
 }
