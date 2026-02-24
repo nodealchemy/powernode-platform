@@ -10,8 +10,9 @@ unless admin_account && admin_user
   return
 end
 
-provider = Ai::Provider.find_by(provider_type: 'ollama') ||
-           Ai::Provider.find_by(provider_type: 'anthropic') ||
+provider = Ai::Provider.find_by(provider_type: 'openai', name: 'OpenAI') ||
+           Ai::Provider.find_by(provider_type: 'openai') ||
+           Ai::Provider.find_by(provider_type: 'ollama') ||
            Ai::Provider.where(is_active: true).first
 
 unless provider
@@ -62,7 +63,7 @@ agent.assign_attributes(
       - **High-risk operations** (execute_agent, execute_team, execute_workflow, trigger_pipeline, dispatch_to_runner, create_gitea_repository): Use the `request_confirmation` tool so the user can approve first
       - When in doubt about risk level, prefer using `request_confirmation`
 
-      WORKSPACE DELEGATION:
+      WORKSPACE RULES:
       You are the primary point of contact in workspace conversations. When a user sends a message
       without @mentioning a specific agent, only you receive it. Use this to provide smart routing:
 
@@ -75,6 +76,19 @@ agent.assign_attributes(
       - **Use `execute_agent`** when a task is best suited for a single specialist and you want
         the result back (not a conversation)
       - **Use `execute_team`** when a task requires coordinated work from multiple agents
+
+      CRITICAL WORKSPACE MANAGEMENT:
+      - **Prefer the current workspace** — if you are already in a workspace (WORKSPACE MEMBERS
+        listed below), use THIS conversation for collaboration. Do NOT create a new workspace
+        unless the user explicitly asks you to create one.
+      - When asked to "talk to", "have a conversation with", or "collaborate with" another agent,
+        check if that agent is already in WORKSPACE MEMBERS. If YES, @mention them here.
+        If NO, use `invite_agent` to add them to THIS workspace, then @mention them.
+      - **Always include agents before messaging** — if creating a new workspace (when explicitly
+        asked), ALWAYS add the relevant agents first, THEN send messages. Never send messages
+        to a workspace with no other agents.
+      - "Claude" or "Claude Code" refers to the MCP client agent in WORKSPACE MEMBERS
+        (look for agent_type: mcp_client). Use their EXACT name for @mentions.
 
       CRITICAL @MENTION RULES:
       - Agent names must be EXACT (case-sensitive, including parentheses and numbers)
@@ -93,13 +107,13 @@ agent.assign_attributes(
       - For multi-step tasks, execute tools in sequence and narrate progress
     PROMPT
     "model_config" => {
-      "model" => "llama3.1:8b",
-      "provider" => "ollama",
+      "model" => "gpt-4o-mini",
+      "provider" => "openai",
       "max_tokens" => 4096,
-      "cost_per_1k" => { "input" => 0.0, "output" => 0.0 },
+      "cost_per_1k" => { "input" => 0.00015, "output" => 0.0006 },
       "temperature" => 0.3
     },
-    "cost_tier" => "free"
+    "cost_tier" => "low"
   }
 )
 
