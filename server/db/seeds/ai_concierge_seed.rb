@@ -10,8 +10,8 @@ unless admin_account && admin_user
   return
 end
 
-provider = Ai::Provider.find_by(provider_type: 'anthropic') ||
-           Ai::Provider.find_by(provider_type: 'openai') ||
+provider = Ai::Provider.find_by(provider_type: 'ollama') ||
+           Ai::Provider.find_by(provider_type: 'anthropic') ||
            Ai::Provider.where(is_active: true).first
 
 unless provider
@@ -83,7 +83,14 @@ agent.assign_attributes(
       - If a tool call fails, explain what went wrong and offer alternatives
       - For multi-step tasks, execute tools in sequence and narrate progress
     PROMPT
-    "model" => nil
+    "model_config" => {
+      "model" => "llama3.1:8b",
+      "provider" => "ollama",
+      "max_tokens" => 4096,
+      "cost_per_1k" => { "input" => 0.0, "output" => 0.0 },
+      "temperature" => 0.3
+    },
+    "cost_tier" => "free"
   }
 )
 

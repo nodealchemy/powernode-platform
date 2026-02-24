@@ -19,19 +19,19 @@ end
 # Resolve Providers
 # ---------------------------------------------------------------------------
 anthropic_provider = Ai::Provider.find_by(provider_type: 'anthropic')
-openai_provider    = Ai::Provider.find_by(provider_type: 'openai')
+ollama_provider    = Ai::Provider.find_by(provider_type: 'ollama')
 
 unless anthropic_provider
   puts "  ⚠️  Anthropic provider not found — skipping Powernode Development Team"
   return
 end
 
-unless openai_provider
-  puts "  ⚠️  OpenAI provider not found — skipping Powernode Development Team"
+unless ollama_provider
+  puts "  ⚠️  Ollama provider not found — skipping Powernode Development Team"
   return
 end
 
-puts "  ✅ Providers: Anthropic=#{anthropic_provider.id}, OpenAI=#{openai_provider.id}"
+puts "  ✅ Providers: Anthropic=#{anthropic_provider.id}, Ollama=#{ollama_provider.id}"
 
 # ---------------------------------------------------------------------------
 # 6 Specialized Agents
@@ -53,19 +53,19 @@ agents_data = [
       'priority_level' => 'critical',
       'execution_mode' => 'analytical',
       'capabilities_version' => '1.0',
-      'cost_tier' => 'premium',
+      'cost_tier' => 'mid',
       'model_config' => {
         'provider' => 'anthropic',
-        'model' => 'claude-opus-4-1-20250805',
+        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.3,
         'max_tokens' => 8192,
         'response_format' => 'structured_analysis',
-        'cost_per_1k' => { 'input' => 0.015, 'output' => 0.075 }
+        'cost_per_1k' => { 'input' => 0.003, 'output' => 0.015 }
       },
       'task_model_overrides' => {
-        'documentation' => 'claude-sonnet-4-5-20250929',
+        'documentation' => 'qwen2.5:14b',
         'code_review' => 'claude-sonnet-4-5-20250929',
-        'planning' => 'claude-opus-4-1-20250805'
+        'planning' => 'claude-sonnet-4-5-20250929'
       },
       'system_prompt' => <<~PROMPT.strip
         You are the Project Lead for the Powernode subscription management platform.
@@ -145,7 +145,7 @@ agents_data = [
         'cost_per_1k' => { 'input' => 0.003, 'output' => 0.015 }
       },
       'task_model_overrides' => {
-        'documentation' => 'ollama/qwen2.5:14b',
+        'documentation' => 'qwen2.5:14b',
         'code_review' => 'claude-sonnet-4-5-20250929',
         'planning' => 'claude-sonnet-4-5-20250929'
       },
@@ -228,7 +228,7 @@ agents_data = [
         'cost_per_1k' => { 'input' => 0.003, 'output' => 0.015 }
       },
       'task_model_overrides' => {
-        'documentation' => 'ollama/qwen2.5:14b',
+        'documentation' => 'qwen2.5:14b',
         'code_review' => 'claude-sonnet-4-5-20250929',
         'planning' => 'claude-sonnet-4-5-20250929'
       },
@@ -293,7 +293,7 @@ agents_data = [
   {
     name: 'Powernode DevOps Engineer',
     agent_type: 'workflow_operations',
-    provider: anthropic_provider,
+    provider: ollama_provider,
     description: 'DevOps and infrastructure specialist for the Powernode platform. Manages systemd services, CI/CD pipelines, deployment automation, and Docker Swarm orchestration.',
     conversation_profile: {
       'tone' => 'direct',
@@ -306,19 +306,19 @@ agents_data = [
       'priority_level' => 'high',
       'execution_mode' => 'operational',
       'capabilities_version' => '1.0',
-      'cost_tier' => 'low',
+      'cost_tier' => 'free',
       'model_config' => {
-        'provider' => 'anthropic',
-        'model' => 'claude-haiku-4-5-20251001',
+        'provider' => 'ollama',
+        'model' => 'llama3.1:8b',
         'temperature' => 0.1,
         'max_tokens' => 4096,
         'response_format' => 'operational',
-        'cost_per_1k' => { 'input' => 0.001, 'output' => 0.005 }
+        'cost_per_1k' => { 'input' => 0.0, 'output' => 0.0 }
       },
       'task_model_overrides' => {
-        'documentation' => 'ollama/llama3.1:8b',
-        'code_review' => 'claude-haiku-4-5-20251001',
-        'planning' => 'claude-haiku-4-5-20251001'
+        'documentation' => 'llama3.1:8b',
+        'code_review' => 'llama3.1:8b',
+        'planning' => 'llama3.1:8b'
       },
       'system_prompt' => <<~PROMPT.strip
         You are the DevOps Engineer for the Powernode platform.
@@ -379,7 +379,7 @@ agents_data = [
   {
     name: 'Powernode QA/Test Engineer',
     agent_type: 'code_assistant',
-    provider: openai_provider,
+    provider: ollama_provider,
     description: 'Test specialist for the Powernode platform. Writes RSpec backend tests, Jest frontend tests, and Playwright E2E tests following platform-specific testing patterns and helpers.',
     conversation_profile: {
       'tone' => 'analytical',
@@ -392,19 +392,19 @@ agents_data = [
       'priority_level' => 'medium',
       'execution_mode' => 'analytical',
       'capabilities_version' => '1.0',
-      'cost_tier' => 'minimal',
+      'cost_tier' => 'free',
       'model_config' => {
-        'provider' => 'openai',
-        'model' => 'gpt-4o-mini',
+        'provider' => 'ollama',
+        'model' => 'qwen2.5-coder:14b',
         'temperature' => 0.1,
         'max_tokens' => 4096,
         'response_format' => 'code_generation',
-        'cost_per_1k' => { 'input' => 0.00015, 'output' => 0.0006 }
+        'cost_per_1k' => { 'input' => 0.0, 'output' => 0.0 }
       },
       'task_model_overrides' => {
-        'documentation' => 'gpt-4o-mini',
-        'code_review' => 'gpt-4o-mini',
-        'planning' => 'gpt-4o-mini'
+        'documentation' => 'qwen2.5:14b',
+        'code_review' => 'qwen2.5-coder:14b',
+        'planning' => 'qwen2.5-coder:14b'
       },
       'system_prompt' => <<~PROMPT.strip
         You are the QA/Test Engineer for the Powernode platform.
@@ -467,7 +467,7 @@ agents_data = [
   {
     name: 'Powernode Documentation Specialist',
     agent_type: 'content_generator',
-    provider: anthropic_provider,
+    provider: ollama_provider,
     description: 'Documentation specialist for the Powernode platform. Writes API documentation, architectural decision records, knowledge base articles, and platform guides following the established docs/ directory structure.',
     conversation_profile: {
       'tone' => 'educational',
@@ -480,19 +480,19 @@ agents_data = [
       'priority_level' => 'low',
       'execution_mode' => 'generative',
       'capabilities_version' => '1.0',
-      'cost_tier' => 'mid',
+      'cost_tier' => 'free',
       'model_config' => {
-        'provider' => 'anthropic',
-        'model' => 'claude-sonnet-4-5-20250929',
+        'provider' => 'ollama',
+        'model' => 'qwen2.5-coder:14b',
         'temperature' => 0.4,
         'max_tokens' => 8192,
         'response_format' => 'documentation',
-        'cost_per_1k' => { 'input' => 0.003, 'output' => 0.015 }
+        'cost_per_1k' => { 'input' => 0.0, 'output' => 0.0 }
       },
       'task_model_overrides' => {
-        'documentation' => 'claude-sonnet-4-5-20250929',
-        'code_review' => 'claude-sonnet-4-5-20250929',
-        'planning' => 'claude-sonnet-4-5-20250929'
+        'documentation' => 'qwen2.5-coder:14b',
+        'code_review' => 'qwen2.5-coder:14b',
+        'planning' => 'qwen2.5-coder:14b'
       },
       'system_prompt' => <<~PROMPT.strip
         You are the Documentation Specialist for the Powernode platform.

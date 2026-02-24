@@ -343,7 +343,7 @@ if admin_account && admin_user
     supports_functions: false,
     supports_vision: false,
     supports_code_execution: false,
-    priority_order: 4,
+    priority_order: 1,
     metadata: {
       'organization' => 'Ollama',
       'strengths' => %w[privacy zero_cost self_hosted offline_capable],

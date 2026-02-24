@@ -112,7 +112,8 @@ if admin_account && admin_user && claude_provider
     }
   end
 
-  # Claude-Powered Research Analyst
+  # Research Analyst — now on Ollama for cost optimization
+  ollama_provider = Ai::Provider.find_by(provider_type: 'ollama')
   research_analyst = Ai::Agent.find_or_create_by(
     account: admin_account,
     slug: 'claude-research-analyst',
@@ -120,7 +121,7 @@ if admin_account && admin_user && claude_provider
   ) do |agent|
     agent.name = "Claude Research Analyst"
     agent.description = "Comprehensive research and analysis agent leveraging Claude's analytical capabilities"
-    agent.provider = claude_provider
+    agent.provider = ollama_provider || claude_provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
@@ -190,13 +191,14 @@ if admin_account && admin_user && claude_provider
       'priority_level' => 'high',
       'execution_mode' => 'analytical',
       'capabilities_version' => '1.0',
-      'claude_optimized' => true,
-      'reasoning_focus' => 'analytical_research',
+      'cost_tier' => 'free',
       'model_config' => {
-        'model' => 'claude-sonnet-4-5-20250929',
+        'provider' => 'ollama',
+        'model' => 'qwen2.5:14b',
         'temperature' => 0.2,
         'max_tokens' => 4096,
-        'response_format' => 'research_report'
+        'response_format' => 'research_report',
+        'cost_per_1k' => { 'input' => 0.0, 'output' => 0.0 }
       }
     }
   end
