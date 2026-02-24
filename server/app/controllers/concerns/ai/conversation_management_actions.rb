@@ -115,8 +115,12 @@ module Ai
         responding_agent = conversation.account.ai_agents.find_by(id: params[:agent_id])
       end
 
+      # For workspace conversations, split @mention messages into separate entries:
+      # narration ("I'll ask Claude...") and @mention ("@Claude Code, please...")
+      narration, mention_content, mentioned_ids = split_workspace_mention(conversation, content, responding_agent)
+
       assistant_message = conversation.add_assistant_message(
-        content,
+        narration || content,
         agent: responding_agent,
         message_type: "text",
         token_count: params[:token_count]&.to_i || 0,
@@ -136,6 +140,40 @@ module Ai
           message: assistant_message.message_data
         }
       )
+
+      if mention_content.present?
+        # Narration was split out — create a second message for the @mention and dispatch
+        mention_message = conversation.add_assistant_message(
+          mention_content,
+          agent: responding_agent,
+          message_type: "text",
+          token_count: 0,
+          cost_usd: 0.0,
+          processing_metadata: { source: "worker", split_from: assistant_message.message_id }
+        )
+
+        ActionCable.server.broadcast(
+          conversation.websocket_channel,
+          {
+            type: "ai_response_complete",
+            conversation_id: conversation.conversation_id,
+            message: mention_message.message_data
+          }
+        )
+
+        if mentioned_ids.present?
+          dispatch_workspace_responses(conversation, mention_message, mentioned_agent_ids: mentioned_ids)
+          notify_mentioned_mcp_clients(conversation, mention_message, mentioned_ids)
+        end
+      elsif conversation.workspace_conversation?
+        # No split needed — but still dispatch if the full message contains @mentions.
+        # This handles the case where the entire response IS an @mention (no narration prefix).
+        unsplit_ids = detect_workspace_mentions(conversation, content, responding_agent)
+        if unsplit_ids.present?
+          dispatch_workspace_responses(conversation, assistant_message, mentioned_agent_ids: unsplit_ids)
+          notify_mentioned_mcp_clients(conversation, assistant_message, unsplit_ids)
+        end
+      end
 
       render_success({ message_id: assistant_message.message_id })
     rescue StandardError => e
@@ -345,6 +383,68 @@ module Ai
     def current_account_conversations
       account = current_user&.account || current_account
       account&.ai_conversations || ::Ai::Conversation.none
+    end
+
+    # Detect @mentions in message content without splitting.
+    # Returns array of mentioned agent IDs, excluding the responding agent.
+    def detect_workspace_mentions(conversation, content, responding_agent)
+      team = conversation.agent_team
+      return [] unless team
+
+      members = team.members.includes(:agent).to_a
+      members.sort_by! { |m| -(m.agent&.name&.length || 0) }
+
+      mentioned_ids = []
+      members.each do |member|
+        name = member.agent&.name
+        next if name.blank?
+        next if responding_agent && member.ai_agent_id == responding_agent.id
+
+        mentioned_ids << member.ai_agent_id if content.include?("@#{name}")
+      end
+
+      mentioned_ids.uniq
+    end
+
+    # Split a workspace agent's response into narration + @mention if the response
+    # contains an @mention of another workspace member. Returns [narration, mention_content, mentioned_ids].
+    # If no split is needed, returns [nil, nil, nil].
+    def split_workspace_mention(conversation, content, responding_agent)
+      return [nil, nil, nil] unless conversation.workspace_conversation?
+
+      team = conversation.agent_team
+      return [nil, nil, nil] unless team
+
+      # Find @mentions of workspace members in the content
+      members = team.members.includes(:agent).to_a
+      # Sort by name length descending so longer names match first
+      members.sort_by! { |m| -(m.agent&.name&.length || 0) }
+
+      first_mention_pos = nil
+      mentioned_ids = []
+
+      members.each do |member|
+        name = member.agent&.name
+        next if name.blank?
+        next if responding_agent && member.ai_agent_id == responding_agent.id # Skip self-mentions
+
+        pos = content.index("@#{name}")
+        next unless pos
+
+        mentioned_ids << member.ai_agent_id
+        first_mention_pos = pos if first_mention_pos.nil? || pos < first_mention_pos
+      end
+
+      return [nil, nil, nil] if mentioned_ids.empty? || first_mention_pos.nil?
+
+      # Split at the first @mention position
+      narration = content[0...first_mention_pos].strip
+      mention_content = content[first_mention_pos..].strip
+
+      # Only split if there's meaningful narration before the @mention
+      return [nil, nil, nil] if narration.blank?
+
+      [narration, mention_content, mentioned_ids]
     end
   end
 end
