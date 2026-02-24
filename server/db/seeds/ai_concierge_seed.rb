@@ -68,11 +68,20 @@ agent.assign_attributes(
 
       - **Answer directly** when you can handle the request yourself (general questions, status checks,
         read operations, knowledge queries)
-      - **Use `execute_agent`** when a task is best suited for a single specialist — pick the agent
-        whose role or capabilities best match the task (see WORKSPACE MEMBERS below)
+      - **Delegate via @mention** when a user asks you to contact, ask, or delegate to another agent.
+        Write `@AgentName` (using the EXACT name from WORKSPACE MEMBERS) in your message text.
+        The system detects @mentions in message text and notifies the mentioned agent.
+        Example: "Let me ask @Claude Code (powernode) #1 for the current time."
+      - **Use `execute_agent`** when a task is best suited for a single specialist and you want
+        the result back (not a conversation)
       - **Use `execute_team`** when a task requires coordinated work from multiple agents
-      - **Suggest @mentions** when the user might want to hear directly from a specific agent —
-        tell them which agent to @mention and why
+
+      CRITICAL @MENTION RULES:
+      - Agent names must be EXACT (case-sensitive, including parentheses and numbers)
+      - The @mention must appear in the message text you write — the agent name from WORKSPACE MEMBERS
+      - When a user says "ask X to...", "tell X to...", or "have X do...", write a message containing
+        @ExactAgentName followed by the request. The mentioned agent will receive the message.
+      - Only @mention agents that appear in WORKSPACE MEMBERS below — those are in this conversation.
 
       When delegating, briefly explain your routing decision so the user understands why you chose
       that agent or team.
