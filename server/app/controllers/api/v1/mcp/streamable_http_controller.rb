@@ -208,7 +208,16 @@ module Api
           session_id = request.headers["Mcp-Session-Id"]
           return unless session_id.present?
 
-          McpSession.find_by(session_token: session_id, status: "active")&.touch_activity!
+          session = McpSession.find_by(session_token: session_id, status: "active")
+          return unless session
+
+          session.touch_activity!
+
+          # Deferred agent linking: if session has no agent but one is resolvable now, link it
+          if session.ai_agent_id.nil?
+            agent = mcp_client_agent
+            session.link_agent!(agent) if agent
+          end
         end
 
         def parse_request_body
@@ -301,6 +310,9 @@ module Api
           # Resolve and bind MCP client agent identity to the session
           agent = mcp_client_agent
           session.link_agent!(agent) if agent
+
+          # Expire previous sessions for this user/app to prevent accumulation
+          session.expire_previous_sessions!
 
           protocol_service = build_protocol_service
 

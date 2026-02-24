@@ -33,7 +33,11 @@ class McpSession < ApplicationRecord
   end
 
   def touch_activity!
-    update_columns(last_activity_at: Time.current)
+    now = Time.current
+    updates = { last_activity_at: now }
+    # Extend TTL on activity — prevents sessions from expiring while actively in use
+    updates[:expires_at] = DEFAULT_TTL.from_now if expires_at.present? && expires_at < 1.hour.from_now
+    update_columns(updates)
   end
 
   def expired?
@@ -51,6 +55,21 @@ class McpSession < ApplicationRecord
   # Links this session to an MCP client agent identity
   def link_agent!(agent)
     update!(ai_agent_id: agent.id, display_name: agent.name)
+  end
+
+  # Expire older sessions for the same user/account, keeping only this one
+  def expire_previous_sessions!
+    scope = McpSession.where(account_id: account_id, user_id: user_id, status: "active")
+      .where.not(id: id)
+    scope = scope.where(oauth_application_id: oauth_application_id) if oauth_application_id.present?
+    scope.update_all(status: "expired", updated_at: Time.current)
+  end
+
+  # Bulk cleanup: delete expired sessions older than the given age
+  def self.cleanup_expired!(older_than: 48.hours)
+    where(status: %w[expired revoked])
+      .where("expires_at < ?", older_than.ago)
+      .delete_all
   end
 
   private
