@@ -3,12 +3,47 @@
 # Autonomy Data Seed
 # 1. Consolidates agents from 37 → 10 (one per type, 4 providers)
 # 2. Cleans up orphaned teams
-# 3. Seeds trust scores, budgets, circuit breakers, fingerprints,
-#    delegation policies, and telemetry events
+# 3. Seeds trust scores and budgets for kept agents
 #
 # Idempotent — safe to re-run.
 
 Rails.logger.info "[AutonomySeed] Starting autonomy data seeding..."
+
+# Helper: recursively clean all FK references to rows being deleted from a table.
+# Prevents FK violations regardless of how many cascading references exist.
+def clean_fk_references_for(table_name, ids_to_delete, conn: ActiveRecord::Base.connection, visited: Set.new)
+  return if ids_to_delete.empty?
+  return if visited.include?(table_name)
+  visited.add(table_name)
+
+  quoted_ids = ids_to_delete.map { |id| conn.quote(id) }.join(",")
+
+  # Find all tables that reference this table via FK
+  refs = conn.execute(<<~SQL)
+    SELECT kcu.table_name AS from_table, kcu.column_name AS from_column
+    FROM information_schema.table_constraints tc
+    JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
+    JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name AND tc.table_schema = ccu.table_schema
+    WHERE tc.constraint_type = 'FOREIGN KEY' AND ccu.table_name = '#{table_name}'
+  SQL
+
+  refs.each do |ref|
+    child_table  = ref["from_table"]
+    child_column = ref["from_column"]
+    next if child_table == table_name # skip self-references
+
+    col_info = conn.columns(child_table).find { |c| c.name == child_column }
+
+    if col_info&.null
+      conn.execute("UPDATE #{conn.quote_table_name(child_table)} SET #{conn.quote_column_name(child_column)} = NULL WHERE #{conn.quote_column_name(child_column)} IN (#{quoted_ids})")
+    else
+      # Before deleting child rows, recursively clean THEIR dependents
+      child_ids = conn.execute("SELECT id FROM #{conn.quote_table_name(child_table)} WHERE #{conn.quote_column_name(child_column)} IN (#{quoted_ids})").map { |r| r["id"] }
+      clean_fk_references_for(child_table, child_ids, conn: conn, visited: visited) if child_ids.any?
+      conn.execute("DELETE FROM #{conn.quote_table_name(child_table)} WHERE #{conn.quote_column_name(child_column)} IN (#{quoted_ids})")
+    end
+  end
+end
 
 admin_account = Account.find_by(name: "Powernode Admin")
 admin_user    = admin_account&.users&.find_by(email: "admin@powernode.org")
@@ -111,39 +146,8 @@ delete_ids = Ai::Agent.where(account: admin_account)
 if delete_ids.any?
   Rails.logger.info "[AutonomySeed] Deleting #{delete_ids.size} agents and cleaning FK references..."
 
-  # Clean FK references in dependency order
-  Ai::AgentTeamMember.where(ai_agent_id: delete_ids).delete_all
-  Ai::TeamRole.where(ai_agent_id: delete_ids).delete_all
-  Ai::ContextEntry.where(ai_agent_id: delete_ids).delete_all if defined?(Ai::ContextEntry)
-
-  # A2A tasks: must delete child events first, then tasks
-  if defined?(Ai::A2aTask)
-    a2a_task_ids = Ai::A2aTask.where(to_agent_id: delete_ids)
-      .or(Ai::A2aTask.where(from_agent_id: delete_ids)).pluck(:id)
-    if a2a_task_ids.any?
-      Ai::A2aTaskEvent.where(ai_a2a_task_id: a2a_task_ids).delete_all if defined?(Ai::A2aTaskEvent)
-      Ai::A2aTask.where(id: a2a_task_ids).delete_all
-    end
-  end
-
-  Ai::AgentSkill.where(ai_agent_id: delete_ids).delete_all
-  Ai::AgentCard.where(ai_agent_id: delete_ids).delete_all if defined?(Ai::AgentCard)
-  Ai::PersistentContext.where(ai_agent_id: delete_ids).delete_all if defined?(Ai::PersistentContext)
-  Ai::Message.where(ai_agent_id: delete_ids).delete_all
-  Ai::AgentConnection.where(source_type: "Ai::Agent", source_id: delete_ids).delete_all
-  Ai::EncryptedMessage.where(from_agent_id: delete_ids).or(Ai::EncryptedMessage.where(to_agent_id: delete_ids)).delete_all if defined?(Ai::EncryptedMessage)
-
-  # Nullify optional FKs
-  Ai::RalphLoop.where(default_agent_id: delete_ids).update_all(default_agent_id: nil) if defined?(Ai::RalphLoop)
-  Ai::Conversation.where(ai_agent_id: delete_ids).update_all(ai_agent_id: nil)
-  Ai::AgentTemplate.where(source_agent_id: delete_ids).update_all(source_agent_id: nil) if defined?(Ai::AgentTemplate)
-
-  # Clean telemetry and shadow executions before agent deletion
-  Ai::TelemetryEvent.where(agent_id: delete_ids).delete_all
-  Ai::ShadowExecution.where(agent_id: delete_ids).delete_all if defined?(Ai::ShadowExecution)
-
-  # Cascading associations (executions, trust_scores, budgets, etc.) auto-delete
-  Ai::Agent.where(id: delete_ids).destroy_all
+  clean_fk_references_for("ai_agents", delete_ids)
+  Ai::Agent.where(id: delete_ids).delete_all
 
   Rails.logger.info "[AutonomySeed] Deleted #{delete_ids.size} agents"
 end
@@ -158,18 +162,15 @@ teams_to_delete = Ai::AgentTeam.where(account: admin_account)
 
 if teams_to_delete.any?
   team_ids = teams_to_delete.pluck(:id)
-  Ai::AgentTeamMember.where(ai_agent_team_id: team_ids).delete_all
-  Ai::TeamRole.where(agent_team_id: team_ids).delete_all
-  Ai::TeamChannel.where(agent_team_id: team_ids).delete_all if defined?(Ai::TeamChannel)
-  Ai::MemoryPool.where(team_id: team_ids).delete_all if defined?(Ai::MemoryPool)
-  Ai::AgentConnection.where(source_type: "Ai::AgentTeam", source_id: team_ids).delete_all
 
-  teams_to_delete.destroy_all
+  clean_fk_references_for("ai_agent_teams", team_ids)
+  Ai::AgentTeam.where(id: team_ids).delete_all
+
   Rails.logger.info "[AutonomySeed] Deleted #{team_ids.size} orphaned teams"
 end
 
 # ===========================================================================
-# STEP 2 — Seed Autonomy Data
+# STEP 2 — Seed Trust Scores and Budgets
 # ===========================================================================
 
 # Reload kept agents
@@ -248,16 +249,12 @@ Rails.logger.info "[AutonomySeed] Created/updated #{trust_created} trust scores"
 # Budgets (monthly, current month)
 # ---------------------------------------------------------------------------
 BUDGET_PROFILES = {
-  # Supervised agents — $10 budget (Visual Design Assistant, Process Automation Optimizer)
   "Visual Design Assistant"          => { total: 1000,  spent: 0 },
   "Process Automation Optimizer"     => { total: 1000,  spent: 0 },
-  # Monitored agent — $10 budget (Documentation Specialist)
   "Powernode Documentation Specialist" => { total: 1000,  spent: 0 },
-  # Monitored agents — $25 budget
   "Powernode Project Lead"           => { total: 2500,  spent: 0 },
   "Claude Research Analyst"          => { total: 2500,  spent: 0 },
   "Powernode DevOps Engineer"        => { total: 2500,  spent: 0 },
-  # Trusted agents — $50 budget
   "Powernode Frontend Developer"     => { total: 5000,  spent: 0 },
   "Powernode QA/Test Engineer"       => { total: 5000,  spent: 0 },
   "Powernode Backend Developer"      => { total: 5000,  spent: 0 },
@@ -293,204 +290,6 @@ end
 Rails.logger.info "[AutonomySeed] Created/updated #{budgets_created} budgets"
 
 # ---------------------------------------------------------------------------
-# Circuit Breakers (3 — for trusted agents)
-# ---------------------------------------------------------------------------
-CIRCUIT_BREAKER_DATA = [
-  { agent: "Powernode Backend Developer",   action: "execute_code",      state: "closed",    failure_count: 1, success_count: 12 },
-  { agent: "Powernode QA/Test Engineer",    action: "execute_tool",      state: "closed",    failure_count: 0, success_count: 8  },
-  { agent: "Infrastructure Health Monitor", action: "external_api_call", state: "half_open", failure_count: 3, success_count: 1  }
-].freeze
-
-cb_created = 0
-
-CIRCUIT_BREAKER_DATA.each do |data|
-  agent = agents[data[:agent]]
-  next unless agent
-
-  cb = Ai::CircuitBreaker.find_or_initialize_by(agent_id: agent.id, action_type: data[:action])
-  attrs = {
-    account:           admin_account,
-    state:             data[:state],
-    failure_count:     data[:failure_count],
-    success_count:     data[:success_count],
-    failure_threshold: 5,
-    success_threshold: 3,
-    cooldown_seconds:  300,
-    history:           []
-  }
-  attrs[:opened_at]      = 10.minutes.ago if data[:state] == "half_open"
-  attrs[:half_opened_at] = 2.minutes.ago  if data[:state] == "half_open"
-
-  cb.assign_attributes(attrs)
-  cb.save!
-  cb_created += 1
-end
-
-Rails.logger.info "[AutonomySeed] Created/updated #{cb_created} circuit breakers"
-
-# ---------------------------------------------------------------------------
-# Behavioral Fingerprints (2 — for trusted agents)
-# ---------------------------------------------------------------------------
-FINGERPRINT_DATA = [
-  { agent: "Powernode Backend Developer",   metric: "response_time_ms",    mean: 450.0, stddev: 120.0, threshold: 2.5, observations: 150, anomalies: 3 },
-  { agent: "Infrastructure Health Monitor", metric: "api_calls_per_hour",  mean: 25.0,  stddev: 8.0,   threshold: 3.0, observations: 720, anomalies: 5 }
-].freeze
-
-fp_created = 0
-
-FINGERPRINT_DATA.each do |data|
-  agent = agents[data[:agent]]
-  next unless agent
-
-  fp = Ai::BehavioralFingerprint.find_or_initialize_by(agent_id: agent.id, metric_name: data[:metric])
-  fp.assign_attributes(
-    account:             admin_account,
-    baseline_mean:       data[:mean],
-    baseline_stddev:     data[:stddev],
-    deviation_threshold: data[:threshold],
-    rolling_window_days: 7,
-    observation_count:   data[:observations],
-    anomaly_count:       data[:anomalies],
-    last_observation_at: Time.current
-  )
-  fp.save!
-  fp_created += 1
-end
-
-Rails.logger.info "[AutonomySeed] Created/updated #{fp_created} behavioral fingerprints"
-
-# ---------------------------------------------------------------------------
-# Delegation Policies (2 — for trusted agents)
-# ---------------------------------------------------------------------------
-DELEGATION_DATA = [
-  {
-    agent: "Powernode Backend Developer",
-    max_depth: 3,
-    allowed_types: %w[assistant code_assistant],
-    actions: %w[read_data execute_tool execute_code],
-    budget_pct: 0.4,
-    inheritance: "moderate"
-  },
-  {
-    agent: "Powernode Frontend Developer",
-    max_depth: 2,
-    allowed_types: %w[assistant code_assistant],
-    actions: %w[read_data execute_tool],
-    budget_pct: 0.3,
-    inheritance: "conservative"
-  }
-].freeze
-
-dp_created = 0
-
-DELEGATION_DATA.each do |data|
-  agent = agents[data[:agent]]
-  next unless agent
-
-  dp = Ai::DelegationPolicy.find_or_initialize_by(agent_id: agent.id)
-  dp.assign_attributes(
-    account:              admin_account,
-    max_depth:            data[:max_depth],
-    allowed_delegate_types: data[:allowed_types],
-    delegatable_actions:  data[:actions],
-    budget_delegation_pct: data[:budget_pct],
-    inheritance_policy:   data[:inheritance]
-  )
-  dp.save!
-  dp_created += 1
-end
-
-Rails.logger.info "[AutonomySeed] Created/updated #{dp_created} delegation policies"
-
-# ---------------------------------------------------------------------------
-# Lineage Records (from team hierarchy)
-# ---------------------------------------------------------------------------
-lineage_created = 0
-
-LEAD_ROLES = %w[manager lead coordinator].freeze
-
-Ai::AgentTeam.where(account: admin_account, name: KEEP_TEAM_NAMES).each do |team|
-  lead_member = team.members.where(role: LEAD_ROLES).first
-  next unless lead_member
-
-  lead_agent = Ai::Agent.find_by(id: lead_member.ai_agent_id)
-  next unless lead_agent
-
-  team.members.where.not(role: LEAD_ROLES).each do |member|
-    child_agent = Ai::Agent.find_by(id: member.ai_agent_id)
-    next unless child_agent
-
-    Ai::AgentLineage.find_or_create_by!(
-      account: admin_account,
-      parent_agent_id: lead_agent.id,
-      child_agent_id: child_agent.id
-    ) do |lineage|
-      lineage.spawned_at = Time.current
-    end
-    lineage_created += 1
-  end
-end
-
-Rails.logger.info "[AutonomySeed] Created/updated #{lineage_created} lineage records"
-
-# ---------------------------------------------------------------------------
-# Telemetry Events (3 per agent = 30 total, correlated chains)
-# ---------------------------------------------------------------------------
-
-# Clear old seed telemetry to avoid accumulation on re-runs
-Ai::TelemetryEvent.where(account_id: admin_account.id)
-  .where("event_data @> ?", { seed: true }.to_json)
-  .delete_all
-
-telem_created = 0
-
-agents.each_value do |agent|
-  correlation_id = SecureRandom.uuid
-
-  # Event 1: trust_evaluated
-  e1 = Ai::TelemetryEvent.create!(
-    account:          admin_account,
-    agent:            agent,
-    event_category:   "trust",
-    event_type:       "trust_evaluated",
-    sequence_number:  0,
-    correlation_id:   correlation_id,
-    event_data:       { seed: true, agent_name: agent.name, action: "periodic_evaluation" },
-    outcome:          "success"
-  )
-
-  # Event 2: capability_checked (child of e1)
-  e2 = Ai::TelemetryEvent.create!(
-    account:          admin_account,
-    agent:            agent,
-    event_category:   "action",
-    event_type:       "capability_checked",
-    sequence_number:  1,
-    parent_event_id:  e1.id,
-    correlation_id:   correlation_id,
-    event_data:       { seed: true, agent_name: agent.name, capability: "execute_tool", result: "allowed" },
-    outcome:          "success"
-  )
-
-  # Event 3: budget_checked (child of e2)
-  Ai::TelemetryEvent.create!(
-    account:          admin_account,
-    agent:            agent,
-    event_category:   "budget",
-    event_type:       "budget_checked",
-    sequence_number:  2,
-    parent_event_id:  e2.id,
-    correlation_id:   correlation_id,
-    event_data:       { seed: true, agent_name: agent.name, budget_remaining_cents: 1000 },
-    outcome:          "success"
-  )
-
-  telem_created += 3
-end
-
-Rails.logger.info "[AutonomySeed] Created #{telem_created} telemetry events"
-
-# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 final_agent_count = Ai::Agent.where(account: admin_account).active.count
@@ -500,19 +299,9 @@ Rails.logger.info "[AutonomySeed] Complete!"
 Rails.logger.info "[AutonomySeed]   Active agents: #{final_agent_count} (+ #{concierge_count} concierge)"
 Rails.logger.info "[AutonomySeed]   Trust scores: #{Ai::AgentTrustScore.where(account_id: admin_account.id).count}"
 Rails.logger.info "[AutonomySeed]   Budgets: #{Ai::AgentBudget.where(account_id: admin_account.id).count}"
-Rails.logger.info "[AutonomySeed]   Circuit breakers: #{Ai::CircuitBreaker.where(account_id: admin_account.id).count}"
-Rails.logger.info "[AutonomySeed]   Fingerprints: #{Ai::BehavioralFingerprint.where(account_id: admin_account.id).count}"
-Rails.logger.info "[AutonomySeed]   Delegation policies: #{Ai::DelegationPolicy.where(account_id: admin_account.id).count}"
-Rails.logger.info "[AutonomySeed]   Lineage records: #{Ai::AgentLineage.where(account_id: admin_account.id).count}"
-Rails.logger.info "[AutonomySeed]   Telemetry events: #{Ai::TelemetryEvent.where(account_id: admin_account.id).count}"
 
-puts "\n🤖 Autonomy Data Seeding Summary:"
+puts "\n  Autonomy Data Seeding Summary:"
 puts "   Active agents: #{final_agent_count} (+ #{concierge_count} concierge)"
 puts "   Trust scores: #{Ai::AgentTrustScore.where(account_id: admin_account.id).count}"
 puts "   Budgets: #{Ai::AgentBudget.where(account_id: admin_account.id).count}"
-puts "   Circuit breakers: #{Ai::CircuitBreaker.where(account_id: admin_account.id).count}"
-puts "   Fingerprints: #{Ai::BehavioralFingerprint.where(account_id: admin_account.id).count}"
-puts "   Delegation policies: #{Ai::DelegationPolicy.where(account_id: admin_account.id).count}"
-puts "   Lineage records: #{Ai::AgentLineage.where(account_id: admin_account.id).count}"
-puts "   Telemetry events: #{Ai::TelemetryEvent.where(account_id: admin_account.id).count}"
-puts "✅ Autonomy data seeding completed!"
+puts "  Autonomy data seeding completed!"

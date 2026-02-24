@@ -57,90 +57,8 @@ else
   end
 end
 
-# Create default plans (only when billing models are available)
-if defined?(Billing::Plan) || defined?(Plan)
-  plan_class = defined?(Billing::Plan) ? Billing::Plan : Plan
-
-  administrator_plan = plan_class.find_or_create_by!(name: 'Administrator') do |plan|
-    plan.description = 'Special plan for system administrators'
-    plan.price_cents = 0
-    plan.currency = 'USD'
-    plan.billing_interval = 'monthly'
-    plan.trial_period_days = 0
-    plan.features = {
-      # Core Features (all included for admin)
-      'community_access' => true,
-      'dashboard_access' => true,
-      'mobile_responsive' => true,
-      'email_notifications' => true,
-      'basic_reporting' => true,
-      'standard_support' => true,
-      'basic_analytics' => true,
-      # Advanced Features (all included for admin)
-      'email_support' => true,
-      'advanced_analytics' => true,
-      'priority_support' => true,
-      'api_access' => true,
-      'custom_branding' => true,
-      'data_export' => true,
-      'team_collaboration' => true,
-      'webhook_integrations' => true,
-      # Enterprise Features (all included for admin)
-      'custom_fields' => true,
-      'advanced_filters' => true,
-      'custom_integrations' => true,
-      'dedicated_support' => true,
-      'white_label' => true,
-      'sso_integration' => true,
-      'advanced_security' => true,
-      'audit_logs' => true,
-      'sla_guarantees' => true,
-      # Marketplace Publishing (unlimited for admins)
-      'marketplace_publish_enabled' => true,
-      'marketplace_publish_limit' => nil
-    }
-    plan.limits = {
-      'max_users' => 9999,
-      'max_api_keys' => 100,
-      'max_webhooks' => 100,
-      'max_workers' => 100,
-      'max_repositories' => 9999
-    }
-    plan.is_public = false # Hidden from public view
-    plan.slug = 'administrator'
-  end
-
-  # Self-Hosted plan (core mode)
-  self_hosted_plan = plan_class.find_or_create_by!(slug: 'self-hosted') do |plan|
-    plan.name = 'Self-Hosted'
-    plan.description = 'Self-hosted installation with all features enabled'
-    plan.price_cents = 0
-    plan.currency = 'USD'
-    plan.billing_interval = 'monthly'
-    plan.trial_period_days = 0
-    plan.features = {
-      'community_access' => true, 'dashboard_access' => true, 'mobile_responsive' => true,
-      'email_notifications' => true, 'basic_reporting' => true, 'standard_support' => true,
-      'basic_analytics' => true, 'email_support' => true, 'advanced_analytics' => true,
-      'priority_support' => true, 'api_access' => true, 'custom_branding' => true,
-      'data_export' => true, 'team_collaboration' => true, 'webhook_integrations' => true,
-      'custom_fields' => true, 'advanced_filters' => true, 'custom_integrations' => true,
-      'dedicated_support' => true, 'white_label' => true, 'sso_integration' => true,
-      'advanced_security' => true, 'audit_logs' => true, 'sla_guarantees' => true,
-      'marketplace_publish_enabled' => true, 'marketplace_publish_limit' => nil
-    }
-    plan.limits = {
-      'max_users' => 1, 'max_api_keys' => 100, 'max_webhooks' => 100,
-      'max_workers' => 100, 'max_repositories' => 9999
-    }
-    plan.is_public = false
-    plan.slug = 'self-hosted'
-  end
-
-  puts "✅ Created #{plan_class.count} plans"
-else
-  puts "⏭️  Skipping plan creation (billing not loaded)"
-end
+# Plans are seeded by the enterprise extension (extensions/enterprise/server/db/seeds/saas_plans_seed.rb)
+# In core-only mode, no Plan model exists — all features are unlocked via FeatureGateService.
 
 # Create system worker (required for worker-backend communication)
 puts "🔧 Creating system worker..."
@@ -157,6 +75,11 @@ begin
   system_worker = Worker.find_by(name: 'System Worker')
 
   if system_worker
+    # Ensure system worker has no account_id (required for system? check in auth)
+    if system_worker.account_id.present?
+      system_worker.update_column(:account_id, nil)
+      puts "🔧 Fixed system worker: cleared account_id (required for service auth)"
+    end
     puts "✅ System worker already exists"
   else
     system_worker = Worker.create_worker!(
@@ -202,23 +125,25 @@ Page.find_or_create_by!(slug: 'welcome') do |page|
   page.content = <<~MARKDOWN
     # Welcome to Powernode
 
-    ## The Complete Platform for Modern Subscription Businesses
+    ## AI Orchestration & DevOps Platform
 
-    Powernode is a comprehensive subscription management platform that combines automated billing, AI orchestration, DevOps integration, and supply chain security to help businesses scale with confidence.
-
-    ### 🚀 Core Platform Features
-
-    - **Automated Billing**: Seamless subscription billing, invoicing, and payment processing
-    - **Real-time Analytics**: Track MRR, ARR, churn, and customer lifecycle metrics
-    - **Customer Management**: Complete subscriber lifecycle management and self-service portal
-    - **Multiple Payment Gateways**: Support for Stripe, PayPal, and more
+    Powernode is an integrated platform for AI agent orchestration, DevOps automation, and intelligent workflow management. Build, deploy, and manage AI-powered operations with confidence.
 
     ### 🤖 AI Orchestration
 
     - **Multi-Provider Support**: Connect OpenAI, Anthropic Claude, Grok, and local Ollama models
     - **AI Agents**: Build intelligent agents with custom prompts and workflows
     - **Workflow Automation**: Create visual workflows that orchestrate AI-powered tasks
-    - **MCP Integration**: Model Context Protocol for advanced AI context management
+    - **Agent Teams**: Compose multi-agent teams with role-based coordination
+    - **Compound Learning**: AI systems that learn and improve from operational feedback
+
+    ### 🔌 MCP (Model Context Protocol)
+
+    - **Tool Registry**: 79+ platform tools accessible to AI agents via MCP
+    - **Knowledge Graph**: Entity-aware reasoning across your entire platform
+    - **RAG Integration**: Document ingestion, chunking, and semantic retrieval
+    - **Shared Memory**: Tiered memory system (working, short-term, long-term, shared) for agent coordination
+    - **Skill Discovery**: Agents discover and reuse capabilities across teams
 
     ### 🔧 DevOps Integration
 
@@ -227,20 +152,21 @@ Page.find_or_create_by!(slug: 'welcome') do |page|
     - **Webhooks**: Real-time event notifications for 60+ event types
     - **API Keys**: Secure authentication for all integrations
 
-    ### 🛡️ Supply Chain Security
+    ### 📊 Analytics & Monitoring
 
-    - **SBOM Management**: Import, generate, and analyze Software Bills of Materials
-    - **Attestations**: Verify container image provenance and build integrity
-    - **Vendor Risk Assessment**: Track vendor compliance and manage risk profiles
-    - **License Compliance**: Monitor open source license obligations
+    - **Real-time Dashboards**: Monitor AI agent performance and system health
+    - **Workflow Metrics**: Track execution times, success rates, and resource usage
+    - **Audit Logging**: Complete activity tracking across all operations
 
-    ### 💼 Built for Scale
+    ### 🛡️ Security & Compliance
 
-    Whether you're a startup launching your first subscription product or an enterprise optimizing recurring revenue, Powernode provides enterprise-grade tools with startup-friendly simplicity.
+    - **Role-Based Access**: Granular permissions and roles
+    - **AI Safety**: OWASP-aligned agent anomaly detection and PII redaction
+    - **Audit Trails**: Full traceability for all AI and DevOps operations
 
-    ### 🎯 Get Started Today
+    ### 🎯 Get Started
 
-    Ready to transform your subscription business? [Sign up for free](/register) and start your journey with Powernode.
+    [Sign in](/login) to start building with Powernode.
 
     ---
 
@@ -949,8 +875,7 @@ puts "\n📚 Loading Knowledge Base content..."
 load Rails.root.join('db', 'seeds', 'knowledge_base_permissions.rb')
 load Rails.root.join('db', 'seeds', 'knowledge_base_articles.rb')
 
-puts "\n📣 Loading Marketing Permissions..."
-load Rails.root.join('db', 'seeds', 'marketing_permissions_seed.rb')
+# Marketing permissions loaded via extension seeds (extensions/marketing/)
 
 # Load AI Providers and Workflows (only in development/test)
 if Rails.env.development? || Rails.env.test?
@@ -1040,14 +965,14 @@ if Rails.env.development? || Rails.env.test?
   end
 end
 
-# Enterprise Edition seeds (loaded when enterprise engine is present)
-if defined?(PowernodeEnterprise::Engine)
-  enterprise_seeds = Rails.root.join('..', 'extensions', 'enterprise', 'server', 'db', 'seeds')
-  if Dir.exist?(enterprise_seeds)
-    puts "\n🏢 Loading Enterprise Edition seeds..."
-    Dir[enterprise_seeds.join('*.rb')].sort.each { |f| load f }
-    puts "✅ Enterprise seeds loaded"
-  end
+# Extension seeds (dynamically discovered from registered extensions)
+Powernode::ExtensionRegistry.each do |slug, ext|
+  seeds_dir = ext[:engine].root.join("db", "seeds")
+  next unless Dir.exist?(seeds_dir)
+
+  puts "\n📦 Loading #{slug} extension seeds..."
+  Dir[seeds_dir.join("*.rb")].sort.each { |f| load f }
+  puts "✅ #{slug.capitalize} extension seeds loaded"
 end
 
 puts "\n🎉 Seeding complete!"
@@ -1081,7 +1006,7 @@ SiteSetting.set('site_name', 'Powernode', description: 'Name of the site', setti
 SiteSetting.set('footer_description', 'Powerful subscription management platform designed to help businesses grow. Trusted by thousands of companies worldwide.', description: 'Footer description text', setting_type: 'text', is_public: true)
 
 # Copyright information
-SiteSetting.set('copyright_text', 'All rights reserved.', description: 'Copyright text displayed in footer', setting_type: 'string', is_public: true)
+SiteSetting.set('copyright_text', 'Everett C. Haimes III. All rights reserved.', description: 'Copyright text displayed in footer', setting_type: 'string', is_public: true)
 SiteSetting.set('copyright_year', Date.current.year.to_s, description: 'Copyright year', setting_type: 'string', is_public: true)
 
 # Contact information
@@ -1107,10 +1032,6 @@ SiteSetting.set('footer_cache_enabled', 'true', description: 'Enable caching for
 
 puts "✅ Created #{SiteSetting.count} site settings"
 
-# Supply Chain Licenses
-puts "\n📜 Seeding Supply Chain licenses..."
-load Rails.root.join('db', 'seeds', 'supply_chain_licenses.rb')
-puts "✅ Created #{SupplyChain::License.count} licenses"
 
 if Rails.env.development? || Rails.env.test?
   puts "   Accounts: #{Account.count}"
@@ -1121,6 +1042,4 @@ if Rails.env.development? || Rails.env.test?
     puts "   Subscriptions: #{Subscription.count}"
   end
   puts "   Site Settings: #{SiteSetting.count}"
-  puts "   Supply Chain Licenses: #{SupplyChain::License.count}"
-  puts "   Marketing Campaigns: #{defined?(Marketing::Campaign) ? Marketing::Campaign.count : 'N/A'}"
 end

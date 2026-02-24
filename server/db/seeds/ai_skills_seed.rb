@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+puts "  [Skills] Starting AI Skills seed..."
 Rails.logger.info "[Seeds] Creating AI Skills system data..."
 
 account = Account.first
@@ -54,6 +55,9 @@ mcp_servers = {}
 template_cache = {}
 hosted_server_count = 0
 
+# Suppress after_create callback that enqueues worker jobs (avoids HTTP timeout per server)
+McpServer.skip_callback(:create, :after, :initialize_connection, raise: false)
+
 MCP_SERVER_DEFS.each do |name, defn|
   server = McpServer.find_or_initialize_by(account: account, name: name)
   server.assign_attributes(
@@ -68,8 +72,9 @@ MCP_SERVER_DEFS.each do |name, defn|
   server.save!
   mcp_servers[name.downcase] = server
 
-  # Link to Mcp::HostedServer + ContainerTemplate if template exists
+  # Link to Mcp::HostedServer + ContainerTemplate if template exists (enterprise only)
   next unless defn[:tpl]
+  next unless defined?(Mcp::HostedServer)
 
   template = template_cache[defn[:tpl]] ||= Devops::ContainerTemplate.find_by(slug: defn[:tpl])
   next unless template
@@ -92,6 +97,11 @@ MCP_SERVER_DEFS.each do |name, defn|
   hosted.save!
   hosted_server_count += 1
 end
+
+puts "  [Skills] MCP servers done. Creating skills..."
+
+# Restore callback
+McpServer.set_callback(:create, :after, :initialize_connection) rescue nil
 
 # ============================================================================
 # Skill definitions (unchanged from previous, but using HABTM)

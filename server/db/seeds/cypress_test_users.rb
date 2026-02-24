@@ -65,37 +65,43 @@ test_credentials = {
   users: {}
 }
 
-# Get plans for subscriptions
-administrator_plan = Plan.find_by(slug: 'administrator') || Plan.find_by(name: 'Administrator')
-professional_plan = Plan.find_by(slug: 'professional') || Plan.find_by(name: 'Professional')
+# Get plans for subscriptions (billing is enterprise-only)
+billing_available = defined?(Plan) && defined?(Subscription)
 
-unless administrator_plan
-  puts "⚠️  Warning: No Administrator plan found. Creating default plan..."
-  administrator_plan = Plan.create!(
-    name: 'Administrator',
-    description: 'Administrator plan for system admins',
-    price_cents: 0,
-    currency: 'USD',
-    billing_interval: 'monthly',
-    trial_period_days: 0,
-    is_active: true,
-    is_public: false,
-    slug: 'administrator'
-  )
-end
+if billing_available
+  administrator_plan = Plan.find_by(slug: 'administrator') || Plan.find_by(name: 'Administrator')
+  professional_plan = Plan.find_by(slug: 'professional') || Plan.find_by(name: 'Professional')
 
-unless professional_plan
-  puts "⚠️  Warning: No Professional plan found. Creating default plan..."
-  professional_plan = Plan.create!(
-    name: 'Professional',
-    description: 'Professional plan for testing',
-    price_cents: 4900,
-    currency: 'USD',
-    billing_interval: 'monthly',
-    trial_period_days: 14,
-    is_active: true,
-    slug: 'professional'
-  )
+  unless administrator_plan
+    puts "⚠️  Warning: No Administrator plan found. Creating default plan..."
+    administrator_plan = Plan.create!(
+      name: 'Administrator',
+      description: 'Administrator plan for system admins',
+      price_cents: 0,
+      currency: 'USD',
+      billing_interval: 'monthly',
+      trial_period_days: 0,
+      is_active: true,
+      is_public: false,
+      slug: 'administrator'
+    )
+  end
+
+  unless professional_plan
+    puts "⚠️  Warning: No Professional plan found. Creating default plan..."
+    professional_plan = Plan.create!(
+      name: 'Professional',
+      description: 'Professional plan for testing',
+      price_cents: 4900,
+      currency: 'USD',
+      billing_interval: 'monthly',
+      trial_period_days: 14,
+      is_active: true,
+      slug: 'professional'
+    )
+  end
+else
+  puts "⏭️  Skipping plan/subscription setup (billing not loaded)"
 end
 
 # ============================================
@@ -111,11 +117,13 @@ admin_account = Account.find_or_create_by!(
 end
 
 # Create subscription for admin account
-Subscription.find_or_create_by!(account: admin_account) do |subscription|
-  subscription.plan = administrator_plan
-  subscription.status = 'active'
-  subscription.current_period_start = Time.current
-  subscription.current_period_end = 100.years.from_now
+if billing_available
+  Subscription.find_or_create_by!(account: admin_account) do |subscription|
+    subscription.plan = administrator_plan
+    subscription.status = 'active'
+    subscription.current_period_start = Time.current
+    subscription.current_period_end = 100.years.from_now
+  end
 end
 
 admin_user = User.find_by(email: 'admin@powernode.org')
@@ -164,12 +172,14 @@ demo_account = Account.find_or_create_by!(
 end
 
 # Create subscription for demo account
-Subscription.find_or_create_by!(account: demo_account) do |subscription|
-  subscription.plan = professional_plan
-  subscription.status = 'active'
-  subscription.current_period_start = Time.current.beginning_of_month
-  subscription.current_period_end = Time.current.end_of_month + 1.month
-  subscription.stripe_subscription_id = "sub_demo_#{SecureRandom.hex(8)}"
+if billing_available
+  Subscription.find_or_create_by!(account: demo_account) do |subscription|
+    subscription.plan = professional_plan
+    subscription.status = 'active'
+    subscription.current_period_start = Time.current.beginning_of_month
+    subscription.current_period_end = Time.current.end_of_month + 1.month
+    subscription.stripe_subscription_id = "sub_demo_#{SecureRandom.hex(8)}"
+  end
 end
 
 # ============================================
