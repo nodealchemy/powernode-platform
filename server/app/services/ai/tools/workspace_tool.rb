@@ -149,11 +149,15 @@ module Ai
           content_metadata: metadata.presence
         )
 
+        # Dispatch responses from @mentioned workspace agents (mirrors conversations_controller logic)
+        dispatched_agents = dispatch_mentioned_responses(conversation, message, metadata)
+
         {
           success: true,
           conversation_id: conversation.conversation_id,
           message_id: message.message_id,
-          sender: sending_agent&.name || "Unknown"
+          sender: sending_agent&.name || "Unknown",
+          dispatched_to: dispatched_agents
         }
       rescue StandardError => e
         Rails.logger.error("[WorkspaceTool] send_message error: #{e.message}")
@@ -222,6 +226,102 @@ module Ai
           count: sessions.size,
           sessions: sessions.map { |s| serialize_session(s) }
         }
+      end
+
+      # --- Dispatch ---
+
+      # Resolve @mentions from metadata or message text and dispatch workspace agent responses.
+      # For non-MCP agents (including the concierge), enqueues AiWorkspaceResponseJob.
+      # For MCP client agents, broadcasts SSE notifications.
+      #
+      # Mention resolution order:
+      # 1. Structured metadata mentions (explicit {id, name} pairs)
+      # 2. Text-based @mentions parsed from message content (matched against workspace members)
+      def dispatch_mentioned_responses(conversation, trigger_message, metadata)
+        team = conversation.agent_team
+        return [] unless team&.team_type == "workspace"
+
+        # Try structured mentions first, fall back to text parsing
+        mentions = metadata.dig("mentions")
+        mentioned_ids = if mentions.present?
+          mentioned_names = mentions.map { |m| m["name"] }.compact
+          team.members.by_agent_names(mentioned_names).pluck(:ai_agent_id)
+        else
+          resolve_text_mentions(trigger_message.content, team)
+        end
+
+        return [] if mentioned_ids.empty?
+
+        dispatched = []
+
+        # Dispatch to non-MCP agents via worker jobs (concierge + other AI agents)
+        team.members.includes(:agent).each do |member|
+          a = member.agent
+          next unless mentioned_ids.include?(a.id)
+          next if a.id == agent&.id # Don't dispatch back to the sending agent
+          next unless a.status == "active"
+
+          if a.agent_type == "mcp_client"
+            notify_mcp_client(conversation, trigger_message, a, team)
+          else
+            next unless a.provider&.is_active?
+            WorkerJobService.enqueue_workspace_response(
+              conversation.id, trigger_message.message_id, a.id, conversation.account_id
+            )
+          end
+          dispatched << { id: a.id, name: a.name, type: a.agent_type }
+        rescue WorkerJobService::WorkerServiceError => e
+          Rails.logger.warn("[WorkspaceTool] Failed to dispatch response for agent #{a.id}: #{e.message}")
+        end
+
+        dispatched
+      end
+
+      # Send SSE notification to an MCP client agent
+      def notify_mcp_client(conversation, message, target_agent, team)
+        sessions = McpSession.active.where(ai_agent_id: target_agent.id)
+        return if sessions.empty?
+
+        notification = {
+          type: "mention",
+          conversation_id: conversation.conversation_id,
+          workspace: team.name,
+          mentioned_agent_id: target_agent.id,
+          message: {
+            id: message.message_id,
+            role: message.role,
+            content: message.content.to_s.truncate(500),
+            sender: message.agent&.name || message.user&.name || "Unknown",
+            created_at: message.created_at&.iso8601
+          }
+        }.to_json
+
+        sessions.find_each do |session|
+          ActionCable.server.pubsub.broadcast("mcp_session:#{session.session_token}", notification)
+        end
+      rescue StandardError => e
+        Rails.logger.warn("[WorkspaceTool] Failed to notify MCP client #{target_agent.id}: #{e.message}")
+      end
+
+      # Parse @mentions from message text by matching against workspace team member names.
+      # Returns an array of agent IDs for members whose names appear after @ in the text.
+      # Handles multi-word names like "@Claude Code (powernode) #1" by checking longest match first.
+      def resolve_text_mentions(content, team)
+        return [] if content.blank?
+
+        members = team.members.includes(:agent).to_a
+        # Sort by name length descending so longer names match first (prevents partial matches)
+        members.sort_by! { |m| -(m.agent&.name&.length || 0) }
+
+        mentioned_ids = []
+        members.each do |member|
+          name = member.agent&.name
+          next if name.blank?
+          # Check for @AgentName in the text (case-sensitive, as required by concierge prompt)
+          mentioned_ids << member.ai_agent_id if content.include?("@#{name}")
+        end
+
+        mentioned_ids.uniq
       end
 
       # --- Helpers ---
