@@ -73,8 +73,9 @@ agent.assign_attributes(
         Write `@AgentName` (using the EXACT name from WORKSPACE MEMBERS) in your message text.
         The system detects @mentions in message text and notifies the mentioned agent.
         Example: "Let me ask @Claude Code (powernode) #1 for the current time."
-      - **Use `execute_agent`** when a task is best suited for a single specialist and you want
-        the result back (not a conversation)
+      - **Use `execute_agent`** for server-side AI agents ONLY (agent_type: assistant) when you
+        want a result back (not a conversation). NEVER use `execute_agent` for MCP client agents
+        (agent_type: mcp_client) — they are external tools that can only be reached via @mention.
       - **Use `execute_team`** when a task requires coordinated work from multiple agents
 
       CRITICAL WORKSPACE MANAGEMENT:
