@@ -16,6 +16,7 @@ module Ai
             include_concierge: { type: "boolean", required: false, description: "Auto-add concierge agent (for create_workspace, default: false)" },
             conversation_id: { type: "string", required: false, description: "Workspace conversation ID (for send_message, invite_agent, list_messages)" },
             message: { type: "string", required: false, description: "Message content (for send_message)" },
+            mentions: { type: "array", required: false, description: "Agent mentions for send_message — [{\"id\": \"...\", \"name\": \"...\"}]" },
             agent_id: { type: "string", required: false, description: "Agent ID (for invite_agent)" },
             limit: { type: "integer", required: false, description: "Max results (default 20)" }
           }
@@ -33,10 +34,12 @@ module Ai
             }
           },
           "send_message" => {
-            description: "Send a message to a workspace conversation attributed to this MCP client agent",
+            description: "Send a message to a workspace conversation attributed to this MCP client agent. " \
+                         "Include mentions to @mention and notify specific agents in the workspace.",
             parameters: {
               conversation_id: { type: "string", required: true, description: "Workspace conversation ID" },
-              message: { type: "string", required: true, description: "Message content" }
+              message: { type: "string", required: true, description: "Message content (include @AgentName in the text to mention them)" },
+              mentions: { type: "array", required: false, description: "Array of agent mentions, each with 'id' and 'name' keys (e.g. [{\"id\": \"agent-uuid\", \"name\": \"Agent Name\"}])" }
             }
           },
           "invite_agent" => {
@@ -129,12 +132,21 @@ module Ai
         conversation = find_workspace_conversation(params[:conversation_id])
         return { success: false, error: "Workspace conversation not found" } unless conversation
 
+        # Build content_metadata with structured mentions if provided
+        metadata = {}
+        if params[:mentions].present? && params[:mentions].is_a?(Array)
+          metadata["mentions"] = params[:mentions].map { |m|
+            { "id" => m["id"] || m[:id], "name" => m["name"] || m[:name] }
+          }.select { |m| m["id"].present? && m["name"].present? }
+        end
+
         # Send message attributed to this MCP client agent (not the user)
         sending_agent = agent&.agent_type == "mcp_client" ? agent : nil
         message = conversation.add_message(
           "assistant",
           params[:message],
-          agent: sending_agent
+          agent: sending_agent,
+          content_metadata: metadata.presence
         )
 
         {
