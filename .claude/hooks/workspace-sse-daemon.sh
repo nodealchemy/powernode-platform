@@ -23,10 +23,42 @@ TOKEN_FILE="/tmp/powernode_sse_token.txt"
 SESSION_FILE="/tmp/powernode_sse_session.txt"
 SEEN_FILE="/tmp/powernode_sse_seen_ids.txt"
 
-# Known identifiers
-OAUTH_APP_ID="019c82df-099c-7ac1-bc37-b0d60622c828"
-AGENT_ID="019c8809-a94d-79ef-adac-d0c3bb741eff"
-RESOURCE_OWNER_ID="019c0d95-0db5-7a8e-ae19-629a783d2b70"
+# Identifiers resolved at startup via rails runner (survives re-seeds)
+AGENT_ID_FILE="/tmp/powernode_sse_agent_id.txt"
+IDS_CACHE_FILE="/tmp/powernode_sse_ids_cache.txt"
+
+resolve_identifiers() {
+  # Return cached values if fresh (< 1 hour old)
+  if [[ -f "$IDS_CACHE_FILE" ]] && [[ -s "$IDS_CACHE_FILE" ]]; then
+    local age
+    age=$(( $(date +%s) - $(stat -c%Y "$IDS_CACHE_FILE") ))
+    if (( age < 3600 )); then
+      source "$IDS_CACHE_FILE"
+      if [[ -n "${OAUTH_APP_ID:-}" && -n "${AGENT_ID:-}" && -n "${RESOURCE_OWNER_ID:-}" ]]; then
+        return 0
+      fi
+    fi
+  fi
+
+  log "Resolving identifiers via rails runner..."
+  local result
+  result=$(cd "$SERVER_DIR" && bin/rails runner '
+agent = Ai::Agent.find_by(agent_type: "mcp_client", status: "active")
+abort "No active mcp_client agent found" unless agent
+app = Doorkeeper::Application.find_by(name: "Powernode MCP Server")
+app ||= Doorkeeper::Application.first
+abort "No OAuth application found" unless app
+owner = agent.account.users.order(:created_at).first
+abort "No resource owner found" unless owner
+puts "OAUTH_APP_ID=\"#{app.id}\""
+puts "AGENT_ID=\"#{agent.id}\""
+puts "RESOURCE_OWNER_ID=\"#{owner.id}\""
+' 2>>"$LOG_FILE") || { log "ERROR: Failed to resolve identifiers"; return 1; }
+
+  echo "$result" > "$IDS_CACHE_FILE"
+  source "$IDS_CACHE_FILE"
+  log "Resolved: agent=$AGENT_ID owner=$RESOURCE_OWNER_ID app=$OAUTH_APP_ID"
+}
 
 MAX_INBOX_LINES=100
 TOKEN_REFRESH_INTERVAL=1800  # 30 minutes
@@ -386,6 +418,9 @@ run_sse_loop() {
 _run_daemon_loop() {
   trap '_cleanup' EXIT SIGTERM SIGINT
 
+  # Resolve identifiers before anything else
+  resolve_identifiers || { log "ERROR: Cannot resolve identifiers"; exit 1; }
+
   local backoff=1
   local last_token_refresh
   last_token_refresh=$(date +%s)
@@ -435,6 +470,9 @@ start_daemon() {
   fi
 
   log_and_echo "Starting workspace SSE daemon..."
+
+  # Resolve identifiers (concierge agent, OAuth app, resource owner)
+  resolve_identifiers || { log_and_echo "ERROR: Cannot resolve identifiers"; return 1; }
 
   # Ensure token
   if [[ ! -f "$TOKEN_FILE" ]] || [[ ! -s "$TOKEN_FILE" ]]; then

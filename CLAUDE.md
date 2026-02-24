@@ -180,29 +180,36 @@ cd frontend && CI=true npm test
 
 ## MCP-First Development Workflow
 
-The Powernode MCP server (`platform.*` tools) is the **primary knowledge source**. File scanning is the fallback.
+The Powernode MCP server (`platform.*` tools) is the **primary knowledge source**. File scanning is the fallback. **MCP queries are NOT optional** — they are mandatory protocol steps.
 
-### Before Every Task (MANDATORY)
+### SESSION START Protocol (MANDATORY — every session)
 
-1. **Search existing knowledge** before writing any code:
-   - `platform.search_knowledge` — procedures, patterns, code snippets
-   - `platform.query_learnings` — established patterns, anti-patterns, failure modes
+1. Run `platform.knowledge_health` — establish baseline, identify stale/conflicting knowledge
+2. Run `platform.learning_metrics` — check active learnings count, recent contributions
+3. If stale_count > 0 or conflicts detected, note them for resolution during the session
+
+### BEFORE EVERY CODE CHANGE (MANDATORY)
+
+1. **Search existing knowledge** for the area being modified — not optional, not "when convenient":
+   - `platform.query_learnings` — established patterns, anti-patterns, failure modes for this area
+   - `platform.search_knowledge` — procedures, code snippets, reference material
    - `platform.search_knowledge_graph` — entity relationships, architecture decisions
    - `platform.discover_skills` — reusable capabilities matching the task
 2. **Apply discovered knowledge** to your implementation approach
 3. **Fall back to file scanning** only when MCP returns no relevant results
 4. **Feed file-scan discoveries back** into MCP (see "After Every Task")
 
-### During Work
+### DURING WORK (Active Reinforcement)
 
+- **When relying on a learning**: Call `platform.reinforce_learning` with its ID immediately — this prevents decay and boosts confidence
+- **When using shared knowledge**: Call `platform.rate_knowledge` (4-5 if helpful, 1-2 if outdated) — this feeds quality scores
 - **Pattern verification**: Before introducing a new pattern, check `platform.query_learnings`
 - **Architecture context**: Before cross-cutting changes, check `platform.search_knowledge_graph`
-- **Quality signals**: Use `platform.verify_learning` / `platform.rate_knowledge` to reinforce good knowledge you relied on
 - **Memory context**: Use `platform.search_memory` to retrieve agent working memory relevant to the current task
-- **Resource awareness**: Use `platform.memory_stats` / `platform.learning_metrics` / `platform.skill_metrics` to gauge system health
 - **API context**: Use `platform.get_api_reference` to look up endpoint contracts before writing integration code
+- **Conflict resolution**: If you find two conflicting learnings, resolve with `platform.resolve_contradiction` immediately
 
-### After Every Non-Trivial Task (MANDATORY)
+### AFTER EVERY TASK (MANDATORY — zero exceptions for non-trivial work)
 
 Contribute at least one of:
 
@@ -214,10 +221,26 @@ Contribute at least one of:
 | Found entity relationships | `platform.extract_to_knowledge_graph` |
 | Implemented a reusable capability | `platform.create_skill` |
 
+**Self-check**: "Did I create learnings for the critical findings in this task?" If no, do it now.
+
 ### Skip Contributions For
 - Trivial fixes (typos, simple renames, formatting)
 - Speculative or unverified analysis
 - Knowledge that already exists in MCP (always search first)
+
+### MCP Helper (Claude Code Sessions)
+
+Claude Code can invoke MCP tools via the Powernode MCP endpoint. The workspace SSE daemon (`/.claude/hooks/workspace-sse-daemon.sh`) manages OAuth tokens and sessions. Helper functions are available via `source .claude/hooks/mcp-helper.sh`:
+
+```bash
+# Get/cache an OAuth token
+mcp_token
+
+# Invoke any platform.* tool
+mcp_call "platform.knowledge_health" '{}'
+mcp_call "platform.query_learnings" '{"category": "pattern", "query": "memory access"}'
+mcp_call "platform.create_learning" '{"title": "...", "content": "...", "category": "discovery"}'
+```
 
 ---
 

@@ -2,3 +2,6 @@
 	path = extensions/enterprise
 	url = git@git.ipnode.net:powernode/powernode-enterprise.git
 	branch = develop
+[submodule "extensions/supply-chain"]
+	path = extensions/supply-chain
+	url = git@git.ipnode.net:powernode/powernode-supply-chain.git

@@ -1,0 +1,14 @@
+{
+  "name": "Marketing",
+  "slug": "marketing",
+  "version": "0.1.0",
+  "description": "Marketing campaigns, content calendar, email lists, social media management, and campaign analytics.",
+  "author": "Powernode",
+  "capabilities": ["campaigns", "content_calendar", "email_lists", "social_media", "campaign_analytics"],
+  "components": {
+    "server": true,
+    "frontend": true,
+    "worker": true
+  },
+  "dependencies": []
+}

@@ -13,7 +13,14 @@ Rails 8 API backend for Powernode.
 
 ## MCP-First Backend Workflow
 
-**Always query MCP before writing backend code.** Use domain-specific queries:
+**Always query MCP before writing backend code.** This is mandatory, not optional.
+
+### Session Start (MANDATORY — every session touching backend code)
+
+Before writing any code:
+1. `platform.query_learnings` — check for existing patterns/gotchas in the area being modified
+2. `platform.search_knowledge` — find relevant procedures/references for the subsystem
+3. `platform.search_knowledge_graph` — understand entity relationships that may be affected
 
 ### Before Creating/Modifying
 

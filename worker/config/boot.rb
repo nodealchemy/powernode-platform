@@ -7,6 +7,7 @@ require 'bundler/setup' if File.exist?(ENV['BUNDLE_GEMFILE'])
 # Load core Ruby extensions
 require 'active_support/all'
 require 'action_mailer'
+require 'json'
 
 # Configure Time.zone (required for jobs using Time.zone.parse)
 Time.zone = 'UTC'
@@ -54,39 +55,42 @@ job_files.each do |f|
   require f unless excluded_files.include?(f)
 end
 
-# Load enterprise worker extensions when the enterprise submodule is present
-enterprise_worker = File.expand_path('../../../extensions/enterprise/worker', __dir__)
+# Load extension worker modules dynamically from extensions/*/extension.json
+extensions_dir = File.expand_path('../../extensions', __dir__)
+if Dir.exist?(extensions_dir)
+  Dir.children(extensions_dir).sort.each do |slug|
+    manifest_path = File.join(extensions_dir, slug, 'extension.json')
+    next unless File.exist?(manifest_path)
 
-if Dir.exist?(enterprise_worker)
-  # Conditionally require payment provider gems (only needed for enterprise billing)
-  begin
-    require 'stripe'
-  rescue LoadError
-    # Stripe gem not available — billing reconciliation will be limited
+    begin
+      manifest = JSON.parse(File.read(manifest_path))
+    rescue JSON::ParserError => e
+      warn "[Worker] Failed to parse #{manifest_path}: #{e.message}"
+      next
+    end
+
+    next unless manifest.dig('components', 'worker')
+
+    ext_worker = File.join(extensions_dir, slug, 'worker')
+    next unless Dir.exist?(ext_worker)
+
+    # Load optional gem dependencies
+    deps_file = File.join(ext_worker, 'config', 'gem_dependencies.rb')
+    load deps_file if File.exist?(deps_file)
+
+    # Load exceptions first (used by jobs)
+    Dir[File.join(ext_worker, 'app', 'exceptions', '**', '*.rb')].sort.each { |f| require f }
+
+    # Load concerns before job classes that use them
+    concerns = Dir[File.join(ext_worker, 'app', 'jobs', 'concerns', '**', '*.rb')].sort
+    concerns.each { |f| require f }
+
+    # Load job classes (excluding already-loaded concerns)
+    Dir[File.join(ext_worker, 'app', 'jobs', '**', '*.rb')].sort.each do |f|
+      require f unless concerns.include?(f)
+    end
+
+    # Load services
+    Dir[File.join(ext_worker, 'app', 'services', '**', '*.rb')].sort.each { |f| require f }
   end
-
-  begin
-    require 'paypal-sdk-rest'
-  rescue LoadError
-    # PayPal gem not available — PayPal reconciliation will be limited
-  end
-
-  # Load enterprise exceptions first (used by enterprise jobs)
-  enterprise_exceptions = File.join(enterprise_worker, 'app', 'exceptions', 'billing_exceptions.rb')
-  require enterprise_exceptions if File.exist?(enterprise_exceptions)
-
-  # Load enterprise concerns (BEFORE enterprise job classes)
-  enterprise_concerns = Dir[File.join(enterprise_worker, 'app', 'jobs', 'concerns', '**', '*.rb')].sort
-  enterprise_concerns.each { |f| require f }
-
-  # Load enterprise jobs
-  enterprise_jobs = Dir[File.join(enterprise_worker, 'app', 'jobs', '**', '*.rb')].sort
-  enterprise_jobs.each do |f|
-    next if enterprise_concerns.include?(f) # Skip already-loaded concerns
-    require f
-  end
-
-  # Load enterprise services
-  enterprise_services = Dir[File.join(enterprise_worker, 'app', 'services', '**', '*.rb')].sort
-  enterprise_services.each { |f| require f }
 end
