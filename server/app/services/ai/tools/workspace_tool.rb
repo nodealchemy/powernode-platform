@@ -140,6 +140,13 @@ module Ai
           }.select { |m| m["id"].present? && m["name"].present? }
         end
 
+        # Auto-resolve fuzzy agent references when no structured mentions provided
+        # Handles cases where LLMs write "to Claude Code" instead of "@Claude Code (powernode) #1"
+        if metadata["mentions"].blank? && conversation.agent_team
+          fuzzy = resolve_fuzzy_mentions(params[:message], conversation.agent_team)
+          metadata["mentions"] = fuzzy if fuzzy.present?
+        end
+
         # Send message attributed to this MCP client agent (not the user)
         sending_agent = agent&.agent_type == "mcp_client" ? agent : nil
         message = conversation.add_message(
@@ -322,6 +329,33 @@ module Ai
         end
 
         mentioned_ids.uniq
+      end
+
+      # Fuzzy match agent names in message content without requiring @ prefix.
+      # Matches against the first word(s) of each member's agent name (case-insensitive).
+      # E.g. "Claude Code" matches "Claude Code (powernode) #1", "Powernode Assistant" matches exactly.
+      # Returns structured mention array [{id:, name:}] suitable for content_metadata.
+      def resolve_fuzzy_mentions(content, team)
+        return [] if content.blank?
+
+        downcased = content.downcase
+        members = team.members.includes(:agent).where.not(ai_agent_id: agent&.id).to_a
+        mentions = []
+
+        members.each do |member|
+          name = member.agent&.name
+          next if name.blank?
+
+          # Try exact name first, then base name (before parentheses/hash), then first two words
+          candidates = [name]
+          candidates << name.sub(/\s*\(.*$/, "").strip if name.include?("(")
+          candidates << name.split(/\s+/).first(2).join(" ") if name.split(/\s+/).length > 2
+
+          matched = candidates.any? { |c| downcased.include?(c.downcase) }
+          mentions << { "id" => member.ai_agent_id, "name" => name } if matched
+        end
+
+        mentions.uniq { |m| m["id"] }
       end
 
       # --- Helpers ---

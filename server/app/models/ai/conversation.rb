@@ -296,19 +296,9 @@ module Ai
       mcp_agent_ids -= [message.ai_agent_id] if message.ai_agent_id.present?
       return if mcp_agent_ids.empty?
 
-      # For workspace conversations, only notify MCP clients that are either:
-      #   1. The primary agent (concierge) — always receives messages
-      #   2. Explicitly @mentioned in structured metadata or text content
-      # This prevents non-mentioned agents from receiving every message.
-      if workspace_conversation?
-        mentioned_agent_ids = resolve_mentioned_mcp_agents(message, mcp_agent_ids)
-
-        # Primary agent always receives; others only when @mentioned
-        mcp_agent_ids = mcp_agent_ids.select do |agent_id|
-          agent_id == ai_agent_id || mentioned_agent_ids.include?(agent_id)
-        end
-        return if mcp_agent_ids.empty?
-      end
+      # MCP clients always receive all workspace messages — they are lightweight
+      # listeners (SSE daemon) that handle their own filtering. The @mention
+      # filter only applies to non-MCP agents (which trigger expensive LLM calls).
 
       sessions = McpSession.active.where(ai_agent_id: mcp_agent_ids)
       return if sessions.empty?

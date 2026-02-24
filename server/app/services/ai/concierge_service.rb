@@ -277,9 +277,22 @@ module Ai
         if members.any?
           member_lines = members.map do |m|
             caps = m.capabilities.present? ? " [#{m.capabilities.join(', ')}]" : ""
-            "- #{m.agent.name} (role: #{m.role}, type: #{m.agent.agent_type}#{caps})"
+            "- #{m.agent.name} (id: #{m.ai_agent_id}, role: #{m.role}, type: #{m.agent.agent_type}#{caps})"
           end
-          parts << "WORKSPACE MEMBERS (available for delegation):\n#{member_lines.join("\n")}"
+          parts << <<~WORKSPACE.strip
+            CURRENT WORKSPACE: "#{team.name}" (conversation_id: #{@conversation.conversation_id})
+            WORKSPACE MEMBERS:
+            #{member_lines.join("\n")}
+
+            DELEGATION RULES:
+            - Do NOT create a new workspace. You are already in one.
+            - To delegate to an agent, call send_message with conversation_id "#{@conversation.conversation_id}"
+              and include the mentions parameter: [{"id": "<agent_id>", "name": "<agent_name>"}]
+            - Also write @AgentName in the message text so the agent sees the mention.
+            - Example: send_message(conversation_id: "#{@conversation.conversation_id}",
+              message: "@Claude Code (powernode) #1 what time is it?",
+              mentions: [{"id": "#{members.first.ai_agent_id}", "name": "#{members.first.agent.name}"}])
+          WORKSPACE
         end
       end
 

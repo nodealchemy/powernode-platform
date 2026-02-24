@@ -197,10 +197,39 @@ module Api
             assistant_msg = concierge_targeted ?
               conversation.messages.where.not(role: "user").order(created_at: :desc).first : nil
 
-            # Dispatch workspace responses only when agents are explicitly @mentioned
-            if conversation.workspace_conversation? && mentioned_ids.present?
-              dispatch_workspace_responses(conversation, user_message, mentioned_agent_ids: mentioned_ids)
-              notify_mentioned_mcp_clients(conversation, user_message, mentioned_ids)
+            # Dispatch workspace responses for @mentioned agents
+            if conversation.workspace_conversation?
+              # Merge mentions from both the user's message AND the concierge's response
+              concierge_mentioned_ids = if assistant_msg&.content_metadata&.dig("mentions").present?
+                assistant_msg.content_metadata["mentions"].map { |m| m["id"] }.compact
+              else
+                []
+              end
+
+              all_mentioned_ids = ((mentioned_ids || []) + concierge_mentioned_ids).uniq
+
+              # Fuzzy fallback: if no @mentions were found but the concierge's response
+              # references agent names without @ prefix (e.g. "to Claude Code"), resolve them
+              if all_mentioned_ids.empty? && assistant_msg&.content.present? && conversation.agent_team
+                team = conversation.agent_team
+                team.members.includes(:agent).where.not(ai_agent_id: conversation.ai_agent_id).each do |member|
+                  name = member.agent&.name
+                  next if name.blank?
+                  base_name = name.sub(/\s*\(.*$/, "").strip
+                  if assistant_msg.content.downcase.include?(base_name.downcase)
+                    all_mentioned_ids << member.ai_agent_id
+                  end
+                end
+                all_mentioned_ids.uniq!
+              end
+
+              # Exclude the concierge itself from dispatch
+              all_mentioned_ids -= [conversation.ai_agent_id].compact
+
+              if all_mentioned_ids.present?
+                dispatch_workspace_responses(conversation, assistant_msg || user_message, mentioned_agent_ids: all_mentioned_ids)
+                notify_mentioned_mcp_clients(conversation, assistant_msg || user_message, all_mentioned_ids)
+              end
             end
 
             return render_success({
