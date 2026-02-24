@@ -37,7 +37,6 @@ import { agentsApi } from '@/shared/services/ai/AgentsApiService';
 import { providersApi } from '@/shared/services/ai/ProvidersApiService';
 import { monitoringApi } from '@/shared/services/ai/MonitoringApiService';
 import { analyticsApi } from '@/shared/services/ai/AnalyticsApiService';
-import { marketplaceApi } from '@/shared/services/ai/MarketplaceApiService';
 import { pluginsApi } from '@/shared/services/ai/PluginsApiService';
 import { validationApi } from '@/shared/services/ai/ValidationApiService';
 import { conversationsApi } from '@/shared/services/ai/ConversationsApiService';
@@ -49,7 +48,6 @@ import { mcpHostingApi } from '@/shared/services/ai/McpHostingApiService';
 import { outcomeBillingApi } from '@/shared/services/ai/OutcomeBillingApiService';
 import { ragApi } from '@/shared/services/ai/RagApiService';
 import { teamsApi } from '@/shared/services/ai/TeamsApiService';
-import { agentMarketplaceApi } from '@/shared/services/ai/AgentMarketplaceApiService';
 import { governanceApi } from '@/shared/services/ai/GovernanceApiService';
 import { devopsApi } from '@/shared/services/ai/DevopsApiService';
 import { sandboxApi } from '@/shared/services/ai/SandboxApiService';
@@ -146,24 +144,6 @@ export type {
   ScheduleReportRequest,
   ExportRequest,
 } from '@/shared/services/ai/AnalyticsApiService';
-
-// Re-export Marketplace service
-export { marketplaceApi };
-export type {
-  TemplateFilters,
-  SearchFilters,
-  Template,
-  Installation,
-  TemplateAnalytics,
-  Rating,
-  Category,
-  TemplateStatistics,
-  CreateTemplateRequest,
-  InstallTemplateRequest,
-  PublishWorkflowRequest,
-  CompareRequest,
-  UpdateCheck,
-} from '@/shared/services/ai/MarketplaceApiService';
 
 // Re-export Plugins service
 export { pluginsApi };
@@ -306,18 +286,6 @@ export type {
   TeamTemplate,
   TeamAnalytics,
 } from '@/shared/services/ai/TeamsApiService';
-
-// Re-export Agent Marketplace service (Phase 4 - Pre-Built Vertical AI Agents)
-export { agentMarketplaceApi };
-export type {
-  AgentTemplate,
-  AgentInstallation,
-  AgentReview,
-  MarketplaceCategory,
-  Publisher,
-  PublisherAnalytics,
-  TemplateFilters as AgentTemplateFilters,
-} from '@/shared/services/ai/AgentMarketplaceApiService';
 
 // Re-export Governance service (Phase 4 - AI Workflow Governance & Compliance)
 export { governanceApi };
@@ -544,7 +512,6 @@ export const aiApi = {
   providers: providersApi,
   monitoring: monitoringApi,
   analytics: analyticsApi,
-  marketplace: marketplaceApi,
   plugins: pluginsApi,
   validation: validationApi,
   // Phase 1 - New services
@@ -559,7 +526,6 @@ export const aiApi = {
   rag: ragApi,
   teams: teamsApi,
   // Phase 4 - New services
-  agentMarketplace: agentMarketplaceApi,
   governance: governanceApi,
   devops: devopsApi,
   sandbox: sandboxApi,
