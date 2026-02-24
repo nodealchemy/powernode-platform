@@ -121,6 +121,7 @@ module Ai
 
       assistant_message = conversation.add_assistant_message(
         narration || content,
+        broadcast: false,
         agent: responding_agent,
         message_type: "text",
         token_count: params[:token_count]&.to_i || 0,
@@ -132,19 +133,13 @@ module Ai
         }
       )
 
-      ActionCable.server.broadcast(
-        conversation.websocket_channel,
-        {
-          type: "ai_response_complete",
-          conversation_id: conversation.conversation_id,
-          message: assistant_message.message_data
-        }
-      )
+      conversation.broadcast_ai_complete(assistant_message)
 
       if mention_content.present?
         # Narration was split out — create a second message for the @mention and dispatch
         mention_message = conversation.add_assistant_message(
           mention_content,
+          broadcast: false,
           agent: responding_agent,
           message_type: "text",
           token_count: 0,
@@ -152,14 +147,7 @@ module Ai
           processing_metadata: { source: "worker", split_from: assistant_message.message_id }
         )
 
-        ActionCable.server.broadcast(
-          conversation.websocket_channel,
-          {
-            type: "ai_response_complete",
-            conversation_id: conversation.conversation_id,
-            message: mention_message.message_data
-          }
-        )
+        conversation.broadcast_ai_complete(mention_message)
 
         if mentioned_ids.present?
           dispatch_workspace_responses(conversation, mention_message, mentioned_agent_ids: mentioned_ids)

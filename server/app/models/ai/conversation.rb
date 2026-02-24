@@ -71,7 +71,7 @@ module Ai
       %w[active paused].include?(status)
     end
 
-    def add_message(role, content, user: nil, agent: nil, **options)
+    def add_message(role, content, user: nil, agent: nil, broadcast: true, **options)
       raise ArgumentError, "Cannot add message to inactive conversation" unless can_send_message?
 
       # Auto-detect @mentions in workspace conversations and add to content_metadata
@@ -95,7 +95,7 @@ module Ai
       if message.save
         increment_message_count!
         update_activity_timestamp!
-        broadcast_message(message)
+        broadcast_message(message) if broadcast
         message
       else
         raise ActiveRecord::RecordInvalid, message
@@ -106,8 +106,8 @@ module Ai
       add_message("user", content, user: user, **options)
     end
 
-    def add_assistant_message(content, **options)
-      add_message("assistant", content, **options)
+    def add_assistant_message(content, broadcast: true, **options)
+      add_message("assistant", content, broadcast: broadcast, **options)
     end
 
     def add_system_message(content, **options)

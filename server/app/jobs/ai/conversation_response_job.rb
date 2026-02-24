@@ -38,6 +38,7 @@ module Ai
       if result[:success]
         assistant_message = conversation.add_assistant_message(
           result[:content],
+          broadcast: false,
           message_type: "text",
           token_count: result[:usage]&.dig(:total_tokens) || 0,
           cost_usd: calculate_cost(result[:usage], provider),
