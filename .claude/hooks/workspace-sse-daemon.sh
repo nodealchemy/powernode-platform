@@ -69,7 +69,11 @@ NUDGE_COOLDOWN=10  # seconds between tmux nudges (prevents spam)
 # Finds the tmux pane running Claude Code and injects the message content
 # directly as a prompt. Slash commands (/clear, /commit) are passed through
 # as-is so Claude Code handles them natively.
+#
+# If the user has text in the input, it is saved, cleared, and restored after
+# the nudge prompt is submitted.
 _last_nudge=0
+PENDING_RESTORE_FILE="/tmp/powernode_nudge_restore.txt"
 
 nudge_claude() {
   local message_content="${1:-}"
@@ -93,12 +97,34 @@ nudge_claude() {
     return
   fi
 
-  # Strip leading @mention of our agent name and trailing punctuation/space
-  local cleaned
-  cleaned=$(echo "$message_content" | sed 's/^@Claude Code ([^)]*) #[0-9]*[, :]* *//')
+  # Capture the input prompt line from the bottom 6 lines of the pane.
+  # The TUI prompt is "❯" (U+276F) followed by a non-breaking space (U+00A0),
+  # so we match on the ❯ character alone and strip "❯<nbsp>" prefix.
+  # Restrict to tail -6 to avoid matching ❯ in conversation scrollback.
+  local prompt_line saved_text
+  prompt_line=$(tmux capture-pane -t "$target" -p | tail -6 | grep -m1 '^❯' || true)
+  # Strip the prompt prefix: ❯ followed by non-breaking space (U+00A0 = \xc2\xa0)
+  saved_text=$(printf '%s' "$prompt_line" | sed "s/^❯$(printf '\xc2\xa0')//")
+  # Trim trailing whitespace
+  saved_text=$(printf '%s' "$saved_text" | sed 's/[[:space:]]*$//')
 
-  # Use the actual message content as the prompt, or a default fallback
-  local prompt="${cleaned:-check workspace messages}"
+  if [[ -n "$saved_text" ]]; then
+    log "Saving user input for restore: ${saved_text:0:60}"
+    printf '%s' "$saved_text" > "$PENDING_RESTORE_FILE"
+
+    # Clear the input with Ctrl+U (kill entire line — standard Unix binding)
+    tmux send-keys -t "$target" C-u 2>/dev/null
+    sleep 0.1
+  fi
+
+  # Pass slash commands through literally; otherwise invoke /workspace.
+  # The UserPromptSubmit hook injects full workspace context on every prompt.
+  local prompt
+  if [[ "$message_content" == /* ]]; then
+    prompt="$message_content"
+  else
+    prompt="/workspace"
+  fi
 
   # Send text with -l (literal) to handle special chars, pause, then Enter.
   tmux send-keys -t "$target" -l "$prompt" 2>/dev/null && \
@@ -106,9 +132,55 @@ nudge_claude() {
     tmux send-keys -t "$target" Enter 2>/dev/null && {
     _last_nudge=$now
     log "Injected to tmux pane $target: ${prompt:0:60}"
+
+    # Schedule input restoration in background
+    if [[ -s "$PENDING_RESTORE_FILE" ]]; then
+      _restore_input_async "$target" &
+    fi
   } || {
     log "Inject: tmux send-keys failed for $target"
   }
+}
+
+# Waits for Claude to finish processing, then restores saved input text.
+# Runs as a background subshell so the main event loop isn't blocked.
+_restore_input_async() {
+  local target="$1"
+  local max_wait=120  # seconds to wait before giving up
+  local elapsed=0
+
+  # First, wait a few seconds for Claude to start processing (prompt disappears)
+  sleep 5
+
+  # Then wait for the input prompt to reappear (❯ visible near bottom of pane),
+  # which means Claude has finished and is ready for input again.
+  while (( elapsed < max_wait )); do
+    sleep 3
+    elapsed=$((elapsed + 3))
+
+    # Check if the prompt line is visible — indicates Claude is idle and waiting
+    local has_prompt
+    has_prompt=$(tmux capture-pane -t "$target" -p 2>/dev/null | tail -6 | grep -c '^❯' || true)
+
+    if [[ "${has_prompt:-0}" -gt 0 ]] && [[ -s "$PENDING_RESTORE_FILE" ]]; then
+      local restore_text
+      restore_text=$(<"$PENDING_RESTORE_FILE")
+      rm -f "$PENDING_RESTORE_FILE"
+
+      # Small delay to let TUI fully settle
+      sleep 0.5
+      tmux send-keys -t "$target" -l "$restore_text" 2>/dev/null && {
+        log "Restored user input: ${restore_text:0:60}"
+      } || {
+        log "Restore failed: tmux send-keys error"
+      }
+      return
+    fi
+  done
+
+  # Timed out — clean up without restoring
+  rm -f "$PENDING_RESTORE_FILE"
+  log "Restore abandoned (timeout after ${max_wait}s)"
 }
 
 # --- Logging ---
