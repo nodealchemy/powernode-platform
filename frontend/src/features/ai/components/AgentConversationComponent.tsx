@@ -357,7 +357,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
   // Fetch workspace members for mention autocomplete
   useEffect(() => {
     const conv = conversation as AiConversation;
-    if (conv.conversation_type === 'team' && conv.agent_team) {
+    if (conv.conversation_type === 'team' && conv.agent_team?.team_type === 'workspace') {
       workspacesApi.getWorkspace(conversation.id)
         .then(res => setWorkspaceMembers(res.members || []))
         .catch(() => {}); // Non-critical — autocomplete just won't work

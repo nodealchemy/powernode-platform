@@ -162,6 +162,7 @@ export interface AiConversation {
   agent_team?: {
     id: string;
     name: string;
+    team_type?: string;
   };
   metadata: {
     created_by: string;

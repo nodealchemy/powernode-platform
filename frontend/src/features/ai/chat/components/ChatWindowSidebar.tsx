@@ -39,10 +39,9 @@ export const ChatWindowSidebar: React.FC = () => {
     initialFilters: statusFilter !== 'all' ? { status: statusFilter } : undefined,
   });
 
-  // Derive active conversation ID from active panel's active tab
-  const activePanel = state.panels.find(p => p.id === state.activePanelId);
-  const activeTab = activePanel?.activeTabId
-    ? state.tabs.find(t => t.id === activePanel.activeTabId)
+  // Derive active conversation ID from the global activeTabId (same source as ChatWindow)
+  const activeTab = state.activeTabId
+    ? state.tabs.find(t => t.id === state.activeTabId)
     : null;
   const activeConversationId = activeTab?.conversationId ?? null;
 
