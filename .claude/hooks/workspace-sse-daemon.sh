@@ -469,8 +469,19 @@ print(e.get('message_id','') + '\t' + e.get('sender','?') + '\t' + e.get('conten
         "$sender" "$content" 2>/dev/null || true
     fi
 
-    # Inject into Claude Code via tmux — skip our own agent's messages to avoid loops
-    if [[ "$sender" != *Claude\ Code* ]]; then
+    # Inject into Claude Code via tmux — only for @mentions and slash commands.
+    # Messages without a mention are stored in the inbox but don't interrupt Claude.
+    # Only the concierge should respond to un-mentioned messages.
+    local should_nudge=false
+    if [[ "$sender" == *Claude\ Code* ]]; then
+      : # Never nudge for our own messages (avoid loops)
+    elif [[ "$event_type" == "mention" ]]; then
+      should_nudge=true
+    elif [[ "$content" == /* ]]; then
+      should_nudge=true  # Slash commands always get forwarded
+    fi
+
+    if [[ "$should_nudge" == true ]]; then
       nudge_claude "$content"
     fi
   fi
