@@ -15,25 +15,31 @@ module Devops
 
         node_health = check_node_health
         service_health = check_service_health
+        recent_events = summarize_recent_events
 
         @cluster.record_success!
 
         {
-          success: true,
-          cluster: @cluster.name,
+          cluster_id: @cluster.id,
           status: overall_status,
-          connectivity: connectivity,
-          nodes: node_health,
-          services: service_health,
-          alerts: @alerts,
+          node_health: node_health,
+          service_health: service_health,
+          recent_events: recent_events,
+          alerts: @alerts.map do |a|
+            {
+              severity: a[:severity],
+              message: a[:message],
+              source_type: a[:event_type],
+              timestamp: Time.current
+            }
+          end,
           checked_at: Time.current
         }
       rescue ApiClient::ApiError => e
         @cluster.record_failure!
         Rails.logger.error("Health check failed for cluster #{@cluster.name}: #{e.message}")
         {
-          success: false,
-          cluster: @cluster.name,
+          cluster_id: @cluster.id,
           status: "error",
           error: e.message,
           checked_at: Time.current
@@ -71,13 +77,18 @@ module Devops
         ready = 0
         down = 0
         managers = 0
+        workers = 0
 
         nodes.each do |node|
           status = node.dig("Status", "State")
           role = node.dig("Spec", "Role")
           hostname = node.dig("Description", "Hostname") || node["ID"]
 
-          managers += 1 if role == "manager"
+          if role == "manager"
+            managers += 1
+          else
+            workers += 1
+          end
 
           case status
           when "ready"
@@ -108,7 +119,7 @@ module Devops
             @cluster.name, "Even number of managers (#{managers}) - risk of split-brain")
         end
 
-        { total: total, ready: ready, down: down, managers: managers }
+        { total: total, ready: ready, down: down, managers: managers, workers: workers }
       end
 
       def check_service_health
@@ -117,8 +128,7 @@ module Devops
 
         total = services.size
         healthy = 0
-        degraded = 0
-        failed = 0
+        unhealthy = 0
 
         services.each do |service|
           service_id = service["ID"]
@@ -136,11 +146,11 @@ module Devops
             if running_tasks.size >= desired_replicas
               healthy += 1
             elsif running_tasks.size.zero?
-              failed += 1
+              unhealthy += 1
               create_event("service_down", "critical", "service", service_id,
                 service_name, "Service #{service_name} has no running tasks (desired: #{desired_replicas})")
             else
-              degraded += 1
+              unhealthy += 1
               create_event("service_degraded", "warning", "service", service_id,
                 service_name, "Service #{service_name} has #{running_tasks.size}/#{desired_replicas} running tasks")
             end
@@ -149,7 +159,7 @@ module Devops
             if running_tasks.any?
               healthy += 1
             else
-              failed += 1
+              unhealthy += 1
               create_event("service_down", "critical", "service", service_id,
                 service_name, "Global service #{service_name} has no running tasks")
             end
@@ -169,7 +179,18 @@ module Devops
           end
         end
 
-        { total: total, healthy: healthy, degraded: degraded, failed: failed }
+        avg_health = total.positive? ? (healthy.to_f / total * 100).round(1) : 0.0
+
+        { total: total, healthy: healthy, unhealthy: unhealthy, avg_health_percentage: avg_health }
+      end
+
+      def summarize_recent_events
+        recent = @cluster.swarm_events.where("created_at > ?", 24.hours.ago)
+        {
+          critical: recent.where(severity: "critical").count,
+          warning: recent.where(severity: "warning").count,
+          unacknowledged: recent.where(acknowledged: false).count
+        }
       end
 
       def create_event(event_type, severity, source_type, source_id, source_name, message)
@@ -197,11 +218,21 @@ module Devops
 
       def connectivity_failure_result
         @cluster.record_failure!
+        recent_events = summarize_recent_events
         {
-          success: false,
-          cluster: @cluster.name,
+          cluster_id: @cluster.id,
           status: "unreachable",
-          alerts: @alerts,
+          node_health: { total: 0, ready: 0, down: 0, managers: 0, workers: 0 },
+          service_health: { total: 0, healthy: 0, unhealthy: 0, avg_health_percentage: 0.0 },
+          recent_events: recent_events,
+          alerts: @alerts.map do |a|
+            {
+              severity: a[:severity],
+              message: a[:message],
+              source_type: a[:event_type],
+              timestamp: Time.current
+            }
+          end,
           checked_at: Time.current
         }
       end
