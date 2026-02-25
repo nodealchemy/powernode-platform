@@ -182,21 +182,23 @@ class Ai::ExecutionResourceDetailService
   end
 
   def serialize_shared_memory(id)
-    pool = Ai::MemoryPool.where(account: @account).find(id)
+    # ID may be composite "pool_id:key" (per-entry) or plain pool UUID (legacy)
+    pool_id, entry_key = id.to_s.split(":", 2)
+    pool = Ai::MemoryPool.where(account: @account).find(pool_id)
 
-    {
+    result = {
       resource_type: "shared_memory",
       source_id: pool.id,
       source_type: "Ai::MemoryPool",
       source_label: pool.name,
-      name: pool.name,
+      name: entry_key ? "#{pool.name}: #{entry_key}" : pool.name,
       description: "#{pool.pool_type} memory pool (#{pool.scope})",
       status: "available",
       created_at: pool.created_at,
       team_id: pool.team_id,
 
       # Rich fields
-      full_data: pool.data,
+      full_data: entry_key ? { entry_key => pool.data&.dig(entry_key) } : pool.data,
       pool_type: pool.pool_type,
       pool_id: pool.pool_id,
       scope: pool.scope,
@@ -207,10 +209,13 @@ class Ai::ExecutionResourceDetailService
       access_control: pool.access_control,
       retention_policy: pool.retention_policy,
       version: pool.version,
+      entry_key: entry_key,
       owner_agent_name: pool.owner_agent_id.present? ? Ai::Agent.find_by(id: pool.owner_agent_id)&.name : nil,
       team_name: pool.team_id.present? ? Ai::AgentTeam.find_by(id: pool.team_id)&.name : nil,
       metadata: pool.metadata
     }
+
+    result
   end
 
   def serialize_trajectory(id)

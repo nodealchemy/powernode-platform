@@ -189,17 +189,18 @@ module Ai
       def record_usage_metric(model, usage, cost)
         return unless provider
 
-        Ai::ProviderMetric.create(
-          ai_provider: provider,
-          model_name: model,
-          request_type: "chat_completion",
-          tokens_used: usage[:total_tokens],
-          prompt_tokens: usage[:prompt_tokens],
-          completion_tokens: usage[:completion_tokens],
-          cost_per_1k_tokens: cost > 0 ? (cost / (usage[:total_tokens] / 1000.0)).round(6) : 0,
-          total_cost_usd: cost,
-          success: true,
-          recorded_at: Time.current
+        Ai::ProviderMetric.record_metrics(
+          provider: provider,
+          account: provider.account,
+          metrics_data: {
+            requests: 1,
+            successes: 1,
+            failures: 0,
+            input_tokens: usage[:prompt_tokens] || 0,
+            output_tokens: usage[:completion_tokens] || 0,
+            cost_usd: cost,
+            model_name: model
+          }
         )
       rescue StandardError => e
         Rails.logger.warn "[LLM] Failed to record metric: #{e.message}"

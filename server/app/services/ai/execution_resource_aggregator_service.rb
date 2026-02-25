@@ -136,6 +136,7 @@ class Ai::ExecutionResourceAggregatorService
     scope.flat_map do |pool|
       (pool.data || {}).map do |key, value|
         build_resource(
+          id: "#{pool.id}:#{key}",
           resource_type: "shared_memory",
           name: "#{pool.name}: #{key}",
           description: "Persistent memory entry",
@@ -147,7 +148,7 @@ class Ai::ExecutionResourceAggregatorService
           preview: value.to_json.truncate(500),
           url: detect_url(value),
           created_at: pool.updated_at,
-          metadata: { pool_id: pool.pool_id, version: pool.version }
+          metadata: { pool_id: pool.pool_id, key: key, version: pool.version }
         )
       end
     end
@@ -221,7 +222,7 @@ class Ai::ExecutionResourceAggregatorService
 
   def build_resource(attrs)
     {
-      id: attrs[:source_id],
+      id: attrs[:id] || attrs[:source_id],
       resource_type: attrs[:resource_type],
       name: attrs[:name],
       description: attrs[:description],
