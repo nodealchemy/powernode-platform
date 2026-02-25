@@ -98,13 +98,13 @@ SENTRY_DSN=https://...@sentry.io/...
 
 ```bash
 # Pull images and start services
-docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker/docker-compose.prod.yml up -d
 
 # Run database migrations
-docker compose -f docker-compose.prod.yml exec backend bundle exec rails db:migrate
+docker compose -f docker/docker-compose.prod.yml exec backend bundle exec rails db:migrate
 
 # Seed initial data (first deployment only)
-docker compose -f docker-compose.prod.yml exec backend bundle exec rails db:seed
+docker compose -f docker/docker-compose.prod.yml exec backend bundle exec rails db:seed
 ```
 
 ### 5. Verify Deployment
@@ -228,16 +228,16 @@ View errors at: https://sentry.io/organizations/your-org/issues/
 
 ```bash
 # View all logs
-docker compose -f docker-compose.prod.yml logs
+docker compose -f docker/docker-compose.prod.yml logs
 
 # View specific service
-docker compose -f docker-compose.prod.yml logs backend
+docker compose -f docker/docker-compose.prod.yml logs backend
 
 # Follow logs in real-time
-docker compose -f docker-compose.prod.yml logs -f backend
+docker compose -f docker/docker-compose.prod.yml logs -f backend
 
 # Last 100 lines
-docker compose -f docker-compose.prod.yml logs --tail=100 backend
+docker compose -f docker/docker-compose.prod.yml logs --tail=100 backend
 ```
 
 ---
@@ -248,15 +248,15 @@ docker compose -f docker-compose.prod.yml logs --tail=100 backend
 
 ```bash
 # Scale backend to 3 instances
-docker compose -f docker-compose.prod.yml up -d --scale backend=3
+docker compose -f docker/docker-compose.prod.yml up -d --scale backend=3
 
 # Scale workers
-docker compose -f docker-compose.prod.yml up -d --scale worker=5
+docker compose -f docker/docker-compose.prod.yml up -d --scale worker=5
 ```
 
 ### Resource Limits
 
-Edit `docker-compose.prod.yml` to add resource constraints:
+Edit `docker/docker-compose.prod.yml` to add resource constraints:
 
 ```yaml
 services:
@@ -293,20 +293,20 @@ services:
 
 ```bash
 # Check logs
-docker compose -f docker-compose.prod.yml logs <service>
+docker compose -f docker/docker-compose.prod.yml logs <service>
 
 # Check container status
-docker compose -f docker-compose.prod.yml ps
+docker compose -f docker/docker-compose.prod.yml ps
 
 # Restart service
-docker compose -f docker-compose.prod.yml restart <service>
+docker compose -f docker/docker-compose.prod.yml restart <service>
 ```
 
 ### Database Connection Issues
 
 ```bash
 # Test database connectivity
-docker compose -f docker-compose.prod.yml exec backend \
+docker compose -f docker/docker-compose.prod.yml exec backend \
   bundle exec rails runner "puts ActiveRecord::Base.connection.execute('SELECT 1')"
 ```
 
@@ -314,7 +314,7 @@ docker compose -f docker-compose.prod.yml exec backend \
 
 ```bash
 # Test Redis connectivity
-docker compose -f docker-compose.prod.yml exec backend \
+docker compose -f docker/docker-compose.prod.yml exec backend \
   bundle exec rails runner "puts Redis.new(url: ENV['REDIS_URL']).ping"
 ```
 
@@ -342,13 +342,13 @@ cd ~/powernode
 git pull origin main
 
 # Pull new images
-docker compose -f docker-compose.prod.yml pull
+docker compose -f docker/docker-compose.prod.yml pull
 
 # Deploy with zero-downtime
-docker compose -f docker-compose.prod.yml up -d --remove-orphans
+docker compose -f docker/docker-compose.prod.yml up -d --remove-orphans
 
 # Run migrations
-docker compose -f docker-compose.prod.yml exec backend bundle exec rails db:migrate
+docker compose -f docker/docker-compose.prod.yml exec backend bundle exec rails db:migrate
 
 # Clean old images
 docker image prune -f

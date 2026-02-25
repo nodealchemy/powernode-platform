@@ -777,9 +777,9 @@ end"
 ### Infrastructure Setup
 ```bash
 # Local development environment
-docker-compose up -d                    # Start all services
-docker-compose logs -f api             # View API logs
-docker-compose exec api rails console  # Access Rails console
+docker compose -f docker/docker-compose.yml up -d  # Start all services
+docker compose -f docker/docker-compose.yml logs -f api             # View API logs
+docker compose -f docker/docker-compose.yml exec api rails console  # Access Rails console
 
 # Production deployment
 kubectl apply -f k8s/                  # Deploy to Kubernetes

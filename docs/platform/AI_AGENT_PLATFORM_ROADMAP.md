@@ -151,8 +151,8 @@ end
 ```
 
 **MCP Server Configuration:**
-- Add Gitea MCP server to `docker-compose.mcp.yml`
-- Add GitHub MCP server to `docker-compose.mcp.yml`
+- Add Gitea MCP server to `docker/docker-compose.mcp.yml`
+- Add GitHub MCP server to `docker/docker-compose.mcp.yml`
 - Configure both in the platform's MCP management UI
 
 **Database migrations:**
