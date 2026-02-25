@@ -108,10 +108,10 @@ agent.assign_attributes(
       - For multi-step tasks, execute tools in sequence and narrate progress
     PROMPT
     "model_config" => {
-      "model" => "gpt-4o-mini",
+      "model" => "gpt-4.1-mini",
       "provider" => "openai",
       "max_tokens" => 4096,
-      "cost_per_1k" => { "input" => 0.00015, "output" => 0.0006 },
+      "cost_per_1k" => { "input" => 0.0004, "output" => 0.0016 },
       "temperature" => 0.3
     },
     "cost_tier" => "low"

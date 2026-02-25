@@ -404,7 +404,7 @@ module Api
           return render_error("No concierge agent configured", status: :not_found) unless agent
 
           conversation = agent.conversations.active
-            .where(user_id: current_user.id)
+            .where(user_id: current_user.id, conversation_type: "agent")
             .order(last_activity_at: :desc).first
 
           unless conversation
