@@ -132,7 +132,7 @@ class DevopsPipelineChannel < ApplicationCable::Channel
         duration_seconds: run.duration_seconds,
         progress_percentage: run.progress_percentage,
         error_message: run.error_message,
-        pipeline_id: run.ci_cd_pipeline_id,
+        pipeline_id: run.devops_pipeline_id,
         pipeline_name: run.pipeline.name,
         current_step: run.current_step ? {
           id: run.current_step.id,

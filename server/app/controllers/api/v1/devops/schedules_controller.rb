@@ -19,7 +19,7 @@ module Api
                                         .order(created_at: :desc)
 
           # Filter by pipeline if provided
-          schedules = schedules.where(ci_cd_pipeline_id: params[:pipeline_id]) if params[:pipeline_id].present?
+          schedules = schedules.where(devops_pipeline_id: params[:pipeline_id]) if params[:pipeline_id].present?
 
           # Filter by active status if provided
           schedules = schedules.where(is_active: params[:is_active]) if params[:is_active].present?

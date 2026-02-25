@@ -91,7 +91,7 @@ module Api
         # DELETE /api/v1/devops/prompt_templates/:id
         def destroy
           # Check if template is in use by any pipeline steps
-          if @prompt_template.ci_cd_pipeline_steps.exists?
+          if @prompt_template.devops_pipeline_steps.exists?
             render_error("Cannot delete template that is in use by pipeline steps", status: :unprocessable_content)
             return
           end

@@ -63,8 +63,8 @@ module Api
           def serialize_execution(execution)
             {
               id: execution.id,
-              pipeline_run_id: execution.ci_cd_pipeline_run_id,
-              pipeline_step_id: execution.ci_cd_pipeline_step_id,
+              pipeline_run_id: execution.devops_pipeline_run_id,
+              pipeline_step_id: execution.devops_pipeline_step_id,
               status: execution.status,
               started_at: execution.started_at,
               completed_at: execution.completed_at,

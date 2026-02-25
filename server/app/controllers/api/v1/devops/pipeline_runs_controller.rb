@@ -19,7 +19,7 @@ module Api
                                       .order(created_at: :desc)
 
           # Filter by pipeline if provided
-          runs = runs.where(ci_cd_pipeline_id: params[:pipeline_id]) if params[:pipeline_id].present?
+          runs = runs.where(devops_pipeline_id: params[:pipeline_id]) if params[:pipeline_id].present?
 
           # Filter by status if provided
           runs = runs.where(status: params[:status]) if params[:status].present?

@@ -147,7 +147,7 @@ module Api
           pipeline = current_user.account.devops_pipelines.find(params[:pipeline_id])
 
           # Check if already attached
-          if @repository.pipeline_repositories.exists?(ci_cd_pipeline_id: pipeline.id)
+          if @repository.pipeline_repositories.exists?(devops_pipeline_id: pipeline.id)
             render_error("Pipeline already attached to this repository", status: :unprocessable_content)
             return
           end
@@ -176,7 +176,7 @@ module Api
 
         # DELETE /api/v1/devops/repositories/:id/detach_pipeline
         def detach_pipeline
-          pipeline_repo = @repository.pipeline_repositories.find_by!(ci_cd_pipeline_id: params[:pipeline_id])
+          pipeline_repo = @repository.pipeline_repositories.find_by!(devops_pipeline_id: params[:pipeline_id])
           pipeline_repo.destroy!
 
           render_success({
