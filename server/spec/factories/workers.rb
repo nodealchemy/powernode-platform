@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 FactoryBot.define do
   factory :worker do
     sequence(:name) { |n| "Worker #{n}" }
@@ -27,11 +29,12 @@ FactoryBot.define do
     end
 
     trait :system_worker do
-      account { nil }
+      association :account
+      is_system { true }
 
       after(:create) do |worker|
         # Create system worker role if it doesn't exist
-        system_role = Role.find_or_create_by(
+        Role.find_or_create_by(
           name: 'system_worker',
           role_type: 'system',
           description: 'System worker role for testing'
