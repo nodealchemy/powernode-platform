@@ -17,6 +17,7 @@ module Chat
     # Associations
     belongs_to :account
     belongs_to :default_agent, class_name: "Ai::Agent", optional: true
+    belongs_to :team_channel, class_name: "Ai::TeamChannel", foreign_key: "ai_team_channel_id", optional: true
 
     has_many :sessions, class_name: "Chat::Session", foreign_key: "channel_id", dependent: :destroy
     has_many :messages, through: :sessions
@@ -76,6 +77,11 @@ module Chat
 
     def disconnect!
       update!(status: "disconnected")
+    end
+
+    # Bridge methods
+    def bridged?
+      bridge_enabled && team_channel.present?
     end
 
     # Session management

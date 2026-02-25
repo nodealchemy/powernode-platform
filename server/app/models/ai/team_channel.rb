@@ -10,6 +10,7 @@ module Ai
     belongs_to :agent_team, class_name: "Ai::AgentTeam", foreign_key: "agent_team_id"
 
     has_many :messages, class_name: "Ai::TeamMessage", foreign_key: :channel_id, dependent: :destroy
+    has_many :chat_channels, class_name: "Chat::Channel", foreign_key: "ai_team_channel_id", dependent: :nullify
 
     # Delegate account access
     delegate :account, to: :agent_team
@@ -78,6 +79,11 @@ module Ai
 
     def recent_messages(limit = 10)
       messages.order(created_at: :desc).limit(limit)
+    end
+
+    # Returns platforms connected via bridged Chat::Channels
+    def bridged_platforms
+      chat_channels.where(bridge_enabled: true).pluck(:platform).uniq
     end
   end
 end
