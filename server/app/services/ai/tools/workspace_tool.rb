@@ -259,9 +259,17 @@ module Ai
 
         return [] if mentioned_ids.empty?
 
+        # Exclude the primary agent (concierge) — it responds via ConciergeService,
+        # not through workspace response jobs. Without this, @mentioning the concierge
+        # from an MCP client causes a redundant relay via AiWorkspaceResponseJob.
+        primary_agent_id = conversation.ai_agent_id
+        mentioned_ids -= [primary_agent_id].compact
+
+        return [] if mentioned_ids.empty?
+
         dispatched = []
 
-        # Dispatch to non-MCP agents via worker jobs (concierge + other AI agents)
+        # Dispatch to non-MCP agents via worker jobs
         team.members.includes(:agent).each do |member|
           a = member.agent
           next unless mentioned_ids.include?(a.id)
