@@ -58,19 +58,10 @@ export const ChatWindowSidebar: React.FC = () => {
       const agentName = isTeam
         ? (conv.agent_team?.name || conv.title || 'Workspace')
         : (conv.ai_agent?.name || 'AI Assistant');
-      openConversation(agentId, agentName, id);
-
-      // Sync workspace flag on every selection (corrects stale state)
-      const tab = state.tabs.find(t => t.conversationId === id);
-      if (tab) {
-        dispatch({ type: 'UPDATE_TAB', payload: {
-          id: tab.id,
-          changes: {
-            isWorkspace,
-            teamId: isWorkspace && conv.agent_team ? conv.agent_team.id : undefined,
-          },
-        } });
-      }
+      openConversation(agentId, agentName, id, {
+        isWorkspace,
+        teamId: isWorkspace && conv.agent_team ? conv.agent_team.id : undefined,
+      });
     }
   }, [conversations, openConversation, state.tabs, dispatch]);
 

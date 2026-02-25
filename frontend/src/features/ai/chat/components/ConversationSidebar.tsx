@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Plus, PanelLeftClose, PanelLeft, Loader2, CheckSquare, X, Archive, Trash2, Pin, Tag, Users } from 'lucide-react';
+import { Plus, Loader2, CheckSquare, X, Archive, Trash2, Pin, Tag, Users } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { ConversationSearch } from './ConversationSearch';
@@ -8,11 +8,9 @@ import type { ConversationBase } from '@/shared/services/ai/ConversationsApiServ
 import { MessageSquare } from 'lucide-react';
 
 const STORAGE_KEY = 'chat-sidebar-width';
-const COLLAPSED_KEY = 'chat-sidebar-collapsed';
 const MIN_WIDTH = 200;
 const MAX_WIDTH = 400;
 const DEFAULT_WIDTH = 280;
-const COLLAPSED_WIDTH = 60;
 
 type StatusFilter = 'all' | 'active' | 'archived';
 type SearchMode = 'title' | 'messages';
@@ -72,10 +70,6 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
     return saved ? Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, parseInt(saved, 10))) : DEFAULT_WIDTH;
   });
 
-  const [collapsed, setCollapsed] = useState(() => {
-    return localStorage.getItem(COLLAPSED_KEY) === 'true';
-  });
-
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkTagInput, setBulkTagInput] = useState(false);
@@ -116,18 +110,6 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
       document.removeEventListener('mouseup', handleMouseUp);
     };
   }, []);
-
-  const toggleCollapsed = useCallback(() => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      localStorage.setItem(COLLAPSED_KEY, String(next));
-      return next;
-    });
-  }, []);
-
-  const handleDoubleClickHandle = useCallback(() => {
-    toggleCollapsed();
-  }, [toggleCollapsed]);
 
   // Multi-select handlers
   const toggleSelectMode = useCallback(() => {
@@ -186,8 +168,6 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
     }
   }, [searchMode, onSearch, onSearchMessages]);
 
-  const sidebarWidth = collapsed ? COLLAPSED_WIDTH : width;
-
   // Separate pinned, concierge, and regular conversations
   const pinnedConversations = conversations.filter((c) => c.pinned);
   const conciergeConversations = conversations.filter((c) => !c.pinned && c.ai_agent?.is_concierge);
@@ -214,263 +194,214 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   return (
     <div
       className="relative flex flex-col h-full bg-theme-surface border-r border-theme"
-      style={{ width: sidebarWidth, minWidth: sidebarWidth }}
+      style={{ width, minWidth: width }}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-3 border-b border-theme">
-        {!collapsed && (
-          <h3 className="text-sm font-semibold text-theme-primary truncate">
-            Conversations
-          </h3>
-        )}
+        <h3 className="text-sm font-semibold text-theme-primary truncate">
+          Conversations
+        </h3>
         <div className="flex items-center gap-1">
-          {!collapsed && (
-            <>
-              <Button
-                variant="primary"
-                size="xs"
-                onClick={onNewChat}
-                title="New chat"
-              >
-                <Plus className="h-3.5 w-3.5 mr-1" />
-                New
-              </Button>
-              {onNewWorkspace && (
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  iconOnly
-                  onClick={onNewWorkspace}
-                  title="New workspace"
-                >
-                  <Users className="h-3.5 w-3.5" />
-                </Button>
-              )}
-              {onBulkAction && (
-                <Button
-                  variant={selectMode ? 'secondary' : 'ghost'}
-                  size="xs"
-                  iconOnly
-                  onClick={toggleSelectMode}
-                  title={selectMode ? 'Cancel selection' : 'Select multiple'}
-                >
-                  <CheckSquare className="h-3.5 w-3.5" />
-                </Button>
-              )}
-            </>
-          )}
-          <Button
-            variant="ghost"
-            size="xs"
-            iconOnly
-            onClick={toggleCollapsed}
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-          </Button>
-        </div>
-      </div>
-
-      {/* Collapsed: just icon buttons */}
-      {collapsed ? (
-        <div className="flex flex-col items-center gap-2 py-3">
           <Button
             variant="primary"
             size="xs"
-            iconOnly
             onClick={onNewChat}
             title="New chat"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            New
           </Button>
-          {conversations.slice(0, 8).map((conv) => (
-            <button
-              key={conv.id}
-              onClick={() => onSelectConversation(conv.id)}
-              title={conv.title || 'Chat'}
-              className={`w-9 h-9 rounded-md flex items-center justify-center transition-colors ${
-                activeConversationId === conv.id
-                  ? 'bg-theme-interactive-primary/10 text-theme-interactive-primary'
-                  : 'text-theme-secondary hover:bg-theme-surface-hover'
-              }`}
+          {onNewWorkspace && (
+            <Button
+              variant="ghost"
+              size="xs"
+              iconOnly
+              onClick={onNewWorkspace}
+              title="New workspace"
             >
-              <MessageSquare className="h-4 w-4" />
-            </button>
-          ))}
+              <Users className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {onBulkAction && (
+            <Button
+              variant={selectMode ? 'secondary' : 'ghost'}
+              size="xs"
+              iconOnly
+              onClick={toggleSelectMode}
+              title={selectMode ? 'Cancel selection' : 'Select multiple'}
+            >
+              <CheckSquare className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
-      ) : (
-        <>
-          {/* Search, filters, and sort */}
-          <ConversationSearch
-            onSearch={handleSearch}
-            onFilterChange={onFilterChange}
-            activeFilter={activeFilter}
-            searchMode={searchMode}
-            onSearchModeChange={onSearchModeChange}
-            sortBy={sortBy}
-            onSortChange={onSortChange}
+      </div>
+
+      {/* Search, filters, and sort */}
+      <ConversationSearch
+        onSearch={handleSearch}
+        onFilterChange={onFilterChange}
+        activeFilter={activeFilter}
+        searchMode={searchMode}
+        onSearchModeChange={onSearchModeChange}
+        sortBy={sortBy}
+        onSortChange={onSortChange}
+      />
+
+      {/* Conversation list */}
+      <div className="flex-1 overflow-y-auto">
+        {loading && conversations.length === 0 ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-5 w-5 text-theme-text-tertiary animate-spin" />
+          </div>
+        ) : conversations.length === 0 ? (
+          <EmptyState
+            icon={MessageSquare}
+            title="No conversations"
+            description="Start a new chat to begin"
+            action={
+              <Button variant="primary" size="sm" onClick={onNewChat}>
+                <Plus className="h-4 w-4 mr-1" />
+                New Chat
+              </Button>
+            }
           />
-
-          {/* Conversation list */}
-          <div className="flex-1 overflow-y-auto">
-            {loading && conversations.length === 0 ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-5 w-5 text-theme-text-tertiary animate-spin" />
+        ) : (
+          <>
+            {/* Concierge / Assistant section */}
+            {conciergeConversations.length > 0 && (
+              <div>
+                <div className="px-3 py-1.5">
+                  <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
+                    Assistant
+                  </span>
+                </div>
+                {conciergeConversations.map(renderConversationItem)}
               </div>
-            ) : conversations.length === 0 ? (
-              <EmptyState
-                icon={MessageSquare}
-                title="No conversations"
-                description="Start a new chat to begin"
-                action={
-                  <Button variant="primary" size="sm" onClick={onNewChat}>
-                    <Plus className="h-4 w-4 mr-1" />
-                    New Chat
-                  </Button>
-                }
-              />
-            ) : (
-              <>
-                {/* Concierge / Assistant section */}
-                {conciergeConversations.length > 0 && (
-                  <div>
-                    <div className="px-3 py-1.5">
-                      <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
-                        Assistant
-                      </span>
-                    </div>
-                    {conciergeConversations.map(renderConversationItem)}
-                  </div>
-                )}
-
-                {/* Workspaces section */}
-                {workspaceConversations.length > 0 && (
-                  <div>
-                    {conciergeConversations.length > 0 && (
-                      <div className="border-t border-theme" />
-                    )}
-                    <div className="px-3 py-1.5 flex items-center gap-1.5">
-                      <Users className="h-3 w-3 text-theme-text-tertiary" />
-                      <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
-                        Workspaces
-                      </span>
-                    </div>
-                    {workspaceConversations.map(renderConversationItem)}
-                  </div>
-                )}
-
-                {/* Pinned section */}
-                {pinnedConversations.length > 0 && (
-                  <div>
-                    {(conciergeConversations.length > 0 || workspaceConversations.length > 0) && (
-                      <div className="border-t border-theme" />
-                    )}
-                    <div className="px-3 py-1.5">
-                      <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
-                        Pinned
-                      </span>
-                    </div>
-                    {pinnedConversations.map(renderConversationItem)}
-                  </div>
-                )}
-
-                {/* Unpinned / recent section */}
-                {unpinnedConversations.length > 0 && (
-                  <div>
-                    {(pinnedConversations.length > 0 || conciergeConversations.length > 0 || workspaceConversations.length > 0) && (
-                      <div className="px-3 py-1.5 border-t border-theme">
-                        <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
-                          Recent
-                        </span>
-                      </div>
-                    )}
-                    {unpinnedConversations.map(renderConversationItem)}
-                  </div>
-                )}
-              </>
             )}
+
+            {/* Workspaces section */}
+            {workspaceConversations.length > 0 && (
+              <div>
+                {conciergeConversations.length > 0 && (
+                  <div className="border-t border-theme" />
+                )}
+                <div className="px-3 py-1.5 flex items-center gap-1.5">
+                  <Users className="h-3 w-3 text-theme-text-tertiary" />
+                  <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
+                    Workspaces
+                  </span>
+                </div>
+                {workspaceConversations.map(renderConversationItem)}
+              </div>
+            )}
+
+            {/* Pinned section */}
+            {pinnedConversations.length > 0 && (
+              <div>
+                {(conciergeConversations.length > 0 || workspaceConversations.length > 0) && (
+                  <div className="border-t border-theme" />
+                )}
+                <div className="px-3 py-1.5">
+                  <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
+                    Pinned
+                  </span>
+                </div>
+                {pinnedConversations.map(renderConversationItem)}
+              </div>
+            )}
+
+            {/* Unpinned / recent section */}
+            {unpinnedConversations.length > 0 && (
+              <div>
+                {(pinnedConversations.length > 0 || conciergeConversations.length > 0 || workspaceConversations.length > 0) && (
+                  <div className="px-3 py-1.5 border-t border-theme">
+                    <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
+                      Recent
+                    </span>
+                  </div>
+                )}
+                {unpinnedConversations.map(renderConversationItem)}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Bulk action bar */}
+      {selectMode && selectedIds.size > 0 && (
+        <div className="border-t border-theme bg-theme-surface-secondary p-2">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-theme-secondary">
+              {selectedIds.size} selected
+            </span>
+            <button
+              onClick={() => {
+                setSelectedIds(new Set());
+                setSelectMode(false);
+              }}
+              className="text-theme-text-tertiary hover:text-theme-primary"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           </div>
 
-          {/* Bulk action bar */}
-          {selectMode && selectedIds.size > 0 && (
-            <div className="border-t border-theme bg-theme-surface-secondary p-2">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-theme-secondary">
-                  {selectedIds.size} selected
-                </span>
-                <button
-                  onClick={() => {
-                    setSelectedIds(new Set());
-                    setSelectMode(false);
-                  }}
-                  className="text-theme-text-tertiary hover:text-theme-primary"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-
-              {bulkTagInput ? (
-                <div className="flex gap-1">
-                  <input
-                    ref={bulkTagRef}
-                    type="text"
-                    value={bulkTagValue}
-                    onChange={(e) => setBulkTagValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleBulkTag();
-                      if (e.key === 'Escape') setBulkTagInput(false);
-                    }}
-                    placeholder="Tag name..."
-                    className="flex-1 px-2 py-1 text-xs bg-theme-background border border-theme rounded text-theme-primary placeholder:text-theme-text-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
-                    maxLength={20}
-                  />
-                  <Button variant="primary" size="xs" onClick={handleBulkTag} disabled={!bulkTagValue.trim()}>
-                    Add
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex gap-1 flex-wrap">
-                  <Button variant="ghost" size="xs" onClick={() => handleBulkAction('archive')} title="Archive all selected">
-                    <Archive className="h-3 w-3 mr-1" />
-                    Archive
-                  </Button>
-                  <Button variant="ghost" size="xs" onClick={() => handleBulkAction('pin')} title="Pin all selected">
-                    <Pin className="h-3 w-3 mr-1" />
-                    Pin
-                  </Button>
-                  <Button variant="ghost" size="xs" onClick={() => setBulkTagInput(true)} title="Tag all selected">
-                    <Tag className="h-3 w-3 mr-1" />
-                    Tag
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    onClick={() => {
-                      if (window.confirm(`Delete ${selectedIds.size} conversation${selectedIds.size > 1 ? 's' : ''}? This cannot be undone.`)) {
-                        handleBulkAction('delete');
-                      }
-                    }}
-                    title="Delete all selected"
-                    className="text-theme-error hover:text-theme-error"
-                  >
-                    <Trash2 className="h-3 w-3 mr-1" />
-                    Delete
-                  </Button>
-                </div>
-              )}
+          {bulkTagInput ? (
+            <div className="flex gap-1">
+              <input
+                ref={bulkTagRef}
+                type="text"
+                value={bulkTagValue}
+                onChange={(e) => setBulkTagValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleBulkTag();
+                  if (e.key === 'Escape') setBulkTagInput(false);
+                }}
+                placeholder="Tag name..."
+                className="flex-1 px-2 py-1 text-xs bg-theme-background border border-theme rounded text-theme-primary placeholder:text-theme-text-tertiary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
+                maxLength={20}
+              />
+              <Button variant="primary" size="xs" onClick={handleBulkTag} disabled={!bulkTagValue.trim()}>
+                Add
+              </Button>
+            </div>
+          ) : (
+            <div className="flex gap-1 flex-wrap">
+              <Button variant="ghost" size="xs" onClick={() => handleBulkAction('archive')} title="Archive all selected">
+                <Archive className="h-3 w-3 mr-1" />
+                Archive
+              </Button>
+              <Button variant="ghost" size="xs" onClick={() => handleBulkAction('pin')} title="Pin all selected">
+                <Pin className="h-3 w-3 mr-1" />
+                Pin
+              </Button>
+              <Button variant="ghost" size="xs" onClick={() => setBulkTagInput(true)} title="Tag all selected">
+                <Tag className="h-3 w-3 mr-1" />
+                Tag
+              </Button>
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={() => {
+                  if (window.confirm(`Delete ${selectedIds.size} conversation${selectedIds.size > 1 ? 's' : ''}? This cannot be undone.`)) {
+                    handleBulkAction('delete');
+                  }
+                }}
+                title="Delete all selected"
+                className="text-theme-error hover:text-theme-error"
+              >
+                <Trash2 className="h-3 w-3 mr-1" />
+                Delete
+              </Button>
             </div>
           )}
-        </>
+        </div>
       )}
 
-      {/* Drag handle */}
-      {!collapsed && (
-        <div
-          onMouseDown={handleMouseDown}
-          onDoubleClick={handleDoubleClickHandle}
-          className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-theme-interactive-primary/30 transition-colors"
-        />
-      )}
+      {/* Drag handle for resizing */}
+      <div
+        onMouseDown={handleMouseDown}
+        className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-theme-interactive-primary/30 transition-colors"
+      />
     </div>
   );
 };

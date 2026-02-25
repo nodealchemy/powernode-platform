@@ -160,7 +160,7 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
     }
   }, [state.mode, addNotification]);
 
-  const openConversationMaximized = useCallback(async (agentId: string, agentName: string, conversationId?: string) => {
+  const openConversationMaximized = useCallback(async (agentId: string, agentName: string, conversationId?: string, tabProps?: Partial<ChatTab>) => {
     try {
       let convId = conversationId;
       if (!convId) {
@@ -176,6 +176,7 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
         title: agentName,
         unreadCount: 0,
         createdAt: Date.now(),
+        ...tabProps,
       };
 
       dispatch({ type: 'OPEN_TAB', payload: tab });

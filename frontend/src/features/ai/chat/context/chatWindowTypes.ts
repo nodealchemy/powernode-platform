@@ -72,7 +72,7 @@ export interface ChatWindowContextValue {
   state: ChatWindowState;
   dispatch: React.Dispatch<ChatWindowAction>;
   openConversation: (agentId: string, agentName: string, conversationId?: string, tabProps?: Partial<ChatTab>) => Promise<void>;
-  openConversationMaximized: (agentId: string, agentName: string, conversationId?: string) => Promise<void>;
+  openConversationMaximized: (agentId: string, agentName: string, conversationId?: string, tabProps?: Partial<ChatTab>) => Promise<void>;
   openConcierge: () => Promise<void>;
   openInNewTab: () => void;
   closeTab: (tabId: string) => void;

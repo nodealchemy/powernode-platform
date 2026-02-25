@@ -21,8 +21,8 @@ jest.mock('../ChatWindowHeader', () => ({
   ),
 }));
 
-jest.mock('../NewConversationTab', () => ({
-  NewConversationTab: ({ onComplete }: { onComplete: () => void }) => (
+jest.mock('../ConversationCreator', () => ({
+  ConversationCreator: ({ onComplete }: { onComplete: () => void }) => (
     <div data-testid="new-conversation-tab">
       <button data-testid="complete-btn" onClick={onComplete}>Done</button>
     </div>
@@ -102,7 +102,7 @@ describe('ChatWindow', () => {
     expect(screen.getByTestId('chat-header')).toBeInTheDocument();
   });
 
-  it('shows NewConversationTab when no tabs', () => {
+  it('shows ConversationCreator when no tabs', () => {
     mockedUseChatWindow.mockReturnValue({
       state: createMockState({ tabs: [], activeTabId: null }),
       dispatch: mockDispatch,

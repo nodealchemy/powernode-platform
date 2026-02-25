@@ -1,7 +1,7 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { AgentConversationComponent } from '@/features/ai/components/AgentConversationComponent';
 import { ChatWindowHeader } from './ChatWindowHeader';
-import { NewConversationTab } from './NewConversationTab';
+import { ConversationCreator } from './ConversationCreator';
 import { ChatWindowSidebar } from './ChatWindowSidebar';
 import { SplitPanelContainer } from './SplitPanelContainer';
 import { useChatWindow } from '../context/ChatWindowContext';
@@ -49,6 +49,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ onDragStart }) => {
   const activeConv = activeTab ? tabConversations.get(activeTab.id) : null;
   const hasNoTabs = state.tabs.length === 0;
 
+  // Clear unread badge on the active tab when the window becomes visible
+  useEffect(() => {
+    if (activeTab && activeTab.unreadCount > 0) {
+      dispatch({ type: 'MARK_READ', payload: activeTab.id });
+    }
+  }, [activeTab?.id]);
+
   return (
     <div className="flex flex-col h-full bg-theme-background rounded-xl overflow-hidden" data-testid={state.mode === 'maximized' ? 'chat-maximized' : undefined}>
       <ChatWindowHeader onPointerDown={onDragStart} />
@@ -63,7 +70,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ onDragStart }) => {
           <div className="flex-1 flex flex-col min-w-0">
             <div className="flex-1 relative overflow-hidden">
               {hasNoTabs || !activeConv ? (
-                <NewConversationTab onComplete={() => {}} />
+                <ConversationCreator onComplete={() => {}} />
               ) : (
                 <AgentConversationComponent
                   key={activeConv.id}
