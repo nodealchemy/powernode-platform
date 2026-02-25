@@ -28,7 +28,7 @@ class AiTeamExecutionJob < BaseJob
     input = params['input'] || {}
     context = params['context'] || {}
 
-    validate_required_params(params, 'team_id', 'user_id')
+    validate_required_params(params, 'team_id')
 
     log_info("Starting AI team execution",
       team_id: team_id,
@@ -99,28 +99,35 @@ class AiTeamExecutionJob < BaseJob
   end
 
   def fetch_team_members(team_id)
-    response = backend_api_get("/api/v1/ai/agent_teams/#{team_id}/members")
+    # Members are included in the team show response; re-fetch if needed
+    team_response = backend_api_get("/api/v1/ai/agent_teams/#{team_id}")
+    return [] unless team_response['success']
 
-    if response['success']
-      response['data']['members'] || response['data']
-    else
-      log_error("Failed to fetch team members", team_id: team_id)
-      []
-    end
+    team_data = team_response['data']['agent_team'] || team_response['data']
+    members = team_data['members'] || []
+
+    # Enrich each member with full agent data for provider/model info
+    members.map do |member|
+      agent_id = member['agent_id']
+      next member unless agent_id
+
+      agent_response = backend_api_get("/api/v1/ai/agents/#{agent_id}")
+      if agent_response['success']
+        agent_data = agent_response['data']['agent'] || agent_response['data']
+        member.merge('agent' => agent_data)
+      else
+        member
+      end
+    end.compact
   rescue StandardError => e
     log_error("Error fetching team members", e, team_id: team_id)
     []
   end
 
   def create_execution(team_id, user_id, input, context)
-    response = backend_api_post("/api/v1/ai/team_executions", {
-      team_execution: {
-        agent_team_id: team_id,
-        triggered_by_id: user_id,
-        input_context: input,
-        objective: input['task'] || input['prompt'],
-        status: 'running'
-      }
+    response = backend_api_post("/api/v1/ai/teams/#{team_id}/executions", {
+      objective: input['task'] || input['prompt'],
+      input_context: input
     })
 
     if response['success']
@@ -219,11 +226,7 @@ class AiTeamExecutionJob < BaseJob
 
     provider = provider_response['data']['provider'] || provider_response['data']
 
-    credentials_response = backend_api_get("/api/v1/ai/credentials", {
-      provider_id: provider_id,
-      default_only: true,
-      active: true
-    })
+    credentials_response = backend_api_get("/api/v1/ai/providers/#{provider_id}/credentials")
 
     unless credentials_response['success']
       return { success: false, error: 'Failed to fetch credentials' }
@@ -233,13 +236,21 @@ class AiTeamExecutionJob < BaseJob
     return { success: false, error: 'No active credentials found' } unless credentials
 
     # Build prompt
-    system_prompt = agent['system_prompt'] || ''
-    model = agent.dig('configuration', 'model') || agent['model'] || 'gpt-4o'
+    system_prompt = agent['system_prompt'] || agent.dig('mcp_metadata', 'system_prompt') || ''
+    model = agent.dig('configuration', 'model') ||
+            agent.dig('mcp_metadata', 'model_config', 'model') ||
+            agent['model'] || 'gpt-4o'
 
     prompt = "#{system_prompt}\n\n## Task\n#{input[:task]}"
     if input[:previous_outputs].present?
       prompt += "\n\n## Context from Previous Team Members\n#{input[:previous_outputs]}"
     end
+
+    # Set @agent_execution so provider concerns can access agent/provider config
+    @agent_execution = {
+      'ai_agent' => agent.merge('configuration' => (agent['configuration'] || {}).merge('model' => model)),
+      'ai_provider' => provider
+    }
 
     # Call AI provider
     start_time = Time.current
@@ -287,20 +298,16 @@ class AiTeamExecutionJob < BaseJob
   end
 
   def update_execution_progress(execution_id, results)
-    backend_api_patch("/api/v1/ai/team_executions/#{execution_id}", {
-      team_execution: {
-        tasks_completed: results[:tasks_completed],
-        tasks_failed: results[:tasks_failed],
-        total_cost_usd: results[:total_cost],
-        total_tokens_used: results[:total_tokens]
-      }
-    })
-  rescue StandardError => e
-    log_warn("Failed to update execution progress: #{e.message}")
+    # Progress updates are best-effort; the complete/cancel endpoints handle final state
+    log_info("Execution progress",
+      execution_id: execution_id,
+      tasks_completed: results[:tasks_completed],
+      tasks_failed: results[:tasks_failed],
+      total_cost: results[:total_cost]
+    )
   end
 
   def complete_execution(execution_id, results)
-    # Build output summary from last executor
     last_output = results[:outputs].last
     output_result = if last_output
       {
@@ -308,36 +315,25 @@ class AiTeamExecutionJob < BaseJob
         agent_name: last_output[:agent_name],
         role: last_output[:role],
         cost_usd: results[:total_cost].to_s,
-        tokens_used: results[:total_tokens]
+        tokens_used: results[:total_tokens],
+        tasks_completed: results[:tasks_completed],
+        tasks_failed: results[:tasks_failed],
+        all_outputs: results[:outputs]
       }
     else
       { response: 'No output generated', cost_usd: '0.0', tokens_used: 0 }
     end
 
-    backend_api_patch("/api/v1/ai/team_executions/#{execution_id}", {
-      team_execution: {
-        status: 'completed',
-        tasks_completed: results[:tasks_completed],
-        tasks_failed: results[:tasks_failed],
-        tasks_total: results[:tasks_completed] + results[:tasks_failed],
-        total_cost_usd: results[:total_cost],
-        total_tokens_used: results[:total_tokens],
-        output_result: output_result,
-        completed_at: Time.current.iso8601,
-        termination_reason: 'completed'
-      }
+    backend_api_post("/api/v1/ai/teams/executions/#{execution_id}/complete", {
+      result: output_result
     })
   rescue StandardError => e
     log_error("Failed to complete execution", e, execution_id: execution_id)
   end
 
   def fail_execution(execution_id, error_message)
-    backend_api_patch("/api/v1/ai/team_executions/#{execution_id}", {
-      team_execution: {
-        status: 'failed',
-        termination_reason: error_message.truncate(500),
-        completed_at: Time.current.iso8601
-      }
+    backend_api_post("/api/v1/ai/teams/executions/#{execution_id}/cancel", {
+      reason: error_message.truncate(500)
     })
   rescue StandardError => e
     log_error("Failed to mark execution as failed", e, execution_id: execution_id)

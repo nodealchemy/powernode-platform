@@ -7,7 +7,7 @@ module AiGenericProviderConcern
 
   # Add provider-specific standardization instructions
   def add_provider_standardization_context(context, provider_type)
-    enhanced_context = context.dup
+    enhanced_context = (context || []).dup
 
     provider_instructions = case provider_type
     when 'ollama', 'custom'

@@ -194,6 +194,7 @@ class JobsController
       # AI/Workflow jobs
       'AiConversationProcessingJob',
       'AiAgentExecutionJob',
+      'AiTeamExecutionJob',
       'AiWorkspaceResponseJob',
       'AiWorkflowExecutionJob',
       'AiWorkflowNodeExecutionJob',

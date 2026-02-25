@@ -117,7 +117,11 @@ module AiProviderCallsConcern
 
     decrypted_creds = creds_response['data']['credentials']
     api_key = decrypted_creds['api_key']
-    model = decrypted_creds['model'] || 'gpt-3.5-turbo'
+
+    # Use agent-specific model configuration, fall back to credentials, then default
+    agent = @agent_execution&.dig('ai_agent')
+    model = agent&.dig('configuration', 'model') ||
+            decrypted_creds['model'] || 'gpt-4o'
 
     return { success: false, error: 'OpenAI API key not configured' } unless api_key
 
@@ -174,7 +178,11 @@ module AiProviderCallsConcern
 
     decrypted_creds = creds_response['data']['credentials']
     api_key = decrypted_creds['api_key']
-    model = decrypted_creds['model'] || 'claude-3-sonnet-20240229'
+
+    # Use agent-specific model configuration, fall back to credentials, then default
+    agent = @agent_execution&.dig('ai_agent')
+    model = agent&.dig('configuration', 'model') ||
+            decrypted_creds['model'] || 'claude-sonnet-4-5-20241022'
 
     return { success: false, error: 'Anthropic API key not configured' } unless api_key
 

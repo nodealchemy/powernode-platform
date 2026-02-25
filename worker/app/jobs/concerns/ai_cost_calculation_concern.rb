@@ -93,6 +93,58 @@ module AiCostCalculationConcern
     0.0
   end
 
+  def calculate_anthropic_cost(response_data, model)
+    input_tokens = response_data.dig('usage', 'input_tokens') || 0
+    output_tokens = response_data.dig('usage', 'output_tokens') || 0
+
+    pricing = resolve_pricing('anthropic', model)
+    (input_tokens / 1000.0) * pricing[:input] + (output_tokens / 1000.0) * pricing[:output]
+  end
+
+  def calculate_openai_cost(response_data, model)
+    prompt_tokens = response_data.dig('usage', 'prompt_tokens') || 0
+    completion_tokens = response_data.dig('usage', 'completion_tokens') || 0
+
+    pricing = resolve_pricing('openai', model)
+    (prompt_tokens / 1000.0) * pricing[:input] + (completion_tokens / 1000.0) * pricing[:output]
+  end
+
+  # Resolves pricing from database first, falls back to hardcoded estimates
+  def resolve_pricing(provider_type, model)
+    db_pricing = fetch_model_pricing(provider_type, model)
+    if db_pricing
+      return {
+        input: db_pricing['input_per_1k']&.to_f || 0,
+        output: db_pricing['output_per_1k']&.to_f || 0
+      }
+    end
+
+    # Hardcoded fallback for when database is unavailable
+    fallback_pricing(provider_type, model)
+  end
+
+  def fallback_pricing(provider_type, model)
+    case provider_type
+    when 'anthropic'
+      case model.to_s
+      when /opus/   then { input: 0.015, output: 0.075 }
+      when /sonnet/ then { input: 0.003, output: 0.015 }
+      when /haiku/  then { input: 0.001, output: 0.005 }
+      else               { input: 0.003, output: 0.015 }
+      end
+    when 'openai'
+      case model.to_s
+      when /gpt-4o-mini/ then { input: 0.00015, output: 0.0006 }
+      when /gpt-4o/      then { input: 0.0025, output: 0.01 }
+      when /gpt-4/       then { input: 0.03, output: 0.06 }
+      when /gpt-3/       then { input: 0.0005, output: 0.0015 }
+      else                    { input: 0.0025, output: 0.01 }
+      end
+    else
+      { input: 0.0, output: 0.0 }
+    end
+  end
+
   def calculate_provider_cost(provider, credentials, response, model = nil)
     calculate_generic_cost(provider, credentials, response)
   end
