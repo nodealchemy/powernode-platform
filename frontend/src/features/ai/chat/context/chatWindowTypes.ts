@@ -11,6 +11,9 @@ export interface ChatTab {
   isConcierge?: boolean;
   isWorkspace?: boolean;
   teamId?: string;
+  isChannel?: boolean;
+  channelId?: string;
+  channelName?: string;
 }
 
 export interface FloatingPosition {
@@ -74,6 +77,7 @@ export interface ChatWindowContextValue {
   openConversation: (agentId: string, agentName: string, conversationId?: string, tabProps?: Partial<ChatTab>) => Promise<void>;
   openConversationMaximized: (agentId: string, agentName: string, conversationId?: string, tabProps?: Partial<ChatTab>) => Promise<void>;
   openConcierge: () => Promise<void>;
+  openChannel: (channelId: string, channelName: string, teamId: string, teamName: string) => void;
   openInNewTab: () => void;
   closeTab: (tabId: string) => void;
   switchTab: (tabId: string) => void;

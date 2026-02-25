@@ -1,16 +1,36 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Plus, Loader2, CheckSquare, X, Archive, Trash2, Pin, Tag, Users } from 'lucide-react';
+import { Plus, Loader2, CheckSquare, X, Archive, Trash2, Pin, Tag, Users, Hash, ChevronRight } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { ConversationSearch } from './ConversationSearch';
 import { ConversationListItem } from './ConversationListItem';
+import { ChannelListItem } from './ChannelListItem';
 import type { ConversationBase } from '@/shared/services/ai/ConversationsApiService';
+import type { TeamChannelSidebarItem } from '@/shared/services/ai/TeamsApiService';
 import { MessageSquare } from 'lucide-react';
 
 const STORAGE_KEY = 'chat-sidebar-width';
+const COLLAPSED_KEY = 'chat-sidebar-collapsed';
 const MIN_WIDTH = 200;
 const MAX_WIDTH = 400;
 const DEFAULT_WIDTH = 280;
+
+type SectionKey = 'channels' | 'workspaces' | 'pinned' | 'recent';
+
+type CollapsedState = Partial<Record<SectionKey, boolean>>;
+
+function loadCollapsed(): CollapsedState {
+  try {
+    const saved = localStorage.getItem(COLLAPSED_KEY);
+    return saved ? JSON.parse(saved) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveCollapsed(state: CollapsedState): void {
+  localStorage.setItem(COLLAPSED_KEY, JSON.stringify(state));
+}
 
 type StatusFilter = 'all' | 'active' | 'archived';
 type SearchMode = 'title' | 'messages';
@@ -39,6 +59,9 @@ interface ConversationSidebarProps {
   onSearchModeChange?: (mode: SearchMode) => void;
   workspaceConversations?: ConversationBase[];
   onNewWorkspace?: () => void;
+  channels?: TeamChannelSidebarItem[];
+  activeChannelId?: string | null;
+  onSelectChannel?: (channel: TeamChannelSidebarItem) => void;
 }
 
 export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
@@ -64,6 +87,9 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   onSearchModeChange,
   workspaceConversations = [],
   onNewWorkspace,
+  channels = [],
+  activeChannelId,
+  onSelectChannel,
 }) => {
   const [width, setWidth] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -75,6 +101,15 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   const [bulkTagInput, setBulkTagInput] = useState(false);
   const [bulkTagValue, setBulkTagValue] = useState('');
   const bulkTagRef = useRef<HTMLInputElement>(null);
+  const [collapsedSections, setCollapsedSections] = useState<CollapsedState>(loadCollapsed);
+
+  const toggleSection = useCallback((section: SectionKey) => {
+    setCollapsedSections(prev => {
+      const next = { ...prev, [section]: !prev[section] };
+      saveCollapsed(next);
+      return next;
+    });
+  }, []);
 
   const isDragging = useRef(false);
   const startX = useRef(0);
@@ -279,48 +314,97 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
               </div>
             )}
 
-            {/* Workspaces section */}
-            {workspaceConversations.length > 0 && (
+            {/* Channels section */}
+            {channels.length > 0 && onSelectChannel && (
               <div>
                 {conciergeConversations.length > 0 && (
                   <div className="border-t border-theme" />
                 )}
-                <div className="px-3 py-1.5 flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => toggleSection('channels')}
+                  className="w-full px-3 py-1.5 flex items-center gap-1.5 hover:bg-theme-surface-hover/50 transition-colors"
+                >
+                  <ChevronRight className={`h-3 w-3 text-theme-text-tertiary transition-transform ${collapsedSections.channels ? '' : 'rotate-90'}`} />
+                  <Hash className="h-3 w-3 text-theme-text-tertiary" />
+                  <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
+                    Channels
+                  </span>
+                  <span className="text-[9px] text-theme-text-tertiary ml-auto">{channels.length}</span>
+                </button>
+                {!collapsedSections.channels && channels.map((ch) => (
+                  <ChannelListItem
+                    key={ch.id}
+                    channel={ch}
+                    isActive={activeChannelId === ch.id}
+                    onClick={() => onSelectChannel(ch)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Workspaces section */}
+            {workspaceConversations.length > 0 && (
+              <div>
+                {(conciergeConversations.length > 0 || channels.length > 0) && (
+                  <div className="border-t border-theme" />
+                )}
+                <button
+                  type="button"
+                  onClick={() => toggleSection('workspaces')}
+                  className="w-full px-3 py-1.5 flex items-center gap-1.5 hover:bg-theme-surface-hover/50 transition-colors"
+                >
+                  <ChevronRight className={`h-3 w-3 text-theme-text-tertiary transition-transform ${collapsedSections.workspaces ? '' : 'rotate-90'}`} />
                   <Users className="h-3 w-3 text-theme-text-tertiary" />
                   <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
                     Workspaces
                   </span>
-                </div>
-                {workspaceConversations.map(renderConversationItem)}
+                  <span className="text-[9px] text-theme-text-tertiary ml-auto">{workspaceConversations.length}</span>
+                </button>
+                {!collapsedSections.workspaces && workspaceConversations.map(renderConversationItem)}
               </div>
             )}
 
             {/* Pinned section */}
             {pinnedConversations.length > 0 && (
               <div>
-                {(conciergeConversations.length > 0 || workspaceConversations.length > 0) && (
+                {(conciergeConversations.length > 0 || workspaceConversations.length > 0 || channels.length > 0) && (
                   <div className="border-t border-theme" />
                 )}
-                <div className="px-3 py-1.5">
+                <button
+                  type="button"
+                  onClick={() => toggleSection('pinned')}
+                  className="w-full px-3 py-1.5 flex items-center gap-1.5 hover:bg-theme-surface-hover/50 transition-colors"
+                >
+                  <ChevronRight className={`h-3 w-3 text-theme-text-tertiary transition-transform ${collapsedSections.pinned ? '' : 'rotate-90'}`} />
+                  <Pin className="h-3 w-3 text-theme-text-tertiary" />
                   <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
                     Pinned
                   </span>
-                </div>
-                {pinnedConversations.map(renderConversationItem)}
+                  <span className="text-[9px] text-theme-text-tertiary ml-auto">{pinnedConversations.length}</span>
+                </button>
+                {!collapsedSections.pinned && pinnedConversations.map(renderConversationItem)}
               </div>
             )}
 
             {/* Unpinned / recent section */}
             {unpinnedConversations.length > 0 && (
               <div>
-                {(pinnedConversations.length > 0 || conciergeConversations.length > 0 || workspaceConversations.length > 0) && (
-                  <div className="px-3 py-1.5 border-t border-theme">
-                    <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
-                      Recent
-                    </span>
-                  </div>
+                {(pinnedConversations.length > 0 || conciergeConversations.length > 0 || workspaceConversations.length > 0 || channels.length > 0) && (
+                  <div className="border-t border-theme" />
                 )}
-                {unpinnedConversations.map(renderConversationItem)}
+                <button
+                  type="button"
+                  onClick={() => toggleSection('recent')}
+                  className="w-full px-3 py-1.5 flex items-center gap-1.5 hover:bg-theme-surface-hover/50 transition-colors"
+                >
+                  <ChevronRight className={`h-3 w-3 text-theme-text-tertiary transition-transform ${collapsedSections.recent ? '' : 'rotate-90'}`} />
+                  <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
+                    Recent
+                  </span>
+                  <span className="text-[9px] text-theme-text-tertiary ml-auto">{unpinnedConversations.length}</span>
+                </button>
+                {!collapsedSections.recent && unpinnedConversations.map(renderConversationItem)}
               </div>
             )}
           </>

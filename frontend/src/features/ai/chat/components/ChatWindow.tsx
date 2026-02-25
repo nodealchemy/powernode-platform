@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { AgentConversationComponent } from '@/features/ai/components/AgentConversationComponent';
+import { ChannelConversationComponent } from './ChannelConversationComponent';
 import { ChatWindowHeader } from './ChatWindowHeader';
 import { ConversationCreator } from './ConversationCreator';
 import { ChatWindowSidebar } from './ChatWindowSidebar';
@@ -70,14 +71,23 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ onDragStart }) => {
           /* Floating mode: single panel, no tabs */
           <div className="flex-1 flex flex-col min-w-0">
             <div className="flex-1 relative overflow-hidden">
-              {hasNoTabs || !activeConv ? (
+              {hasNoTabs || (!activeConv && !activeTab?.isChannel) ? (
                 <ConversationCreator onComplete={() => {}} />
-              ) : (
+              ) : activeTab?.isChannel && activeTab.channelId && activeTab.teamId ? (
+                <ChannelConversationComponent
+                  key={activeTab.channelId}
+                  teamId={activeTab.teamId}
+                  channelId={activeTab.channelId}
+                  channelName={activeTab.channelName}
+                />
+              ) : activeConv ? (
                 <AgentConversationComponent
                   key={activeConv.id}
                   conversation={activeConv}
                   onNewMessage={() => handleNewMessage(activeTab!.id)}
                 />
+              ) : (
+                <ConversationCreator onComplete={() => {}} />
               )}
             </div>
           </div>

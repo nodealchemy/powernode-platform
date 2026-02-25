@@ -1,5 +1,6 @@
 import React, { useCallback, useRef, useEffect, useMemo } from 'react';
 import { AgentConversationComponent } from '@/features/ai/components/AgentConversationComponent';
+import { ChannelConversationComponent } from './ChannelConversationComponent';
 import { ConversationCreator } from './ConversationCreator';
 import { useChatWindow } from '../context/ChatWindowContext';
 import type { AiConversation } from '@/shared/types/ai';
@@ -139,14 +140,23 @@ export const SplitPanelContainer: React.FC = () => {
             >
               {/* Panel content */}
               <div className="flex-1 relative overflow-hidden">
-                {hasNoTabs || !conv || !activeTabInPanel ? (
+                {hasNoTabs || (!conv && !activeTabInPanel?.isChannel) || !activeTabInPanel ? (
                   <ConversationCreator onComplete={() => {}} />
-                ) : (
+                ) : activeTabInPanel.isChannel && activeTabInPanel.channelId && activeTabInPanel.teamId ? (
+                  <ChannelConversationComponent
+                    key={activeTabInPanel.channelId}
+                    teamId={activeTabInPanel.teamId}
+                    channelId={activeTabInPanel.channelId}
+                    channelName={activeTabInPanel.channelName}
+                  />
+                ) : conv ? (
                   <AgentConversationComponent
                     key={conv.id}
                     conversation={conv}
                     onNewMessage={() => handleNewMessage(activeTabInPanel.id)}
                   />
+                ) : (
+                  <ConversationCreator onComplete={() => {}} />
                 )}
               </div>
             </div>

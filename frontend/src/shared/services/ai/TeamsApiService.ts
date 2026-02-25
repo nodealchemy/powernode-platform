@@ -301,6 +301,37 @@ export interface TeamAnalytics {
   quality: AnalyticsQuality;
 }
 
+// ============================================================================
+// Channel Chat Integration Types
+// ============================================================================
+
+export interface TeamChannelSidebarItem {
+  id: string;
+  name: string;
+  channel_type: string;
+  description: string | null;
+  message_count: number;
+  is_persistent: boolean;
+  team: { id: string; name: string };
+  has_active_execution: boolean;
+  last_activity_at: string | null;
+  linked_platforms: string[];
+}
+
+export interface TeamChannelMessage {
+  id: string;
+  content: string;
+  message_type: string;
+  priority: string;
+  from_role: { id: string; role_name: string; agent_name: string | null } | null;
+  to_role: { id: string; role_name: string; agent_name: string | null } | null;
+  user: { id: string; name: string; email: string } | null;
+  requires_response: boolean;
+  responded_at: string | null;
+  sequence_number: number;
+  created_at: string;
+}
+
 export interface TeamFilters extends QueryFilters {
   status?: string;
   topology?: string;
@@ -884,6 +915,60 @@ class TeamsApiService extends BaseApiService {
       `${this.basePath}/${teamId}/review_config`,
       config
     );
+  }
+
+  // ============================================================================
+  // Channel Chat Integration
+  // ============================================================================
+
+  async listMyChannels(): Promise<{ channels: TeamChannelSidebarItem[] }> {
+    return this.get('/ai/channels');
+  }
+
+  async listChannelMessages(
+    teamId: string,
+    channelId: string,
+    options?: { limit?: number; after?: number }
+  ): Promise<{ messages: TeamChannelMessage[] }> {
+    const params = new URLSearchParams();
+    if (options?.limit) params.set('limit', String(options.limit));
+    if (options?.after) params.set('after', String(options.after));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return this.get(`${this.basePath}/${teamId}/channels/${channelId}/messages${qs}`);
+  }
+
+  async sendChannelMessage(
+    teamId: string,
+    channelId: string,
+    content: string,
+    priority?: string
+  ): Promise<TeamChannelMessage> {
+    return this.post(`${this.basePath}/${teamId}/channels/${channelId}/messages`, {
+      content,
+      ...(priority && { priority }),
+    });
+  }
+
+  async linkChatChannel(
+    teamId: string,
+    channelId: string,
+    chatChannelId: string,
+    direction?: string
+  ): Promise<{ chat_channel_id: string; platform: string; bridge_direction: string; linked: boolean }> {
+    return this.post(`${this.basePath}/${teamId}/channels/${channelId}/link`, {
+      chat_channel_id: chatChannelId,
+      ...(direction && { direction }),
+    });
+  }
+
+  async unlinkChatChannel(
+    teamId: string,
+    channelId: string,
+    chatChannelId: string
+  ): Promise<{ chat_channel_id: string; linked: boolean }> {
+    return this.delete(`${this.basePath}/${teamId}/channels/${channelId}/unlink`, {
+      data: { chat_channel_id: chatChannelId },
+    });
   }
 }
 

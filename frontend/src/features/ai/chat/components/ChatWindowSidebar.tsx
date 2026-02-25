@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { ConversationSidebar } from './ConversationSidebar';
 import { AgentSelector } from './AgentSelector';
@@ -7,13 +7,15 @@ import { useConversations } from '../hooks/useConversations';
 import { useChatWindow } from '../context/ChatWindowContext';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { logger } from '@/shared/utils/logger';
+import { teamsApi } from '@/shared/services/ai/TeamsApiService';
+import type { TeamChannelSidebarItem } from '@/shared/services/ai/TeamsApiService';
 
 type StatusFilter = 'all' | 'active' | 'archived';
 type SearchMode = 'title' | 'messages';
 type SortOption = 'last_activity' | 'created_at' | 'message_count';
 
 export const ChatWindowSidebar: React.FC = () => {
-  const { state, dispatch, openConversation, openConcierge } = useChatWindow();
+  const { state, dispatch, openConversation, openConcierge, openChannel } = useChatWindow();
   const { addNotification } = useNotifications();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortBy, setSortBy] = useState<SortOption>('last_activity');
@@ -22,6 +24,14 @@ export const ChatWindowSidebar: React.FC = () => {
   const [showWorkspaceCreator, setShowWorkspaceCreator] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState('');
   const [conciergeLoading, setConciergeLoading] = useState(false);
+  const [channels, setChannels] = useState<TeamChannelSidebarItem[]>([]);
+
+  // Fetch team channels on mount
+  useEffect(() => {
+    teamsApi.listMyChannels()
+      .then(({ channels: chs }) => setChannels(chs))
+      .catch((err) => logger.error('Failed to load team channels', err));
+  }, []);
 
   const {
     conversations,
@@ -39,11 +49,16 @@ export const ChatWindowSidebar: React.FC = () => {
     initialFilters: statusFilter !== 'all' ? { status: statusFilter } : undefined,
   });
 
-  // Derive active conversation ID from the global activeTabId (same source as ChatWindow)
+  // Derive active conversation ID and channel ID from the active tab
   const activeTab = state.activeTabId
     ? state.tabs.find(t => t.id === state.activeTabId)
     : null;
-  const activeConversationId = activeTab?.conversationId ?? null;
+  const activeConversationId = activeTab?.isChannel ? null : (activeTab?.conversationId ?? null);
+  const activeChannelId = activeTab?.isChannel ? activeTab.channelId : null;
+
+  const handleSelectChannel = useCallback((channel: TeamChannelSidebarItem) => {
+    openChannel(channel.id, channel.name, channel.team.id, channel.team.name);
+  }, [openChannel]);
 
   // Split conversations into workspace vs regular for the sidebar sections
   const workspaceConversations = conversations.filter(c => c.conversation_type === 'team' && c.agent_team?.team_type === 'workspace');
@@ -146,6 +161,9 @@ export const ChatWindowSidebar: React.FC = () => {
         onSortChange={handleSortChange}
         searchMode={searchMode}
         onSearchModeChange={setSearchMode}
+        channels={channels}
+        activeChannelId={activeChannelId}
+        onSelectChannel={handleSelectChannel}
       />
 
       {/* Agent selector modal overlay */}

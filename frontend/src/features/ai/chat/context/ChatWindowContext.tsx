@@ -236,6 +236,42 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
     }
   }, [state.mode, addNotification]);
 
+  const openChannel = useCallback((channelId: string, channelName: string, teamId: string, teamName: string) => {
+    const tabId = `tab-channel-${channelId}`;
+    const existing = state.tabs.find(t => t.id === tabId);
+    if (existing) {
+      dispatch({ type: 'SWITCH_TAB', payload: tabId });
+      if (state.mode === 'closed') {
+        dispatch({ type: 'SET_MODE', payload: state.preferredOpenMode });
+      }
+      return;
+    }
+
+    const tab: ChatTab = {
+      id: tabId,
+      conversationId: channelId, // used as unique key
+      agentId: '',
+      agentName: teamName,
+      title: `${teamName} / ${channelName}`,
+      unreadCount: 0,
+      createdAt: Date.now(),
+      isChannel: true,
+      channelId,
+      channelName,
+      teamId,
+    };
+
+    dispatch({ type: 'OPEN_TAB', payload: tab });
+
+    if (state.mode === 'closed') {
+      dispatch({ type: 'SET_MODE', payload: state.preferredOpenMode });
+    }
+
+    if (state.mode === 'detached') {
+      broadcastRef.current?.send({ type: 'open_tab', payload: tab });
+    }
+  }, [state.mode, state.preferredOpenMode, state.tabs]);
+
   const closeTab = useCallback((tabId: string) => {
     dispatch({ type: 'CLOSE_TAB', payload: tabId });
   }, []);
@@ -327,6 +363,7 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
     openConversation,
     openConversationMaximized,
     openConcierge,
+    openChannel,
     openInNewTab,
     closeTab,
     switchTab,
