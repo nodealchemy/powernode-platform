@@ -112,6 +112,7 @@ module Mcp
           content: data[:content],
           slug: data[:slug], # Will be auto-generated if nil
           status: data[:status],
+          account: author.account,
           author_id: author.id,
           meta_description: data[:meta_description],
           meta_keywords: data[:meta_keywords]

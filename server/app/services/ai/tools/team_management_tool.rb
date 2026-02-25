@@ -136,9 +136,22 @@ module Ai
 
       def execute_team(params)
         team = resolve_team(params[:team_id])
-        { success: true, team_id: team.id, status: "execution_queued", message: "Team execution queued" }
+        input = params[:input] || {}
+        input = input.stringify_keys if input.respond_to?(:stringify_keys)
+        triggered_by = user || account.users.first
+
+        WorkerJobService.enqueue_ai_team_execution(
+          team_id: team.id,
+          user_id: triggered_by&.id,
+          input: input,
+          context: { "source" => "mcp_tool", "triggered_at" => Time.current.iso8601 }
+        )
+
+        { success: true, team_id: team.id, status: "execution_dispatched", message: "Team execution dispatched to worker" }
       rescue ActiveRecord::RecordNotFound
         { success: false, error: "Team not found" }
+      rescue WorkerJobService::WorkerServiceError => e
+        { success: false, error: "Failed to dispatch team execution: #{e.message}" }
       end
 
       def get_team(params)

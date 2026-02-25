@@ -101,7 +101,9 @@ module Ai
           status: params[:status] || "draft",
           slug: params[:slug].presence || PageService.generate_slug(params[:title]),
           meta_description: params[:meta_description],
-          meta_keywords: params[:meta_keywords]
+          meta_keywords: params[:meta_keywords],
+          account: @account || Account.first,
+          author_id: @user&.id || User.first&.id
         )
         { success: true, page_id: page.id, slug: page.slug, title: page.title }
       rescue ActiveRecord::RecordInvalid => e

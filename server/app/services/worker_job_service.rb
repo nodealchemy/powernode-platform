@@ -97,6 +97,16 @@ class WorkerJobService
       })
     end
 
+    # Enqueue AI team execution job
+    def enqueue_ai_team_execution(team_id:, user_id:, input: {}, context: {})
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiTeamExecutionJob",
+        "args" => [{ "team_id" => team_id, "user_id" => user_id, "input" => input, "context" => context }],
+        "queue" => "ai_agents",
+        "options" => { "retry" => 3 }
+      })
+    end
+
     # Enqueue billing automation job
     def enqueue_billing_automation(subscription_id = nil, delay: 0)
       return nil unless Shared::FeatureGateService.billing_enabled?

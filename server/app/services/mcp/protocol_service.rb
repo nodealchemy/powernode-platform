@@ -438,7 +438,7 @@ module Mcp
 
     case tool_type
     when "ai_agent"
-      agent_id = tool_manifest["metadata"]["agent_id"]
+      agent_id = tool_manifest["agent_id"] || tool_manifest.dig("metadata", "powernode_agent_id") || tool_manifest.dig("metadata", "agent_id")
       agent = @account.ai_agents.find(agent_id)
       executor = Ai::McpAgentExecutor.new(agent: agent, account: @account)
       executor.execute(params)

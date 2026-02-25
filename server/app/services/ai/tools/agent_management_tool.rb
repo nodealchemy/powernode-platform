@@ -121,7 +121,25 @@ module Ai
           }
         end
 
-        { success: true, agent_id: agent.id, status: "execution_queued", message: "Agent execution queued" }
+        input_params = params[:input] || {}
+        input_params = input_params.stringify_keys if input_params.respond_to?(:stringify_keys)
+
+        execution = Ai::AgentExecution.create!(
+          account: account,
+          agent: agent,
+          user: user || account.users.first,
+          provider: agent.provider,
+          input_parameters: input_params,
+          status: "pending",
+          execution_id: SecureRandom.uuid,
+          execution_context: { "source" => "mcp_tool", "triggered_at" => Time.current.iso8601 }
+        )
+
+        WorkerJobService.enqueue_ai_agent_execution(execution.id)
+
+        { success: true, agent_id: agent.id, execution_id: execution.id, status: "execution_dispatched", message: "Agent execution dispatched to worker" }
+      rescue WorkerJobService::WorkerServiceError => e
+        { success: false, error: "Failed to dispatch execution: #{e.message}" }
       end
 
       def get_agent(params)
