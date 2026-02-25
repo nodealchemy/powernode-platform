@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Send, Loader2, MessageSquareReply, ArrowLeft, Bot, User } from 'lucide-react';
+import { X, Send, Loader2, MessageSquareReply, ArrowLeft } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { Avatar } from '@/shared/components/ui/Avatar';
 import { Button } from '@/shared/components/ui/Button';
+import { MessageAvatar } from '@/features/ai/components/conversation/MessageAvatar';
+import { AgentBadge, getAgentNameColorClass } from '@/features/ai/components/conversation/AgentBadge';
 import type { AiMessage } from '@/shared/types/ai';
 
 interface MessageThreadProps {
@@ -57,15 +58,14 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
 
     return (
       <div key={msg.id} className="flex gap-2.5 px-3 py-2">
-        <Avatar size="sm" fallback={isUser ? 'U' : 'AI'} className="flex-shrink-0 mt-0.5">
-          {isUser ? <User className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
-        </Avatar>
+        <MessageAvatar senderType={msg.sender_type} agentType={msg.sender_info?.agent_type} />
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-xs font-semibold text-theme-primary">
+            <span className={`text-xs font-semibold ${getAgentNameColorClass(isUser ? undefined : msg.sender_info?.agent_type)}`}>
               {msg.sender_info?.name || (isUser ? 'You' : 'AI Assistant')}
             </span>
+            {!isUser && <AgentBadge agentType={msg.sender_info?.agent_type} />}
             <span className="text-[10px] text-theme-text-tertiary">
               {formatTime(msg.created_at)}
             </span>
@@ -116,9 +116,10 @@ export const MessageThread: React.FC<MessageThreadProps> = ({
       {/* Parent message */}
       <div className="px-3 py-2.5 border-b border-theme bg-theme-surface-secondary/50">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-xs font-semibold text-theme-primary">
+          <span className={`text-xs font-semibold ${getAgentNameColorClass(parentMessage.sender_type === 'user' ? undefined : parentMessage.sender_info?.agent_type)}`}>
             {parentMessage.sender_info?.name || (parentMessage.sender_type === 'user' ? 'You' : 'AI Assistant')}
           </span>
+          {parentMessage.sender_type !== 'user' && <AgentBadge agentType={parentMessage.sender_info?.agent_type} />}
           <span className="text-[10px] text-theme-text-tertiary">
             {formatTime(parentMessage.created_at)}
           </span>

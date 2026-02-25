@@ -4,7 +4,6 @@ import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import {
   Bot,
-  User,
   Copy,
   ThumbsUp,
   ThumbsDown,
@@ -16,10 +15,11 @@ import {
   MessageSquareReply,
   Pencil,
   Trash2,
-  Terminal,
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Avatar } from '@/shared/components/ui/Avatar';
+import { MessageAvatar } from './MessageAvatar';
+import { SenderHeader } from './SenderHeader';
 import { DropdownMenu } from '@/shared/components/ui/DropdownMenu';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { ChatStreamingRenderer } from '@/features/ai/chat/components/ChatStreamingRenderer';
@@ -207,44 +207,17 @@ export const MessageList = React.memo<MessageListProps>(({
         className="group flex gap-3 flex-row"
       >
         <div className="flex-shrink-0 flex items-start justify-center">
-          <Avatar
-            className={`h-8 w-8 flex items-center justify-center ${
-              isUser
-                ? 'bg-theme-primary text-white'
-                : 'bg-theme-surface border border-theme text-theme-primary'
-            }`}
-            aria-hidden="true"
-          >
-            <div className="flex items-center justify-center w-full h-full">
-              {isUser ? (
-                <User className="h-4 w-4" aria-hidden="true" />
-              ) : message.sender_info?.agent_type === 'mcp_client' ? (
-                <Terminal className="h-4 w-4" aria-hidden="true" />
-              ) : (
-                <Bot className="h-4 w-4" aria-hidden="true" />
-              )}
-            </div>
-          </Avatar>
+          <MessageAvatar senderType={message.sender_type} agentType={message.sender_info?.agent_type} />
         </div>
 
         <div className="flex-1 max-w-[85%] sm:max-w-[80%] flex flex-col items-start">
-          <div className="flex items-center gap-2 mb-2 flex-row">
-            <span className="text-sm font-semibold text-theme-primary">
-              {message.sender_info?.name || (isUser ? 'You' : 'AI Assistant')}
-            </span>
-            {message.sender_info?.agent_type === 'mcp_client' && (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-theme-info/10 text-theme-info rounded-full">
-                <Terminal className="h-2.5 w-2.5" aria-hidden="true" />
-                MCP
-              </span>
-            )}
-            <span className="text-xs text-theme-secondary">
-              {formatTimestamp(message.created_at)}
-            </span>
-            {message.is_edited && (
-              <span className="text-[10px] text-theme-text-tertiary italic">(edited)</span>
-            )}
-          </div>
+          <SenderHeader
+            name={message.sender_info?.name || (isUser ? 'You' : 'AI Assistant')}
+            agentType={isUser ? undefined : message.sender_info?.agent_type}
+            timestamp={message.created_at}
+            isEdited={message.is_edited}
+            formatTimestamp={formatTimestamp}
+          />
 
           {isEditing ? (
             <div className="w-full">
@@ -258,9 +231,7 @@ export const MessageList = React.memo<MessageListProps>(({
           ) : (
             <div
               className={`rounded-2xl px-4 py-3 max-w-full shadow-md ${
-                isUser
-                  ? 'bg-theme-info text-white rounded-bl-md'
-                  : hasError
+                hasError
                   ? 'bg-theme-danger/10 dark:bg-theme-danger/20 border border-theme-danger/30 dark:border-theme-danger/50 text-theme-danger dark:text-theme-danger rounded-bl-md'
                   : 'bg-theme-surface border border-theme text-theme-primary rounded-bl-md'
               }`}
