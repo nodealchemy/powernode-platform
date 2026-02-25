@@ -257,42 +257,30 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
 
       const response = await agentsApi.sendMessage(agentId, conversation.id, messagePayload);
 
-      const userMsg: AiMessage = {
-        id: response.user_message?.id || optimisticMessage.id,
-        sender_type: 'user',
-        sender_info: { name: currentUser.name || 'You' },
-        content: response.user_message?.content || messageContent,
-        created_at: response.user_message?.created_at || new Date().toISOString(),
-        metadata: { timestamp: response.user_message?.created_at || new Date().toISOString() }
-      };
+      // Don't construct user message from HTTP response — let WebSocket deliver it
+      // with full metadata (mentions, content_metadata). The optimistic message will
+      // be replaced by the WebSocket message_created event via content matching.
 
-      setMessages(prev => {
-        const withoutOptimistic = prev.filter(msg => msg.id !== optimisticMessage.id);
-
-        // Dedup: WebSocket may have already delivered these before the HTTP response
-        const hasUserMsg = withoutOptimistic.some(msg => msg.id === userMsg.id);
-        const newMessages = hasUserMsg ? [...withoutOptimistic] : [...withoutOptimistic, userMsg];
-
-        if (response.assistant_message) {
+      // Only handle the assistant message from the HTTP response (concierge sync path)
+      if (response.assistant_message) {
+        const assistantMessage = response.assistant_message;
+        setMessages(prev => {
           const assistantMsg: AiMessage = {
-            id: response.assistant_message.id,
+            id: assistantMessage.id,
             sender_type: 'ai',
             sender_info: { name: 'AI Assistant' },
-            content: cleanStreamingContent(response.assistant_message.content || ''),
-            created_at: response.assistant_message.created_at || new Date().toISOString(),
+            content: cleanStreamingContent(assistantMessage.content || ''),
+            created_at: assistantMessage.created_at || new Date().toISOString(),
             metadata: {
-              timestamp: response.assistant_message.created_at || new Date().toISOString(),
-              tokens_used: response.assistant_message.token_count,
-              cost_estimate: parseFloat(response.assistant_message.cost_usd) || 0
+              timestamp: assistantMessage.created_at || new Date().toISOString(),
+              tokens_used: assistantMessage.token_count,
+              cost_estimate: parseFloat(assistantMessage.cost_usd) || 0
             }
           };
-          if (!newMessages.some(msg => msg.id === assistantMsg.id)) {
-            newMessages.push(assistantMsg);
-          }
-        }
-
-        return newMessages;
-      });
+          if (prev.some(msg => msg.id === assistantMsg.id)) return prev;
+          return [...prev, assistantMsg];
+        });
+      }
 
       // For concierge-routed responses, re-map the assistant message with full metadata
       if (response.concierge_routed && response.assistant_message) {
