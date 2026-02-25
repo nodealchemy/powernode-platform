@@ -31,10 +31,10 @@ log_error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 detect_compose_file() {
     if [[ -n "${COMPOSE_FILE:-}" ]]; then
         echo "${COMPOSE_FILE}"
-    elif [[ -f "${PROJECT_ROOT}/docker-compose.prod.yml" ]] && [[ "${POWERNODE_ENV:-}" == "production" ]]; then
-        echo "${PROJECT_ROOT}/docker-compose.prod.yml"
+    elif [[ -f "${PROJECT_ROOT}/docker/docker-compose.prod.yml" ]] && [[ "${POWERNODE_ENV:-}" == "production" ]]; then
+        echo "${PROJECT_ROOT}/docker/docker-compose.prod.yml"
     else
-        echo "${PROJECT_ROOT}/docker-compose.yml"
+        echo "${PROJECT_ROOT}/docker/docker-compose.yml"
     fi
 }
 
@@ -157,7 +157,7 @@ cmd_rollback() {
 
     log_warn "To rollback, re-deploy with the previous version tag:"
     echo "  scripts/docker/powernode-build.sh --tag <previous-version>"
-    echo "  docker compose -f docker-compose.prod.yml up -d"
+    echo "  docker compose -f docker/docker-compose.prod.yml up -d"
 }
 
 cmd_exec() {

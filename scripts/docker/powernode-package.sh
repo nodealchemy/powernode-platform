@@ -63,7 +63,7 @@ cmd_create() {
 
     # Copy deployment files
     log_info "Packaging deployment files..."
-    cp "${PROJECT_ROOT}/docker-compose.prod.yml" "${pkg_dir}/docker-compose.yml"
+    cp "${PROJECT_ROOT}/docker/docker-compose.prod.yml" "${pkg_dir}/docker-compose.yml"
     cp -r "${PROJECT_ROOT}/docker/swarm" "${pkg_dir}/swarm" 2>/dev/null || true
     cp "${PROJECT_ROOT}/scripts/deployment/deploy.sh" "${pkg_dir}/" 2>/dev/null || true
     cp "${PROJECT_ROOT}/scripts/deployment/health-check.sh" "${pkg_dir}/" 2>/dev/null || true
