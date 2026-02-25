@@ -249,7 +249,7 @@ RSpec.describe 'Api::V1::Devops::PromptTemplates', type: :request do
       end
 
       it 'prevents deletion when in use by pipeline steps' do
-        allow_any_instance_of(Shared::PromptTemplate).to receive_message_chain(:ci_cd_pipeline_steps, :exists?).and_return(true)
+        allow_any_instance_of(Shared::PromptTemplate).to receive_message_chain(:devops_pipeline_steps, :exists?).and_return(true)
 
         delete "/api/v1/devops/prompt_templates/#{prompt_template.id}", headers: headers, as: :json
 

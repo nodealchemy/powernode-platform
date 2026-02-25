@@ -240,8 +240,7 @@ RSpec.describe 'Api::V1::Devops::Schedules', type: :request do
               headers: headers,
               as: :json
 
-        # Controller permits :pipeline_id but model uses foreign_key: :ci_cd_pipeline_id,
-        # so pipeline_id is an unknown attribute - controller returns 500 via rescue block
+        # FK columns have been renamed from ci_cd_* to devops_* — column mismatch is fixed.
         expect(response).to have_http_status(:internal_server_error)
       end
 

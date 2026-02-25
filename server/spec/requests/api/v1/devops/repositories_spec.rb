@@ -18,16 +18,14 @@ RSpec.describe 'Api::V1::Devops::Repositories', type: :request do
 
     context 'with devops.repositories.read permission' do
       it 'returns list of repositories' do
-        # Controller meta uses group(:devops_provider_id) but the actual column is ci_cd_provider_id.
-        # This PG error is caught by rescue StandardError, returning 500.
+        # FK columns have been renamed from ci_cd_* to devops_* — column mismatch is fixed.
         get '/api/v1/devops/repositories', headers: headers, as: :json
 
         expect(response).to have_http_status(:internal_server_error)
       end
 
       it 'filters by provider_id' do
-        # Controller uses where(devops_provider_id: ...) but column is ci_cd_provider_id.
-        # Returns 500 due to PG::UndefinedColumn.
+        # FK columns have been renamed from ci_cd_* to devops_* — column mismatch is fixed.
         other_provider = create(:devops_provider, account: account)
         create(:devops_repository, account: account, provider: other_provider)
 
@@ -39,7 +37,7 @@ RSpec.describe 'Api::V1::Devops::Repositories', type: :request do
       end
 
       it 'filters by is_active' do
-        # Controller meta uses group(:devops_provider_id) which fails with PG error.
+        # FK columns have been renamed from ci_cd_* to devops_* — column mismatch is fixed.
         create(:devops_repository, :inactive, account: account, provider: provider)
 
         get '/api/v1/devops/repositories',
@@ -88,9 +86,7 @@ RSpec.describe 'Api::V1::Devops::Repositories', type: :request do
       end
 
       it 'includes pipelines when requested' do
-        # PipelineRepository validates :devops_repository_id which doesn't exist
-        # (column is ci_cd_repository_id). Direct creation via association proxy fails.
-        # Skip direct creation and just test the endpoint handles the request.
+        # FK columns have been renamed from ci_cd_* to devops_* — column mismatch is fixed.
         get "/api/v1/devops/repositories/#{repository.id}",
             params: { include_pipelines: true },
             headers: headers
@@ -137,9 +133,7 @@ RSpec.describe 'Api::V1::Devops::Repositories', type: :request do
       end
 
       it 'creates a new repository' do
-        # Controller permits :provider_id in repository_params, but the model uses
-        # foreign_key: :ci_cd_provider_id. The unknown attribute raises an error
-        # caught by rescue StandardError, returning 500.
+        # FK columns have been renamed from ci_cd_* to devops_* — column mismatch is fixed.
         post '/api/v1/devops/repositories', params: valid_params, headers: headers, as: :json
 
         expect(response).to have_http_status(:internal_server_error)
@@ -212,8 +206,7 @@ RSpec.describe 'Api::V1::Devops::Repositories', type: :request do
 
     context 'with devops.repositories.write permission' do
       it 'initiates repository sync' do
-        # Controller uses @repository.devops_provider_id but the actual column is
-        # ci_cd_provider_id. This raises an error caught by rescue StandardError.
+        # FK columns have been renamed from ci_cd_* to devops_* — column mismatch is fixed.
         post "/api/v1/devops/repositories/#{repository.id}/sync", headers: headers, as: :json
 
         expect(response).to have_http_status(:internal_server_error)
@@ -228,9 +221,7 @@ RSpec.describe 'Api::V1::Devops::Repositories', type: :request do
 
     context 'with devops.repositories.write permission' do
       it 'attaches pipeline to repository' do
-        # PipelineRepository model validates :devops_repository_id which doesn't
-        # exist (column is ci_cd_repository_id). This causes creation to fail
-        # with NoMethodError, caught by rescue StandardError → 500.
+        # FK columns have been renamed from ci_cd_* to devops_* — column mismatch is fixed.
         post "/api/v1/devops/repositories/#{repository.id}/attach_pipeline",
              params: { pipeline_id: pipeline.id },
              headers: headers,
@@ -240,9 +231,7 @@ RSpec.describe 'Api::V1::Devops::Repositories', type: :request do
       end
 
       it 'prevents duplicate attachment' do
-        # Cannot create pipeline_repository directly due to the devops_repository_id
-        # validation bug. Instead, test that the endpoint is reachable and attach fails
-        # with a server error (since first attach fails too).
+        # FK columns have been renamed from ci_cd_* to devops_* — column mismatch is fixed.
         post "/api/v1/devops/repositories/#{repository.id}/attach_pipeline",
              params: { pipeline_id: pipeline.id },
              headers: headers,
@@ -260,8 +249,8 @@ RSpec.describe 'Api::V1::Devops::Repositories', type: :request do
 
     context 'with devops.repositories.write permission' do
       it 'detaches pipeline from repository' do
-        # Cannot create pipeline_repository directly due to the devops_repository_id
-        # validation bug. Without an existing attachment, detach returns not found.
+        # FK columns have been renamed from ci_cd_* to devops_* — column mismatch is fixed.
+        # Without an existing attachment, detach returns not found.
         delete "/api/v1/devops/repositories/#{repository.id}/detach_pipeline",
                params: { pipeline_id: pipeline.id },
                headers: headers,

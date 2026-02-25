@@ -194,7 +194,7 @@ RSpec.describe 'Api::V1::Ai::PromptTemplates', type: :request do
       it 'deletes the prompt template when not in use' do
         allow_any_instance_of(Shared::PromptTemplate).to receive_message_chain(:ai_workflow_nodes, :exists?)
           .and_return(false)
-        allow_any_instance_of(Shared::PromptTemplate).to receive_message_chain(:ci_cd_pipeline_steps, :exists?)
+        allow_any_instance_of(Shared::PromptTemplate).to receive_message_chain(:devops_pipeline_steps, :exists?)
           .and_return(false)
 
         expect {
@@ -217,7 +217,7 @@ RSpec.describe 'Api::V1::Ai::PromptTemplates', type: :request do
       it 'returns error when template is in use by pipeline steps' do
         allow_any_instance_of(Shared::PromptTemplate).to receive_message_chain(:ai_workflow_nodes, :exists?)
           .and_return(false)
-        allow_any_instance_of(Shared::PromptTemplate).to receive_message_chain(:ci_cd_pipeline_steps, :exists?)
+        allow_any_instance_of(Shared::PromptTemplate).to receive_message_chain(:devops_pipeline_steps, :exists?)
           .and_return(true)
 
         delete "/api/v1/ai/prompt_templates/#{template.id}", headers: headers, as: :json
