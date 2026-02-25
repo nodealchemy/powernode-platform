@@ -486,7 +486,7 @@ module Ai
           ## Migration Conventions
           - UUIDv7 primary keys on all tables
           - Never separate `add_index` for `t.references` — use inline `index:` option
-          - Namespace FK prefixes: `Ai::` → `ai_`, `Devops::` → `ci_cd_`, `BaaS::` → `baas_`
+          - Namespace FK prefixes: `Ai::` → `ai_`, `Devops::` → `devops_`, `BaaS::` → `baas_`
           - Named routes before `/:id` to avoid matching conflicts
 
           ## Git Conventions
