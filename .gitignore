@@ -52,6 +52,7 @@ encryption.key
 
 # API keys and tokens
 *secret*
+!**/secret_manager.rb
 *private*
 *.token
 *.tokens
