@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_25_072100) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_25_073000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -5943,21 +5943,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_25_072100) do
   end
 
   create_table "devops_pipeline_repositories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ci_cd_pipeline_id", null: false
-    t.uuid "ci_cd_repository_id", null: false
     t.datetime "created_at", null: false
+    t.uuid "devops_pipeline_id", null: false
+    t.uuid "devops_repository_id", null: false
     t.jsonb "overrides", default: {}, null: false
     t.datetime "updated_at", null: false
-    t.index ["ci_cd_pipeline_id", "ci_cd_repository_id"], name: "idx_pipeline_repos_on_pipeline_and_repo", unique: true
-    t.index ["ci_cd_pipeline_id"], name: "index_devops_pipeline_repositories_on_ci_cd_pipeline_id"
-    t.index ["ci_cd_repository_id"], name: "index_devops_pipeline_repositories_on_ci_cd_repository_id"
+    t.index ["devops_pipeline_id", "devops_repository_id"], name: "idx_pipeline_repos_on_pipeline_and_repo", unique: true
+    t.index ["devops_pipeline_id"], name: "index_devops_pipeline_repositories_on_devops_pipeline_id"
+    t.index ["devops_repository_id"], name: "index_devops_pipeline_repositories_on_devops_repository_id"
   end
 
   create_table "devops_pipeline_runs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.jsonb "artifacts", default: [], null: false
-    t.uuid "ci_cd_pipeline_id", null: false
     t.datetime "completed_at"
     t.datetime "created_at", null: false
+    t.uuid "devops_pipeline_id", null: false
     t.integer "duration_seconds"
     t.text "error_message"
     t.string "external_run_id"
@@ -5970,20 +5970,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_25_072100) do
     t.string "trigger_type", null: false
     t.uuid "triggered_by_id"
     t.datetime "updated_at", null: false
-    t.index ["ci_cd_pipeline_id", "run_number"], name: "index_devops_pipeline_runs_on_ci_cd_pipeline_id_and_run_number", unique: true
-    t.index ["ci_cd_pipeline_id", "status"], name: "index_devops_pipeline_runs_on_ci_cd_pipeline_id_and_status"
-    t.index ["ci_cd_pipeline_id"], name: "index_devops_pipeline_runs_on_ci_cd_pipeline_id"
+    t.index ["devops_pipeline_id", "run_number"], name: "idx_on_devops_pipeline_id_run_number_fa0f448054", unique: true
+    t.index ["devops_pipeline_id", "status"], name: "index_devops_pipeline_runs_on_devops_pipeline_id_and_status"
+    t.index ["devops_pipeline_id"], name: "index_devops_pipeline_runs_on_devops_pipeline_id"
     t.index ["external_run_id"], name: "index_devops_pipeline_runs_on_external_run_id"
     t.index ["triggered_by_id"], name: "index_devops_pipeline_runs_on_triggered_by_id"
   end
 
   create_table "devops_pipeline_steps", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.jsonb "approval_settings", default: {}, null: false, comment: "Approval config: {\"timeout_hours\": 24, \"notification_recipients\": [], \"require_comment\": false}"
-    t.uuid "ci_cd_pipeline_id", null: false
     t.text "condition"
     t.jsonb "configuration", default: {}, null: false
     t.boolean "continue_on_error", default: false, null: false
     t.datetime "created_at", null: false
+    t.uuid "devops_pipeline_id", null: false
     t.jsonb "inputs", default: {}, null: false
     t.boolean "is_active", default: true, null: false
     t.string "name", null: false
@@ -5993,9 +5993,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_25_072100) do
     t.uuid "shared_prompt_template_id"
     t.string "step_type", null: false
     t.datetime "updated_at", null: false
-    t.index ["ci_cd_pipeline_id", "name"], name: "index_devops_pipeline_steps_on_ci_cd_pipeline_id_and_name", unique: true
-    t.index ["ci_cd_pipeline_id", "position"], name: "index_devops_pipeline_steps_on_ci_cd_pipeline_id_and_position"
-    t.index ["ci_cd_pipeline_id"], name: "index_devops_pipeline_steps_on_ci_cd_pipeline_id"
+    t.index ["devops_pipeline_id", "name"], name: "index_devops_pipeline_steps_on_devops_pipeline_id_and_name", unique: true
+    t.index ["devops_pipeline_id", "position"], name: "index_devops_pipeline_steps_on_devops_pipeline_id_and_position"
+    t.index ["devops_pipeline_id"], name: "index_devops_pipeline_steps_on_devops_pipeline_id"
     t.index ["shared_prompt_template_id"], name: "index_devops_pipeline_steps_on_shared_prompt_template_id"
   end
 
@@ -6047,10 +6047,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_25_072100) do
     t.uuid "account_id", null: false
     t.uuid "ai_provider_id"
     t.boolean "allow_concurrent", default: false, null: false
-    t.uuid "ci_cd_provider_id"
     t.datetime "created_at", null: false
     t.uuid "created_by_id"
     t.text "description"
+    t.uuid "devops_provider_id"
     t.jsonb "environment", default: {}, null: false
     t.jsonb "features", default: {}, null: false
     t.boolean "is_active", default: true, null: false
@@ -6072,8 +6072,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_25_072100) do
     t.index ["account_id", "slug"], name: "index_devops_pipelines_on_account_id_and_slug", unique: true
     t.index ["account_id"], name: "index_devops_pipelines_on_account_id"
     t.index ["ai_provider_id"], name: "index_devops_pipelines_on_ai_provider_id"
-    t.index ["ci_cd_provider_id"], name: "index_devops_pipelines_on_ci_cd_provider_id"
     t.index ["created_by_id"], name: "index_devops_pipelines_on_created_by_id"
+    t.index ["devops_provider_id"], name: "index_devops_pipelines_on_devops_provider_id"
   end
 
   create_table "devops_providers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6100,9 +6100,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_25_072100) do
 
   create_table "devops_repositories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.uuid "ci_cd_provider_id", null: false
     t.datetime "created_at", null: false
     t.string "default_branch", default: "main"
+    t.uuid "devops_provider_id", null: false
     t.string "external_id"
     t.string "full_name", null: false
     t.boolean "is_active", default: true, null: false
@@ -6112,7 +6112,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_25_072100) do
     t.datetime "updated_at", null: false
     t.index ["account_id", "full_name"], name: "index_devops_repositories_on_account_id_and_full_name", unique: true
     t.index ["account_id"], name: "index_devops_repositories_on_account_id"
-    t.index ["ci_cd_provider_id"], name: "index_devops_repositories_on_ci_cd_provider_id"
+    t.index ["devops_provider_id"], name: "index_devops_repositories_on_devops_provider_id"
     t.index ["external_id"], name: "index_devops_repositories_on_external_id"
   end
 
@@ -6139,10 +6139,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_25_072100) do
   end
 
   create_table "devops_schedules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ci_cd_pipeline_id", null: false
     t.datetime "created_at", null: false
     t.uuid "created_by_id"
     t.string "cron_expression", null: false
+    t.uuid "devops_pipeline_id", null: false
     t.jsonb "inputs", default: {}, null: false
     t.boolean "is_active", default: true, null: false
     t.datetime "last_run_at"
@@ -6150,9 +6150,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_25_072100) do
     t.datetime "next_run_at"
     t.string "timezone", default: "UTC"
     t.datetime "updated_at", null: false
-    t.index ["ci_cd_pipeline_id", "is_active"], name: "index_devops_schedules_on_ci_cd_pipeline_id_and_is_active"
-    t.index ["ci_cd_pipeline_id"], name: "index_devops_schedules_on_ci_cd_pipeline_id"
     t.index ["created_by_id"], name: "index_devops_schedules_on_created_by_id"
+    t.index ["devops_pipeline_id", "is_active"], name: "index_devops_schedules_on_devops_pipeline_id_and_is_active"
+    t.index ["devops_pipeline_id"], name: "index_devops_schedules_on_devops_pipeline_id"
     t.index ["next_run_at"], name: "index_devops_schedules_on_next_run_at", where: "(is_active = true)"
   end
 
@@ -6202,10 +6202,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_25_072100) do
   end
 
   create_table "devops_step_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "ci_cd_pipeline_run_id", null: false
-    t.uuid "ci_cd_pipeline_step_id", null: false
     t.datetime "completed_at"
     t.datetime "created_at", null: false
+    t.uuid "devops_pipeline_run_id", null: false
+    t.uuid "devops_pipeline_step_id", null: false
     t.integer "duration_seconds"
     t.text "error_message"
     t.text "logs"
@@ -6213,9 +6213,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_25_072100) do
     t.datetime "started_at"
     t.string "status", default: "pending", null: false
     t.datetime "updated_at", null: false
-    t.index ["ci_cd_pipeline_run_id", "ci_cd_pipeline_step_id"], name: "idx_step_executions_on_run_and_step", unique: true
-    t.index ["ci_cd_pipeline_run_id"], name: "index_devops_step_executions_on_ci_cd_pipeline_run_id"
-    t.index ["ci_cd_pipeline_step_id"], name: "index_devops_step_executions_on_ci_cd_pipeline_step_id"
+    t.index ["devops_pipeline_run_id", "devops_pipeline_step_id"], name: "idx_step_executions_on_run_and_step", unique: true
+    t.index ["devops_pipeline_run_id"], name: "index_devops_step_executions_on_devops_pipeline_run_id"
+    t.index ["devops_pipeline_step_id"], name: "index_devops_step_executions_on_devops_pipeline_step_id"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'waiting_approval'::character varying::text, 'success'::character varying::text, 'failure'::character varying::text, 'skipped'::character varying::text])", name: "ci_cd_step_executions_status_check"
   end
 
@@ -10211,30 +10211,30 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_25_072100) do
   add_foreign_key "devops_integration_instances", "devops_integration_credentials", column: "integration_credential_id"
   add_foreign_key "devops_integration_instances", "devops_integration_templates", column: "integration_template_id"
   add_foreign_key "devops_integration_instances", "users", column: "created_by_user_id"
-  add_foreign_key "devops_pipeline_repositories", "devops_pipelines", column: "ci_cd_pipeline_id", on_delete: :cascade
-  add_foreign_key "devops_pipeline_repositories", "devops_repositories", column: "ci_cd_repository_id", on_delete: :cascade
-  add_foreign_key "devops_pipeline_runs", "devops_pipelines", column: "ci_cd_pipeline_id", on_delete: :cascade
+  add_foreign_key "devops_pipeline_repositories", "devops_pipelines", on_delete: :cascade
+  add_foreign_key "devops_pipeline_repositories", "devops_repositories", on_delete: :cascade
+  add_foreign_key "devops_pipeline_runs", "devops_pipelines", on_delete: :cascade
   add_foreign_key "devops_pipeline_runs", "users", column: "triggered_by_id", on_delete: :nullify
-  add_foreign_key "devops_pipeline_steps", "devops_pipelines", column: "ci_cd_pipeline_id", on_delete: :cascade
+  add_foreign_key "devops_pipeline_steps", "devops_pipelines", on_delete: :cascade
   add_foreign_key "devops_pipeline_steps", "shared_prompt_templates", on_delete: :nullify
   add_foreign_key "devops_pipelines", "accounts", on_delete: :cascade
   add_foreign_key "devops_pipelines", "ai_providers", on_delete: :nullify
-  add_foreign_key "devops_pipelines", "devops_providers", column: "ci_cd_provider_id", on_delete: :restrict
+  add_foreign_key "devops_pipelines", "devops_providers", on_delete: :restrict
   add_foreign_key "devops_pipelines", "users", column: "created_by_id", on_delete: :nullify
   add_foreign_key "devops_providers", "accounts", on_delete: :cascade
   add_foreign_key "devops_providers", "users", column: "created_by_id", on_delete: :nullify
   add_foreign_key "devops_repositories", "accounts", on_delete: :cascade
-  add_foreign_key "devops_repositories", "devops_providers", column: "ci_cd_provider_id", on_delete: :cascade
+  add_foreign_key "devops_repositories", "devops_providers", on_delete: :cascade
   add_foreign_key "devops_resource_quotas", "accounts"
-  add_foreign_key "devops_schedules", "devops_pipelines", column: "ci_cd_pipeline_id", on_delete: :cascade
+  add_foreign_key "devops_schedules", "devops_pipelines", on_delete: :cascade
   add_foreign_key "devops_schedules", "users", column: "created_by_id", on_delete: :nullify
   add_foreign_key "devops_secret_references", "accounts"
   add_foreign_key "devops_secret_references", "users", column: "created_by_id"
   add_foreign_key "devops_step_approval_tokens", "devops_step_executions", column: "step_execution_id"
   add_foreign_key "devops_step_approval_tokens", "users", column: "recipient_user_id"
   add_foreign_key "devops_step_approval_tokens", "users", column: "responded_by_id"
-  add_foreign_key "devops_step_executions", "devops_pipeline_runs", column: "ci_cd_pipeline_run_id", on_delete: :cascade
-  add_foreign_key "devops_step_executions", "devops_pipeline_steps", column: "ci_cd_pipeline_step_id", on_delete: :cascade
+  add_foreign_key "devops_step_executions", "devops_pipeline_runs", on_delete: :cascade
+  add_foreign_key "devops_step_executions", "devops_pipeline_steps", on_delete: :cascade
   add_foreign_key "devops_swarm_clusters", "accounts"
   add_foreign_key "devops_swarm_deployments", "devops_swarm_clusters", column: "cluster_id"
   add_foreign_key "devops_swarm_deployments", "devops_swarm_services", column: "service_id"
