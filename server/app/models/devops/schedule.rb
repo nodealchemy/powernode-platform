@@ -4,12 +4,14 @@ module Devops
   # Scheduled pipeline execution configuration
   # Supports cron expressions for recurring pipeline runs
   class Schedule < ApplicationRecord
+    self.table_name = "devops_schedules"
+
     include Schedulable
 
     # ============================================
     # Associations
     # ============================================
-    belongs_to :pipeline, class_name: "Devops::Pipeline", foreign_key: :ci_cd_pipeline_id
+    belongs_to :pipeline, class_name: "Devops::Pipeline", foreign_key: :devops_pipeline_id
     belongs_to :created_by, class_name: "User", optional: true
 
     # ============================================

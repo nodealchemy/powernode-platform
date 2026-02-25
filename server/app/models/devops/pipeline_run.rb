@@ -4,6 +4,8 @@ module Devops
   # Execution record for a pipeline run
   # Tracks status, timing, outputs, and artifacts
   class PipelineRun < ApplicationRecord
+    self.table_name = "devops_pipeline_runs"
+
     include ExecutionTrackable
 
     STATUSES = %w[pending queued running success failure cancelled].freeze
@@ -12,15 +14,15 @@ module Devops
     # ============================================
     # Associations
     # ============================================
-    belongs_to :pipeline, class_name: "Devops::Pipeline", foreign_key: :ci_cd_pipeline_id
+    belongs_to :pipeline, class_name: "Devops::Pipeline", foreign_key: :devops_pipeline_id
     belongs_to :triggered_by, class_name: "User", optional: true
 
-    has_many :step_executions, class_name: "Devops::StepExecution", foreign_key: :ci_cd_pipeline_run_id, dependent: :destroy
+    has_many :step_executions, class_name: "Devops::StepExecution", foreign_key: :devops_pipeline_run_id, dependent: :destroy
 
     # ============================================
     # Validations
     # ============================================
-    validates :run_number, presence: true, uniqueness: { scope: :ci_cd_pipeline_id }
+    validates :run_number, presence: true, uniqueness: { scope: :devops_pipeline_id }
     validates :status, presence: true, inclusion: { in: STATUSES }
     validates :trigger_type, presence: true, inclusion: { in: TRIGGER_TYPES }
 

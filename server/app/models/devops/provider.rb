@@ -4,14 +4,16 @@ module Devops
   # Git provider configuration (Gitea, GitHub, GitLab, Jenkins)
   # Stores connection details and credentials for CI/CD integrations
   class Provider < ApplicationRecord
+    self.table_name = "devops_providers"
+
     # ============================================
     # Associations
     # ============================================
     belongs_to :account
     belongs_to :created_by, class_name: "User", optional: true
 
-    has_many :repositories, class_name: "Devops::Repository", foreign_key: :ci_cd_provider_id, dependent: :destroy
-    has_many :pipelines, class_name: "Devops::Pipeline", foreign_key: :ci_cd_provider_id, dependent: :restrict_with_error
+    has_many :repositories, class_name: "Devops::Repository", foreign_key: :devops_provider_id, dependent: :destroy
+    has_many :pipelines, class_name: "Devops::Pipeline", foreign_key: :devops_provider_id, dependent: :restrict_with_error
 
     # ============================================
     # Validations

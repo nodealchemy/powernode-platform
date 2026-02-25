@@ -4,13 +4,15 @@ module Devops
   # Repository configuration for CI/CD pipelines
   # Stores connection details and settings for Git repositories
   class Repository < ApplicationRecord
+    self.table_name = "devops_repositories"
+
     # ============================================
     # Associations
     # ============================================
     belongs_to :account
-    belongs_to :provider, class_name: "Devops::Provider", foreign_key: :ci_cd_provider_id
+    belongs_to :provider, class_name: "Devops::Provider", foreign_key: :devops_provider_id
 
-    has_many :pipeline_repositories, class_name: "Devops::PipelineRepository", foreign_key: :ci_cd_repository_id, dependent: :destroy
+    has_many :pipeline_repositories, class_name: "Devops::PipelineRepository", foreign_key: :devops_repository_id, dependent: :destroy
     has_many :pipelines, through: :pipeline_repositories
 
     # ============================================

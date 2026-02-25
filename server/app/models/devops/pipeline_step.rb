@@ -4,6 +4,8 @@ module Devops
   # Individual step configuration within a pipeline
   # Defines step type, inputs, outputs, and execution conditions
   class PipelineStep < ApplicationRecord
+    self.table_name = "devops_pipeline_steps"
+
     STEP_TYPES = %w[
       checkout
       claude_execute
@@ -23,10 +25,10 @@ module Devops
     # ============================================
     # Associations
     # ============================================
-    belongs_to :pipeline, class_name: "Devops::Pipeline", foreign_key: :ci_cd_pipeline_id
+    belongs_to :pipeline, class_name: "Devops::Pipeline", foreign_key: :devops_pipeline_id
     belongs_to :shared_prompt_template, class_name: "Shared::PromptTemplate", optional: true
 
-    has_many :executions, class_name: "Devops::StepExecution", foreign_key: :ci_cd_pipeline_step_id, dependent: :destroy
+    has_many :executions, class_name: "Devops::StepExecution", foreign_key: :devops_pipeline_step_id, dependent: :destroy
 
     # Alias for backward compatibility during transition
     alias_method :prompt_template, :shared_prompt_template
@@ -34,7 +36,7 @@ module Devops
     # ============================================
     # Validations
     # ============================================
-    validates :name, presence: true, uniqueness: { scope: :ci_cd_pipeline_id }
+    validates :name, presence: true, uniqueness: { scope: :devops_pipeline_id }
     validates :step_type, presence: true, inclusion: { in: ->(record) { STEP_TYPES + Devops::StepHandlerRegistry.all_types } }
     validates :position, presence: true, numericality: { greater_than_or_equal_to: 0 }
 

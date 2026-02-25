@@ -4,18 +4,20 @@ module Devops
   # Pipeline definition for CI/CD workflows
   # Stores trigger configuration, steps, and execution settings
   class Pipeline < ApplicationRecord
+    self.table_name = "devops_pipelines"
+
     # ============================================
     # Associations
     # ============================================
     belongs_to :account
     belongs_to :created_by, class_name: "User", optional: true
-    belongs_to :provider, class_name: "Devops::Provider", foreign_key: :ci_cd_provider_id, optional: true
+    belongs_to :provider, class_name: "Devops::Provider", foreign_key: :devops_provider_id, optional: true
     belongs_to :ai_provider, class_name: "Ai::Provider", optional: true
 
-    has_many :pipeline_steps, class_name: "Devops::PipelineStep", foreign_key: :ci_cd_pipeline_id, dependent: :destroy
-    has_many :runs, class_name: "Devops::PipelineRun", foreign_key: :ci_cd_pipeline_id, dependent: :destroy
-    has_many :schedules, class_name: "Devops::Schedule", foreign_key: :ci_cd_pipeline_id, dependent: :destroy
-    has_many :pipeline_repositories, class_name: "Devops::PipelineRepository", foreign_key: :ci_cd_pipeline_id, dependent: :destroy
+    has_many :pipeline_steps, class_name: "Devops::PipelineStep", foreign_key: :devops_pipeline_id, dependent: :destroy
+    has_many :runs, class_name: "Devops::PipelineRun", foreign_key: :devops_pipeline_id, dependent: :destroy
+    has_many :schedules, class_name: "Devops::Schedule", foreign_key: :devops_pipeline_id, dependent: :destroy
+    has_many :pipeline_repositories, class_name: "Devops::PipelineRepository", foreign_key: :devops_pipeline_id, dependent: :destroy
     has_many :repositories, through: :pipeline_repositories
 
     # ============================================

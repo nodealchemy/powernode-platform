@@ -4,6 +4,8 @@ module Devops
   # Template for CI/CD pipelines that can be published to the marketplace
   # Captures pipeline definitions, steps, and triggers for reuse
   class PipelineTemplate < ApplicationRecord
+    self.table_name = "devops_pipeline_templates"
+
     # ============================================
     # Constants
     # ============================================

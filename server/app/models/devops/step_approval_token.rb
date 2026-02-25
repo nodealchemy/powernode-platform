@@ -2,6 +2,8 @@
 
 module Devops
   class StepApprovalToken < ApplicationRecord
+    self.table_name = "devops_step_approval_tokens"
+
     include Approvable
 
     # Associations
