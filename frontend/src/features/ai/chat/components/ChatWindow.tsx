@@ -49,12 +49,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ onDragStart }) => {
   const activeConv = activeTab ? tabConversations.get(activeTab.id) : null;
   const hasNoTabs = state.tabs.length === 0;
 
-  // Clear unread badge on the active tab when the window becomes visible
+  // Clear unread badge on the active tab when the window becomes visible.
+  // ChatWindow only renders when the chat is open (not in 'closed' mode), so mount = user is viewing.
   useEffect(() => {
     if (activeTab && activeTab.unreadCount > 0) {
       dispatch({ type: 'MARK_READ', payload: activeTab.id });
     }
-  }, [activeTab?.id]);
+  }, [activeTab?.id, dispatch]);
 
   return (
     <div className="flex flex-col h-full bg-theme-background rounded-xl overflow-hidden" data-testid={state.mode === 'maximized' ? 'chat-maximized' : undefined}>

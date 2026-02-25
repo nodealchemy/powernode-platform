@@ -9,6 +9,8 @@ export function saveChatState(state: ChatWindowState): void {
     const serialized: ChatWindowState = {
       ...state,
       mode: 'closed',
+      // Reset unread counts — they are ephemeral session state, not worth persisting
+      tabs: state.tabs.map(t => ({ ...t, unreadCount: 0 })),
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(serialized));
   } catch {
