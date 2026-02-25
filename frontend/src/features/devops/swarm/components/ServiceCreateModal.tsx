@@ -79,7 +79,7 @@ export const ServiceCreateModal: React.FC<ServiceCreateModalProps> = ({
 
   return (
     <Modal isOpen={isOpen} onClose={() => { resetForm(); onClose(); }} title="Create Service" size="lg">
-      <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+      <div className="p-4 space-y-4">
         <div>
           <label className="block text-sm font-medium text-theme-primary mb-1">Service Name</label>
           <input
