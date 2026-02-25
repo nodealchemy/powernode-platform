@@ -157,7 +157,9 @@ module Api
             can_escalate: role.can_escalate,
             max_concurrent_tasks: role.max_concurrent_tasks,
             agent_id: role.ai_agent_id,
-            agent_name: role.ai_agent&.name
+            agent_name: role.ai_agent&.name,
+            agent_type: role.ai_agent&.agent_type,
+            is_lead: role.ai_agent_id.present? && role.agent_team.members.exists?(ai_agent_id: role.ai_agent_id, is_lead: true)
           }
         end
 
