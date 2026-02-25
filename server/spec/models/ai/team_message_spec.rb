@@ -8,7 +8,7 @@ RSpec.describe Ai::TeamMessage, type: :model do
   let(:execution) { Ai::TeamExecution.create!(account: account, agent_team: team, status: 'running', objective: 'Test', started_at: Time.current) }
 
   describe 'associations' do
-    it { should belong_to(:team_execution).class_name('Ai::TeamExecution') }
+    it { should belong_to(:team_execution).class_name('Ai::TeamExecution').optional }
     it { should belong_to(:channel).class_name('Ai::TeamChannel').optional }
     it { should belong_to(:from_role).class_name('Ai::TeamRole').optional }
     it { should belong_to(:to_role).class_name('Ai::TeamRole').optional }
