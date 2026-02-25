@@ -23,6 +23,11 @@ module Chat
         metadata: metadata
       )
 
+      # Bridge to team channel if linked
+      if @channel.bridged?
+        Ai::TeamChannelBridgeService.new.sync_inbound_to_team_channel(message)
+      end
+
       # Route to A2A for processing
       task = submit_to_agent(session, message)
 
