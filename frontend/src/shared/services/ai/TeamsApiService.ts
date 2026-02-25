@@ -47,6 +47,8 @@ export interface TeamRole {
   max_concurrent_tasks: number;
   agent_id: string | null;
   agent_name: string | null;
+  agent_type: string | null;
+  is_lead: boolean;
 }
 
 export interface TeamChannel {

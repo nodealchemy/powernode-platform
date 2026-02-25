@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Trash2, UserCog, Settings, Clock, Wrench } from 'lucide-react';
+import { Users, Trash2, UserCog, Settings, Clock, Wrench, Bot, Crown, Monitor } from 'lucide-react';
 import { useSkillCoverage } from '@/features/ai/knowledge-graph/api/skillGraphApi';
 import type { Team, TeamRole } from '@/shared/services/ai/TeamsApiService';
 
@@ -102,37 +102,67 @@ export const TeamOverviewTab: React.FC<TeamOverviewTabProps> = ({ team, roles, o
         )}
       </div>
 
-      {/* Member / Role Grid */}
+      {/* Team Composition — unified role-backed view */}
       <div>
         <h3 className="text-sm font-semibold text-theme-primary mb-3 flex items-center gap-2">
-          <UserCog size={16} />
-          Team Roles ({roles.length})
+          <Users size={16} />
+          Team Composition ({roles.length})
         </h3>
         {roles.length === 0 ? (
           <div className="text-center py-8 bg-theme-surface border border-theme rounded-lg">
-            <UserCog size={32} className="mx-auto text-theme-secondary mb-2" />
+            <Users size={32} className="mx-auto text-theme-secondary mb-2" />
             <p className="text-sm text-theme-secondary">No roles defined for this team</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {roles.map(role => (
               <div key={role.id} className="bg-theme-surface border border-theme rounded-lg p-3">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-sm font-medium text-theme-primary truncate">{role.role_name}</span>
-                  <span className="px-1.5 py-0.5 text-[10px] bg-theme-interactive-primary/10 text-theme-interactive-primary rounded shrink-0">
-                    {role.role_type}
-                  </span>
+                <div className="flex items-center gap-2.5 mb-2">
+                  <div className="w-8 h-8 rounded-full bg-theme-interactive-primary/10 flex items-center justify-center shrink-0">
+                    {role.agent_type === 'mcp_client' ? (
+                      <Monitor size={14} className="text-theme-interactive-primary" />
+                    ) : role.agent_id ? (
+                      <Bot size={14} className="text-theme-interactive-primary" />
+                    ) : (
+                      <UserCog size={14} className="text-theme-secondary" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-medium text-theme-primary truncate">
+                        {role.agent_name || role.role_name}
+                      </span>
+                      {role.is_lead && <Crown size={12} className="text-theme-warning shrink-0" />}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-1.5 py-0.5 text-[10px] bg-theme-interactive-primary/10 text-theme-interactive-primary rounded">
+                        {role.role_type}
+                      </span>
+                      {role.agent_type && (
+                        <span className="text-[10px] text-theme-secondary">
+                          {role.agent_type === 'mcp_client' ? 'MCP Client' : role.agent_type}
+                        </span>
+                      )}
+                      {!role.agent_id && (
+                        <span className="text-[10px] text-theme-warning">Unassigned</span>
+                      )}
+                    </div>
+                  </div>
                 </div>
                 {role.role_description && (
                   <p className="text-xs text-theme-secondary mb-2 line-clamp-2">{role.role_description}</p>
                 )}
-                <div className="flex items-center justify-between text-[11px] text-theme-secondary">
-                  <span>{role.agent_name || 'Unassigned'}</span>
-                  <div className="flex gap-1.5">
-                    {role.can_delegate && <span className="text-theme-info">Delegate</span>}
-                    {role.can_escalate && <span className="text-theme-warning">Escalate</span>}
+                {(role.capabilities.length > 0 || role.can_delegate || role.can_escalate) && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {role.capabilities.slice(0, 2).map(cap => (
+                      <span key={cap} className="px-1.5 py-0.5 text-[10px] bg-theme-surface border border-theme-light rounded text-theme-secondary truncate max-w-[120px]">
+                        {cap}
+                      </span>
+                    ))}
+                    {role.can_delegate && <span className="text-[10px] text-theme-info">Delegate</span>}
+                    {role.can_escalate && <span className="text-[10px] text-theme-warning">Escalate</span>}
                   </div>
-                </div>
+                )}
               </div>
             ))}
           </div>
