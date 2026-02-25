@@ -73,19 +73,25 @@ begin
   end
 
   system_worker = Worker.find_by(name: 'System Worker')
+  # Workers should always belong to an account; system worker uses the admin account
+  admin_account = Account.first
 
   if system_worker
-    # Ensure system worker has no account_id (required for system? check in auth)
-    if system_worker.account_id.present?
-      system_worker.update_column(:account_id, nil)
-      puts "🔧 Fixed system worker: cleared account_id (required for service auth)"
+    # Ensure system worker belongs to the admin account and is flagged as system
+    updates = {}
+    updates[:account_id] = admin_account&.id if system_worker.account_id != admin_account&.id
+    updates[:is_system] = true unless system_worker.is_system?
+    if updates.any?
+      system_worker.update_columns(updates)
+      puts "🔧 Updated system worker: #{updates.keys.join(', ')}"
     end
     puts "✅ System worker already exists"
   else
     system_worker = Worker.create_worker!(
       name: 'System Worker',
       description: 'System worker for background processing and API communication',
-      account: nil,
+      account: admin_account,
+      is_system: true,
       roles: [ 'system_worker' ],
       token: worker_token
     )

@@ -434,6 +434,7 @@ additional_pages.each do |page_data|
     page.title = page_data[:title]
     page.content = page_data[:content]
     page.status = page_data[:status]
+    page.account = admin_user.account
     page.author_id = admin_user.id
     page.published_at = Time.current
   end

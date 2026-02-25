@@ -1045,19 +1045,44 @@ end
 skills_assigned = 0
 
 skill_assignments = {
-  'Powernode Project Lead'            => %w[productivity product-management],
-  'Powernode Frontend Developer'      => %w[productivity],
-  'Powernode Backend Developer'       => %w[productivity data],
-  'Powernode DevOps Engineer'         => %w[productivity],
-  'Powernode QA/Test Engineer'        => %w[productivity],
-  'Powernode Documentation Specialist' => %w[product-management]
+  'Powernode Project Lead' => %w[
+    productivity product-management
+    code-review api-design release-manager
+    ai-agent-architect security-audit technical-researcher
+  ],
+  'Powernode Frontend Developer' => %w[
+    productivity
+    code-intelligence code-generation code-review
+    performance-tuning extension-developer websocket-channel-developer
+  ],
+  'Powernode Backend Developer' => %w[
+    productivity data
+    code-intelligence code-generation api-design code-review
+    database-operations database-design performance-tuning
+    mcp-tool-builder extension-developer
+    platform-migration-specialist websocket-channel-developer
+  ],
+  'Powernode DevOps Engineer' => %w[
+    productivity
+    devops-engineer devops-automation devops-pipeline-designer
+    incident-analysis release-manager
+  ],
+  'Powernode QA/Test Engineer' => %w[
+    productivity
+    test-engineering code-review
+    security-analyst security-audit
+  ],
+  'Powernode Documentation Specialist' => %w[
+    product-management
+    documentation-writer knowledge-system-curator api-design
+  ]
 }
 
 skill_assignments.each do |agent_name, slugs|
   agent = agents[agent_name]
   next unless agent
 
-  slugs.each do |slug|
+  slugs.each_with_index do |slug, idx|
     skill = Ai::Skill.find_by(slug: slug, status: 'active')
     next unless skill
 
@@ -1066,7 +1091,7 @@ skill_assignments.each do |agent_name, slugs|
       ai_skill_id: skill.id
     ) do |as|
       as.is_active = true
-      as.priority = 0
+      as.priority = [idx / 3, 2].min
     end
     skills_assigned += 1
   end
