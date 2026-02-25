@@ -259,11 +259,12 @@ module Ai
 
         return [] if mentioned_ids.empty?
 
-        # Exclude the primary agent (concierge) — it responds via ConciergeService,
-        # not through workspace response jobs. Without this, @mentioning the concierge
-        # from an MCP client causes a redundant relay via AiWorkspaceResponseJob.
-        primary_agent_id = conversation.ai_agent_id
-        mentioned_ids -= [primary_agent_id].compact
+        # Exclude the primary agent only when it is the sender (avoids self-dispatch).
+        # When an MCP client @mentions the primary agent, it must still be dispatched
+        # because ConciergeService only runs for user messages via the controller path.
+        if agent&.id == conversation.ai_agent_id
+          mentioned_ids -= [conversation.ai_agent_id].compact
+        end
 
         return [] if mentioned_ids.empty?
 

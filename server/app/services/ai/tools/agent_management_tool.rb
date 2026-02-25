@@ -43,13 +43,13 @@ module Ai
           "get_agent" => {
             description: "Get detailed information about a specific AI agent",
             parameters: {
-              agent_id: { type: "string", required: true, description: "Agent ID" }
+              agent_id: { type: "string", required: true, description: "Agent UUID, slug, or exact name" }
             }
           },
           "update_agent" => {
             description: "Update an existing AI agent's configuration",
             parameters: {
-              agent_id: { type: "string", required: true, description: "Agent ID" },
+              agent_id: { type: "string", required: true, description: "Agent UUID, slug, or exact name" },
               name: { type: "string", required: false, description: "New agent name" },
               description: { type: "string", required: false, description: "New agent description" },
               status: { type: "string", required: false, description: "Agent status" },
@@ -125,7 +125,8 @@ module Ai
       end
 
       def get_agent(params)
-        agent_record = account.ai_agents.find(params[:agent_id])
+        agent_record = resolve_agent(params[:agent_id])
+        return { success: false, error: "Agent not found" } unless agent_record
         {
           success: true,
           agent: {
@@ -140,12 +141,11 @@ module Ai
             mcp_metadata: agent_record.mcp_metadata
           }
         }
-      rescue ActiveRecord::RecordNotFound
-        { success: false, error: "Agent not found" }
       end
 
       def update_agent(params)
-        agent_record = account.ai_agents.find(params[:agent_id])
+        agent_record = resolve_agent(params[:agent_id])
+        raise ActiveRecord::RecordNotFound, "Agent not found" unless agent_record
         attrs = {}
         attrs[:name] = params[:name] if params[:name].present?
         attrs[:description] = params[:description] if params[:description].present?

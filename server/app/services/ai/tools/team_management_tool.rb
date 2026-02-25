@@ -43,13 +43,13 @@ module Ai
           "get_team" => {
             description: "Get detailed information about a specific team including its members",
             parameters: {
-              team_id: { type: "string", required: true, description: "Team ID" }
+              team_id: { type: "string", required: true, description: "Team UUID or exact team name" }
             }
           },
           "update_team" => {
             description: "Update an existing team's configuration",
             parameters: {
-              team_id: { type: "string", required: true, description: "Team ID" },
+              team_id: { type: "string", required: true, description: "Team UUID or exact team name" },
               name: { type: "string", required: false, description: "New team name" },
               description: { type: "string", required: false, description: "New team description" },
               coordination_strategy: { type: "string", required: false, description: "Coordination strategy" },
@@ -60,15 +60,15 @@ module Ai
           "add_team_member" => {
             description: "Add an AI agent as a member of a team",
             parameters: {
-              team_id: { type: "string", required: true, description: "Team ID" },
-              agent_id: { type: "string", required: true, description: "Agent ID to add" },
+              team_id: { type: "string", required: true, description: "Team UUID or exact team name" },
+              agent_id: { type: "string", required: true, description: "Agent UUID, slug, or exact name" },
               role: { type: "string", required: false, description: "Member role (default: worker)" }
             }
           },
           "execute_team" => {
             description: "Queue execution of a team workflow",
             parameters: {
-              team_id: { type: "string", required: true, description: "Team ID to execute" },
+              team_id: { type: "string", required: true, description: "Team UUID or exact team name" },
               input: { type: "object", required: false, description: "Execution input" }
             }
           }
@@ -105,26 +105,44 @@ module Ai
       end
 
       def add_team_member(params)
-        team = account.ai_agent_teams.find(params[:team_id])
-        agent = account.ai_agents.find(params[:agent_id])
+        team = resolve_team(params[:team_id])
+        agent = resolve_agent(params[:agent_id])
+        role_type = map_member_role_to_type(params[:role] || "worker")
+
         member = team.members.create!(
           agent: agent,
-          role: params[:role] || "worker"
+          role: params[:role] || "worker",
+          is_lead: role_type == "manager"
         )
+
+        # Auto-create a backing TeamRole for orchestration/UI unification
+        unless team.ai_team_roles.exists?(ai_agent_id: agent.id)
+          Ai::TeamRole.create!(
+            account: account,
+            agent_team: team,
+            role_name: agent.name,
+            role_type: role_type,
+            role_description: agent.description,
+            ai_agent_id: agent.id,
+            capabilities: member.capabilities || [],
+            priority_order: member.priority_order
+          )
+        end
+
         { success: true, member_id: member.id }
       rescue ActiveRecord::RecordNotFound => e
         { success: false, error: e.message }
       end
 
       def execute_team(params)
-        team = account.ai_agent_teams.find(params[:team_id])
+        team = resolve_team(params[:team_id])
         { success: true, team_id: team.id, status: "execution_queued", message: "Team execution queued" }
       rescue ActiveRecord::RecordNotFound
         { success: false, error: "Team not found" }
       end
 
       def get_team(params)
-        team = account.ai_agent_teams.find(params[:team_id])
+        team = resolve_team(params[:team_id])
         members = team.members.includes(:agent).map do |m|
           { agent_name: m.agent.name, role: m.role, is_lead: m.is_lead }
         end
@@ -156,7 +174,7 @@ module Ai
       end
 
       def update_team(params)
-        team = account.ai_agent_teams.find(params[:team_id])
+        team = resolve_team(params[:team_id])
         attrs = {}
         attrs[:name] = params[:name] if params[:name].present?
         attrs[:description] = params[:description] if params[:description].present?
@@ -173,6 +191,43 @@ module Ai
         { success: false, error: "Team not found" }
       rescue ActiveRecord::RecordInvalid => e
         { success: false, error: e.message }
+      end
+
+      # Map freeform member role strings to TeamRole::ROLE_TYPES
+      def map_member_role_to_type(role)
+        case role.to_s.downcase
+        when "manager"                   then "manager"
+        when "coordinator", "facilitator" then "coordinator"
+        when "reviewer"                  then "reviewer"
+        when "validator"                 then "validator"
+        when "researcher", "writer", "analyst" then "specialist"
+        else "worker"
+        end
+      end
+
+      # Resolve an agent by UUID, slug, or exact name
+      def resolve_agent(identifier)
+        return nil if identifier.blank?
+
+        scope = account.ai_agents
+        scope.find_by(id: identifier) ||
+          scope.find_by(slug: identifier) ||
+          scope.find_by(name: identifier) ||
+          raise(ActiveRecord::RecordNotFound, "Agent not found: #{identifier}")
+      end
+
+      # Resolve a team by UUID or by exact name (case-insensitive)
+      def resolve_team(identifier)
+        return account.ai_agent_teams.find(identifier) if uuid?(identifier)
+
+        team = account.ai_agent_teams.find_by("LOWER(name) = LOWER(?)", identifier)
+        raise ActiveRecord::RecordNotFound, "Team not found: #{identifier}" unless team
+
+        team
+      end
+
+      def uuid?(value)
+        value.to_s.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i)
       end
     end
   end
