@@ -14,7 +14,7 @@ module Ai
       # ============================================================================
 
       def list_teams(filters = {})
-        teams = account.ai_agent_teams
+        teams = account.ai_agent_teams.where.not(team_type: "workspace")
         teams = teams.where(status: filters[:status]) if filters[:status].present?
         teams = teams.where(team_topology: filters[:topology]) if filters[:topology].present?
         teams = teams.order(created_at: :desc)

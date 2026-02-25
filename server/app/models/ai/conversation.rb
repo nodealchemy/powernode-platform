@@ -53,6 +53,7 @@ module Ai
     before_validation :set_conversation_id, on: :create
     before_validation :set_websocket_channel, on: :create
     after_update :broadcast_status_change, if: :saved_change_to_status?
+    after_destroy :cleanup_orphaned_workspace_team
 
     # Methods
     def active?
@@ -408,6 +409,16 @@ module Ai
       if conversation_type == "team" && agent_team_id.blank?
         errors.add(:agent_team_id, "is required for team conversations")
       end
+    end
+
+    def cleanup_orphaned_workspace_team
+      return unless agent_team.present?
+      return unless agent_team.team_type == "workspace"
+      return if agent_team.conversations.exists?
+
+      agent_team.destroy
+    rescue StandardError => e
+      Rails.logger.warn("[Conversation] Failed to cleanup orphaned workspace team #{agent_team_id}: #{e.message}")
     end
   end
 end
