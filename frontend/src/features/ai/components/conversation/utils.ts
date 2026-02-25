@@ -3,30 +3,26 @@ import type { AiMessage, MessageAction, ActionContext } from '@/shared/types/ai'
 
 /**
  * Clean AI streaming content to remove chunked encoding artifacts.
- * Only safe for AI/assistant messages — the hex-stripping regexes will
- * eat trailing hex chars (a-f, 0-9) from normal English words.
- *
- * NEVER apply to user messages.
+ * Chunk markers are hex numbers on their own line (e.g., "1a3\r\n" or "\r\n0\r\n").
+ * Only matches hex sequences that are separated by newlines from content,
+ * never hex chars that are part of normal words (e.g., "Code", "cafe").
  */
 export const cleanStreamingContent = (content: string): string => {
   if (!content) return '';
 
   let cleaned = cleanMarkdownContent(content);
 
-  // Chunked encoding cleanup — only safe for streaming AI responses
+  // Chunked encoding cleanup — only strip hex sequences on their own lines
   cleaned = cleaned
-    // Remove trailing chunk markers (hex size followed by optional CRLF)
-    ?.replace(/[\r\n]*[0-9a-fA-F]+[\r\n]*$/g, '')
-    // Remove leading chunk headers (hex size at start)
-    ?.replace(/^[\r\n]*[0-9a-fA-F]+[\r\n]+/g, '')
-    // Remove inline chunk markers between content
-    ?.replace(/\r\n[0-9a-fA-F]+\r\n/g, '')
-    // Remove "0" after punctuation (final chunk marker)
-    ?.replace(/([.!?])\s*0\s*$/g, '$1')
-    // Remove trailing whitespace + "0" patterns
-    ?.replace(/\s+0\s*$/g, '')
-    // Remove standalone trailing "0" (final chunk indicator)
-    ?.replace(/(?:^|\s)0$/g, '')
+    // Remove trailing chunk markers (newline + hex-only line at end)
+    ?.replace(/\r?\n[0-9a-fA-F]+\s*$/g, '')
+    // Remove leading chunk headers (hex-only line + newline at start)
+    ?.replace(/^[0-9a-fA-F]+\r?\n/g, '')
+    // Remove inline chunk markers (hex-only line between content lines)
+    ?.replace(/\r?\n[0-9a-fA-F]+\r?\n/g, '\n')
+    // Remove final "0" chunk terminator (on its own line or after punctuation)
+    ?.replace(/\r?\n0\s*$/g, '')
+    ?.replace(/([.!?])\s*\r?\n0\s*$/g, '$1')
     ?.trim() || '';
 
   // Final chunk marker check - if content is just zeros, return empty

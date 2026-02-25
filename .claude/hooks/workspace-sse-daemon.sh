@@ -472,6 +472,11 @@ print(e.get('message_id','') + '\t' + e.get('sender','?') + '\t' + e.get('conten
     # Inject into Claude Code via tmux — only for @mentions and slash commands.
     # Messages without a mention are stored in the inbox but don't interrupt Claude.
     # Only the concierge should respond to un-mentioned messages.
+    #
+    # Note: The SSE controller already filters message_created events on workspace
+    # channels to only forward those where this agent is @mentioned. So if a
+    # message_created event reaches here with @Claude Code in the content, it's
+    # a legitimate @mention that should trigger a nudge.
     local should_nudge=false
     if [[ "$sender" == *Claude\ Code* ]]; then
       : # Never nudge for our own messages (avoid loops)
@@ -479,6 +484,8 @@ print(e.get('message_id','') + '\t' + e.get('sender','?') + '\t' + e.get('conten
       should_nudge=true
     elif [[ "$content" == /* ]]; then
       should_nudge=true  # Slash commands always get forwarded
+    elif [[ "$content" == *@Claude\ Code* ]]; then
+      should_nudge=true  # @mention in message content (server pre-filtered)
     fi
 
     if [[ "$should_nudge" == true ]]; then
