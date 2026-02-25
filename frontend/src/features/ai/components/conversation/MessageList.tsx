@@ -230,10 +230,12 @@ export const MessageList = React.memo<MessageListProps>(({
             </div>
           ) : (
             <div
-              className={`rounded-2xl px-4 py-3 max-w-full shadow-md ${
+              className={`rounded-2xl px-4 py-3 max-w-full shadow-sm ${
                 hasError
-                  ? 'bg-theme-danger/10 dark:bg-theme-danger/20 border border-theme-danger/30 dark:border-theme-danger/50 text-theme-danger dark:text-theme-danger rounded-bl-md'
-                  : 'bg-theme-surface border border-theme text-theme-primary rounded-bl-md'
+                  ? 'bg-theme-danger/10 dark:bg-theme-danger/20 border border-theme-danger/30 dark:border-theme-danger/50 text-theme-danger dark:text-theme-danger'
+                  : isUser
+                    ? 'bg-theme-primary/10 dark:bg-theme-primary/15 border border-theme-primary/20 text-theme-primary'
+                    : 'bg-theme-surface border border-theme text-theme-primary'
               }`}
             >
               {isProcessing ? (
@@ -249,100 +251,94 @@ export const MessageList = React.memo<MessageListProps>(({
                 />
               ) : (
                 <div className="text-sm break-words">
-                  {message.sender_type === 'ai' ? (
-                    <div className="markdown-content">
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm, remarkBreaks]}
-                        components={{
-                          h1: ({ children }) => <h1 className="text-2xl font-bold mb-4 mt-6">{children}</h1>,
-                          h2: ({ children }) => <h2 className="text-xl font-bold mb-3 mt-5">{children}</h2>,
-                          h3: ({ children }) => <h3 className="text-lg font-bold mb-2 mt-4">{children}</h3>,
-                          h4: ({ children }) => <h4 className="text-base font-bold mb-2 mt-3">{children}</h4>,
-                          p: ({ children }) => <p className="mb-4">{processChildren(children)}</p>,
-                          ul: ({ children }) => (
-                            <ul className={isClickableSuggestion ? "list-none space-y-1.5 mb-4" : "list-disc list-inside mb-4 ml-4"}>{children}</ul>
-                          ),
-                          ol: ({ children }) => (
-                            <ol className={isClickableSuggestion ? "list-none space-y-1.5 mb-4" : "list-decimal list-inside mb-4 ml-4"}>{children}</ol>
-                          ),
-                          li: ({ children }) => {
-                            if (isClickableSuggestion) {
-                              const text = extractTextContent(children);
-                              const label = extractSuggestionLabel(text);
-                              return (
-                                <li
-                                  className="py-2 px-3 rounded-lg border border-theme/40 cursor-pointer hover:bg-theme-interactive-primary/10 hover:border-theme-interactive-primary/40 transition-all duration-150"
-                                  onClick={() => onSuggestedMessage!(label)}
-                                  role="button"
-                                  tabIndex={0}
-                                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSuggestedMessage!(label); } }}
-                                >
-                                  {children}
-                                </li>
-                              );
-                            }
-                            return <li className="mb-1">{children}</li>;
-                          },
-                          pre: ({ children }) => (
-                            <pre className="bg-theme-surface dark:bg-theme-surface p-4 rounded-lg overflow-x-auto mb-4 text-sm text-theme-primary dark:text-theme-primary">
-                              {children}
-                            </pre>
-                          ),
-                          code: ({ className, children }) => {
-                            const isInline = !className?.startsWith('language-');
-                            return isInline ? (
-                              <code className="bg-theme-surface dark:bg-theme-surface px-1.5 py-0.5 rounded text-sm font-mono text-theme-primary dark:text-theme-primary">
+                  <div className="markdown-content">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm, remarkBreaks]}
+                      components={{
+                        h1: ({ children }) => <h1 className="text-2xl font-bold mb-4 mt-6">{children}</h1>,
+                        h2: ({ children }) => <h2 className="text-xl font-bold mb-3 mt-5">{children}</h2>,
+                        h3: ({ children }) => <h3 className="text-lg font-bold mb-2 mt-4">{children}</h3>,
+                        h4: ({ children }) => <h4 className="text-base font-bold mb-2 mt-3">{children}</h4>,
+                        p: ({ children }) => <p className="mb-4">{processChildren(children)}</p>,
+                        ul: ({ children }) => (
+                          <ul className={isClickableSuggestion ? "list-none space-y-1.5 mb-4" : "list-disc list-inside mb-4 ml-4"}>{children}</ul>
+                        ),
+                        ol: ({ children }) => (
+                          <ol className={isClickableSuggestion ? "list-none space-y-1.5 mb-4" : "list-decimal list-inside mb-4 ml-4"}>{children}</ol>
+                        ),
+                        li: ({ children }) => {
+                          if (isClickableSuggestion) {
+                            const text = extractTextContent(children);
+                            const label = extractSuggestionLabel(text);
+                            return (
+                              <li
+                                className="py-2 px-3 rounded-lg border border-theme/40 cursor-pointer hover:bg-theme-interactive-primary/10 hover:border-theme-interactive-primary/40 transition-all duration-150"
+                                onClick={() => onSuggestedMessage!(label)}
+                                role="button"
+                                tabIndex={0}
+                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSuggestedMessage!(label); } }}
+                              >
                                 {children}
-                              </code>
-                            ) : (
-                              <code className="font-mono text-sm">{children}</code>
+                              </li>
                             );
-                          },
-                          a: ({ href, children }) => (
-                            <a
-                              href={href}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-theme-info hover:text-theme-info/80 underline"
-                            >
+                          }
+                          return <li className="mb-1">{children}</li>;
+                        },
+                        pre: ({ children }) => (
+                          <pre className="bg-theme-surface dark:bg-theme-surface p-4 rounded-lg overflow-x-auto mb-4 text-sm text-theme-primary dark:text-theme-primary">
+                            {children}
+                          </pre>
+                        ),
+                        code: ({ className, children }) => {
+                          const isInline = !className?.startsWith('language-');
+                          return isInline ? (
+                            <code className="bg-theme-surface dark:bg-theme-surface px-1.5 py-0.5 rounded text-sm font-mono text-theme-primary dark:text-theme-primary">
                               {children}
-                            </a>
-                          ),
-                          blockquote: ({ children }) => (
-                            <blockquote className="border-l-4 border-theme dark:border-theme pl-4 italic mb-4">
+                            </code>
+                          ) : (
+                            <code className="font-mono text-sm">{children}</code>
+                          );
+                        },
+                        a: ({ href, children }) => (
+                          <a
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-theme-info hover:text-theme-info/80 underline"
+                          >
+                            {children}
+                          </a>
+                        ),
+                        blockquote: ({ children }) => (
+                          <blockquote className="border-l-4 border-theme dark:border-theme pl-4 italic mb-4">
+                            {children}
+                          </blockquote>
+                        ),
+                        hr: () => <hr className="border-t border-theme dark:border-theme my-4" />,
+                        table: ({ children }) => (
+                          <div className="overflow-x-auto mb-4">
+                            <table className="min-w-full divide-y divide-theme">
                               {children}
-                            </blockquote>
-                          ),
-                          hr: () => <hr className="border-t border-theme dark:border-theme my-4" />,
-                          table: ({ children }) => (
-                            <div className="overflow-x-auto mb-4">
-                              <table className="min-w-full divide-y divide-theme">
-                                {children}
-                              </table>
-                            </div>
-                          ),
-                          th: ({ children }) => (
-                            <th className="px-3 py-2 text-left text-xs font-medium text-theme-secondary dark:text-theme-secondary uppercase tracking-wider">
-                              {children}
-                            </th>
-                          ),
-                          td: ({ children }) => (
-                            <td className="px-3 py-2 text-sm text-theme-primary dark:text-theme-primary">
-                              {children}
-                            </td>
-                          ),
-                          strong: ({ children }) => <strong className="font-bold">{children}</strong>,
-                          em: ({ children }) => <em className="italic">{children}</em>,
-                        }}
-                      >
-                        {cleanMessageContent(message.content, 'assistant')}
-                      </ReactMarkdown>
-                    </div>
-                  ) : (
-                    <div className="whitespace-pre-wrap">
-                      {renderWithMentions(cleanMessageContent(message.content, message.sender_type))}
-                    </div>
-                  )}
+                            </table>
+                          </div>
+                        ),
+                        th: ({ children }) => (
+                          <th className="px-3 py-2 text-left text-xs font-medium text-theme-secondary dark:text-theme-secondary uppercase tracking-wider">
+                            {children}
+                          </th>
+                        ),
+                        td: ({ children }) => (
+                          <td className="px-3 py-2 text-sm text-theme-primary dark:text-theme-primary">
+                            {children}
+                          </td>
+                        ),
+                        strong: ({ children }) => <strong className="font-bold">{children}</strong>,
+                        em: ({ children }) => <em className="italic">{children}</em>,
+                      }}
+                    >
+                      {cleanMessageContent(message.content, isUser ? 'user' : 'assistant')}
+                    </ReactMarkdown>
+                  </div>
                 </div>
               )}
 
