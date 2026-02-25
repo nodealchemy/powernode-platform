@@ -132,7 +132,7 @@ module Api
           # Queue team execution job
           job = ::Ai::AgentTeamExecutionJob.perform_async(
             team_id: @team.id,
-            user_id: current_user.id,
+            user_id: current_user&.id,
             input: input_hash,
             context: context_hash
           )
@@ -190,7 +190,7 @@ module Api
 
         # PUT /api/v1/ai/agent_teams/:id/autonomy_config
         def update_autonomy_config
-          return render_forbidden unless current_user.has_permission?("ai.autonomy.configure")
+          return render_forbidden unless current_worker || current_user&.has_permission?("ai.autonomy.configure")
 
           config = current_account.ai_guardrail_configs.find_or_initialize_by(ai_agent_id: nil, name: "default")
           if config.update(autonomy_params)
@@ -232,13 +232,15 @@ module Api
         end
 
         def authorize_teams_access!
-          return if current_user.has_permission?("ai.teams.manage")
+          return if current_worker
+          return if current_user&.has_permission?("ai.teams.manage")
 
           render_forbidden
         end
 
         def authorize_team_execution!
-          return if current_user.has_permission?("ai.teams.execute")
+          return if current_worker
+          return if current_user&.has_permission?("ai.teams.execute")
 
           render_forbidden
         end

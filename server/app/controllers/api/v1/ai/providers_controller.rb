@@ -15,10 +15,12 @@ module Api
 
         # GET /api/v1/ai/providers
         def index
-          providers = current_user.account.ai_providers
-                                 .includes(:provider_credentials)
+          account = current_account || current_user&.account
+          return render_error("No account context", status: :unauthorized) unless account
 
-          providers = providers.active unless current_user.has_permission?("admin.ai.providers.read")
+          providers = account.ai_providers.includes(:provider_credentials)
+
+          providers = providers.active unless current_worker || current_user&.has_permission?("admin.ai.providers.read")
 
           providers = apply_provider_filters(providers)
           providers = apply_sorting(providers)
@@ -181,7 +183,10 @@ module Api
         private
 
         def set_provider
-          @provider = current_user.account.ai_providers.find(params[:id])
+          scope = current_account&.ai_providers || current_user&.account&.ai_providers
+          return render_error("No account context", status: :unauthorized) unless scope
+
+          @provider = scope.find(params[:id])
         rescue ActiveRecord::RecordNotFound
           render_error("Provider not found", status: :not_found)
         end

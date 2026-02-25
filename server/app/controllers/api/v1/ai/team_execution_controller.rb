@@ -165,9 +165,30 @@ module Api
         private
 
         def set_team_service
-          @crud_service = ::Ai::Teams::CrudService.new(account: current_account)
-          @execution_service = ::Ai::Teams::ExecutionService.new(account: current_account)
-          @analytics_service = ::Ai::Teams::AnalyticsService.new(account: current_account)
+          account = resolve_account_for_services
+          @crud_service = ::Ai::Teams::CrudService.new(account: account)
+          @execution_service = ::Ai::Teams::ExecutionService.new(account: account)
+          @analytics_service = ::Ai::Teams::AnalyticsService.new(account: account)
+        end
+
+        # Resolve account for service initialization — worker requests may not have current_account
+        def resolve_account_for_services
+          return current_account if current_account
+
+          # For worker requests, resolve account from the team or execution being accessed
+          team_id = params[:team_id] || params[:id]
+          if team_id.present?
+            team = ::Ai::AgentTeam.find_by(id: team_id)
+            return team.account if team
+          end
+
+          execution_id = params[:execution_id]
+          if execution_id.present?
+            execution = ::Ai::TeamExecution.find_by(id: execution_id)
+            return execution.account if execution
+          end
+
+          nil
         end
 
         def set_team

@@ -1533,6 +1533,9 @@ Rails.application.routes.draw do
           end
         end
 
+        # Flat credential decrypt route for worker access (not nested under provider)
+        post "credentials/:id/decrypt", to: "provider_credentials#decrypt", as: :decrypt_ai_credential
+
         # Provider sync operations → ProviderSyncController
         scope :providers, controller: "provider_sync" do
           post ":id/test_connection", action: :test_connection, as: :test_connection_provider

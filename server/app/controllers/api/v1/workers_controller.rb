@@ -55,8 +55,8 @@ class Api::V1::WorkersController < ApplicationController
                  current_account.workers.order(:name)
     end
 
-    account_workers_count = @workers.count { |w| w.account_id.present? }
-    system_workers_count = @workers.count { |w| w.account_id.nil? }
+    account_workers_count = @workers.count { |w| !w.is_system? }
+    system_workers_count = @workers.count { |w| w.is_system? }
 
     render_success({
       workers: @workers.map { |worker| worker_summary(worker) },

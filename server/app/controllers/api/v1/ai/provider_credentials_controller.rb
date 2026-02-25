@@ -10,7 +10,7 @@ module Api
         before_action :set_provider
         before_action :set_credential, only: [
           :show, :update, :destroy,
-          :test, :make_default, :rotate
+          :test, :make_default, :rotate, :decrypt
         ]
         before_action :validate_permissions
 
@@ -169,6 +169,20 @@ module Api
           log_audit_event("ai.providers.credential.make_default", @credential)
         end
 
+        # POST /api/v1/ai/credentials/:id/decrypt
+        # Worker-only endpoint — returns decrypted credential data
+        def decrypt
+          unless current_worker
+            return render_error("Decrypt is only available to workers", status: :forbidden)
+          end
+
+          decrypted = @credential.credentials
+
+          render_success({
+            credentials: decrypted
+          })
+        end
+
         # POST /api/v1/ai/providers/:provider_id/credentials/:id/rotate
         def rotate
           render_success({
@@ -215,7 +229,7 @@ module Api
             require_permission("ai.credentials.update")
           when "destroy"
             require_permission("ai.credentials.delete")
-          when "test"
+          when "test", "decrypt"
             require_permission("ai.credentials.read")
           end
         end

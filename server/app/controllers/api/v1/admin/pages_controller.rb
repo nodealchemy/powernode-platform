@@ -7,7 +7,7 @@ class Api::V1::Admin::PagesController < ApplicationController
 
   # GET /api/v1/admin/pages
   def index
-    pages = Page.includes(:user).order(created_at: :desc)
+    pages = Page.includes(:user, :account).where(account: current_user.account).order(created_at: :desc)
 
     # Filter by status if provided
     if params[:status].present? && %w[draft published].include?(params[:status])
@@ -29,7 +29,7 @@ class Api::V1::Admin::PagesController < ApplicationController
     pagination = pagination_params
     pages = pages.limit(pagination[:per_page]).offset((pagination[:page] - 1) * pagination[:per_page])
 
-    total_count = Page.count
+    total_count = Page.where(account: current_user.account).count
     total_pages = (total_count.to_f / pagination[:per_page]).ceil
 
     render_success(
@@ -41,11 +41,11 @@ class Api::V1::Admin::PagesController < ApplicationController
           status: page.status,
           meta_description: page.meta_description,
           meta_keywords: page.meta_keywords,
-          author: {
+          author: page.user ? {
             id: page.user.id,
             name: page.user.full_name,
             email: page.user.email
-          },
+          } : nil,
           published_at: page.published_at,
           word_count: page.word_count,
           estimated_read_time: page.estimated_read_time,
@@ -80,11 +80,11 @@ class Api::V1::Admin::PagesController < ApplicationController
         meta_description: @page.meta_description,
         meta_keywords: @page.meta_keywords,
         status: @page.status,
-        author: {
+        author: @page.user ? {
           id: @page.user.id,
           name: @page.user.full_name,
           email: @page.user.email
-        },
+        } : nil,
         published_at: @page.published_at,
         word_count: @page.word_count,
         estimated_read_time: @page.estimated_read_time,
@@ -102,6 +102,7 @@ class Api::V1::Admin::PagesController < ApplicationController
   # POST /api/v1/admin/pages
   def create
     @page = Page.new(page_params)
+    @page.account = current_user.account
     @page.author = current_user
 
     if @page.save
@@ -181,7 +182,7 @@ class Api::V1::Admin::PagesController < ApplicationController
   private
 
   def set_page
-    @page = Page.find(params[:id])
+    @page = Page.where(account: current_user.account).find(params[:id])
   end
 
   def page_params
@@ -210,11 +211,11 @@ class Api::V1::Admin::PagesController < ApplicationController
       meta_description: page.meta_description,
       meta_keywords: page.meta_keywords,
       status: page.status,
-      author: {
+      author: page.user ? {
         id: page.user.id,
         name: page.user.full_name,
         email: page.user.email
-      },
+      } : nil,
       published_at: page.published_at,
       word_count: page.word_count,
       estimated_read_time: page.estimated_read_time,
