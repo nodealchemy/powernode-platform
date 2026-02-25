@@ -130,6 +130,8 @@ module Api
             coordination_strategy: team.coordination_strategy,
             communication_pattern: team.communication_pattern,
             max_parallel_tasks: team.max_parallel_tasks,
+            roles_count: team.ai_team_roles.count,
+            channels_count: team.ai_team_channels.count,
             created_at: team.created_at
           }
 
@@ -140,8 +142,6 @@ module Api
             data[:shared_memory_config] = team.shared_memory_config
             data[:human_checkpoint_config] = team.human_checkpoint_config
             data[:team_config] = team.team_config
-            data[:roles_count] = team.ai_team_roles.count
-            data[:channels_count] = team.ai_team_channels.count
           end
 
           data

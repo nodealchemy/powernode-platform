@@ -1853,6 +1853,15 @@ Rails.application.routes.draw do
         # - Pro: 10 agents, 5 teams, advanced patterns ($199/mo)
         # - Enterprise: Unlimited + custom topologies ($999/mo)
         # ===================================================================
+        # Team channel messages (chat integration)
+        get "/channels", to: "team_channel_messages#my_channels"
+        scope "teams/:team_id/channels/:channel_id", controller: "team_channel_messages" do
+          get "/messages", action: :messages
+          post "/messages", action: :send_message
+          post "/link", action: :link_chat_channel
+          delete "/unlink", action: :unlink_chat_channel
+        end
+
         scope :teams do
           # Templates, Role Profiles, Trajectories, Reviews → TeamTemplatesReviewsController
           scope controller: "team_templates_reviews" do
