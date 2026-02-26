@@ -353,7 +353,6 @@ Rails.application.routes.draw do
               post :seed_system
             end
             member do
-              post :record_usage
               post :refresh_connectors
             end
           end

@@ -20,15 +20,6 @@ module Api
             render_error("Failed to seed skills: #{e.message}", status: :unprocessable_content)
           end
 
-          # POST /api/v1/internal/ai/skills/:id/record_usage
-          def record_usage
-            skill = ::Ai::Skill.find(params[:id])
-            skill.increment_usage!
-            render_success(usage_count: skill.usage_count)
-          rescue ActiveRecord::RecordNotFound
-            render_error("Skill not found", status: :not_found)
-          end
-
           # POST /api/v1/internal/ai/skills/:id/refresh_connectors
           def refresh_connectors
             skill = ::Ai::Skill.find(params[:id])
