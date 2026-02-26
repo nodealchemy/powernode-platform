@@ -103,7 +103,7 @@ class AiExecutionTimeoutCleanupJob < BaseJob
     )
 
     # Cancel via backend API
-    cancel_response = backend_api_post("/api/v1/ai/executions/#{execution_id}/cancel", {
+    cancel_response = backend_api_post("/api/v1/internal/ai/executions/#{execution_id}/cancel", {
       reason: "Timeout: execution hung in #{status} state for #{duration.round(1)}s (threshold: #{timeout_seconds}s)"
     })
 

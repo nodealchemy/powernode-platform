@@ -2,8 +2,7 @@
 
 class AiCodeFactoryPrdJob < BaseJob
   include AiJobsConcern
-  include AiProviderCallsConcern
-  include AiPromptBuildingConcern
+  include AiLlmProxyConcern
 
   sidekiq_options queue: 'ai_execution', retry: 3
 
@@ -124,41 +123,27 @@ class AiCodeFactoryPrdJob < BaseJob
   end
 
   def call_ai_provider(prompt, config)
-    provider = config[:provider] || {}
-    provider_type = config[:provider_type] || 'ollama'
+    # Resolve agent ID from the loop configuration
+    agent = config[:provider] || {}
+    agent_id = agent['agent_id'] || agent['id']
 
-    # Fetch credentials for the provider
-    credentials_response = backend_api_get("/api/v1/ai/credentials", {
-      provider_id: provider['id'],
-      default_only: true,
-      active: true
-    })
-
-    unless credentials_response['success']
-      return { success: false, error: 'Failed to fetch provider credentials' }
+    unless agent_id
+      return { success: false, error: 'No agent ID available for LLM proxy' }
     end
 
-    credentials = credentials_response.dig('data', 'credentials')&.first
-    unless credentials
-      return { success: false, error: 'No active credentials found for provider' }
-    end
+    messages = [
+      { role: "user", content: prompt }
+    ]
 
-    context = [{ role: 'system', content: 'You are a product requirements document generator. Output structured JSON PRDs.' }]
+    result = llm_proxy.complete(
+      agent_id: agent_id,
+      messages: messages,
+      model: config[:model],
+      system_prompt: 'You are a product requirements document generator. Output structured JSON PRDs.'
+    )
 
-    result = case provider_type
-             when 'openai'
-               call_openai_provider(credentials, prompt, context)
-             when 'anthropic'
-               call_anthropic_provider(credentials, prompt, context)
-             else
-               call_ollama_provider(credentials, prompt, context)
-             end
-
-    if result[:success]
-      { success: true, content: result[:response] }
-    else
-      { success: false, error: result[:error] }
-    end
+    content = result['content'] || result[:content]
+    { success: true, content: content }
   rescue StandardError => e
     { success: false, error: e.message }
   end

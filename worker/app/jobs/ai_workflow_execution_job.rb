@@ -180,7 +180,7 @@ class AiWorkflowExecutionJob < BaseJob
       raise ArgumentError, "Unsupported HTTP method: #{method}"
     end
 
-    request['Authorization'] = "Bearer #{config.worker_token}"
+    request['Authorization'] = "Bearer #{WorkerJwt.token}"
     request['Content-Type'] = 'application/json'
     request['Accept'] = 'application/json'
     request['User-Agent'] = 'PowernodeWorker/1.0'

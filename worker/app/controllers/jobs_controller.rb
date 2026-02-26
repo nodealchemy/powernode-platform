@@ -151,11 +151,16 @@ class JobsController
     token = auth_header.sub(/^Bearer /, '')
     return false if token.empty?
 
-    # Check if token matches the configured WORKER_TOKEN
-    expected_token = PowernodeWorker.application.config.worker_token
-    return false unless expected_token
+    # JWT-only authentication
+    secret = jwt_secret_key
+    return false unless secret
 
-    token == expected_token
+    begin
+      decoded = JWT.decode(token, secret, true, algorithm: 'HS256')[0]
+      decoded['type'] == 'worker' && decoded['sub'].present?
+    rescue JWT::DecodeError
+      false
+    end
   end
 
   def valid_job_class?(job_class)
@@ -247,6 +252,15 @@ class JobsController
       'Maintenance::DatabaseMaintenanceJob',
       'Maintenance::CacheCleanupJob',
       'Maintenance::LogRotationJob',
+      # AI A2A (Agent-to-Agent) task jobs
+      'AiA2aTaskExecutionJob',
+      'AiA2aExternalTaskJob',
+      # AI Knowledge event-driven jobs
+      'AiPromoteLearningJob',
+      'AiConsolidateMemoryEntryJob',
+      'AiDedupLearningJob',
+      'AiUpdateGraphNodeJob',
+      'AiSkillConflictCheckJob',
       # AI Skills jobs
       'AiSkillSyncJob',
       # AI Mission jobs
@@ -299,6 +313,6 @@ class JobsController
   end
   
   def jwt_secret_key
-    ENV['JWT_SECRET_KEY'] || 'development_jwt_secret_key_that_persists_across_restarts_and_is_secure_enough_for_local_development_only'
+    ENV['JWT_SECRET_KEY']
   end
 end

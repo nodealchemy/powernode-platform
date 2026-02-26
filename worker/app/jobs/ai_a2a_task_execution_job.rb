@@ -2,7 +2,7 @@
 
 class AiA2aTaskExecutionJob < BaseJob
   include AiJobsConcern
-  include AiProviderCallsConcern
+  include AiLlmProxyConcern
   include AiCostCalculationConcern
   include A2aArtifactExtractionConcern
 
@@ -116,24 +116,8 @@ class AiA2aTaskExecutionJob < BaseJob
       provider_name: provider['name']
     )
 
-    # Get provider credentials
-    credentials_response = backend_api_get("/api/v1/ai/credentials", {
-      provider_id: provider['id'],
-      default_only: true,
-      active: true
-    })
-
-    unless credentials_response['success']
-      return { success: false, error: 'Failed to fetch provider credentials' }
-    end
-
-    credentials = credentials_response['data']['credentials'].first
-    unless credentials
-      return { success: false, error: 'No active credentials found for provider' }
-    end
-
-    # Call AI provider
-    ai_response = call_ai_provider_for_a2a(provider, credentials, prompt, context)
+    # Call AI provider via LLM proxy
+    ai_response = call_ai_provider_for_a2a(provider, nil, prompt, context)
 
     execution_time = Time.current - start_time
     duration_ms = (execution_time * 1000).to_i
@@ -246,28 +230,30 @@ class AiA2aTaskExecutionJob < BaseJob
          .join("\n")
   end
 
-  def call_ai_provider_for_a2a(provider, credentials, prompt, context)
-    provider_type = provider['provider_type']&.downcase || 'custom'
+  def call_ai_provider_for_a2a(provider, _credentials, prompt, context)
+    agent_id = @task['to_agent_id']
 
-    case provider_type
-    when 'openai'
-      call_openai_provider(credentials, prompt, context)
-    when 'anthropic'
-      call_anthropic_provider(credentials, prompt, context)
-    when 'ollama', 'custom'
-      if ollama_compatible_provider?(provider, credentials)
-        call_ollama_provider(credentials, prompt, context)
-      else
-        call_a2a_generic_provider(provider, credentials, prompt, context)
-      end
-    else
-      call_a2a_generic_provider(provider, credentials, prompt, context)
-    end
-  end
+    messages = context.map { |c| { role: c['role'] || c[:role], content: c['content'] || c[:content] } }
+    messages << { role: "user", content: prompt }
 
-  # Simple generic fallback for A2A (delegates to OpenAI-compatible format)
-  def call_a2a_generic_provider(_provider, credentials, prompt, context)
-    call_openai_provider(credentials, prompt, context)
+    result = llm_proxy.execute_tool_loop(
+      agent_id: agent_id,
+      messages: messages
+    )
+
+    content = result['content'] || result[:content]
+    usage = result['usage'] || result[:usage] || {}
+    tokens = usage['total_tokens'] || usage[:total_tokens] || 0
+
+    {
+      success: true,
+      response: content,
+      model: result['model'] || result[:model],
+      cost: result['cost'] || result[:cost] || 0.0,
+      metadata: { tokens_used: tokens }
+    }
+  rescue StandardError => e
+    { success: false, error: e.message }
   end
 
   def store_execution_memory(agent, response, success)
