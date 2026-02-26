@@ -7,6 +7,10 @@ RSpec.describe "Api::V1::Ai::Missions", type: :request do
   let(:account) { user.account }
   let(:headers) { auth_headers_for(user) }
 
+  before do
+    allow(WorkerJobService).to receive(:enqueue_job).and_return(true)
+  end
+
   describe "GET /api/v1/ai/missions" do
     let!(:mission) { create(:ai_mission, account: account, created_by: user) }
 

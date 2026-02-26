@@ -8,6 +8,10 @@ RSpec.describe Ai::Missions::OrchestratorService do
   let(:mission) { create(:ai_mission, account: account, created_by: user) }
   let(:service) { described_class.new(mission: mission) }
 
+  before do
+    allow(WorkerJobService).to receive(:enqueue_job).and_return(true)
+  end
+
   describe "#start!" do
     it "activates the mission" do
       service.start!
@@ -77,6 +81,44 @@ RSpec.describe Ai::Missions::OrchestratorService do
         selected_feature: { title: "Test Feature", description: "A test" }
       )
       expect(mission.reload.selected_feature).to include("title" => "Test Feature")
+    end
+  end
+
+  describe "#advance!" do
+    before { mission.update!(status: "active", current_phase: "analyzing") }
+
+    it "moves to the next phase" do
+      service.advance!
+      expect(mission.reload.current_phase).to eq("awaiting_feature_approval")
+    end
+
+    it "rejects stale advances" do
+      service.advance!(expected_phase: "executing")
+      expect(mission.reload.current_phase).to eq("analyzing")
+    end
+  end
+
+  describe "dynamic job resolution" do
+    it "resolves job class from template" do
+      job = service.send(:job_class_for_phase, "analyzing")
+      expect(job).to eq("AiMissionAnalyzeJob")
+    end
+
+    it "returns nil for approval gate phases" do
+      job = service.send(:job_class_for_phase, "awaiting_feature_approval")
+      expect(job).to be_nil
+    end
+  end
+
+  describe "dynamic rejection mapping" do
+    it "resolves rejection target from template" do
+      target = service.send(:resolve_rejection_target, "awaiting_feature_approval")
+      expect(target).to eq("analyzing")
+    end
+
+    it "resolves prd rejection target" do
+      target = service.send(:resolve_rejection_target, "awaiting_prd_approval")
+      expect(target).to eq("planning")
     end
   end
 end

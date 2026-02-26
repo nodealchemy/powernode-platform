@@ -9,6 +9,7 @@ RSpec.describe Ai::Mission, type: :model do
     it { is_expected.to belong_to(:repository).class_name("Devops::GitRepository").optional }
     it { is_expected.to belong_to(:team).class_name("Ai::AgentTeam").optional }
     it { is_expected.to belong_to(:conversation).class_name("Ai::Conversation").optional }
+    it { is_expected.to belong_to(:mission_template).class_name("Ai::MissionTemplate").optional }
     it { is_expected.to have_many(:approvals).class_name("Ai::MissionApproval") }
   end
 
@@ -34,19 +35,39 @@ RSpec.describe Ai::Mission, type: :model do
   end
 
   describe "#phases_for_type" do
-    it "returns development phases for development type" do
+    it "returns phases from template for development type" do
       mission = build(:ai_mission, :development)
-      expect(mission.phases_for_type).to eq(Ai::Mission::DEVELOPMENT_PHASES)
+      expect(mission.phases_for_type).to include("analyzing", "executing", "completed")
+      expect(mission.phases_for_type.length).to eq(12)
     end
 
-    it "returns research phases for research type" do
+    it "returns phases from template for research type" do
       mission = build(:ai_mission, :research)
-      expect(mission.phases_for_type).to eq(Ai::Mission::RESEARCH_PHASES)
+      expect(mission.phases_for_type).to include("researching", "analyzing", "reporting", "completed")
+      expect(mission.phases_for_type.length).to eq(4)
     end
 
-    it "returns operations phases for operations type" do
+    it "returns phases from template for operations type" do
       mission = build(:ai_mission, :operations)
-      expect(mission.phases_for_type).to eq(Ai::Mission::OPERATIONS_PHASES)
+      expect(mission.phases_for_type).to include("configuring", "executing", "verifying", "completed")
+      expect(mission.phases_for_type.length).to eq(4)
+    end
+
+    it "returns empty array without template or custom phases" do
+      mission = build(:ai_mission)
+      mission.mission_template = nil
+      mission.custom_phases = nil
+      expect(mission.phases_for_type).to eq([])
+    end
+
+    it "uses custom_phases when present" do
+      custom = [
+        { "key" => "step_one", "order" => 0 },
+        { "key" => "step_two", "order" => 1 }
+      ]
+      mission = build(:ai_mission)
+      mission.custom_phases = custom
+      expect(mission.phases_for_type).to eq(%w[step_one step_two])
     end
   end
 
@@ -74,6 +95,23 @@ RSpec.describe Ai::Mission, type: :model do
     end
   end
 
+  describe "#approval_gate_phases" do
+    it "returns gates from template" do
+      mission = build(:ai_mission, :development)
+      expect(mission.approval_gate_phases).to include("awaiting_feature_approval", "awaiting_prd_approval")
+    end
+
+    it "returns gates from custom_phases" do
+      custom = [
+        { "key" => "work", "order" => 0, "requires_approval" => false },
+        { "key" => "review", "order" => 1, "requires_approval" => true }
+      ]
+      mission = build(:ai_mission)
+      mission.custom_phases = custom
+      expect(mission.approval_gate_phases).to eq(["review"])
+    end
+  end
+
   describe "#phase_progress" do
     it "returns 0 for first phase" do
       mission = build(:ai_mission, :development, current_phase: "analyzing")
@@ -83,6 +121,17 @@ RSpec.describe Ai::Mission, type: :model do
     it "returns 100 for completed phase" do
       mission = build(:ai_mission, :development, current_phase: "completed")
       expect(mission.phase_progress).to eq(100)
+    end
+  end
+
+  describe "#save_as_template!" do
+    it "creates an account template from the mission" do
+      mission = create(:ai_mission, :development)
+      template = mission.save_as_template!(name: "My Template")
+      expect(template).to be_persisted
+      expect(template.template_type).to eq("account")
+      expect(template.mission_type).to eq("development")
+      expect(template.name).to eq("My Template")
     end
   end
 

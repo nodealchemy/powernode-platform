@@ -9,8 +9,22 @@ FactoryBot.define do
     status { "draft" }
     objective { "Implement a new feature" }
 
-    # Development missions need a repository
+    # Assign a template matching the mission type (required for phase resolution)
     after(:build) do |mission|
+      if mission.mission_template.nil? && mission.custom_phases.blank?
+        trait = case mission.mission_type
+                when "research" then :research
+                when "operations" then :operations
+                else nil
+                end
+        mission.mission_template = if trait
+          create(:ai_mission_template, trait)
+        else
+          create(:ai_mission_template)
+        end
+      end
+
+      # Development missions need a repository
       if mission.mission_type == "development" && mission.repository.nil?
         mission.repository = create(:git_repository, account: mission.account)
       end
