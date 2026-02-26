@@ -450,7 +450,7 @@ export const WorkersPage: React.FC = () => {
 
         {/* Tab Navigation and Content */}
         <TabContainer
-          basePath="/app/system/workers"
+          basePath="/app/admin/workers"
           tabs={[
             {
               id: 'overview',
