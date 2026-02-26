@@ -6,7 +6,7 @@ class UsageQuota < ApplicationRecord
   # Associations
   belongs_to :account
   belongs_to :usage_meter
-  belongs_to :plan, optional: true
+  belongs_to :plan, class_name: "Billing::Plan", optional: true
 
   # Validations
   validates :account_id, uniqueness: { scope: :usage_meter_id }

@@ -4,8 +4,8 @@ class UsageSummary < ApplicationRecord
   # Associations
   belongs_to :account
   belongs_to :usage_meter
-  belongs_to :subscription, optional: true
-  belongs_to :invoice, optional: true
+  belongs_to :subscription, class_name: "Billing::Subscription", optional: true
+  belongs_to :invoice, class_name: "Billing::Invoice", optional: true
 
   # Validations
   validates :period_start, presence: true
