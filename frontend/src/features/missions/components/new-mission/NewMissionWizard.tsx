@@ -3,9 +3,10 @@ import { Rocket } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import { StepTypeAndRepo } from './StepTypeAndRepo';
+import { StepTemplate } from './StepTemplate';
 import { StepTeamConfig } from './StepTeamConfig';
 import { StepObjective } from './StepObjective';
-import type { CreateMissionParams, MissionType } from '../../types/mission';
+import type { CreateMissionParams, MissionType, MissionTemplate } from '../../types/mission';
 
 interface NewMissionWizardProps {
   isOpen: boolean;
@@ -13,7 +14,7 @@ interface NewMissionWizardProps {
   onCreate: (data: CreateMissionParams) => Promise<void>;
 }
 
-const STEPS = ['Type & Repository', 'Team (Optional)', 'Objective'] as const;
+const STEPS = ['Type & Repository', 'Template', 'Team (Optional)', 'Objective'] as const;
 
 export const NewMissionWizard: React.FC<NewMissionWizardProps> = ({ isOpen, onClose, onCreate }) => {
   const [step, setStep] = useState(0);
@@ -27,12 +28,14 @@ export const NewMissionWizard: React.FC<NewMissionWizardProps> = ({ isOpen, onCl
   const [teamId, setTeamId] = useState<string>('');
   const [objective, setObjective] = useState('');
   const [description, setDescription] = useState('');
+  const [selectedTemplate, setSelectedTemplate] = useState<MissionTemplate | null>(null);
 
   const canProceed = (): boolean => {
     switch (step) {
       case 0: return name.trim().length > 0;
-      case 1: return true; // team is optional
-      case 2: return true; // objective is optional
+      case 1: return true; // template is optional
+      case 2: return true; // team is optional
+      case 3: return true; // objective is optional
       default: return false;
     }
   };
@@ -48,6 +51,7 @@ export const NewMissionWizard: React.FC<NewMissionWizardProps> = ({ isOpen, onCl
         repository_id: repositoryId || undefined,
         team_id: teamId || undefined,
         base_branch: baseBranch || undefined,
+        mission_template_id: selectedTemplate?.id || undefined,
       });
     } finally {
       setSubmitting(false);
@@ -63,6 +67,7 @@ export const NewMissionWizard: React.FC<NewMissionWizardProps> = ({ isOpen, onCl
     setTeamId('');
     setObjective('');
     setDescription('');
+    setSelectedTemplate(null);
     onClose();
   };
 
@@ -130,12 +135,19 @@ export const NewMissionWizard: React.FC<NewMissionWizardProps> = ({ isOpen, onCl
         />
       )}
       {step === 1 && (
+        <StepTemplate
+          selectedTemplateId={selectedTemplate?.id ?? null}
+          onTemplateSelect={setSelectedTemplate}
+          missionType={missionType}
+        />
+      )}
+      {step === 2 && (
         <StepTeamConfig
           teamId={teamId}
           onTeamIdChange={setTeamId}
         />
       )}
-      {step === 2 && (
+      {step === 3 && (
         <StepObjective
           objective={objective}
           onObjectiveChange={setObjective}

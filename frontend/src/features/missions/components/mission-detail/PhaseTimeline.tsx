@@ -8,6 +8,8 @@ interface PhaseTimelineProps {
   currentPhase: MissionPhase | null;
   phaseHistory: PhaseEntry[];
   status: MissionStatus;
+  onPhaseClick?: (phase: MissionPhase) => void;
+  selectedPhase?: MissionPhase | null;
 }
 
 function getPhaseState(
@@ -32,6 +34,8 @@ export const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
   currentPhase,
   phaseHistory,
   status,
+  onPhaseClick,
+  selectedPhase,
 }) => {
   const currentIndex = currentPhase ? phases.indexOf(currentPhase) : -1;
 
@@ -52,8 +56,14 @@ export const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
                   }`}
                 />
               )}
-              <div className="flex flex-col items-center flex-shrink-0 min-w-[64px]">
-                <div className="mb-1">
+              <div
+                className={`flex flex-col items-center flex-shrink-0 min-w-[64px] ${onPhaseClick ? 'cursor-pointer' : ''}`}
+                onClick={onPhaseClick ? () => onPhaseClick(phase) : undefined}
+                role={onPhaseClick ? 'button' : undefined}
+                tabIndex={onPhaseClick ? 0 : undefined}
+                onKeyDown={onPhaseClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') onPhaseClick(phase); } : undefined}
+              >
+                <div className={`mb-1 ${selectedPhase === phase ? 'ring-2 ring-theme-accent ring-offset-1 ring-offset-theme-bg-surface rounded-full' : ''}`}>
                   {state === 'completed' && (
                     <CheckCircle2 className="w-5 h-5 text-theme-success" />
                   )}

@@ -1,14 +1,7 @@
-export type MissionType = 'development' | 'research' | 'operations';
+export type MissionType = 'development' | 'research' | 'operations' | 'custom';
 export type MissionStatus = 'draft' | 'active' | 'paused' | 'completed' | 'failed' | 'cancelled';
 
-export type DevelopmentPhase =
-  | 'analyzing' | 'awaiting_feature_approval' | 'planning' | 'awaiting_prd_approval'
-  | 'executing' | 'testing' | 'reviewing' | 'awaiting_code_approval'
-  | 'deploying' | 'previewing' | 'merging' | 'completed';
-
-export type ResearchPhase = 'researching' | 'analyzing' | 'reporting' | 'completed';
-export type OperationsPhase = 'configuring' | 'executing' | 'verifying' | 'completed';
-export type MissionPhase = DevelopmentPhase | ResearchPhase | OperationsPhase;
+export type MissionPhase = string;
 
 export type ApprovalGate = 'feature_selection' | 'prd_review' | 'code_review' | 'merge_approval';
 export type ApprovalDecision = 'approved' | 'rejected';
@@ -53,6 +46,7 @@ export interface Mission {
   objective: string | null;
   current_phase: MissionPhase | null;
   phase_progress: number;
+  phases: string[];
   phase_config: Record<string, unknown>;
   analysis_result: Record<string, unknown>;
   feature_suggestions: FeatureSuggestion[];
@@ -78,6 +72,9 @@ export interface Mission {
   ralph_loop_id: string | null;
   risk_contract_id: string | null;
   review_state_id: string | null;
+  mission_template_id: string | null;
+  custom_phases: PhaseDefinition[] | null;
+  approval_gate_phases: string[];
   repository?: { id: string; name: string; full_name: string };
   team?: { id: string; name: string };
   created_by?: { id: string; name: string; email: string };
@@ -99,6 +96,8 @@ export interface CreateMissionParams {
   base_branch?: string;
   phase_config?: Record<string, unknown>;
   configuration?: Record<string, unknown>;
+  mission_template_id?: string;
+  custom_phases?: PhaseDefinition[];
 }
 
 export interface MissionWebSocketEvent {
@@ -107,29 +106,73 @@ export interface MissionWebSocketEvent {
   timestamp: string;
 }
 
-export const DEVELOPMENT_PHASES: DevelopmentPhase[] = [
-  'analyzing', 'awaiting_feature_approval', 'planning', 'awaiting_prd_approval',
-  'executing', 'testing', 'reviewing', 'awaiting_code_approval',
-  'deploying', 'previewing', 'merging', 'completed'
-];
 
-export const RESEARCH_PHASES: ResearchPhase[] = ['researching', 'analyzing', 'reporting', 'completed'];
-export const OPERATIONS_PHASES: OperationsPhase[] = ['configuring', 'executing', 'verifying', 'completed'];
+// Task Graph types
+export type RalphTaskStatus = 'pending' | 'in_progress' | 'passed' | 'failed' | 'blocked' | 'skipped';
+export type ExecutionType = 'agent' | 'workflow' | 'pipeline' | 'a2a_task' | 'container' | 'human' | 'community';
 
-export const APPROVAL_GATES: MissionPhase[] = [
-  'awaiting_feature_approval', 'awaiting_prd_approval', 'awaiting_code_approval', 'previewing'
-];
-
-export function phasesForType(type: MissionType): MissionPhase[] {
-  switch (type) {
-    case 'development': return DEVELOPMENT_PHASES;
-    case 'research': return RESEARCH_PHASES;
-    case 'operations': return OPERATIONS_PHASES;
-  }
+export interface TaskGraphNode {
+  id: string;
+  task_key: string;
+  description: string | null;
+  status: RalphTaskStatus;
+  execution_type: ExecutionType;
+  priority: number | null;
+  position: number;
+  dependencies: string[];
+  executor_type: string | null;
+  executor_name: string | null;
+  phase: string | null;
+  metadata: Record<string, unknown>;
 }
 
-export function isApprovalGate(phase: MissionPhase | null): boolean {
-  return phase !== null && APPROVAL_GATES.includes(phase);
+export interface TaskGraphEdge {
+  id: string;
+  source: string;
+  target: string;
+}
+
+export interface TaskGraph {
+  nodes: TaskGraphNode[];
+  edges: TaskGraphEdge[];
+}
+
+// Phase definitions for templates
+export interface PhaseDefinition {
+  key: string;
+  label: string;
+  description?: string;
+  requires_approval?: boolean;
+  job_class?: string;
+  estimated_duration_minutes?: number;
+  skip_allowed?: boolean;
+  order: number;
+}
+
+export interface MissionTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  template_type: 'system' | 'account' | 'community';
+  mission_type: MissionType;
+  phase_count: number;
+  phase_keys: string[];
+  phases?: PhaseDefinition[];
+  approval_gates: string[];
+  rejection_mappings?: Record<string, string>;
+  skill_compositions?: Record<string, unknown>;
+  default_configuration?: Record<string, unknown>;
+  is_default: boolean;
+  version: number;
+  status: string;
+  account_id: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export function isApprovalGate(phase: MissionPhase | null, approvalGatePhases?: string[]): boolean {
+  if (!phase || !approvalGatePhases) return false;
+  return approvalGatePhases.includes(phase);
 }
 
 export function phaseLabel(phase: string): string {

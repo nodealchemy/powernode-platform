@@ -39,7 +39,7 @@ export const MissionListItem: React.FC<MissionListItemProps> = ({ mission, isSel
   const statusStyle = STATUS_STYLES[mission.status] || STATUS_STYLES.draft;
   const typeIcon = TYPE_ICONS[mission.mission_type] || '\u{1F4CB}';
   const showProgress = mission.status === 'active' && mission.current_phase;
-  const atApprovalGate = isApprovalGate(mission.current_phase);
+  const atApprovalGate = isApprovalGate(mission.current_phase, mission.approval_gate_phases);
   const timestamp = mission.started_at || mission.created_at;
 
   return (

@@ -122,7 +122,7 @@ export const MissionsContent: React.FC<{
         });
       }
 
-      if (selectedMission.status === 'active' && isApprovalGate(selectedMission.current_phase)) {
+      if (selectedMission.status === 'active' && isApprovalGate(selectedMission.current_phase, selectedMission.approval_gate_phases)) {
         items.push({
           id: 'review',
           label: 'Review & Approve',

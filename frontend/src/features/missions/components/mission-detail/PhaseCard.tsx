@@ -201,7 +201,7 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({ mission, events }) => {
         </div>
         <div>
           <h3 className="text-sm font-semibold text-theme-primary">{phaseLabel(phase)}</h3>
-          {isApprovalGate(phase) && (
+          {isApprovalGate(phase, mission.approval_gate_phases) && (
             <span className="text-xs text-theme-warning">Awaiting approval</span>
           )}
         </div>

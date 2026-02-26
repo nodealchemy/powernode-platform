@@ -67,12 +67,12 @@ export const defaultNavigationConfig: NavigationConfig = {
         },
         {
           id: 'ai-workflows',
-          name: 'Workflows',
+          name: 'Workflow Builder',
           href: '/app/ai/workflows',
           icon: Workflow,
-          description: 'Visual AI orchestration and flow builder',
+          description: 'Advanced visual workflow builder for developers',
           permissions: ['ai.workflows.read'],
-          order: 5
+          order: 12
         },
         {
           id: 'ai-execution',

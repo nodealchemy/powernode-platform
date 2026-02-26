@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Rocket, Loader2 } from 'lucide-react';
 import { PhaseTimeline } from './mission-detail/PhaseTimeline';
 import { PhaseCard } from './mission-detail/PhaseCard';
 import { MissionSidebar } from './mission-detail/MissionSidebar';
 import { AppPreviewPanel } from './mission-detail/AppPreviewPanel';
-import type { Mission, MissionWebSocketEvent } from '../types/mission';
-import { phasesForType } from '../types/mission';
+import { MissionTaskGraph } from './task-graph/MissionTaskGraph';
+import { useMissionTaskGraph } from '../hooks/useMissionTaskGraph';
+import type { Mission, MissionWebSocketEvent, MissionPhase } from '../types/mission';
 
 interface MissionDetailPanelProps {
   mission: Mission | null;
@@ -20,6 +21,11 @@ export const MissionDetailPanel: React.FC<MissionDetailPanelProps> = ({
   error,
   events,
 }) => {
+  const [selectedPhase, setSelectedPhase] = useState<MissionPhase | null>(null);
+  const { taskGraph, loading: graphLoading } = useMissionTaskGraph(
+    mission?.ralph_loop_id ? mission.id : null
+  );
+
   // Empty state
   if (!mission && !loading && !error) {
     return (
@@ -52,7 +58,7 @@ export const MissionDetailPanel: React.FC<MissionDetailPanelProps> = ({
 
   if (!mission) return null;
 
-  const phases = phasesForType(mission.mission_type);
+  const phases = (mission.phases ?? []) as MissionPhase[];
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
@@ -71,7 +77,18 @@ export const MissionDetailPanel: React.FC<MissionDetailPanelProps> = ({
           currentPhase={mission.current_phase}
           phaseHistory={mission.phase_history}
           status={mission.status}
+          onPhaseClick={setSelectedPhase}
+          selectedPhase={selectedPhase}
         />
+
+        {/* Task Graph (when ralph_loop exists) */}
+        {mission.ralph_loop_id && (
+          <MissionTaskGraph
+            taskGraph={taskGraph}
+            loading={graphLoading}
+            selectedPhase={selectedPhase}
+          />
+        )}
 
         {/* Main Content + Sidebar */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -1,5 +1,5 @@
 import { apiClient } from '@/shared/services/apiClient';
-import type { Mission, CreateMissionParams } from '../types/mission';
+import type { Mission, CreateMissionParams, TaskGraph, MissionTemplate } from '../types/mission';
 
 const BASE_PATH = '/ai/missions';
 
@@ -54,4 +54,19 @@ export const missionsApi = {
 
   analyzeRepo: (data: { repository_id: string }) =>
     unwrap<{ analysis: Record<string, unknown> }>(apiClient.post(`${BASE_PATH}/analyze_repo`, data)),
+
+  getTaskGraph: (id: string) =>
+    unwrap<{ task_graph: TaskGraph }>(apiClient.get(`${BASE_PATH}/${id}/task_graph`)),
+
+  getMissionTemplates: (params?: { mission_type?: string; template_type?: string }) =>
+    unwrap<{ templates: MissionTemplate[] }>(apiClient.get('/ai/mission_templates', { params })),
+
+  getMissionTemplate: (id: string) =>
+    unwrap<{ template: MissionTemplate }>(apiClient.get(`/ai/mission_templates/${id}`)),
+
+  saveAsTemplate: (id: string, data?: { name?: string; description?: string }) =>
+    unwrap<{ template: MissionTemplate }>(apiClient.post(`${BASE_PATH}/${id}/save_as_template`, data)),
+
+  composePlan: (id: string) =>
+    unwrap<{ plan: TaskGraph }>(apiClient.post(`${BASE_PATH}/${id}/compose_plan`)),
 };
