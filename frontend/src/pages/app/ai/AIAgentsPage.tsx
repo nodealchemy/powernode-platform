@@ -8,20 +8,17 @@ import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer'
 import { TeamBuilderModal } from '@/features/ai/agent-teams/components/TeamBuilderModal';
 import { ExecuteTeamModal } from '@/features/ai/agent-teams/components/ExecuteTeamModal';
 import { CreateAgentModal } from '@/features/ai/agents/components/CreateAgentModal';
-import { EditAgentModal } from '@/features/ai/agents/components/EditAgentModal';
 import { AgentsOverviewTab } from '@/features/ai/agents/components/tabs/AgentsOverviewTab';
-import { AgentsListTab } from '@/features/ai/agents/components/tabs/AgentsListTab';
+import { AgentsSplitPanel } from '@/features/ai/agents/components/AgentsSplitPanel';
 import { CardsTab } from '@/features/ai/agents/components/tabs/CardsTab';
 import { CommunityAgentsContent } from '@/features/ai/community-agents/pages/CommunityAgentsPage';
 import { AutonomyContent } from '@/features/ai/autonomy/pages/AutonomyDashboardPage';
 import { useAgentsList } from '@/features/ai/agents/hooks/useAgentsList';
 import { useTeamsList } from '@/features/ai/agents/hooks/useTeamsList';
 import { useAgentCards } from '@/features/ai/agents/hooks/useAgentCards';
-import { useChatWindow } from '@/features/ai/chat/context/ChatWindowContext';
 import { usePermissions } from '@/shared/hooks/usePermissions';
 import { useAiOrchestrationWebSocket } from '@/shared/hooks/useAiOrchestrationWebSocket';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
-import type { AiAgent } from '@/shared/types/ai';
 
 const tabs = [
   { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={16} />, path: '/' },
@@ -34,20 +31,16 @@ const tabs = [
 export const AIAgentsPage: React.FC = () => {
   const location = useLocation();
   const { hasPermission } = usePermissions();
-  const { openConversationMaximized } = useChatWindow();
 
   const canCreateAgents = hasPermission('ai.agents.create');
-  const canManageAgents = hasPermission('ai.agents.manage');
 
-  // Hooks
+  // Hooks — agentsList still needed for overview tab stats
   const agentsList = useAgentsList();
   const teamsList = useTeamsList();
   const agentCards = useAgentCards();
 
-  // Local modal state
+  // Local modal state — only for overview tab's create modal
   const [showCreateAgentModal, setShowCreateAgentModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedAgent, setSelectedAgent] = useState<AiAgent | null>(null);
 
   // Tab routing
   const getActiveTab = () => {
@@ -66,13 +59,8 @@ export const AIAgentsPage: React.FC = () => {
     if (newTab !== activeTab) setActiveTab(newTab);
   }, [location.pathname]);
 
-  // WebSocket for real-time updates
+  // WebSocket for team events (agent events handled by AgentsSplitPanel)
   useAiOrchestrationWebSocket({
-    onAgentEvent: (event) => {
-      if (['agent_created', 'agent_updated', 'agent_deleted', 'agent_execution_completed'].includes(event.type)) {
-        agentsList.loadAgents();
-      }
-    },
     onAgentTeamEvent: (event) => {
       if (['team_created', 'team_updated', 'team_deleted', 'team_execution_completed'].includes(event.type)) {
         teamsList.loadTeams();
@@ -100,26 +88,9 @@ export const AIAgentsPage: React.FC = () => {
     loading: agentsList.agentsLoading || teamsList.teamsLoading,
   });
 
-  // Agent modal handlers
-  const handleEditAgent = (agent: AiAgent) => {
-    setSelectedAgent(agent);
-    setShowEditModal(true);
-  };
-
+  // Agent created from overview tab
   const handleAgentCreated = () => {
     setShowCreateAgentModal(false);
-    agentsList.loadAgents();
-  };
-
-  const handleAgentUpdated = () => {
-    setShowEditModal(false);
-    setSelectedAgent(null);
-    agentsList.loadAgents();
-  };
-
-  const handleAgentDeleted = () => {
-    setShowEditModal(false);
-    setSelectedAgent(null);
     agentsList.loadAgents();
   };
 
@@ -144,7 +115,7 @@ export const AIAgentsPage: React.FC = () => {
     return base;
   };
 
-  // Page actions
+  // Page actions — "Create Agent" only shown on overview tab (split panel has its own)
   const pageActions = [
     refreshAction,
     ...(activeTab === 'cards' && agentCards.cardViewMode !== 'list' ? [{
@@ -161,7 +132,7 @@ export const AIAgentsPage: React.FC = () => {
       variant: 'primary' as const,
       icon: Plus,
     }] : []),
-    ...(['overview', 'agents'].includes(activeTab) && canCreateAgents ? [{
+    ...(activeTab === 'overview' && canCreateAgents ? [{
       id: 'create-agent',
       label: 'Create Agent',
       onClick: () => setShowCreateAgentModal(true),
@@ -190,20 +161,7 @@ export const AIAgentsPage: React.FC = () => {
         </TabPanel>
 
         <TabPanel tabId="agents" activeTab={activeTab}>
-          <AgentsListTab
-            filteredAgents={agentsList.filteredAgents}
-            agentsLoading={agentsList.agentsLoading}
-            agentSearchQuery={agentsList.agentSearchQuery}
-            onSearchChange={agentsList.setAgentSearchQuery}
-            agentViewMode={agentsList.agentViewMode}
-            onViewModeChange={agentsList.setAgentViewMode}
-            canCreateAgents={canCreateAgents}
-            canManageAgents={canManageAgents}
-            onCreateAgent={() => setShowCreateAgentModal(true)}
-            onToggleStatus={agentsList.handleToggleAgentStatus}
-            onEditAgent={handleEditAgent}
-            onChatWithAgent={(agent) => openConversationMaximized(agent.id, agent.name)}
-          />
+          <AgentsSplitPanel />
         </TabPanel>
 
         <TabPanel tabId="cards" activeTab={activeTab}>
@@ -244,19 +202,11 @@ export const AIAgentsPage: React.FC = () => {
         onExecute={teamsList.handleExecuteTeam}
       />
 
-      {/* Agent Modals */}
+      {/* Create Agent Modal — only for overview tab */}
       <CreateAgentModal
         isOpen={showCreateAgentModal}
         onClose={() => setShowCreateAgentModal(false)}
         onAgentCreated={handleAgentCreated}
-      />
-
-      <EditAgentModal
-        isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
-        agent={selectedAgent}
-        onAgentUpdated={handleAgentUpdated}
-        onAgentDeleted={handleAgentDeleted}
       />
     </PageContainer>
   );
