@@ -22,23 +22,35 @@
 
 The Powernode backend uses a service-oriented architecture with services organized in `server/app/services/`. Services encapsulate business logic and are called from controllers, jobs, and other services.
 
-### Directory Structure
+### Directory Structure (570 service files across 25 namespaces)
 
 ```
 server/app/services/
-├── ai/                    # AI orchestration, agents, providers (55+ files)
-├── mcp/                   # Model Context Protocol services (80+ files)
-├── billing/               # Payment and subscription services
+├── ai/                    # AI orchestration, agents, providers (307 files)
+├── mcp/                   # Model Context Protocol services (101 files)
+├── devops/                # CI/CD and deployment services (38 files)
+├── a2a/                   # Agent-to-Agent protocol (17 files)
+├── chat/                  # Conversation management (10 files)
+├── security/              # Auth, encryption, security (11 files)
+├── orchestration/         # Workflow orchestration (8 files)
+├── cost_optimization/     # Cost tracking and optimization (7 files)
+├── storage_providers/     # Storage backend implementations (7 files)
+├── concerns/              # Shared service concerns (7 files)
+├── provider_testing/      # Provider health checks (6 files)
+├── shared/                # Cross-cutting utilities (4 files)
+├── billing/               # Payment and subscription services (2 files)
+├── data_management/       # Data sanitization and management (2 files)
+├── monitoring/            # Health monitoring (2 files)
+├── permissions/           # Permission management (2 files)
+├── rate_limiting/         # Request rate limiting (2 files)
+├── audit/                 # Audit log services (2 files)
+├── admin/                 # Admin panel services (2 files)
+├── auth/                  # Authentication services (1 file)
+├── accounts/              # Account management (1 file)
+├── analytics/             # Analytics processing
 ├── baas/                  # Billing-as-a-Service API services
-├── devops/                # CI/CD and deployment services
-├── cost_optimization/     # Cost tracking and optimization
-├── concerns/              # Shared service concerns
-├── storage_providers/     # Storage backend implementations
-├── provider_testing/      # Provider health checks
-├── data_management/       # Data sanitization and management
-├── marketplace/           # Marketplace integrations
-├── orchestration/         # Workflow orchestration
-└── auth/                  # Authentication services
+├── notifications/         # Notification delivery
+└── services/              # Service management
 ```
 
 ---
@@ -49,13 +61,18 @@ server/app/services/
 
 | Domain | Service Count | Primary Responsibility |
 |--------|---------------|------------------------|
-| AI | 55+ | Agent execution, provider management, workflows |
-| MCP | 80+ | Node executors, orchestration, protocol handling |
-| Billing | 8 | Subscriptions, payments, usage limits |
-| BaaS | 6 | Multi-tenant billing API |
-| DevOps | 12 | CI/CD, Git, deployment |
-| Cost | 6 | Cost tracking, optimization, budgets |
-| Storage | 5 | S3, GCS, NFS, SMB, local |
+| AI | 307 | Agent execution, provider management, workflows, knowledge, memory |
+| MCP | 101 | Node executors, orchestration, protocol handling |
+| DevOps | 38 | CI/CD, Git, deployment, registry |
+| A2A | 17 | Agent-to-Agent protocol |
+| Security | 11 | Authentication, authorization, encryption |
+| Chat | 10 | Conversation management, context building |
+| Orchestration | 8 | Workflow orchestration coordination |
+| Cost Optimization | 7 | Cost tracking, optimization, budgets |
+| Storage | 7 | S3, GCS, NFS, SMB, local |
+| Provider Testing | 6 | Connection testing, health checks |
+| Billing | 2 | Subscriptions, payments |
+| Others | 25+ | Admin, audit, monitoring, permissions, rate limiting |
 
 ---
 
@@ -647,5 +664,5 @@ end
 ---
 
 **Document Status**: Complete
-**Last Updated**: 2025-01-30
-**Source**: `server/app/services/`
+**Last Updated**: 2026-02-26
+**Source**: `server/app/services/` (570 files)

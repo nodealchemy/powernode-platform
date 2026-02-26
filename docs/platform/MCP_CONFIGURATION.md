@@ -28,7 +28,7 @@ Task tool specialist spawning and delegation rules.
 | | Documentation | [DOCUMENTATION_SPECIALIST.md](../services/DOCUMENTATION_SPECIALIST.md) |
 | | Analytics | [ANALYTICS_ENGINEER.md](../services/ANALYTICS_ENGINEER.md) |
 
-**All specialists use Opus 4.5 exclusively.**
+**All specialists use Opus 4.6 exclusively.**
 
 ---
 
@@ -199,5 +199,7 @@ end
 
 ---
 
-**Document Status**: Complete
+**Document Status**: Complete (92 MCP tools registered)
 **Consolidates**: MCP_MODEL_CONFIGURATION.md, MCP_DOCUMENTATION_ENHANCEMENT_PLAN.md, AUTOMATED_MCP_DELEGATION_CONFIG.md
+**Tool Registry**: `server/app/services/ai/tools/platform_api_tool_registry.rb`
+**Tool Catalog**: [MCP_TOOL_CATALOG.md](MCP_TOOL_CATALOG.md) (regenerate with `rails mcp:generate_tool_catalog`)
