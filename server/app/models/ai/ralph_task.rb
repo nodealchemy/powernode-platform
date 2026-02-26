@@ -50,6 +50,7 @@ module Ai
     # ==================== Callbacks ====================
     before_validation :set_position, on: :create
     after_commit :update_loop_task_counts
+    after_save :broadcast_task_status_change, if: :saved_change_to_status?
 
     # ==================== State Machine Methods ====================
 
@@ -285,6 +286,22 @@ module Ai
 
       max_position = ralph_loop.ralph_tasks.maximum(:position) || 0
       self.position = max_position + 1
+    end
+
+    def broadcast_task_status_change
+      mission = ralph_loop&.mission || ::Ai::Mission.find_by(ralph_loop_id: ralph_loop_id)
+      return unless mission
+
+      MissionChannel.broadcast_mission_event(mission.id, "task_status_changed", {
+        task_id: id,
+        task_key: task_key,
+        status: status,
+        previous_status: saved_change_to_status.first,
+        execution_type: execution_type,
+        phase: metadata&.dig("phase")
+      })
+    rescue StandardError => e
+      Rails.logger.warn("Failed to broadcast task status change: #{e.message}")
     end
 
     def update_loop_task_counts

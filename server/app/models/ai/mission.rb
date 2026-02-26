@@ -7,18 +7,10 @@ module Ai
     include Auditable
 
     # ==================== Constants ====================
-    MISSION_TYPES = %w[development research operations].freeze
-
-    DEVELOPMENT_PHASES = %w[
-      analyzing awaiting_feature_approval planning awaiting_prd_approval
-      executing testing reviewing awaiting_code_approval deploying previewing merging completed
-    ].freeze
-    RESEARCH_PHASES = %w[researching analyzing reporting completed].freeze
-    OPERATIONS_PHASES = %w[configuring executing verifying completed].freeze
+    MISSION_TYPES = %w[development research operations custom].freeze
 
     STATUSES = %w[draft active paused completed failed cancelled].freeze
     TERMINAL_STATUSES = %w[completed failed cancelled].freeze
-    APPROVAL_GATES = %w[awaiting_feature_approval awaiting_prd_approval awaiting_code_approval previewing].freeze
 
     # ==================== Associations ====================
     belongs_to :account
@@ -29,6 +21,7 @@ module Ai
     belongs_to :risk_contract, class_name: "Ai::CodeFactory::RiskContract", foreign_key: "risk_contract_id", optional: true
     belongs_to :ralph_loop, class_name: "Ai::RalphLoop", foreign_key: "ralph_loop_id", optional: true
     belongs_to :review_state, class_name: "Ai::CodeFactory::ReviewState", foreign_key: "review_state_id", optional: true
+    belongs_to :mission_template, class_name: "Ai::MissionTemplate", foreign_key: "mission_template_id", optional: true
 
     has_many :approvals, class_name: "Ai::MissionApproval", foreign_key: "mission_id", dependent: :destroy
 
@@ -82,7 +75,17 @@ module Ai
     end
 
     def awaiting_approval?
-      APPROVAL_GATES.include?(current_phase)
+      approval_gate_phases.include?(current_phase)
+    end
+
+    def approval_gate_phases
+      if custom_phases.present?
+        custom_phases.select { |p| p["requires_approval"] }.map { |p| p["key"] }
+      elsif mission_template.present?
+        mission_template.approval_gate_keys
+      else
+        []
+      end
     end
 
     def current_gate
@@ -90,11 +93,12 @@ module Ai
     end
 
     def phases_for_type
-      case mission_type
-      when "development" then DEVELOPMENT_PHASES
-      when "research" then RESEARCH_PHASES
-      when "operations" then OPERATIONS_PHASES
-      else []
+      if custom_phases.present?
+        custom_phases.sort_by { |p| p["order"] || 0 }.map { |p| p["key"] }
+      elsif mission_template.present?
+        mission_template.phase_keys
+      else
+        []
       end
     end
 
@@ -122,6 +126,9 @@ module Ai
         started_at: started_at&.iso8601,
         completed_at: completed_at&.iso8601,
         duration_ms: duration_ms,
+        mission_template_id: mission_template_id,
+        phases: phases_for_type,
+        approval_gate_phases: approval_gate_phases,
         created_at: created_at.iso8601
       }
     end
@@ -153,11 +160,48 @@ module Ai
         ralph_loop_id: ralph_loop_id,
         risk_contract_id: risk_contract_id,
         review_state_id: review_state_id,
+        custom_phases: custom_phases,
+        approval_gate_phases: approval_gate_phases,
         approvals: approvals.order(created_at: :desc).map(&:approval_summary)
       )
     end
 
+    def save_as_template!(name: nil, description: nil)
+      template_phases = if custom_phases.present?
+        custom_phases
+      else
+        phases_for_type.map.with_index do |phase_key, i|
+          {
+            "key" => phase_key,
+            "label" => phase_key.humanize.titleize,
+            "order" => i,
+            "requires_approval" => approval_gate_phases.include?(phase_key)
+          }
+        end
+      end
+
+      Ai::MissionTemplate.create!(
+        account: account,
+        name: name || "Template from: #{self.name}",
+        description: description || "Auto-generated from mission #{id}",
+        template_type: "account",
+        mission_type: mission_type,
+        phases: template_phases,
+        approval_gates: approval_gate_phases,
+        rejection_mappings: build_rejection_mappings,
+        default_configuration: configuration
+      )
+    end
+
     private
+
+    def build_rejection_mappings
+      if mission_template.present?
+        mission_template.rejection_mappings || {}
+      else
+        {}
+      end
+    end
 
     def post_milestone_to_conversation
       return unless conversation
@@ -166,17 +210,10 @@ module Ai
       previous_phase = saved_change_to_current_phase&.first
 
       # Resolve the previous approval gate message if we just left one
-      resolve_approval_message(previous_phase) if previous_phase && Ai::Mission::APPROVAL_GATES.include?(previous_phase)
+      resolve_approval_message(previous_phase) if previous_phase && approval_gate_phases.include?(previous_phase)
 
-      gate_labels = {
-        "awaiting_feature_approval" => "feature approval",
-        "awaiting_prd_approval" => "PRD approval",
-        "awaiting_code_approval" => "code review approval",
-        "previewing" => "merge approval"
-      }.freeze
-
-      message = if Ai::Mission::APPROVAL_GATES.include?(phase)
-        "Mission **#{name}** requires **#{gate_labels[phase] || phase.humanize}** — review and approve to proceed"
+      message = if approval_gate_phases.include?(phase)
+        "Mission **#{name}** requires **#{phase.humanize}** — review and approve to proceed"
       elsif phase == "completed"
         "Mission **#{name}** completed successfully!"
       else
@@ -184,7 +221,7 @@ module Ai
       end
 
       conversation.add_system_message(message, content_metadata: {
-        "activity_type" => "mission_#{Ai::Mission::APPROVAL_GATES.include?(phase) ? 'approval_required' : 'phase_changed'}",
+        "activity_type" => "mission_#{approval_gate_phases.include?(phase) ? 'approval_required' : 'phase_changed'}",
         "mission_id" => id,
         "mission_name" => name,
         "phase" => phase,
@@ -192,8 +229,8 @@ module Ai
       })
 
       # Push a real-time notification for approval gates
-      if Ai::Mission::APPROVAL_GATES.include?(phase)
-        notify_approval_required(gate_labels[phase] || phase.humanize)
+      if approval_gate_phases.include?(phase)
+        notify_approval_required(phase.humanize)
       end
     rescue StandardError => e
       Rails.logger.warn("Failed to post mission milestone to conversation: #{e.message}")
@@ -248,6 +285,17 @@ module Ai
       self.configuration ||= {}
       self.metadata ||= {}
       self.error_details ||= {}
+      assign_default_template if mission_template_id.blank? && custom_phases.blank?
+    end
+
+    def assign_default_template
+      template = Ai::MissionTemplate
+        .for_account(account_id)
+        .active
+        .defaults
+        .by_type(mission_type)
+        .first
+      self.mission_template = template if template
     end
 
     def repository_required_for_development
