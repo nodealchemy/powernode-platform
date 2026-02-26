@@ -3,13 +3,11 @@
 require 'rails_helper'
 
 RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
-  # Service token authentication
+  # Worker JWT authentication via InternalBaseController
+  let(:internal_account) { create(:account) }
+  let(:internal_worker) { create(:worker, account: internal_account) }
   let(:internal_headers) do
-    token = JWT.encode(
-      { service: 'worker', type: 'service', exp: 1.hour.from_now.to_i },
-      Rails.application.config.jwt_secret_key,
-      'HS256'
-    )
+    token = Security::JwtService.encode({ type: "worker", sub: internal_worker.id }, 5.minutes.from_now)
     { 'Authorization' => "Bearer #{token}" }
   end
 
@@ -69,7 +67,7 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
       it 'returns unauthorized error' do
         get "/api/v1/internal/maintenance/backups/#{backup.id}", as: :json
 
-        expect_error_response('Service token required', 401)
+        expect_error_response('Worker token required', 401)
       end
     end
   end
@@ -160,7 +158,7 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
               params: { status: 'completed' },
               as: :json
 
-        expect_error_response('Service token required', 401)
+        expect_error_response('Worker token required', 401)
       end
     end
   end
@@ -214,7 +212,7 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
       it 'returns unauthorized error' do
         get "/api/v1/internal/maintenance/restores/#{restore.id}", as: :json
 
-        expect_error_response('Service token required', 401)
+        expect_error_response('Worker token required', 401)
       end
     end
   end
@@ -294,7 +292,7 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
               params: { status: 'completed' },
               as: :json
 
-        expect_error_response('Service token required', 401)
+        expect_error_response('Worker token required', 401)
       end
     end
   end
@@ -387,7 +385,7 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
       it 'returns unauthorized error' do
         get '/api/v1/internal/maintenance/scheduled_tasks', as: :json
 
-        expect_error_response('Service token required', 401)
+        expect_error_response('Worker token required', 401)
       end
     end
   end
@@ -450,7 +448,7 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
         post "/api/v1/internal/maintenance/scheduled_tasks/#{task.id}/executions",
              as: :json
 
-        expect_error_response('Service token required', 401)
+        expect_error_response('Worker token required', 401)
       end
     end
   end
@@ -533,7 +531,7 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
               params: { status: 'completed' },
               as: :json
 
-        expect_error_response('Service token required', 401)
+        expect_error_response('Worker token required', 401)
       end
     end
   end
@@ -592,7 +590,7 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
       it 'returns unauthorized error' do
         post '/api/v1/internal/maintenance/backups/cleanup', as: :json
 
-        expect_error_response('Service token required', 401)
+        expect_error_response('Worker token required', 401)
       end
     end
   end

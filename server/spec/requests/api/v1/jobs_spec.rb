@@ -3,16 +3,12 @@
 require 'rails_helper'
 
 RSpec.describe 'Api::V1::Jobs', type: :request do
-  # Service token for worker authentication
-  let(:worker_token) do
-    ENV["WORKER_SERVICE_TOKEN"] ||
-      Rails.application.credentials.dig(:worker, :service_token) ||
-      "development_worker_service_token_that_persists_across_restarts"
-  end
-
+  # Worker JWT authentication via InternalBaseController
+  let(:internal_worker) { create(:worker) }
   let(:service_headers) do
+    token = Security::JwtService.encode({ type: "worker", sub: internal_worker.id }, 5.minutes.from_now)
     {
-      'Authorization' => "Bearer #{worker_token}",
+      'Authorization' => "Bearer #{token}",
       'Content-Type' => 'application/json'
     }
   end

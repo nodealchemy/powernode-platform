@@ -99,7 +99,7 @@ RSpec.describe 'Api::V1::PaymentMethods', type: :request do
       it 'creates a new payment method' do
         expect {
           post '/api/v1/payment_methods', params: valid_params, headers: headers, as: :json
-        }.to change(PaymentMethod, :count).by(1)
+        }.to change(Billing::PaymentMethod, :count).by(1)
 
         expect(response).to have_http_status(:created)
         json = json_response
@@ -109,7 +109,7 @@ RSpec.describe 'Api::V1::PaymentMethods', type: :request do
       it 'associates payment method with current account' do
         post '/api/v1/payment_methods', params: valid_params, headers: headers, as: :json
 
-        payment_method = PaymentMethod.last
+        payment_method = Billing::PaymentMethod.last
         expect(payment_method.account_id).to eq(account.id)
       end
 
@@ -231,7 +231,7 @@ RSpec.describe 'Api::V1::PaymentMethods', type: :request do
       it 'deletes the payment method' do
         expect {
           delete "/api/v1/payment_methods/#{payment_method.id}", headers: headers, as: :json
-        }.to change(PaymentMethod, :count).by(-1)
+        }.to change(Billing::PaymentMethod, :count).by(-1)
 
         expect(response).to have_http_status(:success)
         json = json_response
@@ -443,7 +443,7 @@ RSpec.describe 'Api::V1::PaymentMethods', type: :request do
     it 'cannot delete payment methods from other accounts' do
       expect {
         delete "/api/v1/payment_methods/#{other_payment_method.id}", headers: headers, as: :json
-      }.not_to change(PaymentMethod, :count)
+      }.not_to change(Billing::PaymentMethod, :count)
 
       expect(response).to have_http_status(:not_found)
     end

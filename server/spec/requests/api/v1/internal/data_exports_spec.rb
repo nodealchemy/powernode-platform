@@ -8,26 +8,25 @@ RSpec.describe 'Api::V1::Internal::DataExports', type: :request do
   let(:subscription) { create(:subscription, account: account) }
 
   before do
+    skip 'Enterprise billing module not loaded' unless defined?(Billing::Invoice) && defined?(Billing::Subscription)
+
     allow(Audit::LogIntegrityService).to receive(:apply_integrity).and_return(true)
     allow(AuditLog).to receive(:log_action).and_return(true)
 
     # The controller's invoice_data method calls total_amount which doesn't exist on Invoice
     # (Invoice has total_cents / monetized total, not total_amount).
     # Define the method so the controller can serialize invoices without error.
-    Invoice.define_method(:total_amount) { total_cents } unless Invoice.method_defined?(:total_amount)
+    Billing::Invoice.define_method(:total_amount) { total_cents } unless Billing::Invoice.method_defined?(:total_amount)
 
     # The controller's subscription_data method calls started_at which doesn't exist on Subscription
     # (Subscription has current_period_start, not started_at).
-    Subscription.define_method(:started_at) { current_period_start } unless Subscription.method_defined?(:started_at)
+    Billing::Subscription.define_method(:started_at) { current_period_start } unless Billing::Subscription.method_defined?(:started_at)
   end
 
-  # Internal service authentication
+  # Worker JWT authentication via InternalBaseController
+  let(:internal_worker) { create(:worker, account: account) }
   let(:internal_headers) do
-    token = JWT.encode(
-      { service: 'worker', type: 'service', exp: 1.hour.from_now.to_i },
-      Rails.application.config.jwt_secret_key,
-      'HS256'
-    )
+    token = Security::JwtService.encode({ type: "worker", sub: internal_worker.id }, 5.minutes.from_now)
     { 'Authorization' => "Bearer #{token}" }
   end
 

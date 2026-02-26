@@ -6,19 +6,14 @@ RSpec.describe 'Api::V1::Internal::Workers', type: :request do
   let(:account) { create(:account) }
   let(:worker) { create(:worker, account: account) }
 
-  # Worker service authentication using config token
+  # Worker service authentication via InternalBaseController (JWT type: "worker")
+  let(:system_worker) { create(:worker, :system_worker, account: account) }
   let(:worker_service_headers) do
-    worker_token = Rails.application.config.worker_token || 'test-worker-token'
-    { 'Authorization' => "Bearer #{worker_token}" }
-  end
-
-  before do
-    # Ensure worker token is configured
-    allow(Rails.application.config).to receive(:worker_token).and_return('test-worker-token')
-    # Stub AuditLog.create! so auth failure logging doesn't raise RecordInvalid
-    # (the controller creates AuditLog with account_id: nil and action: 'worker_auth_failed'
-    #  which fails validation since account is required and action is not in allowed list)
-    allow(AuditLog).to receive(:create!).and_return(AuditLog.new)
+    token = Security::JwtService.encode(
+      { type: "worker", sub: system_worker.id },
+      5.minutes.from_now
+    )
+    { 'Authorization' => "Bearer #{token}" }
   end
 
   describe 'POST /api/v1/internal/workers/:id/test_results' do
@@ -54,12 +49,12 @@ RSpec.describe 'Api::V1::Internal::Workers', type: :request do
       it 'updates worker last_seen_at' do
         allow_any_instance_of(Worker).to receive(:record_activity!).and_return(true)
 
-        expect_any_instance_of(Worker).to receive(:touch).with(:last_seen_at)
-
-        post "/api/v1/internal/workers/#{worker.id}/test_results",
-             params: { test_results: test_results },
-             headers: worker_service_headers,
-             as: :json
+        expect {
+          post "/api/v1/internal/workers/#{worker.id}/test_results",
+               params: { test_results: test_results },
+               headers: worker_service_headers,
+               as: :json
+        }.to change { worker.reload.last_seen_at }
 
         expect_success_response
       end
@@ -119,11 +114,11 @@ RSpec.describe 'Api::V1::Internal::Workers', type: :request do
       it 'updates worker last_seen_at' do
         allow_any_instance_of(Worker).to receive(:record_activity!).and_return(true)
 
-        expect_any_instance_of(Worker).to receive(:touch).with(:last_seen_at)
-
-        post "/api/v1/internal/workers/#{worker.id}/ping",
-             headers: worker_service_headers,
-             as: :json
+        expect {
+          post "/api/v1/internal/workers/#{worker.id}/ping",
+               headers: worker_service_headers,
+               as: :json
+        }.to change { worker.reload.last_seen_at }
 
         expect_success_response
       end

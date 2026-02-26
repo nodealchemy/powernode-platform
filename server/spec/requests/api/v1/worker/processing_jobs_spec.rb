@@ -26,15 +26,12 @@ RSpec.describe 'Api::V1::Worker::ProcessingJobs', type: :request do
   end
 
   # Worker service authentication headers
-  # WorkerBaseController uses authenticate_worker_service! which compares
-  # the Bearer token against a static service token, not a JWT
-  let(:worker_service_token) do
-    ENV["WORKER_SERVICE_TOKEN"] ||
-      Rails.application.credentials.dig(:worker, :service_token) ||
-      "development_worker_service_token_that_persists_across_restarts"
+  # WorkerBaseController decodes a JWT with type: "worker" and looks up worker by sub claim
+  let(:worker_jwt) do
+    Security::JwtService.encode({ type: "worker", sub: worker.id }, 5.minutes.from_now)
   end
   let(:worker_headers) do
-    { 'Authorization' => "Bearer #{worker_service_token}" }
+    { 'Authorization' => "Bearer #{worker_jwt}" }
   end
 
   describe 'GET /api/v1/worker/processing_jobs/:id' do

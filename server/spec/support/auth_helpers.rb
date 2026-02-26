@@ -90,14 +90,14 @@ module AuthHelpers
   alias_method :sign_in_user, :sign_in_as_user
   alias_method :auth_headers, :auth_headers_for
 
-  # Generate service token for internal API authentication (worker service)
+  # Generate JWT service token for internal API authentication (worker service)
+  # InternalBaseController validates JWT with type: "worker", sub: worker_id
   def service_token
-    payload = {
-      service: 'worker',
-      type: 'service',
-      exp: 24.hours.from_now.to_i
-    }
-    Security::JwtService.encode(payload)
+    @_service_worker ||= FactoryBot.create(:worker, account: FactoryBot.create(:account))
+    Security::JwtService.encode(
+      { type: "worker", sub: @_service_worker.id },
+      5.minutes.from_now
+    )
   end
 
   # Set service auth headers for internal API requests

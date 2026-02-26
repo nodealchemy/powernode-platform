@@ -73,11 +73,15 @@ RSpec.describe Ai::Tools::AgentManagementTool do
     end
 
     context "with execute_agent action" do
+      before do
+        allow(WorkerJobService).to receive(:enqueue_ai_agent_execution).and_return(true)
+      end
+
       it "queues agent execution" do
         agent = create(:ai_agent, account: account)
         result = tool.execute(params: { action: "execute_agent", agent_id: agent.id })
         expect(result[:success]).to be true
-        expect(result[:status]).to eq("execution_queued")
+        expect(result[:status]).to eq("execution_dispatched")
       end
 
       it "returns error for non-existent agent" do

@@ -3,26 +3,11 @@
 require 'rails_helper'
 
 RSpec.describe 'Api::V1::Pages', type: :request do
-  # Helper to create page
-  let(:create_page) do
-    ->(attrs = {}) {
-      Page.create!({
-        title: 'Test Page',
-        slug: "test-page-#{SecureRandom.hex(4)}",
-        content: 'This is test page content with enough words to be meaningful.',
-        status: 'published',
-        published_at: Time.current,
-        meta_description: 'A test page description',
-        meta_keywords: 'test, page, keywords'
-      }.merge(attrs))
-    }
-  end
-
   describe 'GET /api/v1/pages' do
     before do
-      create_page.call(title: 'First Page', slug: 'first-page')
-      create_page.call(title: 'Second Page', slug: 'second-page')
-      create_page.call(title: 'Draft Page', slug: 'draft-page', status: 'draft', published_at: nil)
+      create(:page, :published, title: 'First Page', slug: 'first-page')
+      create(:page, :published, title: 'Second Page', slug: 'second-page')
+      create(:page, :draft, title: 'Draft Page', slug: 'draft-page')
     end
 
     context 'without authentication (public endpoint)' do
@@ -80,8 +65,8 @@ RSpec.describe 'Api::V1::Pages', type: :request do
   end
 
   describe 'GET /api/v1/pages/:slug' do
-    let(:published_page) { create_page.call(title: 'Published Page', slug: 'published-page') }
-    let(:draft_page) { create_page.call(title: 'Draft Page', slug: 'draft-page', status: 'draft', published_at: nil) }
+    let(:published_page) { create(:page, :published, title: 'Published Page', slug: 'published-page') }
+    let(:draft_page) { create(:page, :draft, title: 'Draft Page', slug: 'draft-page') }
 
     context 'with published page' do
       it 'returns page details' do

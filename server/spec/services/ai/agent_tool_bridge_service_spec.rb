@@ -173,7 +173,8 @@ RSpec.describe Ai::AgentToolBridgeService, type: :service do
         params: { "query" => "permissions" },
         account: account,
         user: user,
-        agent_id: agent.id
+        agent_id: agent.id,
+        mcp_agent: agent
       ).and_return({ success: true, data: [] })
 
       result = bridge.dispatch_tool_call(tool_call)
@@ -190,7 +191,8 @@ RSpec.describe Ai::AgentToolBridgeService, type: :service do
         params: { "query" => "permissions" },
         account: account,
         user: user,
-        agent_id: agent.id
+        agent_id: agent.id,
+        mcp_agent: agent
       ).and_return({ success: true })
 
       bridge.dispatch_tool_call(string_tool_call)

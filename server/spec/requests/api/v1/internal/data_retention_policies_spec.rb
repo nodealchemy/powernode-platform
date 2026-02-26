@@ -3,13 +3,11 @@
 require 'rails_helper'
 
 RSpec.describe 'Api::V1::Internal::DataRetentionPolicies', type: :request do
-  # Service token authentication
+  # Worker JWT authentication via InternalBaseController
+  let(:internal_account) { create(:account) }
+  let(:internal_worker) { create(:worker, account: internal_account) }
   let(:internal_headers) do
-    token = JWT.encode(
-      { service: 'worker', type: 'service', exp: 1.hour.from_now.to_i },
-      Rails.application.config.jwt_secret_key,
-      'HS256'
-    )
+    token = Security::JwtService.encode({ type: "worker", sub: internal_worker.id }, 5.minutes.from_now)
     { 'Authorization' => "Bearer #{token}" }
   end
 

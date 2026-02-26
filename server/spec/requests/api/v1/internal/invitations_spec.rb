@@ -36,9 +36,10 @@ RSpec.describe 'Api::V1::Internal::Invitations', type: :request do
     )
   end
 
-  # Worker token authentication (matches controller's authenticate_worker method)
+  # Worker JWT authentication via InternalBaseController
+  let(:system_worker) { create(:worker, :system_worker, account: account) }
   let(:worker_headers) do
-    token = Rails.application.config.worker_token
+    token = Security::JwtService.encode({ type: "worker", sub: system_worker.id }, 5.minutes.from_now)
     { 'Authorization' => "Bearer #{token}" }
   end
 

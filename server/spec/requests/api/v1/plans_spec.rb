@@ -8,37 +8,14 @@ RSpec.describe 'Api::V1::Plans', type: :request do
   # Create user with explicitly no permissions to test permission denial
   let(:regular_user) { create(:user, account: account, permissions: []) }
 
-  # Create permissions needed for testing
-  let!(:plans_manage_permission) do
-    Permission.find_or_create_by!(name: 'plans.manage') do |p|
-      p.resource = 'plans'
-      p.action = 'manage'
-      p.category = 'billing'
-    end
-  end
-
-  let!(:admin_billing_view_permission) do
-    Permission.find_or_create_by!(name: 'admin.billing.read') do |p|
-      p.resource = 'admin.billing'
-      p.action = 'view'
-      p.category = 'admin'
-    end
-  end
-
   # User with plans.manage permission
   let(:plan_manager_user) do
-    user = create(:user, account: account)
-    user.permissions = [ plans_manage_permission ]
-    user.save!
-    user
+    create(:user, account: account, permissions: ['plans.manage'])
   end
 
-  # User with admin.billing.read permission
+  # User with admin.billing.view permission
   let(:billing_viewer_user) do
-    user = create(:user, account: account)
-    user.permissions = [ admin_billing_view_permission ]
-    user.save!
-    user
+    create(:user, account: account, permissions: ['admin.billing.view'])
   end
 
   let(:headers) { auth_headers_for(plan_manager_user) }
@@ -147,7 +124,7 @@ RSpec.describe 'Api::V1::Plans', type: :request do
     end
 
     it 'returns has_plans false when no plans exist' do
-      Plan.destroy_all
+      Billing::Plan.destroy_all
 
       get '/api/v1/plans/status', headers: auth_headers_for(regular_user), as: :json
 
@@ -286,7 +263,7 @@ RSpec.describe 'Api::V1::Plans', type: :request do
       it 'creates a new plan' do
         expect {
           post '/api/v1/plans', params: valid_params, headers: headers, as: :json
-        }.to change(Plan, :count).by(1)
+        }.to change(Billing::Plan, :count).by(1)
 
         expect(response).to have_http_status(:created)
         json = json_response
@@ -340,7 +317,7 @@ RSpec.describe 'Api::V1::Plans', type: :request do
       it 'allows plan creation' do
         expect {
           post '/api/v1/plans', params: valid_params, headers: auth_headers_for(billing_viewer_user), as: :json
-        }.to change(Plan, :count).by(1)
+        }.to change(Billing::Plan, :count).by(1)
 
         expect(response).to have_http_status(:created)
       end
@@ -530,7 +507,7 @@ RSpec.describe 'Api::V1::Plans', type: :request do
         it 'deletes the plan' do
           expect {
             delete "/api/v1/plans/#{plan.id}", headers: headers, as: :json
-          }.to change(Plan, :count).by(-1)
+          }.to change(Billing::Plan, :count).by(-1)
 
           expect(response).to have_http_status(:success)
           json = json_response
@@ -551,7 +528,7 @@ RSpec.describe 'Api::V1::Plans', type: :request do
 
           expect {
             delete "/api/v1/plans/#{plan.id}", headers: headers, as: :json
-          }.not_to change(Plan, :count)
+          }.not_to change(Billing::Plan, :count)
 
           expect(response).to have_http_status(:unprocessable_content)
         end
@@ -565,7 +542,7 @@ RSpec.describe 'Api::V1::Plans', type: :request do
         it 'returns error and does not delete' do
           expect {
             delete "/api/v1/plans/#{plan.id}", headers: headers, as: :json
-          }.not_to change(Plan, :count)
+          }.not_to change(Billing::Plan, :count)
 
           expect(response).to have_http_status(:unprocessable_content)
           json = json_response
@@ -582,7 +559,7 @@ RSpec.describe 'Api::V1::Plans', type: :request do
         it 'returns error and does not delete' do
           expect {
             delete "/api/v1/plans/#{plan.id}", headers: headers, as: :json
-          }.not_to change(Plan, :count)
+          }.not_to change(Billing::Plan, :count)
 
           expect(response).to have_http_status(:unprocessable_content)
           json = json_response
@@ -631,7 +608,7 @@ RSpec.describe 'Api::V1::Plans', type: :request do
         plan_to_duplicate = original_plan
         expect {
           post "/api/v1/plans/#{plan_to_duplicate.id}/duplicate", headers: headers, as: :json
-        }.to change(Plan, :count).by(1)
+        }.to change(Billing::Plan, :count).by(1)
 
         expect(response).to have_http_status(:created)
         json = json_response

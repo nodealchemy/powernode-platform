@@ -160,7 +160,7 @@ RSpec.describe 'Api::V1::Subscriptions', type: :request do
         it 'creates a new subscription' do
           expect {
             post '/api/v1/subscriptions', params: valid_params, headers: headers, as: :json
-          }.to change(Subscription, :count).by(1)
+          }.to change(Billing::Subscription, :count).by(1)
 
           expect(response).to have_http_status(:created)
           json = json_response
@@ -171,14 +171,14 @@ RSpec.describe 'Api::V1::Subscriptions', type: :request do
         it 'associates subscription with current account' do
           post '/api/v1/subscriptions', params: valid_params, headers: headers, as: :json
 
-          subscription = Subscription.last
+          subscription = Billing::Subscription.last
           expect(subscription.account_id).to eq(account.id)
         end
 
         it 'sets initial status based on plan trial' do
           post '/api/v1/subscriptions', params: valid_params, headers: headers, as: :json
 
-          subscription = Subscription.last
+          subscription = Billing::Subscription.last
           # Default plan has trial_days: 14, so initial status should be trialing
           expect(subscription.status).to eq('trialing')
         end
@@ -189,7 +189,7 @@ RSpec.describe 'Api::V1::Subscriptions', type: :request do
 
           post '/api/v1/subscriptions', params: params_with_trial, headers: headers, as: :json
 
-          subscription = Subscription.last
+          subscription = Billing::Subscription.last
           expect(subscription.trial_end).to be_within(1.second).of(trial_end)
         end
       end

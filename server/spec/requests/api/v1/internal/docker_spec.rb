@@ -6,9 +6,10 @@ RSpec.describe 'Api::V1::Internal::Devops::Docker', type: :request do
   let(:account) { create(:account) }
   let(:host) { create(:devops_docker_host, :connected, account: account, auto_sync: true) }
 
+  # Worker JWT authentication via InternalBaseController
+  let(:internal_worker) { create(:worker, account: account) }
   let(:service_headers) do
-    payload = { service: 'worker', type: 'service', exp: 24.hours.from_now.to_i }
-    token = Security::JwtService.encode(payload)
+    token = Security::JwtService.encode({ type: "worker", sub: internal_worker.id }, 5.minutes.from_now)
     { 'Authorization' => "Bearer #{token}", 'Content-Type' => 'application/json' }
   end
 

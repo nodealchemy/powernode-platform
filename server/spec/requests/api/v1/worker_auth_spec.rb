@@ -5,7 +5,22 @@ require 'rails_helper'
 RSpec.describe 'Api::V1::WorkerAuth', type: :request do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account, email_verified: true) }
-  let(:worker) { create(:worker, account: nil, status: 'active') } # System worker
+  let(:worker) { create(:worker, :system_worker, status: 'active') }
+
+  # Generate a valid JWT token for the system worker
+  let(:worker_jwt) do
+    Security::JwtService.encode(
+      { type: "worker", sub: worker.id },
+      5.minutes.from_now
+    )
+  end
+
+  let(:worker_auth_headers) do
+    {
+      'Authorization' => "Bearer #{worker_jwt}",
+      'Content-Type' => 'application/json'
+    }
+  end
 
   before do
     # Grant admin permissions
@@ -16,13 +31,7 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
   describe 'POST /api/v1/worker_auth/verify' do
     context 'with valid service token' do
       it 'verifies the service token' do
-        allow(Worker).to receive(:authenticate).and_return(worker)
-        allow(worker).to receive(:system?).and_return(true)
-
-        post '/api/v1/worker_auth/verify', headers: {
-          'Authorization' => "Bearer valid_token",
-          'Content-Type' => 'application/json'
-        }, as: :json
+        post '/api/v1/worker_auth/verify', headers: worker_auth_headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -33,8 +42,6 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
 
     context 'with invalid service token' do
       it 'returns unauthorized error' do
-        allow(Worker).to receive(:authenticate).and_return(nil)
-
         post '/api/v1/worker_auth/verify', headers: {
           'Authorization' => 'Bearer invalid_token',
           'Content-Type' => 'application/json'
@@ -61,20 +68,13 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
       }
     end
 
-    before do
-      allow(Worker).to receive(:authenticate).and_return(worker)
-      allow(worker).to receive(:system?).and_return(true)
-    end
-
     context 'with valid credentials' do
       it 'authenticates user and returns session token' do
         allow(user).to receive(:authenticate).and_return(true)
         allow(User).to receive(:find_by).with(email: user.email).and_return(user)
 
-        post '/api/v1/worker_auth/authenticate_user', params: auth_params, headers: {
-          'Authorization' => 'Bearer worker_token',
-          'Content-Type' => 'application/json'
-        }, as: :json
+        post '/api/v1/worker_auth/authenticate_user', params: auth_params,
+          headers: worker_auth_headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -88,14 +88,8 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
         allow(user).to receive(:authenticate).and_return(true)
         allow(User).to receive(:find_by).with(email: user.email).and_return(user)
 
-        # authenticate_service_request also writes to cache (worker_auth: key with 5.minutes)
-        # so we allow any cache writes and verify session token in response
-        allow(Rails.cache).to receive(:write).and_call_original
-
-        post '/api/v1/worker_auth/authenticate_user', params: auth_params, headers: {
-          'Authorization' => 'Bearer worker_token',
-          'Content-Type' => 'application/json'
-        }, as: :json
+        post '/api/v1/worker_auth/authenticate_user', params: auth_params,
+          headers: worker_auth_headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -112,10 +106,8 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
       it 'returns unauthorized error' do
         allow(User).to receive(:find_by).with(email: auth_params[:email]).and_return(nil)
 
-        post '/api/v1/worker_auth/authenticate_user', params: auth_params, headers: {
-          'Authorization' => 'Bearer worker_token',
-          'Content-Type' => 'application/json'
-        }, as: :json
+        post '/api/v1/worker_auth/authenticate_user', params: auth_params,
+          headers: worker_auth_headers, as: :json
 
         expect_error_response('Invalid email or password', 401)
       end
@@ -126,10 +118,8 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
         allow(User).to receive(:find_by).with(email: user.email).and_return(user)
         allow(user).to receive(:authenticate).and_return(false)
 
-        post '/api/v1/worker_auth/authenticate_user', params: auth_params, headers: {
-          'Authorization' => 'Bearer worker_token',
-          'Content-Type' => 'application/json'
-        }, as: :json
+        post '/api/v1/worker_auth/authenticate_user', params: auth_params,
+          headers: worker_auth_headers, as: :json
 
         expect_error_response('Invalid email or password', 401)
       end
@@ -141,10 +131,8 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
         allow(user).to receive(:authenticate).and_return(true)
         allow(user).to receive(:email_verified?).and_return(false)
 
-        post '/api/v1/worker_auth/authenticate_user', params: auth_params, headers: {
-          'Authorization' => 'Bearer worker_token',
-          'Content-Type' => 'application/json'
-        }, as: :json
+        post '/api/v1/worker_auth/authenticate_user', params: auth_params,
+          headers: worker_auth_headers, as: :json
 
         expect_error_response('Email not verified', 401)
       end
@@ -156,10 +144,8 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
         allow(user).to receive(:authenticate).and_return(true)
         allow(user).to receive(:has_permission?).and_return(false)
 
-        post '/api/v1/worker_auth/authenticate_user', params: auth_params, headers: {
-          'Authorization' => 'Bearer worker_token',
-          'Content-Type' => 'application/json'
-        }, as: :json
+        post '/api/v1/worker_auth/authenticate_user', params: auth_params,
+          headers: worker_auth_headers, as: :json
 
         expect_error_response('Insufficient permissions to access worker interface', 403)
       end
@@ -167,19 +153,15 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
 
     context 'with missing parameters' do
       it 'returns bad request for missing email' do
-        post '/api/v1/worker_auth/authenticate_user', params: { password: 'test' }, headers: {
-          'Authorization' => 'Bearer worker_token',
-          'Content-Type' => 'application/json'
-        }, as: :json
+        post '/api/v1/worker_auth/authenticate_user', params: { password: 'test' },
+          headers: worker_auth_headers, as: :json
 
         expect_error_response('Email and password are required', 400)
       end
 
       it 'returns bad request for missing password' do
-        post '/api/v1/worker_auth/authenticate_user', params: { email: 'test@example.com' }, headers: {
-          'Authorization' => 'Bearer worker_token',
-          'Content-Type' => 'application/json'
-        }, as: :json
+        post '/api/v1/worker_auth/authenticate_user', params: { email: 'test@example.com' },
+          headers: worker_auth_headers, as: :json
 
         expect_error_response('Email and password are required', 400)
       end
@@ -198,18 +180,14 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
     end
 
     before do
-      allow(Worker).to receive(:authenticate).and_return(worker)
-      allow(worker).to receive(:system?).and_return(true)
       # Allow cache to work normally, then write session data for the test
       Rails.cache.write("worker_session:#{session_token}", session_data, expires_in: 24.hours)
     end
 
     context 'with valid session token' do
       it 'verifies the session' do
-        post '/api/v1/worker_auth/verify_session', params: { session_token: session_token }, headers: {
-          'Authorization' => 'Bearer worker_token',
-          'Content-Type' => 'application/json'
-        }, as: :json
+        post '/api/v1/worker_auth/verify_session', params: { session_token: session_token },
+          headers: worker_auth_headers, as: :json
 
         expect_success_response
         data = json_response_data
@@ -221,10 +199,8 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
 
     context 'with invalid session token' do
       it 'returns unauthorized error' do
-        post '/api/v1/worker_auth/verify_session', params: { session_token: 'invalid-session-token' }, headers: {
-          'Authorization' => 'Bearer worker_token',
-          'Content-Type' => 'application/json'
-        }, as: :json
+        post '/api/v1/worker_auth/verify_session', params: { session_token: 'invalid-session-token' },
+          headers: worker_auth_headers, as: :json
 
         expect_error_response('Invalid or expired session token', 401)
       end
@@ -235,10 +211,8 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
         # Use a non-existent user_id in session data
         Rails.cache.write("worker_session:#{session_token}", session_data.merge(user_id: SecureRandom.uuid), expires_in: 24.hours)
 
-        post '/api/v1/worker_auth/verify_session', params: { session_token: session_token }, headers: {
-          'Authorization' => 'Bearer worker_token',
-          'Content-Type' => 'application/json'
-        }, as: :json
+        post '/api/v1/worker_auth/verify_session', params: { session_token: session_token },
+          headers: worker_auth_headers, as: :json
 
         expect_error_response('Session invalid - user permissions changed', 401)
         # Session should be invalidated
@@ -251,10 +225,8 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
         # Remove all permissions from user
         allow_any_instance_of(User).to receive(:has_permission?).and_return(false)
 
-        post '/api/v1/worker_auth/verify_session', params: { session_token: session_token }, headers: {
-          'Authorization' => 'Bearer worker_token',
-          'Content-Type' => 'application/json'
-        }, as: :json
+        post '/api/v1/worker_auth/verify_session', params: { session_token: session_token },
+          headers: worker_auth_headers, as: :json
 
         expect_error_response('Session invalid - user permissions changed', 401)
         # Session should be invalidated
@@ -264,10 +236,8 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
 
     context 'with missing session token' do
       it 'returns bad request error' do
-        post '/api/v1/worker_auth/verify_session', headers: {
-          'Authorization' => 'Bearer worker_token',
-          'Content-Type' => 'application/json'
-        }, as: :json
+        post '/api/v1/worker_auth/verify_session',
+          headers: worker_auth_headers, as: :json
 
         expect_error_response('Session token is required', 400)
       end

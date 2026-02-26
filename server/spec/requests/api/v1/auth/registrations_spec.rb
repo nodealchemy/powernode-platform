@@ -91,7 +91,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
           post '/api/v1/auth/register',
                params: params_with_plan,
                as: :json
-        }.to change(Subscription, :count).by(1)
+        }.to change(Billing::Subscription, :count).by(1)
 
         expect_success_response
 
@@ -108,7 +108,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
           post '/api/v1/auth/register',
                params: valid_params.merge(plan_id: inactive_plan.id),
                as: :json
-        }.not_to change(Subscription, :count)
+        }.not_to change(Billing::Subscription, :count)
 
         expect_success_response
 
@@ -123,7 +123,7 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
           post '/api/v1/auth/register',
                params: valid_params.merge(plan_id: private_plan.id),
                as: :json
-        }.not_to change(Subscription, :count)
+        }.not_to change(Billing::Subscription, :count)
 
         expect_success_response
 

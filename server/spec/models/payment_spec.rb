@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe Payment, type: :model do
+RSpec.describe Billing::Payment, type: :model do
   let(:payment) { build(:payment) }
 
   describe "associations" do
@@ -31,33 +31,33 @@ RSpec.describe Payment, type: :model do
     let!(:paypal_payment) { create(:payment, gateway: "paypal") }
 
     it "returns succeeded payments" do
-      expect(Payment.succeeded).to include(succeeded_payment)
-      expect(Payment.succeeded).not_to include(failed_payment, pending_payment)
+      expect(Billing::Payment.succeeded).to include(succeeded_payment)
+      expect(Billing::Payment.succeeded).not_to include(failed_payment, pending_payment)
     end
 
     it "returns failed payments" do
-      expect(Payment.failed).to include(failed_payment)
-      expect(Payment.failed).not_to include(succeeded_payment, pending_payment)
+      expect(Billing::Payment.failed).to include(failed_payment)
+      expect(Billing::Payment.failed).not_to include(succeeded_payment, pending_payment)
     end
 
     it "returns pending payments" do
-      expect(Payment.pending).to include(pending_payment)
-      expect(Payment.pending).not_to include(succeeded_payment, failed_payment)
+      expect(Billing::Payment.pending).to include(pending_payment)
+      expect(Billing::Payment.pending).not_to include(succeeded_payment, failed_payment)
     end
 
     it "filters by gateway" do
-      expect(Payment.by_gateway("stripe")).to include(stripe_payment)
-      expect(Payment.by_gateway("stripe")).not_to include(paypal_payment)
+      expect(Billing::Payment.by_gateway("stripe")).to include(stripe_payment)
+      expect(Billing::Payment.by_gateway("stripe")).not_to include(paypal_payment)
     end
 
     it "returns stripe payments" do
-      expect(Payment.stripe_payments).to include(stripe_payment)
-      expect(Payment.stripe_payments).not_to include(paypal_payment)
+      expect(Billing::Payment.stripe_payments).to include(stripe_payment)
+      expect(Billing::Payment.stripe_payments).not_to include(paypal_payment)
     end
 
     it "returns paypal payments" do
-      expect(Payment.paypal_payments).to include(paypal_payment)
-      expect(Payment.paypal_payments).not_to include(stripe_payment)
+      expect(Billing::Payment.paypal_payments).to include(paypal_payment)
+      expect(Billing::Payment.paypal_payments).not_to include(stripe_payment)
     end
   end
 
@@ -80,19 +80,19 @@ RSpec.describe Payment, type: :model do
 
     describe "#set_defaults" do
       it "initializes metadata as empty hash" do
-        payment = Payment.new
+        payment = Billing::Payment.new
         expect(payment.metadata).to eq({})
       end
 
       it "sets currency from invoice" do
         invoice = create(:invoice, currency: "EUR")
-        payment = Payment.new(invoice: invoice)
+        payment = Billing::Payment.new(invoice: invoice)
 
         expect(payment.currency).to eq("EUR")
       end
 
       it "defaults to USD when no invoice currency" do
-        payment = Payment.new
+        payment = Billing::Payment.new
         expect(payment.currency).to eq("USD")
       end
     end

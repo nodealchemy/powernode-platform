@@ -16,7 +16,7 @@ RSpec.describe 'Api::V1::Admin::Pages', type: :request do
     let(:headers) { auth_headers_for(admin_user) }
 
     before do
-      create_list(:page, 5, user: admin_user)
+      create_list(:page, 5, user: admin_user, account: account)
     end
 
     context 'with admin.access permission' do
@@ -56,7 +56,7 @@ RSpec.describe 'Api::V1::Admin::Pages', type: :request do
       end
 
       it 'filters by status' do
-        create(:page, :published, user: admin_user)
+        create(:page, :published, user: admin_user, account: account)
 
         get '/api/v1/admin/pages',
             params: { status: 'published' },
@@ -71,7 +71,7 @@ RSpec.describe 'Api::V1::Admin::Pages', type: :request do
 
       it 'filters by author_id' do
         other_user = create(:user, account: account, permissions: [ 'admin.access' ])
-        create(:page, user: other_user)
+        create(:page, user: other_user, account: account)
 
         get '/api/v1/admin/pages',
             params: { author_id: other_user.id },
@@ -85,7 +85,7 @@ RSpec.describe 'Api::V1::Admin::Pages', type: :request do
       end
 
       it 'searches by title or content' do
-        create(:page, title: 'Unique Search Term Page', user: admin_user)
+        create(:page, title: 'Unique Search Term Page', user: admin_user, account: account)
 
         get '/api/v1/admin/pages',
             params: { search: 'Unique Search Term' },
@@ -120,7 +120,7 @@ RSpec.describe 'Api::V1::Admin::Pages', type: :request do
 
   describe 'GET /api/v1/admin/pages/:id' do
     let(:headers) { auth_headers_for(admin_user) }
-    let(:page) { create(:page, user: admin_user) }
+    let(:page) { create(:page, user: admin_user, account: account) }
 
     context 'with admin.access permission' do
       it 'returns page details' do
@@ -210,7 +210,7 @@ RSpec.describe 'Api::V1::Admin::Pages', type: :request do
 
   describe 'PUT /api/v1/admin/pages/:id' do
     let(:headers) { auth_headers_for(admin_user) }
-    let(:page) { create(:page, user: admin_user) }
+    let(:page) { create(:page, user: admin_user, account: account) }
 
     context 'with admin.access permission' do
       it 'updates page successfully' do
@@ -241,7 +241,7 @@ RSpec.describe 'Api::V1::Admin::Pages', type: :request do
 
   describe 'DELETE /api/v1/admin/pages/:id' do
     let(:headers) { auth_headers_for(admin_user) }
-    let(:page) { create(:page, user: admin_user) }
+    let(:page) { create(:page, user: admin_user, account: account) }
 
     context 'with admin.access permission' do
       it 'deletes page successfully' do
@@ -257,7 +257,7 @@ RSpec.describe 'Api::V1::Admin::Pages', type: :request do
 
   describe 'POST /api/v1/admin/pages/:id/publish' do
     let(:headers) { auth_headers_for(admin_user) }
-    let(:page) { create(:page, :draft, user: admin_user) }
+    let(:page) { create(:page, :draft, user: admin_user, account: account) }
 
     context 'with admin.access permission' do
       it 'publishes the page' do
@@ -274,7 +274,7 @@ RSpec.describe 'Api::V1::Admin::Pages', type: :request do
 
   describe 'POST /api/v1/admin/pages/:id/unpublish' do
     let(:headers) { auth_headers_for(admin_user) }
-    let(:page) { create(:page, :published, user: admin_user) }
+    let(:page) { create(:page, :published, user: admin_user, account: account) }
 
     context 'with admin.access permission' do
       it 'unpublishes the page' do
@@ -290,7 +290,7 @@ RSpec.describe 'Api::V1::Admin::Pages', type: :request do
 
   describe 'POST /api/v1/admin/pages/:id/duplicate' do
     let(:headers) { auth_headers_for(admin_user) }
-    let!(:page) { create(:page, :published, user: admin_user, title: 'Original Page') }
+    let!(:page) { create(:page, :published, user: admin_user, account: account, title: 'Original Page') }
 
     context 'with admin.access permission' do
       it 'creates a duplicate of the page' do

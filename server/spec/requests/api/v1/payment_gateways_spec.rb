@@ -207,6 +207,12 @@ RSpec.describe 'Api::V1::PaymentGateways', type: :request do
   end
 
   describe 'POST /api/v1/payment_gateways/:id/test_connection' do
+    # Ensure controller file is loaded so WorkerHttpClient constant is available
+    before do
+      Api::V1::PaymentGatewaysController
+      allow(WorkerJobService).to receive(:system_worker_jwt).and_return('test-jwt-token')
+    end
+
     context 'with admin.settings.payment permission' do
       it 'starts gateway connection test' do
         # Mock the worker client

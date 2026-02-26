@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
-RSpec.describe PaymentMethod, type: :model do
+RSpec.describe Billing::PaymentMethod, type: :model do
   let(:payment_method) { build(:payment_method) }
 
   describe "associations" do
@@ -21,13 +23,13 @@ RSpec.describe PaymentMethod, type: :model do
 
     describe ".for_gateway" do
       it "returns payment methods for stripe" do
-        expect(PaymentMethod.for_gateway("stripe")).to include(stripe_payment_method)
-        expect(PaymentMethod.for_gateway("stripe")).not_to include(paypal_payment_method)
+        expect(Billing::PaymentMethod.for_gateway("stripe")).to include(stripe_payment_method)
+        expect(Billing::PaymentMethod.for_gateway("stripe")).not_to include(paypal_payment_method)
       end
 
       it "returns payment methods for paypal" do
-        expect(PaymentMethod.for_gateway("paypal")).to include(paypal_payment_method)
-        expect(PaymentMethod.for_gateway("paypal")).not_to include(stripe_payment_method)
+        expect(Billing::PaymentMethod.for_gateway("paypal")).to include(paypal_payment_method)
+        expect(Billing::PaymentMethod.for_gateway("paypal")).not_to include(stripe_payment_method)
       end
     end
   end

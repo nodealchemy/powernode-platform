@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe InvoiceLineItem, type: :model do
+RSpec.describe Billing::InvoiceLineItem, type: :model do
   let(:line_item) { build(:invoice_line_item) }
 
   describe "associations" do
@@ -29,28 +29,28 @@ RSpec.describe InvoiceLineItem, type: :model do
     let!(:adjustment_item) { create(:invoice_line_item, line_type: "adjustment") }
 
     it "returns subscription items" do
-      expect(InvoiceLineItem.subscription_items).to include(subscription_item)
-      expect(InvoiceLineItem.subscription_items).not_to include(usage_item, discount_item, tax_item, adjustment_item)
+      expect(Billing::InvoiceLineItem.subscription_items).to include(subscription_item)
+      expect(Billing::InvoiceLineItem.subscription_items).not_to include(usage_item, discount_item, tax_item, adjustment_item)
     end
 
     it "returns usage items" do
-      expect(InvoiceLineItem.usage_items).to include(usage_item)
-      expect(InvoiceLineItem.usage_items).not_to include(subscription_item, discount_item, tax_item, adjustment_item)
+      expect(Billing::InvoiceLineItem.usage_items).to include(usage_item)
+      expect(Billing::InvoiceLineItem.usage_items).not_to include(subscription_item, discount_item, tax_item, adjustment_item)
     end
 
     it "returns discount items" do
-      expect(InvoiceLineItem.discounts).to include(discount_item)
-      expect(InvoiceLineItem.discounts).not_to include(subscription_item, usage_item, tax_item, adjustment_item)
+      expect(Billing::InvoiceLineItem.discounts).to include(discount_item)
+      expect(Billing::InvoiceLineItem.discounts).not_to include(subscription_item, usage_item, tax_item, adjustment_item)
     end
 
     it "returns tax items" do
-      expect(InvoiceLineItem.taxes).to include(tax_item)
-      expect(InvoiceLineItem.taxes).not_to include(subscription_item, usage_item, discount_item, adjustment_item)
+      expect(Billing::InvoiceLineItem.taxes).to include(tax_item)
+      expect(Billing::InvoiceLineItem.taxes).not_to include(subscription_item, usage_item, discount_item, adjustment_item)
     end
 
     it "returns adjustment items" do
-      expect(InvoiceLineItem.adjustments).to include(adjustment_item)
-      expect(InvoiceLineItem.adjustments).not_to include(subscription_item, usage_item, discount_item, tax_item)
+      expect(Billing::InvoiceLineItem.adjustments).to include(adjustment_item)
+      expect(Billing::InvoiceLineItem.adjustments).not_to include(subscription_item, usage_item, discount_item, tax_item)
     end
   end
 
@@ -84,7 +84,7 @@ RSpec.describe InvoiceLineItem, type: :model do
 
     describe "#set_defaults" do
       it "initializes metadata as empty hash" do
-        line_item = InvoiceLineItem.new
+        line_item = Billing::InvoiceLineItem.new
         expect(line_item.metadata).to eq({})
       end
     end

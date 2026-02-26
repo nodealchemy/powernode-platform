@@ -6,13 +6,10 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
   let(:account) { create(:account) }
   let(:owner) { create(:user, account: account) }
 
-  # Internal service authentication
+  # Worker JWT authentication via InternalBaseController
+  let(:internal_worker) { create(:worker, account: account) }
   let(:internal_headers) do
-    token = JWT.encode(
-      { service: 'worker', type: 'service', exp: 1.hour.from_now.to_i },
-      Rails.application.config.jwt_secret_key,
-      'HS256'
-    )
+    token = Security::JwtService.encode({ type: "worker", sub: internal_worker.id }, 5.minutes.from_now)
     { 'Authorization' => "Bearer #{token}" }
   end
 
@@ -118,6 +115,7 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
 
   describe 'PATCH /api/v1/internal/accounts/:account_id/anonymize_payments' do
     before do
+      skip 'Enterprise billing module not loaded' unless FactoryBot.factories.registered?(:payment)
       create_list(:payment, 3, account: account)
     end
 

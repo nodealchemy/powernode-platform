@@ -5,14 +5,17 @@ require 'rails_helper'
 RSpec.describe 'Api::V1::Internal::AccountTerminations', type: :request do
   let(:account) { create(:account) }
 
-  # Service token authentication
+  # Worker JWT authentication via InternalBaseController
+  let(:internal_worker) { create(:worker, account: account) }
   let(:internal_headers) do
-    token = JWT.encode(
-      { service: 'worker', type: 'service', exp: 1.hour.from_now.to_i },
-      Rails.application.config.jwt_secret_key,
-      'HS256'
-    )
+    token = Security::JwtService.encode({ type: "worker", sub: internal_worker.id }, 5.minutes.from_now)
     { 'Authorization' => "Bearer #{token}" }
+  end
+
+  # Stub worker job dispatch — termination callbacks trigger notifications via WorkerJobService
+  before do
+    allow(WorkerJobService).to receive(:system_worker_jwt).and_return("test-jwt-token")
+    allow_any_instance_of(WorkerJobService).to receive(:make_worker_request).and_return({ "job_id" => "test" })
   end
 
   describe 'GET /api/v1/internal/account_terminations' do

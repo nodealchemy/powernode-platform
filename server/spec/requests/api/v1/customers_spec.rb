@@ -247,7 +247,7 @@ RSpec.describe 'Api::V1::Customers', type: :request do
                params: valid_params,
                headers: headers,
                as: :json
-        }.to change(Subscription, :count).by(1)
+        }.to change(Billing::Subscription, :count).by(1)
 
         expect_success_response
       end

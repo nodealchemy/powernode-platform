@@ -583,7 +583,7 @@ RSpec.describe 'Api::V1::Billing', type: :request do
                  params: valid_params,
                  headers: headers,
                  as: :json
-          }.to change(Invoice, :count).by(1)
+          }.to change(Billing::Invoice, :count).by(1)
 
           expect_success_response
           response_data = json_response['data']

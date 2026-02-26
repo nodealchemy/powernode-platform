@@ -3,22 +3,22 @@
 require 'rails_helper'
 
 RSpec.describe 'Api::V1::Internal::Subscriptions', type: :request do
-  # Define methods on Subscription that the controller references but don't exist on the model
   before do
-    unless Subscription.method_defined?(:cancel_at_period_end)
-      Subscription.define_method(:cancel_at_period_end) { false }
+    skip 'Enterprise billing module not loaded' unless defined?(Billing::Subscription)
+
+    # Define methods on Subscription that the controller references but don't exist on the model
+    unless Billing::Subscription.method_defined?(:cancel_at_period_end)
+      Billing::Subscription.define_method(:cancel_at_period_end) { false }
     end
-    unless Subscription.method_defined?(:dunning_status)
-      Subscription.define_method(:dunning_status) { 'active' }
+    unless Billing::Subscription.method_defined?(:dunning_status)
+      Billing::Subscription.define_method(:dunning_status) { 'active' }
     end
   end
 
+  # Worker JWT authentication via InternalBaseController
+  let(:internal_worker) { create(:worker, account: account) }
   let(:internal_headers) do
-    token = JWT.encode(
-      { service: 'worker', type: 'service', exp: 1.hour.from_now.to_i },
-      Rails.application.config.jwt_secret_key,
-      'HS256'
-    )
+    token = Security::JwtService.encode({ type: "worker", sub: internal_worker.id }, 5.minutes.from_now)
     { 'Authorization' => "Bearer #{token}" }
   end
 
@@ -65,7 +65,7 @@ RSpec.describe 'Api::V1::Internal::Subscriptions', type: :request do
         get "/api/v1/internal/subscriptions/#{subscription.id}",
             as: :json
 
-        expect_error_response('Service token required', 401)
+        expect_error_response('Worker token required', 401)
       end
     end
 
@@ -82,7 +82,7 @@ RSpec.describe 'Api::V1::Internal::Subscriptions', type: :request do
             headers: headers,
             as: :json
 
-        expect_error_response('Invalid service token', 401)
+        expect_error_response('Invalid worker token', 401)
       end
     end
   end
@@ -90,7 +90,7 @@ RSpec.describe 'Api::V1::Internal::Subscriptions', type: :request do
   describe 'POST /api/v1/internal/subscriptions/:id/dunning' do
     before do
       # Allow update to succeed even with non-existent dunning_status column
-      allow_any_instance_of(Subscription).to receive(:update).and_return(true)
+      allow_any_instance_of(Billing::Subscription).to receive(:update).and_return(true)
     end
 
     context 'with valid service token' do
@@ -141,7 +141,7 @@ RSpec.describe 'Api::V1::Internal::Subscriptions', type: :request do
         post "/api/v1/internal/subscriptions/#{subscription.id}/dunning",
              as: :json
 
-        expect_error_response('Service token required', 401)
+        expect_error_response('Worker token required', 401)
       end
     end
   end

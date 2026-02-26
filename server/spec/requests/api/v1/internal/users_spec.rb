@@ -8,12 +8,10 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
     allow(Audit::LogIntegrityService).to receive(:apply_integrity).and_return(true)
   end
 
+  # Worker JWT authentication via InternalBaseController
+  let(:internal_worker) { create(:worker, account: account) }
   let(:internal_headers) do
-    token = JWT.encode(
-      { service: 'worker', type: 'service', exp: 1.hour.from_now.to_i },
-      Rails.application.config.jwt_secret_key,
-      'HS256'
-    )
+    token = Security::JwtService.encode({ type: "worker", sub: internal_worker.id }, 5.minutes.from_now)
     { 'Authorization' => "Bearer #{token}" }
   end
 
@@ -67,7 +65,7 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
         get "/api/v1/internal/users/#{user.id}",
             as: :json
 
-        expect_error_response('Service token required', 401)
+        expect_error_response('Worker token required', 401)
       end
     end
   end
@@ -122,7 +120,7 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
         patch "/api/v1/internal/users/#{user.id}/anonymize",
               as: :json
 
-        expect_error_response('Service token required', 401)
+        expect_error_response('Worker token required', 401)
       end
     end
   end
@@ -170,7 +168,7 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
         patch "/api/v1/internal/users/#{user.id}/anonymize_audit_logs",
               as: :json
 
-        expect_error_response('Service token required', 401)
+        expect_error_response('Worker token required', 401)
       end
     end
   end
@@ -213,7 +211,7 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
         delete "/api/v1/internal/users/#{user.id}/consents",
                as: :json
 
-        expect_error_response('Service token required', 401)
+        expect_error_response('Worker token required', 401)
       end
     end
   end
@@ -235,7 +233,7 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
         delete "/api/v1/internal/users/#{user.id}/terms_acceptances",
                as: :json
 
-        expect_error_response('Service token required', 401)
+        expect_error_response('Worker token required', 401)
       end
     end
   end
@@ -257,7 +255,7 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
         delete "/api/v1/internal/users/#{user.id}/password_histories",
                as: :json
 
-        expect_error_response('Service token required', 401)
+        expect_error_response('Worker token required', 401)
       end
     end
   end
@@ -297,7 +295,7 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
         delete "/api/v1/internal/users/#{user.id}/roles",
                as: :json
 
-        expect_error_response('Service token required', 401)
+        expect_error_response('Worker token required', 401)
       end
     end
   end

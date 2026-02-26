@@ -3,10 +3,14 @@
 require 'rails_helper'
 
 RSpec.describe 'Api::V1::Internal::Billing', type: :request do
+  before do
+    skip 'Enterprise billing module not loaded' unless defined?(Billing::Subscription)
+  end
+
   let(:account) { create(:account) }
   let(:plan) { create(:plan, price: 99.99, billing_cycle: 'monthly') }
   let(:subscription) do
-    Subscription.create!(
+    Billing::Subscription.create!(
       account: account,
       plan: plan,
       status: 'active',
@@ -15,13 +19,10 @@ RSpec.describe 'Api::V1::Internal::Billing', type: :request do
     )
   end
 
-  # Service token authentication
+  # Worker JWT authentication via InternalBaseController
+  let(:internal_worker) { create(:worker, account: account) }
   let(:internal_headers) do
-    token = JWT.encode(
-      { service: 'worker', type: 'service', exp: 1.hour.from_now.to_i },
-      Rails.application.config.jwt_secret_key,
-      'HS256'
-    )
+    token = Security::JwtService.encode({ type: "worker", sub: internal_worker.id }, 5.minutes.from_now)
     { 'Authorization' => "Bearer #{token}" }
   end
 
@@ -255,7 +256,7 @@ RSpec.describe 'Api::V1::Internal::Billing', type: :request do
         expect(response_data['data']).to include('invoice_number')
         expect(response_data['data']['status']).to eq('open')
 
-        invoice = Invoice.find(response_data['data']['id'])
+        invoice = Billing::Invoice.find(response_data['data']['id'])
         expect(invoice.subscription).to eq(subscription)
         expect(invoice.account).to eq(account)
       end
@@ -272,7 +273,7 @@ RSpec.describe 'Api::V1::Internal::Billing', type: :request do
 
         expect_success_response
 
-        invoice = Invoice.last
+        invoice = Billing::Invoice.last
         expect(invoice.metadata['description']).to eq('Annual subscription fee')
         expect(invoice.metadata['invoice_type']).to eq('renewal')
       end
@@ -285,7 +286,7 @@ RSpec.describe 'Api::V1::Internal::Billing', type: :request do
 
         expect_success_response
 
-        invoice = Invoice.last
+        invoice = Billing::Invoice.last
         expect(invoice.metadata['billing_period_start']).to eq(subscription.current_period_start.iso8601)
         expect(invoice.metadata['billing_period_end']).to eq(subscription.current_period_end.iso8601)
       end
@@ -501,7 +502,7 @@ RSpec.describe 'Api::V1::Internal::Billing', type: :request do
 
   describe 'POST /api/v1/internal/billing/reactivate_suspended_accounts' do
     let!(:suspended_subscription) do
-      Subscription.create!(
+      Billing::Subscription.create!(
         account: create(:account),
         plan: plan,
         status: 'suspended',

@@ -35,17 +35,13 @@ RSpec.describe 'Api::V1::Admin::Database', type: :request do
       end
     end
 
-    context 'with worker token' do
-      let(:worker_token) { 'test-worker-token' }
+    context 'with worker JWT' do
+      let(:internal_worker) { create(:worker) }
 
-      before do
-        allow(ENV).to receive(:[]).and_call_original
-        allow(ENV).to receive(:[]).with('WORKER_TOKEN').and_return(worker_token)
-      end
-
-      it 'allows access with valid worker token' do
+      it 'allows access with valid worker JWT' do
+        token = Security::JwtService.encode({ type: "worker", sub: internal_worker.id }, 5.minutes.from_now)
         get '/api/v1/admin/database/pool_stats',
-            headers: { 'Authorization' => "Bearer #{worker_token}" },
+            headers: { 'Authorization' => "Bearer #{token}" },
             as: :json
 
         expect_success_response

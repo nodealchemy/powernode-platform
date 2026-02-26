@@ -121,7 +121,7 @@ RSpec.describe 'Api::V1::Reconciliation', type: :request do
       it 'creates a reconciliation report' do
         expect {
           post '/api/v1/reconciliation/report', params: report_params, headers: headers, as: :json
-        }.to change { ReconciliationReport.count }.by(1)
+        }.to change { Billing::ReconciliationReport.count }.by(1)
 
         expect_success_response
         data = json_response_data
@@ -160,13 +160,13 @@ RSpec.describe 'Api::V1::Reconciliation', type: :request do
         it 'creates a missing payment log using account from existing payment' do
           expect {
             post '/api/v1/reconciliation/corrections', params: correction_params, headers: headers, as: :json
-          }.to change { MissingPaymentLog.count }.by(1)
+          }.to change { Billing::MissingPaymentLog.count }.by(1)
 
           expect_success_response
           data = json_response_data
           expect(data).to have_key('log_id')
 
-          log = MissingPaymentLog.find(data['log_id'])
+          log = Billing::MissingPaymentLog.find(data['log_id'])
           expect(log.account_id).to eq(account.id)
         end
       end
@@ -179,13 +179,13 @@ RSpec.describe 'Api::V1::Reconciliation', type: :request do
         it 'creates a missing payment log using explicit account_id' do
           expect {
             post '/api/v1/reconciliation/corrections', params: correction_params_with_account, headers: headers, as: :json
-          }.to change { MissingPaymentLog.count }.by(1)
+          }.to change { Billing::MissingPaymentLog.count }.by(1)
 
           expect_success_response
           data = json_response_data
           expect(data).to have_key('log_id')
 
-          log = MissingPaymentLog.find(data['log_id'])
+          log = Billing::MissingPaymentLog.find(data['log_id'])
           expect(log.account_id).to eq(account.id)
         end
       end
@@ -240,7 +240,7 @@ RSpec.describe 'Api::V1::Reconciliation', type: :request do
       it 'creates a reconciliation flag' do
         expect {
           post '/api/v1/reconciliation/flags', params: flag_params, headers: headers, as: :json
-        }.to change { ReconciliationFlag.count }.by(1)
+        }.to change { Billing::ReconciliationFlag.count }.by(1)
 
         expect_success_response
         data = json_response_data
@@ -254,7 +254,7 @@ RSpec.describe 'Api::V1::Reconciliation', type: :request do
     let(:user) { create(:user, account: account) }
     let(:reconciliation_report) { create(:reconciliation_report) }
     let(:reconciliation_flag) do
-      ReconciliationFlag.create!(
+      Billing::ReconciliationFlag.create!(
         reconciliation_report: reconciliation_report,
         flag_type: 'amount_mismatch',
         description: 'Test flag for investigation',
@@ -274,7 +274,7 @@ RSpec.describe 'Api::V1::Reconciliation', type: :request do
       it 'creates a reconciliation investigation' do
         expect {
           post '/api/v1/reconciliation/investigations', params: investigation_params, headers: headers, as: :json
-        }.to change { ReconciliationInvestigation.count }.by(1)
+        }.to change { Billing::ReconciliationInvestigation.count }.by(1)
 
         expect_success_response
         data = json_response_data

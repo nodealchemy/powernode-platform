@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
-RSpec.describe Invoice, type: :model do
+RSpec.describe Billing::Invoice, type: :model do
   let(:invoice) { build(:invoice) }
 
   describe "associations" do
@@ -52,28 +54,28 @@ RSpec.describe Invoice, type: :model do
     let!(:due_soon_invoice) { create(:invoice, status: "open", due_at: 3.days.from_now) }
 
     it "returns draft invoices" do
-      expect(Invoice.draft).to include(draft_invoice)
-      expect(Invoice.draft).not_to include(open_invoice, paid_invoice)
+      expect(Billing::Invoice.draft).to include(draft_invoice)
+      expect(Billing::Invoice.draft).not_to include(open_invoice, paid_invoice)
     end
 
     it "returns open invoices" do
-      expect(Invoice.open).to include(open_invoice, overdue_invoice, due_soon_invoice)
-      expect(Invoice.open).not_to include(draft_invoice, paid_invoice)
+      expect(Billing::Invoice.open).to include(open_invoice, overdue_invoice, due_soon_invoice)
+      expect(Billing::Invoice.open).not_to include(draft_invoice, paid_invoice)
     end
 
     it "returns paid invoices" do
-      expect(Invoice.paid).to include(paid_invoice)
-      expect(Invoice.paid).not_to include(draft_invoice, open_invoice)
+      expect(Billing::Invoice.paid).to include(paid_invoice)
+      expect(Billing::Invoice.paid).not_to include(draft_invoice, open_invoice)
     end
 
     it "returns overdue invoices" do
-      expect(Invoice.overdue).to include(overdue_invoice)
-      expect(Invoice.overdue).not_to include(draft_invoice, paid_invoice, due_soon_invoice)
+      expect(Billing::Invoice.overdue).to include(overdue_invoice)
+      expect(Billing::Invoice.overdue).not_to include(draft_invoice, paid_invoice, due_soon_invoice)
     end
 
     it "returns invoices due soon" do
-      expect(Invoice.due_soon).to include(due_soon_invoice)
-      expect(Invoice.due_soon).not_to include(draft_invoice, paid_invoice, overdue_invoice)
+      expect(Billing::Invoice.due_soon).to include(due_soon_invoice)
+      expect(Billing::Invoice.due_soon).not_to include(draft_invoice, paid_invoice, overdue_invoice)
     end
   end
 
@@ -149,7 +151,7 @@ RSpec.describe Invoice, type: :model do
     describe "#set_defaults" do
       it "initializes default values" do
         subscription = create(:subscription)
-        invoice = Invoice.new(subscription: subscription)
+        invoice = Billing::Invoice.new(subscription: subscription)
 
         expect(invoice.metadata).to eq({})
         # billing_address column doesn't exist - removed from model
@@ -159,7 +161,7 @@ RSpec.describe Invoice, type: :model do
       it "defaults to USD when no subscription plan currency" do
         subscription = build(:subscription)
         allow(subscription).to receive_message_chain(:plan, :currency).and_return(nil)
-        invoice = Invoice.new(subscription: subscription)
+        invoice = Billing::Invoice.new(subscription: subscription)
 
         expect(invoice.currency).to eq("USD")
       end
@@ -379,7 +381,7 @@ RSpec.describe Invoice, type: :model do
           unit_amount_cents: 1000
         )
 
-        expect(line_item).to be_a(InvoiceLineItem)
+        expect(line_item).to be_a(Billing::InvoiceLineItem)
         expect(line_item.description).to eq("Test Item")
         expect(line_item.quantity).to eq(2)
         expect(line_item.unit_amount_cents).to eq(1000)

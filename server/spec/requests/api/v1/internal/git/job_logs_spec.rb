@@ -10,12 +10,10 @@ RSpec.describe 'Api::V1::Internal::Git::JobLogs', type: :request do
   let(:pipeline) { create(:git_pipeline, repository: repository, account: account) }
   let(:job) { create(:git_pipeline_job, pipeline: pipeline, account: account) }
 
+  # Worker JWT authentication via InternalBaseController
+  let(:internal_worker) { create(:worker, account: account) }
   let(:internal_headers) do
-    token = JWT.encode(
-      { service: 'worker', type: 'service', exp: 1.hour.from_now.to_i },
-      Rails.application.config.jwt_secret_key,
-      'HS256'
-    )
+    token = Security::JwtService.encode({ type: "worker", sub: internal_worker.id }, 5.minutes.from_now)
     { 'Authorization' => "Bearer #{token}" }
   end
 

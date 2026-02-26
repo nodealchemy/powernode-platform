@@ -121,6 +121,10 @@ RSpec.describe AnalyticsAlert, type: :model do
   describe "#trigger!" do
     let(:alert) { create(:analytics_alert, account: account, status: "enabled") }
 
+    before do
+      allow(NotificationService).to receive(:send_email).and_return(true)
+    end
+
     it "creates an alert event" do
       expect { alert.trigger!(60000) }.to change { alert.alert_events.count }.by(1)
     end
@@ -168,6 +172,7 @@ RSpec.describe AnalyticsAlert, type: :model do
     let(:alert) { create(:analytics_alert, :triggered, account: account) }
 
     before do
+      allow(NotificationService).to receive(:send_email).and_return(true)
       alert.trigger!(60000)
     end
 

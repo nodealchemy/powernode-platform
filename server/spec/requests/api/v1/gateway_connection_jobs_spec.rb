@@ -9,11 +9,12 @@ RSpec.describe 'Api::V1::GatewayConnectionJobs', type: :request do
   let(:headers) { auth_headers_for(user) }
   let(:admin_headers) { auth_headers_for(admin_user) }
 
-  # Service token for worker authentication
-  let(:worker_token) { ENV["WORKER_TOKEN"] || Rails.application.credentials.worker_token || "test_worker_token" }
+  # Worker JWT authentication via InternalBaseController
+  let(:internal_worker) { create(:worker, account: account) }
   let(:service_headers) do
+    token = Security::JwtService.encode({ type: "worker", sub: internal_worker.id }, 5.minutes.from_now)
     {
-      'Authorization' => "Bearer #{worker_token}",
+      'Authorization' => "Bearer #{token}",
       'Content-Type' => 'application/json'
     }
   end
