@@ -1,9 +1,19 @@
 ---
-Last Updated: 2026-01-17
-Platform Version: 1.0.0
+Last Updated: 2026-02-26
+Platform Version: 0.2.0
 ---
 
 # React Architect Specialist Guide
+
+## Technology Stack
+
+| Technology | Version |
+|-----------|---------|
+| React | 19.1.1 |
+| Vite | 7.2.0 |
+| TypeScript | 5.9.3 |
+| Tailwind CSS | 4.1.11 |
+| Redux Toolkit | (via `@reduxjs/toolkit`) |
 
 ## Related References
 
@@ -11,24 +21,27 @@ For common patterns used across multiple specialists, see these consolidated ref
 - **[Permission System Reference](../platform/PERMISSION_SYSTEM_REFERENCE.md)** - Frontend permission-based access control
 - **[Theme System Reference](../platform/THEME_SYSTEM_REFERENCE.md)** - Theme-aware styling classes
 - **[API Response Standards](../platform/API_RESPONSE_STANDARDS.md)** - API response handling
+- **[State Management Guide](STATE_MANAGEMENT_GUIDE.md)** - Redux and React Query patterns
+- **[Chat System Architecture](../platform/CHAT_SYSTEM_ARCHITECTURE.md)** - Real-time messaging
 
 ## Role & Responsibilities
 
 The React Architect specializes in React application structure, TypeScript configuration, routing, and state management for Powernode's subscription platform.
 
 ### Core Responsibilities
-- Setting up React application with TypeScript
+- Setting up React 19 application with TypeScript 5.9
 - Configuring routing and navigation
-- Implementing state management (Redux/Context)
-- Setting up component architecture
-- Handling authentication flow
+- Implementing state management (Redux Toolkit + React Query)
+- Setting up component architecture with Tailwind v4
+- Handling authentication flow and WebSocket communication
 
 ### Key Focus Areas
-- Modern React patterns and best practices
+- Modern React 19 patterns and best practices
 - TypeScript integration and type safety
-- Scalable component architecture
+- Scalable feature-based component architecture
 - Performance optimization strategies
 - State management and data flow
+- Real-time communication via ActionCable WebSockets
 
 ## React Architecture Standards
 
@@ -48,21 +61,38 @@ powernode-platform/
 ```
 
 #### Frontend Organization (Feature-Based)
+
+**11 Feature Modules:**
+
+| Module | Description |
+|--------|-------------|
+| `account/` | Account settings and profile management |
+| `admin/` | Admin dashboard, user management, system configuration |
+| `ai/` | AI agents, conversations, workflows, teams, knowledge graph |
+| `baas/` | Backend-as-a-Service tenant management |
+| `business/` | Subscriptions, plans, billing management |
+| `content/` | Knowledge base articles, pages, file management |
+| `delegations/` | Permission delegation and access sharing |
+| `developer/` | Developer tools, API keys, webhooks |
+| `devops/` | DevOps dashboard, pipelines, containers, Docker/Swarm |
+| `missions/` | AI mission management and tracking |
+| `privacy/` | Privacy settings and data management |
+
 ```
 src/
-├── features/           # Business domains (auth/, billing/, users/, analytics/, admin/)
+├── features/           # 11 business domain modules
 │   └── [feature]/
 │       ├── components/ # Feature-specific components
-│       ├── hooks/      # Feature-specific hooks  
+│       ├── hooks/      # Feature-specific hooks
 │       ├── services/   # Feature-specific API calls
 │       ├── types/      # Feature-specific TypeScript types
 │       └── utils/      # Feature-specific utilities
 ├── shared/             # Cross-feature reusables
 │   ├── components/     # UI primitives (ui/, layout/, forms/, data-display/)
 │   ├── hooks/          # Reusable hooks
-│   ├── services/       # Shared API services
+│   ├── services/       # Shared API services (store, slices, WebSocketManager)
 │   ├── types/          # Global TypeScript types
-│   └── utils/          # Utility functions
+│   └── utils/          # Utility functions (logger, theme, permissions)
 ├── pages/              # Route-based components (public/, app/, admin/)
 └── assets/             # Static assets (images/, fonts/, styles/)
 ```

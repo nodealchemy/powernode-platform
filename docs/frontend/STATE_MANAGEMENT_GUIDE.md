@@ -1,31 +1,38 @@
 # State Management Guide
 
-**Redux Toolkit patterns and slice architecture**
+**Redux Toolkit + React Query patterns for Powernode frontend**
 
 ---
+
+Last Updated: 2026-02-26
 
 ## Table of Contents
 
 1. [Overview](#overview)
 2. [Store Architecture](#store-architecture)
 3. [Slice Patterns](#slice-patterns)
-4. [Async Thunks](#async-thunks)
-5. [Selectors](#selectors)
-6. [Best Practices](#best-practices)
+4. [React Query Patterns](#react-query-patterns)
+5. [Async Thunks](#async-thunks)
+6. [Selectors](#selectors)
+7. [Best Practices](#best-practices)
 
 ---
 
 ## Overview
 
-Powernode uses Redux Toolkit for global state management. The store is organized into domain-specific slices with async thunks for API communication.
+Powernode uses a **dual state management** approach:
+- **Redux Toolkit** — Global application state (auth, UI, configuration)
+- **React Query / TanStack Query** — Server state, API data fetching, caching
 
 ### Key Principles
 
-- **Feature-based organization**: Slices align with feature domains
-- **Async thunks**: All API calls use createAsyncThunk
+- **Redux for global state**: Auth tokens, UI preferences, app configuration
+- **React Query for server state**: API data fetching, caching, mutations
+- **Feature-based organization**: Slices and queries align with feature domains
 - **Typed state**: Full TypeScript coverage
-- **Selectors**: Memoized selectors for performance
-- **Global notifications**: Centralized notification system
+- **Selectors**: Memoized selectors for Redux performance
+- **Global notifications**: Centralized notification system via Redux
+- **WebSocket integration**: Real-time updates via ActionCable
 
 ---
 
@@ -39,13 +46,13 @@ Powernode uses Redux Toolkit for global state management. The store is organized
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer from './slices/authSlice';
 import uiReducer from './slices/uiSlice';
-import subscriptionReducer from './slices/subscriptionSlice';
+import configReducer from './slices/configSlice';
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
     ui: uiReducer,
-    subscription: subscriptionReducer,
+    config: configReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
@@ -63,12 +70,14 @@ export type AppDispatch = typeof store.dispatch;
 
 ```
 frontend/src/shared/services/slices/
-├── authSlice.ts         # Authentication state
+├── authSlice.ts         # Authentication state (login, tokens, impersonation)
 ├── authSlice.test.ts
 ├── uiSlice.ts           # UI state (sidebar, theme, notifications)
 ├── uiSlice.test.ts
-└── subscriptionSlice.ts # Subscription management
+└── configSlice.ts       # Application configuration state
 ```
+
+> **Note**: Domain-specific data (subscriptions, AI conversations, DevOps pipelines, etc.) is managed via React Query hooks within each feature module, not Redux slices. Redux is reserved for truly global application state.
 
 ---
 
@@ -296,59 +305,83 @@ const uiSlice = createSlice({
 });
 ```
 
-### Subscription Slice
+---
 
-**File**: `frontend/src/shared/services/slices/subscriptionSlice.ts`
+## React Query Patterns
 
-Manages subscription state with CRUD operations.
+Domain-specific server state is managed via React Query (TanStack Query) within feature modules. This keeps API data fetching, caching, and mutations close to the components that use them.
 
-#### State Interface
-
-```typescript
-interface SubscriptionState {
-  subscriptions: Subscription[];
-  currentSubscription: Subscription | null;
-  availablePlans: SubscriptionPlan[];
-  loading: boolean;
-  error: string | null;
-}
-```
-
-#### Async Thunks
+### Query Pattern
 
 ```typescript
-export const fetchSubscriptions = createAsyncThunk(
-  'subscription/fetchSubscriptions',
-  async (_, { rejectWithValue }) => {
-    const response = await subscriptionService.getSubscriptions();
-    if (!response.success) {
-      return rejectWithValue(response.error);
-    }
-    return response.data;
-  }
-);
+// features/ai/hooks/useConversations.ts
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { conversationApi } from '../services/conversationApi';
 
-export const createSubscription = createAsyncThunk(
-  'subscription/createSubscription',
-  async (data: CreateSubscriptionRequest, { rejectWithValue }) => {
-    // ... implementation
-  }
-);
+export const useConversations = () => {
+  return useQuery({
+    queryKey: ['conversations'],
+    queryFn: conversationApi.getAll,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+};
 
-export const updateSubscription = createAsyncThunk(
-  'subscription/updateSubscription',
-  async ({ id, data }: { id: string; data: UpdateSubscriptionRequest }) => {
-    // ... implementation
-  }
-);
-
-export const cancelSubscription = createAsyncThunk(
-  'subscription/cancelSubscription',
-  async (id: string) => {
-    // ... implementation
-  }
-);
+export const useConversation = (id: string) => {
+  return useQuery({
+    queryKey: ['conversations', id],
+    queryFn: () => conversationApi.getById(id),
+    enabled: !!id,
+  });
+};
 ```
+
+### Mutation Pattern
+
+```typescript
+export const useCreateConversation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: conversationApi.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    },
+  });
+};
+```
+
+### Query Key Factory Pattern
+
+```typescript
+// Recommended pattern for organizing query keys
+const CONVERSATION_KEYS = {
+  all: ['conversations'] as const,
+  lists: () => [...CONVERSATION_KEYS.all, 'list'] as const,
+  list: (filters: ConversationFilters) => [...CONVERSATION_KEYS.lists(), filters] as const,
+  details: () => [...CONVERSATION_KEYS.all, 'detail'] as const,
+  detail: (id: string) => [...CONVERSATION_KEYS.details(), id] as const,
+};
+```
+
+### Context API Usage
+
+In addition to Redux and React Query, specific UI contexts handle scoped state:
+- `FooterContext` — Footer visibility and content
+- `ThemeContext` — Theme mode management
+- `BreadcrumbContext` — Navigation breadcrumbs
+
+### When to Use React Query vs Redux
+
+| Use Case | Technology |
+|----------|-----------|
+| Auth tokens, user session | Redux (`authSlice`) |
+| UI state (sidebar, theme, notifications) | Redux (`uiSlice`) |
+| App configuration | Redux (`configSlice`) |
+| API data lists (users, agents, pipelines) | React Query |
+| Single resource details | React Query |
+| Form submissions, mutations | React Query |
+| Real-time WebSocket state | React Query + WebSocket invalidation |
+| Scoped UI state (footer, breadcrumbs) | Context API |
 
 ---
 
@@ -651,5 +684,5 @@ describe('fetchSubscriptions thunk', () => {
 ---
 
 **Document Status**: Complete
-**Last Updated**: 2025-01-30
-**Source**: `frontend/src/shared/services/slices/`
+**Last Updated**: 2026-02-26
+**Source**: `frontend/src/shared/services/slices/`, feature-level React Query hooks
