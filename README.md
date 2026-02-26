@@ -1,85 +1,98 @@
-# 🚀 Powernode Platform
+# Powernode Platform
 
-> **A modern subscription management platform with integrated AI orchestration, built for scale and developer happiness**
+> **Subscription lifecycle management with integrated AI orchestration, built for scale**
 
-Welcome to Powernode! This is a comprehensive subscription lifecycle management platform with powerful AI capabilities, designed with modern best practices, extensive testing, and developer-first experience.
+Powernode is a full-stack platform handling authentication, billing, AI agent orchestration, and DevOps automation. Built with Rails 8.1.2, React 19.1 TypeScript, and a standalone Sidekiq worker service.
 
-## ✨ What is Powernode?
+## Key Features
 
-Powernode is a full-stack subscription platform that handles everything from user authentication to automated billing, enhanced with AI-powered automation and agent orchestration. Built with Rails 8, React TypeScript, and battle-tested patterns, it's designed to be both powerful and maintainable.
+### Core Platform
+- **Enterprise Authentication** - JWT + OAuth 2.0, 2FA, account lockout, rate limiting
+- **Payment Processing** - Stripe & PayPal with PCI compliance (enterprise)
+- **Smart Analytics** - MRR/ARR, churn analysis, customer health scoring
+- **Real-time** - 17 ActionCable WebSocket channels for live updates
+- **Modern UI** - React 19.1 with Tailwind CSS v4.1 and theme system
+- **Permission-Based Access** - 533 granular permissions across 30 categories
 
-### 🎯 Key Features
+### AI & Automation (127 models, 93 MCP tools)
+- **AI Agents** - Create, deploy, and manage agents with trust scoring and autonomy tiers
+- **Agent Teams** - Multi-agent orchestration (5 strategies: manager_led, consensus, auction, round_robin, priority_based)
+- **AI Workflows** - Visual builder with 35+ node types and circuit breakers
+- **Code Factory** - PRD generation, automated code review, remediation loops
+- **Ralph Loops** - Recursive agent learning with 15-round tool calling
+- **Model Router** - Cost-optimized provider selection across 10+ providers (Anthropic, OpenAI, Ollama, Azure, Google, Groq, Grok, Mistral, Cohere)
+- **MCP Integration** - 93 platform tools for knowledge, memory, skills, RAG, and DevOps
+- **A2A Protocol** - Agent-to-Agent communication with agent cards
+- **Memory System** - 4-tier architecture (working, STM, LTM, shared) with consolidation
+- **Knowledge Graph** - 1,190+ nodes, 1,670+ edges with hybrid search and GraphRAG
+- **RAG Pipeline** - Document chunking, pgvector embeddings, agentic retrieval (3-round reformulation)
+- **Security Guardrails** - Behavioral fingerprinting, 5 input rails, 7 output rails, quarantine
+- **FinOps** - Agent budgets, cost attribution, ROI metrics, optimization logging
+- **AI Monitoring** - Execution traces, telemetry events, circuit breakers, performance benchmarks
 
-#### Core Platform
-- **🔐 Enterprise Authentication** - JWT-based auth with strong security (12+ char passwords, account lockout, rate limiting)
-- **💳 Payment Processing** - Stripe & PayPal integration with PCI compliance
-- **📊 Smart Analytics** - MRR/ARR calculations, churn analysis, and customer insights
-- **⚡ Real-time Features** - WebSocket integration for live updates
-- **🎨 Modern UI** - React TypeScript with Tailwind CSS and theme support
-- **🤖 Background Jobs** - Sidekiq-powered async processing
-- **🔑 Permission-Based Access** - Granular permission system (no role-based checks)
+### DevOps & Infrastructure (41 models)
+- **Git Integration** - GitHub, GitLab, Gitea, Jenkins provider support
+- **CI/CD Pipelines** - 13 step types including AI-powered steps, approval gates
+- **Container Orchestration** - Docker host management, container templates, sandboxed execution
+- **Docker Swarm** - Cluster, node, service, and stack management with deployment tracking
+- **Integration Framework** - 5 integration types (GitHub Actions, webhooks, MCP servers, REST API, custom)
+- **Supply Chain Security** - SBOM generation, attestations, license compliance
+- **Secrets Management** - Vault-backed secrets with rotation tracking
 
-#### AI & Automation
-- **🤖 AI Agents** - Create and manage intelligent automation agents
-- **🔗 A2A Protocol** - Agent-to-Agent communication for distributed AI workflows
-- **🪪 Agent Cards** - A2A-compliant agent discovery and capability declaration
-- **👥 Agent Teams** - CrewAI-style multi-agent orchestration
-- **🔌 MCP Servers** - Model Context Protocol integration for tool access
-- **💬 AI Conversations** - Persistent AI-powered chat with context
-- **⚡ AI Workflows** - Visual workflow builder for AI orchestration
-- **📝 Prompt Templates** - Reusable, versioned prompt management
-- **🧠 Agent Memory** - Persistent context and learning for agents
-- **📈 AI Monitoring** - Real-time metrics, alerts, and performance tracking
+### Multi-Platform Chat
+- **5 Platforms** - WhatsApp, Telegram, Discord, Slack, Mattermost
+- **AI-Powered Routing** - Automatic agent assignment with escalation
+- **Prompt Injection Protection** - Content sanitization with delimiter wrapping
 
-#### DevOps & Infrastructure
-- **🔧 Git Integration** - GitHub, GitLab, Gitea provider support
-- **📦 Supply Chain Security** - SBOM generation, attestations, license compliance
-- **🛡️ Audit Logging** - Comprehensive activity tracking and compliance
-- **⚙️ Worker Management** - Background job monitoring and control
+### Worker System (175 jobs, 31 queues)
+- **Standalone Sidekiq 7.2** - Fully isolated, API-only communication with backend
+- **3 Priority Tiers** - Critical (weight 3), standard (weight 2), background (weight 1)
+- **Circuit Breakers** - 600s AI workflows, 120s backend API timeouts
+- **30+ Scheduled Jobs** - Maintenance, decay, consolidation, health checks
 
-#### Quality & Testing
-- **🧪 Testing Excellence** - 20,600+ tests with comprehensive coverage
-- **📝 Comprehensive Docs** - 90+ documentation files with specialist guides
+### Enterprise Features (submodule)
+- **Billing Engine** - Stripe & PayPal subscription lifecycle
+- **BaaS** - Multi-tenancy with usage metering
+- **Reseller System** - White-label management
+- **AI Publisher** - Agent marketplace with monetization
+- **Predictive Analytics** - Churn prediction, revenue forecasting
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 ```
 powernode-platform/
-├── 🖥️  server/     - Rails 8 API (JWT, UUIDv7, PostgreSQL)
-│   ├── app/models/ai/    - 30+ AI models (Agents, A2A, Workflows)
-│   ├── app/services/ai/  - AI orchestration services
-│   └── app/controllers/  - RESTful API endpoints
-├── ⚛️  frontend/   - React TypeScript (Tailwind, Redux)
-│   └── src/features/ai/  - AI UI components & pages
-├── ⚙️  worker/     - Sidekiq Background Jobs
-├── 📚 docs/       - Comprehensive Documentation (90+ files)
-└── 🛠️  scripts/   - Development Automation
+├── server/              - Rails 8.1.2 API (320+ models, 285 controllers, 570 services)
+│   ├── app/models/      - 13 namespaces (Ai, Devops, Chat, KnowledgeBase, ...)
+│   ├── app/services/    - 23 service namespaces (570 files)
+│   └── app/channels/    - 17 ActionCable channels
+├── frontend/            - React 19.1 TypeScript (11 feature modules)
+│   └── src/features/    - account, admin, ai, baas, business, content, delegations,
+│                          developer, devops, missions, privacy
+├── worker/              - Sidekiq 7.2 (175 jobs, 41 services, 4 API clients)
+├── extensions/          - Enterprise submodule (billing, BaaS, reseller, publisher)
+├── docs/                - 131 documentation files
+└── scripts/             - 47 automation scripts
 ```
 
-### 🔧 Technology Stack
+### Technology Stack
 
-- **Backend**: Rails 8 API • PostgreSQL • UUIDv7 • JWT Authentication • Redis
-- **Frontend**: React 18 • TypeScript • Tailwind CSS • Redux • Vite
-- **Background**: Sidekiq • Redis • API-first communication
-- **Payments**: Stripe • PayPal • PCI DSS Compliance
-- **AI/ML**: OpenAI • Anthropic • MCP Protocol • A2A Protocol
-- **Testing**: RSpec • Jest • Cypress • 20,600+ tests  
-
-## 🚀 Quick Start
+- **Backend**: Rails 8.1.2 | PostgreSQL | UUIDv7 | JWT + OAuth 2.0 | Redis
+- **Frontend**: React 19.1 | TypeScript 5.9 | Vite 7.2 | Tailwind CSS v4.1 | Redux Toolkit + React Query
+- **Worker**: Sidekiq 7.2 | Redis | Faraday | Circuit breakers
+- **AI/ML**: 10+ providers | MCP Protocol | A2A Protocol | pgvector (HNSW)
+- **Payments**: Stripe | PayPal | PCI DSS Compliance (enterprise)
+- **Testing**: RSpec | Jest 30 | Cypress 15 | 20,600+ tests
+- **Database**: 354 tables | 13 model namespaces | pgvector embeddings
 
 ### Prerequisites
-- Ruby 3.3+
+- Ruby 3.2.8
 - Node.js 18+
-- PostgreSQL 15+
+- PostgreSQL 15+ (with pgvector extension)
 - Redis 7+
 
-### 🏃‍♂️ Get Running in 60 Seconds
+## Quick Start
 
 ```bash
-# Clone and setup
-git clone <repository>
-cd powernode-platform
-
 # Install systemd services (one-time)
 sudo scripts/systemd/powernode-installer.sh install
 
@@ -90,119 +103,103 @@ sudo systemctl start powernode.target
 sudo scripts/systemd/powernode-installer.sh status
 ```
 
-**That's it!** 🎉 Your platform is running:
+Services:
 - **Frontend**: http://localhost:3001
 - **API**: http://localhost:3000
 - **Worker Web UI**: http://localhost:4567
-- **Background Jobs**: Running automatically
 
-## 📊 Platform Status
+## Platform Status
 
-The platform is **production-ready** with:
+- 20,600+ tests (14,500 backend, 6,100 frontend)
+- 95%+ pattern consistency
+- 131 documentation files with specialist guides
+- 533 permissions across 30 categories
+- 93 MCP platform tools
+- 50 KB articles, 10 content pages
+- Knowledge graph: 1,190+ nodes, 1,670+ edges
 
-- ✅ **Comprehensive Testing** - 20,600+ tests (14,500 backend, 6,100 frontend)
-- ✅ **95%+ Pattern Consistency** - Standardized architecture
-- ✅ **90+ Documentation Files** - Comprehensive guides and specialist docs
-- ✅ **Security First** - PCI compliance, strong auth, permission-based access
-- ✅ **AI-Powered** - Full AI orchestration with A2A protocol support
-- ✅ **Performance Optimized** - Sub-second response times
-- ✅ **Modern DevOps** - Git-flow, semantic versioning, CI/CD ready
+## Documentation
 
-## 🗺️ Navigation Guide
+### Getting Started
+- **[Development Guide](docs/DEVELOPMENT.md)** - Architecture, namespaces, setup
+- **[Quick Start](docs/QUICKSTART.md)** - Fast setup guide
+- **[CLAUDE.md](CLAUDE.md)** - Development patterns and rules
+- **[TODO](docs/TODO.md)** - Current status and roadmap
 
-### 📚 **New to the Project?**
-Start here: **[docs/README.md](docs/README.md)** - Complete documentation index
-
-### 🛠️ **Want to Develop?**
-Check out: **[CLAUDE.md](CLAUDE.md)** - Development guidance and patterns
-
-### 📋 **Track Progress?**
-See: **[docs/TODO.md](docs/TODO.md)** - Current status and roadmap
-
-### 🧪 **Testing & Quality?**
-See specialists: **[Backend Test Engineer](docs/testing/BACKEND_TEST_ENGINEER_SPECIALIST.md)** | **[Frontend Test Engineer](docs/testing/FRONTEND_TEST_ENGINEER_SPECIALIST.md)**
-
-## 🎯 Specialist Documentation
-
-Powernode uses MCP (Model Context Protocol) specialists for different areas:
-
-### Backend Specialists
-- **[Rails Architect](docs/backend/RAILS_ARCHITECT_SPECIALIST.md)** - API architecture & patterns
+### Backend
+- **[Rails Architect](docs/backend/RAILS_ARCHITECT_SPECIALIST.md)** - API architecture (Rails 8.1.2, 13 namespaces)
 - **[Data Modeler](docs/backend/DATA_MODELER_SPECIALIST.md)** - Database & ActiveRecord
+- **[Database Schema](docs/backend/DATABASE_SCHEMA_REFERENCE.md)** - 354 tables, namespace reference
+- **[Service Architecture](docs/backend/BACKEND_SERVICE_ARCHITECTURE.md)** - 570 services, 23 namespaces
+- **[Background Jobs](docs/backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md)** - Job patterns
 - **[Payment Integration](docs/backend/PAYMENT_INTEGRATION_SPECIALIST.md)** - Stripe/PayPal
-- **[Billing Engine](docs/backend/BILLING_ENGINE_DEVELOPER_SPECIALIST.md)** - Subscription lifecycle
-- **[Background Jobs](docs/backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md)** - Sidekiq & async processing
 
-### Frontend Specialists
-- **[React Architect](docs/frontend/REACT_ARCHITECT_SPECIALIST.md)** - TypeScript architecture
+### Frontend
+- **[React Architect](docs/frontend/REACT_ARCHITECT_SPECIALIST.md)** - React 19.1, Vite 7.2, Tailwind v4.1
+- **[State Management](docs/frontend/STATE_MANAGEMENT_GUIDE.md)** - Redux Toolkit + React Query
 - **[UI Components](docs/frontend/UI_COMPONENT_DEVELOPER_SPECIALIST.md)** - Design system
 - **[Dashboard](docs/frontend/DASHBOARD_SPECIALIST.md)** - Analytics & charts
-- **[Admin Panel](docs/frontend/ADMIN_PANEL_DEVELOPER_SPECIALIST.md)** - Management interfaces
+- **[WebSocket Integration](docs/frontend/WEBSOCKET_INTEGRATION.md)** - Real-time patterns
 
-### Infrastructure & Testing
-- **[DevOps Engineer](docs/infrastructure/DEVOPS_ENGINEER_SPECIALIST.md)** - CI/CD & deployment
-- **[Security Specialist](docs/infrastructure/SECURITY_SPECIALIST.md)** - Security & compliance
-- **[Performance Optimizer](docs/infrastructure/PERFORMANCE_OPTIMIZER.md)** - Performance tuning
-- **[Testing Engineers](docs/testing/)** - Comprehensive test strategies
+### AI Platform
+- **[AI Orchestration Guide](docs/platform/AI_ORCHESTRATION_GUIDE.md)** - Complete AI system overview
+- **[AI API Reference](docs/platform/AI_ORCHESTRATION_API_REFERENCE.md)** - 73 AI controllers
+- **[Code Factory](docs/platform/CODE_FACTORY_GUIDE.md)** - PRD generation, code review
+- **[Ralph Loops](docs/platform/RALPH_LOOPS_GUIDE.md)** - Recursive agent learning
+- **[Missions](docs/platform/MISSIONS_GUIDE.md)** - Mission pipeline, 12 phases
+- **[Model Router](docs/platform/MODEL_ROUTER_GUIDE.md)** - Cost-optimized routing
+- **[Agent Autonomy](docs/platform/AGENT_AUTONOMY_GUIDE.md)** - Trust tiers, guardrails
+- **[Memory System](docs/platform/MEMORY_SYSTEM_ARCHITECTURE.md)** - 4-tier memory architecture
+- **[Security Guardrails](docs/platform/AI_SECURITY_GUARDRAILS.md)** - Behavioral fingerprinting
+- **[RAG System](docs/platform/RAG_SYSTEM_GUIDE.md)** - Knowledge bases, hybrid search
+- **[Skill Graph](docs/platform/SKILL_GRAPH_REFERENCE.md)** - Skills registry, gap detection
+- **[Cost Attribution](docs/platform/COST_ATTRIBUTION_SYSTEM.md)** - FinOps, budgets, ROI
+- **[Provider Routing](docs/platform/AI_PROVIDER_ROUTING.md)** - Multi-provider management
+- **[AI Operations](docs/platform/AI_ORCHESTRATION_OPERATIONS.md)** - Monitoring, incident runbooks
+
+### DevOps & Infrastructure
+- **[DevOps Platform](docs/platform/DEVOPS_PLATFORM_GUIDE.md)** - 41 models, pipelines, containers, Swarm
+- **[Docker Swarm](docs/infrastructure/DOCKER_SWARM_OPERATIONS.md)** - Cluster operations
+- **[Docker Deployment](docs/infrastructure/DOCKER_DEPLOYMENT.md)** - Container setup
+- **[Configuration](docs/infrastructure/CONFIGURATION_MANAGEMENT.md)** - Env vars, secrets
+- **[Scripts Reference](docs/infrastructure/SCRIPTS_REFERENCE.md)** - 47 automation scripts
+- **[DevOps Engineer](docs/infrastructure/DEVOPS_ENGINEER_SPECIALIST.md)** - CI/CD specialist
+
+### Worker
+- **[Worker Architecture](docs/worker/WORKER_ARCHITECTURE_OVERVIEW.md)** - Isolation, API clients, circuit breakers
+- **[Worker Operations](docs/worker/WORKER_OPERATIONS_GUIDE.md)** - 175 jobs, 31 queues, scheduling
+- **[CI/CD Architecture](docs/worker/CI_CD_ARCHITECTURE.md)** - Pipeline execution
+- **[File Processing](docs/worker/FILE_PROCESSING_ARCHITECTURE.md)** - File handling subsystem
 
 ### Platform References
-- **[Permission System](docs/platform/PERMISSION_SYSTEM_REFERENCE.md)** - Access control guide
-- **[Theme System](docs/platform/THEME_SYSTEM_REFERENCE.md)** - UI theming
+- **[Permission System](docs/platform/PERMISSION_SYSTEM_REFERENCE.md)** - 533 permissions, 30 categories
+- **[WebSocket Channels](docs/platform/ACTIONCABLE_CHANNELS_REFERENCE.md)** - 17 channels reference
+- **[Chat System](docs/platform/CHAT_SYSTEM_ARCHITECTURE.md)** - Multi-platform chat
+- **[Content Management](docs/platform/CONTENT_MANAGEMENT_GUIDE.md)** - KB articles, pages, CMS
+- **[Theme System](docs/platform/THEME_SYSTEM_REFERENCE.md)** - Tailwind v4.1 theming
 - **[API Standards](docs/platform/API_RESPONSE_STANDARDS.md)** - API conventions
-- **[UUID System](docs/platform/UUID_SYSTEM_IMPLEMENTATION.md)** - UUIDv7 implementation
+- **[UUID System](docs/platform/UUID_SYSTEM_IMPLEMENTATION.md)** - UUIDv7 across 320+ models
+- **[MCP Configuration](docs/platform/MCP_CONFIGURATION.md)** - 93 platform tools
+- **[Workflow System](docs/platform/WORKFLOW_SYSTEM_STANDARDS.md)** - Workflow patterns
+- **[Node Executors](docs/backend/NODE_EXECUTOR_REFERENCE.md)** - 35+ workflow node types
 
-## 🌟 Key Highlights
+### Testing
+- **[Backend Testing](docs/testing/BACKEND_TEST_ENGINEER_SPECIALIST.md)** - RSpec strategies
+- **[Frontend Testing](docs/testing/FRONTEND_TEST_ENGINEER_SPECIALIST.md)** - Jest + React Testing Library
+- **[E2E Testing](docs/testing/PLAYWRIGHT_E2E_TESTING.md)** - Playwright patterns
 
-### 💪 **Built for Scale**
-- **UUIDv7 Strategy**: Chronologically sortable IDs across 64+ models
-- **Background Processing**: Async job handling with retry logic
-- **API-First**: Clean separation between services
-- **Theme System**: Dark/light mode with accessibility
-- **Multi-tenant**: Account-based isolation with permission controls
+### Enterprise
+- **[Enterprise Overview](extensions/enterprise/README.md)** - Billing, BaaS, reseller, AI publisher
 
-### 🤖 **AI-Powered**
-- **Agent Orchestration**: Create, deploy, and manage AI agents
-- **A2A Protocol**: Industry-standard agent-to-agent communication
-- **MCP Integration**: Model Context Protocol for tool access
-- **Multi-Provider**: OpenAI, Anthropic, and custom provider support
-- **Workflow Builder**: Visual AI workflow orchestration
+## Contributing
 
-### 🔒 **Security First**
-- **Strong Authentication**: 12+ char passwords, complexity rules, lockout
-- **Permission-Based Access**: Granular permissions, no role-based checks
-- **PCI Compliance**: Secure payment data handling
-- **Rate Limiting**: DDoS protection on all endpoints
-- **Audit Logging**: Comprehensive activity tracking
-
-### 🎨 **Developer Experience**
-- **Pattern Consistency**: Standardized code patterns across the platform
-- **Comprehensive Testing**: 20,600+ tests covering every feature
-- **Rich Documentation**: 90+ docs covering every aspect
-- **Development Scripts**: Automated setup and management
-
-## 🚀 What's Next?
-
-The platform is currently in **Phase 6: DevOps & Production**, focusing on:
-- Production deployment automation
-- Performance monitoring
-- Advanced CI/CD pipelines
-- Scalability optimizations
-
-## 🤝 Contributing
-
-This platform follows strict architectural patterns and testing requirements. Before contributing:
+This platform follows strict architectural patterns. Before contributing:
 
 1. Read **[CLAUDE.md](CLAUDE.md)** for development guidelines
-2. Check **[docs/TODO.md](docs/TODO.md)** for current priorities  
-3. Review specialist documentation for your area of contribution
+2. Check **[docs/TODO.md](docs/TODO.md)** for current priorities
+3. Review specialist documentation for your area
 4. Ensure all tests pass before submitting changes
 
-## 📄 License
+## License
 
 See **[LICENSE](LICENSE)** for licensing information.
-
----
-
-**Happy coding!** 🎉 Welcome to the Powernode platform - where subscription management meets modern development practices.
-
-> 💡 **Pro Tip**: Use `sudo scripts/systemd/powernode-installer.sh status` to check all services at once!
