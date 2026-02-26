@@ -2043,6 +2043,11 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
+        # MISSION TEMPLATES - Reusable mission phase definitions
+        # ===================================================================
+        resources :mission_templates, controller: "mission_templates", only: [:index, :show, :create, :update, :destroy]
+
+        # ===================================================================
         # MISSIONS - AI-Assisted Development Hub
         # ===================================================================
         scope :missions, controller: "missions" do
@@ -2070,6 +2075,9 @@ Rails.application.routes.draw do
           post ":id/deploy", action: :deploy
           post ":id/create_pr", action: :create_pr
           post ":id/cleanup_deployment", action: :cleanup_deployment
+          get  ":id/task_graph", action: :task_graph
+          post ":id/save_as_template", action: :save_as_template
+          post ":id/compose_plan", action: :compose_plan
         end
 
         # ===================================================================

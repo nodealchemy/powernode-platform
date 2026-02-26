@@ -6,11 +6,12 @@ module Api
       class MissionsController < ApplicationController
         rescue_from WorkerJobService::WorkerServiceError, with: :handle_worker_service_error
 
-        before_action :authorize_read!, only: [:index, :show]
+        before_action :authorize_read!, only: [:index, :show, :task_graph]
         before_action :authorize_manage!, only: [
           :create, :update, :destroy, :start, :approve, :reject,
           :pause, :resume, :cancel, :retry_phase, :deploy_callback, :analyze_repo,
-          :advance, :create_branch, :generate_prd, :run_tests, :deploy, :create_pr, :cleanup_deployment
+          :advance, :create_branch, :generate_prd, :run_tests, :deploy, :create_pr, :cleanup_deployment,
+          :save_as_template, :compose_plan
         ]
         before_action :authorize_read!, only: [:test_status]
 
@@ -360,6 +361,77 @@ module Api
           render_error(e.message, :unprocessable_content)
         end
 
+        # GET /api/v1/ai/missions/:id/task_graph
+        def task_graph
+          mission = find_mission!
+          return unless mission
+
+          unless mission.ralph_loop
+            render_success(task_graph: { nodes: [], edges: [] })
+            return
+          end
+
+          tasks = mission.ralph_loop.ralph_tasks.includes(:executor).ordered
+
+          nodes = tasks.map do |task|
+            {
+              id: task.id,
+              task_key: task.task_key,
+              description: task.description&.truncate(100),
+              status: task.status,
+              execution_type: task.execution_type,
+              priority: task.priority,
+              position: task.position,
+              dependencies: task.dependencies || [],
+              executor_type: task.executor_type,
+              executor_name: task.executor&.try(:name),
+              phase: task.metadata&.dig("phase"),
+              metadata: task.metadata
+            }
+          end
+
+          edges = tasks.flat_map do |task|
+            (task.dependencies || []).filter_map do |dep_key|
+              source_task = tasks.find { |t| t.task_key == dep_key }
+              next unless source_task
+
+              {
+                id: "#{source_task.id}-#{task.id}",
+                source: source_task.id,
+                target: task.id
+              }
+            end
+          end
+
+          render_success(task_graph: { nodes: nodes, edges: edges })
+        end
+
+        # POST /api/v1/ai/missions/:id/save_as_template
+        def save_as_template
+          mission = find_mission!
+          return unless mission
+
+          template = mission.save_as_template!(
+            name: params[:name],
+            description: params[:description]
+          )
+          render_success(template: template.template_details)
+        rescue StandardError => e
+          render_error(e.message, :unprocessable_content)
+        end
+
+        # POST /api/v1/ai/missions/:id/compose_plan
+        def compose_plan
+          mission = find_mission!
+          return unless mission
+
+          service = ::Ai::Missions::SkillCompositionService.new(mission: mission)
+          plan = service.compose!
+          render_success(plan: plan)
+        rescue ::Ai::Missions::SkillCompositionService::CompositionError => e
+          render_error(e.message, :unprocessable_content)
+        end
+
         private
 
         def authorize_read!
@@ -399,11 +471,13 @@ module Api
             :status, :current_phase, :branch_name, :error_message,
             :ralph_loop_id, :review_state_id, :conversation_id,
             :deployed_port, :deployed_url, :deployed_container_id,
-            :pr_number, :pr_url,
+            :pr_number, :pr_url, :mission_template_id,
             phase_config: {}, configuration: {}, metadata: {},
             analysis_result: {}, selected_feature: {},
             prd_json: {}, test_result: {}, review_result: {},
-            error_details: {}
+            error_details: {},
+            custom_phases: [:key, :label, :description, :requires_approval, :job_class,
+                            :estimated_duration_minutes, :skip_allowed, :order]
           )
         end
       end
