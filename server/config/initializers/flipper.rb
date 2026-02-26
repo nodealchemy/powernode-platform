@@ -33,6 +33,9 @@ Rails.application.config.after_initialize do
     Flipper.add(flag) unless Flipper.exist?(flag)
   end
 
+  # Auto-enable skill self-learning (safe — SelfLearningService has per-method rescue guards)
+  Flipper.enable(:skill_self_learning) unless Flipper.enabled?(:skill_self_learning)
+
   # Auto-enable enterprise flags when enterprise engine is loaded
   if Powernode::ExtensionRegistry.loaded?("enterprise")
     # Master toggle
