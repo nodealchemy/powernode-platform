@@ -37,6 +37,7 @@ import { WelcomePage } from '@/pages/public/WelcomePage';
 import { AcceptInvitationPage } from '@/pages/public/AcceptInvitationPage';
 import { PageViewPage } from '@/pages/public/PageViewPage';
 import { McpOAuthCallbackPage } from '@/pages/public/oauth/McpOAuthCallbackPage';
+import { OAuthConsentPage } from '@/pages/public/oauth/OAuthConsentPage';
 import { StatusPage } from '@/pages/public/StatusPage';
 import { ApprovalResponsePage } from '@/features/devops/pipelines/pages/ApprovalResponsePage';
 import { ApprovalResponsePage as AiWorkflowApprovalResponsePage } from '@/features/ai/workflows/pages/ApprovalResponsePage';
@@ -256,6 +257,12 @@ const AppContent: React.FC = () => {
                 <AcceptInvitationPage />
               </PublicRoute>
             }
+          />
+
+          {/* OAuth consent page — must be before /app/* catch-all */}
+          <Route
+            path="/app/oauth/authorize"
+            element={<OAuthConsentPage />}
           />
 
           {/* Legacy dashboard redirect */}

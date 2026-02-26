@@ -46,8 +46,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = React.memo(({
   // Memoize the redirect state to prevent object recreation on every render
   const loginRedirectState = useMemo(() => {
     // Don't include state if already on login page to prevent loops
-    return location.pathname === '/login' ? undefined : { from: location.pathname };
-  }, [location.pathname]);
+    return location.pathname === '/login' ? undefined : { from: location.pathname + location.search };
+  }, [location.pathname, location.search]);
 
   // Show loading spinner while authentication state is being determined
   // CRITICAL: Wait for loading to complete before making redirect decisions
