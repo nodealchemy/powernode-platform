@@ -383,6 +383,28 @@ Rails.application.routes.draw do
 
           # Memory pool cleanup callbacks (worker → server)
           post "memory_pools/cleanup_results", to: "memory_pools#cleanup_results"
+
+          # LLM proxy endpoints (worker → server)
+          scope "llm", controller: "llm_proxy" do
+            post :complete
+            post :complete_with_tools
+            post :complete_structured
+            post :tool_definitions
+            post :dispatch_tool
+            post :execute_tool_loop
+            post :execute_with_reasoning
+          end
+
+          # Execution context endpoint (worker → server)
+          post "execution_contexts", to: "execution_contexts#create"
+
+          # Agent execution management (worker → server)
+          get "executions/:id", to: "agent_executions#show"
+          patch "executions/:id", to: "agent_executions#update"
+          post "executions/:id/cancel", to: "agent_executions#cancel"
+
+          # Team strategy execution (worker → server)
+          post "teams/:team_id/execute_strategy", to: "teams#execute_strategy"
         end
 
         # Container execution callbacks for Gitea workflow

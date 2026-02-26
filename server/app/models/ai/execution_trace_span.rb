@@ -49,7 +49,7 @@ class Ai::ExecutionTraceSpan < ApplicationRecord
   validates :span_id, presence: true, uniqueness: true
   validates :name, presence: true
   validates :span_type, presence: true,
-            inclusion: { in: %w[root llm_call tool_execution retrieval generic agent workflow mcp] }
+            inclusion: { in: %w[root llm_call tool_execution retrieval generic agent workflow mcp reasoning reflection planning evaluation] }
   validates :status, presence: true,
             inclusion: { in: %w[pending running completed failed cancelled] }
 
@@ -59,6 +59,10 @@ class Ai::ExecutionTraceSpan < ApplicationRecord
   scope :root_spans, -> { where(parent_span_id: nil) }
   scope :llm_calls, -> { where(span_type: "llm_call") }
   scope :tool_executions, -> { where(span_type: "tool_execution") }
+  scope :reasoning_spans, -> { where(span_type: "reasoning") }
+  scope :reflection_spans, -> { where(span_type: "reflection") }
+  scope :planning_spans, -> { where(span_type: "planning") }
+  scope :evaluation_spans, -> { where(span_type: "evaluation") }
 
   # Delegation
   delegate :account, to: :execution_trace

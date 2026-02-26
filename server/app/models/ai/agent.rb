@@ -42,6 +42,7 @@ module Ai
     has_many :short_term_memories, class_name: "Ai::AgentShortTermMemory", foreign_key: "agent_id", dependent: :destroy
     has_many :agent_team_members, class_name: "Ai::AgentTeamMember", foreign_key: "ai_agent_id"
     has_many :teams, class_name: "Ai::AgentTeam", through: :agent_team_members, source: :team
+    has_one :agent_card, class_name: "Ai::AgentCard", foreign_key: "ai_agent_id", dependent: :nullify
 
     # Validations
     validates :name, presence: true, length: { maximum: 255 }, uniqueness: { scope: :account_id }

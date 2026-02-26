@@ -8,11 +8,7 @@ class WorkerApiClient
   class NetworkError < ApiError; end
 
   def initialize(base_url: nil)
-    # Use provided base_url or detect from environment
     @base_url = base_url || ENV.fetch("API_BASE_URL", detect_base_url)
-    @service_token = ENV["WORKER_SERVICE_TOKEN"] ||
-                     Rails.application.credentials.dig(:worker, :service_token) ||
-                     "development_worker_service_token_that_persists_across_restarts"
     @timeout = 10 # seconds
   end
 
@@ -139,7 +135,7 @@ class WorkerApiClient
                 req
     end
 
-    request["Authorization"] = "Bearer #{@service_token}"
+    request["Authorization"] = "Bearer #{WorkerJobService.system_worker_jwt}"
     request["Accept"] = "application/json"
 
     response = http.request(request)

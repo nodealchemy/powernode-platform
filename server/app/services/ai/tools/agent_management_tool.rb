@@ -65,6 +65,27 @@ module Ai
               agent_id: { type: "string", required: true, description: "Agent ID, slug, or exact name" },
               input: { type: "object", required: false, description: "Execution input" }
             }
+          },
+          "spawn_task" => {
+            description: "Spawn a task for another agent to execute. Validates capability matrix and delegation authority before dispatching.",
+            parameters: {
+              agent_id: { type: "string", required: true, description: "Target agent ID, slug, or name" },
+              task: { type: "string", required: true, description: "Task description for the target agent" },
+              budget_cents: { type: "integer", required: false, description: "Budget allocation in cents" }
+            }
+          },
+          "check_task_status" => {
+            description: "Check the status and output of a previously spawned task.",
+            parameters: {
+              task_id: { type: "string", required: true, description: "A2A task ID" }
+            }
+          },
+          "wait_for_task" => {
+            description: "Poll until a spawned task completes or times out.",
+            parameters: {
+              task_id: { type: "string", required: true, description: "A2A task ID" },
+              timeout_seconds: { type: "integer", required: false, description: "Maximum wait time in seconds (default: 300)" }
+            }
           }
         }
       end
@@ -78,6 +99,9 @@ module Ai
         when "get_agent" then get_agent(params)
         when "update_agent" then update_agent(params)
         when "execute_agent" then execute_agent(params)
+        when "spawn_task" then spawn_task(params)
+        when "check_task_status" then check_task_status(params)
+        when "wait_for_task" then wait_for_task(params)
         else { success: false, error: "Unknown action: #{params[:action]}" }
         end
       end
@@ -121,8 +145,10 @@ module Ai
           }
         end
 
-        input_params = params[:input] || {}
+        input_params = params[:input] || { "input" => "" }
+        input_params = { "input" => input_params } if input_params.is_a?(String)
         input_params = input_params.stringify_keys if input_params.respond_to?(:stringify_keys)
+        input_params = { "input" => "" } if input_params.blank?
 
         execution = Ai::AgentExecution.create!(
           account: account,
@@ -179,6 +205,94 @@ module Ai
         { success: false, error: "Agent not found" }
       rescue ActiveRecord::RecordInvalid => e
         { success: false, error: e.message }
+      end
+
+      def spawn_task(params)
+        target = resolve_agent(params[:agent_id])
+        return { success: false, error: "Target agent not found" } unless target
+
+        # Validate capability matrix
+        capability_service = Ai::Autonomy::CapabilityMatrixService.new(account: account)
+        policy = capability_service.check(agent: target, action_type: "spawn_agent")
+        if policy == :denied
+          return { success: false, error: "Agent #{target.name} is not permitted to receive spawned tasks (tier: #{target.trust_level || 'supervised'})" }
+        end
+
+        # Validate delegation authority if spawning agent is known
+        if agent&.id.present?
+          spawner = account.ai_agents.find_by(id: agent.id)
+          if spawner
+            delegation_service = Ai::Autonomy::DelegationAuthorityService.new(account: account)
+            delegation = delegation_service.validate_delegation(
+              delegator: spawner, delegate: target,
+              task: { action_type: "execute", budget_cents: params[:budget_cents].to_i }
+            )
+            unless delegation[:allowed]
+              return { success: false, error: "Delegation denied: #{delegation[:reason]}" }
+            end
+          end
+        end
+
+        # Submit A2A task — resolve agent card for the target agent
+        agent_card = target.agent_card || target.create_agent_card!(
+          account: account, name: target.name, description: target.description,
+          endpoint_url: nil, status: "active"
+        )
+        a2a_service = Ai::A2a::Service.new(account: account, user: user || account.users.first)
+        task = a2a_service.submit_task(
+          to_agent_card: agent_card.id,
+          message: { role: "user", parts: [{ type: "text", text: params[:task] }] },
+          metadata: { source: "spawn_task", budget_cents: params[:budget_cents] }
+        )
+
+        { success: true, task_id: task.task_id, status: task.status, agent_id: target.id, agent_name: target.name }
+      rescue StandardError => e
+        { success: false, error: "Failed to spawn task: #{e.message}" }
+      end
+
+      def check_task_status(params)
+        task = account.ai_a2a_tasks.find_by(task_id: params[:task_id])
+        return { success: false, error: "Task not found" } unless task
+
+        {
+          success: true,
+          task_id: task.task_id,
+          status: task.status,
+          output: task.output,
+          error_message: task.error_message,
+          duration_ms: task.duration_ms,
+          created_at: task.created_at.iso8601,
+          completed_at: task.completed_at&.iso8601
+        }
+      end
+
+      def wait_for_task(params)
+        task_id = params[:task_id]
+        timeout = [params[:timeout_seconds].to_i, 300].min
+        timeout = 300 if timeout <= 0
+        deadline = Time.current + timeout.seconds
+
+        loop do
+          task = account.ai_a2a_tasks.find_by(task_id: task_id)
+          return { success: false, error: "Task not found" } unless task
+
+          if %w[completed failed cancelled].include?(task.status)
+            return {
+              success: true,
+              task_id: task.task_id,
+              status: task.status,
+              output: task.output,
+              error_message: task.error_message,
+              duration_ms: task.duration_ms
+            }
+          end
+
+          if Time.current >= deadline
+            return { success: false, error: "Timeout waiting for task #{task_id}", status: task.status }
+          end
+
+          sleep 2
+        end
       end
 
       # Flexible agent lookup: try UUID, then slug, then name match

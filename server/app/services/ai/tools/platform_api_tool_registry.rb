@@ -13,6 +13,9 @@ module Ai
         "execute_agent" => "Ai::Tools::AgentManagementTool",
         "get_agent" => "Ai::Tools::AgentManagementTool",
         "update_agent" => "Ai::Tools::AgentManagementTool",
+        "spawn_task" => "Ai::Tools::AgentManagementTool",
+        "check_task_status" => "Ai::Tools::AgentManagementTool",
+        "wait_for_task" => "Ai::Tools::AgentManagementTool",
         # Team management
         "create_team" => "Ai::Tools::TeamManagementTool",
         "add_team_member" => "Ai::Tools::TeamManagementTool",

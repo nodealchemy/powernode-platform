@@ -87,6 +87,26 @@ class WorkerJobService
       })
     end
 
+    # Enqueue A2A task execution job
+    def enqueue_ai_a2a_task_execution(task_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiA2aTaskExecutionJob",
+        "args" => [ task_id ],
+        "queue" => "ai_agents",
+        "options" => { "retry" => 3 }
+      })
+    end
+
+    # Enqueue A2A external task job
+    def enqueue_ai_a2a_external_task(task_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiA2aExternalTaskJob",
+        "args" => [ task_id ],
+        "queue" => "ai_agents",
+        "options" => { "retry" => 3 }
+      })
+    end
+
     # Enqueue AI agent execution job
     def enqueue_ai_agent_execution(agent_execution_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
@@ -433,9 +453,8 @@ class WorkerJobService
       request["Content-Type"] = "application/json"
       request["Accept"] = "application/json"
 
-      # Add worker service authentication
-      worker_token = Rails.application.config.worker_token
-      request["Authorization"] = "Bearer #{worker_token}" if worker_token
+      # Authenticate as system worker using JWT (token derived from database)
+      request["Authorization"] = "Bearer #{system_worker_jwt}"
 
       # Set body for requests that support it
       if %w[POST PUT PATCH].include?(method.upcase) && payload.present?
@@ -472,6 +491,33 @@ class WorkerJobService
         raise WorkerServiceError, "Invalid response format from worker service"
       end
     end
+
+  # Mint a short-lived JWT for the system worker, derived from the database record.
+  # Cached per-thread for 4 minutes (JWT expires in 5 minutes) to avoid DB lookups on every request.
+  # Class method so controllers can also use it for outgoing worker calls.
+  def self.system_worker_jwt
+    cached = Thread.current[:_system_worker_jwt]
+    if cached && cached[:expires_at] > Time.current
+      return cached[:token]
+    end
+
+    worker = Worker.system_worker
+    raise WorkerServiceError, "No active system worker found in database" unless worker&.active?
+
+    token = Security::JwtService.encode(
+      { type: "worker", sub: worker.id },
+      5.minutes.from_now
+    )
+
+    Thread.current[:_system_worker_jwt] = { token: token, expires_at: 4.minutes.from_now }
+    token
+  end
+
+  private
+
+  def system_worker_jwt
+    self.class.system_worker_jwt
+  end
 
   # Custom exception for worker service errors
   class WorkerServiceError < StandardError; end

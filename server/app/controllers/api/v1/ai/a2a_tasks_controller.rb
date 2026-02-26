@@ -8,7 +8,7 @@ module Api
         include ::Ai::ResourceFiltering
         include ActionController::Live  # For SSE streaming
 
-        before_action :set_task, only: %i[show cancel provide_input events artifacts artifact]
+        before_action :set_task, only: %i[show update cancel provide_input events artifacts artifact]
         before_action :validate_permissions
 
         # GET /api/v1/ai/a2a/tasks
@@ -50,6 +50,27 @@ module Api
         def details
           @task = find_task
           render_success(task: @task.task_details)
+        end
+
+        # PATCH /api/v1/ai/a2a/tasks/:task_id
+        # Update task status, output, artifacts (used by worker)
+        def update
+          update_attrs = {}
+          update_attrs[:status] = params[:status] if params[:status].present?
+          update_attrs[:output] = params[:output] if params[:output].present?
+          update_attrs[:artifacts] = params[:artifacts] if params[:artifacts].present?
+          update_attrs[:error_message] = params[:error_message] if params[:error_message].present?
+          update_attrs[:error_code] = params[:error_code] if params[:error_code].present?
+          update_attrs[:started_at] = params[:started_at] if params[:started_at].present?
+          update_attrs[:completed_at] = params[:completed_at] if params[:completed_at].present?
+          update_attrs[:duration_ms] = params[:duration_ms] if params[:duration_ms].present?
+          update_attrs[:cost] = params[:cost] if params[:cost].present?
+          update_attrs[:tokens_used] = params[:tokens_used] if params[:tokens_used].present?
+
+          @task.update!(update_attrs)
+          render_success(task: @task.to_a2a_json)
+        rescue ActiveRecord::RecordInvalid => e
+          render_error(e.message, status: :unprocessable_content)
         end
 
         # POST /api/v1/ai/a2a/tasks
@@ -226,8 +247,9 @@ module Api
         end
 
         def find_task
-          task = current_user.account.ai_a2a_tasks.find_by(task_id: params[:task_id])
-          task ||= current_user.account.ai_a2a_tasks.find_by(id: params[:task_id])
+          account = current_account || current_user&.account
+          task = account.ai_a2a_tasks.find_by(task_id: params[:task_id])
+          task ||= account.ai_a2a_tasks.find_by(id: params[:task_id])
 
           unless task
             render_error("Task not found", status: :not_found)

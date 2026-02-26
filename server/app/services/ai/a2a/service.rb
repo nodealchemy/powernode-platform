@@ -109,7 +109,7 @@ module Ai
         if sync || @workflow_run.present?
           execute_task_sync(task)
         else
-          ::AiA2aTaskExecutionJob.perform_later(task.id)
+          WorkerJobService.enqueue_ai_a2a_task_execution(task.id)
         end
 
         task
@@ -130,7 +130,7 @@ module Ai
           external_authentication: authentication
         )
 
-        ::AiA2aExternalTaskJob.perform_later(task.id)
+        WorkerJobService.enqueue_ai_a2a_external_task(task.id)
         task
       end
 
@@ -163,7 +163,7 @@ module Ai
         end
 
         task.provide_input!(input_data)
-        ::AiA2aTaskExecutionJob.perform_later(task.id)
+        WorkerJobService.enqueue_ai_a2a_task_execution(task.id)
 
         { task: task.to_a2a_json }
       end

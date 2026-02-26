@@ -344,8 +344,11 @@ module Ai
       end
 
       def enqueue_task_execution(task)
-        job_class = task.is_external? ? ::AiA2aExternalTaskJob : ::AiA2aTaskExecutionJob
-        job_class.perform_later(task.id)
+        if task.is_external?
+          WorkerJobService.enqueue_ai_a2a_external_task(task.id)
+        else
+          WorkerJobService.enqueue_ai_a2a_task_execution(task.id)
+        end
         Rails.logger.info "[A2A Protocol] Task enqueued: #{task.task_id}"
       end
 
