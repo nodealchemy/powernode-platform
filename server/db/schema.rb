@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_25_073000) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_26_120001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -2380,6 +2380,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_25_073000) do
     t.index ["user_id"], name: "index_ai_mission_approvals_on_user_id"
   end
 
+  create_table "ai_mission_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id"
+    t.jsonb "approval_gates", default: []
+    t.datetime "created_at", null: false
+    t.jsonb "default_configuration", default: {}
+    t.text "description"
+    t.boolean "is_default", default: false
+    t.string "mission_type", null: false
+    t.string "name", null: false
+    t.jsonb "phases", default: []
+    t.jsonb "rejection_mappings", default: {}
+    t.jsonb "skill_compositions", default: {}
+    t.string "status", default: "active"
+    t.string "template_type", default: "account", null: false
+    t.datetime "updated_at", null: false
+    t.integer "version", default: 1
+    t.index ["account_id", "template_type"], name: "index_ai_mission_templates_on_account_id_and_template_type"
+    t.index ["account_id"], name: "index_ai_mission_templates_on_account_id"
+    t.index ["is_default"], name: "index_ai_mission_templates_on_is_default", where: "(is_default = true)"
+    t.index ["mission_type", "status"], name: "index_ai_mission_templates_on_mission_type_and_status"
+  end
+
   create_table "ai_missions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.jsonb "analysis_result", default: {}
@@ -2391,6 +2413,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_25_073000) do
     t.datetime "created_at", null: false
     t.uuid "created_by_id", null: false
     t.string "current_phase"
+    t.jsonb "custom_phases"
     t.string "deployed_container_id"
     t.integer "deployed_port"
     t.string "deployed_url"
@@ -2400,6 +2423,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_25_073000) do
     t.text "error_message"
     t.jsonb "feature_suggestions", default: []
     t.jsonb "metadata", default: {}
+    t.uuid "mission_template_id"
     t.string "mission_type", null: false
     t.string "name", null: false
     t.text "objective"
@@ -2425,6 +2449,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_25_073000) do
     t.index ["conversation_id"], name: "index_ai_missions_on_conversation_id"
     t.index ["created_by_id"], name: "index_ai_missions_on_created_by_id"
     t.index ["deployed_port"], name: "index_ai_missions_on_deployed_port", unique: true, where: "(((status)::text = 'active'::text) AND (deployed_port IS NOT NULL))"
+    t.index ["mission_template_id"], name: "index_ai_missions_on_mission_template_id"
     t.index ["ralph_loop_id"], name: "index_ai_missions_on_ralph_loop_id"
     t.index ["repository_id"], name: "index_ai_missions_on_repository_id"
     t.index ["review_state_id"], name: "index_ai_missions_on_review_state_id"
@@ -9941,6 +9966,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_25_073000) do
   add_foreign_key "ai_missions", "ai_code_factory_review_states", column: "review_state_id"
   add_foreign_key "ai_missions", "ai_code_factory_risk_contracts", column: "risk_contract_id"
   add_foreign_key "ai_missions", "ai_conversations", column: "conversation_id"
+  add_foreign_key "ai_missions", "ai_mission_templates", column: "mission_template_id"
   add_foreign_key "ai_missions", "ai_ralph_loops", column: "ralph_loop_id"
   add_foreign_key "ai_missions", "git_repositories", column: "repository_id"
   add_foreign_key "ai_missions", "users", column: "created_by_id"
