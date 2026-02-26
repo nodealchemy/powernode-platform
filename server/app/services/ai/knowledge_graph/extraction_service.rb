@@ -11,14 +11,37 @@ module Ai
       MAX_CHUNK_LENGTH = 4000
 
       PROMPT_SLUG = "ai-kg-entity-extraction"
-      FALLBACK_PROMPT = "You are a knowledge graph extraction expert. Extract entities and their relationships from the given text. " \
-                        "Classify each entity as: person (individual humans), organization (companies, teams, institutions), " \
-                        "technology (languages, frameworks, tools, protocols, platforms, libraries, services), " \
-                        "event (dated occurrences, releases, incidents), or location (geographic places). " \
-                        "Never use 'custom' — always pick the closest match. When in doubt, classify software-related entities as 'technology'. " \
-                        "Be precise and concise. Only extract clearly stated facts."
+      FALLBACK_PROMPT = <<~PROMPT.squish
+        You are a knowledge graph extraction expert. Extract named entities and their relationships from the given text.
+
+        ENTITY TYPES (pick the closest match — never use 'custom'):
+        - technology: software classes, services, modules, libraries, frameworks, tools, APIs, protocols, languages
+        - person: individual humans by name
+        - organization: companies, teams, institutions, departments
+        - event: dated occurrences, releases, incidents, milestones
+        - location: geographic places, servers, infrastructure
+
+        CRITICAL RULES:
+        - Extract FULL proper names: "ExecutionGateService" not "Execution" or "Gate"
+        - Preserve exact class/module paths: "Ai::Llm::Client" not "Client" or "LLM"
+        - Skip common words and generic terms: "all", "the", "services", "namespace"
+        - Software classes, services, and adapters are ALWAYS type "technology"
+        - Each entity needs a brief description (1 sentence)
+
+        EXAMPLE INPUT: "The StrategyFactory dispatches to SequentialStrategy and ParallelStrategy."
+        EXAMPLE OUTPUT entities: [
+          {"name": "StrategyFactory", "type": "technology", "description": "Factory that dispatches to execution strategies"},
+          {"name": "SequentialStrategy", "type": "technology", "description": "Strategy for sequential agent execution"},
+          {"name": "ParallelStrategy", "type": "technology", "description": "Strategy for parallel agent execution"}
+        ]
+        EXAMPLE OUTPUT relations: [
+          {"source": "StrategyFactory", "target": "SequentialStrategy", "type": "depends_on", "description": "Dispatches to sequential strategy"},
+          {"source": "StrategyFactory", "target": "ParallelStrategy", "type": "depends_on", "description": "Dispatches to parallel strategy"}
+        ]
+      PROMPT
       EXTRACTION_SCHEMA = {
         name: "knowledge_extraction",
+        strict: true,
         schema: {
           type: "object",
           properties: {
@@ -31,7 +54,8 @@ module Ai
                   type: { type: "string", enum: %w[person organization technology event location custom] },
                   description: { type: "string" }
                 },
-                required: %w[name type]
+                required: %w[name type description],
+                additionalProperties: false
               }
             },
             relations: {
@@ -47,11 +71,13 @@ module Ai
                   },
                   description: { type: "string" }
                 },
-                required: %w[source target type]
+                required: %w[source target type description],
+                additionalProperties: false
               }
             }
           },
-          required: %w[entities relations]
+          required: %w[entities relations],
+          additionalProperties: false
         }
       }.freeze
 
@@ -170,8 +196,8 @@ module Ai
       end
 
       def extract_entities_and_relations(text)
-        client = build_llm_client
-        return fallback_extraction(text) unless client
+        clients = build_llm_clients
+        return fallback_extraction(text) if clients.empty?
 
         system_content = resolve_prompt_template(
           PROMPT_SLUG,
@@ -190,18 +216,28 @@ module Ai
           }
         ]
 
-        response = client.complete_structured(
-          messages: messages,
-          schema: EXTRACTION_SCHEMA,
-          model: default_model
-        )
+        clients.each do |client, model|
+          response = client.complete_structured(
+            messages: messages,
+            schema: EXTRACTION_SCHEMA,
+            model: model
+          )
 
-        return nil unless response.success?
+          unless response.success?
+            Rails.logger.warn "[ExtractionService] LLM call failed (#{client.provider.name}): #{response.raw_response.to_s[0..200]}"
+            next
+          end
 
-        parsed = response.parsed_content || response.content
-        parsed.is_a?(String) ? JSON.parse(parsed) : parsed
-      rescue StandardError => e
-        Rails.logger.warn "[ExtractionService] LLM extraction failed: #{e.message}, using fallback"
+          parsed = response.respond_to?(:parsed_content) ? (response.parsed_content || response.content) : response.content
+          parsed = parsed.is_a?(String) ? JSON.parse(parsed) : parsed
+          Rails.logger.info "[ExtractionService] LLM returned #{parsed&.dig('entities')&.length || 0} entities, #{parsed&.dig('relations')&.length || 0} relations (#{client.provider.name})"
+          return parsed
+        rescue StandardError => e
+          Rails.logger.warn "[ExtractionService] LLM extraction failed (#{client.provider.name}): #{e.message}"
+          next
+        end
+
+        Rails.logger.warn "[ExtractionService] All LLM providers failed, using regex fallback"
         fallback_extraction(text)
       end
 
@@ -399,15 +435,46 @@ module Ai
            Will Shall Into From With About Between Through During Before After].include?(word)
       end
 
-      def build_llm_client
-        Ai::Llm::Client.for_account(@account)
+      def build_llm_clients
+        clients = []
+
+        # Look for the dedicated Knowledge Graph Curator agent first
+        curator = Ai::Agent.find_by(account: @account, name: "Knowledge Graph Curator", status: "active")
+        if curator&.ai_provider_id
+          provider = Ai::Provider.find_by(id: curator.ai_provider_id)
+          credential = provider&.provider_credentials&.active&.first if provider
+          if provider && credential
+            model = curator.mcp_metadata&.dig("model_config", "model") || default_model_for(provider.provider_type)
+            Rails.logger.info "[ExtractionService] Primary: #{curator.name} (#{provider.name}/#{model})"
+            clients << [Ai::Llm::Client.new(provider: provider, credential: credential), model]
+          end
+        end
+
+        # Add fallback providers (skip curator's provider to avoid duplicates)
+        curator_type = clients.first&.first&.provider&.provider_type
+        %w[ollama openai anthropic].each do |pt|
+          next if pt == curator_type
+
+          client = Ai::Llm::Client.for_account(@account, provider_type: pt)
+          if client
+            Rails.logger.info "[ExtractionService] Fallback: #{pt}"
+            clients << [client, default_model_for(pt)]
+          end
+        end
+
+        clients
       rescue StandardError => e
-        Rails.logger.warn "[ExtractionService] LLM client unavailable: #{e.message}"
-        nil
+        Rails.logger.warn "[ExtractionService] LLM client setup failed: #{e.message}"
+        []
       end
 
-      def default_model
-        "gpt-4.1"
+      def default_model_for(provider_type)
+        case provider_type
+        when "ollama"    then "qwen2.5:14b"
+        when "anthropic" then "claude-haiku-3-5"
+        when "openai"    then "gpt-4.1-mini"
+        else "qwen2.5:14b"
+        end
       end
     end
   end
