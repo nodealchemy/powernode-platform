@@ -149,6 +149,120 @@ module Ai
       end
     end
 
+    # Extended agentic loop with optional reasoning, reflection, and evaluation.
+    #
+    # @param llm_client [Ai::Llm::Client]
+    # @param messages [Array<Hash>] conversation messages
+    # @param model [String] model ID
+    # @param reasoning_mode [Symbol, String, nil] :chain_of_thought, :plan_and_execute, or nil
+    # @param reflection_enabled [Boolean] run self-critique after execution
+    # @param evaluation_config [Hash, nil] { enabled: true, evaluator_model: "...", max_revisions: 2 }
+    # @param opts [Hash] max_tokens, temperature, system_prompt, etc.
+    # @return [Hash] { content:, usage:, tool_calls_log:, finish_reason:, reasoning:, reflection:, evaluation: }
+    def execute_with_reasoning(llm_client:, messages:, model:, reasoning_mode: nil, reflection_enabled: false, evaluation_config: nil, **opts)
+      reasoning_result = nil
+      reflection_result = nil
+      evaluation_result = nil
+      task_text = messages.last&.dig(:content) || messages.last&.dig("content") || ""
+
+      # Phase 1: Pre-execution reasoning
+      if reasoning_mode.present?
+        reasoning_mode = reasoning_mode.to_sym
+        Rails.logger.info "[AgentToolBridge] Reasoning mode: #{reasoning_mode} for agent #{agent.id}"
+
+        case reasoning_mode
+        when :chain_of_thought
+          cot_service = Ai::Reasoning::ChainOfThoughtService.new(account: account)
+          reasoning_result = cot_service.reason(
+            task: task_text, llm_client: llm_client, model: model, **opts
+          )
+
+          # Inject reasoning into messages
+          if reasoning_result[:reasoning_steps].present?
+            reasoning_text = cot_service.format_reasoning_for_injection(reasoning_result)
+            messages << { role: "assistant", content: reasoning_text }
+            messages << { role: "user", content: "Based on this reasoning, please proceed with the task." }
+          end
+
+        when :plan_and_execute
+          plan_service = Ai::Planning::TaskDecompositionService.new(account: account)
+          plan = plan_service.decompose(
+            task: task_text, llm_client: llm_client, model: model, **opts
+          )
+
+          if plan[:valid] && plan[:subtasks].present?
+            executor = Ai::Planning::PlanExecutorService.new(account: account, user: agent.creator)
+            dag_execution = executor.execute_plan(
+              plan: plan, agent_id: agent.id, input_context: { task: task_text }
+            )
+            reasoning_result = { plan: plan, dag_execution_id: dag_execution.id }
+
+            # Use DAG results as context
+            if dag_execution.status == "completed"
+              outputs = dag_execution.final_outputs || {}
+              synthesis = outputs.map { |node_id, r| "#{node_id}: #{r[:output].to_s.truncate(500)}" }.join("\n")
+              messages << { role: "assistant", content: "Subtask results:\n#{synthesis}" }
+              messages << { role: "user", content: "Please synthesize these results into a final response." }
+            end
+          end
+        end
+      end
+
+      # Phase 2: Execute tool loop
+      result = execute_tool_loop(llm_client: llm_client, messages: messages, model: model, **opts)
+
+      # Phase 3: Post-execution reflection
+      if reflection_enabled
+        Rails.logger.info "[AgentToolBridge] Running reflection for agent #{agent.id}"
+        reflection_service = Ai::Reasoning::ReflectionService.new(account: account)
+        reflection_result = reflection_service.reflect(
+          task: task_text, output: result[:content],
+          llm_client: llm_client, model: model, **opts
+        )
+
+        # Re-execute if reflection says to retry
+        if reflection_result[:should_retry] && result[:content].present?
+          Rails.logger.info "[AgentToolBridge] Reflection triggered retry for agent #{agent.id}"
+          feedback = "Self-critique feedback:\n- Issues: #{reflection_result[:issues].join(', ')}\n- Improvements: #{reflection_result[:improvements].join(', ')}\nPlease address these issues."
+          messages << { role: "assistant", content: result[:content] }
+          messages << { role: "user", content: feedback }
+          result = execute_tool_loop(llm_client: llm_client, messages: messages, model: model, **opts)
+        end
+      end
+
+      # Phase 4: Output evaluation
+      eval_config = evaluation_config || agent.mcp_metadata&.dig("evaluation") || {}
+      if eval_config["enabled"]
+        Rails.logger.info "[AgentToolBridge] Running output evaluation for agent #{agent.id}"
+        evaluator = Ai::Reasoning::OutputEvaluatorService.new(account: account)
+        max_revisions = eval_config["max_revisions"] || 2
+        revision_count = 0
+
+        loop do
+          evaluation_result = evaluator.evaluate(
+            task: task_text, output: result[:content],
+            llm_client: llm_client, model: eval_config["evaluator_model"] || model, **opts
+          )
+
+          break if evaluation_result[:verdict] == "pass"
+          break if evaluation_result[:verdict] == "reject"
+          break if revision_count >= max_revisions
+
+          # Revise
+          revision_count += 1
+          messages << { role: "assistant", content: result[:content] }
+          messages << { role: "user", content: "Evaluator feedback: #{evaluation_result[:feedback]}\nPlease revise your response." }
+          result = execute_tool_loop(llm_client: llm_client, messages: messages, model: model, **opts)
+        end
+      end
+
+      result.merge(
+        reasoning: reasoning_result,
+        reflection: reflection_result,
+        evaluation: evaluation_result
+      )
+    end
+
     private
 
     def allowed_tool_names

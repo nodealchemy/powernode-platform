@@ -342,6 +342,27 @@ module Ai
         eval_score = execution.try(:performance_metrics)&.dig("quality_score")
         return eval_score.to_f.clamp(0.0, 1.0) if eval_score.present?
 
+        # Factor in reflection quality score (from reasoning framework)
+        reflection_score = execution.try(:performance_metrics)&.dig("reflection_quality_score")
+        if reflection_score.present?
+          base = reflection_score.to_f.clamp(0.0, 1.0)
+          # Self-correcting agents (should_retry was true and succeeded) get a reliability boost
+          self_corrected = execution.try(:performance_metrics)&.dig("self_corrected")
+          base = [base + 0.1, 1.0].min if self_corrected
+          return base
+        end
+
+        # Factor in evaluator verdict
+        evaluator_verdict = execution.try(:performance_metrics)&.dig("evaluator_verdict")
+        if evaluator_verdict.present?
+          return case evaluator_verdict
+                 when "pass" then 0.9
+                 when "revise" then 0.6
+                 when "reject" then 0.2
+                 else 0.5
+                 end
+        end
+
         review_score = execution.try(:performance_metrics)&.dig("review_approval_rate")
         return review_score.to_f.clamp(0.0, 1.0) if review_score.present?
 

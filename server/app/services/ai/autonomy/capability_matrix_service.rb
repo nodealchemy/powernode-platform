@@ -15,7 +15,8 @@ module Ai
           "external_api_call"  => :denied,
           "delete_data"        => :denied,
           "execute_code"       => :denied,
-          "modify_permissions" => :denied
+          "modify_permissions" => :denied,
+          "plan_and_execute"   => :denied
         },
         "monitored" => {
           "read_data"          => :allowed,
@@ -26,7 +27,8 @@ module Ai
           "external_api_call"  => :requires_approval,
           "delete_data"        => :denied,
           "execute_code"       => :requires_approval,
-          "modify_permissions" => :denied
+          "modify_permissions" => :denied,
+          "plan_and_execute"   => :requires_approval
         },
         "trusted" => {
           "read_data"          => :allowed,
@@ -37,7 +39,8 @@ module Ai
           "external_api_call"  => :allowed,
           "delete_data"        => :requires_approval,
           "execute_code"       => :allowed,
-          "modify_permissions" => :requires_approval
+          "modify_permissions" => :requires_approval,
+          "plan_and_execute"   => :allowed
         },
         "autonomous" => {
           "read_data"          => :allowed,
@@ -48,7 +51,8 @@ module Ai
           "external_api_call"  => :allowed,
           "delete_data"        => :requires_approval,
           "execute_code"       => :allowed,
-          "modify_permissions" => :requires_approval
+          "modify_permissions" => :requires_approval,
+          "plan_and_execute"   => :allowed
         }
       }.freeze
 
@@ -65,7 +69,9 @@ module Ai
         "create_agent" => "spawn_agent",
         "read" => "read_data",
         "delete" => "delete_data",
-        "modify" => "modify_system"
+        "modify" => "modify_system",
+        "plan" => "plan_and_execute",
+        "decompose" => "plan_and_execute"
       }.freeze
 
       ACTION_TYPES = DEFAULT_MATRIX["supervised"].keys.freeze

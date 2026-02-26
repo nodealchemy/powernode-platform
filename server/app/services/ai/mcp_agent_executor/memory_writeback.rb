@@ -14,6 +14,8 @@ class Ai::McpAgentExecutor
       write_short_term_memory(execution_context, result)
       extract_and_store_facts(result)
       extract_compound_learnings(result)
+      evaluate_trust_post_execution(execution_context, result)
+      record_behavioral_fingerprint(execution_context, result)
 
       @logger.debug "[MemoryWriteback] Write-back completed"
     rescue StandardError => e
@@ -123,6 +125,43 @@ class Ai::McpAgentExecutor
       service.post_execution_extract(@execution)
     rescue StandardError => e
       @logger.warn "[MemoryWriteback] Compound learning extraction failed: #{e.message}"
+    end
+
+    # Post-execution trust evaluation
+    def evaluate_trust_post_execution(execution_context, result)
+      return unless @agent && @execution
+
+      trust_engine = Ai::Autonomy::TrustEngineService.new(account: @account)
+      trust_engine.evaluate(agent: @agent, execution: @execution)
+    rescue StandardError => e
+      @logger.warn "[MemoryWriteback] Trust evaluation failed: #{e.message}"
+    end
+
+    # Record behavioral fingerprint observations for anomaly detection
+    def record_behavioral_fingerprint(execution_context, result)
+      return unless @agent && @execution
+
+      fingerprint_service = Ai::Autonomy::BehavioralFingerprintService.new(account: @account)
+
+      # Record execution duration
+      duration_ms = result.dig("metadata", "processing_time_ms") || 0
+      fingerprint_service.record_observation(
+        agent: @agent, metric_name: "execution_duration_ms", value: duration_ms.to_f
+      ) if duration_ms.positive?
+
+      # Record token usage
+      tokens = result.dig("metadata", "tokens_used") || 0
+      fingerprint_service.record_observation(
+        agent: @agent, metric_name: "tokens_per_execution", value: tokens.to_f
+      ) if tokens.positive?
+
+      # Record tool call count
+      tool_count = result.dig("metadata", "tool_call_count") || 0
+      fingerprint_service.record_observation(
+        agent: @agent, metric_name: "tool_calls_per_execution", value: tool_count.to_f
+      ) if tool_count.positive?
+    rescue StandardError => e
+      @logger.warn "[MemoryWriteback] Behavioral fingerprint recording failed: #{e.message}"
     end
   end
 end

@@ -222,6 +222,62 @@ module Ai
         0
       end
 
+      # Create a learning from team execution coordination results
+      def create_from_team_execution(team_execution, results)
+        return 0 unless team_execution && results
+
+        stored_count = 0
+        team = team_execution.respond_to?(:agent_team) ? team_execution.agent_team : nil
+        outputs = results[:outputs] || []
+
+        # Extract coordination pattern learning
+        if outputs.size > 1
+          strategy = team&.team_type || "unknown"
+          tasks_completed = results[:tasks_completed] || 0
+          tasks_failed = results[:tasks_failed] || 0
+          success_rate = tasks_completed.to_f / [outputs.size, 1].max
+
+          if success_rate >= 0.8
+            stored = store_learning({
+              title: "Team coordination: #{strategy} strategy with #{outputs.size} members",
+              content: "Team '#{team&.name}' used #{strategy} strategy. #{tasks_completed}/#{outputs.size} tasks succeeded (#{(success_rate * 100).round}%). " \
+                       "Roles involved: #{outputs.map { |o| o[:role] }.compact.uniq.join(', ')}. " \
+                       "Total cost: $#{results[:total_cost]&.round(4)}.",
+              category: "pattern",
+              importance: [success_rate, 0.7].min,
+              confidence: [success_rate, 0.8].min,
+              extraction_method: "team_execution",
+              tags: ["team", strategy, team&.name].compact,
+              source_execution_successful: true
+            }, team: team, execution: team_execution)
+            stored_count += 1 if stored
+          end
+
+          # Extract failure pattern if any tasks failed
+          if tasks_failed.positive?
+            failed_agents = outputs.select { |o| o[:output].nil? }.map { |o| o[:agent_name] }
+            stored = store_learning({
+              title: "Team failure pattern: #{failed_agents.join(', ')} in #{strategy}",
+              content: "#{tasks_failed} out of #{outputs.size} team members failed during #{strategy} execution. " \
+                       "Failed agents: #{failed_agents.join(', ')}. Team: #{team&.name}.",
+              category: "failure_mode",
+              importance: 0.6,
+              confidence: 0.7,
+              extraction_method: "team_execution",
+              tags: ["team", "failure", strategy].compact,
+              source_execution_successful: false
+            }, team: team, execution: team_execution)
+            stored_count += 1 if stored
+          end
+        end
+
+        Rails.logger.info("[CompoundLearning] Extracted #{stored_count} learnings from team execution")
+        stored_count
+      rescue StandardError => e
+        Rails.logger.warn("[CompoundLearning] Team execution learning extraction failed: #{e.message}")
+        0
+      end
+
       def reinforce_learning(learning_id)
         learning = Ai::CompoundLearning.find_by(id: learning_id, account: @account)
         return unless learning
