@@ -548,6 +548,71 @@ agents_data = [
         Your system prompt is automatically injected with relevant compound learnings from past executions. Review these learnings and apply proven patterns to improve your output quality.
       PROMPT
     }
+  },
+  {
+    name: 'Knowledge Graph Curator',
+    agent_type: 'data_analyst',
+    provider: ollama_provider,
+    description: 'Dedicated agent for knowledge graph entity extraction, relationship mapping, and graph maintenance. Assigned to ExtractionService for structured JSON output from unstructured text.',
+    conversation_profile: {
+      'tone' => 'analytical',
+      'verbosity' => 'minimal',
+      'style' => 'structured',
+      'greeting' => 'Knowledge graph curator ready. Provide text for entity extraction.'
+    },
+    mcp_metadata: {
+      'specialization' => 'knowledge_graph_extraction',
+      'priority_level' => 'low',
+      'execution_mode' => 'analytical',
+      'capabilities_version' => '1.0',
+      'cost_tier' => 'free',
+      'model_config' => {
+        'provider' => 'ollama',
+        'model' => 'qwen2.5:14b',
+        'temperature' => 0.1,
+        'max_tokens' => 4096,
+        'response_format' => 'structured_json',
+        'cost_per_1k' => { 'input' => 0.0, 'output' => 0.0 }
+      },
+      'fallback_provider' => 'openai',
+      'fallback_model' => 'gpt-4.1-mini',
+      'task_model_overrides' => {
+        'extraction' => 'qwen2.5:14b',
+        'classification' => 'qwen2.5:14b',
+        'summarization' => 'qwen2.5:14b'
+      },
+      'system_prompt' => <<~PROMPT.strip
+        You are a knowledge graph extraction specialist for the Powernode platform.
+
+        YOUR ROLE:
+        - Extract entities and relationships from technical text
+        - Classify entities by type: person, organization, technology, event, location
+        - Map relationships: depends_on, uses, inherits, creates, updates, calls, etc.
+        - Output structured JSON matching the requested schema exactly
+
+        EXTRACTION RULES:
+        - Be precise: only extract clearly stated facts, not inferences
+        - Classify software entities (services, models, adapters) as 'technology'
+        - Preserve exact class/module names (e.g., Ai::Llm::Client, not "LLM Client")
+        - Relationship descriptions should be concise (under 100 chars)
+        - Deduplicate entities by canonical name
+
+        POWERNODE CONTEXT:
+        - Backend: Rails 8 API with namespaced services (Ai::*, Shared::*, Devops::*)
+        - Frontend: React TypeScript with @/shared/ and @/features/ imports
+        - Worker: Standalone Sidekiq process communicating via HTTP API
+        - Enterprise: Git submodule at extensions/enterprise/
+
+        ## MCP Platform Tools Available
+        - Knowledge Graph: search_knowledge_graph, extract_to_knowledge_graph, get_graph_node
+        - Graph Analysis: reason_knowledge_graph, get_graph_neighbors, get_subgraph, graph_statistics
+        - Learnings: query_learnings, create_learning, reinforce_learning
+        - Shared Knowledge: search_knowledge, create_knowledge
+
+        ## Self-Improvement
+        Compound learnings are automatically injected. Apply proven extraction patterns.
+      PROMPT
+    }
   }
 ]
 
@@ -1063,7 +1128,7 @@ skill_assignments = {
     platform-migration-specialist websocket-channel-developer
   ],
   'Powernode DevOps Engineer' => %w[
-    productivity
+    productivity security-analyst
     devops-engineer devops-automation devops-pipeline-designer
     incident-analysis release-manager
   ],
@@ -1101,6 +1166,76 @@ if skills_assigned.positive?
   puts "  ✅ Skills Assigned: #{skills_assigned}"
 else
   puts "  ⚠️  No matching skills found — skipping skill assignments"
+end
+
+# ---------------------------------------------------------------------------
+# Platform-wide Skill Assignments (agents created by other seeds)
+# ---------------------------------------------------------------------------
+platform_skills_assigned = 0
+
+platform_skill_assignments = {
+  'Infrastructure Health Monitor' => %w[
+    sre-incident-response devops-engineer incident-analysis
+    performance-tuning security-analyst
+  ],
+  'Knowledge Graph Curator' => %w[
+    knowledge-system-curator data skill-management
+    enterprise-search
+  ],
+  'Powernode Assistant' => %w[
+    productivity knowledge-system-curator skill-management
+    product-management powernode-dev
+  ],
+  'Process Automation Optimizer' => %w[
+    devops-automation productivity incident-analysis
+    product-management
+  ],
+  'Visual Design Assistant' => %w[
+    content-localization marketing product-management
+    user-research
+  ],
+  'Claude Research Analyst' => %w[
+    technical-researcher data knowledge-system-curator
+    enterprise-search user-research
+  ],
+  'Legal & Compliance Analyst' => %w[
+    legal compliance-review security-audit
+  ],
+  'Life Sciences Research Analyst' => %w[
+    bio-research technical-researcher
+  ],
+  'Finance Operations Analyst' => %w[
+    finance data compliance-review
+  ],
+  'Sales Operations Specialist' => %w[
+    sales marketing enterprise-search
+  ],
+  'Customer Success Agent' => %w[
+    customer-support knowledge-system-curator productivity
+  ]
+}
+
+platform_skill_assignments.each do |agent_name, slugs|
+  agent = Ai::Agent.find_by(name: agent_name, account: admin_account)
+  next unless agent
+
+  slugs.each_with_index do |slug, idx|
+    skill = Ai::Skill.find_by(slug: slug, status: 'active')
+    next unless skill
+
+    Ai::AgentSkill.find_or_create_by!(
+      ai_agent_id: agent.id,
+      ai_skill_id: skill.id
+    ) do |as|
+      as.is_active = true
+      as.priority = [idx / 3, 2].min
+    end
+    platform_skills_assigned += 1
+  end
+end
+
+if platform_skills_assigned.positive?
+  puts "  ✅ Platform-wide Skills Assigned: #{platform_skills_assigned}"
 end
 
 # ---------------------------------------------------------------------------

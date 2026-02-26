@@ -66,7 +66,12 @@ KEEP_AGENT_NAMES = [
   "Claude Research Analyst",
   "Visual Design Assistant",
   "Infrastructure Health Monitor",
-  "Process Automation Optimizer"
+  "Process Automation Optimizer",
+  "Legal & Compliance Analyst",
+  "Life Sciences Research Analyst",
+  "Finance Operations Analyst",
+  "Sales Operations Specialist",
+  "Customer Success Agent"
 ].freeze
 
 # Ensure the 4 extra agents exist (they may not have been created by earlier seeds)
@@ -96,6 +101,41 @@ extra_agents = [
     agent_type: "workflow_optimizer",
     provider: grok_provider,
     description: "Workflow optimization agent that analyzes and improves automated processes for efficiency and reliability"
+  },
+  {
+    name: "Legal & Compliance Analyst",
+    slug: "legal-compliance-analyst",
+    agent_type: "data_analyst",
+    provider: claude_provider,
+    description: "Reviews contracts, triages NDAs, assesses legal risk, and evaluates regulatory compliance across GDPR, SOC 2, HIPAA, PCI DSS, and ISO 27001 frameworks."
+  },
+  {
+    name: "Life Sciences Research Analyst",
+    slug: "life-sciences-research-analyst",
+    agent_type: "data_analyst",
+    provider: ollama_provider,
+    description: "Conducts literature reviews, target assessments, and genomics queries for life science and pharmaceutical research using PubMed, bioRxiv, ChEMBL, and Benchling."
+  },
+  {
+    name: "Finance Operations Analyst",
+    slug: "finance-operations-analyst",
+    agent_type: "data_analyst",
+    provider: ollama_provider,
+    description: "Creates journal entries, reconciles accounts, generates financial statements, and performs variance analysis across accounting and data warehouse systems."
+  },
+  {
+    name: "Sales Operations Specialist",
+    slug: "sales-operations-specialist",
+    agent_type: "assistant",
+    provider: openai_provider,
+    description: "Researches prospects, prepares call briefings, manages pipeline health, drafts personalized outreach, and builds competitive battlecards using CRM and enrichment tools."
+  },
+  {
+    name: "Customer Success Agent",
+    slug: "customer-success-agent",
+    agent_type: "assistant",
+    provider: openai_provider,
+    description: "Triages support tickets, drafts customer responses, manages escalations, and maintains knowledge base articles across helpdesk and CRM platforms."
   }
 ]
 
@@ -124,7 +164,12 @@ provider_assignments = {
   "Infrastructure Health Monitor" => claude_provider,
   "Powernode QA/Test Engineer"   => openai_provider,
   "Visual Design Assistant"      => openai_provider,
-  "Powernode Documentation Specialist" => ollama_provider
+  "Powernode Documentation Specialist" => ollama_provider,
+  "Legal & Compliance Analyst"         => claude_provider,
+  "Life Sciences Research Analyst"     => ollama_provider,
+  "Finance Operations Analyst"         => ollama_provider,
+  "Sales Operations Specialist"        => openai_provider,
+  "Customer Success Agent"             => openai_provider
 }
 
 provider_assignments.each do |agent_name, provider|
@@ -200,7 +245,12 @@ TRUST_PROFILES = {
   "Powernode Frontend Developer"     => { tier: "trusted",    rel: 0.80, cost: 0.70, safety: 0.80, qual: 0.70, speed: 0.70, evals: 25 },
   "Powernode QA/Test Engineer"       => { tier: "trusted",    rel: 0.85, cost: 0.75, safety: 0.85, qual: 0.80, speed: 0.75, evals: 28 },
   "Powernode Backend Developer"      => { tier: "trusted",    rel: 0.90, cost: 0.80, safety: 0.90, qual: 0.85, speed: 0.80, evals: 32 },
-  "Infrastructure Health Monitor"    => { tier: "trusted",    rel: 0.92, cost: 0.85, safety: 0.95, qual: 0.85, speed: 0.85, evals: 35 }
+  "Infrastructure Health Monitor"    => { tier: "trusted",    rel: 0.92, cost: 0.85, safety: 0.95, qual: 0.85, speed: 0.85, evals: 35 },
+  "Legal & Compliance Analyst"       => { tier: "supervised", rel: 0.30, cost: 0.40, safety: 0.50, qual: 0.35, speed: 0.30, evals: 3  },
+  "Life Sciences Research Analyst"   => { tier: "supervised", rel: 0.25, cost: 0.80, safety: 0.35, qual: 0.25, speed: 0.40, evals: 3  },
+  "Finance Operations Analyst"       => { tier: "supervised", rel: 0.30, cost: 0.80, safety: 0.45, qual: 0.30, speed: 0.40, evals: 3  },
+  "Sales Operations Specialist"      => { tier: "supervised", rel: 0.25, cost: 0.50, safety: 0.30, qual: 0.25, speed: 0.35, evals: 3  },
+  "Customer Success Agent"           => { tier: "supervised", rel: 0.30, cost: 0.50, safety: 0.35, qual: 0.30, speed: 0.40, evals: 3  }
 }.freeze
 
 trust_created = 0
@@ -258,7 +308,12 @@ BUDGET_PROFILES = {
   "Powernode Frontend Developer"     => { total: 5000,  spent: 0 },
   "Powernode QA/Test Engineer"       => { total: 5000,  spent: 0 },
   "Powernode Backend Developer"      => { total: 5000,  spent: 0 },
-  "Infrastructure Health Monitor"    => { total: 5000,  spent: 0 }
+  "Infrastructure Health Monitor"    => { total: 5000,  spent: 0 },
+  "Legal & Compliance Analyst"       => { total: 1000,  spent: 0 },
+  "Life Sciences Research Analyst"   => { total: 1000,  spent: 0 },
+  "Finance Operations Analyst"       => { total: 1000,  spent: 0 },
+  "Sales Operations Specialist"      => { total: 1000,  spent: 0 },
+  "Customer Success Agent"           => { total: 1500,  spent: 0 }
 }.freeze
 
 period_start = Time.current.beginning_of_month
