@@ -1,31 +1,29 @@
 # AI Provider Routing
 
-**Intelligent provider selection and load balancing for AI operations**
+**Intelligent provider selection, load balancing, and circuit breaker management**
 
----
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [Routing Strategies](#routing-strategies)
-3. [Load Balancing](#load-balancing)
-4. [Circuit Breaker](#circuit-breaker)
-5. [Fallback Handling](#fallback-handling)
-6. [Configuration](#configuration)
+**Version**: 3.0 | **Last Updated**: February 2026
 
 ---
 
 ## Overview
 
-Powernode implements intelligent AI provider routing that optimizes for cost, performance, and reliability. The system automatically selects the best provider for each request based on configurable strategies.
+Powernode implements intelligent AI provider routing that optimizes for cost, performance, and reliability. The system supports 10 providers, 7 routing strategies, 5 load balancing strategies, and automatic circuit breaker management.
 
-### Key Components
+### Supported Providers
 
-| Component | Purpose |
-|-----------|---------|
-| `ModelRouterService` | Request routing and provider selection |
-| `ProviderLoadBalancerService` | Load distribution across providers |
-| `ProviderCircuitBreakerService` | Fault tolerance and recovery |
+| Provider | Adapter | Capabilities |
+|----------|---------|-------------|
+| Anthropic | `AnthropicAdapter` | Text, vision, function calling |
+| OpenAI | `OpenAIAdapter` | Text, vision, embeddings, function calling |
+| Ollama | `OllamaAdapter` | Text, local models |
+| Azure | `azure` sync | Text, embeddings |
+| Google | `google` sync | Text, vision |
+| Groq | `groq` sync | Text (fast inference) |
+| Grok | `grok` sync | Text |
+| Mistral | `mistral` sync | Text, function calling |
+| Cohere | `cohere` sync | Text, embeddings, reranking |
+| Generic | `generic` sync | Custom API-compatible providers |
 
 ### Architecture
 
@@ -35,276 +33,110 @@ Powernode implements intelligent AI provider routing that optimizes for cost, pe
 └──────────────────────────┬──────────────────────────────────┘
                            │
 ┌──────────────────────────▼──────────────────────────────────┐
-│                  ModelRouterService                         │
-│  - Strategy selection                                       │
-│  - Rule matching                                            │
-│  - Provider scoring                                         │
+│              ModelRouterService                              │
+│  TaskClassification → Rule Matching → Provider Scoring       │
+│  (see MODEL_ROUTER_GUIDE.md for full details)                │
 └──────────────────────────┬──────────────────────────────────┘
                            │
 ┌──────────────────────────▼──────────────────────────────────┐
-│             ProviderLoadBalancerService                     │
-│  - Load distribution                                        │
-│  - Health tracking                                          │
-│  - Metrics collection                                       │
+│             ProviderLoadBalancerService                      │
+│  Round Robin │ Weighted │ Least Connections │ Performance    │
 └──────────────────────────┬──────────────────────────────────┘
                            │
 ┌──────────────────────────▼──────────────────────────────────┐
-│            ProviderCircuitBreakerService                    │
-│  - Failure detection                                        │
-│  - Circuit state management                                 │
-│  - Recovery handling                                        │
+│            ProviderCircuitBreakerService                     │
+│  Closed ↔ Open ↔ Half-Open                                  │
 └──────────────────────────┬──────────────────────────────────┘
                            │
-         ┌─────────────────┼─────────────────┐
-         │                 │                 │
-    ┌────▼────┐       ┌────▼────┐       ┌────▼────┐
-    │ OpenAI  │       │ Anthropic│       │ Azure  │
-    └─────────┘       └─────────┘       └─────────┘
+         ┌─────────────────┼──────────────────┐
+         │                 │                  │
+    ┌────▼────┐       ┌────▼─────┐       ┌────▼────┐
+    │Anthropic│       │ OpenAI   │       │ Ollama  │  ...
+    └─────────┘       └──────────┘       └─────────┘
 ```
 
 ---
 
 ## Routing Strategies
 
-### Available Strategies
-
 ```ruby
-STRATEGIES = %w[
-  cost_optimized        # Minimize cost
-  latency_optimized     # Minimize latency
-  quality_optimized     # Maximize output quality
-  round_robin           # Simple rotation
-  weighted              # Weighted distribution
-  hybrid                # Multi-factor optimization
-  ml_based              # ML-driven routing
-].freeze
+STRATEGIES = %w[cost_optimized latency_optimized quality_optimized
+                round_robin weighted hybrid ml_based]
+
+DEFAULT_WEIGHTS = { cost: 0.4, latency: 0.3, quality: 0.2, reliability: 0.1 }
 ```
 
-### Cost Optimized
-
-Selects the provider with the lowest cost per token:
-
-```ruby
-def select_cost_optimized(providers, request_context)
-  estimated_tokens = estimate_token_usage(request_context)
-
-  providers.min_by do |provider|
-    cost_score = estimate_provider_cost(provider) * estimated_tokens
-    load_penalty = get_provider_current_load(provider) * 0.1
-    response_time_penalty = get_provider_avg_response_time(provider) * 0.01
-
-    cost_score + load_penalty + response_time_penalty
-  end
-end
-```
-
-### Latency Optimized
-
-Selects the provider with the fastest response time:
-
-```ruby
-def select_latency_optimized(providers)
-  providers.min_by do |provider|
-    avg_latency = get_provider_avg_response_time(provider)
-    current_load = get_provider_current_load(provider)
-
-    # Penalize high load (increases latency)
-    avg_latency * (1 + current_load * 0.1)
-  end
-end
-```
-
-### Quality Optimized
-
-Selects based on model quality metrics:
-
-```ruby
-def select_quality_optimized(providers, request_context)
-  task_type = request_context[:task_type] || 'general'
-
-  providers.max_by do |provider|
-    quality_score = get_provider_quality_score(provider, task_type)
-    success_rate = get_provider_success_rate(provider)
-
-    quality_score * success_rate
-  end
-end
-```
-
-### Hybrid Strategy
-
-Combines multiple factors with configurable weights:
-
-```ruby
-DEFAULT_WEIGHTS = {
-  cost: 0.4,
-  latency: 0.3,
-  quality: 0.2,
-  reliability: 0.1
-}.freeze
-
-def select_hybrid(providers, request_context, weights)
-  providers.min_by do |provider|
-    cost_score = normalize_cost(provider, request_context) * weights[:cost]
-    latency_score = normalize_latency(provider) * weights[:latency]
-    quality_score = (1 - normalize_quality(provider)) * weights[:quality]
-    reliability_score = (1 - get_provider_success_rate(provider) / 100) * weights[:reliability]
-
-    cost_score + latency_score + quality_score + reliability_score
-  end
-end
-```
+For full routing strategy details, task classification, and provider scoring, see [MODEL_ROUTER_GUIDE.md](MODEL_ROUTER_GUIDE.md).
 
 ---
 
 ## Load Balancing
 
-### Load Balancing Strategies
+### Strategies
 
 ```ruby
 LOAD_BALANCING_STRATEGIES = %w[
-  round_robin
-  weighted_round_robin
-  least_connections
-  cost_optimized
-  performance_based
-].freeze
+  round_robin weighted_round_robin least_connections
+  cost_optimized performance_based
+]
 ```
 
-### Round Robin
+| Strategy | Selection Logic |
+|----------|----------------|
+| `round_robin` | Redis-backed counter rotation |
+| `weighted_round_robin` | Performance-weighted rotation (weight 1-10) |
+| `least_connections` | Lowest current active connections |
+| `cost_optimized` | Lowest cost per token |
+| `performance_based` | Composite: response_time × 0.5 + error_rate × 0.3 + load × 0.2 |
 
-Simple rotation through available providers:
-
-```ruby
-def select_round_robin(providers)
-  counter = @redis.incr(round_robin_counter_key)
-  @redis.expire(round_robin_counter_key, 1.hour)
-  providers[counter % providers.size]
-end
-```
-
-### Weighted Round Robin
-
-Rotation with performance-based weights:
+### Weight Calculation
 
 ```ruby
-def select_weighted_round_robin(providers)
-  weighted_providers = providers.flat_map do |provider|
-    weight = calculate_provider_weight(provider)
-    [provider] * weight.clamp(1, 10)
-  end
-
-  select_round_robin(weighted_providers)
-end
-
-def calculate_provider_weight(provider)
-  success_rate = get_provider_success_rate(provider)
-  avg_response_time = get_provider_avg_response_time(provider)
-  current_load = get_provider_current_load(provider)
-
-  weight = (success_rate / 10.0) - (avg_response_time / 1000.0) - (current_load / 10.0)
-  weight.clamp(1, 10).round
-end
-```
-
-### Least Connections
-
-Route to provider with lowest current load:
-
-```ruby
-def select_least_connections(providers)
-  providers.min_by { |provider| get_provider_current_load(provider) }
-end
-```
-
-### Performance Based
-
-Optimize for response time and success rate:
-
-```ruby
-def select_performance_based(providers)
-  providers.min_by do |provider|
-    response_time = get_provider_avg_response_time(provider)
-    success_rate = get_provider_success_rate(provider)
-    current_load = get_provider_current_load(provider)
-
-    # Lower score is better
-    response_time * 0.5 + (100 - success_rate) * 0.3 + current_load * 0.2
-  end
-end
+# Weight = success_rate/10 - response_time/1000 - load/10
+# Clamped to 1-10 range
+weight = (success_rate / 10.0) - (avg_response_time / 1000.0) - (current_load / 10.0)
+weight.clamp(1, 10).round
 ```
 
 ---
 
 ## Circuit Breaker
 
-### Circuit States
+### State Machine
 
 ```
-CLOSED → OPEN → HALF_OPEN → CLOSED
-   │       │        │
-   │       │        └── Success → CLOSED
-   │       │            Failure → OPEN
-   │       │
-   │       └── After timeout → HALF_OPEN
-   │
-   └── Failures exceed threshold → OPEN
+CLOSED ────────────────▶ OPEN ────────────────▶ HALF_OPEN
+  │  failures >= 5         │  after timeout         │
+  │                        │  (30 seconds)          │
+  ◀────────────────────────┤                        │
+     3 successes in        │  failure in            │
+     half-open             │  half-open             │
+                           ◀────────────────────────┘
 ```
 
 ### Configuration
 
-```ruby
-class ProviderCircuitBreakerService
-  FAILURE_THRESHOLD = 5           # Failures before opening
-  RESET_TIMEOUT = 30.seconds      # Time before half-open
-  SUCCESS_THRESHOLD = 3           # Successes to close from half-open
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `FAILURE_THRESHOLD` | 5 | Failures before opening |
+| `RESET_TIMEOUT` | 30s | Time before half-open |
+| `SUCCESS_THRESHOLD` | 3 | Successes to close from half-open |
 
-  def record_success
-    @failure_count = 0
-    if @state == :half_open && @success_count >= SUCCESS_THRESHOLD
-      transition_to(:closed)
-    end
-    @success_count += 1
-  end
+### Provider Metrics
 
-  def record_failure(error)
-    @failure_count += 1
-    if @failure_count >= FAILURE_THRESHOLD
-      transition_to(:open)
-    end
-  end
-
-  def provider_available?
-    case @state
-    when :closed then true
-    when :open then time_to_try_again?
-    when :half_open then true
-    end
-  end
-end
-```
-
-### State Transitions
+`Ai::ProviderMetric` records per-provider performance data at configurable granularity.
 
 ```ruby
-def transition_to(new_state)
-  old_state = @state
-  @state = new_state
-
-  case new_state
-  when :open
-    @opened_at = Time.current
-    Rails.logger.warn "Circuit opened for provider #{@provider.id}"
-    notify_circuit_open
-  when :half_open
-    Rails.logger.info "Circuit half-open for provider #{@provider.id}"
-  when :closed
-    @failure_count = 0
-    @success_count = 0
-    Rails.logger.info "Circuit closed for provider #{@provider.id}"
-  end
-end
+GRANULARITIES = %w[minute hour day week month]
+CIRCUIT_STATES = %w[closed open half_open]
 ```
+
+**Key methods:**
+- `calculate_success_rate`, `calculate_error_rate`
+- `calculate_avg_cost_per_request`, `calculate_cost_per_1k_tokens`
+- `health_status` — returns `healthy`, `degraded`, or `unhealthy`
+- `self.aggregate_to_hourly` — rolls up minute metrics
+- `self.provider_comparison` — cross-provider comparison
 
 ---
 
@@ -312,156 +144,100 @@ end
 
 ### Automatic Fallback
 
-```ruby
-def execute_with_fallback(request_type, **options, &block)
-  max_retries = options.delete(:max_provider_retries) || 3
-  attempted_providers = []
+The system automatically retries with alternative providers on failure:
 
-  max_retries.times do |attempt|
-    begin
-      provider = select_provider(options)
-      next if attempted_providers.include?(provider.id)
-
-      attempted_providers << provider.id
-
-      credential = provider.provider_credentials.active.first
-      raise LoadBalancingError, "No credentials for #{provider.name}" unless credential
-
-      client = Ai::ProviderClientService.new(credential)
-      result = yield(client, provider)
-
-      record_execution_success(provider, options)
-      return result
-
-    rescue CircuitBreakerOpenError => e
-      Rails.logger.warn "Provider #{provider.name} circuit open, trying next"
-      record_execution_failure(provider, e, "circuit_breaker_open")
-      next
-
-    rescue StandardError => e
-      Rails.logger.error "Provider #{provider.name} failed: #{e.message}"
-      record_execution_failure(provider, e, "execution_error")
-
-      raise if attempt == max_retries - 1
-      next
-    end
-  end
-
-  raise NoProvidersAvailableError, "All providers failed after #{max_retries} attempts"
-end
-```
+1. Select provider via strategy
+2. Execute request
+3. On failure: record failure, try next provider
+4. On circuit breaker open: skip provider, try next
+5. After max retries: raise `NoProvidersAvailableError`
 
 ### Fallback Strategies
 
 | Strategy | Description |
 |----------|-------------|
-| Next Provider | Try next best provider |
+| Next Provider | Try next best provider by score |
 | Cached Response | Return cached response if available |
 | Degraded Mode | Return simplified response |
 | Queue Request | Queue for later processing |
 
 ---
 
+## Provider Credentials
+
+`Ai::ProviderCredential` manages encrypted API keys per provider.
+
+**Key features:**
+- Encrypted credential storage with `encryption_key_id`
+- One default credential per provider (auto-set on first creation)
+- Health tracking: `record_success!` / `record_failure!(error_message)`
+- Expiration monitoring: `expired?`, `expires_soon?`
+- Connection testing: `test_connection`
+
+---
+
 ## Configuration
 
-### Provider Configuration
+### Provider Setup
 
 ```ruby
-# Provider settings in configuration JSON
-{
-  "pricing": {
-    "text_generation": {
-      "per_1k_tokens": 0.002
-    },
-    "embeddings": {
-      "per_1k_tokens": 0.0001
-    }
-  },
-  "capabilities": {
-    "text_generation": true,
-    "embeddings": true,
-    "vision": false
-  },
-  "rate_limits": {
-    "requests_per_minute": 60,
-    "tokens_per_minute": 100000
-  }
-}
+provider = Ai::Provider.create!(
+  account: account,
+  name: "Anthropic Production",
+  provider_type: "anthropic",
+  api_endpoint: "https://api.anthropic.com",
+  capabilities: { text_generation: true, vision: true, function_calling: true },
+  supported_models: ["claude-3-opus", "claude-3-sonnet", "claude-3-haiku"],
+  priority_order: 1
+)
+```
+
+### Model Pricing
+
+```ruby
+Ai::ModelPricing.create!(
+  model_id: "claude-3-opus",
+  provider_type: "anthropic",
+  input_per_1k: 0.015,
+  output_per_1k: 0.075,
+  source: "manual"
+)
 ```
 
 ### Routing Rules
 
-```ruby
-# Account-level routing rules
-routing_rules = [
-  {
-    name: "Cost saving for simple tasks",
-    conditions: { complexity: "low" },
-    preferred_strategy: "cost_optimized",
-    priority: 1
-  },
-  {
-    name: "Quality for complex tasks",
-    conditions: { complexity: "high" },
-    preferred_strategy: "quality_optimized",
-    priority: 2
-  }
-]
-```
-
-### Statistics and Monitoring
-
-```ruby
-def load_balancing_stats
-  available_providers = get_available_providers
-
-  {
-    strategy: @strategy,
-    capability: @capability,
-    available_providers: available_providers.size,
-    providers: available_providers.map do |provider|
-      circuit_breaker = ProviderCircuitBreakerService.new(provider)
-      {
-        id: provider.id,
-        name: provider.name,
-        current_load: get_provider_current_load(provider),
-        circuit_state: circuit_breaker.circuit_state,
-        avg_response_time: get_provider_avg_response_time(provider),
-        success_rate: get_provider_success_rate(provider),
-        cost_per_1k_tokens: estimate_provider_cost(provider),
-        last_used: get_provider_last_used(provider)
-      }
-    end
-  }
-end
-```
+See [MODEL_ROUTER_GUIDE.md](MODEL_ROUTER_GUIDE.md) for routing rule configuration.
 
 ---
 
 ## Best Practices
 
-### 1. Configure Multiple Providers
+1. **Multiple Providers** — maintain at least 2 active providers for fallback
+2. **Monitor Circuit States** — alert on circuit breaker opens
+3. **Tune Weights** — adjust hybrid strategy weights for your workload
+4. **Review Decisions** — analyze routing decision logs regularly
+5. **Set Timeouts** — configure per-complexity operation timeouts
+6. **Credential Rotation** — monitor credential expiration, rotate before expiry
+7. **Cost Optimization** — run `platform.get_api_reference` to check provider pricing
 
-Always have at least 2 active providers for fallback capability.
+---
 
-### 2. Monitor Circuit States
+## Key Files
 
-Set up alerts for circuit breaker state changes.
-
-### 3. Tune Weights for Your Use Case
-
-Adjust hybrid strategy weights based on your priorities.
-
-### 4. Review Routing Decisions
-
-Regularly analyze routing decision logs to optimize configuration.
-
-### 5. Set Appropriate Timeouts
-
-Configure request timeouts based on expected operation complexity.
+| File | Path |
+|------|------|
+| Provider Model | `server/app/models/ai/provider.rb` |
+| Provider Credential Model | `server/app/models/ai/provider_credential.rb` |
+| Provider Metric Model | `server/app/models/ai/provider_metric.rb` |
+| Model Pricing Model | `server/app/models/ai/model_pricing.rb` |
+| Load Balancer Service | `server/app/services/ai/provider_load_balancer_service.rb` |
+| Circuit Breaker Service | `server/app/services/ai/provider_circuit_breaker_service.rb` |
+| Provider Client Service | `server/app/services/ai/provider_client_service.rb` |
+| Provider Management | `server/app/services/ai/provider_management_service.rb` |
+| LLM Adapter Factory | `server/app/services/ai/llm/adapter_factory.rb` |
+| Provider Sync Adapters | `server/app/services/ai/providers/sync/` |
 
 ---
 
 **Document Status**: Complete
-**Last Updated**: 2025-01-30
-**Source**: `server/app/services/ai/`
+**Source**: `server/app/services/ai/`, `server/app/models/ai/`

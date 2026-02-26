@@ -1,26 +1,14 @@
 # Node Executor Reference
 
-**Complete reference for all workflow node executors**
+**Complete reference for 45+ workflow node executors**
 
----
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [Base Executor](#base-executor)
-3. [Control Flow Nodes](#control-flow-nodes)
-4. [AI/Agent Nodes](#aiagent-nodes)
-5. [Integration Nodes](#integration-nodes)
-6. [Content Nodes](#content-nodes)
-7. [DevOps Nodes](#devops-nodes)
-8. [MCP Nodes](#mcp-nodes)
-9. [Utility Nodes](#utility-nodes)
+**Version**: 3.0 | **Last Updated**: February 2026
 
 ---
 
 ## Overview
 
-Node executors are located in `server/app/services/mcp/node_executors/`. Each executor inherits from `Base` and implements the `perform_execution` method.
+Node executors are located in `server/app/services/mcp/node_executors/`. Each executor inherits from `Base` and implements the `perform_execution` method. There are 45+ executors across 8 categories.
 
 ### Directory Structure
 
@@ -41,7 +29,7 @@ server/app/services/mcp/node_executors/
 │
 ├── # AI/Agent (2)
 ├── ai_agent.rb            # AI agent execution
-├── sub_workflow.rb        # Nested workflow execution
+├── sub_workflow.rb         # Nested workflow execution
 │
 ├── # Integration (9)
 ├── api_call.rb            # HTTP API requests
@@ -65,7 +53,7 @@ server/app/services/mcp/node_executors/
 ├── kb_article_publish.rb  # Publish KB article
 ├── kb_article_search.rb   # Search KB articles
 │
-├── # DevOps (10)
+├── # DevOps (13)
 ├── ci_trigger.rb          # Trigger CI pipeline
 ├── ci_wait_status.rb      # Wait for CI status
 ├── ci_get_logs.rb         # Get CI logs
@@ -73,7 +61,7 @@ server/app/services/mcp/node_executors/
 ├── git_branch.rb          # Git branch operations
 ├── git_checkout.rb        # Git checkout
 ├── git_commit_status.rb   # Git commit status
-├── git_create_check.rb    # Create GitHub check
+├── git_create_check.rb    # Create GitHub/Gitea check
 ├── git_comment.rb         # Git comment
 ├── git_pull_request.rb    # Pull request operations
 ├── deploy.rb              # Deployment execution
@@ -92,15 +80,28 @@ server/app/services/mcp/node_executors/
 └── validator.rb           # Data validation
 ```
 
+### Validators (10)
+
+Each node type has a corresponding validator in `server/app/services/ai/workflow_validators/`:
+
+```
+├── base_validator.rb
+├── ai_agent_validator.rb
+├── api_call_validator.rb
+├── condition_validator.rb
+├── delay_validator.rb
+├── human_approval_validator.rb
+├── loop_validator.rb
+├── sub_workflow_validator.rb
+├── transform_validator.rb
+└── webhook_validator.rb
+```
+
 ---
 
 ## Base Executor
 
 **File**: `server/app/services/mcp/node_executors/base.rb`
-
-All node executors inherit from this base class.
-
-### Interface
 
 ```ruby
 class Base
@@ -116,15 +117,15 @@ class Base
   def set_variable(name, value)  # Set variable in context
   def previous_results           # Get previous node results
   def configuration              # Get node configuration
-  def log_info(message)          # Log info message
-  def log_debug(message)         # Log debug message
-  def log_error(message)         # Log error message
+  def log_info(message)
+  def log_debug(message)
+  def log_error(message)
 end
 ```
 
 ### Output Format
 
-All executors must return this structure:
+All executors return:
 
 ```ruby
 {
@@ -141,467 +142,199 @@ All executors must return this structure:
 
 ---
 
-## Control Flow Nodes
+## Control Flow Nodes (8)
 
-### Start Node
+### Start Node (`start.rb`)
 
-**File**: `start.rb`
-
-Entry point for workflow execution.
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
+| Config | Type | Required | Description |
+|--------|------|----------|-------------|
 | `input_variables` | Hash | No | Initial workflow variables |
 | `trigger_type` | String | No | manual, scheduled, webhook |
 
-**Output**:
-```ruby
-{ output: { workflow_id, run_id, triggered_at }, metadata: { trigger_type } }
-```
+### End Node (`end.rb`)
 
-### End Node
+Aggregates all node outputs into final result.
 
-**File**: `end.rb`
+| Config | Type | Required | Description |
+|--------|------|----------|-------------|
+| `output_variable` | String | No | Variable for final result |
 
-Completion point that aggregates all node outputs.
+### Condition Node (`condition.rb`)
 
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
-| `output_variable` | String | No | Variable to store final result |
-
-**Output**:
-```ruby
-{ output: final_message, result: { status, final_output }, data: { all_node_outputs, execution_path } }
-```
-
-### Condition Node
-
-**File**: `condition.rb`
-
-Conditional branching based on expression evaluation.
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
+| Config | Type | Required | Description |
+|--------|------|----------|-------------|
 | `condition_type` | String | No | expression, comparison, exists |
 | `condition` | String | Yes* | Expression to evaluate |
-| `left_variable` | String | Yes* | Left operand (comparison) |
-| `right_variable` | String | Yes* | Right operand (comparison) |
+| `left_variable` / `right_variable` | String | Yes* | Comparison operands |
 | `operator` | String | No | ==, !=, >, <, >=, <= |
-| `output_variable` | String | No | Store result |
 
-**Output**:
-```ruby
-{ output: true/false, result: { condition_met, evaluated_branch: "then"/"else" } }
-```
+### Loop Node (`loop.rb`)
 
-### Loop Node
-
-**File**: `loop.rb`
-
-Iterates over collections.
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
+| Config | Type | Required | Description |
+|--------|------|----------|-------------|
 | `iteration_source` | String | Yes | Path to collection |
-| `item_variable` | String | No | Variable for current item (default: "item") |
-| `index_variable` | String | No | Variable for index (default: "index") |
-| `max_iterations` | Integer | No | Maximum iterations (default: 1000) |
+| `item_variable` | String | No | Current item var (default: "item") |
+| `max_iterations` | Integer | No | Max iterations (default: 1000) |
 | `execution_mode` | String | No | serial, parallel |
 | `break_on_error` | Boolean | No | Stop on first error (default: true) |
-| `transform_expression` | String | No | Transform each item |
 
-**Output**:
-```ruby
-{ output: [results], result: { iterations_completed, iterations_successful, iterations_failed, loop_status } }
-```
+### Split / Merge / Delay / Scheduler
 
-### Split Node
-
-**File**: `split.rb`
-
-Splits execution into parallel branches.
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
-| `branches` | Array | Yes | Branch configurations |
-| `wait_for_all` | Boolean | No | Wait for all branches |
-
-### Merge Node
-
-**File**: `merge.rb`
-
-Joins parallel branches back together.
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
-| `merge_strategy` | String | No | wait_all, first_complete |
-
-### Delay Node
-
-**File**: `delay.rb`
-
-Pauses execution for specified duration.
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
-| `delay_seconds` | Integer | Yes | Delay duration in seconds |
-| `delay_until` | String | No | ISO8601 timestamp to wait until |
-
-### Scheduler Node
-
-**File**: `scheduler.rb`
-
-Schedules future execution.
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
-| `schedule` | String | Yes | Cron expression or ISO8601 |
-| `timezone` | String | No | Timezone for schedule |
+| Node | Key Config |
+|------|-----------|
+| Split | `branches` (Array), `wait_for_all` (Boolean) |
+| Merge | `merge_strategy` (wait_all, first_complete) |
+| Delay | `delay_seconds` (Integer), `delay_until` (ISO8601) |
+| Scheduler | `schedule` (cron/ISO8601), `timezone` |
 
 ---
 
-## AI/Agent Nodes
+## AI/Agent Nodes (2)
 
-### AI Agent Node
+### AI Agent Node (`ai_agent.rb`)
 
-**File**: `ai_agent.rb`
-
-Executes AI agents via MCP.
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
+| Config | Type | Required | Description |
+|--------|------|----------|-------------|
 | `agent_id` | String | Yes | AI agent ID |
-| `prompt_template` | String | No | Prompt with {{variables}} |
-| `input_mapping` | Hash | No | Map variables to agent params |
-| `input` | Hash | No | Direct input parameters |
-| `context` | Hash | No | Additional context |
+| `prompt_template` | String | No | Prompt with `{{variables}}` |
+| `input_mapping` | Hash | No | Variable to agent param mapping |
 | `output_variable` | String | No | Store result |
 
-**Output**:
-```ruby
-{
-  output: "Agent response...",
-  data: { agent_id, agent_name, agent_type, model },
-  metadata: { cost, tokens_used, duration_ms, agent_execution_id }
-}
-```
+**Output includes:** agent response, model, cost, tokens, duration, execution ID.
 
-### Sub-Workflow Node
+### Sub-Workflow Node (`sub_workflow.rb`)
 
-**File**: `sub_workflow.rb`
-
-Executes nested workflow.
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
+| Config | Type | Required | Description |
+|--------|------|----------|-------------|
 | `workflow_id` | String | Yes | Sub-workflow ID |
-| `input_mapping` | Hash | No | Map variables to sub-workflow |
+| `input_mapping` | Hash | No | Variable mapping |
 | `wait_for_completion` | Boolean | No | Wait for sub-workflow |
 
 ---
 
-## Integration Nodes
+## Integration Nodes (9)
 
-### API Call Node
+### API Call Node (`api_call.rb`)
 
-**File**: `api_call.rb`
-
-Makes HTTP requests to external APIs.
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
-| `url` | String | Yes | Target URL (supports {{variables}}) |
-| `method` | String | No | GET, POST, PUT, PATCH, DELETE (default: GET) |
+| Config | Type | Required | Description |
+|--------|------|----------|-------------|
+| `url` | String | Yes | Target URL (supports `{{variables}}`) |
+| `method` | String | No | GET, POST, PUT, PATCH, DELETE |
 | `headers` | Hash | No | Request headers |
 | `body` | Hash/String | No | Request body |
-| `body_type` | String | No | json, form, raw |
 | `timeout_seconds` | Integer | No | Timeout (default: 30) |
+| `retry_count` | Integer | No | Retries (max: 5) |
 | `response_mapping` | String | No | Dot notation to extract value |
-| `retry_count` | Integer | No | Retry attempts (max: 5) |
-| `retry_delay_seconds` | Float | No | Delay between retries |
-| `output_variable` | String | No | Store result |
 
-**Output**:
-```ruby
-{
-  output: parsed_response,
-  data: { status_code, headers, response_time_ms, content_type, attempts },
-  result: { success, status, response_size_bytes }
-}
-```
+### Other Integration Nodes
 
-### Webhook Node
-
-**File**: `webhook.rb`
-
-Handles webhook events.
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
-| `webhook_url` | String | No | URL to send webhook |
-| `event_type` | String | No | Event type filter |
-| `payload_template` | Hash | No | Payload structure |
-
-### Notification Node
-
-**File**: `notification.rb`
-
-Sends notifications via multiple channels.
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
-| `channels` | Array | Yes | email, slack, sms, push |
-| `recipients` | Array | Yes | Recipient identifiers |
-| `subject` | String | No | Notification subject |
-| `message` | String | Yes | Notification body |
-| `template_id` | String | No | Use notification template |
-
-### Email Node
-
-**File**: `email.rb`
-
-Sends emails.
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
-| `to` | Array | Yes | Recipient emails |
-| `subject` | String | Yes | Email subject |
-| `body` | String | Yes | Email body |
-| `html_body` | String | No | HTML email body |
-| `from` | String | No | Sender email |
-| `attachments` | Array | No | File attachments |
-
-### Database Node
-
-**File**: `database.rb`
-
-Executes database operations.
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
-| `operation` | String | Yes | query, insert, update, delete |
-| `table` | String | Yes | Table name |
-| `query` | String | No | Raw SQL query |
-| `conditions` | Hash | No | WHERE conditions |
-| `data` | Hash | No | Data for insert/update |
-
-### File Nodes
-
-**Files**: `file.rb`, `file_upload.rb`, `file_download.rb`, `file_transform.rb`
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
-| `operation` | String | Yes | read, write, delete, copy |
-| `path` | String | Yes | File path |
-| `content` | String | No | File content for write |
-| `transform_type` | String | No | csv_to_json, json_to_csv |
+| Node | Key Config |
+|------|-----------|
+| Webhook | `webhook_url`, `event_type`, `payload_template` |
+| Notification | `channels` (email/slack/sms/push), `recipients`, `message` |
+| Email | `to`, `subject`, `body`, `html_body`, `attachments` |
+| Database | `operation` (query/insert/update/delete), `table`, `conditions` |
+| File | `operation` (read/write/delete/copy), `path`, `content` |
+| File Upload/Download | `path`, `destination`, `transform_type` |
 
 ---
 
-## Content Nodes
+## Content Nodes (9)
 
 ### Page Nodes
 
-**Files**: `page_create.rb`, `page_read.rb`, `page_update.rb`, `page_publish.rb`
+`page_create.rb`, `page_read.rb`, `page_update.rb`, `page_publish.rb`
 
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
-| `page_id` | String | Yes* | Page ID (for read/update/publish) |
-| `title` | String | Yes* | Page title (for create) |
+| Config | Type | Required | Description |
+|--------|------|----------|-------------|
+| `page_id` | String | Yes* | Page ID (read/update/publish) |
+| `title` | String | Yes* | Page title (create) |
 | `content` | String | No | Page content |
 | `status` | String | No | draft, published |
-| `metadata` | Hash | No | Page metadata |
 
-### Knowledge Base Article Nodes
+### KB Article Nodes
 
-**Files**: `kb_article_create.rb`, `kb_article_read.rb`, `kb_article_update.rb`, `kb_article_publish.rb`, `kb_article_search.rb`
+`kb_article_create.rb`, `kb_article_read.rb`, `kb_article_update.rb`, `kb_article_publish.rb`, `kb_article_search.rb`
 
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
+| Config | Type | Required | Description |
+|--------|------|----------|-------------|
 | `article_id` | String | Yes* | Article ID |
-| `category_id` | String | No | Category ID |
-| `title` | String | Yes* | Article title |
-| `content` | String | No | Article content |
-| `query` | String | Yes* | Search query (for search) |
+| `title` | String | Yes* | Article title (create) |
+| `query` | String | Yes* | Search query (search) |
 | `tags` | Array | No | Article tags |
 
 ---
 
-## DevOps Nodes
+## DevOps Nodes (13)
 
 ### CI/CD Nodes
 
-**Files**: `ci_trigger.rb`, `ci_wait_status.rb`, `ci_get_logs.rb`, `ci_cancel.rb`
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
-| `provider` | String | Yes | github, gitlab, jenkins |
-| `repository` | String | Yes | Repository identifier |
-| `workflow_id` | String | Yes | CI workflow/pipeline ID |
-| `ref` | String | No | Branch/tag reference |
-| `run_id` | String | Yes* | CI run ID (for status/logs/cancel) |
-| `timeout_seconds` | Integer | No | Wait timeout |
+| Node | Key Config |
+|------|-----------|
+| CI Trigger | `provider`, `repository`, `workflow_id`, `ref` |
+| CI Wait Status | `run_id`, `timeout_seconds` |
+| CI Get Logs | `run_id` |
+| CI Cancel | `run_id` |
 
 ### Git Nodes
 
-**Files**: `git_branch.rb`, `git_checkout.rb`, `git_commit_status.rb`, `git_create_check.rb`, `git_comment.rb`, `git_pull_request.rb`
+| Node | Key Config |
+|------|-----------|
+| Git Branch | `repository`, `branch`, `base_branch` |
+| Git Checkout | `repository`, `ref` |
+| Git Commit Status | `repository`, `commit_sha`, `status` |
+| Git Create Check | `repository`, `commit_sha`, `check_name` |
+| Git Comment | `repository`, `pr_number`/`issue_number`, `comment` |
+| Git Pull Request | `repository`, `title`, `source_branch`, `target_branch` |
 
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
-| `repository` | String | Yes | Repository identifier |
-| `branch` | String | Yes* | Branch name |
-| `commit_sha` | String | Yes* | Commit SHA |
-| `status` | String | No | pending, success, failure |
-| `comment` | String | Yes* | Comment body |
-| `pr_number` | Integer | Yes* | Pull request number |
+### Deployment & Testing Nodes
 
-### Deploy Node
-
-**File**: `deploy.rb`
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
-| `environment` | String | Yes | Target environment |
-| `service` | String | Yes | Service to deploy |
-| `version` | String | No | Version to deploy |
-| `strategy` | String | No | rolling, blue_green, canary |
-
-### Run Tests Node
-
-**File**: `run_tests.rb`
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
-| `test_suite` | String | Yes | Test suite identifier |
-| `filter` | String | No | Test filter pattern |
-| `parallel` | Boolean | No | Run tests in parallel |
-
-### Shell Command Node
-
-**File**: `shell_command.rb`
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
-| `command` | String | Yes | Shell command |
-| `working_directory` | String | No | Working directory |
-| `environment` | Hash | No | Environment variables |
-| `timeout_seconds` | Integer | No | Command timeout |
+| Node | Key Config |
+|------|-----------|
+| Deploy | `environment`, `service`, `version`, `strategy` (rolling/blue_green/canary) |
+| Run Tests | `test_suite`, `filter`, `parallel` |
+| Shell Command | `command`, `working_directory`, `environment`, `timeout_seconds` |
 
 ---
 
-## MCP Nodes
+## MCP Nodes (4)
 
-### MCP Tool Node
-
-**File**: `mcp_tool.rb`
-
-Executes MCP server tools.
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
-| `server_id` | String | Yes | MCP server ID |
-| `tool_name` | String | Yes | Tool to execute |
-| `arguments` | Hash | No | Tool arguments |
-
-### MCP Prompt Node
-
-**File**: `mcp_prompt.rb`
-
-Executes MCP prompts.
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
-| `server_id` | String | Yes | MCP server ID |
-| `prompt_name` | String | Yes | Prompt name |
-| `arguments` | Hash | No | Prompt arguments |
-
-### MCP Resource Node
-
-**File**: `mcp_resource.rb`
-
-Accesses MCP resources.
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
-| `server_id` | String | Yes | MCP server ID |
-| `resource_uri` | String | Yes | Resource URI |
-
-### Integration Execute Node
-
-**File**: `integration_execute.rb`
-
-Executes configured integrations.
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
-| `integration_id` | String | Yes | Integration ID |
-| `action` | String | Yes | Action to perform |
-| `parameters` | Hash | No | Action parameters |
+| Node | Key Config |
+|------|-----------|
+| MCP Tool | `server_id`, `tool_name`, `arguments` |
+| MCP Prompt | `server_id`, `prompt_name`, `arguments` |
+| MCP Resource | `server_id`, `resource_uri` |
+| Integration Execute | `integration_id`, `action`, `parameters` |
 
 ---
 
-## Utility Nodes
+## Utility Nodes (3)
 
-### Transform Node
+### Transform Node (`transform.rb`)
 
-**File**: `transform.rb`
-
-Transforms data using configured rules.
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
+| Config | Type | Required | Description |
+|--------|------|----------|-------------|
 | `transform_type` | String | No | map, filter, reduce, template |
 | `input_variable` | String | No | Source variable |
-| `output_variable` | String | No | Destination variable |
 | `mapping` | Hash | No | Field mapping (for map) |
 | `filter_conditions` | Hash | No | Filter conditions |
 | `reducer_function` | String | No | sum, count, first, last |
 | `template` | String | No | Template string |
 
-**Output**:
-```ruby
-{
-  output: transformed_data,
-  result: { transformation: "map", items_processed: 10 }
-}
-```
+### Human Approval Node (`human_approval.rb`)
 
-### Human Approval Node
-
-**File**: `human_approval.rb`
-
-Creates approval requests and pauses workflow.
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
+| Config | Type | Required | Description |
+|--------|------|----------|-------------|
 | `approvers` | Array | Yes | User IDs or role references |
 | `approval_type` | String | No | any, all, majority, quorum |
-| `quorum_size` | Integer | No | Required for quorum type |
-| `timeout` | Integer | No | Seconds before timeout (default: 86400) |
+| `timeout` | Integer | No | Seconds (default: 86400) |
 | `timeout_action` | String | No | reject, approve, escalate, skip |
 | `escalation_chain` | Array | No | Escalation user IDs |
-| `notification_channels` | Array | No | email, slack, sms |
-| `context_data` | Hash | No | Data to show approvers |
-| `approval_form` | Hash | No | Form for approvers |
-| `instructions` | String | No | Approval instructions |
 
-**Output**:
-```ruby
-{
-  output: { approval_requested: true, approval_id, status: "pending" },
-  data: { approval_type, required_approvals, deadline, workflow_paused: true },
-  result: { approved: false, approval_status: "pending", requires_action: true }
-}
-```
+### Validator Node (`validator.rb`)
 
-### Validator Node
-
-**File**: `validator.rb`
-
-Validates data against schemas.
-
-| Config Key | Type | Required | Description |
-|------------|------|----------|-------------|
+| Config | Type | Required | Description |
+|--------|------|----------|-------------|
 | `schema` | Hash | Yes | JSON Schema for validation |
 | `data_path` | String | No | Path to data to validate |
 | `strict_mode` | Boolean | No | Fail on extra properties |
@@ -610,21 +343,12 @@ Validates data against schemas.
 
 ## Error Handling
 
-All nodes should handle errors gracefully:
-
 ```ruby
-def perform_execution
-  # ... execution logic ...
-rescue StandardError => e
-  log_error "Execution failed: #{e.message}"
-  raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
-        "#{node.node_type} execution failed: #{e.message}"
-end
-```
+# Fatal errors — raise to fail the node
+raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
+      "#{node.node_type} execution failed: #{e.message}"
 
-For non-fatal errors, return an error structure:
-
-```ruby
+# Non-fatal errors — return error structure
 {
   output: nil,
   result: { success: false, error_message: "Description" },
@@ -635,5 +359,4 @@ For non-fatal errors, return an error structure:
 ---
 
 **Document Status**: Complete
-**Last Updated**: 2025-01-30
 **Source**: `server/app/services/mcp/node_executors/`
