@@ -5,16 +5,6 @@ module Ai
     class OrchestratorService
       class OrchestrationError < StandardError; end
 
-      PHASE_JOB_MAP = {
-        "analyzing" => "AiMissionAnalyzeJob",
-        "planning" => "AiMissionPlanJob",
-        "executing" => "AiMissionExecuteJob",
-        "testing" => "AiMissionTestJob",
-        "reviewing" => "AiMissionReviewJob",
-        "deploying" => "AiMissionDeployJob",
-        "merging" => "AiMissionMergeJob"
-      }.freeze
-
       CLEANUP_PHASES = %w[completed cancelled].freeze
 
       attr_reader :mission, :account
@@ -168,7 +158,7 @@ module Ai
         phase = mission.current_phase
         return if mission.awaiting_approval?
 
-        job_class = PHASE_JOB_MAP[phase]
+        job_class = job_class_for_phase(phase)
         return unless job_class
 
         Rails.logger.info("Dispatching #{job_class} for mission #{mission.id}")
@@ -196,30 +186,35 @@ module Ai
       end
 
       def handle_rejection!(gate:, comment:)
-        case gate
-        when "awaiting_feature_approval"
-          transition_to_phase!("analyzing")
-          dispatch_phase_job!
-        when "awaiting_prd_approval"
-          transition_to_phase!("planning")
-          dispatch_phase_job!
-        when "awaiting_code_approval"
-          transition_to_phase!("executing")
-          dispatch_phase_job!
-        when "previewing"
-          transition_to_phase!("deploying")
+        rollback_phase = resolve_rejection_target(gate)
+        if rollback_phase
+          transition_to_phase!(rollback_phase)
           dispatch_phase_job!
         end
       end
 
-      def gate_for_phase(phase)
-        case phase
-        when "awaiting_feature_approval" then "feature_selection"
-        when "awaiting_prd_approval" then "prd_review"
-        when "awaiting_code_approval" then "code_review"
-        when "previewing" then "merge_approval"
-        else phase
+      def resolve_rejection_target(gate)
+        if mission.mission_template.present?
+          mission.mission_template.rejection_mapping_for(gate)
         end
+      end
+
+      def job_class_for_phase(phase)
+        custom = find_custom_phase_config(phase)
+        custom&.dig("job_class")
+      end
+
+      def find_custom_phase_config(phase_key)
+        if mission.custom_phases.present?
+          mission.custom_phases.find { |p| p["key"] == phase_key }
+        elsif mission.mission_template.present?
+          mission.mission_template.phases&.find { |p| p["key"] == phase_key }
+        end
+      end
+
+      def gate_for_phase(phase)
+        config = find_custom_phase_config(phase)
+        config&.dig("gate_name") || phase
       end
 
       def create_conversation!
