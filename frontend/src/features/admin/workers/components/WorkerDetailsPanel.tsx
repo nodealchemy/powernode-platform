@@ -92,6 +92,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
     form.setValue('roles', worker.roles);
   };
 
+  // Reset panel state when opening for a different worker
   useEffect(() => {
     if (isOpen) {
       resetForm();
@@ -100,7 +101,7 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
       setShowToken(false);
       setNewToken(null);
     }
-  }, [isOpen, worker]);
+  }, [isOpen, worker.id]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
