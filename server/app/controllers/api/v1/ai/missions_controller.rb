@@ -425,7 +425,21 @@ module Api
           mission = find_mission!
           return unless mission
 
-          service = ::Ai::Missions::SkillCompositionService.new(mission: mission)
+          llm_client = nil
+          model = nil
+          if mission.configuration&.dig("reasoning", "mode") == "star"
+            credential = current_account.ai_provider_credentials
+                           .joins(:provider).where(ai_providers: { is_active: true })
+                           .where(is_active: true).first
+            if credential
+              llm_client = ::Ai::Llm::Client.new(provider: credential.provider, credential: credential)
+              model = credential.provider.default_model
+            end
+          end
+
+          service = ::Ai::Missions::SkillCompositionService.new(
+            mission: mission, llm_client: llm_client, model: model
+          )
           plan = service.compose!
           render_success(plan: plan)
         rescue ::Ai::Missions::SkillCompositionService::CompositionError => e

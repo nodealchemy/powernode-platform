@@ -7,9 +7,11 @@ module Ai
 
       attr_reader :mission, :account
 
-      def initialize(mission:)
+      def initialize(mission:, llm_client: nil, model: nil)
         @mission = mission
         @account = mission.account
+        @llm_client = llm_client
+        @model = model
       end
 
       # Compose a task plan by matching skills to mission phases.
@@ -53,8 +55,7 @@ module Ai
             account: account,
             name: "Mission: #{mission.name}",
             description: "Auto-composed task plan for mission #{mission.id}",
-            status: "active",
-            loop_type: "mission",
+            status: "pending",
             max_iterations: 1,
             total_tasks: 0,
             completed_tasks: 0,
@@ -74,11 +75,11 @@ module Ai
       def discover_skills_for_phase(phase_key, phase_config)
         return [] unless defined?(Ai::Tools::SemanticToolDiscoveryService)
 
-        query = [
-          phase_key.humanize,
-          phase_config&.dig("description"),
-          mission.objective
-        ].compact.join(" — ")
+        query = if star_enabled?
+                  star_refine_phase_query(phase_key, phase_config)
+                else
+                  build_simple_query(phase_key, phase_config)
+                end
 
         discovery = Ai::Tools::SemanticToolDiscoveryService.new(account: account)
         results = discovery.discover(query: query, limit: 3)
@@ -87,6 +88,74 @@ module Ai
       rescue StandardError => e
         Rails.logger.warn("Skill discovery failed for phase #{phase_key}: #{e.message}")
         []
+      end
+
+      def build_simple_query(phase_key, phase_config)
+        [
+          phase_key.humanize,
+          phase_config&.dig("description"),
+          mission.objective
+        ].compact.join(" — ")
+      end
+
+      def star_enabled?
+        @llm_client.present? &&
+          mission.configuration&.dig("reasoning", "mode") == "star"
+      end
+
+      def star_refine_phase_query(phase_key, phase_config)
+        task_text = [
+          "Phase: #{phase_key.humanize}",
+          phase_config&.dig("description"),
+          "Mission objective: #{mission.objective}"
+        ].compact.join(". ")
+
+        star_service = Ai::Reasoning::StarReasoningService.new(account: account)
+        star_result = star_service.reason(
+          task: task_text,
+          context: "This is a skill discovery query for a mission phase. Articulate what this phase needs to accomplish.",
+          llm_client: @llm_client,
+          model: @model
+        )
+
+        if star_result[:confidence] > 0.0
+          store_star_reasoning(phase_key, star_result)
+          build_star_query(star_result)
+        else
+          build_simple_query(phase_key, phase_config)
+        end
+      rescue StandardError => e
+        Rails.logger.warn("STAR refinement failed for phase #{phase_key}: #{e.message}")
+        build_simple_query(phase_key, phase_config)
+      end
+
+      def build_star_query(star_result)
+        parts = [
+          star_result[:task][:goal],
+          star_result[:task][:implicit_constraints]&.join(" "),
+          star_result[:action][:steps]&.join(" "),
+          mission.objective
+        ].compact.reject(&:blank?)
+
+        parts.join(" — ")
+      end
+
+      def store_star_reasoning(phase_key, star_result)
+        # Store in the most recently created task for this phase
+        # Called after task creation in compose!, so we store on the
+        # phase_config level in mission metadata for auditability
+        metadata = mission.metadata || {}
+        metadata["star_reasoning"] ||= {}
+        metadata["star_reasoning"][phase_key] = {
+          goal: star_result[:task][:goal],
+          implicit_constraints: star_result[:task][:implicit_constraints],
+          success_criteria: star_result[:task][:success_criteria],
+          confidence: star_result[:confidence],
+          reasoned_at: Time.current.iso8601
+        }
+        mission.update!(metadata: metadata)
+      rescue StandardError => e
+        Rails.logger.warn("Failed to store STAR reasoning for phase #{phase_key}: #{e.message}")
       end
 
       def create_skill_task!(ralph_loop, phase_key, skill, phase_index, skill_index)

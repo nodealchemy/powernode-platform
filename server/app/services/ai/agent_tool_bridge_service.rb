@@ -184,6 +184,20 @@ module Ai
             messages << { role: "user", content: "Based on this reasoning, please proceed with the task." }
           end
 
+        when :star
+          star_service = Ai::Reasoning::StarReasoningService.new(account: account)
+          reasoning_result = star_service.reason(
+            task: task_text,
+            context: extract_context_from_messages(messages),
+            llm_client: llm_client, model: model, **opts
+          )
+
+          if reasoning_result[:confidence] > 0.0
+            reasoning_text = star_service.format_reasoning_for_injection(reasoning_result)
+            messages << { role: "assistant", content: reasoning_text }
+            messages << { role: "user", content: "Based on this STAR analysis, proceed with the task. Pay special attention to the implicit constraints and success criteria identified in the Task section." }
+          end
+
         when :plan_and_execute
           plan_service = Ai::Planning::TaskDecompositionService.new(account: account)
           plan = plan_service.decompose(
@@ -264,6 +278,23 @@ module Ai
     end
 
     private
+
+    # Extract any pre-injected context from the message history so STAR
+    # can reason about both the task and the surrounding context.
+    def extract_context_from_messages(messages)
+      context_parts = messages.select { |m| m[:role] == "system" || m["role"] == "system" }
+                              .map { |m| m[:content] || m["content"] }
+                              .compact
+
+      # Also pull context from assistant messages that look like injected context
+      messages.select { |m| (m[:role] || m["role"]) == "assistant" }
+              .each do |m|
+        content = m[:content] || m["content"]
+        context_parts << content if content.present? && content.length > 100
+      end
+
+      context_parts.join("\n\n").presence
+    end
 
     def allowed_tool_names
       allowed = @tool_access_config["allowed_tools"]
