@@ -109,10 +109,6 @@ module Ai
       update!(is_enabled: false)
     end
 
-    def increment_usage!
-      increment!(:usage_count)
-    end
-
     def record_usage!(outcome:, agent: nil, duration_ms: nil, execution_id: nil, execution_type: nil)
       usage_records.create!(
         account: account,
@@ -122,6 +118,8 @@ module Ai
         execution_id: execution_id,
         execution_type: execution_type
       )
+
+      increment!(:usage_count)
 
       if outcome == "success"
         increment!(:positive_usage_count)

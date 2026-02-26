@@ -16,6 +16,7 @@ class Ai::McpAgentExecutor
       extract_compound_learnings(result)
       evaluate_trust_post_execution(execution_context, result)
       record_behavioral_fingerprint(execution_context, result)
+      record_skill_learning_outcomes(execution_context, result)
 
       @logger.debug "[MemoryWriteback] Write-back completed"
     rescue StandardError => e
@@ -162,6 +163,19 @@ class Ai::McpAgentExecutor
       ) if tool_count.positive?
     rescue StandardError => e
       @logger.warn "[MemoryWriteback] Behavioral fingerprint recording failed: #{e.message}"
+    end
+
+    # Record skill usage outcomes for the self-learning pipeline
+    def record_skill_learning_outcomes(execution_context, result)
+      return unless @agent && @execution
+
+      outcome = result.dig("metadata", "status") == "error" ? "failure" : "success"
+
+      service = Ai::SkillGraph::SelfLearningService.new(@account)
+      recorded = service.record_skill_outcomes(execution: @execution, agent: @agent, outcome: outcome)
+      service.optimize_dependencies(execution: @execution, agent: @agent, outcome: outcome) if recorded.to_i > 0
+    rescue StandardError => e
+      @logger.warn "[MemoryWriteback] Skill learning outcome recording failed: #{e.message}"
     end
   end
 end

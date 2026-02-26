@@ -302,15 +302,6 @@ class WorkerJobService
       })
     end
 
-    # Enqueue skill usage tracking job
-    def enqueue_ai_skill_usage(skill_id, account_id: nil)
-      new.make_worker_request("POST", "/api/v1/jobs", {
-        "job_class" => "AiSkillSyncJob",
-        "args" => [{ "action" => "increment_usage", "skill_id" => skill_id, "account_id" => account_id }],
-        "queue" => "ai_orchestration"
-      })
-    end
-
     # Enqueue skill connector refresh job
     def enqueue_ai_skill_refresh_connectors(skill_id, account_id: nil)
       new.make_worker_request("POST", "/api/v1/jobs", {

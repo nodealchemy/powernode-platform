@@ -31,6 +31,7 @@ module Ai
           )
 
           # Update skill counters (mirrors Skill#record_usage! logic without double-creating records)
+          skill.increment!(:usage_count)
           case outcome
           when "success"
             skill.increment!(:positive_usage_count)
