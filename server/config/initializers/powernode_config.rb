@@ -30,11 +30,7 @@ Rails.application.configure do
     ENV.fetch("BACKGROUND_JOBS_API_TOKEN", "development_service_token")
 
   # Worker Service Configuration
+  # Authentication uses JWT minted for the system worker (from database)
   config.worker_url = ENV.fetch("WORKER_URL", "http://localhost:4567")
-  config.worker_token = Rails.env.production? ?
-    Rails.application.credentials.worker_token :
-    ENV.fetch("WORKER_TOKEN", "development_worker_token")
 
-  # Legacy authentication toggle (disable to reject swt_/development_worker_token paths)
-  config.legacy_auth_enabled = ENV.fetch("LEGACY_AUTH_ENABLED", "true") == "true"
 end
