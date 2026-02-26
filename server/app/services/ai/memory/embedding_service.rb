@@ -136,7 +136,7 @@ module Ai
         # Find an AI provider that supports embeddings
         Ai::Provider
           .where(account_id: @account.id)
-          .where("capabilities @> ?", [ "embeddings" ].to_json)
+          .where("capabilities @> ?", [ "text_embedding" ].to_json)
           .active
           .first || Ai::Provider.where(account_id: @account.id).active.first
       end
