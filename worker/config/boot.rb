@@ -17,6 +17,7 @@ $LOAD_PATH.unshift(File.expand_path('../app', __dir__))
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
 
 # Auto-require core files first
+require_relative '../app/services/worker_jwt'
 require_relative '../app/services/backend_api_client'
 require_relative '../app/services/web_auth_api_client'
 require_relative '../app/middleware/sidekiq_web_auth'

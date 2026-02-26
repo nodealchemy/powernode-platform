@@ -18,7 +18,7 @@ class ApiClient
 
   def initialize(base_url: nil, worker_token: nil)
     @base_url = base_url || PowernodeWorker.application.config.backend_api_url
-    @worker_token = worker_token || PowernodeWorker.application.config.worker_token
+    # worker_token parameter kept for backward compatibility but ignored — JWT used instead
     @client = build_client
   end
 
@@ -127,25 +127,35 @@ class ApiClient
 
   def get(path, params = {})
     handle_response do
-      @client.get(path, params)
+      @client.get(path, params) do |req|
+        req.headers['Authorization'] = "Bearer #{WorkerJwt.token}"
+      end
     end
   end
 
   def post(path, body = {})
     handle_response do
-      @client.post(path, body)
+      @client.post(path) do |req|
+        req.headers['Authorization'] = "Bearer #{WorkerJwt.token}"
+        req.body = body
+      end
     end
   end
 
   def put(path, body = {})
     handle_response do
-      @client.put(path, body)
+      @client.put(path) do |req|
+        req.headers['Authorization'] = "Bearer #{WorkerJwt.token}"
+        req.body = body
+      end
     end
   end
 
   def delete(path)
     handle_response do
-      @client.delete(path)
+      @client.delete(path) do |req|
+        req.headers['Authorization'] = "Bearer #{WorkerJwt.token}"
+      end
     end
   end
 
@@ -156,11 +166,11 @@ class ApiClient
       f.request :json
       f.request :retry, max: 3, interval: 0.5, backoff_factor: 2
       f.response :json, content_type: 'application/json', parser_options: { symbolize_names: true }
-      
-      f.headers['Authorization'] = "Bearer #{@worker_token}"
+
+      # JWT auth set per-request (short-lived tokens, can't be a static header)
       f.headers['User-Agent'] = 'PowernodeWorkerAgent/1.0'
       f.headers['Accept'] = 'application/json'
-      
+
       f.adapter Faraday.default_adapter
     end
   end

@@ -13,7 +13,7 @@ class WebAuthApiClient < BackendApiClient
       begin
         response = @connection.send(method) do |req|
           req.url path
-          req.headers['Authorization'] = "Bearer #{@config.worker_token}"
+          req.headers['Authorization'] = "Bearer #{WorkerJwt.token}"
           req.headers['Content-Type'] = 'application/json'
           req.headers['Accept'] = 'application/json'
           req.headers['User-Agent'] = 'PowernodeWorker-WebAuth/1.0'

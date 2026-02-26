@@ -124,7 +124,8 @@ class PowernodeWorker
   def setup_service_authentication
     # Validate required environment variables
     required_env_vars = {
-      'WORKER_TOKEN' => config.worker_token,
+      'WORKER_ID' => config.worker_id,
+      'JWT_SECRET_KEY' => config.jwt_secret_key,
       'BACKEND_API_URL' => config.backend_api_url,
       'REDIS_URL' => ENV['REDIS_URL']
     }
@@ -137,20 +138,21 @@ class PowernodeWorker
       exit 1 unless %w[development test].include?(env)
     end
 
-    @logger.info "Worker service authentication configured"
+    @logger.info "Worker service authentication configured (JWT mode)"
   end
 
   # Configuration class
   class Configuration
     def initialize
       @backend_api_url = ENV.fetch('BACKEND_API_URL', 'http://localhost:3000')
-      @worker_token = ENV['WORKER_TOKEN']
+      @worker_id = ENV['WORKER_ID']
+      @jwt_secret_key = ENV['JWT_SECRET_KEY']
       @sidekiq_web_port = ENV.fetch('SIDEKIQ_WEB_PORT', '4567')
       @worker_concurrency = ENV.fetch('WORKER_CONCURRENCY', '5').to_i
       @worker_queues = ENV.fetch('WORKER_QUEUES', 'default,reports,billing,webhooks').split(',')
     end
 
-    attr_reader :backend_api_url, :worker_token, :sidekiq_web_port, 
+    attr_reader :backend_api_url, :worker_id, :jwt_secret_key, :sidekiq_web_port,
                 :worker_concurrency, :worker_queues
 
     def api_timeout
