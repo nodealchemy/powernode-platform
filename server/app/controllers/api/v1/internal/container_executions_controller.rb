@@ -133,10 +133,17 @@ module Api
         end
 
         def authenticate_worker!
-          token = request.headers["Authorization"]&.gsub("Bearer ", "")
-          worker_token = ENV.fetch("POWERNODE_WORKER_TOKEN", nil)
+          token = request.headers["Authorization"]&.split(" ")&.last
+          return render_error("Unauthorized", status: :unauthorized) unless token
 
-          if worker_token.blank? || token != worker_token
+          begin
+            payload = Security::JwtService.decode(token)
+            worker = Worker.find_by(id: payload[:sub]) if payload[:type] == "worker"
+          rescue StandardError
+            worker = nil
+          end
+
+          unless worker&.active?
             render_error("Unauthorized", status: :unauthorized)
           end
         end

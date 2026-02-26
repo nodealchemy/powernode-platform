@@ -11,41 +11,13 @@ module Authentication
   private
 
   def authenticate_request
-    # Check for worker authentication via X-Worker-Token header first
-    worker_token = request.headers["X-Worker-Token"]
-    if worker_token.present? && ENV["WORKER_TOKEN"].present?
-      # When WORKER_TOKEN environment variable is set, authenticate using the provided token
-      @current_worker = Worker.authenticate(worker_token)
-      if @current_worker
-        @current_account = @current_worker.account
-        return # Worker authentication successful via X-Worker-Token
-      else
-        return render_unauthorized("Invalid or expired worker token")
-      end
-    end
-
     header = request.headers["Authorization"]
     header = header.split(" ").last if header
 
     return render_unauthorized("Access token required") unless header
 
+    # JWT-only token authentication
     begin
-      # Try worker authentication first if token looks like a worker token (legacy or development)
-      if header.start_with?("swt_") || (Rails.env.local? && header == "development_worker_token")
-        unless Rails.application.config.legacy_auth_enabled
-          return render_unauthorized("Legacy authentication disabled")
-        end
-        Rails.logger.warn "[DEPRECATED] Legacy worker token authentication used. Migrate to JWT worker tokens."
-        @current_worker = Worker.authenticate(header)
-        if @current_worker
-          @current_account = @current_worker.account
-          return # Worker authentication successful
-        else
-          return render_unauthorized("Invalid or expired worker token")
-        end
-      end
-
-      # JWT token authentication
       payload = Security::JwtService.decode(header)
 
       case payload[:type]
@@ -67,8 +39,8 @@ module Authentication
         @current_user.record_login! if should_record_login?
       end
 
-    rescue StandardError => e
-      Rails.logger.error "Authentication error: #{e.message}"
+      return
+    rescue StandardError
       render_unauthorized("Invalid access token")
     end
   end
@@ -80,7 +52,7 @@ module Authentication
     header = header.split(" ").last
 
     begin
-      # Try JWT authentication
+      # JWT-only authentication
       payload = Security::JwtService.decode(header)
 
       case payload[:type]
@@ -94,8 +66,8 @@ module Authentication
       when "worker"
         worker = Worker.find(payload[:sub])
         @current_worker = worker if worker&.active?
+        @current_account = @current_worker&.account
       when "impersonation"
-        # Handle impersonation session loading
         handle_impersonation_jwt_token(payload)
       end
     rescue StandardError
@@ -214,35 +186,11 @@ module Authentication
   # Note: render_unauthorized and render_forbidden are provided by ApiResponse concern
   # ApplicationController includes ApiResponse after Authentication, so those methods take precedence
 
-  # Worker authentication methods
-  def authenticate_worker_request!
-    worker_token = extract_worker_token
-    return render_unauthorized("Worker token required") unless worker_token
-
-    @current_worker = Worker.authenticate(worker_token)
-    return render_unauthorized("Invalid or inactive worker token") unless @current_worker
-
-    true
-  end
-
-  def authenticate_worker_optional
-    worker_token = extract_worker_token
-    return unless worker_token
-
-    begin
-      @current_worker = Worker.authenticate(worker_token)
-    rescue StandardError
-      @current_worker = nil
-    end
-  end
-
-  def extract_worker_token
+  def extract_bearer_token
     auth_header = request.headers["Authorization"]
     return nil unless auth_header&.start_with?("Bearer ")
 
-    token = auth_header.split(" ", 2).last
-    # Worker tokens start with 'swt_'
-    token if token&.start_with?("swt_")
+    auth_header.split(" ", 2).last
   end
 
   # Check if current request is from a worker

@@ -291,39 +291,23 @@ class Api::V1::WorkersController < ApplicationController
   end
 
   # GET /api/v1/workers/:id/current_token
-  # Special endpoint to retrieve the current system worker token
+  # System worker tokens are only available at creation or regeneration.
+  # Use regenerate_token to obtain a new plaintext token.
   def current_token
-    # Only allow for system workers and with super admin permissions
     unless @worker.system? && current_user.has_permission?("super_admin")
       render_error("Access denied - requires super admin access to system worker", status: :forbidden)
       return
     end
 
-    # Get the current system worker token from environment
-    current_token = ENV["WORKER_TOKEN"]
-
-    unless current_token.present?
-      render_error("System worker token not configured", status: :service_unavailable)
+    unless @worker.token_digest.present?
+      render_error("System worker has no token configured", status: :service_unavailable)
       return
     end
 
-    # Verify this token actually works with this worker
-    unless @worker.token_matches?(current_token)
-      render_error("Environment token does not match worker", status: :conflict)
-      return
-    end
-
-    @worker.record_activity!("token_accessed", {
-      accessed_by_user_id: current_user.id,
-      status: "success"
-    })
-
-    render_success({
-      current_token: current_token,
-      worker_id: @worker.id,
-      worker_name: @worker.name,
-      message: "Current system worker token retrieved"
-    })
+    render_error(
+      "Plaintext tokens are not stored. Use regenerate_token to obtain a new token.",
+      status: :gone
+    )
   end
 
   # POST /api/v1/workers/:id/health_check
@@ -558,11 +542,10 @@ class Api::V1::WorkersController < ApplicationController
 
   def fetch_worker_stats
     # Fetch Sidekiq stats from worker service
-    worker_url = ENV.fetch("WORKER_URL", "http://localhost:4000")
-    worker_token = Rails.application.config.worker_token
+    worker_url = Rails.application.config.worker_url
 
     response = Faraday.get("#{worker_url}/api/sidekiq/stats") do |req|
-      req.headers["Authorization"] = "Bearer #{worker_token}"
+      req.headers["Authorization"] = "Bearer #{system_worker_jwt}"
       req.headers["Content-Type"] = "application/json"
       req.options.timeout = 5
       req.options.open_timeout = 2
@@ -607,5 +590,9 @@ class Api::V1::WorkersController < ApplicationController
     return 0 if total.zero?
 
     ((processed.to_f / total) * 100).round(2)
+  end
+
+  def system_worker_jwt
+    WorkerJobService.system_worker_jwt
   end
 end

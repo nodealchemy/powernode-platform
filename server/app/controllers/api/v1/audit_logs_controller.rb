@@ -217,17 +217,15 @@ class Api::V1::AuditLogsController < ApplicationController
     token = auth_header.sub(/^Bearer /, "")
     return render_error("Missing token", status: :unauthorized) if token.blank?
 
-    # Check if it's a worker token (swt_ prefix)
-    if token.starts_with?("swt_")
-      worker = Worker.authenticate(token)
-      return if worker.present?
-      return render_error("Invalid worker token", status: :unauthorized)
-    end
-
-    # Try user JWT authentication first (for admin users calling create directly)
+    # JWT-only authentication (worker or admin user)
     begin
       payload = Security::JwtService.decode(token)
-      if payload[:type] == "access"
+
+      case payload[:type]
+      when "worker"
+        worker = Worker.find_by(id: payload[:sub])
+        return if worker&.active?
+      when "access"
         user = User.find_by(id: payload[:sub])
         if user&.active? && user&.has_permission?("admin.access")
           @current_user = user
@@ -236,23 +234,9 @@ class Api::V1::AuditLogsController < ApplicationController
         end
       end
     rescue StandardError
-      # Fall through to service token validation
+      # JWT decode failed
     end
 
-    # Validate service token via JwtService (gets blacklist checking + secret rotation)
-    validate_service_token(token)
-  end
-
-  def validate_service_token(token)
-    payload = Security::JwtService.decode(token)
-
-    if payload[:service] == "backend" && payload[:type] == "service"
-      return
-    end
-
-    render_error("Invalid service token", status: :unauthorized)
-  rescue StandardError => e
-    Rails.logger.warn "Invalid service token for audit log creation: #{e.message}"
-    render_error("Invalid or expired service token", status: :unauthorized)
+    render_error("Invalid or expired token", status: :unauthorized)
   end
 end

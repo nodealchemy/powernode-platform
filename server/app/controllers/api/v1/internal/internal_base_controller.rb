@@ -11,24 +11,27 @@ class Api::V1::Internal::InternalBaseController < ApplicationController
     token = request.headers["Authorization"]&.split(" ")&.last
 
     unless token.present?
-      render_error("Service token required", status: :unauthorized)
+      render_error("Worker token required", status: :unauthorized)
       return
     end
 
+    # JWT-only worker authentication
     begin
-      payload = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: "HS256").first
+      payload = Security::JwtService.decode(token)
 
-      unless payload["service"] == "worker" && payload["type"] == "service"
-        render_error("Invalid service token", status: :unauthorized)
-        return
+      if payload[:type] == "worker"
+        @current_worker = Worker.find_by(id: payload[:sub])
+        if @current_worker&.active?
+          @current_account = @current_worker.account
+          request.env["powernode.internal_request"] = true
+          return
+        end
       end
-
-      # Mark request as internal for permission validation
-      request.env["powernode.internal_request"] = true
-
-    rescue JWT::DecodeError, JWT::ExpiredSignature
-      render_error("Invalid service token", status: :unauthorized)
+    rescue StandardError
+      # JWT decode failed
     end
+
+    render_error("Invalid worker token", status: :unauthorized)
   end
 
   # Audit logging helper for internal service operations

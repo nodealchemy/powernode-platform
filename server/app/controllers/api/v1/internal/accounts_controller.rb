@@ -20,7 +20,6 @@ class Api::V1::Internal::AccountsController < Api::V1::Internal::InternalBaseCon
           owner_name: owner&.name,
           plan_name: @account.subscription&.plan&.name,
           status: @account.subscription&.status,
-          system_worker_token: @account.system_worker_token,
           has_system_worker: @account.has_system_worker?,
           created_at: @account.created_at
         }

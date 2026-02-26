@@ -63,12 +63,14 @@ class Api::V1::GatewayConnectionJobsController < ApplicationController
     return false unless auth_header&.start_with?("Bearer ")
 
     token = auth_header.split(" ").last
-    expected_token = Rails.application.credentials.worker_token || ENV["WORKER_TOKEN"]
-
-    return false unless expected_token.present?
-
-    # Secure token comparison
-    ActiveSupport::SecurityUtils.secure_compare(token, expected_token)
+    begin
+      payload = Security::JwtService.decode(token)
+      return false unless payload[:type] == "worker"
+      worker = Worker.find_by(id: payload[:sub])
+      worker&.active? || false
+    rescue StandardError
+      false
+    end
   end
 
   def gateway_connection_job_params
