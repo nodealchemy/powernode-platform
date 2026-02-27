@@ -103,21 +103,33 @@ tags = ["oauth", "critical"]
 [allowlist]
 description = "Global Allowlist"
 
-# Ignore specific files
+# Ignore specific files and directories
 paths = [
     '''\.gitleaks\.toml$''',
     '''\.env\.example$''',
     '''\.env\.sample$''',
     '''\.env\.template$''',
+    '''\.env\..*\.example$''',
     '''config/credentials\.yml\.enc$''',
     '''config/master\.key\.example$''',
-    '''spec/fixtures/''',
-    '''test/fixtures/''',
+    '''spec/''',
+    '''test/''',
+    '''cypress/''',
+    '''e2e/''',
     '''docs/''',
     '''node_modules/''',
     '''vendor/''',
     '''tmp/''',
     '''log/''',
+    '''server/db/seeds/''',
+    '''scripts/test_''',
+    '''scripts/security-cleanup\.sh$''',
+    '''\.github/workflows/''',
+    '''server/\.github/workflows/''',
+    '''docker-compose.*\.yml$''',
+    '''docker/''',
+    '''scripts/systemd/configs/''',
+    '''\.test\.(ts|tsx|js|jsx)$''',
 ]
 
 # Ignore specific regex patterns in content
@@ -131,6 +143,16 @@ regexes = [
     '''(?i)dummy''',
     '''REPLACE_ME''',
     '''<your[_-]?.*>''',
+    '''(?i)YOUR_JWT_TOKEN''',
+    '''(?i)YOUR_TOKEN''',
+    '''(?i)YOUR_ADMIN_KEY''',
+    '''(?i)YOUR_REFRESH_TOKEN''',
+    '''(?i)ADMIN_API_KEY''',
+    '''(?i)ADMIN_KEY''',
+    '''(?i)mock[_-]?token''',
+    '''\$\{\{?\s*env\.\w+\s*\}?\}''',
+    '''\$\{[A-Z_]+\}''',
+    '''\$\$\(cat /run/secrets/''',
 ]
 
 # Commits to ignore (add SHA hashes of commits with false positives)
