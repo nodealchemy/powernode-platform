@@ -225,16 +225,16 @@ module Ai
           )
 
           unless response.success?
-            Rails.logger.warn "[ExtractionService] LLM call failed (#{client.provider.name}): #{response.raw_response.to_s[0..200]}"
+            Rails.logger.warn "[ExtractionService] LLM call failed (#{client.provider_name}): #{response.raw_response.to_s[0..200]}"
             next
           end
 
           parsed = response.respond_to?(:parsed_content) ? (response.parsed_content || response.content) : response.content
           parsed = parsed.is_a?(String) ? JSON.parse(parsed) : parsed
-          Rails.logger.info "[ExtractionService] LLM returned #{parsed&.dig('entities')&.length || 0} entities, #{parsed&.dig('relations')&.length || 0} relations (#{client.provider.name})"
+          Rails.logger.info "[ExtractionService] LLM returned #{parsed&.dig('entities')&.length || 0} entities, #{parsed&.dig('relations')&.length || 0} relations (#{client.provider_name})"
           return parsed
         rescue StandardError => e
-          Rails.logger.warn "[ExtractionService] LLM extraction failed (#{client.provider.name}): #{e.message}"
+          Rails.logger.warn "[ExtractionService] LLM extraction failed (#{client.provider_name}): #{e.message}"
           next
         end
 

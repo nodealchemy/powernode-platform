@@ -388,12 +388,16 @@ module Api
                 user: current_user,
                 mcp_agent: mcp_client_agent
               )
-            rescue ArgumentError
-              result = ::Ai::Introspection::McpToolRegistrar.execute_tool(
-                tool_name,
-                params: arguments.symbolize_keys,
-                account: current_account
-              )
+            rescue ArgumentError => e
+              if e.message.start_with?("Unknown platform tool")
+                result = ::Ai::Introspection::McpToolRegistrar.execute_tool(
+                  tool_name,
+                  params: arguments.symbolize_keys,
+                  account: current_account
+                )
+              else
+                result = { success: false, error: e.message }
+              end
             end
           else
             protocol_service = build_protocol_service
