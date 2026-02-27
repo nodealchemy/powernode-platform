@@ -26,6 +26,10 @@ module Ai
         status == "paused"
       end
 
+      def mcp_client?
+        agent_type == "mcp_client"
+      end
+
       # Update last execution timestamp
       def mark_executed!
         update!(last_executed_at: Time.current)

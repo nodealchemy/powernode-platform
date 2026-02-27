@@ -8,20 +8,29 @@ module Ai
       @doorkeeper_token = doorkeeper_token
     end
 
-    # Resolves or creates an Ai::Agent identity for this MCP session.
-    # Returns the agent record.
+    # Creates a fresh Ai::Agent identity for this MCP session.
+    # MCP client agents are transient — always created new, never reused.
     def resolve_agent
       return @cached_agent if defined?(@cached_agent)
 
-      @cached_agent = find_existing_agent || create_mcp_agent
+      @cached_agent = create_mcp_agent
     end
 
-    # Deactivates the agent associated with an MCP session
+    # Archives the MCP client agent and removes it from workspace teams
     def self.deactivate_agent(mcp_session)
-      return unless mcp_session.ai_agent&.active?
-      return unless mcp_session.ai_agent.agent_type == "mcp_client"
+      agent = mcp_session.ai_agent
+      return unless agent&.active?
+      return unless agent.mcp_client?
 
-      mcp_session.ai_agent.update(status: "inactive")
+      agent.update!(status: "archived")
+      remove_from_workspace_teams(agent)
+      Rails.logger.info "[McpClientIdentityService] Archived MCP agent: #{agent.name} (#{agent.id})"
+    end
+
+    def self.remove_from_workspace_teams(agent)
+      Ai::AgentTeamMember.joins(:team)
+        .where(ai_agent_id: agent.id, ai_agent_teams: { team_type: "workspace" })
+        .destroy_all
     end
 
     private
@@ -34,35 +43,6 @@ module Ai
 
     def oauth_application
       @oauth_application ||= doorkeeper_token.application
-    end
-
-    # Find an existing active MCP client agent for this OAuth app.
-    # First checks active sessions (fast path), then falls back to checking
-    # agent metadata (handles token refresh / new sessions for the same app).
-    def find_existing_agent
-      # Fast path: find via active session with matching OAuth app
-      scope = McpSession.active
-        .where(account: account, user: user)
-        .where.not(ai_agent_id: nil)
-
-      scope = scope.where(oauth_application_id: oauth_application_id) if oauth_application_id.present?
-
-      session = scope.order(last_activity_at: :desc).first
-      return session.ai_agent if session&.ai_agent&.active?
-
-      # Fallback: find active mcp_client agent by OAuth app metadata
-      # Prevents creating duplicate agents when tokens are refreshed
-      if oauth_application_id.present?
-        agent = account.ai_agents
-          .where(agent_type: "mcp_client", status: "active")
-          .where("mcp_metadata->>'oauth_application_id' = ?", oauth_application_id)
-          .order(created_at: :desc)
-          .first
-
-        return agent if agent
-      end
-
-      nil
     end
 
     def create_mcp_agent
@@ -98,13 +78,15 @@ module Ai
     end
 
     def next_sequence_number(app_name)
-      # Count existing mcp_client agents for this account with matching app name prefix
-      existing = account.ai_agents
+      # Extract max sequence number from all agents (including archived) to ensure uniqueness
+      max_seq = account.ai_agents
         .where(agent_type: "mcp_client")
         .where("name LIKE ?", "#{app_name} #%")
-        .count
-
-      existing + 1
+        .pluck(:name)
+        .filter_map { |n| n[/#{Regexp.escape(app_name)} #(\d+)\z/, 1]&.to_i }
+        .max
+      (max_seq || 0) + 1
     end
+
   end
 end

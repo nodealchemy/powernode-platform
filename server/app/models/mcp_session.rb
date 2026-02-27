@@ -62,7 +62,7 @@ class McpSession < ApplicationRecord
     scope = McpSession.where(account_id: account_id, user_id: user_id, status: "active")
       .where.not(id: id)
     scope = scope.where(oauth_application_id: oauth_application_id) if oauth_application_id.present?
-    scope.update_all(status: "expired", updated_at: Time.current)
+    scope.find_each { |s| s.update!(status: "expired") }
   end
 
   # Bulk cleanup: delete expired sessions older than the given age
