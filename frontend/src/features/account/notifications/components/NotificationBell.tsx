@@ -82,6 +82,12 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
         openConversationMaximized(agentId, '', conversationId);
         return;
       }
+      // Mission approval notifications — navigate to mission with review flag
+      if (notification.action_url) {
+        setIsOpen(false);
+        navigate(notification.action_url, { state: { openApproval: true } });
+        return;
+      }
     }
     if (notification.action_url) {
       setIsOpen(false);

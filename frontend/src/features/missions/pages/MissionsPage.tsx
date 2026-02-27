@@ -66,6 +66,16 @@ export const MissionsContent: React.FC<{
     setShowMobileDetail(!!missionId);
   }, [missionId]);
 
+  // Auto-open approval modal when navigated from notification
+  useEffect(() => {
+    const state = location.state as { openApproval?: boolean } | null;
+    if (state?.openApproval && selectedMission && isApprovalGate(selectedMission.current_phase, selectedMission.approval_gate_phases)) {
+      setShowApprovalModal(true);
+      // Clear the state so refreshing doesn't re-open
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, selectedMission, navigate, location.pathname]);
+
   const handleRefresh = useCallback(() => {
     fetchMissions();
   }, [fetchMissions]);
