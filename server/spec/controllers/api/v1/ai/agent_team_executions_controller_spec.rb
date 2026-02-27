@@ -197,7 +197,7 @@ RSpec.describe Api::V1::Ai::AgentTeamExecutionsController, type: :controller do
       it 'retries a finished execution' do
         failed_exec = create(:ai_team_execution, :failed, account: account, agent_team: team)
 
-        allow(Ai::AgentTeamExecutionJob).to receive(:perform_later)
+        allow(WorkerJobService).to receive(:enqueue_ai_team_execution)
 
         post :retry_execution, params: { agent_team_id: team.id, id: failed_exec.id }
 

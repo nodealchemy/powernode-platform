@@ -94,7 +94,9 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
         coordination_strategy: 'central',
         communication_pattern: 'hub_spoke',
         max_parallel_tasks: 5,
-        created_at: Time.current
+        created_at: Time.current,
+        ai_team_roles: double(count: 0),
+        ai_team_channels: double(count: 0)
       )
     end
 
@@ -132,7 +134,9 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
         coordination_strategy: 'central',
         communication_pattern: 'hub_spoke',
         max_parallel_tasks: 5,
-        created_at: Time.current
+        created_at: Time.current,
+        ai_team_roles: double(count: 0),
+        ai_team_channels: double(count: 0)
       )
     end
     let(:update_params) { { name: 'Updated Team' } }
@@ -293,6 +297,7 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
 
   describe 'POST /api/v1/ai/teams/:team_id/roles/:id/assign_agent' do
     let(:team) { double(id: 't123') }
+    let(:members_relation) { double(exists?: false) }
     let(:role) do
       double(
         id: 'r123',
@@ -309,7 +314,8 @@ RSpec.describe 'Api::V1::Ai::Teams', type: :request do
         can_escalate: true,
         max_concurrent_tasks: 3,
         ai_agent_id: 'a123',
-        ai_agent: double(name: 'Test Agent')
+        ai_agent: double(name: 'Test Agent', agent_type: 'assistant'),
+        agent_team: double(members: members_relation)
       )
     end
 

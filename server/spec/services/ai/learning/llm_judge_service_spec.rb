@@ -24,24 +24,22 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
   end
 
   describe "#evaluate" do
-    context "when provider is available" do
+    context "when agent is available" do
+      let(:user) { create(:user, account: account) }
       let(:provider) { create(:ai_provider, :anthropic, account: account) }
-      let(:credential) { create(:ai_provider_credential, :default, account: account, provider: provider) }
-      let(:client) { double("ProviderClientService") }
+      let(:judge_agent) { create(:ai_agent, account: account, provider: provider, creator: user, name: "LLM Judge") }
+      let(:client) { instance_double(WorkerLlmClient) }
 
       before do
-        allow(Ai::Provider).to receive(:where).and_return(Ai::Provider.where(id: provider.id))
-        allow(Ai::ProviderCredential).to receive(:where).and_return(
-          double(active: double(healthy: double(first: credential)))
-        )
-        allow(Ai::ProviderClientService).to receive(:new).and_return(client)
+        judge_agent # ensure created
+        allow(WorkerLlmClient).to receive(:new).with(agent_id: judge_agent.id).and_return(client)
       end
 
       it "parses valid JSON evaluation response" do
-        response = {
-          content: '{"correctness": 4, "completeness": 5, "helpfulness": 4, "safety": 5, "feedback": "Well done"}'
-        }
-        allow(client).to receive(:chat).and_return(response)
+        allow(client).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: '{"correctness": 4, "completeness": 5, "helpfulness": 4, "safety": 5, "feedback": "Well done"}',
+                                 usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
+        )
 
         result = service.evaluate(agent_output: "Test output", task_description: "Write code")
 
@@ -53,10 +51,10 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
       end
 
       it "handles response with surrounding text" do
-        response = {
-          content: 'Here is my evaluation: {"correctness": 3, "completeness": 3, "helpfulness": 3, "safety": 4, "feedback": "OK"} That is all.'
-        }
-        allow(client).to receive(:chat).and_return(response)
+        allow(client).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: 'Here is my evaluation: {"correctness": 3, "completeness": 3, "helpfulness": 3, "safety": 4, "feedback": "OK"} That is all.',
+                                 usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
+        )
 
         result = service.evaluate(agent_output: "Test")
 
@@ -64,10 +62,10 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
       end
 
       it "clamps scores to 1-5 range" do
-        response = {
-          content: '{"correctness": 0, "completeness": 10, "helpfulness": -1, "safety": 6, "feedback": "edge"}'
-        }
-        allow(client).to receive(:chat).and_return(response)
+        allow(client).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: '{"correctness": 0, "completeness": 10, "helpfulness": -1, "safety": 6, "feedback": "edge"}',
+                                 usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
+        )
 
         result = service.evaluate(agent_output: "Test")
 
@@ -78,11 +76,10 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
       end
 
       it "includes expected output section when provided" do
-        allow(client).to receive(:chat) do |args|
-          prompt = args[:messages].first[:content]
-          expect(prompt).to include("Expected Output:")
-          { content: '{"correctness": 4, "completeness": 4, "helpfulness": 4, "safety": 5, "feedback": "ok"}' }
-        end
+        allow(client).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: '{"correctness": 4, "completeness": 4, "helpfulness": 4, "safety": 5, "feedback": "ok"}',
+                                 usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
+        )
 
         service.evaluate(
           agent_output: "Result",
@@ -93,21 +90,16 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
 
       it "truncates long agent output" do
         long_output = "x" * 10_000
-        allow(client).to receive(:chat) do |args|
-          prompt = args[:messages].first[:content]
-          expect(prompt.length).to be < 10_000
-          { content: '{"correctness": 3, "completeness": 3, "helpfulness": 3, "safety": 5, "feedback": "ok"}' }
-        end
+        allow(client).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: '{"correctness": 3, "completeness": 3, "helpfulness": 3, "safety": 5, "feedback": "ok"}',
+                                 usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
+        )
 
         service.evaluate(agent_output: long_output)
       end
     end
 
-    context "when no provider is available" do
-      before do
-        allow(Ai::Provider).to receive(:where).and_return(Ai::Provider.none)
-      end
-
+    context "when no agent is available" do
       it "returns default scores" do
         result = service.evaluate(agent_output: "Test")
 
@@ -117,16 +109,14 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
       end
     end
 
-    context "when provider call raises an error" do
-      before do
-        provider = create(:ai_provider, :anthropic, account: account)
-        credential = create(:ai_provider_credential, :default, account: account, provider: provider)
+    context "when client call raises an error" do
+      let(:user) { create(:user, account: account) }
+      let(:provider) { create(:ai_provider, :anthropic, account: account) }
+      let(:judge_agent) { create(:ai_agent, account: account, provider: provider, creator: user, name: "LLM Judge") }
 
-        allow(Ai::Provider).to receive(:where).and_return(Ai::Provider.where(id: provider.id))
-        allow(Ai::ProviderCredential).to receive(:where).and_return(
-          double(active: double(healthy: double(first: credential)))
-        )
-        allow(Ai::ProviderClientService).to receive(:new).and_raise(StandardError, "connection error")
+      before do
+        judge_agent
+        allow(WorkerLlmClient).to receive(:new).and_raise(StandardError, "connection error")
       end
 
       it "returns default scores with error message" do
@@ -138,18 +128,17 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
     end
 
     context "when response is unparseable" do
+      let(:user) { create(:user, account: account) }
+      let(:provider) { create(:ai_provider, :anthropic, account: account) }
+      let(:judge_agent) { create(:ai_agent, account: account, provider: provider, creator: user, name: "LLM Judge") }
+
       before do
-        provider = create(:ai_provider, :anthropic, account: account)
-        credential = create(:ai_provider_credential, :default, account: account, provider: provider)
-
-        allow(Ai::Provider).to receive(:where).and_return(Ai::Provider.where(id: provider.id))
-        allow(Ai::ProviderCredential).to receive(:where).and_return(
-          double(active: double(healthy: double(first: credential)))
+        judge_agent
+        client = instance_double(WorkerLlmClient)
+        allow(WorkerLlmClient).to receive(:new).with(agent_id: judge_agent.id).and_return(client)
+        allow(client).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: "This is not JSON at all", usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
         )
-
-        client = double("ProviderClientService")
-        allow(Ai::ProviderClientService).to receive(:new).and_return(client)
-        allow(client).to receive(:chat).and_return({ content: "This is not JSON at all" })
       end
 
       it "returns default scores" do

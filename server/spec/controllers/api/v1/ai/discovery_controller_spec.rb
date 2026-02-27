@@ -76,8 +76,8 @@ RSpec.describe "Api::V1::Ai::DiscoveryController", type: :request do
     let(:path) { "/api/v1/ai/discovery/scan" }
 
     before do
-      # Stub the async job
-      allow(Ai::DiscoveryScanJob).to receive(:perform_async)
+      # Stub the worker job dispatch (migrated from Ai::DiscoveryScanJob)
+      allow(WorkerJobService).to receive(:enqueue_job)
     end
 
     it 'returns 401 when unauthenticated' do

@@ -44,7 +44,7 @@ RSpec.describe Ai::Context::CompressionService, type: :service do
 
       before do
         # Stub LLM compression to nil so it falls back to extractive
-        allow(service).to receive(:find_economy_provider).and_return(nil)
+        allow(service).to receive(:find_economy_client).and_return(nil)
       end
 
       it 'compresses entries exceeding MAX_ENTRY_TOKENS' do
@@ -76,11 +76,16 @@ RSpec.describe Ai::Context::CompressionService, type: :service do
     context 'when LLM compression succeeds' do
       let(:long_content) { "This is a detailed sentence about topic A. " * 100 }
       let(:entry) { { content: long_content, metadata: {} } }
-      let(:provider_client) { double('provider_client') }
+      let(:llm_client) { instance_double(WorkerLlmClient) }
 
       before do
-        allow(service).to receive(:find_economy_provider).and_return(provider_client)
-        allow(provider_client).to receive(:generate).and_return({ content: "Compressed version." })
+        economy_provider = instance_double(Ai::Provider, default_model: "test-model")
+        economy_credential = instance_double(Ai::ProviderCredential, provider: economy_provider)
+        allow(service).to receive(:find_economy_client).and_return(llm_client)
+        service.instance_variable_set(:@economy_credential, economy_credential)
+        allow(llm_client).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: "Compressed version.", usage: { prompt_tokens: 50, completion_tokens: 10, total_tokens: 60 })
+        )
       end
 
       it 'uses LLM compression and marks metadata' do
@@ -97,7 +102,7 @@ RSpec.describe Ai::Context::CompressionService, type: :service do
       let(:entry) { { content: long_content, metadata: {} } }
 
       before do
-        allow(service).to receive(:find_economy_provider).and_return(nil)
+        allow(service).to receive(:find_economy_client).and_return(nil)
       end
 
       it 'falls back to extractive compression' do
@@ -117,11 +122,14 @@ RSpec.describe Ai::Context::CompressionService, type: :service do
     context 'when LLM raises an error' do
       let(:long_content) { "Sentence one here. Sentence two here. " * 100 }
       let(:entry) { { content: long_content } }
-      let(:provider_client) { double('provider_client') }
+      let(:llm_client) { instance_double(WorkerLlmClient) }
 
       before do
-        allow(service).to receive(:find_economy_provider).and_return(provider_client)
-        allow(provider_client).to receive(:generate).and_raise(StandardError.new("API error"))
+        economy_provider = instance_double(Ai::Provider, default_model: "test-model")
+        economy_credential = instance_double(Ai::ProviderCredential, provider: economy_provider)
+        allow(service).to receive(:find_economy_client).and_return(llm_client)
+        service.instance_variable_set(:@economy_credential, economy_credential)
+        allow(llm_client).to receive(:complete).and_raise(StandardError.new("API error"))
       end
 
       it 'falls back to extractive compression' do

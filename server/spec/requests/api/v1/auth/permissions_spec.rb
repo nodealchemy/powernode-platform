@@ -96,18 +96,12 @@ RSpec.describe 'Api::V1::Auth::Permissions', type: :request do
         }
       end
 
-      it 'returns service permissions' do
+      it 'returns unauthorized for service tokens (not handled by Authentication concern)' do
         get '/api/v1/auth/permissions',
             headers: service_headers,
             as: :json
 
-        expect_success_response
-        response_data = json_response
-
-        expect(response_data['data']['type']).to eq('service')
-        expect(response_data['data']['service']).to eq('worker')
-        expect(response_data['data']['permissions']).to eq([ '*' ])
-        expect(response_data['data']['permission_version']).to eq('service')
+        expect(response).to have_http_status(:unauthorized)
       end
     end
 
@@ -198,16 +192,11 @@ RSpec.describe 'Api::V1::Auth::Permissions', type: :request do
         }
       end
 
-      it 'returns granted for all checked permissions' do
+      it 'returns unauthorized for service tokens (not handled by Authentication concern)' do
         get '/api/v1/auth/permissions/check?permissions[]=users.read&permissions[]=users.delete&permissions[]=accounts.manage',
             headers: service_headers
 
-        expect_success_response
-        response_data = json_response
-
-        expect(response_data['data']['permissions'].all? { |p| p['granted'] }).to be true
-        expect(response_data['data']['has_all']).to be true
-        expect(response_data['data']['has_any']).to be true
+        expect(response).to have_http_status(:unauthorized)
       end
     end
 

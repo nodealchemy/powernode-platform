@@ -241,4 +241,117 @@ RSpec.describe McpSession, type: :model do
       expect(session.revoked?).to be false
     end
   end
+
+  # ===========================================================================
+  # link_agent!
+  # ===========================================================================
+  describe "#link_agent!" do
+    let(:provider) { create(:ai_provider, account: account, is_active: true) }
+    let(:agent) { create(:ai_agent, :mcp_client, account: account, provider: provider) }
+
+    it "links the session to an agent" do
+      session.link_agent!(agent)
+      expect(session.reload.ai_agent_id).to eq(agent.id)
+      expect(session.display_name).to eq(agent.name)
+    end
+  end
+
+  # ===========================================================================
+  # expire_previous_sessions! — triggers callbacks via find_each
+  # ===========================================================================
+  describe "#expire_previous_sessions!" do
+    let(:provider) { create(:ai_provider, account: account, is_active: true) }
+
+    it "expires older sessions for the same user" do
+      old_session = McpSession.create!(user: user, account: account)
+      new_session = McpSession.create!(user: user, account: account)
+
+      new_session.expire_previous_sessions!
+      expect(old_session.reload.status).to eq("expired")
+      expect(new_session.reload.status).to eq("active")
+    end
+
+    it "does not expire sessions for different users" do
+      other_user = create(:user, account: account)
+      other_session = McpSession.create!(user: other_user, account: account)
+      new_session = McpSession.create!(user: user, account: account)
+
+      new_session.expire_previous_sessions!
+      expect(other_session.reload.status).to eq("active")
+    end
+
+    it "triggers the deactivate_agent_on_end callback" do
+      agent = create(:ai_agent, :mcp_client, account: account, provider: provider)
+      old_session = McpSession.create!(user: user, account: account, ai_agent_id: agent.id)
+      new_session = McpSession.create!(user: user, account: account)
+
+      new_session.expire_previous_sessions!
+      expect(agent.reload.status).to eq("archived")
+    end
+
+    it "scopes by oauth_application_id when present" do
+      app1 = create(:oauth_application, :mcp_client)
+      app2 = create(:oauth_application, :mcp_client)
+
+      session_app1 = McpSession.create!(user: user, account: account, oauth_application_id: app1.id)
+      session_app2 = McpSession.create!(user: user, account: account, oauth_application_id: app2.id)
+      new_session = McpSession.create!(user: user, account: account, oauth_application_id: app1.id)
+
+      new_session.expire_previous_sessions!
+      expect(session_app1.reload.status).to eq("expired")
+      expect(session_app2.reload.status).to eq("active")
+    end
+  end
+
+  # ===========================================================================
+  # deactivate_agent_on_end callback
+  # ===========================================================================
+  describe "deactivate_agent_on_end callback" do
+    let(:provider) { create(:ai_provider, account: account, is_active: true) }
+
+    it "fires when session status changes to expired" do
+      agent = create(:ai_agent, :mcp_client, account: account, provider: provider)
+      mcp_session = McpSession.create!(user: user, account: account, ai_agent_id: agent.id)
+
+      mcp_session.update!(status: "expired")
+      expect(agent.reload.status).to eq("archived")
+    end
+
+    it "fires when session is revoked" do
+      agent = create(:ai_agent, :mcp_client, account: account, provider: provider)
+      mcp_session = McpSession.create!(user: user, account: account, ai_agent_id: agent.id)
+
+      mcp_session.revoke!
+      expect(agent.reload.status).to eq("archived")
+    end
+
+    it "does not fire when session remains active" do
+      agent = create(:ai_agent, :mcp_client, account: account, provider: provider)
+      mcp_session = McpSession.create!(user: user, account: account, ai_agent_id: agent.id)
+
+      mcp_session.touch_activity!
+      expect(agent.reload.status).to eq("active")
+    end
+  end
+
+  # ===========================================================================
+  # cleanup_expired!
+  # ===========================================================================
+  describe ".cleanup_expired!" do
+    it "deletes expired and revoked sessions older than threshold" do
+      old_expired = McpSession.create!(user: user, account: account, status: "expired")
+      old_expired.update_columns(expires_at: 3.days.ago)
+
+      old_revoked = McpSession.create!(user: user, account: account, status: "revoked")
+      old_revoked.update_columns(expires_at: 3.days.ago)
+
+      recent_expired = McpSession.create!(user: user, account: account, status: "expired")
+
+      McpSession.cleanup_expired!
+
+      expect(McpSession.find_by(id: old_expired.id)).to be_nil
+      expect(McpSession.find_by(id: old_revoked.id)).to be_nil
+      expect(McpSession.find_by(id: recent_expired.id)).to be_present
+    end
+  end
 end

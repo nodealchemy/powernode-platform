@@ -153,8 +153,11 @@ RSpec.configure do |config|
       }
     }
 
-    allow_any_instance_of(Ai::ProviderClientService).to receive(:execute_request)
-      .and_return(success_response)
+    allow_any_instance_of(WorkerLlmClient).to receive(:complete)
+      .and_return(Ai::Llm::Response.new(
+        content: 'This is a mocked AI response for testing.',
+        usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 }
+      ))
 
     # Mock provider testing service
     allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details)

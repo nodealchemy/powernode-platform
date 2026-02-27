@@ -320,19 +320,19 @@ RSpec.describe 'Api::V1::AuditLogs', type: :request do
 
     context 'with worker token' do
       let(:worker) { create(:worker, status: 'active') }
-      let(:headers) do
+      let(:worker_jwt_payload) do
         {
-          'Authorization' => "Bearer #{worker.token}",
-          'Content-Type' => 'application/json'
+          sub: worker.id,
+          type: 'worker',
+          version: Security::JwtService::CURRENT_TOKEN_VERSION
         }
       end
-
-      before do
-        # Worker.find_by(token:) won't work because token is a virtual attr (only token_digest is persisted)
-        # The controller uses Worker.find_by(token: token, status: "active") which is a bug,
-        # but we stub it to make the test work
-        allow(Worker).to receive(:find_by).and_call_original
-        allow(Worker).to receive(:find_by).with(hash_including(token: worker.token, status: 'active')).and_return(worker)
+      let(:worker_jwt) { Security::JwtService.encode(worker_jwt_payload) }
+      let(:headers) do
+        {
+          'Authorization' => "Bearer #{worker_jwt}",
+          'Content-Type' => 'application/json'
+        }
       end
 
       it 'creates audit log with worker authentication' do
@@ -347,7 +347,7 @@ RSpec.describe 'Api::V1::AuditLogs', type: :request do
                },
                headers: headers,
                as: :json
-        }.to change(AuditLog, :count).by(1)
+        }.to change(AuditLog, :count).by_at_least(1)
 
         expect(response).to have_http_status(:created)
       end

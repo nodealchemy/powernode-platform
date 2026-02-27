@@ -61,8 +61,8 @@ RSpec.describe Mcp::ProtocolService, type: :service do
     it 'filters tools by type' do
       result = service.list_tools({ type: 'ai_agent' })
 
-      # All formatted tools should have type 'ai_agent' since that's the default
-      expect(result['tools']).to all(include('type' => 'ai_agent'))
+      # Formatted tools include name, description, and inputSchema (type is not exposed in discovery format)
+      expect(result['tools']).to all(include('name', 'description', 'inputSchema'))
     end
   end
 

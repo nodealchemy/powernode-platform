@@ -7,7 +7,7 @@ RSpec.describe Ai::Missions::PrdGenerationService, type: :service do
   let(:user) { create(:user, account: account) }
   let(:provider) { create(:ai_provider, account: account, is_active: true) }
   let(:credential) { create(:ai_provider_credential, provider: provider, account: account, is_active: true) }
-  let(:agent) { create(:ai_agent, account: account, provider: provider, creator: user) }
+  let(:agent) { create(:ai_agent, account: account, provider: provider, creator: user, name: "PRD Generator") }
   let(:repository) { create(:git_repository, account: account) }
   let(:mission) do
     create(:ai_mission,
@@ -79,20 +79,18 @@ RSpec.describe Ai::Missions::PrdGenerationService, type: :service do
       }.to_json
     end
 
-    let(:client) { instance_double(Ai::ProviderClientService) }
+    let(:client) { instance_double(WorkerLlmClient) }
 
     before do
-      allow(Ai::ProviderClientService).to receive(:new).with(credential).and_return(client)
+      allow(WorkerLlmClient).to receive(:new).with(agent_id: agent.id).and_return(client)
       allow(provider).to receive(:default_model).and_return("gpt-4")
     end
 
     context 'when AI returns valid PRD JSON' do
       before do
-        allow(client).to receive(:send_message).and_return({
-          success: true,
-          response: { choices: [{ message: { content: ai_response_json } }] },
-          metadata: { usage: { prompt_tokens: 500, completion_tokens: 300 } }
-        })
+        allow(client).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: ai_response_json, usage: { prompt_tokens: 500, completion_tokens: 300, total_tokens: 800 })
+        )
       end
 
       it 'generates PRD and creates RalphLoop with tasks' do
@@ -126,11 +124,9 @@ RSpec.describe Ai::Missions::PrdGenerationService, type: :service do
     context 'when AI returns JSON in code fences' do
       before do
         fenced_response = "Here's the PRD:\n```json\n#{ai_response_json}\n```\nLet me know if you need changes."
-        allow(client).to receive(:send_message).and_return({
-          success: true,
-          response: { choices: [{ message: { content: fenced_response } }] },
-          metadata: {}
-        })
+        allow(client).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: fenced_response, usage: { prompt_tokens: 500, completion_tokens: 300, total_tokens: 800 })
+        )
       end
 
       it 'extracts and parses the JSON from code fences' do
@@ -143,11 +139,9 @@ RSpec.describe Ai::Missions::PrdGenerationService, type: :service do
 
     context 'when AI returns unparseable response' do
       before do
-        allow(client).to receive(:send_message).and_return({
-          success: true,
-          response: { choices: [{ message: { content: "I cannot generate a PRD for this." } }] },
-          metadata: {}
-        })
+        allow(client).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: "I cannot generate a PRD for this.", usage: { prompt_tokens: 500, completion_tokens: 50, total_tokens: 550 })
+        )
       end
 
       it 'falls back to single task from objective' do
@@ -160,10 +154,10 @@ RSpec.describe Ai::Missions::PrdGenerationService, type: :service do
 
     context 'when AI provider returns error' do
       before do
-        allow(client).to receive(:send_message).and_return({
-          success: false,
-          error: "Rate limit exceeded"
-        })
+        allow(WorkerLlmClient).to receive(:new).with(agent_id: agent.id).and_return(client)
+        allow(client).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: nil, finish_reason: "error", raw_response: { error: "Rate limit exceeded" })
+        )
       end
 
       it 'raises PrdGenerationError' do
@@ -174,15 +168,15 @@ RSpec.describe Ai::Missions::PrdGenerationService, type: :service do
       end
     end
 
-    context 'when no credentials available' do
+    context 'when no agent is available (deactivated)' do
       before do
-        credential.update!(is_active: false)
+        agent.update!(status: "inactive")
       end
 
       it 'raises PrdGenerationError' do
         expect { service.generate! }.to raise_error(
           Ai::Missions::PrdGenerationService::PrdGenerationError,
-          /No active AI provider credentials/
+          /No PRD Generator agent configured/
         )
       end
     end
@@ -209,17 +203,12 @@ RSpec.describe Ai::Missions::PrdGenerationService, type: :service do
     context 'when no agent is available' do
       before do
         Ai::Agent.where(account: account).destroy_all
-        allow(client).to receive(:send_message).and_return({
-          success: true,
-          response: { choices: [{ message: { content: ai_response_json } }] },
-          metadata: {}
-        })
       end
 
       it 'raises PrdGenerationError' do
         expect { service.generate! }.to raise_error(
           Ai::Missions::PrdGenerationService::PrdGenerationError,
-          /No AI agent available/
+          /No PRD Generator agent configured/
         )
       end
     end

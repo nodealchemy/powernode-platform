@@ -249,7 +249,7 @@ RSpec.describe Api::V1::Ai::WorktreeSessionsController, type: :controller do
 
     it 'retries merge for failed session' do
       failed_session = create(:ai_worktree_session, :failed, account: account, initiated_by: user)
-      allow(Ai::MergeExecutionJob).to receive(:perform_later).and_return(true)
+      allow(WorkerJobService).to receive(:enqueue_ai_merge_execution).and_return({ 'status' => 'queued' })
 
       post :retry_merge, params: { id: failed_session.id }
       expect(response).to have_http_status(:ok)

@@ -5,8 +5,7 @@ require 'rails_helper'
 RSpec.describe Ai::A2a::DagExecutor, type: :service do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
-  # Use plain double because the dag_executor calls submit_task with `agent:`
-  # which doesn't match the service's actual `to_agent_card:` parameter (service bug).
+  # Use plain double because the dag_executor calls submit_task with `to_agent_card:`.
   let(:a2a_service) { double('Ai::A2a::Service') }
 
   subject(:executor) { described_class.new(account: account, user: user) }
@@ -88,7 +87,7 @@ RSpec.describe Ai::A2a::DagExecutor, type: :service do
         executor.execute(dag_definition: dag)
 
         expect(a2a_service).to have_received(:submit_task).with(
-          agent: agent,
+          to_agent_card: agent,
           message: hash_including(:role, :parts),
           metadata: hash_including(:dag_node_id),
           sync: true

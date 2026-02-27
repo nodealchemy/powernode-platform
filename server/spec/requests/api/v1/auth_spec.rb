@@ -43,7 +43,8 @@ RSpec.describe 'Api::V1::Auth', type: :request do
           'roles' => [ 'owner' ]
         )
         expect(response_data['data']).to have_key('access_token')
-        expect(response_data['data']).to have_key('refresh_token')
+        # Refresh token is now in HttpOnly cookie, not in response body
+        expect(response.cookies['refresh_token']).to be_present
       end
 
       it 'assigns owner role to first user' do
@@ -102,7 +103,8 @@ RSpec.describe 'Api::V1::Auth', type: :request do
           'email' => user.email
         )
         expect(response_data['data']).to have_key('access_token')
-        expect(response_data['data']).to have_key('refresh_token')
+        # Refresh token is now in HttpOnly cookie, not in response body
+        expect(response.cookies['refresh_token']).to be_present
       end
 
       it 'updates last_login_at' do
@@ -190,11 +192,11 @@ RSpec.describe 'Api::V1::Auth', type: :request do
         response_data = json_response
 
         expect(response_data['data']).to have_key('access_token')
-        expect(response_data['data']).to have_key('refresh_token')
+        # Refresh token is now in HttpOnly cookie, not in response body
+        expect(response.cookies['refresh_token']).to be_present
 
-        # New tokens are generated (both access and refresh)
+        # New tokens are generated
         expect(response_data['data']['access_token']).not_to eq(refresh_token)
-        expect(response_data['data']['refresh_token']).to be_present
       end
     end
 

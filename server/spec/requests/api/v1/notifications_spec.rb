@@ -169,12 +169,10 @@ RSpec.describe 'Api::V1::Notifications', type: :request do
   describe 'DELETE /api/v1/notifications/:id' do
     let(:notification) { create_notification.call }
 
-    # The route maps DELETE to :destroy but the controller only defines :dismiss.
-    # This results in an ActionNotFound / 404. Verify the endpoint responds.
-    it 'returns not found since destroy action is not implemented' do
+    it 'dismisses the notification' do
       delete "/api/v1/notifications/#{notification.id}", headers: headers, as: :json
 
-      expect(response).to have_http_status(:not_found)
+      expect_success_response
     end
   end
 

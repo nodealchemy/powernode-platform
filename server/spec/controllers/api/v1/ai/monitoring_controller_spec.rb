@@ -2,14 +2,6 @@
 
 require 'rails_helper'
 
-# Ensure the namespaced job class exists for stubbing
-# The controller uses Ai::MonitoringHealthCheckJob.perform_later
-unless defined?(Ai::MonitoringHealthCheckJob)
-  module Ai
-    class MonitoringHealthCheckJob < ApplicationJob; end
-  end
-end
-
 RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
@@ -816,14 +808,14 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
 
   describe 'POST #start_monitoring' do
     before do
-      allow(Ai::MonitoringHealthCheckJob).to receive(:perform_later)
+      allow(WorkerJobService).to receive(:enqueue_ai_monitoring_health_check)
     end
 
     context 'with valid permissions' do
       before { sign_in monitoring_manage_user }
 
       it 'starts real-time monitoring' do
-        expect(Ai::MonitoringHealthCheckJob).to receive(:perform_later).with(account.id)
+        expect(WorkerJobService).to receive(:enqueue_ai_monitoring_health_check).with(account.id)
 
         post :start_monitoring
 
@@ -834,7 +826,7 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
       end
 
       it 'handles job scheduling errors' do
-        allow(Ai::MonitoringHealthCheckJob).to receive(:perform_later).and_raise(StandardError, 'Job scheduling failed')
+        allow(WorkerJobService).to receive(:enqueue_ai_monitoring_health_check).and_raise(StandardError, 'Job scheduling failed')
 
         post :start_monitoring
 

@@ -2,8 +2,15 @@
 
 # Stub WorkerJobService HTTP requests for tests
 # Uses WebMock to intercept HTTP calls to the worker service
+# Also stubs system_worker_jwt to avoid requiring a system worker DB record
 RSpec.configure do |config|
   config.before(:each) do
+    # Stub system_worker_jwt to avoid "No active system worker found" errors.
+    # The JWT is generated before the HTTP request, so WebMock alone is insufficient.
+    # Also clears thread-cached JWT to prevent stale tokens leaking between examples.
+    Thread.current[:_system_worker_jwt] = nil
+    allow(WorkerJobService).to receive(:system_worker_jwt).and_return("test-system-worker-jwt")
+
     # Get the worker URL from config, defaulting to localhost:4567
     worker_url = Rails.application.config.worker_url rescue 'http://localhost:4567'
 

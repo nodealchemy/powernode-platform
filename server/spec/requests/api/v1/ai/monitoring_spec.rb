@@ -404,9 +404,7 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
   describe 'POST /api/v1/ai/monitoring/start' do
     context 'with proper permissions' do
       it 'starts real-time monitoring' do
-        allow(Ai::MonitoringHealthCheckJob).to receive(:perform_later)
-          .with(user.account_id)
-          .and_return(true)
+        allow(WorkerJobService).to receive(:enqueue_job).and_return({ 'status' => 'queued' })
 
         post '/api/v1/ai/monitoring/start', headers: headers, as: :json
 

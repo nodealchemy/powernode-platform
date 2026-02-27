@@ -188,10 +188,12 @@ RSpec.describe 'Api::V1::Ai::WorktreeSessions', type: :request do
         expect(data['message']).to include('2 worktrees')
       end
 
-      it 'enqueues a WorktreeProvisioningJob' do
-        expect {
-          post '/api/v1/ai/worktree_sessions', params: valid_params, headers: headers, as: :json
-        }.to have_enqueued_job(Ai::WorktreeProvisioningJob)
+      it 'dispatches worktree provisioning to worker' do
+        allow(WorkerJobService).to receive(:enqueue_ai_worktree_provisioning).and_return({ 'status' => 'queued' })
+
+        post '/api/v1/ai/worktree_sessions', params: valid_params, headers: headers, as: :json
+
+        expect(WorkerJobService).to have_received(:enqueue_ai_worktree_provisioning)
       end
 
       it 'returns 400 for missing tasks' do
@@ -396,12 +398,14 @@ RSpec.describe 'Api::V1::Ai::WorktreeSessions', type: :request do
         expect(json_response['message']).to eq('Merge retry started')
       end
 
-      it 'enqueues a MergeExecutionJob' do
-        expect {
-          post "/api/v1/ai/worktree_sessions/#{failed_session.id}/retry_merge",
-               headers: headers,
-               as: :json
-        }.to have_enqueued_job(Ai::MergeExecutionJob)
+      it 'dispatches merge execution to worker' do
+        allow(WorkerJobService).to receive(:enqueue_ai_merge_execution).and_return({ 'status' => 'queued' })
+
+        post "/api/v1/ai/worktree_sessions/#{failed_session.id}/retry_merge",
+             headers: headers,
+             as: :json
+
+        expect(WorkerJobService).to have_received(:enqueue_ai_merge_execution)
       end
 
       it 'clears failed merge operations' do

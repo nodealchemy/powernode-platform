@@ -241,7 +241,7 @@ RSpec.describe Ai::AgentToolBridgeService, type: :service do
   end
 
   describe '#execute_tool_loop' do
-    let(:llm_client) { instance_double(Ai::Llm::Client) }
+    let(:llm_client) { instance_double(WorkerLlmClient) }
     let(:messages) { [{ role: "user", content: "Search for permission docs" }] }
 
     before do

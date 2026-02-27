@@ -19,7 +19,7 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
     let(:input_parameters) { { "input" => "Hello, world!" } }
     let(:validator) { instance_double(JsonSchemaValidator) }
     let(:guardrail_pipeline) { instance_double(Ai::Guardrails::Pipeline) }
-    let(:llm_client) { instance_double(Ai::Llm::Client) }
+    let(:llm_client) { instance_double(WorkerLlmClient) }
     let(:tool_bridge) { instance_double(Ai::AgentToolBridgeService) }
 
     let(:llm_response) do
@@ -57,7 +57,7 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
       allow(guardrail_pipeline).to receive(:check_input).and_return({ allowed: true, violations: [], blocked: false })
       allow(guardrail_pipeline).to receive(:check_output).and_return({ allowed: true, violations: [], blocked: false })
 
-      # Stub provider credential chain (used by both get_provider_client and build_llm_client)
+      # Stub provider credential chain (used by build_llm_client)
       credential = double('credential', provider: provider, credentials: { "api_key" => "test-key" })
       provider_credentials = double('provider_credentials')
       allow(agent).to receive(:provider).and_return(provider)
@@ -66,8 +66,7 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
       allow(provider_credentials).to receive(:where).and_return(provider_credentials)
       allow(provider_credentials).to receive(:active).and_return(provider_credentials)
       allow(provider_credentials).to receive(:first).and_return(credential)
-      allow(Ai::Llm::Client).to receive(:new).and_return(llm_client)
-      allow(Ai::ProviderClientService).to receive(:new).and_return(double('provider_client').as_null_object)
+      allow(WorkerLlmClient).to receive(:new).and_return(llm_client)
 
       # Stub tool bridge — tools disabled by default for simpler specs
       allow(Ai::AgentToolBridgeService).to receive(:new).and_return(tool_bridge)
@@ -214,10 +213,9 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
         allow(provider).to receive(:is_active?).and_return(false)
       end
 
-      it 'raises ProviderError' do
-        expect {
-          executor.execute(input_parameters)
-        }.to raise_error(Ai::McpAgentExecutor::ProviderError, /not active/)
+      it 'returns error result' do
+        result = executor.execute(input_parameters)
+        expect(result).to include("error")
       end
     end
 
@@ -230,10 +228,9 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
         allow(provider_credentials).to receive(:first).and_return(nil)
       end
 
-      it 'raises ProviderError' do
-        expect {
-          executor.execute(input_parameters)
-        }.to raise_error(Ai::McpAgentExecutor::ProviderError, /No active credentials/)
+      it 'returns error result' do
+        result = executor.execute(input_parameters)
+        expect(result).to include("error")
       end
     end
 

@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe Worker, type: :model do
   describe 'associations' do
-    it { should belong_to(:account).optional }
+    it { should belong_to(:account) }
     it { should have_many(:worker_activities).dependent(:destroy) }
     it { should have_many(:worker_roles).dependent(:destroy) }
     it { should have_many(:roles).through(:worker_roles) }
@@ -23,9 +23,10 @@ RSpec.describe Worker, type: :model do
         let!(:existing_system_worker) { create(:worker, :system_worker) }
 
         it 'prevents creating a second system worker' do
-          new_system_worker = build(:worker, account: nil)
+          account = create(:account)
+          new_system_worker = build(:worker, account: account, is_system: true)
           new_system_worker.valid?
-          expect(new_system_worker.errors[:base]).to include('Only one system worker is allowed globally')
+          expect(new_system_worker.errors[:base]).to include('Only one system worker is allowed globally. Demote the existing system worker first.')
         end
       end
 

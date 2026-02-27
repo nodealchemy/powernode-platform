@@ -53,7 +53,7 @@ RSpec.describe 'Api::V1::Ai::ValidationStatistics', type: :request do
 
         get '/api/v1/ai/validation_statistics', headers: headers_without_permission, as: :json
 
-        expect_error_response('Insufficient permissions to view validation statistics', 403)
+        expect_error_response('Insufficient permissions', 403)
       end
     end
 

@@ -167,17 +167,19 @@ RSpec.describe Ai::Agents::ConversationService, type: :service do
     let(:conversation) { create(:ai_conversation, agent: agent, user: user, account: account) }
 
     context 'with an assistant message' do
-      # Service uses message.metadata which doesn't exist on Ai::Message model (bug).
+      # Service uses message.processing_metadata for reading and writes to :metadata key in update!.
       # Use a double to test the service's intended logic.
       let(:stored_metadata) { {} }
       let(:message) do
         msg = double('message', id: SecureRandom.uuid, role: "assistant",
-                     content: "Original response", metadata: stored_metadata)
+                     content: "Original response", metadata: stored_metadata,
+                     processing_metadata: stored_metadata)
         allow(msg).to receive(:update!) do |attrs|
           stored_metadata.merge!(attrs[:metadata]) if attrs[:metadata]
         end
         allow(msg).to receive(:reload).and_return(msg)
         allow(msg).to receive(:metadata) { stored_metadata }
+        allow(msg).to receive(:processing_metadata) { stored_metadata }
         msg
       end
 
@@ -214,12 +216,14 @@ RSpec.describe Ai::Agents::ConversationService, type: :service do
     context 'with an assistant message' do
       let(:stored_metadata) { {} }
       let(:message) do
-        msg = double('message', id: SecureRandom.uuid, role: "assistant", metadata: stored_metadata)
+        msg = double('message', id: SecureRandom.uuid, role: "assistant",
+                     metadata: stored_metadata, processing_metadata: stored_metadata)
         allow(msg).to receive(:update!) do |attrs|
           stored_metadata.merge!(attrs[:metadata]) if attrs[:metadata]
         end
         allow(msg).to receive(:reload).and_return(msg)
         allow(msg).to receive(:metadata) { stored_metadata }
+        allow(msg).to receive(:processing_metadata) { stored_metadata }
         msg
       end
 

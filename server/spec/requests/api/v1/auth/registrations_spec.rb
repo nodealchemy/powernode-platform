@@ -62,6 +62,9 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
       end
 
       it 'sends verification email when required' do
+        # Force email verification to be required (overrides test env auto-verify)
+        allow(Rails).to receive(:env).and_return(ActiveSupport::EnvironmentInquirer.new('development'))
+
         post '/api/v1/auth/register',
              params: valid_params,
              as: :json
@@ -71,6 +74,9 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
       end
 
       it 'includes verification warning in response' do
+        # Force email verification to be required (overrides test env auto-verify)
+        allow(Rails).to receive(:env).and_return(ActiveSupport::EnvironmentInquirer.new('development'))
+
         post '/api/v1/auth/register',
              params: valid_params,
              as: :json
@@ -85,6 +91,10 @@ RSpec.describe 'Api::V1::Auth::Registrations', type: :request do
     context 'with plan selection' do
       let(:plan) { create(:plan, status: 'active', is_public: true, trial_days: 14) }
       let(:params_with_plan) { valid_params.merge(plan_id: plan.id) }
+
+      before do
+        allow(Shared::FeatureGateService).to receive(:billing_enabled?).and_return(true)
+      end
 
       it 'creates subscription with trial period' do
         expect {

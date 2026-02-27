@@ -89,11 +89,15 @@ RSpec.describe Ai::Tools::TeamManagementTool do
     end
 
     context "with execute_team action" do
+      before do
+        allow(WorkerJobService).to receive(:enqueue_ai_team_execution).and_return(true)
+      end
+
       it "queues team execution" do
         team = create(:ai_agent_team, account: account)
         result = tool.execute(params: { action: "execute_team", team_id: team.id })
         expect(result[:success]).to be true
-        expect(result[:status]).to eq("execution_queued")
+        expect(result[:status]).to eq("execution_dispatched")
       end
 
       it "returns error for non-existent team" do

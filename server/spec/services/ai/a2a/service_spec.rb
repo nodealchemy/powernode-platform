@@ -174,7 +174,7 @@ RSpec.describe Ai::A2a::Service, type: :service do
       end
 
       it 'queues job when async' do
-        expect(AiA2aTaskExecutionJob).to receive(:perform_later).with(anything)
+        expect(WorkerJobService).to receive(:enqueue_ai_a2a_task_execution).with(anything)
         service.submit_task(to_agent_card: agent_card, message: message, sync: false)
       end
 
@@ -200,7 +200,7 @@ RSpec.describe Ai::A2a::Service, type: :service do
       end
 
       it 'queues external task job' do
-        expect(AiA2aExternalTaskJob).to receive(:perform_later).with(anything)
+        expect(WorkerJobService).to receive(:enqueue_ai_a2a_external_task).with(anything)
         service.submit_external_task(endpoint_url: endpoint_url, message: message)
       end
     end
@@ -273,7 +273,7 @@ RSpec.describe Ai::A2a::Service, type: :service do
       end
 
       it 'queues execution job' do
-        expect(AiA2aTaskExecutionJob).to receive(:perform_later).with(task.id)
+        expect(WorkerJobService).to receive(:enqueue_ai_a2a_task_execution).with(task.id)
         service.provide_input(task.task_id, { answer: 'yes' })
       end
 

@@ -240,6 +240,7 @@ RSpec.describe 'Api::V1::Customers', type: :request do
       end
 
       it 'creates subscription when plan provided' do
+        allow(Shared::FeatureGateService).to receive(:billing_enabled?).and_return(true)
         headers = auth_headers_for(user)
 
         expect {

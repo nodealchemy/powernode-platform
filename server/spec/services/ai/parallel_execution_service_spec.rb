@@ -14,6 +14,10 @@ RSpec.describe Ai::ParallelExecutionService, type: :service do
   before do
     allow(File).to receive(:directory?).and_call_original
     allow(File).to receive(:directory?).with(repository_path).and_return(true)
+    # Stub WorkerJobService dispatch methods (jobs run in worker, not server)
+    allow(WorkerJobService).to receive(:enqueue_ai_worktree_provisioning).and_return({ 'status' => 'queued' })
+    allow(WorkerJobService).to receive(:enqueue_ai_worktree_cleanup).and_return({ 'status' => 'queued' })
+    allow(WorkerJobService).to receive(:enqueue_ai_merge_execution).and_return({ 'status' => 'queued' })
     # Stub Open3 for create_worktree_records base SHA resolution
     allow(Open3).to receive(:capture3)
       .with('git', 'rev-parse', 'main', chdir: repository_path)
@@ -43,10 +47,12 @@ RSpec.describe Ai::ParallelExecutionService, type: :service do
         }.to change(Ai::Worktree, :count).by(2)
       end
 
-      it 'enqueues WorktreeProvisioningJob' do
-        expect {
-          service.start_session(source: ralph_loop, tasks: tasks, repository_path: repository_path)
-        }.to have_enqueued_job(Ai::WorktreeProvisioningJob)
+      it 'dispatches worktree provisioning to worker' do
+        allow(WorkerJobService).to receive(:enqueue_ai_worktree_provisioning).and_return({ 'status' => 'queued' })
+
+        service.start_session(source: ralph_loop, tasks: tasks, repository_path: repository_path)
+
+        expect(WorkerJobService).to have_received(:enqueue_ai_worktree_provisioning)
       end
 
       it 'sets the session as pending' do
@@ -126,7 +132,8 @@ RSpec.describe Ai::ParallelExecutionService, type: :service do
       it 'enqueues cleanup job when auto_cleanup is enabled' do
         expect {
           service.cancel_session(session_id: session.id, reason: 'User requested')
-        }.to have_enqueued_job(Ai::WorktreeCleanupJob).with(session.id)
+        }
+        expect(WorkerJobService).to have_received(:enqueue_ai_worktree_cleanup).with(session.id)
       end
     end
 
@@ -174,7 +181,8 @@ RSpec.describe Ai::ParallelExecutionService, type: :service do
       it 'does not enqueue MergeExecutionJob' do
         expect {
           service.worktree_completed(worktree_id: worktree1.id, result: completion_result)
-        }.not_to have_enqueued_job(Ai::MergeExecutionJob)
+        }
+        expect(WorkerJobService).not_to have_received(:enqueue_ai_merge_execution)
       end
     end
 
@@ -195,7 +203,8 @@ RSpec.describe Ai::ParallelExecutionService, type: :service do
       it 'enqueues MergeExecutionJob' do
         expect {
           service.worktree_completed(worktree_id: worktree1.id, result: completion_result)
-        }.to have_enqueued_job(Ai::MergeExecutionJob).with(session.id)
+        }
+        expect(WorkerJobService).to have_received(:enqueue_ai_merge_execution).with(session.id)
       end
     end
   end

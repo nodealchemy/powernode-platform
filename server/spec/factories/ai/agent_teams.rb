@@ -35,6 +35,12 @@ FactoryBot.define do
       description { 'Parallel team executing tasks concurrently' }
     end
 
+    trait :workspace do
+      team_type { 'workspace' }
+      coordination_strategy { 'round_robin' }
+      description { 'Workspace team for MCP client agents' }
+    end
+
     trait :inactive do
       status { 'inactive' }
     end

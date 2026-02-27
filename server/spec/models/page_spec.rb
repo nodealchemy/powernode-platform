@@ -7,7 +7,7 @@ RSpec.describe Page, type: :model do
 
   # Associations
   describe 'associations' do
-    it { should belong_to(:user).with_foreign_key('author_id').optional }
+    it { should belong_to(:user).with_foreign_key('author_id') }
     it { should respond_to(:author) }
     it { should have_many(:file_objects).dependent(:nullify) }
     it { should have_many(:images) }

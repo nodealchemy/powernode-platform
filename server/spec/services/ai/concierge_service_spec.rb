@@ -22,10 +22,9 @@ RSpec.describe Ai::ConciergeService do
   describe "#process_message" do
     context "when LLM returns [RESPOND]" do
       before do
-        allow_any_instance_of(Ai::ProviderClientService).to receive(:send_message).and_return({
-          success: true,
-          response: { choices: [{ message: { content: "[RESPOND] Hello! How can I help you today?" } }] }
-        })
+        allow_any_instance_of(WorkerLlmClient).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: "[RESPOND] Hello! How can I help you today?", usage: { prompt_tokens: 50, completion_tokens: 20, total_tokens: 70 })
+        )
       end
 
       it "adds an assistant message to the conversation" do
@@ -39,10 +38,9 @@ RSpec.describe Ai::ConciergeService do
 
     context "when LLM returns [ACTION:check_status]" do
       before do
-        allow_any_instance_of(Ai::ProviderClientService).to receive(:send_message).and_return({
-          success: true,
-          response: { choices: [{ message: { content: "[ACTION:check_status]" } }] }
-        })
+        allow_any_instance_of(WorkerLlmClient).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: "[ACTION:check_status]", usage: { prompt_tokens: 50, completion_tokens: 10, total_tokens: 60 })
+        )
       end
 
       it "checks mission status and responds" do
@@ -69,10 +67,9 @@ RSpec.describe Ai::ConciergeService do
 
     context "when LLM returns [CONFIRM:create_mission]" do
       before do
-        allow_any_instance_of(Ai::ProviderClientService).to receive(:send_message).and_return({
-          success: true,
-          response: { choices: [{ message: { content: '[CONFIRM:create_mission] {"name": "Add Login", "repository": "my-repo", "objective": "Add login page"} I\'d like to create a mission to add a login page.' } }] }
-        })
+        allow_any_instance_of(WorkerLlmClient).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: '[CONFIRM:create_mission] {"name": "Add Login", "repository": "my-repo", "objective": "Add login page"} I\'d like to create a mission to add a login page.', usage: { prompt_tokens: 50, completion_tokens: 30, total_tokens: 80 })
+        )
       end
 
       it "posts a confirmation card message" do
@@ -91,10 +88,9 @@ RSpec.describe Ai::ConciergeService do
 
     context "when LLM returns [CONFIRM:delegate_to_team]" do
       before do
-        allow_any_instance_of(Ai::ProviderClientService).to receive(:send_message).and_return({
-          success: true,
-          response: { choices: [{ message: { content: '[CONFIRM:delegate_to_team] {"team": "Dev Team", "objective": "Refactor auth"} Shall I delegate this to the Dev Team?' } }] }
-        })
+        allow_any_instance_of(WorkerLlmClient).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: '[CONFIRM:delegate_to_team] {"team": "Dev Team", "objective": "Refactor auth"} Shall I delegate this to the Dev Team?', usage: { prompt_tokens: 50, completion_tokens: 30, total_tokens: 80 })
+        )
       end
 
       it "posts a confirmation card for delegation" do
@@ -120,9 +116,9 @@ RSpec.describe Ai::ConciergeService do
 
     context "when LLM call fails" do
       before do
-        allow_any_instance_of(Ai::ProviderClientService).to receive(:send_message).and_return({
-          success: false, error: "API error"
-        })
+        allow_any_instance_of(WorkerLlmClient).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: nil, finish_reason: "error", raw_response: { error: "API error" })
+        )
       end
 
       it "responds with a fallback message" do
@@ -134,7 +130,7 @@ RSpec.describe Ai::ConciergeService do
 
     context "when an unexpected error occurs" do
       before do
-        allow_any_instance_of(Ai::ProviderClientService).to receive(:send_message).and_raise(StandardError, "unexpected")
+        allow_any_instance_of(WorkerLlmClient).to receive(:complete).and_raise(StandardError, "unexpected")
       end
 
       it "handles the error gracefully" do
@@ -146,10 +142,9 @@ RSpec.describe Ai::ConciergeService do
 
     context "when response has no action marker" do
       before do
-        allow_any_instance_of(Ai::ProviderClientService).to receive(:send_message).and_return({
-          success: true,
-          response: { choices: [{ message: { content: "Just a regular response without markers." } }] }
-        })
+        allow_any_instance_of(WorkerLlmClient).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: "Just a regular response without markers.", usage: { prompt_tokens: 50, completion_tokens: 20, total_tokens: 70 })
+        )
       end
 
       it "treats it as a respond action" do
@@ -216,7 +211,7 @@ RSpec.describe Ai::ConciergeService do
       before { team }
 
       it "delegates to the team" do
-        expect(Ai::AgentTeamExecutionJob).to receive(:perform_later).with(hash_including(
+        expect(WorkerJobService).to receive(:enqueue_ai_team_execution).with(hash_including(
           team_id: team.id,
           user_id: user.id
         ))
@@ -343,11 +338,10 @@ RSpec.describe Ai::ConciergeService do
     end
   end
 
-  describe "system_prompt" do
+  describe "legacy_system_prompt" do
     it "includes platform capabilities" do
-      prompt = service.send(:system_prompt)
-      expect(prompt).to include("Powernode Assistant")
-      expect(prompt).to include("Missions")
+      prompt = service.send(:legacy_system_prompt)
+      expect(prompt).to include("ACTIVE MISSIONS")
       expect(prompt).to include("[RESPOND]")
       expect(prompt).to include("[CONFIRM:create_mission]")
     end
@@ -356,12 +350,12 @@ RSpec.describe Ai::ConciergeService do
       repo = create(:git_repository, account: account)
       create(:ai_mission, :active, account: account, created_by: user, name: "Active Test", repository: repo)
 
-      prompt = service.send(:system_prompt)
+      prompt = service.send(:legacy_system_prompt)
       expect(prompt).to include("Active Test")
     end
 
     it "shows no missions when none active" do
-      prompt = service.send(:system_prompt)
+      prompt = service.send(:legacy_system_prompt)
       expect(prompt).to include("None currently active")
     end
   end

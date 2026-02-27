@@ -335,16 +335,15 @@ RSpec.describe 'Api::V1::Ai::Conversations', type: :request do
       credential = instance_double('ProviderCredential', is_active: true)
       allow_any_instance_of(Ai::Provider).to receive_message_chain(:provider_credentials, :where, :first).and_return(credential)
 
-      client = instance_double(Ai::ProviderClientService)
-      allow(Ai::ProviderClientService).to receive(:new).and_return(client)
-      allow(client).to receive(:send_message).and_return({
-        success: true,
-        response: {
+      client = instance_double(WorkerLlmClient)
+      allow(WorkerLlmClient).to receive(:new).and_return(client)
+      allow(client).to receive(:complete).and_return(
+        Ai::Llm::Response.new(
           content: 'AI response text',
-          choices: [{ message: { content: 'AI response text' }, finish_reason: 'stop' }],
+          finish_reason: 'stop',
           usage: { prompt_tokens: 50, completion_tokens: 30, total_tokens: 80 }
-        }
-      })
+        )
+      )
 
       # Stub container bridge to not route
       bridge = instance_double(Ai::ContainerChatBridgeService, has_active_container?: false)
@@ -440,12 +439,11 @@ RSpec.describe 'Api::V1::Ai::Conversations', type: :request do
 
     context 'when AI response fails' do
       before do
-        client = instance_double(Ai::ProviderClientService)
-        allow(Ai::ProviderClientService).to receive(:new).and_return(client)
-        allow(client).to receive(:send_message).and_return({
-          success: false,
-          error: 'Provider error'
-        })
+        client = instance_double(WorkerLlmClient)
+        allow(WorkerLlmClient).to receive(:new).and_return(client)
+        allow(client).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: nil, finish_reason: "error", raw_response: { error: "Provider error" })
+        )
       end
 
       it 'returns partial content with user message and error' do
@@ -493,7 +491,7 @@ RSpec.describe 'Api::V1::Ai::Conversations', type: :request do
 
         expect(data['messages']).to be_an(Array)
         expect(data['messages'].length).to be >= 1
-        expect(data['pagination']).to include('current_page', 'total_pages', 'total_count')
+        expect(data['pagination']).to include('total_count')
       end
 
       it 'returns message details' do

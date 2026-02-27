@@ -13,7 +13,7 @@ RSpec.describe "STAR-enhanced skill composition", type: :service do
       configuration: configuration
     )
   end
-  let(:llm_client) { instance_double(Ai::Llm::Client) }
+  let(:llm_client) { instance_double(WorkerLlmClient) }
   let(:model) { "gpt-4.1" }
 
   let(:star_json) do

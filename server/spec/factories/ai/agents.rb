@@ -78,6 +78,16 @@ FactoryBot.define do
       end
     end
 
+    trait :mcp_client do
+      agent_type { 'mcp_client' }
+      sequence(:name) { |n| "Claude Code ##{n}" }
+      description { 'Auto-created identity for Claude Code MCP session' }
+    end
+
+    trait :archived do
+      status { 'archived' }
+    end
+
     trait :monitor do
       agent_type { 'monitor' }
     end

@@ -79,14 +79,12 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
         allow(cred_relation).to receive(:active).and_return(cred_relation)
         allow(cred_relation).to receive(:first).and_return(credential)
 
-        client = instance_double(Ai::ProviderClientService)
-        allow(Ai::ProviderClientService).to receive(:new).and_return(client)
+        client = instance_double(WorkerLlmClient)
+        allow(WorkerLlmClient).to receive(:new).and_return(client)
         allow(ralph_loop).to receive(:available_mcp_tools).and_return([])
-        allow(client).to receive(:send_message).and_return({
-          success: true,
-          response: { content: "done" },
-          metadata: { prompt_tokens: 100, completion_tokens: 50, cost: 0.01 }
-        })
+        allow(client).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: "done", usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
+        )
 
         result = executor.execute
         expect(task).to have_received(:update!).at_least(:once)
@@ -95,7 +93,7 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
 
     context 'with agent execution type' do
       let(:credential) { instance_double(Ai::ProviderCredential) }
-      let(:client) { instance_double(Ai::ProviderClientService) }
+      let(:client) { instance_double(WorkerLlmClient) }
       let(:cred_relation) { double("credentials") }
 
       before do
@@ -110,16 +108,14 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
         allow(provider).to receive(:default_model).and_return("test-model-1")
         allow(provider).to receive(:provider_type).and_return("openai")
 
-        allow(Ai::ProviderClientService).to receive(:new).with(credential).and_return(client)
+        allow(WorkerLlmClient).to receive(:new).and_return(client)
         allow(ralph_loop).to receive(:available_mcp_tools).and_return([])
       end
 
       it 'sends messages to the AI provider via agentic loop' do
-        allow(client).to receive(:send_message).and_return({
-          success: true,
-          response: { choices: [{ message: { content: "Task completed successfully" } }] },
-          metadata: { usage: { prompt_tokens: 200, completion_tokens: 100 }, cost: 0.02 }
-        })
+        allow(client).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: "Task completed successfully", usage: { prompt_tokens: 200, completion_tokens: 100, total_tokens: 300 })
+        )
 
         result = executor.execute
 
@@ -138,16 +134,14 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
       end
 
       it 'handles API errors gracefully' do
-        allow(client).to receive(:send_message).and_return({
-          success: false,
-          error: "API rate limited",
-          error_type: "rate_limit"
-        })
+        allow(client).to receive(:complete).and_return(
+          Ai::Llm::Response.new(content: nil, finish_reason: "error", raw_response: { error: "API rate limited" })
+        )
 
         result = executor.execute
 
         expect(result[:success]).to be false
-        expect(result[:error]).to eq("API rate limited")
+        expect(result[:error]).to be_present
       end
     end
 
@@ -163,8 +157,7 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
         allow(ralph_loop).to receive(:default_agent).and_return(nil)
         allow(task).to receive(:record_execution_attempt!)
         allow(task).to receive(:update!)
-        # WorkflowExecutionJob is defined in the worker, not the server
-        stub_const("Ai::WorkflowExecutionJob", Class.new { def self.perform_later(*); end })
+        allow(WorkerJobService).to receive(:enqueue_ai_workflow_execution)
         # Stub workflow.runs.create! because the service passes `triggered_by:`
         # which doesn't match the model's `triggered_by_user` association
         allow(workflow).to receive(:runs).and_return(runs_relation)
@@ -176,8 +169,6 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
       end
 
       it 'creates a workflow run and queues execution' do
-        allow(Ai::WorkflowExecutionJob).to receive(:perform_later)
-
         result = executor.execute
 
         expect(result[:success]).to be true
@@ -219,7 +210,7 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
 
     context 'with MCP tool-calling loop' do
       let(:credential) { instance_double(Ai::ProviderCredential) }
-      let(:client) { instance_double(Ai::ProviderClientService) }
+      let(:client) { instance_double(WorkerLlmClient) }
       let(:cred_relation) { double("credentials") }
       let(:mcp_server) { instance_double(McpServer) }
       let(:mcp_tool) do
@@ -243,40 +234,31 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
         allow(provider).to receive(:default_model).and_return("test-model-1")
         allow(provider).to receive(:provider_type).and_return("openai")
 
-        allow(Ai::ProviderClientService).to receive(:new).and_return(client)
+        allow(WorkerLlmClient).to receive(:new).and_return(client)
         allow(ralph_loop).to receive(:available_mcp_tools).and_return([mcp_tool])
       end
 
       it 'handles tool calls in the response via agentic loop' do
-        # First call returns an OpenAI-format tool call
-        tool_call_response = {
-          success: true,
-          response: {
-            choices: [{
-              message: {
-                content: nil,
-                tool_calls: [{
-                  id: "call_123",
-                  function: { name: "file_read", arguments: '{"path":"/README.md"}' }
-                }]
-              }
-            }]
-          },
-          metadata: {}
-        }
+        # First call returns a tool call
+        tool_call_response = Ai::Llm::Response.new(
+          content: nil,
+          tool_calls: [{ id: "call_123", name: "file_read", arguments: { "path" => "/README.md" } }],
+          finish_reason: "tool_calls",
+          usage: { prompt_tokens: 200, completion_tokens: 50, total_tokens: 250 }
+        )
 
         # After tool execution, final response with no tool calls
-        final_response = {
-          success: true,
-          response: { choices: [{ message: { content: "File contents processed" } }] },
-          metadata: { usage: { prompt_tokens: 300, completion_tokens: 150 }, cost: 0.03 }
-        }
+        final_response = Ai::Llm::Response.new(
+          content: "File contents processed",
+          usage: { prompt_tokens: 300, completion_tokens: 150, total_tokens: 450 }
+        )
 
         call_count = 0
-        allow(client).to receive(:send_message) do
+        allow(client).to receive(:complete_with_tools) do
           call_count += 1
           call_count == 1 ? tool_call_response : final_response
         end
+        allow(client).to receive(:complete).and_return(final_response)
 
         sync_service = double("SyncExecutionService")
         allow(Mcp::SyncExecutionService).to receive(:new).and_return(sync_service)

@@ -11,7 +11,7 @@ RSpec.describe "STAR reasoning integration with AgentToolBridgeService" do
            mcp_metadata: { "reasoning" => { "mode" => "star" } })
   end
   let(:bridge) { Ai::AgentToolBridgeService.new(agent: agent, account: account) }
-  let(:llm_client) { instance_double(Ai::Llm::Client) }
+  let(:llm_client) { instance_double(WorkerLlmClient) }
   let(:model) { "gpt-4.1" }
 
   let(:star_json) do

@@ -146,7 +146,7 @@ RSpec.describe Ai::Analytics::MetricsService do
         create(:ai_agent, account: account, agent_type: "assistant")
         create(:ai_agent, account: account, agent_type: "assistant")
         create(:ai_agent, :code_assistant, account: account)
-        create(:ai_agent, :inactive, account: account)
+        create(:ai_agent, :inactive, account: account, agent_type: "monitor")
       end
 
       it "counts agents correctly" do

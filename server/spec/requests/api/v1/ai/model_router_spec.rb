@@ -11,6 +11,7 @@ RSpec.describe 'Api::V1::Ai::ModelRouter', type: :request do
 
   before do
     allow_any_instance_of(Api::V1::Ai::ModelRouterController).to receive(:log_audit_event)
+    allow_any_instance_of(Api::V1::Ai::ModelRouterAnalyticsController).to receive(:log_audit_event)
   end
 
   describe 'GET /api/v1/ai/model_router/rules' do

@@ -390,7 +390,7 @@ module AiOrchestrationHelpers
   # Helper for testing circuit breaker functionality
   def trigger_circuit_breaker(service, provider, failure_threshold: 5)
     failure_threshold.times do
-      allow_any_instance_of(Ai::ProviderClientService).to receive(:generate_text)
+      allow_any_instance_of(WorkerLlmClient).to receive(:complete)
         .and_raise(StandardError, 'Provider unavailable')
 
       begin

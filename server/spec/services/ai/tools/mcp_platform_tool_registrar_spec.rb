@@ -90,7 +90,7 @@ RSpec.describe Ai::Tools::McpPlatformToolRegistrar do
 
     before do
       allow(Ai::Tools::AgentManagementTool).to receive(:new)
-        .with(account: account, user: user).and_return(tool_instance)
+        .with(account: account, user: user, agent: nil).and_return(tool_instance)
     end
 
     it "routes to the correct tool class and returns result" do

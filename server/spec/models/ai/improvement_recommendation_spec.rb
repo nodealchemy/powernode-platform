@@ -66,7 +66,7 @@ RSpec.describe Ai::ImprovementRecommendation, type: :model do
 
     it 'defines valid RECOMMENDATION_TYPES' do
       expect(Ai::ImprovementRecommendation::RECOMMENDATION_TYPES).to eq(
-        %w[provider_switch team_composition timeout_adjustment model_upgrade cost_optimization]
+        %w[provider_switch team_composition timeout_adjustment model_upgrade cost_optimization skill_consolidation skill_connection prompt_refinement skill_creation]
       )
     end
   end

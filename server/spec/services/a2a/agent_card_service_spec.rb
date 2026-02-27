@@ -26,7 +26,7 @@ RSpec.describe A2a::AgentCardService do
     end
 
     it "has correct A2A URL" do
-      expect(card[:url]).to eq("#{base_url}/a2a")
+      expect(card[:url]).to eq("#{base_url}/api/v1/a2a")
     end
 
     it "includes streaming capability" do

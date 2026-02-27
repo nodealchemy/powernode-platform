@@ -5,9 +5,13 @@ require 'rails_helper'
 RSpec.describe 'Api::V1::Ai::AgentMarketplace', type: :request do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account, permissions: [ 'ai.agents.read', 'ai.marketplace.read' ]) }
+  let(:manage_user) { create(:user, account: account, permissions: [ 'ai.agents.read', 'ai.marketplace.read', 'ai.marketplace.manage' ]) }
+  let(:review_user) { create(:user, account: account, permissions: [ 'ai.agents.read', 'ai.marketplace.read', 'ai.marketplace.review' ]) }
   let(:publisher_user) { create(:user, account: account, permissions: [ 'ai.agents.read', 'ai.marketplace.read', 'ai.marketplace.publish' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
   let(:headers) { auth_headers_for(user) }
+  let(:manage_headers) { auth_headers_for(manage_user) }
+  let(:review_headers) { auth_headers_for(review_user) }
   let(:publisher_headers) { auth_headers_for(publisher_user) }
 
   # Create test data using lambdas (no factories available)
@@ -233,7 +237,7 @@ RSpec.describe 'Api::V1::Ai::AgentMarketplace', type: :request do
     context 'with permission' do
       it 'installs template successfully' do
         post "/api/v1/ai/agent_marketplace/templates/#{SecureRandom.uuid}/install",
-             headers: headers,
+             headers: manage_headers,
              as: :json
 
         expect_success_response
@@ -245,7 +249,7 @@ RSpec.describe 'Api::V1::Ai::AgentMarketplace', type: :request do
         custom_config = { setting: 'value' }
         post "/api/v1/ai/agent_marketplace/templates/#{SecureRandom.uuid}/install",
              params: { custom_config: custom_config },
-             headers: headers,
+             headers: manage_headers,
              as: :json
 
         expect(service).to have_received(:install_template).with(
@@ -263,7 +267,7 @@ RSpec.describe 'Api::V1::Ai::AgentMarketplace', type: :request do
 
       it 'returns error response' do
         post "/api/v1/ai/agent_marketplace/templates/#{SecureRandom.uuid}/install",
-             headers: headers,
+             headers: manage_headers,
              as: :json
 
         expect_error_response('Installation failed', 422)
@@ -288,7 +292,7 @@ RSpec.describe 'Api::V1::Ai::AgentMarketplace', type: :request do
     context 'with permission' do
       it 'uninstalls template successfully' do
         delete "/api/v1/ai/agent_marketplace/installations/#{SecureRandom.uuid}",
-               headers: headers,
+               headers: manage_headers,
                as: :json
 
         expect_success_response
@@ -344,7 +348,7 @@ RSpec.describe 'Api::V1::Ai::AgentMarketplace', type: :request do
       it 'creates review successfully' do
         post "/api/v1/ai/agent_marketplace/templates/#{SecureRandom.uuid}/reviews",
              params: { rating: 5, title: 'Great!', content: 'Excellent' },
-             headers: headers,
+             headers: review_headers,
              as: :json
 
         expect_success_response

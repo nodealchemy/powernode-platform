@@ -241,7 +241,7 @@ RSpec.describe Ai::Ralph::ExecutionService, type: :service do
     let(:loop_status) { "running" }
 
     before do
-      allow(Ai::RalphLoopRunAllJob).to receive(:perform_later)
+      allow(WorkerJobService).to receive(:enqueue_ai_ralph_loop_run_all)
     end
 
     it "sets run_all_active flag and enqueues job" do
@@ -250,7 +250,7 @@ RSpec.describe Ai::Ralph::ExecutionService, type: :service do
       expect(result[:success]).to be true
       expect(result[:message]).to eq("Run All started")
       expect(ralph_loop.reload.configuration["run_all_active"]).to be true
-      expect(Ai::RalphLoopRunAllJob).to have_received(:perform_later).with(ralph_loop.id, stop_on_error: true)
+      expect(WorkerJobService).to have_received(:enqueue_ai_ralph_loop_run_all).with(ralph_loop.id, stop_on_error: true)
     end
 
     context "when run_all is already active" do

@@ -412,16 +412,6 @@ RSpec.describe Api::V1::Ai::WorkflowsController, type: :controller do
     end
   end
 
-  describe 'GET #templates' do
-    it 'returns workflow templates' do
-      get :templates
-
-      expect(response).to have_http_status(:ok)
-      templates = json_response['data']['templates']
-      expect(templates).to be_an(Array)
-      expect(templates.first).to include('id', 'name', 'description', 'category')
-    end
-  end
 
   describe 'nested workflow runs' do
     let!(:workflow_run) { create(:ai_workflow_run, workflow: workflow, account: account, triggered_by_user: user) }

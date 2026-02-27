@@ -153,8 +153,8 @@ RSpec.describe "Api::V1::Ai::AgentTeamsController", type: :request do
     end
 
     it 'does not return 403 when user has ai.teams.execute permission' do
-      # Stub the async job to avoid actually enqueuing
-      allow(::Ai::AgentTeamExecutionJob).to receive(:perform_async).and_return("fake-job-id")
+      # Stub the worker dispatch to avoid actually enqueuing
+      allow(WorkerJobService).to receive(:enqueue_ai_team_execution).and_return({ "job_id" => "fake-job-id" })
 
       post path, params: execute_params.to_json, headers: auth_headers_for(execute_user)
       expect(response).not_to have_http_status(:forbidden)

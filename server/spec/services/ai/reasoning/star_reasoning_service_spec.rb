@@ -5,7 +5,7 @@ require "rails_helper"
 RSpec.describe Ai::Reasoning::StarReasoningService do
   let(:account) { create(:account) }
   let(:service) { described_class.new(account: account) }
-  let(:llm_client) { instance_double(Ai::Llm::Client) }
+  let(:llm_client) { instance_double(WorkerLlmClient) }
   let(:model) { "gpt-4.1" }
 
   let(:valid_star_json) do

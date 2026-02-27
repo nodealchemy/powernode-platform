@@ -102,8 +102,8 @@ module AiTestHelpers
         }.merge(metadata)
       }
 
-      allow_any_instance_of(Ai::ProviderClientService).to receive(:execute_request)
-        .and_return(response)
+      allow_any_instance_of(WorkerLlmClient).to receive(:complete)
+        .and_return(Ai::Llm::Response.new(content: content, usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 }))
 
       response
     end

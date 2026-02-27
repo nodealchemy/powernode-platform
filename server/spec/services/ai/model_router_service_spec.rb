@@ -97,11 +97,11 @@ RSpec.describe Ai::ModelRouterService do
   describe "#client_for_routing" do
     let(:service) { described_class.new(account: account) }
 
-    it "builds Ai::Llm::Client from routing result" do
+    it "builds WorkerLlmClient from routing result" do
       credential # ensure exists
       routing = { provider: provider }
       client = service.client_for_routing(routing)
-      expect(client).to be_a(Ai::Llm::Client)
+      expect(client).to be_a(WorkerLlmClient)
     end
 
     it "raises when no credentials available" do
@@ -130,7 +130,7 @@ RSpec.describe Ai::ModelRouterService do
 
     it "returns client, model, and routing" do
       result = service.route_and_build_client(task_type: "classification")
-      expect(result[:client]).to be_a(Ai::Llm::Client)
+      expect(result[:client]).to be_a(WorkerLlmClient)
       expect(result[:model]).to eq("gpt-4.1-nano")
       expect(result[:routing][:model_tier]).to eq("economy")
     end
