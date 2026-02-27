@@ -67,7 +67,7 @@ export const defaultNavigationConfig: NavigationConfig = {
         },
         {
           id: 'ai-workflows',
-          name: 'Workflow Builder',
+          name: 'Workflows',
           href: '/app/ai/workflows',
           icon: Workflow,
           description: 'Advanced visual workflow builder for developers',
