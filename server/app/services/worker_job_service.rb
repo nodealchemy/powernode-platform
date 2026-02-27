@@ -351,6 +351,60 @@ class WorkerJobService
       })
     end
 
+    # Enqueue AI conversation response job
+    def enqueue_ai_conversation_response(conversation_id, message_id, user_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiConversationResponseJob",
+        "args" => [conversation_id, message_id, user_id],
+        "queue" => "ai_conversations"
+      })
+    end
+
+    # Enqueue AI self-healing monitor job
+    def enqueue_ai_self_healing_monitor
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiSelfHealingMonitorJob",
+        "args" => [],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # Enqueue AI trajectory analysis job
+    def enqueue_ai_trajectory_analysis
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiTrajectoryAnalysisJob",
+        "args" => [],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # Enqueue AI ralph loop run-all job
+    def enqueue_ai_ralph_loop_run_all(ralph_loop_id, stop_on_error: false)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiRalphLoopRunAllJob",
+        "args" => [ralph_loop_id, { "stop_on_error" => stop_on_error }],
+        "queue" => "ai_execution"
+      })
+    end
+
+    # Enqueue AI monitoring health check job
+    def enqueue_ai_monitoring_health_check(account_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiMonitoringHealthCheckJob",
+        "args" => [account_id],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # Enqueue AI trajectory build job
+    def enqueue_ai_trajectory_build(account_id:, execution_id:)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiTrajectoryBuildJob",
+        "args" => [{ "account_id" => account_id, "execution_id" => execution_id }],
+        "queue" => "ai_orchestration"
+      })
+    end
+
     # Enqueue skill conflict check after skill creation/update
     def enqueue_ai_skill_conflict_check(skill_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
@@ -406,6 +460,75 @@ class WorkerJobService
         "job_class" => "Devops::IntegrationExecutionJob",
         "args" => [ { execution_id: execution_id, input: input, context: context } ],
         "queue" => "integrations"
+      })
+    end
+
+    # ==========================================
+    # AI Git/Worktree Jobs
+    # ==========================================
+
+    # Enqueue worktree provisioning job
+    def enqueue_ai_worktree_provisioning(session_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiWorktreeProvisioningJob",
+        "args" => [session_id],
+        "queue" => "ai_execution"
+      })
+    end
+
+    # Enqueue worktree cleanup job
+    def enqueue_ai_worktree_cleanup(session_id, delay: nil)
+      payload = {
+        "job_class" => "AiWorktreeCleanupJob",
+        "args" => [session_id],
+        "queue" => "ai_execution"
+      }
+      payload["delay"] = delay if delay
+      new.make_worker_request("POST", "/api/v1/jobs", payload)
+    end
+
+    # Enqueue worktree push and PR creation job
+    def enqueue_ai_worktree_push_and_pr(session_id, options = {})
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiWorktreePushAndPrJob",
+        "args" => [session_id, options],
+        "queue" => "ai_execution"
+      })
+    end
+
+    # Enqueue worktree timeout check job
+    def enqueue_ai_worktree_timeout
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiWorktreeTimeoutJob",
+        "args" => [],
+        "queue" => "ai_execution"
+      })
+    end
+
+    # Enqueue merge execution job
+    def enqueue_ai_merge_execution(session_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiMergeExecutionJob",
+        "args" => [session_id],
+        "queue" => "ai_execution"
+      })
+    end
+
+    # Enqueue conflict detection job
+    def enqueue_ai_conflict_detection(session_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiConflictDetectionJob",
+        "args" => [session_id],
+        "queue" => "ai_execution"
+      })
+    end
+
+    # Enqueue runner dispatch poll job
+    def enqueue_ai_runner_dispatch_poll(session_id, poll_count: 0)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiRunnerDispatchPollJob",
+        "args" => [session_id, { "poll_count" => poll_count }],
+        "queue" => "default"
       })
     end
 
