@@ -199,9 +199,9 @@ class Ai::AgentTeamOrchestrator
     end
 
     def build_trajectory_async
-      Ai::BuildTrajectoryJob.perform_later(
+      WorkerJobService.enqueue_ai_trajectory_build(
         account_id: team.account_id,
-        team_execution_id: @workflow_run.id
+        execution_id: @workflow_run.id
       )
     rescue StandardError => e
       @logger.error "[TeamOrchestrator] Trajectory job enqueue failed: #{e.message}"
@@ -231,7 +231,7 @@ class Ai::AgentTeamOrchestrator
         dispatch_service.dispatch(worktree: worktree, task_input: task_input, runner: runner)
       end
 
-      Ai::RunnerDispatchPollJob.perform_later(session.id)
+      WorkerJobService.enqueue_ai_runner_dispatch_poll(session.id)
     rescue StandardError => e
       @logger.error "[TeamOrchestrator] Runner dispatch failed: #{e.message}"
     end

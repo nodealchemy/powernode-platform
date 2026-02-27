@@ -4,6 +4,7 @@ module Ai
   module Missions
     class PrdGenerationService
       include Ai::Concerns::PromptTemplateLookup
+      include AgentBackedService
 
       class PrdGenerationError < StandardError; end
 
@@ -50,22 +51,19 @@ module Ai
       # Returns the generated PRD hash
       def generate!
         validate!
-        credential = resolve_credential
-        raise PrdGenerationError, "No active AI provider credentials found" unless credential
+        agent = discover_service_agent(
+          "Generate a Product Requirement Document by decomposing features into implementable tasks",
+          fallback_slug: "prd-generator"
+        )
+        raise PrdGenerationError, "No PRD Generator agent configured" unless agent
 
-        client = Ai::ProviderClientService.new(credential)
-        provider_type = credential.provider.provider_type
+        client = build_agent_client(agent)
         messages = build_messages
-        options = {
-          model: credential.provider.default_model,
-          max_tokens: 4096,
-          temperature: 0.4
-        }
 
-        result = client.send_message(messages, options)
-        raise PrdGenerationError, "AI provider returned error: #{result[:error]}" unless result[:success]
+        response = client.complete(messages: messages, model: agent_model(agent), max_tokens: agent_max_tokens(agent), temperature: agent_temperature(agent))
+        raise PrdGenerationError, "AI provider returned error: #{response.content}" unless response.success?
 
-        response_text = extract_text(result[:response], provider_type)
+        response_text = response.content
         raise PrdGenerationError, "AI returned empty response" if response_text.blank?
 
         prd_data = parse_prd_from_response(response_text)
@@ -92,14 +90,6 @@ module Ai
       end
 
       # Gets first active AI provider credential (mirrors RepoAnalysisService pattern)
-      def resolve_credential
-        account.ai_provider_credentials
-          .joins(:provider)
-          .where(ai_providers: { is_active: true })
-          .where(ai_provider_credentials: { is_active: true })
-          .first
-      end
-
       def build_messages
         system_prompt = resolve_prompt_template(
           PROMPT_SLUG,
@@ -177,29 +167,6 @@ module Ai
         parts << "Base branch: #{mission.base_branch || 'main'}"
 
         parts.join("\n")
-      end
-
-      def extract_text(response, provider_type)
-        case provider_type
-        when "anthropic"
-          if response.is_a?(Hash) && response[:content].is_a?(Array)
-            response[:content].filter_map { |b| b[:text] if b[:type] == "text" }.join("\n")
-          elsif response.is_a?(Hash) && response[:content].is_a?(String)
-            response[:content]
-          else
-            response.to_s
-          end
-        else
-          if response.is_a?(Hash) && response[:choices]
-            response.dig(:choices, 0, :message, :content) || ""
-          elsif response.is_a?(Hash) && response[:message]
-            response[:message][:content] || ""
-          elsif response.is_a?(Hash) && response[:content]
-            response[:content].is_a?(String) ? response[:content] : response[:content].to_s
-          else
-            response.to_s
-          end
-        end
       end
 
       # Parse PRD JSON from AI response text

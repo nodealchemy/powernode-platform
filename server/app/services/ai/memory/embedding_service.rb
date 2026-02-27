@@ -156,118 +156,25 @@ module Ai
       def generate_from_provider(text)
         return generate_mock_embedding(text) if Rails.env.test?
 
-        credential = build_credential
+        embedding = worker_embedding_client.generate(text, account_id: @account.id)
+        return embedding if embedding
 
-        case @provider&.provider_type
-        when "openai"
-          raise EmbeddingError, "No OpenAI credentials configured" unless credential
-          generate_openai_embedding(credential, text)
-        when "ollama"
-          generate_ollama_embedding(text)
-        else
-          openai_fallback = find_openai_fallback
-          if openai_fallback
-            generate_openai_embedding(openai_fallback, text)
-          else
-            raise EmbeddingError, "No embedding provider available. #{@provider&.provider_type || 'Unknown'} does not support embeddings. Configure an OpenAI or Ollama provider."
-          end
-        end
+        raise EmbeddingError, "Worker embedding service returned no result. Ensure the worker is running and has provider credentials configured."
       end
 
       def generate_batch_from_provider(texts)
         return texts.map { |t| generate_mock_embedding(t) } if Rails.env.test?
 
-        credential = build_credential
+        embeddings = worker_embedding_client.generate_batch(texts, account_id: @account.id)
+        return embeddings if embeddings&.any?
 
-        case @provider&.provider_type
-        when "openai"
-          raise EmbeddingError, "No OpenAI credentials configured" unless credential
-          generate_openai_batch_embeddings(credential, texts)
-        when "ollama"
-          texts.map { |t| generate_ollama_embedding(t) }
-        else
-          openai_fallback = find_openai_fallback
-          if openai_fallback
-            generate_openai_batch_embeddings(openai_fallback, texts)
-          else
-            raise EmbeddingError, "No embedding provider available for batch generation. Configure an OpenAI or Ollama provider."
-          end
-        end
+        raise EmbeddingError, "Worker embedding service returned no results for batch. Ensure the worker is running."
       end
 
       class EmbeddingError < StandardError; end
 
-      def build_credential
-        return nil unless @provider
-
-        @account.ai_provider_credentials
-          .where(ai_provider_id: @provider.id, is_active: true).first
-      end
-
-      def generate_openai_embedding(credential, text)
-        api_key = credential.credentials["api_key"]
-        return nil unless api_key
-
-        response = HTTParty.post(
-          "https://api.openai.com/v1/embeddings",
-          headers: {
-            "Authorization" => "Bearer #{api_key}",
-            "Content-Type" => "application/json"
-          },
-          body: { model: "text-embedding-3-small", input: text }.to_json,
-          timeout: 30
-        )
-
-        parsed = JSON.parse(response.body)
-        parsed.dig("data", 0, "embedding")
-      end
-
-      def generate_openai_batch_embeddings(credential, texts)
-        api_key = credential.credentials["api_key"]
-        return texts.map { nil } unless api_key
-
-        response = HTTParty.post(
-          "https://api.openai.com/v1/embeddings",
-          headers: {
-            "Authorization" => "Bearer #{api_key}",
-            "Content-Type" => "application/json"
-          },
-          body: { model: "text-embedding-3-small", input: texts }.to_json,
-          timeout: 60
-        )
-
-        parsed = JSON.parse(response.body)
-        data = parsed["data"] || []
-        data.sort_by { |d| d["index"] }.map { |d| d["embedding"] }
-      end
-
-      def find_openai_fallback
-        openai_provider = Ai::Provider
-          .where(account_id: @account.id, provider_type: "openai")
-          .active
-          .first
-        return nil unless openai_provider
-
-        @account.ai_provider_credentials
-          .where(ai_provider_id: openai_provider.id, is_active: true).first
-      end
-
-      def generate_ollama_embedding(text)
-        ollama_url = @provider.configuration&.dig("base_url") || ENV.fetch("OLLAMA_URL", "http://localhost:11434")
-        model = @provider.configuration&.dig("embedding_model") || "nomic-embed-text"
-
-        response = HTTParty.post(
-          "#{ollama_url}/api/embeddings",
-          headers: { "Content-Type" => "application/json" },
-          body: { model: model, prompt: text }.to_json,
-          timeout: 30
-        )
-
-        parsed = JSON.parse(response.body)
-        embedding = parsed["embedding"]
-        raise EmbeddingError, "Ollama returned no embedding: #{parsed['error'] || 'unknown error'}" unless embedding
-
-        embedding
+      def worker_embedding_client
+        @worker_embedding_client ||= WorkerEmbeddingClient.new
       end
 
       # Generate deterministic mock embedding for testing

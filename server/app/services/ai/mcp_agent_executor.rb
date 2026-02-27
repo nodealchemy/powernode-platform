@@ -48,15 +48,12 @@ class Ai::McpAgentExecutor
       return format_guardrail_block(guardrail_result, stage: :input)
     end
 
-    # Get AI provider client
-    provider_client = get_provider_client
-
     # Prepare execution context
     execution_context = build_execution_context(input_parameters)
 
     # Execute agent via provider
     begin
-      result = execute_with_provider(provider_client, execution_context)
+      result = execute_with_provider(nil, execution_context)
 
       # Run post-execution security gate (PII redaction + output safety)
       output_text = result["output"].to_s
@@ -94,58 +91,4 @@ class Ai::McpAgentExecutor
     end
   end
 
-  # Simple Ollama client wrapper
-  class OllamaClient
-    def initialize(base_url)
-      @base_url = base_url
-      @http_client = Net::HTTP
-    end
-
-    def generate(model:, prompt:, options: {})
-      uri = URI("#{@base_url}/api/generate")
-
-      request_body = {
-        model: model,
-        prompt: prompt,
-        stream: false,
-        options: options
-      }
-
-      response = @http_client.post(uri, request_body.to_json, {
-        "Content-Type" => "application/json"
-      })
-
-      JSON.parse(response.body)
-    rescue StandardError => e
-      raise ProviderError, "Ollama API error: #{e.message}"
-    end
-  end
-
-  # Custom provider client wrapper
-  class CustomProviderClient
-    def initialize(credentials)
-      @credentials = credentials
-      @base_url = credentials["base_url"]
-      @api_key = credentials["api_key"]
-    end
-
-    def call_custom_endpoint(prompt:, parameters: {})
-      uri = URI("#{@base_url}/generate")
-
-      request_body = {
-        prompt: prompt,
-        parameters: parameters
-      }
-
-      headers = {
-        "Content-Type" => "application/json",
-        "Authorization" => "Bearer #{@api_key}"
-      }
-
-      response = Net::HTTP.post(uri, request_body.to_json, headers)
-      JSON.parse(response.body)
-    rescue StandardError => e
-      raise ProviderError, "Custom provider API error: #{e.message}"
-    end
-  end
 end

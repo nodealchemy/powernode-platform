@@ -91,7 +91,7 @@ module Ai
             id: provider.id,
             name: provider.name,
             provider_type: provider.provider_type,
-            is_active: provider.active?,
+            is_active: provider.is_active?,
             total_requests: executions.count,
             successful_requests: executions.where(status: "completed").count,
             failed_requests: executions.where(status: "failed").count,
@@ -104,7 +104,7 @@ module Ai
 
         {
           total_providers: providers.count,
-          active_providers: providers.where(status: "active").count,
+          active_providers: providers.where(is_active: true).count,
           providers: provider_stats
         }
       end
@@ -192,7 +192,7 @@ module Ai
           successful_executions: node_executions.where(status: "completed").count,
           failed_executions: node_executions.where(status: "failed").count,
           success_rate: calculate_node_success_rate(node_executions),
-          average_response_time_ms: node_executions.where(status: "completed").average(:execution_time_ms)&.to_f&.round(2),
+          average_response_time_ms: node_executions.where(status: "completed").average(:duration_ms)&.to_f&.round(2),
           total_cost: node_executions.sum(:cost).to_f.round(6),
           execution_timeline: node_executions.group("DATE(ai_workflow_node_executions.created_at)").count.transform_keys(&:to_s)
         }
@@ -296,7 +296,7 @@ module Ai
                           .where("ai_workflow_nodes.node_type = ?", "ai_agent")
                           .where("ai_workflow_node_executions.created_at >= ?", since)
                           .where(status: "completed")
-                          .average(:execution_time_ms)&.to_f&.round(2)
+                          .average(:duration_ms)&.to_f&.round(2)
       end
 
       def calculate_agent_token_usage(since)
@@ -413,7 +413,7 @@ module Ai
         total_runs = workflow_runs.where("ai_workflow_runs.created_at >= ?", since)
                                   .where.not(status: %w[running initializing pending])
                                   .count
-        return nil if total_runs.zero?
+        return 100.0 if total_runs.zero?
 
         successful = workflow_runs.where("ai_workflow_runs.created_at >= ?", since)
                                   .where(status: "completed")
@@ -444,7 +444,7 @@ module Ai
             node_type: node.node_type,
             total_executions: executions.count,
             success_rate: calculate_node_success_rate(executions),
-            avg_duration_ms: executions.where(status: "completed").average(:execution_time_ms)&.to_f&.round(2),
+            avg_duration_ms: executions.where(status: "completed").average(:duration_ms)&.to_f&.round(2),
             total_cost: executions.sum(:cost).to_f.round(6)
           }
         end

@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
 class Ai::McpAgentExecutor
-  # Provider execution via Ai::Llm::Client with optional tool-calling loop.
+  # Provider execution via WorkerLlmClient with optional tool-calling loop.
   #
-  # Replaces the legacy ProviderClientService path with the unified
-  # Ai::Llm::Client adapter. When tools are enabled (default for all agent
+  # Uses WorkerLlmClient to proxy LLM calls through the worker. When tools are
+  # enabled (default for all agent
   # types except mcp_client), execution runs through AgentToolBridgeService's
   # shared agentic loop.
   #
@@ -36,22 +36,17 @@ class Ai::McpAgentExecutor
       end
     end
 
-    # Build an Ai::Llm::Client from the agent's provider and active credential
+    # Build a WorkerLlmClient routed through the agent's provider config.
+    # The worker resolves provider + credential from the agent_id.
     def build_llm_client
-      provider = @agent.provider
-      credential = provider.provider_credentials
-                           .where(account: @account)
-                           .active
-                           .first
-
-      unless credential
-        raise ProviderError, "No active credentials found for provider: #{provider.name}"
+      unless @agent.provider&.is_active?
+        raise ProviderError, "AI provider is not active"
       end
 
-      Ai::Llm::Client.new(provider: provider, credential: credential)
+      WorkerLlmClient.new(agent_id: @agent.id)
     end
 
-    # Convert execution context into the messages array that Ai::Llm::Client expects
+    # Convert execution context into the messages array that the LLM client expects
     def build_messages_for_llm(execution_context)
       messages = []
 

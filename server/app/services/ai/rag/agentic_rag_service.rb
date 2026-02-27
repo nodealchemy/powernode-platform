@@ -4,6 +4,7 @@ module Ai
   module Rag
     class AgenticRagService
       include Ai::Concerns::PromptTemplateLookup
+      include AgentBackedService
 
       MAX_ROUNDS = 3
       MIN_RELEVANT_RESULTS = 3
@@ -126,9 +127,13 @@ module Ai
       end
 
       def reformulate_query(original_query, current_query, gaps)
-        client = Ai::Llm::Client.for_account(@account)
+        agent = discover_service_agent(
+          "Reformulate and expand search queries for retrieval-augmented generation",
+          fallback_slug: "rag-query-engine"
+        )
 
-        if client
+        if agent
+          client = build_agent_client(agent)
           llm_reformulate(client, original_query, current_query, gaps)
         else
           heuristic_reformulate(original_query, gaps)
@@ -183,8 +188,13 @@ module Ai
       def synthesize_answer(query, results)
         return nil if results.empty?
 
-        client = Ai::Llm::Client.for_account(@account)
-        return simple_synthesis(results) unless client
+        agent = discover_service_agent(
+          "Synthesize a coherent answer from retrieved documents using RAG",
+          fallback_slug: "rag-query-engine"
+        )
+        return simple_synthesis(results) unless agent
+
+        client = build_agent_client(agent)
 
         context = results.first(5).map { |r| r[:content] }.compact.join("\n\n---\n\n")
         return simple_synthesis(results) if context.blank?

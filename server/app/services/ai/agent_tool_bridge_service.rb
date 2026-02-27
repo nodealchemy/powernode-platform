@@ -83,7 +83,7 @@ module Ai
 
     # Shared agentic tool loop — call LLM with tools, dispatch calls, repeat.
     #
-    # @param llm_client [Ai::Llm::Client]
+    # @param llm_client [WorkerLlmClient]
     # @param messages [Array<Hash>] conversation messages (mutated in place)
     # @param model [String] model ID
     # @param opts [Hash] max_tokens, temperature, system_prompt, etc.
@@ -151,7 +151,7 @@ module Ai
 
     # Extended agentic loop with optional reasoning, reflection, and evaluation.
     #
-    # @param llm_client [Ai::Llm::Client]
+    # @param llm_client [WorkerLlmClient]
     # @param messages [Array<Hash>] conversation messages
     # @param model [String] model ID
     # @param reasoning_mode [Symbol, String, nil] :chain_of_thought, :plan_and_execute, or nil

@@ -4,6 +4,7 @@ module Ai
   module Learning
     class LlmJudgeService
       include Ai::Concerns::PromptTemplateLookup
+      include AgentBackedService
 
       PROMPT_SLUG = "ai-llm-judge-evaluation"
       FALLBACK_PROMPT = <<~LIQUID
@@ -60,27 +61,22 @@ module Ai
       private
 
       def call_evaluator(prompt)
-        provider = find_evaluator_provider
-        return nil unless provider
-
-        credential = Ai::ProviderCredential.where(
-          account: @account, ai_provider_id: provider.id
-        ).active.healthy.first
-
-        return nil unless credential
-
-        client = Ai::ProviderClientService.new(
-          provider: provider,
-          credential: credential,
-          account: @account
+        agent = discover_service_agent(
+          "Evaluate and score AI agent outputs for correctness, completeness, and safety",
+          fallback_slug: "llm-judge"
         )
+        return nil unless agent
 
-        client.chat(
+        client = build_agent_client(agent)
+
+        response = client.complete(
           messages: [{ role: "user", content: prompt }],
-          model: @evaluator_model,
-          temperature: 0.1,
-          max_tokens: 500
+          model: @evaluator_model || agent_model(agent),
+          temperature: agent_temperature(agent),
+          max_tokens: agent_max_tokens(agent)
         )
+
+        response.success? ? response.content : nil
       rescue => e
         Rails.logger.error "[LlmJudge] Provider call failed: #{e.message}"
         nil
@@ -89,9 +85,7 @@ module Ai
       def parse_evaluation(response)
         return default_scores unless response
 
-        content = response.is_a?(Hash) ? (response[:content] || response["content"]) : response.to_s
-
-        json_match = content&.match(/\{[^}]+\}/)
+        json_match = response.to_s.match(/\{[^}]+\}/)
         return default_scores unless json_match
 
         parsed = JSON.parse(json_match[0])
@@ -121,11 +115,6 @@ module Ai
 
       def default_evaluator_model
         "claude-sonnet-4-5-20250929"
-      end
-
-      def find_evaluator_provider
-        Ai::Provider.where(provider_type: "anthropic").first ||
-          Ai::Provider.where(provider_type: "openai").first
       end
     end
   end

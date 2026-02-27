@@ -67,7 +67,7 @@ module Ai
       #
       # @param task       [String]           the task or question to reason about
       # @param context    [String, nil]      optional background context
-      # @param llm_client [Ai::Llm::Client]  LLM client instance
+      # @param llm_client [WorkerLlmClient]  LLM client instance
       # @param model      [String]           model identifier
       # @param opts       [Hash]             additional options forwarded to the LLM
       # @return [Hash] { reasoning_steps: Array, conclusion: String, confidence: Float }

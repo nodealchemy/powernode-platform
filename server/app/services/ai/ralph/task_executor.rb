@@ -101,7 +101,7 @@ module Ai
         credential = provider.provider_credentials.active.first
         raise "No active credentials for provider #{provider.name}" unless credential
 
-        client = Ai::ProviderClientService.new(credential)
+        client = WorkerLlmClient.new(agent_id: agent.id)
         provider_type = provider.provider_type
         messages = build_agent_messages(agent)
         options = build_agent_options(agent, provider)
@@ -150,8 +150,8 @@ module Ai
           }
         )
 
-        # Execute workflow asynchronously
-        ::Ai::WorkflowExecutionJob.perform_later(run.id)
+        # Dispatch workflow execution to worker
+        WorkerJobService.enqueue_ai_workflow_execution(run.id)
 
         {
           success: true,
@@ -177,8 +177,12 @@ module Ai
           }
         )
 
-        # Execute pipeline asynchronously
-        Devops::PipelineExecutionJob.perform_later(execution.id)
+        # Execute pipeline asynchronously via worker
+        WorkerJobService.enqueue_job(
+          "Devops::PipelineExecutionJob",
+          args: [execution.id],
+          queue: "devops_default"
+        )
 
         {
           success: true,

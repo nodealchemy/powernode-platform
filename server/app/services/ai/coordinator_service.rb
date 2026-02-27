@@ -31,21 +31,20 @@ module Ai
     private
 
     def call_coordinator(content)
-      credential = find_credential
-      unless credential
-        Rails.logger.warn("[CoordinatorService] No active credential for coordinator")
+      unless @coordinator&.provider&.is_active?
+        Rails.logger.warn("[CoordinatorService] Coordinator agent has no active provider")
         return "[RESPOND] I'm unable to process your request right now — no provider credentials are configured."
       end
 
-      client = Ai::ProviderClientService.new(credential)
+      client = WorkerLlmClient.new(agent_id: @coordinator.id)
       messages = build_messages(content)
 
-      result = client.send_message(messages, model: coordinator_model, max_tokens: 2048, temperature: 0.3)
+      response = client.complete(messages: messages, model: coordinator_model || @coordinator.provider.default_model, max_tokens: 2048, temperature: 0.3)
 
-      if result[:success]
-        extract_response_text(result[:response])
+      if response.success?
+        response.content
       else
-        Rails.logger.warn("[CoordinatorService] LLM call failed: #{result[:error]}")
+        Rails.logger.warn("[CoordinatorService] LLM call failed")
         "[RESPOND] I'm unable to process your request right now. Please try again later."
       end
     end
@@ -120,7 +119,7 @@ module Ai
     def handle_delegate(objective, original_content)
       @conversation.add_system_message("Delegating to team: #{objective.truncate(200)}")
 
-      Ai::AgentTeamExecutionJob.perform_later(
+      WorkerJobService.enqueue_ai_team_execution(
         team_id: @team.id,
         user_id: @user.id,
         input: { task: objective, original_message: original_content },
@@ -132,26 +131,9 @@ module Ai
       @conversation.add_assistant_message(question)
     end
 
-    def find_credential
-      if @coordinator&.provider
-        @coordinator.provider.provider_credentials
-                    .where(is_active: true, account_id: @team.account_id)
-                    .first
-      else
-        Ai::ProviderCredential.where(is_active: true, account_id: @team.account_id).first
-      end
-    end
-
     def coordinator_model
       @coordinator&.model || @coordinator&.mcp_tool_manifest&.dig("model")
     end
 
-    def extract_response_text(response)
-      return response.to_s unless response.is_a?(Hash)
-
-      response.dig(:choices, 0, :message, :content) ||
-        response[:content]&.then { |c| c.is_a?(Array) ? c.select { |b| b[:type] == "text" }.map { |b| b[:text] }.join("\n") : c } ||
-        response[:text] || response.to_s
-    end
   end
 end

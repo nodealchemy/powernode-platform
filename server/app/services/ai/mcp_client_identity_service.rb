@@ -70,11 +70,24 @@ module Ai
         }
       )
 
+      auto_join_workspace_teams(agent)
       Rails.logger.info "[McpClientIdentityService] Created MCP client agent: #{agent.name} (#{agent.id}) for user #{user.id}"
       agent
     rescue StandardError => e
       Rails.logger.error "[McpClientIdentityService] Failed to create agent: #{e.class}: #{e.message}"
       nil
+    end
+
+    def auto_join_workspace_teams(agent)
+      account.ai_agent_teams.where(team_type: "workspace", status: "active").find_each do |team|
+        next if team.members.exists?(ai_agent_id: agent.id)
+        Ai::AgentTeamMember.create!(
+          ai_agent_team_id: team.id, ai_agent_id: agent.id,
+          role: "executor", capabilities: ["code_execution", "system_commands", "file_operations"]
+        )
+      end
+    rescue StandardError => e
+      Rails.logger.warn "[McpClientIdentityService] Auto-join workspace failed: #{e.message}"
     end
 
     def next_sequence_number(app_name)

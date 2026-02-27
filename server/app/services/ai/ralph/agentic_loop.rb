@@ -3,8 +3,6 @@
 module Ai
   module Ralph
     class AgenticLoop
-      include Ai::ToolCallExtraction
-
       MAX_TOOL_ROUNDS = 15
 
       def initialize(client:, provider_type:, account:, git_tool_executor: nil, mcp_tools: [])
@@ -23,50 +21,51 @@ module Ai
       # @return [Hash] { success:, content:, response:, metadata:, file_changes:, last_commit_sha:, tool_calls_log: }
       def execute(messages, options)
         messages = messages.dup
-        last_result = nil
+        last_response = nil
+        model = options[:model]
+        tools = options[:tools]
+        call_opts = options.except(:model, :tools, :functions, :tool_choice)
 
         MAX_TOOL_ROUNDS.times do |round|
-          result = @client.send_message(messages, options)
-
-          unless result[:success]
-            return build_error_result(result)
+          response = if tools.present?
+            @client.complete_with_tools(messages: messages, tools: tools, model: model, **call_opts)
+          else
+            @client.complete(messages: messages, model: model, **call_opts)
           end
 
-          last_result = result
-          response = result[:response]
+          unless response.success?
+            return build_error_result(response)
+          end
+
+          last_response = response
 
           # Accumulate any text content from this response
-          text = extract_text_content(response, @provider_type)
-          @accumulated_content << text if text.present?
+          @accumulated_content << response.content if response.content.present?
 
           # Check for tool calls
-          tool_calls = extract_tool_calls(response, @provider_type)
-
-          if tool_calls.empty?
-            return build_success_result(last_result)
+          if response.tool_calls.empty?
+            return build_success_result(last_response)
           end
 
-          # Append assistant message with tool calls
-          messages << build_assistant_tool_message(response, @provider_type)
+          # Append assistant message with tool calls (adapters handle format conversion)
+          messages << build_assistant_tool_message(response)
 
           # Execute each tool call and collect results
-          tool_results = tool_calls.map { |tc| execute_tool_call(tc) }
+          tool_results = response.tool_calls.map { |tc| execute_tool_call(tc) }
 
           # Build provider-specific result messages and append
-          result_messages = build_tool_result_messages(tool_results, @provider_type)
+          result_messages = build_tool_result_messages(tool_results)
           messages.concat(result_messages)
         end
 
         # Max rounds reached — make a final call without tools to get a summary
-        final_options = options.except(:tools, :functions, :tool_choice)
-        final_result = @client.send_message(messages, final_options)
+        final_response = @client.complete(messages: messages, model: model, **call_opts)
 
-        if final_result[:success]
-          text = extract_text_content(final_result[:response], @provider_type)
-          @accumulated_content << text if text.present?
-          build_success_result(final_result)
+        if final_response.success?
+          @accumulated_content << final_response.content if final_response.content.present?
+          build_success_result(final_response)
         else
-          build_error_result(final_result)
+          build_error_result(final_response)
         end
       end
 
@@ -107,25 +106,52 @@ module Ai
         ).execute
       end
 
-      def build_success_result(last_result)
+      # Build an assistant message containing tool calls for the conversation history.
+      # The Ai::Llm adapters handle converting this normalized format to provider-specific
+      # format (Anthropic tool_use content blocks vs OpenAI tool_calls array).
+      def build_assistant_tool_message(response)
+        tool_calls = response.tool_calls.map do |tc|
+          { id: tc[:id], name: tc[:name], arguments: tc[:arguments] }
+        end
+
+        { role: "assistant", content: response.content, tool_calls: tool_calls }
+      end
+
+      # Build provider-specific tool result messages
+      def build_tool_result_messages(results)
+        case @provider_type
+        when "anthropic"
+          content_blocks = results.map do |r|
+            { type: "tool_result", tool_use_id: r[:tool_call_id], content: r[:content] }
+          end
+          [{ role: "user", content: content_blocks }]
+        else
+          # OpenAI / Ollama format
+          results.map do |r|
+            { role: "tool", tool_call_id: r[:tool_call_id], content: r[:content] }
+          end
+        end
+      end
+
+      def build_success_result(last_response)
         content = @accumulated_content.join("\n\n")
 
         {
           success: true,
           content: content,
-          response: last_result[:response],
-          metadata: last_result[:metadata],
+          response: last_response.raw_response,
+          metadata: { usage: last_response.usage, cost: last_response.cost },
           file_changes: @git_executor&.file_changes || [],
           last_commit_sha: @git_executor&.last_commit_sha,
           tool_calls_log: @tool_calls_log
         }
       end
 
-      def build_error_result(result)
+      def build_error_result(response)
         {
           success: false,
-          error: result[:error],
-          error_type: result[:error_type],
+          error: response.content || "LLM call failed (finish_reason: #{response.finish_reason})",
+          error_type: response.finish_reason,
           content: @accumulated_content.join("\n\n"),
           file_changes: @git_executor&.file_changes || [],
           last_commit_sha: @git_executor&.last_commit_sha,

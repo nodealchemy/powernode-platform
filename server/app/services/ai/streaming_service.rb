@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Service for handling streaming AI operations with real-time token delivery
-# Integrates with ProviderClientService for real provider streaming
+# Integrates with WorkerLlmClient for provider streaming via the worker
 class Ai::StreamingService
   include ActiveModel::Model
 
@@ -191,11 +191,9 @@ class Ai::StreamingService
   private
 
   def get_provider_client(agent)
-    # Get active credential for the provider
-    credential = agent.provider&.provider_credentials&.active&.first
-    return nil unless credential
+    return nil unless agent.provider&.is_active?
 
-    Ai::ProviderClientService.new(credential)
+    WorkerLlmClient.new(agent_id: agent.id)
   end
 
   def build_messages(agent, input_parameters)
@@ -249,28 +247,32 @@ class Ai::StreamingService
     accumulated_content = ""
     usage_data = nil
 
-    # Use real provider streaming
-    provider_client.stream_text(
-      messages.last[:content],
-      model: model,
+    # Use provider streaming via WorkerLlmClient#stream
+    response = provider_client.stream(
       messages: messages,
+      model: model,
       max_tokens: agent.configuration&.dig("max_tokens") || 2000,
-      temperature: agent.configuration&.dig("temperature") || 0.7,
-      system_prompt: messages.find { |m| m[:role] == "system" }&.dig(:content)
+      temperature: agent.configuration&.dig("temperature") || 0.7
     ) do |chunk|
-      case chunk[:type]
+      case chunk.type
       when :stream_start
-        Rails.logger.debug "[STREAMING] Provider stream started: #{chunk[:stream_id]}"
+        Rails.logger.debug "[STREAMING] Provider stream started: #{chunk.stream_id}"
       when :content_delta
-        accumulated_content = chunk[:accumulated_content]
-        process_stream_chunk(chunk)
+        accumulated_content += chunk.content.to_s
+        process_stream_chunk({
+          content: chunk.content,
+          accumulated_content: accumulated_content
+        })
       when :stream_end
-        usage_data = chunk[:usage]
+        usage_data = chunk.usage
         Rails.logger.debug "[STREAMING] Provider stream ended with #{usage_data} tokens"
       when :error
-        raise StandardError, chunk[:error]
+        raise StandardError, chunk.content
       end
     end
+
+    # Use response usage if available from final response
+    usage_data ||= response&.usage
 
     { content: accumulated_content, usage: usage_data }
   end

@@ -24,16 +24,16 @@ module Ai
         )
       end
 
-      # Build an Ai::Llm::Client from a routing result
+      # Build a WorkerLlmClient from a routing result
       # @param routing [Hash] result from #route or #route_for_task
-      # @return [Ai::Llm::Client]
+      # @return [WorkerLlmClient]
       def client_for_routing(routing)
         provider = routing[:provider]
         credential = provider.provider_credentials.where(is_active: true).first
 
         raise RoutingError, "No active credentials for provider #{provider.name}" unless credential
 
-        Ai::Llm::Client.new(provider: provider, credential: credential)
+        WorkerLlmClient.new(provider: provider, credential: credential)
       end
 
       # Convenience: route for task and return a ready-to-use client + model

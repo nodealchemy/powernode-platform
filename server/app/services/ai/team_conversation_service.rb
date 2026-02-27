@@ -2,6 +2,7 @@
 
 module Ai
   class TeamConversationService
+    include AgentBackedService
     attr_reader :account
 
     def initialize(account:)
@@ -205,8 +206,8 @@ module Ai
       # Mark execution completed
       execution.complete!(execution.output_result || {})
 
-      # Enqueue follow-up execution with approved plan
-      Ai::AgentTeamExecutionJob.perform_later(
+      # Dispatch follow-up execution with approved plan to worker
+      WorkerJobService.enqueue_ai_team_execution(
         team_id: execution.agent_team_id,
         user_id: execution.triggered_by_id,
         input: {
@@ -234,8 +235,8 @@ module Ai
       # Mark execution completed (the revision will be a new execution)
       execution.complete!(execution.output_result || {})
 
-      # Enqueue revision execution
-      Ai::AgentTeamExecutionJob.perform_later(
+      # Dispatch revision execution to worker
+      WorkerJobService.enqueue_ai_team_execution(
         team_id: execution.agent_team_id,
         user_id: execution.triggered_by_id,
         input: {
@@ -263,35 +264,31 @@ module Ai
     end
 
     def classify_intent_via_llm(message_content)
-      credential = Ai::ProviderCredential.where(is_active: true, account_id: account.id).first
-      return classify_intent_via_heuristic(message_content) unless credential
+      agent = discover_service_agent(
+        "Classify user message intent for conversation routing such as approve, change, or discussion",
+        fallback_slug: "intent-classifier"
+      )
+      return classify_intent_via_heuristic(message_content) unless agent
 
-      client = Ai::ProviderClientService.new(credential)
+      client = build_agent_client(agent)
       messages = [
         { role: "system", content: "Classify the user's message as one of: approve, change, discussion. Respond with ONLY one word." },
         { role: "user", content: message_content.to_s.truncate(500) }
       ]
 
-      result = client.send_message(messages, model: nil, max_tokens: 20, temperature: 0.0)
+      model = agent_model(agent)
+      response = client.complete(messages: messages, model: model, max_tokens: agent_max_tokens(agent), temperature: agent_temperature(agent))
 
-      unless result[:success]
+      unless response.success?
         return classify_intent_via_heuristic(message_content)
       end
 
-      response_text = extract_llm_text(result[:response]).to_s.strip.downcase
+      response_text = response.content.to_s.strip.downcase
       case response_text
       when /\bapprove\b/ then :approve
       when /\bchange\b/ then :request_changes
       else :discussion
       end
-    end
-
-    def extract_llm_text(response)
-      return response.to_s unless response.is_a?(Hash)
-
-      response.dig(:choices, 0, :message, :content) ||
-        response[:content]&.then { |c| c.is_a?(Array) ? c.first&.dig(:text) : c } ||
-        response[:text] || response.to_s
     end
 
     # =========================================================================

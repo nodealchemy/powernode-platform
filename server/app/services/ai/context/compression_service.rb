@@ -4,6 +4,7 @@ module Ai
   module Context
     class CompressionService
       include Ai::Concerns::PromptTemplateLookup
+      include AgentBackedService
 
       CHARS_PER_TOKEN = 4
       MAX_ENTRY_TOKENS = 500
@@ -86,8 +87,8 @@ module Ai
       end
 
       def llm_compress(content)
-        provider = find_economy_provider
-        return nil unless provider
+        client = find_economy_client
+        return nil unless client
 
         system_content = resolve_prompt_template(
           PROMPT_SLUG,
@@ -95,33 +96,32 @@ module Ai
           fallback: FALLBACK_PROMPT
         )
 
-        response = provider.generate(
+        response = client.complete(
           messages: [
             { role: "system", content: system_content },
             { role: "user", content: content.truncate(2000) }
           ],
+          model: @economy_credential.provider.default_model,
           max_tokens: (content.length / (CHARS_PER_TOKEN * 2)),
           temperature: 0.1
         )
 
-        response&.dig(:content)
+        response.success? ? response.content : nil
       rescue StandardError => e
         Rails.logger.warn "[ContextCompression] LLM compression failed: #{e.message}"
         nil
       end
 
-      def find_economy_provider
-        return @economy_provider if defined?(@economy_provider)
+      def find_economy_client
+        return @economy_client if defined?(@economy_client)
 
-        @economy_provider = begin
-          credential = Ai::ProviderCredential.joins(:ai_provider)
-            .where(account_id: @account.id, is_active: true)
-            .where(ai_providers: { provider_type: "text_generation" })
-            .order(:priority_order)
-            .first
-
-          Ai::ProviderClientService.new(credential: credential) if credential
-        end
+        agent = discover_service_agent(
+          "Compress verbose context entries while preserving key facts and structure",
+          fallback_slug: nil
+        )
+        # Fall back to any active agent — compression is a lightweight utility call
+        agent ||= @account.ai_agents.active.first
+        @economy_client = agent ? build_agent_client(agent) : nil
       end
     end
   end

@@ -39,11 +39,9 @@ module Ai
 
       # Build LLM client for an agent
       def build_llm_client(agent)
-        provider = agent.provider
-        credential = provider.provider_credentials.where(account: account).active.first
-        raise "No credentials for provider: #{provider.name}" unless credential
+        raise "Agent has no active provider" unless agent.provider&.is_active?
 
-        Ai::Llm::Client.new(provider: provider, credential: credential)
+        WorkerLlmClient.new(agent_id: agent.id)
       end
 
       # Get sorted team members

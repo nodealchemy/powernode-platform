@@ -586,13 +586,15 @@ class AiWorkflowEventDispatcherService
     prompt = build_ai_prompt(workflow_node, input_data)
 
     # Make AI call
-    client = Ai::ProviderClientService.new(credential)
-    response = client.generate_text(prompt)
+    client = WorkerLlmClient.new(provider: provider, credential: credential)
+    messages = [{ role: "user", content: prompt }]
+    model = provider.default_model || provider.supported_models.first&.dig("id")
+    response = client.complete(messages: messages, model: model)
 
-    if response[:success]
+    if response.success?
       node_execution.update!(
         status: "completed",
-        output_data: { output: response[:content], provider: provider.name },
+        output_data: { output: response.content, provider: provider.name },
         completed_at: Time.current
       )
 
@@ -605,7 +607,7 @@ class AiWorkflowEventDispatcherService
     else
       node_execution.update!(
         status: "failed",
-        error_details: { error_message: response[:error] || "AI call failed" },
+        error_details: { error_message: response.raw_response&.dig(:error) || "AI call failed" },
         completed_at: Time.current
       )
     end

@@ -61,7 +61,7 @@ module Ai
       # @param task       [String]           original task description
       # @param output     [String]           the output to critique
       # @param context    [Hash]             optional context (may include :agent_id)
-      # @param llm_client [Ai::Llm::Client]  LLM client instance
+      # @param llm_client [WorkerLlmClient]  LLM client instance
       # @param model      [String]           model identifier
       # @param opts       [Hash]             additional options forwarded to the LLM
       # @return [Hash] { quality_score: Float, issues: Array, improvements: Array, should_retry: Boolean }

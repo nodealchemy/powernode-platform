@@ -29,8 +29,8 @@ module Ai
         create_worktree_records(session, tasks)
       end
 
-      # Enqueue provisioning job
-      ::Ai::WorktreeProvisioningJob.perform_later(session.id)
+      # Enqueue provisioning job on worker
+      WorkerJobService.enqueue_ai_worktree_provisioning(session.id)
 
       success_result(
         session: session.session_summary,
@@ -54,7 +54,7 @@ module Ai
       end
 
       # Enqueue cleanup
-      ::Ai::WorktreeCleanupJob.perform_later(session.id) if session.auto_cleanup
+      WorkerJobService.enqueue_ai_worktree_cleanup(session.id) if session.auto_cleanup
 
       success_result(session: session.reload.session_summary, message: "Session cancelled")
     rescue ActiveRecord::RecordNotFound
@@ -86,7 +86,7 @@ module Ai
         session.reload
         if session.all_worktrees_completed? && session.status == "active"
           session.begin_merge!
-          ::Ai::MergeExecutionJob.perform_later(session.id)
+          WorkerJobService.enqueue_ai_merge_execution(session.id)
         end
       end
 
@@ -118,7 +118,7 @@ module Ai
             completed_count = session.worktrees.where(status: %w[completed merged]).count
             if completed_count.positive? && session.status == "active"
               session.begin_merge!
-              ::Ai::MergeExecutionJob.perform_later(session.id)
+              WorkerJobService.enqueue_ai_merge_execution(session.id)
             elsif completed_count.zero? && session.status == "active"
               session.fail!(error_message: "All worktrees failed")
             end

@@ -62,7 +62,7 @@ class Ai::ProviderLoadBalancerService
         credential = provider.provider_credentials.active.first
         raise LoadBalancingError, "No active credentials for provider #{provider.name}" unless credential
 
-        client = Ai::ProviderClientService.new(credential)
+        client = WorkerLlmClient.new(provider: provider, credential: credential)
         result = yield(client, provider)
 
         # Record successful execution

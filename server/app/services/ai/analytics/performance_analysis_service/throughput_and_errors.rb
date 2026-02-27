@@ -208,11 +208,12 @@ module Ai
         def calculate_mtbf(since)
           failed_runs = workflow_runs.where("ai_workflow_runs.created_at >= ?", since)
                                     .where(status: "failed")
-                                    .order("ai_workflow_runs.created_at")
+                                    .where.not(completed_at: nil)
+                                    .order("ai_workflow_runs.completed_at")
 
           return nil if failed_runs.count < 2
 
-          times = failed_runs.pluck(:created_at)
+          times = failed_runs.pluck(:completed_at)
           intervals = times.each_cons(2).map { |a, b| (b - a) / 3600.0 }
 
           (intervals.sum / intervals.length).round(2)

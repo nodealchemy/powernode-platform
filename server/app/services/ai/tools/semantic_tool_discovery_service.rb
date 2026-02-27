@@ -3,6 +3,7 @@
 module Ai
   module Tools
     class SemanticToolDiscoveryService
+      include AgentBackedService
       CACHE_TTL = 6.hours
       CACHE_PREFIX = "tool_discovery"
       SIMILARITY_THRESHOLD = 0.3
@@ -227,14 +228,8 @@ module Ai
         return @embedding_provider if defined?(@embedding_provider)
 
         @embedding_provider = if @account
-          credential = Ai::ProviderCredential.joins(:ai_provider)
-            .where(account_id: @account.id, is_active: true)
-            .where(ai_providers: { provider_type: "embedding" })
-            .first
-
-          if credential
-            Ai::ProviderClientService.new(credential: credential)
-          end
+          agent = resolve_service_agent("semantic-tool-scorer", fallback_name: "Semantic Tool Scorer")
+          build_agent_client(agent) if agent
         end
       end
 

@@ -36,40 +36,39 @@ module AiNodeExecutors
 
         return { success: false, error_message: "No provider credentials configured" } unless provider_credential
 
-        # Initialize provider client
-        client = Ai::ProviderClientService.new(provider_credential)
+        # Initialize LLM client
+        client = WorkerLlmClient.new(agent_id: agent.id)
 
         # Prepare prompt from input data
         prompt = build_agent_prompt(agent_config, input_data)
+        messages = [{ role: "user", content: prompt }]
 
         # Call AI provider
-        response = client.generate_text(
-          prompt,
-          model: agent_config["model"],
+        model = agent_config["model"] || agent.provider.default_model
+        response = client.complete(
+          messages: messages,
+          model: model,
           temperature: agent_config["temperature"] || 0.7,
           max_tokens: agent_config["max_tokens"] || 2000
         )
 
-        if response[:success]
-          content = response[:data][:choices]&.first&.dig(:message, :content) || "No content generated"
-          usage = response[:data][:usage] || {}
-
+        if response.success?
           {
             success: true,
             output_data: {
-              content: content,
+              content: response.content || "No content generated",
               agent_id: agent_id,
-              model: response[:data][:model] || agent_config["model"],
-              provider: response[:provider]
+              model: response.model || model,
+              provider: response.provider
             },
-            cost: calculate_cost_from_usage(usage),
-            tokens_consumed: usage[:prompt_tokens] || 0,
-            tokens_generated: usage[:completion_tokens] || 0
+            cost: response.cost,
+            tokens_consumed: response.prompt_tokens,
+            tokens_generated: response.completion_tokens
           }
         else
           {
             success: false,
-            error_message: response[:error] || "AI provider request failed"
+            error_message: response.raw_response&.dig(:error) || "AI provider request failed"
           }
         end
       rescue StandardError => e

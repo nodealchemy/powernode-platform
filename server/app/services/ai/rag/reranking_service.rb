@@ -4,6 +4,7 @@ module Ai
   module Rag
     class RerankingService
       include Ai::Concerns::PromptTemplateLookup
+      include AgentBackedService
 
       BATCH_SIZE = 10
       FALLBACK_MODEL = "gpt-4.1"
@@ -57,8 +58,13 @@ module Ai
       private
 
       def llm_rerank(query, results, model)
-        client = Ai::Llm::Client.for_account(@account)
-        return nil unless client
+        agent = discover_service_agent(
+          "Score and rerank RAG search results by semantic relevance to a query",
+          fallback_slug: "rag-reranker"
+        )
+        return nil unless agent
+
+        client = build_agent_client(agent)
 
         all_scores = []
 

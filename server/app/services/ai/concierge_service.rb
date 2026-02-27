@@ -89,8 +89,8 @@ module Ai
     # Tool-bridge path (primary — for OpenAI/Anthropic providers)
     # =========================================================================
 
-    def process_with_tools(content, credential)
-      llm_client = Ai::Llm::Client.new(provider: credential.provider, credential: credential)
+    def process_with_tools(content, _credential = nil)
+      llm_client = WorkerLlmClient.new(agent_id: @agent.id)
       tool_bridge = Ai::ConciergeToolBridge.new(
         agent: @agent, account: @account,
         conversation: @conversation, user: @user
@@ -105,10 +105,14 @@ module Ai
         system_prompt: concierge_tool_system_prompt
       )
 
-      # The tool loop returns the final text after all tool calls are done.
-      # Tool actions (including confirmation cards) have already been executed
-      # via dispatch_tool_call during the loop.
-      if result[:content].present?
+      # When the concierge delegated via send_message, the tool call already
+      # created a visible message in the conversation. Suppress the LLM's
+      # final text to avoid a duplicate/redundant answer.
+      delegated = result[:tool_calls_log]&.any? { |tc| tc[:tool] == "send_message" }
+
+      if delegated
+        Rails.logger.info("[ConciergeService] Delegation detected via send_message — suppressing final text response")
+      elsif result[:content].present?
         @conversation.add_assistant_message(
           result[:content],
           processing_metadata: {
@@ -178,15 +182,16 @@ module Ai
         return "[RESPOND] I'm unable to process your request right now — no AI provider is configured."
       end
 
-      client = Ai::ProviderClientService.new(credential)
+      client = WorkerLlmClient.new(agent_id: @agent.id)
       messages = build_legacy_messages(content)
+      model = concierge_model || credential.provider.default_model
 
-      result = client.send_message(messages, model: concierge_model, max_tokens: 2048, temperature: 0.3)
+      response = client.complete(messages: messages, model: model, max_tokens: 2048, temperature: 0.3)
 
-      if result[:success]
-        extract_response_text(result[:response])
+      if response.success?
+        response.content
       else
-        Rails.logger.warn("[ConciergeService] LLM call failed: #{result[:error]}")
+        Rails.logger.warn("[ConciergeService] LLM call failed: #{response.raw_response&.dig(:error)}")
         "[RESPOND] I'm having trouble processing your request right now. Please try again."
       end
     end
@@ -289,6 +294,9 @@ module Ai
             - To delegate to an agent, call send_message with conversation_id "#{@conversation.conversation_id}"
               and include the mentions parameter: [{"id": "<agent_id>", "name": "<agent_name>"}]
             - Also write @AgentName in the message text so the agent sees the mention.
+            - CRITICAL: When you delegate via send_message, do NOT answer the user's question yourself.
+              Your text response after delegating should be empty or a brief acknowledgment only.
+              The mentioned agent will handle the actual response.
             - Example: send_message(conversation_id: "#{@conversation.conversation_id}",
               message: "@Claude Code (powernode) #1 what time is it?",
               mentions: [{"id": "#{members.first.ai_agent_id}", "name": "#{members.first.agent.name}"}])
@@ -493,7 +501,7 @@ module Ai
 
       @conversation.add_system_message("Delegating to team **#{team.name}**: #{params['objective']}")
 
-      Ai::AgentTeamExecutionJob.perform_later(
+      WorkerJobService.enqueue_ai_team_execution(
         team_id: team.id,
         user_id: @user.id,
         input: { task: params["objective"] },

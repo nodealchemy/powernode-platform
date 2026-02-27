@@ -58,31 +58,6 @@ class Ai::McpAgentExecutor
       end
     end
 
-    def get_provider_client
-      @logger.debug "[MCP_AGENT_EXECUTOR] Getting provider client"
-
-      provider = @agent.provider
-
-      unless provider&.is_active?
-        raise ProviderError, "AI provider is not active"
-      end
-
-      # Get active credential for this provider
-      credential = provider.provider_credentials
-                          .where(account: @account)
-                          .active
-                          .first
-
-      unless credential
-        raise ProviderError, "No active credentials found for provider: #{provider.name}"
-      end
-
-      # Use Ai::ProviderClientService for provider communication
-      Ai::ProviderClientService.new(credential)
-    rescue StandardError => e
-      raise ProviderError, "Failed to initialize provider client: #{e.message}"
-    end
-
     def run_input_guardrails(text)
       guardrail_pipeline.check_input(text: text)
     rescue StandardError => e

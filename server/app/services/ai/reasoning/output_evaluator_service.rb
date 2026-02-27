@@ -50,7 +50,7 @@ module Ai
       # @param task       [String]           original task description
       # @param output     [String]           the output to evaluate
       # @param criteria   [Array<String>]    evaluation criteria (defaults to standard set)
-      # @param llm_client [Ai::Llm::Client]  LLM client instance
+      # @param llm_client [WorkerLlmClient]  LLM client instance
       # @param model      [String]           model identifier
       # @param opts       [Hash]             additional options forwarded to the LLM
       # @return [Hash] { verdict: String, scores: Hash, feedback: String }

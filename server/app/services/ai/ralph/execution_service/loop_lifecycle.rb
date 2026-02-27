@@ -67,7 +67,7 @@ module Ai
           config["run_all_active"] = true
           ralph_loop.update!(configuration: config)
 
-          ::Ai::RalphLoopRunAllJob.perform_later(ralph_loop.id, stop_on_error: stop_on_error)
+          WorkerJobService.enqueue_ai_ralph_loop_run_all(ralph_loop.id, stop_on_error: stop_on_error)
 
           success_result(loop: ralph_loop.loop_summary, message: "Run All started")
         rescue StandardError => e

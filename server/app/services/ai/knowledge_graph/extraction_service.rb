@@ -6,6 +6,7 @@ module Ai
 
     class ExtractionService
       include Ai::Concerns::PromptTemplateLookup
+      include AgentBackedService
 
       DEDUP_THRESHOLD = 0.92
       MAX_CHUNK_LENGTH = 4000
@@ -446,19 +447,19 @@ module Ai
           if provider && credential
             model = curator.mcp_metadata&.dig("model_config", "model") || default_model_for(provider.provider_type)
             Rails.logger.info "[ExtractionService] Primary: #{curator.name} (#{provider.name}/#{model})"
-            clients << [Ai::Llm::Client.new(provider: provider, credential: credential), model]
+            clients << [WorkerLlmClient.new(agent_id: curator.id), model]
           end
         end
 
-        # Add fallback providers (skip curator's provider to avoid duplicates)
-        curator_type = clients.first&.first&.provider&.provider_type
-        %w[ollama openai anthropic].each do |pt|
-          next if pt == curator_type
-
-          client = Ai::Llm::Client.for_account(@account, provider_type: pt)
-          if client
-            Rails.logger.info "[ExtractionService] Fallback: #{pt}"
-            clients << [client, default_model_for(pt)]
+        # Add fallback: the dedicated knowledge-graph-curator agent
+        if clients.empty?
+          kg_agent = discover_service_agent(
+            "Extract entities and relationships from text to build a knowledge graph",
+            fallback_slug: "knowledge-graph-curator"
+          )
+          if kg_agent
+            Rails.logger.info "[ExtractionService] Using knowledge-graph-curator agent"
+            clients << [build_agent_client(kg_agent), agent_model(kg_agent)]
           end
         end
 
