@@ -102,31 +102,29 @@ module Ai
         return { success: false, error: "No active credentials configured for provider #{provider.name}" }
       end
 
-      # Get provider client service (requires credential, not provider)
-      client = ::Ai::ProviderClientService.new(credential)
+      # Build LLM client
+      client = ::WorkerLlmClient.new(agent_id: agent.id)
 
       # Send messages to provider
-      result = client.send_message(messages, {
+      response = client.complete(
+        messages: messages,
         model: model,
         temperature: agent.temperature || 0.7,
         max_tokens: agent.max_tokens || 2048
-      })
+      )
 
-      if result[:success]
-        response_data = result[:response]
-        content = extract_content_from_response(response_data)
-
+      if response.success?
         {
           success: true,
-          content: content,
-          model: model,
-          usage: response_data&.dig(:usage),
-          finish_reason: response_data&.dig(:choices, 0, :finish_reason) || "stop"
+          content: response.content,
+          model: response.model || model,
+          usage: response.usage,
+          finish_reason: response.finish_reason || "stop"
         }
       else
         {
           success: false,
-          error: result[:error] || "Failed to generate AI response"
+          error: response.raw_response&.dig(:error) || "Failed to generate AI response"
         }
       end
     rescue StandardError => e

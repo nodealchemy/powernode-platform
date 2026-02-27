@@ -292,8 +292,8 @@ class AiConversationChannel < ApplicationCable::Channel
   end
 
   def trigger_ai_response(user_message)
-    # Queue the AI response job to generate and broadcast the AI reply
-    ::Ai::ConversationResponseJob.perform_later(
+    # Dispatch AI response to worker service
+    WorkerJobService.enqueue_ai_conversation_response(
       @conversation.id,
       user_message.id,
       current_user.id

@@ -223,7 +223,7 @@ module Api
 
         # POST /api/v1/ai/monitoring/start
         def start_monitoring
-          ::Ai::MonitoringHealthCheckJob.perform_later(current_user.account_id)
+          WorkerJobService.enqueue_ai_monitoring_health_check(current_user.account_id)
 
           render_success(message: "Real-time monitoring started", account_id: current_user.account_id, timestamp: Time.current.iso8601)
           log_audit_event("ai.monitoring.start", current_user.account)

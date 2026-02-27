@@ -129,15 +129,15 @@ module Api
           input_hash = params[:input].present? ? params[:input].permit!.to_h : {}
           context_hash = params[:context].present? ? params[:context].permit!.to_h : {}
 
-          # Queue team execution job
-          job = ::Ai::AgentTeamExecutionJob.perform_async(
+          # Dispatch team execution to worker service
+          result = WorkerJobService.enqueue_ai_team_execution(
             team_id: @team.id,
             user_id: current_user&.id,
             input: input_hash,
             context: context_hash
           )
 
-          jid = job.try(:provider_job_id) || job.try(:job_id) || job.to_s
+          jid = result&.dig("job_id") || "queued"
 
           log_audit_event("ai_agent_team.execution_started", @team,
             metadata: { job_id: jid })
@@ -162,9 +162,10 @@ module Api
 
         # POST /api/v1/ai/agent_teams/:id/optimize
         def optimize
-          ::Ai::TeamOptimizeJob.perform_async(
-            account_id: current_account.id,
-            team_id: @team.id
+          WorkerJobService.enqueue_job(
+            "AiTeamOptimizeJob",
+            args: [{ "account_id" => current_account.id, "team_id" => @team.id }],
+            queue: "ai_orchestration"
           )
 
           render_success({ message: "Optimization queued", team_id: @team.id }, status: :accepted)

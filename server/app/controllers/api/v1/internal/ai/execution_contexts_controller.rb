@@ -74,17 +74,86 @@ module Api
             system_prompt = agent.build_system_prompt_with_profile.presence ||
                             agent.mcp_metadata&.dig("system_prompt")
 
+            # Resolve provider credential for direct LLM access
+            provider = agent.provider
+            credential = provider.provider_credentials
+                                 .where(account: agent.account)
+                                 .active
+                                 .first
+
             render_success(
               execution_context: execution_context,
               system_prompt: system_prompt,
               model: model,
               max_tokens: model_config["max_tokens"] || 2000,
-              temperature: model_config["temperature"] || 0.7
+              temperature: model_config["temperature"] || 0.7,
+              provider_type: provider.provider_type,
+              provider_credential_id: credential&.id,
+              provider_base_url: provider.api_base_url,
+              provider_name: provider.name
             )
           rescue ActiveRecord::RecordNotFound
             render_error("Agent not found", status: :not_found)
           rescue StandardError => e
             render_error("Failed to build execution context: #{e.message}", status: :unprocessable_entity)
+          end
+
+          # POST /api/v1/internal/ai/provider_config
+          #
+          # Returns lightweight provider configuration for an agent.
+          # Used by the worker to build direct LLM clients without needing
+          # the full execution context (memory injection, skill enrichment).
+          def provider_config
+            agent = ::Ai::Agent.find(params[:agent_id])
+            provider = agent.provider
+            credential = provider.provider_credentials
+                                 .where(account: agent.account)
+                                 .active
+                                 .first
+
+            model_config = agent.mcp_metadata&.dig("model_config") || {}
+            model = model_config["model"] ||
+                    agent.mcp_tool_manifest&.dig("model") ||
+                    provider.supported_models.first&.dig("id")
+
+            render_success(
+              provider_type: provider.provider_type,
+              provider_credential_id: credential&.id,
+              provider_base_url: provider.api_base_url,
+              provider_name: provider.name,
+              model: model
+            )
+          rescue ActiveRecord::RecordNotFound
+            render_error("Agent not found", status: :not_found)
+          end
+
+          # GET /api/v1/internal/ai/embedding_config
+          #
+          # Returns the embedding provider configuration for an account.
+          # Used by the worker to build its Ai::EmbeddingService with the right credentials.
+          def embedding_config
+            account_id = params[:account_id]
+            account = Account.find(account_id)
+
+            # Find an AI provider that supports embeddings
+            provider = ::Ai::Provider
+              .where(account_id: account.id)
+              .where("capabilities @> ?", ["text_embedding"].to_json)
+              .active
+              .first || ::Ai::Provider.where(account_id: account.id).active.first
+
+            credential = account.ai_provider_credentials
+              .where(ai_provider_id: provider&.id, is_active: true)
+              .first if provider
+
+            render_success(
+              provider_type: provider&.provider_type || "openai",
+              credential_id: credential&.id,
+              ollama_url: provider&.configuration&.dig("base_url"),
+              ollama_model: provider&.configuration&.dig("embedding_model")
+            )
+          rescue ActiveRecord::RecordNotFound
+            render_error("Account not found", status: :not_found)
           end
         end
       end

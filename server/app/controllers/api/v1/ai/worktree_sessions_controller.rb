@@ -101,7 +101,7 @@ module Api
           # Clear failed merge operations
           @session.merge_operations.where(status: %w[failed conflict]).destroy_all
 
-          ::Ai::MergeExecutionJob.perform_later(@session.id)
+          WorkerJobService.enqueue_ai_merge_execution(@session.id)
 
           render_success(session: @session.reload.session_summary, message: "Merge retry started")
           log_audit_event("ai.worktree_sessions.retry_merge", @session)

@@ -33,11 +33,11 @@ module Api
             status: "pending"
           )
 
-          # Queue worker job for background scanning
-          ::Ai::DiscoveryScanJob.perform_async(
-            account_id: current_account.id,
-            scan_type: scan_type,
-            scan_id: result.scan_id
+          # Dispatch to worker for background scanning
+          WorkerJobService.enqueue_job(
+            "AiDiscoveryScanJob",
+            args: [{ "account_id" => current_account.id, "scan_type" => scan_type, "scan_id" => result.scan_id }],
+            queue: "ai_orchestration"
           )
 
           render_success(result.scan_summary, status: :accepted)

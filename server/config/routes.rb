@@ -241,6 +241,9 @@ Rails.application.routes.draw do
           end
 
           resources :repositories, only: [ :show, :create, :update ] do
+            collection do
+              get :lookup
+            end
             member do
               post :sync_branches
               post :sync_commits
@@ -383,19 +386,23 @@ Rails.application.routes.draw do
           # Memory pool cleanup callbacks (worker → server)
           post "memory_pools/cleanup_results", to: "memory_pools#cleanup_results"
 
-          # LLM proxy endpoints (worker → server)
+          # Tool bridge endpoints (worker → server)
+          # LLM completion endpoints removed — worker calls providers directly.
+          # Only tool registry and reasoning orchestration remain server-side.
           scope "llm", controller: "llm_proxy" do
-            post :complete
-            post :complete_with_tools
-            post :complete_structured
             post :tool_definitions
             post :dispatch_tool
-            post :execute_tool_loop
             post :execute_with_reasoning
           end
 
           # Execution context endpoint (worker → server)
           post "execution_contexts", to: "execution_contexts#create"
+
+          # Provider config for direct LLM access (worker → server)
+          post "provider_config", to: "execution_contexts#provider_config"
+
+          # Embedding provider config (worker → server)
+          get "embedding_config", to: "execution_contexts#embedding_config"
 
           # Agent execution management (worker → server)
           get "executions/:id", to: "agent_executions#show"
@@ -404,6 +411,44 @@ Rails.application.routes.draw do
 
           # Team strategy execution (worker → server)
           post "teams/:team_id/execute_strategy", to: "teams#execute_strategy"
+
+          # Self-healing endpoints (worker → server)
+          scope "self_healing", controller: "self_healing" do
+            post :check_stuck_workflows
+            post :check_degraded_providers
+            post :check_orphaned_executions
+            post :check_anomalies
+          end
+
+          # Ralph loop endpoints (worker → server)
+          scope "ralph_loops" do
+            post "process_scheduled", to: "ralph_loops#process_scheduled"
+            post ":id/run_iteration", to: "ralph_loops#run_iteration"
+          end
+
+          # Trajectory analysis endpoint (worker → server)
+          post "trajectory/analyze_all", to: "trajectory#analyze_all"
+
+          # Worktree session management (worker → server)
+          resources :worktree_sessions, only: [:show] do
+            member do
+              post :start
+              post :activate
+              post :fail_session
+              post :cleanup
+              post :push_and_pr
+              post :execute_merge
+              post :detect_conflicts
+              get :dispatch_status
+              post :timeout_dispatches
+            end
+            collection do
+              post :check_timeouts
+            end
+          end
+          post "worktree_sessions/:id/worktrees/:worktree_id/provision",
+               to: "worktree_sessions#provision_worktree",
+               as: :provision_worktree_session_worktree
         end
 
         # Container execution callbacks for Gitea workflow

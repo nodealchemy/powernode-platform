@@ -432,7 +432,8 @@ module Api
                            .joins(:provider).where(ai_providers: { is_active: true })
                            .where(is_active: true).first
             if credential
-              llm_client = ::Ai::Llm::Client.new(provider: credential.provider, credential: credential)
+              agent = current_account.ai_agents.active.first
+              llm_client = agent ? ::WorkerLlmClient.new(agent_id: agent.id) : nil
               model = credential.provider.default_model
             end
           end

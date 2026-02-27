@@ -85,7 +85,7 @@ module Api
             context: { retried_from: @execution.execution_id }
           }
 
-          ::Ai::AgentTeamExecutionJob.perform_later(new_execution_args)
+          WorkerJobService.enqueue_ai_team_execution(**new_execution_args.symbolize_keys)
           audit_log("ai_agent_team.execution_retried",
             original_execution_id: @execution.execution_id)
           render_success({ status: "retry_queued", original_execution_id: @execution.execution_id })

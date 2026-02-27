@@ -4,53 +4,13 @@ module Api
   module V1
     module Internal
       module Ai
+        # Tool bridge controller for worker → server tool operations.
+        #
+        # LLM completion endpoints have been removed — the worker now calls
+        # AI providers directly via its own LLM client. Only tool-related
+        # endpoints remain, as tool definitions and execution live server-side.
         class LlmProxyController < InternalBaseController
           before_action :load_agent
-
-          # POST /api/v1/internal/ai/llm/complete
-          def complete
-            llm_client = build_llm_client
-            model, opts = resolve_model_config
-            messages = params_messages
-
-            response = llm_client.complete(messages: messages, model: model, **opts)
-
-            render_success(format_response(response, model))
-          rescue StandardError => e
-            render_error("LLM completion failed: #{e.message}", status: :unprocessable_entity)
-          end
-
-          # POST /api/v1/internal/ai/llm/complete_with_tools
-          def complete_with_tools
-            llm_client = build_llm_client
-            model, opts = resolve_model_config
-            messages = params_messages
-            tools = params[:tools] || []
-
-            response = llm_client.complete_with_tools(
-              messages: messages, tools: tools, model: model, **opts
-            )
-
-            render_success(format_response(response, model))
-          rescue StandardError => e
-            render_error("LLM tool completion failed: #{e.message}", status: :unprocessable_entity)
-          end
-
-          # POST /api/v1/internal/ai/llm/complete_structured
-          def complete_structured
-            llm_client = build_llm_client
-            model, opts = resolve_model_config
-            messages = params_messages
-            schema = params[:schema]&.to_unsafe_h || {}
-
-            response = llm_client.complete_structured(
-              messages: messages, schema: schema, model: model, **opts
-            )
-
-            render_success(format_response(response, model))
-          rescue StandardError => e
-            render_error("LLM structured completion failed: #{e.message}", status: :unprocessable_entity)
-          end
 
           # POST /api/v1/internal/ai/llm/tool_definitions
           def tool_definitions
@@ -76,35 +36,11 @@ module Api
             render_error("Tool dispatch failed: #{e.message}", status: :unprocessable_entity)
           end
 
-          # POST /api/v1/internal/ai/llm/execute_tool_loop
-          def execute_tool_loop
-            llm_client = build_llm_client
-            model, opts = resolve_model_config
-            messages = params_messages
-
-            bridge = ::Ai::AgentToolBridgeService.new(agent: @agent, account: @agent.account)
-
-            unless bridge.tools_enabled?
-              # Fall back to simple completion if tools disabled
-              response = llm_client.complete(messages: messages, model: model, **opts)
-              return render_success(format_response(response, model))
-            end
-
-            result = bridge.execute_tool_loop(
-              llm_client: llm_client, messages: messages, model: model, **opts
-            )
-
-            render_success(
-              content: result[:content],
-              usage: result[:usage],
-              tool_calls_log: result[:tool_calls_log],
-              finish_reason: result[:finish_reason]
-            )
-          rescue StandardError => e
-            render_error("Tool loop execution failed: #{e.message}", status: :unprocessable_entity)
-          end
-
           # POST /api/v1/internal/ai/llm/execute_with_reasoning
+          #
+          # Reasoning orchestration is kept server-side because it involves
+          # complex services (STAR reasoning, evaluation, reflection) that
+          # are tightly coupled to the server's service layer.
           def execute_with_reasoning
             gate = enforce_execution_gate
             return if gate
@@ -173,17 +109,11 @@ module Api
           end
 
           def build_llm_client
-            provider = @agent.provider
-            credential = provider.provider_credentials
-                                 .where(account: @agent.account)
-                                 .active
-                                 .first
-
-            unless credential
-              raise "No active credentials found for provider: #{provider.name}"
+            unless @agent.provider&.is_active?
+              raise "AI provider is not active for agent: #{@agent.name}"
             end
 
-            ::Ai::Llm::Client.new(provider: provider, credential: credential)
+            ::WorkerLlmClient.new(agent_id: @agent.id)
           end
 
           def resolve_model_config
@@ -214,17 +144,6 @@ module Api
               m = msg.respond_to?(:to_unsafe_h) ? msg.to_unsafe_h : msg.to_h
               { role: m["role"] || m[:role], content: m["content"] || m[:content] }
             end
-          end
-
-          def format_response(response, model)
-            {
-              content: response.content,
-              usage: response.usage,
-              finish_reason: response.finish_reason,
-              model: model,
-              tool_calls: response.respond_to?(:tool_calls) ? response.tool_calls : nil,
-              cost: response.respond_to?(:cost) ? response.cost : nil
-            }.compact
           end
         end
       end

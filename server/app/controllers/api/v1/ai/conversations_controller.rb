@@ -163,7 +163,8 @@ module Api
         # POST /api/v1/ai/agents/:agent_id/conversations/:id/send_message
         def send_message
           agent = current_user.account.ai_agents.find(params[:agent_id])
-          conversation = agent.conversations.find(params[:id])
+          conversation = agent.conversations.find_by(id: params[:id]) ||
+                           agent.conversations.find_by!(conversation_id: params[:id])
 
           unless conversation.can_send_message?
             return render_error("Conversation is not active", status: :unprocessable_content)

@@ -6,6 +6,7 @@ module Api
       class WorkflowTemplatesController < ApplicationController
         include AuditLogging
         include ::Ai::WorkflowSerialization
+        include ::Ai::WorkflowDownloadHelpers
 
         before_action :set_workflow, only: %i[convert_to_template create_from_template convert_to_workflow]
         before_action :validate_permissions

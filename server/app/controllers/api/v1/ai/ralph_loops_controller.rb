@@ -126,7 +126,7 @@ module Api
           @ralph_loop.reset!
           render_success(ralph_loop: @ralph_loop.loop_summary, message: "Loop reset successfully")
           log_audit_event("ai.ralph_loops.reset", @ralph_loop)
-        rescue ::Ai::RalphLoop::InvalidTransitionError => e
+        rescue ::Ai::RalphLoop::InvalidTransitionError, StandardError => e
           render_error(e.message, status: :unprocessable_content)
         end
 
