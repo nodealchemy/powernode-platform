@@ -57,7 +57,8 @@ export const StepPlanReview: React.FC<StepPlanReviewProps> = ({
           <p className="text-sm text-theme-error">{error}</p>
         </div>
         <div className="flex justify-center">
-          <Button variant="ghost" onClick={composePlan} iconLeft={RefreshCw}>
+          <Button variant="ghost" onClick={composePlan}>
+            <RefreshCw className="w-4 h-4 mr-1.5" />
             Retry
           </Button>
         </div>
@@ -74,7 +75,8 @@ export const StepPlanReview: React.FC<StepPlanReviewProps> = ({
             {plan?.nodes.length ?? 0} tasks composed from available skills
           </p>
         </div>
-        <Button variant="ghost" size="sm" onClick={composePlan} iconLeft={RefreshCw}>
+        <Button variant="ghost" size="sm" onClick={composePlan}>
+          <RefreshCw className="w-4 h-4 mr-1.5" />
           Regenerate
         </Button>
       </div>
