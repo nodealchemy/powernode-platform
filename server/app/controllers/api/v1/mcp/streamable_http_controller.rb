@@ -180,14 +180,31 @@ module Api
             pubsub.subscribe(channel, callback)
           end
 
-          # Keepalive loop — sends pings and refreshes session TTL
+          # Release the DB connection back to the pool before entering the
+          # long-lived keepalive loop. SSE streams tie up a Puma thread for
+          # hours/days — if they also hold a DB connection, the pool is exhausted
+          # and all normal HTTP requests block until ConnectionTimeoutError.
+          ActiveRecord::Base.connection_handler.clear_active_connections!
+
+          # Keepalive loop — borrows a connection only for the brief touch_activity!
+          # query, then returns it immediately via with_connection.
           loop do
             sleep SSE_KEEPALIVE_INTERVAL
             sse.write({ type: "ping", timestamp: Time.current.iso8601 }, event: "ping")
-            session.touch_activity!
+            ActiveRecord::Base.connection_pool.with_connection do
+              session.touch_activity!
+            end
           end
         rescue ActionController::Live::ClientDisconnected, IOError, Errno::EPIPE
-          # Client disconnected — normal cleanup
+          # Client disconnected — revoke session to trigger agent archival.
+          # Must borrow a connection since we released ours before the loop.
+          begin
+            ActiveRecord::Base.connection_pool.with_connection do
+              session&.revoke! if session&.active?
+            end
+          rescue StandardError => e
+            Rails.logger.warn "[MCP StreamableHTTP] Session revoke on disconnect failed: #{e.message}"
+          end
         ensure
           # Unsubscribe from all channels
           callbacks&.each do |channel, callback|
