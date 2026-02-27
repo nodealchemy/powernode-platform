@@ -98,6 +98,7 @@ module Api
             selected_feature: params[:selected_feature],
             prd_modifications: params[:prd_modifications]
           )
+          dismiss_approval_notifications(mission)
           render_success(mission: mission.reload.mission_details)
         rescue ::Ai::Missions::OrchestratorService::OrchestrationError => e
           render_error(e.message, :unprocessable_content)
@@ -115,6 +116,7 @@ module Api
             decision: "rejected",
             comment: params[:comment]
           )
+          dismiss_approval_notifications(mission)
           render_success(mission: mission.reload.mission_details)
         rescue ::Ai::Missions::OrchestratorService::OrchestrationError => e
           render_error(e.message, :unprocessable_content)
@@ -473,6 +475,17 @@ module Api
         rescue ActiveRecord::RecordNotFound
           render_error("Mission not found", :not_found)
           nil
+        end
+
+        def dismiss_approval_notifications(mission)
+          Notification.where(
+            account: current_account,
+            notification_type: "ai_plan_review"
+          ).not_dismissed.where(
+            "metadata->>'mission_id' = ?", mission.id
+          ).find_each(&:dismiss!)
+        rescue StandardError => e
+          Rails.logger.warn("Failed to dismiss approval notifications for mission #{mission.id}: #{e.message}")
         end
 
         def handle_worker_service_error(exception)
