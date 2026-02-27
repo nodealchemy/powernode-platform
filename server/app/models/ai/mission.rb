@@ -285,6 +285,7 @@ module Ai
       self.configuration ||= {}
       self.metadata ||= {}
       self.error_details ||= {}
+      self.base_branch = repository&.default_branch || base_branch if !base_branch_changed?
       assign_default_template if mission_template_id.blank? && custom_phases.blank?
     end
 
