@@ -16,12 +16,20 @@ Time.zone = 'UTC'
 $LOAD_PATH.unshift(File.expand_path('../app', __dir__))
 $LOAD_PATH.unshift(File.expand_path('../lib', __dir__))
 
+# HTTP client for direct AI provider calls
+require 'httparty'
+
 # Auto-require core files first
 require_relative '../app/services/worker_jwt'
 require_relative '../app/services/backend_api_client'
 require_relative '../app/services/web_auth_api_client'
 require_relative '../app/middleware/sidekiq_web_auth'
 require_relative '../app/controllers/jobs_controller'
+
+# AI LLM client for direct provider calls (bypassing server proxy)
+require_relative '../app/services/ai/llm/client'
+require_relative '../app/services/ai/embedding_service'
+require_relative '../app/services/credential_resolver'
 
 # Auto-require external service integrations
 require_relative '../app/services/firebase_service'

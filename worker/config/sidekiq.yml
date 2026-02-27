@@ -314,3 +314,24 @@
     class: AiKnowledgeDocSyncJob
     queue: maintenance
     description: 'Sync MCP knowledge stores to markdown docs for offline fallback'
+
+  # Self-healing monitor - checks stuck workflows, degraded providers, orphaned executions
+  ai_self_healing_monitor:
+    every: '5m'
+    class: AiSelfHealingMonitorJob
+    queue: ai_orchestration
+    description: 'AI system self-healing: detect and remediate stuck/degraded/orphaned resources'
+
+  # Trajectory analysis - generate improvement recommendations per account
+  ai_trajectory_analysis:
+    cron: '0 5 * * *'  # Daily at 5:00 AM UTC
+    class: AiTrajectoryAnalysisJob
+    queue: ai_orchestration
+    description: 'Analyze execution trajectories and generate improvement recommendations'
+
+  # Ralph loop scheduler - find and execute due ralph loops
+  ai_ralph_loop_scheduler:
+    cron: '* * * * *'  # Every minute
+    class: AiRalphLoopSchedulerJob
+    queue: ai_orchestration
+    description: 'Check for due ralph loops and execute scheduled iterations'

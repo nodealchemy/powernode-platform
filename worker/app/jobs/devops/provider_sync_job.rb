@@ -109,7 +109,7 @@ module Devops
       normalized = normalize_repository_data(repo_data)
 
       # Check if repository exists
-      existing = find_existing_repository(provider_id, normalized[:external_id])
+      existing = find_existing_repository(normalized[:full_name])
 
       if existing
         # Update existing repository
@@ -140,29 +140,38 @@ module Devops
       }
     end
 
-    def find_existing_repository(provider_id, external_id)
-      response = api_client.get("/api/v1/internal/devops/repositories", {
-        provider_id: provider_id,
-        external_id: external_id
+    def find_existing_repository(full_name)
+      response = api_client.get("/api/v1/internal/git/repositories/lookup", {
+        full_name: full_name
       })
-      repositories = response.dig("data", "repositories") || []
-      repositories.first
+      response.dig("data")
     rescue StandardError
       nil
     end
 
     def create_repository(provider_id, data)
-      api_client.post("/api/v1/internal/devops/repositories", {
-        repository: data.merge(
-          provider_id: provider_id,
+      owner = data[:full_name]&.split("/")&.first
+      api_client.post("/api/v1/internal/git/repositories", {
+        repository: {
+          external_id: data[:external_id],
+          name: data[:name],
+          full_name: data[:full_name],
+          owner: owner,
+          default_branch: data[:default_branch],
+          clone_url: data[:clone_url],
+          web_url: data[:web_url],
+          metadata: data[:settings] || {},
+          is_private: data.dig(:settings, :private) || false,
           is_active: true,
           last_synced_at: Time.current.iso8601
-        )
+        },
+        origin: "devops",
+        devops_provider_id: provider_id
       })
     end
 
     def update_repository(repository_id, data)
-      api_client.patch("/api/v1/internal/devops/repositories/#{repository_id}", {
+      api_client.patch("/api/v1/internal/git/repositories/#{repository_id}", {
         repository: data.merge(last_synced_at: Time.current.iso8601)
       })
     end

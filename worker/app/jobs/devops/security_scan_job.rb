@@ -56,7 +56,8 @@ module Devops
 
       # Fetch repository and provider info
       repo_data = fetch_repository(repository_id)
-      provider_data = fetch_provider(repo_data["provider_id"])
+      provider_id = repo_data["devops_provider_id"] || repo_data.dig("credential", "provider", "id")
+      provider_data = fetch_provider(provider_id)
 
       # Clone repository to temp directory
       work_dir = clone_repository(repo_data, provider_data)
@@ -96,8 +97,8 @@ module Devops
     private
 
     def fetch_repository(repository_id)
-      response = api_client.get("/api/v1/internal/devops/repositories/#{repository_id}")
-      response.dig("data", "repository")
+      response = api_client.get("/api/v1/internal/git/repositories/#{repository_id}")
+      response.dig("data")
     end
 
     def fetch_provider(provider_id)

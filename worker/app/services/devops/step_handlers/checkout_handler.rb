@@ -102,10 +102,10 @@ module Devops
         end
 
         # Fall back to internal API
-        response = api_client.get("/api/v1/internal/devops/repositories/lookup", {
+        response = api_client.get("/api/v1/internal/git/repositories/lookup", {
           full_name: repository
         })
-        response.dig("data", "repository")
+        response.dig("data")
       end
 
       def create_workspace_dir(context)

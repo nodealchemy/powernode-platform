@@ -11,6 +11,9 @@ gem 'sidekiq-scheduler', '~> 5.0'
 gem 'faraday', '~> 2.7'
 gem 'faraday-retry', '~> 2.2'
 
+# HTTP client for direct AI provider calls (adapters use HTTParty for non-streaming)
+gem 'httparty', '~> 0.21'
+
 # Configuration and environment
 gem 'dotenv', '~> 3.0'
 
