@@ -18,14 +18,14 @@ RSpec.describe 'Api::V1::Devops::Repositories', type: :request do
 
     context 'with devops.repositories.read permission' do
       it 'returns list of repositories' do
-        # FK columns have been renamed from ci_cd_* to devops_* — column mismatch is fixed.
         get '/api/v1/devops/repositories', headers: headers, as: :json
 
-        expect(response).to have_http_status(:internal_server_error)
+        expect_success_response
+        expect(json_response['data']['repositories']).to be_an(Array)
+        expect(json_response['data']['repositories'].length).to eq(3)
       end
 
       it 'filters by provider_id' do
-        # FK columns have been renamed from ci_cd_* to devops_* — column mismatch is fixed.
         other_provider = create(:devops_provider, account: account)
         create(:devops_repository, account: account, provider: other_provider)
 
@@ -33,18 +33,18 @@ RSpec.describe 'Api::V1::Devops::Repositories', type: :request do
             params: { provider_id: other_provider.id },
             headers: headers
 
-        expect(response).to have_http_status(:internal_server_error)
+        expect_success_response
+        expect(json_response['data']['repositories']).to be_an(Array)
       end
 
       it 'filters by is_active' do
-        # FK columns have been renamed from ci_cd_* to devops_* — column mismatch is fixed.
         create(:devops_repository, :inactive, account: account, provider: provider)
 
         get '/api/v1/devops/repositories',
             params: { is_active: false },
             headers: headers
 
-        expect(response).to have_http_status(:internal_server_error)
+        expect_success_response
       end
     end
 
@@ -133,10 +133,14 @@ RSpec.describe 'Api::V1::Devops::Repositories', type: :request do
       end
 
       it 'creates a new repository' do
-        # FK columns have been renamed from ci_cd_* to devops_* — column mismatch is fixed.
-        post '/api/v1/devops/repositories', params: valid_params, headers: headers, as: :json
+        allow_any_instance_of(Api::V1::Devops::RepositoriesController).to receive(:log_audit_event)
 
-        expect(response).to have_http_status(:internal_server_error)
+        expect {
+          post '/api/v1/devops/repositories', params: valid_params, headers: headers, as: :json
+        }.to change(Devops::GitRepository, :count).by(1)
+
+        expect(response).to have_http_status(:created)
+        expect(json_response['data']['message']).to eq('Repository created successfully')
       end
     end
 
@@ -195,7 +199,7 @@ RSpec.describe 'Api::V1::Devops::Repositories', type: :request do
         delete "/api/v1/devops/repositories/#{repository_id}", headers: headers, as: :json
 
         expect_success_response
-        expect(Devops::Repository.find_by(id: repository_id)).to be_nil
+        expect(Devops::GitRepository.find_by(id: repository_id)).to be_nil
       end
     end
   end
@@ -206,10 +210,12 @@ RSpec.describe 'Api::V1::Devops::Repositories', type: :request do
 
     context 'with devops.repositories.write permission' do
       it 'initiates repository sync' do
-        # FK columns have been renamed from ci_cd_* to devops_* — column mismatch is fixed.
+        allow(WorkerJobService).to receive(:enqueue_job).and_return({ 'status' => 'queued' })
+
         post "/api/v1/devops/repositories/#{repository.id}/sync", headers: headers, as: :json
 
-        expect(response).to have_http_status(:internal_server_error)
+        expect_success_response
+        expect(json_response['data']['message']).to include('sync')
       end
     end
   end
@@ -221,23 +227,31 @@ RSpec.describe 'Api::V1::Devops::Repositories', type: :request do
 
     context 'with devops.repositories.write permission' do
       it 'attaches pipeline to repository' do
-        # FK columns have been renamed from ci_cd_* to devops_* — column mismatch is fixed.
         post "/api/v1/devops/repositories/#{repository.id}/attach_pipeline",
              params: { pipeline_id: pipeline.id },
              headers: headers,
              as: :json
 
-        expect(response).to have_http_status(:internal_server_error)
+        expect_success_response
+        expect(json_response['data']['message']).to eq('Pipeline attached successfully')
       end
 
       it 'prevents duplicate attachment' do
-        # FK columns have been renamed from ci_cd_* to devops_* — column mismatch is fixed.
+        # First attachment
         post "/api/v1/devops/repositories/#{repository.id}/attach_pipeline",
              params: { pipeline_id: pipeline.id },
              headers: headers,
              as: :json
 
-        expect(response).to have_http_status(:internal_server_error)
+        expect_success_response
+
+        # Second attempt should fail
+        post "/api/v1/devops/repositories/#{repository.id}/attach_pipeline",
+             params: { pipeline_id: pipeline.id },
+             headers: headers,
+             as: :json
+
+        expect_error_response('Pipeline already attached to this repository', 422)
       end
     end
   end

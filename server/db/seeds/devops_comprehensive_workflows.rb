@@ -81,16 +81,18 @@ puts "    ✓ Git Provider: #{git_provider.name}"
 
 puts "\n  Creating Repository..."
 
-repository = Devops::Repository.find_or_create_by!(
+repository = Devops::GitRepository.find_or_create_by!(
   account: system_account,
   full_name: "powernode/example-app"
 ) do |r|
   r.provider = git_provider
   r.name = "example-app"
+  r.owner = "powernode"
   r.external_id = "repo-12345"
   r.default_branch = "main"
+  r.origin = "devops"
   r.is_active = true
-  r.settings = {
+  r.metadata = {
     "clone_url" => "https://github.com/powernode/example-app.git",
     "ssh_clone_url" => "git@github.com:powernode/example-app.git",
     "web_url" => "https://github.com/powernode/example-app",

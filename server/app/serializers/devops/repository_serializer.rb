@@ -8,24 +8,35 @@ module Devops
     end
 
     def as_json
-      {
+      result = {
         id: @repository.id,
         name: @repository.name,
         full_name: @repository.full_name,
         default_branch: @repository.default_branch,
         external_id: @repository.external_id,
-        settings: @repository.settings,
         is_active: @repository.is_active,
+        origin: @repository.origin,
         last_synced_at: @repository.last_synced_at,
-        clone_url: @repository.clone_url,
-        web_url: @repository.web_url,
         owner: @repository.owner,
-        repo_name: @repository.repo_name,
-        provider_type: @repository.provider.provider_type,
-        pipeline_count: @repository.pipelines.count,
+        provider_type: @repository.provider_type,
+        pipeline_count: @repository.devops_pipelines.count,
         created_at: @repository.created_at,
         updated_at: @repository.updated_at
       }
+
+      if @repository.origin == "devops"
+        result[:settings] = @repository.metadata || {}
+        result[:clone_url] = @repository.clone_url_for_devops
+        result[:web_url] = @repository.web_url_for_devops
+        result[:repo_name] = @repository.full_name&.split("/")&.last
+      else
+        result[:settings] = {}
+        result[:clone_url] = @repository.clone_url
+        result[:web_url] = @repository.web_url
+        result[:repo_name] = @repository.name
+      end
+
+      result
     end
 
     def serializable_hash

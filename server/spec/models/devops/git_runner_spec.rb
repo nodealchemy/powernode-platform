@@ -224,8 +224,8 @@ RSpec.describe Devops::GitRunner, type: :model do
         expect(build(:git_runner, :offline).workload_percentage).to eq(0)
       end
 
-      it 'returns 50 for online but not busy runners' do
-        expect(build(:git_runner, :online).workload_percentage).to eq(50)
+      it 'returns 0 for online runners with no active dispatches' do
+        expect(build(:git_runner, :online).workload_percentage).to eq(0)
       end
     end
 

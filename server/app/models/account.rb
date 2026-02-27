@@ -128,7 +128,7 @@ class Account < ApplicationRecord
   # DevOps Pipeline Management associations
   has_many :devops_providers, class_name: "Devops::Provider", dependent: :destroy
   has_many :devops_pipelines, class_name: "Devops::Pipeline", dependent: :destroy
-  has_many :devops_repositories, class_name: "Devops::Repository", dependent: :destroy
+  has_many :devops_repositories, -> { from_devops }, class_name: "Devops::GitRepository", dependent: :destroy
   has_many :devops_integration_templates, class_name: "Devops::IntegrationTemplate", dependent: :destroy
   has_many :devops_integration_instances, class_name: "Devops::IntegrationInstance", dependent: :destroy
   has_many :devops_integration_credentials, class_name: "Devops::IntegrationCredential", dependent: :destroy

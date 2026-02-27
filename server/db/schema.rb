@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_26_120001) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_26_230003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -5970,12 +5970,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_120001) do
   create_table "devops_pipeline_repositories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.uuid "devops_pipeline_id", null: false
-    t.uuid "devops_repository_id", null: false
+    t.uuid "git_repository_id", null: false
     t.jsonb "overrides", default: {}, null: false
     t.datetime "updated_at", null: false
-    t.index ["devops_pipeline_id", "devops_repository_id"], name: "idx_pipeline_repos_on_pipeline_and_repo", unique: true
+    t.index ["devops_pipeline_id", "git_repository_id"], name: "idx_pipeline_repos_on_pipeline_and_git_repo", unique: true
     t.index ["devops_pipeline_id"], name: "index_devops_pipeline_repositories_on_devops_pipeline_id"
-    t.index ["devops_repository_id"], name: "index_devops_pipeline_repositories_on_devops_repository_id"
+    t.index ["git_repository_id"], name: "idx_pipeline_repos_on_git_repository_id"
   end
 
   create_table "devops_pipeline_runs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6121,24 +6121,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_120001) do
     t.index ["account_id", "name"], name: "index_devops_providers_on_account_id_and_name", unique: true
     t.index ["account_id"], name: "index_devops_providers_on_account_id"
     t.index ["created_by_id"], name: "index_devops_providers_on_created_by_id"
-  end
-
-  create_table "devops_repositories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
-    t.datetime "created_at", null: false
-    t.string "default_branch", default: "main"
-    t.uuid "devops_provider_id", null: false
-    t.string "external_id"
-    t.string "full_name", null: false
-    t.boolean "is_active", default: true, null: false
-    t.datetime "last_synced_at"
-    t.string "name", null: false
-    t.jsonb "settings", default: {}, null: false
-    t.datetime "updated_at", null: false
-    t.index ["account_id", "full_name"], name: "index_devops_repositories_on_account_id_and_full_name", unique: true
-    t.index ["account_id"], name: "index_devops_repositories_on_account_id"
-    t.index ["devops_provider_id"], name: "index_devops_repositories_on_devops_provider_id"
-    t.index ["external_id"], name: "index_devops_repositories_on_external_id"
   end
 
   create_table "devops_resource_quotas", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -6928,13 +6910,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_120001) do
     t.datetime "created_at", null: false
     t.string "default_branch", limit: 255, default: "main"
     t.text "description"
+    t.uuid "devops_provider_id"
     t.string "external_id", limit: 255, null: false
     t.integer "forks_count", default: 0
     t.string "full_name", limit: 500, null: false
-    t.uuid "git_provider_credential_id", null: false
+    t.uuid "git_provider_credential_id"
     t.boolean "has_issues", default: true
     t.boolean "has_pull_requests", default: true
     t.boolean "has_wiki", default: false
+    t.boolean "is_active", default: true, null: false
     t.boolean "is_archived", default: false
     t.boolean "is_fork", default: false
     t.boolean "is_private", default: false
@@ -6945,6 +6929,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_120001) do
     t.string "name", limit: 255, null: false
     t.integer "open_issues_count", default: 0
     t.integer "open_prs_count", default: 0
+    t.string "origin", default: "git", null: false
     t.string "owner", limit: 255, null: false
     t.datetime "provider_created_at", precision: nil
     t.datetime "provider_updated_at", precision: nil
@@ -6957,12 +6942,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_120001) do
     t.boolean "webhook_configured", default: false
     t.string "webhook_id", limit: 255
     t.string "webhook_secret", limit: 255
+    t.index ["account_id", "devops_provider_id"], name: "idx_git_repos_account_devops_provider", where: "(devops_provider_id IS NOT NULL)"
     t.index ["account_id", "full_name"], name: "index_git_repositories_on_account_id_and_full_name", unique: true
     t.index ["account_id"], name: "index_git_repositories_on_account_id"
     t.index ["external_id"], name: "index_git_repositories_on_external_id"
     t.index ["git_provider_credential_id"], name: "index_git_repositories_on_git_provider_credential_id"
+    t.index ["is_active"], name: "idx_git_repos_is_active"
     t.index ["is_private"], name: "index_git_repositories_on_is_private"
     t.index ["last_synced_at"], name: "index_git_repositories_on_last_synced_at"
+    t.index ["origin"], name: "idx_git_repos_origin"
     t.index ["owner"], name: "index_git_repositories_on_owner"
     t.index ["topics"], name: "index_git_repositories_on_topics", using: :gin
     t.index ["webhook_configured"], name: "index_git_repositories_on_webhook_configured"
@@ -9029,11 +9017,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_120001) do
     t.jsonb "document", default: {}, null: false
     t.string "document_hash"
     t.string "format", default: "cyclonedx_1_5", null: false
+    t.uuid "git_repository_id"
     t.jsonb "metadata", default: {}, null: false
     t.string "name"
     t.boolean "ntia_minimum_compliant", default: false, null: false
     t.uuid "pipeline_run_id"
-    t.uuid "repository_id"
     t.decimal "risk_score", precision: 5, scale: 2, default: "0.0"
     t.string "sbom_id", null: false
     t.text "signature"
@@ -9047,10 +9035,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_120001) do
     t.index ["account_id"], name: "index_supply_chain_sboms_on_account_id"
     t.index ["created_at"], name: "idx_sboms_created_at"
     t.index ["created_by_id"], name: "index_supply_chain_sboms_on_created_by_id"
+    t.index ["git_repository_id", "commit_sha"], name: "idx_sboms_git_repo_commit"
+    t.index ["git_repository_id"], name: "idx_sboms_git_repository_id"
     t.index ["metadata"], name: "idx_sboms_metadata", using: :gin
     t.index ["pipeline_run_id"], name: "index_supply_chain_sboms_on_pipeline_run_id"
-    t.index ["repository_id", "commit_sha"], name: "idx_sboms_repo_commit"
-    t.index ["repository_id"], name: "index_supply_chain_sboms_on_repository_id"
     t.check_constraint "format::text = ANY (ARRAY['spdx_2_3'::character varying::text, 'cyclonedx_1_4'::character varying::text, 'cyclonedx_1_5'::character varying::text, 'cyclonedx_1_6'::character varying::text])", name: "check_sboms_format"
     t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'generating'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'archived'::character varying::text])", name: "check_sboms_status"
   end
@@ -10238,7 +10226,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_120001) do
   add_foreign_key "devops_integration_instances", "devops_integration_templates", column: "integration_template_id"
   add_foreign_key "devops_integration_instances", "users", column: "created_by_user_id"
   add_foreign_key "devops_pipeline_repositories", "devops_pipelines", on_delete: :cascade
-  add_foreign_key "devops_pipeline_repositories", "devops_repositories", on_delete: :cascade
+  add_foreign_key "devops_pipeline_repositories", "git_repositories", on_delete: :cascade
   add_foreign_key "devops_pipeline_runs", "devops_pipelines", on_delete: :cascade
   add_foreign_key "devops_pipeline_runs", "users", column: "triggered_by_id", on_delete: :nullify
   add_foreign_key "devops_pipeline_steps", "devops_pipelines", on_delete: :cascade
@@ -10249,8 +10237,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_120001) do
   add_foreign_key "devops_pipelines", "users", column: "created_by_id", on_delete: :nullify
   add_foreign_key "devops_providers", "accounts", on_delete: :cascade
   add_foreign_key "devops_providers", "users", column: "created_by_id", on_delete: :nullify
-  add_foreign_key "devops_repositories", "accounts", on_delete: :cascade
-  add_foreign_key "devops_repositories", "devops_providers", on_delete: :cascade
   add_foreign_key "devops_resource_quotas", "accounts"
   add_foreign_key "devops_schedules", "devops_pipelines", on_delete: :cascade
   add_foreign_key "devops_schedules", "users", column: "created_by_id", on_delete: :nullify
@@ -10311,6 +10297,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_120001) do
   add_foreign_key "git_provider_credentials", "git_providers", on_delete: :cascade
   add_foreign_key "git_provider_credentials", "users", on_delete: :nullify
   add_foreign_key "git_repositories", "accounts", on_delete: :cascade
+  add_foreign_key "git_repositories", "devops_providers", on_delete: :nullify
   add_foreign_key "git_repositories", "git_provider_credentials", on_delete: :cascade
   add_foreign_key "git_runners", "accounts", on_delete: :cascade
   add_foreign_key "git_runners", "git_provider_credentials", on_delete: :cascade
@@ -10473,7 +10460,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_120001) do
   add_foreign_key "supply_chain_sbom_vulnerabilities", "users", column: "dismissed_by_id"
   add_foreign_key "supply_chain_sboms", "accounts"
   add_foreign_key "supply_chain_sboms", "devops_pipeline_runs", column: "pipeline_run_id"
-  add_foreign_key "supply_chain_sboms", "devops_repositories", column: "repository_id"
+  add_foreign_key "supply_chain_sboms", "git_repositories", on_delete: :nullify
   add_foreign_key "supply_chain_sboms", "users", column: "created_by_id"
   add_foreign_key "supply_chain_scan_executions", "accounts"
   add_foreign_key "supply_chain_scan_executions", "supply_chain_scan_instances", column: "scan_instance_id", on_delete: :cascade

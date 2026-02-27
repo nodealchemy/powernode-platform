@@ -12,7 +12,7 @@ module Devops
     belongs_to :account
     belongs_to :created_by, class_name: "User", optional: true
 
-    has_many :repositories, class_name: "Devops::Repository", foreign_key: :devops_provider_id, dependent: :destroy
+    has_many :repositories, class_name: "Devops::GitRepository", foreign_key: :devops_provider_id, dependent: :destroy
     has_many :pipelines, class_name: "Devops::Pipeline", foreign_key: :devops_provider_id, dependent: :restrict_with_error
 
     # ============================================

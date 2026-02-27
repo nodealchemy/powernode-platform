@@ -12,16 +12,23 @@ module Devops
     include Auditable
 
     # Associations
-    belongs_to :credential, class_name: "Devops::GitProviderCredential", foreign_key: "git_provider_credential_id"
+    belongs_to :credential, class_name: "Devops::GitProviderCredential", foreign_key: "git_provider_credential_id", optional: true
     belongs_to :account
-    has_one :provider, through: :credential, source: :provider
+    belongs_to :provider, class_name: "Devops::Provider", foreign_key: "devops_provider_id", optional: true
     has_many :webhook_events, class_name: "Devops::GitWebhookEvent", foreign_key: "git_repository_id", dependent: :destroy
     has_many :pipelines, class_name: "Devops::GitPipeline", foreign_key: "git_repository_id", dependent: :destroy
     has_many :pipeline_schedules, class_name: "Devops::GitPipelineSchedule", foreign_key: "git_repository_id", dependent: :destroy
     has_many :runners, class_name: "Devops::GitRunner", foreign_key: "git_repository_id", dependent: :destroy
 
-    # Delegations
-    delegate :provider_type, to: :provider, allow_nil: true
+    # Devops pipeline associations
+    has_many :devops_pipeline_repositories, class_name: "Devops::PipelineRepository", foreign_key: "git_repository_id", dependent: :destroy
+    has_many :devops_pipelines, through: :devops_pipeline_repositories, source: :pipeline
+
+    # Supply chain associations
+    has_many :sboms, class_name: "SupplyChain::Sbom", foreign_key: "git_repository_id", dependent: :nullify
+
+    # Delegations — provider_type resolves from devops provider or credential's git_provider
+    delegate :provider_type, to: :resolved_provider, allow_nil: true
 
     # Constants
     BRANCH_FILTER_TYPES = %w[none exact wildcard regex].freeze
@@ -34,6 +41,9 @@ module Devops
     validates :full_name, uniqueness: { scope: :account_id, message: "repository already synced for this account" }
     validates :branch_filter_type, inclusion: { in: BRANCH_FILTER_TYPES }, allow_nil: true
     validates :branch_filter, presence: true, if: -> { branch_filter_type.present? && branch_filter_type != "none" }
+    validates :origin, inclusion: { in: %w[git devops] }
+    validates :credential, presence: true, if: -> { origin == "git" }
+    validates :provider, presence: true, if: -> { origin == "devops" }
 
     # Scopes
     scope :with_webhook, -> { where(webhook_configured: true) }
@@ -50,6 +60,9 @@ module Devops
     scope :by_owner, ->(owner) { where(owner: owner) }
     scope :by_language, ->(lang) { where("languages ? :lang", lang: lang) }
     scope :with_topic, ->(topic) { where("topics @> ?", [ topic ].to_json) }
+    scope :from_devops, -> { where(origin: "devops") }
+    scope :from_git, -> { where(origin: "git") }
+    scope :by_provider, ->(provider_id) { where(devops_provider_id: provider_id) }
 
     # Callbacks
     before_create :generate_webhook_secret
@@ -120,6 +133,36 @@ module Devops
       provider_type == "gitea"
     end
 
+    # Devops-origin methods
+
+    def protected_branch?(branch_name)
+      protected_branches = metadata&.dig("protected_branches") || []
+      protected_branches.any? { |pattern| File.fnmatch(pattern, branch_name) }
+    end
+
+    def requires_review_for_path?(file_path)
+      review_paths = metadata&.dig("review_required_paths") || []
+      review_paths.any? { |pattern| File.fnmatch(pattern, file_path, File::FNM_PATHNAME) }
+    end
+
+    def clone_url_for_devops
+      return clone_url if clone_url.present?
+      return unless provider
+
+      "#{provider.base_url}/#{full_name}.git"
+    end
+
+    def web_url_for_devops
+      return web_url if web_url.present?
+      return unless provider
+
+      "#{provider.base_url}/#{full_name}"
+    end
+
+    def resolved_provider
+      provider || credential&.provider
+    end
+
     def latest_pipeline
       pipelines.order(created_at: :desc).first
     end
@@ -176,7 +219,7 @@ module Devops
     end
 
     def git_provider
-      provider
+      resolved_provider
     end
 
     def git_webhook_events

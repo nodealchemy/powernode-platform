@@ -10,12 +10,12 @@ module Devops
     # Associations
     # ============================================
     belongs_to :pipeline, class_name: "Devops::Pipeline", foreign_key: :devops_pipeline_id
-    belongs_to :repository, class_name: "Devops::Repository", foreign_key: :devops_repository_id
+    belongs_to :repository, class_name: "Devops::GitRepository", foreign_key: :git_repository_id
 
     # ============================================
     # Validations
     # ============================================
-    validates :devops_repository_id, uniqueness: { scope: :devops_pipeline_id }
+    validates :git_repository_id, uniqueness: { scope: :devops_pipeline_id }
 
     # ============================================
     # Instance Methods
