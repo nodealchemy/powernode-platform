@@ -10,7 +10,15 @@
     "sequential-thinking": {
       "command": "mcp-server-sequential-thinking",
       "args": []
+    },
+    "powernode": {
+      "type": "url",
+      "url": "http://localhost:3000/api/v1/mcp/message"
     }
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/statusline.sh"
   },
   "hooks": {
     "UserPromptSubmit": [

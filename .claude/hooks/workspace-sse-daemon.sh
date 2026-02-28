@@ -21,6 +21,7 @@ PID_FILE="/tmp/powernode_sse_daemon.pid"
 LOG_FILE="/tmp/powernode_sse_daemon.log"
 TOKEN_FILE="/tmp/powernode_sse_token.txt"
 SESSION_FILE="/tmp/powernode_sse_session.txt"
+SESSION_NAME_FILE="/tmp/powernode_sse_session_name.txt"
 SEEN_FILE="/tmp/powernode_sse_seen_ids.txt"
 
 # Identifiers resolved at startup via rails runner (survives re-seeds)
@@ -43,11 +44,19 @@ resolve_identifiers() {
   log "Resolving identifiers via rails runner..."
   local result
   result=$(cd "$SERVER_DIR" && bin/rails runner '
-agent = Ai::Agent.find_by(agent_type: "mcp_client", status: "active")
-abort "No active mcp_client agent found" unless agent
-app = Doorkeeper::Application.find_by(name: "Claude Code (powernode)")
-app ||= Doorkeeper::Application.first
+app = OauthApplication.where(name: "Claude Code (powernode)", status: "active").order(created_at: :desc).first
+app ||= OauthApplication.active.order(created_at: :desc).first
 abort "No OAuth application found" unless app
+
+# Find agent matching this OAuth app (consistent with McpClientIdentityService find-or-create)
+agent = Ai::Agent
+  .where(agent_type: "mcp_client", status: "active")
+  .where("mcp_metadata->>'\''oauth_application_id'\'' = ?", app.id.to_s)
+  .order(created_at: :desc)
+  .first
+agent ||= Ai::Agent.find_by(agent_type: "mcp_client", status: "active")
+abort "No active mcp_client agent found" unless agent
+
 owner = agent.account.users.order(:created_at).first
 abort "No resource owner found" unless owner
 puts "OAUTH_APP_ID=\"#{app.id}\""
@@ -242,32 +251,59 @@ ensure_session() {
   if [[ -f "$SESSION_FILE" && -s "$SESSION_FILE" ]]; then
     local existing
     existing=$(cat "$SESSION_FILE")
-    local check_script="s = McpSession.active.find_by(session_token: \"$existing\"); print s ? \"active\" : \"expired\""
-    local status
-    status=$(cd "$SERVER_DIR" && bin/rails runner "$check_script" 2>>"$LOG_FILE") || true
-    if [[ "$status" == "active" ]]; then
+    local check_script
+    check_script="s = McpSession.active.find_by(session_token: \"$existing\"); print s ? [\"active\", s.display_name || s.ai_agent&.name || \"MCP\"].join(\"\t\") : \"expired\""
+    local result
+    result=$(cd "$SERVER_DIR" && bin/rails runner "$check_script" 2>>"$LOG_FILE") || true
+    if [[ "$result" == active* ]]; then
+      # Update session name cache (may have changed)
+      local session_name
+      IFS=$'\t' read -r _ session_name <<< "$result"
+      [[ -n "$session_name" ]] && echo -n "$session_name" > "$SESSION_NAME_FILE"
       return 0
     fi
     log "Session ${existing:0:12}... expired, looking for CLI session"
   fi
 
-  # Find the CLI's active session (same agent ID, created by handle_initialize)
+  # Find the CLI's active session — prefer OAuth application ID (stable across
+  # agent recreation), fall back to agent ID (backward compat).
   local session_script
   session_script=$(cat <<RUBY
 session = McpSession.active
+  .where(oauth_application_id: "$OAUTH_APP_ID")
+  .order(last_activity_at: :desc)
+  .first
+
+session ||= McpSession.active
   .where(ai_agent_id: "$AGENT_ID")
   .order(last_activity_at: :desc)
   .first
-print session.session_token if session
+
+if session
+  # Sync agent ID from the session's linked agent (may have changed on reconnect)
+  agent_id = session.ai_agent_id || "$AGENT_ID"
+  print [session.session_token, session.display_name || session.ai_agent&.name || "MCP", agent_id].join("\t")
+end
 RUBY
 )
 
-  local session_token
-  session_token=$(cd "$SERVER_DIR" && bin/rails runner "$session_script" 2>>"$LOG_FILE") || true
+  local result
+  result=$(cd "$SERVER_DIR" && bin/rails runner "$session_script" 2>>"$LOG_FILE") || true
 
-  if [[ -n "$session_token" ]]; then
+  if [[ -n "$result" ]]; then
+    local session_token session_name synced_agent_id
+    IFS=$'\t' read -r session_token session_name synced_agent_id <<< "$result"
     echo -n "$session_token" > "$SESSION_FILE"
-    log "Sharing CLI session: ${session_token:0:12}..."
+    echo -n "${session_name:-MCP}" > "$SESSION_NAME_FILE"
+    # Keep agent ID cache in sync with the session's linked agent
+    if [[ -n "$synced_agent_id" && "$synced_agent_id" != "$AGENT_ID" ]]; then
+      log "Agent ID changed: $AGENT_ID -> $synced_agent_id (synced from session)"
+      AGENT_ID="$synced_agent_id"
+      echo -n "$AGENT_ID" > "$AGENT_ID_FILE"
+      # Update IDS cache file so next resolve_identifiers() picks it up
+      sed -i "s/^AGENT_ID=.*/AGENT_ID=\"$AGENT_ID\"/" "$IDS_CACHE_FILE" 2>/dev/null || true
+    fi
+    log "Sharing CLI session: ${session_token:0:12}... (${session_name})"
     return 0
   else
     log "No active CLI session found — waiting for CLI to connect"
@@ -606,7 +642,7 @@ _cleanup() {
   # Prevent re-entry from signal during cleanup
   trap '' EXIT SIGTERM SIGINT
   log "Daemon shutting down..."
-  rm -f "$PID_FILE"
+  rm -f "$PID_FILE" "$SESSION_NAME_FILE"
   # Kill orphan curl SSE connections
   _kill_orphan_curls
   # Kill all children

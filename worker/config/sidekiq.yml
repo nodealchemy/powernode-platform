@@ -228,6 +228,13 @@
     queue: ai_orchestration
     description: 'Run memory tier consolidation, decay pipelines, and auto-archive stale entries'
 
+  # Auth artifact cleanup - daily purge of stale sessions, tokens, orphaned agents
+  auth_artifact_cleanup:
+    cron: '0 3 * * *'  # Daily at 3:00 AM UTC
+    class: AuthCleanupJob
+    queue: maintenance
+    description: 'Clean up stale MCP sessions, expired tokens, and orphaned agents'
+
   # Chat session cleanup - idle/close stale sessions every 6 hours
   chat_session_cleanup:
     cron: '0 */6 * * *'
