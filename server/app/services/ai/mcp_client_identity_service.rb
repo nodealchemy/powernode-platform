@@ -8,12 +8,13 @@ module Ai
       @doorkeeper_token = doorkeeper_token
     end
 
-    # Creates a fresh Ai::Agent identity for this MCP session.
-    # MCP client agents are transient — always created new, never reused.
+    # Resolves or creates an Ai::Agent identity for this MCP client.
+    # Reuses an existing active agent for the same OAuth application,
+    # ensuring a stable identity across reconnections.
     def resolve_agent
       return @cached_agent if defined?(@cached_agent)
 
-      @cached_agent = create_mcp_agent
+      @cached_agent = find_existing_agent || create_mcp_agent
     end
 
     # Archives the MCP client agent and removes it from workspace teams
@@ -36,6 +37,14 @@ module Ai
     private
 
     attr_reader :account, :user, :doorkeeper_token
+
+    def find_existing_agent
+      account.ai_agents
+        .where(agent_type: "mcp_client", status: "active")
+        .where("mcp_metadata->>'oauth_application_id' = ?", oauth_application_id.to_s)
+        .order(created_at: :desc)
+        .first
+    end
 
     def oauth_application_id
       doorkeeper_token.application_id
@@ -73,9 +82,6 @@ module Ai
       auto_join_workspace_teams(agent)
       Rails.logger.info "[McpClientIdentityService] Created MCP client agent: #{agent.name} (#{agent.id}) for user #{user.id}"
       agent
-    rescue StandardError => e
-      Rails.logger.error "[McpClientIdentityService] Failed to create agent: #{e.class}: #{e.message}"
-      nil
     end
 
     def auto_join_workspace_teams(agent)
@@ -91,14 +97,22 @@ module Ai
     end
 
     def next_sequence_number(app_name)
-      # Extract max sequence number from all agents (including archived) to ensure uniqueness
-      max_seq = account.ai_agents
+      # Find the lowest available sequence number across ALL agents (any status).
+      # Must check all statuses because name uniqueness is enforced account-wide,
+      # not just among active agents.
+      used = account.ai_agents
         .where(agent_type: "mcp_client")
         .where("name LIKE ?", "#{app_name} #%")
         .pluck(:name)
         .filter_map { |n| n[/#{Regexp.escape(app_name)} #(\d+)\z/, 1]&.to_i }
-        .max
-      (max_seq || 0) + 1
+        .sort
+
+      seq = 1
+      used.each do |n|
+        break if n != seq
+        seq += 1
+      end
+      seq
     end
 
   end
