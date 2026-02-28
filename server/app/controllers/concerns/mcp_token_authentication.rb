@@ -47,10 +47,24 @@ module McpTokenAuthentication
   def link_mcp_session_to_application(doorkeeper_token)
     return unless doorkeeper_token.application_id.present?
 
-    session = McpSession.active.find_by(
-      user: @current_user,
-      account: @current_account
-    )
+    session = McpSession.active
+      .where(user: @current_user, account: @current_account)
+      .order(created_at: :desc)
+      .first
+
+    # Reconnect recovery: if no active session exists but a recently-revoked one does
+    # (e.g., server restart dropped the SSE connection), reactivate it.
+    if session.nil?
+      session_token = request.headers["Mcp-Session-Id"]
+      if session_token.present?
+        revoked = McpSession.find_by(session_token: session_token)
+        if revoked&.reactivatable?
+          revoked.reactivate!
+          session = revoked
+        end
+      end
+    end
+
     return unless session
 
     session.update_columns(oauth_application_id: doorkeeper_token.application_id) if session.oauth_application_id.nil?

@@ -225,7 +225,26 @@ module Api
           session_id = request.headers["Mcp-Session-Id"]
           return unless session_id.present?
 
+          # SSE stream connections (GET) are passive listeners — they should NOT
+          # refresh last_activity_at. Only actual JSON-RPC requests (POST) count
+          # as real CLI activity. This ensures that when a CLI disconnects, its
+          # session's last_activity_at goes stale even if the SSE daemon stays
+          # connected, allowing expire_previous_sessions! to clean it up.
+          return if request.get?
+
           session = McpSession.find_by(session_token: session_id, status: "active")
+
+          # Reconnect recovery: if the session was recently revoked (e.g., server
+          # restart dropped the SSE connection), reactivate it. The OAuth token is
+          # already validated by authenticate_mcp_request, so the client is legit.
+          if session.nil?
+            revoked_session = McpSession.find_by(session_token: session_id)
+            if revoked_session&.reactivatable?
+              revoked_session.reactivate!
+              session = revoked_session
+            end
+          end
+
           return unless session
 
           session.touch_activity!
@@ -324,9 +343,12 @@ module Api
             session.update_columns(oauth_application_id: @doorkeeper_token.application_id)
           end
 
-          # Resolve and bind MCP client agent identity to the session
-          agent = mcp_client_agent
-          session.link_agent!(agent) if agent
+          # Resolve and bind MCP client agent identity to the session.
+          # Wrapped in a transaction so a failed link_agent! rolls back agent creation.
+          ActiveRecord::Base.transaction do
+            agent = mcp_client_agent
+            session.link_agent!(agent) if agent
+          end
 
           # Expire previous sessions for this user/app to prevent accumulation
           session.expire_previous_sessions!
@@ -541,7 +563,15 @@ module Api
           session_id = request.headers["Mcp-Session-Id"]
           return nil unless session_id.present?
 
-          McpSession.active.find_by(session_token: session_id)
+          session = McpSession.active.find_by(session_token: session_id)
+          return session if session
+
+          # Reconnect recovery for SSE streams (e.g., daemon reconnecting after server restart)
+          revoked_session = McpSession.find_by(session_token: session_id)
+          if revoked_session&.reactivatable?
+            revoked_session.reactivate!
+            revoked_session
+          end
         end
 
         def workspace_channels_for_agent(agent)

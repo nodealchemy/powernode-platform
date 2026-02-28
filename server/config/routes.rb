@@ -227,6 +227,9 @@ Rails.application.routes.draw do
           get :scheduled_tasks, to: "maintenance#list_due_tasks"
           post "scheduled_tasks/:id/executions", to: "maintenance#create_task_execution"
           patch "task_executions/:id", to: "maintenance#update_task_execution"
+
+          # Auth artifact cleanup
+          post "cleanup_auth_artifacts", to: "maintenance#cleanup_auth_artifacts"
         end
 
         # Git provider internal endpoints (for worker service)

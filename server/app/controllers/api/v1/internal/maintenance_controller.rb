@@ -214,6 +214,51 @@ class Api::V1::Internal::MaintenanceController < Api::V1::Internal::InternalBase
     render_error("Failed to update execution: #{e.message}", status: :unprocessable_content)
   end
 
+  # POST /api/v1/internal/maintenance/cleanup_auth_artifacts
+  # Cleans up stale MCP sessions, orphaned agents, expired tokens, and other auth artifacts.
+  # Called by AuthCleanupJob on a daily schedule.
+  def cleanup_auth_artifacts
+    results = {}
+
+    # 1. Expire stale MCP sessions (status=active but past expires_at)
+    stale_sessions = McpSession.where(status: "active").where("expires_at <= ?", Time.current)
+    results[:sessions_expired] = 0
+    stale_sessions.find_each { |s| s.update!(status: "expired"); results[:sessions_expired] += 1 }
+
+    # 2. Delete old expired/revoked sessions
+    results[:sessions_deleted] = McpSession.cleanup_expired!(older_than: 48.hours)
+
+    # 3. Archive orphaned MCP client agents (active but not linked to any active session)
+    active_agent_ids = McpSession.active.where.not(ai_agent_id: nil).pluck(:ai_agent_id)
+    orphaned_agents = Ai::Agent.where(agent_type: "mcp_client", status: "active")
+      .where.not(id: active_agent_ids)
+    results[:agents_archived] = 0
+    orphaned_agents.find_each do |agent|
+      agent.update!(status: "archived")
+      Ai::McpClientIdentityService.remove_from_workspace_teams(agent)
+      results[:agents_archived] += 1
+    end
+
+    # 4. Purge expired Doorkeeper tokens
+    expired_token_ids = Doorkeeper::AccessToken.where(revoked_at: nil).select(&:expired?).map(&:id)
+    results[:expired_tokens_purged] = Doorkeeper::AccessToken.where(id: expired_token_ids).delete_all
+    results[:old_revoked_tokens_purged] = Doorkeeper::AccessToken.where.not(revoked_at: nil)
+      .where("revoked_at < ?", 7.days.ago).delete_all
+
+    # 5. Clean other auth artifacts
+    results[:jwt_blacklist_cleaned] = JwtBlacklist.cleanup_expired(batch_size: 1000)
+    results[:user_tokens_cleaned] = UserToken.cleanup_expired
+    results[:blacklisted_tokens_cleaned] = BlacklistedToken.cleanup_expired
+
+    render_success({
+      results: results,
+      message: "Auth artifact cleanup completed"
+    })
+  rescue StandardError => e
+    Rails.logger.error "[MaintenanceController] Auth cleanup failed: #{e.class}: #{e.message}"
+    render_error("Auth cleanup failed: #{e.message}", status: :internal_server_error)
+  end
+
   # POST /api/v1/internal/maintenance/backups/:id/cleanup
   def cleanup_old_backups
     days_to_keep = params[:days_to_keep]&.to_i || 30

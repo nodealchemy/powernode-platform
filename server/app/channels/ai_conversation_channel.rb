@@ -234,7 +234,9 @@ class AiConversationChannel < ApplicationCable::Channel
       end
 
       # Build metadata with token/cost info
+      # streaming: false signals the frontend to exit streaming render mode
       metadata = {
+        streaming: false,
         tokens_used: message.token_count,
         cost_estimate: message.cost_usd,
         processing: message.processing?,
