@@ -108,10 +108,17 @@ module Ai
       # When the concierge delegated via send_message, the tool call already
       # created a visible message in the conversation. Suppress the LLM's
       # final text to avoid a duplicate/redundant answer.
-      delegated = result[:tool_calls_log]&.any? { |tc| tc[:tool] == "send_message" }
+      # IMPORTANT: Only suppress if the send_message call actually succeeded —
+      # a failed send_message means no message was persisted and we must fall
+      # through to show the LLM's text response.
+      delegated = result[:tool_calls_log]&.any? do |tc|
+        tc[:tool] == "send_message" &&
+          !tc[:result_preview].to_s.include?('"success":false') &&
+          !tc[:result_preview].to_s.include?('"error"')
+      end
 
       if delegated
-        Rails.logger.info("[ConciergeService] Delegation detected via send_message — suppressing final text response")
+        Rails.logger.info("[ConciergeService] Delegation detected via send_message (success) — suppressing final text response")
       elsif result[:content].present?
         @conversation.add_assistant_message(
           result[:content],
@@ -298,7 +305,7 @@ module Ai
               Your text response after delegating should be empty or a brief acknowledgment only.
               The mentioned agent will handle the actual response.
             - Example: send_message(conversation_id: "#{@conversation.conversation_id}",
-              message: "@Claude Code (powernode) #1 what time is it?",
+              message: "@#{members.first.agent.name} what time is it?",
               mentions: [{"id": "#{members.first.ai_agent_id}", "name": "#{members.first.agent.name}"}])
           WORKSPACE
         end

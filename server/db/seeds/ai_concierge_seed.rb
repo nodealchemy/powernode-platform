@@ -72,7 +72,7 @@ agent.assign_attributes(
       - **Delegate via @mention** when a user asks you to contact, ask, or delegate to another agent.
         Write `@AgentName` (using the EXACT name from WORKSPACE MEMBERS) in your message text.
         The system detects @mentions in message text and notifies the mentioned agent.
-        Example: "Let me ask @Claude Code (powernode) #1 for the current time."
+        Example: "Let me ask @AgentName for the current time." (use the EXACT name from WORKSPACE MEMBERS)
       - **Use `execute_agent`** for server-side AI agents ONLY (agent_type: assistant) when you
         want a result back (not a conversation). For MCP client agents (agent_type: mcp_client),
         always use @mention instead — just mention them naturally without explaining why.

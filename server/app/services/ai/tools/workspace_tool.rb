@@ -370,14 +370,24 @@ module Ai
       # --- Helpers ---
 
       def find_workspace_conversation(conversation_id)
-        Ai::Conversation.where(account: account)
+        base = Ai::Conversation.where(account: account)
           .joins(:agent_team)
           .where(ai_agent_teams: { team_type: "workspace" })
-          .find_by(id: conversation_id) ||
-          Ai::Conversation.where(account: account)
-            .joins(:agent_team)
-            .where(ai_agent_teams: { team_type: "workspace" })
-            .find_by(conversation_id: conversation_id)
+
+        # Try by DB id, then by conversation_id UUID
+        result = base.find_by(id: conversation_id) ||
+                 base.find_by(conversation_id: conversation_id)
+        return result if result
+
+        # Fallback: LLMs sometimes pass the workspace team name (or a substring)
+        # instead of the UUID. Use partial case-insensitive match to recover
+        # (e.g. "powernode" matches "Powernode Workspace").
+        # Only attempt for non-empty, non-UUID strings with 3+ chars.
+        sanitized = conversation_id.to_s.strip
+        if sanitized.length >= 3 && !sanitized.match?(/\A[0-9a-f-]{36}\z/i)
+          base.where("ai_agent_teams.name ILIKE ?", "%#{sanitized}%")
+              .order(created_at: :desc).first
+        end
       end
 
       def serialize_message(message)
