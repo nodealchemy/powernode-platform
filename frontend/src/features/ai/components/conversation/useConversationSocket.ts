@@ -70,16 +70,27 @@ export function useConversationSocket({
         if (data.message) {
           const cleanedMessage = {
             ...data.message,
-            content: cleanMessageContent(data.message.content || '', 'assistant')
+            content: cleanMessageContent(data.message.content || '', 'assistant'),
+            // Clear streaming flag on completion so ChatStreamingRenderer exits streaming mode
+            ...(data.type === 'ai_response_complete' && data.message.metadata
+              ? { metadata: { ...data.message.metadata, streaming: false } }
+              : {})
           };
           setMessages(prev => {
-            const existingIndex = prev.findIndex(m => m.id === cleanedMessage.id);
+            // On completion, remove any streaming ghost messages (they use
+            // "streaming-{id}" IDs that never match the final message's UUID).
+            let filtered = prev;
+            if (data.type === 'ai_response_complete') {
+              filtered = prev.filter(m => !String(m.id).startsWith('streaming-'));
+            }
+
+            const existingIndex = filtered.findIndex(m => m.id === cleanedMessage.id);
             if (existingIndex >= 0) {
-              const updated = [...prev];
+              const updated = [...filtered];
               updated[existingIndex] = cleanedMessage;
               return updated;
             } else {
-              return [...prev, cleanedMessage];
+              return [...filtered, cleanedMessage];
             }
           });
         }
