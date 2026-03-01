@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-02-28
+
+### Fixed
+- Untrack `.mcp.json` from version control; add `generate-mcp` command to `manage-proxy-hosts.sh` with backend probing
+- Rewrite `version-bump.sh` to fix silent failures and add VERSION file support
+- Replace hardcoded hostnames with `<your-proxy-host>` placeholder in testing documentation
+
 ## [0.3.0] - 2026-02-28
 
 ### Added
@@ -162,3 +169,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `0.0.2` - Marketplace infrastructure
 - `0.2.0` - AI Orchestration, MCP integration, GDPR, notifications
 - `0.3.0` - AI Autonomy System (kill switch, goals, proposals, escalations)
+- `0.3.1` - Configuration tooling, documentation hostname cleanup, version-bump fix

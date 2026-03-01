@@ -1,6 +1,6 @@
 ---
 Last Updated: 2026-02-28
-Platform Version: 0.3.0
+Platform Version: 0.3.1
 ---
 
 # DevOps Engineer Specialist
@@ -873,7 +873,7 @@ stern powernode-api  # Real-time log streaming
 ## Git Workflow & Release Management
 
 ### Git-Flow Model (MANDATORY)
-**Current Version**: `0.3.0`
+**Current Version**: `0.3.1`
 
 **Branch Structure**:
 - `master` - Production releases only
@@ -882,7 +882,7 @@ stern powernode-api  # Real-time log streaming
 - `release/0.x.0` - Release preparation (NO "v" prefix)
 - `hotfix/*` - Production fixes
 
-**CRITICAL**: Tag naming uses NO "v" prefix — `0.3.0` not `v0.3.0`
+**CRITICAL**: Tag naming uses NO "v" prefix — `0.3.1` not `v0.3.1`
 
 **Git Configuration**:
 - **IMPORTANT**: Clean commit messages without Claude attribution

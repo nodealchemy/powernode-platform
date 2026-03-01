@@ -412,4 +412,4 @@ rails db:seed:blog_generation_workflow_seed
 
 ---
 
-*Platform Version: 0.3.0 | Powered by Powernode AI Orchestration*
+*Platform Version: 0.3.1 | Powered by Powernode AI Orchestration*
