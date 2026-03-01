@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-02-28
+
+### Added
+- **AI Autonomy System**: Complete agent autonomy framework with kill switch, goals, proposals, escalations, feedback, intervention policies, observations, duty cycle, and sensors
+- 7 new models: `Ai::KillSwitchEvent`, `Ai::AgentGoal`, `Ai::AgentProposal`, `Ai::AgentEscalation`, `Ai::AgentFeedback`, `Ai::InterventionPolicy`, `Ai::AgentObservation`
+- 8 new API controllers for autonomy management (public + internal)
+- 8 sensor classes for agent behavioral observation
+- 10+ new services: kill switch, escalation, feedback loop, proposal, intervention policy, observation pipeline, duty cycle, work claim, session discovery, agent outreach
+- 6 new Sidekiq jobs for autonomy maintenance (observation pipeline, goal maintenance, observation cleanup, escalation timeout, proposal expiry, intervention policy tuning)
+- `AiSuspensionCheckConcern` for all AI execution jobs (kill switch compliance)
+- 16 new MCP tool actions: 3 kill switch (`emergency_halt`, `emergency_resume`, `kill_switch_status`) + 13 agent autonomy (`create_agent_goal`, `list_agent_goals`, `update_agent_goal`, `agent_introspect`, `propose_feature`, `send_proactive_notification`, `discover_claude_sessions`, `request_code_change`, `create_proposal`, `escalate`, `request_feedback`, `report_issue`)
+- Autonomy dashboard with 6 panel components (goals, proposals, escalations, feedback, intervention policies, kill switch)
+- 10 database migrations for autonomy subsystem
+- Autonomy permissions seed
+
+## [0.2.0] - 2026-02-26
+
 ### Added
 - **AI Orchestration System**: Complete AI workflow orchestration with database schema, models, services, API endpoints, and WebSocket channels
 - **MCP Integration**: Model Context Protocol implementation with OAuth 2.1 and security hardening (2025-06-18 spec compliance)
@@ -143,4 +160,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `0.0.1` - Initial release with core platform features
 - `0.0.2` - Marketplace infrastructure
-- `0.1.0` - Planned next release (AI Orchestration & MCP integration)
+- `0.2.0` - AI Orchestration, MCP integration, GDPR, notifications
+- `0.3.0` - AI Autonomy System (kill switch, goals, proposals, escalations)

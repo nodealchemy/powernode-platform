@@ -38,6 +38,8 @@ Before writing any code:
 | RAG / knowledge bases | `platform.list_knowledge_bases` + `platform.search_documents` — check existing document stores |
 | Pipeline / CI/CD | `platform.list_pipelines` + `platform.get_pipeline_status` — verify pipeline state |
 | Content (KB articles / pages) | `platform.list_kb_articles` / `platform.list_pages` — check existing content |
+| Autonomy models/services | `platform.search_knowledge` query: "agent autonomy" |
+| Kill switch / escalation | `platform.search_knowledge` query: "kill switch" |
 
 ### During Work
 
@@ -70,7 +72,7 @@ Query MCP first. Use these files when MCP returns no relevant results:
 
 ## Backend MCP Tool Reference
 
-All 79 actions grouped by subsystem. Full parameter docs: [MCP_TOOL_CATALOG.md](../docs/platform/MCP_TOOL_CATALOG.md).
+All 107 actions grouped by subsystem. Full parameter docs: [MCP_TOOL_CATALOG.md](../docs/platform/MCP_TOOL_CATALOG.md).
 
 | Subsystem | Tools (all `platform.*`) |
 |-----------|--------------------------|
@@ -87,6 +89,7 @@ All 79 actions grouped by subsystem. Full parameter docs: [MCP_TOOL_CATALOG.md](
 | Quality | `verify_learning`, `dispute_learning`, `resolve_contradiction`, `rate_knowledge`, `knowledge_health` |
 | Skills | `list_skills`, `get_skill`, `discover_skills`, `get_skill_context`, `skill_health`, `skill_metrics`, `create_skill`, `update_skill`, `delete_skill`, `toggle_skill` |
 | Graph | `search_knowledge_graph`, `reason_knowledge_graph`, `get_graph_node`, `list_graph_nodes`, `get_graph_neighbors`, `graph_statistics`, `get_subgraph`, `extract_to_knowledge_graph` |
+| Autonomy | `emergency_halt`, `emergency_resume`, `kill_switch_status`, `create_agent_goal`, `list_agent_goals`, `update_agent_goal`, `agent_introspect`, `propose_feature`, `send_proactive_notification`, `discover_claude_sessions`, `request_code_change`, `create_proposal`, `escalate`, `request_feedback`, `report_issue` |
 | DevOps | `create_gitea_repository`, `dispatch_to_runner`, `get_api_reference` |
 
 ## Test Execution
