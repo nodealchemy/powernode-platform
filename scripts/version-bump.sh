@@ -15,10 +15,13 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Flags
+AUTO_YES=false
+
 # Current version detection
 get_current_version() {
     if [ -f "$PROJECT_ROOT/package.json" ]; then
-        grep '"version"' "$PROJECT_ROOT/package.json" | sed 's/.*"version": "\(.*\)".*/\1/'
+        grep '"version"' "$PROJECT_ROOT/package.json" | head -1 | sed 's/.*"version": "\(.*\)".*/\1/'
     else
         echo "0.0.1-dev"
     fi
@@ -33,98 +36,63 @@ validate_version() {
     fi
 }
 
-# Update version in all relevant files
-update_version_files() {
-    local new_version=$1
-    
-    echo -e "${BLUE}Updating version to $new_version in all files...${NC}"
-    
-    # Update package.json (frontend)
-    if [ -f "$PROJECT_ROOT/frontend/package.json" ]; then
-        sed -i.bak "s/\"version\": \".*\"/\"version\": \"$new_version\"/" "$PROJECT_ROOT/frontend/package.json"
-        rm "$PROJECT_ROOT/frontend/package.json.bak"
-        echo "✓ Updated frontend/package.json"
-    fi
-    
-    # Update server version (if Gemfile or version file exists)
-    if [ -f "$PROJECT_ROOT/server/Gemfile" ]; then
-        # Update version comment in Gemfile
-        sed -i.bak "s/# Version: .*/# Version: $new_version/" "$PROJECT_ROOT/server/Gemfile"
-        rm "$PROJECT_ROOT/server/Gemfile.bak" 2>/dev/null || true
-        echo "✓ Updated server/Gemfile version comment"
-    fi
-    
-    # Update worker version
-    if [ -f "$PROJECT_ROOT/worker/Gemfile" ]; then
-        sed -i.bak "s/# Version: .*/# Version: $new_version/" "$PROJECT_ROOT/worker/Gemfile"
-        rm "$PROJECT_ROOT/worker/Gemfile.bak" 2>/dev/null || true
-        echo "✓ Updated worker/Gemfile version comment"
-    fi
-    
-    # Update CLAUDE.md current version
-    sed -i.bak "s/- \*\*Current\*\*: \`.*\`/- **Current**: \`$new_version\`/" "$PROJECT_ROOT/CLAUDE.md"
-    rm "$PROJECT_ROOT/CLAUDE.md.bak"
-    echo "✓ Updated CLAUDE.md"
-    
-    # Update root package.json if it exists
-    if [ -f "$PROJECT_ROOT/package.json" ]; then
-        sed -i.bak "s/\"version\": \".*\"/\"version\": \"$new_version\"/" "$PROJECT_ROOT/package.json"
-        rm "$PROJECT_ROOT/package.json.bak"
-        echo "✓ Updated root package.json"
+# Update version in a JSON file's top-level "version" field
+update_json_version() {
+    local file="$1"
+    local new_version="$2"
+    local label="$3"
+
+    if [ -f "$file" ]; then
+        # Use node for safe JSON editing, fall back to sed
+        if command -v node &>/dev/null; then
+            node -e "
+                const fs = require('fs');
+                const pkg = JSON.parse(fs.readFileSync('$file', 'utf8'));
+                pkg.version = '$new_version';
+                fs.writeFileSync('$file', JSON.stringify(pkg, null, 2) + '\n');
+            "
+        else
+            sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$new_version\"/" "$file"
+        fi
+        echo -e "  ${GREEN}✓${NC} $label"
     fi
 }
 
-# Generate changelog entry
-update_changelog() {
-    local version=$1
-    local date=$(date +%Y-%m-%d)
-    
-    # Create changelog entry
-    local temp_file=$(mktemp)
-    echo "## [$version] - $date" > "$temp_file"
-    echo "" >> "$temp_file"
-    echo "### Added" >> "$temp_file"
-    echo "- " >> "$temp_file"
-    echo "" >> "$temp_file"
-    echo "### Changed" >> "$temp_file"
-    echo "- " >> "$temp_file"
-    echo "" >> "$temp_file"
-    echo "### Fixed" >> "$temp_file"
-    echo "- " >> "$temp_file"
-    echo "" >> "$temp_file"
-    
-    # Insert at the top of docs/CHANGELOG.md after the header
-    if [ -f "$PROJECT_ROOT/docs/CHANGELOG.md" ]; then
-        # Find line number after "## [Unreleased]" section
-        local insert_line=$(grep -n "^## \[Unreleased\]" "$PROJECT_ROOT/docs/CHANGELOG.md" | cut -d: -f1)
-        if [ -n "$insert_line" ]; then
-            # Find the next ## section or end of unreleased section
-            local next_section=$(tail -n +$((insert_line + 1)) "$PROJECT_ROOT/docs/CHANGELOG.md" | grep -n "^## " | head -1 | cut -d: -f1)
-            if [ -n "$next_section" ]; then
-                insert_line=$((insert_line + next_section))
-            else
-                insert_line=$(($(wc -l < "$PROJECT_ROOT/docs/CHANGELOG.md") + 1))
-            fi
-            
-            # Insert the new version section
-            head -n $((insert_line - 1)) "$PROJECT_ROOT/docs/CHANGELOG.md" > "${temp_file}.full"
-            cat "$temp_file" >> "${temp_file}.full"
-            tail -n +$insert_line "$PROJECT_ROOT/docs/CHANGELOG.md" >> "${temp_file}.full"
-            mv "${temp_file}.full" "$PROJECT_ROOT/docs/CHANGELOG.md"
-        fi
+# Update version in all relevant files
+update_version_files() {
+    local new_version=$1
+
+    echo -e "${BLUE}Updating version to $new_version in all files...${NC}"
+
+    # Root package.json
+    update_json_version "$PROJECT_ROOT/package.json" "$new_version" "package.json"
+
+    # Frontend package.json
+    update_json_version "$PROJECT_ROOT/frontend/package.json" "$new_version" "frontend/package.json"
+
+    # Update frontend package-lock.json
+    if [ -f "$PROJECT_ROOT/frontend/package-lock.json" ]; then
+        (cd "$PROJECT_ROOT/frontend" && npm install --package-lock-only --silent 2>/dev/null) || true
+        echo -e "  ${GREEN}✓${NC} frontend/package-lock.json"
     fi
-    
-    rm "$temp_file"
-    echo "✓ Updated docs/CHANGELOG.md"
+
+    # Update VERSION files
+    for vfile in VERSION frontend/VERSION server/VERSION worker/VERSION; do
+        if [ -f "$PROJECT_ROOT/$vfile" ]; then
+            echo -n "$new_version" > "$PROJECT_ROOT/$vfile"
+            echo -e "  ${GREEN}✓${NC} $vfile"
+        fi
+    done
 }
 
 # Main version bump function
 bump_version() {
     local bump_type=$1
-    local current_version=$(get_current_version)
-    
+    local current_version
+    current_version=$(get_current_version)
+
     echo -e "${BLUE}Current version: $current_version${NC}"
-    
+
     # Parse current version
     local major minor patch prerelease
     if [[ $current_version =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-(.+))?$ ]]; then
@@ -136,7 +104,7 @@ bump_version() {
         echo -e "${RED}Error: Cannot parse current version: $current_version${NC}"
         exit 1
     fi
-    
+
     # Calculate new version based on bump type
     local new_version
     case $bump_type in
@@ -178,45 +146,38 @@ bump_version() {
             exit 1
             ;;
     esac
-    
+
     validate_version "$new_version"
-    
+
     echo -e "${GREEN}Bumping version: $current_version → $new_version${NC}"
-    
-    # Confirm with user
-    read -p "Continue with version bump? (y/N): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo "Version bump cancelled."
-        exit 0
+
+    # Confirm with user (skip if --yes)
+    if [ "$AUTO_YES" = false ]; then
+        read -p "Continue with version bump? (y/N): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Version bump cancelled."
+            exit 0
+        fi
     fi
-    
+
     # Update version files
     update_version_files "$new_version"
-    
-    # Update changelog
-    update_changelog "$new_version"
-    
-    # Stage changes
-    git add "$PROJECT_ROOT/docs/CHANGELOG.md" "$PROJECT_ROOT/CLAUDE.md"
-    [ -f "$PROJECT_ROOT/package.json" ] && git add "$PROJECT_ROOT/package.json"
-    [ -f "$PROJECT_ROOT/frontend/package.json" ] && git add "$PROJECT_ROOT/frontend/package.json"
-    [ -f "$PROJECT_ROOT/server/Gemfile" ] && git add "$PROJECT_ROOT/server/Gemfile"
-    [ -f "$PROJECT_ROOT/worker/Gemfile" ] && git add "$PROJECT_ROOT/worker/Gemfile"
-    
+
+    echo ""
     echo -e "${GREEN}✓ Version bumped to $new_version${NC}"
-    echo -e "${YELLOW}Next steps:${NC}"
-    echo "1. Edit docs/CHANGELOG.md to add release notes"
-    echo "2. Commit changes: git commit -m \"chore: bump version to $new_version\""
-    echo "3. Create git tag: git tag -a $new_version -m \"Release $new_version\""
-    echo "4. Push changes: git push && git push --tags"
+    echo -e "${YELLOW}Files updated — review with: git diff${NC}"
 }
 
 # Usage help
 show_help() {
     echo "Powernode Platform Version Bump Script"
     echo ""
-    echo "Usage: $0 <bump_type>"
+    echo "Usage: $0 [options] <bump_type>"
+    echo ""
+    echo "Options:"
+    echo "  -y, --yes      Skip confirmation prompt"
+    echo "  -h, --help     Show this help message"
     echo ""
     echo "Bump types:"
     echo "  major    - Bump major version (X.0.0) - breaking changes"
@@ -227,29 +188,41 @@ show_help() {
     echo "  rc       - Bump to next release candidate (0.0.X-rc.Y)"
     echo ""
     echo "Examples:"
-    echo "  $0 minor     # 1.0.0 → 1.1.0"
-    echo "  $0 patch     # 1.0.0 → 1.0.1"
-    echo "  $0 alpha     # 1.0.0 → 1.0.1-alpha.0"
+    echo "  $0 patch        # 1.0.0 → 1.0.1"
+    echo "  $0 minor        # 1.0.0 → 1.1.0"
+    echo "  $0 -y patch     # 1.0.0 → 1.0.1 (no prompt)"
     echo ""
     echo "Current version: $(get_current_version)"
 }
 
-# Main script
-if [ $# -eq 0 ]; then
+# Parse arguments
+BUMP_TYPE=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -y|--yes)
+            AUTO_YES=true
+            shift
+            ;;
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+        major|minor|patch|alpha|beta|rc)
+            BUMP_TYPE="$1"
+            shift
+            ;;
+        *)
+            echo -e "${RED}Error: Invalid argument '$1'${NC}"
+            echo ""
+            show_help
+            exit 1
+            ;;
+    esac
+done
+
+if [ -z "$BUMP_TYPE" ]; then
     show_help
     exit 1
 fi
 
-case $1 in
-    -h|--help)
-        show_help
-        ;;
-    major|minor|patch|alpha|beta|rc)
-        bump_version "$1"
-        ;;
-    *)
-        echo -e "${RED}Error: Invalid bump type '$1'${NC}"
-        show_help
-        exit 1
-        ;;
-esac
+bump_version "$BUMP_TYPE"
