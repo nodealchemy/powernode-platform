@@ -307,6 +307,12 @@ exports/
 export.json
 export.csv
 
+# Defunct swarm tooling (replaced by MCP shared memory)
+.swarm/
+
+# Security scan reports (generated locally)
+security-reports/
+
 # RSpec auto-generated example files
 worker/spec/examples.txt
 
