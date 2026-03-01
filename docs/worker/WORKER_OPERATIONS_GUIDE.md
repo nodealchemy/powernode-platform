@@ -1,6 +1,6 @@
 # Worker Operations Guide
 
-The Powernode worker is a standalone Sidekiq process (175 jobs) that communicates with the server exclusively via HTTP API. It does NOT share a database connection with the Rails backend.
+The Powernode worker is a standalone Sidekiq process (195 jobs) that communicates with the server exclusively via HTTP API. It does NOT share a database connection with the Rails backend.
 
 ---
 
@@ -9,8 +9,8 @@ The Powernode worker is a standalone Sidekiq process (175 jobs) that communicate
 ```
 ┌─────────────────────┐     HTTP API     ┌─────────────────────┐
 │  Worker (Sidekiq)   │ ───────────────> │  Server (Rails 8)   │
-│  175 jobs           │ <─────────────── │  285 controllers    │
-│  32 queues          │                  │  570 services       │
+│  195 jobs           │ <─────────────── │  298 controllers    │
+│  32 queues          │                  │  584 services       │
 │  Redis DB 1         │                  │  PostgreSQL         │
 └─────────────────────┘                  └─────────────────────┘
 ```
@@ -24,7 +24,7 @@ The Powernode worker is a standalone Sidekiq process (175 jobs) that communicate
 
 ## Job Categories by Namespace
 
-### AI Jobs (74 top-level + 2 namespaced = 76)
+### AI Jobs (94 top-level + 2 namespaced = 96)
 
 The largest category — covers the entire AI platform.
 
@@ -103,6 +103,25 @@ The largest category — covers the entire AI platform.
 | `AiWorkflowScheduleJob` | `ai_workflow_schedules` | Scheduled workflow triggers |
 | `AiWorkflowWeeklyReportJob` | `ai_workflows` | Weekly workflow reports |
 | `AiWorkspaceResponseJob` | `ai_conversations` | Workspace response handling |
+| `AiConversationResponseJob` | `ai_conversations` | Conversation response generation |
+| `AiEscalationTimeoutJob` | `ai_orchestration` | Autonomy escalation timeout enforcement |
+| `AiGoalMaintenanceJob` | `maintenance` | Agent goal lifecycle maintenance |
+| `AiInterventionPolicyTuningJob` | `maintenance` | Auto-tune intervention policies from approval patterns |
+| `AiObservationCleanupJob` | `maintenance` | Clean expired agent observations |
+| `AiObservationPipelineJob` | `ai_orchestration` | Collect sensor data for autonomous agent monitoring |
+| `AiProposalExpiryJob` | `maintenance` | Expire unreviewed agent proposals |
+| `AiSelfHealingMonitorJob` | `ai_orchestration` | Autonomous self-healing monitor |
+| `AiTrajectoryAnalysisJob` | `ai_orchestration` | Execution trajectory analysis |
+| `AiConflictDetectionJob` | `ai_execution` | Worktree conflict detection |
+| `AiMergeExecutionJob` | `ai_execution` | Mission merge execution |
+| `AiRalphLoopRunAllJob` | `ai_execution` | Ralph loop batch runner |
+| `AiRalphLoopSchedulerJob` | `ai_orchestration` | Ralph loop scheduling |
+| `AiRunnerDispatchPollJob` | `ai_execution` | Runner dispatch polling |
+| `AiWorktreeCleanupJob` | `ai_execution` | Worktree cleanup |
+| `AiWorktreeProvisioningJob` | `ai_execution` | Worktree provisioning |
+| `AiWorktreePushAndPrJob` | `ai_execution` | Worktree push and PR creation |
+| `AiWorktreeTimeoutJob` | `ai_execution` | Worktree session timeout |
+| `WorkflowBatchExecutionJob` | `ai_workflows` | Batch workflow execution |
 | `AiWorkflow::ApprovalExpiryJob` | `ai_workflows` | Approval expiration |
 | `AiWorkflow::ApprovalNotificationJob` | `ai_workflows` | Approval notifications |
 
@@ -283,6 +302,12 @@ All cron schedules are defined in `worker/config/sidekiq.yml`.
 | Sunday 3 AM | `Maintenance::ScheduledBackupJob` (schema) | `maintenance` | Weekly schema backup |
 | Sunday 5 AM | `AiSkillLifecycleMaintenanceJob` (weekly) | `ai_orchestration` | Prompt refinement, gap detection |
 | 1st of month 3 AM | `AiSkillLifecycleMaintenanceJob` (monthly) | `ai_orchestration` | Re-embed skills, health report |
+| Every 15 min | `AiEscalationTimeoutJob` | `ai_orchestration` | Auto-escalate overdue escalations |
+| Every 30 min | `AiObservationPipelineJob` | `ai_orchestration` | Collect sensor data for autonomous agents |
+| Every hour | `AiProposalExpiryJob` | `maintenance` | Expire unreviewed proposals |
+| Every 6h | `AiGoalMaintenanceJob` | `maintenance` | Agent goal lifecycle maintenance |
+| Daily | `AiObservationCleanupJob` | `maintenance` | Clean expired observations |
+| Weekly | `AiInterventionPolicyTuningJob` | `maintenance` | Analyze approval patterns, tune policies |
 
 ---
 

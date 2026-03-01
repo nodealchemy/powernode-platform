@@ -104,7 +104,7 @@ The Powernode AI Orchestration System provides enterprise-grade AI agent executi
 
 ### 1. AI Agents
 
-**127 models** covering agents, teams, workflows, missions, memory, security, skills, and more.
+**135 models** covering agents, teams, workflows, missions, memory, security, skills, autonomy, and more.
 
 **Agent model hierarchy:**
 ```
@@ -249,7 +249,7 @@ currentUser?.roles?.includes('admin');
 ## Key Files Reference
 
 ### Backend
-- `server/app/models/ai/` — 127 models (+ `code_factory/` subdirectory)
+- `server/app/models/ai/` — 135 models (+ `code_factory/` subdirectory)
 - `server/app/controllers/api/v1/ai/` — 73 controllers (+ `security/` subdirectory)
 - `server/app/services/ai/` — 200+ services across 40+ subdirectories
 - `server/app/channels/` — WebSocket channels (Mission, CodeFactory, Team, etc.)
