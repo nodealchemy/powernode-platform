@@ -38,7 +38,7 @@ Platform Version: 0.3.0
 | Namespace | Description |
 |-----------|-------------|
 | `Account` | Account-related models |
-| `Ai` | AI agents, conversations, workflows, teams, memory, knowledge graph (127+ models) |
+| `Ai` | AI agents, conversations, workflows, teams, memory, knowledge graph (135+ models) |
 | `BaaS` | Backend-as-a-Service models |
 | `Chat` | Multi-platform chat (channels, sessions, messages) |
 | `Database` | Database management models |

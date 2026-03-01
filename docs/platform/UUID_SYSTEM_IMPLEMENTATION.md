@@ -3,7 +3,7 @@
 ## Implementation Status: COMPLETE
 
 **Date Completed**: August 27, 2025
-**Models Using UUIDv7**: 320+ (all models)
+**Models Using UUIDv7**: 327+ (all models)
 **Database Schema**: Native PostgreSQL UUID types
 **Default Behavior**: All models inherit UUIDv7 generation via ApplicationRecord
 
@@ -54,14 +54,14 @@ UUIDv7: 0198ebd9-6018-7c94-ad91-9eb1cf7745d5
 gem 'uuid7', '~> 0.1'
 ```
 
-## Model Coverage (320+)
+## Model Coverage (327+)
 
 ### By Namespace
 
 | Namespace | Models | Examples |
 |-----------|--------|----------|
 | Top-level | 120+ | User, Account, Plan, Subscription, Invoice, Payment, Role, Permission |
-| `Ai::` | 127 | Agent, Workflow, Provider, Memory, Knowledge, Skill, Team |
+| `Ai::` | 135 | Agent, Workflow, Provider, Memory, Knowledge, Skill, Team |
 | `Devops::` | 41 | Pipeline, Runner, Repository, Deployment, GitProvider |
 | `KnowledgeBase::` | 8 | Article, Category, Tag, Comment, Attachment |
 | `FileManagement::` | 7 | FileUpload, StorageBackend |

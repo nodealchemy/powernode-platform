@@ -20,7 +20,7 @@
 
 The Powernode AI Orchestration System provides enterprise-grade AI agent execution, workflow automation, and multi-provider integration. The platform encompasses:
 
-- **127 AI models** in `app/models/ai/` (plus 4 in `code_factory/` subdirectory)
+- **135 AI models** in `app/models/ai/` (plus 4 in `code_factory/` subdirectory)
 - **73 controllers** in `app/controllers/api/v1/ai/` (69 root + 4 in `security/`)
 - **200+ services** in `app/services/ai/` across 40+ subdirectories
 - **10 supported providers** (Anthropic, OpenAI, Ollama, Azure, Google, Groq, Grok, Mistral, Cohere, plus custom)

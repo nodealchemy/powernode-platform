@@ -61,7 +61,7 @@ server/app/services/
 
 | Domain | Service Count | Primary Responsibility |
 |--------|---------------|------------------------|
-| AI | 307 | Agent execution, provider management, workflows, knowledge, memory |
+| AI | 317 | Agent execution, provider management, workflows, knowledge, memory |
 | MCP | 101 | Node executors, orchestration, protocol handling |
 | DevOps | 38 | CI/CD, Git, deployment, registry |
 | A2A | 17 | Agent-to-Agent protocol |
@@ -665,4 +665,4 @@ end
 
 **Document Status**: Complete
 **Last Updated**: 2026-02-26
-**Source**: `server/app/services/` (570 files)
+**Source**: `server/app/services/` (584 files)

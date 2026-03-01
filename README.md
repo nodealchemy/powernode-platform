@@ -14,7 +14,7 @@ Powernode is a full-stack platform handling authentication, billing, AI agent or
 - **Modern UI** - React 19.1 with Tailwind CSS v4.1 and theme system
 - **Permission-Based Access** - 543+ granular permissions across 30+ categories
 
-### AI & Automation (127 models, 107 MCP tools)
+### AI & Automation (135 models, 107 MCP tools)
 - **AI Agents** - Create, deploy, and manage agents with trust scoring and autonomy tiers
 - **Agent Teams** - Multi-agent orchestration (5 strategies: manager_led, consensus, auction, round_robin, priority_based)
 - **AI Workflows** - Visual builder with 35+ node types and circuit breakers
@@ -130,8 +130,8 @@ Services:
 ### Backend
 - **[Rails Architect](docs/backend/RAILS_ARCHITECT_SPECIALIST.md)** - API architecture (Rails 8.1.2, 13 namespaces)
 - **[Data Modeler](docs/backend/DATA_MODELER_SPECIALIST.md)** - Database & ActiveRecord
-- **[Database Schema](docs/backend/DATABASE_SCHEMA_REFERENCE.md)** - 354 tables, namespace reference
-- **[Service Architecture](docs/backend/BACKEND_SERVICE_ARCHITECTURE.md)** - 570 services, 23 namespaces
+- **[Database Schema](docs/backend/DATABASE_SCHEMA_REFERENCE.md)** - 359 tables, namespace reference
+- **[Service Architecture](docs/backend/BACKEND_SERVICE_ARCHITECTURE.md)** - 584 services, 23 namespaces
 - **[Background Jobs](docs/backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md)** - Job patterns
 - **[Payment Integration](docs/backend/PAYMENT_INTEGRATION_SPECIALIST.md)** - Stripe/PayPal
 
