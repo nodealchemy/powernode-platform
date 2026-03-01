@@ -123,6 +123,7 @@ show_usage() {
     echo "  status               Show proxy configuration status"
     echo "  enable-proxy         Enable reverse proxy URL configuration"
     echo "  disable-proxy        Disable reverse proxy URL configuration"
+    echo "  generate-mcp         Generate .mcp.json from current proxy configuration"
     echo "  help                 Show this help message"
     echo ""
     echo "Host Patterns:"
@@ -432,6 +433,118 @@ disable_proxy() {
     esac
 }
 
+# Probe a URL to verify it serves the Powernode backend API
+# Returns 0 if the endpoint responds with a valid Powernode version payload
+probe_backend() {
+    local base_url="$1"
+    local version_url="${base_url}/api/v1/version"
+
+    local response
+    response=$(curl -s --connect-timeout 5 --max-time 10 "$version_url" 2>/dev/null)
+
+    # Check for Powernode version response: {"success":true,"data":{"version":"..."}}
+    if echo "$response" | grep -q '"success":true' && echo "$response" | grep -q '"version"'; then
+        return 0
+    fi
+    return 1
+}
+
+# Function to generate .mcp.json from proxy configuration
+generate_mcp_config() {
+    local project_root
+    project_root=$(cd "$(dirname "$0")/.." && pwd)
+    local mcp_file="$project_root/.mcp.json"
+
+    print_info "Generating .mcp.json from proxy configuration..."
+
+    # Write Ruby script to temp file to avoid shell escaping issues
+    # Outputs candidate base URLs in priority order (one per line):
+    #   1. default_host (if set)
+    #   2. portless trusted hosts (proxy hostnames) via https
+    #   3. port-suffixed trusted hosts (direct backend) via http
+    local ruby_script
+    ruby_script=$(mktemp /tmp/generate_mcp_XXXXXX.rb)
+    cat > "$ruby_script" << 'RUBY'
+config = AdminSetting.reverse_proxy_url_config
+protocol = config[:default_protocol] || "https"
+skip = %w[localhost 127.0.0.1 ::1]
+candidates = []
+
+# Priority 1: explicit default_host
+if config[:default_host].present?
+  candidates << "#{protocol}://#{config[:default_host]}"
+end
+
+# Build from trusted hosts
+if config[:trusted_hosts].is_a?(Array)
+  external = config[:trusted_hosts].reject { |h| skip.include?(h) || skip.include?(h.split(":").first) }
+  proxy_hosts = external.reject { |h| h.match?(/:\d+\z/) }
+  direct_hosts = external.select { |h| h.match?(/:\d+\z/) }
+
+  # Priority 2: portless proxy hostnames via configured protocol
+  proxy_hosts.each { |h| candidates << "#{protocol}://#{h}" }
+
+  # Priority 3: port-suffixed hosts via http (direct backend access)
+  direct_hosts.each { |h| candidates << "http://#{h}" }
+end
+
+if candidates.empty?
+  $stderr.puts "No suitable hosts found in proxy configuration"
+  exit 1
+end
+
+candidates.uniq.each { |c| puts c }
+RUBY
+
+    local candidate_urls
+    candidate_urls=$(cd "$project_root/server" && bundle exec rails runner "$ruby_script" 2>/dev/null)
+    rm -f "$ruby_script"
+
+    if [ -z "$candidate_urls" ]; then
+        print_error "Could not determine candidate URLs from proxy configuration"
+        print_info "Ensure a non-localhost trusted host is configured or set a default_host:"
+        print_info "  $0 add platform.example.com"
+        exit 1
+    fi
+
+    # Probe each candidate to find a reachable Powernode backend
+    local mcp_url=""
+    while IFS= read -r base_url; do
+        print_info "Probing $base_url ..."
+        if probe_backend "$base_url"; then
+            mcp_url="${base_url}/api/v1/mcp/message"
+            break
+        else
+            print_warning "  Not a Powernode backend (no response or wrong service)"
+        fi
+    done <<< "$candidate_urls"
+
+    if [ -z "$mcp_url" ]; then
+        print_error "None of the candidate hosts serve the Powernode backend API"
+        print_info "Candidates tried:"
+        while IFS= read -r url; do
+            print_info "  - $url"
+        done <<< "$candidate_urls"
+        print_info ""
+        print_info "Ensure the backend is running and reachable from this machine."
+        exit 1
+    fi
+
+    cat > "$mcp_file" << EOF
+{
+  "mcpServers": {
+    "powernode": {
+      "type": "http",
+      "url": "$mcp_url"
+    }
+  }
+}
+EOF
+
+    print_success "Generated $mcp_file"
+    print_info "MCP URL: $mcp_url"
+}
+
 # Main script logic
 case "${1:-}" in
     "add")
@@ -451,6 +564,9 @@ case "${1:-}" in
         ;;
     "status")
         show_status
+        ;;
+    "generate-mcp")
+        generate_mcp_config
         ;;
     "enable-proxy")
         enable_proxy

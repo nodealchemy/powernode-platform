@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "powernode": {
-      "type": "http",
-      "url": "https://dev.powernode.org/api/v1/mcp/message"
-    }
-  }
-}

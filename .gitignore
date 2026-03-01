@@ -261,6 +261,9 @@ dist
 # Claude Code worktrees (temporary isolated git worktrees from agent execution)
 .claude/worktrees/
 
+# MCP configuration (generated per-environment via: scripts/manage-proxy-hosts.sh generate-mcp)
+.mcp.json
+
 # IDE and editor files (consolidated)
 .vscode/
 .idea/
