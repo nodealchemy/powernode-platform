@@ -82,14 +82,14 @@ def sensitive_action
 end
 ```
 
-## Permission Categories (533 Total)
+## Permission Categories (543 Total)
 
 Permissions are organized by prefix. Major categories:
 
 | Category | Count | Description |
 |----------|-------|-------------|
 | `admin.*` | 152 | Admin panel access — accounts, AI, audit, billing, DevOps, Docker, files, Git, marketplace |
-| `ai.*` | 80 | AI features — agents, workflows, memory, knowledge, conversations, providers |
+| `ai.*` | 90 | AI features — agents, workflows, memory, knowledge, conversations, providers, autonomy |
 | `system.*` | 61 | System-level — admin, monitoring, health, configuration |
 | `supply_chain.*` | 34 | Supply chain management |
 | `devops.*` | 29 | DevOps — pipelines, providers, repositories, templates |
@@ -118,6 +118,23 @@ Permissions are organized by prefix. Major categories:
 | `invoice.*` | 2 | Invoice management |
 | `marketplace.*` | 3 | Marketplace access |
 | `users.*` | 1 | User listing |
+
+### AI Autonomy Permissions (included in `ai.*` count above)
+
+| Permission | Description |
+|------------|-------------|
+| `ai.kill_switch.manage` | Activate and deactivate the AI emergency kill switch |
+| `ai.goals.manage` | Create, update, and delete AI agent goals |
+| `ai.intervention_policies.manage` | Configure AI intervention policies and notification preferences |
+| `ai.proposals.view` | View AI agent proposals |
+| `ai.proposals.review` | Approve or reject AI agent proposals |
+| `ai.escalations.view` | View AI agent escalations |
+| `ai.escalations.resolve` | Acknowledge and resolve AI agent escalations |
+| `ai.feedback.submit` | Submit feedback on AI agent performance |
+| `ai.feedback.view` | View AI agent feedback history |
+| `ai.autonomy.manage` | Manage AI agent autonomous behavior and duty cycles |
+
+**Role assignments:** `ai.kill_switch.manage` is automatically assigned to `owner` and `admin` roles.
 
 ### Common Permission Patterns
 

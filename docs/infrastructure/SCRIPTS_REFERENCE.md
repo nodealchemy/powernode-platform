@@ -129,4 +129,4 @@ Located in `scripts/monitoring/`:
 
 | Script | Description |
 |--------|-------------|
-| `manage-proxy-hosts.sh` | Manage Nginx Proxy Manager hosts via API |
+| `manage-proxy-hosts.sh` | Manage reverse proxy trusted hosts and generate `.mcp.json`. Commands: `add`, `remove`, `list`, `sync`, `generate-mcp`, `status` |

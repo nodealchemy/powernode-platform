@@ -22,11 +22,11 @@
 
 The Powernode backend uses a service-oriented architecture with services organized in `server/app/services/`. Services encapsulate business logic and are called from controllers, jobs, and other services.
 
-### Directory Structure (570 service files across 25 namespaces)
+### Directory Structure (584 service files across 25 namespaces)
 
 ```
 server/app/services/
-├── ai/                    # AI orchestration, agents, providers (307 files)
+├── ai/                    # AI orchestration, agents, providers (317 files)
 ├── mcp/                   # Model Context Protocol services (101 files)
 ├── devops/                # CI/CD and deployment services (38 files)
 ├── a2a/                   # Agent-to-Agent protocol (17 files)
@@ -61,7 +61,7 @@ server/app/services/
 
 | Domain | Service Count | Primary Responsibility |
 |--------|---------------|------------------------|
-| AI | 307 | Agent execution, provider management, workflows, knowledge, memory |
+| AI | 317 | Agent execution, provider management, workflows, knowledge, memory |
 | MCP | 101 | Node executors, orchestration, protocol handling |
 | DevOps | 38 | CI/CD, Git, deployment, registry |
 | A2A | 17 | Agent-to-Agent protocol |
@@ -665,4 +665,4 @@ end
 
 **Document Status**: Complete
 **Last Updated**: 2026-02-26
-**Source**: `server/app/services/` (570 files)
+**Source**: `server/app/services/` (584 files)

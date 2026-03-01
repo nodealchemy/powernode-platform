@@ -12,16 +12,17 @@ Powernode is a full-stack platform handling authentication, billing, AI agent or
 - **Smart Analytics** - MRR/ARR, churn analysis, customer health scoring
 - **Real-time** - 17 ActionCable WebSocket channels for live updates
 - **Modern UI** - React 19.1 with Tailwind CSS v4.1 and theme system
-- **Permission-Based Access** - 533 granular permissions across 30 categories
+- **Permission-Based Access** - 543+ granular permissions across 30+ categories
 
-### AI & Automation (127 models, 93 MCP tools)
+### AI & Automation (135 models, 107 MCP tools)
 - **AI Agents** - Create, deploy, and manage agents with trust scoring and autonomy tiers
 - **Agent Teams** - Multi-agent orchestration (5 strategies: manager_led, consensus, auction, round_robin, priority_based)
 - **AI Workflows** - Visual builder with 35+ node types and circuit breakers
+- **AI Autonomy** - Kill switch, goals, proposals, escalations, feedback, intervention policies, observations, duty cycle
 - **Code Factory** - PRD generation, automated code review, remediation loops
 - **Ralph Loops** - Recursive agent learning with 15-round tool calling
 - **Model Router** - Cost-optimized provider selection across 10+ providers (Anthropic, OpenAI, Ollama, Azure, Google, Groq, Grok, Mistral, Cohere)
-- **MCP Integration** - 93 platform tools for knowledge, memory, skills, RAG, and DevOps
+- **MCP Integration** - 107 platform tools for knowledge, memory, skills, RAG, autonomy, and DevOps
 - **A2A Protocol** - Agent-to-Agent communication with agent cards
 - **Memory System** - 4-tier architecture (working, STM, LTM, shared) with consolidation
 - **Knowledge Graph** - 1,190+ nodes, 1,670+ edges with hybrid search and GraphRAG
@@ -44,11 +45,11 @@ Powernode is a full-stack platform handling authentication, billing, AI agent or
 - **AI-Powered Routing** - Automatic agent assignment with escalation
 - **Prompt Injection Protection** - Content sanitization with delimiter wrapping
 
-### Worker System (175 jobs, 31 queues)
+### Worker System (181+ jobs, 31 queues)
 - **Standalone Sidekiq 7.2** - Fully isolated, API-only communication with backend
 - **3 Priority Tiers** - Critical (weight 3), standard (weight 2), background (weight 1)
 - **Circuit Breakers** - 600s AI workflows, 120s backend API timeouts
-- **30+ Scheduled Jobs** - Maintenance, decay, consolidation, health checks
+- **36+ Scheduled Jobs** - Maintenance, decay, consolidation, health checks, autonomy
 
 ### Enterprise Features (submodule)
 - **Billing Engine** - Stripe & PayPal subscription lifecycle
@@ -61,14 +62,14 @@ Powernode is a full-stack platform handling authentication, billing, AI agent or
 
 ```
 powernode-platform/
-├── server/              - Rails 8.1.2 API (320+ models, 285 controllers, 570 services)
+├── server/              - Rails 8.1.2 API (327+ models, 293+ controllers, 580+ services)
 │   ├── app/models/      - 13 namespaces (Ai, Devops, Chat, KnowledgeBase, ...)
-│   ├── app/services/    - 23 service namespaces (570 files)
+│   ├── app/services/    - 23 service namespaces (580+ files)
 │   └── app/channels/    - 17 ActionCable channels
 ├── frontend/            - React 19.1 TypeScript (11 feature modules)
 │   └── src/features/    - account, admin, ai, baas, business, content, delegations,
 │                          developer, devops, missions, privacy
-├── worker/              - Sidekiq 7.2 (175 jobs, 41 services, 4 API clients)
+├── worker/              - Sidekiq 7.2 (181+ jobs, 41 services, 4 API clients)
 ├── extensions/          - Enterprise submodule (billing, BaaS, reseller, publisher)
 ├── docs/                - 131 documentation files
 └── scripts/             - 47 automation scripts
@@ -82,7 +83,7 @@ powernode-platform/
 - **AI/ML**: 10+ providers | MCP Protocol | A2A Protocol | pgvector (HNSW)
 - **Payments**: Stripe | PayPal | PCI DSS Compliance (enterprise)
 - **Testing**: RSpec | Jest 30 | Cypress 15 | 20,600+ tests
-- **Database**: 354 tables | 13 model namespaces | pgvector embeddings
+- **Database**: 364+ tables | 13 model namespaces | pgvector embeddings
 
 ### Prerequisites
 - Ruby 3.2.8
@@ -113,8 +114,8 @@ Services:
 - 20,600+ tests (14,500 backend, 6,100 frontend)
 - 95%+ pattern consistency
 - 131 documentation files with specialist guides
-- 533 permissions across 30 categories
-- 93 MCP platform tools
+- 543+ permissions across 30+ categories
+- 107 MCP platform tools
 - 50 KB articles, 10 content pages
 - Knowledge graph: 1,190+ nodes, 1,670+ edges
 
@@ -129,8 +130,8 @@ Services:
 ### Backend
 - **[Rails Architect](docs/backend/RAILS_ARCHITECT_SPECIALIST.md)** - API architecture (Rails 8.1.2, 13 namespaces)
 - **[Data Modeler](docs/backend/DATA_MODELER_SPECIALIST.md)** - Database & ActiveRecord
-- **[Database Schema](docs/backend/DATABASE_SCHEMA_REFERENCE.md)** - 354 tables, namespace reference
-- **[Service Architecture](docs/backend/BACKEND_SERVICE_ARCHITECTURE.md)** - 570 services, 23 namespaces
+- **[Database Schema](docs/backend/DATABASE_SCHEMA_REFERENCE.md)** - 359 tables, namespace reference
+- **[Service Architecture](docs/backend/BACKEND_SERVICE_ARCHITECTURE.md)** - 584 services, 23 namespaces
 - **[Background Jobs](docs/backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md)** - Job patterns
 - **[Payment Integration](docs/backend/PAYMENT_INTEGRATION_SPECIALIST.md)** - Stripe/PayPal
 
@@ -148,7 +149,7 @@ Services:
 - **[Ralph Loops](docs/platform/RALPH_LOOPS_GUIDE.md)** - Recursive agent learning
 - **[Missions](docs/platform/MISSIONS_GUIDE.md)** - Mission pipeline, 12 phases
 - **[Model Router](docs/platform/MODEL_ROUTER_GUIDE.md)** - Cost-optimized routing
-- **[Agent Autonomy](docs/platform/AGENT_AUTONOMY_GUIDE.md)** - Trust tiers, guardrails
+- **[Agent Autonomy](docs/platform/AGENT_AUTONOMY_GUIDE.md)** - Kill switch, goals, proposals, escalations, feedback, intervention policies
 - **[Memory System](docs/platform/MEMORY_SYSTEM_ARCHITECTURE.md)** - 4-tier memory architecture
 - **[Security Guardrails](docs/platform/AI_SECURITY_GUARDRAILS.md)** - Behavioral fingerprinting
 - **[RAG System](docs/platform/RAG_SYSTEM_GUIDE.md)** - Knowledge bases, hybrid search
@@ -167,21 +168,28 @@ Services:
 
 ### Worker
 - **[Worker Architecture](docs/worker/WORKER_ARCHITECTURE_OVERVIEW.md)** - Isolation, API clients, circuit breakers
-- **[Worker Operations](docs/worker/WORKER_OPERATIONS_GUIDE.md)** - 175 jobs, 31 queues, scheduling
+- **[Worker Operations](docs/worker/WORKER_OPERATIONS_GUIDE.md)** - 181+ jobs, 31 queues, scheduling
 - **[CI/CD Architecture](docs/worker/CI_CD_ARCHITECTURE.md)** - Pipeline execution
 - **[File Processing](docs/worker/FILE_PROCESSING_ARCHITECTURE.md)** - File handling subsystem
 
 ### Platform References
-- **[Permission System](docs/platform/PERMISSION_SYSTEM_REFERENCE.md)** - 533 permissions, 30 categories
+- **[Changelog](docs/CHANGELOG.md)** - Release history
+- **[Permission System](docs/platform/PERMISSION_SYSTEM_REFERENCE.md)** - 543+ permissions, 30+ categories
 - **[WebSocket Channels](docs/platform/ACTIONCABLE_CHANNELS_REFERENCE.md)** - 17 channels reference
 - **[Chat System](docs/platform/CHAT_SYSTEM_ARCHITECTURE.md)** - Multi-platform chat
 - **[Content Management](docs/platform/CONTENT_MANAGEMENT_GUIDE.md)** - KB articles, pages, CMS
 - **[Theme System](docs/platform/THEME_SYSTEM_REFERENCE.md)** - Tailwind v4.1 theming
 - **[API Standards](docs/platform/API_RESPONSE_STANDARDS.md)** - API conventions
-- **[UUID System](docs/platform/UUID_SYSTEM_IMPLEMENTATION.md)** - UUIDv7 across 320+ models
-- **[MCP Configuration](docs/platform/MCP_CONFIGURATION.md)** - 93 platform tools
+- **[UUID System](docs/platform/UUID_SYSTEM_IMPLEMENTATION.md)** - UUIDv7 across 327+ models
+- **[MCP Configuration](docs/platform/MCP_CONFIGURATION.md)** - MCP server setup and OAuth
+- **[MCP Tool Catalog](docs/platform/MCP_TOOL_CATALOG.md)** - 107 platform tools reference
 - **[Workflow System](docs/platform/WORKFLOW_SYSTEM_STANDARDS.md)** - Workflow patterns
 - **[Node Executors](docs/backend/NODE_EXECUTOR_REFERENCE.md)** - 35+ workflow node types
+
+### Security
+- **[Security Quick Start](docs/SECURITY_QUICK_START.md)** - Security setup overview
+- **[Security Specialist](docs/infrastructure/SECURITY_SPECIALIST.md)** - Security architecture
+- **[Supply Chain Security](docs/platform/SUPPLY_CHAIN_SECURITY.md)** - SBOM, attestations, compliance
 
 ### Testing
 - **[Backend Testing](docs/testing/BACKEND_TEST_ENGINEER_SPECIALIST.md)** - RSpec strategies

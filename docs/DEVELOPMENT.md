@@ -53,21 +53,21 @@ journalctl -u 'powernode-*' --since "5 min ago"
 | Frontend | React + TypeScript + Tailwind | `frontend/` |
 | Worker | Sidekiq (standalone) | `worker/` |
 | Enterprise | Git submodule | `extensions/enterprise/` |
-| Database | PostgreSQL (UUIDv7 PKs) | 354 tables |
+| Database | PostgreSQL (UUIDv7 PKs) | 359 tables |
 | Cache/Queues | Redis | DB 0 (cache), DB 1 (Sidekiq) |
 
 ### Codebase Scale
 
 | Layer | Count | Location |
 |-------|-------|----------|
-| Models | 320 | `server/app/models/` |
-| Controllers | 285 | `server/app/controllers/` |
-| Services | 570 | `server/app/services/` |
-| Worker Jobs | 175 | `worker/app/jobs/` |
+| Models | 327 | `server/app/models/` |
+| Controllers | 298 | `server/app/controllers/` |
+| Services | 584 | `server/app/services/` |
+| Worker Jobs | 195 | `worker/app/jobs/` |
 | WebSocket Channels | 17 | `server/app/channels/` |
-| Database Tables | 354 | `server/db/migrate/` |
-| MCP Tools | 92 | `server/app/services/ai/tools/` |
-| Permissions | 533 | `server/db/seeds/` |
+| Database Tables | 359 | `server/db/migrate/` |
+| MCP Tools | 107 | `server/app/services/ai/tools/` |
+| Permissions | 543 | `server/db/seeds/` |
 | Scripts | 47 | `scripts/` |
 
 ---
@@ -77,7 +77,7 @@ journalctl -u 'powernode-*' --since "5 min ago"
 | Namespace | Models | Description |
 |-----------|--------|-------------|
 | `Account` | 3 | Multi-tenant account hierarchy, delegations |
-| `Ai` | 127 | Agents, teams, workflows, memory, knowledge graph, providers, skills, tools |
+| `Ai` | 135 | Agents, teams, workflows, memory, knowledge graph, providers, skills, tools, autonomy, observations |
 | `BaaS` | — | Billing-as-a-Service tenants, customers, meters (enterprise) |
 | `Chat` | 5 | Conversations, messages, attachments, sessions |
 | `Database` | 2 | Database connections, query history |
@@ -122,7 +122,7 @@ Plus 40 top-level controllers (accounts, users, plans, subscriptions, etc.).
 
 | Namespace | Files | Description |
 |-----------|-------|-------------|
-| `ai/` | 307 | Agent orchestration, providers, workflows, cost optimization, memory, knowledge |
+| `ai/` | 317 | Agent orchestration, providers, workflows, cost optimization, memory, knowledge, autonomy |
 | `mcp/` | 101 | Node executors (50+), orchestration, conditional evaluation |
 | `devops/` | 38 | CI/CD, Git operations, deployment, registry |
 | `a2a/` | 17 | Agent-to-Agent protocol services |
@@ -149,7 +149,7 @@ Plus 40 top-level controllers (accounts, users, plans, subscriptions, etc.).
 
 ## AI Subsystem Map
 
-The AI platform is the largest subsystem (307 services, 127 models).
+The AI platform is the largest subsystem (317 services, 135 models).
 
 ### Core Systems
 
@@ -163,10 +163,11 @@ The AI platform is the largest subsystem (307 services, 127 models).
 | **Knowledge Graph** | Entity-relationship graph with multi-hop reasoning | `ai/knowledge_graph/` |
 | **Compound Learning** | Pattern/discovery/best-practice learning with decay and reinforcement | `ai/compound_learning/` |
 | **Memory Tiers** | STM → Working → LTM with consolidation and decay | `ai/memory/` |
-| **MCP Protocol** | 92-tool Model Context Protocol for agent capabilities | `mcp/` |
+| **MCP Protocol** | 107-tool Model Context Protocol for agent capabilities | `mcp/` |
 | **A2A Protocol** | Agent-to-Agent communication and task delegation | `a2a/` |
 | **Skill Registry** | Reusable agent capabilities with lifecycle management | `ai/skills/` |
 | **Team Execution** | Multi-agent orchestration with role-based coordination | `ai/team_execution/` |
+| **Agent Autonomy** | Kill switch, goals, proposals, escalations, observation pipeline, intervention policies | `ai/autonomy/` |
 
 ### Workflow System
 
@@ -198,7 +199,7 @@ The AI platform is the largest subsystem (307 services, 127 models).
 
 ---
 
-## Worker Job Categories (175 jobs)
+## Worker Job Categories (195 jobs)
 
 The worker is a standalone Sidekiq process that communicates with the server via HTTP API.
 

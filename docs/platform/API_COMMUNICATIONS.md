@@ -20,7 +20,7 @@ This document provides a complete mapping of all API communications between the 
 │                                                                 │
 │  ┌─────────────────┐    ┌─────────────────┐                    │
 │  │  API Services   │    │  WebSocket Hooks │                    │
-│  │  (72 files)     │    │  (7 channels)    │                    │
+│  │  (96 files)     │    │  (17 channels)   │                    │
 │  └────────┬────────┘    └────────┬────────┘                    │
 └───────────┼─────────────────────┼──────────────────────────────┘
             │ HTTP REST           │ WebSocket
@@ -31,7 +31,7 @@ This document provides a complete mapping of all API communications between the 
 │                                                                 │
 │  ┌─────────────────┐    ┌─────────────────┐    ┌──────────────┐│
 │  │  API Controllers │    │  WebSocket      │    │  Internal    ││
-│  │  (200+ endpoints)│    │  Channels       │    │  API         ││
+│  │  (254 controllers)│   │  Channels       │    │  API         ││
 │  └─────────────────┘    └─────────────────┘    └──────┬───────┘│
 └──────────────────────────────────────────────────────┼─────────┘
                                                        │ HTTP REST
@@ -42,7 +42,7 @@ This document provides a complete mapping of all API communications between the 
 │                                                                 │
 │  ┌─────────────────┐    ┌─────────────────┐                    │
 │  │  BackendApiClient│    │  Background Jobs│                    │
-│  │  (47+ endpoints) │    │  (15+ job types)│                    │
+│  │  (47+ endpoints) │    │  (195 job files)│                    │
 │  └─────────────────┘    └─────────────────┘                    │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -452,12 +452,23 @@ This document provides a complete mapping of all API communications between the 
 
 | Channel | Purpose |
 |---------|---------|
+| `AiAgentExecutionChannel` | Agent execution status |
+| `AiConversationChannel` | AI conversation streaming |
+| `AiOrchestrationChannel` | Multi-agent orchestration events |
+| `AiStreamingChannel` | AI response streaming |
+| `AiWorkflowMonitoringChannel` | Workflow monitoring dashboard |
+| `AiWorkflowOrchestrationChannel` | Workflow execution events |
 | `AnalyticsChannel` | Live analytics updates |
+| `CodeFactoryChannel` | Code factory execution status |
 | `CustomerChannel` | Customer event notifications |
-| `SettingsChannel` | Settings change broadcasts |
+| `DevopsPipelineChannel` | CI/CD pipeline status |
+| `GitJobLogsChannel` | Git operation log streaming |
+| `McpChannel` | MCP tool execution events |
+| `MissionChannel` | Mission pipeline status |
+| `NotificationChannel` | Real-time notifications |
 | `SubscriptionChannel` | Subscription lifecycle events |
-| `WorkflowChannel` | Workflow execution status |
-| `MCPChannel` | MCP tool execution events |
+| `TeamChannelChannel` | Team chat messaging |
+| `TeamExecutionChannel` | Team task execution status |
 
 **Connection:** `ws[s]://{host}:3000/cable?token={jwt}`
 
@@ -695,12 +706,12 @@ Frontend                Backend                 Worker
 
 | Category | Count |
 |----------|-------|
-| **Total Backend Endpoints** | ~200+ |
-| **Frontend API Services** | 72 files |
-| **Frontend API Calls** | ~350+ unique endpoints |
+| **Total Backend Controllers** | 254 |
+| **Frontend API Services** | 96 files |
+| **Frontend API Calls** | ~400+ unique endpoints |
 | **Worker API Calls** | 47+ unique endpoints |
-| **WebSocket Channels** | 7 |
-| **Background Job Types** | 15+ |
+| **WebSocket Channels** | 17 |
+| **Background Job Files** | 195 |
 | **External Webhooks** | 2 (Stripe, PayPal) |
 
 ---

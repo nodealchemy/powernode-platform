@@ -261,6 +261,9 @@ dist
 # Claude Code worktrees (temporary isolated git worktrees from agent execution)
 .claude/worktrees/
 
+# MCP configuration (generated per-environment via: scripts/manage-proxy-hosts.sh generate-mcp)
+.mcp.json
+
 # IDE and editor files (consolidated)
 .vscode/
 .idea/
@@ -306,6 +309,12 @@ Thumbs.db
 exports/
 export.json
 export.csv
+
+# Defunct swarm tooling (replaced by MCP shared memory)
+.swarm/
+
+# Security scan reports (generated locally)
+security-reports/
 
 # RSpec auto-generated example files
 worker/spec/examples.txt

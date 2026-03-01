@@ -394,7 +394,7 @@ Mailer.send_draft(
 ## 📞 Support
 
 - **Documentation**: [Full Workflow Guide](BLOG_GENERATION_WORKFLOW.md)
-- **API Docs**: [Integration Guide](../platform/AI_ORCHESTRATION_INTEGRATION_COMPLETE.md)
+- **API Docs**: [AI Orchestration Guide](../platform/AI_ORCHESTRATION_GUIDE.md)
 - **Examples**: See seed file for implementation details
 
 ---
@@ -412,4 +412,4 @@ rails db:seed:blog_generation_workflow_seed
 
 ---
 
-*Version: 1.0.0 | License: MIT | Powered by Powernode AI Orchestration*
+*Platform Version: 0.3.1 | Powered by Powernode AI Orchestration*
