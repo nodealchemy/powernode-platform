@@ -20,7 +20,7 @@ sudo systemctl start powernode.target
 
 ### 0.2 Test User Requirements
 - Full AI permissions: `ai.providers.*`, `ai.agents.*`, `ai.workflows.*`, `ai.conversations.*`, `ai.context.*`, `ai.analytics.*`
-- Login at `https://dev.powernode.org` or `http://localhost:3000`
+- Login at `https://<your-proxy-host>` or `http://localhost:3000`
 
 ---
 
