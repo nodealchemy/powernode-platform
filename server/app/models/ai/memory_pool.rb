@@ -92,6 +92,10 @@ module Ai
 
       self.last_accessed_at = Time.current
       save!
+
+      # Stigmergic coordination: broadcast key-level detail so agents
+      # can subscribe to specific key patterns (e.g. agent_bulletin.*)
+      broadcast_key_write(key, agent_id)
     end
 
     def merge_data(data_hash, agent_id:)
@@ -169,6 +173,25 @@ module Ai
           type: "memory_pool_update",
           pool_id: pool_id,
           version: version
+        }
+      )
+    end
+
+    # Stigmergic coordination: broadcast a detailed key-write event
+    # so agents can react to environmental changes (especially agent_bulletin.* keys)
+    def broadcast_key_write(key, writer_agent_id)
+      is_bulletin = key.to_s.start_with?("agent_bulletin.")
+
+      McpChannel.broadcast_to_account(
+        account_id,
+        {
+          type: "memory_pool_key_write",
+          pool_id: pool_id,
+          key: key.to_s,
+          writer_agent_id: writer_agent_id,
+          is_bulletin: is_bulletin,
+          version: version,
+          timestamp: Time.current.iso8601
         }
       )
     end

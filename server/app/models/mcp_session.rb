@@ -87,9 +87,10 @@ class McpSession < ApplicationRecord
   # A session with activity in the last 5 minutes is presumed live (its SSE daemon
   # calls touch_activity! regularly) and is left alone.
   def expire_previous_sessions!
-    McpSession.where(account_id: account_id, user_id: user_id, status: "active")
+    scope = McpSession.where(account_id: account_id, user_id: user_id, status: "active")
       .where.not(id: id)
-      .where("last_activity_at < ?", 5.minutes.ago)
+    scope = scope.where(oauth_application_id: oauth_application_id) if oauth_application_id.present?
+    scope.where("last_activity_at < ?", 5.minutes.ago)
       .find_each { |s| s.update!(status: "expired") }
   end
 

@@ -9,7 +9,7 @@ class Notification < ApplicationRecord
   validates :notification_type, presence: true
   validates :title, presence: true
   validates :message, presence: true
-  validates :severity, presence: true, inclusion: { in: %w[info success warning error] }
+  validates :severity, presence: true, inclusion: { in: %w[info success warning error critical] }
 
   # Scopes
   scope :unread, -> { where(read_at: nil) }
@@ -37,6 +37,13 @@ class Notification < ApplicationRecord
     account_update
     ai_plan_review
     ai_concierge_message
+    agent_proposal
+    agent_escalation
+    agent_status_update
+    agent_issue_detected
+    agent_feedback_request
+    agent_goal_achieved
+    agent_improvement_applied
   ].freeze
 
   # Categories

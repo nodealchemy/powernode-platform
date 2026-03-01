@@ -13,7 +13,7 @@ module Ai
     TERMINAL_STATUSES = %w[completed failed cancelled].freeze
 
     # Scheduling mode enumeration
-    SCHEDULING_MODES = %w[manual scheduled continuous event_triggered].freeze
+    SCHEDULING_MODES = %w[manual scheduled continuous event_triggered autonomous].freeze
 
     # ==================== Associations ====================
     belongs_to :account
@@ -77,6 +77,10 @@ module Ai
       code_factory_mode == true
     end
 
+    def run_all_active?
+      configuration&.dig("run_all_active") == true
+    end
+
     private
 
     def set_defaults
@@ -91,6 +95,7 @@ module Ai
       self.completed_tasks ||= 0
       self.failed_tasks ||= 0
       self.code_factory_mode ||= false
+      self.duty_cycle_config ||= {}
     end
 
     def default_agent_belongs_to_account

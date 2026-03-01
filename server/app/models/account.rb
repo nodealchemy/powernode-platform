@@ -91,6 +91,17 @@ class Account < ApplicationRecord
   has_many :ai_missions, class_name: "Ai::Mission", dependent: :destroy
   has_many :ai_mission_approvals, class_name: "Ai::MissionApproval", dependent: :destroy
 
+  # AI Kill Switch
+  has_many :ai_kill_switch_events, class_name: "Ai::KillSwitchEvent", dependent: :destroy
+
+  # AI Autonomy
+  has_many :ai_agent_goals, class_name: "Ai::AgentGoal", dependent: :destroy
+  has_many :ai_agent_observations, class_name: "Ai::AgentObservation", dependent: :destroy
+  has_many :ai_intervention_policies, class_name: "Ai::InterventionPolicy", dependent: :destroy
+  has_many :ai_agent_proposals, class_name: "Ai::AgentProposal", dependent: :destroy
+  has_many :ai_agent_escalations, class_name: "Ai::AgentEscalation", dependent: :destroy
+  has_many :ai_agent_feedbacks, class_name: "Ai::AgentFeedback", dependent: :destroy
+
   # AI Skill Lifecycle associations
   has_many :ai_skill_proposals, class_name: "Ai::SkillProposal", dependent: :destroy
   has_many :ai_skill_conflicts, class_name: "Ai::SkillConflict", dependent: :destroy
@@ -214,6 +225,18 @@ class Account < ApplicationRecord
 
   def cancelled?
     status == "cancelled"
+  end
+
+  def ai_suspended?
+    ai_suspended == true
+  end
+
+  def suspend_ai!(at: Time.current)
+    update!(ai_suspended: true, ai_suspended_at: at)
+  end
+
+  def resume_ai!
+    update!(ai_suspended: false, ai_suspended_at: nil)
   end
 
   def owner

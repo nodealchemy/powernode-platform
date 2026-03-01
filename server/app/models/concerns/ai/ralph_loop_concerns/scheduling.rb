@@ -12,6 +12,9 @@ module Ai
           parse_cron_next_occurrence
         when "continuous"
           Time.current + (schedule_config["iteration_interval_seconds"] || 300).seconds
+        when "autonomous"
+          frequency = duty_cycle_config["frequency_minutes"] || 15
+          Time.current + frequency.minutes
         else
           nil
         end
@@ -19,7 +22,7 @@ module Ai
 
       # Schedule the next iteration
       def schedule_next_iteration!
-        return unless scheduling_mode.in?(%w[scheduled continuous])
+        return unless scheduling_mode.in?(%w[scheduled continuous autonomous])
         return if schedule_paused?
         return if exceeded_daily_limit?
 
@@ -65,7 +68,7 @@ module Ai
 
       # Check if loop is schedulable
       def schedulable?
-        scheduling_mode.in?(%w[scheduled continuous event_triggered])
+        scheduling_mode.in?(%w[scheduled continuous event_triggered autonomous])
       end
 
       # Check if within schedule date range
@@ -127,7 +130,7 @@ module Ai
 
       # Update next scheduled time when scheduling mode changes
       def update_next_scheduled_at
-        if scheduling_mode.in?(%w[scheduled continuous])
+        if scheduling_mode.in?(%w[scheduled continuous autonomous])
           update_columns(next_scheduled_at: calculate_next_scheduled_at)
         else
           update_columns(next_scheduled_at: nil)
@@ -152,6 +155,11 @@ module Ai
           interval = schedule_config["iteration_interval_seconds"]
           if interval.blank? || interval.to_i < 60
             errors.add(:schedule_config, "must include iteration_interval_seconds (min 60) for continuous mode")
+          end
+        when "autonomous"
+          frequency = duty_cycle_config["frequency_minutes"]
+          if frequency.present? && frequency.to_i < 5
+            errors.add(:duty_cycle_config, "frequency_minutes must be at least 5 for autonomous mode")
           end
         end
       end
