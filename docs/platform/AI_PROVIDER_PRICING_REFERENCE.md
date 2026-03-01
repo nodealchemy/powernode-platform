@@ -1,7 +1,9 @@
-# AI Provider Pricing Reference - October 2025
+# AI Provider Pricing Reference - February 2026
 
-**Last Updated**: October 15, 2025
+**Last Updated**: February 28, 2026
 **Status**: ✅ **CURRENT AND VERIFIED**
+
+> **Note**: Claude model family updated to 4.5/4.6 (Opus 4.6, Sonnet 4.6, Haiku 4.5). See Anthropic pricing for current rates.
 
 ---
 

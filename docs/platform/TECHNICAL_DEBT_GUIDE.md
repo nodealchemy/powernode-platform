@@ -1,6 +1,6 @@
 # Technical Debt Guide
 
-> **Staleness Warning (2026-02-28)**: This document was last audited in Jan 2026. Several items are now resolved (e.g., 2FA is fully implemented, monitoring services consolidated). The counts and priorities below should be verified against the current codebase before acting on them.
+> **Staleness Warning (2026-02-28)**: This document was last audited in Feb 2026. Several items are now resolved (e.g., 2FA is fully implemented, monitoring services consolidated). The counts and priorities below should be verified against the current codebase before acting on them.
 
 **Comprehensive tracking, deprecation plans, and type improvements**
 
