@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_02_26_230003) do
+ActiveRecord::Schema[8.1].define(version: 2026_02_28_100009) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -101,6 +101,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_230003) do
   end
 
   create_table "accounts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.boolean "ai_suspended", default: false, null: false
+    t.datetime "ai_suspended_at"
     t.string "analytics_tier", default: "free", null: false
     t.string "billing_email"
     t.datetime "created_at", null: false
@@ -116,6 +118,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_230003) do
     t.string "subdomain", limit: 30
     t.string "tax_id"
     t.datetime "updated_at", null: false
+    t.index ["ai_suspended"], name: "index_accounts_on_ai_suspended", where: "(ai_suspended = true)"
     t.index ["analytics_tier"], name: "index_accounts_on_analytics_tier"
     t.index ["paypal_customer_id"], name: "index_accounts_on_paypal_customer_id", unique: true, where: "(paypal_customer_id IS NOT NULL)"
     t.index ["status"], name: "index_accounts_on_status"
@@ -363,6 +366,32 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_230003) do
     t.index ["target_type", "target_id"], name: "index_ai_agent_connections_on_target_type_and_target_id"
   end
 
+  create_table "ai_agent_escalations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "acknowledged_at"
+    t.uuid "ai_agent_id", null: false
+    t.jsonb "context", default: {}
+    t.datetime "created_at", null: false
+    t.integer "current_level", default: 0, null: false
+    t.uuid "escalated_to_user_id"
+    t.jsonb "escalation_chain", default: []
+    t.string "escalation_type", null: false
+    t.datetime "next_escalation_at"
+    t.datetime "resolved_at"
+    t.string "severity", default: "medium", null: false
+    t.string "status", default: "open", null: false
+    t.integer "timeout_hours"
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "status"], name: "index_ai_agent_escalations_on_account_id_and_status"
+    t.index ["account_id"], name: "index_ai_agent_escalations_on_account_id"
+    t.index ["ai_agent_id"], name: "index_ai_agent_escalations_on_ai_agent_id"
+    t.index ["escalated_to_user_id"], name: "index_ai_agent_escalations_on_escalated_to_user_id"
+    t.index ["next_escalation_at"], name: "idx_ai_agent_escalations_due", where: "((status)::text = ANY ((ARRAY['open'::character varying, 'acknowledged'::character varying, 'in_progress'::character varying])::text[]))"
+    t.index ["severity"], name: "index_ai_agent_escalations_on_severity"
+    t.index ["status"], name: "index_ai_agent_escalations_on_status"
+  end
+
   create_table "ai_agent_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.uuid "ai_agent_id", null: false
@@ -401,6 +430,52 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_230003) do
     t.index ["status"], name: "index_ai_agent_executions_on_status"
     t.index ["user_id"], name: "index_ai_agent_executions_on_user_id"
     t.index ["webhook_status"], name: "index_ai_agent_executions_on_webhook_status"
+  end
+
+  create_table "ai_agent_feedbacks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "ai_agent_id", null: false
+    t.boolean "applied_to_trust", default: false, null: false
+    t.text "comment"
+    t.uuid "context_id"
+    t.string "context_type"
+    t.datetime "created_at", null: false
+    t.string "feedback_type", null: false
+    t.integer "rating", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
+    t.index ["account_id"], name: "index_ai_agent_feedbacks_on_account_id"
+    t.index ["ai_agent_id", "applied_to_trust"], name: "index_ai_agent_feedbacks_on_ai_agent_id_and_applied_to_trust"
+    t.index ["ai_agent_id"], name: "index_ai_agent_feedbacks_on_ai_agent_id"
+    t.index ["context_type", "context_id"], name: "index_ai_agent_feedbacks_on_context_type_and_context_id"
+    t.index ["feedback_type"], name: "index_ai_agent_feedbacks_on_feedback_type"
+    t.index ["user_id"], name: "index_ai_agent_feedbacks_on_user_id"
+  end
+
+  create_table "ai_agent_goals", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "ai_agent_id", null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.string "created_by_type"
+    t.datetime "deadline"
+    t.text "description"
+    t.string "goal_type", null: false
+    t.jsonb "metadata", default: {}
+    t.uuid "parent_goal_id"
+    t.integer "priority", default: 3, null: false
+    t.decimal "progress", precision: 3, scale: 2, default: "0.0"
+    t.string "status", default: "pending", null: false
+    t.jsonb "success_criteria", default: {}
+    t.string "title", limit: 255, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "goal_type"], name: "index_ai_agent_goals_on_account_id_and_goal_type"
+    t.index ["account_id"], name: "index_ai_agent_goals_on_account_id"
+    t.index ["ai_agent_id", "status", "priority"], name: "idx_ai_agent_goals_active_priority"
+    t.index ["ai_agent_id", "status"], name: "index_ai_agent_goals_on_ai_agent_id_and_status"
+    t.index ["ai_agent_id"], name: "index_ai_agent_goals_on_ai_agent_id"
+    t.index ["created_by_type", "created_by_id"], name: "index_ai_agent_goals_on_created_by_type_and_created_by_id"
+    t.index ["parent_goal_id"], name: "index_ai_agent_goals_on_parent_goal_id"
   end
 
   create_table "ai_agent_identities", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -471,6 +546,29 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_230003) do
     t.index ["parent_agent_id"], name: "index_ai_agent_lineages_on_parent_agent_id"
   end
 
+  create_table "ai_agent_observations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "ai_agent_id", null: false
+    t.datetime "created_at", null: false
+    t.jsonb "data", default: {}
+    t.datetime "expires_at"
+    t.uuid "goal_id"
+    t.string "observation_type", null: false
+    t.boolean "processed", default: false, null: false
+    t.boolean "requires_action", default: false, null: false
+    t.string "sensor_type", null: false
+    t.string "severity", default: "info", null: false
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "severity"], name: "index_ai_agent_observations_on_account_id_and_severity"
+    t.index ["account_id"], name: "index_ai_agent_observations_on_account_id"
+    t.index ["ai_agent_id", "processed"], name: "index_ai_agent_observations_on_ai_agent_id_and_processed"
+    t.index ["ai_agent_id", "sensor_type"], name: "index_ai_agent_observations_on_ai_agent_id_and_sensor_type"
+    t.index ["ai_agent_id"], name: "index_ai_agent_observations_on_ai_agent_id"
+    t.index ["expires_at"], name: "index_ai_agent_observations_on_expires_at", where: "(expires_at IS NOT NULL)"
+    t.index ["goal_id"], name: "index_ai_agent_observations_on_goal_id"
+  end
+
   create_table "ai_agent_privilege_policies", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.boolean "active", default: true, null: false
@@ -494,6 +592,35 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_230003) do
     t.index ["agent_id"], name: "index_ai_agent_privilege_policies_on_agent_id"
     t.index ["policy_type"], name: "index_ai_agent_privilege_policies_on_policy_type"
     t.index ["trust_tier"], name: "index_ai_agent_privilege_policies_on_trust_tier"
+  end
+
+  create_table "ai_agent_proposals", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "ai_agent_id", null: false
+    t.uuid "conversation_id"
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.jsonb "impact_assessment", default: {}
+    t.string "priority", default: "medium", null: false
+    t.string "proposal_type", null: false
+    t.jsonb "proposed_changes", default: {}
+    t.text "rationale"
+    t.datetime "review_deadline"
+    t.datetime "reviewed_at"
+    t.uuid "reviewed_by_id"
+    t.string "status", default: "pending_review", null: false
+    t.uuid "target_user_id"
+    t.string "title", limit: 255, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "status"], name: "index_ai_agent_proposals_on_account_id_and_status"
+    t.index ["account_id"], name: "index_ai_agent_proposals_on_account_id"
+    t.index ["ai_agent_id"], name: "index_ai_agent_proposals_on_ai_agent_id"
+    t.index ["conversation_id"], name: "index_ai_agent_proposals_on_conversation_id"
+    t.index ["proposal_type"], name: "index_ai_agent_proposals_on_proposal_type"
+    t.index ["review_deadline"], name: "index_ai_agent_proposals_on_review_deadline", where: "((status)::text = 'pending_review'::text)"
+    t.index ["reviewed_by_id"], name: "index_ai_agent_proposals_on_reviewed_by_id"
+    t.index ["status"], name: "index_ai_agent_proposals_on_status"
+    t.index ["target_user_id"], name: "index_ai_agent_proposals_on_target_user_id"
   end
 
   create_table "ai_agent_reviews", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -2023,6 +2150,41 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_230003) do
     t.index ["target_type", "target_id"], name: "idx_on_target_type_target_id_59157c52d1"
   end
 
+  create_table "ai_intervention_policies", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "action_category", null: false
+    t.uuid "ai_agent_id"
+    t.jsonb "conditions", default: {}
+    t.datetime "created_at", null: false
+    t.boolean "is_active", default: true, null: false
+    t.string "policy", null: false
+    t.jsonb "preferred_channels", default: []
+    t.integer "priority", default: 0, null: false
+    t.string "scope", default: "global", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "user_id"
+    t.index ["account_id", "action_category"], name: "idx_on_account_id_action_category_c721963d27"
+    t.index ["account_id", "scope"], name: "index_ai_intervention_policies_on_account_id_and_scope"
+    t.index ["account_id", "user_id", "ai_agent_id"], name: "idx_ai_intervention_policies_specificity"
+    t.index ["account_id"], name: "index_ai_intervention_policies_on_account_id"
+    t.index ["ai_agent_id"], name: "index_ai_intervention_policies_on_ai_agent_id"
+    t.index ["user_id"], name: "index_ai_intervention_policies_on_user_id"
+  end
+
+  create_table "ai_kill_switch_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.string "event_type", null: false
+    t.jsonb "metadata", default: {}
+    t.text "reason"
+    t.uuid "triggered_by_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "created_at"], name: "index_ai_kill_switch_events_on_account_id_and_created_at"
+    t.index ["account_id", "event_type"], name: "index_ai_kill_switch_events_on_account_id_and_event_type"
+    t.index ["account_id"], name: "index_ai_kill_switch_events_on_account_id"
+    t.index ["triggered_by_id"], name: "index_ai_kill_switch_events_on_triggered_by_id"
+  end
+
   create_table "ai_knowledge_bases", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.integer "chunk_count", default: 0
@@ -3028,6 +3190,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_230003) do
     t.uuid "default_agent_id"
     t.text "description"
     t.integer "duration_ms"
+    t.jsonb "duty_cycle_config", default: {}
     t.string "error_code"
     t.jsonb "error_details", default: {}
     t.text "error_message"
@@ -7828,6 +7991,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_230003) do
     t.text "message", null: false
     t.json "metadata", default: {}
     t.string "notification_type", null: false
+    t.integer "priority", default: 0
     t.datetime "read_at"
     t.string "severity", default: "info", null: false
     t.string "title", null: false
@@ -7838,6 +8002,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_230003) do
     t.index ["category"], name: "index_notifications_on_category"
     t.index ["expires_at"], name: "index_notifications_on_expires_at"
     t.index ["notification_type"], name: "index_notifications_on_notification_type"
+    t.index ["priority"], name: "index_notifications_on_priority"
     t.index ["user_id", "created_at"], name: "index_notifications_on_user_id_and_created_at"
     t.index ["user_id", "read_at"], name: "index_notifications_on_user_id_and_read_at"
     t.index ["user_id"], name: "index_notifications_on_user_id"
@@ -9769,11 +9934,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_230003) do
   add_foreign_key "ai_agent_cards", "accounts"
   add_foreign_key "ai_agent_cards", "ai_agents"
   add_foreign_key "ai_agent_connections", "accounts"
+  add_foreign_key "ai_agent_escalations", "accounts"
+  add_foreign_key "ai_agent_escalations", "ai_agents"
+  add_foreign_key "ai_agent_escalations", "users", column: "escalated_to_user_id"
   add_foreign_key "ai_agent_executions", "accounts", on_delete: :cascade
   add_foreign_key "ai_agent_executions", "ai_agent_executions", column: "parent_execution_id", on_delete: :nullify
   add_foreign_key "ai_agent_executions", "ai_agents", on_delete: :cascade
   add_foreign_key "ai_agent_executions", "ai_providers", on_delete: :restrict
   add_foreign_key "ai_agent_executions", "users", on_delete: :restrict
+  add_foreign_key "ai_agent_feedbacks", "accounts"
+  add_foreign_key "ai_agent_feedbacks", "ai_agents"
+  add_foreign_key "ai_agent_feedbacks", "users"
+  add_foreign_key "ai_agent_goals", "accounts"
+  add_foreign_key "ai_agent_goals", "ai_agent_goals", column: "parent_goal_id"
+  add_foreign_key "ai_agent_goals", "ai_agents"
   add_foreign_key "ai_agent_identities", "accounts"
   add_foreign_key "ai_agent_installations", "accounts"
   add_foreign_key "ai_agent_installations", "ai_agent_templates", column: "agent_template_id"
@@ -9782,7 +9956,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_230003) do
   add_foreign_key "ai_agent_lineages", "accounts"
   add_foreign_key "ai_agent_lineages", "ai_agents", column: "child_agent_id"
   add_foreign_key "ai_agent_lineages", "ai_agents", column: "parent_agent_id"
+  add_foreign_key "ai_agent_observations", "accounts"
+  add_foreign_key "ai_agent_observations", "ai_agent_goals", column: "goal_id"
+  add_foreign_key "ai_agent_observations", "ai_agents"
   add_foreign_key "ai_agent_privilege_policies", "accounts"
+  add_foreign_key "ai_agent_proposals", "accounts"
+  add_foreign_key "ai_agent_proposals", "ai_agents"
+  add_foreign_key "ai_agent_proposals", "ai_conversations", column: "conversation_id"
+  add_foreign_key "ai_agent_proposals", "users", column: "reviewed_by_id"
+  add_foreign_key "ai_agent_proposals", "users", column: "target_user_id"
   add_foreign_key "ai_agent_reviews", "accounts"
   add_foreign_key "ai_agent_reviews", "ai_agent_installations", column: "installation_id"
   add_foreign_key "ai_agent_reviews", "ai_agent_templates", column: "agent_template_id"
@@ -9914,6 +10096,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_02_26_230003) do
   add_foreign_key "ai_hybrid_search_results", "accounts"
   add_foreign_key "ai_improvement_recommendations", "accounts"
   add_foreign_key "ai_improvement_recommendations", "users", column: "approved_by_id"
+  add_foreign_key "ai_intervention_policies", "accounts"
+  add_foreign_key "ai_intervention_policies", "ai_agents"
+  add_foreign_key "ai_intervention_policies", "users"
+  add_foreign_key "ai_kill_switch_events", "accounts"
+  add_foreign_key "ai_kill_switch_events", "users", column: "triggered_by_id"
   add_foreign_key "ai_knowledge_bases", "accounts"
   add_foreign_key "ai_knowledge_bases", "users", column: "created_by_id"
   add_foreign_key "ai_knowledge_graph_edges", "accounts"
