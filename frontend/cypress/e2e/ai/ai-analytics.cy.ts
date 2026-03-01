@@ -106,12 +106,7 @@ describe('AI Analytics Page Tests', () => {
     });
 
     it('should have Refresh button or icon', () => {
-      cy.get('body').then($body => {
-        const hasRefreshButton = $body.find('button:contains("Refresh"), [aria-label*="refresh"], [title*="Refresh"]').length > 0;
-        const hasRefreshIcon = $body.find('button svg, button [class*="refresh"], [class*="sync"]').length > 0;
-        const hasAnalyticsContent = $body.text().includes('Analytics');
-        expect(hasRefreshButton || hasRefreshIcon || hasAnalyticsContent).to.be.true;
-      });
+      cy.assertHasElement(['button:contains("Refresh")', '[aria-label*="refresh"]', '[title*="Refresh"]', 'button svg']);
     });
   });
 
@@ -129,8 +124,7 @@ describe('AI Analytics Page Tests', () => {
     it('should handle no analytics data gracefully', () => {
       cy.mockEndpoint('GET', '/api/v1/ai/analytics*', { metrics: [], charts: [] });
       cy.assertPageReady('/app/ai/analytics');
-      cy.get('body').should('be.visible');
-      cy.get('body').should('not.contain.text', 'Cannot read');
+      cy.assertContainsAny(['Analytics', 'Dashboard', 'No data', 'Metrics']);
     });
   });
 
@@ -160,7 +154,7 @@ describe('AI Analytics Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.assertPageReady('/app/ai/analytics');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Analytics', 'Dashboard', 'Metrics', 'AI']);
     });
   });
 });

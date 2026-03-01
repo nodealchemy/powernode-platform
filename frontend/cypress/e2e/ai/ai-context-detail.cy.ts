@@ -34,29 +34,24 @@ describe('AI Context Detail Page Tests', () => {
   describe('Page Actions', () => {
     it('should have Import/Export button or page content', () => {
       cy.navigateTo('/app/ai/contexts/test-context');
-      cy.assertContainsAny(['Import/Export', 'Import', 'Export', 'Context', 'Not Found', 'Back', 'AI']);
+      cy.assertContainsAny(['Import/Export', 'Import', 'Export', 'Context', 'Not Found']);
     });
 
     it('should have Add Entry button or page content', () => {
       cy.navigateTo('/app/ai/contexts/test-context');
-      cy.assertContainsAny(['Add Entry', 'Add', 'Create', 'Context', 'Not Found', 'Back', 'AI']);
+      cy.assertContainsAny(['Add Entry', 'Add', 'Create', 'Context', 'Not Found']);
     });
   });
 
   describe('Context Header', () => {
-    it('should display context icon or page content', () => {
+    it('should display context name or not found state', () => {
       cy.navigateTo('/app/ai/contexts/test-context');
-      cy.get('body').should('be.visible');
-    });
-
-    it('should display context name or page content', () => {
-      cy.navigateTo('/app/ai/contexts/test-context');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Context', 'Not Found']);
     });
 
     it('should display Archived badge when archived', () => {
       cy.navigateTo('/app/ai/contexts/test-context');
-      cy.assertContainsAny(['Archived', 'Context', 'Not Found', 'Back']);
+      cy.assertContainsAny(['Archived', 'Context', 'Not Found']);
     });
 
     it('should display context description', () => {
@@ -72,7 +67,7 @@ describe('AI Context Detail Page Tests', () => {
 
     it('should display context metadata', () => {
       cy.navigateTo('/app/ai/contexts/test-context');
-      cy.assertContainsAny(['Agent:', 'v1', 'Context', 'Not Found', 'Back']);
+      cy.assertContainsAny(['Agent:', 'v1', 'Context', 'Not Found']);
     });
   });
 
@@ -121,22 +116,14 @@ describe('AI Context Detail Page Tests', () => {
 
     it('should switch to Search tab', () => {
       cy.navigateTo('/app/ai/contexts/test-context');
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Search")').length > 0) {
-          cy.clickButton('Search');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.clickButton('Search');
+      cy.assertContainsAny(['Search', 'query', 'results']);
     });
 
     it('should switch to Settings tab', () => {
       cy.navigateTo('/app/ai/contexts/test-context');
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Settings")').length > 0) {
-          cy.clickButton('Settings');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.clickButton('Settings');
+      cy.assertContainsAny(['Settings', 'Retention', 'Danger']);
     });
   });
 
@@ -154,84 +141,60 @@ describe('AI Context Detail Page Tests', () => {
 
     it('should display type selector', () => {
       cy.navigateTo('/app/ai/contexts/test-context');
-      cy.assertContainsAny(['All Types', 'Type', 'Context', 'Not Found', 'Back']);
+      cy.assertContainsAny(['All Types', 'Type', 'Context', 'Not Found']);
     });
 
     it('should display entries list or empty state', () => {
       cy.navigateTo('/app/ai/contexts/test-context');
-      cy.assertContainsAny(['No entries', 'Add your first entry', 'Entry', 'Context', 'Not Found', 'Back']);
+      cy.assertContainsAny(['No entries', 'Add your first entry', 'Entry', 'Context', 'Not Found']);
     });
 
     it('should display entry type badges', () => {
       cy.navigateTo('/app/ai/contexts/test-context');
-      cy.assertContainsAny(['fact', 'preference', 'knowledge', 'Context', 'Not Found', 'Back']);
+      cy.assertContainsAny(['fact', 'preference', 'knowledge', 'Context', 'Not Found']);
     });
   });
 
   describe('Settings Tab Content', () => {
     it('should display Retention Policy section', () => {
       cy.navigateTo('/app/ai/contexts/test-context');
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Settings")').length > 0) {
-          cy.clickButton('Settings');
-          cy.assertContainsAny(['Retention Policy']);
-        }
-      });
+      cy.clickButton('Settings');
+      cy.assertContainsAny(['Retention Policy']);
     });
 
     it('should display Danger Zone section', () => {
       cy.navigateTo('/app/ai/contexts/test-context');
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Settings")').length > 0) {
-          cy.clickButton('Settings');
-          cy.assertContainsAny(['Danger Zone']);
-        }
-      });
+      cy.clickButton('Settings');
+      cy.assertContainsAny(['Danger Zone']);
     });
 
     it('should display Archive/Restore button', () => {
       cy.navigateTo('/app/ai/contexts/test-context');
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Settings")').length > 0) {
-          cy.clickButton('Settings');
-          cy.assertContainsAny(['Archive', 'Restore']);
-        }
-      });
+      cy.clickButton('Settings');
+      cy.assertContainsAny(['Archive', 'Restore']);
     });
 
     it('should display Delete button', () => {
       cy.navigateTo('/app/ai/contexts/test-context');
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Settings")').length > 0) {
-          cy.clickButton('Settings');
-          cy.assertContainsAny(['Delete Context', 'Delete']);
-        }
-      });
+      cy.clickButton('Settings');
+      cy.assertContainsAny(['Delete Context', 'Delete']);
     });
   });
 
   describe('Import/Export Modal', () => {
     it('should open Import/Export modal', () => {
       cy.navigateTo('/app/ai/contexts/test-context');
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Import/Export")').length > 0) {
-          cy.clickButton('Import/Export');
-          cy.waitForStableDOM();
-          cy.assertModalVisible('Import');
-        }
-      });
+      cy.clickButton('Import/Export');
+      cy.waitForStableDOM();
+      cy.assertModalVisible('Import');
     });
   });
 
   describe('Entry Editor', () => {
     it('should open entry editor when Add Entry clicked', () => {
       cy.navigateTo('/app/ai/contexts/test-context');
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Add Entry")').length > 0) {
-          cy.clickButton('Add Entry');
-          cy.assertContainsAny(['New Entry', 'Edit Entry']);
-        }
-      });
+      cy.clickButton('Add Entry');
+      cy.assertContainsAny(['New Entry', 'Edit Entry']);
     });
   });
 
@@ -272,7 +235,7 @@ describe('AI Context Detail Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.navigateTo('/app/ai/contexts/test-context');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Context', 'Not Found']);
     });
 
     it('should stack stats cards on small screens', () => {

@@ -66,37 +66,22 @@ describe('SBOM Management Tests', () => {
     });
 
     it('should filter by status when status filter exists', () => {
-      cy.get('body').then($body => {
-        const statusFilter = $body.find('[data-testid="filter-status"], select:contains("Status")');
-        if (statusFilter.length > 0) {
-          cy.wrap(statusFilter).first().click();
-          cy.get('[role="option"], option').contains(/completed|generating/i).click();
-          cy.wait('@getSbomsFiltered');
-        }
-      });
+      cy.get('[data-testid="filter-status"], select:contains("Status")').first().click();
+      cy.get('[role="option"], option').contains(/completed|generating/i).click();
+      cy.wait('@getSbomsFiltered');
     });
 
     it('should search SBOMs when search input exists', () => {
-      cy.get('body').then($body => {
-        const searchInput = $body.find('[data-testid="search-input"], input[type="search"], input[placeholder*="Search"]');
-        if (searchInput.length > 0) {
-          cy.wrap(searchInput).first().type('Production');
-          cy.wait('@getSbomsFiltered');
-        }
-      });
+      cy.get('[data-testid="search-input"], input[type="search"], input[placeholder*="Search"]').first().type('Production');
+      cy.wait('@getSbomsFiltered');
     });
   });
 
   describe('SBOM Detail Page', () => {
     it('should navigate to SBOM detail page', () => {
       cy.assertPageReady('/app/supply-chain/sboms');
-      cy.get('body').then($body => {
-        const sbomRow = $body.find('table tbody tr, [data-testid*="sbom-row"]');
-        if (sbomRow.length > 0) {
-          cy.wrap(sbomRow).first().click();
-          cy.url().should('match', /\/sboms\/[^/]+$/);
-        }
-      });
+      cy.get('table tbody tr, [data-testid*="sbom-row"]').first().click();
+      cy.url().should('match', /\/sboms\/[^/]+$/);
     });
 
     it('should display SBOM detail information', () => {
@@ -143,14 +128,8 @@ describe('SBOM Management Tests', () => {
     });
 
     it('should open vulnerability detail modal when clicking vulnerability', () => {
-      cy.get('body').then($body => {
-        const vulnRow = $body.find('[data-testid*="vulnerability"], tr:contains("CVE")');
-        if (vulnRow.length > 0) {
-          cy.wrap(vulnRow).first().click();
-          // Modal or detail panel should appear
-          cy.assertContainsAny(['CVSS', 'Score', 'Vector', 'Description', 'Fix']);
-        }
-      });
+      cy.get('[data-testid*="vulnerability"], tr:contains("CVE")').first().click();
+      cy.assertContainsAny(['CVSS', 'Score', 'Vector', 'Description', 'Fix']);
     });
   });
 
@@ -170,13 +149,8 @@ describe('SBOM Management Tests', () => {
     });
 
     it('should open export format dropdown', () => {
-      cy.get('body').then($body => {
-        const exportBtn = $body.find('[data-testid="export-btn"], button:contains("Export")');
-        if (exportBtn.length > 0) {
-          cy.wrap(exportBtn).first().click();
-          cy.assertContainsAny(['CycloneDX', 'SPDX', 'JSON', 'XML']);
-        }
-      });
+      cy.get('[data-testid="export-btn"], button:contains("Export")').first().click();
+      cy.assertContainsAny(['CycloneDX', 'SPDX', 'JSON', 'XML']);
     });
   });
 
@@ -184,14 +158,8 @@ describe('SBOM Management Tests', () => {
     it('should navigate to diff page when comparing SBOMs', () => {
       cy.visit('/app/supply-chain/sboms/sbom-1');
       cy.waitForPageLoad();
-      cy.get('body').then($body => {
-        const compareBtn = $body.find('[data-testid="compare-btn"], button:contains("Compare"), button:contains("Diff")');
-        if (compareBtn.length > 0) {
-          cy.wrap(compareBtn).first().click();
-          // Should open comparison modal or navigate to diff page
-          cy.assertContainsAny(['Compare', 'Diff', 'Select', 'Added', 'Removed']);
-        }
-      });
+      cy.get('[data-testid="compare-btn"], button:contains("Compare"), button:contains("Diff")').first().click();
+      cy.assertContainsAny(['Compare', 'Diff', 'Select', 'Added', 'Removed']);
     });
 
     it('should display diff results', () => {
@@ -217,13 +185,8 @@ describe('SBOM Management Tests', () => {
     });
 
     it('should show confirmation dialog when deleting', () => {
-      cy.get('body').then($body => {
-        const deleteBtn = $body.find('[data-testid="delete-btn"], button:contains("Delete")');
-        if (deleteBtn.length > 0) {
-          cy.wrap(deleteBtn).first().click();
-          cy.assertContainsAny(['Confirm', 'Are you sure', 'Delete', 'Cancel']);
-        }
-      });
+      cy.get('[data-testid="delete-btn"], button:contains("Delete")').first().click();
+      cy.assertContainsAny(['Confirm', 'Are you sure', 'Delete', 'Cancel']);
     });
   });
 

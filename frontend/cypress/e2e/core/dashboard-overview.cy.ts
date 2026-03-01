@@ -30,16 +30,7 @@ describe('Dashboard Overview Tests', () => {
     });
 
     it('should display page actions', () => {
-      cy.get('body').then($body => {
-        const hasActions = $body.text().includes('Analytics') ||
-                          $body.text().includes('Customers') ||
-                          $body.find('button').length > 0;
-        if (hasActions) {
-          cy.log('Page actions displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Analytics', 'Customers']);
     });
   });
 
@@ -65,15 +56,7 @@ describe('Dashboard Overview Tests', () => {
     });
 
     it('should display metrics in grid layout', () => {
-      cy.get('body').then($body => {
-        const hasGrid = $body.find('[class*="grid"]').length > 0 ||
-                       $body.find('[class*="card"]').length >= 2;
-        if (hasGrid) {
-          cy.log('Metrics displayed in grid layout');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['[class*="grid"]', '[class*="card"]']);
     });
   });
 
@@ -87,16 +70,7 @@ describe('Dashboard Overview Tests', () => {
     });
 
     it('should show task completion progress', () => {
-      cy.get('body').then($body => {
-        const hasProgress = $body.text().includes('complete') ||
-                           $body.text().includes('of') ||
-                           $body.text().match(/\d+.*of.*\d+/);
-        if (hasProgress) {
-          cy.log('Task completion progress displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['complete', 'of']);
     });
 
     it('should show Account created status', () => {
@@ -142,16 +116,8 @@ describe('Dashboard Overview Tests', () => {
     });
 
     it('should navigate when clicking quick action', () => {
-      cy.get('body').then($body => {
-        const customerBtn = $body.find('button:contains("Customers")');
-        if (customerBtn.length > 0) {
-          cy.wrap(customerBtn).first().should('be.visible').click();
-          cy.waitForPageLoad();
-          cy.log('Quick action navigation triggered');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button:contains("Customers")').first().should('be.visible').click();
+      cy.waitForPageLoad();
     });
   });
 
@@ -165,16 +131,7 @@ describe('Dashboard Overview Tests', () => {
     });
 
     it('should show positive system message', () => {
-      cy.get('body').then($body => {
-        const hasPositive = $body.find('[class*="success"], [class*="green"]').length > 0 ||
-                           $body.text().includes('Ready') ||
-                           $body.text().includes('operational');
-        if (hasPositive) {
-          cy.log('Positive system message displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Ready', 'operational']);
     });
   });
 
@@ -184,27 +141,11 @@ describe('Dashboard Overview Tests', () => {
     });
 
     it('should have Analytics button in header', () => {
-      cy.get('body').then($body => {
-        const hasAnalytics = $body.find('button:contains("Analytics")').length > 0 ||
-                            $body.text().includes('Analytics');
-        if (hasAnalytics) {
-          cy.log('Analytics header button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Analytics']);
     });
 
     it('should have Customers button in header', () => {
-      cy.get('body').then($body => {
-        const hasCustomers = $body.find('button:contains("Customers")').length > 0 ||
-                            $body.text().includes('Customers');
-        if (hasCustomers) {
-          cy.log('Customers header button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Customers']);
     });
   });
 
@@ -218,7 +159,7 @@ describe('Dashboard Overview Tests', () => {
       cy.visit('/app');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Dashboard', 'Welcome', 'Error']);
       cy.get('body').should('not.contain.text', 'Cannot read');
     });
   });
@@ -229,7 +170,7 @@ describe('Dashboard Overview Tests', () => {
       cy.visit('/app');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Dashboard', 'Welcome']);
     });
 
     it('should display properly on tablet viewport', () => {
@@ -237,7 +178,7 @@ describe('Dashboard Overview Tests', () => {
       cy.visit('/app');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Dashboard', 'Welcome']);
     });
 
     it('should stack cards on small screens', () => {
@@ -245,7 +186,7 @@ describe('Dashboard Overview Tests', () => {
       cy.visit('/app');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Dashboard', 'Welcome']);
     });
 
     it('should display multi-column layout on large screens', () => {
@@ -253,14 +194,7 @@ describe('Dashboard Overview Tests', () => {
       cy.visit('/app');
       cy.waitForPageLoad();
 
-      cy.get('body').then($body => {
-        const hasGrid = $body.find('[class*="grid"]').length > 0;
-        if (hasGrid) {
-          cy.log('Multi-column layout found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['[class*="grid"]']);
     });
   });
 });

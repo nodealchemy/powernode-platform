@@ -213,21 +213,21 @@ describe('Content Page View Tests', () => {
       cy.visit('/page/nonexistent-page');
       cy.waitForStableDOM();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Not Found', 'not found', 'Error', 'Page']);
     });
 
     it('should display back to home option on error page', () => {
       cy.visit('/page/nonexistent-page');
       cy.waitForStableDOM();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Back', 'Home', 'Return']);
     });
 
     it('should display try again button', () => {
       cy.visit('/page/nonexistent-page');
       cy.waitForStableDOM();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Try again', 'Retry', 'Back']);
     });
   });
 
@@ -236,28 +236,28 @@ describe('Content Page View Tests', () => {
       cy.visit('/page/test-error-page');
       cy.waitForStableDOM();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Error', 'Not Found', 'Page']);
     });
 
     it('should handle network error gracefully', () => {
       cy.visit('/page/test-network-error');
       cy.waitForStableDOM();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Error', 'Not Found', 'Page']);
     });
 
     it('should handle empty response gracefully', () => {
       cy.visit('/page/test-empty-page');
       cy.waitForStableDOM();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Error', 'Not Found', 'Page']);
     });
 
     it('should handle unauthorized error', () => {
       cy.visit('/page/test-auth-page');
       cy.waitForStableDOM();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Error', 'Unauthorized', 'Login', 'Page']);
     });
   });
 
@@ -266,7 +266,7 @@ describe('Content Page View Tests', () => {
       cy.visit('/page/draft-page');
       cy.waitForStableDOM();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Draft', 'Not Found', 'Error', 'Page']);
     });
   });
 
@@ -344,7 +344,7 @@ describe('Content Page View Tests', () => {
       cy.wait('@getPage');
       cy.waitForStableDOM();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny([mockPage.title, 'Page']);
     });
   });
 
@@ -430,7 +430,7 @@ describe('Content Page View Tests', () => {
       cy.visit('/page/nonexistent');
       cy.waitForStableDOM();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Error', 'Not Found', 'Page']);
     });
   });
 
@@ -468,14 +468,14 @@ describe('Content Page View Tests', () => {
       cy.visit('/page/long-page');
       cy.waitForStableDOM();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Page', 'Content', 'Not Found']);
     });
 
     it('should be scrollable with long content', () => {
       cy.visit('/page/long-page');
       cy.waitForStableDOM();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Page', 'Content', 'Not Found']);
     });
   });
 
@@ -612,7 +612,7 @@ describe('Content Page View Tests', () => {
       }).as('getPage');
 
       cy.visit('/page/test-page/');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny([mockPage.title, 'Page']);
     });
 
     it('should handle URL encoded slugs', () => {
@@ -630,7 +630,7 @@ describe('Content Page View Tests', () => {
       cy.wait('@getPage');
       cy.waitForStableDOM();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny([encodedPage.title, 'Page']);
     });
   });
 
@@ -663,8 +663,6 @@ describe('Content Page View Tests', () => {
       cy.waitForStableDOM();
 
       cy.contains(mockPage.title).should('be.visible');
-      // Page loads successfully - that's the main assertion
-      cy.get('body').should('be.visible');
     });
   });
 });

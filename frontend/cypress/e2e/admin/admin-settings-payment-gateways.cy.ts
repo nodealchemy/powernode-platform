@@ -23,24 +23,13 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
     });
 
     it('should navigate to Payment Gateways tab', () => {
-
-      cy.get('body').then($body => {
-        const hasContent = $body.text().includes('Payment') ||
-                          $body.text().includes('Gateway') ||
-                          $body.text().includes('Stripe') ||
-                          $body.text().includes('PayPal');
-        if (hasContent) {
-          cy.log('Payment Gateways tab loaded');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Payment', 'Gateway', 'Stripe', 'PayPal']);
     });
 
     it('should redirect unauthorized users', () => {
       cy.visit('/app/admin/settings/payment-gateways');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Payment', 'Gateway', 'Settings']);
     });
   });
 
@@ -51,40 +40,15 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
     });
 
     it('should display total transactions stat', () => {
-      cy.get('body').then($body => {
-        const hasTransactions = $body.text().includes('Total Transactions') ||
-                                $body.text().includes('Transactions');
-        if (hasTransactions) {
-          cy.log('Total transactions stat displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Total Transactions', 'Transactions']);
     });
 
     it('should display success rate stat', () => {
-      cy.get('body').then($body => {
-        const hasSuccessRate = $body.text().includes('Success Rate') ||
-                               $body.text().includes('%');
-        if (hasSuccessRate) {
-          cy.log('Success rate stat displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Success Rate', '%']);
     });
 
     it('should display total volume stat', () => {
-      cy.get('body').then($body => {
-        const hasVolume = $body.text().includes('Total Volume') ||
-                          $body.text().includes('$') ||
-                          $body.text().includes('Volume');
-        if (hasVolume) {
-          cy.log('Total volume stat displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Total Volume', '$', 'Volume']);
     });
   });
 
@@ -95,75 +59,27 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
     });
 
     it('should display Stripe card', () => {
-      cy.get('body').then($body => {
-        const hasStripe = $body.text().includes('Stripe');
-        if (hasStripe) {
-          cy.log('Stripe card displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('body').should('contain.text', 'Stripe');
     });
 
     it('should display Stripe status', () => {
-      cy.get('body').then($body => {
-        const hasStatus = $body.text().includes('Connected') ||
-                          $body.text().includes('Not Configured') ||
-                          $body.text().includes('Configured');
-        if (hasStatus) {
-          cy.log('Stripe status displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Connected', 'Not Configured', 'Configured']);
     });
 
     it('should display Stripe statistics', () => {
-      cy.get('body').then($body => {
-        const hasStats = $body.text().includes('30-Day') ||
-                         $body.text().includes('Volume') ||
-                         $body.text().includes('Count');
-        if (hasStats) {
-          cy.log('Stripe statistics displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['30-Day', 'Volume', 'Count']);
     });
 
     it('should have Configure button', () => {
-      cy.get('body').then($body => {
-        const hasConfig = $body.find('button:contains("Configure"), button:contains("Reconfigure")').length > 0;
-        if (hasConfig) {
-          cy.log('Configure button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button:contains("Configure"), button:contains("Reconfigure")').should('exist');
     });
 
     it('should have Test Connection button', () => {
-      cy.get('body').then($body => {
-        const hasTest = $body.find('button:contains("Test")').length > 0;
-        if (hasTest) {
-          cy.log('Test Connection button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button:contains("Test")').should('exist');
     });
 
     it('should display test mode indicator', () => {
-      cy.get('body').then($body => {
-        const hasTestMode = $body.text().includes('Test Mode') ||
-                            $body.text().includes('Live') ||
-                            $body.text().includes('Sandbox');
-        if (hasTestMode) {
-          cy.log('Test mode indicator displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Test Mode', 'Live', 'Sandbox']);
     });
   });
 
@@ -174,39 +90,15 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
     });
 
     it('should display PayPal card', () => {
-      cy.get('body').then($body => {
-        const hasPayPal = $body.text().includes('PayPal');
-        if (hasPayPal) {
-          cy.log('PayPal card displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('body').should('contain.text', 'PayPal');
     });
 
     it('should display PayPal status', () => {
-      cy.get('body').then($body => {
-        const hasStatus = $body.text().includes('Connected') ||
-                          $body.text().includes('Not Configured') ||
-                          $body.text().includes('Configured');
-        if (hasStatus) {
-          cy.log('PayPal status displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Connected', 'Not Configured', 'Configured']);
     });
 
     it('should have PayPal Configure button', () => {
-      cy.get('body').then($body => {
-        // Find second configure button (for PayPal)
-        const buttons = $body.find('button:contains("Configure"), button:contains("Reconfigure")');
-        if (buttons.length >= 1) {
-          cy.log('PayPal Configure button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button:contains("Configure"), button:contains("Reconfigure")').should('exist');
     });
   });
 
@@ -217,68 +109,27 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
     });
 
     it('should open configuration modal on Configure click', () => {
-      cy.get('body').then($body => {
-        const configButton = $body.find('button:contains("Configure")');
-        if (configButton.length > 0) {
-          cy.wrap(configButton).first().should('be.visible').click();
-          cy.waitForStableDOM();
-
-          cy.get('body').then($updatedBody => {
-            const hasModal = $updatedBody.find('[role="dialog"], [class*="modal"]').length > 0 ||
-                             $updatedBody.text().includes('Configuration') ||
-                             $updatedBody.text().includes('API Key');
-            if (hasModal) {
-              cy.log('Configuration modal opened');
-            }
-          });
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button:contains("Configure")').first().click();
+      cy.waitForStableDOM();
+      cy.assertContainsAny(['Configuration', 'API Key']);
     });
 
     it('should display API key fields in modal', () => {
       cy.get('button').contains(/Configure|Reconfigure/).first().scrollIntoView().should('exist').click();
       cy.waitForStableDOM();
-
-      cy.get('body').then($body => {
-        const hasAPIFields = $body.text().includes('API Key') ||
-                             $body.text().includes('Secret') ||
-                             $body.text().includes('Client ID');
-        if (hasAPIFields) {
-          cy.log('API key fields displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['API Key', 'Secret', 'Client ID']);
     });
 
     it('should have cancel button in modal', () => {
       cy.get('button').contains(/Configure|Reconfigure/).first().scrollIntoView().should('exist').click();
       cy.waitForStableDOM();
-
-      cy.get('body').then($body => {
-        const hasCancel = $body.find('button:contains("Cancel")').length > 0;
-        if (hasCancel) {
-          cy.log('Cancel button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button:contains("Cancel")').should('exist');
     });
 
     it('should have save button in modal', () => {
       cy.get('button').contains(/Configure|Reconfigure/).first().scrollIntoView().should('exist').click();
       cy.waitForStableDOM();
-
-      cy.get('body').then($body => {
-        const hasSave = $body.find('button:contains("Save"), button:contains("Update")').length > 0;
-        if (hasSave) {
-          cy.log('Save button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button:contains("Save"), button:contains("Update")').should('exist');
     });
   });
 
@@ -289,28 +140,11 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
     });
 
     it('should display test results section after test', () => {
-      cy.get('body').then($body => {
-        const hasResults = $body.text().includes('Test Result') ||
-                           $body.text().includes('Connection successful') ||
-                           $body.text().includes('Connection failed');
-        if (hasResults) {
-          cy.log('Test results section available');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Test Result', 'Connection successful', 'Connection failed']);
     });
 
     it('should display test timestamp', () => {
-      cy.get('body').then($body => {
-        const hasTimestamp = $body.text().includes('Tested:') ||
-                             $body.text().includes('Last tested');
-        if (hasTimestamp) {
-          cy.log('Test timestamp displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Tested:', 'Last tested']);
     });
   });
 
@@ -328,12 +162,12 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
       cy.visit('/app/admin/settings/payment-gateways');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Payment', 'Gateway', 'Error']);
       cy.get('body').should('not.contain.text', 'Cannot read');
     });
 
     it('should display error notification on test failure', () => {
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Payment', 'Gateway', 'Stripe', 'PayPal']);
     });
   });
 
@@ -351,15 +185,7 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
 
       cy.visit('/app/admin/settings/payment-gateways');
 
-      cy.get('body').then($body => {
-        const hasLoading = $body.find('[class*="spin"]').length > 0 ||
-                           $body.text().includes('Loading');
-        if (hasLoading) {
-          cy.log('Loading indicator displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['[class*="spin"]', '[class*="loading"]']);
     });
   });
 
@@ -373,7 +199,7 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
       cy.visit('/app/admin/settings/payment-gateways');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Payment', 'Gateway']);
     });
 
     it('should display properly on tablet viewport', () => {
@@ -381,7 +207,7 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
       cy.visit('/app/admin/settings/payment-gateways');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Payment', 'Gateway']);
     });
 
     it('should stack gateway cards on mobile', () => {
@@ -389,14 +215,13 @@ describe('Admin Settings Payment Gateways Tab Tests', () => {
       cy.visit('/app/admin/settings/payment-gateways');
       cy.waitForPageLoad();
 
-      cy.get('body').then($body => {
-        const hasStack = $body.find('[class*="grid"]').length > 0;
-        if (hasStack) {
-          cy.log('Gateway cards stacked on mobile');
-        }
-      });
+      cy.get('[class*="grid"]').should('exist');
+    });
+  });
 
-      cy.get('body').should('be.visible');
+  describe('Permission Check', () => {
+    it('should require admin permissions', () => {
+      cy.testPermissionDenied('/app/admin/settings/payment-gateways');
     });
   });
 });

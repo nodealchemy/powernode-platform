@@ -199,13 +199,9 @@ describe('Content Page Editor Tests', () => {
       cy.get('button').contains(/Create|New/).first().click();
       cy.waitForPageLoad();
 
-      cy.assertHasElement(['button:contains("Save")', 'button:contains("Publish")']).then($btn => {
-        if ($btn.length > 0) {
-          cy.wrap($btn).first().click();
-          cy.waitForPageLoad();
-          cy.assertContainsAny(['required', 'error', 'Title']);
-        }
-      });
+      cy.assertHasElement(['button:contains("Save")', 'button:contains("Publish")']).first().click();
+      cy.waitForPageLoad();
+      cy.assertContainsAny(['required', 'error', 'Title']);
     });
   });
 
@@ -224,12 +220,12 @@ describe('Content Page Editor Tests', () => {
   describe('Responsive Design', () => {
     it('should display properly on mobile viewport', () => {
       cy.testViewport('mobile', '/app/content/pages');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Pages', 'Content']);
     });
 
     it('should display properly on tablet viewport', () => {
       cy.testViewport('tablet', '/app/content/pages');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Pages', 'Content']);
     });
 
     it('should display editor properly on large screens', () => {
@@ -238,7 +234,7 @@ describe('Content Page Editor Tests', () => {
       cy.waitForPageLoad();
       cy.get('button').contains(/Create|New|Edit/).first().click();
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Pages', 'Content', 'Editor']);
     });
   });
 });

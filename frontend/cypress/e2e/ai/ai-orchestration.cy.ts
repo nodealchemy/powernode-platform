@@ -84,48 +84,28 @@ describe('AI Orchestration Page Tests', () => {
     });
 
     it('should switch to AI Providers tab', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Providers")').length > 0) {
-          cy.clickButton('Providers');
-          cy.get('body').should('be.visible');
-        }
-      });
+      cy.clickButton('Providers');
+      cy.assertContainsAny(['Provider', 'AI Providers']);
     });
 
     it('should switch to AI Agents tab', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Agents")').length > 0) {
-          cy.clickButton('Agents');
-          cy.get('body').should('be.visible');
-        }
-      });
+      cy.clickButton('Agents');
+      cy.assertContainsAny(['Agent', 'AI Agents']);
     });
 
     it('should switch to Workflows tab', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Workflows")').length > 0) {
-          cy.clickButton('Workflows');
-          cy.get('body').should('be.visible');
-        }
-      });
+      cy.clickButton('Workflows');
+      cy.assertContainsAny(['Workflow', 'Workflows']);
     });
 
     it('should switch to Analytics tab', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Analytics")').length > 0) {
-          cy.clickButton('Analytics');
-          cy.get('body').should('be.visible');
-        }
-      });
+      cy.clickButton('Analytics');
+      cy.assertContainsAny(['Analytics', 'AI']);
     });
 
     it('should switch to Monitoring tab', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Monitoring")').length > 0) {
-          cy.clickButton('Monitoring');
-          cy.get('body').should('be.visible');
-        }
-      });
+      cy.clickButton('Monitoring');
+      cy.assertContainsAny(['Monitoring', 'AI']);
     });
   });
 
@@ -228,7 +208,7 @@ describe('AI Orchestration Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.navigateTo('/app/ai');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['AI Orchestration', 'AI']);
     });
 
     it('should handle horizontal tab scrolling on mobile', () => {

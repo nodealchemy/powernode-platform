@@ -43,13 +43,7 @@ describe('Notifications Page Tests', () => {
     });
 
     it('should display All filter button', () => {
-      cy.get('body').then($body => {
-        const hasAll = $body.find('button:contains("All")').length > 0;
-        if (hasAll) {
-          cy.log('All filter button found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.get('button:contains("All")').should('be.visible');
     });
 
     it('should display Unread filter button', () => {
@@ -57,35 +51,15 @@ describe('Notifications Page Tests', () => {
     });
 
     it('should display unread count badge', () => {
-      cy.get('body').then($body => {
-        const hasBadge = $body.find('span, div').filter(function() {
-          return /^\d+$/.test($(this).text().trim());
-        }).length > 0;
-        if (hasBadge) {
-          cy.log('Unread count badge found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['[class*="badge"]', 'span', 'div']);
     });
 
     it('should switch to Unread filter', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Unread")').length > 0) {
-          cy.contains('button', 'Unread').click();
-          cy.log('Switched to Unread filter');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.contains('button', 'Unread').click();
     });
 
     it('should switch to All filter', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("All")').length > 0) {
-          cy.contains('button', 'All').click();
-          cy.log('Switched to All filter');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.contains('button', 'All').click();
     });
   });
 
@@ -99,36 +73,15 @@ describe('Notifications Page Tests', () => {
     });
 
     it('should display notification severity icons', () => {
-      cy.get('body').then($body => {
-        const hasIcons = $body.find('svg').length > 0;
-        if (hasIcons) {
-          cy.log('Notification severity icons found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['svg']);
     });
 
     it('should display notification title', () => {
-      cy.get('body').then($body => {
-        const hasTitle = $body.find('p, h3, h4, span').filter(function() {
-          const text = $(this).text().trim();
-          return text.length > 3 && text.length < 100;
-        }).length > 0;
-        if (hasTitle) {
-          cy.log('Notification title found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['p', 'h3', 'h4', 'span']);
     });
 
     it('should display notification message', () => {
-      cy.get('body').then($body => {
-        const hasMessage = $body.find('p, span').length > 0;
-        if (hasMessage) {
-          cy.log('Notification message found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['p', 'span']);
     });
 
     it('should display notification timestamp', () => {
@@ -136,26 +89,11 @@ describe('Notifications Page Tests', () => {
     });
 
     it('should display notification category badge', () => {
-      cy.get('body').then($body => {
-        const hasBadge = $body.find('span, div').filter(function() {
-          const el = $(this);
-          return el.text().trim().length > 0 && el.text().trim().length < 20;
-        }).length > 0;
-        if (hasBadge) {
-          cy.log('Notification category badge found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['span', 'div']);
     });
 
     it('should highlight unread notifications', () => {
-      cy.get('body').then($body => {
-        const hasHighlight = $body.find('[class*="bg-theme"], [class*="unread"], [class*="new"]').length > 0;
-        if (hasHighlight) {
-          cy.log('Unread notifications highlighted');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['[class*="bg-theme"]', '[class*="unread"]', '[class*="new"]']);
     });
   });
 
@@ -165,37 +103,15 @@ describe('Notifications Page Tests', () => {
     });
 
     it('should display Mark as Read button', () => {
-      cy.get('body').then($body => {
-        const hasMarkRead = $body.find('button[title*="Mark as read"]').length > 0 ||
-                           $body.find('button svg').length > 0;
-        if (hasMarkRead) {
-          cy.log('Mark as Read button found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['button[title*="Mark as read"]', 'button svg']);
     });
 
     it('should display Dismiss button', () => {
-      cy.get('body').then($body => {
-        const hasDismiss = $body.find('button[title*="Dismiss"]').length > 0 ||
-                          $body.find('button svg').length > 0;
-        if (hasDismiss) {
-          cy.log('Dismiss button found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['button[title*="Dismiss"]', 'button svg']);
     });
 
     it('should display action link when available', () => {
-      cy.get('body').then($body => {
-        const hasAction = $body.find('a').length > 0 ||
-                         $body.text().includes('View') ||
-                         $body.text().includes('Details');
-        if (hasAction) {
-          cy.log('Action link found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['View', 'Details']);
     });
   });
 
@@ -205,13 +121,7 @@ describe('Notifications Page Tests', () => {
     });
 
     it('should display empty state icon', () => {
-      cy.get('body').then($body => {
-        const hasIcon = $body.find('svg').length > 0;
-        if (hasIcon) {
-          cy.log('Empty state icon found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['svg']);
     });
 
     it('should display empty state message', () => {
@@ -229,14 +139,7 @@ describe('Notifications Page Tests', () => {
     });
 
     it('should display page indicator', () => {
-      cy.get('body').then($body => {
-        const hasIndicator = $body.text().match(/Page \d+ of \d+/) ||
-                            $body.text().match(/\d+ of \d+/);
-        if (hasIndicator) {
-          cy.log('Page indicator found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Page', 'of']);
     });
   });
 
@@ -248,7 +151,7 @@ describe('Notifications Page Tests', () => {
       }).as('apiError');
 
       cy.visit('/app/notifications');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Notifications', 'Error']);
     });
 
     it('should display error state when data fails to load', () => {
@@ -258,15 +161,7 @@ describe('Notifications Page Tests', () => {
       }).as('loadError');
 
       cy.visit('/app/notifications');
-      cy.get('body').then($body => {
-        const hasError = $body.text().includes('Failed') ||
-                        $body.text().includes('Error') ||
-                        $body.text().includes('error');
-        if (hasError) {
-          cy.log('Error state displayed');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Failed', 'Error', 'error']);
     });
   });
 
@@ -280,17 +175,8 @@ describe('Notifications Page Tests', () => {
       }).as('slowLoad');
 
       cy.visit('/app/notifications');
-      cy.get('body').then($body => {
-        const hasLoading = $body.find('.animate-spin, [class*="loading"], [class*="spinner"]').length > 0 ||
-                          $body.find('svg').filter(function() {
-                            return $(this).attr('class')?.includes('animate') || false;
-                          }).length > 0 ||
-                          $body.text().includes('Loading');
-        if (hasLoading) {
-          cy.log('Loading indicator found');
-        }
-      });
-      cy.get('body').should('be.visible');
+
+      cy.assertHasElement(['.animate-spin', '[class*="loading"]', '[class*="spinner"]']);
     });
   });
 
@@ -298,25 +184,20 @@ describe('Notifications Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/notifications');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Notifications']);
     });
 
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/notifications');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Notifications']);
     });
 
     it('should stack elements on small screens', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/notifications');
-      cy.get('body').then($body => {
-        const hasStack = $body.find('[class*="flex-col"], [class*="grid"]').length > 0;
-        if (hasStack) {
-          cy.log('Stacked elements found');
-        }
-      });
-      cy.get('body').should('be.visible');
+
+      cy.assertHasElement(['[class*="flex-col"]', '[class*="grid"]']);
     });
   });
 });

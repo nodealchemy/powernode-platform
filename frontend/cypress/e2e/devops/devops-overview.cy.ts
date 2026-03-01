@@ -53,13 +53,8 @@ describe('DevOps Overview Dashboard Tests', () => {
     });
 
     it('should navigate to Git Providers from quick link', () => {
-      cy.get('body').then($body => {
-        const gitLink = $body.find('a[href*="/git"]');
-        if (gitLink.length > 0) {
-          cy.wrap(gitLink).first().click();
-          cy.url().should('include', '/git');
-        }
-      });
+      cy.get('a[href*="/git"]').first().click();
+      cy.url().should('include', '/git');
     });
   });
 
@@ -99,11 +94,9 @@ describe('DevOps Overview Dashboard Tests', () => {
     });
 
     it('should handle attention alerts display', () => {
-      // The page either shows attention alerts when there are issues, or shows normally when everything is ok
-      // We just verify the page loads successfully without errors
-      cy.get('body').should('be.visible');
       cy.get('body').should('not.contain.text', 'Cannot read');
       cy.get('body').should('not.contain.text', 'TypeError');
+      cy.assertContainsAny(['DevOps', 'Git Providers', 'Repositories', 'Runners', 'Webhooks']);
     });
   });
 

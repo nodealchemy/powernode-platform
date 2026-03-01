@@ -96,17 +96,11 @@ describe('AI Agent Teams Page Tests', () => {
     });
 
     it('should display modal or navigation for team creation', () => {
-      // Verify the create flow exists - either as a modal or a separate page
-      cy.get('body').then($body => {
-        const hasCreateButton = $body.find('button:contains("Create Team"), button:contains("Create"), [data-testid*="create"]').length > 0;
-        if (hasCreateButton) {
-          // Verify button exists and is clickable
-          cy.get('button:contains("Create Team"), button:contains("Create"), [data-testid*="create"]')
-            .first()
-            .should('be.visible')
-            .and('not.be.disabled');
-        }
-      });
+      // Verify the create flow exists - button should be visible and clickable
+      cy.get('button:contains("Create Team"), button:contains("Create"), [data-testid*="create"]')
+        .first()
+        .should('be.visible')
+        .and('not.be.disabled');
       // Page should have team creation capability
       cy.assertContainsAny(['Create Team', 'Create', 'New Team', 'Agent Teams']);
     });
@@ -188,7 +182,7 @@ describe('AI Agent Teams Page Tests', () => {
     it('should show single column on small screens', () => {
       cy.viewport(375, 667);
       cy.assertPageReady('/app/ai/agent-teams');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Agent Teams', 'Teams', 'Create Team']);
     });
 
     it('should show multi-column grid on large screens', () => {

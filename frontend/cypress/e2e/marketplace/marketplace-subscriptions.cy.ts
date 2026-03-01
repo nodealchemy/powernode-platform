@@ -64,19 +64,13 @@ describe('Marketplace Subscriptions Page Tests', () => {
     });
 
     it('should filter by type', () => {
-      // Look for type filter buttons or dropdown
-      cy.get('body').then($body => {
-        const hasTypeFilter = $body.find('button:contains("Workflows"), button:contains("All"), select').length > 0;
-        if (hasTypeFilter) {
-          cy.get('button:contains("All"), select').first().click();
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['button:contains("Workflows")', 'button:contains("All")', 'select']).first().click();
+      cy.assertContainsAny(['Subscriptions', 'Marketplace']);
     });
 
     it('should filter by status', () => {
       cy.assertHasElement(['button:contains("Active")', 'button:contains("Paused")']).first().click();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Subscriptions', 'Marketplace']);
     });
   });
 
@@ -222,7 +216,7 @@ describe('Marketplace Subscriptions Page Tests', () => {
       cy.viewport(375, 667);
       cy.visit('/app/marketplace/subscriptions');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Subscriptions', 'Marketplace']);
     });
   });
 });

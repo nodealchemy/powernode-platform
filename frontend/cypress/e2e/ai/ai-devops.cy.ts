@@ -256,7 +256,7 @@ describe('AI DevOps Templates Page Tests', () => {
     it('should adapt layout on small screens', () => {
       cy.viewport(375, 667);
       cy.assertPageReady('/app/ai/devops-templates');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['DevOps', 'Templates', 'Pipeline', 'CI/CD']);
     });
   });
 });

@@ -55,14 +55,9 @@ describe('DevOps Pipelines Tests', () => {
     });
 
     it('should filter by Active pipelines', () => {
-      cy.get('body').then($body => {
-        const activeBtn = $body.find('button:contains("Active")');
-        if (activeBtn.length > 0) {
-          cy.wrap(activeBtn).first().click();
-          cy.waitForStableDOM();
-        }
-        cy.get('body').should('be.visible');
-      });
+      cy.get('button:contains("Active")').first().click();
+      cy.waitForStableDOM();
+      cy.assertContainsAny(['Active', 'Pipeline', 'Workflow', 'No pipelines', 'No workflows']);
     });
   });
 
@@ -77,14 +72,9 @@ describe('DevOps Pipelines Tests', () => {
     });
 
     it('should navigate to create page when Create Pipeline clicked', () => {
-      cy.get('body').then($body => {
-        const createBtn = $body.find('button:contains("Create Pipeline"), button:contains("Create Workflow"), button:contains("Create")');
-        if (createBtn.length > 0) {
-          cy.wrap(createBtn).first().click();
-          cy.waitForStableDOM();
-        }
-        cy.get('body').should('be.visible');
-      });
+      cy.get('button:contains("Create Pipeline"), button:contains("Create Workflow"), button:contains("Create")').first().click();
+      cy.waitForStableDOM();
+      cy.assertContainsAny(['Create', 'Name', 'Pipeline', 'Workflow', 'Cancel']);
     });
   });
 
@@ -126,7 +116,6 @@ describe('DevOps Pipelines Tests', () => {
       cy.mockApiError('**/api/**/pipelines*', 500, 'Server error');
       cy.visit('/app/devops/pipelines');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
       cy.assertContainsAny(['Error', 'Failed', 'Pipeline', 'Workflow']);
     });
   });

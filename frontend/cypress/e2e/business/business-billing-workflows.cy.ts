@@ -63,10 +63,7 @@ describe('Business Billing Workflows Tests', () => {
     });
 
     it('should show invoice date', () => {
-      cy.get('body').then($body => {
-        const hasDate = $body.text().match(/\d{1,2}\/\d{1,2}\/\d{2,4}|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec/) !== null;
-        expect(hasDate).to.be.true;
-      });
+      cy.get('body').invoke('text').should('match', /\d{1,2}\/\d{1,2}\/\d{2,4}|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec/);
     });
 
     it('should have download invoice button', () => {
@@ -185,11 +182,7 @@ describe('Business Billing Workflows Tests', () => {
     });
 
     it('should have pay now button for outstanding balance', () => {
-      cy.get('body').then($body => {
-        if ($body.text().includes('Amount Due') || $body.text().includes('Balance')) {
-          cy.get('button').contains(/pay now|pay/i).should('exist');
-        }
-      });
+      cy.get('button').contains(/pay now|pay/i).should('exist');
     });
 
     it('should process payment when button clicked', () => {
@@ -198,13 +191,9 @@ describe('Business Billing Workflows Tests', () => {
         body: { success: true, payment: { id: 'pay-new', amount: 99.00 } },
       }).as('processPayment');
 
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Pay")').length > 0) {
-          cy.get('button').contains(/pay/i).first().click();
-          cy.wait('@processPayment');
-          cy.assertContainsAny(['paid', 'success', 'processed']);
-        }
-      });
+      cy.get('button').contains(/pay/i).first().click();
+      cy.wait('@processPayment');
+      cy.assertContainsAny(['paid', 'success', 'processed']);
     });
   });
 
@@ -241,27 +230,15 @@ describe('Business Billing Workflows Tests', () => {
     });
 
     it('should display failed payment notice if applicable', () => {
-      cy.get('body').then($body => {
-        if ($body.text().includes('Failed') || $body.text().includes('Retry')) {
-          cy.assertContainsAny(['Failed', 'Payment failed', 'Retry']);
-        }
-      });
+      cy.assertContainsAny(['Failed', 'Payment failed', 'Retry', 'Billing']);
     });
 
     it('should have retry payment option', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Retry")').length > 0) {
-          cy.get('button').contains(/retry/i).should('exist');
-        }
-      });
+      cy.get('button').contains(/retry/i).should('exist');
     });
 
     it('should have update payment method option on failure', () => {
-      cy.get('body').then($body => {
-        if ($body.text().includes('Failed')) {
-          cy.get('button').contains(/update|change/i).should('exist');
-        }
-      });
+      cy.get('button').contains(/update|change/i).should('exist');
     });
   });
 
@@ -313,13 +290,9 @@ describe('Business Billing Workflows Tests', () => {
       }).as('paymentFailed');
 
       cy.navigateTo('/app/business/billing');
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Pay")').length > 0) {
-          cy.get('button').contains(/pay/i).first().click();
-          cy.wait('@paymentFailed');
-          cy.assertContainsAny(['declined', 'failed', 'error']);
-        }
-      });
+      cy.get('button').contains(/pay/i).first().click();
+      cy.wait('@paymentFailed');
+      cy.assertContainsAny(['declined', 'failed', 'error']);
     });
   });
 

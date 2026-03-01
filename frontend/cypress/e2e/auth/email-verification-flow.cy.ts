@@ -252,7 +252,6 @@ describe('Email Verification Flow Tests', () => {
         cy.visit('/verify-email?token=valid-token');
         cy.wait('@verifyEmail');
 
-        cy.get('body').should('be.visible');
         cy.assertContainsAny(['Verified', 'Email', 'success']);
       });
     });

@@ -113,7 +113,7 @@ describe('AI Workflow Import Page Tests', () => {
         body: { success: false, error: 'Internal Server Error' }
       });
       cy.navigateTo('/app/ai/workflows/import');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Import Workflow', 'Import', 'Upload', 'Error']);
     });
   });
 
@@ -134,7 +134,7 @@ describe('AI Workflow Import Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.navigateTo('/app/ai/workflows/import');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Import Workflow', 'Import', 'Upload']);
     });
 
     it('should stack columns on small screens', () => {

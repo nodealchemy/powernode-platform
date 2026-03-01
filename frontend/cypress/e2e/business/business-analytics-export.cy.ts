@@ -21,30 +21,14 @@ describe('Business Analytics Export Tests', () => {
       cy.visit('/app/business/analytics');
       cy.waitForPageLoad();
 
-      cy.get('body').then($body => {
-        const hasExport = $body.text().includes('Export') ||
-                         $body.text().includes('Download') ||
-                         $body.find('[data-testid="export-button"]').length > 0;
-        if (hasExport) {
-          cy.log('Export options available');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Export', 'Download', 'Analytics']);
     });
 
     it('should display export button on dashboard', () => {
       cy.visit('/app/business/analytics');
       cy.waitForPageLoad();
 
-      cy.get('body').then($body => {
-        const hasButton = $body.find('button:contains("Export"), button:contains("Download")').length > 0;
-        if (hasButton) {
-          cy.log('Export button displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Export', 'Download', 'Analytics']);
     });
   });
 
@@ -55,40 +39,15 @@ describe('Business Analytics Export Tests', () => {
     });
 
     it('should offer CSV export', () => {
-      cy.get('body').then($body => {
-        const hasCSV = $body.text().includes('CSV') ||
-                      $body.text().includes('.csv');
-        if (hasCSV) {
-          cy.log('CSV export available');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['CSV', '.csv', 'Export']);
     });
 
     it('should offer PDF export', () => {
-      cy.get('body').then($body => {
-        const hasPDF = $body.text().includes('PDF') ||
-                      $body.text().includes('.pdf');
-        if (hasPDF) {
-          cy.log('PDF export available');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['PDF', '.pdf', 'Export']);
     });
 
     it('should offer Excel export', () => {
-      cy.get('body').then($body => {
-        const hasExcel = $body.text().includes('Excel') ||
-                        $body.text().includes('XLS') ||
-                        $body.text().includes('.xlsx');
-        if (hasExcel) {
-          cy.log('Excel export available');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Excel', 'XLS', '.xlsx', 'Export']);
     });
   });
 
@@ -97,61 +56,28 @@ describe('Business Analytics Export Tests', () => {
       cy.visit('/app/business/reports');
       cy.waitForPageLoad();
 
-      cy.get('body').then($body => {
-        const hasReports = $body.text().includes('Report') ||
-                          $body.text().includes('Generate');
-        if (hasReports) {
-          cy.log('Reports page loaded');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Report', 'Generate']);
     });
 
     it('should display report templates', () => {
       cy.visit('/app/business/reports');
       cy.waitForPageLoad();
 
-      cy.get('body').then($body => {
-        const hasTemplates = $body.text().includes('Template') ||
-                            $body.text().includes('Revenue') ||
-                            $body.text().includes('Subscription');
-        if (hasTemplates) {
-          cy.log('Report templates displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Template', 'Revenue', 'Subscription']);
     });
 
     it('should have date range selector for reports', () => {
       cy.visit('/app/business/reports');
       cy.waitForPageLoad();
 
-      cy.get('body').then($body => {
-        const hasDateRange = $body.find('input[type="date"], [data-testid="date-range"]').length > 0 ||
-                            $body.text().includes('Date Range') ||
-                            $body.text().includes('From');
-        if (hasDateRange) {
-          cy.log('Date range selector displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Date Range', 'From', 'Report']);
     });
 
     it('should have generate report button', () => {
       cy.visit('/app/business/reports');
       cy.waitForPageLoad();
 
-      cy.get('body').then($body => {
-        const hasGenerate = $body.find('button:contains("Generate"), button:contains("Create Report")').length > 0;
-        if (hasGenerate) {
-          cy.log('Generate report button displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Generate', 'Create Report', 'Report']);
     });
   });
 
@@ -162,28 +88,11 @@ describe('Business Analytics Export Tests', () => {
     });
 
     it('should display MRR/ARR data', () => {
-      cy.get('body').then($body => {
-        const hasRevenue = $body.text().includes('MRR') ||
-                          $body.text().includes('ARR') ||
-                          $body.text().includes('Revenue');
-        if (hasRevenue) {
-          cy.log('Revenue data displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['MRR', 'ARR', 'Revenue']);
     });
 
     it('should have export revenue data option', () => {
-      cy.get('body').then($body => {
-        const hasExport = $body.find('button:contains("Export"), [data-testid="export-revenue"]').length > 0 ||
-                         $body.text().includes('Export');
-        if (hasExport) {
-          cy.log('Export revenue option displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Export', 'Revenue']);
     });
   });
 
@@ -194,27 +103,11 @@ describe('Business Analytics Export Tests', () => {
     });
 
     it('should display cohort analysis', () => {
-      cy.get('body').then($body => {
-        const hasCohort = $body.text().includes('Cohort') ||
-                         $body.text().includes('Retention');
-        if (hasCohort) {
-          cy.log('Cohort analysis displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Cohort', 'Retention']);
     });
 
     it('should have export cohort data option', () => {
-      cy.get('body').then($body => {
-        const hasExport = $body.find('button:contains("Export")').length > 0 ||
-                         $body.text().includes('Export');
-        if (hasExport) {
-          cy.log('Export cohort option displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Export', 'Cohort']);
     });
   });
 
@@ -223,60 +116,28 @@ describe('Business Analytics Export Tests', () => {
       cy.visit('/app/business/reports/scheduled');
       cy.waitForPageLoad();
 
-      cy.get('body').then($body => {
-        const hasScheduled = $body.text().includes('Schedule') ||
-                            $body.text().includes('Recurring') ||
-                            $body.text().includes('Automated');
-        if (hasScheduled) {
-          cy.log('Scheduled exports page loaded');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Schedule', 'Recurring', 'Automated']);
     });
 
     it('should display scheduled export list', () => {
       cy.visit('/app/business/reports/scheduled');
       cy.waitForPageLoad();
 
-      cy.get('body').then($body => {
-        const hasList = $body.find('table, [data-testid="scheduled-list"]').length > 0;
-        if (hasList) {
-          cy.log('Scheduled export list displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Schedule', 'Recurring', 'Automated', 'Export']);
     });
 
     it('should have create scheduled export button', () => {
       cy.visit('/app/business/reports/scheduled');
       cy.waitForPageLoad();
 
-      cy.get('body').then($body => {
-        const hasCreate = $body.find('button:contains("Create"), button:contains("Schedule"), button:contains("New")').length > 0;
-        if (hasCreate) {
-          cy.log('Create scheduled export button displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Create', 'Schedule', 'New']);
     });
 
     it('should display frequency options', () => {
       cy.visit('/app/business/reports/scheduled');
       cy.waitForPageLoad();
 
-      cy.get('body').then($body => {
-        const hasFrequency = $body.text().includes('Daily') ||
-                            $body.text().includes('Weekly') ||
-                            $body.text().includes('Monthly');
-        if (hasFrequency) {
-          cy.log('Frequency options displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Daily', 'Weekly', 'Monthly']);
     });
   });
 
@@ -285,45 +146,21 @@ describe('Business Analytics Export Tests', () => {
       cy.visit('/app/business/reports/history');
       cy.waitForPageLoad();
 
-      cy.get('body').then($body => {
-        const hasHistory = $body.text().includes('History') ||
-                          $body.text().includes('Previous') ||
-                          $body.text().includes('Past');
-        if (hasHistory) {
-          cy.log('Export history page loaded');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['History', 'Previous', 'Past']);
     });
 
     it('should display export history list', () => {
       cy.visit('/app/business/reports/history');
       cy.waitForPageLoad();
 
-      cy.get('body').then($body => {
-        const hasList = $body.find('table, [data-testid="history-list"]').length > 0;
-        if (hasList) {
-          cy.log('Export history list displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['History', 'Previous', 'Past', 'Export']);
     });
 
     it('should have download option for past exports', () => {
       cy.visit('/app/business/reports/history');
       cy.waitForPageLoad();
 
-      cy.get('body').then($body => {
-        const hasDownload = $body.find('button:contains("Download"), a[download]').length > 0 ||
-                           $body.text().includes('Download');
-        if (hasDownload) {
-          cy.log('Download option displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Download', 'History', 'Export']);
     });
   });
 
@@ -340,7 +177,7 @@ describe('Business Analytics Export Tests', () => {
         cy.visit('/app/business/analytics');
         cy.waitForPageLoad();
 
-        cy.get('body').should('be.visible');
+        cy.assertContainsAny(['Analytics', 'Revenue', 'Export', 'Dashboard']);
         cy.log(`Analytics export displayed correctly on ${name}`);
       });
     });

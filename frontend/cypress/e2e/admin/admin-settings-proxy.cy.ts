@@ -22,20 +22,11 @@ describe('Admin Settings Proxy Tab Tests', () => {
     });
 
     it('should navigate to Proxy tab', () => {
-      cy.get('body').then($body => {
-        const hasContent = $body.text().includes('Proxy') ||
-                          $body.text().includes('Load Balancing') ||
-                          $body.text().includes('Host');
-        if (hasContent) {
-          cy.log('Proxy tab loaded');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Proxy', 'Load Balancing', 'Host']);
     });
 
     it('should redirect unauthorized users', () => {
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Proxy', 'Settings', 'Admin']);
     });
   });
 
@@ -46,54 +37,19 @@ describe('Admin Settings Proxy Tab Tests', () => {
     });
 
     it('should display proxy hosts list', () => {
-      cy.get('body').then($body => {
-        const hasHosts = $body.text().includes('Host') ||
-                         $body.text().includes('Server') ||
-                         $body.text().includes('Upstream');
-        if (hasHosts) {
-          cy.log('Proxy hosts list displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Host', 'Server', 'Upstream']);
     });
 
     it('should have add host button', () => {
-      cy.get('body').then($body => {
-        const hasAddButton = $body.find('button:contains("Add"), button:contains("+")').length > 0;
-        if (hasAddButton) {
-          cy.log('Add host button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button:contains("Add"), button:contains("+")').should('exist');
     });
 
     it('should display host status indicators', () => {
-      cy.get('body').then($body => {
-        const hasStatus = $body.text().includes('Active') ||
-                          $body.text().includes('Inactive') ||
-                          $body.text().includes('Healthy') ||
-                          $body.text().includes('Unhealthy');
-        if (hasStatus) {
-          cy.log('Host status indicators displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Active', 'Inactive', 'Healthy', 'Unhealthy']);
     });
 
     it('should display host weight/priority', () => {
-      cy.get('body').then($body => {
-        const hasWeight = $body.text().includes('Weight') ||
-                          $body.text().includes('Priority') ||
-                          $body.text().includes('Balance');
-        if (hasWeight) {
-          cy.log('Host weight/priority displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Weight', 'Priority', 'Balance']);
     });
   });
 
@@ -104,29 +60,11 @@ describe('Admin Settings Proxy Tab Tests', () => {
     });
 
     it('should display detection status', () => {
-      cy.get('body').then($body => {
-        const hasDetection = $body.text().includes('Detection') ||
-                             $body.text().includes('Detected') ||
-                             $body.text().includes('Status');
-        if (hasDetection) {
-          cy.log('Detection status displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Detection', 'Detected', 'Status']);
     });
 
     it('should display current proxy configuration', () => {
-      cy.get('body').then($body => {
-        const hasConfig = $body.text().includes('Configuration') ||
-                          $body.text().includes('Current') ||
-                          $body.text().includes('Settings');
-        if (hasConfig) {
-          cy.log('Current proxy configuration displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Configuration', 'Current', 'Settings']);
     });
   });
 
@@ -137,41 +75,15 @@ describe('Admin Settings Proxy Tab Tests', () => {
     });
 
     it('should have test connection button', () => {
-      cy.get('body').then($body => {
-        const hasTestButton = $body.find('button:contains("Test"), button:contains("Check")').length > 0;
-        if (hasTestButton) {
-          cy.log('Test connection button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button:contains("Test"), button:contains("Check")').should('exist');
     });
 
     it('should display connection test results', () => {
-      cy.get('body').then($body => {
-        const hasResults = $body.text().includes('Response') ||
-                           $body.text().includes('Latency') ||
-                           $body.text().includes('Success') ||
-                           $body.text().includes('Failed');
-        if (hasResults) {
-          cy.log('Connection test results displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Response', 'Latency', 'Success', 'Failed']);
     });
 
     it('should display response time metrics', () => {
-      cy.get('body').then($body => {
-        const hasMetrics = $body.text().includes('ms') ||
-                           $body.text().includes('Time') ||
-                           $body.text().includes('Response');
-        if (hasMetrics) {
-          cy.log('Response time metrics displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['ms', 'Time', 'Response']);
     });
   });
 
@@ -182,43 +94,15 @@ describe('Admin Settings Proxy Tab Tests', () => {
     });
 
     it('should display load balancing options', () => {
-      cy.get('body').then($body => {
-        const hasLoadBalancing = $body.text().includes('Load Balancing') ||
-                                  $body.text().includes('Balance') ||
-                                  $body.text().includes('Algorithm');
-        if (hasLoadBalancing) {
-          cy.log('Load balancing options displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Load Balancing', 'Balance', 'Algorithm']);
     });
 
     it('should display balancing algorithm selection', () => {
-      cy.get('body').then($body => {
-        const hasAlgorithm = $body.text().includes('Round Robin') ||
-                             $body.text().includes('Least Connections') ||
-                             $body.text().includes('IP Hash') ||
-                             $body.text().includes('Weighted');
-        if (hasAlgorithm) {
-          cy.log('Balancing algorithm selection displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Round Robin', 'Least Connections', 'IP Hash', 'Weighted']);
     });
 
     it('should display health check settings', () => {
-      cy.get('body').then($body => {
-        const hasHealthCheck = $body.text().includes('Health') ||
-                               $body.text().includes('Check') ||
-                               $body.text().includes('Interval');
-        if (hasHealthCheck) {
-          cy.log('Health check settings displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Health', 'Check', 'Interval']);
     });
   });
 
@@ -229,29 +113,11 @@ describe('Admin Settings Proxy Tab Tests', () => {
     });
 
     it('should display SSL settings', () => {
-      cy.get('body').then($body => {
-        const hasSSL = $body.text().includes('SSL') ||
-                       $body.text().includes('TLS') ||
-                       $body.text().includes('Certificate');
-        if (hasSSL) {
-          cy.log('SSL settings displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['SSL', 'TLS', 'Certificate']);
     });
 
     it('should display certificate status', () => {
-      cy.get('body').then($body => {
-        const hasCert = $body.text().includes('Certificate') ||
-                        $body.text().includes('Expires') ||
-                        $body.text().includes('Valid');
-        if (hasCert) {
-          cy.log('Certificate status displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Certificate', 'Expires', 'Valid']);
     });
   });
 
@@ -262,18 +128,11 @@ describe('Admin Settings Proxy Tab Tests', () => {
     });
 
     it('should have save button', () => {
-      cy.get('body').then($body => {
-        const hasSave = $body.find('button:contains("Save"), button:contains("Update")').length > 0;
-        if (hasSave) {
-          cy.log('Save button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button:contains("Save"), button:contains("Update")').should('exist');
     });
 
     it('should show save confirmation', () => {
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Save', 'Update', 'Proxy']);
     });
   });
 
@@ -291,7 +150,7 @@ describe('Admin Settings Proxy Tab Tests', () => {
       cy.visit('/app/admin/settings/proxy');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Proxy', 'Settings', 'Error']);
       cy.get('body').should('not.contain.text', 'Cannot read');
     });
   });
@@ -306,7 +165,7 @@ describe('Admin Settings Proxy Tab Tests', () => {
       cy.visit('/app/admin/settings/proxy');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Proxy', 'Settings']);
     });
 
     it('should display properly on tablet viewport', () => {
@@ -314,7 +173,13 @@ describe('Admin Settings Proxy Tab Tests', () => {
       cy.visit('/app/admin/settings/proxy');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Proxy', 'Settings']);
+    });
+  });
+
+  describe('Permission Check', () => {
+    it('should require admin permissions', () => {
+      cy.testPermissionDenied('/app/admin/settings/proxy');
     });
   });
 });

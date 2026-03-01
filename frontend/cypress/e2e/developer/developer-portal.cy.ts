@@ -23,48 +23,19 @@ describe('Developer Portal Tests', () => {
     it('should navigate to Developer Portal page', () => {
       cy.visit('/app/developer');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasContent = $body.text().includes('Developer') ||
-                          $body.text().includes('Portal') ||
-                          $body.text().includes('API');
-        if (hasContent) {
-          cy.log('Developer Portal page loaded');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Developer', 'Portal', 'API']);
     });
 
     it('should display page title', () => {
       cy.visit('/app/developer');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasTitle = $body.text().includes('Developer Portal') ||
-                        $body.text().includes('Developer');
-        if (hasTitle) {
-          cy.log('Page title displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Developer Portal', 'Developer']);
     });
 
     it('should display page description', () => {
       cy.visit('/app/developer');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasDescription = $body.text().includes('Integrate') ||
-                              $body.text().includes('API') ||
-                              $body.text().includes('subscription');
-        if (hasDescription) {
-          cy.log('Page description displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Integrate', 'API', 'subscription']);
     });
   });
 
@@ -75,52 +46,19 @@ describe('Developer Portal Tests', () => {
     });
 
     it('should display REST API card', () => {
-      cy.get('body').then($body => {
-        const hasRestApi = $body.text().includes('REST API') ||
-                          $body.text().includes('OpenAPI');
-        if (hasRestApi) {
-          cy.log('REST API card displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['REST API', 'OpenAPI']);
     });
 
     it('should display Authentication card', () => {
-      cy.get('body').then($body => {
-        const hasAuth = $body.text().includes('Authentication') ||
-                       $body.text().includes('JWT') ||
-                       $body.text().includes('API Key');
-        if (hasAuth) {
-          cy.log('Authentication card displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Authentication', 'JWT', 'API Key']);
     });
 
     it('should display Webhooks card', () => {
-      cy.get('body').then($body => {
-        const hasWebhooks = $body.text().includes('Webhooks') ||
-                           $body.text().includes('Real-time');
-        if (hasWebhooks) {
-          cy.log('Webhooks card displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Webhooks', 'Real-time']);
     });
 
     it('should display Rate Limits card', () => {
-      cy.get('body').then($body => {
-        const hasRateLimits = $body.text().includes('Rate Limits') ||
-                             $body.text().includes('req/min');
-        if (hasRateLimits) {
-          cy.log('Rate Limits card displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Rate Limits', 'req/min']);
     });
   });
 
@@ -131,63 +69,26 @@ describe('Developer Portal Tests', () => {
     });
 
     it('should display API Documentation tab', () => {
-      cy.get('body').then($body => {
-        const hasDocsTab = $body.text().includes('API Documentation') ||
-                          $body.text().includes('Documentation');
-        if (hasDocsTab) {
-          cy.log('API Documentation tab displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['API Documentation', 'Documentation']);
     });
 
     it('should display API Keys tab', () => {
-      cy.get('body').then($body => {
-        const hasKeysTab = $body.text().includes('API Keys');
-        if (hasKeysTab) {
-          cy.log('API Keys tab displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['API Keys']);
     });
 
     it('should display Code Samples tab', () => {
-      cy.get('body').then($body => {
-        const hasSamplesTab = $body.text().includes('Code Samples');
-        if (hasSamplesTab) {
-          cy.log('Code Samples tab displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Code Samples']);
     });
 
     it('should display Webhooks tab', () => {
-      cy.get('body').then($body => {
-        const hasWebhooksTab = $body.text().includes('Webhooks');
-        if (hasWebhooksTab) {
-          cy.log('Webhooks tab displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Webhooks']);
     });
 
     it('should switch tabs when clicked', () => {
-      cy.get('body').then($body => {
-        const tabs = ['API Keys', 'Code Samples', 'Webhooks'];
-        tabs.forEach(tabName => {
-          const tab = $body.find(`button:contains("${tabName}")`);
-          if (tab.length > 0) {
-            cy.wrap(tab).first().click();
-            cy.log(`Switched to ${tabName} tab`);
-          }
-        });
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button:contains("API Keys")').first().click();
+      cy.get('button:contains("Code Samples")').first().click();
+      cy.get('button:contains("Webhooks")').first().click();
+      cy.assertContainsAny(['Webhooks', 'Event', 'subscription.created']);
     });
   });
 
@@ -198,28 +99,11 @@ describe('Developer Portal Tests', () => {
     });
 
     it('should display API documentation content', () => {
-      cy.get('body').then($body => {
-        const hasDocs = $body.text().includes('API') ||
-                       $body.text().includes('Endpoint') ||
-                       $body.text().includes('Documentation');
-        if (hasDocs) {
-          cy.log('API documentation content displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['API', 'Endpoint', 'Documentation']);
     });
 
     it('should have link to interactive docs', () => {
-      cy.get('body').then($body => {
-        const hasLink = $body.find('a[href*="api-docs"]').length > 0 ||
-                       $body.text().includes('Interactive Docs');
-        if (hasLink) {
-          cy.log('Link to interactive docs displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Interactive Docs', 'API', 'Documentation']);
     });
   });
 
@@ -227,27 +111,11 @@ describe('Developer Portal Tests', () => {
     beforeEach(() => {
       cy.visit('/app/developer');
       cy.waitForPageLoad();
-
-      // Navigate to API Keys tab
-      cy.get('body').then($body => {
-        const tab = $body.find('button:contains("API Keys")');
-        if (tab.length > 0) {
-          cy.wrap(tab).first().click();
-        }
-      });
+      cy.get('button:contains("API Keys")').first().click();
     });
 
     it('should display API key management interface', () => {
-      cy.get('body').then($body => {
-        const hasKeyMgmt = $body.text().includes('API Key') ||
-                          $body.text().includes('Create') ||
-                          $body.text().includes('Manage');
-        if (hasKeyMgmt) {
-          cy.log('API key management interface displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['API Key', 'Create', 'Manage']);
     });
   });
 
@@ -255,29 +123,11 @@ describe('Developer Portal Tests', () => {
     beforeEach(() => {
       cy.visit('/app/developer');
       cy.waitForPageLoad();
-
-      // Navigate to Code Samples tab
-      cy.get('body').then($body => {
-        const tab = $body.find('button:contains("Code Samples")');
-        if (tab.length > 0) {
-          cy.wrap(tab).first().click();
-        }
-      });
+      cy.get('button:contains("Code Samples")').first().click();
     });
 
     it('should display code samples', () => {
-      cy.get('body').then($body => {
-        const hasSamples = $body.text().includes('curl') ||
-                          $body.text().includes('Python') ||
-                          $body.text().includes('JavaScript') ||
-                          $body.text().includes('Ruby') ||
-                          $body.find('pre, code').length > 0;
-        if (hasSamples) {
-          cy.log('Code samples displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['curl', 'Python', 'JavaScript', 'Ruby']);
     });
   });
 
@@ -285,64 +135,19 @@ describe('Developer Portal Tests', () => {
     beforeEach(() => {
       cy.visit('/app/developer');
       cy.waitForPageLoad();
-
-      // Navigate to Webhooks tab
-      cy.get('body').then($body => {
-        const tab = $body.find('button:contains("Webhooks")');
-        if (tab.length > 0) {
-          cy.wrap(tab).first().click();
-        }
-      });
+      cy.get('button:contains("Webhooks")').first().click();
     });
 
     it('should display webhook events table', () => {
-      cy.get('body').then($body => {
-        const hasEvents = $body.text().includes('subscription.created') ||
-                         $body.text().includes('payment.completed') ||
-                         $body.text().includes('Event') ||
-                         $body.text().includes('Webhook Events');
-        if (hasEvents) {
-          cy.log('Webhook events table displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['subscription.created', 'payment.completed', 'Event', 'Webhook Events']);
     });
 
     it('should display signature verification guide', () => {
-      cy.get('body').then($body => {
-        const hasVerification = $body.text().includes('Signature') ||
-                               $body.text().includes('Verify') ||
-                               $body.text().includes('HMAC');
-        if (hasVerification) {
-          cy.log('Signature verification guide displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Signature', 'Verify', 'HMAC']);
     });
 
     it('should display webhook event types', () => {
-      const expectedEvents = [
-        'subscription.created',
-        'subscription.updated',
-        'subscription.cancelled',
-        'payment.completed',
-        'payment.failed',
-        'invoice.created',
-        'invoice.paid',
-        'user.created',
-      ];
-
-      cy.get('body').then($body => {
-        const bodyText = $body.text();
-        const foundEvents = expectedEvents.filter(event => bodyText.includes(event));
-        if (foundEvents.length > 0) {
-          cy.log(`Found ${foundEvents.length} webhook event types`);
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['subscription.created', 'subscription.updated', 'payment.completed', 'invoice.created']);
     });
   });
 
@@ -352,7 +157,7 @@ describe('Developer Portal Tests', () => {
       cy.waitForPageLoad();
 
       // Page should still be functional even if API fails
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Developer', 'Portal', 'API']);
     });
   });
 
@@ -369,7 +174,7 @@ describe('Developer Portal Tests', () => {
         cy.visit('/app/developer');
         cy.waitForPageLoad();
 
-        cy.get('body').should('be.visible');
+        cy.assertContainsAny(['Developer', 'Portal', 'API']);
         cy.log(`Developer Portal displayed correctly on ${name}`);
       });
     });

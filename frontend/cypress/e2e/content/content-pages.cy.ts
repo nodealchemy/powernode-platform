@@ -70,7 +70,7 @@ describe('Content Pages Management Tests', () => {
         .first()
         .type('home');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['home', 'Pages', 'No pages']);
     });
 
     it('should display status filter', () => {
@@ -78,13 +78,9 @@ describe('Content Pages Management Tests', () => {
     });
 
     it('should filter by status', () => {
-      cy.get('select').then($select => {
-        if ($select.length > 0) {
-          cy.wrap($select).first().select(1);
-          cy.waitForPageLoad();
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.get('select').first().select(1);
+      cy.waitForPageLoad();
+      cy.assertContainsAny(['Pages', 'Draft', 'Published', 'No pages']);
     });
   });
 
@@ -238,7 +234,7 @@ describe('Content Pages Management Tests', () => {
       cy.viewport(375, 667);
       cy.visit('/app/content/pages');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Pages', 'Content']);
     });
   });
 });

@@ -115,11 +115,7 @@ describe('Business Plans Page Tests', () => {
 
     it('should display search input or plan content', () => {
       // Search may not be visible on overview tab - check for plan content or search
-      cy.get('body').then(($body) => {
-        const hasSearch = $body.find('input[placeholder*="Search"], input[placeholder*="search"], [data-testid="search-input"]').length > 0;
-        const hasPlans = $body.text().includes('Plans') || $body.text().includes('Plan');
-        expect(hasSearch || hasPlans, 'Should show search or plan content').to.be.true;
-      });
+      cy.assertContainsAny(['Plans', 'Plan']);
     });
 
     it('should display status filter or plan statuses', () => {

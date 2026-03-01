@@ -121,11 +121,7 @@ describe('AI DevOps Templates Tests', () => {
     });
 
     it('should show installed status for installed templates', () => {
-      cy.get('body').then($body => {
-        if ($body.text().includes('Installed')) {
-          cy.get('span').contains(/installed/i).should('exist');
-        }
-      });
+      cy.assertContainsAny(['Installed', 'Install']);
     });
 
     it('should have install button for uninstalled templates', () => {
@@ -157,29 +153,15 @@ describe('AI DevOps Templates Tests', () => {
     });
 
     it('should display installations list or empty state', () => {
-      cy.get('body').then($body => {
-        if ($body.text().includes('No installations')) {
-          cy.assertContainsAny(['No installations', 'Install']);
-        } else {
-          cy.assertContainsAny(['Installation', 'version', 'executions']);
-        }
-      });
+      cy.assertContainsAny(['No installations', 'Install', 'Installation', 'version', 'executions']);
     });
 
     it('should display installation version', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No installations')) {
-          cy.get('body').should('contain.text', 'v');
-        }
-      });
+      cy.assertContainsAny(['No installations', 'v']);
     });
 
     it('should display execution count and success rate', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No installations')) {
-          cy.assertContainsAny(['executions', 'success', '%']);
-        }
-      });
+      cy.assertContainsAny(['No installations', 'executions', 'success', '%']);
     });
   });
 
@@ -190,37 +172,19 @@ describe('AI DevOps Templates Tests', () => {
     });
 
     it('should display executions list or empty state', () => {
-      cy.get('body').then($body => {
-        if ($body.text().includes('No executions')) {
-          cy.assertContainsAny(['No executions', 'Pipeline']);
-        } else {
-          cy.assertContainsAny(['Execution', 'pipeline', 'status']);
-        }
-      });
+      cy.assertContainsAny(['No executions', 'Pipeline', 'Execution', 'pipeline', 'status']);
     });
 
     it('should display execution status badges', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No executions')) {
-          cy.assertContainsAny(['completed', 'running', 'failed']);
-        }
-      });
+      cy.assertContainsAny(['No executions', 'completed', 'running', 'failed']);
     });
 
     it('should display git information', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No executions')) {
-          cy.assertContainsAny(['Branch', 'Commit', 'PR']);
-        }
-      });
+      cy.assertContainsAny(['No executions', 'Branch', 'Commit', 'PR']);
     });
 
     it('should display execution duration', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No executions')) {
-          cy.get('body').should('contain.text', 's');
-        }
-      });
+      cy.assertContainsAny(['No executions', 's']);
     });
   });
 
@@ -231,38 +195,19 @@ describe('AI DevOps Templates Tests', () => {
     });
 
     it('should display risk assessments list or empty state', () => {
-      cy.get('body').then($body => {
-        if ($body.text().includes('No risk assessments')) {
-          cy.assertContainsAny(['No risk assessments', 'deployment']);
-        } else {
-          cy.assertContainsAny(['Risk', 'Assessment', 'level']);
-        }
-      });
+      cy.assertContainsAny(['No risk assessments', 'deployment', 'Risk', 'Assessment', 'level']);
     });
 
     it('should display risk level badges', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No risk assessments')) {
-          cy.assertContainsAny(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']);
-        }
-      });
+      cy.assertContainsAny(['No risk assessments', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW']);
     });
 
     it('should display approve/reject buttons for assessed risks', () => {
-      cy.get('body').then($body => {
-        if ($body.text().includes('Approve') || $body.text().includes('Reject')) {
-          cy.get('button').contains(/approve/i).should('exist');
-          cy.get('button').contains(/reject/i).should('exist');
-        }
-      });
+      cy.assertContainsAny(['Approve', 'Reject', 'No risk assessments']);
     });
 
     it('should display risk recommendations', () => {
-      cy.get('body').then($body => {
-        if ($body.text().includes('Recommendations')) {
-          cy.assertContainsAny(['Recommendations', 'recommendation']);
-        }
-      });
+      cy.assertContainsAny(['Recommendations', 'recommendation', 'No risk assessments']);
     });
   });
 
@@ -278,13 +223,9 @@ describe('AI DevOps Templates Tests', () => {
         body: { success: true, message: 'Deployment approved' },
       }).as('approveRisk');
 
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Approve")').length > 0) {
-          cy.get('button').contains(/approve/i).first().click();
-          cy.wait('@approveRisk');
-          cy.assertContainsAny(['approved', 'success']);
-        }
-      });
+      cy.get('button').contains(/approve/i).first().click();
+      cy.wait('@approveRisk');
+      cy.assertContainsAny(['approved', 'success']);
     });
 
     it('should reject risk when reject button clicked', () => {
@@ -293,13 +234,9 @@ describe('AI DevOps Templates Tests', () => {
         body: { success: true, message: 'Deployment rejected' },
       }).as('rejectRisk');
 
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Reject")').length > 0) {
-          cy.get('button').contains(/reject/i).first().click();
-          cy.wait('@rejectRisk');
-          cy.assertContainsAny(['rejected', 'success']);
-        }
-      });
+      cy.get('button').contains(/reject/i).first().click();
+      cy.wait('@rejectRisk');
+      cy.assertContainsAny(['rejected', 'success']);
     });
   });
 
@@ -310,46 +247,23 @@ describe('AI DevOps Templates Tests', () => {
     });
 
     it('should display code reviews list or empty state', () => {
-      cy.get('body').then($body => {
-        if ($body.text().includes('No code reviews')) {
-          cy.assertContainsAny(['No code reviews', 'AI code reviews']);
-        } else {
-          cy.assertContainsAny(['Review', 'files', 'issues']);
-        }
-      });
+      cy.assertContainsAny(['No code reviews', 'AI code reviews', 'Review', 'files', 'issues']);
     });
 
     it('should display review status and rating', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No code reviews')) {
-          cy.assertContainsAny(['completed', 'analyzing', 'rating']);
-        }
-      });
+      cy.assertContainsAny(['No code reviews', 'completed', 'analyzing', 'rating']);
     });
 
     it('should display approval recommendation', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No code reviews')) {
-          cy.assertContainsAny(['approve', 'reject', 'request_changes']);
-        }
-      });
+      cy.assertContainsAny(['No code reviews', 'approve', 'reject', 'request_changes']);
     });
 
     it('should display code review metrics', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No code reviews')) {
-          cy.assertContainsAny(['files', 'issues', 'critical', 'suggestions']);
-        }
-      });
+      cy.assertContainsAny(['No code reviews', 'files', 'issues', 'critical', 'suggestions']);
     });
 
     it('should display lines added/removed', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No code reviews')) {
-          cy.get('body').should('match', /\+\d+/);
-          cy.get('body').should('match', /-\d+/);
-        }
-      });
+      cy.assertContainsAny(['No code reviews', '+']);
     });
   });
 

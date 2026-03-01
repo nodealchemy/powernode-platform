@@ -39,7 +39,6 @@ describe('AI Plugins Page Tests', () => {
     });
 
     it('should show plugin items or empty state', () => {
-      cy.get('body').should('be.visible');
       cy.assertContainsAny(['Plugin', 'No items', 'Browse', 'Marketplace']);
     });
   });
@@ -51,13 +50,7 @@ describe('AI Plugins Page Tests', () => {
     });
 
     it('should have search input on marketplace', () => {
-      cy.get('body').then($body => {
-        const hasSearch = $body.find('input[type="search"], input[placeholder*="Search"], input[placeholder*="search"]').length > 0;
-        if (hasSearch) {
-          cy.log('Search input found');
-        }
-        cy.get('body').should('be.visible');
-      });
+      cy.assertHasElement(['input[type="search"]', 'input[placeholder*="Search"]', 'input[placeholder*="search"]']);
     });
   });
 
@@ -72,17 +65,16 @@ describe('AI Plugins Page Tests', () => {
 
   describe('Responsive Design', () => {
     it('should display properly on mobile viewport', () => {
-      cy.viewport('iphone-x');
-      cy.visit('/app/marketplace?types=plugin');
-      cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.testResponsiveDesign('/app/marketplace?types=plugin', {
+        checkContent: ['Marketplace']
+      });
     });
 
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/marketplace?types=plugin');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Marketplace', 'Plugin']);
     });
   });
 });

@@ -32,7 +32,6 @@ describe('Admin Settings', () => {
     });
 
     it('should display settings content', () => {
-      cy.get('body').should('be.visible');
       cy.assertContainsAny(['Profile', 'My Profile', 'Settings']);
     });
   });
@@ -131,6 +130,21 @@ describe('Admin Settings', () => {
       cy.testResponsiveDesign('/app/profile', {
         viewports: [{ name: 'mobile', width: 375, height: 667 }],
       });
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should handle API error gracefully', () => {
+      cy.testErrorHandling('**/api/**/profile*', {
+        statusCode: 500,
+        visitUrl: '/app/profile',
+      });
+    });
+  });
+
+  describe('Permission Check', () => {
+    it('should require admin permissions', () => {
+      cy.testPermissionDenied('/app/profile');
     });
   });
 });

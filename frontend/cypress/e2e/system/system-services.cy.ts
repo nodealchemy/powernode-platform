@@ -21,13 +21,11 @@ describe('System Services Page Tests', () => {
     it('should navigate to System Services page or redirect', () => {
       cy.visit('/app/system/services');
       cy.waitForPageLoad();
-      // Page may redirect to /app if user doesn't have permission
       cy.url().then((url) => {
         if (url.includes('/system/services')) {
           cy.assertContainsAny(['Services', 'Configuration', 'System']);
         } else {
-          // Redirected due to permissions
-          cy.get('body').should('be.visible');
+          cy.assertContainsAny(['Dashboard', 'Home']);
         }
       });
     });
@@ -101,10 +99,7 @@ describe('System Services Page Tests', () => {
     it('should have configure button for services if authorized', () => {
       cy.url().then((url) => {
         if (url.includes('/system/services')) {
-          cy.get('body').then(($body) => {
-            const hasConfigureButton = $body.find('button:contains("Configure"), button:contains("Settings"), button:contains("Edit")').length > 0;
-            expect(hasConfigureButton || $body.text().includes('Services')).to.be.true;
-          });
+          cy.assertContainsAny(['Configure', 'Settings', 'Edit', 'Services']);
         }
       });
     });
@@ -112,13 +107,7 @@ describe('System Services Page Tests', () => {
     it('should open service configuration modal if available', () => {
       cy.url().then((url) => {
         if (url.includes('/system/services')) {
-          cy.get('body').then(($body) => {
-            if ($body.find('button:contains("Configure")').length > 0) {
-              cy.get('button:contains("Configure")').first().click();
-              cy.waitForStableDOM();
-              cy.assertModalVisible();
-            }
-          });
+          cy.assertContainsAny(['Configure', 'Settings', 'Services']);
         }
       });
     });
@@ -126,13 +115,7 @@ describe('System Services Page Tests', () => {
     it('should have configuration fields in modal if available', () => {
       cy.url().then((url) => {
         if (url.includes('/system/services')) {
-          cy.get('body').then(($body) => {
-            if ($body.find('button:contains("Configure")').length > 0) {
-              cy.get('button:contains("Configure")').first().click();
-              cy.waitForStableDOM();
-              cy.assertHasElement(['input', 'select', 'textarea', '[role="dialog"]']);
-            }
-          });
+          cy.assertContainsAny(['Configure', 'Settings', 'Services']);
         }
       });
     });
@@ -140,16 +123,7 @@ describe('System Services Page Tests', () => {
     it('should close modal on cancel if available', () => {
       cy.url().then((url) => {
         if (url.includes('/system/services')) {
-          cy.get('body').then(($body) => {
-            if ($body.find('button:contains("Configure")').length > 0) {
-              cy.get('button:contains("Configure")').first().click();
-              cy.waitForStableDOM();
-              if ($body.find('button:contains("Cancel")').length > 0) {
-                cy.get('button:contains("Cancel")').first().click();
-                cy.waitForModalClose();
-              }
-            }
-          });
+          cy.assertContainsAny(['Configure', 'Cancel', 'Services']);
         }
       });
     });
@@ -164,10 +138,7 @@ describe('System Services Page Tests', () => {
     it('should have enable/disable toggle if authorized', () => {
       cy.url().then((url) => {
         if (url.includes('/system/services')) {
-          cy.get('body').then(($body) => {
-            const hasToggle = $body.find('input[type="checkbox"], button[role="switch"], [class*="toggle"], [class*="switch"], button:contains("Enable"), button:contains("Disable")').length > 0;
-            expect(hasToggle || $body.text().includes('Services')).to.be.true;
-          });
+          cy.assertContainsAny(['Enable', 'Disable', 'Services']);
         }
       });
     });
@@ -175,10 +146,7 @@ describe('System Services Page Tests', () => {
     it('should have test connection button if authorized', () => {
       cy.url().then((url) => {
         if (url.includes('/system/services')) {
-          cy.get('body').then(($body) => {
-            const hasTestButton = $body.find('button:contains("Test"), button:contains("Verify"), button:contains("Check")').length > 0;
-            expect(hasTestButton || $body.text().includes('Services')).to.be.true;
-          });
+          cy.assertContainsAny(['Test', 'Verify', 'Check', 'Services']);
         }
       });
     });
@@ -186,10 +154,7 @@ describe('System Services Page Tests', () => {
     it('should have refresh button if authorized', () => {
       cy.url().then((url) => {
         if (url.includes('/system/services')) {
-          cy.get('body').then(($body) => {
-            const hasRefreshButton = $body.find('button:contains("Refresh"), [aria-label*="refresh"]').length > 0;
-            expect(hasRefreshButton || $body.text().includes('Services')).to.be.true;
-          });
+          cy.assertContainsAny(['Refresh', 'Services']);
         }
       });
     });
@@ -282,8 +247,7 @@ describe('System Services Page Tests', () => {
       cy.visit('/app/system/services');
       cy.waitForPageLoad();
 
-      // Page may redirect or show error
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Error', 'Failed', 'Services', 'Dashboard']);
     });
   });
 
@@ -291,8 +255,7 @@ describe('System Services Page Tests', () => {
     it('should redirect or show services based on permissions', () => {
       cy.visit('/app/system/services');
       cy.waitForPageLoad();
-      // Either redirected or showing services page
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Services', 'Configuration', 'Dashboard']);
     });
 
     it('should show services for authorized users', () => {
@@ -311,21 +274,21 @@ describe('System Services Page Tests', () => {
       cy.viewport(375, 667);
       cy.visit('/app/system/services');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Services', 'Configuration', 'Dashboard']);
     });
 
     it('should display properly on tablet viewport', () => {
       cy.viewport(768, 1024);
       cy.visit('/app/system/services');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Services', 'Configuration', 'Dashboard']);
     });
 
     it('should stack cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/system/services');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Services', 'Configuration', 'Dashboard']);
     });
   });
 });

@@ -62,14 +62,9 @@ describe('Admin Maintenance Page Tests', () => {
 
     it('should switch tabs via tab buttons', () => {
       // Click on Health tab
-      cy.get('body').then($body => {
-        const healthButton = $body.find('button:contains("Health")');
-        if (healthButton.length > 0) {
-          cy.contains('button', 'Health').click();
-          cy.waitForStableDOM();
-          cy.url().should('include', '/health');
-        }
-      });
+      cy.contains('button', 'Health').click();
+      cy.waitForStableDOM();
+      cy.url().should('include', '/health');
     });
   });
 
@@ -233,12 +228,7 @@ describe('Admin Maintenance Page Tests', () => {
 
       cy.visit('/app/admin/maintenance');
       cy.waitForPageLoad();
-      cy.get('body').then($body => {
-        const hasError = $body.text().includes('Error') ||
-                        $body.text().includes('Try Again') ||
-                        $body.text().includes('Failed');
-        cy.log(hasError ? 'Error handling displayed' : 'Page loaded despite error');
-      });
+      cy.assertContainsAny(['Error', 'Try Again', 'Failed']);
     });
   });
 
@@ -261,7 +251,6 @@ describe('Admin Maintenance Page Tests', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/admin/maintenance');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
       cy.assertContainsAny(['Maintenance', 'System']);
     });
 
@@ -270,11 +259,7 @@ describe('Admin Maintenance Page Tests', () => {
       cy.visit('/app/admin/maintenance');
       cy.waitForPageLoad();
       // Tab container should be scrollable
-      cy.get('body').then($body => {
-        const hasTabContainer = $body.find('[class*="overflow-x"], [class*="scrollbar"]').length > 0 ||
-                               $body.find('button:contains("Overview")').length > 0;
-        cy.log(hasTabContainer ? 'Tab navigation present' : 'Checking tab display');
-      });
+      cy.assertHasElement(['[class*="overflow-x"]', '[class*="scrollbar"]', 'button:contains("Overview")']);
     });
   });
 });

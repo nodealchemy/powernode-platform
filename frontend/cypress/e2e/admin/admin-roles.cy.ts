@@ -101,29 +101,15 @@ describe('Admin Roles & Permissions Page Tests', () => {
     });
 
     it('should open create role modal with form fields', () => {
-      cy.get('body').then(($body) => {
-        const createButton = $body.find(
-          'button:contains("Create Role"), button:contains("Add Role"), button:contains("New Role")'
-        );
-        if (createButton.length > 0) {
-          cy.wrap(createButton).first().click();
-          cy.assertModalVisible();
-          cy.assertContainsAny(['Name', 'name', 'Description', 'Permission']);
-        }
-      });
+      cy.get('button:contains("Create Role"), button:contains("Add Role"), button:contains("New Role")').first().click();
+      cy.assertModalVisible();
+      cy.assertContainsAny(['Name', 'name', 'Description', 'Permission']);
     });
 
     it('should close modal on cancel', () => {
-      cy.get('body').then(($body) => {
-        const createButton = $body.find(
-          'button:contains("Create Role"), button:contains("Add Role")'
-        );
-        if (createButton.length > 0) {
-          cy.wrap(createButton).first().click();
-          cy.clickButton('Cancel');
-          cy.waitForStableDOM();
-        }
-      });
+      cy.get('button:contains("Create Role"), button:contains("Add Role")').first().click();
+      cy.clickButton('Cancel');
+      cy.waitForStableDOM();
     });
   });
 
@@ -170,13 +156,8 @@ describe('Admin Roles & Permissions Page Tests', () => {
     });
 
     it('should show delete confirmation dialog', () => {
-      cy.get('body').then(($body) => {
-        const deleteButton = $body.find('button:contains("Delete"), [aria-label*="delete"]');
-        if (deleteButton.length > 0) {
-          cy.wrap(deleteButton).first().click();
-          cy.assertContainsAny(['Confirm', 'Are you sure', 'Delete']);
-        }
-      });
+      cy.get('button:contains("Delete"), [aria-label*="delete"]').first().click();
+      cy.assertContainsAny(['Confirm', 'Are you sure', 'Delete']);
     });
   });
 
@@ -229,7 +210,7 @@ describe('Admin Roles & Permissions Page Tests', () => {
       });
 
       cy.navigateTo('/app/admin/roles');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Roles', 'Permissions', 'Admin']);
     });
   });
 

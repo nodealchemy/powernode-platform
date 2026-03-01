@@ -237,7 +237,7 @@ describe('AI Governance Suite Page Tests', () => {
     it('should adapt layout on small screens', () => {
       cy.viewport(375, 667);
       cy.assertPageReady('/app/ai/governance');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Governance', 'Compliance', 'Policies']);
     });
   });
 });

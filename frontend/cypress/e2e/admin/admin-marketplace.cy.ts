@@ -50,7 +50,6 @@ describe('Admin Marketplace Page Tests', () => {
     it('should switch between tabs', () => {
       // Simplified test - just verify body is visible after attempting tab switch
       // The component may have loading issues with pendingTemplates
-      cy.get('body').should('be.visible');
       cy.assertContainsAny(['Marketplace', 'Items', 'Pending', 'Reviews', 'Analytics']);
     });
   });
@@ -197,7 +196,7 @@ describe('Admin Marketplace Page Tests', () => {
       }).as('marketplaceDelay');
 
       cy.visit('/app/admin/marketplace');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Marketplace', 'Loading', 'Items']);
     });
   });
 

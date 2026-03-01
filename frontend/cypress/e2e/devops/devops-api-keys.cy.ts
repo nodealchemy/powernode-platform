@@ -59,14 +59,9 @@ describe('DevOps API Keys Management Tests', () => {
     });
 
     it('should open modal when Generate New Key clicked', () => {
-      cy.get('body').then($body => {
-        const generateBtn = $body.find('button:contains("Generate")');
-        if (generateBtn.length > 0) {
-          cy.wrap(generateBtn).first().click();
-          cy.waitForStableDOM();
-          cy.assertContainsAny(['Create', 'Name', 'Scope', 'Permission', 'Cancel', 'API Key']);
-        }
-      });
+      cy.get('button:contains("Generate")').first().click();
+      cy.waitForStableDOM();
+      cy.assertContainsAny(['Create', 'Name', 'Scope', 'Permission', 'Cancel', 'API Key']);
     });
   });
 

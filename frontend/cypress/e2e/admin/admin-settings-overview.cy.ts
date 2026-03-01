@@ -15,39 +15,15 @@ describe('Admin Settings Overview Page Tests', () => {
     });
 
     it('should display page title', () => {
-      cy.get('body').then($body => {
-        const hasTitle = $body.text().includes('Settings Overview') ||
-                        $body.text().includes('Admin Settings') ||
-                        $body.find('[class*="PageContainer"]').length > 0;
-        if (hasTitle) {
-          cy.log('Admin Settings Overview page title found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Settings Overview', 'Admin Settings']);
     });
 
     it('should display page description', () => {
-      cy.get('body').then($body => {
-        const hasDesc = $body.text().includes('system settings') ||
-                       $body.text().includes('platform configuration') ||
-                       $body.text().includes('configuration');
-        if (hasDesc) {
-          cy.log('Page description found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['system settings', 'platform configuration', 'configuration']);
     });
 
     it('should display breadcrumbs', () => {
-      cy.get('body').then($body => {
-        const hasBreadcrumbs = $body.text().includes('Admin') ||
-                              $body.text().includes('Settings') ||
-                              $body.text().includes('Dashboard');
-        if (hasBreadcrumbs) {
-          cy.log('Breadcrumbs found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Admin', 'Settings', 'Dashboard']);
     });
   });
 
@@ -157,8 +133,8 @@ describe('Admin Settings Overview Page Tests', () => {
     });
 
     it('should display service health indicators', () => {
-      // Simplified - just verify page is visible since status indicators may vary
-      cy.get('body').should('be.visible');
+      // Simplified - just verify page has relevant content since status indicators may vary
+      cy.assertContainsAny(['Services', 'Health', 'Overview', 'Status']);
     });
   });
 
@@ -220,25 +196,13 @@ describe('Admin Settings Overview Page Tests', () => {
     });
 
     it('should navigate to Users Management', () => {
-      cy.get('body').then($body => {
-        if ($body.find('a:contains("Users")').length > 0) {
-          cy.contains('a', 'Users').click();
-          cy.url().should('include', '/admin');
-        } else {
-          cy.assertContainsAny(['Users', 'Overview']);
-        }
-      });
+      cy.contains('a', 'Users').click();
+      cy.url().should('include', '/admin');
     });
 
     it('should navigate to Roles Management', () => {
-      cy.get('body').then($body => {
-        if ($body.find('a:contains("Roles")').length > 0) {
-          cy.contains('a', 'Roles').click();
-          cy.url().should('include', '/admin');
-        } else {
-          cy.assertContainsAny(['Roles', 'Overview']);
-        }
-      });
+      cy.contains('a', 'Roles').click();
+      cy.url().should('include', '/admin');
     });
   });
 
@@ -291,12 +255,12 @@ describe('Admin Settings Overview Page Tests', () => {
 
     it('should display properly on mobile viewport', () => {
       cy.testViewport('mobile', '/app/admin/settings/overview');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Settings', 'Overview']);
     });
 
     it('should display properly on tablet viewport', () => {
       cy.testViewport('tablet', '/app/admin/settings/overview');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Settings', 'Overview']);
     });
 
     it('should stack cards on small screens', () => {
@@ -310,8 +274,14 @@ describe('Admin Settings Overview Page Tests', () => {
       cy.viewport(1920, 1080);
       cy.visit('/app/admin/settings/overview');
       cy.waitForPageLoad();
-      // Simplified - just verify page is visible on large screens
-      cy.get('body').should('be.visible');
+      // Simplified - just verify page has relevant content on large screens
+      cy.assertContainsAny(['Settings', 'Overview']);
+    });
+  });
+
+  describe('Permission Check', () => {
+    it('should require admin permissions', () => {
+      cy.testPermissionDenied('/app/admin/settings/overview');
     });
   });
 });

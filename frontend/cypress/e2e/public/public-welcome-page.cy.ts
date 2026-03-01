@@ -241,7 +241,7 @@ describe('Public Welcome Page Tests', () => {
       }).as('getWelcomePageDelayed');
 
       cy.visit('/welcome');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Welcome', 'Powernode']);
       cy.wait('@getWelcomePageDelayed');
       cy.waitForPageLoad();
       cy.assertContainsAny(['Welcome', 'Powernode']);

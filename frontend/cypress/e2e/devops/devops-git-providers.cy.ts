@@ -58,14 +58,9 @@ describe('DevOps Git Providers Tests', () => {
     });
 
     it('should open modal when Add Provider clicked', () => {
-      cy.get('body').then($body => {
-        const addBtn = $body.find('button:contains("Add Provider"), button:contains("Add")');
-        if (addBtn.length > 0 && addBtn.first().text().includes('Add')) {
-          cy.wrap(addBtn).first().click();
-          cy.waitForStableDOM();
-        }
-        cy.get('body').should('be.visible');
-      });
+      cy.get('button:contains("Add Provider"), button:contains("Add")').first().click();
+      cy.waitForStableDOM();
+      cy.assertContainsAny(['Provider', 'Git', 'GitHub', 'GitLab', 'Bitbucket', 'Cancel']);
     });
   });
 

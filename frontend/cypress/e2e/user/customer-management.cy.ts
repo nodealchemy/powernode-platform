@@ -13,7 +13,7 @@ describe('Customer Management', () => {
 
   describe('Dashboard Access', () => {
     it('should display dashboard after login', () => {
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Dashboard', 'Welcome', 'Overview']);
       cy.url().should('match', /\/(app|dashboard)/);
     });
 
@@ -30,13 +30,12 @@ describe('Customer Management', () => {
     it('should navigate to customers if available', () => {
       cy.navigateTo('customers');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Customers', 'Dashboard', 'Home']);
     });
   });
 
   describe('User Profile', () => {
     it('should display user information', () => {
-      // Header user button has aria-haspopup="true" and shows user initials
       cy.assertHasElement([
         '[data-testid="user-menu"]',
         'button[aria-haspopup="true"]',
@@ -46,7 +45,6 @@ describe('Customer Management', () => {
     });
 
     it('should access profile settings', () => {
-      // Profile page is at /app/profile
       cy.assertPageReady('/app/profile');
     });
   });
@@ -55,11 +53,10 @@ describe('Customer Management', () => {
     it('should navigate to account settings', () => {
       cy.navigateTo('settings');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Settings', 'Account', 'Profile']);
     });
 
     it('should display settings form', () => {
-      // Profile page is at /app/profile and has a profile-form
       cy.assertPageReady('/app/profile');
       cy.assertHasElement([
         'form',
@@ -75,57 +72,35 @@ describe('Customer Management', () => {
     it('should navigate to team page if available', () => {
       cy.navigateTo('team');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Team', 'Members', 'Dashboard']);
     });
   });
 
   describe('Search and Filter', () => {
     it('should have search functionality if available', () => {
-      // Search may not be present on all pages - check if it exists or skip
-      cy.get('body').then(($body) => {
-        const hasSearch = $body.find('input[type="search"], input[placeholder*="Search"], [data-testid="search-input"]').length > 0;
-        if (hasSearch) {
-          cy.assertHasElement(['input[type="search"]', 'input[placeholder*="Search"]', '[data-testid="search-input"]']);
-        } else {
-          cy.log('Search functionality not available on this page - skipping');
-          cy.get('body').should('be.visible');
-        }
-      });
+      cy.assertHasElement(['input[type="search"]', 'input[placeholder*="Search"]', '[data-testid="search-input"]', 'main', '[role="main"]']);
     });
 
     it('should have filter options if available', () => {
-      // Filter may not be present on all pages - check if it exists or skip
-      cy.get('body').then(($body) => {
-        const hasFilter = $body.find('select, [data-testid="filter"], [class*="filter"]').length > 0;
-        if (hasFilter) {
-          cy.assertHasElement(['select', '[data-testid="filter"]', '[class*="filter"]']);
-        } else {
-          cy.log('Filter functionality not available on this page - skipping');
-          cy.get('body').should('be.visible');
-        }
-      });
+      cy.assertHasElement(['select', '[data-testid="filter"]', '[class*="filter"]', 'main', '[role="main"]']);
     });
   });
 
   describe('Plans and Subscriptions', () => {
     it('should access plans page', () => {
-      // Clear session to see public plans
       cy.clearCookies();
       cy.clearLocalStorage();
       cy.visit('/plans');
-      // Wait for plans page to render - may not have standard page container
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Plans', 'Pricing', 'Free']);
       cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 10000 })
         .should('have.length.at.least', 1);
     });
 
     it('should display plan details', () => {
-      // Clear session to see public plans
       cy.clearCookies();
       cy.clearLocalStorage();
       cy.visit('/plans');
-      // Wait for plans page to render
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Plans', 'Pricing', 'Free']);
       cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 10000 })
         .first()
         .within(() => {
@@ -142,7 +117,7 @@ describe('Customer Management', () => {
 
     it('should handle tablet viewport', () => {
       cy.testViewport('tablet', '/app');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Dashboard', 'Welcome', 'Overview']);
     });
   });
 
@@ -162,7 +137,7 @@ describe('Customer Management', () => {
     it('should maintain session across navigation', () => {
       cy.visit('/plans');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Plans', 'Pricing', 'Free']);
 
       cy.visit('/app');
       cy.waitForPageLoad();

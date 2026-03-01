@@ -132,11 +132,7 @@ describe('AI Agent Teams Workflows Tests', () => {
 
     it('should display available agents to add', () => {
       cy.get('button').contains(/add|assign/i).first().click();
-      cy.get('body').then($body => {
-        if ($body.find('input[type="checkbox"], [role="option"]').length > 0) {
-          cy.log('Agent selection available');
-        }
-      });
+      cy.assertContainsAny(['Add', 'Assign', 'Select', 'Agent', 'Member']);
     });
 
     it('should add agent to team', () => {
@@ -169,11 +165,7 @@ describe('AI Agent Teams Workflows Tests', () => {
       }).as('removeMember');
 
       cy.get('button').contains(/remove|delete/i).first().click();
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Confirm")').length > 0) {
-          cy.get('button').contains(/confirm|yes/i).click();
-        }
-      });
+      cy.get('button').contains(/confirm|yes/i).click();
     });
   });
 

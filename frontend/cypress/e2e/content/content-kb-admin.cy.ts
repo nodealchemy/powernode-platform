@@ -156,12 +156,7 @@ describe('Knowledge Base Admin Page Tests', () => {
     });
 
     it('should display selection count when articles selected', () => {
-      cy.get('input[type="checkbox"]').then($checkboxes => {
-        if ($checkboxes.length > 0) {
-          cy.log('Checkboxes for selection found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['input[type="checkbox"]']);
     });
   });
 
@@ -248,12 +243,12 @@ describe('Knowledge Base Admin Page Tests', () => {
   describe('Responsive Design', () => {
     it('should display properly on mobile viewport', () => {
       cy.testViewport('mobile', '/app/content/kb/admin');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Knowledge Base', 'KB Admin', 'Articles']);
     });
 
     it('should display properly on tablet viewport', () => {
       cy.testViewport('tablet', '/app/content/kb/admin');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Knowledge Base', 'KB Admin', 'Articles']);
     });
 
     it('should stack elements on small screens', () => {

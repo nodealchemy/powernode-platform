@@ -26,14 +26,7 @@ describe('Logo Contrast and Visual Tests', () => {
       cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 }).should('exist');
 
       // Check for branding
-      cy.get('body').then($body => {
-        const hasBranding = $body.find('[class*="logo"]').length > 0 ||
-                           $body.find('img[alt*="logo"]').length > 0 ||
-                           $body.find('header').length > 0 ||
-                           $body.text().includes('Powernode');
-
-        expect(hasBranding, 'Should have branding visible').to.be.true;
-      });
+      cy.assertHasElement(['[class*="logo"]', 'img[alt*="logo"]', 'header']);
     });
   });
 
@@ -45,7 +38,6 @@ describe('Logo Contrast and Visual Tests', () => {
     it('should display navigation branding', () => {
       // Verify app is loaded and has navigation elements
       cy.get('button[aria-haspopup="true"]', { timeout: 5000 }).should('exist');
-      cy.get('body').should('be.visible');
     });
 
     it('should have interactive navigation elements', () => {

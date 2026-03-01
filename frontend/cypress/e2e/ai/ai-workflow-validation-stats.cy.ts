@@ -126,7 +126,7 @@ describe('AI Workflow Validation Statistics Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.navigateTo('/app/ai/workflows/validation-stats');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Validation', 'Statistics', 'Workflow', 'Health']);
     });
 
     it('should display stat cards on small screens', () => {

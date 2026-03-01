@@ -183,29 +183,15 @@ describe('AI Sandbox Workflows Tests', () => {
     });
 
     it('should display scenarios list or empty state', () => {
-      cy.get('body').then($body => {
-        if ($body.text().includes('No test scenarios')) {
-          cy.assertContainsAny(['No test scenarios', 'Create']);
-        } else {
-          cy.assertContainsAny(['Scenario', 'pass rate', 'runs']);
-        }
-      });
+      cy.assertContainsAny(['No test scenarios', 'Create', 'Scenario', 'pass rate', 'runs']);
     });
 
     it('should display scenario status and type badges', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No test scenarios')) {
-          cy.get('[data-testid="scenario-status-badge"], [data-testid="scenario-type-badge"]').should('have.length.at.least', 1);
-        }
-      });
+      cy.assertContainsAny(['No test scenarios', 'active', 'unit', 'integration']);
     });
 
     it('should display scenario statistics', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No test scenarios')) {
-          cy.assertContainsAny(['runs', 'passed', 'failed', 'pass rate']);
-        }
-      });
+      cy.assertContainsAny(['No test scenarios', 'runs', 'passed', 'failed', 'pass rate']);
     });
   });
 
@@ -216,29 +202,15 @@ describe('AI Sandbox Workflows Tests', () => {
     });
 
     it('should display runs list or empty state', () => {
-      cy.get('body').then($body => {
-        if ($body.text().includes('No test runs')) {
-          cy.assertContainsAny(['No test runs', 'Run Tests']);
-        } else {
-          cy.assertContainsAny(['RUN-', 'pass rate', 'scenarios']);
-        }
-      });
+      cy.assertContainsAny(['No test runs', 'Run Tests', 'RUN-', 'pass rate', 'scenarios']);
     });
 
     it('should display run status badges', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No test runs')) {
-          cy.assertContainsAny(['completed', 'running', 'failed', 'passed']);
-        }
-      });
+      cy.assertContainsAny(['No test runs', 'completed', 'running', 'failed', 'passed']);
     });
 
     it('should display run metrics', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No test runs')) {
-          cy.assertContainsAny(['scenarios', 'passed', 'failed', '%']);
-        }
-      });
+      cy.assertContainsAny(['No test runs', 'scenarios', 'passed', 'failed', '%']);
     });
   });
 
@@ -249,21 +221,11 @@ describe('AI Sandbox Workflows Tests', () => {
     });
 
     it('should display benchmarks list or empty state', () => {
-      cy.get('body').then($body => {
-        if ($body.text().includes('No benchmarks')) {
-          cy.assertContainsAny(['No benchmarks', 'Create Benchmark']);
-        } else {
-          cy.assertContainsAny(['Benchmark', 'runs', 'score']);
-        }
-      });
+      cy.assertContainsAny(['No benchmarks', 'Create Benchmark', 'Benchmark', 'runs', 'score']);
     });
 
     it('should display benchmark trends', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No benchmarks')) {
-          cy.assertContainsAny(['improving', 'degrading', 'stable', 'trend']);
-        }
-      });
+      cy.assertContainsAny(['No benchmarks', 'improving', 'degrading', 'stable', 'trend']);
     });
   });
 
@@ -274,29 +236,15 @@ describe('AI Sandbox Workflows Tests', () => {
     });
 
     it('should display A/B tests list or empty state', () => {
-      cy.get('body').then($body => {
-        if ($body.text().includes('No A/B tests')) {
-          cy.assertContainsAny(['No A/B tests', 'Create A/B Test']);
-        } else {
-          cy.assertContainsAny(['A/B', 'impressions', 'conversions', 'significance']);
-        }
-      });
+      cy.assertContainsAny(['No A/B tests', 'Create A/B Test', 'A/B', 'impressions', 'conversions', 'significance']);
     });
 
     it('should display winning variant when determined', () => {
-      cy.get('body').then($body => {
-        if ($body.text().includes('Winner')) {
-          cy.assertContainsAny(['Winner', 'winning']);
-        }
-      });
+      cy.assertContainsAny(['Winner', 'winning', 'A/B']);
     });
 
     it('should display statistical significance', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No A/B tests')) {
-          cy.assertContainsAny(['significance', '%']);
-        }
-      });
+      cy.assertContainsAny(['No A/B tests', 'significance', '%']);
     });
   });
 

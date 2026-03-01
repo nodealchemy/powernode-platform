@@ -52,22 +52,14 @@ describe('Admin Maintenance Operations Tests', () => {
       }).as('enableMaintenance');
 
       cy.get('button').contains(/enable maintenance|enable/i).first().click();
-      cy.get('body').then($body => {
-        if ($body.find('[role="dialog"]').length > 0) {
-          cy.get('button').contains(/confirm|yes/i).click();
-        }
-      });
+      cy.get('button').contains(/confirm|yes/i).click();
       cy.wait('@enableMaintenance');
       cy.assertContainsAny(['enabled', 'success', 'maintenance mode']);
     });
 
     it('should show maintenance message input when enabling', () => {
       cy.get('button').contains(/enable maintenance/i).first().click();
-      cy.get('body').then($body => {
-        if ($body.find('textarea, input[name="message"]').length > 0) {
-          cy.get('textarea, input[name="message"]').should('exist');
-        }
-      });
+      cy.get('textarea, input[name="message"]').should('exist');
     });
 
     it('should disable maintenance mode when button clicked', () => {
@@ -282,6 +274,12 @@ describe('Admin Maintenance Operations Tests', () => {
       cy.testResponsiveDesign('/app/admin/maintenance', {
         checkContent: 'Maintenance',
       });
+    });
+  });
+
+  describe('Permission Check', () => {
+    it('should require admin permissions', () => {
+      cy.testPermissionDenied('/app/admin/maintenance');
     });
   });
 });

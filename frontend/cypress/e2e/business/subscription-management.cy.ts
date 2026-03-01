@@ -18,7 +18,7 @@ describe('Subscription Management Tests', () => {
   describe('Subscription Status Display', () => {
     it('should display dashboard after login', () => {
       cy.url().should('match', /\/(app|dashboard)/);
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Subscription', 'Plan', 'Dashboard']);
     });
 
     it('should have main content visible', () => {
@@ -150,15 +150,7 @@ describe('Subscription Management Tests', () => {
 
   describe('Billing Navigation', () => {
     it('should navigate to subscription/billing if available', () => {
-      cy.get('body').then($body => {
-        const selectors = ['a[href*="subscription"]', 'a[href*="billing"]', 'a[href*="marketplace"]', '[data-testid="billing-link"]'];
-        for (const selector of selectors) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().click();
-            break;
-          }
-        }
-      });
+      cy.get('a[href*="subscription"], a[href*="billing"], a[href*="marketplace"], [data-testid="billing-link"]').first().click();
       cy.url().should('match', /\/(app|dashboard|subscription|billing|marketplace|plans)/);
     });
   });
@@ -187,7 +179,7 @@ describe('Subscription Management Tests', () => {
   describe('Subscription Cancellation', () => {
     it('should display cancel option if available', () => {
       cy.navigateTo('/app/business/billing');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Subscription', 'Plan', 'Dashboard']);
       // Cancel option may or may not be visible depending on user permissions
     });
   });
@@ -195,7 +187,7 @@ describe('Subscription Management Tests', () => {
   describe('Mobile Subscription Management', () => {
     it('should handle subscription management on mobile viewport', () => {
       cy.viewport(375, 667);
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Subscription', 'Plan', 'Dashboard']);
       cy.url().should('match', /\/(app|dashboard)/);
     });
 

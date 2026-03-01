@@ -41,14 +41,9 @@ describe('DevOps New Integration Page Tests', () => {
     });
 
     it('should navigate back on Cancel click', () => {
-      cy.get('body').then($body => {
-        const cancelBtn = $body.find('button:contains("Cancel")');
-        if (cancelBtn.length > 0) {
-          cy.wrap(cancelBtn).first().click();
-          cy.waitForPageLoad();
-          cy.url().should('match', /integrations|marketplace/);
-        }
-      });
+      cy.get('button:contains("Cancel")').first().click();
+      cy.waitForPageLoad();
+      cy.url().should('match', /integrations|marketplace/);
     });
   });
 
@@ -63,12 +58,7 @@ describe('DevOps New Integration Page Tests', () => {
     });
 
     it('should display integration type selection', () => {
-      cy.get('body').then($body => {
-        // Check for wizard elements or page content
-        const hasWizardElements = $body.find('[class*="card"], [class*="grid"], [class*="wizard"]').length > 0;
-        const hasPageContent = $body.text().includes('Integration');
-        expect(hasWizardElements || hasPageContent).to.be.true;
-      });
+      cy.assertHasElement(['[class*="card"]', '[class*="grid"]', '[class*="wizard"]']);
     });
   });
 
@@ -84,7 +74,6 @@ describe('DevOps New Integration Page Tests', () => {
       cy.mockApiError('**/integrations*', 500, 'Server error');
       cy.visit('/app/devops/integrations/new');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
       cy.assertContainsAny(['Error', 'Failed', 'Integration', 'Add Integration']);
     });
   });

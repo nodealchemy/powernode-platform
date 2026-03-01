@@ -72,12 +72,8 @@ describe('AI Agent Memory Page Tests', () => {
   describe('Entry Editor', () => {
     it('should display entry editor when adding memory', () => {
       cy.navigateTo('/app/ai/agents/test-agent/memory');
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Add Memory"), button:contains("Add")').length > 0) {
-          cy.get('button:contains("Add Memory"), button:contains("Add")').first().click();
-          cy.assertContainsAny(['Add Memory', 'Edit Memory']);
-        }
-      });
+      cy.get('button:contains("Add Memory"), button:contains("Add")').first().click();
+      cy.assertContainsAny(['Add Memory', 'Edit Memory']);
     });
 
     it('should have Cancel button in editor', () => {
@@ -97,7 +93,7 @@ describe('AI Agent Memory Page Tests', () => {
     it('should show error notification on failure', () => {
       cy.mockApiError('**/api/**/agents/*/memory**', 404, 'Agent not found');
       cy.navigateTo('/app/ai/agents/test-agent/memory');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Memory', 'Not Found', 'Error', 'Agent']);
     });
   });
 
@@ -124,7 +120,7 @@ describe('AI Agent Memory Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.navigateTo('/app/ai/agents/test-agent/memory');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Memory', 'Agent', 'entries']);
     });
   });
 });

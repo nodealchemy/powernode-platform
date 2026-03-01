@@ -25,59 +25,25 @@ describe('Account Notifications Page Tests', () => {
     it('should navigate to Notifications page', () => {
       cy.visit('/app/account/notifications');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasContent = $body.text().includes('Notifications') ||
-                          $body.text().includes('Notification');
-        if (hasContent) {
-          cy.log('Notifications page loaded');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Notifications', 'Notification']);
     });
 
     it('should display page title', () => {
       cy.visit('/app/account/notifications');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasTitle = $body.text().includes('Notifications');
-        if (hasTitle) {
-          cy.log('Page title displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Notifications']);
     });
 
     it('should display page description', () => {
       cy.visit('/app/account/notifications');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasDescription = $body.text().includes('View and manage') ||
-                               $body.text().includes('notifications');
-        if (hasDescription) {
-          cy.log('Page description displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['View and manage', 'notifications']);
     });
 
     it('should display breadcrumbs', () => {
       cy.visit('/app/account/notifications');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasBreadcrumbs = $body.text().includes('Dashboard');
-        if (hasBreadcrumbs) {
-          cy.log('Breadcrumbs displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Dashboard']);
     });
   });
 
@@ -88,14 +54,7 @@ describe('Account Notifications Page Tests', () => {
     });
 
     it('should have Mark All Read button when unread exists', () => {
-      cy.get('body').then($body => {
-        const markAllButton = $body.find('button:contains("Mark All Read")');
-        if (markAllButton.length > 0) {
-          cy.log('Mark All Read button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button').contains(/Mark All Read/i).should('exist');
     });
   });
 
@@ -106,63 +65,27 @@ describe('Account Notifications Page Tests', () => {
     });
 
     it('should display All filter tab', () => {
-      cy.get('body').then($body => {
-        const allTab = $body.find('button:contains("All")');
-        if (allTab.length > 0) {
-          cy.log('All filter tab displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button').contains(/^All$/i).should('exist');
     });
 
     it('should display Unread filter tab', () => {
-      cy.get('body').then($body => {
-        const unreadTab = $body.find('button:contains("Unread")');
-        if (unreadTab.length > 0) {
-          cy.log('Unread filter tab displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button').contains(/^Unread$/i).should('exist');
     });
 
     it('should switch to All filter', () => {
-      cy.get('body').then($body => {
-        const allTab = $body.find('button:contains("All")');
-        if (allTab.length > 0) {
-          cy.wrap(allTab).first().should('be.visible').click();
-          cy.waitForPageLoad();
-          cy.log('Switched to All filter');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button').contains(/^All$/i).first().click();
+      cy.waitForPageLoad();
+      cy.assertContainsAny(['Notifications', 'All']);
     });
 
     it('should switch to Unread filter', () => {
-      cy.get('body').then($body => {
-        const unreadTab = $body.find('button:contains("Unread")');
-        if (unreadTab.length > 0) {
-          cy.wrap(unreadTab).first().should('be.visible').click();
-          cy.waitForPageLoad();
-          cy.log('Switched to Unread filter');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button').contains(/^Unread$/i).first().click();
+      cy.waitForPageLoad();
+      cy.assertContainsAny(['Notifications', 'Unread']);
     });
 
     it('should display unread count badge', () => {
-      cy.get('body').then($body => {
-        const hasBadge = $body.find('button:contains("Unread") span').length > 0 ||
-                         $body.find('[class*="badge"]').length > 0;
-        if (hasBadge) {
-          cy.log('Unread count badge displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['button:contains("Unread") span', '[class*="badge"]']);
     });
   });
 
@@ -173,74 +96,27 @@ describe('Account Notifications Page Tests', () => {
     });
 
     it('should display notifications list', () => {
-      cy.get('body').then($body => {
-        const hasList = $body.find('[class*="divide"], [class*="list"]').length > 0 ||
-                        $body.text().includes('No notifications');
-        if (hasList) {
-          cy.log('Notifications list displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['[class*="divide"]', '[class*="list"]']);
     });
 
     it('should display notification title', () => {
-      cy.get('body').then($body => {
-        const hasTitle = $body.find('p[class*="font-medium"], p[class*="font-semibold"]').length > 0 ||
-                         $body.text().includes('No notifications');
-        if (hasTitle) {
-          cy.log('Notification titles displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['p[class*="font-medium"]', 'p[class*="font-semibold"]']);
     });
 
     it('should display notification message', () => {
-      cy.get('body').then($body => {
-        const hasMessage = $body.find('p[class*="secondary"]').length > 0 ||
-                           $body.text().includes('No notifications');
-        if (hasMessage) {
-          cy.log('Notification messages displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('p[class*="secondary"]').should('exist');
     });
 
     it('should display notification timestamp', () => {
-      cy.get('body').then($body => {
-        const hasTimestamp = $body.text().includes('ago') ||
-                             $body.text().includes('Just now');
-        if (hasTimestamp) {
-          cy.log('Notification timestamps displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['ago', 'Just now']);
     });
 
     it('should display notification category', () => {
-      cy.get('body').then($body => {
-        const hasCategory = $body.find('[class*="badge"], span[class*="rounded"]').length > 0;
-        if (hasCategory) {
-          cy.log('Notification category displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['[class*="badge"]', 'span[class*="rounded"]']);
     });
 
     it('should display severity icon', () => {
-      cy.get('body').then($body => {
-        const hasSeverityIcon = $body.find('svg').length > 0 ||
-                                $body.find('[class*="icon"]').length > 0;
-        if (hasSeverityIcon) {
-          cy.log('Severity icon displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['svg', '[class*="icon"]']);
     });
   });
 
@@ -251,37 +127,15 @@ describe('Account Notifications Page Tests', () => {
     });
 
     it('should have mark as read button', () => {
-      cy.get('body').then($body => {
-        const markReadButton = $body.find('button[title*="Mark as read"], button[title*="read"]');
-        if (markReadButton.length > 0) {
-          cy.log('Mark as read button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['button[title*="Mark as read"]', 'button[title*="read"]']);
     });
 
     it('should have dismiss button', () => {
-      cy.get('body').then($body => {
-        const dismissButton = $body.find('button[title*="Dismiss"]');
-        if (dismissButton.length > 0) {
-          cy.log('Dismiss button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button[title*="Dismiss"]').should('exist');
     });
 
     it('should have action link when available', () => {
-      cy.get('body').then($body => {
-        const hasActionLink = $body.find('a[class*="link"]').length > 0 ||
-                              $body.text().includes('→');
-        if (hasActionLink) {
-          cy.log('Action link displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('a[class*="link"]').should('exist');
     });
   });
 
@@ -295,38 +149,15 @@ describe('Account Notifications Page Tests', () => {
       cy.visit('/app/account/notifications');
       cy.wait('@getEmptyNotifications');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasEmpty = $body.text().includes('No notifications') ||
-                         $body.text().includes('all caught up');
-        if (hasEmpty) {
-          cy.log('Empty state displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['No notifications', 'all caught up']);
     });
 
     it('should show different message for unread filter empty', () => {
       cy.visit('/app/account/notifications');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const unreadTab = $body.find('button:contains("Unread")');
-        if (unreadTab.length > 0) {
-          cy.wrap(unreadTab).first().should('be.visible').click();
-          cy.waitForPageLoad();
-          cy.get('body').then($emptyBody => {
-            const hasEmptyUnread = $emptyBody.text().includes('read all') ||
-                                   $emptyBody.text().includes('No notifications');
-            if (hasEmptyUnread) {
-              cy.log('Unread empty state message shown');
-            }
-          });
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button').contains(/^Unread$/i).first().click();
+      cy.waitForPageLoad();
+      cy.assertContainsAny(['read all', 'No notifications']);
     });
   });
 
@@ -337,49 +168,19 @@ describe('Account Notifications Page Tests', () => {
     });
 
     it('should display pagination when multiple pages', () => {
-      cy.get('body').then($body => {
-        const hasPagination = $body.text().includes('Page') ||
-                              $body.find('button:contains("Previous")').length > 0;
-        if (hasPagination) {
-          cy.log('Pagination displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Page', 'Previous']);
     });
 
     it('should have Previous button', () => {
-      cy.get('body').then($body => {
-        const prevButton = $body.find('button:contains("Previous")');
-        if (prevButton.length > 0) {
-          cy.log('Previous button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button').contains(/Previous/i).should('exist');
     });
 
     it('should have Next button', () => {
-      cy.get('body').then($body => {
-        const nextButton = $body.find('button:contains("Next")');
-        if (nextButton.length > 0) {
-          cy.log('Next button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button').contains(/Next/i).should('exist');
     });
 
     it('should display current page number', () => {
-      cy.get('body').then($body => {
-        const hasPageNumber = $body.text().includes('Page 1') ||
-                              $body.text().match(/Page \d+ of \d+/);
-        if (hasPageNumber) {
-          cy.log('Current page number displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Page 1', 'Page']);
     });
   });
 
@@ -390,47 +191,19 @@ describe('Account Notifications Page Tests', () => {
     });
 
     it('should display info severity style', () => {
-      cy.get('body').then($body => {
-        const hasInfoStyle = $body.find('[class*="info"]').length > 0;
-        if (hasInfoStyle) {
-          cy.log('Info severity style displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('[class*="info"]').should('exist');
     });
 
     it('should display success severity style', () => {
-      cy.get('body').then($body => {
-        const hasSuccessStyle = $body.find('[class*="success"]').length > 0;
-        if (hasSuccessStyle) {
-          cy.log('Success severity style displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('[class*="success"]').should('exist');
     });
 
     it('should display warning severity style', () => {
-      cy.get('body').then($body => {
-        const hasWarningStyle = $body.find('[class*="warning"]').length > 0;
-        if (hasWarningStyle) {
-          cy.log('Warning severity style displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('[class*="warning"]').should('exist');
     });
 
     it('should display error severity style', () => {
-      cy.get('body').then($body => {
-        const hasErrorStyle = $body.find('[class*="error"], [class*="danger"]').length > 0;
-        if (hasErrorStyle) {
-          cy.log('Error severity style displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['[class*="error"]', '[class*="danger"]']);
     });
   });
 
@@ -445,7 +218,7 @@ describe('Account Notifications Page Tests', () => {
       cy.wait('@getNotificationsError');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Notifications', 'Error']);
       cy.get('body').should('not.contain.text', 'Cannot read');
       cy.get('body').should('not.contain.text', 'TypeError');
     });
@@ -459,17 +232,7 @@ describe('Account Notifications Page Tests', () => {
       cy.visit('/app/account/notifications');
       cy.wait('@getNotificationsFailed');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasError = $body.text().includes('Error') ||
-                         $body.text().includes('Failed') ||
-                         $body.find('[class*="error"]').length > 0;
-        if (hasError) {
-          cy.log('Error notification displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Error', 'Failed']);
     });
   });
 
@@ -482,17 +245,8 @@ describe('Account Notifications Page Tests', () => {
       }).as('getNotificationsDelayed');
 
       cy.visit('/app/account/notifications');
-
-      cy.get('body').then($body => {
-        const hasLoading = $body.find('[class*="spin"], [class*="loading"]').length > 0 ||
-                           $body.text().includes('Loading');
-        if (hasLoading) {
-          cy.log('Loading indicator displayed');
-        }
-      });
-
+      cy.assertHasElement(['[class*="spin"]', '[class*="loading"]']);
       cy.wait('@getNotificationsDelayed');
-      cy.get('body').should('be.visible');
     });
   });
 
@@ -501,36 +255,21 @@ describe('Account Notifications Page Tests', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/account/notifications');
       cy.waitForPageLoad();
-
-      cy.get('body').should('be.visible');
-      cy.get('body').then($body => {
-        const hasContent = $body.text().includes('Notifications');
-        if (hasContent) {
-          cy.log('Content visible on mobile');
-        }
-      });
+      cy.assertContainsAny(['Notifications']);
     });
 
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/account/notifications');
       cy.waitForPageLoad();
-
-      cy.get('body').should('be.visible');
-      cy.get('body').then($body => {
-        const hasContent = $body.text().includes('Notifications');
-        if (hasContent) {
-          cy.log('Content visible on tablet');
-        }
-      });
+      cy.assertContainsAny(['Notifications']);
     });
 
     it('should stack layout on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/account/notifications');
       cy.waitForPageLoad();
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Notifications']);
     });
   });
 });

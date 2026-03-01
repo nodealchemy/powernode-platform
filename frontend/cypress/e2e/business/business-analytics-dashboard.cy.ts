@@ -115,12 +115,8 @@ describe('Business Analytics Dashboard Page Tests', () => {
   describe('Export Modal', () => {
     it('should open export modal when Export clicked', () => {
       cy.navigateTo('/app/business/analytics');
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Export")').length > 0) {
-          cy.clickButton('Export');
-          cy.assertContainsAny(['Export', 'Download', 'Format']);
-        }
-      });
+      cy.clickButton('Export');
+      cy.assertContainsAny(['Export', 'Download', 'Format']);
     });
   });
 

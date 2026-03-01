@@ -76,7 +76,7 @@ describe('AI Workflows Tests', () => {
       cy.get('input[type="search"], input[placeholder*="search"], input[placeholder*="Search"]')
         .first()
         .type('test');
-      cy.get('body').should('be.visible');
+      cy.waitForStableDOM();
     });
 
     it('should clear search and show all workflows', () => {
@@ -84,7 +84,7 @@ describe('AI Workflows Tests', () => {
         .first()
         .type('test')
         .clear();
-      cy.get('body').should('be.visible');
+      cy.waitForStableDOM();
     });
   });
 
@@ -98,12 +98,8 @@ describe('AI Workflows Tests', () => {
     });
 
     it('should filter by draft status', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("All Statuses")').length > 0) {
-          cy.clickButton('All Statuses');
-          cy.assertContainsAny(['Draft', 'Active', 'Inactive']);
-        }
-      });
+      cy.clickButton('All Statuses');
+      cy.assertContainsAny(['Draft', 'Active', 'Inactive']);
     });
   });
 
@@ -127,21 +123,13 @@ describe('AI Workflows Tests', () => {
     });
 
     it('should filter to show only workflows', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Workflows")').not(':contains("All")').length > 0) {
-          cy.contains('button', 'Workflows').not(':contains("All")').click();
-          cy.url().should('include', 'type=workflows');
-        }
-      });
+      cy.contains('button', 'Workflows').not(':contains("All")').click();
+      cy.url().should('include', 'type=workflows');
     });
 
     it('should filter to show only templates', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Templates")').length > 0) {
-          cy.clickButton('Templates');
-          cy.url().should('include', 'type=templates');
-        }
-      });
+      cy.clickButton('Templates');
+      cy.url().should('include', 'type=templates');
     });
   });
 
@@ -165,33 +153,21 @@ describe('AI Workflows Tests', () => {
     });
 
     it('should open create modal when button clicked', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Create Workflow")').length > 0) {
-          cy.clickButton('Create Workflow');
-          cy.assertModalVisible('Create');
-        }
-      });
+      cy.clickButton('Create Workflow');
+      cy.assertModalVisible('Create');
     });
 
     it('should have name input in create modal', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Create Workflow")').length > 0) {
-          cy.clickButton('Create Workflow');
-          cy.waitForStableDOM();
-          cy.assertHasElement(['input[name="name"]', 'input[placeholder*="name"]']);
-        }
-      });
+      cy.clickButton('Create Workflow');
+      cy.waitForStableDOM();
+      cy.assertHasElement(['input[name="name"]', 'input[placeholder*="name"]']);
     });
 
     it('should close modal when cancel clicked', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Create Workflow")').length > 0) {
-          cy.clickButton('Create Workflow');
-          cy.waitForStableDOM();
-          cy.get('button:contains("Cancel"), button:contains("Close")').first().click();
-          cy.waitForModalClose();
-        }
-      });
+      cy.clickButton('Create Workflow');
+      cy.waitForStableDOM();
+      cy.get('button:contains("Cancel"), button:contains("Close")').first().click();
+      cy.waitForModalClose();
     });
   });
 
@@ -201,22 +177,7 @@ describe('AI Workflows Tests', () => {
     });
 
     it('should have view details action when workflows exist', () => {
-      // View Details button has title="View Details" or could be a link to workflow detail page
-      // Check for either the action button OR the empty state - both are valid
-      cy.get('body').then($body => {
-        const bodyText = $body.text();
-        const hasEmptyState = bodyText.includes('No workflows found') || bodyText.includes('No workflows') || bodyText.includes('Get started');
-        const hasViewButton = $body.find('button[title*="View"], button[title*="Details"], a[href*="/workflows/"], [class*="lucide-eye"]').length > 0;
-        const hasWorkflowsTable = $body.find('table tbody tr').length > 0 || $body.find('[class*="table"]').length > 0;
-
-        if (hasEmptyState || hasViewButton || hasWorkflowsTable) {
-          // Test passes - either we have workflows with view action, or no workflows (empty state)
-          cy.log('Page shows either workflows with view action or empty state');
-        } else {
-          // Still loading or error state - just verify page loaded
-          cy.get('body').should('be.visible');
-        }
-      });
+      cy.assertContainsAny(['No workflows found', 'No workflows', 'Get started', 'View', 'Details']);
     });
   });
 
@@ -226,18 +187,7 @@ describe('AI Workflows Tests', () => {
     });
 
     it('should have execute action for active workflows', () => {
-      // Execute button has title="Execute Workflow" - may not be visible if no active workflows or no permission
-      cy.get('body').then($body => {
-        const hasExecuteButton = $body.find('button[title*="Execute"]').length > 0 ||
-                                  $body.find('[class*="lucide-play"]').length > 0;
-        const hasActiveWorkflows = $body.text().includes('Active') || $body.text().includes('active');
-        // If there are active workflows, we expect execute button, otherwise pass
-        if (hasActiveWorkflows) {
-          cy.assertHasElement(['button[title*="Execute"]', '[class*="lucide-play"]']);
-        } else {
-          cy.log('No active workflows found - execute button not expected');
-        }
-      });
+      cy.assertContainsAny(['Active', 'Execute', 'No workflows']);
     });
   });
 
@@ -247,7 +197,6 @@ describe('AI Workflows Tests', () => {
     });
 
     it('should have duplicate action', () => {
-      // Duplicate button has title="Duplicate" or "Copy"
       cy.assertHasElement(['button[title*="Duplicate"]', 'button[title*="Copy"]', '[class*="lucide-copy"]']);
     });
   });
@@ -258,16 +207,7 @@ describe('AI Workflows Tests', () => {
     });
 
     it('should have delete action', () => {
-      // Delete button may only appear for users with delete permission
-      cy.get('body').then($body => {
-        const hasDeleteButton = $body.find('button[title*="Delete"]').length > 0 ||
-                                 $body.find('[class*="lucide-trash"]').length > 0;
-        if (hasDeleteButton) {
-          cy.assertHasElement(['button[title*="Delete"]', '[class*="lucide-trash"]']);
-        } else {
-          cy.log('No delete button found - may not have delete permissions');
-        }
-      });
+      cy.assertHasElement(['button[title*="Delete"]', '[class*="lucide-trash"]']);
     });
   });
 
@@ -277,22 +217,7 @@ describe('AI Workflows Tests', () => {
     });
 
     it('should have design action when workflows exist', () => {
-      // Design/Edit button has title="Edit Workflow" or "Design"
-      // Check for either the action button OR the empty state - both are valid
-      cy.get('body').then($body => {
-        const bodyText = $body.text();
-        const hasEmptyState = bodyText.includes('No workflows found') || bodyText.includes('No workflows') || bodyText.includes('Get started');
-        const hasDesignButton = $body.find('button[title*="Design"], button[title*="Builder"], button[title*="Edit"], [class*="lucide-edit"], [class*="lucide-pencil"]').length > 0;
-        const hasWorkflowsTable = $body.find('table tbody tr').length > 0 || $body.find('[class*="table"]').length > 0;
-
-        if (hasEmptyState || hasDesignButton || hasWorkflowsTable) {
-          // Test passes - either we have workflows with design action, or no workflows (empty state)
-          cy.log('Page shows either workflows with design action or empty state');
-        } else {
-          // Still loading or error state - just verify page loaded
-          cy.get('body').should('be.visible');
-        }
-      });
+      cy.assertContainsAny(['No workflows found', 'No workflows', 'Get started', 'Design', 'Edit', 'Builder']);
     });
   });
 
@@ -302,7 +227,7 @@ describe('AI Workflows Tests', () => {
     });
 
     it('should display pagination controls when many workflows exist', () => {
-      cy.assertHasElement(['[class*="pagination"]', '[class*="Pagination"]', 'nav[aria-label="pagination"]', 'button:contains("Next")', 'div']);
+      cy.assertHasElement(['[class*="pagination"]', '[class*="Pagination"]', 'nav[aria-label="pagination"]', 'button:contains("Next")']);
     });
   });
 
@@ -352,12 +277,8 @@ describe('AI Workflows Tests', () => {
     });
 
     it('should navigate to monitoring page', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Monitoring")').length > 0) {
-          cy.clickButton('Monitoring');
-          cy.url().should('include', '/monitoring');
-        }
-      });
+      cy.clickButton('Monitoring');
+      cy.url().should('include', '/monitoring');
     });
   });
 
@@ -371,12 +292,8 @@ describe('AI Workflows Tests', () => {
     });
 
     it('should navigate to import page', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Import")').length > 0) {
-          cy.clickButton('Import');
-          cy.url().should('include', '/import');
-        }
-      });
+      cy.clickButton('Import');
+      cy.url().should('include', '/import');
     });
   });
 
@@ -411,7 +328,7 @@ describe('AI Workflows Tests', () => {
     it('should stack elements on small screens', () => {
       cy.viewport(375, 667);
       cy.assertPageReady('/app/ai/workflows');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Workflow', 'AI']);
     });
   });
 });

@@ -55,11 +55,7 @@ describe('AI Workflow Monitoring Redirect Tests', () => {
     });
 
     it('should have navigation to workflow details', () => {
-      cy.get('body').then($body => {
-        const hasWorkflowNav = $body.find('a[href*="workflow"], button:contains("Workflow")').length > 0 ||
-                              $body.text().includes('Workflow');
-        expect(hasWorkflowNav).to.be.true;
-      });
+      cy.assertContainsAny(['Workflow', 'Workflows']);
     });
   });
 
@@ -83,7 +79,7 @@ describe('AI Workflow Monitoring Redirect Tests', () => {
       cy.visit('/app/ai/workflow-monitoring');
 
       cy.url().should('include', '/app/ai/monitoring');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Monitoring', 'AI']);
     });
 
     it('should redirect correctly on tablet viewport', () => {
@@ -91,7 +87,7 @@ describe('AI Workflow Monitoring Redirect Tests', () => {
       cy.visit('/app/ai/workflow-monitoring');
 
       cy.url().should('include', '/app/ai/monitoring');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Monitoring', 'AI']);
     });
   });
 });

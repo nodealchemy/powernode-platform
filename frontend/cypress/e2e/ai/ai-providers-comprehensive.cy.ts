@@ -89,12 +89,8 @@ describe('AI Providers Comprehensive Tests', () => {
     });
 
     it('should have Test button when credentials exist', () => {
-      cy.get('body').then($body => {
-        // Test button only appears when credential_count > 0
-        if ($body.text().includes('Credentials')) {
-          cy.get('button').contains(/test/i).should('exist');
-        }
-      });
+      // Test button appears when credential_count > 0; page always shows credentials info
+      cy.get('button').contains(/test/i).should('exist');
     });
 
     it('should have Edit Settings button', () => {

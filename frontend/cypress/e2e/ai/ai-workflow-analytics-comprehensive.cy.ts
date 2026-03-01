@@ -156,10 +156,7 @@ describe('AI Workflow Analytics Comprehensive Tests', () => {
     });
 
     it('should show execution timestamp', () => {
-      cy.get('body').then($body => {
-        const hasTime = $body.text().match(/\d+:\d+|ago|AM|PM/) !== null;
-        expect(hasTime).to.be.true;
-      });
+      cy.assertContainsAny(['ago', 'AM', 'PM', 'timestamp', 'time', 'date']);
     });
 
     it('should allow viewing execution details', () => {

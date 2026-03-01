@@ -63,13 +63,13 @@ describe('End-to-End User Journey Tests', () => {
 
     it('should allow returning user to login', () => {
       cy.url().should('match', /\/(app|dashboard)/);
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Dashboard', 'Welcome']);
     });
 
     it('should maintain session after page refresh', () => {
       cy.reload();
       cy.url().should('match', /\/(app|dashboard)/);
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Dashboard', 'Welcome']);
     });
 
     it('should allow logout and re-login', () => {
@@ -97,15 +97,9 @@ describe('End-to-End User Journey Tests', () => {
     it('should handle forgotten password flow if available', () => {
       cy.visit('/login');
 
-      cy.get('body').then($body => {
-        if ($body.find('[href*="forgot"], [data-testid="forgot-password"]').length > 0) {
-          cy.get('[href*="forgot"], [data-testid="forgot-password"]').first().click();
-          cy.url().should('satisfy', (url: string) => {
-            return url.includes('/forgot') || url.includes('/reset') || url.includes('/password');
-          });
-        } else {
-          cy.log('Forgot password link not found');
-        }
+      cy.get('[href*="forgot"], [data-testid="forgot-password"]').first().click();
+      cy.url().should('satisfy', (url: string) => {
+        return url.includes('/forgot') || url.includes('/reset') || url.includes('/password');
       });
     });
   });
@@ -117,17 +111,17 @@ describe('End-to-End User Journey Tests', () => {
 
     it('should handle desktop to mobile viewport transition', () => {
       cy.viewport(1280, 720);
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Dashboard', 'Welcome']);
 
       cy.viewport(375, 667);
       cy.reload();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Dashboard', 'Welcome']);
       cy.url().should('match', /\/(app|dashboard)/);
     });
 
     it('should handle tablet viewport', () => {
       cy.viewport(768, 1024);
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Dashboard', 'Welcome']);
       cy.url().should('match', /\/(app|dashboard)/);
     });
 
@@ -151,7 +145,6 @@ describe('End-to-End User Journey Tests', () => {
     it('should navigate between pages smoothly', () => {
       // Navigate to plans
       cy.visit('/plans');
-      cy.get('body').should('be.visible');
       // Plans page should load - either showing plan cards or some content
       cy.get('body').should('satisfy', ($body) => {
         const hasPlans = $body.find('[data-testid="plan-card"], [data-public-plan-card="true"]').length > 0;

@@ -63,7 +63,7 @@ describe('AI MCP Browser Page Tests', () => {
     });
 
     it('should display statistics grid layout', () => {
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['MCP Browser', 'MCP']);
     });
   });
 
@@ -73,23 +73,12 @@ describe('AI MCP Browser Page Tests', () => {
     });
 
     it('should display search input or page content', () => {
-      cy.get('body').then($body => {
-        const hasSearch = $body.find('input[placeholder*="Search"], input[placeholder*="search"], input[type="search"], input[type="text"]').length > 0;
-        if (hasSearch) {
-          cy.log('Search input found');
-        }
-        cy.get('body').should('be.visible');
-      });
+      cy.assertHasElement(['input[placeholder*="Search"]', 'input[placeholder*="search"]', 'input[type="search"]', 'input[type="text"]']);
     });
 
     it('should search servers or display page', () => {
-      cy.get('body').then($body => {
-        const searchInput = $body.find('input[placeholder*="Search"], input[placeholder*="search"], input[type="search"]');
-        if (searchInput.length > 0) {
-          cy.wrap(searchInput).first().type('test');
-        }
-        cy.get('body').should('be.visible');
-      });
+      cy.get('input[placeholder*="Search"], input[placeholder*="search"], input[type="search"]').first().type('test');
+      cy.waitForStableDOM();
     });
 
     it('should display status filter or page content', () => {
@@ -125,24 +114,13 @@ describe('AI MCP Browser Page Tests', () => {
     });
 
     it('should have Refresh button or page content', () => {
-      cy.get('body').then($body => {
-        const hasRefresh = $body.find('button:contains("Refresh"), [aria-label*="refresh"], button svg').length > 0;
-        if (hasRefresh) {
-          cy.log('Refresh button found');
-        }
-        cy.get('body').should('be.visible');
-      });
+      cy.assertHasElement(['button:contains("Refresh")', '[aria-label*="refresh"]', 'button svg']);
     });
 
     it('should open Add Server modal if button exists', () => {
-      cy.get('body').then($body => {
-        const addBtn = $body.find('button:contains("Add Server"), button:contains("Add")');
-        if (addBtn.length > 0) {
-          cy.wrap(addBtn).first().click();
-          cy.waitForStableDOM();
-        }
-        cy.get('body').should('be.visible');
-      });
+      cy.get('button:contains("Add Server"), button:contains("Add")').first().click();
+      cy.waitForStableDOM();
+      cy.assertContainsAny(['Add', 'Server', 'URL', 'Name']);
     });
   });
 
@@ -225,44 +203,36 @@ describe('AI MCP Browser Page Tests', () => {
         body: { success: true, data: { servers: [], tools: [] } }
       });
       cy.visit('/app/ai/mcp');
-      cy.get('body').then($body => {
-        const hasLoading = $body.find('[class*="spin"], [class*="loading"], [class*="animate-pulse"]').length > 0;
-        const hasContent = $body.text().includes('MCP');
-        if (hasLoading || hasContent) {
-          cy.log('Page shows loading or content');
-        }
-        cy.get('body').should('be.visible');
-      });
+      cy.assertHasElement(['[class*="spin"]', '[class*="loading"]', '[class*="animate-pulse"]']);
     });
   });
 
   describe('Responsive Design', () => {
     it('should display properly on mobile viewport', () => {
-      cy.viewport('iphone-x');
-      cy.visit('/app/ai/mcp');
-      cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.testResponsiveDesign('/app/ai/mcp', {
+        checkContent: ['MCP']
+      });
     });
 
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/ai/mcp');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['MCP Browser', 'MCP']);
     });
 
     it('should stack server cards on small screens', () => {
       cy.viewport(375, 667);
       cy.visit('/app/ai/mcp');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['MCP Browser', 'MCP']);
     });
 
     it('should show layout on large screens', () => {
       cy.viewport(1280, 800);
       cy.visit('/app/ai/mcp');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['MCP Browser', 'MCP']);
     });
   });
 });

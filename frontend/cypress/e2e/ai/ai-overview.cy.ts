@@ -106,8 +106,7 @@ describe('AI Overview Page Tests', () => {
     it('should handle empty AI system gracefully', () => {
       cy.mockEndpoint('GET', '/api/v1/ai/*', []);
       cy.navigateTo('/app/ai');
-      cy.get('body').should('be.visible');
-      cy.get('body').should('not.contain.text', 'Cannot read');
+      cy.assertContainsAny(['AI Overview', 'AI Dashboard', 'AI', 'Overview']);
     });
   });
 
@@ -137,7 +136,7 @@ describe('AI Overview Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.navigateTo('/app/ai');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['AI Overview', 'AI Dashboard', 'AI']);
     });
   });
 });

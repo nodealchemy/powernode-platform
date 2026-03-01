@@ -22,7 +22,7 @@ describe('Marketplace Item Detail Page Tests', () => {
       cy.assertPageReady('/app/marketplace');
       cy.assertHasElement(['a[href*="/app/marketplace/"]', 'button:contains("View")']).first().click();
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Marketplace', 'Item', 'Detail']);
     });
 
     it('should display page title', () => {
@@ -149,7 +149,7 @@ describe('Marketplace Item Detail Page Tests', () => {
 
     it('should click subscribe button', () => {
       cy.assertHasElement(['button:contains("Subscribe")', 'button:contains("Install")']);
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Marketplace', 'Item', 'Detail']);
     });
   });
 
@@ -170,7 +170,7 @@ describe('Marketplace Item Detail Page Tests', () => {
       cy.visit('/app/marketplace/workflow_template/nonexistent');
       cy.waitForPageLoad();
       // May show error, redirect to marketplace, or show empty state
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Marketplace', 'Item', 'Detail']);
       cy.verifyNoConsoleErrors();
     });
   });
@@ -197,14 +197,14 @@ describe('Marketplace Item Detail Page Tests', () => {
       cy.testViewport('mobile');
       cy.assertHasElement(['a[href*="/app/marketplace/"]']).first().click();
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Marketplace', 'Item', 'Detail']);
     });
 
     it('should display properly on tablet viewport', () => {
       cy.testViewport('tablet');
       cy.assertHasElement(['a[href*="/app/marketplace/"]']).first().click();
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Marketplace', 'Item', 'Detail']);
     });
 
     it('should show two-column layout on large screens', () => {

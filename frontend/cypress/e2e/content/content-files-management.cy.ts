@@ -78,16 +78,7 @@ describe('Content Files Management Workflows Tests', () => {
     });
 
     it('should display file information or empty state message', () => {
-      cy.get('body').then($body => {
-        if ($body.text().includes('No files')) {
-          cy.log('Empty state displayed');
-          cy.assertContainsAny(['No files', 'Upload']);
-        } else if ($body.text().includes('Failed to load')) {
-          cy.log('Files failed to load');
-        } else {
-          cy.log('Files loaded - checking for file info');
-        }
-      });
+      cy.assertContainsAny(['document', 'image', 'No files', 'Upload', 'My Files']);
     });
   });
 
@@ -118,26 +109,13 @@ describe('Content Files Management Workflows Tests', () => {
     });
 
     it('should have checkboxes when files exist', () => {
-      cy.get('body').then($body => {
-        // Only test if files are displayed (not empty state or error)
-        if (!$body.text().includes('No files') && !$body.text().includes('Failed to load')) {
-          cy.get('input[type="checkbox"]').should('exist');
-        } else {
-          cy.log('Files not loaded - skipping checkbox test');
-        }
-      });
+      cy.assertHasElement(['input[type="checkbox"]']);
     });
 
     it('should show bulk action bar when files selected', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No files') && !$body.text().includes('Failed to load')) {
-          cy.get('input[type="checkbox"]').first().check({ force: true });
-          cy.waitForPageLoad();
-          cy.assertContainsAny(['selected', 'Download', 'Delete', 'Clear']);
-        } else {
-          cy.log('Files not loaded - skipping bulk action test');
-        }
-      });
+      cy.get('input[type="checkbox"]').first().check({ force: true });
+      cy.waitForPageLoad();
+      cy.assertContainsAny(['selected', 'Download', 'Delete', 'Clear']);
     });
   });
 
@@ -147,24 +125,11 @@ describe('Content Files Management Workflows Tests', () => {
     });
 
     it('should display storage info when files loaded', () => {
-      cy.get('body').then($body => {
-        // Storage stats are only shown when fileStats is available
-        if ($body.text().includes('Storage Used') || $body.text().includes('Total Files')) {
-          cy.assertContainsAny(['Storage Used', 'Total Files', 'Storage']);
-        } else {
-          cy.log('Storage stats not displayed - files may not have loaded');
-        }
-      });
+      cy.assertContainsAny(['Storage Used', 'Total Files', 'Files', 'My Files']);
     });
 
     it('should display total files count when available', () => {
-      cy.get('body').then($body => {
-        if ($body.text().includes('Total Files')) {
-          cy.contains(/total files/i).should('exist');
-        } else {
-          cy.log('Total files card not visible');
-        }
-      });
+      cy.assertContainsAny(['Total Files', 'Files', 'My Files']);
     });
   });
 

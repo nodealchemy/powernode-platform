@@ -64,13 +64,7 @@ describe('Knowledge Base Admin Workflows Tests', () => {
     });
 
     it('should have view analytics quick action for admins', () => {
-      cy.get('body').then($body => {
-        // Analytics is only shown for users with kb.manage permission
-        if ($body.text().includes('View Analytics')) {
-          cy.contains('View Analytics').should('exist');
-          cy.contains('Track content performance').should('exist');
-        }
-      });
+      cy.assertContainsAny(['View Analytics', 'Quick Actions', 'Knowledge Base']);
     });
   });
 
@@ -88,36 +82,19 @@ describe('Knowledge Base Admin Workflows Tests', () => {
     });
 
     it('should display article status badges when articles exist', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No articles yet')) {
-          cy.assertContainsAny(['published', 'draft', 'review', 'archived']);
-        }
-      });
+      cy.assertContainsAny(['published', 'draft', 'review', 'archived', 'No articles yet']);
     });
 
     it('should display article metadata when articles exist', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No articles yet')) {
-          cy.assertContainsAny(['views', 'By', 'Tutorials', 'Documentation']);
-        }
-      });
+      cy.assertContainsAny(['views', 'By', 'Tutorials', 'Documentation', 'No articles yet']);
     });
 
     it('should have view and edit buttons when articles exist', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No articles yet')) {
-          cy.get('button').contains(/view/i).should('exist');
-          cy.get('button').contains(/edit/i).should('exist');
-        }
-      });
+      cy.assertContainsAny(['View', 'Edit', 'No articles yet']);
     });
 
     it('should have select all button when articles exist', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No articles yet')) {
-          cy.get('button').contains(/select all|deselect all/i).should('exist');
-        }
-      });
+      cy.assertContainsAny(['Select All', 'Deselect All', 'No articles yet']);
     });
   });
 
@@ -168,29 +145,17 @@ describe('Knowledge Base Admin Workflows Tests', () => {
     });
 
     it('should have checkboxes for article selection when articles exist', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No articles yet')) {
-          cy.get('input[type="checkbox"]').should('exist');
-        }
-      });
+      cy.assertHasElement(['input[type="checkbox"]']);
     });
 
     it('should show selected count when articles are selected', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No articles yet')) {
-          cy.get('input[type="checkbox"]').first().check({ force: true });
-          cy.contains(/selected/i).should('exist');
-        }
-      });
+      cy.get('input[type="checkbox"]').first().check({ force: true });
+      cy.contains(/selected/i).should('exist');
     });
 
     it('should toggle select all / deselect all', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No articles yet')) {
-          cy.get('button').contains(/select all/i).click();
-          cy.get('button').contains(/deselect all/i).should('exist');
-        }
-      });
+      cy.get('button').contains(/select all/i).click();
+      cy.get('button').contains(/deselect all/i).should('exist');
     });
   });
 
@@ -200,23 +165,13 @@ describe('Knowledge Base Admin Workflows Tests', () => {
     });
 
     it('should show bulk action buttons when articles are selected', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No articles yet')) {
-          cy.get('input[type="checkbox"]').first().check({ force: true });
-          // Bulk actions appear in page actions
-          cy.assertContainsAny(['Publish', 'Archive', 'Delete']);
-        }
-      });
+      cy.get('input[type="checkbox"]').first().check({ force: true });
+      cy.assertContainsAny(['Publish', 'Archive', 'Delete']);
     });
 
     it('should show count in bulk action buttons', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No articles yet')) {
-          cy.get('input[type="checkbox"]').first().check({ force: true });
-          // Bulk actions show count like "Publish (1)"
-          cy.get('button').contains(/\(1\)/).should('exist');
-        }
-      });
+      cy.get('input[type="checkbox"]').first().check({ force: true });
+      cy.get('button').contains(/\(1\)/).should('exist');
     });
   });
 

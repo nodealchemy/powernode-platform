@@ -44,7 +44,7 @@ describe('Logo Smart Navigation', () => {
     it('should navigate between pages', () => {
       // Navigate to settings
       cy.visit('/app/settings/profile');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Profile', 'Settings']);
 
       // Navigate back to app
       cy.visit('/app');
@@ -54,7 +54,7 @@ describe('Logo Smart Navigation', () => {
     it('should maintain session during navigation', () => {
       // Navigate to different pages
       cy.visit('/app/settings/profile');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Profile', 'Settings']);
 
       cy.visit('/app');
       cy.url().should('match', /\/(app|dashboard)/);

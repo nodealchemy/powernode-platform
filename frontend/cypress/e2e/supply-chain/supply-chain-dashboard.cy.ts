@@ -31,13 +31,8 @@ describe('Supply Chain Dashboard Tests', () => {
 
     it('should navigate from main dashboard via sidebar', () => {
       cy.navigateTo('/app/dashboard');
-      cy.get('body').then(($body) => {
-        const supplyChainLink = $body.find('a[href*="/supply-chain"]');
-        if (supplyChainLink.length > 0) {
-          cy.wrap(supplyChainLink).first().click();
-          cy.url().should('include', '/supply-chain');
-        }
-      });
+      cy.get('a[href*="/supply-chain"]').first().click();
+      cy.url().should('include', '/supply-chain');
     });
   });
 
@@ -98,12 +93,7 @@ describe('Supply Chain Dashboard Tests', () => {
     });
 
     it('should show alert action links', () => {
-      cy.get('body').then($body => {
-        const alertLinks = $body.find('[data-testid*="alert"] a, [data-testid*="alert"] button');
-        if (alertLinks.length > 0) {
-          cy.wrap(alertLinks).first().should('be.visible');
-        }
-      });
+      cy.assertHasElement(['[data-testid*="alert"] a', '[data-testid*="alert"] button', 'a[href*="/supply-chain"]']);
     });
   });
 
@@ -121,8 +111,7 @@ describe('Supply Chain Dashboard Tests', () => {
     });
 
     it('should display activity timestamps', () => {
-      // Activities should show relative or absolute timestamps
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['ago', 'minute', 'hour', 'day', 'yesterday', 'Today']);
     });
   });
 
@@ -136,23 +125,13 @@ describe('Supply Chain Dashboard Tests', () => {
     });
 
     it('should navigate to SBOMs from quick link', () => {
-      cy.get('body').then($body => {
-        const sbomLink = $body.find('a[href*="/sboms"]');
-        if (sbomLink.length > 0) {
-          cy.wrap(sbomLink).first().click();
-          cy.url().should('include', '/sboms');
-        }
-      });
+      cy.get('a[href*="/sboms"]').first().click();
+      cy.url().should('include', '/sboms');
     });
 
     it('should navigate to Vendors from quick link', () => {
-      cy.get('body').then($body => {
-        const vendorLink = $body.find('a[href*="/vendors"]');
-        if (vendorLink.length > 0) {
-          cy.wrap(vendorLink).first().click();
-          cy.url().should('include', '/vendors');
-        }
-      });
+      cy.get('a[href*="/vendors"]').first().click();
+      cy.url().should('include', '/vendors');
     });
   });
 
@@ -186,13 +165,8 @@ describe('Supply Chain Dashboard Tests', () => {
     });
 
     it('should refresh data when clicking refresh button', () => {
-      cy.get('body').then($body => {
-        const refreshBtn = $body.find('[data-testid="action-refresh"], [aria-label*="Refresh"], button:contains("Refresh")');
-        if (refreshBtn.length > 0) {
-          cy.wrap(refreshBtn).first().click();
-          cy.wait('@getSupplyChainDashboard');
-        }
-      });
+      cy.get('[data-testid="action-refresh"], [aria-label*="Refresh"], button:contains("Refresh")').first().click();
+      cy.wait('@getSupplyChainDashboard');
     });
   });
 
@@ -228,7 +202,7 @@ describe('Supply Chain Dashboard Tests', () => {
     it('should stack stat cards on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.assertPageReady('/app/supply-chain');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Supply Chain', 'Dashboard']);
     });
   });
 

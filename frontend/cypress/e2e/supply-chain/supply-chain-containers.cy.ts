@@ -58,48 +58,28 @@ describe('Container Images Tests', () => {
     });
 
     it('should filter by verified status', () => {
-      cy.get('body').then($body => {
-        const statusFilter = $body.find('[data-testid="filter-status"], select');
-        if (statusFilter.length > 0) {
-          cy.wrap(statusFilter).first().click();
-          cy.get('[role="option"], option').contains(/verified/i).click();
-          cy.wait('@getContainerImagesFiltered');
-        }
-      });
+      cy.get('[data-testid="filter-status"], select').first().click();
+      cy.get('[role="option"], option').contains(/verified/i).click();
+      cy.wait('@getContainerImagesFiltered');
     });
 
     it('should filter by quarantined status', () => {
-      cy.get('body').then($body => {
-        const statusFilter = $body.find('[data-testid="filter-status"], select');
-        if (statusFilter.length > 0) {
-          cy.wrap(statusFilter).first().click();
-          cy.get('[role="option"], option').contains(/quarantined/i).click();
-          cy.wait('@getContainerImagesFiltered');
-        }
-      });
+      cy.get('[data-testid="filter-status"], select').first().click();
+      cy.get('[role="option"], option').contains(/quarantined/i).click();
+      cy.wait('@getContainerImagesFiltered');
     });
 
     it('should search container images', () => {
-      cy.get('body').then($body => {
-        const searchInput = $body.find('[data-testid="search-input"], input[type="search"], input[placeholder*="Search"]');
-        if (searchInput.length > 0) {
-          cy.wrap(searchInput).first().type('api-server');
-          cy.wait('@getContainerImagesFiltered');
-        }
-      });
+      cy.get('[data-testid="search-input"], input[type="search"], input[placeholder*="Search"]').first().type('api-server');
+      cy.wait('@getContainerImagesFiltered');
     });
   });
 
   describe('Container Image Detail Page', () => {
     it('should navigate to container detail page', () => {
       cy.assertPageReady('/app/supply-chain/containers');
-      cy.get('body').then($body => {
-        const imageRow = $body.find('table tbody tr, [data-testid*="container-row"]');
-        if (imageRow.length > 0) {
-          cy.wrap(imageRow).first().click();
-          cy.url().should('match', /\/containers\/[^/]+$/);
-        }
-      });
+      cy.get('table tbody tr, [data-testid*="container-row"]').first().click();
+      cy.url().should('match', /\/containers\/[^/]+$/);
     });
 
     it('should display container image details', () => {
@@ -149,14 +129,9 @@ describe('Container Images Tests', () => {
     });
 
     it('should trigger scan when clicking scan button', () => {
-      cy.get('body').then($body => {
-        const scanBtn = $body.find('[data-testid="scan-btn"], [data-testid="rescan-btn"], button:contains("Scan")');
-        if (scanBtn.length > 0) {
-          cy.wrap(scanBtn).first().click();
-          cy.wait('@scanContainerImage');
-          cy.assertContainsAny(['Scan', 'started', 'running', 'queued']);
-        }
-      });
+      cy.get('[data-testid="scan-btn"], [data-testid="rescan-btn"], button:contains("Scan")').first().click();
+      cy.wait('@scanContainerImage');
+      cy.assertContainsAny(['Scan', 'started', 'running', 'queued']);
     });
 
     it('should display scan history', () => {
@@ -192,13 +167,8 @@ describe('Container Images Tests', () => {
     it('should show confirmation when quarantining', () => {
       cy.visit('/app/supply-chain/containers/image-1');
       cy.waitForPageLoad();
-      cy.get('body').then($body => {
-        const quarantineBtn = $body.find('[data-testid="quarantine-btn"], button:contains("Quarantine")');
-        if (quarantineBtn.length > 0) {
-          cy.wrap(quarantineBtn).first().click();
-          cy.assertContainsAny(['Confirm', 'Are you sure', 'Quarantine', 'Cancel']);
-        }
-      });
+      cy.get('[data-testid="quarantine-btn"], button:contains("Quarantine")').first().click();
+      cy.assertContainsAny(['Confirm', 'Are you sure', 'Quarantine', 'Cancel']);
     });
 
     it('should have release button for quarantined images', () => {

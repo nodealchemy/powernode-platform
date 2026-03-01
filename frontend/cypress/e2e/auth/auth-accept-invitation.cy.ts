@@ -140,11 +140,7 @@ describe('Accept Invitation Flow Tests', () => {
       // Should display error state - the error message may vary
       cy.contains('Invalid Invitation').should('be.visible');
       // Check for any error message about loading failure
-      cy.get('body').then(($body) => {
-        const text = $body.text();
-        const hasErrorMessage = text.includes('Failed to load') || text.includes('error') || text.includes('expired');
-        expect(hasErrorMessage).to.be.true;
-      });
+      cy.assertContainsAny(['Failed to load', 'error', 'expired']);
     });
   });
 

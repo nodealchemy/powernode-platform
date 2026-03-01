@@ -17,31 +17,13 @@ describe('Public About Page Tests', () => {
     it('should load about page', () => {
       cy.visit('/about');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasAbout = $body.text().includes('About') ||
-                        $body.text().includes('Company') ||
-                        $body.text().includes('Who we are');
-        if (hasAbout) {
-          cy.log('About page loaded');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['About', 'Company', 'Who we are']);
     });
 
     it('should display about header', () => {
       cy.visit('/about');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasHeader = $body.find('h1').length > 0;
-        if (hasHeader) {
-          cy.log('About header displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['h1', 'h2']);
     });
   });
 
@@ -52,41 +34,15 @@ describe('Public About Page Tests', () => {
     });
 
     it('should display company description', () => {
-      cy.get('body').then($body => {
-        const hasDescription = $body.find('p').length > 0;
-        if (hasDescription) {
-          cy.log('Company description displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['p', '.description', '[data-testid="company-description"]']);
     });
 
     it('should display mission or vision statement', () => {
-      cy.get('body').then($body => {
-        const hasMission = $body.text().includes('Mission') ||
-                          $body.text().includes('Vision') ||
-                          $body.text().includes('believe') ||
-                          $body.text().includes('goal');
-        if (hasMission) {
-          cy.log('Mission/vision displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Mission', 'Vision', 'believe', 'goal']);
     });
 
     it('should display company values', () => {
-      cy.get('body').then($body => {
-        const hasValues = $body.text().includes('Values') ||
-                         $body.text().includes('principles') ||
-                         $body.text().includes('commitment');
-        if (hasValues) {
-          cy.log('Company values displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Values', 'principles', 'commitment']);
     });
   });
 
@@ -97,27 +53,11 @@ describe('Public About Page Tests', () => {
     });
 
     it('should display team section', () => {
-      cy.get('body').then($body => {
-        const hasTeam = $body.text().includes('Team') ||
-                       $body.text().includes('People') ||
-                       $body.text().includes('Leadership');
-        if (hasTeam) {
-          cy.log('Team section displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Team', 'People', 'Leadership']);
     });
 
     it('should display team member photos or avatars', () => {
-      cy.get('body').then($body => {
-        const hasPhotos = $body.find('img[alt*="team"], img[alt*="founder"], .avatar').length > 0;
-        if (hasPhotos) {
-          cy.log('Team photos displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['img[alt*="team"]', 'img[alt*="founder"]', '.avatar']);
     });
   });
 
@@ -128,16 +68,7 @@ describe('Public About Page Tests', () => {
     });
 
     it('should display company statistics', () => {
-      cy.get('body').then($body => {
-        const hasStats = $body.text().match(/\d+[+%]?/) !== null ||
-                        $body.text().includes('customers') ||
-                        $body.text().includes('countries');
-        if (hasStats) {
-          cy.log('Company stats displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['customers', 'countries', 'users']);
     });
   });
 
@@ -148,16 +79,7 @@ describe('Public About Page Tests', () => {
     });
 
     it('should have contact or careers link', () => {
-      cy.get('body').then($body => {
-        const hasCTA = $body.find('a[href*="contact"], a[href*="careers"]').length > 0 ||
-                      $body.text().includes('Contact') ||
-                      $body.text().includes('Join');
-        if (hasCTA) {
-          cy.log('CTA link displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Contact', 'Join', 'Careers']);
     });
   });
 
@@ -174,7 +96,7 @@ describe('Public About Page Tests', () => {
         cy.visit('/about');
         cy.waitForPageLoad();
 
-        cy.get('body').should('be.visible');
+        cy.assertContainsAny(['About', 'Our story']);
         cy.log(`About page displayed correctly on ${name}`);
       });
     });

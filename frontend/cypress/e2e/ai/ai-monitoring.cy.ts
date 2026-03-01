@@ -92,30 +92,18 @@ describe('AI Monitoring Page Tests', () => {
     });
 
     it('should switch to Providers tab', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Providers")').length > 0) {
-          cy.clickButton('Providers');
-          cy.get('body').should('be.visible');
-        }
-      });
+      cy.clickButton('Providers');
+      cy.assertContainsAny(['Provider', 'Providers']);
     });
 
     it('should switch to Agents tab', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Agents")').length > 0) {
-          cy.clickButton('Agents');
-          cy.get('body').should('be.visible');
-        }
-      });
+      cy.clickButton('Agents');
+      cy.assertContainsAny(['Agent', 'Agents']);
     });
 
     it('should switch to Alerts tab', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Alerts")').length > 0) {
-          cy.clickButton('Alerts');
-          cy.get('body').should('be.visible');
-        }
-      });
+      cy.clickButton('Alerts');
+      cy.assertContainsAny(['Alert', 'Alerts']);
     });
   });
 
@@ -222,7 +210,7 @@ describe('AI Monitoring Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.navigateTo('/app/ai/monitoring');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Monitoring', 'AI']);
     });
   });
 });

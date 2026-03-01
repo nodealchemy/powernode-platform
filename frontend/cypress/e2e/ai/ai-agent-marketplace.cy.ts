@@ -204,7 +204,7 @@ describe('AI Agent Marketplace Page Tests', () => {
     it('should show single column on small screens', () => {
       cy.viewport(375, 667);
       cy.assertPageReady('/app/ai/agent-marketplace');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Marketplace', 'Templates', 'Agent Marketplace']);
     });
 
     it('should show multi-column grid on large screens', () => {

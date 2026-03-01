@@ -57,11 +57,8 @@ describe('Business Usage Dashboard Tests', () => {
       });
 
       it('should show formatted numbers in cards', () => {
-        cy.get('body').then($body => {
-          const hasNumbers = $body.text().match(/[\d,]+/) !== null ||
-                            $body.text().includes('$');
-          expect(hasNumbers).to.be.true;
-        });
+        cy.assertContainsAny(['$']);
+        cy.get('body').invoke('text').should('match', /[\d,]+/);
       });
     });
   });
@@ -72,13 +69,8 @@ describe('Business Usage Dashboard Tests', () => {
     });
 
     it('should display usage trends chart', () => {
-      cy.get('body').then($body => {
-        const hasChart = $body.find('svg, canvas, [class*="chart"], [class*="Chart"], [data-testid*="usage-chart"]').length > 0;
-        if (hasChart) {
-          cy.log('Usage chart component rendered');
-        }
-        cy.assertContainsAny(['Usage', 'Trend', 'Chart', 'Graph']);
-      });
+      cy.assertHasElement(['svg', 'canvas', '[class*="chart"]', '[class*="Chart"]', '[data-testid*="usage-chart"]']).should('exist');
+      cy.assertContainsAny(['Usage', 'Trend', 'Chart', 'Graph']);
     });
 
     it('should display chart with time-based data', () => {
@@ -96,19 +88,12 @@ describe('Business Usage Dashboard Tests', () => {
     });
 
     it('should show quota percentage indicators', () => {
-      cy.get('body').then($body => {
-        const hasProgress = $body.find('[role="progressbar"], progress, [class*="progress"]').length > 0 ||
-                           $body.text().match(/\d+%/) !== null;
-        expect(hasProgress).to.be.true;
-      });
+      cy.assertHasElement(['[role="progressbar"]', 'progress', '[class*="progress"]']);
+      cy.get('body').invoke('text').should('match', /\d+%/);
     });
 
     it('should indicate exceeded quotas with visual warning', () => {
-      cy.get('body').then($body => {
-        if ($body.text().includes('Exceeded')) {
-          cy.get('[class*="error"], [class*="warning"], [class*="exceeded"]').should('exist');
-        }
-      });
+      cy.get('[class*="error"], [class*="warning"], [class*="exceeded"]').should('exist');
     });
   });
 
@@ -122,13 +107,7 @@ describe('Business Usage Dashboard Tests', () => {
     });
 
     it('should display individual meter cards', () => {
-      cy.get('body').then($body => {
-        const hasMeterCards = $body.find('[data-testid*="meter"], [class*="meter"]').length > 0 ||
-                             $body.text().includes('API Calls') ||
-                             $body.text().includes('Storage') ||
-                             $body.text().includes('Bandwidth');
-        expect(hasMeterCards || $body.text().includes('Meter')).to.be.true;
-      });
+      cy.assertContainsAny(['API Calls', 'Storage', 'Bandwidth', 'Meter']);
     });
 
     it('should show meter usage values', () => {
@@ -144,12 +123,7 @@ describe('Business Usage Dashboard Tests', () => {
     });
 
     it('should display quota limits on meters', () => {
-      cy.get('body').then($body => {
-        const hasQuotaProgress = $body.find('[role="progressbar"], [class*="progress"]').length > 0;
-        if (hasQuotaProgress) {
-          cy.log('Quota progress bars displayed on meters');
-        }
-      });
+      cy.assertHasElement(['[role="progressbar"]', '[class*="progress"]']).should('exist');
     });
   });
 
@@ -163,12 +137,7 @@ describe('Business Usage Dashboard Tests', () => {
     });
 
     it('should display event list or table', () => {
-      cy.get('body').then($body => {
-        const hasEvents = $body.find('table, [data-testid*="events"], [class*="event-list"]').length > 0;
-        if (hasEvents) {
-          cy.log('Events list/table displayed');
-        }
-      });
+      cy.assertHasElement(['table', '[data-testid*="events"]', '[class*="event-list"]']).should('exist');
     });
 
     it('should have export option for events', () => {
@@ -224,11 +193,7 @@ describe('Business Usage Dashboard Tests', () => {
 
       cy.visit('/app/business/usage');
 
-      cy.get('body').then($body => {
-        if ($body.text().includes('Error') || $body.text().includes('Failed')) {
-          cy.assertContainsAny(['Retry', 'Try again', 'Reload']);
-        }
-      });
+      cy.assertContainsAny(['Error', 'Failed', 'Retry', 'Try again', 'Reload']);
     });
   });
 
@@ -251,11 +216,7 @@ describe('Business Usage Dashboard Tests', () => {
       cy.visit('/app/business/usage');
       cy.wait('@emptyDashboard');
 
-      cy.get('body').then($body => {
-        if ($body.text().includes('No Usage') || $body.text().includes('No data')) {
-          cy.assertContainsAny(['No Usage', 'No data', 'Start tracking']);
-        }
-      });
+      cy.assertContainsAny(['No Usage', 'No data', 'Start tracking']);
     });
   });
 
@@ -269,31 +230,21 @@ describe('Business Usage Dashboard Tests', () => {
     it('should stack cards on mobile viewport', () => {
       cy.viewport(375, 667);
       cy.navigateTo('/app/business/usage');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Usage', 'Dashboard', 'Metering']);
     });
   });
 
   describe('Navigation Integration', () => {
     it('should navigate to meters page', () => {
       cy.navigateTo('/app/business/usage');
-      cy.get('body').then($body => {
-        const metersLink = $body.find('a[href*="meters"], button:contains("Meters")').first();
-        if (metersLink.length > 0) {
-          cy.wrap(metersLink).click();
-          cy.url().should('include', 'meters');
-        }
-      });
+      cy.get('a[href*="meters"], button:contains("Meters")').first().click();
+      cy.url().should('include', 'meters');
     });
 
     it('should navigate to quotas page', () => {
       cy.navigateTo('/app/business/usage');
-      cy.get('body').then($body => {
-        const quotasLink = $body.find('a[href*="quotas"], button:contains("Quotas")').first();
-        if (quotasLink.length > 0) {
-          cy.wrap(quotasLink).click();
-          cy.url().should('include', 'quotas');
-        }
-      });
+      cy.get('a[href*="quotas"], button:contains("Quotas")').first().click();
+      cy.url().should('include', 'quotas');
     });
   });
 });

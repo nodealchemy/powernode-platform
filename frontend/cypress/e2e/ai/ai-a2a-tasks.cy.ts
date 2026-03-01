@@ -47,11 +47,7 @@ describe('A2A Tasks Tests', () => {
     });
 
     it('should display task IDs or empty state', () => {
-      cy.get('body').then($body => {
-        const hasTaskList = $body.find('[data-testid="task-list"], table, .task-item').length > 0;
-        const hasEmptyState = $body.text().includes('No tasks') || $body.text().includes('Monitor');
-        expect(hasTaskList || hasEmptyState).to.be.true;
-      });
+      cy.assertContainsAny(['No tasks', 'Monitor', 'Task', 'Tasks']);
     });
   });
 
@@ -61,25 +57,15 @@ describe('A2A Tasks Tests', () => {
     });
 
     it('should navigate to task detail when task selected', () => {
-      cy.get('body').then($body => {
-        const taskRow = $body.find('[data-testid="task-row"], tr[data-task-id], .task-item');
-        if (taskRow.length > 0) {
-          cy.wrap(taskRow).first().click();
-          cy.waitForStableDOM();
-          cy.assertContainsAny(['Task Details', 'Details', 'Back to List']);
-        }
-      });
+      cy.get('[data-testid="task-row"], tr[data-task-id], .task-item').first().click();
+      cy.waitForStableDOM();
+      cy.assertContainsAny(['Task Details', 'Details', 'Back to List']);
     });
 
     it('should display Back to List button in detail view', () => {
-      cy.get('body').then($body => {
-        const taskRow = $body.find('[data-testid="task-row"], tr[data-task-id], .task-item');
-        if (taskRow.length > 0) {
-          cy.wrap(taskRow).first().click();
-          cy.waitForStableDOM();
-          cy.assertHasElement(['button:contains("Back")', 'button:contains("List")']);
-        }
-      });
+      cy.get('[data-testid="task-row"], tr[data-task-id], .task-item').first().click();
+      cy.waitForStableDOM();
+      cy.assertHasElement(['button:contains("Back")', 'button:contains("List")']);
     });
   });
 
@@ -89,11 +75,7 @@ describe('A2A Tasks Tests', () => {
     });
 
     it('should display event stream section for active tasks', () => {
-      cy.get('body').then($body => {
-        const hasEventStream = $body.find('[data-testid="event-stream"], .event-stream').length > 0;
-        const hasTaskList = $body.text().includes('Tasks') || $body.text().includes('Monitor');
-        expect(hasEventStream || hasTaskList).to.be.true;
-      });
+      cy.assertContainsAny(['Event', 'Stream', 'Tasks', 'Monitor', 'No tasks']);
     });
   });
 
@@ -107,13 +89,8 @@ describe('A2A Tasks Tests', () => {
     });
 
     it('should refresh task list when clicked', () => {
-      cy.get('body').then($body => {
-        const refreshButton = $body.find('button:contains("Refresh"), [aria-label*="refresh"]');
-        if (refreshButton.length > 0) {
-          cy.wrap(refreshButton).first().click();
-          cy.waitForStableDOM();
-        }
-      });
+      cy.get('button:contains("Refresh"), [aria-label*="refresh"]').first().click();
+      cy.waitForStableDOM();
     });
   });
 
@@ -154,7 +131,7 @@ describe('A2A Tasks Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.assertPageReady('/app/ai/a2a-tasks');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['A2A Tasks', 'Tasks']);
     });
   });
 });

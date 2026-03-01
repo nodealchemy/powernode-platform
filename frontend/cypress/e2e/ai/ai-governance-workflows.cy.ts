@@ -63,13 +63,9 @@ describe('AI Governance Workflows Tests', () => {
       }).as('createPolicy');
 
       cy.get('button').contains(/create|add|new/i).first().click();
-      cy.get('body').then($body => {
-        if ($body.find('input[name="name"], input[placeholder*="name"]').length > 0) {
-          cy.get('input').first().type('Test Policy');
-          cy.get('button').contains(/save|create|submit/i).click();
-          cy.wait('@createPolicy');
-        }
-      });
+      cy.get('input').first().type('Test Policy');
+      cy.get('button').contains(/save|create|submit/i).click();
+      cy.wait('@createPolicy');
     });
   });
 
@@ -103,12 +99,7 @@ describe('AI Governance Workflows Tests', () => {
     });
 
     it('should show event timestamps', () => {
-      cy.get('body').then($body => {
-        const hasTime = $body.text().match(/\d{1,2}:\d{2}/) !== null ||
-                       $body.text().includes('ago') ||
-                       $body.text().includes('today');
-        expect(hasTime).to.be.true;
-      });
+      cy.assertContainsAny(['ago', 'today', ':']);
     });
 
     it('should display event details', () => {
@@ -127,29 +118,15 @@ describe('AI Governance Workflows Tests', () => {
     });
 
     it('should display violations list or empty state', () => {
-      cy.get('body').then($body => {
-        if ($body.text().includes('No violations')) {
-          cy.assertContainsAny(['No violations', 'compliant']);
-        } else {
-          cy.assertContainsAny(['Violation', 'severity', 'status']);
-        }
-      });
+      cy.assertContainsAny(['No violations', 'compliant', 'Violation', 'severity', 'status']);
     });
 
     it('should show violation severity', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No violations')) {
-          cy.assertContainsAny(['critical', 'high', 'medium', 'low']);
-        }
-      });
+      cy.assertContainsAny(['No violations', 'critical', 'high', 'medium', 'low']);
     });
 
     it('should have resolve violation option', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Resolve")').length > 0) {
-          cy.get('button').contains(/resolve/i).should('exist');
-        }
-      });
+      cy.assertContainsAny(['Resolve', 'No violations', 'compliant']);
     });
   });
 

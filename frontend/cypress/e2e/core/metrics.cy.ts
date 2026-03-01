@@ -37,14 +37,7 @@ describe('Metrics Page Tests', () => {
     });
 
     it('should display MRR value', () => {
-      cy.get('body').then($body => {
-        const hasValue = $body.text().match(/\$[\d,]+/) ||
-                        $body.find('[class*="text-3xl"], [class*="text-2xl"], h2, h3').length > 0;
-        if (hasValue) {
-          cy.log('MRR value found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['[class*="text-3xl"]', '[class*="text-2xl"]', 'h2', 'h3']);
     });
 
     it('should display Annual Recurring Revenue card', () => {
@@ -60,14 +53,7 @@ describe('Metrics Page Tests', () => {
     });
 
     it('should display growth trend indicators', () => {
-      cy.get('body').then($body => {
-        const hasTrend = $body.text().match(/[+-]?\d+\.?\d*%/) ||
-                        $body.find('svg').length > 0;
-        if (hasTrend) {
-          cy.log('Growth trend indicators found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['%', 'Growth', 'Trend']);
     });
 
     it('should display trend context', () => {
@@ -107,17 +93,7 @@ describe('Metrics Page Tests', () => {
     });
 
     it('should display progress bars for growth metrics', () => {
-      cy.get('body').then($body => {
-        const hasProgress = $body.find('[class*="h-2"], [class*="progress"], [role="progressbar"]').length > 0 ||
-                           $body.find('div').filter(function() {
-                             const height = $(this).css('height');
-                             return height === '8px' || height === '4px';
-                           }).length > 0;
-        if (hasProgress) {
-          cy.log('Progress bars found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['[class*="h-2"]', '[class*="progress"]', '[role="progressbar"]']);
     });
   });
 
@@ -143,14 +119,7 @@ describe('Metrics Page Tests', () => {
     });
 
     it('should display progress bars for retention metrics', () => {
-      cy.get('body').then($body => {
-        const hasProgress = $body.find('[class*="bg-theme-success"], [class*="bg-theme-error"], [class*="bg-green"], [class*="bg-red"]').length > 0 ||
-                           $body.find('[class*="progress"]').length > 0;
-        if (hasProgress) {
-          cy.log('Retention progress bars found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['[class*="bg-theme-success"]', '[class*="bg-theme-error"]', '[class*="bg-green"]', '[class*="bg-red"]', '[class*="progress"]']);
     });
   });
 
@@ -160,23 +129,11 @@ describe('Metrics Page Tests', () => {
     });
 
     it('should display percentage values', () => {
-      cy.get('body').then($body => {
-        const hasPercent = $body.text().match(/\d+\.?\d*%/);
-        if (hasPercent) {
-          cy.log('Percentage values found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['%']);
     });
 
     it('should display currency values', () => {
-      cy.get('body').then($body => {
-        const hasCurrency = $body.text().match(/\$[\d,]+/);
-        if (hasCurrency) {
-          cy.log('Currency values found');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['$']);
     });
   });
 
@@ -188,7 +145,7 @@ describe('Metrics Page Tests', () => {
       }).as('apiError');
 
       cy.visit('/app/metrics');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Metrics', 'Error']);
     });
   });
 
@@ -202,17 +159,8 @@ describe('Metrics Page Tests', () => {
       }).as('slowLoad');
 
       cy.visit('/app/metrics');
-      cy.get('body').then($body => {
-        const hasLoading = $body.find('.animate-spin, [class*="loading"], [class*="spinner"]').length > 0 ||
-                          $body.find('svg').filter(function() {
-                            return $(this).attr('class')?.includes('animate') || false;
-                          }).length > 0 ||
-                          $body.text().includes('Loading');
-        if (hasLoading) {
-          cy.log('Loading indicator found');
-        }
-      });
-      cy.get('body').should('be.visible');
+
+      cy.assertHasElement(['.animate-spin', '[class*="loading"]', '[class*="spinner"]']);
     });
   });
 
@@ -220,39 +168,27 @@ describe('Metrics Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/metrics');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Metrics', 'Revenue']);
     });
 
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/metrics');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Metrics', 'Revenue']);
     });
 
     it('should stack metric cards on small screens', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/metrics');
-      cy.get('body').then($body => {
-        const hasStack = $body.find('[class*="grid-cols-1"], [class*="flex-col"]').length > 0;
-        if (hasStack) {
-          cy.log('Stacked metric cards found');
-        }
-      });
-      cy.get('body').should('be.visible');
+
+      cy.assertHasElement(['[class*="grid-cols-1"]', '[class*="flex-col"]']);
     });
 
     it('should show multi-column layout on large screens', () => {
       cy.viewport(1920, 1080);
       cy.visit('/app/metrics');
-      cy.get('body').then($body => {
-        const hasMultiCol = $body.find('[class*="lg:grid-cols-4"]').length > 0 ||
-                           $body.find('[class*="md:grid-cols-2"]').length > 0 ||
-                           $body.find('[class*="grid"]').length > 0;
-        if (hasMultiCol) {
-          cy.log('Multi-column layout found');
-        }
-      });
-      cy.get('body').should('be.visible');
+
+      cy.assertHasElement(['[class*="lg:grid-cols-4"]', '[class*="md:grid-cols-2"]', '[class*="grid"]']);
     });
   });
 });

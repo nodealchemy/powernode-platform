@@ -83,12 +83,8 @@ describe('AI Create Workflow Page Tests', () => {
 
     it('should switch between tabs', () => {
       cy.navigateTo('/app/ai/workflows/new');
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Configuration")').length > 0) {
-          cy.clickButton('Configuration');
-          cy.assertContainsAny(['Timeout']);
-        }
-      });
+      cy.clickButton('Configuration');
+      cy.assertContainsAny(['Timeout']);
     });
   });
 
@@ -122,88 +118,56 @@ describe('AI Create Workflow Page Tests', () => {
   describe('Workflow Builder', () => {
     it('should display workflow builder area', () => {
       cy.navigateTo('/app/ai/workflows/new');
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Workflow Builder")').length > 0) {
-          cy.clickButton('Workflow Builder');
-          cy.assertContainsAny(['Visual Workflow Builder', 'Builder']);
-        }
-      });
+      cy.clickButton('Workflow Builder');
+      cy.assertContainsAny(['Visual Workflow Builder', 'Builder']);
     });
   });
 
   describe('Configuration Section', () => {
     it('should display Timeout input', () => {
       cy.navigateTo('/app/ai/workflows/new');
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Configuration")').length > 0) {
-          cy.clickButton('Configuration');
-          cy.assertContainsAny(['Timeout']);
-        }
-      });
+      cy.clickButton('Configuration');
+      cy.assertContainsAny(['Timeout']);
     });
 
     it('should display Max Parallel Nodes input', () => {
       cy.navigateTo('/app/ai/workflows/new');
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Configuration")').length > 0) {
-          cy.clickButton('Configuration');
-          cy.assertContainsAny(['Max Parallel', 'Parallel Nodes']);
-        }
-      });
+      cy.clickButton('Configuration');
+      cy.assertContainsAny(['Max Parallel', 'Parallel Nodes']);
     });
 
     it('should display Auto Retry checkbox', () => {
       cy.navigateTo('/app/ai/workflows/new');
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Configuration")').length > 0) {
-          cy.clickButton('Configuration');
-          cy.assertContainsAny(['Auto Retry']);
-        }
-      });
+      cy.clickButton('Configuration');
+      cy.assertContainsAny(['Auto Retry']);
     });
 
     it('should display Error Handling selector', () => {
       cy.navigateTo('/app/ai/workflows/new');
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Configuration")').length > 0) {
-          cy.clickButton('Configuration');
-          cy.assertContainsAny(['Error Handling', 'Stop on Error']);
-        }
-      });
+      cy.clickButton('Configuration');
+      cy.assertContainsAny(['Error Handling', 'Stop on Error']);
     });
   });
 
   describe('Advanced Settings', () => {
     it('should display Notification Settings', () => {
       cy.navigateTo('/app/ai/workflows/new');
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Advanced")').length > 0) {
-          cy.clickButton('Advanced');
-          cy.assertContainsAny(['Notification', 'Notify on']);
-        }
-      });
+      cy.clickButton('Advanced');
+      cy.assertContainsAny(['Notification', 'Notify on']);
     });
 
     it('should display Resource Limits', () => {
       cy.navigateTo('/app/ai/workflows/new');
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Advanced")').length > 0) {
-          cy.clickButton('Advanced');
-          cy.assertContainsAny(['Resource Limits', 'Cost Limit', 'Memory Limit']);
-        }
-      });
+      cy.clickButton('Advanced');
+      cy.assertContainsAny(['Resource Limits', 'Cost Limit', 'Memory Limit']);
     });
   });
 
   describe('Form Validation', () => {
     it('should show validation error for empty name', () => {
       cy.navigateTo('/app/ai/workflows/new');
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Save as Draft")').length > 0) {
-          cy.clickButton('Save as Draft');
-          cy.assertContainsAny(['required', 'error']);
-        }
-      });
+      cy.clickButton('Save as Draft');
+      cy.assertContainsAny(['required', 'error']);
     });
   });
 
@@ -218,7 +182,7 @@ describe('AI Create Workflow Page Tests', () => {
     it('should handle API errors gracefully', () => {
       cy.mockApiError('**/api/**/workflows**', 500, 'Internal Server Error');
       cy.navigateTo('/app/ai/workflows/new');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Error', 'Create New Workflow', 'Create Workflow']);
     });
   });
 
@@ -232,7 +196,7 @@ describe('AI Create Workflow Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.navigateTo('/app/ai/workflows/new');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Create New Workflow', 'Create Workflow']);
     });
 
     it('should stack form elements on small screens', () => {

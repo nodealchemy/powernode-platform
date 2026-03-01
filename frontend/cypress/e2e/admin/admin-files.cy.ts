@@ -26,40 +26,15 @@ describe('Admin Files Page Tests', () => {
     });
 
     it('should navigate to Admin Files page', () => {
-      cy.get('body').then($body => {
-        const hasContent = $body.text().includes('Files') ||
-                          $body.text().includes('File Management') ||
-                          $body.text().includes('Permission');
-        if (hasContent) {
-          cy.log('Admin Files page loaded');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Files', 'File Management', 'Permission']);
     });
 
     it('should display page title', () => {
-      cy.get('body').then($body => {
-        const hasTitle = $body.text().includes('Files') ||
-                        $body.text().includes('File Management');
-        if (hasTitle) {
-          cy.log('Page title displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Files', 'File Management']);
     });
 
     it('should display breadcrumbs', () => {
-      cy.get('body').then($body => {
-        const hasBreadcrumbs = $body.text().includes('Dashboard') ||
-                               $body.text().includes('Admin');
-        if (hasBreadcrumbs) {
-          cy.log('Breadcrumbs displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Dashboard', 'Admin']);
     });
   });
 
@@ -70,29 +45,11 @@ describe('Admin Files Page Tests', () => {
     });
 
     it('should display files list or empty state', () => {
-      cy.get('body').then($body => {
-        const hasFiles = $body.find('[class*="table"], [class*="list"], [class*="card"], [class*="grid"], [role="table"], [role="list"]').length > 0 ||
-                        $body.text().includes('No files');
-        if (hasFiles) {
-          cy.log('Files list or empty state displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['[class*="table"]', '[class*="list"]', '[class*="card"]', '[class*="grid"]', '[role="table"]', '[role="list"]']);
     });
 
     it('should display file information columns', () => {
-      cy.get('body').then($body => {
-        const hasColumns = $body.text().includes('Name') ||
-                          $body.text().includes('Size') ||
-                          $body.text().includes('Type') ||
-                          $body.text().includes('Uploaded');
-        if (hasColumns) {
-          cy.log('File information columns displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Name', 'Size', 'Type', 'Uploaded']);
     });
   });
 
@@ -103,41 +60,16 @@ describe('Admin Files Page Tests', () => {
     });
 
     it('should display search input', () => {
-      cy.get('body').then($body => {
-        const hasSearch = $body.find('input[placeholder*="Search"], input[placeholder*="search"], input[type="search"], [role="searchbox"], [class*="search"]').length > 0;
-        if (hasSearch) {
-          cy.log('Search input displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('input[placeholder*="Search"], input[placeholder*="search"], input[type="search"], [role="searchbox"], [class*="search"]').should('exist');
     });
 
     it('should search files', () => {
-      cy.get('body').then($body => {
-        const searchInput = $body.find('input[placeholder*="Search"], input[placeholder*="search"]');
-        if (searchInput.length > 0) {
-          cy.wrap(searchInput).first().type('document');
-          cy.waitForPageLoad();
-          cy.log('Search performed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('input[placeholder*="Search"], input[placeholder*="search"]').first().type('document');
+      cy.waitForPageLoad();
     });
 
     it('should display type filter', () => {
-      cy.get('body').then($body => {
-        const hasFilter = $body.text().includes('Type') ||
-                         $body.text().includes('All Types') ||
-                         $body.text().includes('Filter') ||
-                         $body.find('select, [role="listbox"], [class*="select"]').length > 0;
-        if (hasFilter) {
-          cy.log('Type filter displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Type', 'All Types', 'Filter']);
     });
   });
 
@@ -148,25 +80,11 @@ describe('Admin Files Page Tests', () => {
     });
 
     it('should have Upload button', () => {
-      cy.get('body').then($body => {
-        const uploadButton = $body.find('button:contains("Upload")');
-        if (uploadButton.length > 0) {
-          cy.log('Upload button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button:contains("Upload")').should('exist');
     });
 
     it('should have Refresh button', () => {
-      cy.get('body').then($body => {
-        const refreshButton = $body.find('button:contains("Refresh")');
-        if (refreshButton.length > 0) {
-          cy.log('Refresh button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button:contains("Refresh")').should('exist');
     });
   });
 
@@ -177,36 +95,15 @@ describe('Admin Files Page Tests', () => {
     });
 
     it('should have View action', () => {
-      cy.get('body').then($body => {
-        const viewButton = $body.find('button:contains("View"), [aria-label*="view"]');
-        if (viewButton.length > 0) {
-          cy.log('View action found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button:contains("View"), [aria-label*="view"]').should('exist');
     });
 
     it('should have Download action', () => {
-      cy.get('body').then($body => {
-        const downloadButton = $body.find('button:contains("Download"), [aria-label*="download"]');
-        if (downloadButton.length > 0) {
-          cy.log('Download action found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button:contains("Download"), [aria-label*="download"]').should('exist');
     });
 
     it('should have Delete action', () => {
-      cy.get('body').then($body => {
-        const deleteButton = $body.find('button:contains("Delete"), [aria-label*="delete"]');
-        if (deleteButton.length > 0) {
-          cy.log('Delete action found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button:contains("Delete"), [aria-label*="delete"]').should('exist');
     });
   });
 
@@ -217,29 +114,11 @@ describe('Admin Files Page Tests', () => {
     });
 
     it('should display storage usage', () => {
-      cy.get('body').then($body => {
-        const hasStorage = $body.text().includes('Storage') ||
-                          $body.text().includes('KB') ||
-                          $body.text().includes('MB') ||
-                          $body.text().includes('GB');
-        if (hasStorage) {
-          cy.log('Storage usage displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Storage', 'KB', 'MB', 'GB']);
     });
 
     it('should display total files count', () => {
-      cy.get('body').then($body => {
-        const hasCount = $body.text().includes('Total') ||
-                        $body.text().includes('files');
-        if (hasCount) {
-          cy.log('Total files count displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Total', 'files']);
     });
   });
 
@@ -250,16 +129,7 @@ describe('Admin Files Page Tests', () => {
     });
 
     it('should display pagination controls', () => {
-      cy.get('body').then($body => {
-        const hasPagination = $body.find('[class*="pagination"]').length > 0 ||
-                             $body.text().includes('Page') ||
-                             $body.find('button:contains("Next")').length > 0;
-        if (hasPagination) {
-          cy.log('Pagination controls displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['[class*="pagination"]', 'button:contains("Next")']);
     });
   });
 
@@ -277,7 +147,7 @@ describe('Admin Files Page Tests', () => {
       cy.visit('/app/admin/files');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Files', 'Error', 'File Management']);
       cy.get('body').should('not.contain.text', 'Cannot read');
       cy.get('body').should('not.contain.text', 'TypeError');
     });
@@ -291,16 +161,7 @@ describe('Admin Files Page Tests', () => {
       cy.visit('/app/admin/files');
       cy.waitForPageLoad();
 
-      cy.get('body').then($body => {
-        const hasError = $body.text().includes('Error') ||
-                         $body.text().includes('Failed') ||
-                         $body.text().includes('Files');
-        if (hasError) {
-          cy.log('Error handled');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Error', 'Failed', 'Files']);
     });
   });
 
@@ -318,15 +179,7 @@ describe('Admin Files Page Tests', () => {
 
       cy.visit('/app/admin/files');
 
-      cy.get('body').then($body => {
-        const hasLoading = $body.find('[class*="spin"], [class*="loading"], [class*="animate"]').length > 0 ||
-                           $body.text().includes('Loading');
-        if (hasLoading) {
-          cy.log('Loading indicator displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['[class*="spin"]', '[class*="loading"]', '[class*="animate"]']);
     });
   });
 
@@ -344,16 +197,7 @@ describe('Admin Files Page Tests', () => {
       cy.visit('/app/admin/files');
       cy.waitForPageLoad();
 
-      cy.get('body').then($body => {
-        const hasEmpty = $body.text().includes('No files') ||
-                        $body.text().includes('Upload your first') ||
-                        $body.text().includes('Files');
-        if (hasEmpty) {
-          cy.log('Empty state displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['No files', 'Upload your first', 'Files']);
     });
   });
 
@@ -367,13 +211,7 @@ describe('Admin Files Page Tests', () => {
       cy.visit('/app/admin/files');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
-      cy.get('body').then($body => {
-        const hasContent = $body.text().includes('Files') || $body.text().includes('File');
-        if (hasContent) {
-          cy.log('Content visible on mobile');
-        }
-      });
+      cy.assertContainsAny(['Files', 'File']);
     });
 
     it('should display properly on tablet viewport', () => {
@@ -381,13 +219,7 @@ describe('Admin Files Page Tests', () => {
       cy.visit('/app/admin/files');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
-      cy.get('body').then($body => {
-        const hasContent = $body.text().includes('Files') || $body.text().includes('File');
-        if (hasContent) {
-          cy.log('Content visible on tablet');
-        }
-      });
+      cy.assertContainsAny(['Files', 'File']);
     });
 
     it('should stack elements on small screens', () => {
@@ -395,7 +227,13 @@ describe('Admin Files Page Tests', () => {
       cy.visit('/app/admin/files');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Files', 'File Management']);
+    });
+  });
+
+  describe('Permission Check', () => {
+    it('should require admin permissions', () => {
+      cy.testPermissionDenied('/app/admin/files');
     });
   });
 });

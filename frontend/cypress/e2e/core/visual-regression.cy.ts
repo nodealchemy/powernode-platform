@@ -99,7 +99,7 @@ describe('Visual Regression Tests', () => {
 
     it('should match dashboard layout', () => {
       cy.url().should('match', /\/(app|dashboard)/);
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Dashboard', 'Welcome']);
 
       cy.screenshot('dashboard-main', {
         capture: 'fullPage'
@@ -108,7 +108,7 @@ describe('Visual Regression Tests', () => {
 
     it('should match dashboard tablet layout', () => {
       cy.viewport(768, 1024);
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Dashboard', 'Welcome']);
 
       cy.screenshot('dashboard-main-tablet', {
         capture: 'fullPage'
@@ -117,7 +117,7 @@ describe('Visual Regression Tests', () => {
 
     it('should match dashboard mobile layout', () => {
       cy.viewport(375, 667);
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Dashboard', 'Welcome']);
 
       cy.screenshot('dashboard-main-mobile', {
         capture: 'fullPage'
@@ -126,20 +126,7 @@ describe('Visual Regression Tests', () => {
 
     it('should capture user menu dropdown', () => {
       cy.viewport(1280, 720);
-      cy.get('body').then($body => {
-        const userMenuSelectors = [
-          '[data-testid="user-menu"]',
-          '[class*="avatar"]',
-          'button[aria-haspopup="menu"]'
-        ];
-
-        for (const selector of userMenuSelectors) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('be.visible').click();
-            break;
-          }
-        }
-      });
+      cy.get('[data-testid="user-menu"], [class*="avatar"], button[aria-haspopup="menu"]').first().should('be.visible').click();
 
       cy.screenshot('dashboard-user-menu-open', {
         capture: 'viewport'

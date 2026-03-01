@@ -21,47 +21,19 @@ describe('Marketplace Search Tests', () => {
     it('should display search input', () => {
       cy.visit('/app/marketplace');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasSearch = $body.find('input[type="search"], input[placeholder*="Search"], [data-testid="search-input"]').length > 0 ||
-                         $body.text().includes('Search');
-        if (hasSearch) {
-          cy.log('Search input displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Search']);
     });
 
     it('should have search placeholder text', () => {
       cy.visit('/app/marketplace');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const searchInput = $body.find('input[type="search"], input[placeholder*="Search"]');
-        if (searchInput.length > 0) {
-          const placeholder = searchInput.attr('placeholder');
-          if (placeholder) {
-            cy.log(`Search placeholder: ${placeholder}`);
-          }
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['input[type="search"]', 'input[placeholder*="Search"]']);
     });
 
     it('should allow typing in search field', () => {
       cy.visit('/app/marketplace');
       cy.waitForPageLoad();
-
-      cy.get('input[type="search"], input[placeholder*="Search"], [data-testid="search-input"]').first().then($input => {
-        if ($input.length > 0) {
-          cy.wrap($input).type('workflow');
-          cy.log('Search query entered');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('input[type="search"], input[placeholder*="Search"], [data-testid="search-input"]').first().type('workflow');
     });
   });
 
@@ -72,40 +44,13 @@ describe('Marketplace Search Tests', () => {
     });
 
     it('should display search results', () => {
-      cy.get('input[type="search"], input[placeholder*="Search"]').first().then($input => {
-        if ($input.length > 0) {
-          cy.wrap($input).type('workflow{enter}');
-
-          cy.get('body').then($body => {
-            const hasResults = $body.text().includes('result') ||
-                              $body.find('[data-testid="search-results"]').length > 0 ||
-                              $body.find('.grid, .list').length > 0;
-            if (hasResults) {
-              cy.log('Search results displayed');
-            }
-          });
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('input[type="search"], input[placeholder*="Search"]').first().type('workflow{enter}');
+      cy.assertContainsAny(['result', 'Showing']);
     });
 
     it('should show result count', () => {
-      cy.get('input[type="search"], input[placeholder*="Search"]').first().then($input => {
-        if ($input.length > 0) {
-          cy.wrap($input).type('ai{enter}');
-
-          cy.get('body').then($body => {
-            const hasCount = $body.text().match(/\d+\s*(result|item|found)/) !== null ||
-                            $body.text().includes('Showing');
-            if (hasCount) {
-              cy.log('Result count displayed');
-            }
-          });
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('input[type="search"], input[placeholder*="Search"]').first().type('ai{enter}');
+      cy.assertContainsAny(['Showing']);
     });
   });
 
@@ -116,41 +61,15 @@ describe('Marketplace Search Tests', () => {
     });
 
     it('should display sort options', () => {
-      cy.get('body').then($body => {
-        const hasSort = $body.text().includes('Sort') ||
-                       $body.find('select, [data-testid="sort-select"]').length > 0;
-        if (hasSort) {
-          cy.log('Sort options displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Sort']);
     });
 
     it('should display price filter', () => {
-      cy.get('body').then($body => {
-        const hasPrice = $body.text().includes('Price') ||
-                        $body.text().includes('Free') ||
-                        $body.text().includes('Paid');
-        if (hasPrice) {
-          cy.log('Price filter displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Price', 'Free', 'Paid']);
     });
 
     it('should display rating filter', () => {
-      cy.get('body').then($body => {
-        const hasRating = $body.text().includes('Rating') ||
-                         $body.text().includes('★') ||
-                         $body.find('[data-testid="rating-filter"]').length > 0;
-        if (hasRating) {
-          cy.log('Rating filter displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Rating', '★']);
     });
   });
 
@@ -161,22 +80,8 @@ describe('Marketplace Search Tests', () => {
     });
 
     it('should display no results message for invalid search', () => {
-      cy.get('input[type="search"], input[placeholder*="Search"]').first().then($input => {
-        if ($input.length > 0) {
-          cy.wrap($input).type('xyznonexistent123{enter}');
-
-          cy.get('body').then($body => {
-            const hasNoResults = $body.text().includes('No results') ||
-                                $body.text().includes('not found') ||
-                                $body.text().includes('Try');
-            if (hasNoResults) {
-              cy.log('No results message displayed');
-            }
-          });
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('input[type="search"], input[placeholder*="Search"]').first().type('xyznonexistent123{enter}');
+      cy.assertContainsAny(['No results', 'not found', 'Try']);
     });
   });
 
@@ -187,20 +92,8 @@ describe('Marketplace Search Tests', () => {
     });
 
     it('should display search suggestions while typing', () => {
-      cy.get('input[type="search"], input[placeholder*="Search"]').first().then($input => {
-        if ($input.length > 0) {
-          cy.wrap($input).type('work');
-
-          cy.get('body').then($body => {
-            const hasSuggestions = $body.find('[data-testid="search-suggestions"], .suggestions, [role="listbox"]').length > 0;
-            if (hasSuggestions) {
-              cy.log('Search suggestions displayed');
-            }
-          });
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('input[type="search"], input[placeholder*="Search"]').first().type('work');
+      cy.assertHasElement(['[data-testid="search-suggestions"]', '.suggestions', '[role="listbox"]']);
     });
   });
 
@@ -208,16 +101,7 @@ describe('Marketplace Search Tests', () => {
     it('should support search via URL query parameter', () => {
       cy.visit('/app/marketplace?search=automation');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasSearch = $body.find('input').filter((i, el) => (el as HTMLInputElement).value === 'automation').length > 0 ||
-                         $body.text().includes('automation');
-        if (hasSearch) {
-          cy.log('URL search parameter works');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['automation']);
     });
   });
 
@@ -228,20 +112,8 @@ describe('Marketplace Search Tests', () => {
     });
 
     it('should have clear search button', () => {
-      cy.get('input[type="search"], input[placeholder*="Search"]').first().then($input => {
-        if ($input.length > 0) {
-          cy.wrap($input).type('test');
-
-          cy.get('body').then($body => {
-            const hasClear = $body.find('[data-testid="clear-search"], button:contains("×"), button:contains("Clear")').length > 0;
-            if (hasClear) {
-              cy.log('Clear search button displayed');
-            }
-          });
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('input[type="search"], input[placeholder*="Search"]').first().type('test');
+      cy.assertHasElement(['[data-testid="clear-search"]', 'button:contains("Clear")']);
     });
   });
 
@@ -258,7 +130,7 @@ describe('Marketplace Search Tests', () => {
         cy.visit('/app/marketplace');
         cy.waitForPageLoad();
 
-        cy.get('body').should('be.visible');
+        cy.assertContainsAny(['Marketplace', 'Search']);
         cy.log(`Search displayed correctly on ${name}`);
       });
     });

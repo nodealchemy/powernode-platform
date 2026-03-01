@@ -77,7 +77,7 @@ describe('Knowledge Base Article Editor Tests', () => {
         'button:contains("Preview")'
       ]).first().click();
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Settings', 'SEO', 'Preview', 'Editor', 'Content']);
     });
   });
 
@@ -109,13 +109,9 @@ describe('Knowledge Base Article Editor Tests', () => {
     });
 
     it('should allow adding tags', () => {
-      cy.assertHasElement(['input[placeholder*="tag"]']).then($el => {
-        if ($el.length > 0) {
-          cy.wrap($el).first().type('test-tag{enter}');
-          cy.waitForPageLoad();
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['input[placeholder*="tag"]']).first().type('test-tag{enter}');
+      cy.waitForPageLoad();
+      cy.assertContainsAny(['test-tag', 'Tags', 'Article']);
     });
   });
 
@@ -125,22 +121,14 @@ describe('Knowledge Base Article Editor Tests', () => {
     });
 
     it('should display meta title field', () => {
-      cy.assertHasElement(['button:contains("SEO")']).then($btn => {
-        if ($btn.length > 0) {
-          cy.wrap($btn).first().click();
-          cy.waitForPageLoad();
-        }
-      });
+      cy.assertHasElement(['button:contains("SEO")']).first().click();
+      cy.waitForPageLoad();
       cy.assertContainsAny(['Meta Title', 'SEO Title', 'SEO']);
     });
 
     it('should display meta description field', () => {
-      cy.assertHasElement(['button:contains("SEO")']).then($btn => {
-        if ($btn.length > 0) {
-          cy.wrap($btn).first().click();
-          cy.waitForPageLoad();
-        }
-      });
+      cy.assertHasElement(['button:contains("SEO")']).first().click();
+      cy.waitForPageLoad();
       cy.assertContainsAny(['Meta Description', 'Description', 'SEO']);
     });
 
@@ -188,13 +176,9 @@ describe('Knowledge Base Article Editor Tests', () => {
     });
 
     it('should allow typing content', () => {
-      cy.get('textarea').then($textarea => {
-        if ($textarea.length > 0) {
-          cy.wrap($textarea).first().type('# Test Heading\n\nTest content here.');
-          cy.waitForPageLoad();
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['textarea']).first().type('# Test Heading\n\nTest content here.');
+      cy.waitForPageLoad();
+      cy.assertContainsAny(['Test Heading', 'Content', 'Editor']);
     });
   });
 
@@ -216,7 +200,7 @@ describe('Knowledge Base Article Editor Tests', () => {
       cy.visit('/app/content/kb/articles/new');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Error', 'Failed', 'Category', 'Article']);
     });
   });
 
@@ -243,19 +227,19 @@ describe('Knowledge Base Article Editor Tests', () => {
   describe('Responsive Design', () => {
     it('should display properly on mobile viewport', () => {
       cy.testViewport('mobile', '/app/content/kb/articles/new');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['New Article', 'Create', 'Article']);
     });
 
     it('should display properly on tablet viewport', () => {
       cy.testViewport('tablet', '/app/content/kb/articles/new');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['New Article', 'Create', 'Article']);
     });
 
     it('should display properly on large screens', () => {
       cy.viewport(1920, 1080);
       cy.visit('/app/content/kb/articles/new');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['New Article', 'Create', 'Article']);
     });
   });
 });

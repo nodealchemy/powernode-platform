@@ -22,31 +22,13 @@ describe('Account Settings Update Flow Tests', () => {
     it('should navigate to Account Settings', () => {
       cy.visit('/app/profile');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasContent = $body.text().includes('Profile') ||
-                          $body.text().includes('Settings') ||
-                          $body.text().includes('Account');
-        if (hasContent) {
-          cy.log('Account Settings page loaded');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Profile', 'Settings', 'Account']);
     });
 
     it('should display settings navigation', () => {
       cy.visit('/app/profile');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasNav = $body.find('a, button, [class*="nav"]').length > 0;
-        if (hasNav) {
-          cy.log('Settings navigation displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['a', 'button', '[class*="nav"]']);
     });
   });
 
@@ -57,87 +39,32 @@ describe('Account Settings Update Flow Tests', () => {
     });
 
     it('should display first name field', () => {
-      cy.get('body').then($body => {
-        const hasFirstName = $body.find('input[name*="first"], input[name*="firstName"]').length > 0 ||
-                             $body.text().includes('First Name');
-        if (hasFirstName) {
-          cy.log('First name field displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['input[name*="first"]', 'input[name*="firstName"]']);
     });
 
     it('should display last name field', () => {
-      cy.get('body').then($body => {
-        const hasLastName = $body.find('input[name*="last"], input[name*="lastName"]').length > 0 ||
-                            $body.text().includes('Last Name');
-        if (hasLastName) {
-          cy.log('Last name field displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['input[name*="last"]', 'input[name*="lastName"]']);
     });
 
     it('should display email field', () => {
-      cy.get('body').then($body => {
-        const hasEmail = $body.find('input[type="email"], input[name*="email"]').length > 0 ||
-                         $body.text().includes('Email');
-        if (hasEmail) {
-          cy.log('Email field displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['input[type="email"]', 'input[name*="email"]']);
     });
 
     it('should display phone field', () => {
-      cy.get('body').then($body => {
-        const hasPhone = $body.find('input[type="tel"], input[name*="phone"]').length > 0 ||
-                         $body.text().includes('Phone');
-        if (hasPhone) {
-          cy.log('Phone field displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['input[type="tel"]', 'input[name*="phone"]']);
     });
 
     it('should have avatar/photo upload', () => {
-      cy.get('body').then($body => {
-        const hasAvatar = $body.find('input[type="file"], [class*="avatar"], [class*="photo"]').length > 0 ||
-                          $body.text().includes('Avatar') ||
-                          $body.text().includes('Photo');
-        if (hasAvatar) {
-          cy.log('Avatar upload found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['input[type="file"]', '[class*="avatar"]', '[class*="photo"]']);
     });
 
     it('should have Save button', () => {
-      cy.get('body').then($body => {
-        const hasSave = $body.find('button:contains("Save"), button:contains("Update")').length > 0;
-        if (hasSave) {
-          cy.log('Save button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button').contains(/Save|Update/i).should('exist');
     });
 
     it('should update profile name', () => {
-      cy.get('body').then($body => {
-        const nameInput = $body.find('input[name*="first"], input[name*="name"]');
-        if (nameInput.length > 0) {
-          cy.wrap(nameInput).first().clear().type('Updated Name');
-          cy.log('Name input updated');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('input[name*="first"], input[name*="name"]').first().clear().type('Updated Name');
+      cy.assertContainsAny(['Profile', 'Settings']);
     });
   });
 
@@ -148,76 +75,27 @@ describe('Account Settings Update Flow Tests', () => {
     });
 
     it('should navigate to Security settings', () => {
-      cy.get('body').then($body => {
-        const hasSecurity = $body.text().includes('Security') ||
-                            $body.text().includes('Password');
-        if (hasSecurity) {
-          cy.log('Security settings displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Security', 'Password']);
     });
 
     it('should have current password field', () => {
-      cy.get('body').then($body => {
-        const hasCurrent = $body.find('input[name*="current"], input[name*="old"]').length > 0 ||
-                           $body.text().includes('Current Password');
-        if (hasCurrent) {
-          cy.log('Current password field found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['input[name*="current"]', 'input[name*="old"]']);
     });
 
     it('should have new password field', () => {
-      cy.get('body').then($body => {
-        const hasNew = $body.find('input[name*="new"], input[type="password"]').length > 0 ||
-                       $body.text().includes('New Password');
-        if (hasNew) {
-          cy.log('New password field found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['input[name*="new"]', 'input[type="password"]']);
     });
 
     it('should have confirm password field', () => {
-      cy.get('body').then($body => {
-        const hasConfirm = $body.find('input[name*="confirm"]').length > 0 ||
-                           $body.text().includes('Confirm Password');
-        if (hasConfirm) {
-          cy.log('Confirm password field found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('input[name*="confirm"]').should('exist');
     });
 
     it('should have Change Password button', () => {
-      cy.get('body').then($body => {
-        const hasChangeBtn = $body.find('button:contains("Change"), button:contains("Update Password")').length > 0;
-        if (hasChangeBtn) {
-          cy.log('Change Password button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button').contains(/Change|Update Password/i).should('exist');
     });
 
     it('should display password requirements', () => {
-      cy.get('body').then($body => {
-        const hasRequirements = $body.text().includes('characters') ||
-                                $body.text().includes('uppercase') ||
-                                $body.text().includes('number') ||
-                                $body.text().includes('requirements');
-        if (hasRequirements) {
-          cy.log('Password requirements displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['characters', 'uppercase', 'number', 'requirements']);
     });
   });
 
@@ -228,40 +106,15 @@ describe('Account Settings Update Flow Tests', () => {
     });
 
     it('should display 2FA section', () => {
-      cy.get('body').then($body => {
-        const has2FA = $body.text().includes('Two-Factor') ||
-                       $body.text().includes('2FA') ||
-                       $body.text().includes('Authentication');
-        if (has2FA) {
-          cy.log('2FA section displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Two-Factor', '2FA', 'Authentication']);
     });
 
     it('should have enable/disable 2FA option', () => {
-      cy.get('body').then($body => {
-        const hasToggle = $body.find('input[type="checkbox"], button:contains("Enable"), button:contains("Disable")').length > 0;
-        if (hasToggle) {
-          cy.log('2FA toggle found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['input[type="checkbox"]', 'button:contains("Enable")', 'button:contains("Disable")']);
     });
 
     it('should display 2FA status', () => {
-      cy.get('body').then($body => {
-        const hasStatus = $body.text().includes('Enabled') ||
-                          $body.text().includes('Disabled') ||
-                          $body.text().includes('Not configured');
-        if (hasStatus) {
-          cy.log('2FA status displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Enabled', 'Disabled', 'Not configured']);
     });
   });
 
@@ -272,78 +125,29 @@ describe('Account Settings Update Flow Tests', () => {
     });
 
     it('should navigate to Notification settings', () => {
-      cy.get('body').then($body => {
-        const hasNotifications = $body.text().includes('Notification') ||
-                                  $body.text().includes('Preferences');
-        if (hasNotifications) {
-          cy.log('Notification settings displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Notification', 'Preferences']);
     });
 
     it('should display email notification toggle', () => {
-      cy.get('body').then($body => {
-        const hasEmail = $body.text().includes('Email') ||
-                         $body.find('input[type="checkbox"]').length > 0;
-        if (hasEmail) {
-          cy.log('Email notification toggle displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['input[type="checkbox"]']);
     });
 
     it('should display SMS notification toggle', () => {
-      cy.get('body').then($body => {
-        const hasSMS = $body.text().includes('SMS') ||
-                       $body.text().includes('Text');
-        if (hasSMS) {
-          cy.log('SMS notification toggle displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['SMS', 'Text']);
     });
 
     it('should display push notification toggle', () => {
-      cy.get('body').then($body => {
-        const hasPush = $body.text().includes('Push') ||
-                        $body.text().includes('Browser');
-        if (hasPush) {
-          cy.log('Push notification toggle displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Push', 'Browser']);
     });
 
     it('should have notification categories', () => {
-      cy.get('body').then($body => {
-        const hasCategories = $body.text().includes('Marketing') ||
-                              $body.text().includes('Security') ||
-                              $body.text().includes('Updates') ||
-                              $body.text().includes('Billing');
-        if (hasCategories) {
-          cy.log('Notification categories displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Marketing', 'Security', 'Updates', 'Billing']);
     });
 
     it('should save notification preferences', () => {
-      cy.get('body').then($body => {
-        const toggle = $body.find('input[type="checkbox"], [role="switch"]');
-        if (toggle.length > 0) {
-          cy.wrap(toggle).first().should('be.visible').click();
-          cy.waitForPageLoad();
-          cy.log('Notification preference changed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('input[type="checkbox"], [role="switch"]').first().click();
+      cy.waitForPageLoad();
+      cy.assertContainsAny(['Notifications', 'Preferences']);
     });
   });
 
@@ -354,28 +158,11 @@ describe('Account Settings Update Flow Tests', () => {
     });
 
     it('should display active sessions', () => {
-      cy.get('body').then($body => {
-        const hasSessions = $body.text().includes('Session') ||
-                            $body.text().includes('Devices') ||
-                            $body.text().includes('Active');
-        if (hasSessions) {
-          cy.log('Active sessions displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Session', 'Devices', 'Active']);
     });
 
     it('should have logout all sessions option', () => {
-      cy.get('body').then($body => {
-        const hasLogoutAll = $body.find('button:contains("Logout"), button:contains("Sign Out")').length > 0 ||
-                             $body.text().includes('all devices');
-        if (hasLogoutAll) {
-          cy.log('Logout all sessions option found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['all devices', 'Logout', 'Sign Out']);
     });
   });
 
@@ -386,29 +173,11 @@ describe('Account Settings Update Flow Tests', () => {
     });
 
     it('should have delete account option', () => {
-      cy.get('body').then($body => {
-        const hasDelete = $body.text().includes('Delete') ||
-                          $body.text().includes('Close Account') ||
-                          $body.find('button:contains("Delete Account")').length > 0;
-        if (hasDelete) {
-          cy.log('Delete account option found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Delete', 'Close Account']);
     });
 
     it('should display deletion warning', () => {
-      cy.get('body').then($body => {
-        const hasWarning = $body.text().includes('permanent') ||
-                           $body.text().includes('cannot be undone') ||
-                           $body.text().includes('Warning');
-        if (hasWarning) {
-          cy.log('Deletion warning displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['permanent', 'cannot be undone', 'Warning']);
     });
   });
 
@@ -419,34 +188,15 @@ describe('Account Settings Update Flow Tests', () => {
     });
 
     it('should validate required fields', () => {
-      cy.get('body').then($body => {
-        const input = $body.find('input[required]');
-        if (input.length > 0) {
-          cy.wrap(input).first().clear();
-          cy.get('body').then($body2 => {
-            const saveBtn = $body2.find('button:contains("Save")');
-            if (saveBtn.length > 0) {
-              cy.wrap(saveBtn).first().should('be.visible').click();
-              cy.waitForPageLoad();
-              cy.log('Validation triggered');
-            }
-          });
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('input[required]').first().clear();
+      cy.get('button').contains(/Save/i).first().click();
+      cy.waitForPageLoad();
+      cy.assertContainsAny(['Profile', 'required', 'Settings']);
     });
 
     it('should validate email format', () => {
-      cy.get('body').then($body => {
-        const emailInput = $body.find('input[type="email"]');
-        if (emailInput.length > 0) {
-          cy.wrap(emailInput).first().clear().type('invalid-email');
-          cy.log('Invalid email entered');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('input[type="email"]').first().clear().type('invalid-email');
+      cy.assertContainsAny(['Profile', 'Settings', 'Email']);
     });
   });
 
@@ -457,21 +207,10 @@ describe('Account Settings Update Flow Tests', () => {
     });
 
     it('should show success notification on save', () => {
-      cy.get('body').then($body => {
-        const input = $body.find('input');
-        if (input.length > 0) {
-          cy.wrap(input).first().type(' updated');
-
-          const saveBtn = $body.find('button:contains("Save")');
-          if (saveBtn.length > 0) {
-            cy.wrap(saveBtn).first().should('be.visible').click();
-            cy.waitForPageLoad();
-            cy.log('Save action completed');
-          }
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('input').first().type(' updated');
+      cy.get('button').contains(/Save/i).first().click();
+      cy.waitForPageLoad();
+      cy.assertContainsAny(['Profile', 'Settings', 'Saved']);
     });
   });
 
@@ -485,7 +224,7 @@ describe('Account Settings Update Flow Tests', () => {
       cy.visit('/app/profile');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Profile', 'Settings', 'Error']);
       cy.get('body').should('not.contain.text', 'Cannot read');
     });
   });
@@ -499,16 +238,7 @@ describe('Account Settings Update Flow Tests', () => {
       });
 
       cy.visit('/app/profile');
-
-      cy.get('body').then($body => {
-        const hasLoading = $body.find('[class*="spin"]').length > 0 ||
-                           $body.text().includes('Loading');
-        if (hasLoading) {
-          cy.log('Loading indicator displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['[class*="spin"]']);
     });
   });
 
@@ -517,24 +247,21 @@ describe('Account Settings Update Flow Tests', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/profile');
       cy.waitForPageLoad();
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Profile', 'Settings']);
     });
 
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/profile');
       cy.waitForPageLoad();
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Profile', 'Settings']);
     });
 
     it('should display properly on large screens', () => {
       cy.viewport(1920, 1080);
       cy.visit('/app/profile');
       cy.waitForPageLoad();
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Profile', 'Settings']);
     });
   });
 });

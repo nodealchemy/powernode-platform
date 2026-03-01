@@ -55,17 +55,13 @@ describe('Business Predictive Analytics Tests', () => {
       it('should reset filters when All is selected', () => {
         cy.get('button').contains(/all/i).first().click();
         cy.waitForPageLoad();
-        cy.get('body').should('be.visible');
+        cy.assertContainsAny(['Churn Risk', 'Risk', 'All', 'Predictions']);
       });
     });
 
     describe('Predictions List', () => {
       it('should display list of churn predictions', () => {
-        cy.get('body').then($body => {
-          const hasList = $body.find('[data-testid="churn-risk-list"], table, [class*="list"]').length > 0 ||
-                         $body.text().match(/\d+%/) !== null;
-          expect(hasList).to.be.true;
-        });
+        cy.assertHasElement(['[data-testid="churn-risk-list"]', 'table', '[class*="list"]']);
       });
 
       it('should show risk probability percentages', () => {
@@ -75,33 +71,18 @@ describe('Business Predictive Analytics Tests', () => {
 
     describe('Prediction Details Modal', () => {
       it('should open detail modal when prediction is clicked', () => {
-        cy.get('body').then($body => {
-          const clickableItem = $body.find('[data-testid*="prediction"], button:contains("View"), [role="row"]').first();
-          if (clickableItem.length > 0) {
-            cy.wrap(clickableItem).click();
-            cy.assertContainsAny(['Details', 'Churn Prediction Details', 'Probability', 'Risk Tier']);
-          }
-        });
+        cy.get('[data-testid*="prediction"], button:contains("View"), [role="row"]').first().click();
+        cy.assertContainsAny(['Details', 'Churn Prediction Details', 'Probability', 'Risk Tier']);
       });
 
       it('should display contributing factors in modal', () => {
-        cy.get('body').then($body => {
-          const clickableItem = $body.find('[data-testid*="prediction"], button:contains("View"), [role="row"]').first();
-          if (clickableItem.length > 0) {
-            cy.wrap(clickableItem).click();
-            cy.assertContainsAny(['Contributing Factors', 'Factor', 'Weight', 'Close']);
-          }
-        });
+        cy.get('[data-testid*="prediction"], button:contains("View"), [role="row"]').first().click();
+        cy.assertContainsAny(['Contributing Factors', 'Factor', 'Weight', 'Close']);
       });
 
       it('should display recommended actions in modal', () => {
-        cy.get('body').then($body => {
-          const clickableItem = $body.find('[data-testid*="prediction"], button:contains("View"), [role="row"]').first();
-          if (clickableItem.length > 0) {
-            cy.wrap(clickableItem).click();
-            cy.assertContainsAny(['Recommended Actions', 'Action', 'Priority', 'Intervention']);
-          }
-        });
+        cy.get('[data-testid*="prediction"], button:contains("View"), [role="row"]').first().click();
+        cy.assertContainsAny(['Recommended Actions', 'Action', 'Priority', 'Intervention']);
       });
     });
 
@@ -109,13 +90,8 @@ describe('Business Predictive Analytics Tests', () => {
       it('should trigger prediction run when button clicked', () => {
         cy.intercept('POST', '**/predictive_analytics/churn/predict').as('runPredictions');
 
-        cy.get('body').then($body => {
-          const runButton = $body.find('button:contains("Run Predictions"), button:contains("Analyze")').first();
-          if (runButton.length > 0) {
-            cy.wrap(runButton).click();
-            cy.wait('@runPredictions', { timeout: 10000 }).its('response.statusCode').should('be.oneOf', [200, 201, 202]);
-          }
-        });
+        cy.get('button:contains("Run Predictions"), button:contains("Analyze")').first().click();
+        cy.wait('@runPredictions', { timeout: 10000 }).its('response.statusCode').should('be.oneOf', [200, 201, 202]);
       });
     });
   });
@@ -159,23 +135,19 @@ describe('Business Predictive Analytics Tests', () => {
       it('should filter by at-risk status', () => {
         cy.get('button').contains(/at.?risk/i).click();
         cy.waitForPageLoad();
-        cy.get('body').should('be.visible');
+        cy.assertContainsAny(['At Risk', 'at_risk', 'Health', 'Score']);
       });
 
       it('should filter by healthy status', () => {
         cy.get('button').contains(/healthy/i).first().click();
         cy.waitForPageLoad();
-        cy.get('body').should('be.visible');
+        cy.assertContainsAny(['Healthy', 'healthy', 'Health', 'Score']);
       });
     });
 
     describe('Health Score Cards', () => {
       it('should display health score cards for customers', () => {
-        cy.get('body').then($body => {
-          const hasCards = $body.find('[class*="card"], [class*="Card"], [data-testid*="health-card"]').length > 0 ||
-                          $body.text().includes('Score');
-          expect(hasCards).to.be.true;
-        });
+        cy.assertContainsAny(['Score', 'Health Score']);
       });
 
       it('should show health status indicators', () => {
@@ -187,23 +159,14 @@ describe('Business Predictive Analytics Tests', () => {
       it('should trigger recalculation when button clicked', () => {
         cy.intercept('POST', '**/predictive_analytics/health/calculate').as('recalculateScores');
 
-        cy.get('body').then($body => {
-          const calcButton = $body.find('button:contains("Recalculate"), button:contains("Refresh")').first();
-          if (calcButton.length > 0) {
-            cy.wrap(calcButton).click();
-            cy.wait('@recalculateScores', { timeout: 10000 }).its('response.statusCode').should('be.oneOf', [200, 201, 202]);
-          }
-        });
+        cy.get('button:contains("Recalculate"), button:contains("Refresh")').first().click();
+        cy.wait('@recalculateScores', { timeout: 10000 }).its('response.statusCode').should('be.oneOf', [200, 201, 202]);
       });
     });
 
     describe('Empty State', () => {
       it('should display message when no health scores match filter', () => {
-        cy.get('body').then($body => {
-          if ($body.text().includes('No health scores') || $body.text().includes('No data')) {
-            cy.assertContainsAny(['No health scores', 'No data', 'No results']);
-          }
-        });
+        cy.assertContainsAny(['No health scores', 'No data', 'No results', 'Health', 'Score']);
       });
     });
   });
@@ -263,13 +226,7 @@ describe('Business Predictive Analytics Tests', () => {
 
     describe('Forecast Chart', () => {
       it('should display forecast visualization', () => {
-        cy.get('body').then($body => {
-          const hasChart = $body.find('svg, canvas, [class*="chart"], [class*="Chart"], [data-testid*="chart"]').length > 0;
-          if (hasChart) {
-            cy.log('Forecast chart rendered');
-          }
-          expect($body.text()).to.match(/\$|MRR|Revenue|Forecast/);
-        });
+        cy.assertContainsAny(['$', 'MRR', 'Revenue', 'Forecast']);
       });
 
       it('should show confidence intervals', () => {
@@ -287,12 +244,7 @@ describe('Business Predictive Analytics Tests', () => {
       });
 
       it('should display monthly forecasts', () => {
-        cy.get('body').then($body => {
-          const hasTable = $body.find('table, [role="table"]').length > 0;
-          if (hasTable) {
-            cy.assertContainsAny(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']);
-          }
-        });
+        cy.assertContainsAny(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']);
       });
     });
 
@@ -300,24 +252,14 @@ describe('Business Predictive Analytics Tests', () => {
       it('should trigger forecast generation when button clicked', () => {
         cy.intercept('POST', '**/predictive_analytics/revenue/forecast').as('generateForecast');
 
-        cy.get('body').then($body => {
-          const genButton = $body.find('button:contains("Generate")').first();
-          if (genButton.length > 0) {
-            cy.wrap(genButton).click();
-            cy.wait('@generateForecast', { timeout: 15000 }).its('response.statusCode').should('be.oneOf', [200, 201, 202]);
-          }
-        });
+        cy.get('button:contains("Generate")').first().click();
+        cy.wait('@generateForecast', { timeout: 15000 }).its('response.statusCode').should('be.oneOf', [200, 201, 202]);
       });
     });
 
     describe('Empty State', () => {
       it('should display empty state when no forecasts available', () => {
-        cy.get('body').then($body => {
-          if ($body.text().includes('No forecasts')) {
-            cy.assertContainsAny(['No forecasts', 'Generate a forecast', 'Get started']);
-            cy.get('button').contains(/generate/i).should('be.visible');
-          }
-        });
+        cy.assertContainsAny(['No forecasts', 'Generate a forecast', 'Get started', 'Forecast', '$']);
       });
     });
   });
@@ -325,35 +267,20 @@ describe('Business Predictive Analytics Tests', () => {
   describe('Cross-Page Navigation', () => {
     it('should navigate from analytics dashboard to churn risk', () => {
       cy.navigateTo('/app/business/analytics');
-      cy.get('body').then($body => {
-        const churnLink = $body.find('a[href*="churn-risk"], button:contains("Churn")').first();
-        if (churnLink.length > 0) {
-          cy.wrap(churnLink).click();
-          cy.url().should('include', 'churn-risk');
-        }
-      });
+      cy.get('a[href*="churn-risk"], button:contains("Churn")').first().click();
+      cy.url().should('include', 'churn-risk');
     });
 
     it('should navigate from analytics dashboard to customer health', () => {
       cy.navigateTo('/app/business/analytics');
-      cy.get('body').then($body => {
-        const healthLink = $body.find('a[href*="customer-health"], button:contains("Health")').first();
-        if (healthLink.length > 0) {
-          cy.wrap(healthLink).click();
-          cy.url().should('include', 'customer-health');
-        }
-      });
+      cy.get('a[href*="customer-health"], button:contains("Health")').first().click();
+      cy.url().should('include', 'customer-health');
     });
 
     it('should navigate from analytics dashboard to revenue forecast', () => {
       cy.navigateTo('/app/business/analytics');
-      cy.get('body').then($body => {
-        const forecastLink = $body.find('a[href*="revenue-forecast"], button:contains("Forecast")').first();
-        if (forecastLink.length > 0) {
-          cy.wrap(forecastLink).click();
-          cy.url().should('include', 'revenue-forecast');
-        }
-      });
+      cy.get('a[href*="revenue-forecast"], button:contains("Forecast")').first().click();
+      cy.url().should('include', 'revenue-forecast');
     });
   });
 

@@ -63,13 +63,8 @@ describe('License Compliance Tests', () => {
     });
 
     it('should navigate to policy form page', () => {
-      cy.get('body').then($body => {
-        const createBtn = $body.find('[data-testid="create-policy-btn"], button:contains("Create"), a[href*="/policies/new"]');
-        if (createBtn.length > 0) {
-          cy.wrap(createBtn).first().click();
-          cy.url().should('include', '/policies/new');
-        }
-      });
+      cy.get('[data-testid="create-policy-btn"], button:contains("Create"), a[href*="/policies/new"]').first().click();
+      cy.url().should('include', '/policies/new');
     });
 
     it('should display policy form fields', () => {
@@ -94,13 +89,8 @@ describe('License Compliance Tests', () => {
   describe('License Policy Detail Page', () => {
     it('should navigate to policy detail page', () => {
       cy.assertPageReady('/app/supply-chain/licenses/policies');
-      cy.get('body').then($body => {
-        const policyRow = $body.find('table tbody tr, [data-testid*="policy-row"]');
-        if (policyRow.length > 0) {
-          cy.wrap(policyRow).first().click();
-          cy.url().should('match', /\/policies\/[^/]+$/);
-        }
-      });
+      cy.get('table tbody tr, [data-testid*="policy-row"]').first().click();
+      cy.url().should('match', /\/policies\/[^/]+$/);
     });
 
     it('should display policy details', () => {
@@ -159,23 +149,13 @@ describe('License Compliance Tests', () => {
     });
 
     it('should open edit form when clicking edit', () => {
-      cy.get('body').then($body => {
-        const editBtn = $body.find('[data-testid="edit-btn"], button:contains("Edit"), a[href*="/edit"]');
-        if (editBtn.length > 0) {
-          cy.wrap(editBtn).first().click();
-          cy.assertContainsAny(['Edit', 'Update', 'Policy', 'Save']);
-        }
-      });
+      cy.get('[data-testid="edit-btn"], button:contains("Edit"), a[href*="/edit"]').first().click();
+      cy.assertContainsAny(['Edit', 'Update', 'Policy', 'Save']);
     });
 
     it('should toggle policy active status', () => {
-      cy.get('body').then($body => {
-        const toggleBtn = $body.find('[data-testid="toggle-btn"], button:contains("Disable"), button:contains("Enable")');
-        if (toggleBtn.length > 0) {
-          cy.wrap(toggleBtn).first().click();
-          cy.wait('@toggleLicensePolicy');
-        }
-      });
+      cy.get('[data-testid="toggle-btn"], button:contains("Disable"), button:contains("Enable")').first().click();
+      cy.wait('@toggleLicensePolicy');
     });
   });
 
@@ -224,48 +204,28 @@ describe('License Compliance Tests', () => {
     });
 
     it('should filter by severity', () => {
-      cy.get('body').then($body => {
-        const severityFilter = $body.find('[data-testid="filter-severity"], select:contains("Severity")');
-        if (severityFilter.length > 0) {
-          cy.wrap(severityFilter).first().click();
-          cy.get('[role="option"], option').contains(/critical/i).click();
-          cy.wait('@getLicenseViolationsFiltered');
-        }
-      });
+      cy.get('[data-testid="filter-severity"], select:contains("Severity")').first().click();
+      cy.get('[role="option"], option').contains(/critical/i).click();
+      cy.wait('@getLicenseViolationsFiltered');
     });
 
     it('should filter by status', () => {
-      cy.get('body').then($body => {
-        const statusFilter = $body.find('[data-testid="filter-status"], select:contains("Status")');
-        if (statusFilter.length > 0) {
-          cy.wrap(statusFilter).first().click();
-          cy.get('[role="option"], option').contains(/open/i).click();
-          cy.wait('@getLicenseViolationsFiltered');
-        }
-      });
+      cy.get('[data-testid="filter-status"], select:contains("Status")').first().click();
+      cy.get('[role="option"], option').contains(/open/i).click();
+      cy.wait('@getLicenseViolationsFiltered');
     });
 
     it('should search violations', () => {
-      cy.get('body').then($body => {
-        const searchInput = $body.find('[data-testid="search-input"], input[type="search"]');
-        if (searchInput.length > 0) {
-          cy.wrap(searchInput).first().type('GPL');
-          cy.wait('@getLicenseViolationsFiltered');
-        }
-      });
+      cy.get('[data-testid="search-input"], input[type="search"]').first().type('GPL');
+      cy.wait('@getLicenseViolationsFiltered');
     });
   });
 
   describe('Violation Detail Page', () => {
     it('should navigate to violation detail page', () => {
       cy.assertPageReady('/app/supply-chain/licenses/violations');
-      cy.get('body').then($body => {
-        const violationRow = $body.find('table tbody tr, [data-testid*="violation-row"]');
-        if (violationRow.length > 0) {
-          cy.wrap(violationRow).first().click();
-          cy.url().should('match', /\/violations\/[^/]+$/);
-        }
-      });
+      cy.get('table tbody tr, [data-testid*="violation-row"]').first().click();
+      cy.url().should('match', /\/violations\/[^/]+$/);
     });
 
     it('should display violation details', () => {
@@ -308,13 +268,8 @@ describe('License Compliance Tests', () => {
     });
 
     it('should open resolution modal when clicking resolve', () => {
-      cy.get('body').then($body => {
-        const resolveBtn = $body.find('[data-testid="resolve-btn"], button:contains("Resolve")');
-        if (resolveBtn.length > 0) {
-          cy.wrap(resolveBtn).first().click();
-          cy.assertContainsAny(['Resolve', 'Resolution', 'Note', 'Comment']);
-        }
-      });
+      cy.get('[data-testid="resolve-btn"], button:contains("Resolve")').first().click();
+      cy.assertContainsAny(['Resolve', 'Resolution', 'Note', 'Comment']);
     });
 
     it('should have grant exception button', () => {
@@ -326,13 +281,8 @@ describe('License Compliance Tests', () => {
     });
 
     it('should open exception modal when clicking grant exception', () => {
-      cy.get('body').then($body => {
-        const exceptionBtn = $body.find('[data-testid="exception-btn"], button:contains("Exception")');
-        if (exceptionBtn.length > 0) {
-          cy.wrap(exceptionBtn).first().click();
-          cy.assertContainsAny(['Exception', 'Justification', 'Reason', 'Grant']);
-        }
-      });
+      cy.get('[data-testid="exception-btn"], button:contains("Exception")').first().click();
+      cy.assertContainsAny(['Exception', 'Justification', 'Reason', 'Grant']);
     });
   });
 
@@ -342,13 +292,8 @@ describe('License Compliance Tests', () => {
     });
 
     it('should have bulk action options', () => {
-      cy.get('body').then($body => {
-        const checkbox = $body.find('[data-testid="select-all"], input[type="checkbox"]');
-        if (checkbox.length > 0) {
-          cy.wrap(checkbox).first().check();
-          cy.assertContainsAny(['Bulk', 'Selected', 'Action']);
-        }
-      });
+      cy.get('[data-testid="select-all"], input[type="checkbox"]').first().check();
+      cy.assertContainsAny(['Bulk', 'Selected', 'Action']);
     });
   });
 

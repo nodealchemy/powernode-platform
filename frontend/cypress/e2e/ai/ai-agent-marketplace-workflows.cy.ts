@@ -176,11 +176,7 @@ describe('AI Agent Marketplace Workflows Tests', () => {
     });
 
     it('should display individual reviews', () => {
-      cy.get('body').then($body => {
-        if (!$body.text().includes('No reviews')) {
-          cy.assertContainsAny(['review', 'rating', 'user', 'comment']);
-        }
-      });
+      cy.assertContainsAny(['review', 'rating', 'user', 'comment', 'No reviews', 'Reviews']);
     });
 
     it('should have write review option', () => {
@@ -202,11 +198,7 @@ describe('AI Agent Marketplace Workflows Tests', () => {
     });
 
     it('should show update available badge', () => {
-      cy.get('body').then($body => {
-        if ($body.text().includes('Update')) {
-          cy.assertContainsAny(['Update', 'update available', 'new version']);
-        }
-      });
+      cy.assertContainsAny(['Update', 'update available', 'new version', 'Installed', 'My Agents']);
     });
 
     it('should have uninstall option', () => {

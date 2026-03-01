@@ -70,21 +70,13 @@ describe('AI Prompts Page Tests', () => {
     });
 
     it('should filter by General category', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("General")').length > 0) {
-          cy.clickButton('General');
-          cy.get('body').should('be.visible');
-        }
-      });
+      cy.clickButton('General');
+      cy.assertContainsAny(['General', 'Prompt']);
     });
 
     it('should filter by Agent category', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Agent")').length > 0) {
-          cy.clickButton('Agent');
-          cy.get('body').should('be.visible');
-        }
-      });
+      cy.clickButton('Agent');
+      cy.assertContainsAny(['Agent', 'Prompt']);
     });
   });
 
@@ -98,28 +90,16 @@ describe('AI Prompts Page Tests', () => {
     });
 
     it('should open editor when Create Template clicked', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Create Template")').length > 0) {
-          cy.clickButton('Create Template');
-          cy.waitForStableDOM();
-          cy.assertContainsAny(['Create Prompt Template', 'Name', 'Category']);
-        }
-      });
+      cy.clickButton('Create Template');
+      cy.waitForStableDOM();
+      cy.assertContainsAny(['Create Prompt Template', 'Name', 'Category']);
     });
 
     it('should close editor when Cancel clicked', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Create Template")').length > 0) {
-          cy.clickButton('Create Template');
-          cy.waitForStableDOM();
-          cy.get('body').then($newBody => {
-            if ($newBody.find('button:contains("Cancel")').length > 0) {
-              cy.clickButton('Cancel');
-              cy.waitForModalClose();
-            }
-          });
-        }
-      });
+      cy.clickButton('Create Template');
+      cy.waitForStableDOM();
+      cy.clickButton('Cancel');
+      cy.waitForModalClose();
     });
   });
 
@@ -129,14 +109,9 @@ describe('AI Prompts Page Tests', () => {
     });
 
     it('should open editor when template card clicked', () => {
-      cy.get('body').then($body => {
-        const templateCard = $body.find('[class*="card"][class*="cursor-pointer"], [class*="template"]');
-        if (templateCard.length > 0) {
-          cy.wrap(templateCard).first().click();
-          cy.waitForStableDOM();
-          cy.assertContainsAny(['Edit Prompt Template', 'Name', 'Prompt']);
-        }
-      });
+      cy.get('[class*="card"][class*="cursor-pointer"], [class*="template"]').first().click();
+      cy.waitForStableDOM();
+      cy.assertContainsAny(['Edit Prompt Template', 'Name', 'Prompt']);
     });
   });
 
@@ -150,14 +125,9 @@ describe('AI Prompts Page Tests', () => {
     });
 
     it('should open preview modal when Preview clicked', () => {
-      cy.get('body').then($body => {
-        const previewButton = $body.find('button:contains("Preview")');
-        if (previewButton.length > 0) {
-          cy.wrap(previewButton).first().click();
-          cy.waitForStableDOM();
-          cy.assertContainsAny(['Preview', 'Content', 'Prompt']);
-        }
-      });
+      cy.get('button:contains("Preview")').first().click();
+      cy.waitForStableDOM();
+      cy.assertContainsAny(['Preview', 'Content', 'Prompt']);
     });
   });
 
@@ -190,7 +160,7 @@ describe('AI Prompts Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.assertPageReady('/app/ai/prompts');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Prompt', 'Prompts']);
     });
   });
 });

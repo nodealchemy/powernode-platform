@@ -43,22 +43,15 @@ describe('AI Contexts Page Tests', () => {
 
   describe('Page Actions', () => {
     beforeEach(() => {
-      cy.visit('/app/ai/contexts');
-      cy.waitForPageLoad();
+      cy.assertPageReady('/app/ai/contexts');
     });
 
-    it('should have Refresh button or page content', () => {
-      cy.get('body').then($body => {
-        const hasRefresh = $body.find('button:contains("Refresh"), [aria-label*="refresh"], button svg').length > 0;
-        if (hasRefresh) {
-          cy.log('Refresh button found');
-        }
-        cy.get('body').should('be.visible');
-      });
+    it('should have Refresh button', () => {
+      cy.assertHasElement(['button:contains("Refresh")', '[aria-label*="refresh"]', 'button svg']);
     });
 
     it('should have New Context button or page content', () => {
-      cy.assertContainsAny(['New Context', 'Create', 'New', 'Context', 'Contexts', 'AI']);
+      cy.assertContainsAny(['New Context', 'Create', 'New', 'Context', 'Contexts']);
     });
   });
 
@@ -72,30 +65,18 @@ describe('AI Contexts Page Tests', () => {
     });
 
     it('should switch to Browse tab', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Browse")').length > 0) {
-          cy.clickButton('Browse');
-          cy.get('body').should('be.visible');
-        }
-      });
+      cy.clickButton('Browse');
+      cy.assertContainsAny(['Browse', 'Context', 'Contexts']);
     });
 
     it('should switch to Search tab', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Search")').length > 0) {
-          cy.clickButton('Search');
-          cy.get('body').should('be.visible');
-        }
-      });
+      cy.clickButton('Search');
+      cy.assertContainsAny(['Search', 'query', 'results']);
     });
 
     it('should switch to Create tab', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Create New"), button:contains("Create")').length > 0) {
-          cy.get('button:contains("Create New"), button:contains("Create")').first().click();
-          cy.get('body').should('be.visible');
-        }
-      });
+      cy.get('button:contains("Create New"), button:contains("Create")').first().click();
+      cy.assertContainsAny(['Create', 'Name', 'Context']);
     });
   });
 
@@ -116,12 +97,8 @@ describe('AI Contexts Page Tests', () => {
   describe('Search Tab', () => {
     beforeEach(() => {
       cy.assertPageReady('/app/ai/contexts');
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Search")').length > 0) {
-          cy.clickButton('Search');
-          cy.waitForStableDOM();
-        }
-      });
+      cy.clickButton('Search');
+      cy.waitForStableDOM();
     });
 
     it('should display search interface', () => {
@@ -139,12 +116,8 @@ describe('AI Contexts Page Tests', () => {
   describe('Create Context Form', () => {
     beforeEach(() => {
       cy.assertPageReady('/app/ai/contexts');
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Create New"), button:contains("Create")').length > 0) {
-          cy.get('button:contains("Create New"), button:contains("Create")').first().click();
-          cy.waitForStableDOM();
-        }
-      });
+      cy.get('button:contains("Create New"), button:contains("Create")').first().click();
+      cy.waitForStableDOM();
     });
 
     it('should display create context form', () => {
@@ -216,7 +189,7 @@ describe('AI Contexts Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.assertPageReady('/app/ai/contexts');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Context', 'Contexts']);
     });
   });
 });

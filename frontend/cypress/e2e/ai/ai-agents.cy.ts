@@ -58,28 +58,16 @@ describe('AI Agents Tests', () => {
     });
 
     it('should open create modal when button clicked', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Create Agent")').length > 0) {
-          cy.clickButton('Create Agent');
-          cy.waitForStableDOM();
-          cy.assertContainsAny(['Create', 'Name', 'Type']);
-        }
-      });
+      cy.clickButton('Create Agent');
+      cy.waitForStableDOM();
+      cy.assertContainsAny(['Create', 'Name', 'Type']);
     });
 
     it('should close modal when cancel clicked', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Create Agent")').length > 0) {
-          cy.clickButton('Create Agent');
-          cy.waitForStableDOM();
-          cy.get('body').then($newBody => {
-            if ($newBody.find('button:contains("Cancel")').length > 0) {
-              cy.clickButton('Cancel');
-              cy.waitForModalClose();
-            }
-          });
-        }
-      });
+      cy.clickButton('Create Agent');
+      cy.waitForStableDOM();
+      cy.clickButton('Cancel');
+      cy.waitForModalClose();
     });
   });
 
@@ -103,19 +91,11 @@ describe('AI Agents Tests', () => {
     });
 
     it('should have edit action for agents or empty state', () => {
-      cy.get('body').then($body => {
-        const hasEdit = $body.find('button:contains("Edit"), [aria-label*="edit"], [title*="Edit"]').length > 0;
-        const hasEmptyState = $body.text().includes('No agents') || $body.text().includes('Create Agent') || $body.text().includes('Get started');
-        expect(hasEdit || hasEmptyState).to.be.true;
-      });
+      cy.assertContainsAny(['Edit', 'No agents', 'Create Agent', 'Get started']);
     });
 
     it('should have delete action for agents or empty state', () => {
-      cy.get('body').then($body => {
-        const hasDelete = $body.find('button:contains("Delete"), [aria-label*="delete"], [title*="Delete"]').length > 0;
-        const hasEmptyState = $body.text().includes('No agents') || $body.text().includes('Create Agent') || $body.text().includes('Get started');
-        expect(hasDelete || hasEmptyState).to.be.true;
-      });
+      cy.assertContainsAny(['Delete', 'No agents', 'Create Agent', 'Get started']);
     });
   });
 
@@ -125,14 +105,9 @@ describe('AI Agents Tests', () => {
     });
 
     it('should show confirmation before delete', () => {
-      cy.get('body').then($body => {
-        const deleteButton = $body.find('button:contains("Delete"), [aria-label*="delete"]');
-        if (deleteButton.length > 0) {
-          cy.wrap(deleteButton).first().click();
-          cy.waitForStableDOM();
-          cy.assertContainsAny(['Are you sure', 'confirm', 'Cancel']);
-        }
-      });
+      cy.get('button:contains("Delete"), [aria-label*="delete"]').first().click();
+      cy.waitForStableDOM();
+      cy.assertContainsAny(['Are you sure', 'confirm', 'Cancel']);
     });
   });
 
@@ -173,7 +148,7 @@ describe('AI Agents Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.assertPageReady('/app/ai/agents');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Agent', 'AI']);
     });
   });
 });

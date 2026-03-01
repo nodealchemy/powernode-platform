@@ -41,18 +41,11 @@ describe('Content Knowledge Base Page Tests', () => {
     });
 
     it('should display search or page content', () => {
-      cy.get('body').should('be.visible');
       cy.assertContainsAny(['Search', 'Knowledge Base', 'Permission', 'Content']);
     });
 
     it('should have search input or show page state', () => {
-      cy.get('body').then($body => {
-        const hasSearch = $body.find('input[type="search"], input[placeholder*="Search"], input[placeholder*="search"]').length > 0;
-        if (hasSearch) {
-          cy.log('Search input found');
-        }
-        cy.get('body').should('be.visible');
-      });
+      cy.assertHasElement(['input[type="search"]', 'input[placeholder*="Search"]', 'input[placeholder*="search"]']);
     });
   });
 
@@ -76,7 +69,6 @@ describe('Content Knowledge Base Page Tests', () => {
     });
 
     it('should have article content or placeholder', () => {
-      cy.get('body').should('be.visible');
       cy.assertContainsAny(['Article', 'Knowledge', 'Content', 'Permission', 'Create']);
     });
   });
@@ -104,19 +96,19 @@ describe('Content Knowledge Base Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.navigateTo('/app/content/kb');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Knowledge', 'Content']);
     });
 
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.navigateTo('/app/content/kb');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Knowledge', 'Content']);
     });
 
     it('should display properly on large screens', () => {
       cy.viewport(1920, 1080);
       cy.navigateTo('/app/content/kb');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Knowledge', 'Content']);
     });
   });
 });

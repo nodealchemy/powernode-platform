@@ -44,17 +44,7 @@ describe('Webhook Management Page Tests', () => {
     });
 
     it('should have Add Webhook button or permission-restricted view', () => {
-      // Add Webhook button may be hidden based on permissions
-      cy.get('body').then($body => {
-        const hasAddButton = $body.text().includes('Add Webhook') ||
-                            $body.text().includes('Create Webhook') ||
-                            $body.text().includes('New Webhook');
-        const hasPermissionMessage = $body.text().includes('permission') ||
-                                     $body.text().includes('Permission');
-        // Either the button exists or we see a permission message
-        expect(hasAddButton || hasPermissionMessage || true).to.be.true;
-        cy.log(hasAddButton ? 'Add Webhook button found' : 'Add button not visible (may require permissions)');
-      });
+      cy.assertContainsAny(['Add Webhook', 'Create Webhook', 'New Webhook', 'permission', 'Permission']);
     });
 
     it('should have Refresh button', () => {
@@ -72,16 +62,7 @@ describe('Webhook Management Page Tests', () => {
     });
 
     it('should display stat cards or empty state', () => {
-      cy.get('body').then($body => {
-        const hasStats = $body.text().includes('Total Endpoints') ||
-                        $body.text().includes('Active') ||
-                        $body.text().includes('Inactive') ||
-                        $body.text().includes('Deliveries');
-        const hasEmptyState = $body.text().includes('No webhooks') ||
-                             $body.text().includes('permission');
-        cy.log(hasStats ? 'Stats overview displayed' : 'Stats may not be available');
-        expect(hasStats || hasEmptyState || true).to.be.true;
-      });
+      cy.assertContainsAny(['Total Endpoints', 'Active', 'Inactive', 'Deliveries', 'No webhooks', 'permission']);
     });
 
     it('should display endpoint counts', () => {
@@ -99,22 +80,13 @@ describe('Webhook Management Page Tests', () => {
     });
 
     it('should have view mode options', () => {
-      // The page has Statistics button that switches to stats view
       cy.assertContainsAny(['Statistics', 'Stats', 'Back']);
     });
 
     it('should switch to Statistics view', () => {
-      cy.get('body').then($body => {
-        // Find and click Statistics button if present
-        const statsButton = $body.find('button:contains("Statistics")');
-        if (statsButton.length > 0) {
-          cy.contains('button', 'Statistics').click();
-          cy.waitForStableDOM();
-          cy.assertContainsAny(['Statistics', 'Success', 'Failed', 'Rate', 'Back']);
-        } else {
-          cy.log('Statistics button not found - may require data');
-        }
-      });
+      cy.contains('button', 'Statistics').click();
+      cy.waitForStableDOM();
+      cy.assertContainsAny(['Statistics', 'Success', 'Failed', 'Rate', 'Back']);
     });
   });
 
@@ -124,26 +96,11 @@ describe('Webhook Management Page Tests', () => {
     });
 
     it('should display webhooks list or empty state', () => {
-      cy.get('body').then($body => {
-        const hasList = $body.find('table').length > 0 ||
-                       $body.find('[class*="card"]').length > 0 ||
-                       $body.text().includes('No webhooks') ||
-                       $body.text().includes('webhook') ||
-                       $body.text().includes('permission');
-        cy.log(hasList ? 'Webhooks list or empty state displayed' : 'Checking display');
-        expect(hasList || true).to.be.true;
-      });
+      cy.assertContainsAny(['webhook', 'No webhooks', 'permission']);
     });
 
     it('should display URL or Endpoint column when data exists', () => {
-      cy.get('body').then($body => {
-        const hasData = $body.find('table').length > 0;
-        if (hasData) {
-          cy.assertContainsAny(['URL', 'Endpoint', 'Name']);
-        } else {
-          cy.log('No table data - may have empty state or permission restriction');
-        }
-      });
+      cy.assertContainsAny(['URL', 'Endpoint', 'Name', 'No webhooks', 'permission']);
     });
 
     it('should display status information', () => {
@@ -157,14 +114,7 @@ describe('Webhook Management Page Tests', () => {
     });
 
     it('should display filter controls when list is shown', () => {
-      cy.get('body').then($body => {
-        const hasFilters = $body.find('select').length > 0 ||
-                          $body.find('input[type="text"]').length > 0 ||
-                          $body.text().includes('All') ||
-                          $body.text().includes('Search');
-        cy.log(hasFilters ? 'Filter controls found' : 'Filters may not be visible');
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['All', 'Search', 'Filter']);
     });
   });
 
@@ -183,15 +133,7 @@ describe('Webhook Management Page Tests', () => {
       }).as('loadError');
 
       cy.visit('/app/devops/webhooks');
-      cy.get('body').then($body => {
-        const hasError = $body.text().includes('Error') ||
-                        $body.text().includes('Failed') ||
-                        $body.text().includes('error');
-        if (hasError) {
-          cy.log('Error state displayed');
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Error', 'Failed', 'error']);
     });
   });
 
@@ -205,14 +147,8 @@ describe('Webhook Management Page Tests', () => {
       }).as('slowLoad');
 
       cy.visit('/app/devops/webhooks');
-      cy.get('body').then($body => {
-        const hasLoading = $body.find('.animate-spin, [class*="loading"], [class*="spinner"]').length > 0 ||
-                          $body.text().includes('Loading');
-        if (hasLoading) {
-          cy.log('Loading indicator found');
-        }
-      });
-      cy.get('body').should('be.visible');
+
+      cy.assertHasElement(['.animate-spin', '[class*="loading"]', '[class*="spinner"]']);
     });
   });
 
@@ -221,14 +157,14 @@ describe('Webhook Management Page Tests', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/devops/webhooks');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Webhook', 'Webhooks']);
     });
 
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/devops/webhooks');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Webhook', 'Webhooks']);
     });
 
     it('should display properly across viewports', () => {
@@ -242,8 +178,6 @@ describe('Webhook Management Page Tests', () => {
     it('should handle permission restrictions gracefully', () => {
       cy.visit('/app/devops/webhooks');
       cy.waitForPageLoad();
-      // Page should load regardless of permissions
-      cy.get('body').should('be.visible');
       cy.assertContainsAny(['Webhook', 'Webhooks', 'permission', 'Permission']);
     });
   });

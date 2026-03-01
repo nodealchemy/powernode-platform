@@ -16,63 +16,25 @@ describe('Public Legal Pages Tests', () => {
     it('should load privacy policy page', () => {
       cy.visit('/privacy');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasPrivacy = $body.text().includes('Privacy') ||
-                          $body.text().includes('Data');
-        if (hasPrivacy) {
-          cy.log('Privacy policy page loaded');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Privacy', 'Data']);
     });
 
     it('should display privacy policy content', () => {
       cy.visit('/privacy');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasContent = $body.find('h1, h2').length > 0 &&
-                          $body.find('p').length > 0;
-        if (hasContent) {
-          cy.log('Privacy policy content displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['h1', 'h2', 'p']);
     });
 
     it('should have data collection section', () => {
       cy.visit('/privacy');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasDataSection = $body.text().includes('collect') ||
-                              $body.text().includes('information') ||
-                              $body.text().includes('data');
-        if (hasDataSection) {
-          cy.log('Data collection section displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['collect', 'information', 'data']);
     });
 
     it('should have contact information for privacy inquiries', () => {
       cy.visit('/privacy');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasContact = $body.text().includes('contact') ||
-                          $body.text().includes('@') ||
-                          $body.text().includes('email');
-        if (hasContact) {
-          cy.log('Privacy contact information displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['contact', '@', 'email']);
     });
   });
 
@@ -80,48 +42,19 @@ describe('Public Legal Pages Tests', () => {
     it('should load terms of service page', () => {
       cy.visit('/terms');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasTerms = $body.text().includes('Terms') ||
-                        $body.text().includes('Service') ||
-                        $body.text().includes('Agreement');
-        if (hasTerms) {
-          cy.log('Terms of service page loaded');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Terms', 'Service', 'Agreement']);
     });
 
     it('should display terms content', () => {
       cy.visit('/terms');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasContent = $body.find('h1, h2').length > 0 &&
-                          $body.find('p').length > 0;
-        if (hasContent) {
-          cy.log('Terms content displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['h1', 'h2', 'p']);
     });
 
     it('should have acceptance section', () => {
       cy.visit('/terms');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasAcceptance = $body.text().includes('accept') ||
-                            $body.text().includes('agree') ||
-                            $body.text().includes('consent');
-        if (hasAcceptance) {
-          cy.log('Acceptance section displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['accept', 'agree', 'consent']);
     });
   });
 
@@ -129,32 +62,13 @@ describe('Public Legal Pages Tests', () => {
     it('should load cookie policy page', () => {
       cy.visit('/cookies');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasCookies = $body.text().includes('Cookie') ||
-                          $body.text().includes('cookie');
-        if (hasCookies) {
-          cy.log('Cookie policy page loaded');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Cookie', 'cookie']);
     });
 
     it('should explain cookie usage', () => {
       cy.visit('/cookies');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasExplanation = $body.text().includes('use') ||
-                              $body.text().includes('purpose') ||
-                              $body.text().includes('tracking');
-        if (hasExplanation) {
-          cy.log('Cookie explanation displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['use', 'purpose', 'tracking']);
     });
   });
 
@@ -165,31 +79,13 @@ describe('Public Legal Pages Tests', () => {
       it(`should have proper heading structure on ${page}`, () => {
         cy.visit(page);
         cy.waitForPageLoad();
-
-        cy.get('body').then($body => {
-          const hasH1 = $body.find('h1').length > 0;
-          if (hasH1) {
-            cy.log(`Proper heading on ${page}`);
-          }
-        });
-
-        cy.get('body').should('be.visible');
+        cy.assertHasElement(['h1', 'h2']);
       });
 
       it(`should have last updated date on ${page}`, () => {
         cy.visit(page);
         cy.waitForPageLoad();
-
-        cy.get('body').then($body => {
-          const hasDate = $body.text().includes('Last updated') ||
-                         $body.text().includes('Effective') ||
-                         $body.text().match(/\d{4}/) !== null;
-          if (hasDate) {
-            cy.log(`Date information on ${page}`);
-          }
-        });
-
-        cy.get('body').should('be.visible');
+        cy.assertContainsAny(['Last updated', 'Effective']);
       });
     });
   });
@@ -207,7 +103,7 @@ describe('Public Legal Pages Tests', () => {
         cy.visit('/privacy');
         cy.waitForPageLoad();
 
-        cy.get('body').should('be.visible');
+        cy.assertContainsAny(['Privacy', 'Terms', 'Legal']);
         cy.log(`Privacy policy displayed correctly on ${name}`);
       });
 
@@ -216,7 +112,7 @@ describe('Public Legal Pages Tests', () => {
         cy.visit('/terms');
         cy.waitForPageLoad();
 
-        cy.get('body').should('be.visible');
+        cy.assertContainsAny(['Privacy', 'Terms', 'Legal']);
         cy.log(`Terms displayed correctly on ${name}`);
       });
     });

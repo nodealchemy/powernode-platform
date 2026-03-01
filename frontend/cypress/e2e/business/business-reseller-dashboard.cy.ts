@@ -111,21 +111,11 @@ describe('Business Reseller Dashboard Tests', () => {
       });
 
       it('should indicate upgrade eligibility if applicable', () => {
-        cy.get('body').then($body => {
-          if ($body.text().includes('Eligible') || $body.text().includes('upgrade')) {
-            cy.assertContainsAny(['Eligible', 'upgrade', 'next tier']);
-          }
-        });
+        cy.assertContainsAny(['Eligible', 'upgrade', 'next tier', 'Tier', 'commission']);
       });
 
       it('should show progress towards next tier', () => {
-        cy.get('body').then($body => {
-          const hasProgress = $body.find('[role="progressbar"], [class*="progress"]').length > 0 ||
-                             $body.text().match(/\d+\s*\/\s*\d+/) !== null;
-          if (hasProgress) {
-            cy.log('Tier progress indicator displayed');
-          }
-        });
+        cy.assertContainsAny(['Tier', 'Progress', 'next tier', 'commission', 'Bronze', 'Silver', 'Gold', 'Platinum']);
       });
     });
 
@@ -143,11 +133,7 @@ describe('Business Reseller Dashboard Tests', () => {
       });
 
       it('should display recent commissions list', () => {
-        cy.get('body').then($body => {
-          const hasCommissions = $body.find('[data-testid*="commission"], table').length > 0 ||
-                                $body.text().includes('Commission');
-          expect(hasCommissions).to.be.true;
-        });
+        cy.assertContainsAny(['Commission', 'Commissions']);
       });
     });
 
@@ -161,20 +147,11 @@ describe('Business Reseller Dashboard Tests', () => {
       });
 
       it('should have request payout button when eligible', () => {
-        cy.get('body').then($body => {
-          if ($body.find('button:contains("Request")').length > 0) {
-            cy.get('button').contains(/request/i).should('be.visible');
-          }
-        });
+        cy.get('button').contains(/request/i).should('be.visible');
       });
 
       it('should display payout transaction list', () => {
-        cy.get('body').then($body => {
-          const hasPayouts = $body.find('[data-testid*="payout"], table, [class*="payout"]').length > 0;
-          if (hasPayouts) {
-            cy.log('Payout transaction list displayed');
-          }
-        });
+        cy.assertContainsAny(['Payout', 'Payment', 'History', 'pending', '$']);
       });
     });
 
@@ -202,14 +179,9 @@ describe('Business Reseller Dashboard Tests', () => {
         body: { success: true, message: 'Payout request submitted' },
       }).as('requestPayout');
 
-      cy.get('body').then($body => {
-        const requestButton = $body.find('button:contains("Request")').first();
-        if (requestButton.length > 0) {
-          cy.wrap(requestButton).click();
-          cy.wait('@requestPayout', { timeout: 10000 });
-          cy.assertContainsAny(['success', 'submitted', 'requested']);
-        }
-      });
+      cy.get('button:contains("Request")').first().click();
+      cy.wait('@requestPayout', { timeout: 10000 });
+      cy.assertContainsAny(['success', 'submitted', 'requested']);
     });
   });
 
@@ -228,12 +200,7 @@ describe('Business Reseller Dashboard Tests', () => {
       }).as('failedReseller');
 
       cy.visit('/app/business/reseller');
-
-      cy.get('body').then($body => {
-        if ($body.text().includes('Error') || $body.text().includes('Failed')) {
-          cy.assertContainsAny(['Retry', 'Try again', 'Reload']);
-        }
-      });
+      cy.assertContainsAny(['Retry', 'Try again', 'Reload', 'Error', 'Failed']);
     });
   });
 
@@ -264,7 +231,7 @@ describe('Business Reseller Dashboard Tests', () => {
     it('should stack cards on mobile viewport', () => {
       cy.viewport(375, 667);
       cy.navigateTo('/app/business/reseller');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Partner', 'Reseller', 'Commission', 'Referral']);
     });
   });
 

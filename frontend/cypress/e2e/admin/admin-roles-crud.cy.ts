@@ -174,12 +174,7 @@ describe('Admin Roles CRUD Workflows Tests', () => {
     });
 
     it('should prevent deletion of system roles', () => {
-      cy.get('body').then($body => {
-        const adminRow = $body.find('tr:contains("Admin"), [class*="row"]:contains("Admin")').first();
-        if (adminRow.find('button:contains("delete")').length === 0) {
-          cy.log('System roles cannot be deleted');
-        }
-      });
+      cy.assertContainsAny(['Admin', 'system', 'protected']);
     });
   });
 
@@ -239,13 +234,9 @@ describe('Admin Roles CRUD Workflows Tests', () => {
       }).as('assignUser');
 
       cy.get('button').contains(/add user|assign/i).first().click();
-      cy.get('body').then($body => {
-        if ($body.find('input[type="checkbox"], [role="option"]').length > 0) {
-          cy.get('input[type="checkbox"], [role="option"]').first().click();
-          cy.get('button').contains(/confirm|add/i).click();
-          cy.wait('@assignUser');
-        }
-      });
+      cy.get('input[type="checkbox"], [role="option"]').first().click();
+      cy.get('button').contains(/confirm|add/i).click();
+      cy.wait('@assignUser');
     });
 
     it('should remove user from role', () => {
@@ -294,6 +285,12 @@ describe('Admin Roles CRUD Workflows Tests', () => {
       cy.testResponsiveDesign('/app/admin/roles', {
         checkContent: 'Roles',
       });
+    });
+  });
+
+  describe('Permission Check', () => {
+    it('should require admin permissions', () => {
+      cy.testPermissionDenied('/app/admin/roles');
     });
   });
 });

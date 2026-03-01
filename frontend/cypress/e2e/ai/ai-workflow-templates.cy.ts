@@ -86,20 +86,7 @@ describe('AI Workflow Templates Page Tests', () => {
     });
 
     it('should have view details action when templates exist', () => {
-      cy.get('body').then($body => {
-        const bodyText = $body.text();
-        const hasEmptyState = bodyText.includes('No workflows found') || bodyText.includes('No workflows') || bodyText.includes('Get started');
-        const hasViewButton = $body.find('button[title*="View"], button[title*="Details"], [class*="lucide-eye"]').length > 0;
-        const hasTemplatesTable = $body.find('table tbody tr').length > 0 || $body.find('[class*="table"]').length > 0;
-
-        if (hasEmptyState || hasViewButton || hasTemplatesTable) {
-          // Test passes - either we have templates with view action, or no templates (empty state)
-          cy.log('Page shows either templates with view action or empty state');
-        } else {
-          // Still loading or error state - just verify page loaded
-          cy.get('body').should('be.visible');
-        }
-      });
+      cy.assertContainsAny(['No workflows found', 'No workflows', 'Get started', 'View', 'Details']);
     });
   });
 
@@ -128,7 +115,6 @@ describe('AI Workflow Templates Page Tests', () => {
 
   describe('Loading State', () => {
     it('should display loading state or content quickly', () => {
-      // This test verifies the page loads - loading state may be too brief to catch
       cy.intercept('GET', '**/api/v1/ai/workflows*', {
         delay: 500,
         statusCode: 200,
@@ -141,18 +127,7 @@ describe('AI Workflow Templates Page Tests', () => {
         }
       });
       cy.visit('/app/ai/workflows?type=templates');
-      // Check for loading state OR content (loading may be too fast to catch)
-      cy.get('body').then($body => {
-        const hasLoadingIndicator = $body.find('[class*="animate-pulse"], [class*="skeleton"], [class*="loading"], [class*="spinner"]').length > 0;
-        const hasContent = $body.find('table, [class*="table"], [class*="empty"]').length > 0 || $body.text().includes('Workflow');
-
-        if (hasLoadingIndicator || hasContent) {
-          cy.log('Page shows loading indicator or content');
-        } else {
-          // At minimum the body should be visible
-          cy.get('body').should('be.visible');
-        }
-      });
+      cy.assertHasElement(['[class*="animate-pulse"]', '[class*="skeleton"]', '[class*="loading"]', '[class*="spinner"]', 'table', '[class*="table"]', '[class*="empty"]']);
     });
   });
 
@@ -166,7 +141,7 @@ describe('AI Workflow Templates Page Tests', () => {
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.navigateTo('/app/ai/workflows?type=templates');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Workflow', 'AI']);
     });
 
     it('should show proper layout on large screens', () => {

@@ -29,14 +29,7 @@ describe('AI Workflow Detail Page Tests', () => {
     });
 
     it('should display workflow name as clickable link when workflows exist', () => {
-      cy.get('body').then($body => {
-        const hasWorkflows = !$body.text().includes('No workflows found');
-        if (hasWorkflows) {
-          cy.assertHasElement(['a[href*="/workflows/"]', 'button[title*="View"]', '[class*="cursor-pointer"]']);
-        } else {
-          cy.log('No workflows - name links only appear when workflows exist');
-        }
-      });
+      cy.assertHasElement(['a[href*="/workflows/"]', 'button[title*="View"]', '[class*="cursor-pointer"]', '[data-testid="empty-state"]']);
     });
 
     it('should display breadcrumbs', () => {
@@ -151,7 +144,7 @@ describe('AI Workflow Detail Page Tests', () => {
     it('should display on small screens', () => {
       cy.viewport(375, 667);
       cy.navigateTo('/app/ai/workflows');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Workflows', 'AI', 'Create Workflow']);
     });
 
     it('should show proper layout on large screens', () => {

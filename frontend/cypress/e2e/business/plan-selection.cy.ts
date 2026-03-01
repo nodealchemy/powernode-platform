@@ -7,20 +7,20 @@ describe('Plan Selection Workflow Tests', () => {
   describe('Plans Page', () => {
     it('should display available plans', () => {
       cy.visit('/plans');
-      
+
       // Should show plan cards
       cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
       cy.get('[data-testid="plan-card"]').should('have.length.at.least', 1);
-      
+
       // Each plan card should have essential information
       cy.get('[data-testid="plan-card"]').first().within(() => {
         // Should show plan name
         cy.get('h3, h2, .plan-name').should('exist');
-        
+
         // Should show price or "Free"
         cy.contains(/\$|\d+|Free/i).should('exist');
       });
-      
+
       // Plan cards should be clickable for selection
       cy.get('[data-testid="plan-card"]').should('have.length.at.least', 1);
     });
@@ -49,7 +49,7 @@ describe('Plan Selection Workflow Tests', () => {
     it('should show plan details and features', () => {
       cy.visit('/plans');
       cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
-      
+
       // Check each plan card for details
       cy.get('[data-testid="plan-card"]').each(($card) => {
         cy.wrap($card).within(() => {
@@ -62,21 +62,12 @@ describe('Plan Selection Workflow Tests', () => {
     it('should handle different billing cycles if available', () => {
       cy.visit('/plans');
       cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
-      
-      // Check for billing cycle toggles
-      cy.get('body').then($body => {
-        if ($body.find('[data-testid="billing-toggle"]').length > 0) {
-          cy.get('[data-testid="billing-toggle"]').should('be.visible');
-          
-          // Test switching billing cycles
-          cy.get('[data-testid="billing-toggle"]').click();
-          
-          // Plans should still be visible
-          cy.get('[data-testid="plan-card"]').should('exist');
-        } else {
-          cy.log('No billing toggle found - single billing cycle');
-        }
-      });
+
+      cy.get('[data-testid="billing-toggle"]').should('be.visible');
+      cy.get('[data-testid="billing-toggle"]').click();
+
+      // Plans should still be visible
+      cy.get('[data-testid="plan-card"]').should('exist');
     });
   });
 
@@ -121,7 +112,7 @@ describe('Plan Selection Workflow Tests', () => {
     it('should redirect to plan selection when accessing registration directly', () => {
       // Try to access registration without plan
       cy.visit('/register');
-      
+
       // Should redirect to plans page
       cy.url().should('include', '/plans');
     });
@@ -161,19 +152,15 @@ describe('Plan Selection Workflow Tests', () => {
       // Go back to plans
       cy.visit('/plans');
 
-      // Select different plan if available
-      cy.get('[data-testid="plan-card"]').then($cards => {
-        if ($cards.length > 1) {
-          // Select second plan
-          cy.get('[data-testid="plan-card"]').eq(1).should('be.visible').click();
-          cy.get('[data-testid="continue-to-registration"]', { timeout: 5000 }).should('be.visible');
-          cy.get('[data-testid="continue-to-registration"]').should('be.visible').click();
+      // Select second plan
+      cy.get('[data-testid="plan-card"]').should('have.length.at.least', 2);
+      cy.get('[data-testid="plan-card"]').eq(1).should('be.visible').click();
+      cy.get('[data-testid="continue-to-registration"]', { timeout: 5000 }).should('be.visible');
+      cy.get('[data-testid="continue-to-registration"]').should('be.visible').click();
 
-          // Should update registration with new plan
-          cy.url().should('include', '/register');
-          cy.get('[data-testid="selected-plan"]').should('be.visible');
-        }
-      });
+      // Should update registration with new plan
+      cy.url().should('include', '/register');
+      cy.get('[data-testid="selected-plan"]').should('be.visible');
     });
   });
 
@@ -181,18 +168,14 @@ describe('Plan Selection Workflow Tests', () => {
     it('should allow comparing multiple plans', () => {
       cy.visit('/plans');
       cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
-      
-      // Check if multiple plans are available
-      cy.get('[data-testid="plan-card"]').then($cards => {
-        if ($cards.length > 1) {
-          // Compare features across plans
-          cy.get('[data-testid="plan-card"]').each(($card, _index) => {
-            cy.wrap($card).within(() => {
-              cy.get('h3, h2, .plan-name').should('exist');
-              cy.contains(/\$|\d+|Free/i).should('exist');
-            });
-          });
-        }
+
+      // Compare features across plans
+      cy.get('[data-testid="plan-card"]').should('have.length.at.least', 2);
+      cy.get('[data-testid="plan-card"]').each(($card, _index) => {
+        cy.wrap($card).within(() => {
+          cy.get('h3, h2, .plan-name').should('exist');
+          cy.contains(/\$|\d+|Free/i).should('exist');
+        });
       });
     });
   });
@@ -205,9 +188,9 @@ describe('Plan Selection Workflow Tests', () => {
           res.setDelay(2000);
         });
       }).as('slowPlans');
-      
+
       cy.visit('/plans');
-      
+
       // Should eventually show plans
       cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
       cy.wait('@slowPlans');
@@ -216,15 +199,12 @@ describe('Plan Selection Workflow Tests', () => {
     it('should handle plan loading errors', () => {
       // Intercept and fail plans API
       cy.intercept('GET', '/api/v1/public/plans', { forceNetworkError: true }).as('failedPlans');
-      
+
       cy.visit('/plans');
-      
-      // Should show loading state initially or handle gracefully
-      cy.get('body').should('be.visible');
-      
+
       // Wait a moment for the error to potentially manifest
       cy.waitForStableDOM();
-      
+
       // Page should still be functional (either show error or fallback content)
       cy.get('body').should('not.be.empty');
     });
@@ -234,7 +214,7 @@ describe('Plan Selection Workflow Tests', () => {
     it('should show proper pricing format', () => {
       cy.visit('/plans');
       cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
-      
+
       cy.get('[data-testid="plan-card"]').each(($card) => {
         cy.wrap($card).within(() => {
           // Should show price in proper format or "Free"
@@ -246,7 +226,7 @@ describe('Plan Selection Workflow Tests', () => {
     it('should handle different currencies if supported', () => {
       cy.visit('/plans');
       cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
-      
+
       // Check for currency symbols
       cy.get('[data-testid="plan-card"]').first().within(() => {
         cy.contains(/\$|€|£|USD|EUR|GBP|Free/i).should('exist');
@@ -258,7 +238,7 @@ describe('Plan Selection Workflow Tests', () => {
     it('should display plan features clearly', () => {
       cy.visit('/plans');
       cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
-      
+
       cy.get('[data-testid="plan-card"]').first().within(() => {
         // Should have some kind of feature list
         cy.get('ul, .features, li').should('exist');
@@ -268,22 +248,13 @@ describe('Plan Selection Workflow Tests', () => {
     it('should highlight popular or recommended plans', () => {
       cy.visit('/plans');
       cy.get('[data-testid="plan-card"]', { timeout: 5000 }).should('exist');
-      
-      // Check for popular/recommended badges
-      cy.get('body').then($body => {
-        const badgeSelectors = [
-          '[data-testid="popular-badge"]',
-          '[data-testid="recommended-badge"]',
-          '.popular',
-          '.recommended'
-        ];
-        
-        badgeSelectors.forEach(selector => {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).should('be.visible');
-          }
-        });
-      });
+
+      cy.assertHasElement([
+        '[data-testid="popular-badge"]',
+        '[data-testid="recommended-badge"]',
+        '.popular',
+        '.recommended',
+      ]).should('be.visible');
     });
   });
 });

@@ -17,7 +17,7 @@ describe('Admin User Management', () => {
     });
 
     it('should display dashboard after login', () => {
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Dashboard', 'Welcome']);
       cy.url().should('match', /\/(app|dashboard)/);
     });
 
@@ -75,24 +75,7 @@ describe('Admin User Management', () => {
     });
 
     it('should navigate to settings if available', () => {
-      // Use broader element selection to handle different nav structures
-      cy.get('body').then($body => {
-        const settingsSelectors = [
-          'a[href*="settings"]',
-          'a[href*="profile"]',
-          '[data-testid="settings-link"]',
-          '[data-testid="nav-settings"]',
-          'nav a',
-          'aside a',
-        ];
-
-        for (const selector of settingsSelectors) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('be.visible').click();
-            break;
-          }
-        }
-      });
+      cy.get('a[href*="settings"], a[href*="profile"], [data-testid="settings-link"], [data-testid="nav-settings"], nav a, aside a').first().should('be.visible').click();
       cy.url().should('match', /\/(app|dashboard|settings|profile)/);
     });
 
@@ -119,6 +102,21 @@ describe('Admin User Management', () => {
           { name: 'tablet', width: 768, height: 1024 },
         ],
       });
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should handle API error gracefully', () => {
+      cy.testErrorHandling('**/api/**/admin/users*', {
+        statusCode: 500,
+        visitUrl: '/app/dashboard',
+      });
+    });
+  });
+
+  describe('Permission Check', () => {
+    it('should require admin permissions', () => {
+      cy.testPermissionDenied('/app/admin/users');
     });
   });
 });

@@ -79,13 +79,8 @@ describe('DevOps Repositories Tests', () => {
     });
 
     it('should display repository tabs when expanded', () => {
-      cy.get('body').then($body => {
-        const repoCard = $body.find('[class*="card"][class*="cursor-pointer"]');
-        if (repoCard.length > 0) {
-          cy.wrap(repoCard).first().click();
-          cy.assertContainsAny(['Overview', 'Code', 'Pull Requests', 'Branches']);
-        }
-      });
+      cy.get('[class*="card"][class*="cursor-pointer"]').first().click();
+      cy.assertContainsAny(['Overview', 'Code', 'Pull Requests', 'Branches']);
     });
   });
 

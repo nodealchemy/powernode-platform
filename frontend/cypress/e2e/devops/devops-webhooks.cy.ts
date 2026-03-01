@@ -67,14 +67,9 @@ describe('DevOps Webhooks Management Tests', () => {
     });
 
     it('should have action buttons or modal trigger', () => {
-      cy.get('body').then($body => {
-        const addBtn = $body.find('button:contains("Add Webhook"), button:contains("Create"), button:contains("New")');
-        if (addBtn.length > 0) {
-          cy.wrap(addBtn).first().click();
-          cy.waitForStableDOM();
-          cy.assertContainsAny(['Create', 'URL', 'Events', 'Cancel', 'Webhook', 'Add']);
-        }
-      });
+      cy.get('button:contains("Add Webhook"), button:contains("Create"), button:contains("New")').first().click();
+      cy.waitForStableDOM();
+      cy.assertContainsAny(['Create', 'URL', 'Events', 'Cancel', 'Webhook', 'Add']);
     });
   });
 
@@ -113,21 +108,21 @@ describe('DevOps Webhooks Management Tests', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/devops/webhooks');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Webhook', 'Webhooks', 'Management', 'DevOps']);
     });
 
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/devops/webhooks');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Webhook', 'Webhooks', 'Management', 'DevOps']);
     });
 
     it('should display properly on large screens', () => {
       cy.viewport(1920, 1080);
       cy.visit('/app/devops/webhooks');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Webhook', 'Webhooks', 'Management', 'DevOps']);
     });
   });
 });

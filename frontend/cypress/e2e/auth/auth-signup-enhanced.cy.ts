@@ -320,14 +320,7 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
         '.social-login'
       ];
 
-      socialProviders.forEach(selector => {
-        cy.get('body').then($body => {
-          if ($body.find(selector).length > 0) {
-            cy.log(`Social login found: ${selector}`);
-            cy.get(selector).should('be.visible');
-          }
-        });
-      });
+      cy.assertHasElement(['[data-testid="google-login"]', '[data-testid="github-login"]', '.social-login']);
     });
   });
 
@@ -339,11 +332,7 @@ describe('Enhanced Authentication & Sign-up Flow Tests', () => {
       cy.get('[data-testid="password-input"]').type(Cypress.env('DEMO_PASSWORD'));
 
       // Check remember me if available
-      cy.get('body').then($body => {
-        if ($body.find('input[type="checkbox"]').length > 0) {
-          cy.get('input[type="checkbox"]').first().should('be.visible').check();
-        }
-      });
+      cy.get('input[type="checkbox"]').first().should('be.visible').check();
 
       cy.get('[data-testid="login-submit-btn"]').click();
 

@@ -21,48 +21,19 @@ describe('Admin Compliance Tests', () => {
     it('should navigate to compliance page', () => {
       cy.visit('/app/admin/compliance');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasCompliance = $body.text().includes('Compliance') ||
-                             $body.text().includes('Privacy') ||
-                             $body.text().includes('GDPR');
-        if (hasCompliance) {
-          cy.log('Compliance page loaded');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Compliance', 'Privacy', 'GDPR']);
     });
 
     it('should display compliance status', () => {
       cy.visit('/app/admin/compliance');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasStatus = $body.text().includes('Compliant') ||
-                         $body.text().includes('Status') ||
-                         $body.text().includes('Complete');
-        if (hasStatus) {
-          cy.log('Compliance status displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Compliant', 'Status', 'Complete']);
     });
 
     it('should display compliance checklist', () => {
       cy.visit('/app/admin/compliance');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasChecklist = $body.find('input[type="checkbox"], ul li, [data-testid="checklist"]').length > 0 ||
-                            $body.text().includes('✓');
-        if (hasChecklist) {
-          cy.log('Compliance checklist displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['input[type="checkbox"]', 'ul li', '[data-testid="checklist"]']);
     });
   });
 
@@ -73,43 +44,15 @@ describe('Admin Compliance Tests', () => {
     });
 
     it('should display GDPR settings', () => {
-      cy.get('body').then($body => {
-        const hasGDPR = $body.text().includes('GDPR') ||
-                       $body.text().includes('Data Protection') ||
-                       $body.text().includes('European');
-        if (hasGDPR) {
-          cy.log('GDPR settings displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['GDPR', 'Data Protection', 'European']);
     });
 
     it('should display consent management', () => {
-      cy.get('body').then($body => {
-        const hasConsent = $body.text().includes('Consent') ||
-                          $body.text().includes('Permission') ||
-                          $body.text().includes('Agree');
-        if (hasConsent) {
-          cy.log('Consent management displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Consent', 'Permission', 'Agree']);
     });
 
     it('should display data subject rights', () => {
-      cy.get('body').then($body => {
-        const hasRights = $body.text().includes('Rights') ||
-                         $body.text().includes('Access') ||
-                         $body.text().includes('Erasure') ||
-                         $body.text().includes('Portability');
-        if (hasRights) {
-          cy.log('Data subject rights displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Rights', 'Access', 'Erasure', 'Portability']);
     });
   });
 
@@ -117,49 +60,19 @@ describe('Admin Compliance Tests', () => {
     it('should navigate to data retention settings', () => {
       cy.visit('/app/admin/compliance/retention');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasRetention = $body.text().includes('Retention') ||
-                            $body.text().includes('Data') ||
-                            $body.text().includes('Policy');
-        if (hasRetention) {
-          cy.log('Data retention page loaded');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Retention', 'Data', 'Policy']);
     });
 
     it('should display retention policies', () => {
       cy.visit('/app/admin/compliance/retention');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasPolicies = $body.text().includes('Policy') ||
-                          $body.text().includes('days') ||
-                          $body.text().includes('months');
-        if (hasPolicies) {
-          cy.log('Retention policies displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Policy', 'days', 'months']);
     });
 
     it('should have data type retention settings', () => {
       cy.visit('/app/admin/compliance/retention');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasTypes = $body.text().includes('User') ||
-                        $body.text().includes('Log') ||
-                        $body.text().includes('Transaction');
-        if (hasTypes) {
-          cy.log('Data type settings displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['User', 'Log', 'Transaction']);
     });
   });
 
@@ -167,62 +80,25 @@ describe('Admin Compliance Tests', () => {
     it('should navigate to data requests', () => {
       cy.visit('/app/admin/compliance/data-requests');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasRequests = $body.text().includes('Request') ||
-                          $body.text().includes('Export') ||
-                          $body.text().includes('Data');
-        if (hasRequests) {
-          cy.log('Data requests page loaded');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Request', 'Export', 'Data']);
     });
 
     it('should display request list', () => {
       cy.visit('/app/admin/compliance/data-requests');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasList = $body.find('table, [data-testid="requests-list"]').length > 0;
-        if (hasList) {
-          cy.log('Request list displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['table', '[data-testid="requests-list"]']);
     });
 
     it('should display request status', () => {
       cy.visit('/app/admin/compliance/data-requests');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasStatus = $body.text().includes('Pending') ||
-                         $body.text().includes('Completed') ||
-                         $body.text().includes('Processing');
-        if (hasStatus) {
-          cy.log('Request status displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Pending', 'Completed', 'Processing']);
     });
 
     it('should have approve/process actions', () => {
       cy.visit('/app/admin/compliance/data-requests');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasActions = $body.find('button:contains("Approve"), button:contains("Process"), button:contains("Complete")').length > 0 ||
-                          $body.text().includes('Approve');
-        if (hasActions) {
-          cy.log('Request actions displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Approve', 'Process', 'Complete']);
     });
   });
 
@@ -230,47 +106,19 @@ describe('Admin Compliance Tests', () => {
     it('should navigate to compliance reports', () => {
       cy.visit('/app/admin/compliance/reports');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasReports = $body.text().includes('Report') ||
-                          $body.text().includes('Audit') ||
-                          $body.text().includes('Summary');
-        if (hasReports) {
-          cy.log('Compliance reports page loaded');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Report', 'Audit', 'Summary']);
     });
 
     it('should have generate report option', () => {
       cy.visit('/app/admin/compliance/reports');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasGenerate = $body.find('button:contains("Generate"), button:contains("Create")').length > 0 ||
-                           $body.text().includes('Generate');
-        if (hasGenerate) {
-          cy.log('Generate report option displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Generate', 'Create']);
     });
 
     it('should have export report option', () => {
       cy.visit('/app/admin/compliance/reports');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasExport = $body.find('button:contains("Export"), button:contains("Download")').length > 0 ||
-                         $body.text().includes('Export');
-        if (hasExport) {
-          cy.log('Export report option displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Export', 'Download']);
     });
   });
 
@@ -278,48 +126,19 @@ describe('Admin Compliance Tests', () => {
     it('should navigate to privacy settings', () => {
       cy.visit('/app/admin/compliance/privacy');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasPrivacy = $body.text().includes('Privacy') ||
-                          $body.text().includes('Setting') ||
-                          $body.text().includes('Data');
-        if (hasPrivacy) {
-          cy.log('Privacy settings page loaded');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Privacy', 'Setting', 'Data']);
     });
 
     it('should display cookie settings', () => {
       cy.visit('/app/admin/compliance/privacy');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasCookies = $body.text().includes('Cookie') ||
-                          $body.text().includes('Tracking');
-        if (hasCookies) {
-          cy.log('Cookie settings displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Cookie', 'Tracking']);
     });
 
     it('should display analytics settings', () => {
       cy.visit('/app/admin/compliance/privacy');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasAnalytics = $body.text().includes('Analytics') ||
-                           $body.text().includes('Tracking') ||
-                           $body.text().includes('Collection');
-        if (hasAnalytics) {
-          cy.log('Analytics settings displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Analytics', 'Tracking', 'Collection']);
     });
   });
 
@@ -336,9 +155,23 @@ describe('Admin Compliance Tests', () => {
         cy.visit('/app/admin/compliance');
         cy.waitForPageLoad();
 
-        cy.get('body').should('be.visible');
-        cy.log(`Compliance displayed correctly on ${name}`);
+        cy.assertContainsAny(['Compliance', 'Privacy', 'GDPR']);
       });
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should handle API error gracefully', () => {
+      cy.testErrorHandling('**/api/**/admin/compliance*', {
+        statusCode: 500,
+        visitUrl: '/app/admin/compliance',
+      });
+    });
+  });
+
+  describe('Permission Check', () => {
+    it('should require admin permissions', () => {
+      cy.testPermissionDenied('/app/admin/compliance');
     });
   });
 });

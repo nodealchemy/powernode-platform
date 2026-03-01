@@ -71,21 +71,13 @@ describe('DevOps Integration Detail Page Tests', () => {
     });
 
     it('should switch to Executions tab', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Executions")').length > 0) {
-          cy.clickTab('Executions');
-          cy.assertContainsAny(['Execution', 'History', 'No executions']);
-        }
-      });
+      cy.clickTab('Executions');
+      cy.assertContainsAny(['Execution', 'History', 'No executions']);
     });
 
     it('should switch to Config tab', () => {
-      cy.get('body').then($body => {
-        if ($body.find('button:contains("Config")').length > 0) {
-          cy.clickTab('Config');
-          cy.assertContainsAny(['Configuration', 'Credential', 'Danger Zone', 'Delete']);
-        }
-      });
+      cy.clickTab('Config');
+      cy.assertContainsAny(['Configuration', 'Credential', 'Danger Zone', 'Delete']);
     });
   });
 

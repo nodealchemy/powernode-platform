@@ -45,12 +45,11 @@ describe('AI Prompt Templates Tests', () => {
     });
 
     it('should display page with content', () => {
-      cy.get('body').should('be.visible');
       cy.assertContainsAny(['Prompt', 'Template', 'AI']);
     });
 
     it('should have refresh button or page controls', () => {
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['button:contains("Refresh")', '[aria-label*="refresh"]', 'button svg']);
     });
   });
 
@@ -64,14 +63,9 @@ describe('AI Prompt Templates Tests', () => {
     });
 
     it('should open create form when Create clicked', () => {
-      cy.get('body').then($body => {
-        const createBtn = $body.find('button:contains("Create"), button:contains("New Template"), button:contains("New")');
-        if (createBtn.length > 0) {
-          cy.wrap(createBtn).first().click();
-          cy.waitForStableDOM();
-        }
-        cy.get('body').should('be.visible');
-      });
+      cy.get('button:contains("Create"), button:contains("New Template"), button:contains("New")').first().click();
+      cy.waitForStableDOM();
+      cy.assertContainsAny(['Create', 'Name', 'Template', 'Prompt']);
     });
   });
 
@@ -91,7 +85,6 @@ describe('AI Prompt Templates Tests', () => {
     });
 
     it('should have template actions or page content', () => {
-      cy.get('body').should('be.visible');
       cy.assertContainsAny(['Edit', 'Delete', 'View', 'Prompt', 'Template']);
     });
   });
@@ -112,13 +105,7 @@ describe('AI Prompt Templates Tests', () => {
     });
 
     it('should have search or filter functionality', () => {
-      cy.get('body').then($body => {
-        const hasSearch = $body.find('input[type="search"], input[placeholder*="Search"]').length > 0;
-        if (hasSearch) {
-          cy.log('Search input found');
-        }
-        cy.get('body').should('be.visible');
-      });
+      cy.assertHasElement(['input[type="search"]', 'input[placeholder*="Search"]', 'input[placeholder*="search"]', 'input[type="text"]']);
     });
   });
 
@@ -133,21 +120,21 @@ describe('AI Prompt Templates Tests', () => {
 
   describe('Responsive Design', () => {
     it('should display properly on mobile viewport', () => {
-      cy.viewport('iphone-x');
-      cy.navigateTo('/app/ai/prompts');
-      cy.get('body').should('be.visible');
+      cy.testResponsiveDesign('/app/ai/prompts', {
+        checkContent: ['Prompt']
+      });
     });
 
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.navigateTo('/app/ai/prompts');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Prompt', 'Template', 'AI']);
     });
 
     it('should display properly on large screens', () => {
       cy.viewport(1920, 1080);
       cy.navigateTo('/app/ai/prompts');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Prompt', 'Template', 'AI']);
     });
   });
 });

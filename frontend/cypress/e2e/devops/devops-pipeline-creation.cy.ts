@@ -33,15 +33,7 @@ describe('DevOps Pipeline/Workflow Tests', () => {
     });
 
     it('should display workflow status information', () => {
-      cy.get('body').then($body => {
-        const hasStatus = $body.text().includes('Active') ||
-                         $body.text().includes('Inactive') ||
-                         $body.text().includes('Running') ||
-                         $body.text().includes('Status') ||
-                         $body.text().includes('No workflows');
-        cy.log(hasStatus ? 'Status information displayed' : 'Checking status display');
-        expect(hasStatus || true).to.be.true;
-      });
+      cy.assertContainsAny(['Active', 'Inactive', 'Running', 'Status', 'No workflows']);
     });
   });
 
@@ -51,27 +43,13 @@ describe('DevOps Pipeline/Workflow Tests', () => {
     });
 
     it('should have Create Workflow button or permission notice', () => {
-      cy.get('body').then($body => {
-        const hasCreate = $body.text().includes('Create') ||
-                         $body.text().includes('New') ||
-                         $body.text().includes('Add');
-        const hasPermission = $body.text().includes('permission');
-        cy.log(hasCreate ? 'Create button found' : 'Create may require permissions');
-        expect(hasCreate || hasPermission || true).to.be.true;
-      });
+      cy.assertContainsAny(['Create', 'New', 'Add', 'permission']);
     });
 
     it('should open create workflow modal when clicking create button', () => {
-      cy.get('body').then($body => {
-        const createButton = $body.find('button:contains("Create"), button:contains("New")');
-        if (createButton.length > 0) {
-          cy.get('button').filter(':contains("Create"), :contains("New")').first().click();
-          cy.waitForStableDOM();
-          cy.assertContainsAny(['Name', 'Description', 'Create', 'Workflow', 'Template']);
-        } else {
-          cy.log('Create button not found - may require permissions');
-        }
-      });
+      cy.get('button').filter(':contains("Create"), :contains("New")').first().click();
+      cy.waitForStableDOM();
+      cy.assertContainsAny(['Name', 'Description', 'Create', 'Workflow', 'Template']);
     });
   });
 
@@ -95,13 +73,7 @@ describe('DevOps Pipeline/Workflow Tests', () => {
     });
 
     it('should have sorting options', () => {
-      cy.get('body').then($body => {
-        const hasSort = $body.find('button[aria-label*="sort"], [class*="sort"]').length > 0 ||
-                       $body.text().includes('Sort') ||
-                       $body.find('th button').length > 0;
-        cy.log(hasSort ? 'Sorting options found' : 'Sorting may be available');
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Sort', 'Workflow', 'Workflows', 'All']);
     });
   });
 
@@ -115,14 +87,7 @@ describe('DevOps Pipeline/Workflow Tests', () => {
     });
 
     it('should have refresh functionality', () => {
-      cy.get('body').then($body => {
-        const hasRefresh = $body.find('button[aria-label*="refresh"], [title*="Refresh"]').length > 0 ||
-                          $body.find('button svg').filter(function() {
-                            return this.classList.contains('lucide-refresh-cw');
-                          }).length > 0;
-        cy.log(hasRefresh ? 'Refresh button found' : 'Checking refresh availability');
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Refresh', 'Workflow', 'Workflows', 'Create']);
     });
   });
 
@@ -147,12 +112,7 @@ describe('DevOps Pipeline/Workflow Tests', () => {
     });
 
     it('should have import option', () => {
-      cy.get('body').then($body => {
-        const hasImport = $body.text().includes('Import') ||
-                         $body.find('button:contains("Import")').length > 0;
-        cy.log(hasImport ? 'Import option found' : 'Import may not be available');
-      });
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Import', 'Create', 'New', 'Workflow']);
     });
   });
 
@@ -182,13 +142,7 @@ describe('DevOps Pipeline/Workflow Tests', () => {
 
       cy.visit('/app/ai/workflows');
       cy.waitForPageLoad();
-      cy.get('body').then($body => {
-        const hasErrorHandling = $body.text().includes('Error') ||
-                                 $body.text().includes('Try') ||
-                                 $body.text().includes('Retry') ||
-                                 $body.text().includes('Failed');
-        cy.log(hasErrorHandling ? 'Error handling displayed' : 'Page recovered from error');
-      });
+      cy.assertContainsAny(['Error', 'Try', 'Retry', 'Failed']);
     });
   });
 
@@ -203,7 +157,6 @@ describe('DevOps Pipeline/Workflow Tests', () => {
       cy.viewport('iphone-x');
       cy.visit('/app/ai/workflows');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
       cy.assertContainsAny(['Workflow', 'Workflows']);
     });
 
@@ -211,7 +164,7 @@ describe('DevOps Pipeline/Workflow Tests', () => {
       cy.viewport('ipad-2');
       cy.visit('/app/ai/workflows');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Workflow', 'Workflows']);
     });
   });
 
@@ -228,16 +181,7 @@ describe('DevOps Pipeline/Workflow Tests', () => {
     it('should handle workflow detail navigation', () => {
       cy.visit('/app/ai/workflows');
       cy.waitForPageLoad();
-      // Check if there are any workflows to click on
-      cy.get('body').then($body => {
-        const hasWorkflows = $body.find('table tbody tr').length > 0 ||
-                            $body.find('[data-testid*="workflow"]').length > 0;
-        if (hasWorkflows) {
-          cy.log('Workflows available for detail view');
-        } else {
-          cy.log('No workflows available - empty state');
-        }
-      });
+      cy.assertContainsAny(['Workflow', 'Workflows', 'No workflows', 'Create']);
     });
   });
 });

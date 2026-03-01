@@ -25,48 +25,19 @@ describe('Delegations Management Tests', () => {
     it('should navigate to Delegations page', () => {
       cy.visit('/app/account/delegations');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasContent = $body.text().includes('Delegation') ||
-                          $body.text().includes('Account') ||
-                          $body.text().includes('Access');
-        if (hasContent) {
-          cy.log('Delegations page loaded');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Delegation', 'Account', 'Access']);
     });
 
     it('should display page title', () => {
       cy.visit('/app/account/delegations');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasTitle = $body.text().includes('Account Delegations') ||
-                        $body.text().includes('Delegations');
-        if (hasTitle) {
-          cy.log('Page title displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Account Delegations', 'Delegations']);
     });
 
     it('should display page description', () => {
       cy.visit('/app/account/delegations');
       cy.waitForPageLoad();
-
-      cy.get('body').then($body => {
-        const hasDescription = $body.text().includes('cross-account') ||
-                              $body.text().includes('access') ||
-                              $body.text().includes('Manage');
-        if (hasDescription) {
-          cy.log('Page description displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['cross-account', 'access', 'Manage']);
     });
   });
 
@@ -77,39 +48,16 @@ describe('Delegations Management Tests', () => {
     });
 
     it('should display Outgoing Delegations tab', () => {
-      cy.get('body').then($body => {
-        const hasOutgoing = $body.text().includes('Outgoing') ||
-                           $body.text().includes('Outgoing Delegations');
-        if (hasOutgoing) {
-          cy.log('Outgoing Delegations tab displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Outgoing', 'Outgoing Delegations']);
     });
 
     it('should display Incoming Access tab', () => {
-      cy.get('body').then($body => {
-        const hasIncoming = $body.text().includes('Incoming') ||
-                           $body.text().includes('Incoming Access');
-        if (hasIncoming) {
-          cy.log('Incoming Access tab displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Incoming', 'Incoming Access']);
     });
 
     it('should switch to Incoming Access tab', () => {
-      cy.get('body').then($body => {
-        const incomingTab = $body.find('button:contains("Incoming")');
-        if (incomingTab.length > 0) {
-          cy.wrap(incomingTab).first().click();
-          cy.log('Switched to Incoming Access tab');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button:contains("Incoming")').first().click();
+      cy.assertContainsAny(['Incoming', 'Incoming Access']);
     });
   });
 
@@ -120,37 +68,11 @@ describe('Delegations Management Tests', () => {
     });
 
     it('should display Create Delegation button', () => {
-      cy.get('body').then($body => {
-        const hasCreateBtn = $body.text().includes('Create Delegation') ||
-                            $body.find('button:contains("Create")').length > 0;
-        if (hasCreateBtn) {
-          cy.log('Create Delegation button displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Create Delegation', 'Create']);
     });
 
     it('should open Create Delegation modal', () => {
-      cy.get('body').then($body => {
-        const createBtn = $body.find('button:contains("Create Delegation")');
-        if (createBtn.length > 0) {
-          cy.wrap(createBtn).first().click();
-          cy.log('Create Delegation modal opened');
-        }
-      });
-
-      // Modal should appear
-      cy.get('body').then($body => {
-        const hasModal = $body.find('[role="dialog"]').length > 0 ||
-                        $body.text().includes('Create') ||
-                        $body.find('.modal').length > 0;
-        if (hasModal) {
-          cy.log('Modal is visible');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['button:contains("Create Delegation")', 'button:contains("Create")']);
     });
   });
 
@@ -161,44 +83,15 @@ describe('Delegations Management Tests', () => {
     });
 
     it('should display Active Delegations section', () => {
-      cy.get('body').then($body => {
-        const hasActive = $body.text().includes('Active Delegations') ||
-                         $body.text().includes('Granted Access');
-        if (hasActive) {
-          cy.log('Active Delegations section displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Active Delegations', 'Granted Access']);
     });
 
     it('should display delegation cards or empty state', () => {
-      cy.get('body').then($body => {
-        const hasCards = $body.text().includes('user') ||
-                        $body.text().includes('permission') ||
-                        $body.text().includes('No active delegations') ||
-                        $body.find('[data-testid="delegation-card"]').length > 0;
-        if (hasCards) {
-          cy.log('Delegation cards or empty state displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['No active delegations', 'Create a delegation', 'user', 'permission']);
     });
 
     it('should display status badges on delegation cards', () => {
-      cy.get('body').then($body => {
-        const hasStatusBadge = $body.text().includes('Active') ||
-                              $body.text().includes('Pending') ||
-                              $body.text().includes('Expired') ||
-                              $body.text().includes('Revoked') ||
-                              $body.text().includes('No active');
-        if (hasStatusBadge) {
-          cy.log('Status badges displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Active', 'Pending', 'Expired', 'Revoked', 'No active']);
     });
   });
 
@@ -209,28 +102,11 @@ describe('Delegations Management Tests', () => {
     });
 
     it('should display Inactive Delegations section', () => {
-      cy.get('body').then($body => {
-        const hasInactive = $body.text().includes('Inactive') ||
-                           $body.text().includes('Inactive Delegations');
-        if (hasInactive) {
-          cy.log('Inactive Delegations section displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Inactive', 'Inactive Delegations']);
     });
 
     it('should display expired/revoked delegations or empty state', () => {
-      cy.get('body').then($body => {
-        const hasContent = $body.text().includes('Expired') ||
-                          $body.text().includes('Revoked') ||
-                          $body.text().includes('No inactive delegations');
-        if (hasContent) {
-          cy.log('Expired/revoked delegations or empty state displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Expired', 'Revoked', 'No inactive delegations']);
     });
   });
 
@@ -241,30 +117,11 @@ describe('Delegations Management Tests', () => {
     });
 
     it('should display pending requests alert if any', () => {
-      cy.get('body').then($body => {
-        const hasPending = $body.text().includes('Pending') ||
-                          $body.text().includes('pending delegation request') ||
-                          $body.text().includes('awaiting');
-        if (hasPending) {
-          cy.log('Pending requests alert displayed');
-        } else {
-          cy.log('No pending requests');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Pending', 'No pending', 'pending delegation request', 'awaiting']);
     });
 
     it('should display Review button for pending requests', () => {
-      cy.get('body').then($body => {
-        const hasReview = $body.text().includes('Review') ||
-                         $body.find('button:contains("Review")').length > 0;
-        if (hasReview) {
-          cy.log('Review button displayed for pending requests');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Review', 'Pending', 'Delegation']);
     });
   });
 
@@ -275,28 +132,11 @@ describe('Delegations Management Tests', () => {
     });
 
     it('should display Available Permissions section', () => {
-      cy.get('body').then($body => {
-        const hasPermissions = $body.text().includes('Available Permissions') ||
-                              $body.text().includes('Permissions');
-        if (hasPermissions) {
-          cy.log('Available Permissions section displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Available Permissions', 'Permissions']);
     });
 
     it('should display permission cards with descriptions', () => {
-      cy.get('body').then($body => {
-        const hasPermCards = $body.text().includes('description') ||
-                            $body.find('[data-testid="permission-card"]').length > 0 ||
-                            $body.text().includes('label');
-        if (hasPermCards) {
-          cy.log('Permission cards with descriptions displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Permission', 'description', 'label']);
     });
   });
 
@@ -307,16 +147,7 @@ describe('Delegations Management Tests', () => {
     });
 
     it('should open details modal when clicking delegation card', () => {
-      cy.get('body').then($body => {
-        // Look for delegation cards
-        const delegationCard = $body.find('[data-testid="delegation-card"], .cursor-pointer');
-        if (delegationCard.length > 0) {
-          cy.wrap(delegationCard).first().click();
-          cy.log('Delegation details modal opened');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['[data-testid="delegation-card"]', '.cursor-pointer', 'a']);
     });
   });
 
@@ -327,32 +158,15 @@ describe('Delegations Management Tests', () => {
     });
 
     it('should have revoke option in delegation details', () => {
-      cy.get('body').then($body => {
-        const hasRevoke = $body.text().includes('Revoke') ||
-                         $body.find('button:contains("Revoke")').length > 0;
-        if (hasRevoke) {
-          cy.log('Revoke option available');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Revoke', 'Delegation']);
     });
   });
 
   describe('Loading States', () => {
     it('should show loading indicator while fetching data', () => {
       cy.visit('/app/account/delegations');
-
-      cy.get('body').then($body => {
-        const hasLoader = $body.text().includes('Loading') ||
-                         $body.find('.animate-spin').length > 0;
-        if (hasLoader) {
-          cy.log('Loading indicator shown');
-        }
-      });
-
+      cy.assertContainsAny(['Delegations', 'Management']);
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
     });
   });
 
@@ -363,27 +177,11 @@ describe('Delegations Management Tests', () => {
     });
 
     it('should display empty state for no active delegations', () => {
-      cy.get('body').then($body => {
-        const hasEmptyActive = $body.text().includes('No active delegations') ||
-                              $body.text().includes('Create a delegation');
-        if (hasEmptyActive) {
-          cy.log('Empty state for active delegations displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['No active delegations', 'Create a delegation']);
     });
 
     it('should display empty state for no inactive delegations', () => {
-      cy.get('body').then($body => {
-        const hasEmptyInactive = $body.text().includes('No inactive delegations') ||
-                                $body.text().includes('Expired and revoked');
-        if (hasEmptyInactive) {
-          cy.log('Empty state for inactive delegations displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['No inactive delegations', 'Expired and revoked']);
     });
   });
 
@@ -393,7 +191,7 @@ describe('Delegations Management Tests', () => {
       cy.waitForPageLoad();
 
       // Page should still be functional even if API fails
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Delegations', 'Management']);
     });
   });
 
@@ -410,7 +208,7 @@ describe('Delegations Management Tests', () => {
         cy.visit('/app/account/delegations');
         cy.waitForPageLoad();
 
-        cy.get('body').should('be.visible');
+        cy.assertContainsAny(['Delegations', 'Management']);
         cy.log(`Delegations page displayed correctly on ${name}`);
       });
     });

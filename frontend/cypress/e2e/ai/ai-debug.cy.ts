@@ -184,7 +184,7 @@ describe('AI Debug Page Tests', () => {
     it('should stack elements on small screens', () => {
       cy.viewport(375, 667);
       cy.navigateTo('/app/ai/debug');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Debug', 'AI', 'Permission', 'Troubleshoot']);
     });
   });
 });

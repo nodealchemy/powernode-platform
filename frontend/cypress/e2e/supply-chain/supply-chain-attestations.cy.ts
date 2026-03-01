@@ -63,37 +63,22 @@ describe('Attestations Tests', () => {
     });
 
     it('should filter by verification status', () => {
-      cy.get('body').then($body => {
-        const statusFilter = $body.find('[data-testid="filter-status"], select');
-        if (statusFilter.length > 0) {
-          cy.wrap(statusFilter).first().click();
-          cy.get('[role="option"], option').contains(/verified/i).click();
-          cy.wait('@getAttestationsFiltered');
-        }
-      });
+      cy.get('[data-testid="filter-status"], select').first().click();
+      cy.get('[role="option"], option').contains(/verified/i).click();
+      cy.wait('@getAttestationsFiltered');
     });
 
     it('should search attestations', () => {
-      cy.get('body').then($body => {
-        const searchInput = $body.find('[data-testid="search-input"], input[type="search"]');
-        if (searchInput.length > 0) {
-          cy.wrap(searchInput).first().type('api-server');
-          cy.wait('@getAttestationsFiltered');
-        }
-      });
+      cy.get('[data-testid="search-input"], input[type="search"]').first().type('api-server');
+      cy.wait('@getAttestationsFiltered');
     });
   });
 
   describe('Attestation Detail Page', () => {
     it('should navigate to attestation detail page', () => {
       cy.assertPageReady('/app/supply-chain/attestations');
-      cy.get('body').then($body => {
-        const attestationRow = $body.find('table tbody tr, [data-testid*="attestation-row"]');
-        if (attestationRow.length > 0) {
-          cy.wrap(attestationRow).first().click();
-          cy.url().should('match', /\/attestations\/[^/]+$/);
-        }
-      });
+      cy.get('table tbody tr, [data-testid*="attestation-row"]').first().click();
+      cy.url().should('match', /\/attestations\/[^/]+$/);
     });
 
     it('should display attestation details', () => {
@@ -160,13 +145,8 @@ describe('Attestations Tests', () => {
     });
 
     it('should trigger verification when clicking verify', () => {
-      cy.get('body').then($body => {
-        const verifyBtn = $body.find('[data-testid="verify-btn"], button:contains("Verify")');
-        if (verifyBtn.length > 0) {
-          cy.wrap(verifyBtn).first().click();
-          cy.wait('@verifyAttestation');
-        }
-      });
+      cy.get('[data-testid="verify-btn"], button:contains("Verify")').first().click();
+      cy.wait('@verifyAttestation');
     });
   });
 
@@ -238,13 +218,8 @@ describe('Attestations Tests', () => {
     });
 
     it('should open create attestation modal', () => {
-      cy.get('body').then($body => {
-        const createBtn = $body.find('[data-testid="create-btn"], button:contains("Create"), button:contains("New")');
-        if (createBtn.length > 0) {
-          cy.wrap(createBtn).first().click();
-          cy.assertContainsAny(['Create', 'New', 'Attestation', 'Subject', 'Type']);
-        }
-      });
+      cy.get('[data-testid="create-btn"], button:contains("Create"), button:contains("New")').first().click();
+      cy.assertContainsAny(['Create', 'New', 'Attestation', 'Subject', 'Type']);
     });
   });
 

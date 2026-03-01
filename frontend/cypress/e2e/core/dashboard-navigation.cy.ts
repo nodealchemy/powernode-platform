@@ -19,31 +19,13 @@ describe('Dashboard Navigation Tests', () => {
     });
 
     it('should handle user menu interactions', () => {
-      // Check if user menu exists
-      cy.get('body').then($body => {
-        if ($body.find('[data-testid="user-menu"]').length > 0) {
-          // Click user menu
-          cy.get('[data-testid="user-menu"]').click();
-
-          // Should show dropdown with logout option
-          cy.get('[data-testid="logout-btn"], [role="menuitem"]').should('be.visible');
-        } else {
-          // User menu might be structured differently
-          cy.log('User menu not found with expected test ID');
-        }
-      });
+      cy.get('[data-testid="user-menu"]').click();
+      cy.get('[data-testid="logout-btn"], [role="menuitem"]').should('be.visible');
     });
 
     it('should navigate to different app sections', () => {
-      // Visit a section - most apps have some navigation
-      cy.get('body').then($body => {
-        // Look for sidebar navigation items
-        const navItems = $body.find('nav a, aside a, [role="navigation"] a');
-        if (navItems.length > 0) {
-          cy.wrap(navItems.first()).should('be.visible').click();
-          cy.url().should('match', /\/(app|dashboard)/);
-        }
-      });
+      cy.get('nav a, aside a, [role="navigation"] a').first().should('be.visible').click();
+      cy.url().should('match', /\/(app|dashboard)/);
     });
   });
 
@@ -82,17 +64,7 @@ describe('Dashboard Navigation Tests', () => {
     });
 
     it('should have proper theme classes applied', () => {
-      // Check for theme-aware classes or CSS variables
-      cy.get('body').should('exist');
-
-      // Check if theme toggle exists
-      cy.get('body').then($body => {
-        if ($body.find('[data-testid="theme-toggle"]').length > 0) {
-          cy.get('[data-testid="theme-toggle"]').should('be.visible');
-        } else {
-          cy.log('No theme toggle found - using default theme');
-        }
-      });
+      cy.assertHasElement(['[data-testid="theme-toggle"]', '[class*="theme"]', 'button[aria-label*="theme"]']);
     });
   });
 

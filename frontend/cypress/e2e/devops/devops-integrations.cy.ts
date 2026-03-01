@@ -54,14 +54,9 @@ describe('DevOps Integrations Page Tests', () => {
     });
 
     it('should navigate to marketplace on button click', () => {
-      cy.get('body').then($body => {
-        const browseButton = $body.find('button:contains("Browse Marketplace"), button:contains("Marketplace")');
-        if (browseButton.length > 0) {
-          cy.wrap(browseButton).first().click();
-          cy.waitForPageLoad();
-          cy.url().should('match', /marketplace|integrations/);
-        }
-      });
+      cy.get('button:contains("Browse Marketplace"), button:contains("Marketplace")').first().click();
+      cy.waitForPageLoad();
+      cy.url().should('match', /marketplace|integrations/);
     });
   });
 

@@ -97,22 +97,11 @@ describe('Business Metrics Page Tests', () => {
     });
 
     it('should display metrics in grid layout with cards', () => {
-      // Check for grid layout or surface elements
-      cy.get('body').then(($body) => {
-        const hasGrid = $body.find('[class*="grid"]').length > 0;
-        const hasRounded = $body.find('[class*="rounded-lg"]').length > 0;
-        const hasSurface = $body.find('[class*="surface"]').length > 0;
-        expect(hasGrid || hasRounded || hasSurface, 'Should have grid layout elements').to.be.true;
-      });
+      cy.assertHasElement(['[class*="grid"]', '[class*="rounded-lg"]', '[class*="surface"]']);
     });
 
     it('should display metric values with proper styling', () => {
-      // Check for styled metric text elements
-      cy.get('body').then(($body) => {
-        const hasLargeText = $body.find('[class*="text-3xl"], [class*="text-2xl"]').length > 0;
-        const hasBold = $body.find('[class*="font-bold"], [class*="font-semibold"]').length > 0;
-        expect(hasLargeText || hasBold, 'Should have styled metric values').to.be.true;
-      });
+      cy.assertHasElement(['[class*="text-3xl"]', '[class*="text-2xl"]', '[class*="font-bold"]', '[class*="font-semibold"]']);
     });
   });
 

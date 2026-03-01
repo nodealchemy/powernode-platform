@@ -63,12 +63,12 @@ describe('User Settings Page Tests', () => {
 
     it('should switch to Account tab', () => {
       cy.clickTab('Account');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Settings', 'Profile', 'Account']);
     });
 
     it('should switch to Security tab', () => {
       cy.clickTab('Security');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Settings', 'Profile', 'Account']);
     });
   });
 
@@ -258,12 +258,12 @@ describe('User Settings Page Tests', () => {
   describe('Responsive Design', () => {
     it('should display properly on mobile viewport', () => {
       cy.testViewport('mobile', '/app/profile');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Settings', 'Profile', 'Account']);
     });
 
     it('should display properly on tablet viewport', () => {
       cy.testViewport('tablet', '/app/profile');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Settings', 'Profile', 'Account']);
     });
 
     it('should stack form fields on small screens', () => {

@@ -23,20 +23,11 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
     });
 
     it('should navigate to Rate Limiting tab', () => {
-      cy.get('body').then($body => {
-        const hasContent = $body.text().includes('Rate Limiting') ||
-                          $body.text().includes('Rate') ||
-                          $body.text().includes('Limits');
-        if (hasContent) {
-          cy.log('Rate Limiting tab loaded');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Rate Limiting', 'Rate', 'Limits']);
     });
 
     it('should redirect unauthorized users', () => {
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Rate Limiting', 'Settings', 'Admin']);
     });
   });
 
@@ -47,28 +38,11 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
     });
 
     it('should display rate limiting toggle', () => {
-      cy.get('body').then($body => {
-        const hasToggle = $body.text().includes('Enable Rate Limiting') ||
-                          $body.find('input[type="checkbox"], [role="switch"]').length > 0;
-        if (hasToggle) {
-          cy.log('Rate limiting toggle displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['input[type="checkbox"]', '[role="switch"]']);
     });
 
     it('should display rate limiting description', () => {
-      cy.get('body').then($body => {
-        const hasDescription = $body.text().includes('protect') ||
-                               $body.text().includes('abuse') ||
-                               $body.text().includes('requests');
-        if (hasDescription) {
-          cy.log('Rate limiting description displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['protect', 'abuse', 'requests']);
     });
   });
 
@@ -79,40 +53,15 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
     });
 
     it('should display API requests per minute field', () => {
-      cy.get('body').then($body => {
-        const hasAPILimit = $body.text().includes('API Requests') ||
-                            $body.text().includes('per minute') ||
-                            $body.text().includes('Requests/Minute');
-        if (hasAPILimit) {
-          cy.log('API requests per minute field displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['API Requests', 'per minute', 'Requests/Minute']);
     });
 
     it('should display webhook requests limit', () => {
-      cy.get('body').then($body => {
-        const hasWebhookLimit = $body.text().includes('Webhook') ||
-                                $body.text().includes('webhook');
-        if (hasWebhookLimit) {
-          cy.log('Webhook requests limit displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Webhook', 'webhook']);
     });
 
     it('should allow updating API limit value', () => {
-      cy.get('body').then($body => {
-        const input = $body.find('input[type="number"]');
-        if (input.length > 0) {
-          cy.wrap(input).first().clear().type('100');
-          cy.log('API limit value updated');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('input[type="number"]').first().clear().type('100');
     });
   });
 
@@ -123,52 +72,19 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
     });
 
     it('should display login attempts limit', () => {
-      cy.get('body').then($body => {
-        const hasLoginLimit = $body.text().includes('Login Attempts') ||
-                              $body.text().includes('Login') ||
-                              $body.text().includes('per hour');
-        if (hasLoginLimit) {
-          cy.log('Login attempts limit displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Login Attempts', 'Login', 'per hour']);
     });
 
     it('should display registration attempts limit', () => {
-      cy.get('body').then($body => {
-        const hasRegLimit = $body.text().includes('Registration') ||
-                            $body.text().includes('registration');
-        if (hasRegLimit) {
-          cy.log('Registration attempts limit displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Registration', 'registration']);
     });
 
     it('should display password reset limit', () => {
-      cy.get('body').then($body => {
-        const hasPasswordResetLimit = $body.text().includes('Password Reset') ||
-                                      $body.text().includes('password reset');
-        if (hasPasswordResetLimit) {
-          cy.log('Password reset limit displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Password Reset', 'password reset']);
     });
 
     it('should display email verification limit', () => {
-      cy.get('body').then($body => {
-        const hasEmailLimit = $body.text().includes('Email Verification') ||
-                              $body.text().includes('verification');
-        if (hasEmailLimit) {
-          cy.log('Email verification limit displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Email Verification', 'verification']);
     });
   });
 
@@ -179,36 +95,15 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
     });
 
     it('should display limit input fields', () => {
-      cy.get('body').then($body => {
-        const hasInputs = $body.find('input[type="number"]').length > 0;
-        if (hasInputs) {
-          cy.log('Limit input fields displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('input[type="number"]').should('exist');
     });
 
     it('should have minimum value validation', () => {
-      cy.get('body').then($body => {
-        const input = $body.find('input[min]');
-        if (input.length > 0) {
-          cy.log('Minimum value validation present');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('input[min]').should('exist');
     });
 
     it('should have maximum value validation', () => {
-      cy.get('body').then($body => {
-        const input = $body.find('input[max]');
-        if (input.length > 0) {
-          cy.log('Maximum value validation present');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('input[max]').should('exist');
     });
   });
 
@@ -219,40 +114,15 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
     });
 
     it('should display whitelist section', () => {
-      cy.get('body').then($body => {
-        const hasWhitelist = $body.text().includes('Whitelist') ||
-                             $body.text().includes('Allowed') ||
-                             $body.text().includes('Exempt');
-        if (hasWhitelist) {
-          cy.log('Whitelist section displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Whitelist', 'Allowed', 'Exempt']);
     });
 
     it('should display blacklist section', () => {
-      cy.get('body').then($body => {
-        const hasBlacklist = $body.text().includes('Blacklist') ||
-                             $body.text().includes('Blocked') ||
-                             $body.text().includes('Ban');
-        if (hasBlacklist) {
-          cy.log('Blacklist section displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Blacklist', 'Blocked', 'Ban']);
     });
 
     it('should have add IP button', () => {
-      cy.get('body').then($body => {
-        const hasAddButton = $body.find('button:contains("Add"), button:contains("+")').length > 0;
-        if (hasAddButton) {
-          cy.log('Add IP button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button:contains("Add"), button:contains("+")').should('exist');
     });
   });
 
@@ -263,28 +133,11 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
     });
 
     it('should display current usage statistics', () => {
-      cy.get('body').then($body => {
-        const hasStats = $body.text().includes('Current') ||
-                         $body.text().includes('Usage') ||
-                         $body.text().includes('Statistics');
-        if (hasStats) {
-          cy.log('Current usage statistics displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Current', 'Usage', 'Statistics']);
     });
 
     it('should display blocked requests count', () => {
-      cy.get('body').then($body => {
-        const hasBlocked = $body.text().includes('Blocked') ||
-                           $body.text().includes('Rejected');
-        if (hasBlocked) {
-          cy.log('Blocked requests count displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Blocked', 'Rejected']);
     });
   });
 
@@ -295,30 +148,12 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
     });
 
     it('should auto-save on change', () => {
-      // Rate limiting settings typically auto-save
-      cy.get('body').then($body => {
-        const input = $body.find('input[type="number"]');
-        if (input.length > 0) {
-          cy.wrap(input).first().clear().type('50');
-          cy.waitForPageLoad();
-          cy.log('Setting changed - auto-save triggered');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('input[type="number"]').first().clear().type('50');
+      cy.waitForPageLoad();
     });
 
     it('should show save indicator', () => {
-      cy.get('body').then($body => {
-        const hasIndicator = $body.find('[class*="spin"]').length > 0 ||
-                             $body.text().includes('Saving') ||
-                             $body.text().includes('Updated');
-        if (hasIndicator) {
-          cy.log('Save indicator shown');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Saving', 'Updated']);
     });
   });
 
@@ -336,7 +171,7 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
       cy.visit('/app/admin/settings/rate-limiting');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Rate Limiting', 'Settings', 'Error']);
       cy.get('body').should('not.contain.text', 'Cannot read');
     });
 
@@ -349,7 +184,7 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
       cy.visit('/app/admin/settings/rate-limiting');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Rate Limiting', 'Settings', 'Error']);
     });
   });
 
@@ -363,7 +198,7 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
       cy.visit('/app/admin/settings/rate-limiting');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Rate Limiting', 'Settings']);
     });
 
     it('should display properly on tablet viewport', () => {
@@ -371,7 +206,7 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
       cy.visit('/app/admin/settings/rate-limiting');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Rate Limiting', 'Settings']);
     });
 
     it('should stack sections on small screens', () => {
@@ -379,7 +214,13 @@ describe('Admin Settings Rate Limiting Tab Tests', () => {
       cy.visit('/app/admin/settings/rate-limiting');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Rate Limiting', 'Settings']);
+    });
+  });
+
+  describe('Permission Check', () => {
+    it('should require admin permissions', () => {
+      cy.testPermissionDenied('/app/admin/settings/rate-limiting');
     });
   });
 });

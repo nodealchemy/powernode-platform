@@ -313,7 +313,7 @@ describe('AI Sandbox Testing Page Tests', () => {
     it('should adapt layout on small screens', () => {
       cy.viewport(375, 667);
       cy.assertPageReady('/app/ai/sandbox');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Sandbox', 'Testing', 'Test Environment']);
     });
   });
 });

@@ -44,7 +44,6 @@ describe('Knowledge Base Article Page Tests', () => {
     });
 
     it('should display article content or status message', () => {
-      cy.get('body').should('be.visible');
       cy.assertContainsAny(['Article', 'Content', 'not found', 'Permission', 'Loading']);
     });
 
@@ -77,19 +76,19 @@ describe('Knowledge Base Article Page Tests', () => {
     it('should display properly on mobile viewport', () => {
       cy.viewport('iphone-x');
       cy.navigateTo('/app/content/kb/articles/test-article');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Article', 'Knowledge Base', 'Content']);
     });
 
     it('should display properly on tablet viewport', () => {
       cy.viewport('ipad-2');
       cy.navigateTo('/app/content/kb/articles/test-article');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Article', 'Knowledge Base', 'Content']);
     });
 
     it('should display properly on large screens', () => {
       cy.viewport(1920, 1080);
       cy.navigateTo('/app/content/kb/articles/test-article');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Article', 'Knowledge Base', 'Content']);
     });
   });
 });

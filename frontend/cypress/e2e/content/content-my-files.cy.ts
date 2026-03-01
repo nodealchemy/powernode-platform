@@ -65,7 +65,7 @@ describe('Content My Files Page Tests', () => {
       cy.assertHasElement(['input[placeholder*="Search files"]', 'input[placeholder*="search"]'])
         .first()
         .type('document');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['document', 'Files', 'No files']);
     });
 
     it('should display category filter', () => {
@@ -77,17 +77,8 @@ describe('Content My Files Page Tests', () => {
     });
 
     it('should filter by category', () => {
-      cy.get('select').then($selects => {
-        if ($selects.length > 0) {
-          cy.wrap($selects).first().then($select => {
-            const options = $select.find('option');
-            if (options.length > 1) {
-              cy.wrap($select).select(1);
-            }
-          });
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.get('select').first().select(1);
+      cy.assertContainsAny(['Files', 'Category', 'No files']);
     });
   });
 
@@ -128,39 +119,23 @@ describe('Content My Files Page Tests', () => {
     });
 
     it('should open upload modal', () => {
-      cy.assertHasElement(['button:contains("Upload Files")', 'button:contains("Upload")']).then($btn => {
-        if ($btn.length > 0) {
-          cy.wrap($btn).first().scrollIntoView().click();
-          cy.waitForStableDOM();
-          cy.assertContainsAny(['Upload Files', 'Storage Provider']);
-        }
-      });
+      cy.assertHasElement(['button:contains("Upload Files")', 'button:contains("Upload")']).first().scrollIntoView().click();
+      cy.waitForStableDOM();
+      cy.assertContainsAny(['Upload Files', 'Storage Provider']);
     });
 
     it('should have storage provider selector', () => {
-      cy.assertHasElement(['button:contains("Upload Files")', 'button:contains("Upload")']).then($btn => {
-        if ($btn.length > 0) {
-          cy.wrap($btn).first().scrollIntoView().click();
-          cy.waitForStableDOM();
-          cy.assertContainsAny(['Storage Provider', 'Local', 'Files']);
-        }
-      });
+      cy.assertHasElement(['button:contains("Upload Files")', 'button:contains("Upload")']).first().scrollIntoView().click();
+      cy.waitForStableDOM();
+      cy.assertContainsAny(['Storage Provider', 'Local', 'Files']);
     });
 
     it('should close upload modal', () => {
-      cy.assertHasElement(['button:contains("Upload Files")', 'button:contains("Upload")']).then($btn => {
-        if ($btn.length > 0) {
-          cy.wrap($btn).first().scrollIntoView().click();
-          cy.waitForStableDOM();
-          cy.assertHasElement(['button:contains("Close")', 'button:contains("Cancel")']).then($closeBtn => {
-            if ($closeBtn.length > 0) {
-              cy.wrap($closeBtn).first().scrollIntoView().click();
-              cy.waitForStableDOM();
-            }
-          });
-        }
-      });
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['button:contains("Upload Files")', 'button:contains("Upload")']).first().scrollIntoView().click();
+      cy.waitForStableDOM();
+      cy.assertHasElement(['button:contains("Close")', 'button:contains("Cancel")']).first().scrollIntoView().click();
+      cy.waitForStableDOM();
+      cy.assertContainsAny(['Files', 'My Files']);
     });
   });
 
@@ -170,12 +145,8 @@ describe('Content My Files Page Tests', () => {
     });
 
     it('should show bulk action bar when files selected', () => {
-      cy.get('input[type="checkbox"]').then($checkboxes => {
-        if ($checkboxes.length > 1) {
-          cy.wrap($checkboxes).eq(1).click();
-          cy.assertContainsAny(['selected', 'Download', 'Files']);
-        }
-      });
+      cy.get('input[type="checkbox"]').first().check({ force: true });
+      cy.assertContainsAny(['selected', 'Download', 'Files']);
     });
 
     it('should have bulk download option', () => {
@@ -265,7 +236,7 @@ describe('Content My Files Page Tests', () => {
       cy.viewport(375, 667);
       cy.visit('/app/content/files');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Files', 'My Files']);
     });
   });
 });

@@ -13,26 +13,12 @@ describe('Role & Permission Management', () => {
 
   describe('User Authentication', () => {
     it('should display authenticated user session', () => {
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Dashboard', 'Welcome']);
       cy.url().should('match', /\/(app|dashboard)/);
     });
 
     it('should show user information in UI', () => {
-      cy.get('body').then($body => {
-        const userIndicators = [
-          '[data-testid="user-menu"]',
-          ':contains("Demo")',
-          '[class*="avatar"]',
-          '[class*="user"]'
-        ];
-
-        for (const selector of userIndicators) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('exist');
-            break;
-          }
-        }
-      });
+      cy.assertHasElement(['[data-testid="user-menu"]', '[class*="avatar"]', '[class*="user"]']);
     });
   });
 
@@ -48,14 +34,9 @@ describe('Role & Permission Management', () => {
     });
 
     it('should allow navigation to permitted pages', () => {
-      cy.get('body').then($body => {
-        const navLinks = $body.find('nav a, aside a');
-        if (navLinks.length > 0) {
-          cy.wrap(navLinks.first()).should('be.visible').click();
-          cy.waitForPageLoad();
-          cy.get('body').should('be.visible');
-        }
-      });
+      cy.get('nav a, aside a').first().should('be.visible').click();
+      cy.waitForPageLoad();
+      cy.assertContainsAny(['Dashboard', 'Settings', 'Admin']);
     });
   });
 
@@ -77,21 +58,7 @@ describe('Role & Permission Management', () => {
 
   describe('Settings Access', () => {
     it('should access settings page', () => {
-      cy.get('body').then($body => {
-        const settingsSelectors = [
-          'a[href*="settings"]',
-          'a[href*="profile"]',
-          '[data-testid="nav-settings"]'
-        ];
-
-        for (const selector of settingsSelectors) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('be.visible').click();
-            break;
-          }
-        }
-      });
-
+      cy.get('a[href*="settings"], a[href*="profile"], [data-testid="nav-settings"]').first().should('be.visible').click();
       cy.waitForPageLoad();
       cy.url().should('match', /\/(app|dashboard|settings|profile)/);
     });
@@ -99,59 +66,19 @@ describe('Role & Permission Management', () => {
     it('should display settings content', () => {
       cy.visit('/app/profile');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Profile', 'Settings']);
     });
   });
 
   describe('User Menu Permissions', () => {
     it('should display user dropdown with options', () => {
-      // Open user menu using broader selectors
-      cy.get('body').then($body => {
-        const menuTriggers = [
-          '[data-testid="user-menu"]',
-          'button[aria-haspopup="true"]',
-          '[class*="avatar"]',
-          'button[class*="user"]',
-          'header button',
-        ];
-
-        for (const selector of menuTriggers) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('be.visible').click();
-            break;
-          }
-        }
-      });
-
-      // Should show dropdown options - be flexible about what text appears
+      cy.get('[data-testid="user-menu"], button[aria-haspopup="true"], [class*="avatar"], header button').first().should('be.visible').click();
       cy.assertContainsAny(['Settings', 'Profile', 'Sign Out', 'Logout', 'Account']);
     });
 
     it('should allow accessing profile from user menu', () => {
-      // Open user menu
-      cy.get('body').then($body => {
-        const menuTriggers = [
-          '[data-testid="user-menu"]',
-          'button:contains("Demo")',
-          '[class*="avatar"]'
-        ];
-
-        for (const selector of menuTriggers) {
-          if ($body.find(selector).length > 0) {
-            cy.get(selector).first().should('be.visible').click();
-            break;
-          }
-        }
-      });
-
-      // Click profile/settings if available
-      cy.get('body').then($body => {
-        if ($body.find(':contains("Profile")').length > 0) {
-          cy.contains('Profile').should('be.visible').click();
-        } else if ($body.find(':contains("Settings")').length > 0) {
-          cy.contains('Settings').should('be.visible').click();
-        }
-      });
+      cy.get('[data-testid="user-menu"], [class*="avatar"]').first().should('be.visible').click();
+      cy.assertContainsAny(['Profile', 'Settings']);
       cy.waitForPageLoad();
     });
   });
@@ -181,18 +108,33 @@ describe('Role & Permission Management', () => {
     it('should maintain session across page navigation', () => {
       cy.visit('/app');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Dashboard', 'Welcome']);
       cy.url().should('match', /\/(app|dashboard)/);
 
       // Navigate to another page
       cy.visit('/plans');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Plans', 'Pricing']);
 
       // Return to app
       cy.visit('/app');
       cy.waitForPageLoad();
       cy.url().should('match', /\/(app|dashboard)/);
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should handle API error gracefully', () => {
+      cy.testErrorHandling('**/api/**/admin/roles*', {
+        statusCode: 500,
+        visitUrl: '/app/admin/roles',
+      });
+    });
+  });
+
+  describe('Permission Check', () => {
+    it('should require admin permissions', () => {
+      cy.testPermissionDenied('/app/admin/roles');
     });
   });
 });
@@ -206,14 +148,12 @@ describe('Public Plans Access', () => {
 
   it('should access plans page', () => {
     cy.visit('/plans');
-    cy.get('body').should('be.visible');
     cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
       .should('have.length.at.least', 1);
   });
 
   it('should display plan information', () => {
     cy.visit('/plans');
-    cy.get('body').should('be.visible');
     cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
       .first()
       .should('be.visible');

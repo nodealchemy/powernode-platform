@@ -61,14 +61,14 @@ describe('Marketplace Browsing', () => {
       cy.get('[data-testid="plan-card"], [data-public-plan-card="true"]', { timeout: 5000 })
         .first()
         .click();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Marketplace', 'Browse', 'Plans']);
     });
   });
 
   describe('Subscriptions', () => {
     it('should navigate to subscriptions page', () => {
       cy.navigateTo('subscriptions');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Marketplace', 'Browse', 'Plans']);
     });
 
     it('should display subscription content', () => {

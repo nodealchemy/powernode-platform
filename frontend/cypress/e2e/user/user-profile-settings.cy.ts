@@ -14,7 +14,7 @@ describe('User Profile and Settings Tests', () => {
   describe('User Profile Display', () => {
     it('should display dashboard after login', () => {
       cy.url().should('match', /\/(app|dashboard)/);
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Profile', 'Settings', 'Dashboard']);
     });
 
     it('should have user menu visible', () => {
@@ -37,7 +37,7 @@ describe('User Profile and Settings Tests', () => {
         '[class*="avatar"]',
         '.rounded-full'
       ]);
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Profile', 'Settings', 'Dashboard']);
     });
 
     it('should access settings page directly', () => {
@@ -49,7 +49,7 @@ describe('User Profile and Settings Tests', () => {
   describe('Account Settings', () => {
     it('should navigate to account settings', () => {
       cy.navigateTo('settings');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Profile', 'Settings', 'Dashboard']);
     });
 
     it('should display settings form', () => {
@@ -81,7 +81,7 @@ describe('User Profile and Settings Tests', () => {
       cy.reload();
       cy.waitForPageLoad();
       cy.url().should('match', /\/(app|dashboard)/);
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Profile', 'Settings', 'Dashboard']);
     });
   });
 
@@ -104,7 +104,7 @@ describe('User Profile and Settings Tests', () => {
 
     it('should handle tablet viewport', () => {
       cy.testViewport('tablet', '/app');
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Profile', 'Settings', 'Dashboard']);
     });
   });
 
@@ -118,7 +118,7 @@ describe('User Profile and Settings Tests', () => {
     it('should maintain session across navigation', () => {
       cy.visit('/app/settings/profile');
       cy.waitForPageLoad();
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Profile', 'Settings', 'Dashboard']);
 
       cy.visit('/app');
       cy.waitForPageLoad();

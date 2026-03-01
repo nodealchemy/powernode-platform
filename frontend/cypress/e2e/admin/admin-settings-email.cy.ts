@@ -22,21 +22,12 @@ describe('Admin Settings Email Tab Tests', () => {
     });
 
     it('should navigate to Email Settings tab', () => {
-      cy.get('body').then($body => {
-        const hasContent = $body.text().includes('Email') ||
-                          $body.text().includes('SMTP') ||
-                          $body.text().includes('Configuration');
-        if (hasContent) {
-          cy.log('Email Settings tab loaded');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Email', 'SMTP', 'Configuration']);
     });
 
     it('should redirect unauthorized users', () => {
       // Test handles authorization check - page should either load or redirect
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Email', 'Settings', 'Admin']);
     });
   });
 
@@ -47,67 +38,23 @@ describe('Admin Settings Email Tab Tests', () => {
     });
 
     it('should display SMTP host field', () => {
-      cy.get('body').then($body => {
-        const hasHost = $body.text().includes('Host') ||
-                        $body.text().includes('Server') ||
-                        $body.text().includes('SMTP');
-        if (hasHost) {
-          cy.log('SMTP host field displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Host', 'Server', 'SMTP']);
     });
 
     it('should display SMTP port field', () => {
-      cy.get('body').then($body => {
-        const hasPort = $body.text().includes('Port') ||
-                        $body.find('input[name*="port"]').length > 0;
-        if (hasPort) {
-          cy.log('SMTP port field displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['input[name*="port"]']);
     });
 
     it('should display authentication fields', () => {
-      cy.get('body').then($body => {
-        const hasAuth = $body.text().includes('Username') ||
-                        $body.text().includes('Password') ||
-                        $body.text().includes('Authentication');
-        if (hasAuth) {
-          cy.log('Authentication fields displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Username', 'Password', 'Authentication']);
     });
 
     it('should display TLS/SSL options', () => {
-      cy.get('body').then($body => {
-        const hasTLS = $body.text().includes('TLS') ||
-                       $body.text().includes('SSL') ||
-                       $body.text().includes('Encryption');
-        if (hasTLS) {
-          cy.log('TLS/SSL options displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['TLS', 'SSL', 'Encryption']);
     });
 
     it('should display sender email configuration', () => {
-      cy.get('body').then($body => {
-        const hasSender = $body.text().includes('Sender') ||
-                          $body.text().includes('From') ||
-                          $body.text().includes('Reply');
-        if (hasSender) {
-          cy.log('Sender email configuration displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Sender', 'From', 'Reply']);
     });
   });
 
@@ -118,28 +65,11 @@ describe('Admin Settings Email Tab Tests', () => {
     });
 
     it('should display provider options', () => {
-      cy.get('body').then($body => {
-        const hasProvider = $body.text().includes('Provider') ||
-                            $body.text().includes('SendGrid') ||
-                            $body.text().includes('Mailgun') ||
-                            $body.text().includes('Custom');
-        if (hasProvider) {
-          cy.log('Provider options displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Provider', 'SendGrid', 'Mailgun', 'Custom']);
     });
 
     it('should allow selecting different providers', () => {
-      cy.get('body').then($body => {
-        const select = $body.find('select, [role="listbox"], [data-testid*="provider"]');
-        if (select.length > 0) {
-          cy.log('Provider selection available');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('select, [role="listbox"], [data-testid*="provider"]').should('exist');
     });
   });
 
@@ -150,29 +80,11 @@ describe('Admin Settings Email Tab Tests', () => {
     });
 
     it('should display email templates section', () => {
-      cy.get('body').then($body => {
-        const hasTemplates = $body.text().includes('Template') ||
-                             $body.text().includes('Welcome') ||
-                             $body.text().includes('Notification');
-        if (hasTemplates) {
-          cy.log('Email templates section displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Template', 'Welcome', 'Notification']);
     });
 
     it('should display template list', () => {
-      cy.get('body').then($body => {
-        const hasTemplateList = $body.text().includes('Password Reset') ||
-                                 $body.text().includes('Email Verification') ||
-                                 $body.text().includes('Invoice');
-        if (hasTemplateList) {
-          cy.log('Template list displayed');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Password Reset', 'Email Verification', 'Invoice']);
     });
   });
 
@@ -183,28 +95,11 @@ describe('Admin Settings Email Tab Tests', () => {
     });
 
     it('should have test email button', () => {
-      cy.get('body').then($body => {
-        const hasTestButton = $body.text().includes('Test') ||
-                              $body.text().includes('Send Test') ||
-                              $body.find('button:contains("Test")').length > 0;
-        if (hasTestButton) {
-          cy.log('Test email button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Test', 'Send Test']);
     });
 
     it('should have test email recipient field', () => {
-      cy.get('body').then($body => {
-        const hasRecipient = $body.find('input[type="email"]').length > 0 ||
-                             $body.text().includes('Recipient');
-        if (hasRecipient) {
-          cy.log('Test email recipient field found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['input[type="email"]']);
     });
   });
 
@@ -215,26 +110,11 @@ describe('Admin Settings Email Tab Tests', () => {
     });
 
     it('should have save button', () => {
-      cy.get('body').then($body => {
-        const hasSaveButton = $body.find('button:contains("Save"), button:contains("Update")').length > 0;
-        if (hasSaveButton) {
-          cy.log('Save button found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.get('button:contains("Save"), button:contains("Update")').should('exist');
     });
 
     it('should validate required fields', () => {
-      cy.get('body').then($body => {
-        const hasRequired = $body.find('input[required]').length > 0 ||
-                            $body.find('[class*="required"]').length > 0;
-        if (hasRequired) {
-          cy.log('Required field validation found');
-        }
-      });
-
-      cy.get('body').should('be.visible');
+      cy.assertHasElement(['input[required]', '[class*="required"]']);
     });
   });
 
@@ -252,7 +132,7 @@ describe('Admin Settings Email Tab Tests', () => {
       cy.visit('/app/admin/settings/email');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Email', 'Settings', 'Error']);
       cy.get('body').should('not.contain.text', 'Cannot read');
     });
   });
@@ -267,7 +147,7 @@ describe('Admin Settings Email Tab Tests', () => {
       cy.visit('/app/admin/settings/email');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Email', 'Settings']);
     });
 
     it('should display properly on tablet viewport', () => {
@@ -275,7 +155,13 @@ describe('Admin Settings Email Tab Tests', () => {
       cy.visit('/app/admin/settings/email');
       cy.waitForPageLoad();
 
-      cy.get('body').should('be.visible');
+      cy.assertContainsAny(['Email', 'Settings']);
+    });
+  });
+
+  describe('Permission Check', () => {
+    it('should require admin permissions', () => {
+      cy.testPermissionDenied('/app/admin/settings/email');
     });
   });
 });
