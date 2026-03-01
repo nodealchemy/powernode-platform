@@ -11,17 +11,17 @@ module RateLimiting
 
   def check_and_increment_rate_limit
     return unless should_rate_limit?
-    return if ENV['DISABLE_RATE_LIMITING'] == 'true'
+    return if ENV["DISABLE_RATE_LIMITING"] == "true"
 
     key = rate_limit_key
     current_count = Rails.cache.read(key) || 0
 
     if current_count >= rate_limit_max_attempts
-      render json: {
-        success: false,
-        error: "rate limit exceeded. Too many attempts. Please try again later.",
-        retry_after: rate_limit_window_seconds
-      }, status: :too_many_requests
+      render_error(
+        "Rate limit exceeded. Too many attempts. Please try again later.",
+        status: :too_many_requests,
+        details: { retry_after: rate_limit_window_seconds }
+      )
       return
     end
     # Store the current count for potential increment after request

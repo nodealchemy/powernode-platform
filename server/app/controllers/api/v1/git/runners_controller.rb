@@ -18,7 +18,7 @@ module Api
           runners = runners.for_repository(params[:repository_id]) if params[:repository_id].present?
 
           # Search by name
-          runners = runners.where("name ILIKE ?", "%#{params[:search]}%") if params[:search].present?
+          runners = runners.where("name ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(params[:search])}%") if params[:search].present?
 
           # Sorting
           case params[:sort]
@@ -66,24 +66,9 @@ module Api
 
         # DELETE /api/v1/git/runners/:id
         def destroy
-          credential = @runner.git_provider_credential
-          return render_error("Credential not found", status: :unprocessable_content) unless credential&.can_be_used?
+          result = lifecycle_service.delete_runner(@runner)
 
-          client = ::Devops::Git::ApiClient.for(credential)
-
-          # Delete from provider
-          result = if @runner.repository_runner? && @runner.git_repository.present?
-                     repo = @runner.git_repository
-                     client.delete_runner(repo.owner, repo.name, @runner.external_id)
-                   elsif client.respond_to?(:delete_runner)
-                     # Gitea uses a different signature
-                     client.delete_runner(@runner.external_id)
-                   else
-                     { success: false, error: "Delete not supported for this provider" }
-                   end
-
-          if result[:success] != false
-            @runner.destroy
+          if result[:success]
             render_success(message: "Runner deleted successfully")
           else
             render_error(result[:error] || "Failed to delete runner", status: :unprocessable_content)
@@ -92,18 +77,10 @@ module Api
 
         # POST /api/v1/git/runners/sync
         def sync
-          credential_id = params[:credential_id]
-          repository_id = params[:repository_id]
-
-          if credential_id.present?
-            credential = current_user.account.git_provider_credentials.find(credential_id)
-            synced = sync_runners_for_credential(credential, repository_id)
-          else
-            synced = 0
-            current_user.account.git_provider_credentials.active.each do |cred|
-              synced += sync_runners_for_credential(cred, repository_id)
-            end
-          end
+          synced = lifecycle_service.sync_runners(
+            credential_id: params[:credential_id],
+            repository_id: params[:repository_id]
+          )
 
           render_success({ synced_count: synced }, message: "Synced #{synced} runners")
         rescue ActiveRecord::RecordNotFound
@@ -112,17 +89,10 @@ module Api
 
         # POST /api/v1/git/runners/:id/registration_token
         def registration_token
-          credential = @runner.git_provider_credential
-          return render_error("Credential not found", status: :unprocessable_content) unless credential&.can_be_used?
-
-          client = ::Devops::Git::ApiClient.for(credential)
-          result = get_registration_token(client, @runner)
+          result = lifecycle_service.registration_token(@runner)
 
           if result[:token].present?
-            render_success({
-              token: result[:token],
-              expires_at: result[:expires_at]
-            })
+            render_success({ token: result[:token], expires_at: result[:expires_at] })
           else
             render_error(result[:error] || "Failed to get registration token", status: :unprocessable_content)
           end
@@ -130,17 +100,10 @@ module Api
 
         # POST /api/v1/git/runners/:id/removal_token
         def removal_token
-          credential = @runner.git_provider_credential
-          return render_error("Credential not found", status: :unprocessable_content) unless credential&.can_be_used?
-
-          client = ::Devops::Git::ApiClient.for(credential)
-          result = get_removal_token(client, @runner)
+          result = lifecycle_service.removal_token(@runner)
 
           if result[:token].present?
-            render_success({
-              token: result[:token],
-              expires_at: result[:expires_at]
-            })
+            render_success({ token: result[:token], expires_at: result[:expires_at] })
           else
             render_error(result[:error] || "Failed to get removal token", status: :unprocessable_content)
           end
@@ -148,17 +111,13 @@ module Api
 
         # PUT /api/v1/git/runners/:id/labels
         def update_labels
-          credential = @runner.git_provider_credential
-          return render_error("Credential not found", status: :unprocessable_content) unless credential&.can_be_used?
-
           labels = params[:labels]
           return render_error("Labels parameter required", status: :unprocessable_content) unless labels.is_a?(Array)
 
-          client = ::Devops::Git::ApiClient.for(credential)
-          result = update_runner_labels_on_provider(client, @runner, labels)
+          result = lifecycle_service.update_labels(@runner, labels)
 
-          if result[:success] != false
-            @runner.update!(labels: result[:labels] || labels)
+          if result[:success]
+            @runner.reload
             render_success({ runner: serialize_runner_detail(@runner) })
           else
             render_error(result[:error] || "Failed to update labels", status: :unprocessable_content)
@@ -166,6 +125,10 @@ module Api
         end
 
         private
+
+        def lifecycle_service
+          @lifecycle_service ||= ::Devops::RunnerLifecycleService.new(account: current_user.account)
+        end
 
         def set_runner
           @runner = ::Devops::GitRunner.where(account: current_user.account).find(params[:id])
@@ -186,137 +149,6 @@ module Api
           end
 
           render_forbidden
-        end
-
-        def sync_runners_for_credential(credential, repository_id = nil)
-          return 0 unless credential.can_be_used?
-
-          client = ::Devops::Git::ApiClient.for(credential)
-          synced = 0
-
-          if repository_id.present?
-            repository = credential.repositories.find(repository_id)
-            synced += sync_repository_runners(client, credential, repository)
-          else
-            # Sync admin-level runners for Gitea (instance-wide runners)
-            if client.is_a?(::Devops::Git::GiteaApiClient)
-              synced += sync_admin_runners(client, credential)
-            end
-
-            # Sync all repository runners
-            credential.repositories.each do |repo|
-              synced += sync_repository_runners(client, credential, repo)
-            end
-          end
-
-          synced
-        rescue => e
-          Rails.logger.error "Failed to sync runners for credential #{credential.id}: #{e.message}"
-          0
-        end
-
-        def sync_admin_runners(client, credential)
-          synced = 0
-
-          begin
-            runners_data = client.list_runners(:admin)
-            return 0 unless runners_data.is_a?(Array)
-
-            runners_data.each do |runner_data|
-              ::Devops::GitRunner.sync_from_provider(
-                credential,
-                runner_data.stringify_keys,
-                scope: "enterprise",
-                repository: nil
-              )
-              synced += 1
-            end
-          rescue => e
-            Rails.logger.warn "Admin runner sync not available for credential #{credential.id}: #{e.message}"
-          end
-
-          synced
-        end
-
-        def sync_repository_runners(client, credential, repository)
-          synced = 0
-
-          result = if client.respond_to?(:list_runners)
-                     if client.is_a?(::Devops::Git::GiteaApiClient)
-                       client.list_runners(:repo, repository.owner, repository.name)
-                     else
-                       client.list_runners(repository.owner, repository.name)
-                     end
-                   end
-
-          runners_data = result.is_a?(Hash) ? result[:runners] : result
-          return 0 unless runners_data.is_a?(Array)
-
-          runners_data.each do |runner_data|
-            ::Devops::GitRunner.sync_from_provider(
-              credential,
-              runner_data.stringify_keys,
-              scope: "repository",
-              repository: repository
-            )
-            synced += 1
-          end
-
-          synced
-        rescue => e
-          Rails.logger.error "Failed to sync runners for repository #{repository.id}: #{e.message}"
-          0
-        end
-
-        def get_registration_token(client, runner)
-          if runner.repository_runner? && runner.git_repository.present?
-            repo = runner.git_repository
-            if client.is_a?(::Devops::Git::GiteaApiClient)
-              client.runner_registration_token(:repo, repo.owner, repo.name)
-            else
-              client.runner_registration_token(repo.owner, repo.name)
-            end
-          elsif client.is_a?(::Devops::Git::GiteaApiClient)
-            client.runner_registration_token(:admin)
-          else
-            { success: false, error: "Registration token not supported for this scope" }
-          end
-        end
-
-        def get_removal_token(client, runner)
-          if runner.repository_runner? && runner.git_repository.present?
-            repo = runner.git_repository
-            if client.respond_to?(:runner_removal_token)
-              if client.is_a?(::Devops::Git::GiteaApiClient)
-                client.runner_removal_token(:repo, repo.owner, repo.name)
-              else
-                client.runner_removal_token(repo.owner, repo.name)
-              end
-            else
-              { success: false, error: "Removal token not supported" }
-            end
-          elsif client.is_a?(::Devops::Git::GiteaApiClient)
-            client.runner_removal_token(:admin)
-          else
-            { success: false, error: "Removal token not supported for this scope" }
-          end
-        end
-
-        def update_runner_labels_on_provider(client, runner, labels)
-          if runner.repository_runner? && runner.git_repository.present?
-            repo = runner.git_repository
-            if client.respond_to?(:set_runner_labels)
-              client.set_runner_labels(repo.owner, repo.name, runner.external_id, labels)
-            elsif client.respond_to?(:update_runner_labels)
-              client.update_runner_labels(runner.external_id, labels)
-            else
-              { success: false, error: "Label management not supported" }
-            end
-          elsif client.respond_to?(:update_runner_labels)
-            client.update_runner_labels(runner.external_id, labels)
-          else
-            { success: false, error: "Label management not supported" }
-          end
         end
 
         def serialize_runner(runner)

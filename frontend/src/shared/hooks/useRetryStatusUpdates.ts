@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useWebSocket } from './useWebSocket';
+import { useWebSocket } from '@/shared/hooks/useWebSocket';
 
 export interface RetryStatusUpdate {
   type: 'node_retry_scheduled' | 'node_retry_started' | 'node_retry_completed' | 'node_retry_failed' | 'retries_exhausted';
@@ -72,7 +72,7 @@ export const useRetryStatusUpdates = ({
 
     const unsubscribe = subscribe({
       channel: `ai_workflow_run_${workflowRunId}`,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       onMessage: (message: any) => {
         // Handle retry status updates (including exhausted retries)
         if (message.type?.includes('retry') || message.type === 'retries_exhausted') {
@@ -122,7 +122,7 @@ export const useRetryStatusUpdates = ({
 
     const unsubscribe = subscribe({
       channel: 'ai_monitoring_channel',
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       onMessage: (message: any) => {
         if (message.type?.includes('circuit_breaker')) {
           const event: CircuitBreakerEvent = {

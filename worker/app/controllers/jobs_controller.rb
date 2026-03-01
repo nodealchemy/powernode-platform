@@ -9,11 +9,29 @@ class JobsController
   def call(env)
     request = Rack::Request.new(env)
 
-    case [request.request_method, request.path_info]
-    when ['POST', '/'], ['POST', ''], ['POST', '/api/v1/jobs']
+    # Rack strips the mount prefix (/api/v1), so paths arrive relative.
+    # Support both stripped and full paths for backward compatibility.
+    path = request.path_info
+
+    case [request.request_method, path]
+    when ['POST', '/'], ['POST', ''], ['POST', '/jobs'], ['POST', '/api/v1/jobs']
       enqueue_job(request)
-    when ['GET', '/api/sidekiq/stats']
+    when ['GET', '/sidekiq/stats'], ['GET', '/api/sidekiq/stats']
       sidekiq_stats(request)
+    when ['POST', '/embeddings/generate'], ['POST', '/api/v1/embeddings/generate']
+      generate_embedding(request)
+    when ['POST', '/embeddings/batch'], ['POST', '/api/v1/embeddings/batch']
+      generate_batch_embeddings(request)
+    when ['POST', '/llm/complete'], ['POST', '/api/v1/llm/complete']
+      llm_complete(request)
+    when ['POST', '/llm/complete_with_tools'], ['POST', '/api/v1/llm/complete_with_tools']
+      llm_complete_with_tools(request)
+    when ['POST', '/llm/stream'], ['POST', '/api/v1/llm/stream']
+      llm_stream(request)
+    when ['POST', '/llm/complete_structured'], ['POST', '/api/v1/llm/complete_structured']
+      llm_complete_structured(request)
+    when ['POST', '/llm/execute_tool_loop'], ['POST', '/api/v1/llm/execute_tool_loop']
+      llm_execute_tool_loop(request)
     else
       not_found_response
     end
@@ -59,6 +77,303 @@ class JobsController
       PowernodeWorker.application.logger.error "Failed to get Sidekiq stats: #{e.message}"
       error_response(500, "Failed to retrieve stats: #{e.message}")
     end
+  end
+
+  # POST /api/v1/embeddings/generate
+  # Synchronous single embedding generation -- called by server's WorkerEmbeddingClient
+  def generate_embedding(request)
+    unless authenticated?(request)
+      return error_response(401, 'Unauthorized')
+    end
+
+    begin
+      body = request.body.read
+      data = JSON.parse(body)
+    rescue JSON::ParserError
+      return error_response(400, 'Invalid JSON')
+    end
+
+    text = data['text']
+    account_id = data['account_id']
+
+    unless text.present? && account_id.present?
+      return error_response(422, 'Missing text or account_id parameter')
+    end
+
+    begin
+      service = build_embedding_service(account_id)
+      embedding = service.generate(text)
+
+      if embedding
+        success_response({ embedding: embedding })
+      else
+        error_response(422, 'Failed to generate embedding')
+      end
+    rescue StandardError => e
+      PowernodeWorker.application.logger.error "Embedding generation failed: #{e.message}"
+      error_response(500, "Embedding generation failed: #{e.message}")
+    end
+  end
+
+  # POST /api/v1/embeddings/batch
+  # Synchronous batch embedding generation -- called by server's WorkerEmbeddingClient
+  def generate_batch_embeddings(request)
+    unless authenticated?(request)
+      return error_response(401, 'Unauthorized')
+    end
+
+    begin
+      body = request.body.read
+      data = JSON.parse(body)
+    rescue JSON::ParserError
+      return error_response(400, 'Invalid JSON')
+    end
+
+    texts = data['texts']
+    account_id = data['account_id']
+
+    unless texts.is_a?(Array) && texts.any? && account_id.present?
+      return error_response(422, 'Missing texts array or account_id parameter')
+    end
+
+    begin
+      service = build_embedding_service(account_id)
+      embeddings = service.generate_batch(texts)
+
+      success_response({ embeddings: embeddings })
+    rescue StandardError => e
+      PowernodeWorker.application.logger.error "Batch embedding generation failed: #{e.message}"
+      error_response(500, "Batch embedding generation failed: #{e.message}")
+    end
+  end
+
+  # POST /api/v1/llm/complete
+  # Synchronous LLM completion -- called by server's LLM proxy
+  def llm_complete(request)
+    unless authenticated?(request)
+      return error_response(401, 'Unauthorized')
+    end
+
+    begin
+      body = request.body.read
+      data = JSON.parse(body)
+    rescue JSON::ParserError
+      return error_response(400, 'Invalid JSON')
+    end
+
+    agent_id = data['agent_id']
+    messages = data['messages']
+
+    unless agent_id.present? && messages.is_a?(Array) && messages.any?
+      return error_response(422, 'Missing agent_id or messages parameter')
+    end
+
+    begin
+      client = build_llm_proxy_client
+      opts = {}
+      opts[:max_tokens] = data['max_tokens'] if data['max_tokens']
+      opts[:temperature] = data['temperature'] if data['temperature']
+      opts[:system_prompt] = data['system_prompt'] if data['system_prompt']
+
+      result = client.complete(agent_id: agent_id, messages: messages, model: data['model'], **opts)
+      success_response(result)
+    rescue StandardError => e
+      PowernodeWorker.application.logger.error "LLM complete failed: #{e.message}"
+      error_response(500, "LLM complete failed: #{e.message}")
+    end
+  end
+
+  # POST /api/v1/llm/complete_with_tools
+  # Synchronous LLM completion with tool-calling -- called by server's LLM proxy
+  def llm_complete_with_tools(request)
+    unless authenticated?(request)
+      return error_response(401, 'Unauthorized')
+    end
+
+    begin
+      body = request.body.read
+      data = JSON.parse(body)
+    rescue JSON::ParserError
+      return error_response(400, 'Invalid JSON')
+    end
+
+    agent_id = data['agent_id']
+    messages = data['messages']
+
+    unless agent_id.present? && messages.is_a?(Array) && messages.any?
+      return error_response(422, 'Missing agent_id or messages parameter')
+    end
+
+    begin
+      client = build_llm_proxy_client
+      opts = {}
+      opts[:max_tokens] = data['max_tokens'] if data['max_tokens']
+      opts[:temperature] = data['temperature'] if data['temperature']
+      opts[:tool_choice] = data['tool_choice'] if data['tool_choice']
+
+      result = client.complete_with_tools(
+        agent_id: agent_id,
+        messages: messages,
+        tools: data['tools'] || [],
+        model: data['model'],
+        **opts
+      )
+      success_response(result)
+    rescue StandardError => e
+      PowernodeWorker.application.logger.error "LLM complete_with_tools failed: #{e.message}"
+      error_response(500, "LLM complete_with_tools failed: #{e.message}")
+    end
+  end
+
+  # POST /api/v1/llm/stream
+  # Synchronous streaming LLM completion -- collects full stream and returns final result as JSON.
+  # The server-side caller handles streaming to clients via ActionCable.
+  def llm_stream(request)
+    unless authenticated?(request)
+      return error_response(401, 'Unauthorized')
+    end
+
+    begin
+      body = request.body.read
+      data = JSON.parse(body)
+    rescue JSON::ParserError
+      return error_response(400, 'Invalid JSON')
+    end
+
+    agent_id = data['agent_id']
+    messages = data['messages']
+
+    unless agent_id.present? && messages.is_a?(Array) && messages.any?
+      return error_response(422, 'Missing agent_id or messages parameter')
+    end
+
+    begin
+      client = build_llm_proxy_client
+      opts = {}
+      opts[:max_tokens] = data['max_tokens'] if data['max_tokens']
+      opts[:temperature] = data['temperature'] if data['temperature']
+      opts[:system_prompt] = data['system_prompt'] if data['system_prompt']
+
+      # Use standard complete -- the worker collects the full response.
+      # Streaming to the end user is handled server-side via ActionCable.
+      result = client.complete(agent_id: agent_id, messages: messages, model: data['model'], **opts)
+      success_response(result)
+    rescue StandardError => e
+      PowernodeWorker.application.logger.error "LLM stream failed: #{e.message}"
+      error_response(500, "LLM stream failed: #{e.message}")
+    end
+  end
+
+  # POST /api/v1/llm/complete_structured
+  # Synchronous structured JSON output completion -- called by server's LLM proxy
+  def llm_complete_structured(request)
+    unless authenticated?(request)
+      return error_response(401, 'Unauthorized')
+    end
+
+    begin
+      body = request.body.read
+      data = JSON.parse(body)
+    rescue JSON::ParserError
+      return error_response(400, 'Invalid JSON')
+    end
+
+    agent_id = data['agent_id']
+    messages = data['messages']
+    schema = data['schema']
+
+    unless agent_id.present? && messages.is_a?(Array) && messages.any? && schema.is_a?(Hash)
+      return error_response(422, 'Missing agent_id, messages, or schema parameter')
+    end
+
+    begin
+      client = build_llm_proxy_client
+      opts = {}
+      opts[:max_tokens] = data['max_tokens'] if data['max_tokens']
+
+      result = client.complete_structured(
+        agent_id: agent_id,
+        messages: messages,
+        schema: schema,
+        model: data['model'],
+        **opts
+      )
+      success_response(result)
+    rescue StandardError => e
+      PowernodeWorker.application.logger.error "LLM complete_structured failed: #{e.message}"
+      error_response(500, "LLM complete_structured failed: #{e.message}")
+    end
+  end
+
+  # POST /api/v1/llm/execute_tool_loop
+  # Full agentic tool loop -- LLM calls happen locally, tool dispatch through server
+  def llm_execute_tool_loop(request)
+    unless authenticated?(request)
+      return error_response(401, 'Unauthorized')
+    end
+
+    begin
+      body = request.body.read
+      data = JSON.parse(body)
+    rescue JSON::ParserError
+      return error_response(400, 'Invalid JSON')
+    end
+
+    agent_id = data['agent_id']
+    messages = data['messages']
+
+    unless agent_id.present? && messages.is_a?(Array) && messages.any?
+      return error_response(422, 'Missing agent_id or messages parameter')
+    end
+
+    begin
+      client = build_llm_proxy_client
+      opts = {}
+      opts[:max_iterations] = data['max_iterations'] if data['max_iterations']
+
+      result = client.execute_tool_loop(
+        agent_id: agent_id,
+        messages: messages,
+        model: data['model'],
+        **opts
+      )
+      success_response(result)
+    rescue StandardError => e
+      PowernodeWorker.application.logger.error "LLM execute_tool_loop failed: #{e.message}"
+      error_response(500, "LLM execute_tool_loop failed: #{e.message}")
+    end
+  end
+
+  # Build a LlmProxyClient for direct LLM provider calls.
+  # Uses BackendApiClient for server communication (credential resolution, tool dispatch).
+  def build_llm_proxy_client
+    @llm_proxy_client ||= LlmProxyClient.new(BackendApiClient.new.method(:post))
+  end
+
+  # Build an embedding service for an account.
+  # Resolves the embedding provider config from the server.
+  def build_embedding_service(account_id)
+    @embedding_services ||= {}
+    cached = @embedding_services[account_id]
+    return cached if cached
+
+    # Fetch embedding provider config from server
+    # Server responds with { success: true, data: { provider_type:, credential_id:, ... } }
+    api_client = BackendApiClient.new
+    response = api_client.get("/api/v1/internal/ai/embedding_config?account_id=#{account_id}")
+    config = response.is_a?(Hash) && response["data"] ? response["data"] : response
+
+    service = Ai::EmbeddingService.new(
+      api_post_method: api_client.method(:post),
+      provider_type: config["provider_type"] || "openai",
+      credential_id: config["credential_id"],
+      account_id: account_id,
+      ollama_url: config["ollama_url"],
+      ollama_model: config["ollama_model"]
+    )
+
+    @embedding_services[account_id] = service
+    service
   end
 
   def enqueue_job(request)
@@ -151,26 +466,39 @@ class JobsController
     token = auth_header.sub(/^Bearer /, '')
     return false if token.empty?
 
-    # Check if token matches the configured WORKER_TOKEN
-    expected_token = PowernodeWorker.application.config.worker_token
-    return false unless expected_token
+    # JWT-only authentication
+    secret = jwt_secret_key
+    return false unless secret
 
-    token == expected_token
+    begin
+      decoded = JWT.decode(token, secret, true, algorithm: 'HS256')[0]
+      decoded['type'] == 'worker' && decoded['sub'].present?
+    rescue JWT::DecodeError
+      false
+    end
   end
 
   def valid_job_class?(job_class)
     # List of allowed job classes for security
     allowed_jobs = [
+      # Billing jobs
       'Billing::BillingAutomationJob',
       'Billing::PaymentRetryJob',
       'Billing::SubscriptionLifecycleJob',
       'Billing::BillingSchedulerJob',
       'Billing::BillingCleanupJob',
+      'Billing::SubscriptionRenewalJob',
+      'Billing::DunningProcessJob',
+      'Billing::PaymentReconciliationJob',
+      # Report jobs
       'Reports::GenerateReportJob',
       'Reports::ScheduledReportJob',
+      # Webhook jobs
       'Webhooks::ProcessWebhookJob',
+      # Analytics jobs
       'Analytics::RecalculateAnalyticsJob',
       'Analytics::UpdateRevenueSnapshotsJob',
+      # Email and notification jobs
       'SendNotificationEmailJob',
       'TestEmailJob',
       'TestWorkerJob',
@@ -178,13 +506,21 @@ class JobsController
       'Notifications::EmailDeliveryJob',
       'Notifications::BulkEmailJob',
       'Notifications::TransactionalEmailJob',
+      'Notifications::SmsDeliveryJob',
+      'Notifications::PushNotificationJob',
+      'Notifications::ReviewNotificationJob',
+      # Service jobs
       'Services::TestPaymentGatewayConnectionJob',
+      # AI/Workflow jobs
       'AiConversationProcessingJob',
       'AiAgentExecutionJob',
+      'AiTeamExecutionJob',
+      'AiWorkspaceResponseJob',
       'AiWorkflowExecutionJob',
       'AiWorkflowNodeExecutionJob',
       'WorkflowTimeoutJob',
       'WorkflowCleanupJob',
+      'AiWorkflow::ApprovalExpiryJob',
       # File processing jobs
       'ThumbnailGenerationJob',
       'MetadataExtractionJob',
@@ -202,42 +538,91 @@ class JobsController
       'Git::PipelineSyncJob',
       'Git::WebhookProcessingJob',
       'Git::JobLogsSyncJob',
-      # CI/CD pipeline jobs
-      'CiCd::ApprovalNotificationJob',
-      'CiCd::ApprovalExpiryJob',
-      'CiCd::StepExecutionJob',
-      'CiCd::PipelineExecutionJob',
-      'CiCd::ProviderSyncJob',
-      'CiCd::ScheduleTriggerJob',
-      'CiCd::SecurityScanJob',
-      'CiCd::DeploymentJob',
-      'CiCd::ClaudeInvokeJob',
-      'CiCd::WebhookHandlerJob',
+      # DevOps pipeline jobs
+      'Devops::ApprovalNotificationJob',
+      'Devops::ApprovalExpiryJob',
+      'Devops::StepExecutionJob',
+      # Devops::PipelineExecutionJob removed — pipeline execution delegated to server
+      'Devops::ProviderSyncJob',
+      'Devops::ScheduleTriggerJob',
+      'Devops::SecurityScanJob',
+      'Devops::DeploymentJob',
+      'Devops::ClaudeInvokeJob',
+      'Devops::WebhookHandlerJob',
       # Integration jobs
       'Integrations::IntegrationExecutionJob',
       'Integrations::IntegrationHealthCheckJob',
-      'Integrations::CredentialRotationJob'
+      'Integrations::CredentialRotationJob',
+      # Compliance/GDPR jobs
+      'Compliance::AccountTerminationJob',
+      'Compliance::DataDeletionJob',
+      'Compliance::DataExportJob',
+      'Compliance::DataRetentionEnforcementJob',
+      'Compliance::TerminationNotificationJob',
+      'Compliance::TerminationReminderJob',
+      'Compliance::DeletionNotificationJob',
+      # Maintenance jobs
+      'Maintenance::ScheduledBackupJob',
+      'Maintenance::BackupCleanupJob',
+      'Maintenance::DatabaseMaintenanceJob',
+      'Maintenance::CacheCleanupJob',
+      'Maintenance::LogRotationJob',
+      # AI A2A (Agent-to-Agent) task jobs
+      'AiA2aTaskExecutionJob',
+      'AiA2aExternalTaskJob',
+      # AI Knowledge event-driven jobs
+      'AiPromoteLearningJob',
+      'AiConsolidateMemoryEntryJob',
+      'AiDedupLearningJob',
+      'AiUpdateGraphNodeJob',
+      'AiSkillConflictCheckJob',
+      # AI Skills jobs
+      'AiSkillSyncJob',
+      # AI Mission jobs
+      'AiMissionAnalyzeJob',
+      'AiMissionPlanJob',
+      'AiMissionExecuteJob',
+      'AiMissionTestJob',
+      'AiMissionReviewJob',
+      'AiMissionDeployJob',
+      'AiMissionMergeJob',
+      'AiMissionCleanupJob',
+      # AI remediation jobs (migrated from server)
+      'AiConversationResponseJob',
+      'AiSelfHealingMonitorJob',
+      'AiTrajectoryAnalysisJob',
+      'AiRalphLoopRunAllJob',
+      'AiRalphLoopSchedulerJob',
+      # AI Git/Worktree jobs (migrated from server)
+      'AiWorktreeProvisioningJob',
+      'AiWorktreeCleanupJob',
+      'AiWorktreePushAndPrJob',
+      'AiWorktreeTimeoutJob',
+      'AiMergeExecutionJob',
+      'AiConflictDetectionJob',
+      'AiRunnerDispatchPollJob',
+      # Supply chain jobs
+      'SupplyChain::QuestionnaireNotificationJob'
     ]
 
     allowed_jobs.include?(job_class)
   end
 
   def parse_delay(delay)
-    case delay
-    when Numeric
-      delay # Assume seconds
-    when String
-      if delay.match?(/^\d+$/)
-        delay.to_i # Numeric string in seconds
-      else
-        # Try to parse as duration (e.g., "1.hour", "30.minutes")
-        eval(delay) # Note: This is not safe in production without proper validation
-      end
+    return 0 if delay.nil? || delay.to_s.strip.empty?
+    return delay if delay.is_a?(Numeric)
+
+    delay_str = delay.to_s.strip
+    return delay_str.to_i if delay_str.match?(/\A\d+\z/)
+
+    case delay_str
+    when /\A(\d+)s\z/i then $1.to_i
+    when /\A(\d+)m\z/i then $1.to_i * 60
+    when /\A(\d+)h\z/i then $1.to_i * 3600
+    when /\A(\d+)d\z/i then $1.to_i * 86400
     else
-      raise ArgumentError, "Invalid delay format: #{delay}"
+      raise ArgumentError, "Invalid delay format: #{delay_str}. Use integer seconds or format like '5m', '1h', '2d'"
     end
-  rescue StandardError
-    raise ArgumentError, "Unable to parse delay: #{delay}"
   end
 
   def success_response(data)
@@ -257,6 +642,6 @@ class JobsController
   end
   
   def jwt_secret_key
-    ENV['JWT_SECRET_KEY'] || 'development_jwt_secret_key_that_persists_across_restarts_and_is_secure_enough_for_local_development_only'
+    ENV['JWT_SECRET_KEY']
   end
 end

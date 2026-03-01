@@ -312,11 +312,13 @@ module StorageProviders
     def mount_smb_share
       return true unless @server_address && @share_name
 
+      validate_mount_inputs!(@server_address, @share_name, @mount_path, @username, @domain)
+
       password = decrypt_config("password")
       credentials_file = create_credentials_file(password) if password
 
       begin
-        # Build mount command
+        # Build mount options
         mount_options = []
         mount_options << "username=#{@username}" if @username
         mount_options << "domain=#{@domain}" if @domain
@@ -326,16 +328,28 @@ module StorageProviders
         mount_options << "file_mode=0644"
         mount_options << "dir_mode=0755"
 
-        mount_command = "mount -t cifs //#{@server_address}/#{@share_name} #{@mount_path} -o #{mount_options.join(',')}"
-
-        system(mount_command)
+        # Use array form to prevent command injection
+        system("mount", "-t", "cifs", "//#{@server_address}/#{@share_name}", @mount_path, "-o", mount_options.join(","))
       ensure
         # Clean up credentials file
         File.delete(credentials_file) if credentials_file && File.exist?(credentials_file)
       end
+    rescue ArgumentError => e
+      log_error("Invalid mount parameters: #{e.message}")
+      false
     rescue StandardError => e
       log_error("Failed to mount SMB share: #{e.message}")
       false
+    end
+
+    def validate_mount_inputs!(*values)
+      values.each do |value|
+        next if value.nil?
+
+        if value.match?(/[;&|`$(){}\n\r]/)
+          raise ArgumentError, "Invalid characters in mount parameter"
+        end
+      end
     end
 
     def create_credentials_file(password)

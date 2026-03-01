@@ -1,0 +1,95 @@
+{
+  "items": [
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5TEMPLATE1",
+      "name": "Customer Service Bot",
+      "description": "Pre-configured customer service chatbot template",
+      "category": "support",
+      "type": "agent",
+      "author": {
+        "id": "01HX9R8C8V2NP3QWKJ5AUTHOR1",
+        "name": "Powernode",
+        "verified": true
+      },
+      "pricing": {
+        "type": "free",
+        "price": 0
+      },
+      "stats": {
+        "installations": 2450,
+        "rating": 4.7,
+        "reviews": 128
+      },
+      "tags": ["customer-service", "chatbot", "support"],
+      "featured": true,
+      "created_at": "2024-06-01T10:00:00Z",
+      "updated_at": "2024-12-01T08:00:00Z"
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5TEMPLATE2",
+      "name": "Content Marketing Suite",
+      "description": "AI-powered content creation and optimization workflow",
+      "category": "marketing",
+      "type": "workflow",
+      "author": {
+        "id": "01HX9R8C8V2NP3QWKJ5AUTHOR2",
+        "name": "MarketingPro",
+        "verified": true
+      },
+      "pricing": {
+        "type": "paid",
+        "price": 29.99,
+        "currency": "USD"
+      },
+      "stats": {
+        "installations": 890,
+        "rating": 4.5,
+        "reviews": 67
+      },
+      "tags": ["marketing", "content", "seo"],
+      "featured": true,
+      "created_at": "2024-08-15T14:00:00Z",
+      "updated_at": "2024-11-20T16:00:00Z"
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5TEMPLATE3",
+      "name": "Data Pipeline Orchestrator",
+      "description": "Automate data processing and ETL workflows",
+      "category": "data",
+      "type": "workflow",
+      "author": {
+        "id": "01HX9R8C8V2NP3QWKJ5AUTHOR3",
+        "name": "DataOps Inc",
+        "verified": false
+      },
+      "pricing": {
+        "type": "freemium",
+        "price": 0,
+        "premium_price": 49.99,
+        "currency": "USD"
+      },
+      "stats": {
+        "installations": 456,
+        "rating": 4.2,
+        "reviews": 34
+      },
+      "tags": ["data", "etl", "automation"],
+      "featured": false,
+      "created_at": "2024-09-10T11:00:00Z",
+      "updated_at": "2024-12-05T09:30:00Z"
+    }
+  ],
+  "categories": [
+    { "id": "support", "name": "Customer Support", "count": 45 },
+    { "id": "marketing", "name": "Marketing", "count": 32 },
+    { "id": "data", "name": "Data & Analytics", "count": 28 },
+    { "id": "sales", "name": "Sales", "count": 22 },
+    { "id": "hr", "name": "Human Resources", "count": 15 }
+  ],
+  "meta": {
+    "total": 3,
+    "page": 1,
+    "per_page": 20,
+    "total_pages": 1
+  }
+}

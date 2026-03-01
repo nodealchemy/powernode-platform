@@ -1,0 +1,416 @@
+# Docker Compose override for MCP server containers
+# Usage: docker compose -f docker/docker-compose.yml -f docker/docker-compose.mcp.yml up
+#
+# Each MCP server runs in a sandboxed container with:
+# - Read-only root filesystem
+# - All capabilities dropped
+# - No privilege escalation
+# - Memory and CPU limits
+# - Internal network only (no host port exposure)
+#
+# Credentials: Copy .env.mcp.example to .env.mcp and fill in your API keys
+
+services:
+  # Slack MCP Server
+  mcp-slack:
+    image: node:20-slim
+    container_name: powernode-mcp-slack
+    command: ["npx", "-y", "@anthropic/mcp-server-slack"]
+    environment:
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+      - SLACK_TEAM_ID=${SLACK_TEAM_ID}
+      - NODE_ENV=production
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    tmpfs:
+      - /tmp
+      - /root/.npm:exec
+    networks:
+      - powernode-mcp
+    profiles:
+      - mcp
+
+  # Notion MCP Server
+  mcp-notion:
+    image: node:20-slim
+    container_name: powernode-mcp-notion
+    command: ["npx", "-y", "@notionhq/mcp-server"]
+    environment:
+      - NOTION_API_KEY=${NOTION_API_KEY}
+      - NODE_ENV=production
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    tmpfs:
+      - /tmp
+      - /root/.npm:exec
+    networks:
+      - powernode-mcp
+    profiles:
+      - mcp
+
+  # Linear MCP Server
+  mcp-linear:
+    image: node:20-slim
+    container_name: powernode-mcp-linear
+    command: ["npx", "-y", "@anthropic/mcp-server-linear"]
+    environment:
+      - LINEAR_API_KEY=${LINEAR_API_KEY}
+      - NODE_ENV=production
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    tmpfs:
+      - /tmp
+      - /root/.npm:exec
+    networks:
+      - powernode-mcp
+    profiles:
+      - mcp
+
+  # Figma MCP Server
+  mcp-figma:
+    image: node:20-slim
+    container_name: powernode-mcp-figma
+    command: ["npx", "-y", "figma-developer/figma-mcp"]
+    environment:
+      - FIGMA_ACCESS_TOKEN=${FIGMA_ACCESS_TOKEN}
+      - NODE_ENV=production
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    tmpfs:
+      - /tmp
+      - /root/.npm:exec
+    networks:
+      - powernode-mcp
+    profiles:
+      - mcp
+
+  # HubSpot MCP Server
+  mcp-hubspot:
+    image: node:20-slim
+    container_name: powernode-mcp-hubspot
+    command: ["npx", "-y", "@anthropic/mcp-server-hubspot"]
+    environment:
+      - HUBSPOT_ACCESS_TOKEN=${HUBSPOT_ACCESS_TOKEN}
+      - NODE_ENV=production
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    tmpfs:
+      - /tmp
+      - /root/.npm:exec
+    networks:
+      - powernode-mcp
+    profiles:
+      - mcp
+
+  # Atlassian (Jira/Confluence) MCP Server
+  mcp-atlassian:
+    image: node:20-slim
+    container_name: powernode-mcp-atlassian
+    command: ["npx", "-y", "@anthropic/mcp-server-atlassian"]
+    environment:
+      - ATLASSIAN_API_TOKEN=${ATLASSIAN_API_TOKEN}
+      - ATLASSIAN_URL=${ATLASSIAN_URL}
+      - NODE_ENV=production
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    tmpfs:
+      - /tmp
+      - /root/.npm:exec
+    networks:
+      - powernode-mcp
+    profiles:
+      - mcp
+
+  # Asana MCP Server
+  mcp-asana:
+    image: node:20-slim
+    container_name: powernode-mcp-asana
+    command: ["npx", "-y", "@anthropic/mcp-server-asana"]
+    environment:
+      - ASANA_ACCESS_TOKEN=${ASANA_ACCESS_TOKEN}
+      - NODE_ENV=production
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    tmpfs:
+      - /tmp
+      - /root/.npm:exec
+    networks:
+      - powernode-mcp
+    profiles:
+      - mcp
+
+  # Intercom MCP Server
+  mcp-intercom:
+    image: node:20-slim
+    container_name: powernode-mcp-intercom
+    command: ["npx", "-y", "@anthropic/mcp-server-intercom"]
+    environment:
+      - INTERCOM_ACCESS_TOKEN=${INTERCOM_ACCESS_TOKEN}
+      - NODE_ENV=production
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    tmpfs:
+      - /tmp
+      - /root/.npm:exec
+    networks:
+      - powernode-mcp
+    profiles:
+      - mcp
+
+  # Snowflake MCP Server
+  mcp-snowflake:
+    image: node:20-slim
+    container_name: powernode-mcp-snowflake
+    command: ["npx", "-y", "@anthropic/mcp-server-snowflake"]
+    environment:
+      - SNOWFLAKE_ACCOUNT=${SNOWFLAKE_ACCOUNT}
+      - SNOWFLAKE_USER=${SNOWFLAKE_USER}
+      - SNOWFLAKE_PASSWORD=${SNOWFLAKE_PASSWORD}
+      - NODE_ENV=production
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    tmpfs:
+      - /tmp
+      - /root/.npm:exec
+    networks:
+      - powernode-mcp
+    profiles:
+      - mcp
+
+  # BigQuery MCP Server
+  mcp-bigquery:
+    image: node:20-slim
+    container_name: powernode-mcp-bigquery
+    command: ["npx", "-y", "@anthropic/mcp-server-bigquery"]
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/secrets/gcp-credentials.json
+      - NODE_ENV=production
+    volumes:
+      - ${GCP_CREDENTIALS_PATH:-../secrets/gcp-credentials.json}:/secrets/gcp-credentials.json:ro
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    tmpfs:
+      - /tmp
+      - /root/.npm:exec
+    networks:
+      - powernode-mcp
+    profiles:
+      - mcp
+
+  # MS365 MCP Server
+  mcp-ms365:
+    image: node:20-slim
+    container_name: powernode-mcp-ms365
+    command: ["npx", "-y", "@anthropic/mcp-server-microsoft365"]
+    environment:
+      - MS365_CLIENT_ID=${MS365_CLIENT_ID}
+      - MS365_CLIENT_SECRET=${MS365_CLIENT_SECRET}
+      - NODE_ENV=production
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    tmpfs:
+      - /tmp
+      - /root/.npm:exec
+    networks:
+      - powernode-mcp
+    profiles:
+      - mcp
+
+  # Box MCP Server
+  mcp-box:
+    image: node:20-slim
+    container_name: powernode-mcp-box
+    command: ["npx", "-y", "@anthropic/mcp-server-box"]
+    environment:
+      - BOX_CLIENT_ID=${BOX_CLIENT_ID}
+      - BOX_CLIENT_SECRET=${BOX_CLIENT_SECRET}
+      - NODE_ENV=production
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    tmpfs:
+      - /tmp
+      - /root/.npm:exec
+    networks:
+      - powernode-mcp
+    profiles:
+      - mcp
+
+  # Amplitude MCP Server
+  mcp-amplitude:
+    image: node:20-slim
+    container_name: powernode-mcp-amplitude
+    command: ["npx", "-y", "amplitude/mcp-server"]
+    environment:
+      - AMPLITUDE_API_KEY=${AMPLITUDE_API_KEY}
+      - NODE_ENV=production
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    tmpfs:
+      - /tmp
+      - /root/.npm:exec
+    networks:
+      - powernode-mcp
+    profiles:
+      - mcp
+
+  # Canva MCP Server
+  mcp-canva:
+    image: node:20-slim
+    container_name: powernode-mcp-canva
+    command: ["npx", "-y", "canva/mcp-server-canva"]
+    environment:
+      - CANVA_ACCESS_TOKEN=${CANVA_ACCESS_TOKEN}
+      - NODE_ENV=production
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    tmpfs:
+      - /tmp
+      - /root/.npm:exec
+    networks:
+      - powernode-mcp
+    profiles:
+      - mcp
+
+  # Databricks MCP Server (Python-based)
+  mcp-databricks:
+    image: python:3.12-slim
+    container_name: powernode-mcp-databricks
+    command: ["uvx", "databricks-mcp-server"]
+    environment:
+      - DATABRICKS_HOST=${DATABRICKS_HOST}
+      - DATABRICKS_TOKEN=${DATABRICKS_TOKEN}
+      - PYTHONUNBUFFERED=1
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    tmpfs:
+      - /tmp
+      - /root/.cache:exec
+    networks:
+      - powernode-mcp
+    profiles:
+      - mcp
+
+networks:
+  powernode-mcp:
+    driver: bridge
+    internal: true

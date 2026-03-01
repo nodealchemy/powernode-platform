@@ -7,7 +7,7 @@ RSpec.describe Api::V1::Git::PipelineSchedulesController, type: :controller do
   let(:user) { create(:user, account: account) }
 
   # Permission users
-  let(:schedule_read_user) { create(:user, account: account, permissions: ['git.schedules.read']) }
+  let(:schedule_read_user) { create(:user, account: account, permissions: [ 'git.schedules.read' ]) }
   let(:schedule_manage_user) do
     create(:user, account: account, permissions: %w[
       git.schedules.read git.schedules.manage
@@ -305,7 +305,11 @@ RSpec.describe Api::V1::Git::PipelineSchedulesController, type: :controller do
     let(:schedule) { create(:git_pipeline_schedule, repository: repository, account: account) }
     let(:mock_client) { double('GitApiClient') }
 
+    let(:mock_git_provider) { double('GitProvider', provider_type: 'github') }
+
     before do
+      allow_any_instance_of(Devops::GitProviderCredential).to receive(:can_be_used?).and_return(true)
+      allow_any_instance_of(Devops::GitPipelineSchedule).to receive(:git_provider).and_return(mock_git_provider)
       allow(::Devops::Git::ApiClient).to receive(:for).and_return(mock_client)
     end
 

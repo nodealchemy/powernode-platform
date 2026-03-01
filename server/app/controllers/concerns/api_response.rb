@@ -12,11 +12,18 @@ module ApiResponse
   # @param status [Symbol] HTTP status code (default: :ok)
   # @param meta [Hash] Optional metadata (pagination, etc.)
   # @param message [String] Optional message for simple success responses
-  def render_success(positional_data = nil, status: :ok, meta: nil, message: nil, data: nil)
+  # @param extra_data [Hash] Additional keyword arguments treated as data fields
+  def render_success(positional_data = nil, status: :ok, meta: nil, message: nil, data: nil, **extra_data)
     response = { success: true }
 
-    # Determine actual data (keyword takes precedence, then positional)
-    actual_data = data || positional_data
+    # Determine actual data (keyword takes precedence, then positional, then extra_data)
+    actual_data = if !data.nil?
+                    data
+    elsif positional_data.present? || positional_data.is_a?(Array)
+                    positional_data
+    elsif extra_data.present?
+                    extra_data
+    end
 
     # Support message-only responses: render_success(message: "Done")
     if actual_data.nil? && message.present?
@@ -27,6 +34,7 @@ module ApiResponse
     end
 
     response[:meta] = sanitize_for_json(meta) if meta.present?
+    response[:message] = message if message.present?
 
     render json: response, status: status
   end
@@ -213,15 +221,33 @@ module ApiResponse
   # Define general exceptions FIRST (lowest priority) and specific exceptions LAST (highest priority)
   included do
     rescue_from StandardError do |exception|
-      render_internal_error("Something went wrong", exception: exception)
+      render_internal_error("Something went wrong", exception: exception) unless performed?
     end
 
     rescue_from ActiveRecord::RecordInvalid do |exception|
-      render_validation_error(exception.record.errors)
+      render_validation_error(exception.record.errors) unless performed?
     end
 
     rescue_from ActiveRecord::RecordNotFound do |exception|
-      render_not_found(exception.model.humanize)
+      render_not_found(exception.model.humanize) unless performed?
+    end
+
+    rescue_from Money::Currency::UnknownCurrency do |exception|
+      render_validation_error("Invalid currency: #{exception.message}") unless performed?
+    end
+
+    rescue_from ActionController::ParameterMissing do |exception|
+      render_error(exception.message, status: :bad_request, code: "PARAMETER_MISSING") unless performed?
+    end
+
+    rescue_from ActiveRecord::InvalidForeignKey do |exception|
+      unless performed?
+        render_error(
+          "Cannot delete this record because it is referenced by other records",
+          status: :unprocessable_content,
+          code: "FOREIGN_KEY_VIOLATION"
+        )
+      end
     end
   end
 end

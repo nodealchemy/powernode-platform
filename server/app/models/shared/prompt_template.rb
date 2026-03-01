@@ -10,8 +10,6 @@ module Shared
   #   - general: Templates available to both systems
   #
   class PromptTemplate < ApplicationRecord
-    include MarketplacePublishable
-
     self.table_name = "shared_prompt_templates"
 
     # ============================================
@@ -32,11 +30,8 @@ module Shared
 
     # Polymorphic usage tracking
     has_many :ai_workflow_nodes, class_name: "Ai::WorkflowNode", foreign_key: :shared_prompt_template_id, dependent: :nullify
-    has_many :ci_cd_pipeline_steps, class_name: "Devops::PipelineStep",
+    has_many :devops_pipeline_steps, class_name: "Devops::PipelineStep",
              foreign_key: :shared_prompt_template_id, dependent: :nullify
-
-    # Marketplace subscriptions
-    has_many :subscriptions, as: :subscribable, class_name: "Marketplace::Subscription", dependent: :destroy
 
     # ============================================
     # Validations
@@ -60,7 +55,7 @@ module Shared
     scope :system_templates, -> { where(is_system: true) }
     scope :user_templates, -> { where(is_system: false) }
     scope :by_category, ->(category) { where(category: category) }
-    scope :for_domain, ->(domain) { where(domain: [domain, "general"]) }
+    scope :for_domain, ->(domain) { where(domain: [ domain, "general" ]) }
     scope :for_ai_workflow, -> { for_domain("ai_workflow") }
     scope :for_cicd, -> { for_domain("cicd") }
     scope :latest_versions, -> { where(parent_template_id: nil) }
@@ -202,7 +197,7 @@ module Shared
     #
     # @return [Integer]
     def usage_count
-      ai_workflow_nodes.count + ci_cd_pipeline_steps.count
+      ai_workflow_nodes.count + devops_pipeline_steps.count
     end
 
     private

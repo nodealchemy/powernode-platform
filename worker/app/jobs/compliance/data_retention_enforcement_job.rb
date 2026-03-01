@@ -4,7 +4,7 @@ module Compliance
   # Daily job for enforcing data retention policies
   # Runs at 2 AM daily to process expired data
   class DataRetentionEnforcementJob < BaseJob
-    queue_as :compliance
+    sidekiq_options queue: :compliance
 
     def execute(_args = nil)
       log_info 'Starting data retention enforcement'

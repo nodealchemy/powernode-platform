@@ -1,0 +1,68 @@
+{
+  "data": {
+    "query": "subscription",
+    "articles": [
+      {
+        "id": "01HX9R8C8V2NP3QWKJ5ART002",
+        "title": "Complete Guide to Subscription Management",
+        "slug": "complete-guide-subscription-management",
+        "excerpt": "Master subscription lifecycle management with Powernode. Learn plan creation, billing cycles, upgrades, downgrades, and automated workflows.",
+        "author_name": "System Administrator",
+        "category": {
+          "id": "01HX9R8C8V2NP3QWKJ5CAT003",
+          "name": "Billing & Subscriptions",
+          "slug": "billing-subscriptions"
+        },
+        "is_public": true,
+        "is_featured": true,
+        "reading_time": 15,
+        "views_count": 1890,
+        "likes_count": 95,
+        "tags": ["subscriptions", "billing", "management"]
+      },
+      {
+        "id": "01HX9R8C8V2NP3QWKJ5ART001",
+        "title": "Welcome to Powernode - Getting Started Guide",
+        "slug": "welcome-to-powernode-getting-started-guide",
+        "excerpt": "Complete guide to getting started with Powernode subscription management platform. Learn setup, configuration, and first steps.",
+        "author_name": "System Administrator",
+        "category": {
+          "id": "01HX9R8C8V2NP3QWKJ5CAT001",
+          "name": "Getting Started",
+          "slug": "getting-started"
+        },
+        "is_public": true,
+        "is_featured": true,
+        "reading_time": 8,
+        "views_count": 2450,
+        "likes_count": 128,
+        "tags": ["getting-started", "setup", "onboarding"]
+      },
+      {
+        "id": "01HX9R8C8V2NP3QWKJ5ART005",
+        "title": "Payment Methods and Processing Guide",
+        "slug": "payment-methods-processing-guide",
+        "excerpt": "Comprehensive guide to managing payment methods, processing payments, handling failures, and optimizing your payment infrastructure.",
+        "author_name": "System Administrator",
+        "category": {
+          "id": "01HX9R8C8V2NP3QWKJ5CAT004",
+          "name": "Payment Methods",
+          "slug": "payment-methods"
+        },
+        "is_public": true,
+        "is_featured": false,
+        "reading_time": 18,
+        "views_count": 980,
+        "likes_count": 54,
+        "tags": ["payments", "stripe", "paypal", "gateway"]
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "total_pages": 1,
+      "total_count": 3,
+      "per_page": 10
+    }
+  },
+  "message": "Search completed successfully"
+}

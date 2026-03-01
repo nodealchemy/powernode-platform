@@ -82,21 +82,20 @@ module TwoFactorEnforcement
   def render_two_factor_required(message = nil)
     if current_user.two_factor_enabled?
       # User has 2FA enabled but hasn't verified this session
-      render json: {
-        success: false,
-        error: message || "Two-factor authentication required",
+      render_error(
+        message || "Two-factor authentication required",
+        status: :forbidden,
         code: "TWO_FACTOR_REQUIRED",
-        requires_verification: true
-      }, status: :forbidden
+        details: { requires_verification: true }
+      )
     else
       # User doesn't have 2FA enabled - must set it up first
-      render json: {
-        success: false,
-        error: message || "You must enable two-factor authentication to access this resource",
+      render_error(
+        message || "You must enable two-factor authentication to access this resource",
+        status: :forbidden,
         code: "TWO_FACTOR_SETUP_REQUIRED",
-        requires_setup: true,
-        setup_url: "/api/v1/auth/two_factor/setup"
-      }, status: :forbidden
+        details: { requires_setup: true, setup_url: "/api/v1/auth/two_factor/setup" }
+      )
     end
   end
 

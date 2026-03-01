@@ -7,7 +7,7 @@ export const AIProvidersPage: React.FC = () => {
   const [actions, setActions] = useState<PageAction[]>([]);
 
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'ai',
     onDataUpdate: () => {
       // Trigger data refresh if needed

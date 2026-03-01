@@ -52,11 +52,7 @@ module CsrfProtection
   end
 
   def render_csrf_error
-    render json: {
-      success: false,
-      error: "CSRF token verification failed",
-      code: "CSRF_INVALID"
-    }, status: :forbidden
+    render_error("CSRF token verification failed", status: :forbidden, code: "CSRF_INVALID")
   end
 
   def generate_csrf_token

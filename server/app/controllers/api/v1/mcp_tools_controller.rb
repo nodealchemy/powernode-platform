@@ -32,7 +32,7 @@ class Api::V1::McpToolsController < ApplicationController
     })
 
     log_audit_event("mcp.tools.read", @mcp_server)
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to list MCP tools: #{e.message}"
     render_error("Failed to list MCP tools", status: :internal_server_error)
   end
@@ -49,7 +49,7 @@ class Api::V1::McpToolsController < ApplicationController
     })
 
     log_audit_event("mcp.tools.read", @mcp_tool)
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to get MCP tool: #{e.message}"
     render_error("Failed to get MCP tool", status: :internal_server_error)
   end
@@ -95,7 +95,7 @@ class Api::V1::McpToolsController < ApplicationController
       log_audit_event("mcp.tools.execute", @mcp_tool, execution_id: execution.id)
     rescue StandardError => e
       Rails.logger.error "Failed to execute MCP tool: #{e.message}"
-      render_error("Failed to execute tool: #{e.message}", status: :internal_server_error)
+      render_internal_error("Failed to execute tool", exception: e)
     end
   end
 
@@ -135,7 +135,7 @@ class Api::V1::McpToolsController < ApplicationController
     })
 
     log_audit_event("mcp.tools.read", @mcp_tool)
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to get MCP tool stats: #{e.message}"
     render_error("Failed to get tool stats", status: :internal_server_error)
   end

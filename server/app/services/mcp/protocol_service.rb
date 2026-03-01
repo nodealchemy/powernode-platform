@@ -13,18 +13,20 @@ module Mcp
   class ConnectionError < ProtocolError; end
   class PermissionDeniedError < ProtocolError; end
 
-  # MCP Protocol Version - Updated to 2025-06-18 specification
-  MCP_VERSION = "2025-06-18"
+  # MCP Protocol Version - Updated to 2025-11-25 specification
+  MCP_VERSION = "2025-11-25"
   JSONRPC_VERSION = "2.0"
 
   # Supported protocol versions for negotiation (newest first)
   SUPPORTED_VERSIONS = [
-    "2025-06-18",  # Current version with Streamable HTTP, OAuth 2.1
+    "2025-11-25",  # Latest - Claude Code v2.1.x uses this
+    "2025-06-18",  # Enhanced Streamable HTTP, OAuth 2.1
+    "2025-03-26",  # Streamable HTTP introduction
     "2024-11-05"   # Legacy version for backward compatibility
   ].freeze
 
   # Default version for clients that don't specify one (per spec)
-  DEFAULT_VERSION = "2025-03-26"
+  DEFAULT_VERSION = "2025-11-25"
 
   attr_accessor :account, :connection_id, :protocol_version
 
@@ -204,7 +206,19 @@ module Mcp
 
       @logger.info "[MCP] Permission check passed for tool #{tool_id}"
     else
-      @logger.warn "[MCP] Skipping permission check - tool or user not found"
+      # No McpTool DB record — fall back to manifest-based permission check
+      if user && tool_manifest["required_permissions"].present?
+        required_perms = Array(tool_manifest["required_permissions"])
+        user_perms = user.respond_to?(:permission_names) ? user.permission_names : []
+        missing = required_perms - user_perms
+        if missing.any?
+          @logger.warn "[MCP] Permission denied for #{tool_id}: missing #{missing.join(', ')}"
+          raise PermissionDeniedError, "Permission denied: missing #{missing.join(', ')}"
+        end
+      elsif user.nil?
+        @logger.warn "[MCP] No user context for tool #{tool_id} — denying execution"
+        raise PermissionDeniedError, "Authentication required for tool execution"
+      end
     end
 
     # Validate input parameters
@@ -332,7 +346,8 @@ module Mcp
   end
 
   # Negotiate the best protocol version between client and server
-  # Returns the negotiated version or nil if incompatible
+  # Per MCP spec: return server's latest supported version as fallback —
+  # the client decides whether to disconnect if it can't speak that version.
   def self.negotiate_protocol_version(client_version)
     # If client doesn't specify, use default per spec
     return DEFAULT_VERSION if client_version.nil? || client_version.empty?
@@ -340,8 +355,8 @@ module Mcp
     # Return the client version if we support it
     return client_version if SUPPORTED_VERSIONS.include?(client_version)
 
-    # Otherwise, return nil to indicate incompatibility
-    nil
+    # Fallback: offer our latest version — client decides compatibility
+    SUPPORTED_VERSIONS.first
   end
 
   # Validate that the message is not a JSON-RPC batch request
@@ -380,9 +395,7 @@ module Mcp
     {
       "name" => tool["name"],
       "description" => tool["description"],
-      "type" => tool["type"] || "ai_agent",
-      "version" => tool["version"] || "1.0.0",
-      "capabilities" => tool["capabilities"] || []
+      "inputSchema" => tool["inputSchema"] || { "type" => "object", "properties" => {}, "required" => [] }
     }
   end
 
@@ -425,7 +438,7 @@ module Mcp
 
     case tool_type
     when "ai_agent"
-      agent_id = tool_manifest["metadata"]["agent_id"]
+      agent_id = tool_manifest["agent_id"] || tool_manifest.dig("metadata", "powernode_agent_id") || tool_manifest.dig("metadata", "agent_id")
       agent = @account.ai_agents.find(agent_id)
       executor = Ai::McpAgentExecutor.new(agent: agent, account: @account)
       executor.execute(params)
@@ -434,6 +447,14 @@ module Mcp
       workflow = @account.ai_workflows.find(workflow_id)
       executor = McpWorkflowExecutor.new(workflow: workflow, account: @account)
       executor.execute(params)
+    when "platform_tool"
+      Ai::Tools::McpPlatformToolRegistrar.execute_tool(
+        "platform.#{tool_manifest['name']}",
+        params: params,
+        account: @account,
+        user: context[:options]&.dig(:user),
+        agent_id: context[:user_id]
+      )
     else
       raise ProtocolError, "Unknown tool type: #{tool_type}"
     end

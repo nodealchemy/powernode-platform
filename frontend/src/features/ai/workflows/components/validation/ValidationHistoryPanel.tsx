@@ -29,7 +29,7 @@ export const ValidationHistoryPanel: React.FC<ValidationHistoryPanelProps> = ({
   const [selectedValidations, setSelectedValidations] = useState<Set<string>>(new Set());
   const { addNotification } = useNotifications();
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- Load when workflowId changes
+   
   useEffect(() => {
     loadHistory();
   }, [workflowId]);
@@ -39,10 +39,7 @@ export const ValidationHistoryPanel: React.FC<ValidationHistoryPanelProps> = ({
       setLoading(true);
       const response = await validationApi.getValidationHistory(workflowId, 20);
       setHistory(response.validations);
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to load validation history:', error);
-      }
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Failed to Load History',

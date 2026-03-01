@@ -36,7 +36,7 @@ const WebhookManagementPage: React.FC = () => {
   const { showNotification } = useNotifications();
   const { confirm, ConfirmationDialog } = useConfirmation();
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'devops',
     onDataUpdate: () => {
       // Trigger data refresh if needed
@@ -97,7 +97,7 @@ const WebhookManagementPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [pagination.per_page, canReadWebhooks]);
 
   // Load detailed stats
@@ -112,7 +112,8 @@ const WebhookManagementPage: React.FC = () => {
         setDetailedStats(response.data);
       }
     } catch (_error) {
-    }
+    // Error silently ignored
+  }
   }, [canReadWebhooks]);
 
   // Initial load
@@ -400,9 +401,9 @@ const WebhookManagementPage: React.FC = () => {
 
   // Get breadcrumbs
   const getBreadcrumbs = () => [
-    { label: 'Dashboard', href: '/app', icon: '🏠' },
-    { label: 'DevOps', href: '/app/devops', icon: '🔧' },
-    { label: 'Webhooks', icon: '🔗' }
+    { label: 'Dashboard', href: '/app' },
+    { label: 'DevOps', href: '/app/devops' },
+    { label: 'Webhooks' }
   ];
 
   // Get page description

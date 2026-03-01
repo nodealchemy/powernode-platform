@@ -4,6 +4,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/components/ui
 import { FileUpload } from '@/features/content/files/components/FileUpload';
 import { filesApi, FileObject } from '@/features/content/files/services/filesApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import {
   PhotoIcon,
   MagnifyingGlassIcon,
@@ -32,7 +33,7 @@ const AuthenticatedImage: React.FC<{
         if (isMounted) {
           setBlobUrl(url);
         }
-      } catch {
+      } catch (_error) {
         if (isMounted) {
           setError(true);
         }
@@ -56,8 +57,8 @@ const AuthenticatedImage: React.FC<{
 
   if (loading) {
     return (
-      <div className={`${className} flex items-center justify-center bg-theme-surface`}>
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-theme-interactive-primary" />
+      <div className={`${className} bg-theme-surface`}>
+        <LoadingSpinner size="sm" />
       </div>
     );
   }
@@ -102,7 +103,7 @@ export const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({
         per_page: 50
       });
       setImages(response.files);
-    } catch {
+    } catch (_error) {
       // Error handled silently - user can retry
     } finally {
       setLoading(false);
@@ -131,7 +132,7 @@ export const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({
       } else {
         showNotification('Image uploaded but URL not available', 'warning');
       }
-    } catch {
+    } catch (_error) {
       showNotification('Failed to get image URL', 'error');
     }
   };
@@ -155,7 +156,7 @@ export const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({
       } else {
         showNotification('Could not get image URL', 'error');
       }
-    } catch {
+    } catch (_error) {
       showNotification('Failed to get image details', 'error');
     }
   };
@@ -225,9 +226,7 @@ export const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({
 
             {/* Image Grid */}
             {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-interactive-primary" />
-              </div>
+              <LoadingSpinner className="py-12" />
             ) : images.length === 0 ? (
               <div className="text-center py-12 text-theme-secondary">
                 <PhotoIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />

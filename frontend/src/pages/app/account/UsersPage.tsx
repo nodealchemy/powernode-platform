@@ -92,7 +92,7 @@ const UsersPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, []);
 
   // Load available roles
@@ -265,10 +265,11 @@ const UsersPage: React.FC = () => {
             }
           });
           return;
-        case 'export':
+        case 'export': {
           const selectedUserData = filteredUsers.filter(u => selectedUsers.has(u.id));
           exportUsers(selectedUserData);
           return;
+        }
       }
 
       await loadData();
@@ -295,7 +296,7 @@ const UsersPage: React.FC = () => {
       })).unwrap();
 
       window.location.href = '/app';
-    } catch (_error: unknown) {
+    } catch (_error) {
       showNotification('Failed to impersonate user. Please try again.', 'error');
     } finally {
       setActionLoading(false);
@@ -515,9 +516,9 @@ const UsersPage: React.FC = () => {
   ], [loading, filteredUsers.length, showFilters, isFiltersDefault, filters.sortOrder, loadData]);
 
   const breadcrumbs = [
-    { label: 'Dashboard', href: '/app', icon: '🏠' },
-    { label: 'Administration', icon: '⚙️' },
-    { label: 'User Management', icon: '👥' }
+    { label: 'Dashboard', href: '/app' },
+    { label: 'Account' },
+    { label: 'User Management' }
   ];
 
   const getPageDescription = () => {

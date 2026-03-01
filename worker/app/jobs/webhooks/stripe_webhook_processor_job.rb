@@ -18,10 +18,12 @@ class Webhooks::StripeWebhookProcessorJob < BaseJob
   ].freeze
 
   def execute(webhook_data)
+    validate_required_params(webhook_data, 'event_type', 'payload', 'account_id')
+
     event_type = webhook_data['event_type']
     payload = webhook_data['payload']
     account_id = webhook_data['account_id']
-    
+
     log_info("Processing Stripe webhook: #{event_type} for account: #{account_id}")
     
     # Mark webhook as processing

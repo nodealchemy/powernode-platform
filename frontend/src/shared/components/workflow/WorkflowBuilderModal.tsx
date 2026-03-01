@@ -3,8 +3,9 @@ import { Workflow, Maximize2, X } from 'lucide-react';
 import { Node, Edge } from '@xyflow/react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
-import { WorkflowBuilderProvider } from './WorkflowBuilder';
+import { WorkflowBuilderProvider } from '@/shared/components/workflow/WorkflowBuilder';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { workflowsApi } from '@/shared/services/ai';
@@ -74,20 +75,23 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
   // Check permissions
   const canUpdateWorkflows = currentUser?.permissions?.includes('ai.workflows.update');
 
-  // Load workflow data
+  // Reset state and load workflow data when modal opens
   useEffect(() => {
     if (isOpen && workflowId) {
+      // Reset state for fresh load
+      setWorkflow(null);
+      setLoading(true);
+      setHasChanges(false);
       loadWorkflow();
     }
-  }, [isOpen, workflowId]);
+  }, [isOpen, workflowId]);  
 
   const loadWorkflow = async () => {
     try {
       setLoading(true);
       const response = await workflowsApi.getWorkflow(workflowId);
       setWorkflow(response);
-    } catch (error) {
-      console.error('Failed to load workflow:', error);
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Error',
@@ -105,7 +109,7 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
   const [saveCount, setSaveCount] = useState(0);
 
   // Handle save from toolbar (combines data update + API save)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const handleToolbarSave = async (workflowData: { nodes: any[]; edges: any[]; configuration: Record<string, any> }) => {
     if (!workflow) return;
 
@@ -140,8 +144,7 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
       // Notify parent component of successful save without closing the modal
       onSuccess?.(response);
 
-    } catch (error) {
-      console.error('Failed to save workflow:', error);
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Save Failed',
@@ -190,8 +193,7 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
         errors,
         warnings
       };
-    } catch (error) {
-      console.error('Validation error:', error);
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Validation Error',
@@ -265,9 +267,7 @@ export const WorkflowBuilderModal: React.FC<WorkflowBuilderModalProps> = ({
         maxWidth="md"
         icon={<Workflow />}
       >
-        <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-primary"></div>
-        </div>
+        <LoadingSpinner className="py-8" />
       </Modal>
     );
   }

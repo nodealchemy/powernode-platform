@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Globe, AlertCircle, Server } from 'lucide-react';
+import { X, Globe, Server } from 'lucide-react';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { gitProvidersApi } from '../services/gitProvidersApi';
 import { GitProviderDetail, CreateProviderData, UpdateProviderData } from '../types';
 
@@ -39,7 +40,7 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
     supports_oauth: boolean;
     supports_pat: boolean;
     supports_webhooks: boolean;
-    supports_ci_cd: boolean;
+    supports_devops: boolean;
   }>({
     name: '',
     provider_type: 'github',
@@ -50,7 +51,7 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
     supports_oauth: true,
     supports_pat: true,
     supports_webhooks: true,
-    supports_ci_cd: true,
+    supports_devops: true,
   });
 
   // Get default URLs for a provider type
@@ -82,7 +83,7 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
         supports_oauth: provider.supports_oauth,
         supports_pat: provider.supports_pat,
         supports_webhooks: provider.supports_webhooks,
-        supports_ci_cd: provider.supports_ci_cd,
+        supports_devops: provider.supports_devops,
       });
     } else {
       // Reset form for new provider - use initialProviderType or default to GitHub
@@ -98,7 +99,7 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
         supports_oauth: true,
         supports_pat: true,
         supports_webhooks: true,
-        supports_ci_cd: true,
+        supports_devops: true,
       });
     }
     setError(null);
@@ -142,7 +143,7 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
           supports_oauth: formData.supports_oauth,
           supports_pat: formData.supports_pat,
           supports_webhooks: formData.supports_webhooks,
-          supports_ci_cd: formData.supports_ci_cd,
+          supports_devops: formData.supports_devops,
         };
         await gitProvidersApi.createProvider(createData);
       }
@@ -171,10 +172,10 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/50 z-0" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative bg-theme-surface rounded-lg shadow-xl w-full max-w-lg mx-4 border border-theme max-h-[90vh] overflow-y-auto">
+      <div className="relative z-10 bg-theme-surface rounded-lg shadow-xl w-full max-w-lg mx-4 border border-theme max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-theme sticky top-0 bg-theme-surface">
           <div className="flex items-center gap-2">
@@ -193,12 +194,7 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          {error && (
-            <div className="flex items-center gap-2 p-3 bg-theme-error/10 border border-theme-error/20 rounded-lg text-theme-error">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <p className="text-sm">{error}</p>
-            </div>
-          )}
+          {error && <ErrorAlert message={error} />}
 
           {/* Provider Type (only for new) */}
           {!isEditing && (
@@ -358,13 +354,13 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
                 <label className="flex items-center gap-2 p-2 rounded-lg border border-theme hover:bg-theme-hover cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={formData.supports_ci_cd}
+                    checked={formData.supports_devops}
                     onChange={(e) =>
-                      setFormData({ ...formData, supports_ci_cd: e.target.checked })
+                      setFormData({ ...formData, supports_devops: e.target.checked })
                     }
                     className="w-4 h-4 rounded border-theme"
                   />
-                  <span className="text-sm text-theme-primary">CI/CD</span>
+                  <span className="text-sm text-theme-primary">DevOps</span>
                 </label>
               </div>
             </div>

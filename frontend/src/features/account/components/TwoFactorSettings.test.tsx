@@ -7,7 +7,7 @@ const mockDisable = jest.fn();
 const mockGetBackupCodes = jest.fn();
 const mockRegenerateBackupCodes = jest.fn();
 
-jest.mock('@/shared/services/twoFactorApi', () => ({
+jest.mock('@/shared/services/account/twoFactorApi', () => ({
   twoFactorApi: {
     getStatus: (...args: any[]) => mockGetStatus(...args),
     disable: (...args: any[]) => mockDisable(...args),

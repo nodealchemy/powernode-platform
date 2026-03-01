@@ -122,13 +122,13 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
       background: `linear-gradient(to ${gradient.direction || 'bottom right'}, ${gradient.from}, ${gradient.to})`
     } : {};
     
-    // eslint-disable-next-line security/detect-object-injection
+     
     const selectedVariantClasses = variantClasses[variant] || variantClasses.default;
-    // eslint-disable-next-line security/detect-object-injection
+     
     const selectedPaddingClasses = paddingClasses[padding] || paddingClasses.md;
-    // eslint-disable-next-line security/detect-object-injection
+     
     const selectedRoundedClasses = roundedClasses[rounded] || roundedClasses.xl;
-    // eslint-disable-next-line security/detect-object-injection
+     
     const selectedShadowClasses = shadowClasses[shadow] || shadowClasses.md;
     
     return (

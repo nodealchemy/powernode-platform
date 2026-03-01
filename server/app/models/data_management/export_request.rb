@@ -46,6 +46,27 @@ module DataManagement
       communications
     ].freeze
 
+    # Status query methods
+    def pending?
+      status == "pending"
+    end
+
+    def processing?
+      status == "processing"
+    end
+
+    def completed?
+      status == "completed"
+    end
+
+    def failed?
+      status == "failed"
+    end
+
+    def expired?
+      status == "expired"
+    end
+
     # Instance methods
     def start_processing!
       update!(
@@ -126,7 +147,7 @@ module DataManagement
 
       # Estimate based on typical processing time
       estimated_completion = created_at + 1.hour
-      [estimated_completion - Time.current, 0].max
+      [ estimated_completion - Time.current, 0 ].max
     end
 
     private

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Check, Shield, Lock, Eye, Settings, Search } from 'lucide-react';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 
 interface Permission {
   id: string;
@@ -113,9 +114,7 @@ export const PermissionSelector: React.FC<PermissionSelectorProps> = ({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-primary"></div>
-      </div>
+      <LoadingSpinner className="p-8" />
     );
   }
 

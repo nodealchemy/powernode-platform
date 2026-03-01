@@ -37,7 +37,7 @@ class CreateAiContextAccessLogs < ActiveRecord::Migration[8.0]
     add_index :ai_context_access_logs, :action
     add_index :ai_context_access_logs, :access_type
     add_index :ai_context_access_logs, :success
-    add_index :ai_context_access_logs, [:ai_persistent_context_id, :action], name: "idx_access_logs_context_action"
-    add_index :ai_context_access_logs, [:account_id, :created_at], name: "idx_access_logs_account_created"
+    add_index :ai_context_access_logs, [ :ai_persistent_context_id, :action ], name: "idx_access_logs_context_action"
+    add_index :ai_context_access_logs, [ :account_id, :created_at ], name: "idx_access_logs_account_created"
   end
 end

@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useWebSocket } from './useWebSocket';
+import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import { type NodeExecutionState } from '@/shared/components/workflow/ExecutionOverlay';
 
 interface WorkflowExecutionMessage {
   event?: string;  // AiOrchestrationChannel uses 'event' field
   type?: string;   // Legacy support
   payload?: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     node_execution?: any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     workflow_run?: any;
   };
   // Legacy fields
@@ -17,7 +17,7 @@ interface WorkflowExecutionMessage {
   status?: string;
   duration?: number;
   error?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   output?: any;
   timestamp?: string;
 }

@@ -1,11 +1,12 @@
 # Development Dockerfile for Rails API backend
 FROM ruby:3.2.8-slim
 
-# Install system dependencies
+# Install system dependencies + tini for proper PID 1 init
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y \
     build-essential \
     curl \
+    tini \
     git \
     libpq-dev \
     pkg-config \
@@ -23,4 +24,5 @@ COPY . .
 
 EXPOSE 3000
 
+ENTRYPOINT ["tini", "--"]
 CMD ["bundle", "exec", "rails", "server", "-b", "0.0.0.0"]

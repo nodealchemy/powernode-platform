@@ -96,6 +96,21 @@ class DevopsPipelineChannel < ApplicationCable::Channel
       broadcast_to_account(pipeline.account, data)
     end
 
+    # Broadcast approval status updates for pipeline approval gates
+    def broadcast_approval_status(pipeline, status:, gate_name:, **options)
+      data = {
+        type: "approval_status",
+        status: status,
+        gate_name: gate_name,
+        pipeline_id: pipeline.id,
+        pipeline_name: pipeline.name,
+        timestamp: Time.current.iso8601
+      }.merge(options)
+
+      broadcast_to_pipeline(pipeline, data)
+      broadcast_to_account(pipeline.account, data)
+    end
+
     private
 
     def broadcast_to_pipeline(pipeline, data)
@@ -117,7 +132,7 @@ class DevopsPipelineChannel < ApplicationCable::Channel
         duration_seconds: run.duration_seconds,
         progress_percentage: run.progress_percentage,
         error_message: run.error_message,
-        pipeline_id: run.ci_cd_pipeline_id,
+        pipeline_id: run.devops_pipeline_id,
         pipeline_name: run.pipeline.name,
         current_step: run.current_step ? {
           id: run.current_step.id,

@@ -3,20 +3,17 @@
 class WebhookDelivery < ApplicationRecord
   # Associations
   belongs_to :webhook_endpoint
+  belongs_to :webhook_event
 
   # Validations
-  validates :event_type, presence: true
-  validates :status, presence: true, inclusion: { in: %w[pending successful failed max_retries_reached] }
-  validates :attempt_count, presence: true, numericality: { greater_than_or_equal_to: 0 }
-
-  # Note: payload, response_headers, and metadata are JSON columns in PostgreSQL
-  # They have native JSON serialization, no need for explicit serialize calls
+  validates :status, presence: true, inclusion: { in: %w[pending success failed timeout] }
+  validates :attempt_number, presence: true, numericality: { greater_than: 0 }
 
   # Scopes
   scope :pending, -> { where(status: "pending") }
-  scope :successful, -> { where(status: "successful") }
+  scope :successful, -> { where(status: "success") }
   scope :failed, -> { where(status: "failed") }
-  scope :max_retries_reached, -> { where(status: "max_retries_reached") }
+  scope :timed_out, -> { where(status: "timeout") }
   scope :pending_retry, -> { where(status: "failed").where("next_retry_at <= ?", Time.current) }
   scope :recent, -> { order(created_at: :desc) }
 
@@ -26,7 +23,7 @@ class WebhookDelivery < ApplicationRecord
 
   # Instance methods
   def successful?
-    status == "successful"
+    status == "success"
   end
 
   def failed?
@@ -37,30 +34,29 @@ class WebhookDelivery < ApplicationRecord
     status == "pending"
   end
 
-  def max_retries_reached?
-    status == "max_retries_reached"
+  def timed_out?
+    status == "timeout"
   end
 
   def can_retry?
-    failed? && attempt_count < webhook_endpoint.retry_limit && next_retry_at <= Time.current
+    failed? && attempt_number < webhook_endpoint.retry_limit && next_retry_at.present? && next_retry_at <= Time.current
   end
 
   def mark_as_successful!(response_data = {})
     update!(
-      status: "successful",
-      completed_at: Time.current,
-      http_status: response_data[:http_status],
-      response_time_ms: response_data[:response_time_ms],
+      status: "success",
+      attempted_at: Time.current,
+      response_status: response_data[:response_status],
       response_body: response_data[:response_body],
       response_headers: response_data[:response_headers] || {}
     )
   end
 
   def mark_as_failed!(error_data = {})
-    self.attempt_count += 1
+    self.attempt_number += 1
 
-    if attempt_count >= webhook_endpoint.retry_limit
-      self.status = "max_retries_reached"
+    if attempt_number >= webhook_endpoint.retry_limit
+      self.status = "timeout"
       self.next_retry_at = nil
     else
       self.status = "failed"
@@ -68,10 +64,9 @@ class WebhookDelivery < ApplicationRecord
     end
 
     update!(
-      completed_at: Time.current,
+      attempted_at: Time.current,
       error_message: error_data[:error_message],
-      http_status: error_data[:http_status],
-      response_time_ms: error_data[:response_time_ms],
+      response_status: error_data[:response_status],
       response_body: error_data[:response_body],
       response_headers: error_data[:response_headers] || {}
     )
@@ -82,13 +77,13 @@ class WebhookDelivery < ApplicationRecord
 
     self.status = "pending"
     self.next_retry_at = nil
-    self.completed_at = nil
+    self.attempted_at = nil
     save!
   end
 
   def duration_seconds
-    return nil unless completed_at && created_at
-    (completed_at - created_at).to_f
+    return nil unless attempted_at && created_at
+    (attempted_at - created_at).to_f
   end
 
   def retry_delay_seconds
@@ -100,18 +95,17 @@ class WebhookDelivery < ApplicationRecord
 
   def set_defaults
     self.status ||= "pending"
-    self.attempt_count ||= 0
-    self.payload ||= {}
+    self.attempt_number ||= 1
+    self.request_headers ||= {}
     self.response_headers ||= {}
-    self.metadata ||= {}
   end
 
   def calculate_next_retry_time
     case webhook_endpoint.retry_backoff
     when "linear"
-      attempt_count * 5.minutes.from_now
+      (attempt_number * 5).minutes.from_now
     when "exponential"
-      (2 ** attempt_count).minutes.from_now
+      (2 ** attempt_number).minutes.from_now
     else
       5.minutes.from_now
     end
@@ -121,10 +115,10 @@ class WebhookDelivery < ApplicationRecord
     return unless saved_change_to_status?
 
     case status
-    when "successful"
+    when "success"
       webhook_endpoint.increment!(:success_count)
-      webhook_endpoint.update!(last_delivery_at: completed_at)
-    when "failed", "max_retries_reached"
+      webhook_endpoint.update!(last_delivery_at: attempted_at)
+    when "failed", "timeout"
       webhook_endpoint.increment!(:failure_count)
     end
   end

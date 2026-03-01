@@ -1,0 +1,64 @@
+{
+  "success": true,
+  "data": {
+    "items": [
+      {
+        "id": "sbom-1",
+        "sbom_id": "SBOM-20240115-001",
+        "name": "Production App SBOM",
+        "format": "cyclonedx_1_5",
+        "version": "1.0.0",
+        "status": "completed",
+        "component_count": 150,
+        "vulnerability_count": 3,
+        "risk_score": 45,
+        "ntia_minimum_compliant": true,
+        "commit_sha": "abc123def456",
+        "branch": "main",
+        "repository_id": "repo-123",
+        "created_at": "2024-01-15T10:00:00Z",
+        "updated_at": "2024-01-15T10:00:00Z"
+      },
+      {
+        "id": "sbom-2",
+        "sbom_id": "SBOM-20240115-002",
+        "name": "API Service SBOM",
+        "format": "spdx_2_3",
+        "version": "2.1.0",
+        "status": "generating",
+        "component_count": 0,
+        "vulnerability_count": 0,
+        "risk_score": 0,
+        "ntia_minimum_compliant": false,
+        "commit_sha": "def456ghi789",
+        "branch": "develop",
+        "repository_id": "repo-456",
+        "created_at": "2024-01-14T15:00:00Z",
+        "updated_at": "2024-01-14T15:30:00Z"
+      },
+      {
+        "id": "sbom-3",
+        "sbom_id": "SBOM-20240115-003",
+        "name": "Frontend SBOM",
+        "format": "cyclonedx_1_5",
+        "version": "3.0.0",
+        "status": "completed",
+        "component_count": 85,
+        "vulnerability_count": 7,
+        "risk_score": 62,
+        "ntia_minimum_compliant": false,
+        "commit_sha": "ghi789jkl012",
+        "branch": "main",
+        "repository_id": "repo-789",
+        "created_at": "2024-01-13T08:00:00Z",
+        "updated_at": "2024-01-13T08:30:00Z"
+      }
+    ],
+    "pagination": {
+      "current_page": 1,
+      "per_page": 20,
+      "total_pages": 1,
+      "total_count": 3
+    }
+  }
+}

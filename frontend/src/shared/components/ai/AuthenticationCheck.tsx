@@ -45,7 +45,7 @@ export const AuthenticationCheck: React.FC<AuthenticationCheckProps> = ({
           await dispatch(refreshAccessToken()).unwrap();
           // After successful token refresh, get updated user data
           await dispatch(getCurrentUser(false)).unwrap();
-        } catch (error) {
+        } catch (_error) {
           // Token refresh failed, user will see authentication required message
         } finally{
           setRefreshing(false);

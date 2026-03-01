@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::RolesController < ApplicationController
-  before_action -> { require_permission("admin.role.view") }, only: [ :index, :show, :users ]
+  before_action -> { require_permission("admin.role.read") }, only: [ :index, :show, :users ]
   before_action -> { require_permission("admin.role.create") }, only: [ :create ]
   before_action -> { require_permission("admin.role.update") }, only: [ :update ]
   before_action -> { require_permission("admin.role.delete") }, only: [ :destroy ]
@@ -126,7 +126,7 @@ class Api::V1::RolesController < ApplicationController
       @user.assign_role(role, assigned_by: current_user)
 
       render_success(user_with_roles(@user))
-    rescue => e
+    rescue StandardError => e
       render_error("Failed to assign role: #{e.message}", status: :unprocessable_content)
     end
   end
@@ -139,7 +139,7 @@ class Api::V1::RolesController < ApplicationController
       @user.remove_role(role)
 
       render_success(user_with_roles(@user))
-    rescue => e
+    rescue StandardError => e
       render_error("Failed to remove role: #{e.message}", status: :unprocessable_content)
     end
   end

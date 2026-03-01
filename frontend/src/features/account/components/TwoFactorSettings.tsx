@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { twoFactorApi } from '@/shared/services/twoFactorApi';
+import { twoFactorApi } from '@/shared/services/account/twoFactorApi';
 import { TwoFactorSetup } from '@/features/account/auth/components/TwoFactorSetup';
 import Modal from '@/shared/components/ui/Modal';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 
 export const TwoFactorSettings: React.FC = () => {
   const [status, setStatus] = useState<{
@@ -39,7 +40,7 @@ export const TwoFactorSettings: React.FC = () => {
       } else {
         setError('Failed to load two-factor authentication status');
       }
-    } catch (error) {
+    } catch (_error) {
       setError('Failed to load two-factor authentication status');
     } finally {
       setLoading(false);
@@ -62,7 +63,7 @@ export const TwoFactorSettings: React.FC = () => {
       } else {
         setError(response.error || 'Failed to disable two-factor authentication');
       }
-    } catch (error) {
+    } catch (_error) {
       setError('Failed to disable two-factor authentication');
     } finally {
       setIsDisabling(false);
@@ -79,7 +80,7 @@ export const TwoFactorSettings: React.FC = () => {
       } else {
         setError(response.error || 'Failed to load backup codes');
       }
-    } catch (error) {
+    } catch (_error) {
       setError('Failed to load backup codes');
     }
   };
@@ -97,7 +98,7 @@ export const TwoFactorSettings: React.FC = () => {
       } else {
         setError(response.error || 'Failed to regenerate backup codes');
       }
-    } catch (error) {
+    } catch (_error) {
       setError('Failed to regenerate backup codes');
     } finally {
       setIsRegenerating(false);
@@ -137,11 +138,7 @@ export const TwoFactorSettings: React.FC = () => {
         </p>
       </div>
 
-      {error && (
-        <div className="p-3 bg-theme-error-background border border-theme-error-border rounded-md">
-          <p className="text-theme-error text-sm">{error}</p>
-        </div>
-      )}
+      {error && <ErrorAlert message={error} />}
 
       <div className="border border-theme rounded-lg p-6">
         <div className="flex items-center justify-between mb-4">

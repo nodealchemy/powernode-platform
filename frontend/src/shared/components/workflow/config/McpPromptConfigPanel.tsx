@@ -3,14 +3,14 @@ import { EnhancedSelect } from '@/shared/components/ui/EnhancedSelect';
 import { Input } from '@/shared/components/ui/Input';
 import { Textarea } from '@/shared/components/ui/Textarea';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/components/ui/Tabs';
-import { McpServerSelector } from './McpServerSelector';
-import { McpPromptSelector } from './McpPromptSelector';
+import { McpServerSelector } from '@/shared/components/workflow/config/McpServerSelector';
+import { McpPromptSelector } from '@/shared/components/workflow/config/McpPromptSelector';
 import type { McpPromptForWorkflowBuilder } from '@/shared/types/workflow';
 
 interface McpPromptConfigPanelProps {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   configuration: Record<string, any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   onConfigChange: (key: string, value: any) => void;
   errors?: Record<string, string>;
   disabled?: boolean;
@@ -82,7 +82,7 @@ export const McpPromptConfigPanel: React.FC<McpPromptConfigPanelProps> = ({
     try {
       const parsed = JSON.parse(value);
       onConfigChange('arguments', parsed);
-    } catch {
+    } catch (_error) {
       // Invalid JSON, don't update arguments
     }
   }, [onConfigChange]);

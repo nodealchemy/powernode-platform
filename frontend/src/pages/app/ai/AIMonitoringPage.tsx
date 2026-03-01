@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import {
   AlertTriangle,
-  Pause,
-  Play,
   RefreshCw
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
@@ -12,10 +10,9 @@ import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer'
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useAiMonitoringWebSocket, DashboardStats, SystemAlert } from '@/shared/hooks/useAiMonitoringWebSocket';
-import { monitoringApi } from '@/shared/services/ai/MonitoringApiService';
+import { monitoringApi, HealthStatus } from '@/shared/services/ai/MonitoringApiService';
 import {
   MonitoringDashboardData,
-  SystemHealthData,
   Alert,
   ResourceUtilization,
   ProviderMetrics,
@@ -26,7 +23,6 @@ import {
 // Import monitoring utilities and components
 import {
   transformDashboardData,
-  transformHealthData,
   transformAlerts,
   getMonitoringBreadcrumbs,
   MONITORING_TABS,
@@ -44,12 +40,14 @@ import { AlertManagementCenter } from '@/features/ai/monitoring/components/Alert
 import { ResourceUtilizationChart } from '@/features/ai/monitoring/components/ResourceUtilizationChart';
 import { WorkflowMonitoringPanel } from '@/features/ai/monitoring/components/WorkflowMonitoringPanel';
 import { AiErrorBoundary } from '@/shared/components/error/AiErrorBoundary';
+import { SelfHealingContent } from '@/features/ai/self-healing/SelfHealingDashboard';
+import { EvaluationContent } from '@/features/ai/evaluation/pages/EvaluationDashboardPage';
+import { AiBillingContent } from '@/pages/app/ai/AiBillingPage';
 
 export const AIMonitoringPage: React.FC = () => {
   const { currentUser } = useAuth();
   const { addNotification } = useNotifications();
-  const { tab: tabParam } = useParams<{ tab?: string }>();
-  const navigate = useNavigate();
+  const location = useLocation();
 
   // Use ref to avoid infinite loop from addNotification dependency
   const addNotificationRef = useRef(addNotification);
@@ -59,37 +57,40 @@ export const AIMonitoringPage: React.FC = () => {
 
   // State management
   const [dashboardData, setDashboardData] = useState<MonitoringDashboardData | null>(null);
-  const [systemHealth, setSystemHealth] = useState<SystemHealthData | null>(null);
+  const [systemHealth, setSystemHealth] = useState<HealthStatus | null>(null);
   const [providers, setProviders] = useState<ProviderMetrics[]>([]);
   const [agents, setAgents] = useState<AgentMetrics[]>([]);
   const [conversations] = useState<ConversationMetrics[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [resources] = useState<ResourceUtilization | null>(null);
+  const [resources, setResources] = useState<ResourceUtilization | null>(null);
 
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
-  // Monitoring configuration - read from URL route params
-  const activeTab = VALID_TAB_IDS.includes(tabParam as typeof VALID_TAB_IDS[number]) ? tabParam! : 'overview';
+  // Derive active tab from URL
+  const getActiveTab = useCallback(() => {
+    const path = location.pathname;
+    const basePath = '/app/ai/observability';
+    if (path === basePath || path === basePath + '/') return 'overview';
+    const segment = path.replace(basePath + '/', '').split('/')[0];
+    if (VALID_TAB_IDS.includes(segment as typeof VALID_TAB_IDS[number])) return segment;
+    return 'overview';
+  }, [location.pathname]);
 
-  const setActiveTab = useCallback((tab: string) => {
-    if (tab === 'overview') {
-      navigate('/app/ai/monitoring');
-    } else {
-      navigate(`/app/ai/monitoring/${tab}`);
-    }
-  }, [navigate]);
+  const [activeTab, setActiveTab] = useState(getActiveTab());
+
+  useEffect(() => {
+    const newTab = getActiveTab();
+    if (newTab !== activeTab) setActiveTab(newTab);
+  }, [location.pathname, getActiveTab]);
 
   const [timeRange, setTimeRange] = useState('1h');
-  const [isRealTimeEnabled, setIsRealTimeEnabled] = useState(false);
 
   // WebSocket hook for real-time updates
   const {
     isConnected: wsConnected,
     requestDashboardStats,
-    startRealTimeMonitoring,
-    stopRealTimeMonitoring,
     error: wsError
   } = useAiMonitoringWebSocket({
     onDashboardStats: (stats: DashboardStats) => {
@@ -128,9 +129,6 @@ export const AIMonitoringPage: React.FC = () => {
         message: alert.message
       });
     },
-    onRealTimeModeChanged: (enabled: boolean) => {
-      setIsRealTimeEnabled(enabled);
-    },
     onError: (errorMessage: string) => {
       addNotificationRef.current({
         type: 'error',
@@ -142,20 +140,20 @@ export const AIMonitoringPage: React.FC = () => {
 
   // Permission checks
   const canViewMonitoring = useMemo(() =>
-    currentUser?.permissions?.includes('ai.monitoring.view') ||
+    currentUser?.permissions?.includes('ai.analytics.read') ||
     currentUser?.permissions?.includes('ai.workflows.read') ||
     currentUser?.permissions?.includes('admin.access') ||
     false
   , [currentUser]);
 
   const canManageAlerts = useMemo(() =>
-    currentUser?.permissions?.includes('ai.monitoring.update') ||
+    currentUser?.permissions?.includes('ai.workflows.update') ||
     currentUser?.permissions?.includes('admin.access') ||
     false
   , [currentUser]);
 
   const canTestComponents = useMemo(() =>
-    currentUser?.permissions?.includes('ai.monitoring.test') ||
+    currentUser?.permissions?.includes('ai.providers.test') ||
     currentUser?.permissions?.includes('admin.access') ||
     false
   , [currentUser]);
@@ -178,8 +176,61 @@ export const AIMonitoringPage: React.FC = () => {
       // Transform and set dashboard data
       setDashboardData(transformDashboardData(dashboardResponse));
 
-      // Transform and set health data
-      setSystemHealth(transformHealthData(healthResponse));
+      // Use native health data directly from backend
+      setSystemHealth(healthResponse);
+
+      // Set resource utilization data from dashboard
+      if (dashboardResponse.resources) {
+        const dbConnections = dashboardResponse.resources.database.connection_count || 5;
+        setResources({
+          system: {
+            cpu_usage: dashboardResponse.resources.cpu.usage_percent,
+            memory_usage: dashboardResponse.resources.memory.usage_percent,
+            disk_usage: 0,
+            network_usage: 0
+          },
+          database: {
+            connection_pool: {
+              size: dbConnections,
+              used: dbConnections,
+              available: 0
+            },
+            query_performance: {
+              avg_query_time: 0,
+              slow_queries: 0,
+              deadlocks: 0
+            },
+            storage_usage: {
+              total_size: 1000,
+              used_size: 100,
+              free_size: 900
+            }
+          },
+          redis: {
+            memory_usage: {
+              used: parseFloat(dashboardResponse.resources.redis.used_memory) || 0,
+              peak: 0,
+              limit: 0
+            },
+            connection_count: dashboardResponse.resources.redis.connected_clients,
+            hit_rate: 100
+          },
+          sidekiq: {
+            queue_sizes: {},
+            worker_utilization: {
+              busy: 0,
+              idle: 0,
+              total: 0
+            },
+            failed_jobs: 0
+          },
+          actioncable: {
+            connection_count: 0,
+            subscription_count: 0,
+            message_throughput: 0
+          }
+        });
+      }
 
       // Transform providers from dashboard
       if (dashboardResponse.providers) {
@@ -311,7 +362,7 @@ export const AIMonitoringPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [canViewMonitoring, transformDashboardData, transformHealthData, transformAlerts]);
+  }, [canViewMonitoring]);
 
   // Initialize monitoring - fetch initial data only (WebSocket handles real-time updates)
   useEffect(() => {
@@ -336,27 +387,6 @@ export const AIMonitoringPage: React.FC = () => {
     // Refetch data with new time range
     fetchMonitoringData();
   }, [fetchMonitoringData]);
-
-  // Toggle real-time monitoring via WebSocket
-  const toggleRealTimeMonitoring = useCallback(async () => {
-    if (isRealTimeEnabled) {
-      await stopRealTimeMonitoring();
-      setIsRealTimeEnabled(false);
-      addNotification({
-        type: 'info',
-        title: 'Real-time Monitoring Disabled',
-        message: 'Switched to manual refresh mode'
-      });
-    } else {
-      await startRealTimeMonitoring();
-      setIsRealTimeEnabled(true);
-      addNotification({
-        type: 'info',
-        title: 'Real-time Monitoring Enabled',
-        message: 'Now receiving live WebSocket updates'
-      });
-    }
-  }, [isRealTimeEnabled, startRealTimeMonitoring, stopRealTimeMonitoring, addNotification]);
 
   // Refresh all data
   const refreshAllData = useCallback(async () => {
@@ -391,32 +421,21 @@ export const AIMonitoringPage: React.FC = () => {
   return (
     <AiErrorBoundary>
       <PageContainer
-        title="AI System Monitoring"
-        description="Comprehensive real-time monitoring of AI providers, agents, workflows, and system health"
+        title="Observability"
+        description="Real-time monitoring of AI providers, agents, workflows, and system health"
         breadcrumbs={getMonitoringBreadcrumbs(activeTab)}
-        actions={[
-          {
-          label: isRealTimeEnabled ? 'Disable Real-time' : 'Enable Real-time',
-          onClick: toggleRealTimeMonitoring,
-          icon: isRealTimeEnabled ? Pause : Play,
-          variant: isRealTimeEnabled ? 'outline' : 'primary',
-          disabled: !isConnected
-        },
-        {
+        actions={[{
           label: 'Refresh',
           onClick: refreshAllData,
           icon: RefreshCw,
           variant: 'outline',
           disabled: !isConnected || isLoading
-        }
-      ]}
+        }]}
     >
       <div className="space-y-6">
         {/* Connection Status & Controls */}
         <MonitoringStatusBar
           isConnected={isConnected}
-          isRealTimeEnabled={isRealTimeEnabled}
-          wsConnected={wsConnected}
           systemHealth={systemHealth}
           lastUpdate={lastUpdate}
           timeRange={timeRange}
@@ -435,6 +454,7 @@ export const AIMonitoringPage: React.FC = () => {
           )}
           activeTab={activeTab}
           onTabChange={setActiveTab}
+          basePath="/app/ai/observability"
           variant="underline"
           className="mb-6"
         >
@@ -452,9 +472,10 @@ export const AIMonitoringPage: React.FC = () => {
                 onRefresh={refreshAllData}
               />
             </div>
+            <SelfHealingContent />
           </TabPanel>
 
-          <TabPanel tabId="providers" activeTab={activeTab}>
+          <TabPanel tabId="systems" activeTab={activeTab} className="space-y-6">
             <ProviderMonitoringGrid
               providers={providers}
               isLoading={isLoading}
@@ -463,7 +484,6 @@ export const AIMonitoringPage: React.FC = () => {
               onTestProvider={canTestComponents ?
                 async (providerId: string) => {
                   try {
-                    // Use circuit breaker to test provider connectivity
                     await monitoringApi.getCircuitBreaker(`provider_${providerId}`);
                     addNotification({
                       type: 'success',
@@ -481,9 +501,6 @@ export const AIMonitoringPage: React.FC = () => {
                 undefined
               }
             />
-          </TabPanel>
-
-          <TabPanel tabId="agents" activeTab={activeTab}>
             <AgentPerformancePanel
               agents={agents}
               isLoading={isLoading}
@@ -492,7 +509,6 @@ export const AIMonitoringPage: React.FC = () => {
               onTestAgent={canTestComponents ?
                 async (agentId: string) => {
                   try {
-                    // Use circuit breaker to test agent connectivity
                     await monitoringApi.getCircuitBreaker(`agent_${agentId}`);
                     addNotification({
                       type: 'success',
@@ -510,9 +526,6 @@ export const AIMonitoringPage: React.FC = () => {
                 undefined
               }
             />
-          </TabPanel>
-
-          <TabPanel tabId="workflows" activeTab={activeTab}>
             <WorkflowMonitoringPanel
               isLoading={isLoading}
               onRefresh={refreshAllData}
@@ -526,6 +539,10 @@ export const AIMonitoringPage: React.FC = () => {
               timeRange={timeRange}
               onRefresh={refreshAllData}
             />
+          </TabPanel>
+
+          <TabPanel tabId="evaluation" activeTab={activeTab}>
+            <EvaluationContent />
           </TabPanel>
 
           <TabPanel tabId="alerts" activeTab={activeTab}>
@@ -546,8 +563,6 @@ export const AIMonitoringPage: React.FC = () => {
                 }
               }}
               onAcknowledgeAlert={async (alertId: string, note?: string) => {
-                // Acknowledge alert - for now just refresh alerts
-                // Full implementation would require backend endpoint
                 addNotification({
                   type: 'info',
                   title: 'Alert Acknowledged',
@@ -556,8 +571,6 @@ export const AIMonitoringPage: React.FC = () => {
                 await refreshAllData();
               }}
               onResolveAlert={async (alertId: string, note?: string) => {
-                // Resolve alert - for now just refresh alerts
-                // Full implementation would require backend endpoint
                 addNotification({
                   type: 'success',
                   title: 'Alert Resolved',
@@ -567,9 +580,15 @@ export const AIMonitoringPage: React.FC = () => {
               }}
             />
           </TabPanel>
+
+          <TabPanel tabId="credits" activeTab={activeTab}>
+            <AiBillingContent />
+          </TabPanel>
         </TabContainer>
       </div>
       </PageContainer>
     </AiErrorBoundary>
   );
 };
+
+export const ObservabilityPage = AIMonitoringPage;

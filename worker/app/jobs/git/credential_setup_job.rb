@@ -97,6 +97,8 @@ module Git
       conn = Faraday.new(url: base_url) do |f|
         f.request :json
         f.response :json
+        f.options.timeout = 30
+        f.options.open_timeout = 10
         f.adapter Faraday.default_adapter
       end
 

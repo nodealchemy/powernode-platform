@@ -10,6 +10,7 @@ import { Select } from '@/shared/components/ui/Select';
 import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { 
   PlusIcon, 
  
@@ -91,11 +92,11 @@ export default function KnowledgeBaseAdminPage() {
         knowledgeBaseAdminApi.getCategories({ per_page: 100 })
       ]);
 
-      setArticles(articlesResponse.data.data.articles);
-      setStats(articlesResponse.data.data.stats);
-      setCategories(categoriesResponse.data.data);
+      setArticles(articlesResponse.data.data.articles || []);
+      setStats(articlesResponse.data.data.stats || { total: 0, published: 0, draft: 0, review: 0, archived: 0 });
+      setCategories(categoriesResponse.data.data || []);
       setTotalPages(articlesResponse.data.data.pagination?.total_pages || 1);
-    } catch (error) {
+    } catch (_error) {
       dispatch(addNotification({ type: 'error', message: 'Failed to load data' }));
     } finally {
       setIsLoading(false);
@@ -127,7 +128,7 @@ export default function KnowledgeBaseAdminPage() {
       dispatch(addNotification({ type: 'success', message: `${selectedArticles.length} articles updated` }));
       setSelectedArticles([]);
       loadAdminData();
-    } catch (error) {
+    } catch (_error) {
       dispatch(addNotification({ type: 'error', message: 'Failed to update articles' }));
     }
   };
@@ -144,7 +145,7 @@ export default function KnowledgeBaseAdminPage() {
       dispatch(addNotification({ type: 'success', message: `${selectedArticles.length} articles deleted` }));
       setSelectedArticles([]);
       loadAdminData();
-    } catch (error) {
+    } catch (_error) {
       dispatch(addNotification({ type: 'error', message: 'Failed to delete articles' }));
     }
   };
@@ -215,9 +216,7 @@ export default function KnowledgeBaseAdminPage() {
         breadcrumbs={breadcrumbs}
         actions={actions}
       >
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-primary"></div>
-        </div>
+        <LoadingSpinner className="h-64" />
       </PageContainer>
     );
   }

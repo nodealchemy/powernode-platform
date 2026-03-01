@@ -1,9 +1,9 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AdminAlertsBanner } from './AdminAlertsBanner';
-import { performanceApi } from '@/shared/services/system/performanceApi';
+import { performanceApi } from '@/shared/services/admin/performanceApi';
 
 // Mock performanceApi
-jest.mock('@/shared/services/system/performanceApi', () => ({
+jest.mock('@/shared/services/admin/performanceApi', () => ({
   performanceApi: {
     getActiveAlerts: jest.fn()
   }

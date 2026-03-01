@@ -7,14 +7,14 @@ module Api
         include AuditLogging
 
         before_action :authenticate_request
-        before_action :require_read_permission, only: [:index, :show, :export_yaml]
-        before_action :require_write_permission, only: [:create, :update, :destroy, :trigger, :duplicate]
-        before_action :set_pipeline, only: [:show, :update, :destroy, :trigger, :export_yaml, :duplicate]
+        before_action :require_read_permission, only: [ :index, :show, :export_yaml ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy, :trigger, :duplicate ]
+        before_action :set_pipeline, only: [ :show, :update, :destroy, :trigger, :export_yaml, :duplicate ]
 
         # GET /api/v1/devops/pipelines
         def index
           pipelines = current_user.account.devops_pipelines
-                                  .includes(:steps, :ai_provider)
+                                  .includes(:pipeline_steps, :ai_provider)
                                   .order(created_at: :desc)
 
           # Filter by active status if provided
@@ -93,7 +93,7 @@ module Api
         # DELETE /api/v1/devops/pipelines/:id
         def destroy
           # Check for active runs
-          if @pipeline.runs.where(status: [:pending, :running]).exists?
+          if @pipeline.runs.where(status: [ :pending, :running ]).exists?
             render_error("Cannot delete pipeline with active runs", status: :unprocessable_content)
             return
           end
@@ -142,7 +142,7 @@ module Api
           begin
             WorkerJobService.enqueue_job(
               "Devops::PipelineExecutionJob",
-              args: [run.id, execution_options],
+              args: [ run.id, execution_options ],
               queue: "devops_high"
             )
             worker_queued = true
@@ -153,9 +153,9 @@ module Api
 
           message = if worker_queued
                       "Pipeline triggered successfully"
-                    else
+          else
                       "Pipeline run created but worker service unavailable - run will not execute automatically"
-                    end
+          end
 
           render_success({
             pipeline_run: serialize_pipeline_run(run),
@@ -166,8 +166,7 @@ module Api
 
           log_audit_event("devops.pipelines.trigger", @pipeline)
         rescue StandardError => e
-          Rails.logger.error "Failed to trigger pipeline: #{e.message}"
-          render_error("Failed to trigger pipeline: #{e.message}", status: :internal_server_error)
+          render_internal_error("Failed to trigger pipeline", exception: e)
         end
 
         # GET /api/v1/devops/pipelines/:id/export_yaml
@@ -183,8 +182,7 @@ module Api
 
           log_audit_event("devops.pipelines.export_yaml", @pipeline)
         rescue StandardError => e
-          Rails.logger.error "Failed to export pipeline YAML: #{e.message}"
-          render_error("Failed to export pipeline YAML: #{e.message}", status: :internal_server_error)
+          render_internal_error("Failed to export pipeline YAML", exception: e)
         end
 
         # POST /api/v1/devops/pipelines/:id/duplicate
@@ -198,7 +196,7 @@ module Api
             new_pipeline.save!
 
             # Duplicate steps
-            @pipeline.steps.each do |step|
+            @pipeline.pipeline_steps.each do |step|
               new_step = step.dup
               new_step.pipeline = new_pipeline
               new_step.save!
@@ -249,7 +247,7 @@ module Api
 
         def create_steps(pipeline, steps_params)
           steps_params.each_with_index do |step_params, index|
-            pipeline.steps.create!(
+            pipeline.pipeline_steps.create!(
               name: step_params[:name],
               step_type: step_params[:step_type],
               position: step_params[:position] || (index + 1),
@@ -268,7 +266,7 @@ module Api
 
         def update_steps(pipeline, steps_params)
           # Simple strategy: replace all steps
-          pipeline.steps.destroy_all
+          pipeline.pipeline_steps.destroy_all
           create_steps(pipeline, steps_params)
         end
 
@@ -281,7 +279,7 @@ module Api
           result[:id] = pipeline.id
 
           if include_steps
-            result[:steps] = pipeline.steps.order(:position).map do |step|
+            result[:steps] = pipeline.pipeline_steps.order(:position).map do |step|
               ::Devops::PipelineStepSerializer.new(step).serializable_hash[:data][:attributes].merge(id: step.id)
             end
           end

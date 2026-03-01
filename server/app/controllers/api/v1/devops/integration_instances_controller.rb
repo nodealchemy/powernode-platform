@@ -5,7 +5,7 @@ module Api
     module Devops
       class IntegrationInstancesController < ApplicationController
         before_action :authenticate_request
-        before_action :set_instance, only: [:show, :update, :destroy, :activate, :deactivate, :test, :execute]
+        before_action :set_instance, only: [ :show, :update, :destroy, :activate, :deactivate, :test, :execute ]
 
         # GET /api/v1/devops/integration_instances
         def index

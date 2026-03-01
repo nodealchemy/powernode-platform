@@ -13,12 +13,12 @@ help:
 	@echo "  make db-setup       - Setup databases"
 	@echo ""
 	@echo "Development Commands (All servers listen on 0.0.0.0 for external access):"
-	@echo "  make dev            - Start both development servers (with process cleanup)"
+	@echo "  make dev            - Start all services via systemd"
 	@echo "  make dev-api        - Start Rails API server only (0.0.0.0:3000)"
 	@echo "  make dev-frontend   - Start React frontend server only (0.0.0.0:3001)"
-	@echo "  make dev-stop       - Stop all development servers"
-	@echo "  make dev-restart    - Restart all development servers"
-	@echo "  make dev-status     - Show development server status"
+	@echo "  make dev-stop       - Stop all services"
+	@echo "  make dev-restart    - Restart all services"
+	@echo "  make dev-status     - Show service status"
 	@echo ""
 	@echo "Testing Commands:"
 	@echo "  make test           - Run all tests"
@@ -63,31 +63,30 @@ db-reset:
 	@cd server && bundle exec rails db:drop db:create db:migrate db:seed
 	@echo "✅ Database reset complete!"
 
-# Development commands
+# Development commands (systemd)
 dev:
 	@echo "🚀 Starting development servers..."
-	@./scripts/auto-dev.sh ensure
+	@sudo systemctl start powernode.target
 
 dev-api:
 	@echo "🔧 Starting Rails API server..."
-	@./scripts/backend-manager.sh start
+	@sudo systemctl start powernode-backend@default
 
 dev-frontend:
 	@echo "⚛️  Starting React frontend server..."
-	@./scripts/frontend-manager.sh start
+	@sudo systemctl start powernode-frontend@default
 
 dev-stop:
 	@echo "🛑 Stopping development servers..."
-	@./scripts/backend-manager.sh stop
-	@./scripts/frontend-manager.sh stop
+	@sudo systemctl stop powernode.target
 
 dev-restart:
 	@echo "🔄 Restarting development servers..."
-	@./scripts/auto-dev.sh restart
+	@sudo systemctl restart powernode.target
 
 dev-status:
 	@echo "📊 Development server status..."
-	@./scripts/auto-dev.sh status
+	@sudo scripts/systemd/powernode-installer.sh status
 
 # Testing commands
 test: test-backend test-frontend

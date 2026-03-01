@@ -112,7 +112,7 @@ export const NodeOperationsChat: React.FC<NodeOperationsChatProps> = ({
     if (isOpen && operationsAgent && currentNode && !conversation && !isInitializing && !initializationFailed) {
       initializeConversation();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [isOpen, operationsAgent?.id, currentNode?.id, conversation?.id, isInitializing, initializationFailed]);
 
   // Auto-focus input when chat opens and is not minimized
@@ -127,11 +127,11 @@ export const NodeOperationsChat: React.FC<NodeOperationsChatProps> = ({
 
   const loadMessages = useCallback(async (agentId: string, conversationId: string) => {
     try {
-      const messages = await agentsApi.getMessages(agentId, conversationId);
-      setMessages(messages.reverse()); // Reverse to show oldest first
+      const response = await agentsApi.getMessages(agentId, conversationId);
+      setMessages([...(response.messages || [])].reverse()); // Reverse to show oldest first
       scrollToBottom();
-    } catch (error) {
-      console.error('Error loading messages:', error);
+    } catch (_error) {
+      // Error loading messages - will display empty state
     }
   }, [scrollToBottom]);
 
@@ -178,9 +178,10 @@ export const NodeOperationsChat: React.FC<NodeOperationsChatProps> = ({
       setLoading(true);
 
       // Check provider availability before creating conversation
-      if (agent.ai_provider) {
+      const agentProvider = agent.provider;
+      if (agentProvider) {
         try {
-          const availabilityCheck = await providersApi.checkAvailability(agent.ai_provider.id);
+          const availabilityCheck = await providersApi.checkAvailability(agentProvider.id);
           if (!availabilityCheck.availability.available) {
             setIsInitializing(false);
             setInitializationFailed(true);
@@ -193,9 +194,8 @@ export const NodeOperationsChat: React.FC<NodeOperationsChatProps> = ({
             });
             return null;
           }
-        } catch (availabilityError) {
-          console.error('Error checking provider availability:', availabilityError);
-          // Continue with conversation creation - let backend validation handle it
+        } catch (_error) {
+          // Error checking provider availability - continue with conversation creation
         }
       }
 
@@ -234,11 +234,11 @@ Position: (${node.position_x}, ${node.position_y})`;
         // Load messages to show the conversation
         loadMessages(agent.id, newConversation.id);
         return newConversation;
-      } catch (messageError) {
+      } catch (_error) {
         // If message sending fails, clean up the conversation
         try {
           await agentsApi.archiveConversation(agent.id, newConversation.id);
-        } catch {
+        } catch (_error) {
           // Ignore cleanup errors
         }
         setConversation(null);
@@ -249,7 +249,7 @@ Position: (${node.position_x}, ${node.position_y})`;
         });
         return null;
       }
-    } catch (error: unknown) {
+    } catch (error) {
       const apiError = error as { response?: { status?: number } };
       setInitializationFailed(true);
       addNotification({
@@ -338,8 +338,7 @@ Position: (${node.position_x}, ${node.position_y})`;
       // Remove temp message and add real messages
       setMessages(prev => prev.filter(m => m.id !== userMessage.id));
       loadMessages(operationsAgent.id, activeConversation.id);
-    } catch (error) {
-      console.error('Error sending message:', error);
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Chat Error',
@@ -446,9 +445,7 @@ Position: (${node.position_x}, ${node.position_y})`;
               messages.map((message) => (
                 <div
                   key={message.id}
-                  className={`flex gap-3 ${
-                    message.sender_type === 'user' ? 'flex-row-reverse' : ''
-                  }`}
+                  className="flex gap-3"
                 >
                   <Avatar
                     src={message.sender_type === 'user' ? message.sender_info?.avatar_url : undefined}
@@ -456,11 +453,7 @@ Position: (${node.position_x}, ${node.position_y})`;
                   >
                     {message.sender_type === 'user' ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                   </Avatar>
-                  <div
-                    className={`flex-1 ${
-                      message.sender_type === 'user' ? 'text-right' : ''
-                    }`}
-                  >
+                  <div className="flex-1">
                     <div
                       className={`inline-block max-w-[80%] p-3 rounded-lg text-sm ${
                         message.sender_type === 'user'
@@ -497,7 +490,7 @@ Position: (${node.position_x}, ${node.position_y})`;
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ask about node configuration, optimization, or modifications..."
-                className="flex-1 resize-none rounded-md border border-theme bg-theme-surface px-3 py-2 text-sm placeholder:text-theme-muted focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 resize-none rounded-md border border-theme bg-theme-surface px-3 py-2 text-sm placeholder:text-theme-muted focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-transparent"
                 rows={2}
                 disabled={sending || loading || initializationFailed}
               />

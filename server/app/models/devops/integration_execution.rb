@@ -4,6 +4,7 @@ module Devops
   class IntegrationExecution < ApplicationRecord
     # ==================== Concerns ====================
     include Auditable
+    include ExecutionTrackable
 
     # ==================== Table Name ====================
     self.table_name = "devops_integration_executions"
@@ -154,7 +155,7 @@ module Devops
 
     def all_attempts
       root = root_execution
-      [root] + root.retry_executions.order(:attempt_number)
+      [ root ] + root.retry_executions.order(:attempt_number)
     end
 
     private

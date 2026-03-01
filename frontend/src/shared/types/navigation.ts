@@ -14,6 +14,8 @@ export interface NavigationItem {
   requiresSetup?: boolean;
   category?: string;
   order?: number;
+  extensionSlug?: string;
+  action?: string;
 }
 
 export interface NavigationSection {
@@ -25,6 +27,7 @@ export interface NavigationSection {
   collapsible?: boolean;
   defaultExpanded?: boolean;
   order?: number;
+  extensionSlug?: string;
 }
 
 export interface NavigationConfig {

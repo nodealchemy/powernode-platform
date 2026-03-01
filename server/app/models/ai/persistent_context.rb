@@ -12,7 +12,7 @@ module Ai
     # ==================== Associations ====================
     belongs_to :account
     belongs_to :agent, class_name: "Ai::Agent", foreign_key: "ai_agent_id", optional: true  # null = account-wide context
-    belongs_to :created_by_user, class_name: "User", optional: true
+    belongs_to :created_by_user, class_name: "User", foreign_key: "created_by_user_id", optional: true
 
     has_many :context_entries, class_name: "Ai::ContextEntry", foreign_key: "ai_persistent_context_id", dependent: :destroy
     has_many :context_access_logs, class_name: "Ai::ContextAccessLog", foreign_key: "ai_persistent_context_id", dependent: :destroy
@@ -40,7 +40,7 @@ module Ai
     scope :accessible_by_agent, ->(agent_id) do
       where(ai_agent_id: agent_id)
         .or(where(ai_agent_id: nil, scope: %w[account team]))
-        .or(where("access_control->>'agents' @> ?", [agent_id].to_json))
+        .or(where("access_control->>'agents' @> ?", [ agent_id ].to_json))
     end
     scope :recent, -> { order(last_accessed_at: :desc) }
 
@@ -58,6 +58,7 @@ module Ai
         context_id: context_id,
         name: name,
         context_type: context_type,
+        status: archived? ? "archived" : "active",
         scope: scope,
         agent_id: ai_agent_id,
         version: version,
@@ -80,6 +81,10 @@ module Ai
         created_at: created_at,
         updated_at: updated_at
       )
+    end
+
+    def public_read?
+      access_control.dig("public_read") == true || access_control.dig("public") == true
     end
 
     def accessible_by?(accessor_id, accessor_type: :user)
@@ -216,11 +221,11 @@ module Ai
       return if context_id.present?
 
       prefix = case context_type
-               when "agent_memory" then "mem"
-               when "knowledge_base" then "kb"
-               when "shared_context" then "ctx"
-               else "ctx"
-               end
+      when "agent_memory" then "mem"
+      when "knowledge_base" then "kb"
+      when "shared_context" then "ctx"
+      else "ctx"
+      end
 
       self.context_id = "#{prefix}_#{SecureRandom.hex(12)}"
     end

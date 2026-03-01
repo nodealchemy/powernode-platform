@@ -109,6 +109,35 @@ module Devops
       raise NotImplementedError
     end
 
+    # Runner management - may not be supported by all providers
+    def supports_runners?
+      false
+    end
+
+    def list_runners(owner, repo, scope: :repo)
+      raise NotImplementedError
+    end
+
+    def get_runner(owner, repo, runner_id, scope: :repo)
+      raise NotImplementedError
+    end
+
+    def delete_runner(owner, repo, runner_id, scope: :repo)
+      raise NotImplementedError
+    end
+
+    def runner_registration_token(owner, repo, scope: :repo)
+      raise NotImplementedError
+    end
+
+    def runner_removal_token(owner, repo, scope: :repo)
+      raise NotImplementedError
+    end
+
+    def set_runner_labels(owner, repo, runner_id, labels, scope: :repo)
+      raise NotImplementedError
+    end
+
     # Commit viewing methods - comprehensive git view capabilities
 
     def get_commit(owner, repo, sha)
@@ -132,6 +161,18 @@ module Devops
     end
 
     def list_tags(owner, repo, options = {})
+      raise NotImplementedError
+    end
+
+    def create_branch(owner, repo, new_branch:, old_branch:)
+      raise NotImplementedError
+    end
+
+    def create_pull_request(owner, repo, title:, body:, head:, base:)
+      raise NotImplementedError
+    end
+
+    def merge_pull_request(owner, repo, number, merge_type: "merge")
       raise NotImplementedError
     end
 
@@ -192,7 +233,7 @@ module Devops
     # Faraday treats paths starting with "/" as absolute, ignoring the base URL's path.
     # By removing the leading slash, the path is appended to the base URL's path.
     def normalize_path(path)
-      path.to_s.sub(/\A\//, '')
+      path.to_s.sub(/\A\//, "")
     end
 
     def handle_response(response, raw: false)
@@ -246,8 +287,92 @@ module Devops
         Rails.application.config.webhook_base_url :
         ENV.fetch("WEBHOOK_BASE_URL", "https://app.example.com")
 
-      "#{base}/webhooks/git/#{@provider.provider_type}"
+      "#{base}/api/v1/webhooks/git/#{@provider.provider_type}"
+    end
+
+    # Standardized error handling wrapper for API operations
+    # Usage: with_error_handling { delete("/path"); { success: true } }
+    # Usage: with_error_handling(default_on_not_found: { success: true }) { ... }
+    #
+    # When default_on_not_found is provided, NotFoundError returns that value.
+    # Otherwise, NotFoundError (like all ApiErrors) returns { success: false, error: message }
+    def with_error_handling(default_on_not_found: nil)
+      yield
+    rescue NotFoundError => e
+      default_on_not_found || { success: false, error: e.message }
+    rescue ApiError => e
+      { success: false, error: e.message }
+    end
+
+    # Extract pagination parameters from options hash
+    # Different providers use different parameter names (per_page vs limit)
+    def pagination_params(options, limit_key: :per_page, default_limit: 100)
+      {
+        page: options[:page] || 1,
+        limit_key => options[:per_page] || default_limit
+      }
+    end
+
+    # Parse unified diff patch into structured hunk data
+    # This is provider-agnostic - all Git providers use the same patch format
+    def parse_patch_hunks(patch)
+      return [] if patch.blank?
+
+      hunks = []
+      current_hunk = nil
+      old_line = 0
+      new_line = 0
+
+      patch.lines.each do |line|
+        if line.start_with?("@@")
+          # Parse hunk header: @@ -old_start,old_lines +new_start,new_lines @@
+          match = line.match(/@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/)
+          if match
+            current_hunk = {
+              header: line.chomp,
+              old_start: match[1].to_i,
+              old_lines: match[2]&.to_i || 1,
+              new_start: match[3].to_i,
+              new_lines: match[4]&.to_i || 1,
+              lines: []
+            }
+            hunks << current_hunk
+            old_line = current_hunk[:old_start]
+            new_line = current_hunk[:new_start]
+          end
+        elsif current_hunk
+          line_type = case line[0]
+          when "+" then "addition"
+          when "-" then "deletion"
+          when " " then "context"
+          else "context"
+          end
+
+          diff_line = {
+            type: line_type,
+            content: line[1..].to_s.chomp
+          }
+
+          case line_type
+          when "deletion"
+            diff_line[:old_line_number] = old_line
+            old_line += 1
+          when "addition"
+            diff_line[:new_line_number] = new_line
+            new_line += 1
+          when "context"
+            diff_line[:old_line_number] = old_line
+            diff_line[:new_line_number] = new_line
+            old_line += 1
+            new_line += 1
+          end
+
+          current_hunk[:lines] << diff_line
+        end
+      end
+
+      hunks
     end
   end
-end
+  end
 end

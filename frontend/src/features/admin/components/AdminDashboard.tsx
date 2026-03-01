@@ -13,6 +13,7 @@ import { AdminAlertsBanner } from './AdminAlertsBanner';
 import { SystemAlertsPanel } from './SystemAlertsPanel';
 import { adminSettingsApi, AdminOverviewData } from '../services/adminSettingsApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { formatDateTime } from '@/shared/utils/formatters';
 
 interface AdminDashboardProps {
   onNavigateToAlerts?: () => void;
@@ -46,7 +47,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       } else {
         showNotification(response.error || 'Failed to load dashboard data', 'error');
       }
-    } catch {
+    } catch (_error) {
       showNotification('Failed to load dashboard data', 'error');
     } finally {
       setLoading(false);
@@ -57,11 +58,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  const formatDate = (dateString: string | null | undefined): string => {
-    if (!dateString) return 'Never';
-    return new Date(dateString).toLocaleString();
-  };
 
   if (loading && !data) {
     return (
@@ -192,7 +188,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </p>
                   <div className="flex items-center gap-1 text-xs text-theme-tertiary">
                     <Clock className="w-3 h-3" />
-                    {formatDate(user.created_at)}
+                    {user.created_at ? formatDateTime(user.created_at) : 'Never'}
                   </div>
                 </div>
               </div>
@@ -246,7 +242,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </span>
                   <div className="flex items-center gap-1 text-xs text-theme-tertiary mt-1">
                     <Clock className="w-3 h-3" />
-                    {formatDate(account.created_at)}
+                    {account.created_at ? formatDateTime(account.created_at) : 'Never'}
                   </div>
                 </div>
               </div>
@@ -283,7 +279,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <div>
                   <p className="font-medium text-theme-primary">{log.message}</p>
                   <p className="text-sm text-theme-secondary">
-                    {log.source} • {formatDate(log.timestamp)}
+                    {log.source} • {log.timestamp ? formatDateTime(log.timestamp) : 'Never'}
                   </p>
                 </div>
               </div>

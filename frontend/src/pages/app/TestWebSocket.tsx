@@ -13,8 +13,8 @@ export const TestWebSocket: React.FC = () => {
   }, [user, access_token, isConnected, error, lastConnected]);
   
   const getBreadcrumbs = () => [
-    { label: 'Dashboard', href: '/app', icon: '🏠' },
-    { label: 'WebSocket Test', icon: '🧪' }
+    { label: 'Dashboard', href: '/app' },
+    { label: 'WebSocket Test' }
   ];
 
   const getPageActions = () => [

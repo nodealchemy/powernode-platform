@@ -20,7 +20,7 @@ export interface SubscriptionHistoryEvent {
 }
 
 export interface SubscriptionHistoryResponse {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   current_subscription: any | null;
   history: SubscriptionHistoryEvent[];
   total_events: number;
@@ -33,9 +33,9 @@ export interface SubscriptionHistoryApiResponse extends SubscriptionHistoryRespo
 export const subscriptionHistoryApi = {
   async getHistory(): Promise<SubscriptionHistoryApiResponse> {
     try {
-      const response = await api.get('/api/v1/subscriptions/history');
+      const response = await api.get<{ data: SubscriptionHistoryApiResponse }>('/api/v1/subscriptions/history');
       return response.data.data;
-    } catch (error: unknown) {
+    } catch (error) {
       const message = getErrorMessage(error);
       return { current_subscription: null, history: [], total_events: 0, error: message };
     }

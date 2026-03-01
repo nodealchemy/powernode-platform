@@ -1,0 +1,58 @@
+{
+  "success": true,
+  "data": {
+    "sbom_count": 15,
+    "vulnerability_count": 42,
+    "critical_vulnerabilities": 2,
+    "high_vulnerabilities": 8,
+    "container_image_count": 25,
+    "quarantined_images": 1,
+    "verified_images": 20,
+    "attestation_count": 18,
+    "verified_attestations": 16,
+    "vendor_count": 12,
+    "high_risk_vendors": 2,
+    "vendors_needing_assessment": 3,
+    "license_violation_count": 5,
+    "open_violations": 3,
+    "ntia_compliant_sboms": 10,
+    "sboms_with_vulnerabilities": 5,
+    "open_vulnerabilities": 3,
+    "active_vendors": 10,
+    "signed_attestations": 15,
+    "sboms_this_month": 3,
+    "scans_this_month": 5,
+    "attestations_this_month": 2,
+    "average_risk_score": 45.5,
+    "alerts": [
+      {
+        "id": "alert-1",
+        "severity": "critical",
+        "type": "vulnerability",
+        "message": "Critical vulnerability detected in production SBOM",
+        "action_url": "/app/supply-chain/sboms/sbom-1"
+      },
+      {
+        "id": "alert-2",
+        "severity": "high",
+        "type": "license",
+        "message": "GPL-3.0 license violation found",
+        "action_url": "/app/supply-chain/licenses/violations"
+      }
+    ],
+    "recent_activity": [
+      {
+        "id": "activity-1",
+        "type": "sbom_created",
+        "title": "SBOM generated for api-server:v1.0.0",
+        "timestamp": "2024-01-15T10:00:00Z"
+      },
+      {
+        "id": "activity-2",
+        "type": "scan_completed",
+        "title": "Container scan completed for web-app",
+        "timestamp": "2024-01-15T09:00:00Z"
+      }
+    ]
+  }
+}

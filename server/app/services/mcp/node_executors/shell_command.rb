@@ -2,7 +2,7 @@
 
 module Mcp
   module NodeExecutors
-    # Shell Command node executor - executes arbitrary shell commands
+    # Shell Command node executor - dispatches shell commands to worker
     #
     # Configuration:
     # - command: The shell command to execute
@@ -13,6 +13,8 @@ module Mcp
     # - fail_on_error: Fail node if command fails (default: true)
     #
     class ShellCommand < Base
+      include Concerns::WorkerDispatch
+
       protected
 
       def perform_execution
@@ -23,27 +25,23 @@ module Mcp
                             get_variable("checkout_path") || "."
         environment = configuration["environment"] || {}
         timeout_seconds = configuration["timeout_seconds"] || 300
-        capture_output = configuration.fetch("capture_output", true)
         fail_on_error = configuration.fetch("fail_on_error", true)
 
         validate_configuration!(command)
 
-        command_context = {
+        payload = {
+          type: "run_command",
           command: command,
           working_directory: working_directory,
           environment: environment,
           timeout_seconds: timeout_seconds,
-          capture_output: capture_output,
           fail_on_error: fail_on_error,
-          started_at: Time.current
+          node_id: @node.node_id
         }
 
-        log_info "Command context: #{command_context.slice(:command, :working_directory)}"
+        log_info "Dispatching command: #{command}"
 
-        # Generate execution ID
-        execution_id = SecureRandom.uuid
-
-        build_output(command_context, execution_id)
+        dispatch_to_worker("Devops::StepExecutionJob", payload, queue: "devops_default")
       end
 
       private
@@ -51,13 +49,12 @@ module Mcp
       def validate_configuration!(command)
         raise ArgumentError, "command is required" if command.blank?
 
-        # Security check - block dangerous commands
         dangerous_patterns = [
-          /rm\s+-rf\s+\//, # rm -rf /
-          /mkfs/, # Format disk
-          /dd\s+if=.*of=\/dev/, # dd to devices
-          /shutdown|reboot|halt/, # System commands
-          /chmod\s+777\s+\//, # Dangerous permissions
+          /rm\s+-rf\s+\//,
+          /mkfs/,
+          /dd\s+if=.*of=\/dev/,
+          /shutdown|reboot|halt/,
+          /chmod\s+777\s+\//
         ]
 
         dangerous_patterns.each do |pattern|
@@ -76,32 +73,6 @@ module Mcp
         else
           value
         end
-      end
-
-      def build_output(command_context, execution_id)
-        {
-          output: {
-            command_executed: true,
-            execution_id: execution_id,
-            command: command_context[:command]
-          },
-          data: {
-            execution_id: execution_id,
-            command: command_context[:command],
-            working_directory: command_context[:working_directory],
-            started_at: command_context[:started_at].iso8601,
-            status: "completed",
-            exit_code: 0, # Would be actual exit code
-            stdout: "", # Would be captured output
-            stderr: "",
-            duration_ms: 0
-          },
-          metadata: {
-            node_id: @node.node_id,
-            node_type: "shell_command",
-            executed_at: Time.current.iso8601
-          }
-        }
       end
     end
   end

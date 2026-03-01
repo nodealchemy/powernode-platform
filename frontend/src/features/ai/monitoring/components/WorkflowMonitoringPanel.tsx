@@ -1,18 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-  Activity,
-  Play,
-  CheckCircle,
-  XCircle,
-  Clock,
-  DollarSign,
-  Zap,
-  RefreshCw
-} from 'lucide-react';
-import { Card, CardTitle, CardContent } from '@/shared/components/ui/Card';
-import { Badge } from '@/shared/components/ui/Badge';
+import { RefreshCw } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
-import { Progress } from '@/shared/components/ui/Progress';
 import { monitoringApi, MonitoringDashboard, MetricsData } from '@/shared/services/ai/MonitoringApiService';
 import { useAiOrchestrationWebSocket, WorkflowRunEvent } from '@/shared/hooks/useAiOrchestrationWebSocket';
 import { useNotifications } from '@/shared/hooks/useNotifications';
@@ -22,6 +10,10 @@ import {
   WorkflowCostData,
   AiWorkflowRun
 } from '@/shared/types/workflow';
+import { WorkflowStatsCards } from './WorkflowStatsCards';
+import { HealthIndicators } from './HealthIndicators';
+import { CostTracker } from './CostTracker';
+import { ActiveExecutionsList } from './ActiveExecutionsList';
 
 interface WorkflowMonitoringPanelProps {
   isLoading?: boolean;
@@ -41,11 +33,10 @@ export const WorkflowMonitoringPanel: React.FC<WorkflowMonitoringPanelProps> = (
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Transform API dashboard data to stats format
   const transformDashboardToStats = useCallback((dashboard: MonitoringDashboard): WorkflowMonitoringData['stats'] => {
     return {
       totalWorkflows: dashboard.workflows?.total || 0,
-      activeWorkflows: dashboard.workflows?.running || 0,
+      activeWorkflows: dashboard.workflows?.active || 0,
       runningExecutions: dashboard.workflows?.running || 0,
       completedToday: dashboard.workflows?.completed_today || 0,
       failedToday: dashboard.workflows?.failed_today || 0,
@@ -54,7 +45,8 @@ export const WorkflowMonitoringPanel: React.FC<WorkflowMonitoringPanelProps> = (
     };
   }, []);
 
-  // Transform API metrics data to health format
+  const [workflowsList, setWorkflowsList] = useState<MonitoringDashboard['workflowsList']>([]);
+
   const transformMetricsToHealth = useCallback((metrics: MetricsData): WorkflowHealthData['health'] => {
     return {
       workflowEngineStatus: metrics.error_rate < 5 ? 'healthy' : metrics.error_rate < 15 ? 'warning' : 'error',
@@ -70,7 +62,6 @@ export const WorkflowMonitoringPanel: React.FC<WorkflowMonitoringPanelProps> = (
     };
   }, []);
 
-  // Fetch monitoring data from REST API
   const fetchMonitoringData = useCallback(async () => {
     try {
       const [dashboardResponse, metricsResponse] = await Promise.all([
@@ -79,6 +70,7 @@ export const WorkflowMonitoringPanel: React.FC<WorkflowMonitoringPanelProps> = (
       ]);
 
       setStats(transformDashboardToStats(dashboardResponse));
+      setWorkflowsList(dashboardResponse.workflowsList || []);
 
       const latestMetrics = Array.isArray(metricsResponse) && metricsResponse.length > 0
         ? metricsResponse[metricsResponse.length - 1]
@@ -99,15 +91,11 @@ export const WorkflowMonitoringPanel: React.FC<WorkflowMonitoringPanelProps> = (
 
       setLastUpdate(new Date());
       setIsLoading(false);
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to fetch monitoring data:', error);
-      }
+    } catch (_error) {
       setIsLoading(false);
     }
   }, [transformDashboardToStats, transformMetricsToHealth]);
 
-  // WebSocket event handlers for real-time execution updates
   const handleWorkflowRunEvent = useCallback((event: WorkflowRunEvent) => {
     const { type, run_id, data } = event;
 
@@ -168,24 +156,18 @@ export const WorkflowMonitoringPanel: React.FC<WorkflowMonitoringPanelProps> = (
     }
   }, [addNotification, fetchMonitoringData]);
 
-  const handleWebSocketError = useCallback((error: string) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('WebSocket error:', error);
-    }
+  const handleWebSocketError = useCallback((_error: string) => {
   }, []);
 
-  // Set up WebSocket connection for real-time updates
   const { isConnected: wsConnected } = useAiOrchestrationWebSocket({
     onWorkflowRunEvent: handleWorkflowRunEvent,
     onError: handleWebSocketError
   });
 
-  // Initial data fetch only - WebSocket handles real-time updates
   useEffect(() => {
     fetchMonitoringData();
   }, [fetchMonitoringData]);
 
-  // Manual refresh
   const refreshData = useCallback(() => {
     fetchMonitoringData();
     if (externalRefresh) {
@@ -193,7 +175,6 @@ export const WorkflowMonitoringPanel: React.FC<WorkflowMonitoringPanelProps> = (
     }
   }, [fetchMonitoringData, externalRefresh]);
 
-  // Format currency
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -203,21 +184,10 @@ export const WorkflowMonitoringPanel: React.FC<WorkflowMonitoringPanelProps> = (
     }).format(amount);
   };
 
-  // Get status color
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'healthy': return 'text-theme-success';
-      case 'warning': return 'text-theme-warning';
-      case 'error': return 'text-theme-danger';
-      default: return 'text-theme-muted';
-    }
-  };
-
   const loading = externalLoading || isLoading;
 
   return (
     <div className="space-y-6">
-      {/* Connection Status & Controls */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
@@ -243,242 +213,17 @@ export const WorkflowMonitoringPanel: React.FC<WorkflowMonitoringPanelProps> = (
         </Button>
       </div>
 
-      {/* Overview Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-theme-muted">Active Workflows</p>
-                <p className="text-2xl font-bold text-theme-primary">
-                  {stats?.activeWorkflows || 0}
-                </p>
-              </div>
-              <Zap className="h-8 w-8 text-theme-info" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-theme-muted">Running Executions</p>
-                <p className="text-2xl font-bold text-theme-primary">
-                  {stats?.runningExecutions || 0}
-                </p>
-              </div>
-              <Play className="h-8 w-8 text-theme-success" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-theme-muted">Completed Today</p>
-                <p className="text-2xl font-bold text-theme-primary">
-                  {stats?.completedToday || 0}
-                </p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-theme-success" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-theme-muted">Failed Today</p>
-                <p className="text-2xl font-bold text-theme-primary">
-                  {stats?.failedToday || 0}
-                </p>
-              </div>
-              <XCircle className="h-8 w-8 text-theme-danger" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-theme-muted">Cost Today</p>
-                <p className="text-2xl font-bold text-theme-primary">
-                  {formatCurrency(stats?.totalCostToday || 0)}
-                </p>
-              </div>
-              <DollarSign className="h-8 w-8 text-theme-warning" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <WorkflowStatsCards stats={stats} formatCurrency={formatCurrency} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* System Health */}
-        <Card>
-          <CardTitle className="flex items-center gap-2 p-4 pb-0">
-            <Activity className="h-5 w-5" />
-            System Health
-          </CardTitle>
-          <CardContent className="space-y-4 pt-4">
-            {health ? (
-              <>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Workflow Engine</span>
-                  <Badge className={getStatusColor(health.workflowEngineStatus)}>
-                    {health.workflowEngineStatus}
-                  </Badge>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>CPU Usage</span>
-                    <span>{health.resourceUsage?.cpuUsage || 0}%</span>
-                  </div>
-                  <Progress value={health.resourceUsage?.cpuUsage || 0} className="h-2" />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Memory Usage</span>
-                    <span>{health.resourceUsage?.memoryUsage || 0}%</span>
-                  </div>
-                  <Progress value={health.resourceUsage?.memoryUsage || 0} className="h-2" />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Disk Usage</span>
-                    <span>{health.resourceUsage?.diskUsage || 0}%</span>
-                  </div>
-                  <Progress value={health.resourceUsage?.diskUsage || 0} className="h-2" />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-theme-muted">Queue Length</span>
-                    <p className="font-medium">{health.workerQueueLength || 0}</p>
-                  </div>
-                  <div>
-                    <span className="text-theme-muted">Error Rate (24h)</span>
-                    <p className="font-medium">{health.errorRate24h || 0}%</p>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="text-center py-4 text-theme-muted">
-                <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>Loading health data...</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Cost Tracking */}
-        <Card>
-          <CardTitle className="flex items-center gap-2 p-4 pb-0">
-            <DollarSign className="h-5 w-5" />
-            Cost Tracking
-          </CardTitle>
-          <CardContent className="space-y-4 pt-4">
-            {costs ? (
-              <>
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <span className="text-theme-muted">Today</span>
-                    <p className="font-medium">{formatCurrency(costs.today)}</p>
-                  </div>
-                  <div>
-                    <span className="text-theme-muted">This Week</span>
-                    <p className="font-medium">{formatCurrency(costs.thisWeek)}</p>
-                  </div>
-                  <div>
-                    <span className="text-theme-muted">This Month</span>
-                    <p className="font-medium">{formatCurrency(costs.thisMonth)}</p>
-                  </div>
-                </div>
-
-                {costs.byProvider && Object.keys(costs.byProvider).length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-medium mb-2">Cost by Provider</h4>
-                    <div className="space-y-2">
-                      {Object.entries(costs.byProvider).map(([provider, cost]) => (
-                        <div key={provider} className="flex items-center justify-between text-sm">
-                          <span className="capitalize">{provider}</span>
-                          <span className="font-medium">{formatCurrency(cost)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {costs.byWorkflow && costs.byWorkflow.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-medium mb-2">Top Workflows by Cost</h4>
-                    <div className="space-y-2">
-                      {costs.byWorkflow.slice(0, 3).map(([workflow, cost]) => (
-                        <div key={workflow} className="flex items-center justify-between text-sm">
-                          <span className="truncate">{workflow}</span>
-                          <span className="font-medium">{formatCurrency(cost)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="text-center py-4 text-theme-muted">
-                <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>Loading cost data...</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <HealthIndicators health={health} />
+        <CostTracker costs={costs} formatCurrency={formatCurrency} />
       </div>
 
-      {/* Active Executions */}
-      <Card>
-        <CardTitle className="flex items-center gap-2 p-4 pb-0">
-          <Play className="h-5 w-5" />
-          Active Executions
-        </CardTitle>
-        <CardContent className="pt-4">
-          {activeExecutions.length > 0 ? (
-            <div className="space-y-4">
-              {activeExecutions.map(execution => (
-                <div key={execution.run_id} className="border border-theme-border rounded-lg p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium text-theme-primary">
-                        Run ID: {execution.run_id}
-                      </h4>
-                      <p className="text-sm text-theme-muted">
-                        Started: {execution.started_at ? new Date(execution.started_at).toLocaleTimeString() : 'N/A'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="bg-theme-info/10 text-theme-info">
-                        {execution.status}
-                      </Badge>
-                      <Badge variant="outline">
-                        {execution.trigger_type}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-theme-muted">
-              <Play className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No active executions</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <ActiveExecutionsList
+        activeExecutions={activeExecutions}
+        workflowsList={workflowsList}
+      />
     </div>
   );
 };

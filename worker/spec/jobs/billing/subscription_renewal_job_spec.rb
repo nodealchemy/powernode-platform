@@ -38,7 +38,7 @@ RSpec.describe Billing::SubscriptionRenewalJob, type: :job do
       before do
         stub_backend_api_success(:get, "/api/v1/subscriptions/#{subscription_id}", subscription_data)
         stub_backend_api_success(:get, "/api/v1/accounts/#{account_id}", account_data)
-        stub_backend_api_success(:post, '/api/v1/billing/process_renewal', {
+        stub_backend_api_success(:post, '/api/v1/internal/billing/process_renewal', {
           'success' => true,
           'next_billing_date' => Date.current.next_month.to_s
         })
@@ -48,7 +48,7 @@ RSpec.describe Billing::SubscriptionRenewalJob, type: :job do
         result = described_class.new.execute(subscription_id)
 
         expect(result['success']).to be true
-        expect_api_request(:post, '/api/v1/billing/process_renewal')
+        expect_api_request(:post, '/api/v1/internal/billing/process_renewal')
       end
 
       it 'schedules next renewal' do
@@ -75,7 +75,7 @@ RSpec.describe Billing::SubscriptionRenewalJob, type: :job do
 
       context 'with payment failure (402)' do
         before do
-          stub_backend_api_error(:post, '/api/v1/billing/process_renewal', status: 402, error_message: 'Payment required')
+          stub_backend_api_error(:post, '/api/v1/internal/billing/process_renewal', status: 402, error_message: 'Payment required')
         end
 
         it 'schedules payment retry' do
@@ -100,7 +100,7 @@ RSpec.describe Billing::SubscriptionRenewalJob, type: :job do
 
       context 'with missing payment method (404)' do
         before do
-          stub_backend_api_error(:post, '/api/v1/billing/process_renewal', status: 404, error_message: 'Payment method not found')
+          stub_backend_api_error(:post, '/api/v1/internal/billing/process_renewal', status: 404, error_message: 'Payment method not found')
           stub_backend_api_success(:post, '/api/v1/notifications', { 'success' => true })
         end
 
@@ -119,7 +119,7 @@ RSpec.describe Billing::SubscriptionRenewalJob, type: :job do
 
       context 'with validation error (422)' do
         before do
-          stub_backend_api_error(:post, '/api/v1/billing/process_renewal', status: 422, error_message: 'Validation failed')
+          stub_backend_api_error(:post, '/api/v1/internal/billing/process_renewal', status: 422, error_message: 'Validation failed')
         end
 
         it 'logs error without retry' do
@@ -135,7 +135,7 @@ RSpec.describe Billing::SubscriptionRenewalJob, type: :job do
 
       context 'with generic failure' do
         before do
-          stub_backend_api_error(:post, '/api/v1/billing/process_renewal', status: 500, error_message: 'Server error')
+          stub_backend_api_error(:post, '/api/v1/internal/billing/process_renewal', status: 500, error_message: 'Server error')
         end
 
         it 'schedules renewal retry' do
@@ -235,7 +235,7 @@ RSpec.describe Billing::SubscriptionRenewalJob, type: :job do
     before do
       stub_backend_api_success(:get, "/api/v1/subscriptions/#{subscription_id}", subscription_data)
       stub_backend_api_success(:get, "/api/v1/accounts/#{account_id}", account_data)
-      stub_backend_api_success(:post, '/api/v1/billing/process_renewal', {
+      stub_backend_api_success(:post, '/api/v1/internal/billing/process_renewal', {
         'success' => true,
         'next_billing_date' => Date.current.next_month.to_s
       })

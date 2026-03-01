@@ -204,17 +204,12 @@ module Mcp
           }
         )
 
-        # Schedule async execution
-        if defined?(Ai::WorkflowExecutionJob)
-          Ai::WorkflowExecutionJob.perform_async(sub_run.id)
-        else
-          # Fallback: execute in thread
-          Thread.new do
-            Mcp::Ai::WorkflowOrchestrator.new(sub_run).execute
-          rescue StandardError => e
-            Rails.logger.error "[SUB_WORKFLOW] Async execution failed: #{e.message}"
-          end
-        end
+        # Schedule async execution via worker
+        WorkerJobService.enqueue_job(
+          "AiWorkflowExecutionJob",
+          args: [sub_run.id],
+          queue: "ai_default"
+        )
 
         if wait_for_completion
           # Poll for completion

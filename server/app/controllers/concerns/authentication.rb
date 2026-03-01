@@ -5,41 +5,19 @@ module Authentication
 
   included do
     before_action :authenticate_request
-    attr_reader :current_user, :current_account, :current_worker, :current_service, :current_jwt_payload
+    attr_reader :current_user, :current_account, :current_worker, :current_jwt_payload
   end
 
   private
 
   def authenticate_request
-    # Check for worker authentication via X-Worker-Token header first
-    worker_token = request.headers["X-Worker-Token"]
-    if worker_token.present? && ENV["WORKER_TOKEN"].present?
-      # When WORKER_TOKEN environment variable is set, authenticate using the provided token
-      @current_worker = Worker.authenticate(worker_token)
-      if @current_worker
-        return # Worker authentication successful via X-Worker-Token
-      else
-        return render_unauthorized("Invalid or expired worker token")
-      end
-    end
-
     header = request.headers["Authorization"]
     header = header.split(" ").last if header
 
     return render_unauthorized("Access token required") unless header
 
+    # JWT-only token authentication
     begin
-      # Try worker authentication first if token looks like a worker token (legacy or development)
-      if header.start_with?("swt_") || header == "development_worker_token"
-        @current_worker = Worker.authenticate(header)
-        if @current_worker
-          return # Worker authentication successful
-        else
-          return render_unauthorized("Invalid or expired worker token")
-        end
-      end
-
-      # JWT token authentication
       payload = Security::JwtService.decode(header)
 
       case payload[:type]
@@ -49,8 +27,6 @@ module Authentication
         handle_worker_token(payload)
       when "impersonation"
         handle_impersonation_jwt_token(payload)
-      when "service"
-        handle_service_token(payload)
       else
         return render_unauthorized("Invalid token type")
       end
@@ -63,9 +39,9 @@ module Authentication
         @current_user.record_login! if should_record_login?
       end
 
-    rescue StandardError => e
-      Rails.logger.error "Authentication error: #{e.message}"
-      return render_unauthorized("Invalid access token")
+      return
+    rescue StandardError
+      render_unauthorized("Invalid access token")
     end
   end
 
@@ -76,7 +52,7 @@ module Authentication
     header = header.split(" ").last
 
     begin
-      # Try JWT authentication
+      # JWT-only authentication
       payload = Security::JwtService.decode(header)
 
       case payload[:type]
@@ -90,8 +66,8 @@ module Authentication
       when "worker"
         worker = Worker.find(payload[:sub])
         @current_worker = worker if worker&.active?
+        @current_account = @current_worker&.account
       when "impersonation"
-        # Handle impersonation session loading
         handle_impersonation_jwt_token(payload)
       end
     rescue StandardError
@@ -119,11 +95,7 @@ module Authentication
 
   def handle_worker_token(payload)
     @current_worker = Worker.find(payload[:sub])
-    @current_jwt_payload = payload
-  end
-
-  def handle_service_token(payload)
-    @current_service = payload[:service]
+    @current_account = @current_worker.account
     @current_jwt_payload = payload
   end
 
@@ -149,8 +121,6 @@ module Authentication
 
     # Add impersonation header for client identification
     response.set_header("X-Impersonation-Active", "true")
-    response.set_header("X-Impersonator-Email", @impersonator.email)
-    response.set_header("X-Impersonation-Session", @impersonation_session.id)
   end
 
   def impersonating?
@@ -200,7 +170,6 @@ module Authentication
     # Fallback to database checks
     return current_user.has_permission?(permission_name) if current_user
     return current_worker.has_permission?(permission_name) if current_worker
-    return true if @current_service # Service tokens have implied permissions
     false
   end
 
@@ -217,35 +186,11 @@ module Authentication
   # Note: render_unauthorized and render_forbidden are provided by ApiResponse concern
   # ApplicationController includes ApiResponse after Authentication, so those methods take precedence
 
-  # Worker authentication methods
-  def authenticate_worker_request!
-    worker_token = extract_worker_token
-    return render_unauthorized("Worker token required") unless worker_token
-
-    @current_worker = Worker.authenticate(worker_token)
-    return render_unauthorized("Invalid or inactive worker token") unless @current_worker
-
-    true
-  end
-
-  def authenticate_worker_optional
-    worker_token = extract_worker_token
-    return unless worker_token
-
-    begin
-      @current_worker = Worker.authenticate(worker_token)
-    rescue StandardError
-      @current_worker = nil
-    end
-  end
-
-  def extract_worker_token
+  def extract_bearer_token
     auth_header = request.headers["Authorization"]
     return nil unless auth_header&.start_with?("Bearer ")
 
-    token = auth_header.split(" ", 2).last
-    # Worker tokens start with 'swt_'
-    token if token&.start_with?("swt_")
+    auth_header.split(" ", 2).last
   end
 
   # Check if current request is from a worker

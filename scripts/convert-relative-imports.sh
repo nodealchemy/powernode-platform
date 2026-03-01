@@ -1,70 +1,105 @@
 #!/bin/bash
 # Convert relative imports to path aliases for better maintainability
-# Converts: import ... from '../../../shared/utils'
-# To:       import ... from '@/shared/utils'
+#
+# ONLY converts cross-boundary imports:
+#   ../../../shared/utils       → @/shared/utils
+#   ../../features/other-feat/  → @/features/other-feat/
+#
+# PRESERVES feature-internal imports:
+#   ./components/Foo            → unchanged (same directory)
+#   ../hooks/useFoo             → unchanged (same feature)
+
+set -eo pipefail
 
 echo "📦 Relative Import Conversion - Path Alias Migration"
 echo "===================================================="
 echo ""
 
-# Path alias mappings
-# @/ points to frontend/src/
-declare -A IMPORT_PATTERNS=(
-  ["../../../shared/"]="@/shared/"
-  ["../../shared/"]="@/shared/"
-  ["../shared/"]="@/shared/"
-  ["../../../features/"]="@/features/"
-  ["../../features/"]="@/features/"
-  ["../features/"]="@/features/"
-  ["../../components/"]="@/shared/components/"
-  ["../components/"]="@/shared/components/"
-)
+SRC_ROOT="frontend/src"
 
-# Find all TypeScript/TSX files
-echo "📋 Finding files with relative imports..."
-FILES=$(find frontend/src -name "*.tsx" -o -name "*.ts" | grep -v "node_modules" | grep -v "\.test\.")
-
-if [ -z "$FILES" ]; then
-  echo "No files found!"
+if [ ! -d "$SRC_ROOT" ]; then
+  echo "❌ Directory $SRC_ROOT not found. Run from project root."
   exit 1
 fi
+
+echo "📋 Finding files with relative imports..."
 
 TOTAL_FILES=0
 TOTAL_CONVERSIONS=0
 
-# Process each file
-for file in $FILES; do
-  if [ ! -f "$file" ]; then
-    continue
+# Get the absolute path of SRC_ROOT for realpath resolution
+ABS_SRC_ROOT=$(realpath "$SRC_ROOT")
+
+# Process each TypeScript/TSX file (excluding tests and node_modules)
+while IFS= read -r -d '' file; do
+  [ -f "$file" ] || continue
+
+  file_dir=$(dirname "$file")
+  file_conversions=0
+
+  # Determine this file's top-level feature (e.g., "ai", "supply-chain", "admin")
+  file_rel="${file#$SRC_ROOT/}"
+  file_top_feature=""
+  if [[ "$file_rel" == features/* ]]; then
+    # Extract: features/ai/audit/pages/Foo.tsx → ai
+    file_top_feature=$(echo "$file_rel" | cut -d'/' -f2)
   fi
 
-  FILE_CHANGES=0
+  # Collect all relative imports from this file
+  # Match: from './...' or from "../..."
+  while IFS= read -r import_line; do
+    # Extract the import path between quotes
+    import_path=$(echo "$import_line" | sed -n "s/.*from ['\"]\\([^'\"]*\\)['\"].*/\\1/p")
 
-  # Check if file has relative imports
-  if grep -qE "from ['\"][.]{1,3}/" "$file" 2>/dev/null; then
+    # Skip non-relative imports
+    [[ "$import_path" == .* ]] || continue
 
-    # Apply each import pattern conversion
-    for old_pattern in "${!IMPORT_PATTERNS[@]}"; do
-      new_pattern="${IMPORT_PATTERNS[$old_pattern]}"
+    # Resolve the import path to an absolute filesystem path, then make it relative to SRC_ROOT
+    resolved=$(realpath -sm "$file_dir/$import_path" 2>/dev/null) || continue
+    resolved_rel="${resolved#$ABS_SRC_ROOT/}"
 
-      # Count occurrences before replacement
-      before=$(grep -o "from ['\"]${old_pattern}" "$file" 2>/dev/null | wc -l)
+    # Skip if resolution didn't produce a path under SRC_ROOT
+    [[ "$resolved_rel" == /* ]] && continue
+    [[ "$resolved_rel" == "$resolved" ]] && continue
 
-      if [ "$before" -gt 0 ]; then
-        # Replace the import pattern
-        sed -i "s|from ['\"]${old_pattern}|from '${new_pattern}|g" "$file"
-        sed -i "s|from ['\"]${old_pattern}|from \"${new_pattern}|g" "$file"
-        FILE_CHANGES=$((FILE_CHANGES + before))
-        TOTAL_CONVERSIONS=$((TOTAL_CONVERSIONS + before))
+    # Determine if this import should be aliased
+    new_import=""
+
+    if [[ "$resolved_rel" == shared/* ]]; then
+      # Any import resolving to shared/ gets aliased
+      new_import="@/$resolved_rel"
+    elif [[ "$resolved_rel" == features/* ]]; then
+      # Extract the top-level feature of the import target
+      import_top_feature=$(echo "$resolved_rel" | cut -d'/' -f2)
+
+      if [ -n "$file_top_feature" ] && [ "$file_top_feature" != "$import_top_feature" ]; then
+        # Cross-feature import → alias it
+        new_import="@/$resolved_rel"
+      elif [ -z "$file_top_feature" ]; then
+        # File is NOT in features/ but imports from features/ → alias it
+        new_import="@/$resolved_rel"
       fi
-    done
-
-    if [ "$FILE_CHANGES" -gt 0 ]; then
-      echo "  ✅ $file ($FILE_CHANGES conversions)"
-      TOTAL_FILES=$((TOTAL_FILES + 1))
+      # Same top-level feature → leave relative
     fi
+
+    # Apply the conversion
+    if [ -n "$new_import" ]; then
+      # Escape special regex characters in both paths for sed
+      escaped_old=$(printf '%s\n' "$import_path" | sed 's/[[\\/.*^$()+?{|]/\\&/g')
+      escaped_new=$(printf '%s\n' "$new_import" | sed 's/[[\\/.*^$()+?{|]/\\&/g')
+
+      # Replace only in from-string context, preserving quote style
+      sed -i "s|from '${escaped_old}'|from '${escaped_new}'|g; s|from \"${escaped_old}\"|from \"${escaped_new}\"|g" "$file"
+      file_conversions=$((file_conversions + 1))
+    fi
+  done < <(grep -E "from ['\"][.]{1,2}/" "$file" 2>/dev/null || true)
+
+  if [ "$file_conversions" -gt 0 ]; then
+    echo "  ✅ $file ($file_conversions conversions)"
+    TOTAL_FILES=$((TOTAL_FILES + 1))
+    TOTAL_CONVERSIONS=$((TOTAL_CONVERSIONS + file_conversions))
   fi
-done
+done < <(find "$SRC_ROOT" \( -name "*.tsx" -o -name "*.ts" \) ! -path "*/node_modules/*" ! -name "*.test.*" ! -name "*.spec.*" -print0)
 
 echo ""
 echo "✨ Import Conversion Complete!"
@@ -73,29 +108,48 @@ echo "Files modified: $TOTAL_FILES"
 echo "Total conversions: $TOTAL_CONVERSIONS"
 echo ""
 
-# Verify remaining relative imports
-echo "🔍 Checking for remaining relative imports..."
-REMAINING=$(grep -rE "from ['\"]\.\./" frontend/src/ \
-  --include="*.tsx" --include="*.ts" \
-  | grep -v "node_modules" \
-  | grep -v "\.test\." \
-  | wc -l)
+# Verify: count remaining cross-boundary relative imports
+echo "🔍 Checking for remaining cross-boundary relative imports..."
+REMAINING=0
+while IFS= read -r -d '' file; do
+  [ -f "$file" ] || continue
 
-echo "Remaining relative imports: $REMAINING"
+  file_dir=$(dirname "$file")
+  file_rel="${file#$SRC_ROOT/}"
+  file_top_feature=""
+  if [[ "$file_rel" == features/* ]]; then
+    file_top_feature=$(echo "$file_rel" | cut -d'/' -f2)
+  fi
+
+  while IFS= read -r import_line; do
+    import_path=$(echo "$import_line" | sed -n "s/.*from ['\"]\\([^'\"]*\\)['\"].*/\\1/p")
+    [[ "$import_path" == .* ]] || continue
+
+    resolved=$(realpath -sm "$file_dir/$import_path" 2>/dev/null) || continue
+    resolved_rel="${resolved#$ABS_SRC_ROOT/}"
+    [[ "$resolved_rel" == /* ]] && continue
+    [[ "$resolved_rel" == "$resolved" ]] && continue
+
+    if [[ "$resolved_rel" == shared/* ]]; then
+      REMAINING=$((REMAINING + 1))
+    elif [[ "$resolved_rel" == features/* ]]; then
+      import_top_feature=$(echo "$resolved_rel" | cut -d'/' -f2)
+      if [ -n "$file_top_feature" ] && [ "$file_top_feature" != "$import_top_feature" ]; then
+        REMAINING=$((REMAINING + 1))
+      fi
+    fi
+  done < <(grep -E "from ['\"][.]{1,2}/" "$file" 2>/dev/null || true)
+done < <(find "$SRC_ROOT" \( -name "*.tsx" -o -name "*.ts" \) ! -path "*/node_modules/*" ! -name "*.test.*" ! -name "*.spec.*" -print0)
+
+echo "Remaining cross-boundary relative imports: $REMAINING"
 
 if [ "$REMAINING" -gt 0 ]; then
   echo ""
-  echo "Files with remaining relative imports:"
-  grep -rlE "from ['\"]\.\./" frontend/src/ \
-    --include="*.tsx" --include="*.ts" \
-    | grep -v "node_modules" \
-    | grep -v "\.test\." \
-    | head -20
-  echo ""
-  echo "💡 Some relative imports may need manual review for proper path mapping"
+  echo "⚠️  Some cross-boundary imports could not be auto-converted."
+  echo "Run with manual review for complex cases."
 fi
 
 echo ""
 echo "✅ Import consistency improved!"
 echo ""
-echo "📝 Note: Run 'npm run typecheck' to verify all imports resolve correctly"
+echo "📝 Note: Run 'cd frontend && npx tsc --noEmit' to verify all imports resolve correctly"

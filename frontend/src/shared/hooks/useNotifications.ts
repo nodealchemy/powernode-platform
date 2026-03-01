@@ -2,7 +2,7 @@
 import { useCallback } from 'react';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '@/shared/services';
-import { addNotification as addNotificationAction } from '../services/slices/uiSlice';
+import { addNotification as addNotificationAction } from '@/shared/services/slices/uiSlice';
 
 interface NotificationParams {
   type: 'success' | 'error' | 'warning' | 'info';

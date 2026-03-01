@@ -178,10 +178,94 @@ module Mcp
       end
     end
 
-    def establish_websocket_connection(_server)
-      # WebSocket connection would be established here
-      # For now, return a placeholder success
-      { success: true, capabilities: { 'tools' => true } }
+    def establish_websocket_connection(server)
+      # WebSocket connections for MCP require persistent connections
+      # which are not suitable for a background job context.
+      # WebSocket-based MCP servers should use the real-time connection manager.
+      require 'websocket-client-simple'
+
+      ws_url = server[:url] || server[:websocket_url]
+
+      unless ws_url.present?
+        return { success: false, error: 'WebSocket URL not configured' }
+      end
+
+      capabilities = nil
+      error_message = nil
+      connected = false
+      init_response_received = false
+
+      begin
+        Timeout.timeout(15) do
+          ws = WebSocket::Client::Simple.connect(ws_url)
+
+          ws.on :open do
+            connected = true
+            # Send MCP initialize request
+            init_request = {
+              jsonrpc: '2.0',
+              id: SecureRandom.uuid,
+              method: 'initialize',
+              params: {
+                protocolVersion: '2025-06-18',
+                capabilities: { roots: { listChanged: true } },
+                clientInfo: { name: 'Powernode Worker', version: '1.0.0' }
+              }
+            }
+            ws.send(init_request.to_json)
+          end
+
+          ws.on :message do |msg|
+            begin
+              response = JSON.parse(msg.data)
+              if response['result']
+                capabilities = {
+                  'tools' => response['result'].dig('capabilities', 'tools').present?,
+                  'resources' => response['result'].dig('capabilities', 'resources').present?,
+                  'prompts' => response['result'].dig('capabilities', 'prompts').present?,
+                  'logging' => response['result'].dig('capabilities', 'logging').present?,
+                  'serverInfo' => response['result']['serverInfo']
+                }
+                init_response_received = true
+              elsif response['error']
+                error_message = response['error']['message']
+              end
+            rescue JSON::ParserError
+              error_message = 'Invalid JSON response from server'
+            end
+          end
+
+          ws.on :error do |e|
+            error_message = e.message
+          end
+
+          # Wait for initialization response
+          start_time = Time.current
+          while !init_response_received && error_message.nil? && (Time.current - start_time) < 10
+            sleep 0.1
+          end
+
+          ws.close if ws.open?
+        end
+      rescue Timeout::Error
+        error_message = 'WebSocket connection timeout'
+      rescue LoadError
+        # websocket-client-simple gem not available
+        log_warn('WebSocket gem not available, WebSocket connections not supported',
+                 server_id: server[:id])
+        return {
+          success: false,
+          error: 'WebSocket support requires websocket-client-simple gem'
+        }
+      rescue StandardError => e
+        error_message = "WebSocket error: #{e.message}"
+      end
+
+      if init_response_received && capabilities
+        { success: true, capabilities: capabilities }
+      else
+        { success: false, error: error_message || 'Failed to initialize WebSocket connection' }
+      end
     end
 
     def establish_http_connection(server)

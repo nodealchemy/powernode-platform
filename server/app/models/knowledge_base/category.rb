@@ -59,6 +59,10 @@ module KnowledgeBase
       end
     end
 
+    def total_article_count
+      article_count(include_descendants: true)
+    end
+
     def to_tree_select_option
       {
         id: id,
@@ -89,6 +93,3 @@ module KnowledgeBase
     end
   end
 end
-
-# Backward compatibility alias
-KnowledgeBaseCategory = KnowledgeBase::Category

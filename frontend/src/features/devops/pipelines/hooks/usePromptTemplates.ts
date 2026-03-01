@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { devopsPromptTemplatesApi } from '@/services/devopsPipelinesApi';
-import type { CiCdPromptTemplate, CiCdPromptTemplateFormData, CiCdPromptPreviewResponse } from '@/types/devops-pipelines';
+import type { DevopsPromptTemplate, DevopsPromptTemplateFormData, DevopsPromptPreviewResponse } from '@/types/devops-pipelines';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface UsePromptTemplatesParams {
@@ -10,7 +10,7 @@ interface UsePromptTemplatesParams {
 }
 
 export function usePromptTemplates(params: UsePromptTemplatesParams = {}) {
-  const [templates, setTemplates] = useState<CiCdPromptTemplate[]>([]);
+  const [templates, setTemplates] = useState<DevopsPromptTemplate[]>([]);
   const [meta, setMeta] = useState<{
     total: number;
     by_category: Record<string, number>;
@@ -44,28 +44,28 @@ export function usePromptTemplates(params: UsePromptTemplatesParams = {}) {
       currentParamsRef.current = paramsKey;
       fetchTemplates();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [params.category, params.is_active, params.root_only]);
 
-  const createTemplate = async (data: CiCdPromptTemplateFormData) => {
+  const createTemplate = async (data: DevopsPromptTemplateFormData) => {
     try {
       const template = await devopsPromptTemplatesApi.create(data);
       showNotification('Prompt template created successfully', 'success');
       await fetchTemplates();
       return template;
-    } catch (err) {
+    } catch (_err) {
       showNotification('Failed to create prompt template', 'error');
       return null;
     }
   };
 
-  const updateTemplate = async (id: string, data: Partial<CiCdPromptTemplateFormData>) => {
+  const updateTemplate = async (id: string, data: Partial<DevopsPromptTemplateFormData>) => {
     try {
       const template = await devopsPromptTemplatesApi.update(id, data);
       showNotification('Prompt template updated successfully', 'success');
       await fetchTemplates();
       return template;
-    } catch (err) {
+    } catch (_err) {
       showNotification('Failed to update prompt template', 'error');
       return null;
     }
@@ -77,7 +77,7 @@ export function usePromptTemplates(params: UsePromptTemplatesParams = {}) {
       showNotification('Prompt template deleted successfully', 'success');
       await fetchTemplates();
       return true;
-    } catch (err) {
+    } catch (_err) {
       showNotification('Failed to delete prompt template', 'error');
       return false;
     }
@@ -89,17 +89,17 @@ export function usePromptTemplates(params: UsePromptTemplatesParams = {}) {
       showNotification('Prompt template duplicated successfully', 'success');
       await fetchTemplates();
       return template;
-    } catch (err) {
+    } catch (_err) {
       showNotification('Failed to duplicate prompt template', 'error');
       return null;
     }
   };
 
-  const previewTemplate = async (id: string, variables: Record<string, string>): Promise<CiCdPromptPreviewResponse | null> => {
+  const previewTemplate = async (id: string, variables: Record<string, string>): Promise<DevopsPromptPreviewResponse | null> => {
     try {
       const result = await devopsPromptTemplatesApi.preview(id, variables);
       return result;
-    } catch (err) {
+    } catch (_err) {
       showNotification('Failed to preview prompt template', 'error');
       return null;
     }
@@ -120,7 +120,7 @@ export function usePromptTemplates(params: UsePromptTemplatesParams = {}) {
 }
 
 export function usePromptTemplate(id: string | null) {
-  const [template, setTemplate] = useState<CiCdPromptTemplate | null>(null);
+  const [template, setTemplate] = useState<DevopsPromptTemplate | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -148,10 +148,10 @@ export function usePromptTemplate(id: string | null) {
       hasLoadedRef.current = id;
       fetchTemplate();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [id]);
 
-  const updateTemplate = async (data: Partial<CiCdPromptTemplateFormData>) => {
+  const updateTemplate = async (data: Partial<DevopsPromptTemplateFormData>) => {
     if (!id) return null;
 
     try {
@@ -159,7 +159,7 @@ export function usePromptTemplate(id: string | null) {
       showNotification('Prompt template updated successfully', 'success');
       setTemplate(updated);
       return updated;
-    } catch (err) {
+    } catch (_err) {
       showNotification('Failed to update prompt template', 'error');
       return null;
     }

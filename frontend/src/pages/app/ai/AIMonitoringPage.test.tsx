@@ -39,6 +39,72 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
   })
 }));
 
+// Mock WebSocket hook
+jest.mock('@/shared/hooks/useAiMonitoringWebSocket', () => ({
+  useAiMonitoringWebSocket: () => ({
+    isConnected: true,
+    requestDashboardStats: jest.fn(),
+    error: null,
+  }),
+}));
+
+// Mock error boundary
+jest.mock('@/shared/components/error/AiErrorBoundary', () => ({
+  AiErrorBoundary: ({ children }: any) => <>{children}</>,
+}));
+
+// Mock monitoring sub-components
+jest.mock('@/features/ai/monitoring/components/MonitoringStatusBar', () => ({
+  MonitoringStatusBar: ({ isConnected }: any) => (
+    <div data-testid="monitoring-status-bar">
+      {isConnected ? 'Connected' : 'Disconnected'}
+    </div>
+  ),
+}));
+
+// Mock additional tab content components
+jest.mock('@/features/ai/self-healing/SelfHealingDashboard', () => ({
+  SelfHealingContent: () => <div data-testid="self-healing-content">Self Healing</div>,
+}));
+
+jest.mock('@/features/ai/evaluation/pages/EvaluationDashboardPage', () => ({
+  EvaluationContent: () => <div data-testid="evaluation-content">Evaluation</div>,
+}));
+
+jest.mock('@/pages/app/ai/AiBillingPage', () => ({
+  AiBillingContent: () => <div data-testid="ai-billing-content">AI Billing</div>,
+}));
+
+jest.mock('@/features/ai/monitoring/components/MonitoringOverviewCards', () => ({
+  MonitoringOverviewCards: ({ dashboardData }: any) => (
+    <div data-testid="monitoring-overview-cards">
+      {dashboardData && (
+        <>
+          <span>Active Providers: {dashboardData.providers?.length || 0}</span>
+          <span>AI Agents: {dashboardData.agents?.total || 0}</span>
+          <span>Active Workflows: {dashboardData.workflows?.running || 0}</span>
+        </>
+      )}
+    </div>
+  ),
+}));
+
+// Mock monitoring utils
+jest.mock('@/features/ai/monitoring/utils', () => ({
+  MONITORING_TABS: [
+    { id: 'overview', label: 'Overview' },
+    { id: 'providers', label: 'Providers' },
+    { id: 'agents', label: 'Agents' },
+    { id: 'workflows', label: 'Workflows' },
+    { id: 'conversations', label: 'Conversations' },
+    { id: 'alerts', label: 'Alerts' },
+  ],
+  VALID_TAB_IDS: ['overview', 'providers', 'agents', 'workflows', 'conversations', 'alerts'],
+  transformDashboardData: (data: any) => data,
+  transformAlerts: (data: any) => data || [],
+  getMonitoringBreadcrumbs: () => [],
+}));
+
 // Mock UI components
 jest.mock('@/shared/components/layout/PageContainer', () => ({
   PageContainer: ({ title, description, actions, children }: any) => (
@@ -249,11 +315,27 @@ describe('AIMonitoringPage', () => {
 
   const mockHealthData = {
     status: 'healthy',
+    health_score: 95.0,
     timestamp: '2024-01-15T10:00:00Z',
-    services: {
-      database: { status: 'healthy', message: 'Connected' },
-      redis: { status: 'healthy', message: 'Connected' },
-      sidekiq: { status: 'healthy', message: '5 workers active' }
+    system: {
+      status: 'healthy',
+      active_workflows: 5,
+      active_agents: 8,
+      running_executions: 3
+    },
+    database: {
+      status: 'healthy',
+      connection: 'Connected'
+    },
+    redis: {
+      status: 'healthy',
+      used_memory: '10MB',
+      connected_clients: 5
+    },
+    providers: {
+      total_providers: 2,
+      healthy_providers: 2,
+      providers: []
     }
   };
 
@@ -295,8 +377,8 @@ describe('AIMonitoringPage', () => {
     it('renders the page header correctly', async () => {
       renderComponent();
 
-      expect(screen.getByText('AI System Monitoring')).toBeInTheDocument();
-      expect(screen.getByText(/Comprehensive real-time monitoring/)).toBeInTheDocument();
+      expect(screen.getByText('Observability')).toBeInTheDocument();
+      expect(screen.getByText(/Real-time monitoring of AI providers/)).toBeInTheDocument();
     });
 
     it('fetches data on initial load', async () => {
@@ -326,7 +408,6 @@ describe('AIMonitoringPage', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByTestId('action-enable-real-time')).toBeInTheDocument();
         expect(screen.getByTestId('action-refresh')).toBeInTheDocument();
       });
     });
@@ -399,46 +480,20 @@ describe('AIMonitoringPage', () => {
   });
 
   describe('Real-time Monitoring', () => {
-    it('toggles real-time monitoring when button clicked', async () => {
-      renderComponent();
-
-      // Wait for initial data to load and connection to establish
-      await waitFor(() => {
-        expect(screen.getByText('Connected')).toBeInTheDocument();
-      });
-
-      // Find the enable real-time button
-      const enableButton = screen.getByTestId('action-enable-real-time');
-      expect(enableButton).toBeInTheDocument();
-
-      fireEvent.click(enableButton);
-
-      // After clicking, the button text should change to "Disable Real-time"
-      await waitFor(() => {
-        expect(screen.getByTestId('action-disable-real-time')).toBeInTheDocument();
-      });
-    });
-
     it('refreshes data when refresh button clicked', async () => {
       renderComponent();
 
-      // Wait for initial data to load
+      // Wait for initial data load to complete (button becomes enabled)
       await waitFor(() => {
-        expect(screen.getByText('Connected')).toBeInTheDocument();
+        const refreshButton = screen.getByTestId('action-refresh');
+        expect(refreshButton).not.toBeDisabled();
       });
-
-      // Verify initial API calls were made
-      expect(monitoringApi.getDashboard).toHaveBeenCalled();
 
       const initialCallCount = (monitoringApi.getDashboard as jest.Mock).mock.calls.length;
 
-      const refreshButton = screen.getByTestId('action-refresh');
-      expect(refreshButton).toBeInTheDocument();
-
-      fireEvent.click(refreshButton);
+      fireEvent.click(screen.getByTestId('action-refresh'));
 
       await waitFor(() => {
-        // Verify additional API call was made
         expect((monitoringApi.getDashboard as jest.Mock).mock.calls.length).toBeGreaterThan(initialCallCount);
       });
     });
@@ -477,13 +532,11 @@ describe('AIMonitoringPage', () => {
   });
 
   describe('Time Range Selection', () => {
-    it('renders time range selector', async () => {
+    it('renders the monitoring status bar (which contains time range selector)', async () => {
       renderComponent();
 
       await waitFor(() => {
-        // Look for the select elements
-        const selects = screen.getAllByRole('combobox');
-        expect(selects.length).toBeGreaterThanOrEqual(1);
+        expect(screen.getByTestId('monitoring-status-bar')).toBeInTheDocument();
       });
     });
   });
@@ -575,18 +628,13 @@ describe('AIMonitoringPage', () => {
   });
 
   describe('Workflow Tab', () => {
-    it('displays workflow metrics', async () => {
+    it('displays workflow monitoring panel in the systems tab', async () => {
       renderComponent();
 
-      // Wait for initial load then navigate to workflows tab
+      // The workflow monitoring panel is inside the "systems" TabPanel
+      // which is always rendered (just hidden via display:none when not active)
       await waitFor(() => {
-        expect(screen.getByTestId('tab-workflows')).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByTestId('tab-workflows'));
-
-      await waitFor(() => {
-        expect(screen.getByTestId('tab-content-workflows')).toBeInTheDocument();
+        expect(screen.getByTestId('workflow-monitoring-panel')).toBeInTheDocument();
         expect(screen.getByText('Workflow Performance')).toBeInTheDocument();
       });
     });

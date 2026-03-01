@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
-import { Button } from './Button';
+import { Button } from '@/shared/components/ui/Button';
 
 export interface DataTableColumn<T = any> {
   key: string;

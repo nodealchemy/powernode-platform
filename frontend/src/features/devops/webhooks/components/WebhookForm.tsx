@@ -12,6 +12,7 @@ import {
 import {
   webhooksApi,
   WebhookEndpoint,
+  DetailedWebhookEndpoint,
   WebhookFormData,
   WebhookEventCategories
 } from '@/features/devops/webhooks/services/webhooksApi';
@@ -38,7 +39,7 @@ export const WebhookForm: React.FC<WebhookFormProps> = ({
     content_type: webhook.content_type,
     timeout_seconds: webhook.timeout_seconds,
     retry_limit: webhook.retry_limit,
-    retry_backoff: (webhook as any).retry_backoff || 'exponential'
+    retry_backoff: (webhook as DetailedWebhookEndpoint).retry_backoff || 'exponential'
   } : webhooksApi.getDefaultFormData();
 
   const validationRules: FormValidationRules = {
@@ -100,7 +101,7 @@ export const WebhookForm: React.FC<WebhookFormProps> = ({
         } else {
           setError(response.error || 'Failed to load available events');
         }
-      } catch (error) {
+      } catch (_error) {
         setError('Failed to load available events');
       } finally {
         setLoadingEvents(false);

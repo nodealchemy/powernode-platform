@@ -47,10 +47,7 @@ export const McpToolExecutionHistory: React.FC<McpToolExecutionHistoryProps> = (
         per_page: 10
       });
       setData(response);
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to load execution history:', error);
-      }
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Load Failed',
@@ -200,6 +197,7 @@ export const McpToolExecutionHistory: React.FC<McpToolExecutionHistoryProps> = (
             onClick={loadHistory}
             disabled={loading}
             title="Refresh history"
+            aria-label="Refresh history"
           >
             <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
           </Button>
@@ -262,6 +260,7 @@ export const McpToolExecutionHistory: React.FC<McpToolExecutionHistoryProps> = (
                     }}
                     disabled={isCancelling}
                     className="text-theme-error hover:bg-theme-error hover:bg-opacity-10"
+                    aria-label="Cancel execution"
                   >
                     {isCancelling ? (
                       <Loader2 className="h-3 w-3 animate-spin" />

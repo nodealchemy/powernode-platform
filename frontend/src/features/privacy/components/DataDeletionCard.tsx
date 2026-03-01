@@ -179,7 +179,7 @@ export const DataDeletionCard: React.FC<DataDeletionCardProps> = ({
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Help us improve by sharing why you're leaving..."
-              className="w-full px-3 py-2 bg-theme-background border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-red-500"
+              className="w-full px-3 py-2 bg-theme-background border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-error"
               rows={3}
             />
           </div>

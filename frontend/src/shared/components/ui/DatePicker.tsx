@@ -1,5 +1,5 @@
 import React from 'react';
-import { ReactDatePicker } from './ReactDatePicker';
+import { ReactDatePicker } from '@/shared/components/ui/ReactDatePicker';
 
 interface DatePickerProps {
   selected: Date | null;

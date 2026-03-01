@@ -31,7 +31,7 @@ export interface UseWorkflowValidationReturn {
  * const handleValidate = async () => {
  *   const result = await validate();
  *   if (result) {
- *     console.log('Health score:', result.health_score);
+ *     logger.info('Health score:', result.health_score);
  *   }
  * };
  * ```

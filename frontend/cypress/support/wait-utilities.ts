@@ -472,6 +472,105 @@ Cypress.Commands.add('setupAiIntercepts', () => {
     body: { success: true, data: { items: [], pagination: { current_page: 1, total_pages: 1, total_count: 0, per_page: 25 } } }
   }).as('getAgentTeamsFiltered');
 
+  // A2A Tasks endpoints
+  const mockA2aTasks = [
+    {
+      id: 'a2a-task-1',
+      task_id: 'task-001-abcd-1234',
+      source_agent_id: 'agent-1',
+      target_agent_id: 'agent-2',
+      status: 'active',
+      task_type: 'data_processing',
+      priority: 'normal',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    {
+      id: 'a2a-task-2',
+      task_id: 'task-002-efgh-5678',
+      source_agent_id: 'agent-2',
+      target_agent_id: 'agent-3',
+      status: 'completed',
+      task_type: 'notification',
+      priority: 'high',
+      created_at: new Date(Date.now() - 3600000).toISOString(),
+      updated_at: new Date(Date.now() - 1800000).toISOString()
+    }
+  ];
+
+  cy.intercept('GET', '**/api/v1/ai/a2a/tasks', {
+    statusCode: 200,
+    body: { success: true, data: { items: mockA2aTasks, pagination: { current_page: 1, total_pages: 1, total_count: 2, per_page: 25 } } }
+  }).as('getA2aTasks');
+
+  cy.intercept('GET', '**/api/v1/ai/a2a/tasks?*', {
+    statusCode: 200,
+    body: { success: true, data: { items: mockA2aTasks, pagination: { current_page: 1, total_pages: 1, total_count: 2, per_page: 25 } } }
+  }).as('getA2aTasksFiltered');
+
+  cy.intercept('GET', '**/api/v1/ai/a2a/tasks/*', {
+    statusCode: 200,
+    body: { success: true, data: mockA2aTasks[0] }
+  }).as('getA2aTask');
+
+  // Agent Cards endpoints
+  const mockAgentCards = [
+    {
+      id: 'card-1',
+      name: 'Data Processor Agent',
+      description: 'Handles data processing tasks',
+      agent_id: 'agent-1',
+      version: '1.0.0',
+      capabilities: ['data_processing', 'transformation'],
+      status: 'active',
+      endpoint_url: 'https://agent.example.com/a2a',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    },
+    {
+      id: 'card-2',
+      name: 'Notification Agent',
+      description: 'Sends notifications to users',
+      agent_id: 'agent-2',
+      version: '1.1.0',
+      capabilities: ['notifications', 'email', 'sms'],
+      status: 'active',
+      endpoint_url: 'https://notify.example.com/a2a',
+      created_at: new Date(Date.now() - 86400000).toISOString(),
+      updated_at: new Date(Date.now() - 43200000).toISOString()
+    }
+  ];
+
+  cy.intercept('GET', '**/api/v1/ai/agent-cards', {
+    statusCode: 200,
+    body: { success: true, data: { items: mockAgentCards, pagination: { current_page: 1, total_pages: 1, total_count: 2, per_page: 25 } } }
+  }).as('getAgentCards');
+
+  cy.intercept('GET', '**/api/v1/ai/agent-cards?*', {
+    statusCode: 200,
+    body: { success: true, data: { items: mockAgentCards, pagination: { current_page: 1, total_pages: 1, total_count: 2, per_page: 25 } } }
+  }).as('getAgentCardsFiltered');
+
+  cy.intercept('GET', '**/api/v1/ai/agent-cards/*', {
+    statusCode: 200,
+    body: { success: true, data: mockAgentCards[0] }
+  }).as('getAgentCard');
+
+  cy.intercept('POST', '**/api/v1/ai/agent-cards', {
+    statusCode: 201,
+    body: { success: true, data: mockAgentCards[0] }
+  }).as('createAgentCard');
+
+  cy.intercept('PUT', '**/api/v1/ai/agent-cards/*', {
+    statusCode: 200,
+    body: { success: true, data: mockAgentCards[0] }
+  }).as('updateAgentCard');
+
+  cy.intercept('DELETE', '**/api/v1/ai/agent-cards/*', {
+    statusCode: 200,
+    body: { success: true, data: null }
+  }).as('deleteAgentCard');
+
   // Catch-all for other AI endpoints
   cy.intercept('GET', '**/api/v1/ai/**', {
     statusCode: 200,

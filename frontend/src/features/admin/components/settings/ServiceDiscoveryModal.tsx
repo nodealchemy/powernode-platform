@@ -58,14 +58,14 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
       setFormConfig(config);
       loadDiscoveredServices();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [isOpen, config]);
 
   const loadDiscoveredServices = async () => {
     try {
       const services = await servicesApi.getDiscoveredServices();
       setDiscoveredServices(services);
-    } catch (error) {
+    } catch (_error) {
       showNotification('Failed to load discovered services', 'error');
     }
   };
@@ -80,13 +80,13 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
       setShowJobProgress(true);
       showNotification('Service discovery started', 'info');
       setDiscovering(false);
-    } catch (error) {
+    } catch (_error) {
       showNotification('Failed to start service discovery', 'error');
       setDiscovering(false);
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const handleJobComplete = (result: any) => {
     const discoveryResult = result as { services?: DiscoveredService[]; services_count?: number };
     if (discoveryResult && discoveryResult.services) {
@@ -108,7 +108,7 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
       await onConfigUpdate(formConfig);
       showNotification('Service discovery configuration updated', 'success');
       onClose();
-    } catch (error) {
+    } catch (_error) {
       showNotification('Failed to update configuration', 'error');
     }
   };
@@ -117,7 +117,7 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
     setFormConfig(prev => ({ ...prev, [field]: value }));
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const updateNestedConfig = (section: keyof ServiceDiscoveryConfig, field: string, value: any) => {
     setFormConfig(prev => ({
       ...prev,
@@ -133,7 +133,7 @@ export const ServiceDiscoveryModal: React.FC<ServiceDiscoveryModalProps> = ({
       await servicesApi.addDiscoveredService(service);
       showNotification(`Added ${service.name} to configuration`, 'success');
       loadDiscoveredServices();
-    } catch (error) {
+    } catch (_error) {
       showNotification('Failed to add service to configuration', 'error');
     }
   };

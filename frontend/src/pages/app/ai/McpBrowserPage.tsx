@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Server, Search, RefreshCw, Filter, Package, Zap, AlertCircle, CheckCircle2, Plus } from 'lucide-react';
+import { Server, Search, RefreshCw, Filter, Package, Zap, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Input } from '@/shared/components/ui/Input';
@@ -44,17 +44,17 @@ export interface McpTool {
   server_name: string;
   name: string;
   description?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  input_schema: any;
+   
+  input_schema: Record<string, unknown>;
   category?: string;
   tags?: string[];
 }
 
-export const McpBrowserPage: React.FC = () => {
+export const McpBrowserContent: React.FC = () => {
   const [servers, setServers] = useState<McpServer[]>([]);
   const [tools, setTools] = useState<McpTool[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [_refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'connected' | 'disconnected' | 'error'>('all');
   const [selectedTool, setSelectedTool] = useState<McpTool | null>(null);
@@ -66,7 +66,7 @@ export const McpBrowserPage: React.FC = () => {
   const { currentUser } = useAuth();
 
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'ai',
     onDataUpdate: () => {
       // Trigger data refresh if needed
@@ -75,7 +75,7 @@ export const McpBrowserPage: React.FC = () => {
 
   // Permission checks - memoized to prevent infinite loops
   const canViewMcpServers = useMemo(() =>
-    currentUser?.permissions?.includes('ai_orchestration.read') ||
+    currentUser?.permissions?.includes('mcp.servers.read') ||
     currentUser?.permissions?.includes('admin.access') ||
     false
   , [currentUser?.permissions]);
@@ -111,7 +111,7 @@ export const McpBrowserPage: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [canViewMcpServers]);
 
   // Initial load - only runs once when canViewMcpServers becomes true
@@ -119,7 +119,7 @@ export const McpBrowserPage: React.FC = () => {
     if (canViewMcpServers) {
       loadData(true);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [canViewMcpServers]);
 
   // Filter servers
@@ -152,10 +152,6 @@ export const McpBrowserPage: React.FC = () => {
       total_resources: servers.reduce((sum, s) => sum + s.resources_count, 0)
     };
   }, [servers]);
-
-  const handleRefresh = () => {
-    loadData(false);
-  };
 
   const handleTestTool = (tool: McpTool) => {
     setSelectedTool(tool);
@@ -274,11 +270,6 @@ export const McpBrowserPage: React.FC = () => {
     }
   }, [addNotification]);
 
-  const handleAddServer = () => {
-    setEditingServer(null);
-    setShowServerForm(true);
-  };
-
   const handleServerFormClose = () => {
     setShowServerForm(false);
     setEditingServer(null);
@@ -323,44 +314,17 @@ export const McpBrowserPage: React.FC = () => {
 
   if (!canViewMcpServers) {
     return (
-      <PageContainer title="MCP Browser">
-        <div className="text-center py-12">
-          <AlertCircle className="h-12 w-12 text-theme-warning mx-auto mb-4" />
-          <p className="text-theme-secondary">
-            You don't have permission to view MCP servers.
-          </p>
-        </div>
-      </PageContainer>
+      <div className="text-center py-12">
+        <AlertCircle className="h-12 w-12 text-theme-warning mx-auto mb-4" />
+        <p className="text-theme-secondary">
+          You don't have permission to view MCP servers.
+        </p>
+      </div>
     );
   }
 
   return (
-    <PageContainer
-      title="MCP Browser"
-      description="Browse and interact with Model Context Protocol servers and tools"
-      breadcrumbs={[
-        { label: 'Dashboard', href: '/app' },
-        { label: 'AI', href: '/app/ai' },
-        { label: 'MCP Browser' }
-      ]}
-      actions={[
-        {
-          id: 'add-server',
-          label: 'Add Server',
-          onClick: handleAddServer,
-          variant: 'primary' as const,
-          icon: Plus
-        },
-        {
-          id: 'refresh',
-          label: 'Refresh',
-          onClick: handleRefresh,
-          variant: 'outline' as const,
-          icon: RefreshCw,
-          disabled: refreshing
-        }
-      ]}
-    >
+    <>
       <div className="space-y-6">
         {/* Statistics */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -430,7 +394,7 @@ export const McpBrowserPage: React.FC = () => {
               <Filter className="h-4 w-4 text-theme-tertiary" />
               <Select
                 value={filterStatus}
-                onChange={(value) => setFilterStatus(value as any)}
+                onChange={(value) => setFilterStatus(value as typeof filterStatus)}
                 className="w-40"
               >
                 <option value="all">All Status</option>
@@ -499,6 +463,22 @@ export const McpBrowserPage: React.FC = () => {
           server={editingServer}
         />
       )}
+    </>
+  );
+};
+
+export const McpBrowserPage: React.FC = () => {
+  return (
+    <PageContainer
+      title="MCP Browser"
+      description="Browse and interact with Model Context Protocol servers and tools"
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/app' },
+        { label: 'AI', href: '/app/ai' },
+        { label: 'MCP Browser' }
+      ]}
+    >
+      <McpBrowserContent />
     </PageContainer>
   );
 };

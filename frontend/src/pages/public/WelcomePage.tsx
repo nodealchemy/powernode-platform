@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
 import { Link } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 
+import { RootState } from '@/shared/services';
 import { MarkdownRenderer } from '@/shared/components/ui/MarkdownRenderer';
 
 import { PublicPageContainer } from '@/shared/components/layout/PublicPageContainer';
@@ -9,6 +11,7 @@ import { PublicPageContainer } from '@/shared/components/layout/PublicPageContai
 import { pagesApi, Page } from '@/features/content/pages/services/pagesApi';
 
 import { getErrorMessage } from '@/shared/utils/errorHandling';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 
 
 interface WelcomePageProps {
@@ -16,6 +19,7 @@ interface WelcomePageProps {
 }
 
 export const WelcomePage: React.FC<WelcomePageProps> = ({ pageSlug = 'welcome' }) => {
+  const registrationEnabled = useSelector((state: RootState) => state.config.registrationEnabled);
   const [page, setPage] = useState<Page | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,8 +30,8 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({ pageSlug = 'welcome' }
       setError(null);
       const response = await pagesApi.getPublicPage(pageSlug);
       setPage(response.data);
-    } catch (error: unknown) {
-      const errorMessage = getErrorMessage(error);
+    } catch (err) {
+      const errorMessage = getErrorMessage(err);
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -42,9 +46,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({ pageSlug = 'welcome' }
   if (isLoading) {
     return (
       <PublicPageContainer>
-        <div className="flex items-center justify-center py-20">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-info"></div>
-        </div>
+        <LoadingSpinner className="py-20" />
       </PublicPageContainer>
     );
   }
@@ -60,9 +62,11 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({ pageSlug = 'welcome' }
             <button onClick={() => loadPage?.()} className="inline-flex items-center justify-center px-6 py-3 border-2 border-white/30 hover:border-white/60 text-white hover:text-white font-semibold rounded-xl transition-all duration-200">
               Try Again
             </button>
-            <Link to="/plans" className="inline-flex items-center justify-center px-6 py-3 bg-theme-info-solid hover:bg-theme-interactive-primary-hover text-white font-semibold rounded-xl transition-all duration-200">
-              View Plans
-            </Link>
+            {registrationEnabled && (
+              <Link to="/plans" className="inline-flex items-center justify-center px-6 py-3 bg-theme-info-solid hover:bg-theme-interactive-primary-hover text-white font-semibold rounded-xl transition-all duration-200">
+                View Plans
+              </Link>
+            )}
           </div>
         </div>
       </PublicPageContainer>
@@ -80,11 +84,11 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({ pageSlug = 'welcome' }
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div
             className="absolute -top-32 left-1/4 w-[600px] h-[600px] rounded-full opacity-30"
-            style={{ background: 'radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.05) 40%, transparent 70%)' }}
+            style={{ background: 'radial-gradient(circle, var(--color-info, rgba(59, 130, 246, 0.15)) 0%, transparent 70%)' }}
           />
           <div
             className="absolute -bottom-32 right-1/4 w-[700px] h-[700px] rounded-full opacity-30"
-            style={{ background: 'radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, rgba(139, 92, 246, 0.05) 40%, transparent 70%)' }}
+            style={{ background: 'radial-gradient(circle, var(--color-interactive-primary, rgba(139, 92, 246, 0.15)) 0%, transparent 70%)' }}
           />
         </div>
         
@@ -132,7 +136,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({ pageSlug = 'welcome' }
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             <div className="bg-white/10 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-white/20 transform hover:scale-105 transition-all duration-300">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-xl flex items-center justify-center mb-6">
+              <div className="w-12 h-12 bg-gradient-to-br from-theme-interactive-primary/30 to-theme-interactive-secondary/30 rounded-xl flex items-center justify-center mb-6">
                 <span className="text-2xl">🤖</span>
               </div>
               <h3 className="text-xl font-semibold text-white mb-4">AI Agents</h3>
@@ -140,7 +144,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({ pageSlug = 'welcome' }
             </div>
 
             <div className="bg-white/10 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-white/20 transform hover:scale-105 transition-all duration-300">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500/30 to-cyan-500/30 rounded-xl flex items-center justify-center mb-6">
+              <div className="w-12 h-12 bg-gradient-to-br from-theme-info/30 to-theme-interactive-primary/30 rounded-xl flex items-center justify-center mb-6">
                 <span className="text-2xl">🧠</span>
               </div>
               <h3 className="text-xl font-semibold text-white mb-4">Predictive Analytics</h3>
@@ -148,7 +152,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({ pageSlug = 'welcome' }
             </div>
 
             <div className="bg-white/10 backdrop-blur-sm p-8 rounded-2xl shadow-lg border border-white/20 transform hover:scale-105 transition-all duration-300">
-              <div className="w-12 h-12 bg-gradient-to-br from-green-500/30 to-emerald-500/30 rounded-xl flex items-center justify-center mb-6">
+              <div className="w-12 h-12 bg-gradient-to-br from-theme-success/30 to-theme-success/30 rounded-xl flex items-center justify-center mb-6">
                 <span className="text-2xl">⚡</span>
               </div>
               <h3 className="text-xl font-semibold text-white mb-4">Smart Automation</h3>
@@ -164,9 +168,11 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({ pageSlug = 'welcome' }
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Get Started Today</h2>
           <p className="text-xl text-white/80 mb-8">Experience the power of AI-driven automation.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/register" className="inline-flex items-center justify-center px-8 py-4 bg-white hover:bg-theme-surface text-slate-800 font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl">
-              Create Account
-            </Link>
+            {registrationEnabled && (
+              <Link to="/register" className="inline-flex items-center justify-center px-8 py-4 bg-theme-surface hover:bg-theme-surface-hover text-theme-primary font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl">
+                Create Account
+              </Link>
+            )}
             <Link to="/login" className="inline-flex items-center justify-center px-8 py-4 border-2 border-white/30 hover:border-white/60 text-white hover:text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105">
               Sign In
             </Link>

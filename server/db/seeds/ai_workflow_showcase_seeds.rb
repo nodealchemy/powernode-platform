@@ -39,12 +39,12 @@ unless provider
   ) do |p|
     p.is_active = true
     p.api_endpoint = 'https://api.anthropic.com/v1'
-    p.supported_models = [ { 'name' => 'claude-sonnet-4-5', 'id' => 'claude-sonnet-4-5-20250514' } ]
+    p.supported_models = [ { 'name' => 'claude-sonnet-4-5', 'id' => 'claude-sonnet-4-5-20250929' } ]
   end
 end
 
 default_model = case provider.provider_type
-when 'anthropic' then 'claude-sonnet-4-5-20250514'
+when 'anthropic' then 'claude-sonnet-4-5-20250929'
 when 'openai' then 'gpt-4o'
 else provider.supported_models&.first&.dig('id') || 'default'
 end
@@ -63,11 +63,6 @@ def create_agent(account:, user:, provider:, name:, type:, description:, prompt:
     agent.provider = provider
     agent.status = 'active'
     agent.version = '1.0.0'
-    agent.mcp_capabilities = {
-      'tools' => true,
-      'resources' => true,
-      'prompts' => true
-    }
     agent.mcp_metadata = {
       'system_prompt' => prompt,
       'model' => model,
@@ -142,6 +137,15 @@ content_workflow = Ai::Workflow.find_or_create_by!(
   wf.creator = user
   wf.status = 'active'
   wf.version = '1.0.0'
+  wf.mcp_input_schema = {
+    'type' => 'object',
+    'properties' => {
+      'topic' => { 'type' => 'string', 'description' => 'The topic to write about' },
+      'audience' => { 'type' => 'string', 'description' => 'Target audience for the content', 'default' => 'general' },
+      'tone' => { 'type' => 'string', 'description' => 'Writing tone', 'enum' => %w[professional casual technical friendly], 'default' => 'professional' }
+    },
+    'required' => [ 'topic' ]
+  }
   wf.configuration = {
     'execution_mode' => 'sequential',
     'enable_checkpointing' => true,
@@ -161,8 +165,8 @@ content_workflow.workflow_nodes.destroy_all
 # Create nodes
 # Layout: Vertical flow with condition branches
 # - Main flow: start → research → write → edit → seo → quality_check
-# - True path (right): quality_check → kb_publish → end
-# - False path: quality_check → edit (feedback loop)
+# - True path (right): quality_check → kb_create → end
+# - False path (left): quality_check → needs_revision → end
 nodes_data = [
   # Vertical flow (x=400 centered, 150px vertical spacing)
   { id: 'start', type: 'start', name: 'Start', x: 400, y: 50, is_start: true,
@@ -180,8 +184,11 @@ nodes_data = [
   # True path offset right (x=550) to align with condition's True handle (bottom-right)
   { id: 'kb_create', type: 'kb_article', name: 'Create KB Article', x: 550, y: 950,
     config: { 'action' => 'create', 'title' => '{{seo.seo_title}}', 'content' => '{{edit.output}}', 'status' => 'published' } },
-  { id: 'end', type: 'end', name: 'Complete', x: 550, y: 1100, is_end: true,
-    config: { 'output_mapping' => { 'content' => '{{edit.output}}', 'seo_data' => '{{seo}}', 'article_id' => '{{kb_create.id}}' } } }
+  # False path offset left (x=250) for manual revision notification
+  { id: 'needs_revision', type: 'notification', name: 'Needs Revision', x: 250, y: 950,
+    config: { 'channel' => 'email', 'message' => 'Content for "{{topic}}" scored {{seo.quality_score}}/100 and needs manual revision.' } },
+  { id: 'end', type: 'end', name: 'Complete', x: 400, y: 1100, is_end: true,
+    config: { 'output_mapping' => { 'content' => '{{edit.output}}', 'seo_data' => '{{seo}}', 'article_id' => '{{kb_create.id}}', 'needs_revision' => '{{quality_check.result == false}}' } } }
 ]
 
 nodes_data.each do |n|
@@ -197,6 +204,8 @@ nodes_data.each do |n|
 end
 
 # Create edges with proper handle IDs and edge_type
+# Note: False path from quality_check goes to a revision node that then connects to end
+# (feedback loop to edit would create infinite loop - instead we notify for manual revision)
 edges_data = [
   { source: 'start', target: 'research', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
   { source: 'research', target: 'write', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
@@ -205,8 +214,9 @@ edges_data = [
   { source: 'seo', target: 'quality_check', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
   # Condition node outputs: path determined by source_handle ('true'/'false'), not by condition expression
   { source: 'quality_check', target: 'kb_create', source_handle: 'true', target_handle: 'input', edge_type: 'default' },
-  { source: 'quality_check', target: 'edit', source_handle: 'false', target_handle: 'input', edge_type: 'default' },
-  { source: 'kb_create', target: 'end', source_handle: 'output', target_handle: 'input', edge_type: 'default' }
+  { source: 'quality_check', target: 'needs_revision', source_handle: 'false', target_handle: 'input', edge_type: 'default' },
+  { source: 'kb_create', target: 'end', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
+  { source: 'needs_revision', target: 'end', source_handle: 'output', target_handle: 'input', edge_type: 'default' }
 ]
 
 edges_data.each_with_index do |e, i|
@@ -242,6 +252,16 @@ onboarding_workflow = Ai::Workflow.find_or_create_by!(
   wf.creator = user
   wf.status = 'active'
   wf.version = '1.0.0'
+  wf.mcp_input_schema = {
+    'type' => 'object',
+    'properties' => {
+      'customer_name' => { 'type' => 'string', 'description' => 'Name of the new customer' },
+      'customer_email' => { 'type' => 'string', 'format' => 'email', 'description' => 'Customer email address' },
+      'company' => { 'type' => 'string', 'description' => 'Company name' },
+      'plan' => { 'type' => 'string', 'enum' => %w[starter professional enterprise], 'description' => 'Selected subscription plan' }
+    },
+    'required' => %w[customer_name customer_email company plan]
+  }
   wf.configuration = {
     'execution_mode' => 'sequential',
     'enable_compensation' => true,
@@ -347,6 +367,16 @@ integration_workflow = Ai::Workflow.find_or_create_by!(
   wf.creator = user
   wf.status = 'active'
   wf.version = '1.0.0'
+  wf.mcp_input_schema = {
+    'type' => 'object',
+    'properties' => {
+      'api_endpoint' => { 'type' => 'string', 'format' => 'uri', 'description' => 'External API endpoint URL' },
+      'api_key' => { 'type' => 'string', 'description' => 'API key for authentication' },
+      'data_format' => { 'type' => 'string', 'enum' => %w[json csv xml], 'default' => 'json', 'description' => 'Expected data format' },
+      'callback_url' => { 'type' => 'string', 'format' => 'uri', 'description' => 'Webhook URL for completion notification' }
+    },
+    'required' => %w[api_endpoint api_key]
+  }
   wf.configuration = {
     'execution_mode' => 'sequential',
     'enable_checkpointing' => true,

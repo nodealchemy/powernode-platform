@@ -121,6 +121,31 @@ module Devops
       true
     end
 
+    # Create a new event with the same payload for redelivery
+    # Unlike retry, this creates a completely new event record
+    def redeliver!
+      new_event = self.class.create!(
+        git_repository_id: git_repository_id,
+        git_provider_id: git_provider_id,
+        account_id: account_id,
+        event_type: event_type,
+        action: action,
+        payload: payload,
+        headers: headers,
+        ref: ref,
+        sha: sha,
+        sender_username: sender_username,
+        sender_id: sender_id,
+        status: "pending",
+        retry_count: 0
+      )
+
+      # Queue for processing
+      Devops::GitWebhookProcessingJob.perform_async(new_event.id)
+
+      new_event
+    end
+
     def repository_full_name
       payload.dig("repository", "full_name")
     end

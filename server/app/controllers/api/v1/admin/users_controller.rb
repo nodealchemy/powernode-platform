@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::Admin::UsersController < ApplicationController
-  before_action -> { require_permission("admin.user.view") }, only: [ :index, :show ]
+  before_action -> { require_permission("admin.user.read") }, only: [ :index, :show ]
   before_action -> { require_permission("admin.user.create") }, only: [ :create ]
   before_action -> { require_permission("admin.user.update") }, only: [ :update ]
   before_action -> { require_permission("admin.user.delete") }, only: [ :destroy ]
@@ -153,7 +153,7 @@ class Api::V1::Admin::UsersController < ApplicationController
           unless audit_log.persisted?
             Rails.logger.error "Failed to create audit log: #{audit_log.errors.full_messages.join(', ')}"
           end
-        rescue => e
+        rescue StandardError => e
           return render_error(
             "Failed to update roles: #{e.message}",
             :unprocessable_content
@@ -180,7 +180,7 @@ class Api::V1::Admin::UsersController < ApplicationController
         unless general_audit_log.persisted?
           Rails.logger.error "Failed to create general user audit log: #{general_audit_log.errors.full_messages.join(', ')}"
         end
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Failed to create audit log: #{e.message}"
         # Don't fail the request if audit logging fails
       end
@@ -195,7 +195,7 @@ class Api::V1::Admin::UsersController < ApplicationController
           data: user_data,
           message: "User updated successfully"
         )
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Failed to generate user summary: #{e.message}"
         render_success(
           data: { id: @user.id, email: @user.email },
@@ -220,7 +220,7 @@ class Api::V1::Admin::UsersController < ApplicationController
 
     # Prevent deletion of account owners unless there's another owner
     if @user.owner?
-      other_owners = @user.account.users.where(role: "owner").where.not(id: @user.id)
+      other_owners = @user.account.users.with_role("owner").where.not(id: @user.id)
       if other_owners.empty?
         return render_error(
           "Cannot delete the only account owner. Transfer ownership first.",
@@ -257,6 +257,10 @@ class Api::V1::Admin::UsersController < ApplicationController
 
   # POST /api/v1/admin/users/:id/impersonate
   def impersonate
+    unless Powernode::ExtensionRegistry.loaded?("enterprise")
+      return render_error("Impersonation requires enterprise edition", :forbidden)
+    end
+
     service = Auth::ImpersonationService.new(current_user)
 
     begin
@@ -282,7 +286,7 @@ class Api::V1::Admin::UsersController < ApplicationController
         e.http_status,
         details: { code: e.error_code }
       )
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Impersonation error: #{e.message}"
       Rails.logger.error e.backtrace.join("\n")
 

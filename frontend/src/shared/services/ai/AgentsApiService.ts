@@ -1,10 +1,10 @@
-import { BaseApiService, PaginatedResponse } from './BaseApiService';
+import { BaseApiService, PaginatedResponse } from '@/shared/services/ai/BaseApiService';
 import type {
   AiAgent,
   AiAgentExecution,
   AiConversation,
   AiMessage
-} from '../../types/ai';
+} from '@/shared/types/ai';
 import type {
   AgentFilters,
   AgentExecutionFilters,
@@ -14,8 +14,9 @@ import type {
   AgentStats,
   AgentAnalytics,
   AgentType,
-  SendMessageRequest,
-} from './types/agent-api-types';
+  SendMessageResponse,
+  AiAgentSkill,
+} from '@/shared/services/ai/types/agent-api-types';
 
 /**
  * AgentsApiService - Agents Controller API Client
@@ -46,6 +47,9 @@ import type {
  * - GET    /api/v1/ai/agents/public_agents
  * - GET    /api/v1/ai/agents/agent_types
  * - GET    /api/v1/ai/agents/statistics
+ * - GET    /api/v1/ai/agents/:id/skills
+ * - POST   /api/v1/ai/agents/:id/assign_skill
+ * - DELETE /api/v1/ai/agents/:id/skills/:skill_id
  * - GET    /api/v1/ai/agents/:agent_id/executions
  * - POST   /api/v1/ai/agents/:agent_id/executions
  * - GET    /api/v1/ai/agents/:agent_id/executions/:id
@@ -81,7 +85,8 @@ class AgentsApiService extends BaseApiService {
    * GET /api/v1/ai/agents/:id
    */
   async getAgent(id: string): Promise<AiAgent> {
-    return this.getOne<AiAgent>(this.resource, id);
+    const response = await this.getOne<{ agent: AiAgent }>(this.resource, id);
+    return response.agent;
   }
 
   /**
@@ -229,6 +234,39 @@ class AgentsApiService extends BaseApiService {
   }
 
   // ===================================================================
+  // Agent Skills
+  // ===================================================================
+
+  /**
+   * Get agent's assigned skills
+   * GET /api/v1/ai/agents/:id/skills
+   */
+  async getAgentSkills(agentId: string): Promise<AiAgentSkill[]> {
+    const path = this.buildPath(this.resource, agentId, undefined, undefined, 'skills');
+    const response = await this.get<{ skills: AiAgentSkill[] }>(path);
+    return response.skills;
+  }
+
+  /**
+   * Assign a skill to an agent
+   * POST /api/v1/ai/agents/:id/assign_skill
+   */
+  async assignSkill(agentId: string, skillId: string, priority?: number): Promise<AiAgentSkill> {
+    return this.performAction<AiAgentSkill>(this.resource, agentId, 'assign_skill', {
+      skill_id: skillId, priority: priority || 0
+    });
+  }
+
+  /**
+   * Remove a skill from an agent
+   * DELETE /api/v1/ai/agents/:id/skills/:skill_id
+   */
+  async removeSkill(agentId: string, skillId: string): Promise<void> {
+    const path = this.buildPath(this.resource, agentId, undefined, undefined, 'skills');
+    return this.delete<void>(`${path}/${skillId}`);
+  }
+
+  // ===================================================================
   // Agent Executions - Nested Resource
   // ===================================================================
 
@@ -300,7 +338,10 @@ class AgentsApiService extends BaseApiService {
     agentId: string,
     filters?: ConversationFilters
   ): Promise<PaginatedResponse<AiConversation>> {
-    return this.getNestedList<AiConversation>(this.resource, agentId, 'conversations', filters);
+    const queryString = this.buildQueryString(filters);
+    const path = this.buildPath(this.resource, agentId, 'conversations') + queryString;
+    const response = await this.get<{ conversations: AiConversation[]; pagination: PaginatedResponse<AiConversation>['pagination'] }>(path);
+    return { items: response.conversations, pagination: response.pagination };
   }
 
   /**
@@ -344,15 +385,25 @@ class AgentsApiService extends BaseApiService {
   }
 
   /**
-   * Send message in conversation
+   * Send message in conversation and get AI response
    * POST /api/v1/ai/agents/:agent_id/conversations/:id/send_message
+   *
+   * @param agentId - The agent ID
+   * @param conversationId - The conversation ID
+   * @param content - The message content (string or structured request)
+   * @returns Both user message and assistant response
    */
   async sendMessage(
     agentId: string,
     conversationId: string,
-    message: SendMessageRequest
-  ): Promise<AiMessage> {
-    return this.performNestedAction<AiMessage>(
+    content: string | { content: string; message_type?: string; metadata?: Record<string, unknown> }
+  ): Promise<SendMessageResponse> {
+    // Normalize content to SendMessageRequest format
+    const message = typeof content === 'string'
+      ? { message: { content } }
+      : { message: content };
+
+    return this.performNestedAction<SendMessageResponse>(
       this.resource,
       agentId,
       'conversations',
@@ -419,14 +470,57 @@ class AgentsApiService extends BaseApiService {
   }
 
   /**
-   * Get conversation messages
+   * Get conversation messages with cursor-based pagination
    * GET /api/v1/ai/agents/:agent_id/conversations/:id/messages
    */
-  async getMessages(agentId: string, conversationId: string): Promise<AiMessage[]> {
+  async getMessages(
+    agentId: string,
+    conversationId: string,
+    params?: { before?: number; after?: number; limit?: number }
+  ): Promise<{
+    messages: AiMessage[];
+    pagination: {
+      has_older: boolean;
+      oldest_cursor: number | null;
+      newest_cursor: number | null;
+      total_count: number;
+    };
+  }> {
     const path = this.buildPath(this.resource, agentId, 'conversations', conversationId, 'messages');
-    const response = await this.get<{ messages: AiMessage[] }>(path);
-    // Handle both wrapped and direct array responses
-    return Array.isArray(response) ? response : (response.messages || []);
+    const query = params ? '?' + new URLSearchParams(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => [k, String(v)])
+    ).toString() : '';
+    const response = await this.get<{
+      messages: AiMessage[];
+      pagination: {
+        has_older: boolean;
+        oldest_cursor: number | null;
+        newest_cursor: number | null;
+        total_count: number;
+      };
+    }>(path + query);
+    // Handle legacy responses that return a bare array
+    if (Array.isArray(response)) {
+      return {
+        messages: response,
+        pagination: { has_older: false, oldest_cursor: null, newest_cursor: null, total_count: response.length }
+      };
+    }
+    return {
+      messages: response.messages || [],
+      pagination: response.pagination || { has_older: false, oldest_cursor: null, newest_cursor: null, total_count: 0 }
+    };
+  }
+
+  /**
+   * Clear all messages in a conversation (soft-delete)
+   * POST /api/v1/ai/agents/:agent_id/conversations/:id/clear_messages
+   */
+  async clearMessages(agentId: string, conversationId: string): Promise<{ cleared_count: number }> {
+    const path = this.buildPath(this.resource, agentId, 'conversations', conversationId, 'clear_messages');
+    return this.post<{ cleared_count: number }>(path, {});
   }
 
   /**
@@ -584,6 +678,77 @@ class AgentsApiService extends BaseApiService {
     const path = this.buildPath(this.resource, agentId, 'conversations', conversationId);
     const fullPath = `${path}/messages/${messageId}/rate`;
     return this.post<{ message: AiMessage; rating: { rating: string; rated_at: string; rated_by: string } }>(fullPath, { rating, feedback });
+  }
+
+  /**
+   * Delete a message (soft-delete)
+   * DELETE /api/v1/ai/agents/:agent_id/conversations/:conversation_id/messages/:id
+   */
+  async deleteMessage(
+    agentId: string,
+    conversationId: string,
+    messageId: string
+  ): Promise<{ message: string; message_id: string }> {
+    const path = this.buildPath(this.resource, agentId, 'conversations', conversationId);
+    const fullPath = `${path}/messages/${messageId}`;
+    return this.delete<{ message: string; message_id: string }>(fullPath);
+  }
+
+  /**
+   * Restore a soft-deleted message
+   * POST /api/v1/ai/agents/:agent_id/conversations/:conversation_id/messages/:id/restore
+   */
+  async restoreMessage(
+    agentId: string,
+    conversationId: string,
+    messageId: string
+  ): Promise<{ message: AiMessage }> {
+    const path = this.buildPath(this.resource, agentId, 'conversations', conversationId);
+    const fullPath = `${path}/messages/${messageId}/restore`;
+    return this.post<{ message: AiMessage }>(fullPath, {});
+  }
+
+  /**
+   * Get message thread (parent + children)
+   * GET /api/v1/ai/agents/:agent_id/conversations/:conversation_id/messages/:id/thread
+   */
+  async getMessageThread(
+    agentId: string,
+    conversationId: string,
+    messageId: string
+  ): Promise<{ thread: AiMessage[]; parent_message_id: string | null; reply_count: number }> {
+    const path = this.buildPath(this.resource, agentId, 'conversations', conversationId);
+    const fullPath = `${path}/messages/${messageId}/thread`;
+    return this.get<{ thread: AiMessage[]; parent_message_id: string | null; reply_count: number }>(fullPath);
+  }
+
+  /**
+   * Reply to a message (creates threaded reply)
+   * POST /api/v1/ai/agents/:agent_id/conversations/:conversation_id/messages/:id/reply
+   */
+  async replyToMessage(
+    agentId: string,
+    conversationId: string,
+    messageId: string,
+    content: string
+  ): Promise<{ message: AiMessage }> {
+    const path = this.buildPath(this.resource, agentId, 'conversations', conversationId);
+    const fullPath = `${path}/messages/${messageId}/reply`;
+    return this.post<{ message: AiMessage }>(fullPath, { content });
+  }
+
+  /**
+   * Get edit history for a message
+   * GET /api/v1/ai/agents/:agent_id/conversations/:conversation_id/messages/:id/edit_history
+   */
+  async getEditHistory(
+    agentId: string,
+    conversationId: string,
+    messageId: string
+  ): Promise<{ message_id: string; is_edited: boolean; edited_at: string | null; edit_history: Array<{ content: string; edited_at: string; edited_by: string }> }> {
+    const path = this.buildPath(this.resource, agentId, 'conversations', conversationId);
+    const fullPath = `${path}/messages/${messageId}/edit_history`;
+    return this.get<{ message_id: string; is_edited: boolean; edited_at: string | null; edit_history: Array<{ content: string; edited_at: string; edited_by: string }> }>(fullPath);
   }
 }
 

@@ -1,5 +1,4 @@
 // AI Pages Export Index
-export { AIOrchestrationPage } from './AIOrchestrationPage';
 export { AIOverviewPage } from './AIOverviewPage';
 export { AIProvidersPage } from './AIProvidersPage';
 export { AIAgentsPage } from './AIAgentsPage';
@@ -15,4 +14,7 @@ export { WorkflowValidationStatisticsPage } from './WorkflowValidationStatistics
 export { CreateWorkflowPage } from './CreateWorkflowPage';
 export { WorkflowAnalyticsPage } from './WorkflowAnalyticsPage';
 export { AIDebugPage } from './AIDebugPage';
-export { default as AgentTeamsPage } from './AgentTeamsPage';
+export { AgentCardsPage } from './AgentCardsPage';
+export { A2aTasksPage } from './A2aTasksPage';
+export { AgentDetailPage } from './AgentDetailPage';
+export { default as CompoundLearningPage } from './CompoundLearningPage';

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Textarea } from '@/shared/components/ui/Textarea';
 import { EnhancedSelect } from '@/shared/components/ui/EnhancedSelect';
-import type { NodeTypeConfigProps } from './types';
+import type { NodeTypeConfigProps } from '@/shared/components/workflow/config/node-types/types';
 
 export const EndNodeConfig: React.FC<NodeTypeConfigProps> = ({
   config,
@@ -41,7 +41,7 @@ export const EndNodeConfig: React.FC<NodeTypeConfigProps> = ({
           try {
             const parsed = JSON.parse(e.target.value);
             handleConfigChange('output_mapping', parsed);
-          } catch {
+          } catch (_error) {
             // If not valid JSON, store as string
             handleConfigChange('output_mapping', e.target.value);
           }

@@ -1,7 +1,8 @@
 import { useCallback, useRef, useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
-import { useWebSocket } from './useWebSocket';
+import { useWebSocket } from '@/shared/hooks/useWebSocket';
+import { logger } from '@/shared/utils/logger';
 
 // Page types that determine auto-subscription behavior
 export type PageType =
@@ -260,7 +261,7 @@ export const usePageWebSocket = ({
   const subscribeToChannel = useCallback((channel: ChannelType) => {
     if (!isConnected || !accountId) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn(`[PageWebSocket] Cannot subscribe to ${channel}: not connected or no account`);
+        logger.warn(`[PageWebSocket] Cannot subscribe to ${channel}: not connected or no account`);
       }
       return;
     }
@@ -285,9 +286,6 @@ export const usePageWebSocket = ({
       return [...prev, channel];
     });
 
-    if (process.env.NODE_ENV === 'development') {
-      console.debug(`[PageWebSocket] Subscribed to ${channel} (${channelName})`);
-    }
   }, [isConnected, accountId, subscribe, createMessageHandler, handleError]);
 
   // Unsubscribe from a specific channel
@@ -296,10 +294,6 @@ export const usePageWebSocket = ({
       unsubscribeRefs.current.get(channel)?.();
       unsubscribeRefs.current.delete(channel);
       setActiveChannels(prev => prev.filter(c => c !== channel));
-
-      if (process.env.NODE_ENV === 'development') {
-        console.debug(`[PageWebSocket] Unsubscribed from ${channel}`);
-      }
     }
   }, []);
 

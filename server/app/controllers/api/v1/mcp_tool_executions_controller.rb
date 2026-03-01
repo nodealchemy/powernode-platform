@@ -69,7 +69,7 @@ class Api::V1::McpToolExecutionsController < ApplicationController
     })
 
     log_audit_event("mcp.executions.read", @mcp_tool)
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to list MCP tool executions: #{e.message}"
     render_error("Failed to list tool executions", status: :internal_server_error)
   end
@@ -96,7 +96,7 @@ class Api::V1::McpToolExecutionsController < ApplicationController
     })
 
     log_audit_event("mcp.executions.read", @execution)
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to get MCP tool execution: #{e.message}"
     render_error("Failed to get tool execution", status: :internal_server_error)
   end
@@ -129,7 +129,7 @@ class Api::V1::McpToolExecutionsController < ApplicationController
       end
     rescue StandardError => e
       Rails.logger.error "Failed to cancel execution: #{e.message}"
-      render_error("Failed to cancel execution: #{e.message}", status: :internal_server_error)
+      render_internal_error("Failed to cancel execution", exception: e)
     end
   end
 

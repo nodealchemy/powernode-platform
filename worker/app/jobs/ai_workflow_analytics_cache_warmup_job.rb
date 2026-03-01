@@ -3,7 +3,7 @@
 # Background job to pre-compute and cache analytics data for dashboards
 # Runs every 15 minutes to ensure dashboard data is always fresh
 class AiWorkflowAnalyticsCacheWarmupJob < BaseJob
-  queue_as :analytics
+  sidekiq_options queue: :analytics
 
   # Cache keys and their computation strategies
   CACHE_CONFIGURATIONS = {

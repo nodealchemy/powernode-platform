@@ -12,7 +12,11 @@ RSpec.describe McpTool, type: :model do
     subject { build(:mcp_tool) }
 
     it { should validate_presence_of(:name) }
-    it { should validate_presence_of(:input_schema) }
+    it 'defaults input_schema to empty hash' do
+      tool = build(:mcp_tool, input_schema: nil)
+      tool.valid?
+      expect(tool.input_schema).to eq({})
+    end
 
     context 'name uniqueness' do
       let(:server) { create(:mcp_server) }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheckIcon, DocumentTextIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { ConsentManager } from '@/features/privacy/components/ConsentManager';
 import { DataExportCard } from '@/features/privacy/components/DataExportCard';
@@ -27,7 +28,7 @@ const PrivacyDashboardPage: React.FC = () => {
     try {
       const data = await privacyApi.getDashboard();
       setDashboard(data);
-    } catch (error) {
+    } catch (_error) {
       showNotification('Failed to load privacy dashboard', 'error');
     } finally {
       setLoading(false);
@@ -38,7 +39,7 @@ const PrivacyDashboardPage: React.FC = () => {
     try {
       const request = await privacyApi.getDeletionStatus();
       setDeletionRequest(request);
-    } catch (error) {
+    } catch (_error) {
       // Ignore - may not have a deletion request
     }
   };
@@ -79,7 +80,7 @@ const PrivacyDashboardPage: React.FC = () => {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       showNotification('Download started', 'success');
-    } catch (error) {
+    } catch (_error) {
       showNotification('Failed to download export', 'error');
     }
   };
@@ -100,7 +101,7 @@ const PrivacyDashboardPage: React.FC = () => {
       const request = await privacyApi.cancelDeletion(id);
       setDeletionRequest(request);
       showNotification('Deletion request cancelled', 'success');
-    } catch (error) {
+    } catch (_error) {
       showNotification('Failed to cancel deletion request', 'error');
     }
   };
@@ -113,9 +114,7 @@ const PrivacyDashboardPage: React.FC = () => {
   if (loading) {
     return (
       <PageContainer title="Privacy Center" breadcrumbs={breadcrumbs}>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-theme-primary"></div>
-        </div>
+        <LoadingSpinner className="h-64" />
       </PageContainer>
     );
   }

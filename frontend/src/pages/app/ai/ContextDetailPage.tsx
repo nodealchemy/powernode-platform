@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { EntryEditor } from '@/features/ai/context/components/EntryEditor';
-import { SearchResults } from '@/features/ai/context/components/SearchResults';
-import { ImportExportModal } from '@/features/ai/context/components/ImportExportModal';
-import { contextApi } from '@/features/ai/context/services/contextApi';
+import { EntryEditor } from '@/features/ai/memory/components/EntryEditor';
+import { SearchResults } from '@/features/ai/memory/components/SearchResults';
+import { ImportExportModal } from '@/features/ai/memory/components/ImportExportModal';
+import { contextApi } from '@/features/ai/memory/api/contextApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import type {
@@ -13,7 +13,7 @@ import type {
   AiContextEntry,
   ContextStatsResponse,
   EntryType,
-} from '@/features/ai/context/types';
+} from '@/features/ai/memory/types/context';
 
 export function ContextDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -21,7 +21,7 @@ export function ContextDetailPage() {
   const { showNotification } = useNotifications();
 
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'ai',
     onDataUpdate: () => {
       // Trigger data refresh if needed
@@ -359,7 +359,7 @@ export function ContextDetailPage() {
                 <p className="text-theme-secondary mt-1">Add your first entry to this context</p>
                 <button
                   onClick={() => setIsCreating(true)}
-                  className="mt-4 px-4 py-2 bg-theme-interactive-primary text-white rounded-lg hover:bg-theme-interactive-primary-hover transition-colors"
+                  className="btn-theme btn-theme-primary mt-4"
                 >
                   Add Entry
                 </button>
@@ -394,7 +394,7 @@ export function ContextDetailPage() {
                             {contextApi.formatImportanceScore(entry.importance_score)}
                           </span>
                           <span>{entry.access_count} accesses</span>
-                          {entry.tags.length > 0 && (
+                          {entry.tags?.length > 0 && (
                             <span>{entry.tags.slice(0, 3).join(', ')}</span>
                           )}
                         </div>
@@ -463,7 +463,7 @@ export function ContextDetailPage() {
                     </div>
                     <button
                       onClick={handleRestore}
-                      className="px-4 py-2 bg-theme-interactive-primary text-white rounded-lg hover:bg-theme-interactive-primary-hover transition-colors"
+                      className="btn-theme btn-theme-primary"
                     >
                       Restore
                     </button>
@@ -478,7 +478,7 @@ export function ContextDetailPage() {
                     </div>
                     <button
                       onClick={handleArchive}
-                      className="px-4 py-2 bg-theme-warning text-white rounded-lg hover:bg-opacity-90 transition-colors"
+                      className="btn-theme btn-theme-warning"
                     >
                       Archive
                     </button>
@@ -493,7 +493,7 @@ export function ContextDetailPage() {
                   </div>
                   <button
                     onClick={handleDelete}
-                    className="px-4 py-2 bg-theme-error text-white rounded-lg hover:bg-opacity-90 transition-colors"
+                    className="btn-theme btn-theme-danger"
                   >
                     Delete
                   </button>

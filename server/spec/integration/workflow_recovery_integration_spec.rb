@@ -140,41 +140,43 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
   end
 
   describe 'Circuit breaker integration with retries' do
+    before { Ai::CircuitBreakerRegistry.clear! }
+
     it 'opens circuit breaker after multiple failures' do
       service_name = 'ai_provider_anthropic'
 
       # Step 1: Execute multiple failed requests
-      breaker = Ai::WorkflowCircuitBreakerManager.get_breaker(service_name)
+      breaker = Ai::CircuitBreakerRegistry.get_or_create_breaker(service_name)
 
       5.times do
         begin
-          breaker.execute { raise StandardError, 'API timeout' }
+          breaker.execute_with_circuit_breaker { raise StandardError, 'API timeout' }
         rescue StandardError
           # Expected
         end
       end
 
       # Step 2: Verify circuit is open
-      expect(breaker.state).to eq('open')
+      expect(breaker.circuit_state).to eq('open')
 
       # Step 3: Verify health status
-      health = Ai::WorkflowCircuitBreakerManager.health_check
+      health = Ai::CircuitBreakerRegistry.health_check
       expect(health[service_name][:healthy]).to be false
 
       # Step 4: Attempt request with open circuit
       expect {
-        breaker.execute { 'should not execute' }
-      }.to raise_error(Ai::WorkflowCircuitBreakerService::CircuitOpenError)
+        breaker.execute_with_circuit_breaker { 'should not execute' }
+      }.to raise_error(CircuitBreakerCore::CircuitOpenError)
 
       # Step 5: Simulate timeout passing (use ActiveSupport travel_to)
       travel_to(Time.current + 61.seconds) do
         # Circuit should transition to half_open after first success
-        breaker.execute { 'success' }
-        expect(breaker.state).to eq('half_open')
+        breaker.execute_with_circuit_breaker { 'success' }
+        expect(breaker.circuit_state).to eq('half_open')
 
         # After second successful execution (success_threshold = 2), should be closed
-        breaker.execute { 'success' }
-        expect(breaker.state).to eq('closed')
+        breaker.execute_with_circuit_breaker { 'success' }
+        expect(breaker.circuit_state).to eq('closed')
       end
     end
 
@@ -183,10 +185,10 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
 
       # Step 1: Trip multiple circuit breakers
       services.each do |service|
-        breaker = Ai::WorkflowCircuitBreakerManager.get_breaker(service)
+        breaker = Ai::CircuitBreakerRegistry.get_or_create_breaker(service)
         5.times do
           begin
-            breaker.execute { raise StandardError }
+            breaker.execute_with_circuit_breaker { raise StandardError }
           rescue StandardError
             # Expected
           end
@@ -194,23 +196,23 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
       end
 
       # Step 2: Check unhealthy services
-      unhealthy = Ai::WorkflowCircuitBreakerManager.unhealthy_services
+      unhealthy = Ai::CircuitBreakerRegistry.unhealthy_services
       expect(unhealthy).to contain_exactly(*services)
 
       # Step 3: Reset specific service
-      Ai::WorkflowCircuitBreakerManager.reset_service('ai_provider_anthropic')
+      Ai::CircuitBreakerRegistry.reset_service('ai_provider_anthropic')
 
       # Step 4: Verify only one service reset
-      health = Ai::WorkflowCircuitBreakerManager.health_check
+      health = Ai::CircuitBreakerRegistry.health_check
       expect(health['ai_provider_anthropic'][:state]).to eq('closed')
       expect(health['webhook_service'][:state]).to eq('open')
       expect(health['external_api'][:state]).to eq('open')
 
       # Step 5: Reset all remaining services
-      Ai::WorkflowCircuitBreakerManager.reset_all!
+      Ai::CircuitBreakerRegistry.reset_all!
 
       # Step 6: Verify all services healthy
-      health_after = Ai::WorkflowCircuitBreakerManager.health_check
+      health_after = Ai::CircuitBreakerRegistry.health_check
       health_after.each do |_, data|
         expect(data[:state]).to eq('closed')
         expect(data[:healthy]).to be true
@@ -305,18 +307,18 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
     it 'handles circuit breaker preventing execution' do
       # Step 1: Configure circuit breaker for AI provider
       service_name = 'ai_provider_service'
-      breaker = Ai::WorkflowCircuitBreakerManager.get_breaker(service_name)
+      breaker = Ai::CircuitBreakerRegistry.get_or_create_breaker(service_name)
 
       # Step 2: Trip circuit breaker
       5.times do
         begin
-          breaker.execute { raise StandardError, 'Service unavailable' }
+          breaker.execute_with_circuit_breaker { raise StandardError, 'Service unavailable' }
         rescue StandardError
           # Expected
         end
       end
 
-      expect(breaker.state).to eq('open')
+      expect(breaker.circuit_state).to eq('open')
 
       # Step 3: Create checkpoint before circuit opens
       checkpoint_service = Ai::WorkflowCheckpointRecoveryService.new(workflow_run: workflow_run)
@@ -328,10 +330,10 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
 
       # Step 4: Attempt execution with open circuit
       expect {
-        Ai::WorkflowCircuitBreakerManager.execute_with_breaker(service_name) do
+        Ai::CircuitBreakerRegistry.execute_with_breaker(service_name) do
           'should not execute'
         end
-      }.to raise_error(Ai::WorkflowCircuitBreakerService::CircuitOpenError)
+      }.to raise_error(CircuitBreakerCore::CircuitOpenError)
 
       # Step 5: Mark workflow as failed due to circuit breaker
       workflow_run.update(
@@ -340,11 +342,11 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
       )
 
       # Step 6: Reset circuit breaker
-      Ai::WorkflowCircuitBreakerManager.reset_service(service_name)
+      Ai::CircuitBreakerRegistry.reset_service(service_name)
 
       # Step 7: Verify circuit is closed and execution can proceed
-      expect(breaker.state).to eq('closed')
-      result = Ai::WorkflowCircuitBreakerManager.execute_with_breaker(service_name) do
+      expect(breaker.circuit_state).to eq('closed')
+      result = Ai::CircuitBreakerRegistry.execute_with_breaker(service_name) do
         'successful execution after recovery'
       end
       expect(result).to eq('successful execution after recovery')
@@ -360,7 +362,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
   end
 
   describe 'WebSocket event broadcasting' do
-    it 'broadcasts retry events', :focus do
+    it 'broadcasts retry events' do
       workflow_run = create(:ai_workflow_run, workflow: workflow, account: account)
 
       # Create node with retry enabled
@@ -401,7 +403,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
       retry_service.execute_retry
     end
 
-    it 'broadcasts checkpoint events', :focus do
+    it 'broadcasts checkpoint events' do
       workflow_run = create(:ai_workflow_run, workflow: workflow, account: account)
 
       expect(ActionCable.server).to receive(:broadcast).with(
@@ -416,7 +418,7 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
       checkpoint_service.create_checkpoint(type: 'manual_checkpoint', node_id: 'test-node')
     end
 
-    it 'broadcasts circuit breaker events', :focus do
+    it 'broadcasts circuit breaker events' do
       service_name = 'broadcast_test_service'
 
       expect(ActionCable.server).to receive(:broadcast).with(
@@ -428,10 +430,10 @@ RSpec.describe 'Workflow Recovery Integration', type: :integration do
         )
       )
 
-      breaker = Ai::WorkflowCircuitBreakerManager.get_breaker(service_name)
+      breaker = Ai::CircuitBreakerRegistry.get_or_create_breaker(service_name)
       5.times do
         begin
-          breaker.execute { raise StandardError }
+          breaker.execute_with_circuit_breaker { raise StandardError }
         rescue StandardError
           # Expected
         end

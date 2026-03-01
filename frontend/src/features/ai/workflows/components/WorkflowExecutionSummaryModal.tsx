@@ -11,6 +11,7 @@ import {
   Users
 } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { Button } from '@/shared/components/ui/Button';
 import { Card, CardContent, CardTitle } from '@/shared/components/ui/Card';
 import { workflowsApi } from '@/shared/services/ai';
@@ -33,7 +34,7 @@ export const WorkflowExecutionSummaryModal: React.FC<WorkflowExecutionSummaryMod
   const { addNotification } = useNotifications();
 
   const [metrics, setMetrics] = useState<WorkflowExecutionStats | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
 
@@ -58,7 +59,7 @@ export const WorkflowExecutionSummaryModal: React.FC<WorkflowExecutionSummaryMod
 
       const response = await workflowsApi.getExecutionMetrics(startDate, endDate);
       setMetrics(response.metrics);
-    } catch (error) {
+    } catch (_error) {
       setError('Failed to load execution summary. Please try again.');
       addNotification({
         type: 'error',
@@ -70,12 +71,16 @@ export const WorkflowExecutionSummaryModal: React.FC<WorkflowExecutionSummaryMod
     }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- Load when modal opens or dateRange changes
+  // Reset state and load when modal opens
   useEffect(() => {
     if (isOpen && workflowId) {
+      // Reset state for fresh load
+      setMetrics(null);
+      setLoading(true);
+      setError(null);
       loadMetrics();
     }
-  }, [isOpen, workflowId, dateRange]);
+  }, [isOpen, workflowId, dateRange]);  
 
   // Format duration
   const formatDuration = (ms: number): string => {
@@ -122,9 +127,7 @@ export const WorkflowExecutionSummaryModal: React.FC<WorkflowExecutionSummaryMod
         icon={<BarChart3 />}
         footer={footer}
       >
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-interactive-primary"></div>
-        </div>
+        <LoadingSpinner className="py-12" />
       </Modal>
     );
   }

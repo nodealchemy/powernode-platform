@@ -98,7 +98,7 @@ export const createNodeActionsHandlers = (
     try {
       await navigator.clipboard.writeText(text);
       onNotify?.('Copied to clipboard', 'success');
-    } catch (error) {
+    } catch (_error) {
       onNotify?.('Failed to copy to clipboard', 'error');
     }
   };
@@ -117,11 +117,8 @@ export const createNodeActionsHandlers = (
           }
         });
       } else {
-        // Fallback to window.confirm if no confirmFn provided (for backward compatibility)
-        if (window.confirm('Are you sure you want to delete this node?')) {
-          onNodeDelete?.(nodeId);
-          onNotify?.('Node deleted', 'success');
-        }
+        onNodeDelete?.(nodeId);
+        onNotify?.('Node deleted', 'success');
       }
     },
 

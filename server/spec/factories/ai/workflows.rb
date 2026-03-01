@@ -31,6 +31,8 @@ FactoryBot.define do
     trait :template do
       is_template { true }
       visibility { 'public' }
+      template_category { 'automation' }
+      description { 'A template workflow for testing' }
     end
 
     trait :with_simple_chain do

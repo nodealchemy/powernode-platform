@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { DatePicker } from './DatePicker';
+import { DatePicker } from '@/shared/components/ui/DatePicker';
 
 interface DateRangePickerProps {
   startDate: Date | null;

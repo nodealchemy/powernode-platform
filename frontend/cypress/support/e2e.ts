@@ -20,6 +20,7 @@ import './login-commands';
 import './navigation-commands';
 import './form-commands';
 import './testing-commands';
+import './supply-chain-commands';
 
 // Alternatively you can use CommonJS syntax:
 // require('./commands')

@@ -43,7 +43,7 @@ module Security
       log_validation_results(validation_results)
 
       validation_results
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Payment method validation error: #{e.message}"
       {
         overall_risk_score: 100,
@@ -359,7 +359,7 @@ module Security
           device_fingerprint: request_metadata[:device_fingerprint]
         }
       )
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Failed to log payment method validation: #{e.message}"
     end
 

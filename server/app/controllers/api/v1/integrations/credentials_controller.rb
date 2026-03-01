@@ -5,13 +5,13 @@ module Api
     module Integrations
       class CredentialsController < ApplicationController
         before_action :authenticate_request
-        before_action :set_credential, only: [:show, :update, :destroy, :rotate]
+        before_action :set_credential, only: [ :show, :update, :destroy, :rotate ]
 
         # GET /api/v1/integrations/credentials
         def index
           authorize_action!("integrations.credentials.read")
 
-          credentials = Devops::IntegrationCredential
+          credentials = ::Devops::IntegrationCredential
             .where(account: current_account)
             .order(created_at: :desc)
             .page(pagination_params[:page])
@@ -78,12 +78,14 @@ module Api
         def rotate
           authorize_action!("integrations.credentials.update")
 
-          ::Devops::CredentialEncryptionService.rotate_key(@credential)
-
-          @credential.touch(:rotated_at)
+          rotated = ::Security::CredentialEncryptionService.rotate_encryption(
+            @credential.encrypted_credentials, namespace: "devops"
+          )
+          @credential.update!(encrypted_credentials: rotated, rotated_at: Time.current)
 
           render_success({ credential: @credential.credential_summary }, message: "Credential rotated successfully")
-        rescue ::Devops::CredentialEncryptionService::EncryptionError => e
+        rescue ::Security::CredentialEncryptionService::EncryptionError,
+               ::Security::CredentialEncryptionService::DecryptionError => e
           render_error("Failed to rotate credential: #{e.message}", status: :unprocessable_content)
         end
 
@@ -91,7 +93,9 @@ module Api
         def verify
           authorize_action!("integrations.credentials.read")
 
-          valid = ::Devops::CredentialEncryptionService.valid?(@credential)
+          valid = ::Security::CredentialEncryptionService.valid_encrypted_credentials?(
+            @credential.encrypted_credentials, namespace: "devops"
+          )
 
           render_success({ valid: valid })
         end
@@ -99,7 +103,7 @@ module Api
         private
 
         def set_credential
-          @credential = Devops::IntegrationCredential.find_by(id: params[:id], account: current_account)
+          @credential = ::Devops::IntegrationCredential.find_by(id: params[:id], account: current_account)
 
           render_not_found("Credential") unless @credential
         end

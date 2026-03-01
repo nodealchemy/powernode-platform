@@ -35,7 +35,7 @@ class CreateAppSubscriptions < ActiveRecord::Migration[8.0]
     add_index :app_subscriptions, :account_id
     add_index :app_subscriptions, :app_id
     add_index :app_subscriptions, :app_plan_id
-    add_index :app_subscriptions, [:subscribable_type, :subscribable_id], name: "idx_app_subscriptions_on_subscribable"
+    add_index :app_subscriptions, [ :subscribable_type, :subscribable_id ], name: "idx_app_subscriptions_on_subscribable"
     add_index :app_subscriptions, :status
     add_index :app_subscriptions, :subscribed_at
 

@@ -1,6 +1,21 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ApiKeysManager } from './ApiKeysManager';
 
+// Mock ConfirmationModal - control confirm behavior via mockShouldAutoConfirm
+let mockShouldAutoConfirm = true;
+const mockConfirmFn = jest.fn();
+jest.mock('@/shared/components/ui/ConfirmationModal', () => ({
+  useConfirmation: () => ({
+    confirm: (opts: any) => {
+      mockConfirmFn(opts);
+      if (mockShouldAutoConfirm) {
+        opts.onConfirm();
+      }
+    },
+    ConfirmationDialog: null,
+  }),
+}));
+
 // Mock the notifications hook
 const mockShowNotification = jest.fn();
 jest.mock('@/shared/hooks/useNotifications', () => ({
@@ -254,7 +269,6 @@ describe('ApiKeysManager', () => {
     });
 
     it('deletes API key with confirmation', async () => {
-      jest.spyOn(window, 'confirm').mockReturnValue(true);
       mockDeleteApiKey.mockResolvedValue({ success: true, message: 'API key deleted' });
 
       render(<ApiKeysManager />);
@@ -266,7 +280,12 @@ describe('ApiKeysManager', () => {
       const deleteButtons = screen.getAllByTitle('Delete');
       fireEvent.click(deleteButtons[0]);
 
-      expect(window.confirm).toHaveBeenCalledWith('Are you sure you want to delete this API key? This cannot be undone.');
+      expect(mockConfirmFn).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Delete API Key',
+          message: 'Are you sure you want to delete this API key? This cannot be undone.',
+        })
+      );
 
       await waitFor(() => {
         expect(mockDeleteApiKey).toHaveBeenCalledWith('key-1');
@@ -274,7 +293,8 @@ describe('ApiKeysManager', () => {
     });
 
     it('does not delete when confirmation is cancelled', async () => {
-      jest.spyOn(window, 'confirm').mockReturnValue(false);
+      // Disable auto-confirm to simulate user cancelling
+      mockShouldAutoConfirm = false;
 
       render(<ApiKeysManager />);
 
@@ -286,6 +306,9 @@ describe('ApiKeysManager', () => {
       fireEvent.click(deleteButtons[0]);
 
       expect(mockDeleteApiKey).not.toHaveBeenCalled();
+
+      // Restore auto-confirm for other tests
+      mockShouldAutoConfirm = true;
     });
   });
 

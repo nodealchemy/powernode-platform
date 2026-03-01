@@ -7,9 +7,9 @@ module Api
         include AuditLogging
 
         before_action :authenticate_request
-        before_action :require_read_permission, only: [:index, :show, :preview]
-        before_action :require_write_permission, only: [:create, :update, :destroy, :duplicate]
-        before_action :set_prompt_template, only: [:show, :update, :destroy, :preview, :duplicate]
+        before_action :require_read_permission, only: [ :index, :show, :preview ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy, :duplicate ]
+        before_action :set_prompt_template, only: [ :show, :update, :destroy, :preview, :duplicate ]
 
         # GET /api/v1/devops/prompt_templates
         def index
@@ -54,7 +54,7 @@ module Api
         def create
           template = prompt_templates_scope.new(prompt_template_params)
           template.created_by = current_user
-          template.domain = "devops" # Ensure domain is set for DevOps templates
+          template.domain = "cicd" # Ensure domain is set for DevOps templates
 
           if template.save
             render_success({
@@ -110,9 +110,16 @@ module Api
 
         # POST /api/v1/devops/prompt_templates/:id/preview
         def preview
-          variables = params[:variables] || {}
+          variables = params[:variables]
+          variables = variables.respond_to?(:to_unsafe_h) ? variables.to_unsafe_h : (variables || {}).to_h
 
-          rendered = @prompt_template.render(variables.to_unsafe_h)
+          # Validate syntax first to catch ::Liquid::SyntaxError
+          syntax_result = @prompt_template.validate_syntax
+          unless syntax_result[:valid]
+            return render_error("Template syntax error: #{syntax_result[:errors].join(', ')}", status: :unprocessable_content)
+          end
+
+          rendered = @prompt_template.render(variables)
 
           render_success({
             prompt_template_id: @prompt_template.id,
@@ -122,11 +129,10 @@ module Api
           })
 
           log_audit_event("devops.prompt_templates.preview", @prompt_template)
-        rescue Liquid::SyntaxError => e
+        rescue ::Liquid::SyntaxError => e
           render_error("Template syntax error: #{e.message}", status: :unprocessable_content)
         rescue StandardError => e
-          Rails.logger.error "Failed to preview prompt template: #{e.message}"
-          render_error("Failed to preview template: #{e.message}", status: :internal_server_error)
+          render_internal_error("Failed to preview template", exception: e)
         end
 
         # POST /api/v1/devops/prompt_templates/:id/duplicate
@@ -148,7 +154,7 @@ module Api
 
         # Scope to DevOps-accessible templates (devops domain + general)
         def prompt_templates_scope
-          current_user.account.shared_prompt_templates.for_devops
+          current_user.account.shared_prompt_templates.for_cicd
         end
 
         def set_prompt_template

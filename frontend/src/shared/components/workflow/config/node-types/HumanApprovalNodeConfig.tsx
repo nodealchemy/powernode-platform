@@ -1,7 +1,7 @@
 import React from 'react';
 import { Input } from '@/shared/components/ui/Input';
 import { Textarea } from '@/shared/components/ui/Textarea';
-import type { NodeTypeConfigProps } from './types';
+import type { NodeTypeConfigProps } from '@/shared/components/workflow/config/node-types/types';
 
 export const HumanApprovalNodeConfig: React.FC<NodeTypeConfigProps> = ({
   config,

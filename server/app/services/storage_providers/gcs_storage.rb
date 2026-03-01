@@ -398,9 +398,9 @@ module StorageProviders
 
     def configure_bucket_cors(bucket)
       cors_config = config("cors_config") || {
-        "origin" => ["*"],
-        "method" => ["GET", "PUT", "POST", "DELETE"],
-        "response_header" => ["Content-Type"],
+        "origin" => [ "*" ],
+        "method" => [ "GET", "PUT", "POST", "DELETE" ],
+        "response_header" => [ "Content-Type" ],
         "max_age_seconds" => 3600
       }
 

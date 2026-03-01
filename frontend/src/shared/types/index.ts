@@ -1,7 +1,62 @@
 // Common types used across the application
 
-// Import for use in Subscription interface
-import type { Plan } from '@/features/business/plans/services/plansApi';
+export interface Plan {
+  id: string;
+  name: string;
+  description: string;
+  price_cents: number;
+  currency: string;
+  billing_cycle: 'monthly' | 'yearly' | 'quarterly';
+  status: 'active' | 'inactive' | 'archived';
+  trial_days: number;
+  is_public: boolean;
+  formatted_price: string;
+  monthly_price: string;
+  subscription_count?: number;
+  active_subscription_count?: number;
+  can_be_deleted?: boolean;
+  has_annual_discount?: boolean;
+  annual_discount_percent?: number;
+  has_promotional_discount?: boolean;
+  promotional_discount_percent?: number;
+  promotional_discount_start?: string | null;
+  promotional_discount_end?: string | null;
+  promotional_discount_code?: string | null;
+  has_volume_discount?: boolean;
+  volume_discount_tiers?: VolumeDiscountTier[];
+  annual_savings_amount?: string;
+  annual_savings_percentage?: number;
+  features?: Record<string, unknown>;
+  limits?: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VolumeDiscountTier {
+  min_quantity: number;
+  discount_percent: number;
+}
+
+export interface DetailedPlan extends Plan {
+  features: Record<string, unknown>;
+  limits: Record<string, unknown>;
+  default_role: string;
+  metadata: Record<string, unknown>;
+  stripe_price_id: string | null;
+  paypal_plan_id: string | null;
+  can_be_deleted: boolean;
+  has_annual_discount: boolean;
+  annual_discount_percent: number;
+  has_volume_discount: boolean;
+  volume_discount_tiers: VolumeDiscountTier[];
+  has_promotional_discount: boolean;
+  promotional_discount_percent: number;
+  promotional_discount_start: string | null;
+  promotional_discount_end: string | null;
+  promotional_discount_code: string | null;
+  annual_savings_amount: string;
+  annual_savings_percentage: number;
+}
 
 export interface APIResponse<T = unknown> {
   success: boolean;
@@ -48,9 +103,8 @@ export interface ChurnMetrics {
   churned_subscriptions: number;
 }
 
-// Re-export Plan types from canonical source (plansApi)
-// Using alias to maintain backward compatibility with SubscriptionPlan name
-export type { Plan as SubscriptionPlan, DetailedPlan, VolumeDiscountTier } from '@/features/business/plans/services/plansApi';
+// Backward compatibility alias
+export type { Plan as SubscriptionPlan };
 
 export interface Subscription {
   id: string;

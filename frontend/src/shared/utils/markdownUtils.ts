@@ -155,7 +155,9 @@ export function hasMarkdownFormatting(text: string): boolean {
     /^>\s+/m, // Blockquotes
     /^[-*_]{3,}$/m, // Horizontal rules
     /^[\s]*[-*+]\s+/m, // Lists
-    /^[\s]*\d+\.\s+/m // Numbered lists
+    /^[\s]*\d+\.\s+/m, // Numbered lists
+    /^\|.+\|$/m, // Tables (rows with pipes)
+    /^\|[-:| ]+\|$/m // Table divider rows
   ];
 
   return markdownPatterns.some(pattern => pattern.test(text));

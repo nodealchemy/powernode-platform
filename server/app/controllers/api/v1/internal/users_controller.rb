@@ -23,7 +23,10 @@ class Api::V1::Internal::UsersController < Api::V1::Internal::InternalBaseContro
 
   # DELETE /api/v1/internal/users/:id
   def destroy
+    account_id = @user.account_id
+    user_id = @user.id
     @user.destroy
+    log_internal_audit("user.delete", "User", user_id, account_id: account_id)
     render_success(message: "User deleted successfully")
   end
 
@@ -34,46 +37,52 @@ class Api::V1::Internal::UsersController < Api::V1::Internal::InternalBaseContro
       name: "Deleted User",
       phone: nil
     )
+    log_internal_audit("user.anonymize", "User", @user.id, account_id: @user.account_id)
     render_success(message: "User anonymized successfully")
   end
 
   # PATCH /api/v1/internal/users/:user_id/anonymize_audit_logs
   def anonymize_audit_logs
-    AuditLog.where(user_id: @user.id).update_all(
+    count = AuditLog.where(user_id: @user.id).update_all(
       ip_address: "0.0.0.0",
       user_agent: "anonymized"
     )
+    log_internal_audit("user.anonymize_audit_logs", "User", @user.id, account_id: @user.account_id, records_affected: count)
     render_success(message: "User audit logs anonymized")
   end
 
   # DELETE /api/v1/internal/users/:user_id/consents
   def delete_consents
-    count = Consent.where(user_id: @user.id).delete_all
+    count = UserConsent.where(user_id: @user.id).delete_all
+    log_internal_audit("user.delete_consents", "User", @user.id, account_id: @user.account_id, records_deleted: count)
     render_success(message: "Deleted #{count} consent records")
   end
 
   # DELETE /api/v1/internal/users/:user_id/terms_acceptances
   def delete_terms_acceptances
     count = TermsAcceptance.where(user_id: @user.id).delete_all if defined?(TermsAcceptance)
+    log_internal_audit("user.delete_terms_acceptances", "User", @user.id, account_id: @user.account_id, records_deleted: count || 0)
     render_success(message: "Deleted #{count || 0} terms acceptance records")
   end
 
   # DELETE /api/v1/internal/users/:user_id/password_histories
   def delete_password_histories
     count = PasswordHistory.where(user_id: @user.id).delete_all if defined?(PasswordHistory)
+    log_internal_audit("user.delete_password_histories", "User", @user.id, account_id: @user.account_id, records_deleted: count || 0)
     render_success(message: "Deleted #{count || 0} password history records")
   end
 
   # DELETE /api/v1/internal/users/:user_id/roles
   def delete_roles
     count = @user.user_roles.delete_all if @user.respond_to?(:user_roles)
+    log_internal_audit("user.delete_roles", "User", @user.id, account_id: @user.account_id, records_deleted: count || 0)
     render_success(message: "Deleted #{count || 0} user role records")
   end
 
   private
 
   def set_user
-    @user = User.find(params[:id] || params[:user_id])
+    @user = User.find(params[:user_id] || params[:id])
   rescue ActiveRecord::RecordNotFound
     render_not_found("User")
   end

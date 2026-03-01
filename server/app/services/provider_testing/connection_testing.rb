@@ -21,7 +21,7 @@ module ProviderTesting
             test_message_sent: @test_config[:test_message],
             test_message_received: result[:response_content],
             test_timestamp: Time.current,
-            connection_type: @provider.provider_type == "ollama" ? "local" : "remote"
+            connection_type: determine_connection_type
           }
         else
           {
@@ -176,6 +176,18 @@ module ProviderTesting
     end
 
     private
+
+    def determine_connection_type
+      # Check if using a remote URL (not localhost/127.0.0.1)
+      base_url = credential&.credentials&.dig("base_url") || @provider&.api_base_url
+      return "remote" unless base_url
+
+      if base_url.include?("localhost") || base_url.include?("127.0.0.1")
+        "local"
+      else
+        "remote"
+      end
+    end
 
     def test_model(model)
       config = credential.credentials.merge("model" => model)

@@ -17,7 +17,12 @@ import { settingsApi } from '@/shared/services/settings/settingsApi';
 
 import { TwoFactorVerification } from '@/features/account/auth/components/TwoFactorVerification';
 import { DomainChangeNotice } from '@/shared/components/ui/DomainChangeNotice';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 
+
+interface LocationState {
+  from?: string;
+}
 
 export const LoginPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -25,6 +30,7 @@ export const LoginPage: React.FC = () => {
   const location = useLocation();
   
   const { error } = useSelector((state: RootState) => state.auth);
+  const registrationEnabled = useSelector((state: RootState) => state.config.registrationEnabled);
   
   const [formData, setFormData] = useState({
     email: '',
@@ -36,8 +42,8 @@ export const LoginPage: React.FC = () => {
   const [requires2FA, setRequires2FA] = useState(false);
   const [verificationToken, setVerificationToken] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
-  const [touched, _setTouched] = useState({ email: false, password: false });
-  const [errors, _setErrors] = useState({ email: '', password: '' });
+  const [touched] = useState({ email: false, password: false });
+  const [errors] = useState({ email: '', password: '' });
   const [copyrightText, setCopyrightText] = useState<string>('');
   
   // Clear error when component unmounts or user navigates away
@@ -55,7 +61,7 @@ export const LoginPage: React.FC = () => {
         const copyright = await settingsApi.getCopyright();
         const formattedCopyright = settingsApi.formatCopyright(copyright);
         setCopyrightText(formattedCopyright);
-      } catch (error) {
+      } catch (_error) {
         // Fallback to default copyright text
         setCopyrightText(`© ${new Date().getFullYear()} Everett C. Haimes III. All rights reserved.`);
       }
@@ -64,7 +70,9 @@ export const LoginPage: React.FC = () => {
     loadCopyright();
   }, []);
 
-  const from = (location.state as any)?.from?.pathname || '/app';
+  const stateFrom = (location.state as LocationState | null)?.from;
+  const savedPath = localStorage.getItem('powernode_last_path');
+  const from = stateFrom || (savedPath?.startsWith('/app') ? savedPath : null) || '/app';
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -104,7 +112,7 @@ export const LoginPage: React.FC = () => {
           navigate(from, { replace: true });
         }, 100);
       }
-    } catch (error: unknown) {
+    } catch (error) {
       dispatch(addNotification({
         type: 'error',
         message: ErrorHandler.getUserMessage(error),
@@ -114,15 +122,9 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handle2FASuccess = async (data: unknown) => {
-    // Save tokens from successful 2FA verification
-    const authData = data as { access_token?: string; refresh_token?: string };
-    if (authData.access_token) {
-      localStorage.setItem('access_token', authData.access_token);
-    }
-    if (authData.refresh_token) {
-      localStorage.setItem('refresh_token', authData.refresh_token);
-    }
+  const handle2FASuccess = async (_data: unknown) => {
+    // Tokens are managed by Redux (access_token) and HttpOnly cookies (refresh_token)
+    // No localStorage writes needed
 
     try {
       // Get current user to update auth state properly
@@ -137,7 +139,7 @@ export const LoginPage: React.FC = () => {
       setTimeout(() => {
         navigate(from, { replace: true });
       }, 100);
-    } catch (error: unknown) {
+    } catch (_error) {
       dispatch(addNotification({
         type: 'error',
         message: 'Failed to load user data. Please try logging in again.',
@@ -158,14 +160,20 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="bg-theme-background min-h-screen">
-      
+    <div className="bg-theme-background min-h-screen relative overflow-hidden">
+      {/* Decorative Background */}
+      <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/4 -left-1/4 w-96 h-96 bg-theme-info/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 -right-1/4 w-96 h-96 bg-theme-interactive-primary/10 rounded-full blur-3xl" />
+        <div className="absolute top-3/4 left-1/2 w-64 h-64 bg-theme-interactive-primary/5 rounded-full blur-2xl" />
+      </div>
+
       <div className="relative flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           {/* Modern Logo and Title */}
           <div className="text-center">
             <Link to="/welcome" className="inline-block group">
-              <div className="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-xl transition-all duration-200 group-hover:scale-105 border bg-gradient-to-br from-blue-600 to-purple-600 border-theme-info">
+              <div className="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-xl transition-all duration-200 group-hover:scale-105 border bg-gradient-to-br from-theme-interactive-primary to-theme-interactive-secondary border-theme-info">
                 <span className="text-white font-bold text-2xl">P</span>
               </div>
             </Link>
@@ -189,15 +197,7 @@ export const LoginPage: React.FC = () => {
             />
           ) : (
             <>
-              {error && (
-                <div className="mb-6 px-4 py-3 rounded-xl border bg-theme-error border-theme-error">
-                  <div className="flex">
-                    <div className="ml-3">
-                      <p className="text-sm font-medium text-theme-error">{error}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
+              {error && <ErrorAlert message={error} />}
 
               <DomainChangeNotice />
 
@@ -218,7 +218,7 @@ export const LoginPage: React.FC = () => {
                       required
                       data-form-type="email"
                       data-testid="email-input"
-                      className="input-theme block w-full rounded-xl border focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      className="input-theme block w-full rounded-xl border focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-transparent transition-all duration-200"
                       placeholder="Enter your email address"
                       value={formData.email}
                       onChange={(e) => void handleChange(e)}
@@ -245,7 +245,7 @@ export const LoginPage: React.FC = () => {
                       required
                       data-form-type="password"
                       data-testid="password-input"
-                      className="input-theme block w-full pr-12 rounded-xl border focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      className="input-theme block w-full pr-12 rounded-xl border focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-transparent transition-all duration-200"
                       placeholder="Enter your password"
                       value={formData.password}
                       onChange={(e) => void handleChange(e)}
@@ -317,32 +317,36 @@ export const LoginPage: React.FC = () => {
                 </div>
           </form>
 
-            {/* Modern Divider */}
-            <div className="mt-8">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-theme" />
+            {registrationEnabled && (
+              <>
+                {/* Modern Divider */}
+                <div className="mt-8">
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-theme" />
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="px-4 font-medium bg-theme-surface text-theme-secondary">
+                        New to Powernode?
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-4 font-medium bg-theme-surface text-theme-secondary">
-                    New to Powernode?
-                  </span>
-                </div>
-              </div>
-            </div>
 
-            <div className="mt-6 text-center">
-              <Link
-                to="/plans"
-                className="btn-theme btn-theme-secondary w-full inline-flex justify-center items-center space-x-2 py-3 px-4 border border-theme rounded-xl text-sm font-semibold transition-all duration-200 shadow-md hover:shadow-lg"
-              >
-                <span>Create your account</span>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-              </Link>
-            </div>
-            
+                <div className="mt-6 text-center">
+                  <Link
+                    to="/plans"
+                    className="btn-theme btn-theme-secondary w-full inline-flex justify-center items-center space-x-2 py-3 px-4 border border-theme rounded-xl text-sm font-semibold transition-all duration-200 shadow-md hover:shadow-lg"
+                  >
+                    <span>Create your account</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  </Link>
+                </div>
+              </>
+            )}
+
             {/* Enhanced Trust Indicators */}
             <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs text-theme-tertiary">
               <div className="flex items-center space-x-2">

@@ -3,9 +3,10 @@ import { render, RenderOptions } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
-import authReducer from '../services/slices/authSlice';
-import uiReducer from '../services/slices/uiSlice';
-import { BreadcrumbProvider } from '../hooks/BreadcrumbContext';
+import authReducer from '@/shared/services/slices/authSlice';
+import uiReducer from '@/shared/services/slices/uiSlice';
+import configReducer from '@/shared/services/slices/configSlice';
+import { BreadcrumbProvider } from '@/shared/hooks/BreadcrumbContext';
 
 // This type interface extends the default options for render from RTL, as well
 // as allows the user to specify other things such as initialState, store.
@@ -24,6 +25,7 @@ export function renderWithProviders(
       reducer: {
         auth: authReducer,
         ui: uiReducer,
+        config: configReducer,
       },
       ...(preloadedState && { preloadedState }),
     }),
@@ -139,6 +141,12 @@ export const mockAuthenticatedState = {
     loading: false,
     notifications: [],
   },
+  config: {
+    loadedExtensions: [],
+    coreMode: true,
+    registrationEnabled: false,
+    isLoaded: true,
+  },
 };
 
 // Mock unauthenticated state
@@ -168,6 +176,12 @@ export const mockUnauthenticatedState = {
     theme: 'light' as const,
     loading: false,
     notifications: [],
+  },
+  config: {
+    loadedExtensions: [],
+    coreMode: true,
+    registrationEnabled: false,
+    isLoaded: true,
   },
 };
 

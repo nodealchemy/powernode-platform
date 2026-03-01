@@ -192,7 +192,8 @@ module Devops
           credential.save!
 
           if attributes[:credentials].present?
-            Devops::CredentialEncryptionService.encrypt(credential, attributes[:credentials])
+            credential.credentials = attributes[:credentials]
+            credential.save!
           end
         end
 
@@ -210,7 +211,8 @@ module Devops
           credential.update!(attributes.slice(:name, :scopes, :metadata))
 
           if attributes[:credentials].present?
-            Devops::CredentialEncryptionService.encrypt(credential, attributes[:credentials])
+            credential.credentials = attributes[:credentials]
+            credential.save!
           end
         end
 

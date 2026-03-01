@@ -1,21 +1,54 @@
 # frozen_string_literal: true
 
 Rails.application.routes.draw do
+  # OpenAPI/Swagger documentation
+  mount Rswag::Ui::Engine => "/api-docs"
+  mount Rswag::Api::Engine => "/api-docs"
+
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
   # Can be used by load balancers and uptime monitors to verify that the app is live.
   get "up" => "rails/health#show", as: :rails_health_check
 
-  # Health check endpoints (global, outside API namespace)
-  get :health, to: "health#index"
-  get "health/detailed", to: "health#detailed"
-  get "health/ready", to: "health#ready"
-  get "health/live", to: "health#live"
+  # =========================================================================
+  # A2A Protocol - Well-Known Endpoints (outside API namespace)
+  # =========================================================================
+  # These endpoints implement the A2A protocol for agent-to-agent discovery
+  # and communication. They must be at the root level per the A2A spec.
+  # =========================================================================
+  scope "/.well-known" do
+    get "agent-card.json", to: "well_known#agent_card"
+    get "oauth-protected-resource", to: "well_known#oauth_protected_resource"
+    get "oauth-authorization-server", to: "well_known#oauth_authorization_server"
+    # RFC 8414 path-based discovery: clients like Claude Code try
+    # /.well-known/oauth-authorization-server/<resource-path> first
+    get "oauth-protected-resource/*path", to: "well_known#oauth_protected_resource"
+    get "oauth-authorization-server/*path", to: "well_known#oauth_authorization_server"
+  end
+
+
+  # Doorkeeper OAuth 2.1 endpoints — outside namespace to avoid controller resolution issues
+  # (namespace would prefix module path, causing Api::V1::Doorkeeper::* lookups to fail)
+  scope '/api/v1', as: 'api_v1' do
+    use_doorkeeper do
+      skip_controllers :applications, :authorized_applications
+    end
+  end
 
   # API Routes
   namespace :api do
+    # BaaS API routes are in enterprise/server/config/routes.rb (enterprise only)
+
     namespace :v1 do
-      # Health check endpoint for load balancers
-      get :health, to: proc { [ 200, {}, [ { status: "ok" }.to_json ] ] }
+      # A2A JSON-RPC 2.0 protocol endpoint
+      post "/a2a", to: "a2a#handle"
+      get "/a2a", to: "a2a#info"
+      post "/a2a/stream", to: "a2a#stream"
+
+      # Health check endpoints
+      get :health, to: "health#index"
+      get "health/detailed", to: "health#detailed"
+      get "health/ready", to: "health#ready"
+      get "health/live", to: "health#live"
 
       # Worker test endpoints
       post "worker/ping", to: "worker_test#ping"
@@ -43,9 +76,9 @@ Rails.application.routes.draw do
         get "status/history", to: "status#history"
       end
 
-      # DevOps Step Approvals (public, token-based auth)
+      # DevOps Approval Tokens (public, token-based auth)
       namespace :devops do
-        resources :step_approvals, only: [:show], param: :token do
+        resources :approval_tokens, only: [ :show ], param: :token do
           member do
             post :approve
             post :reject
@@ -55,7 +88,7 @@ Rails.application.routes.draw do
 
       # AI Workflow Approval Tokens (public, token-based auth)
       namespace :ai_workflows do
-        resources :approval_tokens, only: [:show], param: :token do
+        resources :approval_tokens, only: [ :show ], param: :token do
           member do
             post :approve
             post :reject
@@ -79,11 +112,16 @@ Rails.application.routes.draw do
           end
         end
 
-        # Review notifications
-        resources :review_notifications, only: [ :show, :update ]
+        # Webhook endpoints (for circuit breaker management)
+        resources :webhook_endpoints, only: [ :show ] do
+          member do
+            post :record_success
+            post :record_failure
+          end
+        end
 
-        # CI/CD Step Approvals (for worker service)
-        resources :step_approvals, only: [:show], param: :step_execution_id do
+        # DevOps Approval Tokens (for worker service)
+        resources :approval_tokens, only: [ :show ], param: :step_execution_id do
           member do
             post :create_tokens
           end
@@ -115,7 +153,7 @@ Rails.application.routes.draw do
         end
 
         # Reverse proxy internal operations
-        namespace :reverse_proxy do
+        scope :reverse_proxy do
           post :validate, to: "reverse_proxy#validate_config"
           post :test_connectivity, to: "reverse_proxy#test_connectivity"
           post :generate_config, to: "reverse_proxy#generate_config"
@@ -175,11 +213,11 @@ Rails.application.routes.draw do
         end
 
         # Maintenance internal endpoints (for worker service)
-        namespace :maintenance do
+        scope :maintenance do
           # Database backups
           get "backups/:id", to: "maintenance#show_backup"
           patch "backups/:id", to: "maintenance#update_backup"
-          post "backups/:id/cleanup", to: "maintenance#cleanup_old_backups"
+          post "backups/cleanup", to: "maintenance#cleanup_old_backups"
 
           # Database restores
           get "restores/:id", to: "maintenance#show_restore"
@@ -189,6 +227,9 @@ Rails.application.routes.draw do
           get :scheduled_tasks, to: "maintenance#list_due_tasks"
           post "scheduled_tasks/:id/executions", to: "maintenance#create_task_execution"
           patch "task_executions/:id", to: "maintenance#update_task_execution"
+
+          # Auth artifact cleanup
+          post "cleanup_auth_artifacts", to: "maintenance#cleanup_auth_artifacts"
         end
 
         # Git provider internal endpoints (for worker service)
@@ -203,6 +244,9 @@ Rails.application.routes.draw do
           end
 
           resources :repositories, only: [ :show, :create, :update ] do
+            collection do
+              get :lookup
+            end
             member do
               post :sync_branches
               post :sync_commits
@@ -232,8 +276,8 @@ Rails.application.routes.draw do
             end
           end
 
-          # Runners sync (for worker service)
-          resources :runners, only: [] do
+          # Runners management (for worker service)
+          resources :runners, only: [ :index ] do
             collection do
               post :sync
             end
@@ -244,12 +288,7 @@ Rails.application.routes.draw do
           end
         end
 
-        # Internal subscriptions for worker dunning
-        resources :subscriptions, only: [ :show ] do
-          member do
-            post :dunning
-          end
-        end
+        # Internal subscriptions for worker dunning (enterprise only, see enterprise routes)
 
         # Email sending for worker notifications
         namespace :emails do
@@ -260,7 +299,7 @@ Rails.application.routes.draw do
         # Notifications for worker service
         resources :notifications, only: [ :create ] do
           collection do
-            post :send
+            post :send, action: :send_notification
             post :security_alert
           end
         end
@@ -277,16 +316,174 @@ Rails.application.routes.draw do
               get :pending_count
             end
           end
+
+          # Docker Swarm internal endpoints (worker communication)
+          namespace :swarm do
+            resources :clusters, only: [:index] do
+              member do
+                get :connection
+                post :sync_results
+                post :health_results
+              end
+            end
+            resources :deployments, only: [:update]
+            resources :events, only: [:create]
+          end
+
+          # Docker Host internal endpoints (worker communication)
+          scope :docker, as: :docker do
+            get "hosts", to: "docker#index", as: :hosts
+            get "hosts/:id/connection", to: "docker#connection", as: :host_connection
+            post "hosts/:id/sync_results", to: "docker#sync_results", as: :host_sync_results
+            post "hosts/:id/health_results", to: "docker#health_results", as: :host_health_results
+            post "events", to: "docker#create_event", as: :events
+          end
         end
 
         # AI Workflow approval management for worker service
-        resources :ai_workflow_approvals, only: [:show], param: :node_execution_id do
+        resources :ai_workflow_approvals, only: [ :show ], param: :node_execution_id do
           member do
             post :create_tokens
           end
           collection do
             post :expire_stale
           end
+        end
+
+        # Billing endpoints for worker service (enterprise only, see enterprise routes)
+
+        # Internal AI endpoints (for worker service)
+        namespace :ai do
+          resources :skills, only: [] do
+            collection do
+              post :seed_system
+            end
+            member do
+              post :refresh_connectors
+            end
+          end
+
+          # Discovery data endpoints (worker → server)
+          get "discovery/mcp_servers", to: "discovery#mcp_servers"
+          get "discovery/docker_hosts", to: "discovery#docker_hosts"
+          get "discovery/swarm_clusters", to: "discovery#swarm_clusters"
+
+          # Discovery callbacks (worker → server)
+          post "discovery/:scan_id/complete", to: "discovery#complete"
+          post "discovery/:scan_id/failed", to: "discovery#failed"
+
+          # Code review callbacks (worker → server)
+          post "code_reviews/:review_id/comments", to: "code_reviews#create_comments"
+
+          # Team data endpoints (worker → server)
+          get "teams/:team_id", to: "teams#show"
+          get "agents", to: "teams#agents"
+
+          # Team optimization callbacks (worker → server)
+          post "teams/:team_id/optimization_results", to: "teams#optimization_results"
+
+          # Memory pool data endpoints (worker → server)
+          get "memory_pools/expired", to: "memory_pools#expired"
+          delete "memory_pools/:id", to: "memory_pools#destroy"
+
+          # Memory pool cleanup callbacks (worker → server)
+          post "memory_pools/cleanup_results", to: "memory_pools#cleanup_results"
+
+          # Tool bridge endpoints (worker → server)
+          # LLM completion endpoints removed — worker calls providers directly.
+          # Only tool registry and reasoning orchestration remain server-side.
+          scope "llm", controller: "llm_proxy" do
+            post :tool_definitions
+            post :dispatch_tool
+            post :execute_with_reasoning
+          end
+
+          # Execution context endpoint (worker → server)
+          post "execution_contexts", to: "execution_contexts#create"
+
+          # Provider config for direct LLM access (worker → server)
+          post "provider_config", to: "execution_contexts#provider_config"
+
+          # Embedding provider config (worker → server)
+          get "embedding_config", to: "execution_contexts#embedding_config"
+
+          # Agent execution management (worker → server)
+          get "executions/:id", to: "agent_executions#show"
+          patch "executions/:id", to: "agent_executions#update"
+          post "executions/:id/cancel", to: "agent_executions#cancel"
+
+          # Team strategy execution (worker → server)
+          post "teams/:team_id/execute_strategy", to: "teams#execute_strategy"
+
+          # Self-healing endpoints (worker → server)
+          scope "self_healing", controller: "self_healing" do
+            post :check_stuck_workflows
+            post :check_degraded_providers
+            post :check_orphaned_executions
+            post :check_anomalies
+          end
+
+          # Ralph loop endpoints (worker → server)
+          scope "ralph_loops" do
+            post "process_scheduled", to: "ralph_loops#process_scheduled"
+            post ":id/run_iteration", to: "ralph_loops#run_iteration"
+          end
+
+          # Trajectory analysis endpoint (worker → server)
+          post "trajectory/analyze_all", to: "trajectory#analyze_all"
+
+          # Worktree session management (worker → server)
+          resources :worktree_sessions, only: [:show] do
+            member do
+              post :start
+              post :activate
+              post :fail_session
+              post :cleanup
+              post :push_and_pr
+              post :execute_merge
+              post :detect_conflicts
+              get :dispatch_status
+              post :timeout_dispatches
+            end
+            collection do
+              post :check_timeouts
+            end
+          end
+          post "worktree_sessions/:id/worktrees/:worktree_id/provision",
+               to: "worktree_sessions#provision_worktree",
+               as: :provision_worktree_session_worktree
+
+          # Kill switch check (worker → server)
+          get "kill_switch/check", to: "kill_switch#check"
+
+          # Autonomy observation pipeline (worker → server)
+          get "observation_pipeline/accounts", to: "autonomy#observation_accounts"
+          post "observation_pipeline/run", to: "autonomy#run_observation_pipeline"
+
+          # Autonomy goal maintenance (worker → server)
+          post "goals/maintenance", to: "autonomy#goals_maintenance"
+
+          # Autonomy observation cleanup (worker → server)
+          post "observations/cleanup", to: "autonomy#observations_cleanup"
+
+          # Autonomy escalation auto-escalate (worker → server)
+          post "escalations/auto_escalate", to: "autonomy#auto_escalate_escalations"
+
+          # Autonomy proposal expiry (worker → server)
+          post "proposals/expire_overdue", to: "autonomy#expire_overdue_proposals"
+
+          # Autonomy intervention policy tuning (worker → server)
+          post "intervention_policies/analyze_patterns", to: "autonomy#analyze_policy_patterns"
+        end
+
+        # Container execution callbacks for Gitea workflow
+        scope "container_executions/:execution_id" do
+          post :complete, to: "container_executions#complete"
+          post :status, to: "container_executions#status"
+          post :logs, to: "container_executions#logs"
+          post :resource_usage, to: "container_executions#resource_usage"
+          post :security_violation, to: "container_executions#security_violation"
+          get "/", to: "container_executions#show"
         end
       end
 
@@ -326,14 +523,14 @@ Rails.application.routes.draw do
         put :cookies, action: :update_cookie_preferences
       end
 
-      # OAuth 2.0 Provider (Doorkeeper) - Standard OAuth endpoints
-      use_doorkeeper do
-        # Skip default controllers, we use custom API controllers
-        skip_controllers :applications, :authorized_applications
-      end
-
       # OAuth Applications Management API
       namespace :oauth do
+        # Public lookup for consent page (no auth needed)
+        get 'applications/lookup', to: 'applications#lookup'
+
+        # RFC 7591 Dynamic Client Registration (public, no auth)
+        post :register, to: "registrations#create"
+
         resources :applications do
           member do
             post :regenerate_secret
@@ -358,6 +555,56 @@ Rails.application.routes.draw do
         end
       end
 
+      # ===================================================================
+      # CHAT GATEWAY - Multi-platform chat integration
+      # ===================================================================
+      # Connects external chat platforms (Telegram, Discord, Slack, etc.)
+      # to AI agents via A2A protocol
+      # ===================================================================
+
+      namespace :chat do
+        # Webhook endpoints (public, token-authenticated)
+        scope :webhooks do
+          post ":token", to: "webhooks#receive", as: :webhook_receive
+          get ":token/verify", to: "webhooks#verify", as: :webhook_verify
+        end
+
+        # Channel management
+        resources :channels do
+          member do
+            post :connect
+            post :disconnect
+            post :test
+            post :regenerate_token
+            get :sessions
+            get :metrics
+          end
+
+          collection do
+            get :platforms
+            post :cleanup_sessions
+          end
+        end
+
+        # Session management
+        resources :sessions do
+          member do
+            post :transfer
+            post :close
+            get :messages
+            post :messages, action: :send_message
+          end
+
+          collection do
+            get :active
+            get :stats
+          end
+        end
+      end
+
+      # ===================================================================
+      # Marketing routes are in extensions/marketing/server/config/routes.rb
+
       # Worker authentication endpoints (for worker service)
       namespace :worker_auth do
         post :verify
@@ -367,14 +614,14 @@ Rails.application.routes.draw do
 
       # Worker file processing endpoints (for worker service)
       namespace :worker do
-        resources :files, only: [ :show, :update ], controller: "worker/worker_files" do
+        resources :files, only: [ :show, :update ], controller: "worker_files" do
           member do
             get :download
             post :processed
           end
         end
 
-        resources :processing_jobs, only: [ :show, :update ], controller: "worker/processing_jobs"
+        resources :processing_jobs, only: [ :show, :update ], controller: "processing_jobs"
       end
 
       # Knowledge Base endpoints (public access + editing for authorized users)
@@ -457,6 +704,13 @@ Rails.application.routes.draw do
         collection do
           get :stats
         end
+        member do
+          put :suspend
+          put :activate
+          put :unlock
+          post :reset_password
+          post :resend_verification
+        end
       end
 
       # Notifications
@@ -484,16 +738,7 @@ Rails.application.routes.draw do
       end
       resources :permissions, only: [ :index, :show ]
 
-      # Plans management (admin only for create/update/delete)
-      resources :plans do
-        collection do
-          get :status
-        end
-        member do
-          post :duplicate
-          put :toggle_status
-        end
-      end
+      # Plans management is in enterprise/server/config/routes.rb
 
       # Site settings management (admin only)
       resources :site_settings do
@@ -520,12 +765,22 @@ Rails.application.routes.draw do
         get :metrics, on: :member
         get :health, on: :member
 
+        # Extensions management
+        get :extensions, on: :member
+        put "extensions/:slug/toggle", on: :member, action: :toggle_extension
+
+        # Development / enterprise toggle
+        get :development, on: :member
+        put :development, on: :member, action: :update_development
+
         # Security configuration endpoints
-        get :security, on: :member
+        get :security, on: :member, action: :security_config
         put :security, on: :member, action: :update_security_config
         post "security/test", on: :member, action: :test_security_config
         post "security/regenerate_jwt_secret", on: :member, action: :regenerate_jwt_secret
         delete "security/blacklisted_tokens", on: :member, action: :clear_blacklisted_tokens
+        get "security/blacklist_stats", on: :member, action: :blacklist_statistics
+        get "security/audit_summary", on: :member, action: :security_audit_summary
       end
 
       # Services Configuration (system-level)
@@ -550,9 +805,9 @@ Rails.application.routes.draw do
         get "export_services/:environment", to: "services#export_services", on: :member
         post :import_services, on: :member
 
-        resources :url_mappings, only: [ :create, :destroy ] do
-          put :update_url_mapping, on: :member
-          patch :toggle, on: :member
+        resources :url_mappings, only: [ :create, :destroy ], controller: "services" do
+          put :update_url_mapping, on: :member, controller: "services"
+          patch :toggle, on: :member, controller: "services"
         end
       end
 
@@ -602,9 +857,6 @@ Rails.application.routes.draw do
 
           # Backup management
           get :backups, to: "maintenance#backups"
-          post :backups, to: "maintenance#create_backup"
-          delete "backups/:id", to: "maintenance#delete_backup"
-          post "backups/:id/restore", to: "maintenance#restore_backup"
 
           # Cleanup operations
           get "cleanup/stats", to: "maintenance#cleanup_stats"
@@ -620,13 +872,11 @@ Rails.application.routes.draw do
           post :mode, to: "maintenance#update_mode"
 
           # System health
-          get "health/detailed", to: "maintenance#detailed_health"
           get "health/services", to: "maintenance#service_health"
 
           # Database operations
           get "database/stats", to: "maintenance#database_stats"
           post "database/analyze", to: "maintenance#analyze_database"
-          post "operations/optimize", to: "maintenance#optimize_database"
 
           # Scheduled tasks
           get :tasks, to: "maintenance#list_tasks"
@@ -663,21 +913,6 @@ Rails.application.routes.draw do
           get :health
         end
 
-        # Review Moderation
-        resource :review_moderation, only: [] do
-          collection do
-            get :queue
-            post :bulk_action
-            get :analytics
-            get :settings
-            post :update_settings
-          end
-
-          member do
-            get "history/:review_id", to: "review_moderation#history"
-          end
-        end
-
         # Reverse Proxy URL Configuration
         resources :proxy_settings, only: [] do
           collection do
@@ -703,27 +938,6 @@ Rails.application.routes.draw do
         post :test, on: :collection
       end
 
-      # Payment Gateways management (admin only)
-      resources :payment_gateways, only: [ :index, :show, :update ] do
-        member do
-          post :test_connection
-          get :webhook_events
-          get :transactions
-        end
-      end
-
-      # Gateway connection jobs (for async testing)
-      resources :gateway_connection_jobs, only: [ :show, :update ]
-
-      # Billing and payments
-      get "billing", to: "billing#overview"
-      get "billing/invoices", to: "billing#invoices"
-      post "billing/invoices", to: "billing#create_invoice"
-      get "billing/payment-methods", to: "billing#payment_methods"
-      post "billing/payment-methods", to: "billing#create_payment_method"
-      post "billing/payment-intent", to: "billing#create_payment_intent"
-      get "billing/subscription", to: "billing#subscription_billing"
-
       # Customer management endpoints
       resources :customers do
         member do
@@ -732,54 +946,7 @@ Rails.application.routes.draw do
         end
       end
 
-      # Payment-related endpoints
-      resources :payment_methods, except: [ :show ] do
-        member do
-          post :set_default
-        end
-        collection do
-          post :setup_intent
-          post :confirm
-        end
-      end
-      resources :subscriptions do
-        collection do
-          get :history
-        end
-        member do
-          get :by_stripe_id
-        end
-      end
-      # Subscriptions lookup by external ID
-      get "subscriptions/by_stripe_id/:stripe_id", to: "subscriptions#by_stripe_id"
-      get "subscriptions/by_paypal_id/:paypal_id", to: "subscriptions#by_paypal_id"
-
-      resources :invoices, only: [ :index, :show ] do
-        member do
-          post :send_invoice, path: "send"
-          post :mark_paid
-          post :void
-          post :retry_payment
-          get :pdf
-        end
-        collection do
-          get :statistics
-        end
-      end
-      resources :payments, only: [ :index, :show ]
-
-      # PayPal integration endpoints
-      resource :paypal, only: [] do
-        collection do
-          post :create_payment, path: "payments"
-          post :execute_payment, path: "payments/:id/execute"
-          post :create_refund, path: "payments/:id/refund"
-          post :create_subscription_plan, path: "subscriptions/plans"
-          post :create_subscription, path: "subscriptions"
-          post :execute_subscription, path: "subscriptions/:id/execute"
-          delete :cancel_subscription, path: "subscriptions/:id"
-        end
-      end
+      # Billing routes are in enterprise/server/config/routes.rb (enterprise only)
 
       # Analytics endpoints
       namespace :analytics do
@@ -797,31 +964,37 @@ Rails.application.routes.draw do
         post :update_metrics
       end
 
-      # Payment reconciliation endpoints (service-to-service)
-      namespace :reconciliation do
-        get :stripe_payments
-        get :paypal_payments
-        post :report
-        post :corrections
-        post :flags
-        post :investigations
-      end
+      # Analytics tiers are in enterprise/server/config/routes.rb
 
-      # Webhook sync endpoints (service-to-service)
-      namespace :webhooks do
-        namespace :stripe_sync, path: "stripe" do
-          post :invoice_paid
-          post :invoice_failed
-          post :subscription_updated
-          post :subscription_canceled
-          post :payment_succeeded
-          post :payment_failed
-          post :setup_intent_succeeded
-          post :payment_method_attached
-          post :payment_method_detached
-          post :unhandled_event
-          post :activate_subscription
+      # Usage tracking endpoints
+      resources :usage, only: [] do
+        collection do
+          get :dashboard
+          get :meters
+          get :history
+          get :billing_summary
+          get :quotas
+          get :export
+          post :quotas, to: "usage#set_quota"
+          post "quotas/reset", to: "usage#reset_quotas"
         end
+      end
+      get "usage/meters/:slug", to: "usage#meter"
+      resources :usage_events, only: [ :create ], path: "usage_events", controller: "usage" do
+        collection do
+          post :batch, to: "usage#track_events_batch"
+        end
+      end
+      post "usage_events", to: "usage#track_event"
+
+      # Predictive analytics, reseller routes are in enterprise/server/config/routes.rb
+
+      # Payment reconciliation is in enterprise/server/config/routes.rb
+
+      # Webhook endpoints (billing webhooks are in enterprise routes)
+      namespace :webhooks do
+        # Git webhook receiver (core)
+        post "git/:provider_type", to: "git#handle"
 
         # Generic webhook event processing (for worker service)
         resources :events, only: [ :show, :update ] do
@@ -831,16 +1004,6 @@ Rails.application.routes.draw do
             patch :failed
           end
         end
-
-        # Generic webhook processing endpoints (for worker service compatibility)
-        post :payment_succeeded
-        post :payment_failed
-        post :subscription_updated
-        post :subscription_cancelled
-        post :subscription_activated
-        post :payment_method_attached
-        post :payment_intent_succeeded
-        post :payment_intent_failed
       end
 
       # Webhook events resource (top-level for worker compatibility)
@@ -850,20 +1013,6 @@ Rails.application.routes.draw do
           patch :processed
           patch :failed
         end
-      end
-
-
-      # Billing endpoints for worker service
-      namespace :billing do
-        post :process_renewal
-        post :retry_payment
-        post :process_payment
-        post :generate_invoice
-        post :suspend_subscription
-        post :cancel_subscription
-        post :cleanup
-        post :health_report
-        post :reactivate_suspended_accounts
       end
 
       # Jobs endpoint for worker service communication
@@ -893,97 +1042,14 @@ Rails.application.routes.draw do
       patch "reports/requests/:id", to: "reports#update_request"
       delete "reports/requests/:id", to: "reports#cancel_request"
       get "reports/requests/:id/download", to: "reports#download_request"
+      delete "reports/scheduled/:id", to: "reports#destroy_scheduled"
 
       # Pages management
       resources :pages, only: [ :index, :show ], param: :slug
 
-      # Impersonation endpoints (admin only)
-      resources :impersonations, only: [ :index, :create, :destroy ] do
-        collection do
-          delete "/", to: "impersonations#destroy"
-          get :history
-          get :users, to: "impersonations#impersonatable_users"
-          post :validate, to: "impersonations#validate_token"
-          post :cleanup_expired, to: "impersonations#cleanup_expired"
-        end
-      end
+      # Impersonation routes are in enterprise/server/config/routes.rb
 
-      # Public marketplace endpoints (no authentication required)
-      resources :marketplace_listings, only: [ :index, :show ] do
-        collection do
-          get :categories
-        end
-      end
-
-      # Marketplace endpoints (apps, plugins, templates, integrations)
-      namespace :marketplace do
-        # Browse and discover
-        get "/", to: "items#index"
-        get "featured", to: "items#featured"
-        get "categories", to: "items#categories"
-
-        # Subscriptions
-        resources :subscriptions, only: [ :index, :show, :create, :update, :destroy ] do
-          member do
-            post :pause
-            post :resume
-            patch :configure
-            post :upgrade_tier
-            get :usage
-          end
-        end
-
-        # Reviews
-        resources :reviews, only: [ :index, :show, :create, :update, :destroy ] do
-          member do
-            post :helpful
-            post :approve
-            post :reject
-            post :flag
-          end
-        end
-
-        # Item details and actions
-        get ":type/:id", to: "items#show"
-        post ":type/:id/subscribe", to: "items#subscribe"
-        delete ":type/:id/unsubscribe", to: "items#unsubscribe"
-
-        # Feature template management
-        scope :templates do
-          # Create templates from existing features
-          post "from_workflow/:id", to: "templates#create_from_workflow"
-          post "from_pipeline/:id", to: "templates#create_from_pipeline"
-          post "from_integration/:id", to: "templates#create_from_integration"
-          post "from_prompt/:id", to: "templates#create_from_prompt"
-
-          # User's published templates
-          get "my_published", to: "templates#my_published"
-
-          # Admin: Pending review
-          get "pending_review", to: "templates#pending_review"
-
-          # Template actions
-          post ":type/:id/submit", to: "templates#submit"
-          post ":type/:id/withdraw", to: "templates#withdraw"
-          post ":type/:id/approve", to: "templates#approve"
-          post ":type/:id/reject", to: "templates#reject"
-          post ":type/:id/create_instance", to: "templates#create_instance"
-        end
-      end
-
-      # Marketplace Categories (admin management)
-      resources :marketplace_categories do
-        member do
-          post :activate
-          post :deactivate
-          post :reorder
-        end
-
-        collection do
-          get :analytics
-          post :bulk_reorder
-        end
-      end
+      # Marketplace routes are in enterprise/server/config/routes.rb
 
       # System Management endpoints (admin only)
       resources :audit_logs, only: [ :index, :show, :create ] do
@@ -1067,7 +1133,7 @@ Rails.application.routes.draw do
           post :discover_tools
 
           # OAuth endpoints for MCP server authentication
-          namespace :oauth do
+          scope :oauth, as: :oauth do
             post "/", to: "mcp_oauth#authorize", as: :authorize
             get :status, to: "mcp_oauth#status"
             delete :disconnect, to: "mcp_oauth#disconnect"
@@ -1181,10 +1247,13 @@ Rails.application.routes.draw do
 
         # Credential actions with credential_id param
         scope "providers/:id/credentials/:credential_id" do
+          patch "/", to: "providers#update_credential"
           delete "/", to: "providers#destroy_credential"
           post :test, to: "providers#test_credential"
           post :make_default, to: "providers#make_default"
-          post :sync_repositories, to: "providers#sync_repositories"
+          get :available_repositories, to: "providers#available_repositories"
+          post :import_repositories, to: "providers#import_repositories"
+          post :sync_repositories, to: "providers#sync_repositories"  # deprecated, use import_repositories
         end
 
         # Repositories
@@ -1195,6 +1264,7 @@ Rails.application.routes.draw do
 
           member do
             post :configure_webhook
+            patch :update_webhook_config
             delete :remove_webhook
             get :branches
             get :commits
@@ -1243,6 +1313,20 @@ Rails.application.routes.draw do
 
           member do
             post :retry
+            post :redeliver
+          end
+        end
+
+        # Account-level Git Webhooks (organization-wide webhook configs)
+        resources :account_webhooks, controller: "account_webhooks" do
+          collection do
+            get :available_events
+          end
+
+          member do
+            post :test
+            post :toggle_status
+            post :regenerate_secret
           end
         end
 
@@ -1295,6 +1379,28 @@ Rails.application.routes.draw do
       # ===================================================================
 
       namespace :ai do
+
+        # ===================================================================
+        # DISCOVERY - Agent auto-discovery and scanning
+        # ===================================================================
+        scope :discovery, controller: "discovery" do
+          get "/", action: :index
+          get "/:id", action: :show
+          post "/scan", action: :scan
+          post "/recommend", action: :recommend
+        end
+
+        # ===================================================================
+        # MEMORY POOLS - Scoped memory management
+        # ===================================================================
+        resources :memory_pools do
+          member do
+            get "data/*key", action: :read_data
+            post :write_data
+            post :query
+          end
+        end
+
         # ===================================================================
         # 1. WORKFLOWS CONTROLLER - Consolidated workflow management
         # ===================================================================
@@ -1314,15 +1420,16 @@ Rails.application.routes.draw do
             post :duplicate
             get :validate
             get :export
-            post :convert_to_template
-            post :convert_to_workflow
-            post :create_from_template
+            # Template conversions → WorkflowTemplatesController
+            post :convert_to_template, to: "workflow_templates#convert_to_template"
+            post :convert_to_workflow, to: "workflow_templates#convert_to_workflow"
+            post :create_from_template, to: "workflow_templates#create_from_template"
           end
 
           collection do
             post :import
             get :statistics
-            get :templates
+            get :templates, to: "workflow_templates#templates"
           end
 
           # Nested runs (replaces workflow_runs, workflow_executions, workflow_node_executions)
@@ -1404,11 +1511,6 @@ Rails.application.routes.draw do
             end
           end
 
-          # Workflow-specific actions
-          member do
-            post :dry_run, action: :workflows_dry_run
-            get "dry_run/validate", action: :workflows_dry_run_validate
-          end
         end
 
         # ===================================================================
@@ -1439,6 +1541,11 @@ Rails.application.routes.draw do
             post :archive
             get :stats
             get :analytics
+            get :connections
+            get :skills
+            post :assign_skill
+            delete "skills/:skill_id", action: :remove_skill
+            get ".well-known/agent.json", to: "a2a#agent_card", as: :agent_card
           end
 
           collection do
@@ -1468,12 +1575,12 @@ Rails.application.routes.draw do
               post :complete
               post :archive
               get :messages
+              post :clear_messages
               get :export
             end
 
             collection do
               get :active
-              post :start_conversation
             end
 
             # Nested messages
@@ -1482,18 +1589,21 @@ Rails.application.routes.draw do
                 patch :edit_content
                 post :regenerate
                 post :rate
+                delete :destroy, action: :destroy_message
+                post :restore, action: :restore_message
+                get :thread, action: :message_thread
+                post :reply, action: :reply_to_message
+                get :edit_history
               end
             end
           end
         end
 
         # ===================================================================
-        # 3. PROVIDERS CONTROLLER - Consolidated provider management
+        # 3. PROVIDERS - Split into providers, credentials, sync controllers
         # ===================================================================
         resources :providers do
           member do
-            post :test_connection
-            post :sync_models
             get :models
             get :usage_summary
             get :check_availability
@@ -1502,33 +1612,71 @@ Rails.application.routes.draw do
           collection do
             get :available
             get :statistics
-            post :setup_defaults
-            post :test_all
           end
 
-          # Nested credentials (replaces ai_provider_credentials)
-          resources :credentials, controller: "providers" do
-            collection do
-              post :test_all
-            end
-
+          # Nested credentials → ProviderCredentialsController
+          resources :credentials, controller: "provider_credentials" do
             member do
-              post :test, action: :credential_test
-              post :make_default, action: :credential_make_default
-              post :rotate, action: :credential_rotate
+              post :test
+              post :make_default
+              post :rotate
             end
           end
+        end
+
+        # Flat credential decrypt route for worker access (not nested under provider)
+        post "credentials/:id/decrypt", to: "provider_credentials#decrypt", as: :decrypt_ai_credential
+
+        # Provider sync operations → ProviderSyncController
+        scope :providers, controller: "provider_sync" do
+          post ":id/test_connection", action: :test_connection, as: :test_connection_provider
+          post ":id/sync_models", action: :sync_models, as: :sync_models_provider
+          post "setup_defaults", action: :setup_defaults, as: :setup_defaults_providers
+          post "test_all", action: :test_all, as: :test_all_providers
+          post "sync_all", action: :sync_all, as: :sync_all_providers
         end
 
         # ===================================================================
         # 4. GLOBAL CONVERSATIONS CONTROLLER - Cross-agent conversation management
         # ===================================================================
         resources :conversations, only: [ :index, :show, :update, :destroy ] do
+          collection do
+            get :search
+            patch :bulk
+            post :team, action: :create_team
+            post :concierge, action: :create_concierge
+          end
           member do
             post :archive
             post :unarchive
             post :duplicate
+            post :pin
+            delete :unpin
             get :stats
+            post :plan_response
+            post :confirm_action
+            post :worker_complete
+            post :worker_stream_chunk
+            post :worker_error
+
+            # Scheduled messages nested under conversation
+            get "scheduled_messages", action: :scheduled_messages_index
+            post "scheduled_messages", action: :scheduled_messages_create
+            patch "scheduled_messages/:id", action: :scheduled_messages_update, as: :scheduled_message_update
+            delete "scheduled_messages/:id", action: :scheduled_messages_destroy, as: :scheduled_message_destroy
+          end
+        end
+
+        # ===================================================================
+        # WORKSPACES - Multi-agent collaborative conversations
+        # ===================================================================
+        resources :workspaces, only: [:index, :create, :show] do
+          collection do
+            get :active_sessions
+          end
+          member do
+            post :invite
+            delete "members/:agent_id", action: :remove_member, as: :remove_member
           end
         end
 
@@ -1563,8 +1711,23 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
+        # 5.5 EXECUTION TRACES - Debugging & tracing
+        # ===================================================================
+        resources :execution_traces, only: [ :index, :show ] do
+          member do
+            get :spans
+            get :timeline
+          end
+
+          collection do
+            get :summary
+          end
+        end
+
+        # ===================================================================
         # 6. ANALYTICS CONTROLLER - Consolidated analytics & reporting
         # ===================================================================
+        # Analytics dashboard → AnalyticsController
         resource :analytics, only: [] do
           get :dashboard
           get :overview
@@ -1584,28 +1747,16 @@ Rails.application.routes.draw do
           # Workflow/Agent specific analytics
           get "workflows/:workflow_id", action: :workflow_analytics
           get "agents/:agent_id", action: :agent_analytics
+        end
 
-          # Reports system (custom actions)
-          get :reports, action: :reports_index
-          post :reports, action: :report_create
-          get "reports/templates", action: :report_templates
-          get "reports/:id", action: :report_show
-          delete "reports/:id", action: :report_cancel
-          get "reports/:id/download", action: :report_download
-
-          # Reports (replaces reports_controller) - DEPRECATED nested resource
-          resources :reports, controller: "analytics" do
-            member do
-              post :generate
-              post :schedule
-              post :share
-              get :download
-            end
-
-            collection do
-              get :types
-            end
-          end
+        # Analytics reports → AnalyticsReportsController
+        scope "analytics/reports", controller: "analytics_reports" do
+          get "/", action: :reports_index
+          post "/", action: :report_create
+          get "templates", action: :report_templates
+          get "/:id", action: :report_show
+          delete "/:id", action: :report_cancel
+          get "/:id/download", action: :report_download
         end
 
         # ===================================================================
@@ -1616,48 +1767,9 @@ Rails.application.routes.draw do
           get :health_distribution
         end
 
-        # ===================================================================
-        # 8. MARKETPLACE CONTROLLER - Consolidated marketplace & templates
-        # ===================================================================
-        # Marketplace Templates - No namespace to match controller location at Api::V1::Ai::MarketplaceController
-        # Note: Using standard RESTful action names (index, show, create, update, destroy)
-        get "marketplace/templates", controller: "marketplace", action: :index, as: :templates_index
-        get "marketplace/templates/:id", controller: "marketplace", action: :show, as: :template_show
-        post "marketplace/templates", controller: "marketplace", action: :create, as: :templates_create
-        patch "marketplace/templates/:id", controller: "marketplace", action: :update, as: :template_update
-        put "marketplace/templates/:id", controller: "marketplace", action: :update
-        delete "marketplace/templates/:id", controller: "marketplace", action: :destroy, as: :template_destroy
+        # Marketplace routes (8) are in enterprise/server/config/routes.rb
 
-        # Template member actions
-        post "marketplace/templates/:id/install", controller: "marketplace", action: :install, as: :install_template
-        post "marketplace/templates/:id/publish", controller: "marketplace", action: :publish, as: :publish_template
-        get "marketplace/templates/:id/validate", controller: "marketplace", action: :validate_template, as: :validate_template
-        post "marketplace/templates/:id/rate", controller: "marketplace", action: :rate, as: :rate_template
-        get "marketplace/templates/:id/analytics", controller: "marketplace", action: :template_analytics, as: :template_analytics
-
-        # Template collection actions
-        post "marketplace/templates/from_workflow", controller: "marketplace", action: :create_from_workflow, as: :create_from_workflow
-        post "marketplace/templates/publish_workflow", controller: "marketplace", action: :publish_workflow, as: :publish_workflow_template
-        get "marketplace/templates/featured", controller: "marketplace", action: :featured, as: :featured_templates
-        get "marketplace/templates/popular", controller: "marketplace", action: :popular, as: :popular_templates
-        get "marketplace/templates/categories", controller: "marketplace", action: :categories, as: :template_categories
-        get "marketplace/templates/tags", controller: "marketplace", action: :tags, as: :template_tags
-        get "marketplace/templates/statistics", controller: "marketplace", action: :statistics, as: :template_statistics
-
-        # Marketplace general actions
-        get "marketplace/discover", controller: "marketplace", action: :discover
-        post "marketplace/search", controller: "marketplace", action: :search
-        get "marketplace/recommendations", controller: "marketplace", action: :recommendations
-        post "marketplace/compare", controller: "marketplace", action: :compare
-
-        # Installations - Note: Controller uses custom action names (installations_index, installation_show, etc.)
-        get "marketplace/installations", controller: "marketplace", action: :installations_index, as: :installations_index
-        get "marketplace/installations/:id", controller: "marketplace", action: :installation_show, as: :installation_show
-        delete "marketplace/installations/:id", controller: "marketplace", action: :installation_destroy, as: :installation_destroy
-
-        # Updates
-        get "marketplace/updates", controller: "marketplace", action: :check_updates
-        post "marketplace/updates/apply", controller: "marketplace", action: :apply_updates
+        # Publisher routes are in enterprise/server/config/routes.rb
 
         # ===================================================================
         # 9. PERSISTENT CONTEXT CONTROLLER - Cross-session AI memory
@@ -1672,11 +1784,11 @@ Rails.application.routes.draw do
             post :unarchive
             get :export
             post :clone
+            get :stats
           end
 
           collection do
             post :import
-            get :stats
           end
 
           # Nested entries
@@ -1702,27 +1814,250 @@ Rails.application.routes.draw do
           post "memory/search", to: "agent_memory#search"
           post "memory/clear", to: "agent_memory#clear"
           post "memory/sync", to: "agent_memory#sync"
+
           get "memory/:key", to: "agent_memory#show"
           patch "memory/:key", to: "agent_memory#update"
           delete "memory/:key", to: "agent_memory#destroy"
         end
 
         # ===================================================================
-        # 10. AGENT TEAMS CONTROLLER - CrewAI-style team orchestration
+        # 10. RAG CONTROLLER - Knowledge-Augmented Agents
+        # ===================================================================
+        # Revenue: Storage fees + query pricing + embedding fees
+        # - Storage: $0.10-0.25/GB/month
+        # - Embeddings: $0.0001-0.0004/1K tokens
+        # - Queries: $0.001-0.01/query based on complexity
+        # ===================================================================
+        scope :rag, controller: "rag" do
+          # Knowledge bases
+          get "knowledge_bases", action: :index
+          get "knowledge_bases/:id", action: :show_knowledge_base
+          post "knowledge_bases", action: :create_knowledge_base
+          patch "knowledge_bases/:id", action: :update_knowledge_base
+          delete "knowledge_bases/:id", action: :delete_knowledge_base
+
+          # Documents
+          get "knowledge_bases/:knowledge_base_id/documents", action: :list_documents
+          post "knowledge_bases/:knowledge_base_id/documents", action: :create_document
+          get "knowledge_bases/:knowledge_base_id/documents/:id", action: :show_document
+          delete "knowledge_bases/:knowledge_base_id/documents/:id", action: :delete_document
+          post "knowledge_bases/:knowledge_base_id/documents/:id/process", action: :process_document
+
+          # Embeddings
+          post "knowledge_bases/:knowledge_base_id/embed", action: :embed_chunks
+
+          # Queries
+          post "knowledge_bases/:knowledge_base_id/query", action: :query
+          get "knowledge_bases/:knowledge_base_id/query_history", action: :query_history
+
+          # Data connectors
+          get "knowledge_bases/:knowledge_base_id/connectors", action: :list_connectors
+          post "knowledge_bases/:knowledge_base_id/connectors", action: :create_connector
+          post "knowledge_bases/:knowledge_base_id/connectors/:id/sync", action: :sync_connector
+
+          # Analytics
+          get "knowledge_bases/:knowledge_base_id/analytics", action: :analytics
+        end
+
+        # ===================================================================
+        # 10.5. KNOWLEDGE GRAPH - Knowledge Graphs + Hybrid RAG
+        # ===================================================================
+        scope :knowledge_graph, controller: "knowledge_graph" do
+          # Nodes CRUD
+          get "nodes", action: :nodes
+          get "nodes/:id", action: :show_node
+          post "nodes", action: :create_node
+          patch "nodes/:id", action: :update_node
+          delete "nodes/:id", action: :destroy_node
+
+          # Node traversal
+          get "nodes/:id/neighbors", action: :neighbors
+
+          # Edges CRUD
+          get "edges", action: :edges
+          post "edges", action: :create_edge
+          delete "edges/:id", action: :destroy_edge
+
+          # Graph operations
+          get "shortest_path", action: :shortest_path
+          post "subgraph", action: :subgraph
+          post "extract", action: :extract
+          get "statistics", action: :statistics
+          post "reason", action: :multi_hop_reason
+          post "search", action: :hybrid_search
+        end
+
+        # ===================================================================
+        # 10.6. SKILL GRAPH - Skill ↔ Knowledge Graph Integration
+        # ===================================================================
+        scope :skill_graph, controller: "skill_graph" do
+          get "subgraph", action: :subgraph
+          post "sync", action: :sync
+          post "discover", action: :discover
+          post "edges", action: :create_edge
+          patch "edges/:id", action: :update_edge
+          delete "edges/:id", action: :destroy_edge
+          post "auto_detect", action: :auto_detect
+          get "team_coverage/:team_id", action: :team_coverage
+          post "team_gaps/:team_id", action: :team_gaps
+          post "suggest_agents/:team_id", action: :suggest_agents
+          post "compose_team", action: :compose_team
+          get "agent_context/:agent_id", action: :agent_context
+
+          # Lifecycle - proposals
+          post "research", action: :research
+          get "proposals", action: :list_proposals
+          post "proposals", action: :create_proposal
+          get "proposals/:id", action: :show_proposal
+          post "proposals/:id/submit", action: :submit_proposal
+          post "proposals/:id/approve", action: :approve_proposal
+          post "proposals/:id/reject", action: :reject_proposal
+          post "proposals/:id/create_skill", action: :create_skill_from_proposal
+
+          # Conflicts & Health
+          get "conflicts", action: :conflicts
+          post "conflicts/:id/resolve", action: :resolve_conflict
+          post "conflicts/:id/dismiss", action: :dismiss_conflict
+          post "scan", action: :scan_conflicts
+          get "health", action: :health_score
+
+          # Evolution
+          get "skills/:skill_id/metrics", action: :skill_metrics
+          get "skills/:skill_id/versions", action: :version_history
+          post "skills/:skill_id/evolve", action: :propose_evolution
+          post "versions/:id/activate", action: :activate_version
+          post "skills/:skill_id/ab_test", action: :start_ab_test
+          post "skills/:skill_id/end_ab_test", action: :end_ab_test
+          post "record_outcome", action: :record_outcome
+
+          # Optimization & Maintenance
+          post "optimize", action: :run_optimization
+          post "maintenance/daily", action: :maintenance_daily
+          post "maintenance/weekly", action: :maintenance_weekly
+          post "maintenance/monthly", action: :maintenance_monthly
+          # Event-driven single-skill conflict check (called by worker jobs)
+          post "conflict_check", action: :conflict_check
+        end
+
+        # ===================================================================
+        # 11. TEAMS CONTROLLER - Multi-Agent Team Orchestration
+        # ===================================================================
+        # Revenue: Tiered subscriptions + agent seat pricing
+        # - Starter: 3 agents, 1 team ($49/mo)
+        # - Pro: 10 agents, 5 teams, advanced patterns ($199/mo)
+        # - Enterprise: Unlimited + custom topologies ($999/mo)
+        # ===================================================================
+        # Team channel messages (chat integration)
+        get "/channels", to: "team_channel_messages#my_channels"
+        scope "teams/:team_id/channels/:channel_id", controller: "team_channel_messages" do
+          get "/messages", action: :messages
+          post "/messages", action: :send_message
+          post "/link", action: :link_chat_channel
+          delete "/unlink", action: :unlink_chat_channel
+        end
+
+        scope :teams do
+          # Templates, Role Profiles, Trajectories, Reviews → TeamTemplatesReviewsController
+          scope controller: "team_templates_reviews" do
+            get "/templates", action: :list_templates
+            get "/templates/:id", action: :show_template
+            post "/templates", action: :create_template
+            post "/templates/:id/publish", action: :publish_template
+            get "/role_profiles", action: :list_role_profiles
+            get "/role_profiles/:id", action: :show_role_profile
+            get "/trajectories", action: :list_trajectories
+            get "/trajectories/search", action: :search_trajectories
+            get "/trajectories/:id", action: :show_trajectory
+            get "/reviews/:id", action: :show_review
+            post "/reviews/:id/process", action: :process_review
+            get "/reviews/:review_id/comments", action: :list_review_comments
+            post "/reviews/:review_id/comments", action: :create_review_comment
+            patch "/reviews/:review_id/comments/:comment_id", action: :update_review_comment
+          end
+
+          # Executions, Tasks, Messages → TeamExecutionController
+          scope controller: "team_execution" do
+            get "/:team_id/executions", action: :list_executions
+            post "/:team_id/executions", action: :start_execution
+            get "/executions/:id", action: :show_execution
+            post "/executions/:id/pause", action: :pause_execution
+            post "/executions/:id/resume", action: :resume_execution
+            post "/executions/:id/cancel", action: :cancel_execution
+            post "/executions/:id/complete", action: :complete_execution
+            get "/executions/:id/details", action: :execution_details
+            get "/executions/:execution_id/tasks", action: :list_tasks
+            post "/executions/:execution_id/tasks", action: :create_task
+            get "/executions/:execution_id/tasks/:id", action: :show_task
+            post "/executions/:execution_id/tasks/:id/assign", action: :assign_task
+            post "/executions/:execution_id/tasks/:id/start", action: :start_task
+            post "/executions/:execution_id/tasks/:id/complete", action: :complete_task
+            post "/executions/:execution_id/tasks/:id/fail", action: :fail_task
+            post "/executions/:execution_id/tasks/:id/delegate", action: :delegate_task
+            get "/executions/:execution_id/tasks/:task_id/reviews", action: :list_task_reviews
+            get "/executions/:execution_id/messages", action: :list_messages
+            post "/executions/:execution_id/messages", action: :send_message
+            post "/executions/:execution_id/messages/:id/reply", action: :reply_to_message
+          end
+
+          # Teams CRUD, Analytics, Health → TeamsController
+          scope controller: "teams" do
+            get "/", action: :index
+            get "/:id", action: :show
+            post "/", action: :create
+            patch "/:id", action: :update
+            delete "/:id", action: :destroy
+            get "/:team_id/analytics", action: :analytics
+            get "/:team_id/composition_health", action: :composition_health
+            put "/:team_id/review_config", action: :update_review_config
+          end
+
+          # Roles, Channels, Cleanup → TeamRolesChannelsController
+          scope controller: "team_roles_channels" do
+            post "/cleanup_messages", action: :cleanup_messages
+            get "/:team_id/roles", action: :list_roles
+            post "/:team_id/roles", action: :create_role
+            patch "/:team_id/roles/:id", action: :update_role
+            delete "/:team_id/roles/:id", action: :delete_role
+            post "/:team_id/roles/:id/assign_agent", action: :assign_agent_to_role
+            post "/:team_id/roles/:id/apply_profile", action: :apply_role_profile
+            get "/:team_id/channels", action: :list_channels
+            post "/:team_id/channels", action: :create_channel
+            get "/:team_id/channels/:id", action: :show_channel
+            patch "/:team_id/channels/:id", action: :update_channel
+            delete "/:team_id/channels/:id", action: :delete_channel
+          end
+        end
+
+        # ===================================================================
+        # 12. AGENT TEAMS CONTROLLER - CrewAI-style team orchestration (Legacy)
         # ===================================================================
         resources :agent_teams do
           member do
             post :execute
-            post :execute_complete      # Internal - called by worker
-            post :execute_failed        # Internal - called by worker
+            post :auto_assign_lead
+            post :optimize
+            get :autonomy_config
+            put :autonomy_config, action: :update_autonomy_config
+            post :bind_infrastructure
 
             # Team members management
             post "members", to: "agent_teams#add_member"
             delete "members/:member_id", to: "agent_teams#remove_member"
           end
 
+          # Team execution history and controls
+          resources :executions, only: [:index, :show], controller: "agent_team_executions" do
+            member do
+              post :cancel
+              post :pause
+              post :resume
+              post :retry, action: :retry_execution
+            end
+          end
+
           collection do
             get :statistics
+            get :templates
           end
         end
 
@@ -1733,6 +2068,774 @@ Rails.application.routes.draw do
           member do
             post :preview
             post :duplicate
+          end
+        end
+
+        # ===================================================================
+        # A2A PROTOCOL - Agent-to-Agent Communication
+        # ===================================================================
+        # Agent Cards for A2A discovery
+        resources :agent_cards do
+          member do
+            get :a2a  # Get A2A-compliant JSON
+            post :publish
+            post :deprecate
+            post :refresh_metrics
+          end
+
+          collection do
+            get :discover
+            post :find_for_task
+          end
+        end
+
+        # A2A Protocol - Unified scope (merged from two separate blocks)
+        scope :a2a do
+          # REST task operations → A2aTasksController
+          resources :tasks, controller: "a2a_tasks", param: :task_id, as: :a2a_tasks do
+            member do
+              get :details
+              post :cancel
+              post :input, action: :provide_input
+              get :events
+              get "events/poll", action: :events_poll
+              get :artifacts
+              get "artifacts/:artifact_id", action: :artifact
+              post :push_notifications, action: :configure_push_notifications
+            end
+          end
+
+          # Discovery and JSON-RPC → A2aController
+          post :discover, to: "a2a#discover"
+          post :jsonrpc, to: "a2a#jsonrpc"
+          get "task/:id", to: "a2a#show_task", as: :a2a_show_task
+          post "task/:id/cancel", to: "a2a#cancel_task", as: :a2a_cancel_task
+        end
+
+        # ===================================================================
+        # MISSION TEMPLATES - Reusable mission phase definitions
+        # ===================================================================
+        resources :mission_templates, controller: "mission_templates", only: [:index, :show, :create, :update, :destroy]
+
+        # ===================================================================
+        # MISSIONS - AI-Assisted Development Hub
+        # ===================================================================
+        scope :missions, controller: "missions" do
+          get "/", action: :index
+          post "/", action: :create
+          post "analyze_repo", action: :analyze_repo
+          get ":id", action: :show
+          patch ":id", action: :update
+          delete ":id", action: :destroy
+          post ":id/start", action: :start
+          post ":id/approve", action: :approve
+          post ":id/reject", action: :reject
+          post ":id/pause", action: :pause
+          post ":id/resume", action: :resume
+          post ":id/cancel", action: :cancel
+          post ":id/retry", action: :retry_phase
+          post ":id/deploy_callback", action: :deploy_callback
+
+          # Worker-called phase endpoints
+          post ":id/advance", action: :advance
+          post ":id/create_branch", action: :create_branch
+          post ":id/generate_prd", action: :generate_prd
+          post ":id/run_tests", action: :run_tests
+          get  ":id/test_status", action: :test_status
+          post ":id/deploy", action: :deploy
+          post ":id/create_pr", action: :create_pr
+          post ":id/cleanup_deployment", action: :cleanup_deployment
+          get  ":id/task_graph", action: :task_graph
+          post ":id/save_as_template", action: :save_as_template
+          post ":id/compose_plan", action: :compose_plan
+        end
+
+        # ===================================================================
+        # CODE FACTORY - Risk contracts, preflight gates, SHA discipline
+        # ===================================================================
+        scope :code_factory, controller: "code_factory" do
+          get "contracts", action: :index
+          post "contracts", action: :create
+          get "contracts/:id", action: :show
+          put "contracts/:id", action: :update
+          post "contracts/:id/activate", action: :activate
+          post "preflight", action: :preflight
+          get "review_states", action: :review_states
+          get "review_states/:id", action: :review_state_show
+          post "review_states/:id/remediate", action: :remediate
+          post "review_states/:id/resolve_threads", action: :resolve_threads
+          post "evidence", action: :submit_evidence
+          get "evidence/:id", action: :show_evidence
+          get "harness_gaps", action: :harness_gaps
+          post "harness_gaps", action: :create_harness_gap
+          put "harness_gaps/:id/add_case", action: :add_test_case
+          put "harness_gaps/:id/close", action: :close_harness_gap
+          post "webhook", action: :webhook
+        end
+
+        # ACP Protocol - Agent Communication Protocol (Cisco standard)
+        # REST-based agent-centric protocol alongside A2A
+        scope :acp, as: :acp_protocol do
+          get "/", to: "acp#info", as: :info
+          get :agents, to: "acp#list_agents"
+          get "agents/:id", to: "acp#show_agent", as: :show_agent
+          post "agents/:id/negotiate", to: "acp#negotiate", as: :negotiate
+          post "agents/:id/messages", to: "acp#send_message", as: :send_message
+          get "agents/:id/events", to: "acp#events", as: :events
+          get "messages/:id", to: "acp#show_message", as: :show_message
+          post "messages/:id/cancel", to: "acp#cancel_message", as: :cancel_message
+        end
+
+        # Agent Memory Enhancement - inject route consolidated into main memory scope below
+
+        # ===================================================================
+        # RALPH LOOPS - AI-Driven Iterative Development
+        # ===================================================================
+        # Implements the Ralph pattern for AI-assisted development:
+        # Parse PRD -> Execute Tasks -> Learn -> Iterate until completion
+        # Supports multiple AI tools (AMP, Claude Code)
+        # ===================================================================
+        resources :ralph_loops do
+          member do
+            post :start
+            post :pause
+            post :resume
+            post :cancel
+            post :reset
+            get :learnings
+            get :progress
+            # Nested tasks (inside member to use :id param)
+            get :tasks
+            get "tasks/:task_id", action: :task, as: :task
+            patch "tasks/:task_id", action: :update_task, as: :update_task
+            # Nested iterations (inside member to use :id param)
+            get :iterations
+            get "iterations/:iteration_id", action: :iteration, as: :iteration
+          end
+
+          collection do
+            get :statistics
+          end
+        end
+
+        # Ralph Loops scheduling → RalphLoopsSchedulingController
+        scope "ralph_loops/:id", controller: "ralph_loops_scheduling" do
+          post "run_iteration", action: :run_iteration
+          post "run_all", action: :run_all
+          post "stop_run_all", action: :stop_run_all
+          post "pause_schedule", action: :pause_schedule
+          post "resume_schedule", action: :resume_schedule
+          post "regenerate_webhook_token", action: :regenerate_webhook_token
+          post "parse_prd", action: :parse_prd
+        end
+
+        # Event-triggered Ralph Loop webhook endpoint
+        # POST /api/v1/ai/ralph_loops/webhook/:token - Trigger loop execution
+        # GET /api/v1/ai/ralph_loops/webhook/:token/status - Get loop status
+        scope "ralph_loops/webhook/:token", controller: "ralph_loop_webhooks" do
+          post "/", action: :trigger
+          get "/status", action: :status
+        end
+
+        # ===================================================================
+        # API REFERENCE - Filterable API specification for agents
+        # ===================================================================
+        scope :api_reference, controller: "api_reference" do
+          get "/", action: :index
+          get "/search", action: :search
+          get "/:section", action: :show
+        end
+
+        # ===================================================================
+        # EXECUTION RESOURCES - Unified resource browsing
+        # ===================================================================
+        scope :execution_resources, controller: "execution_resources" do
+          get "/", action: :index
+          get "/counts", action: :counts
+          get "/:resource_type/:id", action: :show
+        end
+
+        # ===================================================================
+        # WORKTREE SESSIONS - Parallel execution with git worktrees
+        # ===================================================================
+        resources :worktree_sessions, only: [:index, :show, :create] do
+          member do
+            post :cancel
+            get :status
+            get :merge_operations
+            post :retry_merge
+            get :conflicts
+            get :file_locks
+            post :acquire_locks
+            post :release_locks
+          end
+        end
+
+        # ===================================================================
+        # COMMUNITY AGENTS - Public agent registry and discovery
+        # ===================================================================
+        # Enables publishing, discovering, and rating AI agents across
+        # organizations. Federation support for cross-org agent sharing.
+        # ===================================================================
+        scope :community, as: :community do
+          resources :agents, controller: "community_agents" do
+            member do
+              post :publish
+              post :unpublish
+              post :rate
+              post :report
+            end
+
+            collection do
+              get :my_agents
+              get :categories
+              get :skills
+              post :discover
+            end
+          end
+        end
+
+        # ===================================================================
+        # FEDERATION - Cross-organization agent sharing
+        # ===================================================================
+        # Enables trusted organizations to share agents via mTLS and
+        # JWT-based authentication. Federation partners can discover
+        # and invoke each other's agents.
+        # ===================================================================
+        scope :federation, as: :federation do
+          resources :partners, controller: "federation" do
+            member do
+              post :verify
+              get :agents
+              post :sync
+            end
+          end
+
+          # External registration endpoints
+          post :register, to: "federation#register_external"
+          post :verify_key, to: "federation#verify_key"
+          get :discover, to: "federation#discover"
+        end
+
+        # ===================================================================
+        # 12. MODEL ROUTER CONTROLLER - Intelligent AI Request Routing
+        # ===================================================================
+        # Routes AI requests to optimal providers based on cost, latency, quality
+        # Revenue: Usage-based + optimization savings share
+        # ===================================================================
+        scope :model_router do
+          # Rules & decisions → ModelRouterController
+          scope controller: "model_router" do
+            get "rules", action: :rules_index
+            post "rules", action: :create_rule
+            get "rules/:id", action: :show_rule
+            patch "rules/:id", action: :update_rule
+            delete "rules/:id", action: :destroy_rule
+            post "rules/:id/toggle", action: :toggle_rule
+            get "decisions", action: :decisions
+            get "decisions/:id", action: :show_decision
+          end
+
+          # Analytics & optimizations → ModelRouterAnalyticsController
+          scope controller: "model_router_analytics" do
+            post "route", action: :route
+            get "statistics", action: :statistics
+            get "cost_analysis", action: :cost_analysis
+            get "provider_rankings", action: :provider_rankings
+            get "recommendations", action: :recommendations
+            get "optimizations", action: :optimizations_index
+            post "optimizations/identify", action: :identify_optimizations
+            post "optimizations/:id/apply", action: :apply_optimization
+          end
+        end
+
+        # ===================================================================
+        # 13. AIOPS CONTROLLER - Real-Time AI Operations Dashboard
+        # ===================================================================
+        # Comprehensive observability for AI workflows: latency, costs, errors
+        # Revenue: Monitoring tiers + alerting add-ons
+        # ===================================================================
+        scope :aiops, controller: "ai_ops" do
+          # Dashboard and health
+          get "dashboard", action: :dashboard
+          get "health", action: :health
+          get "overview", action: :overview
+
+          # Provider metrics
+          get "providers", action: :providers
+          get "providers/:id/metrics", action: :provider_metrics
+          get "providers/comparison", action: :provider_comparison
+
+          # Workflow and agent metrics
+          get "workflows", action: :workflows
+          get "agents", action: :agents
+
+          # Cost analysis
+          get "cost_analysis", action: :cost_analysis
+
+          # Alerts and circuit breakers
+          get "alerts", action: :alerts
+          get "circuit_breakers", action: :circuit_breakers
+
+          # Real-time metrics
+          get "real_time", action: :real_time
+          post "record_metrics", action: :record_metrics
+        end
+
+        # ===================================================================
+        # 14. ROI CONTROLLER - Workflow Revenue Analytics & ROI Tracking
+        # ===================================================================
+        # Tracks business value and ROI of AI workflows with cost attribution
+        # Revenue: Premium analytics tiers
+        # ===================================================================
+        scope :roi, controller: "roi" do
+          # Dashboard and summary
+          get "dashboard", action: :dashboard
+          get "summary", action: :summary
+
+          # Trends and daily metrics
+          get "trends", action: :trends
+          get "daily_metrics", action: :daily_metrics
+
+          # Breakdown analysis
+          get "by_workflow", action: :by_workflow
+          get "by_agent", action: :by_agent
+          get "by_provider", action: :by_provider
+          get "cost_breakdown", action: :cost_breakdown
+
+          # Cost attributions
+          get "attributions", action: :attributions
+        end
+
+        scope "roi/calculations", controller: "roi_calculations" do
+          # ROI metrics
+          get "metrics", action: :metrics
+          get "metrics/:id", action: :show_metric
+
+          # Projections and recommendations
+          get "projections", action: :projections
+          get "recommendations", action: :recommendations
+
+          # Period comparison
+          get "compare", action: :compare
+
+          # Metric calculation (admin/system)
+          post "calculate", action: :calculate
+          post "aggregate", action: :aggregate
+        end
+
+        # ===================================================================
+        # 14b. FINOPS CONTROLLER - Smart Model Routing & Financial Operations
+        # ===================================================================
+        # Token analytics, waste analysis, forecasting, and optimization scoring
+        # ===================================================================
+        scope :finops, controller: "finops" do
+          get "/", action: :index
+          get "cost_breakdown", action: :cost_breakdown
+          get "trends", action: :trends
+          get "budget_utilization", action: :budget_utilization
+          get "token_analytics", action: :token_analytics
+          get "waste_analysis", action: :waste_analysis
+          get "forecast", action: :forecast
+          get "optimization_score", action: :optimization_score
+        end
+
+        # Credits and outcome billing routes are in enterprise/server/config/routes.rb
+
+        # Agent marketplace routes (17) are in enterprise/server/config/routes.rb
+
+        # Governance routes are in enterprise/server/config/routes.rb
+
+        # ===================================================================
+        # 19. DEVOPS CONTROLLER - AI Pipeline Templates for DevOps
+        # ===================================================================
+        # Revenue: Template marketplace + enterprise customization
+        # - Community templates: free
+        # - Premium templates: $29-99 one-time
+        # - Custom template development: $2,000-10,000
+        # - Enterprise template library: $199/mo
+        # ===================================================================
+        scope :devops do
+          # Templates & installations → DevopsController
+          scope controller: "devops" do
+            get "templates", action: :templates
+            get "templates/:id", action: :show_template
+            post "templates", action: :create_template
+            patch "templates/:id", action: :update_template
+            get "installations", action: :installations
+            post "templates/:template_id/install", action: :install
+            delete "installations/:id", action: :uninstall
+          end
+
+          # Executions & analytics → DevopsExecutionsController
+          scope controller: "devops_executions" do
+            get "executions", action: :executions
+            post "executions", action: :create_execution
+            get "executions/:id", action: :show_execution
+            get "analytics", action: :analytics
+          end
+
+          # Risks & code reviews → DevopsRiskReviewController
+          scope controller: "devops_risk_review" do
+            get "risks", action: :risks
+            post "risks/assess", action: :assess_risk
+            put "risks/:id/approve", action: :approve_risk
+            put "risks/:id/reject", action: :reject_risk
+            get "reviews", action: :reviews
+            post "reviews", action: :create_review
+            get "reviews/:id", action: :show_review
+          end
+        end
+
+        # ===================================================================
+        # 20. SANDBOXES CONTROLLER - Enterprise AI Agent Testing
+        # ===================================================================
+        # Revenue: Sandbox environments + testing infrastructure
+        # - Basic sandbox: included
+        # - Advanced testing: $99/mo (recording, playback)
+        # - Performance profiling: $199/mo
+        # - Enterprise (dedicated environments): $499/mo
+        # ===================================================================
+        resources :sandboxes, controller: "sandboxes" do
+          member do
+            put :activate
+            put :deactivate
+            get :analytics
+          end
+
+          # Scenarios & mocks → SandboxScenariosController
+          get "scenarios", to: "sandbox_scenarios#scenarios"
+          post "scenarios", to: "sandbox_scenarios#create_scenario"
+          get "mocks", to: "sandbox_scenarios#mocks"
+          post "mocks", to: "sandbox_scenarios#create_mock"
+
+          # Test runs & benchmarks → SandboxTestingController
+          get "runs", to: "sandbox_testing#runs"
+          post "runs", to: "sandbox_testing#create_run"
+          get "runs/:run_id", to: "sandbox_testing#show_run"
+          post "runs/:run_id/execute", to: "sandbox_testing#execute_run"
+          get "benchmarks", to: "sandbox_testing#benchmarks"
+          post "benchmarks", to: "sandbox_testing#create_benchmark"
+          post "benchmarks/:benchmark_id/run", to: "sandbox_testing#run_benchmark"
+        end
+
+        # A/B Tests → SandboxTestingController
+        scope :ab_tests, controller: "sandbox_testing" do
+          get "/", action: :ab_tests
+          post "/", action: :create_ab_test
+          put "/:id/start", action: :start_ab_test
+          get "/:id/results", action: :ab_test_results
+        end
+
+        # ===================================================================
+        # 20b. CONTAINER SANDBOXES - Runtime agent container management
+        # ===================================================================
+        resources :container_sandboxes, only: [:index, :show, :create, :destroy] do
+          member do
+            post :pause
+            post :resume
+            get :metrics
+          end
+          collection do
+            get :stats
+          end
+        end
+
+        # ===================================================================
+        # 21. AUTONOMY - Trust scores, lineage, and budgets
+        # ===================================================================
+        scope :autonomy, controller: "autonomy" do
+          get "trust_scores", action: :trust_scores
+          get "trust_scores/:agent_id", action: :show_trust_score
+          post "trust_scores/:agent_id/evaluate", action: :evaluate
+          put "trust_scores/:agent_id/override", action: :override_trust_score
+          post "trust_scores/:agent_id/emergency_demote", action: :emergency_demote
+          post "trust_scores/decay", action: :decay
+          get "lineage", action: :lineage_forest
+          get "lineage/:agent_id", action: :lineage
+          get "budgets", action: :budgets
+          get "budgets/expired", action: :expired_budgets
+          get "budgets/reconcile", action: :reconcile_budgets
+          get "budgets/alerts", action: :budget_alerts
+          post "budgets", action: :create_budget
+          put "budgets/:id", action: :update_budget
+          delete "budgets/:id", action: :destroy_budget
+          post "budgets/:id/allocate_child", action: :allocate_child
+          get "budgets/:id/check", action: :check_budget
+          post "budgets/:id/rollover", action: :rollover_budget
+          get "budgets/:id/transactions", action: :budget_transactions
+          get "stats", action: :stats
+          get "capability_matrix", action: :capability_matrix
+          get "capability_matrix/:agent_id", action: :agent_capabilities
+          get "circuit_breakers", action: :circuit_breakers
+          get "circuit_breakers/:agent_id", action: :agent_circuit_breakers
+          post "circuit_breakers/:id/reset", action: :reset_circuit_breaker
+          get "approvals", action: :approval_queue
+          post "approvals/:id/approve", action: :approve_action
+          post "approvals/:id/reject", action: :reject_action
+          get "shadow_executions", action: :shadow_executions
+          get "shadow_executions/:agent_id", action: :agent_shadow_executions
+          get "telemetry", action: :telemetry_events
+          post "telemetry", action: :create_telemetry_event
+          get "telemetry/:agent_id", action: :agent_telemetry
+          get "delegation_policies", action: :delegation_policies
+          get "delegation_policies/:agent_id", action: :agent_delegation_policy
+          post "delegation_policies", action: :create_delegation_policy
+          put "delegation_policies/:id", action: :update_delegation_policy
+          delete "delegation_policies/:id", action: :destroy_delegation_policy
+          get "behavioral_fingerprints/:agent_id", action: :behavioral_fingerprints
+          post "broadcast", action: :relay_broadcast
+          get "cost_thresholds", action: :cost_thresholds
+          post "trust_scores/:agent_id/evaluate_from_execution", action: :evaluate_from_execution
+          post "budgets/rollover_expired", action: :rollover_expired
+          get "pricing/lookup", action: :pricing_lookup
+          # Pricing
+          post "pricing/sync", action: :sync_pricing
+          get "pricing", action: :pricing_catalog
+          patch "pricing/:model_id", action: :update_pricing
+        end
+
+        # ===================================================================
+        # KILL SWITCH - Emergency halt for all AI activity
+        # ===================================================================
+        scope :kill_switch, controller: "kill_switch" do
+          post :halt
+          post :resume
+          get :status
+          get :preview_restore
+          get :events
+        end
+
+        # ===================================================================
+        # AGENT GOALS - Hierarchical goal tracking for autonomous agents
+        # ===================================================================
+        resources :goals, controller: "goals"
+
+        # ===================================================================
+        # INTERVENTION POLICIES - User-configurable agent notification rules
+        # ===================================================================
+        resources :intervention_policies, controller: "intervention_policies" do
+          collection do
+            post :resolve
+          end
+        end
+
+        # ===================================================================
+        # PROPOSALS - Agent-initiated change proposals for human review
+        # ===================================================================
+        resources :proposals, controller: "proposals", only: %i[index show] do
+          member do
+            post :approve
+            post :reject
+            put :withdraw
+          end
+          collection do
+            post :batch_review
+          end
+        end
+
+        # ===================================================================
+        # ESCALATIONS - Structured escalation for stuck/failed agents
+        # ===================================================================
+        resources :escalations, controller: "escalations", only: %i[index show] do
+          member do
+            post :acknowledge
+            post :resolve
+          end
+        end
+
+        # ===================================================================
+        # FEEDBACK - User feedback on agent performance
+        # ===================================================================
+        resources :feedback, controller: "feedback", only: %i[create index]
+
+        # ===================================================================
+        # 22. TIERED MEMORY - Multi-tier agent memory management
+        # ===================================================================
+        # Nested under agents for agent-specific memory operations
+        scope "agents/:agent_id" do
+          get "tiered_memory/stats", to: "tiered_memory#stats"
+          get "tiered_memory", to: "tiered_memory#index"
+          post "tiered_memory", to: "tiered_memory#create"
+          post "tiered_memory/consolidate", to: "tiered_memory#consolidate"
+          delete "tiered_memory/:key", to: "tiered_memory#destroy"
+        end
+
+        # Shared knowledge (not agent-specific)
+        get "memory/shared_knowledge", to: "tiered_memory#shared_knowledge"
+
+        # Memory maintenance endpoints (called by worker jobs)
+        post "memory/consolidate", to: "tiered_memory#consolidate_all"
+        post "memory/decay", to: "tiered_memory#decay_all"
+        post "memory/shared_maintenance", to: "tiered_memory#shared_maintenance"
+        # Event-driven single-entry consolidation (called by worker jobs)
+        post "memory/consolidate_entry", to: "tiered_memory#consolidate_entry"
+
+        # ===================================================================
+        # 23. SECURITY - Anomaly detection & PII scanning
+        # ===================================================================
+        namespace :security do
+          resource :anomaly_detection, only: [] do
+            post :analyze
+            post :check_action
+            post :detect_injection
+            post :detect_rogue
+            get :report
+          end
+          resource :pii_redaction, only: [] do
+            post :scan
+            post :redact
+            post :apply_policy
+            post :check_output
+            post :batch_scan
+          end
+
+          # Phase 7: Agent Identity Management (OWASP ASI03)
+          scope :identities, controller: "agent_identity" do
+            get "/", action: :index
+            post "/", action: :provision
+            get "/:id", action: :show
+            post "/:id/rotate", action: :rotate
+            post "/:id/revoke", action: :revoke
+            post "/verify", action: :verify
+          end
+
+          # Phase 7: Quarantine Management (OWASP ASI08/ASI10)
+          scope :quarantine, controller: "quarantine" do
+            get "/", action: :index
+            get "/report", action: :security_report
+            get "/compliance", action: :compliance_matrix
+            get "/:id", action: :show
+            post "/", action: :quarantine_agent
+            post "/:id/escalate", action: :escalate
+            post "/:id/restore", action: :restore
+          end
+        end
+
+        # ===================================================================
+        # 24. INTELLIGENCE - Moved to enterprise/server/config/routes.rb
+        # ===================================================================
+
+        # ===================================================================
+        # AI SKILLS - Domain-specific skill bundles
+        # ===================================================================
+        resources :skills do
+          member do
+            post :activate
+            post :deactivate
+            get :agents
+          end
+
+          collection do
+            get :categories
+          end
+        end
+
+        # ===================================================================
+        # SELF-HEALING - Automated Remediation Dashboard
+        # ===================================================================
+        scope :self_healing, controller: "self_healing" do
+          get "remediation_logs", action: :remediation_logs
+          get "health_summary", action: :health_summary
+          get "correlations", action: :correlations
+        end
+
+        # ===================================================================
+        # AGENT CONTAINERS - Containerized agent lifecycle + chat bridge
+        # ===================================================================
+        resources :agent_containers, only: [:show, :destroy] do
+          member do
+            post :launch
+            get :status
+          end
+          collection do
+            post :callback
+          end
+        end
+
+        # ===================================================================
+        # LEARNING - AI Improvement Recommendations & Insights
+        # ===================================================================
+        scope :learning, controller: "learning" do
+          get "recommendations", action: :recommendations
+          post "recommendations/:id/apply", action: :apply_recommendation
+          post "recommendations/:id/dismiss", action: :dismiss_recommendation
+          get "agent_trends", action: :agent_trends
+          get "cache_metrics", action: :cache_metrics
+          get "compound_metrics", action: :compound_metrics
+          get "learnings", action: :learnings
+          post "reinforce/:id", action: :reinforce
+          post "promote", action: :promote
+          post "compound_maintenance", action: :compound_maintenance
+          post "memory_maintenance", action: :memory_maintenance
+          post "knowledge_doc_sync", action: :knowledge_doc_sync
+          post "knowledge_graph_maintenance", action: :knowledge_graph_maintenance
+          # Event-driven single-entity endpoints (called by worker jobs)
+          post "promote_learning", action: :promote_learning
+          post "dedup_check", action: :dedup_check
+          post "update_graph_node", action: :update_graph_node
+          get "benchmarks", action: :benchmarks
+          post "benchmarks", action: :create_benchmark
+          post "benchmarks/:id/run", action: :run_benchmark
+          get "evaluation_results", action: :evaluation_results
+        end
+
+        # ===================================================================
+        # AG-UI PROTOCOL - Agent-User Interaction Protocol
+        # ===================================================================
+        scope :agui, controller: "agui" do
+          post "run", action: :run
+          get "sessions", action: :sessions
+          post "sessions", action: :create_session
+          get "sessions/:id", action: :show_session
+          delete "sessions/:id", action: :destroy_session
+          post "sessions/:id/state", action: :push_state
+          get "sessions/:id/events", action: :events
+        end
+
+        # ===================================================================
+        # MCP APPS - MCP Application Framework
+        # ===================================================================
+        scope :mcp_apps, controller: "mcp_apps" do
+          get "/", action: :index
+          post "/", action: :create
+          get "/:id", action: :show
+          patch "/:id", action: :update
+          delete "/:id", action: :destroy
+          post "/:id/render", action: :render_app
+          post "/:id/process", action: :process_input
+        end
+      end
+
+      # MCP hosting routes are in enterprise/server/config/routes.rb
+      namespace :mcp do
+        # MCP Streamable HTTP endpoint for external MCP clients (e.g., Claude Code)
+        post "message", to: "streamable_http#message"
+        get "message", to: "streamable_http#stream"
+        delete "message", to: "streamable_http#terminate_session"
+
+        # MCP session management (view/revoke active sessions)
+        resources :sessions, only: [:index, :show, :destroy], controller: "sessions"
+
+        # Container orchestration routes moved to namespace :devops
+
+        # ===================================================================
+        # MCP RESOURCES & PROMPTS - Dynamic discovery from servers
+        # ===================================================================
+        # Resources and prompts are discovered dynamically from MCP servers
+        # ===================================================================
+
+        resources :mcp_servers, only: [] do
+          resources :resources, controller: "resources", only: [ :index, :show ] do
+            member do
+              post :read
+            end
+          end
+
+          resources :prompts, controller: "prompts", only: [ :index, :show ] do
+            member do
+              post :execute
+            end
           end
         end
       end
@@ -1790,6 +2893,42 @@ Rails.application.routes.draw do
       # ===================================================================
 
       namespace :devops do
+        # Container Orchestration
+        resources :containers do
+          member do
+            post :cancel
+            get :logs
+            get :artifacts
+          end
+
+          collection do
+            post :execute
+            get :active
+            get :stats
+          end
+        end
+
+        resources :container_templates do
+          member do
+            post :publish
+            post :unpublish
+            get :executions
+            get :stats
+          end
+
+          collection do
+            get :categories
+            get :featured
+          end
+        end
+
+        resource :container_quotas, only: [ :show, :update ] do
+          post :reset_usage
+          get :usage_history
+          get :overage
+          patch :overage, action: :update_overage
+        end
+
         # Git Providers (Gitea, GitHub, GitLab)
         resources :providers do
           member do
@@ -1822,11 +2961,11 @@ Rails.application.routes.draw do
           end
 
           # Nested runs
-          resources :runs, controller: "pipeline_runs", only: [:index]
+          resources :runs, controller: "pipeline_runs", only: [ :index ]
         end
 
         # Pipeline Runs (top-level for direct access)
-        resources :pipeline_runs, only: [:index, :show] do
+        resources :pipeline_runs, only: [ :index, :show ] do
           member do
             post :cancel
             post :retry
@@ -1890,17 +3029,102 @@ Rails.application.routes.draw do
             get :stats
           end
         end
+
+        # Docker Swarm Management
+        namespace :swarm do
+          resources :clusters do
+            member do
+              post :test_connection
+              post :sync
+              get :health
+            end
+            resources :nodes, only: [:index, :show] do
+              member do
+                post :promote
+                post :demote
+                post :drain
+                post :activate
+                delete :remove
+              end
+            end
+            resources :services do
+              collection do
+                get :available
+                post :import
+              end
+              member do
+                post :scale
+                post :rollback
+                get :logs
+                get :tasks
+              end
+            end
+            resources :stacks do
+              member do
+                post :deploy
+                post :remove_stack
+              end
+            end
+            resources :deployments, only: [:index, :show]
+            resources :secrets, only: [:index, :show, :create, :destroy]
+            resources :configs, only: [:index, :show, :create, :destroy]
+            resources :networks, only: [:index, :show, :create, :destroy]
+            resources :volumes, only: [:index, :show, :create, :destroy]
+            resources :events, only: [:index, :show] do
+              member do
+                post :acknowledge
+              end
+            end
+          end
+        end
+
+        # Docker Host Management
+        namespace :docker do
+          resources :hosts do
+            member do
+              post :test_connection
+              post :sync
+              get :health
+            end
+            resources :containers do
+              collection do
+                get :available
+                post :import
+              end
+              member do
+                post :start
+                post :stop
+                post :restart
+                get :logs
+                get :stats
+              end
+            end
+            resources :images, only: [:index, :show, :destroy] do
+              collection do
+                get :available
+                post :import
+                post :pull
+                get :registries
+              end
+              member do
+                post :tag
+              end
+            end
+            resources :networks, only: [:index, :show, :create, :destroy]
+            resources :volumes, only: [:index, :show, :create, :destroy]
+            resources :activities, only: [:index, :show]
+            resources :events, only: [:index, :show] do
+              member do
+                post :acknowledge
+              end
+            end
+          end
+        end
       end
 
     end
   end
 
-  # Webhook endpoints (outside of API versioning and auth)
-  namespace :webhooks do
-    post "stripe", to: "stripe#handle"
-    post "paypal", to: "paypal#handle"
-    post "git/:provider_type", to: "git#handle"
-  end
 
   # ActionCable WebSocket endpoint
   mount ActionCable.server => "/cable"

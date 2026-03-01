@@ -8,7 +8,6 @@ FactoryBot.define do
     sequence(:name) { |n| "#{Faker::App.name} #{n}" }
     description { Faker::Lorem.paragraph }
     agent_type { 'assistant' }
-    mcp_capabilities { [ 'text_generation', 'conversation' ] }
     mcp_tool_manifest do
       {
         'name' => 'assistant_tool',
@@ -77,6 +76,28 @@ FactoryBot.define do
           }
         end
       end
+    end
+
+    trait :mcp_client do
+      agent_type { 'mcp_client' }
+      sequence(:name) { |n| "Claude Code ##{n}" }
+      description { 'Auto-created identity for Claude Code MCP session' }
+    end
+
+    trait :archived do
+      status { 'archived' }
+    end
+
+    trait :monitor do
+      agent_type { 'monitor' }
+    end
+
+    trait :content_generator do
+      agent_type { 'content_generator' }
+    end
+
+    trait :workflow_operations do
+      agent_type { 'workflow_operations' }
     end
   end
 end

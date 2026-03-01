@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/shared/services';
 import { logout } from '@/shared/services/slices/authSlice';
-// import { NavigationItem } from './NavigationItem';
 import { useNavigation } from '@/shared/hooks/NavigationContext';
 import { getUserInitials } from '@/shared/utils/userUtils';
 
@@ -49,7 +48,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className = '' }) => {
     <div className={`relative ${className}`} ref={dropdownRef}>
       <button
         onClick={() => setShowUserMenu(!showUserMenu)}
-        className="flex items-center space-x-3 p-2 rounded-lg text-sm hover:bg-theme-surface-hover transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-theme-surface"
+        className="flex items-center space-x-3 p-2 rounded-lg text-sm hover:bg-theme-surface-hover transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-theme-primary focus:ring-offset-2 focus:ring-offset-theme-surface"
         aria-expanded={showUserMenu}
         aria-haspopup="true"
       >

@@ -78,14 +78,14 @@ module Mcp
                      comment_context[:target_number],
                      comment_context[:comment_body]
                    )
-                 else
+        else
                    api_client.create_pr_comment(
                      repository.owner,
                      repository.name,
                      comment_context[:target_number],
                      comment_context[:comment_body]
                    )
-                 end
+        end
 
         build_output(comment_context, result)
       rescue StandardError => e

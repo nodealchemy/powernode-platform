@@ -80,7 +80,7 @@ module Devops
     # ====================================
     # Scopes
     # ====================================
-    scope :active, -> { where(is_active: true, status: 'active') }
+    scope :active, -> { where(is_active: true, status: "active") }
     scope :for_event, ->(event_type) { where(event_type: event_type) }
     scope :for_repository, ->(repo_id) { where(git_repository_id: repo_id) }
     scope :global, -> { where(git_repository_id: nil) }
@@ -133,12 +133,12 @@ module Devops
 
       variables = extract_variables(webhook_event)
       context = {
-        'git_event' => {
-          'id' => webhook_event.id,
-          'type' => webhook_event.event_type,
-          'provider' => webhook_event.provider,
-          'repository_id' => webhook_event.git_repository_id,
-          'timestamp' => Time.current.iso8601
+        "git_event" => {
+          "id" => webhook_event.id,
+          "type" => webhook_event.event_type,
+          "provider" => webhook_event.provider,
+          "repository_id" => webhook_event.git_repository_id,
+          "timestamp" => Time.current.iso8601
         }
       }
 
@@ -150,8 +150,8 @@ module Devops
         increment!(:trigger_count)
         update_column(:last_triggered_at, Time.current)
         update!(metadata: metadata.merge({
-          'last_run_id' => workflow_run.run_id,
-          'last_event_id' => webhook_event.id
+          "last_run_id" => workflow_run.run_id,
+          "last_event_id" => webhook_event.id
         }))
       end
 
@@ -162,19 +162,19 @@ module Devops
     end
 
     def active?
-      is_active && status == 'active' && ai_workflow_trigger.active?
+      is_active && status == "active" && ai_workflow_trigger.active?
     end
 
     def activate!
-      update!(status: 'active', is_active: true)
+      update!(status: "active", is_active: true)
     end
 
     def pause!
-      update!(status: 'paused')
+      update!(status: "paused")
     end
 
     def disable!
-      update!(status: 'disabled', is_active: false)
+      update!(status: "disabled", is_active: false)
     end
 
     # Backwards compatibility alias
@@ -185,15 +185,15 @@ module Devops
     private
 
     def matches_branch?(webhook_event)
-      return true if branch_pattern == '*'
+      return true if branch_pattern == "*"
 
       ref = extract_ref(webhook_event)
       return true if ref.blank?
 
-      branch_name = ref.sub(%r{^refs/heads/}, '')
+      branch_name = ref.sub(%r{^refs/heads/}, "")
 
       # Support glob patterns
-      if branch_pattern.include?('*')
+      if branch_pattern.include?("*")
         pattern = "^#{branch_pattern.gsub('*', '.*').gsub('?', '.')}$"
         branch_name.match?(Regexp.new(pattern))
       else
@@ -204,15 +204,15 @@ module Devops
     def matches_path?(webhook_event)
       return true if path_pattern.blank?
 
-      commits = webhook_event.payload&.dig('commits') || []
+      commits = webhook_event.payload&.dig("commits") || []
       modified_files = commits.flat_map do |commit|
-        (commit['added'] || []) + (commit['modified'] || []) + (commit['removed'] || [])
+        (commit["added"] || []) + (commit["modified"] || []) + (commit["removed"] || [])
       end.uniq
 
       return false if modified_files.empty?
 
       # Support glob patterns for path matching
-      if path_pattern.include?('*')
+      if path_pattern.include?("*")
         pattern = "^#{path_pattern.gsub('*', '.*').gsub('?', '.')}$"
         regexp = Regexp.new(pattern)
         modified_files.any? { |file| file.match?(regexp) }
@@ -231,7 +231,7 @@ module Devops
 
         if expected_value.is_a?(Array)
           expected_value.include?(actual_value)
-        elsif expected_value.is_a?(String) && expected_value.start_with?('/')
+        elsif expected_value.is_a?(String) && expected_value.start_with?("/")
           # Regex pattern
           pattern = expected_value[1..-2] # Remove leading/trailing slashes
           actual_value.to_s.match?(Regexp.new(pattern))
@@ -245,23 +245,23 @@ module Devops
       payload = webhook_event.payload || {}
 
       case event_type
-      when 'push'
-        payload['ref']
-      when 'pull_request'
-        payload.dig('pull_request', 'head', 'ref')
-      when 'workflow_run'
-        payload.dig('workflow_run', 'head_branch')
-      when 'create', 'delete'
-        payload['ref']
+      when "push"
+        payload["ref"]
+      when "pull_request"
+        payload.dig("pull_request", "head", "ref")
+      when "workflow_run"
+        payload.dig("workflow_run", "head_branch")
+      when "create", "delete"
+        payload["ref"]
       else
-        payload['ref'] || payload.dig('pull_request', 'head', 'ref')
+        payload["ref"] || payload.dig("pull_request", "head", "ref")
       end
     end
 
     def extract_value(hash, path)
       return nil unless hash.is_a?(Hash) && path.present?
 
-      keys = path.split('.')
+      keys = path.split(".")
       current = hash
 
       keys.each do |key|
@@ -288,29 +288,29 @@ module Devops
       payload = webhook_event.payload || {}
 
       {
-        'git_event_type' => webhook_event.event_type,
-        'git_provider' => webhook_event.provider,
-        'git_repository_id' => webhook_event.git_repository_id,
-        'git_repository_name' => payload.dig('repository', 'full_name'),
-        'git_ref' => extract_ref(webhook_event),
-        'git_sha' => extract_sha(payload),
-        'git_actor' => payload.dig('sender', 'login'),
-        'git_timestamp' => payload['created_at'] || Time.current.iso8601
+        "git_event_type" => webhook_event.event_type,
+        "git_provider" => webhook_event.provider,
+        "git_repository_id" => webhook_event.git_repository_id,
+        "git_repository_name" => payload.dig("repository", "full_name"),
+        "git_ref" => extract_ref(webhook_event),
+        "git_sha" => extract_sha(payload),
+        "git_actor" => payload.dig("sender", "login"),
+        "git_timestamp" => payload["created_at"] || Time.current.iso8601
       }
     end
 
     def extract_sha(payload)
-      payload['after'] ||
-        payload.dig('head_commit', 'id') ||
-        payload.dig('pull_request', 'head', 'sha') ||
-        payload.dig('workflow_run', 'head_sha')
+      payload["after"] ||
+        payload.dig("head_commit", "id") ||
+        payload.dig("pull_request", "head", "sha") ||
+        payload.dig("workflow_run", "head_sha")
     end
 
     def validate_event_filters
       return if event_filters.blank?
 
       unless event_filters.is_a?(Hash)
-        errors.add(:event_filters, 'must be a hash')
+        errors.add(:event_filters, "must be a hash")
       end
     end
 
@@ -318,7 +318,7 @@ module Devops
       return if payload_mapping.blank?
 
       unless payload_mapping.is_a?(Hash)
-        errors.add(:payload_mapping, 'must be a hash')
+        errors.add(:payload_mapping, "must be a hash")
       end
     end
 
@@ -326,11 +326,11 @@ module Devops
       Rails.logger.error "Devops::GitWorkflowTrigger #{id} error: #{error.message}"
 
       update!(
-        status: 'error',
+        status: "error",
         metadata: metadata.merge({
-          'error_message' => error.message,
-          'error_timestamp' => Time.current.iso8601,
-          'error_count' => (metadata['error_count'] || 0) + 1
+          "error_message" => error.message,
+          "error_timestamp" => Time.current.iso8601,
+          "error_count" => (metadata["error_count"] || 0) + 1
         })
       )
     end

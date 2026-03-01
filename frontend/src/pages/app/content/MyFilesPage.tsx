@@ -7,15 +7,17 @@ import { FileUpload } from '@/features/content/files/components/FileUpload';
 import { FileItem } from '@/features/content/files/components/FileItem';
 import { FileDetails } from '@/features/content/files/components/FileDetails';
 import { filesApi, FileObject } from '@/features/content/files/services/filesApi';
-import { storageApi } from '@/features/system/storage/services/storageApi';
+import { storageApi } from '@/features/admin/storage/services/storageApi';
 import { StorageProvider } from '@/shared/types/storage';
 import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 
 const MyFilesPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { currentUser } = useAuth();
+  const { confirm, ConfirmationDialog } = useConfirmation();
   usePageWebSocket({ pageType: 'content' });
   const [files, setFiles] = useState<FileObject[]>([]);
   const [storageProviders, setStorageProviders] = useState<StorageProvider[]>([]);
@@ -61,11 +63,8 @@ const MyFilesPage: React.FC = () => {
 
       const response = await filesApi.getFiles(params);
       setFiles(response.files);
-    } catch (error) {
+    } catch (_error) {
       dispatch(addNotification({ type: 'error', message: 'Failed to load files' }));
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Error loading files:', error);
-      }
     } finally {
       setLoading(false);
     }
@@ -84,8 +83,8 @@ const MyFilesPage: React.FC = () => {
       if (defaultProvider) {
         setSelectedStorageId(defaultProvider.id);
       }
-    } catch (error) {
-      console.error('Error loading storage providers:', error);
+    } catch (_error) {
+      // Storage provider loading failed - continue with default settings
     }
   };
 
@@ -94,8 +93,8 @@ const MyFilesPage: React.FC = () => {
     try {
       const stats = await filesApi.getStats();
       setFileStats(stats);
-    } catch (error) {
-      console.error('Error loading file stats:', error);
+    } catch (_error) {
+      // File stats loading failed - continue without stats
     }
   };
 
@@ -123,7 +122,7 @@ const MyFilesPage: React.FC = () => {
     try {
       await filesApi.downloadFile(file.id, file.filename);
       dispatch(addNotification({ type: 'success', message: `Downloading ${file.filename}` }));
-    } catch (error) {
+    } catch (_error) {
       dispatch(addNotification({ type: 'error', message: 'Download failed' }));
     }
   };
@@ -133,17 +132,23 @@ const MyFilesPage: React.FC = () => {
     setSelectedFile(file);
   };
 
-  const handleDelete = async (file: FileObject): Promise<void> => {
-    if (!confirm(`Delete ${file.filename}?`)) return;
-
-    try {
-      await filesApi.deleteFile(file.id);
-      dispatch(addNotification({ type: 'success', message: 'File deleted successfully' }));
-      void loadFiles();
-      void loadFileStats();
-    } catch (error) {
-      dispatch(addNotification({ type: 'error', message: 'Failed to delete file' }));
-    }
+  const handleDelete = (file: FileObject): void => {
+    confirm({
+      title: 'Delete File',
+      message: `Are you sure you want to delete "${file.filename}"?`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await filesApi.deleteFile(file.id);
+          dispatch(addNotification({ type: 'success', message: 'File deleted successfully' }));
+          void loadFiles();
+          void loadFileStats();
+        } catch (_error) {
+          dispatch(addNotification({ type: 'error', message: 'Failed to delete file' }));
+        }
+      },
+    });
   };
 
   const handleBulkDownload = async (): Promise<void> => {
@@ -152,7 +157,7 @@ const MyFilesPage: React.FC = () => {
     for (const file of selectedFileObjects) {
       try {
         await filesApi.downloadFile(file.id, file.filename);
-      } catch (error) {
+      } catch (_error) {
         dispatch(addNotification({ type: 'error', message: `Failed to download ${file.filename}` }));
       }
     }
@@ -160,25 +165,31 @@ const MyFilesPage: React.FC = () => {
     dispatch(addNotification({ type: 'success', message: `Downloading ${selectedFiles.size} file(s)` }));
   };
 
-  const handleBulkDelete = async (): Promise<void> => {
-    if (!confirm(`Delete ${selectedFiles.size} file(s)?`)) return;
+  const handleBulkDelete = (): void => {
+    confirm({
+      title: 'Delete Files',
+      message: `Are you sure you want to delete ${selectedFiles.size} file(s)?`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        const selectedFileObjects = files.filter(f => selectedFiles.has(f.id));
+        let successCount = 0;
 
-    const selectedFileObjects = files.filter(f => selectedFiles.has(f.id));
-    let successCount = 0;
+        for (const file of selectedFileObjects) {
+          try {
+            await filesApi.deleteFile(file.id);
+            successCount++;
+          } catch (_error) {
+            dispatch(addNotification({ type: 'error', message: `Failed to delete ${file.filename}` }));
+          }
+        }
 
-    for (const file of selectedFileObjects) {
-      try {
-        await filesApi.deleteFile(file.id);
-        successCount++;
-      } catch (error) {
-        dispatch(addNotification({ type: 'error', message: `Failed to delete ${file.filename}` }));
-      }
-    }
-
-    dispatch(addNotification({ type: 'success', message: `Deleted ${successCount} file(s)` }));
-    setSelectedFiles(new Set());
-    void loadFiles();
-    void loadFileStats();
+        dispatch(addNotification({ type: 'success', message: `Deleted ${successCount} file(s)` }));
+        setSelectedFiles(new Set());
+        void loadFiles();
+        void loadFileStats();
+      },
+    });
   };
 
   const toggleFileSelection = (fileId: string) => {
@@ -205,7 +216,7 @@ const MyFilesPage: React.FC = () => {
     if (!selectedProvider?.max_file_size_mb) return 0;
 
     const quotaBytes = selectedProvider.max_file_size_mb * 1024 * 1024;
-    return Math.round((fileStats.total_size / quotaBytes) * 100);
+    return Math.round(((fileStats.total_size ?? 0) / quotaBytes) * 100);
   };
 
   const breadcrumbs = [
@@ -430,7 +441,7 @@ const MyFilesPage: React.FC = () => {
             {canUpload && !searchQuery && !filterCategory && !filterVisibility && (
               <button
                 onClick={() => setShowUploadModal(true)}
-                className="mt-4 px-4 py-2 bg-theme-info text-white rounded-lg hover:opacity-90 transition-colors flex items-center gap-2 mx-auto"
+                className="btn-theme btn-theme-primary mt-4 mx-auto flex items-center gap-2"
               >
                 <Upload className="h-4 w-4" />
                 Upload your first file
@@ -496,7 +507,7 @@ const MyFilesPage: React.FC = () => {
               </div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-2xl font-bold text-theme-primary">
-                  {formatFileSize(fileStats.total_size)}
+                  {formatFileSize(fileStats.total_size ?? 0)}
                 </span>
                 {selectedStorageId && (
                   <span className="text-sm text-theme-secondary">
@@ -523,11 +534,11 @@ const MyFilesPage: React.FC = () => {
                 </span>
               </div>
               <div className="text-2xl font-bold text-theme-primary">
-                {fileStats.total_files.toLocaleString()}
+                {(fileStats.total_files ?? 0).toLocaleString()}
               </div>
-              {Object.keys(fileStats.by_category).length > 0 && (
+              {Object.keys(fileStats.by_category ?? {}).length > 0 && (
                 <div className="mt-2 text-xs text-theme-secondary">
-                  {Object.entries(fileStats.by_category)
+                  {Object.entries(fileStats.by_category ?? {})
                     .slice(0, 2)
                     .map(([category, count]) => (
                       <div key={category}>
@@ -540,6 +551,8 @@ const MyFilesPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {ConfirmationDialog}
 
       {/* File Details Modal */}
       {selectedFile && (

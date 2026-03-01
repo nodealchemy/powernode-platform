@@ -48,11 +48,11 @@ export const CurvedEdge: React.FC<EdgeProps> = ({
               alignItems: 'center',
               justifyContent: 'center',
               height: '100%',
-              background: labelBgStyle?.fill || '#ffffff',
+              background: labelBgStyle?.fill || 'var(--color-bg-surface, #ffffff)',
               borderRadius: '3px',
               padding: '2px 6px',
               fontSize: labelStyle?.fontSize || 11,
-              color: labelStyle?.fill || '#64748b',
+              color: labelStyle?.fill || 'var(--color-text-secondary, #64748b)',
               opacity: labelBgStyle?.fillOpacity || 0.9,
               boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
             }}

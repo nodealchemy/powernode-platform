@@ -264,7 +264,7 @@ RSpec.describe 'Api::V1::McpToolExecutions', type: :request do
              headers: headers,
              as: :json
 
-        expect_error_response('Failed to cancel execution: Cancellation failed', 500)
+        expect_error_response('Failed to cancel execution', 500)
       end
     end
   end

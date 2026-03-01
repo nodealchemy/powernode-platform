@@ -4,8 +4,8 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Auth', type: :request do
   let(:account) { create(:account) }
-  let(:user) { create(:user, account: account, password: 'StrongTestP@ssw0rd9!') }
-  let(:unverified_user) { create(:user, :unverified, account: account, password: 'StrongTestP@ssw0rd9!') }
+  let(:user) { create(:user, account: account, password: TestUsers::PASSWORD) }
+  let(:unverified_user) { create(:user, :unverified, account: account, password: TestUsers::PASSWORD) }
 
   before(:each) do
     # Clear rate limiting cache to prevent interference between tests
@@ -16,7 +16,7 @@ RSpec.describe 'Api::V1::Auth', type: :request do
     let(:valid_params) do
       {
         email: 'newuser@example.com',
-        password: 'StrongTest4P@9w0rd!',
+        password: TestUsers::PASSWORD,
         firstName: 'John',
         lastName: 'Doe',
         accountName: 'New Company'
@@ -43,7 +43,8 @@ RSpec.describe 'Api::V1::Auth', type: :request do
           'roles' => [ 'owner' ]
         )
         expect(response_data['data']).to have_key('access_token')
-        expect(response_data['data']).to have_key('refresh_token')
+        # Refresh token is now in HttpOnly cookie, not in response body
+        expect(response.cookies['refresh_token']).to be_present
       end
 
       it 'assigns owner role to first user' do
@@ -86,7 +87,7 @@ RSpec.describe 'Api::V1::Auth', type: :request do
     let(:valid_params) do
       {
         email: user.email,
-        password: 'StrongTestP@ssw0rd9!'
+        password: TestUsers::PASSWORD
       }
     end
 
@@ -102,7 +103,8 @@ RSpec.describe 'Api::V1::Auth', type: :request do
           'email' => user.email
         )
         expect(response_data['data']).to have_key('access_token')
-        expect(response_data['data']).to have_key('refresh_token')
+        # Refresh token is now in HttpOnly cookie, not in response body
+        expect(response.cookies['refresh_token']).to be_present
       end
 
       it 'updates last_login_at' do
@@ -134,7 +136,7 @@ RSpec.describe 'Api::V1::Auth', type: :request do
       end
 
       it 'returns error for wrong password' do
-        invalid_params = valid_params.merge(password: 'WrongStrongP@ssw0rd9!')
+        invalid_params = valid_params.merge(password: 'WrongStr0ngP@ssw0rd9!')
 
         post '/api/v1/auth/login', params: invalid_params, as: :json
 
@@ -162,7 +164,7 @@ RSpec.describe 'Api::V1::Auth', type: :request do
       let(:valid_params) do
         {
           email: unverified_user.email,
-          password: 'StrongTestP@ssw0rd9!'
+          password: TestUsers::PASSWORD
         }
       end
 
@@ -190,11 +192,11 @@ RSpec.describe 'Api::V1::Auth', type: :request do
         response_data = json_response
 
         expect(response_data['data']).to have_key('access_token')
-        expect(response_data['data']).to have_key('refresh_token')
+        # Refresh token is now in HttpOnly cookie, not in response body
+        expect(response.cookies['refresh_token']).to be_present
 
-        # New tokens are generated (both access and refresh)
+        # New tokens are generated
         expect(response_data['data']['access_token']).not_to eq(refresh_token)
-        expect(response_data['data']['refresh_token']).to be_present
       end
     end
 
@@ -341,7 +343,7 @@ RSpec.describe 'Api::V1::Auth', type: :request do
     let(:valid_params) do
       {
         token: reset_token,
-        password: 'BrandNewUniqueP@ssw0rd9!'
+        password: TestUsers::PASSWORD
       }
     end
 

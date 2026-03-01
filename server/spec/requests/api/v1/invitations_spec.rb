@@ -5,7 +5,7 @@ require 'rails_helper'
 RSpec.describe 'API::V1::Invitations', type: :request do
   # Stub WorkerJobService to prevent HTTP calls in tests
   before do
-    allow(WorkerJobService).to receive(:enqueue_notification_email).and_return({ 'status' => 'queued' })
+    allow(WorkerJobService).to receive(:enqueue_job).and_return({ 'status' => 'queued' })
   end
 
   let(:account) { create(:account) }
@@ -241,8 +241,8 @@ RSpec.describe 'API::V1::Invitations', type: :request do
     let(:accept_params) do
       {
         token: invitation.token,
-        password: 'NewSecureP@ssw0rd!',
-        password_confirmation: 'NewSecureP@ssw0rd!'
+        password: TestUsers::PASSWORD,
+        password_confirmation: TestUsers::PASSWORD
       }
     end
 

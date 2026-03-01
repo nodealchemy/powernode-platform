@@ -71,7 +71,11 @@ class PdfReportService
 
   def get_revenue_data
     # Simple revenue data that doesn't require complex processing
-    base_query = @account ? @account.payments : Payment.all
+    payment_class = defined?(Billing::Payment) ? Billing::Payment : nil
+    unless payment_class
+      return { success: true, data: { total_revenue: 0, payment_count: 0, average_payment: 0, period: { start_date: @start_date, end_date: @end_date } } }
+    end
+    base_query = @account ? @account.payments : payment_class.all
     payments = base_query.succeeded
                          .where(processed_at: @start_date..@end_date)
 
@@ -88,7 +92,11 @@ class PdfReportService
 
   def get_growth_data
     # Simple growth metrics
-    subscriptions = @account ? @account.subscriptions : Subscription.all
+    subscription_class = defined?(Billing::Subscription) ? Billing::Subscription : nil
+    unless subscription_class
+      return { success: true, data: { active_subscriptions: 0, new_subscriptions: 0, period: { start_date: @start_date, end_date: @end_date } } }
+    end
+    subscriptions = @account ? @account.subscriptions : subscription_class.all
     active_subs = subscriptions.active.count
     new_subs = subscriptions.where(created_at: @start_date..@end_date).count
 

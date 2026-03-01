@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Info, Server, Monitor, GitBranch, Clock } from 'lucide-react';
-import { versionApi, VersionInfo, FullVersionInfo, HealthInfo } from '@/shared/services/system/versionApi';
+import { versionApi, VersionInfo, FullVersionInfo, HealthInfo } from '@/shared/services/admin/versionApi';
 
 interface VersionDisplayProps {
   show?: 'simple' | 'detailed' | 'badge';
@@ -56,11 +56,11 @@ export const VersionDisplay: React.FC<VersionDisplayProps> = ({
             if (healthResponse.status === 'fulfilled' && healthResponse.value.success) {
               setHealth(healthResponse.value.data);
             }
-          } catch (error) {
+          } catch (_error) {
             // Silently fail version fetching - it's not critical to app functionality
           }
         }
-      } catch (error) {
+      } catch (_error) {
         // Only log warnings for version fetching failures
       } finally {
         setLoading(false);

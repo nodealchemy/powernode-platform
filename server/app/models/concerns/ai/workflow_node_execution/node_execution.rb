@@ -187,7 +187,7 @@ module Ai
 
         WorkerJobService.enqueue_job(
           job_class: "AiWorkflow::ApprovalNotificationJob",
-          args: [id, approvers],
+          args: [ id, approvers ],
           queue: "email"
         )
       rescue StandardError => e

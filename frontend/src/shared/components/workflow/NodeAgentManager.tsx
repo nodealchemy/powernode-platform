@@ -1,5 +1,5 @@
 import React from 'react';
-import { WorkflowAgentManager } from './WorkflowAgentManager';
+import { WorkflowAgentManager } from '@/shared/components/workflow/WorkflowAgentManager';
 
 interface WorkflowAgentAssignment {
   id?: string;

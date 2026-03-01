@@ -64,7 +64,7 @@ export const GitProviderCard: React.FC<GitProviderCardProps> = ({
   canManage = false,
 }) => {
   const [showMenu, setShowMenu] = React.useState(false);
-  const bgColor = providerColors[provider.provider_type] || 'bg-slate-600';
+  const bgColor = providerColors[provider.provider_type] || 'bg-theme-surface';
 
   return (
     <div className="bg-theme-surface rounded-lg border border-theme overflow-hidden hover:shadow-md transition-shadow">
@@ -152,9 +152,9 @@ export const GitProviderCard: React.FC<GitProviderCardProps> = ({
               PAT
             </span>
           )}
-          {provider.supports_ci_cd && (
+          {provider.supports_devops && (
             <span className="px-2 py-1 text-xs rounded-full bg-theme-warning/10 text-theme-warning">
-              CI/CD
+              DevOps
             </span>
           )}
         </div>

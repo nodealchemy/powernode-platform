@@ -1,37 +1,39 @@
 // Custom Node Components
-import { StartNode } from '../nodes/StartNode';
-import { EndNode } from '../nodes/EndNode';
-import { AiAgentNode } from '../nodes/AiAgentNode';
-import { ApiCallNode } from '../nodes/ApiCallNode';
-import { ConditionNode } from '../nodes/ConditionNode';
-import { TriggerNode } from '../nodes/TriggerNode';
-import { TransformNode } from '../nodes/TransformNode';
-import { LoopNode } from '../nodes/LoopNode';
-import { DelayNode } from '../nodes/DelayNode';
-import { HumanApprovalNode } from '../nodes/HumanApprovalNode';
-import { SubWorkflowNode } from '../nodes/SubWorkflowNode';
-import { MergeNode } from '../nodes/MergeNode';
-import { SplitNode } from '../nodes/SplitNode';
-import { WebhookNode } from '../nodes/WebhookNode';
+import { StartNode } from '@/shared/components/workflow/nodes/StartNode';
+import { EndNode } from '@/shared/components/workflow/nodes/EndNode';
+import { AiAgentNode } from '@/shared/components/workflow/nodes/AiAgentNode';
+import { ApiCallNode } from '@/shared/components/workflow/nodes/ApiCallNode';
+import { ConditionNode } from '@/shared/components/workflow/nodes/ConditionNode';
+import { TriggerNode } from '@/shared/components/workflow/nodes/TriggerNode';
+import { TransformNode } from '@/shared/components/workflow/nodes/TransformNode';
+import { LoopNode } from '@/shared/components/workflow/nodes/LoopNode';
+import { DelayNode } from '@/shared/components/workflow/nodes/DelayNode';
+import { HumanApprovalNode } from '@/shared/components/workflow/nodes/HumanApprovalNode';
+import { SubWorkflowNode } from '@/shared/components/workflow/nodes/SubWorkflowNode';
+import { MergeNode } from '@/shared/components/workflow/nodes/MergeNode';
+import { SplitNode } from '@/shared/components/workflow/nodes/SplitNode';
+import { WebhookNode } from '@/shared/components/workflow/nodes/WebhookNode';
 // Data Manipulation Nodes
-import { DatabaseNode } from '../nodes/DatabaseNode';
-import { EmailNode } from '../nodes/EmailNode';
-import { FileNode } from '../nodes/FileNode';
-import { ValidatorNode } from '../nodes/ValidatorNode';
+import { DatabaseNode } from '@/shared/components/workflow/nodes/DatabaseNode';
+import { EmailNode } from '@/shared/components/workflow/nodes/EmailNode';
+import { FileNode } from '@/shared/components/workflow/nodes/FileNode';
+import { ValidatorNode } from '@/shared/components/workflow/nodes/ValidatorNode';
 // AI-Specific Nodes
-import { PromptTemplateNode } from '../nodes/PromptTemplateNode';
-import { DataProcessorNode } from '../nodes/DataProcessorNode';
+import { PromptTemplateNode } from '@/shared/components/workflow/nodes/PromptTemplateNode';
+import { DataProcessorNode } from '@/shared/components/workflow/nodes/DataProcessorNode';
 // Integration Nodes
-import { SchedulerNode } from '../nodes/SchedulerNode';
-import { NotificationNode } from '../nodes/NotificationNode';
+import { SchedulerNode } from '@/shared/components/workflow/nodes/SchedulerNode';
+import { NotificationNode } from '@/shared/components/workflow/nodes/NotificationNode';
 // Consolidated Node Components (Phase 1A)
-import { KbArticleNode } from '../nodes/KbArticleNode';
-import { PageNode } from '../nodes/PageNode';
-import { McpOperationNode } from '../nodes/McpOperationNode';
+import { KbArticleNode } from '@/shared/components/workflow/nodes/KbArticleNode';
+import { PageNode } from '@/shared/components/workflow/nodes/PageNode';
+import { McpOperationNode } from '@/shared/components/workflow/nodes/McpOperationNode';
 // DevOps Orchestration Nodes (for AI workflow integration with DevOps pipelines)
-import { DevopsTriggerNode } from '../nodes/DevopsTriggerNode';
-import { DevopsWaitStatusNode } from '../nodes/DevopsWaitStatusNode';
-import { DevopsGetLogsNode } from '../nodes/DevopsGetLogsNode';
+import { DevopsTriggerNode } from '@/shared/components/workflow/nodes/DevopsTriggerNode';
+import { DevopsWaitStatusNode } from '@/shared/components/workflow/nodes/DevopsWaitStatusNode';
+import { DevopsGetLogsNode } from '@/shared/components/workflow/nodes/DevopsGetLogsNode';
+// Ralph Loop Node
+import { RalphLoopNode } from '@/shared/components/workflow/nodes/RalphLoopNode';
 
 // Node types mapping for React Flow
 export const NODE_TYPES = {
@@ -74,6 +76,8 @@ export const NODE_TYPES = {
   devops_trigger: DevopsTriggerNode,
   devops_wait_status: DevopsWaitStatusNode,
   devops_get_logs: DevopsGetLogsNode,
+  // Ralph Loop Node
+  ralph_loop: RalphLoopNode,
 } as const;
 
 export type NodeTypeKey = keyof typeof NODE_TYPES;

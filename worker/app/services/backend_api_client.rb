@@ -31,7 +31,9 @@ class BackendApiClient
   end
 
   def get_account_subscription(account_id)
-    get("/api/v1/accounts/#{account_id}/subscription")
+    # Get account data which includes subscription info
+    account_data = get("/api/v1/accounts/#{account_id}")
+    account_data['subscription']
   end
 
   # Analytics operations
@@ -207,7 +209,7 @@ class BackendApiClient
     # Returns binary file content
     response = @connection.get do |req|
       req.url "/api/v1/worker/files/#{file_id}/download"
-      req.headers['Authorization'] = "Bearer #{@config.worker_token}"
+      req.headers['Authorization'] = "Bearer #{WorkerJwt.token}"
     end
 
     if response.status == 200
@@ -240,7 +242,7 @@ class BackendApiClient
       begin
         response = @connection.send(method) do |req|
           req.url path
-          req.headers['Authorization'] = "Bearer #{@config.worker_token}"
+          req.headers['Authorization'] = "Bearer #{WorkerJwt.token}"
           req.headers['Content-Type'] = 'application/json'
           req.headers['Accept'] = 'application/json'
           req.headers['User-Agent'] = 'PowernodeWorker/1.0'

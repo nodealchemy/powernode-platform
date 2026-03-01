@@ -22,7 +22,8 @@ import { agentsApi, conversationsApi, GlobalConversationFilters } from '@/shared
 import { ConversationBase } from '@/shared/services/ai/ConversationsApiService';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { useAiOrchestrationWebSocket } from '@/shared/hooks/useAiOrchestrationWebSocket';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { AiAgent } from '@/shared/types/ai';
 import { ConversationCreateModal } from '@/features/ai/conversations/components/ConversationCreateModal';
@@ -40,12 +41,14 @@ export const AIConversationsPage: React.FC = () => {
   const { addNotification } = useNotifications();
   const { confirm, ConfirmationDialog } = useConfirmation();
 
-  // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
-    pageType: 'ai',
-    onDataUpdate: () => {
-      // Trigger data refresh if needed
-    }
+  // WebSocket for real-time conversation updates
+  useAiOrchestrationWebSocket({
+    onAgentEvent: (event) => {
+      // Refresh conversation list when agent messages are received or conversations end
+      if (['agent_message_received', 'agent_execution_completed', 'agent_execution_failed'].includes(event.type)) {
+        loadConversations(pagination.currentPage, pagination.perPage);
+      }
+    },
   });
 
   const [conversations, setConversations] = useState<ConversationBase[]>([]);
@@ -62,6 +65,19 @@ export const AIConversationsPage: React.FC = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [chatConversationId, setChatConversationId] = useState<string | null>(null);
+
+  // Auto-open conversation from URL query param (?id=...)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const conversationId = params.get('id');
+    if (conversationId) {
+      setChatConversationId(conversationId);
+      // Clean the URL param after consuming it
+      const url = new URL(window.location.href);
+      url.searchParams.delete('id');
+      window.history.replaceState({}, '', url.pathname + url.search);
+    }
+  }, []);
 
   // Check permissions
   const canCreateConversations = currentUser?.permissions?.includes('ai.conversations.create') || false;
@@ -90,10 +106,7 @@ export const AIConversationsPage: React.FC = () => {
         totalCount: response.pagination.total_count,
         perPage: response.pagination.per_page
       });
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to load conversations:', error);
-      }
+    } catch (_error) {
       setConversations([]);
       setPagination({
         currentPage: 1,
@@ -117,8 +130,7 @@ export const AIConversationsPage: React.FC = () => {
       const response = await agentsApi.getAgents({ page: 1, per_page: 100 });
       // Response is PaginatedResponse<AiAgent> with items array
       setAvailableAgents(response.items || []);
-    } catch (error) {
-      console.error('Failed to load agents:', error);
+    } catch (_error) {
       setAvailableAgents([]);
     }
   };
@@ -179,8 +191,7 @@ export const AIConversationsPage: React.FC = () => {
         title: 'Export Started',
         message: 'Conversation export has been initiated'
       });
-    } catch (error) {
-      console.error('Failed to export conversation:', error);
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Export Failed',
@@ -204,10 +215,7 @@ export const AIConversationsPage: React.FC = () => {
       });
 
       loadConversations(pagination.currentPage, pagination.perPage);
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to archive/restore conversation:', error);
-      }
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Action Failed',
@@ -230,10 +238,7 @@ export const AIConversationsPage: React.FC = () => {
       });
 
       loadConversations(pagination.currentPage, pagination.perPage);
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to duplicate conversation:', error);
-      }
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Duplicate Failed',
@@ -259,10 +264,7 @@ export const AIConversationsPage: React.FC = () => {
           });
 
           loadConversations(pagination.currentPage, pagination.perPage);
-        } catch (error) {
-          if (process.env.NODE_ENV === 'development') {
-            console.error('Failed to delete conversation:', error);
-          }
+        } catch (_error) {
           addNotification({
             type: 'error',
             title: 'Delete Failed',
@@ -479,6 +481,11 @@ export const AIConversationsPage: React.FC = () => {
   // Get the conversation for the continue modal
   const chatConversation = chatConversationId ? conversations.find(c => c.id === chatConversationId) : null;
 
+  const { refreshAction } = useRefreshAction({
+    onRefresh: () => loadConversations(pagination.currentPage, pagination.perPage),
+    loading,
+  });
+
   return (
     <PageContainer
       title="AI Conversations"
@@ -488,15 +495,16 @@ export const AIConversationsPage: React.FC = () => {
         { label: 'AI', href: '/app/ai' },
         { label: 'Conversations' }
       ]}
-      actions={canCreateConversations ? [
-        {
+      actions={[
+        refreshAction,
+        ...(canCreateConversations ? [{
           id: 'create-conversation',
           label: 'Start Conversation',
           onClick: () => setIsCreateModalOpen(true),
           icon: Plus,
-          variant: 'primary'
-        }
-      ] : []}
+          variant: 'primary' as const
+        }] : [])
+      ]}
     >
       <div className="space-y-4">
         {/* Filters */}
@@ -572,32 +580,23 @@ export const AIConversationsPage: React.FC = () => {
         onConversationCreated={handleConversationCreated}
       />
 
-      {/* Conversation Detail Modal */}
-      {selectedConversationId && (() => {
-        const selectedConversation = conversations.find(c => c.id === selectedConversationId);
-        const agentId = selectedConversation?.ai_agent?.id;
+      {/* Conversation Detail Modal - Always rendered, visibility controlled by isOpen */}
+      <ConversationDetailModal
+        isOpen={!!selectedConversationId}
+        onClose={() => setSelectedConversationId(null)}
+        agentId={conversations.find(c => c.id === selectedConversationId)?.ai_agent?.id || ''}
+        conversationId={selectedConversationId || ''}
+        onContinue={handleContinueConversation}
+        onArchive={() => {
+          loadConversations(pagination.currentPage, pagination.perPage);
+          setSelectedConversationId(null);
+        }}
+        onExport={() => {
+          setSelectedConversationId(null);
+        }}
+      />
 
-        if (!agentId) return null;
-
-        return (
-          <ConversationDetailModal
-            isOpen={!!selectedConversationId}
-            onClose={() => setSelectedConversationId(null)}
-            agentId={agentId}
-            conversationId={selectedConversationId}
-            onContinue={handleContinueConversation}
-            onArchive={() => {
-              loadConversations(pagination.currentPage, pagination.perPage);
-              setSelectedConversationId(null);
-            }}
-            onExport={() => {
-              setSelectedConversationId(null);
-            }}
-          />
-        );
-      })()}
-
-      {/* Conversation Continue Modal */}
+      {/* Conversation Continue Modal - Only rendered when conversation exists */}
       {chatConversation && (
         <ConversationContinueModal
           isOpen={!!chatConversationId}

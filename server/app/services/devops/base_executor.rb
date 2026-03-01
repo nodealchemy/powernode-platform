@@ -97,7 +97,7 @@ module Devops
     def decrypted_credentials
       return {} unless credential.present?
 
-      @decrypted_credentials ||= Devops::CredentialEncryptionService.decrypt(credential)
+      @decrypted_credentials ||= credential.credentials
     end
 
     # Validation methods
@@ -136,7 +136,7 @@ module Devops
     def credential_errors
       errors = []
 
-      return ["No credentials configured"] unless credential.present?
+      return [ "No credentials configured" ] unless credential.present?
 
       required_fields = template.credential_requirements["required"] || []
       required_fields.each do |field|

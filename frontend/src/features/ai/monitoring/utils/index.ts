@@ -1,7 +1,6 @@
 // AI Monitoring utilities barrel export
 export {
   transformDashboardData,
-  transformHealthData,
   transformAlerts
 } from './monitoringTransformers';
 

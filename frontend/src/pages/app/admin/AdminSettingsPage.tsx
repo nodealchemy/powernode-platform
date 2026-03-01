@@ -10,22 +10,29 @@ import { AdminSettingsTabs } from '@/features/admin/components/settings/AdminSet
 
 // Import all admin settings tab pages
 import { AdminSettingsOverviewTabPage } from './AdminSettingsOverviewTabPage';
-import { AdminSettingsPaymentGatewaysTabPage } from './AdminSettingsPaymentGatewaysTabPage';
+// Payment Gateways tab - enterprise only, lazy-loaded when available
+const AdminSettingsPaymentGatewaysTabPage = (typeof __EXTENSIONS__ !== 'undefined' && __EXTENSIONS__.includes('enterprise'))
+  ? React.lazy(() => import('@ext/enterprise/pages/admin/AdminSettingsPaymentGatewaysTabPage'))
+  : () => React.createElement('div', { className: 'p-8 text-center text-theme-secondary' }, 'Payment Gateways is available in Enterprise edition.');
 import { AdminSettingsEmailTabPage } from './AdminSettingsEmailTabPage';
 import { AdminSettingsSecurityTabPage } from './AdminSettingsSecurityTabPage';
 import AdminSettingsRateLimitingTabPage from './AdminSettingsRateLimitingTabPage';
 import { AdminSettingsPerformanceTabPage } from './AdminSettingsPerformanceTabPage';
 import { AdminSettingsProxyTabPage } from './AdminSettingsProxyTabPage';
+import { AdminSettingsDevelopmentTabPage } from './AdminSettingsDevelopmentTabPage';
+import { AdminSettingsExtensionsTabPage } from './AdminSettingsExtensionsTabPage';
 
 // Tab definitions for breadcrumbs
 const settingsTabs = [
   { id: 'overview', label: 'Overview', path: '/app/admin/settings', icon: '📊' },
+  { id: 'extensions', label: 'Extensions', path: '/app/admin/settings/extensions', icon: '🧩' },
   { id: 'payment-gateways', label: 'Payment Gateways', path: '/app/admin/settings/payment-gateways', icon: '💳' },
   { id: 'email', label: 'Email Settings', path: '/app/admin/settings/email', icon: '📧' },
   { id: 'proxy', label: 'Reverse Proxy', path: '/app/admin/settings/proxy', icon: '🌐' },
   { id: 'security', label: 'Security', path: '/app/admin/settings/security', icon: '🔒' },
   { id: 'rate-limiting', label: 'Rate Limiting', path: '/app/admin/settings/rate-limiting', icon: '🛡️' },
-  { id: 'performance', label: 'Performance', path: '/app/admin/settings/performance', icon: '⚡' }
+  { id: 'performance', label: 'Performance', path: '/app/admin/settings/performance', icon: '⚡' },
+  { id: 'development', label: 'Development', path: '/app/admin/settings/development', icon: '🔧' }
 ];
 
 export const AdminSettingsPage: React.FC = () => {
@@ -33,7 +40,7 @@ export const AdminSettingsPage: React.FC = () => {
   const { user } = useSelector((state: RootState) => state.auth);
 
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'admin',
     onDataUpdate: () => {
       // Trigger data refresh if needed
@@ -58,15 +65,15 @@ export const AdminSettingsPage: React.FC = () => {
 
   const getBreadcrumbs = () => {
     const activeTab = getActiveTab();
-    const breadcrumbs: { label: string; href?: string; icon: string }[] = [
-      { label: 'Dashboard', href: '/app', icon: '🏠' },
-      { label: 'Admin', href: '/app/admin', icon: '🔧' },
-      { label: 'Settings', href: '/app/admin/settings', icon: '⚙️' }
+    const breadcrumbs: { label: string; href?: string }[] = [
+      { label: 'Dashboard', href: '/app' },
+      { label: 'Admin', href: '/app/admin' },
+      { label: 'Settings', href: '/app/admin/settings' }
     ];
 
     // Add active tab if not on overview
     if (activeTab && activeTab.id !== 'overview') {
-      breadcrumbs.push({ label: activeTab.label, icon: activeTab.icon });
+      breadcrumbs.push({ label: activeTab.label });
     }
 
     return breadcrumbs;
@@ -89,13 +96,15 @@ export const AdminSettingsPage: React.FC = () => {
           <Route path="/overview" element={<Navigate to="/app/admin/settings" replace />} />
           
           {/* Admin Settings Tabs */}
+          <Route path="/extensions" element={<AdminSettingsExtensionsTabPage />} />
           <Route path="/payment-gateways" element={<AdminSettingsPaymentGatewaysTabPage />} />
           <Route path="/email" element={<AdminSettingsEmailTabPage />} />
           <Route path="/proxy" element={<AdminSettingsProxyTabPage />} />
           <Route path="/security" element={<AdminSettingsSecurityTabPage />} />
           <Route path="/rate-limiting" element={<AdminSettingsRateLimitingTabPage />} />
           <Route path="/performance" element={<AdminSettingsPerformanceTabPage />} />
-          
+          <Route path="/development" element={<AdminSettingsDevelopmentTabPage />} />
+
           {/* Legacy redirects */}
           <Route path="/admin/*" element={<Navigate to="/app/admin/settings" replace />} />
           

@@ -11,6 +11,10 @@ module Mcp
   class ToolConflictError < RegistryError; end
   class DependencyError < RegistryError; end
 
+  # Cache TTLs
+  TOOL_LIST_CACHE_TTL = 1.hour
+  CAPABILITY_SEARCH_CACHE_TTL = 1.hour
+
   attr_accessor :account
 
   def initialize(account: nil)
@@ -115,8 +119,20 @@ module Mcp
   # TOOL DISCOVERY AND QUERYING
   # =============================================================================
 
-  # List all tools with optional filtering
+  # List all tools with optional filtering (cached for 1 hour when no filters)
   def list_tools(filters = {})
+    # Use cache only for unfiltered queries
+    if filters.empty? || filters.keys == [:sort_by]
+      cache_key = "mcp:registry:tools:#{@account&.id || 'global'}:#{filters[:sort_by] || 'name'}"
+
+      return Rails.cache.fetch(cache_key, expires_in: TOOL_LIST_CACHE_TTL) do
+        tools = @tools.values
+        sort_key = filters[:sort_by] || "name"
+        tools.sort_by { |tool| tool[sort_key] || "" }
+      end
+    end
+
+    # For filtered queries, don't cache (too many variations)
     tools = @tools.values
 
     # Apply filters
@@ -131,26 +147,48 @@ module Mcp
     tools.sort_by { |tool| tool[sort_key] || "" }
   end
 
-  # Find tools by capability requirements
+  # Find tools by capability requirements (cached for 1 hour)
   def find_tools_by_capability(required_capabilities)
-    matching_tools = []
+    # Sort capabilities for consistent cache key
+    sorted_caps = required_capabilities.sort.join(",")
+    cache_key = "mcp:registry:capabilities:#{@account&.id || 'global'}:#{Digest::MD5.hexdigest(sorted_caps)}"
 
-    @capability_index.each do |capability, tool_ids|
-      if required_capabilities.include?(capability)
-        tool_ids.each do |tool_id|
-          tool = @tools[tool_id]
-          next unless tool
+    Rails.cache.fetch(cache_key, expires_in: CAPABILITY_SEARCH_CACHE_TTL) do
+      matching_tools = []
 
-          # Check if tool supports ALL required capabilities
-          tool_capabilities = tool["capabilities"] || []
-          if (required_capabilities - tool_capabilities).empty?
-            matching_tools << tool unless matching_tools.include?(tool)
+      @capability_index.each do |capability, tool_ids|
+        if required_capabilities.include?(capability)
+          tool_ids.each do |tool_id|
+            tool = @tools[tool_id]
+            next unless tool
+
+            # Check if tool supports ALL required capabilities
+            tool_capabilities = extract_tool_capability_ids(tool)
+            if (required_capabilities - tool_capabilities).empty?
+              matching_tools << tool unless matching_tools.include?(tool)
+            end
           end
         end
       end
-    end
 
-    matching_tools
+      # Graph-based fallback: find tools with graph-adjacent capabilities
+      if matching_tools.empty?
+        begin
+          graph_matches = find_tools_via_graph(required_capabilities)
+          matching_tools.concat(graph_matches)
+        rescue => e
+          @logger.warn "[MCP_REGISTRY] Graph-based capability lookup failed: #{e.message}"
+        end
+      end
+
+      matching_tools
+    end
+  end
+
+  # Invalidate registry caches
+  def invalidate_caches
+    Rails.cache.delete_matched("mcp:registry:tools:#{@account&.id || 'global'}:*")
+    Rails.cache.delete_matched("mcp:registry:capabilities:#{@account&.id || 'global'}:*")
   end
 
   # Get tool by ID or name
@@ -591,7 +629,7 @@ module Mcp
       "description" => agent.description || "AI Agent: #{agent.name}",
       "type" => "ai_agent",
       "version" => agent.version.to_s,
-      "capabilities" => agent.mcp_capabilities || [],
+      "capabilities" => agent.skill_slugs,
       "inputSchema" => agent.mcp_input_schema || default_agent_input_schema,
       "outputSchema" => agent.mcp_output_schema || default_agent_output_schema,
       "agent_id" => agent.id,
@@ -601,6 +639,35 @@ module Mcp
 
   def find_tool_by_name(name)
     @tools.values.find { |tool| tool["name"] == name }
+  end
+
+  # Graph-based tool discovery fallback
+  def find_tools_via_graph(required_capabilities)
+    return [] unless @account&.ai_knowledge_graph_nodes&.active&.skill_nodes&.exists?
+
+    graph_service = Ai::KnowledgeGraph::GraphService.new(@account)
+    graph_matched_tool_ids = Set.new
+
+    required_capabilities.each do |cap|
+      cap_skill = Ai::Skill.for_account(@account.id).active.find_by(slug: cap)
+      cap_node = cap_skill&.knowledge_graph_node
+      next unless cap_node&.status == "active"
+
+      neighbors = graph_service.find_neighbors(node: cap_node, depth: 1, relation_types: %w[requires related_to])
+      neighbor_names = neighbors.map { |n| n[:name] }.compact
+
+      neighbor_names.each do |name|
+        tool_ids = @capability_index[name]
+        graph_matched_tool_ids.merge(tool_ids) if tool_ids
+      end
+    end
+
+    graph_matched_tool_ids.filter_map { |tid| @tools[tid] }
+  end
+
+  def extract_tool_capability_ids(tool)
+    caps = tool["capabilities"] || []
+    caps.map { |c| c.is_a?(Hash) ? (c["id"] || c["name"]) : c.to_s }.compact
   end
 
   def generate_tool_id_from_manifest(manifest)

@@ -55,12 +55,12 @@ module Orchestration
 
       current_load = calculate_provider_current_load(provider)
       max_load = provider.metadata&.dig("max_concurrent") || 10
-      load_factor = [1.0 - (current_load / max_load.to_f), 0.1].max
+      load_factor = [ 1.0 - (current_load / max_load.to_f), 0.1 ].max
 
       success_rate = calculate_provider_success_rate(provider) / 100.0
 
       avg_response_time = calculate_provider_avg_response_time(provider)
-      time_factor = [1.0 / (avg_response_time / 1000.0), 0.1].max
+      time_factor = [ 1.0 / (avg_response_time / 1000.0), 0.1 ].max
 
       cost_factor = options[:optimize_for_cost] ? calculate_cost_factor(provider) : 1.0
 
@@ -74,14 +74,14 @@ module Orchestration
     end
 
     def enforce_resource_limits!(agent, provider)
-      current_executions = @account.ai_agent_executions.where(status: ["pending", "running"]).count
+      current_executions = @account.ai_agent_executions.where(status: [ "pending", "running" ]).count
       max_concurrent = @account.subscription&.ai_execution_limit || 10
 
       if current_executions >= max_concurrent
         raise Ai::AgentOrchestrationService::ResourceLimitError, "Account concurrent execution limit reached (#{max_concurrent})"
       end
 
-      provider_executions = provider.agent_executions.where(status: ["pending", "running"]).count
+      provider_executions = provider.agent_executions.where(status: [ "pending", "running" ]).count
       provider_max = provider.metadata&.dig("max_concurrent") || 10
 
       if provider_executions >= provider_max
@@ -109,7 +109,7 @@ module Orchestration
       base_priority += 2 if user.account.subscription&.premium?
       base_priority += 1 if options[:workflow_context]
       base_priority += 1 if agent.agent_type == "real_time"
-      [base_priority, 10].min
+      [ base_priority, 10 ].min
     end
 
     def build_orchestration_context(execution, options)
@@ -162,7 +162,7 @@ module Orchestration
       end
     end
 
-    def calculate_cost_from_usage(usage, provider_name)
+    def calculate_cost_from_usage(usage, provider_name = nil)
       return 0.0 unless usage&.dig(:total_tokens)
 
       pricing = case provider_name.to_s.downcase

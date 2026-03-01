@@ -21,7 +21,7 @@ interface ActivityItem {
   description: string;
   timestamp: string;
   status: 'success' | 'error' | 'warning' | 'info';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   isNew?: boolean;
 }
 
@@ -327,14 +327,6 @@ export const RealTimeActivityFeed: React.FC<RealTimeActivityFeedProps> = ({
         )}
       </div>
 
-      {/* Footer */}
-      {filteredActivities.length > 0 && (
-        <div className="text-center pt-2 border-t border-theme">
-          <button className="text-sm text-theme-secondary hover:text-theme-primary">
-            View all activity →
-          </button>
-        </div>
-      )}
     </div>
   );
 };

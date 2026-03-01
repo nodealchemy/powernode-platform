@@ -10,7 +10,7 @@ module Ai
     belongs_to :account
     belongs_to :user
     belongs_to :provider, class_name: "Ai::Provider", foreign_key: "ai_provider_id"
-    belongs_to :parent_execution, class_name: "Ai::AgentExecution", optional: true
+    belongs_to :parent_execution, class_name: "Ai::AgentExecution", foreign_key: "parent_execution_id", optional: true
     has_many :child_executions, class_name: "Ai::AgentExecution", foreign_key: "parent_execution_id", dependent: :nullify
 
     # Validations
@@ -44,6 +44,8 @@ module Ai
     # Callbacks
     before_validation :set_execution_id, on: :create
     after_update :trigger_webhook, if: :saved_change_to_status?
+    after_update :propagate_cost_to_budget, if: -> { saved_change_to_cost_usd? && cost_usd.present? && cost_usd > 0 }
+    after_update :trigger_trust_evaluation, if: -> { saved_change_to_status? && %w[completed failed].include?(status) }
 
     # Methods
     def pending?
@@ -203,18 +205,18 @@ module Ai
     end
 
     def calculate_cost(tokens)
-      # This would be enhanced with provider-specific pricing
-      # For now, use a simple calculation
-      provider_cost_per_1k_tokens = case provider.slug
-      when "openai"
-                                      0.002  # GPT-3.5 pricing
-      when "anthropic"
-                                      0.008  # Claude pricing
-      else
-                                      0.001  # Default
-      end
+      pricing = provider.configuration&.dig("pricing") || {}
+      input_rate = pricing["input_per_token"]&.to_f
+      output_rate = pricing["output_per_token"]&.to_f
 
-      (tokens / 1000.0) * provider_cost_per_1k_tokens
+      if input_rate || output_rate
+        input_tokens = token_usage&.dig("input")&.to_i || tokens
+        output_tokens = token_usage&.dig("output")&.to_i || 0
+        (input_tokens * (input_rate || 0)) + (output_tokens * (output_rate || 0))
+      else
+        cost_per_1k = pricing["cost_per_1k_tokens"]&.to_f || 0
+        (tokens / 1000.0) * cost_per_1k
+      end
     end
 
     def trigger_webhook
@@ -222,6 +224,26 @@ module Ai
       return unless finished?
 
       AiWebhookDeliveryJob.perform_later(id)
+    end
+
+    def propagate_cost_to_budget
+      budget = Ai::AgentBudget.where(agent_id: ai_agent_id, account_id: account_id).active.first
+      return unless budget
+
+      cost_cents = (cost_usd * 100).round
+      budget.debit!(cost_cents, execution: self, metadata: {
+        provider: provider&.name,
+        model: agent&.model,
+        tokens: tokens_used
+      })
+    rescue StandardError => e
+      Rails.logger.error("[AgentExecution] Cost propagation failed for execution #{id}: #{e.message}")
+    end
+
+    def trigger_trust_evaluation
+      Ai::Autonomy::TrustEngineService.new(account: account).evaluate(agent: agent, execution: self)
+    rescue StandardError => e
+      Rails.logger.error("[AgentExecution] Trust evaluation failed for execution #{id}: #{e.message}")
     end
   end
 end

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # This file is copied to spec/ when you run 'rails generate rspec:install'
 require 'spec_helper'
 ENV['RAILS_ENV'] ||= 'test'
@@ -45,20 +47,51 @@ RSpec.configure do |config|
     Rails.root.join('spec/fixtures')
   ]
 
-  # If you're not using ActiveRecord, or you'd prefer not to run each of your
-  # examples within a transaction, remove the following line or assign false
-  # instead of true.
-  config.use_transactional_fixtures = false
+  # Wrap each test in a database transaction that rolls back after the test.
+  # This is fast, avoids table locks, and prevents deadlocks between processes.
+  config.use_transactional_fixtures = true
 
   # You can uncomment this line to turn off ActiveRecord support entirely.
   # config.use_active_record = false
 
-  # FactoryBot configuration
+  # FactoryBot configuration — include enterprise factories when the extension is present
+  enterprise_factories = Rails.root.join('..', 'extensions', 'enterprise', 'server', 'spec', 'factories')
+  FactoryBot.definition_file_paths << enterprise_factories.to_s if enterprise_factories.exist?
+  FactoryBot.reload if enterprise_factories.exist?
+
   config.include FactoryBot::Syntax::Methods
 
+  # Time travel helpers (travel_to, freeze_time, etc.)
+  config.include ActiveSupport::Testing::TimeHelpers
+
   # Database cleaner configuration
+  #
+  # With use_transactional_fixtures = true, Rails wraps each test in a
+  # transaction that rolls back automatically. DatabaseCleaner is only needed
+  # for the initial suite cleanup and for tests that explicitly require
+  # truncation (e.g., multi-threaded performance tests).
   config.before(:suite) do
-    DatabaseCleaner.clean_with(:truncation)
+    # Under parallel_tests, databases are already clean (parallel:prepare runs
+    # db:purge + db:schema:load) and permissions are seeded by parallel:seed_permissions.
+    # Skip the heavy truncation to avoid PG::OutOfMemory from max_locks_per_transaction.
+    # Use deletion instead of truncation for initial cleanup.
+    # TRUNCATE requires AccessExclusiveLock which deadlocks with
+    # AccessShareLock held by concurrent rspec processes running tests.
+    # DELETE only needs RowExclusiveLock, avoiding deadlocks entirely.
+    retries = 0
+    begin
+      # Clear join tables first to avoid FK violations during deletion
+      ActiveRecord::Base.connection.execute("DELETE FROM role_permissions")
+      DatabaseCleaner.clean_with(:deletion, except: %w[ar_internal_metadata schema_migrations])
+    rescue ActiveRecord::Deadlocked, ActiveRecord::LockWaitTimeout, ActiveRecord::InvalidForeignKey => e
+      retries += 1
+      if retries <= 3
+        sleep(retries * 2)
+        retry
+      else
+        raise
+      end
+    end
 
     # Load permissions configuration
     require Rails.root.join('config', 'permissions')
@@ -68,13 +101,17 @@ RSpec.configure do |config|
     Role.sync_from_config!
   end
 
-  config.before(:each) do
-    DatabaseCleaner.strategy = :transaction
+  # Only use DatabaseCleaner for tests tagged with truncation: true
+  # (e.g., multi-threaded tests that need committed data visible across threads)
+  config.before(:each, truncation: true) do
+    self.class.use_transactional_tests = false
+    DatabaseCleaner.strategy = :truncation
     DatabaseCleaner.start
   end
 
-  config.after(:each) do
+  config.after(:each, truncation: true) do
     DatabaseCleaner.clean
+    self.class.use_transactional_tests = true
   end
 
   # RSpec Rails uses metadata to mix in different behaviours to your tests,

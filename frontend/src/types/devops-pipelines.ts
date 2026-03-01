@@ -1,13 +1,12 @@
 // DevOps Pipeline Management Types
-// Note: Types use CiCd prefix for backward compatibility during migration
 
 // Provider types
-export type CiCdProviderType = 'gitea' | 'github' | 'gitlab' | 'jenkins';
+export type DevopsProviderType = 'gitea' | 'github' | 'gitlab' | 'jenkins';
 
-export interface CiCdProvider {
+export interface DevopsProvider {
   id: string;
   name: string;
-  provider_type: CiCdProviderType;
+  provider_type: DevopsProviderType;
   base_url: string;
   is_active: boolean;
   last_sync_at: string | null;
@@ -17,9 +16,9 @@ export interface CiCdProvider {
   updated_at: string;
 }
 
-export interface CiCdProviderFormData {
+export interface DevopsProviderFormData {
   name: string;
-  provider_type: CiCdProviderType;
+  provider_type: DevopsProviderType;
   base_url: string;
   api_token: string;
   webhook_secret?: string;
@@ -27,17 +26,17 @@ export interface CiCdProviderFormData {
   settings?: Record<string, unknown>;
 }
 
-// Prompt Template types (now uses Shared::PromptTemplate with domain='cicd')
-export type CiCdPromptCategory = 'review' | 'implement' | 'security' | 'deploy' | 'docs' | 'custom' | 'general' | 'agent' | 'workflow';
-export type CiCdPromptDomain = 'cicd' | 'ai_workflow' | 'general';
+// Prompt Template types (now uses Shared::PromptTemplate with domain='devops')
+export type DevopsPromptCategory = 'review' | 'implement' | 'security' | 'deploy' | 'docs' | 'custom' | 'general' | 'agent' | 'workflow';
+export type DevopsPromptDomain = 'devops' | 'ai_workflow' | 'general';
 
-export interface CiCdPromptTemplate {
+export interface DevopsPromptTemplate {
   id: string;
   name: string;
   slug: string;
   description: string | null;
-  category: CiCdPromptCategory;
-  domain: CiCdPromptDomain;
+  category: DevopsPromptCategory;
+  domain: DevopsPromptDomain;
   content: string;
   variables: Record<string, string>;
   is_active: boolean;
@@ -51,10 +50,10 @@ export interface CiCdPromptTemplate {
   updated_at: string;
 }
 
-export interface CiCdPromptTemplateFormData {
+export interface DevopsPromptTemplateFormData {
   name: string;
   description?: string;
-  category: CiCdPromptCategory;
+  category: DevopsPromptCategory;
   content: string;
   is_active: boolean;
   variables?: Record<string, string>;
@@ -62,9 +61,9 @@ export interface CiCdPromptTemplateFormData {
 }
 
 // Pipeline types
-export type CiCdTriggerEvent = 'pull_request' | 'push' | 'issues' | 'issue_comment' | 'release' | 'schedule' | 'manual';
+export type DevopsTriggerEvent = 'pull_request' | 'push' | 'issues' | 'issue_comment' | 'release' | 'schedule' | 'manual';
 
-export interface CiCdPipelineTriggers {
+export interface DevopsPipelineTriggers {
   pull_request?: string[];
   push?: { branches?: string[] };
   issues?: string[];
@@ -75,13 +74,13 @@ export interface CiCdPipelineTriggers {
   manual?: boolean;
 }
 
-export interface CiCdPipeline {
+export interface DevopsPipeline {
   id: string;
   name: string;
   slug: string;
   pipeline_type: string;
   description: string | null;
-  triggers: CiCdPipelineTriggers;
+  triggers: DevopsPipelineTriggers;
   environment: Record<string, unknown>;
   secret_refs: string[];
   runner_labels: string[];
@@ -107,8 +106,8 @@ export interface CiCdPipeline {
   created_by_name: string | null;
   created_at: string;
   updated_at: string;
-  steps?: CiCdPipelineStep[];
-  recent_runs?: CiCdPipelineRun[];
+  steps?: DevopsPipelineStep[];
+  recent_runs?: DevopsPipelineRun[];
 }
 
 // Notification types for pipelines
@@ -131,24 +130,24 @@ export interface StepApprovalSettings {
   notification_recipients: NotificationRecipient[];
 }
 
-export interface CiCdPipelineFormData {
+export interface DevopsPipelineFormData {
   name: string;
   description?: string;
   pipeline_type?: string;
   ai_provider_id?: string;
   is_active: boolean;
-  triggers?: CiCdPipelineTriggers;
+  triggers?: DevopsPipelineTriggers;
   environment?: Record<string, unknown>;
   timeout_minutes?: number;
   allow_concurrent?: boolean;
   features?: Record<string, unknown>;
-  steps?: CiCdPipelineStepFormData[];
+  steps?: DevopsPipelineStepFormData[];
   notification_recipients?: NotificationRecipient[];
   notification_settings?: NotificationSettingsConfig;
 }
 
 // Pipeline Step types
-export type CiCdStepType =
+export type DevopsStepType =
   | 'checkout'
   | 'claude_execute'
   | 'ai_workflow'
@@ -162,19 +161,19 @@ export type CiCdStepType =
   | 'notify'
   | 'custom';
 
-export interface CiCdPipelineStepOutput {
+export interface DevopsPipelineStepOutput {
   name: string;
   type?: string;
 }
 
-export interface CiCdPipelineStep {
+export interface DevopsPipelineStep {
   id: string;
   name: string;
-  step_type: CiCdStepType | string;
+  step_type: DevopsStepType | string;
   position: number;
   configuration: Record<string, unknown>;
   inputs: Record<string, unknown>;
-  outputs: CiCdPipelineStepOutput[] | Record<string, unknown>;
+  outputs: DevopsPipelineStepOutput[] | Record<string, unknown>;
   condition: string | null;
   continue_on_error: boolean;
   is_active: boolean;
@@ -188,10 +187,10 @@ export interface CiCdPipelineStep {
   updated_at: string;
 }
 
-export interface CiCdPipelineStepFormData {
+export interface DevopsPipelineStepFormData {
   id?: string;
   name: string;
-  step_type: CiCdStepType;
+  step_type: DevopsStepType;
   position?: number;
   configuration?: Record<string, unknown>;
   inputs?: Record<string, unknown>;
@@ -205,14 +204,14 @@ export interface CiCdPipelineStepFormData {
 }
 
 // Pipeline Run types
-export type CiCdPipelineRunStatus = 'pending' | 'queued' | 'running' | 'success' | 'failure' | 'cancelled';
-export type CiCdTriggerType = 'manual' | 'webhook' | 'schedule' | 'retry';
+export type DevopsPipelineRunStatus = 'pending' | 'queued' | 'running' | 'success' | 'failure' | 'cancelled';
+export type DevopsTriggerType = 'manual' | 'webhook' | 'schedule' | 'retry';
 
-export interface CiCdPipelineRun {
+export interface DevopsPipelineRun {
   id: string;
   run_number: number;
-  status: CiCdPipelineRunStatus;
-  trigger_type: CiCdTriggerType;
+  status: DevopsPipelineRunStatus;
+  trigger_type: DevopsTriggerType;
   trigger_context: Record<string, unknown>;
   started_at: string | null;
   completed_at: string | null;
@@ -235,17 +234,17 @@ export interface CiCdPipelineRun {
   } | null;
   pipeline_name?: string;
   pipeline_slug?: string;
-  step_executions?: CiCdStepExecution[];
+  step_executions?: DevopsStepExecution[];
   created_at: string;
   updated_at: string;
 }
 
 // Step Execution types
-export type CiCdStepExecutionStatus = 'pending' | 'running' | 'waiting_approval' | 'success' | 'failure' | 'cancelled' | 'skipped';
+export type DevopsStepExecutionStatus = 'pending' | 'running' | 'waiting_approval' | 'success' | 'failure' | 'cancelled' | 'skipped';
 
-export interface CiCdStepExecution {
+export interface DevopsStepExecution {
   id: string;
-  status: CiCdStepExecutionStatus;
+  status: DevopsStepExecutionStatus;
   started_at: string | null;
   completed_at: string | null;
   duration_seconds: number | null;
@@ -260,7 +259,7 @@ export interface CiCdStepExecution {
 }
 
 // Schedule types
-export interface CiCdSchedule {
+export interface DevopsSchedule {
   id: string;
   name: string;
   cron_expression: string;
@@ -277,7 +276,7 @@ export interface CiCdSchedule {
   updated_at: string;
 }
 
-export interface CiCdScheduleFormData {
+export interface DevopsScheduleFormData {
   name: string;
   cron_expression: string;
   timezone?: string;
@@ -287,7 +286,7 @@ export interface CiCdScheduleFormData {
 }
 
 // Repository types
-export interface CiCdRepository {
+export interface DevopsRepository {
   id: string;
   name: string;
   full_name: string;
@@ -300,7 +299,7 @@ export interface CiCdRepository {
   web_url: string;
   owner: string;
   repo_name: string;
-  provider_type: CiCdProviderType;
+  provider_type: DevopsProviderType;
   pipeline_count: number;
   pipelines?: Array<{
     id: string;
@@ -313,7 +312,7 @@ export interface CiCdRepository {
   updated_at: string;
 }
 
-export interface CiCdRepositoryFormData {
+export interface DevopsRepositoryFormData {
   name: string;
   full_name: string;
   default_branch?: string;
@@ -324,24 +323,24 @@ export interface CiCdRepositoryFormData {
 }
 
 // API Response types
-export interface CiCdProvidersResponse {
-  providers: CiCdProvider[];
+export interface DevopsProvidersResponse {
+  providers: DevopsProvider[];
   meta: {
     total: number;
     by_type: Record<string, number>;
   };
 }
 
-export interface CiCdPromptTemplatesResponse {
-  prompt_templates: CiCdPromptTemplate[];
+export interface DevopsPromptTemplatesResponse {
+  prompt_templates: DevopsPromptTemplate[];
   meta: {
     total: number;
     by_category: Record<string, number>;
   };
 }
 
-export interface CiCdPipelinesResponse {
-  pipelines: CiCdPipeline[];
+export interface DevopsPipelinesResponse {
+  pipelines: DevopsPipeline[];
   meta: {
     total: number;
     active_count: number;
@@ -349,8 +348,8 @@ export interface CiCdPipelinesResponse {
   };
 }
 
-export interface CiCdPipelineRunsResponse {
-  pipeline_runs: CiCdPipelineRun[];
+export interface DevopsPipelineRunsResponse {
+  pipeline_runs: DevopsPipelineRun[];
   meta: {
     total: number;
     page: number;
@@ -360,8 +359,8 @@ export interface CiCdPipelineRunsResponse {
   };
 }
 
-export interface CiCdSchedulesResponse {
-  schedules: CiCdSchedule[];
+export interface DevopsSchedulesResponse {
+  schedules: DevopsSchedule[];
   meta: {
     total: number;
     active_count: number;
@@ -369,8 +368,8 @@ export interface CiCdSchedulesResponse {
   };
 }
 
-export interface CiCdRepositoriesResponse {
-  repositories: CiCdRepository[];
+export interface DevopsRepositoriesResponse {
+  repositories: DevopsRepository[];
   meta: {
     total: number;
     active_count: number;
@@ -379,7 +378,7 @@ export interface CiCdRepositoriesResponse {
 }
 
 // Preview response
-export interface CiCdPromptPreviewResponse {
+export interface DevopsPromptPreviewResponse {
   prompt_template_id: string;
   rendered_content: string;
   variables_used: string[];
@@ -387,7 +386,7 @@ export interface CiCdPromptPreviewResponse {
 }
 
 // Export YAML response
-export interface CiCdPipelineExportResponse {
+export interface DevopsPipelineExportResponse {
   pipeline_id: string;
   pipeline_name: string;
   yaml: string;
@@ -395,23 +394,10 @@ export interface CiCdPipelineExportResponse {
 }
 
 // Connection test response
-export interface CiCdConnectionTestResponse {
+export interface DevopsConnectionTestResponse {
   provider_id: string;
   connected: boolean;
   message: string;
   details?: Record<string, unknown>;
   tested_at: string;
 }
-
-// Type aliases for future migration to Devops naming convention
-export type DevopsProviderType = CiCdProviderType;
-export type DevopsProvider = CiCdProvider;
-export type DevopsProviderFormData = CiCdProviderFormData;
-export type DevopsPipeline = CiCdPipeline;
-export type DevopsPipelineFormData = CiCdPipelineFormData;
-export type DevopsPipelineRun = CiCdPipelineRun;
-export type DevopsPipelineRunStatus = CiCdPipelineRunStatus;
-export type DevopsSchedule = CiCdSchedule;
-export type DevopsScheduleFormData = CiCdScheduleFormData;
-export type DevopsRepository = CiCdRepository;
-export type DevopsRepositoryFormData = CiCdRepositoryFormData;

@@ -1,9 +1,6 @@
 # frozen_string_literal: true
 
-class Api::V1::Internal::McpServersController < ApplicationController
-  skip_before_action :authenticate_request
-  before_action :authenticate_service_token
-
+class Api::V1::Internal::McpServersController < Api::V1::Internal::InternalBaseController
   # Internal API endpoints for MCP server management
   # These endpoints are called by background workers only
 
@@ -15,7 +12,7 @@ class Api::V1::Internal::McpServersController < ApplicationController
     servers = servers.where(status: params[:status]) if params[:status].present?
 
     render_success({
-      mcp_servers: servers.map { |server| serialize_server(server) }
+      mcp_servers: servers.limit(500).map { |server| serialize_server(server) }
     })
   rescue StandardError => e
     Rails.logger.error "Failed to list MCP servers: #{e.message}"
@@ -90,16 +87,32 @@ class Api::V1::Internal::McpServersController < ApplicationController
     tools_registered = 0
 
     Array(params[:tools]).each do |tool_data|
-      tool = server.mcp_tools.find_or_initialize_by(name: tool_data[:name])
-      tool.description = tool_data[:description]
-      tool.input_schema = tool_data[:input_schema] || {}
-      tool.enabled = tool_data[:enabled].nil? ? true : tool_data[:enabled]
-      tool.permission_level = tool_data[:permission_level] || "account"
+      # Convert to hash with indifferent access for symbol/string key compatibility
+      # Use [] accessor which works for both ActionController::Parameters and Hash
+      tool_name = tool_data["name"] || tool_data[:name]
+      tool_description = tool_data["description"] || tool_data[:description]
+      tool_enabled = tool_data.key?("enabled") ? tool_data["enabled"] : (tool_data.key?(:enabled) ? tool_data[:enabled] : true)
+      tool_permission_level = tool_data["permission_level"] || tool_data[:permission_level] || "account"
+
+      # Handle input_schema specially - ensure it's never nil
+      if tool_data.key?("input_schema")
+        tool_input_schema = tool_data["input_schema"] || {}
+      elsif tool_data.key?(:input_schema)
+        tool_input_schema = tool_data[:input_schema] || {}
+      else
+        tool_input_schema = {}
+      end
+
+      tool = server.mcp_tools.find_or_initialize_by(name: tool_name)
+      tool.description = tool_description
+      tool.input_schema = tool_input_schema
+      tool.enabled = tool_enabled
+      tool.permission_level = tool_permission_level
 
       if tool.save
         tools_registered += 1
       else
-        Rails.logger.warn "Failed to register tool #{tool_data[:name]}: #{tool.errors.full_messages.join(', ')}"
+        Rails.logger.warn "Failed to register tool #{tool_name}: #{tool.errors.full_messages.join(', ')}"
       end
     end
 
@@ -196,26 +209,5 @@ class Api::V1::Internal::McpServersController < ApplicationController
         timestamp: Time.current.iso8601
       }
     )
-  end
-
-  def authenticate_service_token
-    token = request.headers["Authorization"]&.split(" ")&.last
-
-    unless token.present?
-      render_error("Service token required", status: :unauthorized)
-      return
-    end
-
-    begin
-      payload = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: "HS256").first
-
-      unless payload["service"] == "worker" && payload["type"] == "service"
-        render_error("Invalid service token", status: :unauthorized)
-        nil
-      end
-
-    rescue JWT::DecodeError, JWT::ExpiredSignature
-      render_error("Invalid service token", status: :unauthorized)
-    end
   end
 end

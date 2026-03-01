@@ -2,9 +2,10 @@
 
 class Api::V1::Auth::PasswordsController < ApplicationController
   include RateLimiting
-  
+  wrap_parameters false
+
   skip_before_action :authenticate_request, only: [ :forgot, :reset ]
-  after_action :increment_rate_limit_count, only: [:forgot, :reset], if: -> { response.status >= 400 }
+  after_action :increment_rate_limit_count, only: [ :forgot, :reset ], if: -> { response.status >= 400 }
 
   # POST /api/v1/passwords/forgot
   def forgot
@@ -22,7 +23,7 @@ class Api::V1::Auth::PasswordsController < ApplicationController
 
     # Always return success to prevent email enumeration
     render_success(message: "If an account with that email exists, password reset instructions have been sent.")
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Password reset error: #{e.message}"
     render_error("An error occurred. Please try again later.", status: :internal_server_error)
   end
@@ -47,7 +48,7 @@ class Api::V1::Auth::PasswordsController < ApplicationController
     else
       render_validation_error(user)
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Password reset error: #{e.message}"
     render_error("An error occurred. Please try again later.", status: :internal_server_error)
   end

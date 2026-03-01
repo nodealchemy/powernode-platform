@@ -1,10 +1,11 @@
 # Multi-stage production Dockerfile for Sidekiq worker
 FROM ruby:3.2.8-slim AS base
 
-# Install system dependencies
+# Install system dependencies + tini for proper PID 1 init
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y \
     curl \
+    tini \
     libjemalloc2 \
     libpq5 \
     libvips42 \
@@ -59,5 +60,6 @@ ENV MALLOC_CONF="dirty_decay_ms:1000,narenas:2,background_thread:true" \
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD pgrep -f sidekiq || exit 1
 
-# Start Sidekiq
+# Use tini as init system for proper signal handling and zombie reaping
+ENTRYPOINT ["tini", "--"]
 CMD ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml"]

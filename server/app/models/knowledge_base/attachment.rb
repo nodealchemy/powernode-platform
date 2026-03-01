@@ -22,7 +22,7 @@ module KnowledgeBase
     attr_accessor :file
 
     # Callbacks
-    before_create :process_file_upload, if: -> { file.present? }
+    before_validation :process_file_upload, on: :create, if: -> { file.present? }
 
     # Scopes
     scope :images, -> { where(content_type: %w[image/jpeg image/png image/gif image/webp]) }
@@ -93,6 +93,3 @@ module KnowledgeBase
     end
   end
 end
-
-# Backward compatibility alias
-KnowledgeBaseAttachment = KnowledgeBase::Attachment

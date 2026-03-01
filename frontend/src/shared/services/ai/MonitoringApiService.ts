@@ -1,4 +1,4 @@
-import { BaseApiService } from './BaseApiService';
+import { BaseApiService } from '@/shared/services/ai/BaseApiService';
 
 /**
  * MonitoringApiService - Monitoring Controller API Client
@@ -39,6 +39,15 @@ export interface MonitoringDashboard {
     uptime_percentage: number;
     last_incident?: string;
   };
+  // Native overview data from backend
+  overview: {
+    active_workflows: number;
+    active_agents: number;
+    total_executions_today: number;
+    total_cost_today: number;
+    avg_response_time: number;
+    success_rate: number;
+  };
   providers: Array<{
     id: string;
     name: string;
@@ -64,16 +73,36 @@ export interface MonitoringDashboard {
   }>;
   workflows: {
     total: number;
+    active: number;
     running: number;
     completed_today: number;
     failed_today: number;
   };
+  // Individual workflows list for detailed view
+  workflowsList?: Array<{
+    id: string;
+    name: string;
+    status: string;
+    total_runs?: number;
+    successful_runs?: number;
+    failed_runs?: number;
+    success_rate?: number;
+    avg_duration?: number;
+    total_cost?: number;
+  }>;
   alerts: Array<{
     id: string;
     severity: 'critical' | 'warning' | 'info';
     message: string;
     timestamp: string;
   }>;
+  // Resource utilization data
+  resources?: {
+    cpu: { usage_percent: number; idle_percent: number; load_average: string };
+    memory: { total_mb: number; used_mb: number; free_mb: number; usage_percent: number };
+    database: { status: string; connection_count: number };
+    redis: { status: string; used_memory: string; connected_clients: number };
+  };
 }
 
 export interface HealthComponentStatus {
@@ -82,23 +111,78 @@ export interface HealthComponentStatus {
   response_time_ms?: number;
 }
 
+/**
+ * Native backend health response format
+ * Matches Rails Ai::MonitoringHealthService#comprehensive_health_check output
+ */
 export interface HealthStatus {
+  // Overall status
   status: 'healthy' | 'degraded' | 'unhealthy' | 'critical';
+  health_score: number;
   timestamp: string;
   time_range_seconds?: number;
-  health_score?: number;
-  system?: HealthComponentStatus;
-  database?: HealthComponentStatus;
-  redis?: HealthComponentStatus;
-  providers?: HealthComponentStatus;
-  workers?: HealthComponentStatus;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  circuit_breakers?: any;
-  // Legacy field for backwards compatibility
-  services?: Record<string, {
+
+  // System component
+  system: {
     status: 'healthy' | 'degraded' | 'unhealthy';
-    message?: string;
-  }>;
+    uptime?: number;
+    active_workflows: number;
+    active_agents: number;
+    running_executions: number;
+  };
+
+  // Database component
+  database: {
+    status: 'healthy' | 'degraded' | 'unhealthy';
+    connection?: string;
+    connection_pool?: {
+      size: number;
+      connections: number;
+      busy: number;
+      idle: number;
+      available: number;
+    };
+    error?: string;
+  };
+
+  // Redis component
+  redis: {
+    status: 'healthy' | 'degraded' | 'unhealthy';
+    used_memory?: string;
+    connected_clients?: number;
+    error?: string;
+  };
+
+  // Providers component
+  providers: {
+    total_providers: number;
+    healthy_providers: number;
+    providers: Array<{
+      id: string;
+      name: string;
+      provider_type: string;
+      status: 'active' | 'inactive';
+      has_credentials: boolean;
+      is_healthy: boolean;
+    }>;
+  };
+
+  // Workers component
+  workers: {
+    status: 'healthy' | 'degraded';
+    recent_completions: number;
+    recent_starts: number;
+    estimated_backlog: number;
+    last_activity?: string;
+  };
+
+  // Circuit breakers summary
+  circuit_breakers?: {
+    total_services: number;
+    healthy: number;
+    degraded: number;
+    unhealthy: number;
+  };
 }
 
 export interface MetricsData {
@@ -186,11 +270,35 @@ class MonitoringApiService extends BaseApiService {
         workflows?: {
           total_workflows?: number;
           active_workflows?: number;
+          workflows?: Array<{
+            id: string;
+            name: string;
+            status: string;
+            total_runs?: number;
+            successful_runs?: number;
+            failed_runs?: number;
+            success_rate?: number;
+            avg_duration?: number;
+            total_cost?: string;
+          }>;
           aggregated?: {
             total_runs?: number;
             successful_runs?: number;
             failed_runs?: number;
           };
+        };
+        system?: {
+          health?: {
+            components?: {
+              workers?: { status?: string };
+            };
+          };
+        };
+        resources?: {
+          cpu?: { usage_percent?: number; idle_percent?: number; load_average?: string };
+          memory?: { total_mb?: number; used_mb?: number; free_mb?: number; usage_percent?: number };
+          database?: { status?: string; connection_count?: number };
+          redis?: { status?: string; used_memory?: string; connected_clients?: number };
         };
       };
     }
@@ -224,16 +332,31 @@ class MonitoringApiService extends BaseApiService {
     const pausedAgents = agentsList.filter(a => a.status === 'paused' || a.status === 'inactive').length;
 
     // Calculate workflow stats
+    const workflowsListRaw = workflowComponents?.workflows || [];
     const totalWorkflows = workflowComponents?.total_workflows || 0;
-    const runningWorkflows = workflowComponents?.active_workflows || 0;
+    const activeWorkflows = workflowComponents?.active_workflows || 0;
+    // Running executions - default to 0
+    const runningExecutions = 0;
     const completedToday = workflowComponents?.aggregated?.successful_runs || 0;
     const failedToday = workflowComponents?.aggregated?.failed_runs || 0;
 
+    // Use native overview data from backend
+    const nativeOverview = dashboard?.overview;
+
     return {
       system_health: {
-        status: dashboard?.overview?.status === 'healthy' ? 'healthy' :
-                dashboard?.overview?.status === 'degraded' ? 'degraded' : 'healthy',
+        status: nativeOverview?.status === 'healthy' ? 'healthy' :
+                nativeOverview?.status === 'degraded' ? 'degraded' : 'healthy',
         uptime_percentage: dashboard?.health_score || 100
+      },
+      // Pass native overview for direct use
+      overview: {
+        active_workflows: nativeOverview?.active_workflows || 0,
+        active_agents: nativeOverview?.active_agents || 0,
+        total_executions_today: nativeOverview?.total_executions_today || 0,
+        total_cost_today: nativeOverview?.total_cost_today || 0,
+        avg_response_time: nativeOverview?.avg_response_time || 0,
+        success_rate: nativeOverview?.success_rate || 0
       },
       providers,
       agents: {
@@ -254,21 +377,89 @@ class MonitoringApiService extends BaseApiService {
       })),
       workflows: {
         total: totalWorkflows,
-        running: runningWorkflows,
+        active: activeWorkflows,
+        running: runningExecutions,
         completed_today: completedToday,
         failed_today: failedToday
       },
-      alerts: []
+      // Include individual workflows list for detailed monitoring
+      workflowsList: workflowsListRaw.map(w => ({
+        id: w.id,
+        name: w.name,
+        status: w.status,
+        total_runs: w.total_runs || 0,
+        successful_runs: w.successful_runs || 0,
+        failed_runs: w.failed_runs || 0,
+        success_rate: w.success_rate || 0,
+        avg_duration: w.avg_duration || 0,
+        total_cost: parseFloat(w.total_cost || '0')
+      })),
+      alerts: [],
+      // Include resource utilization data from backend
+      resources: dashboard?.components?.resources ? {
+        cpu: {
+          usage_percent: dashboard.components.resources.cpu?.usage_percent || 0,
+          idle_percent: dashboard.components.resources.cpu?.idle_percent || 0,
+          load_average: dashboard.components.resources.cpu?.load_average || '0'
+        },
+        memory: {
+          total_mb: dashboard.components.resources.memory?.total_mb || 0,
+          used_mb: dashboard.components.resources.memory?.used_mb || 0,
+          free_mb: dashboard.components.resources.memory?.free_mb || 0,
+          usage_percent: dashboard.components.resources.memory?.usage_percent || 0
+        },
+        database: {
+          status: dashboard.components.resources.database?.status || 'unknown',
+          connection_count: dashboard.components.resources.database?.connection_count || 0
+        },
+        redis: {
+          status: dashboard.components.resources.redis?.status || 'unknown',
+          used_memory: dashboard.components.resources.redis?.used_memory || '0',
+          connected_clients: dashboard.components.resources.redis?.connected_clients || 0
+        }
+      } : undefined
     };
   }
 
   /**
    * Get system metrics
    * GET /api/v1/ai/monitoring/metrics
+   * Transforms nested backend response to flat MetricsData array
    */
   async getMetrics(timeRange?: string): Promise<MetricsData[]> {
-    const queryString = timeRange ? `?time_range=${timeRange}` : '';
-    return this.get<MetricsData[]>(`${this.basePath}/metrics${queryString}`);
+    interface BackendMetricsResponse {
+      metrics: {
+        system?: {
+          performance?: {
+            avg_response_time?: number;
+            requests_per_second?: number;
+            active_connections?: { total?: number };
+          };
+          errors?: { error_rate?: number };
+        };
+        resources?: {
+          cpu?: { usage_percent?: number };
+          memory?: { usage_percent?: number };
+        };
+      };
+      timestamp?: string;
+    }
+
+    const metricsPath = timeRange ? `${this.basePath}/metrics?time_range=${timeRange}` : `${this.basePath}/metrics`;
+    const response = await this.get<BackendMetricsResponse>(metricsPath);
+
+    // Transform nested backend response to flat MetricsData format
+    const metricsData: MetricsData = {
+      cpu_usage: response?.metrics?.resources?.cpu?.usage_percent || 0,
+      memory_usage: response?.metrics?.resources?.memory?.usage_percent || 0,
+      active_connections: response?.metrics?.system?.performance?.active_connections?.total || 0,
+      request_rate: response?.metrics?.system?.performance?.requests_per_second || 0,
+      error_rate: response?.metrics?.system?.errors?.error_rate || 0,
+      avg_response_time: response?.metrics?.system?.performance?.avg_response_time || 0,
+      timestamp: response?.timestamp || new Date().toISOString()
+    };
+
+    return [metricsData];
   }
 
   /**

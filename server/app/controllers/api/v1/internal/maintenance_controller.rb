@@ -1,9 +1,6 @@
 # frozen_string_literal: true
 
-class Api::V1::Internal::MaintenanceController < ApplicationController
-  skip_before_action :authenticate_request
-  before_action :authenticate_service_token
-
+class Api::V1::Internal::MaintenanceController < Api::V1::Internal::InternalBaseController
   # Internal API endpoints for maintenance operations
   # These endpoints are called by background workers only
 
@@ -13,15 +10,13 @@ class Api::V1::Internal::MaintenanceController < ApplicationController
 
     render_success({
       id: backup.id,
-      filename: backup.filename,
       file_path: backup.file_path,
       backup_type: backup.backup_type,
       status: backup.status,
       description: backup.description,
-      file_size: backup.file_size,
-      database_name: backup.database_name,
+      file_size_bytes: backup.file_size_bytes,
       metadata: backup.metadata,
-      user_id: backup.user_id,
+      created_by_id: backup.created_by_id,
       started_at: backup.started_at,
       completed_at: backup.completed_at,
       created_at: backup.created_at
@@ -35,9 +30,9 @@ class Api::V1::Internal::MaintenanceController < ApplicationController
     backup = Database::Backup.find_by!(id: params[:id])
 
     case params[:status]
-    when "in_progress"
+    when "running"
       backup.update!(
-        status: "in_progress",
+        status: "running",
         started_at: Time.current
       )
     when "completed"
@@ -45,9 +40,8 @@ class Api::V1::Internal::MaintenanceController < ApplicationController
         status: "completed",
         completed_at: Time.current,
         file_path: params[:file_path],
-        file_size: params[:file_size],
-        duration_seconds: params[:duration_seconds],
-        checksum: params[:checksum]
+        file_size_bytes: params[:file_size_bytes],
+        duration_seconds: params[:duration_seconds]
       )
     when "failed"
       backup.update!(
@@ -79,11 +73,10 @@ class Api::V1::Internal::MaintenanceController < ApplicationController
       id: restore.id,
       database_backup_id: restore.database_backup_id,
       status: restore.status,
-      restore_type: restore.restore_type,
-      target_database: restore.target_database,
+      description: restore.description,
       backup_file_path: restore.database_backup&.file_path,
       metadata: restore.metadata,
-      user_id: restore.user_id,
+      initiated_by_id: restore.initiated_by_id,
       started_at: restore.started_at,
       completed_at: restore.completed_at,
       created_at: restore.created_at
@@ -97,18 +90,16 @@ class Api::V1::Internal::MaintenanceController < ApplicationController
     restore = Database::Restore.find_by!(id: params[:id])
 
     case params[:status]
-    when "in_progress"
+    when "running"
       restore.update!(
-        status: "in_progress",
+        status: "running",
         started_at: Time.current
       )
     when "completed"
       restore.update!(
         status: "completed",
         completed_at: Time.current,
-        duration_seconds: params[:duration_seconds],
-        tables_restored: params[:tables_restored],
-        rows_restored: params[:rows_restored]
+        duration_seconds: params[:duration_seconds]
       )
     when "failed"
       restore.update!(
@@ -137,7 +128,7 @@ class Api::V1::Internal::MaintenanceController < ApplicationController
   def list_due_tasks
     due_before = params[:due_before] ? Time.parse(params[:due_before]) : Time.current
 
-    tasks = ScheduledTask.enabled
+    tasks = ScheduledTask.where(is_active: true)
                          .where("next_run_at <= ?", due_before)
                          .order(:next_run_at)
                          .limit(params[:limit] || 50)
@@ -148,12 +139,10 @@ class Api::V1::Internal::MaintenanceController < ApplicationController
           id: task.id,
           name: task.name,
           task_type: task.task_type,
-          command: task.command,
-          cron_schedule: task.cron_schedule,
-          configuration: task.configuration,
+          cron_expression: task.cron_expression,
+          parameters: task.parameters,
           next_run_at: task.next_run_at,
-          last_run_at: task.last_run_at,
-          user_id: task.user_id
+          last_run_at: task.last_run_at
         }
       },
       count: tasks.count
@@ -165,16 +154,14 @@ class Api::V1::Internal::MaintenanceController < ApplicationController
     task = ScheduledTask.find_by!(id: params[:id])
 
     execution = task.task_executions.create!(
-      status: "pending",
-      started_at: Time.current,
-      triggered_by: params[:triggered_by] || "scheduler",
-      job_id: params[:job_id]
+      status: "running",
+      started_at: Time.current
     )
 
     # Update task's last_run_at and next_run_at
     task.update!(
       last_run_at: Time.current,
-      next_run_at: calculate_next_run(task.cron_schedule)
+      next_run_at: calculate_next_run(task.cron_expression)
     )
 
     render_success({
@@ -200,17 +187,16 @@ class Api::V1::Internal::MaintenanceController < ApplicationController
       execution.update!(
         status: "completed",
         completed_at: Time.current,
-        duration_seconds: params[:duration_seconds],
-        output: params[:output],
+        duration_ms: params[:duration_ms],
+        log_output: params[:log_output],
         result: params[:result]
       )
     when "failed"
       execution.update!(
         status: "failed",
         completed_at: Time.current,
-        duration_seconds: params[:duration_seconds],
-        error_message: params[:error_message],
-        error_details: params[:error_details]
+        duration_ms: params[:duration_ms],
+        error_message: params[:error_message]
       )
     else
       execution.update!(execution_update_params)
@@ -226,6 +212,51 @@ class Api::V1::Internal::MaintenanceController < ApplicationController
     render_error("Execution not found", status: :not_found)
   rescue ActiveRecord::RecordInvalid => e
     render_error("Failed to update execution: #{e.message}", status: :unprocessable_content)
+  end
+
+  # POST /api/v1/internal/maintenance/cleanup_auth_artifacts
+  # Cleans up stale MCP sessions, orphaned agents, expired tokens, and other auth artifacts.
+  # Called by AuthCleanupJob on a daily schedule.
+  def cleanup_auth_artifacts
+    results = {}
+
+    # 1. Expire stale MCP sessions (status=active but past expires_at)
+    stale_sessions = McpSession.where(status: "active").where("expires_at <= ?", Time.current)
+    results[:sessions_expired] = 0
+    stale_sessions.find_each { |s| s.update!(status: "expired"); results[:sessions_expired] += 1 }
+
+    # 2. Delete old expired/revoked sessions
+    results[:sessions_deleted] = McpSession.cleanup_expired!(older_than: 48.hours)
+
+    # 3. Archive orphaned MCP client agents (active but not linked to any active session)
+    active_agent_ids = McpSession.active.where.not(ai_agent_id: nil).pluck(:ai_agent_id)
+    orphaned_agents = Ai::Agent.where(agent_type: "mcp_client", status: "active")
+      .where.not(id: active_agent_ids)
+    results[:agents_archived] = 0
+    orphaned_agents.find_each do |agent|
+      agent.update!(status: "archived")
+      Ai::McpClientIdentityService.remove_from_workspace_teams(agent)
+      results[:agents_archived] += 1
+    end
+
+    # 4. Purge expired Doorkeeper tokens
+    expired_token_ids = Doorkeeper::AccessToken.where(revoked_at: nil).select(&:expired?).map(&:id)
+    results[:expired_tokens_purged] = Doorkeeper::AccessToken.where(id: expired_token_ids).delete_all
+    results[:old_revoked_tokens_purged] = Doorkeeper::AccessToken.where.not(revoked_at: nil)
+      .where("revoked_at < ?", 7.days.ago).delete_all
+
+    # 5. Clean other auth artifacts
+    results[:jwt_blacklist_cleaned] = JwtBlacklist.cleanup_expired(batch_size: 1000)
+    results[:user_tokens_cleaned] = UserToken.cleanup_expired
+    results[:blacklisted_tokens_cleaned] = BlacklistedToken.cleanup_expired
+
+    render_success({
+      results: results,
+      message: "Auth artifact cleanup completed"
+    })
+  rescue StandardError => e
+    Rails.logger.error "[MaintenanceController] Auth cleanup failed: #{e.class}: #{e.message}"
+    render_error("Auth cleanup failed: #{e.message}", status: :internal_server_error)
   end
 
   # POST /api/v1/internal/maintenance/backups/:id/cleanup
@@ -251,7 +282,7 @@ class Api::V1::Internal::MaintenanceController < ApplicationController
       else
         failed_count += 1
       end
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Failed to delete backup #{backup.id}: #{e.message}"
       failed_count += 1
     end
@@ -266,45 +297,24 @@ class Api::V1::Internal::MaintenanceController < ApplicationController
 
   private
 
-  def authenticate_service_token
-    token = request.headers["Authorization"]&.split(" ")&.last
-
-    unless token.present?
-      render_error("Service token required", status: :unauthorized)
-      return
-    end
-
-    begin
-      payload = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: "HS256").first
-
-      unless payload["service"] == "worker" && payload["type"] == "service"
-        render_error("Invalid service token", status: :unauthorized)
-        nil
-      end
-
-    rescue JWT::DecodeError, JWT::ExpiredSignature
-      render_error("Invalid service token", status: :unauthorized)
-    end
-  end
-
   def backup_update_params
     params.permit(
-      :status, :file_path, :file_size, :duration_seconds,
-      :error_message, :checksum, :started_at, :completed_at
+      :status, :file_path, :file_size_bytes, :duration_seconds,
+      :error_message, :started_at, :completed_at
     )
   end
 
   def restore_update_params
     params.permit(
-      :status, :duration_seconds, :tables_restored, :rows_restored,
+      :status, :duration_seconds,
       :error_message, :started_at, :completed_at
     )
   end
 
   def execution_update_params
     params.permit(
-      :status, :duration_seconds, :output, :result,
-      :error_message, :error_details, :completed_at
+      :status, :duration_ms, :log_output, :result,
+      :error_message, :completed_at
     )
   end
 
@@ -312,7 +322,7 @@ class Api::V1::Internal::MaintenanceController < ApplicationController
     # Use the fugit gem to parse cron expressions
     cron = Fugit::Cron.parse(cron_expression)
     cron&.next_time&.to_t || 1.day.from_now
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to parse cron expression: #{e.message}"
     1.day.from_now
   end

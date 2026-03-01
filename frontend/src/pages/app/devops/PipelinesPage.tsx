@@ -14,7 +14,7 @@ export const PipelinesPage: React.FC = () => {
   const { currentUser } = useAuth();
   const { showNotification } = useNotifications();
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'devops',
     subscribeToDevops: true,
     onDataUpdate: () => {
@@ -60,7 +60,7 @@ export const PipelinesPage: React.FC = () => {
   const handleTrigger = useCallback(async (id: string) => {
     const result = await triggerPipeline(id);
     if (result) {
-      navigate(`/app/devops/pipelines/${id}/runs/${result.id}`);
+      navigate(`/app/devops/ci-cd/pipelines/${id}/runs/${result.id}`);
     }
   }, [triggerPipeline, navigate]);
 
@@ -101,7 +101,7 @@ export const PipelinesPage: React.FC = () => {
 
   return (
     <PageContainer
-      title="CI/CD Pipelines"
+      title="DevOps Pipelines"
       description="Create and manage automated deployment pipelines"
       breadcrumbs={[
         { label: 'Dashboard', href: '/app' },
@@ -120,7 +120,7 @@ export const PipelinesPage: React.FC = () => {
           {
             id: 'create-pipeline',
             label: 'Create Pipeline',
-            onClick: () => navigate('/app/devops/pipelines/new'),
+            onClick: () => navigate('/app/devops/ci-cd/pipelines/new'),
             icon: Plus,
             variant: 'primary' as const
           }
@@ -182,7 +182,7 @@ export const PipelinesPage: React.FC = () => {
               onClick={() => setActiveFilter('all')}
               className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                 activeFilter === 'all'
-                  ? 'bg-theme-primary text-white'
+                  ? 'bg-theme-interactive-primary text-theme-on-primary'
                   : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
               }`}
             >
@@ -192,7 +192,7 @@ export const PipelinesPage: React.FC = () => {
               onClick={() => setActiveFilter('active')}
               className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                 activeFilter === 'active'
-                  ? 'bg-theme-primary text-white'
+                  ? 'bg-theme-interactive-primary text-theme-on-primary'
                   : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
               }`}
             >
@@ -202,7 +202,7 @@ export const PipelinesPage: React.FC = () => {
               onClick={() => setActiveFilter('inactive')}
               className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                 activeFilter === 'inactive'
-                  ? 'bg-theme-primary text-white'
+                  ? 'bg-theme-interactive-primary text-theme-on-primary'
                   : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
               }`}
             >

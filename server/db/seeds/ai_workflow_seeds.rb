@@ -54,10 +54,9 @@ def create_or_find_ai_agent(account, user, provider, agent_data)
     name: agent_data[:name],
     description: agent_data[:description],
     agent_type: agent_data[:agent_type],
-    ai_provider: provider,
+    provider: provider,
     creator: user,
-    capabilities: [ 'chat', 'text_generation' ],
-    configuration: agent_data[:configuration],
+    mcp_metadata: agent_data[:configuration],
     metadata: agent_data[:metadata],
     status: 'active'
   )
@@ -346,7 +345,7 @@ unless blog_workflow_template
           'node_type' => 'webhook',
           'name' => 'Publish Content',
           'description' => 'Send content to publishing platform',
-          'position' => { 'x' => 1100, 'y' => 100 },
+          'position' => { 'x' => 1100, 'y' => 50 },
           'configuration' => {
             'url' => '{{publishing_webhook_url}}',
             'method' => 'POST',
@@ -368,11 +367,26 @@ unless blog_workflow_template
           'node_type' => 'ai_agent',
           'name' => 'Request Revision',
           'description' => 'Generate revision suggestions',
-          'position' => { 'x' => 900, 'y' => 300 },
+          'position' => { 'x' => 1100, 'y' => 200 },
           'configuration' => {
             'agent_id' => '{{blog_generator_agent_id}}',
             'prompt_template' => 'The blog post needs revision. Current content: {{blog_content}}\n\nProvide specific suggestions to improve:\n1) Content length (target: {{word_count}} words)\n2) Structure and flow\n3) SEO optimization\n4) Engagement factors',
             'output_variables' => [ 'revision_suggestions' ]
+          }
+        },
+        {
+          'node_id' => 'end',
+          'node_type' => 'end',
+          'name' => 'Complete',
+          'description' => 'Workflow completion',
+          'position' => { 'x' => 1300, 'y' => 100 },
+          'configuration' => {
+            'output_mapping' => {
+              'published' => '{{publish_webhook.success}}',
+              'revision_needed' => '{{revision_suggestions}}',
+              'seo_title' => '{{seo_title}}',
+              'meta_description' => '{{meta_description}}'
+            }
           }
         }
       ],
@@ -380,27 +394,42 @@ unless blog_workflow_template
         {
           'edge_id' => 'start_to_research',
           'source_node_id' => 'start',
-          'target_node_id' => 'topic_research'
+          'target_node_id' => 'topic_research',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         },
         {
           'edge_id' => 'research_to_content',
           'source_node_id' => 'topic_research',
-          'target_node_id' => 'content_generation'
+          'target_node_id' => 'content_generation',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         },
         {
           'edge_id' => 'content_to_seo',
           'source_node_id' => 'content_generation',
-          'target_node_id' => 'seo_optimization'
+          'target_node_id' => 'seo_optimization',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         },
         {
           'edge_id' => 'seo_to_quality',
           'source_node_id' => 'seo_optimization',
-          'target_node_id' => 'quality_check'
+          'target_node_id' => 'quality_check',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         },
         {
           'edge_id' => 'quality_to_publish',
           'source_node_id' => 'quality_check',
           'target_node_id' => 'publish_webhook',
+          'source_handle' => 'true',
+          'target_handle' => 'input',
+          'edge_type' => 'default',
           'condition_type' => 'path',
           'condition_value' => 'true'
         },
@@ -408,8 +437,27 @@ unless blog_workflow_template
           'edge_id' => 'quality_to_revision',
           'source_node_id' => 'quality_check',
           'target_node_id' => 'revision_needed',
+          'source_handle' => 'false',
+          'target_handle' => 'input',
+          'edge_type' => 'default',
           'condition_type' => 'path',
           'condition_value' => 'false'
+        },
+        {
+          'edge_id' => 'publish_to_end',
+          'source_node_id' => 'publish_webhook',
+          'target_node_id' => 'end',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
+        },
+        {
+          'edge_id' => 'revision_to_end',
+          'source_node_id' => 'revision_needed',
+          'target_node_id' => 'end',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         }
       ],
       'variables' => [
@@ -482,6 +530,14 @@ unless code_review_template
         'cost_limit' => 3.0
       },
       'nodes' => [
+        {
+          'node_id' => 'start',
+          'node_type' => 'start',
+          'name' => 'Start Review',
+          'description' => 'Begin code review process',
+          'position' => { 'x' => 50, 'y' => 300 },
+          'configuration' => {}
+        },
         {
           'node_id' => 'code_analysis',
           'node_type' => 'ai_agent',
@@ -586,48 +642,86 @@ unless code_review_template
               'reviewer' => 'AI Code Review System'
             }
           }
+        },
+        {
+          'node_id' => 'end',
+          'node_type' => 'end',
+          'name' => 'Review Complete',
+          'description' => 'Code review workflow complete',
+          'position' => { 'x' => 1100, 'y' => 300 },
+          'configuration' => {
+            'output_mapping' => {
+              'status' => '{{approval_check.result}}',
+              'overall_rating' => '{{overall_rating}}',
+              'review_report' => '{{review_report}}'
+            }
+          }
         }
       ],
       'edges' => [
         {
           'edge_id' => 'start_to_quality',
           'source_node_id' => 'start',
-          'target_node_id' => 'code_analysis'
+          'target_node_id' => 'code_analysis',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         },
         {
           'edge_id' => 'start_to_security',
           'source_node_id' => 'start',
-          'target_node_id' => 'security_analysis'
+          'target_node_id' => 'security_analysis',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         },
         {
           'edge_id' => 'start_to_performance',
           'source_node_id' => 'start',
-          'target_node_id' => 'performance_analysis'
+          'target_node_id' => 'performance_analysis',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         },
         {
           'edge_id' => 'quality_to_consolidate',
           'source_node_id' => 'code_analysis',
-          'target_node_id' => 'consolidate_results'
+          'target_node_id' => 'consolidate_results',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         },
         {
           'edge_id' => 'security_to_consolidate',
           'source_node_id' => 'security_analysis',
-          'target_node_id' => 'consolidate_results'
+          'target_node_id' => 'consolidate_results',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         },
         {
           'edge_id' => 'performance_to_consolidate',
           'source_node_id' => 'performance_analysis',
-          'target_node_id' => 'consolidate_results'
+          'target_node_id' => 'consolidate_results',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         },
         {
           'edge_id' => 'consolidate_to_approval',
           'source_node_id' => 'consolidate_results',
-          'target_node_id' => 'approval_check'
+          'target_node_id' => 'approval_check',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         },
         {
           'edge_id' => 'approval_to_approve',
           'source_node_id' => 'approval_check',
           'target_node_id' => 'approve_webhook',
+          'source_handle' => 'true',
+          'target_handle' => 'input',
+          'edge_type' => 'default',
           'condition_type' => 'path',
           'condition_value' => 'true'
         },
@@ -635,8 +729,27 @@ unless code_review_template
           'edge_id' => 'approval_to_changes',
           'source_node_id' => 'approval_check',
           'target_node_id' => 'request_changes_webhook',
+          'source_handle' => 'false',
+          'target_handle' => 'input',
+          'edge_type' => 'default',
           'condition_type' => 'path',
           'condition_value' => 'false'
+        },
+        {
+          'edge_id' => 'approve_to_end',
+          'source_node_id' => 'approve_webhook',
+          'target_node_id' => 'end',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
+        },
+        {
+          'edge_id' => 'changes_to_end',
+          'source_node_id' => 'request_changes_webhook',
+          'target_node_id' => 'end',
+          'source_handle' => 'output',
+          'target_handle' => 'input',
+          'edge_type' => 'default'
         }
       ]
     }
@@ -658,6 +771,15 @@ unless blog_workflow
     status: 'active',
     visibility: 'private',
     version: '1.0.0',
+    mcp_input_schema: {
+      'type' => 'object',
+      'properties' => {
+        'topic' => { 'type' => 'string', 'description' => 'The main topic for the blog post' },
+        'word_count' => { 'type' => 'integer', 'description' => 'Target word count', 'default' => 1500 },
+        'target_audience' => { 'type' => 'string', 'description' => 'Target audience for the content', 'default' => 'general' }
+      },
+      'required' => [ 'topic' ]
+    },
     configuration: {
       'retry_failed_nodes' => true,
       'max_retries' => 2,
@@ -682,6 +804,7 @@ unless blog_workflow
     name: 'Start Blog Generation',
     description: 'Initialize blog generation process',
     position: { 'x' => 100, 'y' => 150 },
+    is_start_node: true,
     configuration: {
       'start_parameters' => {
         'auto_start' => true,
@@ -742,11 +865,31 @@ unless blog_workflow
     metadata: { 'color' => '#EF4444', 'estimated_duration' => '30s' }
   )
 
+  end_node = blog_workflow.workflow_nodes.create!(
+    node_id: 'end_node',
+    node_type: 'end',
+    name: 'Blog Complete',
+    description: 'Blog generation workflow complete',
+    position: { 'x' => 1100, 'y' => 150 },
+    is_end_node: true,
+    configuration: {
+      'output_mapping' => {
+        'seo_title' => '{{seo_title}}',
+        'meta_description' => '{{meta_description}}',
+        'optimized_content' => '{{optimized_content}}'
+      }
+    },
+    metadata: { 'color' => '#10B981' }
+  )
+
   # Create workflow edges
   blog_workflow.edges.create!(
     edge_id: 'start_to_research',
     source_node_id: 'start_node',
     target_node_id: 'topic_research',
+    source_handle: 'output',
+    target_handle: 'input',
+    edge_type: 'default',
     metadata: { 'transition_type' => 'automatic' }
   )
 
@@ -754,6 +897,9 @@ unless blog_workflow
     edge_id: 'research_to_content',
     source_node_id: 'topic_research',
     target_node_id: 'content_generation',
+    source_handle: 'output',
+    target_handle: 'input',
+    edge_type: 'default',
     metadata: { 'transition_type' => 'automatic' }
   )
 
@@ -761,6 +907,19 @@ unless blog_workflow
     edge_id: 'content_to_seo',
     source_node_id: 'content_generation',
     target_node_id: 'seo_optimization',
+    source_handle: 'output',
+    target_handle: 'input',
+    edge_type: 'default',
+    metadata: { 'transition_type' => 'automatic' }
+  )
+
+  blog_workflow.edges.create!(
+    edge_id: 'seo_to_end',
+    source_node_id: 'seo_optimization',
+    target_node_id: 'end_node',
+    source_handle: 'output',
+    target_handle: 'input',
+    edge_type: 'default',
     metadata: { 'transition_type' => 'automatic' }
   )
 
@@ -801,12 +960,33 @@ unless data_analysis_workflow
     status: 'active',
     visibility: 'private',
     version: '1.0.0',
+    mcp_input_schema: {
+      'type' => 'object',
+      'properties' => {
+        'data_source' => { 'type' => 'string', 'description' => 'The data source to analyze' },
+        'analysis_type' => { 'type' => 'string', 'description' => 'Type of analysis (trend, performance, etc.)', 'enum' => [ 'trend', 'performance', 'comparison' ] },
+        'time_period' => { 'type' => 'string', 'description' => 'Time period for the analysis', 'default' => 'Last 30 days' }
+      },
+      'required' => [ 'data_source', 'analysis_type' ]
+    },
     configuration: {
       'retry_failed_nodes' => true,
       'max_retries' => 1,
       'data_retention_days' => 30
     },
     creator: admin_user
+  )
+
+  # Create start node
+  data_analysis_workflow.workflow_nodes.create!(
+    node_id: 'start_node',
+    node_type: 'start',
+    name: 'Start Analysis',
+    description: 'Begin data analysis process',
+    position: { 'x' => 50, 'y' => 150 },
+    is_start_node: true,
+    configuration: {},
+    metadata: { 'color' => '#10B981' }
   )
 
   # Create analysis nodes
@@ -849,17 +1029,59 @@ unless data_analysis_workflow
     }
   )
 
+  # Create end node
+  data_analysis_workflow.workflow_nodes.create!(
+    node_id: 'end_node',
+    node_type: 'end',
+    name: 'Analysis Complete',
+    description: 'Data analysis workflow complete',
+    position: { 'x' => 950, 'y' => 150 },
+    is_end_node: true,
+    configuration: {
+      'output_mapping' => {
+        'insights' => '{{insights}}',
+        'recommendations' => '{{recommendations}}',
+        'executive_summary' => '{{executive_summary}}'
+      }
+    },
+    metadata: { 'color' => '#10B981' }
+  )
+
   # Create edges
+  data_analysis_workflow.edges.create!(
+    edge_id: 'start_to_validation',
+    source_node_id: 'start_node',
+    target_node_id: 'data_validation',
+    source_handle: 'output',
+    target_handle: 'input',
+    edge_type: 'default'
+  )
+
   data_analysis_workflow.edges.create!(
     edge_id: 'validation_to_trends',
     source_node_id: 'data_validation',
-    target_node_id: 'trend_analysis'
+    target_node_id: 'trend_analysis',
+    source_handle: 'output',
+    target_handle: 'input',
+    edge_type: 'default'
   )
 
   data_analysis_workflow.edges.create!(
     edge_id: 'trends_to_insights',
     source_node_id: 'trend_analysis',
-    target_node_id: 'insights_generation'
+    target_node_id: 'insights_generation',
+    source_handle: 'output',
+    target_handle: 'input',
+    edge_type: 'default'
+  )
+
+  data_analysis_workflow.edges.create!(
+    edge_id: 'insights_to_end',
+    source_node_id: 'insights_generation',
+    target_node_id: 'end_node',
+    source_handle: 'output',
+    target_handle: 'input',
+    edge_type: 'default'
   )
 end
 
@@ -1105,6 +1327,16 @@ unless customer_support_workflow
     status: 'active',
     visibility: 'private',
     version: '1.0.0',
+    mcp_input_schema: {
+      'type' => 'object',
+      'properties' => {
+        'customer_message' => { 'type' => 'string', 'description' => 'The customer support request message' },
+        'customer_email' => { 'type' => 'string', 'format' => 'email', 'description' => 'Customer email address' },
+        'customer_name' => { 'type' => 'string', 'description' => 'Customer name (optional)' },
+        'priority' => { 'type' => 'string', 'enum' => [ 'low', 'medium', 'high' ], 'default' => 'medium' }
+      },
+      'required' => [ 'customer_message', 'customer_email' ]
+    },
     configuration: {
       'retry_failed_nodes' => true,
       'max_retries' => 2,
@@ -1302,6 +1534,7 @@ unless customer_support_workflow
     name: 'Send Response',
     description: 'Send response to customer',
     position: { 'x' => 1150, 'y' => 325 },
+    is_end_node: true,
     configuration: {
       'url' => '{{customer_response_webhook}}',
       'method' => 'POST',
@@ -1319,7 +1552,7 @@ unless customer_support_workflow
         'workflow_id' => '{{workflow_run_id}}'
       }
     },
-    metadata: { 'color' => '#059669', 'is_end_node' => true }
+    metadata: { 'color' => '#059669' }
   )
 
   # Create edges for customer support workflow
@@ -1328,29 +1561,44 @@ unless customer_support_workflow
     {
       edge_id: 'trigger_to_sentiment',
       source_node_id: 'support_trigger',
-      target_node_id: 'sentiment_analysis'
+      target_node_id: 'sentiment_analysis',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     {
       edge_id: 'trigger_to_intent',
       source_node_id: 'support_trigger',
-      target_node_id: 'intent_classification'
+      target_node_id: 'intent_classification',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     # Both analyses to routing
     {
       edge_id: 'sentiment_to_routing',
       source_node_id: 'sentiment_analysis',
-      target_node_id: 'request_routing'
+      target_node_id: 'request_routing',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     {
       edge_id: 'intent_to_routing',
       source_node_id: 'intent_classification',
-      target_node_id: 'request_routing'
+      target_node_id: 'request_routing',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
-    # Routing to different paths
+    # Routing to different paths (condition node outputs)
     {
       edge_id: 'routing_to_human',
       source_node_id: 'request_routing',
       target_node_id: 'human_escalation',
+      source_handle: 'true',
+      target_handle: 'input',
+      edge_type: 'default',
       condition: {
         'expression' => 'routing_decision == "critical_urgent"'
       }
@@ -1359,6 +1607,9 @@ unless customer_support_workflow
       edge_id: 'routing_to_kb',
       source_node_id: 'request_routing',
       target_node_id: 'kb_lookup',
+      source_handle: 'false',
+      target_handle: 'input',
+      edge_type: 'default',
       condition: {
         'expression' => 'routing_decision == "technical_issue"'
       }
@@ -1367,6 +1618,9 @@ unless customer_support_workflow
       edge_id: 'routing_to_auto',
       source_node_id: 'request_routing',
       target_node_id: 'auto_response',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default',
       condition: {
         'expression' => 'routing_decision == "standard_support"'
       }
@@ -1375,25 +1629,37 @@ unless customer_support_workflow
     {
       edge_id: 'kb_to_auto',
       source_node_id: 'kb_lookup',
-      target_node_id: 'auto_response'
+      target_node_id: 'auto_response',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     # Auto response to validation
     {
       edge_id: 'auto_to_validation',
       source_node_id: 'auto_response',
-      target_node_id: 'response_validation'
+      target_node_id: 'response_validation',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     # Human approval to dispatch (if approved)
     {
       edge_id: 'human_to_dispatch',
       source_node_id: 'human_escalation',
-      target_node_id: 'response_dispatch'
+      target_node_id: 'response_dispatch',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     # Validation to dispatch
     {
       edge_id: 'validation_to_dispatch',
       source_node_id: 'response_validation',
-      target_node_id: 'response_dispatch'
+      target_node_id: 'response_dispatch',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     }
   ])
 
@@ -1438,6 +1704,19 @@ unless ecommerce_workflow
     status: 'active',
     visibility: 'private',
     version: '1.0.0',
+    mcp_input_schema: {
+      'type' => 'object',
+      'properties' => {
+        'order_id' => { 'type' => 'string', 'description' => 'Unique order identifier' },
+        'order_items' => { 'type' => 'array', 'description' => 'Array of order items with sku, quantity, price' },
+        'order_amount' => { 'type' => 'number', 'description' => 'Total order amount' },
+        'customer_email' => { 'type' => 'string', 'format' => 'email', 'description' => 'Customer email' },
+        'shipping_address' => { 'type' => 'object', 'description' => 'Shipping address details' },
+        'billing_address' => { 'type' => 'object', 'description' => 'Billing address details' },
+        'payment_method' => { 'type' => 'string', 'description' => 'Payment method used' }
+      },
+      'required' => [ 'order_id', 'order_items', 'order_amount', 'customer_email' ]
+    },
     configuration: {
       'retry_failed_nodes' => true,
       'max_retries' => 3,
@@ -1560,6 +1839,7 @@ unless ecommerce_workflow
     name: 'Decline Order',
     description: 'Cancel order and notify customer',
     position: { 'x' => 750, 'y' => 150 },
+    is_end_node: true,
     configuration: {
       'url' => '{{order_management_webhook}}/decline',
       'method' => 'POST',
@@ -1572,7 +1852,7 @@ unless ecommerce_workflow
         'refund_required' => true
       }
     },
-    metadata: { 'color' => '#DC2626', 'is_end_node' => true }
+    metadata: { 'color' => '#DC2626' }
   )
 
   # Manual review for medium risk
@@ -1686,6 +1966,7 @@ unless ecommerce_workflow
     name: 'Generate Confirmation',
     description: 'Create personalized order confirmation',
     position: { 'x' => 1350, 'y' => 350 },
+    is_end_node: true,
     configuration: {
       'agent_id' => blog_generator_agent.id,
       'prompt_template' => 'Generate a personalized order confirmation email for:\n\nCustomer: {{customer_email}}\nOrder ID: {{order_id}}\nItems: {{order_items}}\nTotal: ${{order_amount}}\nShipping: {{shipping_method}}\nEstimated delivery: {{estimated_delivery}}\n\nInclude:\n1. Warm, professional greeting\n2. Order summary with item details\n3. Payment confirmation\n4. Shipping information\n5. Tracking information (when available)\n6. Customer service contact info\n7. Thank you message',
@@ -1706,29 +1987,44 @@ unless ecommerce_workflow
     {
       edge_id: 'trigger_to_inventory',
       source_node_id: 'order_received',
-      target_node_id: 'inventory_check'
+      target_node_id: 'inventory_check',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     {
       edge_id: 'trigger_to_fraud',
       source_node_id: 'order_received',
-      target_node_id: 'fraud_detection'
+      target_node_id: 'fraud_detection',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     # Both checks to validation
     {
       edge_id: 'inventory_to_validation',
       source_node_id: 'inventory_check',
-      target_node_id: 'order_validation'
+      target_node_id: 'order_validation',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     {
       edge_id: 'fraud_to_validation',
       source_node_id: 'fraud_detection',
-      target_node_id: 'order_validation'
+      target_node_id: 'order_validation',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
-    # Validation outcomes
+    # Validation outcomes (condition node outputs)
     {
       edge_id: 'validation_to_decline',
       source_node_id: 'order_validation',
       target_node_id: 'decline_order',
+      source_handle: 'true',
+      target_handle: 'input',
+      edge_type: 'default',
       condition: {
         'expression' => 'validation_result == "fraud_detected"'
       }
@@ -1737,6 +2033,9 @@ unless ecommerce_workflow
       edge_id: 'validation_to_review',
       source_node_id: 'order_validation',
       target_node_id: 'manual_review',
+      source_handle: 'false',
+      target_handle: 'input',
+      edge_type: 'default',
       condition: {
         'expression' => 'validation_result == "insufficient_stock"'
       }
@@ -1745,6 +2044,9 @@ unless ecommerce_workflow
       edge_id: 'validation_to_payment',
       source_node_id: 'order_validation',
       target_node_id: 'payment_processing',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default',
       condition: {
         'expression' => 'validation_result == "order_approved"'
       }
@@ -1753,19 +2055,28 @@ unless ecommerce_workflow
     {
       edge_id: 'review_to_payment',
       source_node_id: 'manual_review',
-      target_node_id: 'payment_processing'
+      target_node_id: 'payment_processing',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     # Payment to fulfillment
     {
       edge_id: 'payment_to_fulfillment',
       source_node_id: 'payment_processing',
-      target_node_id: 'fulfillment_prep'
+      target_node_id: 'fulfillment_prep',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     # Fulfillment to confirmation
     {
       edge_id: 'fulfillment_to_confirmation',
       source_node_id: 'fulfillment_prep',
-      target_node_id: 'order_confirmation'
+      target_node_id: 'order_confirmation',
+      source_handle: 'exit',
+      target_handle: 'input',
+      edge_type: 'default'
     }
   ])
 end
@@ -1782,6 +2093,15 @@ unless marketing_workflow
     status: 'active',
     visibility: 'private',
     version: '1.0.0',
+    mcp_input_schema: {
+      'type' => 'object',
+      'properties' => {
+        'campaign_ids' => { 'type' => 'array', 'items' => { 'type' => 'string' }, 'description' => 'Campaign IDs to analyze' },
+        'analysis_period' => { 'type' => 'string', 'description' => 'Date range for analysis', 'default' => 'last_7_days' },
+        'optimization_goals' => { 'type' => 'array', 'items' => { 'type' => 'string' }, 'description' => 'Goals to optimize for (conversions, clicks, etc.)' }
+      },
+      'required' => [ 'campaign_ids' ]
+    },
     configuration: {
       'retry_failed_nodes' => true,
       'max_retries' => 2,
@@ -1797,6 +2117,7 @@ unless marketing_workflow
     name: 'Collect Campaign Data',
     description: 'Gather campaign performance data from multiple sources',
     position: { 'x' => 150, 'y' => 300 },
+    is_start_node: true,
     configuration: {
       'method' => 'POST',
       'url' => '{{analytics_api_url}}/campaigns/data',
@@ -1928,6 +2249,7 @@ unless marketing_workflow
     name: 'Generate Report',
     description: 'Create comprehensive performance report',
     position: { 'x' => 1350, 'y' => 300 },
+    is_end_node: true,
     configuration: {
       'agent_id' => blog_generator_agent.id,
       'prompt_template' => 'Create a marketing performance report:\n\nAnalysis Period: {{analysis_period}}\nCampaigns: {{campaign_ids}}\nKey Results: {{performance_summary}}\nOptimizations: {{priority_actions}}\nA/B Tests: {{test_results}}\n\nGenerate executive summary with:\n1. Key performance highlights\n2. Top insights and findings\n3. Optimization recommendations implemented\n4. Expected impact projections\n5. Next steps and future tests',
@@ -1940,32 +2262,50 @@ unless marketing_workflow
     {
       edge_id: 'ingestion_to_performance',
       source_node_id: 'data_ingestion',
-      target_node_id: 'performance_analysis'
+      target_node_id: 'performance_analysis',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     {
       edge_id: 'ingestion_to_ab',
       source_node_id: 'data_ingestion',
-      target_node_id: 'ab_test_analysis'
+      target_node_id: 'ab_test_analysis',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     {
       edge_id: 'performance_to_optimization',
       source_node_id: 'performance_analysis',
-      target_node_id: 'optimization_recommendations'
+      target_node_id: 'optimization_recommendations',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     {
       edge_id: 'ab_to_optimization',
       source_node_id: 'ab_test_analysis',
-      target_node_id: 'optimization_recommendations'
+      target_node_id: 'optimization_recommendations',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     {
       edge_id: 'optimization_to_auto',
       source_node_id: 'optimization_recommendations',
-      target_node_id: 'auto_implementation'
+      target_node_id: 'auto_implementation',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     {
       edge_id: 'auto_to_updates',
       source_node_id: 'auto_implementation',
       target_node_id: 'campaign_updates',
+      source_handle: 'true',
+      target_handle: 'input',
+      edge_type: 'default',
       condition: {
         'expression' => 'implementation_decision == "safe_auto_implement"'
       }
@@ -1974,6 +2314,9 @@ unless marketing_workflow
       edge_id: 'auto_to_manual',
       source_node_id: 'auto_implementation',
       target_node_id: 'manual_approval_marketing',
+      source_handle: 'false',
+      target_handle: 'input',
+      edge_type: 'default',
       condition: {
         'expression' => 'implementation_decision == "default"'
       }
@@ -1981,12 +2324,18 @@ unless marketing_workflow
     {
       edge_id: 'manual_to_updates',
       source_node_id: 'manual_approval_marketing',
-      target_node_id: 'campaign_updates'
+      target_node_id: 'campaign_updates',
+      source_handle: 'output',
+      target_handle: 'input',
+      edge_type: 'default'
     },
     {
       edge_id: 'updates_to_report',
       source_node_id: 'campaign_updates',
-      target_node_id: 'performance_report'
+      target_node_id: 'performance_report',
+      source_handle: 'exit',
+      target_handle: 'input',
+      edge_type: 'default'
     }
   ])
 end
@@ -2032,8 +2381,8 @@ unless blog_workflow.workflow_runs.exists?(status: 'completed')
 
   # Create node executions for the blog run
   blog_workflow.workflow_nodes.each_with_index do |node, index|
-    blog_run.ai_workflow_node_executions.create!(
-      ai_workflow_node: node,
+    blog_run.workflow_node_executions.create!(
+      node: node,
       execution_id: "exec_#{SecureRandom.hex(6)}",
       node_id: node.node_id,
       node_type: node.node_type,
@@ -2084,8 +2433,8 @@ unless data_analysis_workflow.workflow_runs.exists?(status: 'running')
   data_analysis_workflow.workflow_nodes.limit(2).each_with_index do |node, index|
     status = index == 0 ? 'completed' : 'running'
 
-    analysis_run.ai_workflow_node_executions.create!(
-      ai_workflow_node: node,
+    analysis_run.workflow_node_executions.create!(
+      node: node,
       execution_id: "exec_#{SecureRandom.hex(6)}",
       node_id: node.node_id,
       node_type: node.node_type,
@@ -2104,36 +2453,7 @@ unless data_analysis_workflow.workflow_runs.exists?(status: 'running')
   end
 end
 
-# 9. Create Sample Template Installations
-puts "\n📦 Creating Template Installations..."
-
-# Install blog template for admin account
-unless admin_account.ai_workflow_template_installations.exists?(ai_workflow_template: blog_workflow_template)
-  puts "💾 Installing blog template..."
-
-  admin_account.ai_workflow_template_installations.create!(
-    ai_workflow_template: blog_workflow_template,
-    ai_workflow: blog_workflow,
-    installed_by_user: admin_user,
-    installation_id: "install_#{SecureRandom.hex(8)}",
-    template_version: '1.0.0',
-    customizations: {
-      'default_word_count' => 1500,
-      'preferred_agent' => blog_generator_agent.id,
-      'auto_seo_optimize' => true
-    },
-    variable_mappings: {
-      'topic' => 'blog_topic',
-      'word_count' => 'default_word_count',
-      'author' => 'author_name'
-    },
-    auto_update: false,
-    metadata: {
-      'installation_notes' => 'Configured for daily tech blog generation with Ollama integration',
-      'installation_date' => Time.current.iso8601
-    }
-  )
-end
+# 9. Template installations (deprecated — ai_workflow_template_installations removed)
 
 puts "\n✅ AI Workflow System seeded successfully!"
 
@@ -2146,7 +2466,7 @@ puts "📋 Workflow Templates: #{Ai::WorkflowTemplate.count}"
 puts "🔄 Workflows: #{admin_account.ai_workflows.count}"
 puts "⏰ Schedules: #{Ai::WorkflowSchedule.where(ai_workflow_id: admin_account.ai_workflows.pluck(:id)).count}"
 puts "🎯 Triggers: #{Ai::WorkflowTrigger.where(ai_workflow_id: admin_account.ai_workflows.pluck(:id)).count}"
-puts "📦 Template Installations: #{admin_account.ai_workflow_template_installations.count}"
+puts "📋 Workflow Templates: #{Ai::WorkflowTemplate.count}"
 
 puts "\n🚀 Ready to test workflows!"
 puts "\nSample workflow execution:"

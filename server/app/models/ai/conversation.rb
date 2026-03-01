@@ -13,46 +13,79 @@ module Ai
     belongs_to :user
     belongs_to :agent, class_name: "Ai::Agent", foreign_key: "ai_agent_id", optional: true
     belongs_to :provider, class_name: "Ai::Provider", foreign_key: "ai_provider_id"
+    belongs_to :agent_team, class_name: "Ai::AgentTeam", foreign_key: "agent_team_id", optional: true
     has_many :messages, class_name: "Ai::Message", foreign_key: "ai_conversation_id", dependent: :destroy
+    has_many :scheduled_messages, class_name: "Ai::ScheduledMessage", foreign_key: "conversation_id", dependent: :destroy
+    has_one :mission, class_name: "Ai::Mission", foreign_key: "conversation_id", dependent: :nullify
+    has_many :team_executions, class_name: "Ai::TeamExecution", foreign_key: "ai_conversation_id", dependent: :nullify
+    has_many :chat_sessions, class_name: "Chat::Session", foreign_key: "ai_conversation_id", dependent: :nullify
 
     # Validations
     validates :conversation_id, presence: true, uniqueness: true
     validates :status, inclusion: { in: %w[active paused completed archived] }
+    validates :conversation_type, inclusion: { in: %w[agent team] }
     validates :message_count, numericality: { greater_than_or_equal_to: 0 }
     validates :total_tokens, numericality: { greater_than_or_equal_to: 0 }
     validates :total_cost, numericality: { greater_than_or_equal_to: 0 }
     validates :websocket_channel, format: { with: /\A[a-z0-9_\-]+\z/ }, allow_blank: true
+    validate :team_conversation_requires_team
 
     # Scopes
     scope :active, -> { where(status: "active") }
     scope :paused, -> { where(status: "paused") }
     scope :completed, -> { where(status: "completed") }
     scope :archived, -> { where(status: "archived") }
+    scope :team_conversations, -> { where(conversation_type: "team") }
+    scope :for_team, ->(team) { where(agent_team_id: team.is_a?(Ai::AgentTeam) ? team.id : team) }
     scope :collaborative, -> { where(is_collaborative: true) }
     scope :recent, -> { order(last_activity_at: :desc) }
     scope :for_user, ->(user) { where(user: user) }
     scope :with_agent, ->(agent) { where(ai_agent_id: agent.is_a?(Ai::Agent) ? agent.id : agent) }
     scope :active_sessions, -> { where.not(websocket_session_id: nil) }
+    scope :pinned, -> { where.not(pinned_at: nil).order(pinned_at: :desc) }
+    scope :unpinned, -> { where(pinned_at: nil) }
+    scope :tagged_with, ->(tag) { where("tags @> ?", [tag].to_json) }
+    scope :tagged_with_any, ->(tags) { where("tags ?| array[:tags]", tags: tags) }
+    scope :by_last_activity, -> { order(last_activity_at: :desc) }
+    scope :pinned_first, -> { order(Arel.sql("CASE WHEN pinned_at IS NOT NULL THEN 0 ELSE 1 END, pinned_at DESC, last_activity_at DESC")) }
 
     # Callbacks
-    before_create :set_conversation_id
-    before_create :set_websocket_channel
+    before_validation :set_conversation_id, on: :create
+    before_validation :set_websocket_channel, on: :create
     after_update :broadcast_status_change, if: :saved_change_to_status?
+    after_destroy :cleanup_orphaned_workspace_team
 
     # Methods
     def active?
       status == "active"
     end
 
+    def team_conversation?
+      conversation_type == "team"
+    end
+
+    def workspace_conversation?
+      agent_team&.team_type == "workspace"
+    end
+
     def can_send_message?
       %w[active paused].include?(status)
     end
 
-    def add_message(role, content, user: nil, **options)
+    def add_message(role, content, user: nil, agent: nil, broadcast: true, **options)
       raise ArgumentError, "Cannot add message to inactive conversation" unless can_send_message?
+
+      # Auto-detect @mentions in workspace conversations and add to content_metadata
+      if workspace_conversation? && content.present? && content.include?("@")
+        detected = auto_detect_mentions(content)
+        if detected.present?
+          options[:content_metadata] = (options[:content_metadata] || {}).merge("mentions" => detected)
+        end
+      end
 
       message = messages.build(
         user: user,
+        ai_agent_id: (agent || self.agent)&.id,
         message_id: UUID7.generate,
         role: role,
         content: content,
@@ -63,7 +96,7 @@ module Ai
       if message.save
         increment_message_count!
         update_activity_timestamp!
-        broadcast_message(message)
+        broadcast_message(message) if broadcast
         message
       else
         raise ActiveRecord::RecordInvalid, message
@@ -74,8 +107,8 @@ module Ai
       add_message("user", content, user: user, **options)
     end
 
-    def add_assistant_message(content, **options)
-      add_message("assistant", content, **options)
+    def add_assistant_message(content, broadcast: true, **options)
+      add_message("assistant", content, broadcast: broadcast, **options)
     end
 
     def add_system_message(content, **options)
@@ -101,18 +134,42 @@ module Ai
       update!(status: "archived")
     end
 
+    def pin!
+      update!(pinned_at: Time.current)
+    end
+
+    def unpin!
+      update!(pinned_at: nil)
+    end
+
+    def pinned?
+      pinned_at.present?
+    end
+
+    def add_tag(tag)
+      tag = tag.to_s.strip.downcase
+      return if tags.include?(tag)
+
+      update!(tags: tags + [tag])
+    end
+
+    def remove_tag(tag)
+      tag = tag.to_s.strip.downcase
+      update!(tags: tags - [tag])
+    end
+
     def add_participant(user)
       return false unless is_collaborative?
       return false if participants.include?(user.id)
 
-      new_participants = participants + [user.id]
+      new_participants = participants + [ user.id ]
       update!(participants: new_participants)
     end
 
     def remove_participant(user)
       return false unless is_collaborative?
 
-      new_participants = participants - [user.id]
+      new_participants = participants - [ user.id ]
       update!(participants: new_participants)
     end
 
@@ -146,14 +203,15 @@ module Ai
     def broadcast_message(message)
       return unless websocket_channel.present?
 
-      ActionCable.server.broadcast(
-        websocket_channel,
-        {
-          type: "message",
-          conversation_id: conversation_id,
-          message: message_data(message)
-        }
-      )
+      AiConversationChannel.broadcast_message_created(self, message)
+      notify_mcp_sessions_of_message(message)
+    end
+
+    def broadcast_ai_complete(message)
+      return unless websocket_channel.present?
+
+      AiConversationChannel.broadcast_ai_complete(self, message)
+      notify_mcp_sessions_of_message(message, event_type: "ai_response_complete")
     end
 
     def broadcast_typing_indicator(user, typing: true)
@@ -182,9 +240,20 @@ module Ai
         provider: provider.name,
         is_collaborative: is_collaborative?,
         participant_count: participants.size,
+        pinned: pinned?,
+        tags: tags,
         created_at: created_at,
         last_activity_at: last_activity_at
       }
+    end
+
+    # Full-text search across conversation messages
+    def self.search_messages(query, account_id:)
+      joins(:messages)
+        .where(account_id: account_id)
+        .where("ai_messages.search_vector @@ plainto_tsquery('english', ?)", query)
+        .where(ai_messages: { deleted_at: nil })
+        .distinct
     end
 
     def to_param
@@ -192,6 +261,97 @@ module Ai
     end
 
     private
+
+    # Auto-detect @mentions of workspace team members in message content.
+    # Returns array of { "id" => agent_id, "name" => agent_name } hashes.
+    def auto_detect_mentions(content)
+      return [] unless agent_team.present?
+
+      members = agent_team.members.includes(:agent).to_a
+      members.sort_by! { |m| -(m.agent&.name&.length || 0) }
+
+      detected = []
+      members.each do |member|
+        name = member.agent&.name
+        next if name.blank?
+        next unless content.include?("@#{name}")
+
+        detected << { "id" => member.ai_agent_id, "name" => name }
+      end
+
+      detected
+    end
+
+    def notify_mcp_sessions_of_message(message, event_type: "message_created")
+      return unless agent_team.present?
+
+      # Find MCP client agents in this workspace team
+      mcp_agent_ids = agent_team.members
+        .joins(:agent)
+        .where(ai_agents: { agent_type: "mcp_client" })
+        .pluck(:ai_agent_id)
+
+      return if mcp_agent_ids.empty?
+
+      # Skip notifying the agent that sent this message (avoid echo)
+      mcp_agent_ids -= [message.ai_agent_id] if message.ai_agent_id.present?
+      return if mcp_agent_ids.empty?
+
+      # MCP clients always receive all workspace messages — they are lightweight
+      # listeners (SSE daemon) that handle their own filtering. The @mention
+      # filter only applies to non-MCP agents (which trigger expensive LLM calls).
+
+      sessions = McpSession.active.where(ai_agent_id: mcp_agent_ids)
+      return if sessions.empty?
+
+      # For ai_response_complete, send full content (it replaces the truncated message_created)
+      content_limit = event_type == "ai_response_complete" ? 4000 : 500
+      notification = {
+        type: event_type,
+        conversation_id: conversation_id,
+        workspace: agent_team.name,
+        message: {
+          id: message.message_id,
+          role: message.role,
+          content: message.content.to_s.truncate(content_limit),
+          sender: message.user&.name || message.agent&.name || "Unknown",
+          created_at: message.created_at&.iso8601
+        }
+      }.to_json
+
+      sessions.find_each do |session|
+        ActionCable.server.pubsub.broadcast("mcp_session:#{session.session_token}", notification)
+      end
+    rescue StandardError => e
+      Rails.logger.warn("[Conversation] Failed to notify MCP sessions: #{e.message}")
+    end
+
+    # Resolve which MCP agents are @mentioned in a message, checking both
+    # structured content_metadata and raw @Name text patterns in the content.
+    def resolve_mentioned_mcp_agents(message, candidate_agent_ids)
+      # 1. Structured mentions from content_metadata (frontend path)
+      structured_names = Array(message.content_metadata&.dig("mentions")).filter_map { |m| m["name"] || m[:name] }
+      mentioned_ids = if structured_names.present?
+        agent_team.members.by_agent_names(structured_names).pluck(:ai_agent_id)
+      else
+        []
+      end
+
+      # 2. Text @mentions from content (agent-to-agent tool path)
+      #    Only scan if structured mentions didn't already match all candidates
+      if mentioned_ids.empty? || (candidate_agent_ids - mentioned_ids).any?
+        content = message.content.to_s
+        if content.include?("@")
+          mcp_agents = Ai::Agent.where(id: candidate_agent_ids).pluck(:id, :name)
+          mcp_agents.each do |agent_id, agent_name|
+            next if mentioned_ids.include?(agent_id)
+            mentioned_ids << agent_id if content.include?("@#{agent_name}")
+          end
+        end
+      end
+
+      mentioned_ids
+    end
 
     def set_conversation_id
       self.conversation_id ||= SecureRandom.uuid
@@ -243,6 +403,22 @@ module Ai
 
       # This could be enhanced with AI-generated summaries
       "Conversation with #{message_count} messages using #{provider.name}"
+    end
+
+    def team_conversation_requires_team
+      if conversation_type == "team" && agent_team_id.blank?
+        errors.add(:agent_team_id, "is required for team conversations")
+      end
+    end
+
+    def cleanup_orphaned_workspace_team
+      return unless agent_team.present?
+      return unless agent_team.team_type == "workspace"
+      return if agent_team.conversations.exists?
+
+      agent_team.destroy
+    rescue StandardError => e
+      Rails.logger.warn("[Conversation] Failed to cleanup orphaned workspace team #{agent_team_id}: #{e.message}")
     end
   end
 end

@@ -354,7 +354,7 @@ RSpec.describe Devops::GitWebhookEvent, type: :model do
     describe '#payload_summary' do
       it 'summarizes push events' do
         event = build(:git_webhook_event, :push, ref: 'refs/heads/main',
-          payload: { 'commits' => [{ id: '1' }, { id: '2' }], 'ref' => 'refs/heads/main' }
+          payload: { 'commits' => [ { id: '1' }, { id: '2' } ], 'ref' => 'refs/heads/main' }
         )
         expect(event.payload_summary).to eq('2 commit(s) to main')
       end

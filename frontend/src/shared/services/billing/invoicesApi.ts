@@ -155,7 +155,7 @@ export const invoicesApi = {
     perPage = 20,
     filters: InvoiceFilters = {}
   ): Promise<InvoicesListResponse> {
-    const response = await api.get('/api/v1/invoices', {
+    const response = await api.get<InvoicesListResponse>('/api/v1/invoices', {
       params: {
         page,
         per_page: perPage,
@@ -167,31 +167,31 @@ export const invoicesApi = {
 
   // Get specific invoice by ID
   async getInvoice(id: string): Promise<InvoiceResponse> {
-    const response = await api.get(`/api/v1/invoices/${id}`);
+    const response = await api.get<InvoiceResponse>(`/api/v1/invoices/${id}`);
     return response.data;
   },
 
   // Create new invoice
   async createInvoice(invoiceData: CreateInvoiceRequest): Promise<InvoiceResponse> {
-    const response = await api.post('/api/v1/invoices', invoiceData);
+    const response = await api.post<InvoiceResponse>('/api/v1/invoices', invoiceData);
     return response.data;
   },
 
   // Update invoice (only for draft invoices)
   async updateInvoice(id: string, updates: Partial<CreateInvoiceRequest>): Promise<InvoiceResponse> {
-    const response = await api.put(`/api/v1/invoices/${id}`, updates);
+    const response = await api.put<InvoiceResponse>(`/api/v1/invoices/${id}`, updates);
     return response.data;
   },
 
   // Delete invoice (only for draft invoices)
   async deleteInvoice(id: string): Promise<{ success: boolean; message?: string; error?: string }> {
-    const response = await api.delete(`/api/v1/invoices/${id}`);
+    const response = await api.delete<{ success: boolean; message?: string; error?: string }>(`/api/v1/invoices/${id}`);
     return response.data;
   },
 
   // Send invoice to customer
   async sendInvoice(id: string): Promise<{ success: boolean; message?: string; error?: string }> {
-    const response = await api.post(`/api/v1/invoices/${id}/send`);
+    const response = await api.post<{ success: boolean; message?: string; error?: string }>(`/api/v1/invoices/${id}/send`);
     return response.data;
   },
 
@@ -205,25 +205,25 @@ export const invoicesApi = {
       notes?: string;
     }
   ): Promise<InvoiceResponse> {
-    const response = await api.post(`/api/v1/invoices/${id}/mark_paid`, paymentDetails);
+    const response = await api.post<InvoiceResponse>(`/api/v1/invoices/${id}/mark_paid`, paymentDetails);
     return response.data;
   },
 
   // Void invoice
   async voidInvoice(id: string, reason?: string): Promise<InvoiceResponse> {
-    const response = await api.post(`/api/v1/invoices/${id}/void`, { reason });
+    const response = await api.post<InvoiceResponse>(`/api/v1/invoices/${id}/void`, { reason });
     return response.data;
   },
 
   // Retry payment for invoice
   async retryPayment(id: string): Promise<{ success: boolean; message?: string; error?: string }> {
-    const response = await api.post(`/api/v1/invoices/${id}/retry_payment`);
+    const response = await api.post<{ success: boolean; message?: string; error?: string }>(`/api/v1/invoices/${id}/retry_payment`);
     return response.data;
   },
 
   // Get invoice PDF
   async downloadPDF(id: string): Promise<Blob> {
-    const response = await api.get(`/api/v1/invoices/${id}/pdf`, {
+    const response = await api.get<Blob>(`/api/v1/invoices/${id}/pdf`, {
       responseType: 'blob'
     });
     return response.data;
@@ -231,7 +231,7 @@ export const invoicesApi = {
 
   // Get invoice statistics
   async getInvoiceStats(): Promise<InvoiceStats> {
-    const response = await api.get('/api/v1/invoices/statistics');
+    const response = await api.get<InvoiceStats>('/api/v1/invoices/statistics');
     return response.data;
   },
 

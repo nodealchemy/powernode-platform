@@ -63,6 +63,14 @@ FactoryBot.define do
             affected_nodes: [ 'node_2' ]
           },
           {
+            code: 'suboptimal_timeout',
+            severity: 'warning',
+            category: 'performance',
+            message: 'Node timeout could be optimized',
+            auto_fixable: true,
+            affected_nodes: [ 'node_1' ]
+          },
+          {
             code: 'performance_concern',
             severity: 'info',
             category: 'performance',
@@ -237,6 +245,14 @@ FactoryBot.define do
             message: 'Node configuration is invalid',
             auto_fixable: false,
             affected_nodes: [ 'node_3' ]
+          },
+          {
+            code: 'missing_end_node',
+            severity: 'error',
+            category: 'structure',
+            message: 'No end node defined',
+            auto_fixable: false,
+            affected_nodes: []
           }
         ]
       end

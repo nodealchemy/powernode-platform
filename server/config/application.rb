@@ -2,6 +2,8 @@
 
 require_relative "boot"
 require_relative "version"
+require_relative "../lib/powernode/extension_registry"
+require_relative "../lib/devops/step_handler_registry"
 
 # Only require necessary Rails components for API-only application
 require "rails"
@@ -63,6 +65,9 @@ module Server
     # Middleware like session, flash, cookies can be added back manually.
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
+
+    # Add cookie middleware for HttpOnly refresh token cookies (WP8 security hardening)
+    config.middleware.use ActionDispatch::Cookies
 
     # Track boot time for uptime calculations
     config.boot_time = Time.current

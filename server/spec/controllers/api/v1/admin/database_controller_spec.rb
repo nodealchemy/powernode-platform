@@ -6,7 +6,8 @@ RSpec.describe Api::V1::Admin::DatabaseController, type: :controller do
   let(:account) { create(:account) }
   let(:admin_user) { create(:user, account: account) }
   let(:regular_user) { create(:user, account: account) }
-  let(:worker_token) { 'test_worker_token_12345' }
+  let(:internal_worker) { create(:worker) }
+  let(:worker_jwt) { Security::JwtService.encode({ type: "worker", sub: internal_worker.id }, 5.minutes.from_now) }
 
   before do
     # Grant system.admin permission to admin user
@@ -22,16 +23,12 @@ RSpec.describe Api::V1::Admin::DatabaseController, type: :controller do
     end
     admin_role.permissions << system_admin_permission unless admin_role.permissions.include?(system_admin_permission)
     admin_user.roles << admin_role unless admin_user.roles.include?(admin_role)
-
-    # Set worker token in environment
-    allow(ENV).to receive(:[]).and_call_original
-    allow(ENV).to receive(:[]).with('WORKER_TOKEN').and_return(worker_token)
   end
 
   describe 'GET #pool_stats' do
     context 'with valid worker token' do
       before do
-        request.headers['Authorization'] = "Bearer #{worker_token}"
+        request.headers['Authorization'] = "Bearer #{worker_jwt}"
       end
 
       it 'returns database pool statistics' do
@@ -81,9 +78,9 @@ RSpec.describe Api::V1::Admin::DatabaseController, type: :controller do
   end
 
   describe 'GET #ping' do
-    context 'with valid worker token' do
+    context 'with valid worker JWT' do
       before do
-        request.headers['Authorization'] = "Bearer #{worker_token}"
+        request.headers['Authorization'] = "Bearer #{worker_jwt}"
       end
 
       it 'returns successful database ping' do
@@ -107,7 +104,7 @@ RSpec.describe Api::V1::Admin::DatabaseController, type: :controller do
 
     context 'when database connection fails' do
       before do
-        request.headers['Authorization'] = "Bearer #{worker_token}"
+        request.headers['Authorization'] = "Bearer #{worker_jwt}"
         allow(ActiveRecord::Base.connection).to receive(:execute).and_raise(StandardError.new('Connection failed'))
       end
 
@@ -123,9 +120,9 @@ RSpec.describe Api::V1::Admin::DatabaseController, type: :controller do
   end
 
   describe 'GET #health' do
-    context 'with valid worker token' do
+    context 'with valid worker JWT' do
       before do
-        request.headers['Authorization'] = "Bearer #{worker_token}"
+        request.headers['Authorization'] = "Bearer #{worker_jwt}"
       end
 
       it 'returns comprehensive health status' do
@@ -174,27 +171,27 @@ RSpec.describe Api::V1::Admin::DatabaseController, type: :controller do
     end
   end
 
-  describe 'worker token authentication' do
-    it 'accepts valid worker token' do
-      request.headers['Authorization'] = "Bearer #{worker_token}"
+  describe 'worker JWT authentication' do
+    it 'accepts valid worker JWT' do
+      request.headers['Authorization'] = "Bearer #{worker_jwt}"
       get :pool_stats
 
       expect(response).to have_http_status(:ok)
     end
 
-    it 'rejects invalid worker token without admin auth' do
+    it 'rejects invalid token without admin auth' do
       request.headers['Authorization'] = 'Bearer wrong_token'
       get :pool_stats
 
       expect(response).to have_http_status(:unauthorized)
     end
 
-    it 'uses secure comparison for token validation' do
-      # This test ensures timing-safe comparison is used
-      request.headers['Authorization'] = "Bearer #{worker_token}"
-
-      expect(ActiveSupport::SecurityUtils).to receive(:secure_compare).and_call_original
+    it 'rejects expired worker JWT' do
+      expired_token = Security::JwtService.encode({ type: "worker", sub: internal_worker.id }, 1.second.ago)
+      request.headers['Authorization'] = "Bearer #{expired_token}"
       get :pool_stats
+
+      expect(response).to have_http_status(:unauthorized)
     end
   end
 end

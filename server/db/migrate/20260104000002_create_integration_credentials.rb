@@ -39,10 +39,10 @@ class CreateIntegrationCredentials < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :integration_credentials, [:account_id, :name], unique: true
+    add_index :integration_credentials, [ :account_id, :name ], unique: true
     add_index :integration_credentials, :credential_type
     add_index :integration_credentials, :is_active
     add_index :integration_credentials, :expires_at
-    add_index :integration_credentials, [:account_id, :credential_type], name: "idx_credentials_account_type"
+    add_index :integration_credentials, [ :account_id, :credential_type ], name: "idx_credentials_account_type"
   end
 end

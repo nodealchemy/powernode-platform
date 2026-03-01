@@ -142,7 +142,7 @@ export function IntegrationCard({
             ) : (
               <button
                 onClick={() => onActivate?.(instance.id)}
-                className="px-3 py-1.5 text-sm text-white bg-theme-primary hover:bg-theme-primary-hover rounded transition-colors"
+                className="btn-theme btn-theme-primary btn-theme-sm"
               >
                 Activate
               </button>

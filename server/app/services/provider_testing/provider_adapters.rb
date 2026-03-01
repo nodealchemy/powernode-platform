@@ -63,7 +63,7 @@ module ProviderTesting
 
       payload = {
         model: config["model"] || "gpt-3.5-turbo",
-        messages: [{ role: "user", content: @test_config[:test_message] }],
+        messages: [ { role: "user", content: @test_config[:test_message] } ],
         max_tokens: 50
       }
 
@@ -89,7 +89,7 @@ module ProviderTesting
 
       payload = {
         model: config["model"] || "claude-3-haiku-20240307",
-        messages: [{ role: "user", content: @test_config[:test_message] }],
+        messages: [ { role: "user", content: @test_config[:test_message] } ],
         max_tokens: 50
       }
 
@@ -104,21 +104,73 @@ module ProviderTesting
     end
 
     def perform_ollama_connection_test(config)
-      base_url = config["base_url"] || "http://localhost:11434"
+      base_url = build_ollama_base_url(config)
+
+      # Build headers - include API key if provided (for Open WebUI authentication)
+      headers = { "Content-Type" => "application/json" }
+      api_key = config["api_key"]
+      if api_key.present?
+        headers["Authorization"] = "Bearer #{api_key}"
+      end
+
+      # First try a lightweight /api/tags check (fast, no model load needed)
+      tags_url = build_ollama_api_url(base_url, "/api/tags")
+      tags_response = make_http_request(tags_url, method: :get, headers: headers, timeout: 15)
+
+      if tags_response.success?
+        # Tags endpoint works — parse available models
+        models_data = JSON.parse(tags_response.body) rescue {}
+        available_models = models_data["models"] || []
+        return {
+          success: true,
+          status_code: tags_response.code,
+          response_content: "#{available_models.size} models available",
+          provider_response: tags_response.body
+        }
+      end
+
+      # Fall back to chat test if tags endpoint not available
+      test_model = config["model"].presence ||
+                   @provider&.supported_models&.first&.dig("id").presence ||
+                   @provider&.supported_models&.first&.dig("name").presence ||
+                   "llama2"
 
       payload = {
-        model: config["model"] || "llama2",
-        messages: [{ role: "user", content: @test_config[:test_message] }]
+        model: test_model,
+        messages: [ { role: "user", content: @test_config[:test_message] } ],
+        stream: false
       }
 
+      api_url = build_ollama_api_url(base_url, "/api/chat")
+
       response = make_http_request(
-        "#{base_url}/api/chat",
+        api_url,
         method: :post,
-        headers: { "Content-Type" => "application/json" },
-        body: payload.to_json
+        headers: headers,
+        body: payload.to_json,
+        timeout: 30
       )
 
       parse_ollama_response(response)
+    end
+
+    def build_ollama_base_url(config)
+      # Priority: credentials base_url > provider api_base_url > localhost fallback
+      url = config["base_url"].presence || @provider&.api_base_url.presence || "http://localhost:11434"
+      url.to_s.chomp("/")
+    end
+
+    def build_ollama_api_url(base_url, endpoint)
+      # Handle Open WebUI which uses /ollama/api/... structure
+      if base_url.end_with?("/ollama")
+        "#{base_url}#{endpoint}"
+      elsif base_url.include?("webui") || base_url.include?("openwebui")
+        # Auto-detect Open WebUI and add /ollama prefix
+        "#{base_url}/ollama#{endpoint}"
+      else
+        # Standard Ollama
+        "#{base_url}#{endpoint}"
+      end
     end
 
     def perform_generic_connection_test(_config)
@@ -126,20 +178,30 @@ module ProviderTesting
     end
 
     def test_ollama_connection(provider, config)
-      base_url = config["base_url"] || provider.api_base_url
-      response = make_http_request("#{base_url}/api/tags", method: :get)
+      base_url = build_ollama_base_url(config)
+      api_url = build_ollama_api_url(base_url, "/api/tags")
+
+      # Build headers - include API key if provided (for Open WebUI authentication)
+      headers = {}
+      api_key = config["api_key"]
+      if api_key.present?
+        headers["Authorization"] = "Bearer #{api_key}"
+      end
+
+      response = make_http_request(api_url, method: :get, headers: headers)
 
       if response.success?
         models = JSON.parse(response.body)["models"] || []
+        is_remote = !base_url.include?("localhost") && !base_url.include?("127.0.0.1")
         {
           success: true,
-          provider_info: { version: "latest", status: "running" },
+          provider_info: { version: "latest", status: "running", connection_type: is_remote ? "remote" : "local" },
           model_info: { available_models: models.size }
         }
       else
         {
           success: false,
-          error: "Ollama server not reachable",
+          error: "Ollama server not reachable at #{api_url}",
           error_code: "SERVER_UNREACHABLE"
         }
       end
@@ -186,7 +248,7 @@ module ProviderTesting
       test_model = "claude-3-haiku-20240307"
       payload = {
         model: test_model,
-        messages: [{ role: "user", content: "Hi" }],
+        messages: [ { role: "user", content: "Hi" } ],
         max_tokens: 10
       }
 
@@ -209,7 +271,7 @@ module ProviderTesting
         error_message = error_data.dig("error", "message") || "Authentication failed"
         { success: false, error: error_message, error_code: "AUTHENTICATION_FAILED" }
       end
-    rescue => e
+    rescue StandardError => e
       { success: false, error: "Anthropic connection error: #{e.message}", error_code: "CONNECTION_ERROR" }
     end
 
@@ -222,7 +284,7 @@ module ProviderTesting
         test_model = "grok-3"
         payload = {
           model: test_model,
-          messages: [{ role: "user", content: 'Hello, respond with just "OK"' }],
+          messages: [ { role: "user", content: 'Hello, respond with just "OK"' } ],
           max_tokens: 10,
           temperature: 0
         }
@@ -237,7 +299,7 @@ module ProviderTesting
         if response.success?
           {
             success: true,
-            provider_info: { status: "active", api_version: "v1", models_available: ["grok-3", "grok-vision"] },
+            provider_info: { status: "active", api_version: "v1", models_available: [ "grok-3", "grok-vision" ] },
             model_info: { test_model: test_model }
           }
         else
@@ -251,7 +313,7 @@ module ProviderTesting
           end
           { success: false, error: error_message, error_code: "API_ERROR" }
         end
-      rescue => e
+      rescue StandardError => e
         { success: false, error: "x.ai connection error: #{e.message}", error_code: "CONNECTION_ERROR" }
       end
     end

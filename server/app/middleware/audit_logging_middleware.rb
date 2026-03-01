@@ -24,7 +24,7 @@ class AuditLoggingMiddleware
       log_api_request(request, status, start_time) if status < 400
 
       [ status, headers, response ]
-    rescue => error
+    rescue StandardError => error
       # Log failed API requests
       log_api_error(request, error, start_time)
 
@@ -161,17 +161,16 @@ class AuditLoggingMiddleware
     end
 
     nil
-  rescue => e
+  rescue StandardError => e
     Rails.logger.debug "Failed to extract user from request: #{e.message}"
     nil
   end
 
   def decode_jwt_user(token)
-    # Simple JWT decoding - in production, use proper JWT library
-    payload = JWT.decode(token, Rails.application.credentials.secret_key_base, true, algorithm: "HS256")
-    user_id = payload[0]["user_id"]
+    payload = Security::JwtService.decode(token)
+    user_id = payload["sub"] || payload["user_id"]
     User.find_by(id: user_id)
-  rescue JWT::DecodeError, JWT::ExpiredSignature
+  rescue StandardError
     nil
   end
 

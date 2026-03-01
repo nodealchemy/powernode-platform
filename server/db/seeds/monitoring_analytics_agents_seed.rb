@@ -26,16 +26,6 @@ if admin_account && admin_user && provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
-    agent.mcp_capabilities = [
-      'performance_monitoring',
-      'resource_tracking',
-      'execution_analytics',
-      'bottleneck_detection',
-      'real_time_alerting',
-      'metric_collection',
-      'threshold_management',
-      'performance_reporting'
-    ]
     agent.mcp_tool_manifest = {
       'name' => 'workflow_performance_monitor',
       'description' => 'Advanced monitoring specialist for workflow performance',
@@ -76,7 +66,7 @@ if admin_account && admin_user && provider
 
           Focus on proactive monitoring that prevents performance issues before they impact user experience.
         PROMPT
-        'model' => 'claude-sonnet-4-5-20250514',
+        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.1,
         'max_tokens' => 4096,
         'response_format' => 'structured_monitoring'
@@ -93,7 +83,7 @@ if admin_account && admin_user && provider
         'supported_metrics' => [ 'execution_time', 'resource_usage', 'error_rates', 'throughput' ]
       },
       'model_config' => {
-        'model' => 'claude-sonnet-4-5-20250514',
+        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.1,
         'max_tokens' => 4096,
         'response_format' => 'structured_monitoring'
@@ -113,16 +103,6 @@ if admin_account && admin_user && provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
-    agent.mcp_capabilities = [
-      'advanced_analytics',
-      'predictive_modeling',
-      'trend_analysis',
-      'pattern_recognition',
-      'data_visualization',
-      'statistical_analysis',
-      'business_intelligence',
-      'forecast_generation'
-    ]
     agent.mcp_tool_manifest = {
       'name' => 'workflow_analytics_intelligence',
       'description' => 'Advanced analytics specialist for workflow systems',
@@ -169,7 +149,7 @@ if admin_account && admin_user && provider
 
           Focus on transforming complex data into clear, actionable insights that drive informed decision-making.
         PROMPT
-        'model' => 'claude-sonnet-4-5-20250514',
+        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.2,
         'max_tokens' => 4096,
         'response_format' => 'analytical_intelligence'
@@ -186,7 +166,7 @@ if admin_account && admin_user && provider
         'supported_models' => [ 'time_series', 'clustering', 'classification', 'regression' ]
       },
       'model_config' => {
-        'model' => 'claude-sonnet-4-5-20250514',
+        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.2,
         'max_tokens' => 4096,
         'response_format' => 'analytical_intelligence'
@@ -206,16 +186,6 @@ if admin_account && admin_user && provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
-    agent.mcp_capabilities = [
-      'system_monitoring',
-      'health_checks',
-      'service_discovery',
-      'availability_tracking',
-      'incident_detection',
-      'recovery_coordination',
-      'uptime_monitoring',
-      'dependency_tracking'
-    ]
     agent.mcp_tool_manifest = {
       'name' => 'system_health_monitor',
       'description' => 'Comprehensive system health monitoring specialist',
@@ -271,7 +241,7 @@ if admin_account && admin_user && provider
 
           Maintain vigilant monitoring that ensures maximum system reliability and minimal user impact.
         PROMPT
-        'model' => 'claude-sonnet-4-5-20250514',
+        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.1,
         'max_tokens' => 4096,
         'response_format' => 'health_monitoring'
@@ -288,7 +258,7 @@ if admin_account && admin_user && provider
         'supported_protocols' => [ 'http', 'tcp', 'icmp', 'database' ]
       },
       'model_config' => {
-        'model' => 'claude-sonnet-4-5-20250514',
+        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.1,
         'max_tokens' => 4096,
         'response_format' => 'health_monitoring'
@@ -308,16 +278,6 @@ if admin_account && admin_user && provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
-    agent.mcp_capabilities = [
-      'quality_monitoring',
-      'data_validation',
-      'compliance_checking',
-      'test_automation',
-      'regression_detection',
-      'quality_scoring',
-      'audit_trail_monitoring',
-      'standards_enforcement'
-    ]
     agent.mcp_tool_manifest = {
       'name' => 'workflow_quality_assurance',
       'description' => 'Quality assurance specialist for workflow systems',
@@ -373,7 +333,7 @@ if admin_account && admin_user && provider
 
           Focus on proactive quality assurance that prevents issues and maintains excellence across all system operations.
         PROMPT
-        'model' => 'claude-sonnet-4-5-20250514',
+        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.2,
         'max_tokens' => 4096,
         'response_format' => 'quality_assurance'
@@ -390,7 +350,7 @@ if admin_account && admin_user && provider
         'supported_standards' => [ 'iso_9001', 'security_standards', 'accessibility_guidelines' ]
       },
       'model_config' => {
-        'model' => 'claude-sonnet-4-5-20250514',
+        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.2,
         'max_tokens' => 4096,
         'response_format' => 'quality_assurance'

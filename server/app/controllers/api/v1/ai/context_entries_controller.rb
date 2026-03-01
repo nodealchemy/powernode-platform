@@ -4,9 +4,15 @@ module Api
   module V1
     module Ai
       class ContextEntriesController < ApplicationController
+        class UnauthorizedActionError < StandardError; end
+
         before_action :authenticate_request
         before_action :set_context
-        before_action :set_entry, only: [:show, :update, :destroy, :archive, :unarchive, :boost, :history]
+        before_action :set_entry, only: [ :show, :update, :destroy, :archive, :unarchive, :boost, :history ]
+
+        rescue_from UnauthorizedActionError do |_e|
+          render_forbidden("You don't have permission to perform this action")
+        end
 
         # GET /api/v1/ai/contexts/:context_id/entries
         def index
@@ -175,8 +181,8 @@ module Api
         end
 
         def set_entry
-          @entry = @context.ai_context_entries.find_by(id: params[:id])
-          @entry ||= @context.ai_context_entries.find_by(entry_key: params[:id])
+          @entry = @context.context_entries.find_by(id: params[:id])
+          @entry ||= @context.context_entries.find_by(entry_key: params[:id])
 
           render_not_found("Entry") unless @entry
         end
@@ -200,9 +206,7 @@ module Api
         end
 
         def authorize_action!(permission)
-          unless current_user.has_permission?(permission)
-            render_forbidden("You don't have permission to perform this action")
-          end
+          raise UnauthorizedActionError unless current_user.has_permission?(permission)
         end
 
         def pagination_meta(collection)

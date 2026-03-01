@@ -2,6 +2,8 @@
 
 module Devops
   class GitPipelineSchedule < ApplicationRecord
+    include Schedulable
+
     # Table name (using git_ prefix, not devops_)
     self.table_name = "git_pipeline_schedules"
 
@@ -16,12 +18,9 @@ module Devops
 
     # Validations
     validates :name, presence: true, length: { maximum: 100 }
-    validates :cron_expression, presence: true
-    validates :timezone, presence: true
     validates :ref, presence: true
     validates :name, uniqueness: { scope: :git_repository_id }
 
-    validate :valid_cron_expression
     validate :valid_timezone
 
     # Scopes
@@ -31,10 +30,6 @@ module Devops
     scope :upcoming, -> { active.where("next_run_at > ?", Time.current).order(:next_run_at) }
     scope :for_repository, ->(repo_id) { where(git_repository_id: repo_id) }
     scope :by_status, ->(status) { where(last_run_status: status) }
-
-    # Callbacks
-    before_create :calculate_next_run
-    after_update :recalculate_next_run, if: -> { saved_change_to_cron_expression? || saved_change_to_timezone? }
 
     # Class Methods
     class << self
@@ -102,30 +97,23 @@ module Devops
     end
 
     def calculate_next_run!
-      update!(next_run_at: calculate_next_run_time)
+      update!(next_run_at: next_execution_time)
     end
 
     def cron_schedule
-      @cron_schedule ||= Fugit::Cron.parse(cron_expression)
+      parse_cron_expression
     end
 
     def human_schedule
       return "Invalid schedule" unless cron_schedule
-      cron_schedule.to_cron_s
-    rescue
-      cron_expression
+
+      cron_description
     end
 
     def next_runs(count = 5)
       return [] unless cron_schedule
 
-      runs = []
-      time = Time.current.in_time_zone(timezone)
-      count.times do
-        time = cron_schedule.next_time(time).to_t
-        runs << time
-      end
-      runs
+      execution_times_in_range(Time.current, 1.year.from_now, max_count: count)
     end
 
     # Backwards compatibility aliases
@@ -142,33 +130,6 @@ module Devops
     end
 
     private
-
-    def calculate_next_run
-      self.next_run_at = calculate_next_run_time
-    end
-
-    def recalculate_next_run
-      calculate_next_run!
-    end
-
-    def calculate_next_run_time
-      return nil unless active? && cron_schedule
-
-      base_time = Time.current.in_time_zone(timezone)
-      cron_schedule.next_time(base_time).to_t
-    rescue
-      nil
-    end
-
-    def valid_cron_expression
-      return if cron_expression.blank?
-
-      unless Fugit::Cron.parse(cron_expression)
-        errors.add(:cron_expression, "is not a valid cron expression")
-      end
-    rescue
-      errors.add(:cron_expression, "is not a valid cron expression")
-    end
 
     def valid_timezone
       return if timezone.blank?

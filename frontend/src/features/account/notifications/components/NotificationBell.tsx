@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { useChatWindow } from '@/features/ai/chat/context/ChatWindowContext';
 import {
   BellIcon,
   CheckIcon,
@@ -12,6 +13,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { BellIcon as BellIconSolid } from '@heroicons/react/24/solid';
 import { notificationApi, Notification } from '../services/notificationApi';
+import { logger } from '@/shared/utils/logger';
 import { RootState } from '@/shared/services';
 import { useNotificationWebSocket, WebSocketNotification } from '@/shared/hooks/useNotificationWebSocket';
 
@@ -37,6 +39,8 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   className = '',
 }) => {
   const { isAuthenticated } = useSelector((state: RootState) => state.auth);
+  const navigate = useNavigate();
+  const { openConversationMaximized } = useChatWindow();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -54,10 +58,42 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     action_label: wsNotif.action_label,
     icon: wsNotif.icon,
     category: wsNotif.category || 'general',
-    metadata: {},
+    metadata: wsNotif.metadata || {},
     read: false,
     created_at: wsNotif.created_at,
   }), []);
+
+  // Handle notification click — open chat for AI types, navigate for others
+  const handleNotificationClick = useCallback((notification: Notification) => {
+    if (notification.type === 'ai_concierge_message' && notification.metadata) {
+      const agentId = notification.metadata.agent_id as string | undefined;
+      const conversationId = notification.metadata.conversation_id as string | undefined;
+      if (agentId || conversationId) {
+        setIsOpen(false);
+        openConversationMaximized(agentId || '', '', conversationId);
+        return;
+      }
+    }
+    if (notification.type === 'ai_plan_review' && notification.metadata) {
+      const agentId = notification.metadata.agent_id as string | undefined;
+      const conversationId = notification.metadata.conversation_id as string | undefined;
+      if (agentId) {
+        setIsOpen(false);
+        openConversationMaximized(agentId, '', conversationId);
+        return;
+      }
+      // Mission approval notifications — navigate to mission with review flag
+      if (notification.action_url) {
+        setIsOpen(false);
+        navigate(notification.action_url, { state: { openApproval: true } });
+        return;
+      }
+    }
+    if (notification.action_url) {
+      setIsOpen(false);
+      navigate(notification.action_url);
+    }
+  }, [navigate, openConversationMaximized]);
 
   // WebSocket hook for real-time notification updates
   useNotificationWebSocket({
@@ -72,10 +108,14 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
       );
       setUnreadCount(prev => Math.max(0, prev - 1));
     },
+    onNotificationDismissed: (notificationId: string) => {
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      loadUnreadCount();
+    },
     onError: (error: string) => {
       // Silent fail for notifications - log in dev only
       if (process.env.NODE_ENV === 'development') {
-        console.warn('[NotificationBell] WebSocket error:', error);
+        logger.warn('[NotificationBell] WebSocket error', { error });
       }
     }
   });
@@ -86,7 +126,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
       const response = await notificationApi.getNotifications({ per_page: 10 });
       setNotifications(response.notifications);
       setUnreadCount(response.unread_count);
-    } catch {
+    } catch (_error) {
       // Silently fail for notifications
     }
   }, []);
@@ -96,7 +136,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     try {
       const count = await notificationApi.getUnreadCount();
       setUnreadCount(count);
-    } catch {
+    } catch (_error) {
       // Silently fail
     }
   }, []);
@@ -141,7 +181,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
         prev.map((n) => (n.id === id ? { ...n, read: true } : n))
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
-    } catch {
+    } catch (_error) {
       // Silently fail
     }
   };
@@ -153,7 +193,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
       setNotifications((prev) => prev.filter((n) => n.id !== id));
       // Reload count after dismiss
       loadUnreadCount();
-    } catch {
+    } catch (_error) {
       // Silently fail
     }
   };
@@ -164,7 +204,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
       await notificationApi.markAllAsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);
-    } catch {
+    } catch (_error) {
       // Silently fail
     } finally {
       setLoading(false);
@@ -248,7 +288,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                         px-4 py-3 hover:bg-theme-surface-hover transition-colors cursor-pointer
                         ${!notification.read ? 'bg-theme-info/10 dark:bg-theme-info/10' : ''}
                       `}
-                      onClick={() => notification.action_url && window.location.assign(notification.action_url)}
+                      onClick={() => handleNotificationClick(notification)}
                     >
                       <div className="flex items-start space-x-3">
                         <div className={`p-2 rounded-lg ${colorClass}`}>

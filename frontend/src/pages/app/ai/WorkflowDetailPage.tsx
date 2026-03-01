@@ -57,8 +57,7 @@ export const WorkflowDetailPage: React.FC = () => {
         setLoading(true);
         const response = await workflowsApi.getWorkflow(id);
         setWorkflow(response);
-      } catch (error) {
-        console.error('Failed to load workflow:', error);
+      } catch (_error) {
         addNotification({
           type: 'error',
           title: 'Error',
@@ -81,8 +80,8 @@ export const WorkflowDetailPage: React.FC = () => {
       setRunsLoading(true);
       const response = await workflowsApi.getRuns(id, { workflow_id: id });
       setWorkflowRuns(response.items);
-    } catch (error) {
-      console.error('Failed to load workflow runs:', error);
+    } catch (_error) {
+      // Error handled silently - runs may not be available
     } finally {
       setRunsLoading(false);
     }
@@ -96,10 +95,11 @@ export const WorkflowDetailPage: React.FC = () => {
   useEffect(() => {
     if (!id || !isConnected) return;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handleWorkflowUpdate = (message: any) => {
+     
+    const handleWorkflowUpdate = (data: unknown) => {
+      const message = data as Record<string, unknown>;
       // Extract event type (AiOrchestrationChannel uses 'event' field)
-      const eventType = message.event || message.type;
+      const eventType = String(message.event || message.type || '');
 
       // Handle node execution updates - don't reload, progress updates via workflow messages
       if (eventType === 'node.execution.updated' || eventType === 'node.duration.updated') {
@@ -120,11 +120,14 @@ export const WorkflowDetailPage: React.FC = () => {
 
       if (isWorkflowRunUpdate) {
         // AiOrchestrationChannel wraps data in payload.workflow_run
-        const updatedRun = message.payload?.workflow_run || message.workflow_run || message.data?.workflow_run;
+        const payload = message.payload as Record<string, unknown> | undefined;
+        const data = message.data as Record<string, unknown> | undefined;
+        const updatedRun = payload?.workflow_run || message.workflow_run || data?.workflow_run;
 
         if (updatedRun) {
+          const run = updatedRun as Record<string, any>;
           setWorkflowRuns(prev => {
-            const index = prev.findIndex(r => r.run_id === updatedRun.run_id || r.id === updatedRun.id);
+            const index = prev.findIndex(r => r.run_id === run.run_id || r.id === run.id);
 
             if (index >= 0) {
               // Update existing run - only update specific fields to avoid overwriting with incomplete data
@@ -134,27 +137,27 @@ export const WorkflowDetailPage: React.FC = () => {
               updated[index] = {
                 ...existingRun,
                 // Update status and progress fields
-                status: updatedRun.status ?? existingRun.status,
-                completed_nodes: updatedRun.completed_nodes ?? existingRun.completed_nodes,
-                failed_nodes: updatedRun.failed_nodes ?? existingRun.failed_nodes,
-                total_nodes: updatedRun.total_nodes ?? existingRun.total_nodes,
+                status: run.status ?? existingRun.status,
+                completed_nodes: run.completed_nodes ?? existingRun.completed_nodes,
+                failed_nodes: run.failed_nodes ?? existingRun.failed_nodes,
+                total_nodes: run.total_nodes ?? existingRun.total_nodes,
                 // Update cost
-                total_cost: updatedRun.cost_usd ?? updatedRun.total_cost ?? existingRun.total_cost,
+                total_cost: run.cost_usd ?? run.total_cost ?? existingRun.total_cost,
                 // Update timing - handle both duration_seconds and execution_time_ms
-                execution_time_ms: updatedRun.duration_seconds
-                  ? updatedRun.duration_seconds * 1000
-                  : updatedRun.execution_time_ms ?? existingRun.execution_time_ms,
+                execution_time_ms: run.duration_seconds
+                  ? run.duration_seconds * 1000
+                  : run.execution_time_ms ?? existingRun.execution_time_ms,
                 // Update timestamps only if provided
-                started_at: updatedRun.started_at ?? existingRun.started_at,
-                completed_at: updatedRun.completed_at ?? existingRun.completed_at,
+                started_at: run.started_at ?? existingRun.started_at,
+                completed_at: run.completed_at ?? existingRun.completed_at,
                 // Update error details if provided
-                error_details: updatedRun.error_details ?? existingRun.error_details
+                error_details: run.error_details ?? existingRun.error_details
               };
 
               return updated;
             } else {
               // New run - add to list
-              return [updatedRun, ...prev];
+              return [run as AiWorkflowRun, ...prev];
             }
           });
         }
@@ -166,7 +169,7 @@ export const WorkflowDetailPage: React.FC = () => {
     const unsubscribeFn = subscribe({
       channel: 'AiOrchestrationChannel',
       params: { type: 'workflow', id },
-      onMessage: handleWorkflowUpdate
+      onMessage: handleWorkflowUpdate as (data: unknown) => void
     });
 
     return () => {
@@ -195,8 +198,7 @@ export const WorkflowDetailPage: React.FC = () => {
 
       // Navigate to execution monitoring
       navigate(`/app/ai/workflows/${workflow.id}/runs/${response.run_id}`);
-    } catch (error) {
-      console.error('Failed to execute workflow:', error);
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Execution Failed',
@@ -225,8 +227,7 @@ export const WorkflowDetailPage: React.FC = () => {
           message: `Found ${response.errors?.length || 0} errors and ${response.warnings?.length || 0} warnings.`
         });
       }
-    } catch (error) {
-      console.error('Failed to validate workflow:', error);
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Validation Failed',
@@ -258,8 +259,7 @@ export const WorkflowDetailPage: React.FC = () => {
         title: 'Export Complete',
         message: 'Workflow has been exported successfully.'
       });
-    } catch (error) {
-      console.error('Failed to export workflow:', error);
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Export Failed',
@@ -294,10 +294,7 @@ export const WorkflowDetailPage: React.FC = () => {
       // Reload the workflow to reflect the updated state
       const response = await workflowsApi.getWorkflow(workflow.id);
       setWorkflow(response);
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to convert to template:', error);
-      }
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Conversion Failed',
@@ -322,10 +319,7 @@ export const WorkflowDetailPage: React.FC = () => {
       // Reload to show updated state
       const response = await workflowsApi.getWorkflow(workflow.id);
       setWorkflow(response);
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to convert to workflow:', error);
-      }
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Conversion Failed',

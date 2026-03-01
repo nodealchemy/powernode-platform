@@ -46,7 +46,7 @@ export const ConversationContinueModal: React.FC<ConversationContinueModalProps>
   return (
     <div className="fixed inset-0 z-[9999] bg-theme-background flex flex-col">
       {/* Header with Close Button */}
-      <div className="flex items-center justify-between p-4 border-b border-theme/20 bg-theme-surface/40 backdrop-blur-sm shrink-0">
+      <div className="flex items-center justify-between p-4 border-b border-theme/20 bg-theme-surface/40 backdrop-blur-sm shrink-0 relative z-10">
         <div className="flex items-center gap-3">
           <h2 className="text-lg font-semibold text-theme-primary">
             {conversation.title}

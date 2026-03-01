@@ -15,7 +15,11 @@ module Ai
         Thread.current[cost_key] = true
 
         begin
-          increment!(:total_cost, amount)
+          # Use update_counters for atomic increment to prevent race conditions
+          self.class.update_counters(id, total_cost: amount)
+
+          # Reload to get the updated total
+          reload
 
           run_logs.create!(
             log_level: "info",
@@ -24,7 +28,7 @@ module Ai
             context_data: {
               "amount" => amount,
               "source" => source,
-              "total_cost" => total_cost + amount
+              "total_cost" => total_cost
             }
           )
         ensure

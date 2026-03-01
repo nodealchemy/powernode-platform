@@ -4,19 +4,19 @@ import type { AiProvider } from '@/shared/types/ai';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 /**
- * Hook for managing AI providers in CI/CD context.
+ * Hook for managing AI providers in DevOps context.
  *
- * CI/CD pipelines now use the global AiProvider system instead of a separate
- * CiCd::AiConfig model. This hook provides a compatible interface for the
- * CI/CD settings page while using the shared AI provider infrastructure.
+ * DevOps pipelines now use the global AiProvider system instead of a separate
+ * config model. This hook provides a compatible interface for the
+ * DevOps settings page while using the shared AI provider infrastructure.
  */
 
-interface UseAiProvidersForCiCdParams {
+interface UseAiProvidersForDevopsParams {
   provider_type?: string;
   is_active?: boolean;
 }
 
-export function useAiConfigs(params: UseAiProvidersForCiCdParams = {}) {
+export function useAiConfigs(params: UseAiProvidersForDevopsParams = {}) {
   const [providers, setProviders] = useState<AiProvider[]>([]);
   const [meta, setMeta] = useState<{
     total: number;
@@ -38,7 +38,7 @@ export function useAiConfigs(params: UseAiProvidersForCiCdParams = {}) {
         provider_type: params.provider_type,
       });
 
-      // Filter to only text_generation providers (used for CI/CD)
+      // Filter to only text_generation providers (used for DevOps)
       const aiProviders = response.items.filter(p =>
         p.provider_type === 'text_generation' &&
         (params.is_active === undefined || p.is_active === params.is_active)
@@ -52,9 +52,9 @@ export function useAiConfigs(params: UseAiProvidersForCiCdParams = {}) {
         byProvider[p.provider_type] = (byProvider[p.provider_type] || 0) + 1;
       });
 
-      // Find default provider (one marked as CI/CD default in metadata)
+      // Find default provider (one marked as DevOps default in metadata)
       const defaultProvider = aiProviders.find(p =>
-        p.metadata && (p.metadata as Record<string, unknown>)['cicd_default'] === true
+        p.metadata && (p.metadata as Record<string, unknown>)['devops_default'] === true
       );
 
       setMeta({
@@ -77,12 +77,12 @@ export function useAiConfigs(params: UseAiProvidersForCiCdParams = {}) {
       currentParamsRef.current = paramsKey;
       fetchProviders();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [params.provider_type, params.is_active]);
 
   const setDefaultConfig = async (id: string) => {
     try {
-      // Update the provider's metadata to mark it as CI/CD default
+      // Update the provider's metadata to mark it as DevOps default
       const provider = providers.find(p => p.id === id);
       if (!provider) {
         showNotification('Provider not found', 'error');
@@ -91,12 +91,12 @@ export function useAiConfigs(params: UseAiProvidersForCiCdParams = {}) {
 
       // First, unset any existing default
       const currentDefault = providers.find(p =>
-        p.metadata && (p.metadata as Record<string, unknown>)['cicd_default'] === true
+        p.metadata && (p.metadata as Record<string, unknown>)['devops_default'] === true
       );
 
       if (currentDefault && currentDefault.id !== id) {
         await providersApi.updateProvider(currentDefault.id, {
-          configuration: {
+          metadata: {
             ...currentDefault.metadata,
             cicd_default: false,
           },
@@ -105,16 +105,16 @@ export function useAiConfigs(params: UseAiProvidersForCiCdParams = {}) {
 
       // Set new default
       const updated = await providersApi.updateProvider(id, {
-        configuration: {
+        metadata: {
           ...provider.metadata,
           cicd_default: true,
         },
       });
 
-      showNotification('Default AI provider for CI/CD updated', 'success');
+      showNotification('Default AI provider for DevOps updated', 'success');
       await fetchProviders();
       return updated;
-    } catch (err) {
+    } catch (_err) {
       showNotification('Failed to set default AI provider', 'error');
       return null;
     }
@@ -158,7 +158,7 @@ export function useAiConfig(id: string | null) {
       hasLoadedRef.current = id;
       fetchProvider();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [id]);
 
   return {

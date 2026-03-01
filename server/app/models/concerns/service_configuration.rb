@@ -116,7 +116,7 @@ module ServiceConfiguration
             response_code: response.code,
             response_time: nil # Could add timing here
           }
-        rescue => e
+        rescue StandardError => e
           status[:services][service_name] = {
             status: "unreachable",
             url: health_url,

@@ -1,19 +1,18 @@
 // Shared hooks exports
-export { useNotifications } from './useNotifications';
-export { usePermissions } from './usePermissions';
-export { useThemeColors } from './useThemeColors';
-export { useWebSocket } from './useWebSocket';
-export { useAnalyticsWebSocket } from './useAnalyticsWebSocket';
-export { useCustomerWebSocket } from './useCustomerWebSocket';
-export { useSettingsWebSocket } from './useSettingsWebSocket';
-export { useSubscriptionLifecycle } from './useSubscriptionLifecycle';
-export { useSubscriptionWebSocket } from './useSubscriptionWebSocket';
-export { useMcpWebSocket } from './useMcpWebSocket';
-export { useAiOrchestrationWebSocket } from './useAiOrchestrationWebSocket';
-export { useAiMonitoringWebSocket } from './useAiMonitoringWebSocket';
-export { useNotificationWebSocket } from './useNotificationWebSocket';
-export { usePageWebSocket } from './usePageWebSocket';
-export { useTabBreadcrumb } from './useTabBreadcrumb';
+export { useNotifications } from '@/shared/hooks/useNotifications';
+export { usePermissions } from '@/shared/hooks/usePermissions';
+export { useThemeColors } from '@/shared/hooks/useThemeColors';
+export { useWebSocket } from '@/shared/hooks/useWebSocket';
+export { useAnalyticsWebSocket } from '@/shared/hooks/useAnalyticsWebSocket';
+export { useCustomerWebSocket } from '@/shared/hooks/useCustomerWebSocket';
+export { useSettingsWebSocket } from '@/shared/hooks/useSettingsWebSocket';
+export { useMcpWebSocket } from '@/shared/hooks/useMcpWebSocket';
+export { useAiOrchestrationWebSocket } from '@/shared/hooks/useAiOrchestrationWebSocket';
+export { useAiMonitoringWebSocket } from '@/shared/hooks/useAiMonitoringWebSocket';
+export { useAiStreamingWebSocket } from '@/shared/hooks/useAiStreamingWebSocket';
+export { useNotificationWebSocket } from '@/shared/hooks/useNotificationWebSocket';
+export { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+export { useTabBreadcrumb } from '@/shared/hooks/useTabBreadcrumb';
 
 // Page WebSocket types
 export type {
@@ -22,10 +21,10 @@ export type {
   WebSocketDataUpdate,
   PageWebSocketOptions,
   PageWebSocketReturn
-} from './usePageWebSocket';
+} from '@/shared/hooks/usePageWebSocket';
 
 // MCP Workflow Builder hooks
-export { useMcpServersForWorkflow, useMcpServerForWorkflow } from './useMcpServersForWorkflow';
+export { useMcpServersForWorkflow, useMcpServerForWorkflow } from '@/shared/hooks/useMcpServersForWorkflow';
 export {
   useMcpToolsForWorkflow,
   useMcpResourcesForWorkflow,
@@ -34,18 +33,22 @@ export {
   useAllMcpToolsForWorkflow,
   useAllMcpResourcesForWorkflow,
   useAllMcpPromptsForWorkflow,
-} from './useMcpToolsForWorkflow';
-export { useWorkflowVariables, resolveVariablePath } from './useWorkflowVariables';
-export type { WorkflowVariable } from './useWorkflowVariables';
+} from '@/shared/hooks/useMcpToolsForWorkflow';
+export { useWorkflowVariables, resolveVariablePath } from '@/shared/hooks/useWorkflowVariables';
+export type { WorkflowVariable } from '@/shared/hooks/useWorkflowVariables';
 
 // Form handling
-export { useForm } from './useForm';
-export type { UseFormReturn, UseFormOptions, FormValidationRule, FormValidationRules } from './useForm';
+export { useForm } from '@/shared/hooks/useForm';
+export type { UseFormReturn, UseFormOptions, FormValidationRule, FormValidationRules } from '@/shared/hooks/useForm';
+
+// Refresh action
+export { useRefreshAction } from '@/shared/hooks/useRefreshAction';
+export type { UseRefreshActionOptions, UseRefreshActionReturn } from '@/shared/hooks/useRefreshAction';
 
 // Context exports
-export { BreadcrumbProvider, useBreadcrumb } from './BreadcrumbContext';
-export { NavigationProvider, useNavigation } from './NavigationContext';
-export { ThemeProvider, useTheme } from './ThemeContext';
+export { BreadcrumbProvider, useBreadcrumb } from '@/shared/hooks/BreadcrumbContext';
+export { NavigationProvider, useNavigation } from '@/shared/hooks/NavigationContext';
+export { ThemeProvider, useTheme } from '@/shared/hooks/ThemeContext';
 
 // AI Orchestration WebSocket types
 export type {
@@ -65,7 +68,7 @@ export type {
   CircuitBreakerEventType,
   ProviderEventType,
   AiOrchestrationEventType
-} from './useAiOrchestrationWebSocket';
+} from '@/shared/hooks/useAiOrchestrationWebSocket';
 
 // AI Monitoring WebSocket types
 export type {
@@ -73,7 +76,18 @@ export type {
   WorkflowExecution,
   SystemAlert,
   CostAlert
-} from './useAiMonitoringWebSocket';
+} from '@/shared/hooks/useAiMonitoringWebSocket';
 
 // Notification WebSocket types
-export type { WebSocketNotification } from './useNotificationWebSocket';
+export type { WebSocketNotification } from '@/shared/hooks/useNotificationWebSocket';
+
+// AI Streaming WebSocket types
+export type {
+  StreamEventType,
+  StreamStartEvent,
+  TokenEvent,
+  StreamEndEvent,
+  StreamErrorEvent,
+  StreamEvent,
+  StreamingState
+} from '@/shared/hooks/useAiStreamingWebSocket';

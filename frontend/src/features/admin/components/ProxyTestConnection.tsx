@@ -33,7 +33,7 @@ export const ProxyTestConnection: React.FC<ProxyTestConnectionProps> = ({ onTest
       setTestResult(result);
       onTestComplete(result);
       showSuccess('Proxy test completed successfully');
-    } catch (error) {
+    } catch (_error) {
       showError('Failed to test proxy configuration');
     } finally {
       setTesting(false);

@@ -63,22 +63,22 @@ export const ServicesConfiguration: React.FC<ServicesConfigurationProps> = ({ cl
       setConfig(data.service_config);
       setHealthStatus(data.health_status);
       setServiceDiscoveryConfig(data.service_discovery_config);
-    } catch {
+    } catch (_error) {
       showNotification('Failed to load services configuration', 'error');
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const refreshHealthStatus = useCallback(async () => {
     try {
       const health = await servicesApi.getDetailedHealthStatus();
       setHealthStatus(health);
-    } catch {
+    } catch (_error) {
       showNotification('Failed to refresh health status', 'error');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   useEffect(() => {
@@ -110,7 +110,7 @@ export const ServicesConfiguration: React.FC<ServicesConfigurationProps> = ({ cl
       await servicesApi.updateConfiguration('service_config', config);
       setHasChanges(false);
       showNotification('Services configuration saved successfully', 'success');
-    } catch {
+    } catch (_error) {
       showNotification('Failed to save configuration', 'error');
     } finally {
       setSaving(false);
@@ -143,7 +143,7 @@ export const ServicesConfiguration: React.FC<ServicesConfigurationProps> = ({ cl
 
       updateConfig({ url_mappings: updatedMappings });
       showNotification(`URL mapping ${!mapping.enabled ? 'enabled' : 'disabled'}`, 'success');
-    } catch {
+    } catch (_error) {
       showNotification('Failed to toggle URL mapping', 'error');
     }
   };
@@ -157,7 +157,7 @@ export const ServicesConfiguration: React.FC<ServicesConfigurationProps> = ({ cl
       const updatedMappings = config.url_mappings.filter(m => m.id !== mappingId);
       updateConfig({ url_mappings: updatedMappings });
       showNotification('URL mapping deleted successfully', 'success');
-    } catch {
+    } catch (_error) {
       showNotification('Failed to delete URL mapping', 'error');
     }
   };
@@ -184,8 +184,8 @@ export const ServicesConfiguration: React.FC<ServicesConfigurationProps> = ({ cl
 
       setShowURLMappingModal(false);
       setEditingMapping(null);
-    } catch (error) {
-      throw error; // Re-throw to let modal handle the error
+    } catch (_error) {
+      // Error propagated to modal
     }
   };
 

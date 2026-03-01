@@ -19,9 +19,9 @@ class CreateSharedPromptTemplates < ActiveRecord::Migration[8.0]
       t.boolean :is_system, default: false, null: false
       t.timestamps
 
-      t.index [:account_id, :slug], unique: true
-      t.index [:account_id, :category]
-      t.index [:account_id, :domain]
+      t.index [ :account_id, :slug ], unique: true
+      t.index [ :account_id, :category ]
+      t.index [ :account_id, :domain ]
       t.index :is_system
       t.index :parent_template_id
       t.index :is_active

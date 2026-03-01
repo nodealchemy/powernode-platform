@@ -20,7 +20,6 @@ class Api::V1::Internal::AccountsController < Api::V1::Internal::InternalBaseCon
           owner_name: owner&.name,
           plan_name: @account.subscription&.plan&.name,
           status: @account.subscription&.status,
-          system_worker_token: @account.system_worker_token,
           has_system_worker: @account.has_system_worker?,
           created_at: @account.created_at
         }
@@ -43,52 +42,58 @@ class Api::V1::Internal::AccountsController < Api::V1::Internal::InternalBaseCon
       ip_address: "0.0.0.0",
       user_agent: "anonymized"
     )
+    log_internal_audit("account.anonymize_audit_logs", "Account", @account.id, account_id: @account.id, records_affected: count)
     render_success(message: "Anonymized #{count} audit log records")
   end
 
   # PATCH /api/v1/internal/accounts/:account_id/anonymize_payments
   def anonymize_payments
     count = @account.payments.update_all(
-      metadata: nil,
-      billing_details: nil
+      metadata: nil
     ) if @account.respond_to?(:payments)
+    log_internal_audit("account.anonymize_payments", "Account", @account.id, account_id: @account.id, records_affected: count || 0)
     render_success(message: "Anonymized #{count || 0} payment records")
   end
 
   # DELETE /api/v1/internal/accounts/:account_id/files
   def delete_files
     count = @account.files.delete_all if @account.respond_to?(:files)
+    log_internal_audit("account.delete_files", "Account", @account.id, account_id: @account.id, records_deleted: count || 0)
     render_success(message: "Deleted #{count || 0} file records")
   end
 
   # DELETE /api/v1/internal/accounts/:account_id/api_keys
   def delete_api_keys
     count = @account.api_keys.delete_all if @account.respond_to?(:api_keys)
+    log_internal_audit("account.delete_api_keys", "Account", @account.id, account_id: @account.id, records_deleted: count || 0)
     render_success(message: "Deleted #{count || 0} API key records")
   end
 
   # DELETE /api/v1/internal/accounts/:account_id/webhooks
   def delete_webhooks
     count = @account.webhooks.delete_all if @account.respond_to?(:webhooks)
+    log_internal_audit("account.delete_webhooks", "Account", @account.id, account_id: @account.id, records_deleted: count || 0)
     render_success(message: "Deleted #{count || 0} webhook records")
   end
 
   # DELETE /api/v1/internal/accounts/:account_id/data_export_requests
   def delete_data_export_requests
     count = DataManagement::ExportRequest.where(account_id: @account.id).delete_all if defined?(DataManagement::ExportRequest)
+    log_internal_audit("account.delete_data_export_requests", "Account", @account.id, account_id: @account.id, records_deleted: count || 0)
     render_success(message: "Deleted #{count || 0} data export request records")
   end
 
   # DELETE /api/v1/internal/accounts/:account_id/data_deletion_requests
   def delete_data_deletion_requests
     count = DataManagement::DeletionRequest.where(account_id: @account.id).delete_all if defined?(DataManagement::DeletionRequest)
+    log_internal_audit("account.delete_data_deletion_requests", "Account", @account.id, account_id: @account.id, records_deleted: count || 0)
     render_success(message: "Deleted #{count || 0} data deletion request records")
   end
 
   private
 
   def set_account
-    @account = Account.find(params[:id] || params[:account_id])
+    @account = Account.find(params[:account_id] || params[:id])
   rescue ActiveRecord::RecordNotFound
     render_not_found("Account")
   end

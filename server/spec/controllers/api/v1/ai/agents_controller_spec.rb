@@ -142,13 +142,11 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
         )
       end
 
-      it 'includes MCP capabilities' do
-        agent.update!(mcp_capabilities: [ 'tool_use', 'function_calling' ])
-
+      it 'includes skill_slugs' do
         get :show, params: { id: agent.id }
 
         agent_data = json_response['data']['agent']
-        expect(agent_data['mcp_capabilities']).to contain_exactly('tool_use', 'function_calling')
+        expect(agent_data).to have_key('skill_slugs')
       end
     end
 
@@ -177,7 +175,6 @@ RSpec.describe Api::V1::Ai::AgentsController, type: :controller do
           description: 'An agent for testing',
           agent_type: 'assistant',
           ai_provider_id: ai_provider.id,
-          mcp_capabilities: [ 'tool_use' ],
           is_public: false
         }
       }

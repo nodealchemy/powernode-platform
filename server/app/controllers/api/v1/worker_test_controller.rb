@@ -1,9 +1,8 @@
 # frozen_string_literal: true
 
 # Test controller for worker authentication and activity tracking
+# Workers authenticate via JWT (type: "worker") through the standard authenticate_request flow
 class Api::V1::WorkerTestController < ApplicationController
-  skip_before_action :authenticate_request
-  before_action :authenticate_worker_request!
 
   # Test endpoint for workers to verify authentication
   def ping

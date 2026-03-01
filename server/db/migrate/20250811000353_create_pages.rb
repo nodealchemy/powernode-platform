@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class CreatePages < ActiveRecord::Migration[8.0]
   def change
     create_table :pages, id: false do |t|
@@ -14,13 +16,13 @@ class CreatePages < ActiveRecord::Migration[8.0]
       t.timestamps null: false
 
       t.foreign_key :users, column: :author_id
-      t.index [:slug], unique: true
-      t.index [:status]
-      t.index [:published_at]
-      t.index [:author_id]
-      t.index [:created_at]
-      t.index [:status, :published_at], where: "status = 'published'"
-      t.index [:status, :author_id]
+      t.index [ :slug ], unique: true
+      t.index [ :status ]
+      t.index [ :published_at ]
+      t.index [ :author_id ]
+      t.index [ :created_at ]
+      t.index [ :status, :published_at ], where: "status = 'published'"
+      t.index [ :status, :author_id ]
     end
   end
 end

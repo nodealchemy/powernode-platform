@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 RSpec.describe Account, type: :model do
@@ -13,7 +15,7 @@ RSpec.describe Account, type: :model do
     it { should have_many(:webhook_events).dependent(:destroy) }
     it { should have_many(:revenue_snapshots).dependent(:destroy) }
     it { should have_many(:invoices).through(:subscription) }
-    it { should have_many(:payments).through(:invoices) }
+    it { should have_many(:payments) }
   end
 
   describe "validations" do

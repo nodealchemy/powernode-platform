@@ -234,14 +234,14 @@ describe('Sidebar', () => {
     it('renders collapse toggle button', () => {
       renderSidebar(defaultProps);
 
-      const collapseButton = screen.getByTitle('Collapse sidebar');
+      const collapseButton = screen.getByTitle('Collapse sidebar (Ctrl+B)');
       expect(collapseButton).toBeInTheDocument();
     });
 
     it('calls updateState when collapse button clicked', () => {
       renderSidebar(defaultProps);
 
-      const collapseButton = screen.getByTitle('Collapse sidebar');
+      const collapseButton = screen.getByTitle('Collapse sidebar (Ctrl+B)');
       fireEvent.click(collapseButton);
 
       expect(mockUpdateState).toHaveBeenCalledWith({ isCollapsed: true });
@@ -289,8 +289,9 @@ describe('Sidebar', () => {
     it('shows "Expand sidebar" title when collapsed', () => {
       renderSidebar(defaultProps);
 
-      const expandButton = screen.getByTitle('Expand sidebar');
-      expect(expandButton).toBeInTheDocument();
+      const expandButtons = screen.getAllByTitle('Expand sidebar (Ctrl+B)');
+      // Both the logo and toggle button have this title when collapsed
+      expect(expandButtons.length).toBeGreaterThanOrEqual(1);
     });
   });
 

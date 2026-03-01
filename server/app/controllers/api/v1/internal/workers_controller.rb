@@ -2,9 +2,7 @@
 
 # Internal Workers Controller
 # Handles worker-to-backend communication using service authentication
-class Api::V1::Internal::WorkersController < ApplicationController
-  skip_before_action :authenticate_request
-  before_action :authenticate_worker_service!
+class Api::V1::Internal::WorkersController < Api::V1::Internal::InternalBaseController
 
   # POST /api/v1/internal/workers/:id/test_results
   def test_results
@@ -33,8 +31,7 @@ class Api::V1::Internal::WorkersController < ApplicationController
   rescue ActiveRecord::RecordNotFound
     render_error("Worker not found", status: :not_found)
   rescue StandardError => e
-    Rails.logger.error "Failed to record test results for worker #{params[:id]}: #{e.message}"
-    render_error("Failed to record test results: #{e.message}", status: :internal_server_error)
+    render_internal_error("Failed to record test results", exception: e)
   end
 
   # POST /api/v1/internal/workers/:id/ping
@@ -61,37 +58,7 @@ class Api::V1::Internal::WorkersController < ApplicationController
   rescue ActiveRecord::RecordNotFound
     render_error("Worker not found", status: :not_found)
   rescue StandardError => e
-    Rails.logger.error "Failed to record worker ping for #{params[:id]}: #{e.message}"
-    render_error("Failed to record ping: #{e.message}", status: :internal_server_error)
+    render_internal_error("Failed to record ping", exception: e)
   end
 
-  private
-
-  def authenticate_worker_service!
-    token = request.headers["Authorization"]&.sub(/^Bearer /, "")
-    worker_token = Rails.application.config.worker_token
-
-    unless token.present? && worker_token.present? && ActiveSupport::SecurityUtils.secure_compare(token, worker_token)
-      Rails.logger.warn("Worker authentication failed: IP=#{request.remote_ip}, Token present: #{token.present?}")
-
-      # Create audit log for failed worker authentication
-      AuditLog.create!(
-        account_id: nil, # System-level event
-        user_id: nil,
-        action: "worker_auth_failed",
-        resource_type: "WorkerService",
-        resource_id: "internal",
-        source: "worker_service",
-        ip_address: request.remote_ip,
-        user_agent: request.user_agent,
-        metadata: {
-          endpoint: request.path,
-          token_present: token.present?,
-          timestamp: Time.current.iso8601
-        }
-      )
-
-      render_error("Invalid worker authentication", status: :unauthorized)
-    end
-  end
 end

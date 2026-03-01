@@ -269,145 +269,93 @@ if admin_account && admin_user
   puts "✅ Grok (X.AI) provider created/updated: #{grok_provider.id}"
 
   # =============================================================================
-  # 3. OLLAMA PROVIDER (Local/Self-Hosted)
+  # OLLAMA (SELF-HOSTED) PROVIDER
   # =============================================================================
 
   ollama_provider = create_or_find_ai_provider(admin_account, admin_user, {
-    name: 'Ollama (Local)',
+    name: 'Ollama',
     provider_type: 'ollama',
-    api_base_url: 'http://localhost:11434',
-    api_endpoint: 'http://localhost:11434/api/chat',
+    api_base_url: ENV.fetch('OLLAMA_API_ENDPOINT', 'http://localhost:11434'),
+    api_endpoint: "#{ENV.fetch('OLLAMA_API_ENDPOINT', 'http://localhost:11434')}/api/chat",
     capabilities: [
       'text_generation',
       'chat',
       'conversation',
       'code_generation',
-      'text_embedding'
+      'analysis'
     ],
     supported_models: [
       {
-        'name' => 'llama3.3',
-        'id' => 'llama3.3:latest',
-        'display_name' => 'Llama 3.3 70B',
-        'context_length' => 128000,
-        'max_output_tokens' => 4096,
-        'cost_per_1k_tokens' => {
-          'input' => 0.0,
-          'output' => 0.0
-        },
-        'capabilities' => [ 'text', 'reasoning', 'multilingual' ],
-        'recommended_for' => [ 'general_purpose', 'cost_free', 'privacy_sensitive' ]
+        'name' => 'Qwen 2.5 14B',
+        'id' => 'qwen2.5:14b',
+        'display_name' => 'Qwen 2.5 14B',
+        'context_length' => 32_768,
+        'max_output_tokens' => 8_192,
+        'cost_per_1k_tokens' => { 'input' => 0.0, 'output' => 0.0 },
+        'capabilities' => %w[text_generation chat code_generation],
+        'recommended_for' => 'Documentation writing, general text generation. Self-hosted, zero cost.'
       },
       {
-        'name' => 'llama3.2',
-        'id' => 'llama3.2:latest',
-        'display_name' => 'Llama 3.2',
-        'context_length' => 128000,
-        'max_output_tokens' => 2048,
-        'cost_per_1k_tokens' => {
-          'input' => 0.0,
-          'output' => 0.0
-        },
-        'capabilities' => [ 'text', 'vision', 'lightweight' ],
-        'recommended_for' => [ 'vision_tasks', 'edge_devices', 'local_deployment' ]
+        'name' => 'Llama 3.1 8B',
+        'id' => 'llama3.1:8b',
+        'display_name' => 'Llama 3.1 8B',
+        'context_length' => 131_072,
+        'max_output_tokens' => 8_192,
+        'cost_per_1k_tokens' => { 'input' => 0.0, 'output' => 0.0 },
+        'capabilities' => %w[text_generation chat code_generation],
+        'recommended_for' => 'General purpose fallback. Self-hosted, zero cost.'
       },
       {
-        'name' => 'mistral',
-        'id' => 'mistral:latest',
-        'display_name' => 'Mistral 7B',
-        'context_length' => 32768,
-        'max_output_tokens' => 8192,
-        'cost_per_1k_tokens' => {
-          'input' => 0.0,
-          'output' => 0.0
-        },
-        'capabilities' => [ 'text', 'fast_inference', 'efficient' ],
-        'recommended_for' => [ 'quick_responses', 'local_hosting', 'resource_efficient' ]
-      },
-      {
-        'name' => 'codellama',
-        'id' => 'codellama:latest',
-        'display_name' => 'Code Llama',
-        'context_length' => 16384,
-        'max_output_tokens' => 4096,
-        'cost_per_1k_tokens' => {
-          'input' => 0.0,
-          'output' => 0.0
-        },
-        'capabilities' => [ 'code', 'programming', 'debugging' ],
-        'recommended_for' => [ 'code_generation', 'code_review', 'programming_assistance' ]
-      },
-      {
-        'name' => 'qwen2.5-coder',
-        'id' => 'qwen2.5-coder:latest',
-        'display_name' => 'Qwen 2.5 Coder',
-        'context_length' => 131072,
-        'max_output_tokens' => 8192,
-        'cost_per_1k_tokens' => {
-          'input' => 0.0,
-          'output' => 0.0
-        },
-        'capabilities' => [ 'code', 'long_context', 'reasoning' ],
-        'recommended_for' => [ 'code_generation', 'large_codebases', 'refactoring' ]
-      },
-      {
-        'name' => 'deepseek-r1',
-        'id' => 'deepseek-r1:latest',
-        'display_name' => 'DeepSeek R1',
-        'context_length' => 64000,
-        'max_output_tokens' => 8000,
-        'cost_per_1k_tokens' => {
-          'input' => 0.0,
-          'output' => 0.0
-        },
-        'capabilities' => [ 'reasoning', 'problem_solving', 'math' ],
-        'recommended_for' => [ 'complex_reasoning', 'math_problems', 'scientific_tasks' ]
+        'name' => 'Qwen 2.5 Coder 14B',
+        'id' => 'qwen2.5-coder:14b',
+        'display_name' => 'Qwen 2.5 Coder 14B',
+        'context_length' => 32_768,
+        'max_output_tokens' => 8_192,
+        'cost_per_1k_tokens' => { 'input' => 0.0, 'output' => 0.0 },
+        'capabilities' => %w[text_generation chat code_generation],
+        'recommended_for' => 'Code generation and review. Self-hosted, zero cost.'
       }
     ],
     configuration_schema: {
-      'api_version' => 'v1',
       'auth_type' => 'none',
-      'default_model' => 'llama3.3:latest',
+      'base_url' => ENV.fetch('OLLAMA_API_ENDPOINT', 'http://localhost:11434'),
       'supports_streaming' => true,
-      'supports_functions' => false,
-      'max_retries' => 3,
+      'self_hosted' => true,
+      'max_retries' => 2,
       'timeout_seconds' => 120,
-      'keep_alive' => '5m'
+      'notes' => 'Self-hosted Ollama instance. Pull models with: ollama pull <model_name>'
     },
     rate_limits: {
       'requests_per_minute' => 1000,
-      'tokens_per_minute' => 1000000,
-      'requests_per_day' => 1000000,
-      'concurrent_requests' => 10
+      'tokens_per_minute' => 10_000_000,
+      'requests_per_day' => 100_000
     },
     pricing_info: {
       'currency' => 'USD',
-      'billing_unit' => 'free',
-      'cost_model' => 'self_hosted',
-      'infrastructure_cost' => 'user_provided'
+      'billing_unit' => 'per_1k_tokens',
+      'has_batch_api' => false,
+      'has_cached_tokens' => false,
+      'self_hosted' => true
     },
-    documentation_url: 'https://ollama.ai/docs',
+    documentation_url: 'https://ollama.com/docs',
     requires_auth: false,
     supports_streaming: true,
     supports_functions: false,
-    supports_vision: true,
+    supports_vision: false,
     supports_code_execution: false,
-    priority_order: 4,
+    priority_order: 1,
     metadata: {
       'organization' => 'Ollama',
-      'deployment_type' => 'local',
-      'api_key_env' => 'OLLAMA_HOST',
-      'strengths' => [ 'privacy', 'no_cost', 'local_control', 'offline_capable' ],
-      'use_cases' => [ 'privacy_sensitive_data', 'offline_usage', 'cost_optimization', 'local_development' ],
-      'notes' => 'Requires local Ollama installation. No API key needed. Free to use.',
-      'installation' => 'https://ollama.ai/download'
+      'strengths' => %w[privacy zero_cost self_hosted offline_capable],
+      'use_cases' => %w[documentation text_generation code_generation privacy_sensitive],
+      'special_features' => %w[self_hosted zero_cost offline_capable]
     }
   })
 
   puts "✅ Ollama provider created/updated: #{ollama_provider.id}"
 
   # =============================================================================
-  # 4. CLAUDE (ANTHROPIC) PROVIDER
+  # 3. CLAUDE (ANTHROPIC) PROVIDER
   # =============================================================================
 
   claude_provider = create_or_find_ai_provider(admin_account, admin_user, {
@@ -532,8 +480,8 @@ if admin_account && admin_user
   puts "\n📊 Provider Summary:"
   puts "   1. OpenAI          - #{openai_provider.supported_models.length} models (GPT-4o, o1, GPT-3.5)"
   puts "   2. Grok (X.AI)     - #{grok_provider.supported_models.length} models (Grok Beta, Grok Vision)"
-  puts "   3. Ollama (Local)  - #{ollama_provider.supported_models.length} models (Llama, Mistral, CodeLlama)"
-  puts "   4. Claude (Anthropic) - #{claude_provider.supported_models.length} models (Opus 4.1, Sonnet 4.5, Haiku 4.5, 3.5 Sonnet)"
+  puts "   3. Claude (Anthropic) - #{claude_provider.supported_models.length} models (Opus 4.1, Sonnet 4.5, Haiku 4.5, 3.5 Sonnet)"
+  puts "   4. Ollama          - #{ollama_provider.supported_models&.length || 0} models (self-hosted, zero cost)"
 
   puts "\n🎯 Recommended Use Cases:"
   puts "   • Best Coding:         Claude Sonnet 4.5 (world's best coding model)"

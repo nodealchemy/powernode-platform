@@ -5,7 +5,7 @@ module Api
     module Integrations
       class TemplatesController < ApplicationController
         before_action :authenticate_request
-        before_action :set_template, only: [:show, :update, :destroy]
+        before_action :set_template, only: [ :show, :update, :destroy ]
 
         # GET /api/v1/integrations/templates
         def index

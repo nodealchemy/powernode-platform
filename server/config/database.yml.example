@@ -1,0 +1,27 @@
+# PostgreSQL configuration for Powernode
+# Copy this file to database.yml and update credentials as needed.
+#
+# All values can be overridden via environment variables.
+# The pool size should be >= RAILS_MAX_THREADS (default: 10).
+
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 30 } %>
+  host: <%= ENV.fetch("DATABASE_HOST") { "localhost" } %>
+  username: <%= ENV.fetch("DATABASE_USER") { "powernode" } %>
+  password: <%= ENV.fetch("POWERNODE_DATABASE_PASSWORD") { "powernode_dev" } %>
+
+development:
+  <<: *default
+  database: <%= ENV.fetch("DATABASE_NAME") { "powernode_development" } %>
+
+test:
+  <<: *default
+  database: powernode_test<%= ENV['TEST_ENV_NUMBER'] %>
+
+production:
+  <<: *default
+  database: powernode_production
+  username: powernode
+  password: <%= ENV["POWERNODE_DATABASE_PASSWORD"] %>

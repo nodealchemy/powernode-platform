@@ -76,6 +76,37 @@ RSpec.describe Ai::AgentTeamMember, type: :model do
   end
 
   # ==========================================
+  # MCP Client Restriction
+  # ==========================================
+  describe 'restrict_mcp_client_to_workspace_teams' do
+    let(:account) { create(:account) }
+    let(:mcp_agent) { create(:ai_agent, :mcp_client, account: account) }
+
+    it 'allows MCP client agents in workspace teams' do
+      workspace_team = create(:ai_agent_team, :workspace, account: account)
+      member = build(:ai_agent_team_member, team: workspace_team, agent: mcp_agent)
+
+      expect(member).to be_valid
+    end
+
+    it 'blocks MCP client agents from non-workspace teams' do
+      regular_team = create(:ai_agent_team, account: account)
+      member = build(:ai_agent_team_member, team: regular_team, agent: mcp_agent)
+
+      expect(member).not_to be_valid
+      expect(member.errors[:base]).to include('MCP client agents can only join workspace teams')
+    end
+
+    it 'allows non-MCP agents in any team type' do
+      regular_agent = create(:ai_agent, account: account, agent_type: 'assistant')
+      regular_team = create(:ai_agent_team, account: account)
+      member = build(:ai_agent_team_member, team: regular_team, agent: regular_agent)
+
+      expect(member).to be_valid
+    end
+  end
+
+  # ==========================================
   # Scopes
   # ==========================================
   describe 'scopes' do

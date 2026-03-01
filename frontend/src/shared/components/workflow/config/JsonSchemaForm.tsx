@@ -4,9 +4,9 @@ import { Textarea } from '@/shared/components/ui/Textarea';
 import { EnhancedSelect } from '@/shared/components/ui/EnhancedSelect';
 import { Variable } from 'lucide-react';
 import type { WorkflowVariable } from '@/shared/hooks/useWorkflowVariables';
-import { ArrayOfObjectsField } from './schema-fields/ArrayOfObjectsField';
-import { AdditionalPropertiesField } from './schema-fields/AdditionalPropertiesField';
-import { VariableAutocomplete } from './schema-fields/VariableAutocomplete';
+import { ArrayOfObjectsField } from '@/shared/components/workflow/config/schema-fields/ArrayOfObjectsField';
+import { AdditionalPropertiesField } from '@/shared/components/workflow/config/schema-fields/AdditionalPropertiesField';
+import { VariableAutocomplete } from '@/shared/components/workflow/config/schema-fields/VariableAutocomplete';
 
 export interface JsonSchemaProperty {
   type: 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object';
@@ -237,7 +237,7 @@ const SchemaField: React.FC<SchemaFieldProps> = ({
       );
 
     case 'string':
-    default:
+    default: {
       // Check if multiline based on format or if content looks like text
       const isMultiline = property.format === 'textarea' ||
                          (property.maxLength && property.maxLength > 200);
@@ -315,6 +315,7 @@ const SchemaField: React.FC<SchemaFieldProps> = ({
           {description && <p className="text-xs text-theme-muted mt-1">{description}</p>}
         </div>
       );
+    }
   }
 };
 
@@ -472,7 +473,7 @@ const ObjectField: React.FC<ObjectFieldProps> = ({
         onChange={(e) => {
           try {
             onChange(JSON.parse(e.target.value));
-          } catch {
+          } catch (_error) {
             // Invalid JSON, don't update
           }
         }}

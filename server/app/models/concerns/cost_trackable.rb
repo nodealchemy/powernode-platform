@@ -41,7 +41,7 @@ module CostTrackable
     return false unless amount.is_a?(Numeric) && amount.positive?
 
     current = cost || 0
-    new_cost = [current - amount, 0].max
+    new_cost = [ current - amount, 0 ].max
     update!(cost: new_cost)
   end
 

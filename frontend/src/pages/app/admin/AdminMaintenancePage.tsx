@@ -33,7 +33,7 @@ export const AdminMaintenancePage: React.FC = () => {
   const { showNotification } = useNotifications();
 
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'admin',
     onDataUpdate: () => {
       // Trigger data refresh if needed
@@ -112,15 +112,15 @@ export const AdminMaintenancePage: React.FC = () => {
 
   const getBreadcrumbs = () => {
     const activeTabInfo = MAINTENANCE_TABS.find(tab => tab.id === activeTab);
-    const breadcrumbs: { label: string; href?: string; icon: string }[] = [
-      { label: 'Dashboard', href: '/app', icon: '🏠' },
-      { label: 'Admin', href: '/app/admin', icon: '👥' },
-      { label: 'Maintenance', href: '/app/admin/maintenance', icon: '🔧' }
+    const breadcrumbs: { label: string; href?: string }[] = [
+      { label: 'Dashboard', href: '/app' },
+      { label: 'Admin', href: '/app/admin' },
+      { label: 'Maintenance', href: '/app/admin/maintenance' }
     ];
 
     // Don't add overview tab to breadcrumbs
     if (activeTabInfo && activeTabInfo.id !== 'overview') {
-      breadcrumbs.push({ label: activeTabInfo.label, icon: activeTabInfo.icon });
+      breadcrumbs.push({ label: activeTabInfo.label });
     }
 
     return breadcrumbs;
@@ -131,7 +131,7 @@ export const AdminMaintenancePage: React.FC = () => {
       {
         id: 'refresh',
         label: 'Refresh',
-        onClick: () => { (actions.refreshData && actions.refreshData()) || loadMaintenanceData(); },
+        onClick: () => { if (actions.refreshData) { actions.refreshData(); } else { loadMaintenanceData(); } },
         variant: 'secondary',
         icon: RefreshCw
       }
@@ -142,7 +142,7 @@ export const AdminMaintenancePage: React.FC = () => {
         baseActions.push({
           id: 'create-backup',
           label: 'Create Backup',
-          onClick: () => { actions.createBackup && actions.createBackup(); },
+          onClick: () => { if (actions.createBackup) actions.createBackup(); },
           variant: 'primary',
           icon: Plus
         });
@@ -151,7 +151,7 @@ export const AdminMaintenancePage: React.FC = () => {
         baseActions.push({
           id: 'run-cleanup',
           label: 'Run Cleanup',
-          onClick: () => { actions.runCleanup && actions.runCleanup(); },
+          onClick: () => { if (actions.runCleanup) actions.runCleanup(); },
           variant: 'primary',
           icon: Trash2
         });
@@ -160,7 +160,7 @@ export const AdminMaintenancePage: React.FC = () => {
         baseActions.push({
           id: 'create-schedule',
           label: 'New Schedule',
-          onClick: () => { actions.createSchedule && actions.createSchedule(); },
+          onClick: () => { if (actions.createSchedule) actions.createSchedule(); },
           variant: 'primary',
           icon: Plus
         });

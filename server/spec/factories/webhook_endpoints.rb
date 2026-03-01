@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 FactoryBot.define do
   factory :webhook_endpoint do
     association :account
@@ -7,6 +9,9 @@ FactoryBot.define do
     event_types { [ '*' ] }
     timeout_seconds { 30 }
     max_retries { 3 }
+    retry_limit { 3 }
+    retry_backoff { 'exponential' }
+    content_type { 'application/json' }
 
     trait :active do
       status { 'active' }
@@ -17,7 +22,6 @@ FactoryBot.define do
       status { 'inactive' }
       is_active { false }
     end
-
 
     trait :with_specific_events do
       event_types { [ 'user.created', 'payment.succeeded' ] }

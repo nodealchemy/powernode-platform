@@ -4,9 +4,21 @@ module Api
   module V1
     module Oauth
       class ApplicationsController < ApplicationController
+        skip_before_action :authenticate_request, only: [:lookup]
         before_action -> { require_permission("oauth.applications.read") }, only: %i[index show]
         before_action -> { require_permission("oauth.applications.manage") }, only: %i[create update destroy regenerate_secret suspend activate revoke]
         before_action :set_application, only: %i[show update destroy regenerate_secret suspend activate revoke tokens revoke_tokens]
+
+        # GET /api/v1/oauth/applications/lookup?uid=CLIENT_ID
+        # Public endpoint for consent page to display app name/scopes
+        def lookup
+          app = OauthApplication.where(status: "active").find_by(uid: params[:uid])
+          if app
+            render_success(name: app.name, scopes: app.scopes.to_s.split(" "))
+          else
+            render_error("Application not found", :not_found)
+          end
+        end
 
         # GET /api/v1/oauth/applications
         def index
@@ -111,7 +123,7 @@ module Api
             resource_id: @application.id,
             source: "api",
             ip_address: request.remote_ip,
-            severity: "warning",
+            severity: "high",
             metadata: { application_name: @application.name }
           )
 
@@ -133,7 +145,7 @@ module Api
             resource_id: @application.id,
             source: "api",
             ip_address: request.remote_ip,
-            severity: "warning",
+            severity: "high",
             metadata: { application_name: @application.name, reason: params[:reason] }
           )
 
@@ -189,7 +201,6 @@ module Api
         # GET /api/v1/oauth/applications/:id/tokens
         def tokens
           tokens = @application.access_tokens
-                               .includes(:resource_owner)
                                .order(created_at: :desc)
                                .page(params[:page])
                                .per(params[:per_page] || 20)
@@ -269,6 +280,7 @@ module Api
         end
 
         def serialize_token(token)
+          owner = token.resource_owner_id ? User.find_by(id: token.resource_owner_id) : nil
           {
             id: token.id,
             scopes: token.scopes.to_s.split(" "),
@@ -276,9 +288,9 @@ module Api
             expires_at: token.expires_in ? token.created_at + token.expires_in.seconds : nil,
             revoked_at: token.revoked_at,
             active: token.revoked_at.nil? && (token.expires_in.nil? || token.created_at + token.expires_in.seconds > Time.current),
-            resource_owner: token.resource_owner ? {
-              id: token.resource_owner.id,
-              email: token.resource_owner.email
+            resource_owner: owner ? {
+              id: owner.id,
+              email: owner.email
             } : nil
           }
         end

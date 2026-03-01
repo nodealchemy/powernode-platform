@@ -2,7 +2,7 @@ import React from 'react';
 import { Input } from '@/shared/components/ui/Input';
 import { Checkbox } from '@/shared/components/ui/Checkbox';
 import { EnhancedSelect } from '@/shared/components/ui/EnhancedSelect';
-import type { NodeTypeConfigProps } from './types';
+import type { NodeTypeConfigProps } from '@/shared/components/workflow/config/node-types/types';
 
 export const LoopNodeConfig: React.FC<NodeTypeConfigProps> = ({
   config,

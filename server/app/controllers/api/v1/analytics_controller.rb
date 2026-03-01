@@ -4,8 +4,8 @@ require "csv"
 
 class Api::V1::AnalyticsController < ApplicationController
   before_action :check_analytics_permission
-  before_action :set_date_range, only: [ :revenue, :growth, :churn, :cohorts, :customers ]
-  before_action :set_account_scope, only: [ :revenue, :growth, :churn, :cohorts, :customers ]
+  before_action :set_date_range, only: [ :revenue, :growth, :churn, :cohorts, :customers, :export ]
+  before_action :set_account_scope, only: [ :live, :revenue, :growth, :churn, :cohorts, :customers, :export ]
 
   # GET /api/v1/analytics/live
   # Returns real-time analytics data for live dashboard updates
@@ -20,7 +20,20 @@ class Api::V1::AnalyticsController < ApplicationController
       return
     end
 
-    analytics_service = RevenueAnalyticsService.new(
+    unless Powernode::ExtensionRegistry.loaded?("enterprise")
+      data = {
+        current_metrics: { mrr: 0, arr: 0, active_customers: 0, churn_rate: 0, arpu: 0, growth_rate: 0 },
+        today_activity: { new_subscriptions: 0, cancelled_subscriptions: 0, payments_processed: 0, failed_payments: 0, revenue_today: 0 },
+        weekly_trend: [],
+        last_updated: Time.current.iso8601,
+        account_id: @account_scope&.id,
+        status: :enterprise_required
+      }
+      render_success(data)
+      return
+    end
+
+    analytics_service = Billing::RevenueAnalyticsService.new(
       account: @account_scope
     )
 
@@ -66,14 +79,23 @@ class Api::V1::AnalyticsController < ApplicationController
 
     # Trigger analytics notifications check in background
     schedule_analytics_notification_check(data)
-  rescue => e
+  rescue StandardError => e
     render_internal_error("Live analytics error", exception: e)
   end
 
   # GET /api/v1/analytics/revenue
   # Returns MRR/ARR overview with historical data
   def revenue
-    analytics_service = RevenueAnalyticsService.new(
+    unless Powernode::ExtensionRegistry.loaded?("enterprise")
+      return render_success({
+        current_metrics: { mrr: 0, arr: 0, active_subscriptions: 0, total_customers: 0, arpu: 0, growth_rate: 0 },
+        historical_data: [],
+        period: { start_date: @start_date, end_date: @end_date },
+        status: :enterprise_required
+      })
+    end
+
+    analytics_service = Billing::RevenueAnalyticsService.new(
       account: @account_scope,
       start_date: @start_date,
       end_date: @end_date
@@ -126,14 +148,24 @@ class Api::V1::AnalyticsController < ApplicationController
     }
 
     render_success(data)
-  rescue => e
-    render_error(e.message, status: :internal_server_error)
+  rescue StandardError => e
+    render_internal_error("Failed to retrieve revenue analytics", exception: e)
   end
 
   # GET /api/v1/analytics/growth
   # Returns growth metrics and forecasting
   def growth
-    analytics_service = RevenueAnalyticsService.new(
+    unless Powernode::ExtensionRegistry.loaded?("enterprise")
+      return render_success({
+        compound_monthly_growth_rate: 0,
+        monthly_growth_data: [],
+        forecasting: { next_month_projection: 0, confidence_interval: "N/A" },
+        period: { start_date: @start_date, end_date: @end_date },
+        status: :enterprise_required
+      })
+    end
+
+    analytics_service = Billing::RevenueAnalyticsService.new(
       account: @account_scope,
       start_date: @start_date,
       end_date: @end_date
@@ -201,14 +233,24 @@ class Api::V1::AnalyticsController < ApplicationController
     }
 
     render_success(data)
-  rescue => e
-    render_error(e.message, status: :internal_server_error)
+  rescue StandardError => e
+    render_internal_error("Failed to retrieve growth analytics", exception: e)
   end
 
   # GET /api/v1/analytics/churn
   # Returns comprehensive churn analysis
   def churn
-    analytics_service = RevenueAnalyticsService.new(
+    unless Powernode::ExtensionRegistry.loaded?("enterprise")
+      return render_success({
+        current_metrics: { customer_churn_rate: 0, average_customer_churn_rate: 0, average_revenue_churn_rate: 0, customer_retention_rate: 100 },
+        churn_trend: [],
+        insights: { churn_risk_level: "low", recommended_actions: [] },
+        period: { start_date: @start_date, end_date: @end_date },
+        status: :enterprise_required
+      })
+    end
+
+    analytics_service = Billing::RevenueAnalyticsService.new(
       account: @account_scope,
       start_date: @start_date,
       end_date: @end_date
@@ -264,14 +306,22 @@ class Api::V1::AnalyticsController < ApplicationController
     }
 
     render_success(data)
-  rescue => e
-    render_error(e.message, status: :internal_server_error)
+  rescue StandardError => e
+    render_internal_error("Failed to retrieve churn analytics", exception: e)
   end
 
   # GET /api/v1/analytics/cohorts
   # Returns cohort retention analysis
   def cohorts
-    analytics_service = RevenueAnalyticsService.new(
+    unless Powernode::ExtensionRegistry.loaded?("enterprise")
+      return render_success({
+        cohorts: [],
+        summary: { total_cohorts: 0, average_first_month_retention: 0, average_six_month_retention: 0 },
+        status: :enterprise_required
+      })
+    end
+
+    analytics_service = Billing::RevenueAnalyticsService.new(
       account: @account_scope
     )
 
@@ -351,14 +401,24 @@ class Api::V1::AnalyticsController < ApplicationController
     }
 
     render_success(data)
-  rescue => e
-    render_error(e.message, status: :internal_server_error)
+  rescue StandardError => e
+    render_internal_error("Failed to retrieve cohort analytics", exception: e)
   end
 
   # GET /api/v1/analytics/customers
   # Returns customer metrics and segmentation
   def customers
-    analytics_service = RevenueAnalyticsService.new(
+    unless Powernode::ExtensionRegistry.loaded?("enterprise")
+      return render_success({
+        current_metrics: { total_customers: 0, arpu: 0, ltv: 0, ltv_to_cac_ratio: 0 },
+        customer_growth_trend: [],
+        segmentation: { by_plan: [], by_tenure: [] },
+        period: { start_date: @start_date, end_date: @end_date },
+        status: :enterprise_required
+      })
+    end
+
+    analytics_service = Billing::RevenueAnalyticsService.new(
       account: @account_scope,
       start_date: @start_date,
       end_date: @end_date
@@ -409,14 +469,17 @@ class Api::V1::AnalyticsController < ApplicationController
     }
 
     render_success(data)
-  rescue => e
-    render_error(e.message, status: :internal_server_error)
+  rescue StandardError => e
+    render_internal_error("Failed to retrieve customer analytics", exception: e)
   end
 
   # GET/POST /api/v1/analytics/export
   # Export analytics data in various formats
   def export
-    format = params[:format] || "csv"
+    # Use export_format to avoid shadowing Rails format parameter
+    export_format = params[:export_format] || params[:format_type] || "csv"
+    # If params[:format] is "json" (from as: :json), don't use it as export format
+    export_format = "csv" if export_format == "json"
     report_type = params[:report_type] || "revenue"
 
     unless can_export_analytics?
@@ -424,61 +487,51 @@ class Api::V1::AnalyticsController < ApplicationController
       return
     end
 
-    analytics_service = RevenueAnalyticsService.new(
+    unless Powernode::ExtensionRegistry.loaded?("enterprise")
+      return render_error("Analytics export requires enterprise edition", :forbidden)
+    end
+
+    analytics_service = Billing::RevenueAnalyticsService.new(
       account: @account_scope,
       start_date: @start_date,
       end_date: @end_date
     )
 
-    case format.downcase
+    case export_format.to_s.downcase
     when "csv"
       csv_data = analytics_service.export_revenue_data_csv("monthly")
 
-      respond_to do |format|
-        format.csv {
-          send_data csv_data,
-          filename: "#{report_type}_analytics_#{Date.current.strftime('%Y%m%d')}.csv",
-          type: "text/csv"
+      render_success(
+        data: {
+          csv_data: csv_data,
+          filename: "#{report_type}_analytics_#{Date.current.strftime('%Y%m%d')}.csv"
         }
-        format.json {
-          render_success(
-            data: {
-              csv_data: csv_data,
-              filename: "#{report_type}_analytics_#{Date.current.strftime('%Y%m%d')}.csv"
-            }
-          )
-        }
-      end
+      )
     when "pdf"
-      pdf_data = PdfReportService.new(
-        report_type: "#{report_type}_report",
-        account: @account_scope,
-        start_date: @start_date,
-        end_date: @end_date,
-        user: current_user
-      ).generate_pdf
+      begin
+        pdf_data = PdfReportService.new(
+          report_type: "#{report_type}_report",
+          account: @account_scope,
+          start_date: @start_date,
+          end_date: @end_date,
+          user: current_user
+        ).generate_pdf
 
-      respond_to do |format|
-        format.pdf {
-          send_data pdf_data,
-          filename: "#{report_type}_report_#{Date.current.strftime('%Y%m%d')}.pdf",
-          type: "application/pdf"
-        }
-        format.json {
-          render_success(
-            data: {
-              pdf_data: Base64.encode64(pdf_data),
-              filename: "#{report_type}_report_#{Date.current.strftime('%Y%m%d')}.pdf",
-              content_type: "application/pdf"
-            }
-          )
-        }
+        render_success(
+          data: {
+            pdf_data: Base64.encode64(pdf_data),
+            filename: "#{report_type}_report_#{Date.current.strftime('%Y%m%d')}.pdf",
+            content_type: "application/pdf"
+          }
+        )
+      rescue NameError
+        render_error("PDF export not available", status: :bad_request)
       end
     else
       render_error("Unsupported export format", status: :bad_request)
     end
-  rescue => e
-    render_error(e.message, status: :internal_server_error)
+  rescue StandardError => e
+    render_internal_error("Failed to export analytics", exception: e)
   end
 
   private
@@ -504,7 +557,7 @@ class Api::V1::AnalyticsController < ApplicationController
     end
 
     # Limit to reasonable range (2 years max)
-    if @end_date - @start_date > 2.years
+    if (@end_date - @start_date).to_i > 730
       render_error("Date range too large (max 2 years)", status: :bad_request)
       nil
     end
@@ -535,17 +588,35 @@ class Api::V1::AnalyticsController < ApplicationController
 
   def generate_customer_segmentation_by_plan
     # This would analyze subscription data by plan
-    base_query = @account_scope ? @account_scope.subscriptions.active : Subscription.active
-
-    base_query.joins(:plan)
-              .group("plans.name")
-              .count
-              .map { |plan_name, count| { plan: plan_name, customers: count } }
+    # Account has_one :subscription, so handle both scoped and global
+    if @account_scope
+      sub = @account_scope.subscription
+      if sub&.active?
+        [ { plan: sub.plan.name, customers: 1 } ]
+      else
+        []
+      end
+    else
+      if defined?(Billing::Subscription)
+        Billing::Subscription.active.joins(:plan)
+                  .group("plans.name")
+                  .count
+                  .map { |plan_name, count| { plan: plan_name, customers: count } }
+      else
+        []
+      end
+    end
   end
 
   def generate_customer_segmentation_by_tenure
     # Segment customers by how long they've been subscribed
-    base_query = @account_scope ? @account_scope.subscriptions.active : Subscription.active
+    # Account has_one :subscription, so handle both scoped and global
+    subscriptions = if @account_scope
+                      sub = @account_scope.subscription
+                      sub&.active? ? [ sub ] : []
+    else
+                      defined?(Billing::Subscription) ? Billing::Subscription.active.to_a : []
+    end
 
     segments = {
       "New (0-3 months)" => 0,
@@ -553,7 +624,7 @@ class Api::V1::AnalyticsController < ApplicationController
       "Mature (12+ months)" => 0
     }
 
-    base_query.each do |subscription|
+    subscriptions.each do |subscription|
       tenure_months = ((Date.current - subscription.created_at.to_date) / 30.days).to_i
 
       case tenure_months
@@ -598,17 +669,30 @@ class Api::V1::AnalyticsController < ApplicationController
   end
 
   def count_todays_subscriptions(status)
-    base_query = @account_scope ? @account_scope.subscriptions : Subscription.all
-    base_query.where(status: status)
-              .where(created_at: Date.current.beginning_of_day..Date.current.end_of_day)
-              .count
+    if @account_scope
+      sub = @account_scope.subscription
+      if sub && sub.status.to_s == status.to_s && sub.created_at.between?(Date.current.beginning_of_day, Date.current.end_of_day)
+        1
+      else
+        0
+      end
+    else
+      if defined?(Billing::Subscription)
+        Billing::Subscription.where(status: status)
+                    .where(created_at: Date.current.beginning_of_day..Date.current.end_of_day)
+                    .count
+      else
+        0
+      end
+    end
   end
 
   def count_todays_payments(status)
+    return 0 unless defined?(Billing::Payment)
     base_query = if @account_scope
-                  Payment.joins(subscription: :account).where(subscriptions: { accounts: { id: @account_scope.id } })
+                  Billing::Payment.joins(invoice: { subscription: :account }).where(accounts: { id: @account_scope.id })
     else
-                  Payment.all
+                  Billing::Payment.all
     end
     base_query.where(status: status)
               .where(created_at: Date.current.beginning_of_day..Date.current.end_of_day)
@@ -616,10 +700,11 @@ class Api::V1::AnalyticsController < ApplicationController
   end
 
   def calculate_todays_revenue
+    return 0 unless defined?(Billing::Payment)
     base_query = if @account_scope
-                  Payment.joins(subscription: :account).where(subscriptions: { accounts: { id: @account_scope.id } })
+                  Billing::Payment.joins(invoice: { subscription: :account }).where(accounts: { id: @account_scope.id })
     else
-                  Payment.all
+                  Billing::Payment.all
     end
     successful_payments = base_query.where(status: :successful)
                                    .where(created_at: Date.current.beginning_of_day..Date.current.end_of_day)
@@ -636,29 +721,44 @@ class Api::V1::AnalyticsController < ApplicationController
       date = days_ago.days.ago.to_date
 
       # Count subscriptions for this day
-      base_subscriptions = @account_scope ? @account_scope.subscriptions : Subscription.all
-      new_subs = base_subscriptions.where(created_at: date.beginning_of_day..date.end_of_day).count
+      if @account_scope
+        sub = @account_scope.subscription
+        new_subs = (sub && sub.created_at.between?(date.beginning_of_day, date.end_of_day)) ? 1 : 0
+      elsif subscription_class
+        new_subs = subscription_class.where(created_at: date.beginning_of_day..date.end_of_day).count
+      else
+        new_subs = 0
+      end
 
       # Count payments for this day
-      base_payments = if @account_scope
-                       Payment.joins(subscription: :account).where(subscriptions: { accounts: { id: @account_scope.id } })
+      if defined?(Billing::Payment)
+        base_payments = if @account_scope
+                         Billing::Payment.joins(invoice: { subscription: :account }).where(accounts: { id: @account_scope.id })
+        else
+                         Billing::Payment.all
+        end
+        payments = base_payments.where(status: :successful)
+                               .where(created_at: date.beginning_of_day..date.end_of_day)
+        revenue = (payments.sum(:amount_cents) / 100.0).round(2)
+        payments_count = payments.count
       else
-                       Payment.all
+        revenue = 0
+        payments_count = 0
       end
-      payments = base_payments.where(status: :successful)
-                             .where(created_at: date.beginning_of_day..date.end_of_day)
-
-      revenue = (payments.sum(:amount_cents) / 100.0).round(2)
 
       trend_data.unshift({
         date: date.iso8601,
         new_subscriptions: new_subs,
         revenue: revenue,
-        payments_count: payments.count
+        payments_count: payments_count
       })
     end
 
     trend_data
+  end
+
+  def subscription_class
+    defined?(Billing::Subscription) ? Billing::Subscription : nil
   end
 
   def broadcast_analytics_update(data)
@@ -674,7 +774,7 @@ class Api::V1::AnalyticsController < ApplicationController
         data: data
       }
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to broadcast analytics update: #{e.message}"
   end
 
@@ -700,7 +800,7 @@ class Api::V1::AnalyticsController < ApplicationController
         account_id: @account_scope&.id,
         metrics_data: data
       )
-    rescue => e
+    rescue StandardError => e
       Rails.logger.warn "Failed to schedule analytics notification check: #{e.message}"
       # Don't fail the main request if background job scheduling fails
     end

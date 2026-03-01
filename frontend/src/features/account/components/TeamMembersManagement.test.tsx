@@ -4,6 +4,14 @@ import { renderWithProviders, mockUsers, mockAuthenticatedState } from '@/shared
 
 import { usersApi } from '@/features/account/users/services/usersApi';
 
+// Mock ConfirmationModal - auto-confirm by default
+jest.mock('@/shared/components/ui/ConfirmationModal', () => ({
+  useConfirmation: () => ({
+    confirm: (opts: any) => { opts.onConfirm(); },
+    ConfirmationDialog: null,
+  }),
+}));
+
 // Mock APIs
 jest.mock('@/features/account/users/services/usersApi', () => ({
   usersApi: {
@@ -186,7 +194,7 @@ describe('TeamMembersManagement', () => {
             ...mockAuthenticatedState.auth,
             user: {
               ...mockAuthenticatedState.auth.user,
-              permissions: ['users.manage']
+              permissions: ['team.assign_roles', 'admin.user.update']
             }
           }
         }
@@ -208,9 +216,7 @@ describe('TeamMembersManagement', () => {
     });
   });
 
-  it('removes team member with window confirm', async () => {
-    // Mock window.confirm
-    const mockConfirm = jest.spyOn(window, 'confirm').mockReturnValue(true);
+  it('removes team member with confirmation', async () => {
     mockRemoveFromAccount.mockResolvedValue({
       success: true,
       message: 'Team member removed'
@@ -225,7 +231,7 @@ describe('TeamMembersManagement', () => {
             ...mockAuthenticatedState.auth,
             user: {
               ...mockAuthenticatedState.auth.user,
-              permissions: ['users.delete', 'users.manage']
+              permissions: ['team.assign_roles', 'team.remove']
             }
           }
         }
@@ -242,15 +248,10 @@ describe('TeamMembersManagement', () => {
       fireEvent.click(removeButton);
     }
 
-    // window.confirm is called synchronously
-    expect(mockConfirm).toHaveBeenCalledWith('Are you sure you want to remove this team member?');
-
     await waitFor(() => {
       // handleRemoveMember is called with userId and accountId
       expect(mockRemoveFromAccount).toHaveBeenCalledWith('1', '456');
     });
-
-    mockConfirm.mockRestore();
   });
 
   it('displays pending user status correctly', async () => {

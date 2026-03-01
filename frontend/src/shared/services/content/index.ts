@@ -1,1 +1,1 @@
-export * from './knowledgeBaseApi';
+export * from '@/shared/services/content/knowledgeBaseApi';

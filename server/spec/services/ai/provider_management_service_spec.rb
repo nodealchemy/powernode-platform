@@ -65,7 +65,7 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
     end
 
     it 'creates provider credential' do
-      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details)
         .and_return({ success: true, response_time_ms: 1500 })
 
       credential = described_class.create_provider_credential(
@@ -83,7 +83,7 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
     end
 
     it 'stores encrypted credentials' do
-      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details)
         .and_return({ success: true })
 
       credential = described_class.create_provider_credential(
@@ -97,8 +97,8 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
     end
 
     it 'tests credential after creation' do
-      test_service = instance_double(Ai::ProviderTestService)
-      allow(Ai::ProviderTestService).to receive(:new).and_return(test_service)
+      test_service = instance_double(Ai::ProviderManagementService)
+      allow(Ai::ProviderManagementService).to receive(:new).and_return(test_service)
       # Service now uses test_with_details_simple for flat response format
       allow(test_service).to receive(:test_with_details_simple).and_return({ success: true })
 
@@ -208,7 +208,7 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
     let!(:other_account_credential) { create(:ai_provider_credential) }
 
     it 'tests all credentials for the account' do
-      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details)
         .and_return({ success: true, response_time_ms: 1000 })
 
       results = described_class.test_all_credentials(account)
@@ -220,7 +220,7 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
     end
 
     it 'includes credential information in results' do
-      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details)
         .and_return({ success: true, response_time_ms: 1500 })
 
       results = described_class.test_all_credentials(account)
@@ -237,7 +237,7 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
 
     it 'handles test failures gracefully' do
       # Service now uses test_with_details_simple for flat response format
-      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details_simple)
+      allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details_simple)
         .and_return({ success: false, error: 'Connection timeout' })
 
       results = described_class.test_all_credentials(account)
@@ -249,7 +249,7 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
 
     it 'does not test credentials from other accounts' do
       # Service now uses test_with_details_simple for flat response format
-      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details_simple)
+      allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details_simple)
         .and_return({ success: true })
 
       results = described_class.test_all_credentials(account)
@@ -301,32 +301,34 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
     context 'for OpenAI provider' do
       let(:openai_provider) { create(:ai_provider, :openai) }
 
-      it 'syncs OpenAI models' do
+      it 'deactivates provider when sync fails without credentials' do
         result = described_class.sync_provider_models(openai_provider)
 
-        expect(result).to be true
+        expect(result).to be false
         openai_provider.reload
-        model_ids = openai_provider.supported_models.map { |m| m['id'] }
-        expect(model_ids).to include('gpt-3.5-turbo')
-        expect(model_ids).to include('gpt-4')
+        expect(openai_provider.supported_models).to be_empty
+        expect(openai_provider.is_active).to be false
+        expect(openai_provider.metadata["last_sync_error"]).to be_present
       end
     end
 
     context 'for Anthropic provider' do
       let(:anthropic_provider) { create(:ai_provider, :anthropic) }
 
-      it 'syncs Anthropic models' do
+      it 'deactivates provider when sync fails without credentials' do
         result = described_class.sync_provider_models(anthropic_provider)
 
-        expect(result).to be true
+        expect(result).to be false
         anthropic_provider.reload
-        expect(anthropic_provider.supported_models).to be_present
+        expect(anthropic_provider.supported_models).to be_empty
+        expect(anthropic_provider.is_active).to be false
       end
     end
   end
 
   describe '.provider_usage_summary' do
-    let(:provider) { create(:ai_provider) }
+    let(:provider) { create(:ai_provider, account: account) }
+    let(:agent) { create(:ai_agent, account: account, provider: provider) }
 
     it 'returns usage summary for provider and account' do
       summary = described_class.provider_usage_summary(
@@ -360,6 +362,50 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
       expect(summary[:daily_breakdown]).to be_an(Array)
       expect(summary[:daily_breakdown]).not_to be_empty
     end
+
+    it 'returns zero values when no executions exist' do
+      summary = described_class.provider_usage_summary(
+        provider,
+        account,
+        7.days
+      )
+
+      expect(summary[:total_requests]).to eq(0)
+      expect(summary[:successful_requests]).to eq(0)
+      expect(summary[:failed_requests]).to eq(0)
+      expect(summary[:total_tokens]).to eq(0)
+      expect(summary[:success_rate]).to eq(0.0)
+    end
+
+    context 'with real execution data' do
+      before do
+        # Create test executions - ensure agent uses the same provider
+        create(:ai_agent_execution, agent: agent, provider: provider, account: account, status: 'completed',
+               started_at: 10.minutes.ago, completed_at: 5.minutes.ago, duration_ms: 300000,
+               output_data: { 'usage' => { 'prompt_tokens' => 100, 'completion_tokens' => 50 }, 'cost' => 0.01 })
+        create(:ai_agent_execution, agent: agent, provider: provider, account: account, status: 'completed',
+               started_at: 10.minutes.ago, completed_at: 5.minutes.ago, duration_ms: 300000,
+               output_data: { 'usage' => { 'prompt_tokens' => 200, 'completion_tokens' => 100 }, 'cost' => 0.02 })
+        create(:ai_agent_execution, agent: agent, provider: provider, account: account, status: 'failed',
+               error_message: 'timeout',
+               output_data: { 'error' => 'timeout' })
+      end
+
+      it 'calculates correct totals from real execution data' do
+        summary = described_class.provider_usage_summary(
+          provider,
+          account,
+          30.days
+        )
+
+        expect(summary[:total_requests]).to eq(3)
+        expect(summary[:successful_requests]).to eq(2)
+        expect(summary[:failed_requests]).to eq(1)
+        expect(summary[:total_tokens]).to eq(450) # 100+50 + 200+100
+        expect(summary[:total_cost]).to eq(0.03)
+        expect(summary[:success_rate]).to eq(66.7) # 2/3 * 100
+      end
+    end
   end
 
   describe 'error handling' do
@@ -378,7 +424,7 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
 
     it 'handles network errors during credential testing gracefully' do
       openai_provider = create(:ai_provider, :openai)
-      allow_any_instance_of(Ai::ProviderTestService).to receive(:test_with_details)
+      allow_any_instance_of(Ai::ProviderManagementService).to receive(:test_with_details)
         .and_raise(StandardError.new('Network error'))
 
       # Credential should still be created, but with failure recorded

@@ -9,7 +9,6 @@ import { WebSocketStatusIndicator } from '@/shared/components/ui/WebSocketStatus
 import { useTheme } from '@/shared/hooks/ThemeContext';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
-import { ProfileSubscriptionTab } from '@/features/business/subscriptions/components/ProfileSubscriptionTab';
 import { Save, RefreshCw } from 'lucide-react';
 
 // Type guard for settings update data
@@ -271,7 +270,7 @@ export const ProfilePage: React.FC = () => {
         email: profileForm.email
       });
       showSuccess('Profile updated successfully');
-    } catch (error: unknown) {
+    } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Failed to update profile';
       showError(errorMsg);
     } finally {
@@ -320,7 +319,7 @@ export const ProfilePage: React.FC = () => {
         const errorMessage = response.message || response.error || 'Failed to change password';
         showError(errorMessage);
       }
-    } catch (error: unknown) {
+    } catch (error) {
       // Handle network errors or other exceptions
       const errorMsg = error instanceof Error ? error.message : 'Failed to change password';
       showError(errorMsg);
@@ -391,26 +390,25 @@ export const ProfilePage: React.FC = () => {
   }, [user?.permissions]);
 
   const breadcrumbs = useMemo(() => {
-    const baseBreadcrumbs = [
-      { label: 'Dashboard', href: '/app', icon: '🏠' },
-      { label: 'Profile', icon: '👤' }
+    const baseBreadcrumbs: Array<{ label: string; href?: string }> = [
+      { label: 'Dashboard', href: '/app' },
+      { label: 'Profile' }
     ];
-    
+
     // Add active tab to breadcrumbs
     const activeTabInfo = tabs.find(tab => tab.id === activeTab);
     if (activeTabInfo && activeTab !== 'profile') {
       baseBreadcrumbs.push({
-        label: activeTabInfo.label,
-        icon: activeTabInfo.icon
+        label: activeTabInfo.label
       });
     }
-    
+
     return baseBreadcrumbs;
   }, [activeTab, tabs]);
 
   
   // Update active tab when URL changes
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   useEffect(() => {
     const newActiveTab = getActiveTabFromPath();
     if (newActiveTab !== activeTab) {
@@ -561,7 +559,9 @@ export const ProfilePage: React.FC = () => {
             </TabPanel>
 
             <TabPanel tabId="subscription" activeTab={activeTab}>
-              <ProfileSubscriptionTab loading={loading} />
+              <div className="p-8 text-center text-theme-secondary">
+                Subscription management is available in Enterprise edition.
+              </div>
             </TabPanel>
 
             <TabPanel tabId="preferences" activeTab={activeTab}>

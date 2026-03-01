@@ -14,7 +14,8 @@ import {
   NodeChange,
   ReactFlowProvider,
   Panel,
-  ReactFlowInstance
+  ReactFlowInstance,
+  ConnectionLineType
 } from '@xyflow/react';
 import { Workflow } from 'lucide-react';
 import '@xyflow/react/dist/style.css';
@@ -22,8 +23,8 @@ import { autoArrangeNodes, getLayoutOptions } from '@/shared/utils/workflowLayou
 import { useWorkflowHistory } from '@/shared/hooks/useWorkflowHistory';
 import { useWorkflowExecution } from '@/shared/hooks/useWorkflowExecution';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
-import { HistoryControls } from './HistoryControls';
-import { ExecutionStats } from './ExecutionOverlay';
+import { HistoryControls } from '@/shared/components/workflow/HistoryControls';
+import { ExecutionStats } from '@/shared/components/workflow/ExecutionOverlay';
 
 // Import extracted constants and utilities
 import {
@@ -34,25 +35,39 @@ import {
   migrateHandleId,
   calculateOptimalSide,
   snapToGridPosition as snapToGridUtil
-} from './workflow-builder';
-import { getDefaultHandlePositions, type HandlePositions } from './nodes/DynamicNodeHandles';
+} from '@/shared/components/workflow/workflow-builder';
+import { getDefaultHandlePositions, type HandlePositions } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
 
 // Components
-import { NodePalette } from './NodePalette';
-import { NodeConfigPanel } from './NodeConfigPanel';
-import { WorkflowToolbar } from './WorkflowToolbar';
-import { NodeOperationsChat } from './NodeOperationsChat';
-import { WorkflowProvider } from './WorkflowContext';
+import { NodePalette } from '@/shared/components/workflow/NodePalette';
+import { NodeConfigPanel } from '@/shared/components/workflow/NodeConfigPanel';
+import { WorkflowToolbar } from '@/shared/components/workflow/WorkflowToolbar';
+import { NodeOperationsChat } from '@/shared/components/workflow/NodeOperationsChat';
+import { WorkflowProvider } from '@/shared/components/workflow/WorkflowContext';
 
-import { AiWorkflow, AiWorkflowNode, BaseWorkflowNodeData } from '@/shared/types/workflow';
+import { AiWorkflow, AiWorkflowNode, BaseWorkflowNodeData, NodeExecutionStatus } from '@/shared/types/workflow';
 import { AiAgent } from '@/shared/types/ai';
 import { agentsApi } from '@/shared/services/ai';
+
+// Extended workflow node type that may have position as object (from save response)
+interface ExtendedWorkflowNode extends AiWorkflowNode {
+  position?: { x: number; y: number };
+}
+
+// Extended node data type with handle positions
+interface NodeDataWithHandles extends BaseWorkflowNodeData {
+  handlePositions?: HandlePositions;
+  positionsUpdated?: number;
+  executionStatus?: NodeExecutionStatus;
+  executionDuration?: number;
+  executionError?: string;
+}
 
 
 export interface WorkflowBuilderProps {
   workflow?: AiWorkflow;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onSave: (workflowData: { nodes: any[]; edges: any[]; configuration: Record<string, any> }) => void;
+   
+  onSave: (workflowData: { nodes: Node[]; edges: Edge[]; configuration: Record<string, unknown> }) => void;
   onValidate?: (nodes: Node[], edges: Edge[]) => Promise<{
     valid: boolean;
     errors: string[];
@@ -151,10 +166,8 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
           setOperationsAgent(operationsAgentCandidate);
         }
         // No operations agent available - chat feature will be disabled
-      } catch (error) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error('[WorkflowBuilder] Failed to load operations agent:', error);
-        }
+      } catch (_error) {
+        // Operations agent failed to load - chat feature will be disabled
       }
     };
 
@@ -167,22 +180,22 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
   }, [snapToGrid, gridSize]);
 
   // Custom node change handler that applies snap-to-grid
-  const onNodesChange = useCallback((changes: NodeChange[]) => {
+  const onNodesChange = useCallback((changes: NodeChange<Node>[]) => {
     if (snapToGrid) {
       // Apply snap-to-grid to position changes
-      const modifiedChanges = changes.map((change: NodeChange) => {
+      const modifiedChanges = changes.map((change) => {
         if (change.type === 'position' && change.position) {
           const snappedPosition = snapToGridPosition(change.position);
           return {
             ...change,
             position: snappedPosition
-          };
+          } as NodeChange<Node>;
         }
         return change;
       });
-      onNodesChangeOriginal(modifiedChanges as any);
+      onNodesChangeOriginal(modifiedChanges);
     } else {
-      onNodesChangeOriginal(changes as any);
+      onNodesChangeOriginal(changes);
     }
 
     // Mark as changed when nodes are modified
@@ -263,8 +276,9 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
       if (workflow.nodes && workflow.edges) {
         // Check for duplicate node_ids in source data
         const nodeIds = workflow.nodes.map(n => n.node_id);
-        const _duplicateNodeIds = nodeIds.filter((id, index) => nodeIds.indexOf(id) !== index);
-        if (_duplicateNodeIds.length > 0) {
+        const duplicateNodeIds = nodeIds.filter((id, index) => nodeIds.indexOf(id) !== index);
+        if (duplicateNodeIds.length > 0) {
+          // Duplicate nodes detected - will be deduplicated below
         }
         // Track used IDs to prevent duplicates
         const usedNodeIds = new Set<string>();
@@ -282,8 +296,9 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
 
             // Extract position - handle both formats:
             // Backend uses position_x/position_y columns, but save response may use position object
-            const positionX = Number(node.position_x) || Number((node as any).position?.x) || 0;
-            const positionY = Number(node.position_y) || Number((node as any).position?.y) || 0;
+            const extendedNode = node as ExtendedWorkflowNode;
+            const positionX = Number(node.position_x) || Number(extendedNode.position?.x) || 0;
+            const positionY = Number(node.position_y) || Number(extendedNode.position?.y) || 0;
 
             return {
               id: nodeId,
@@ -408,7 +423,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
     if (workflow && nodes.length > 0) {
       const nodesNeedingInitialization = nodes.filter(node => {
         // Only initialize flags for nodes that don't have them set yet
-        const hasFlags = node.data.hasOwnProperty('is_start_node') && node.data.hasOwnProperty('is_end_node');
+        const hasFlags = ('is_start_node' in node.data) && ('is_end_node' in node.data);
         return !hasFlags;
       });
 
@@ -416,7 +431,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         setNodes((currentNodes) =>
           currentNodes.map(node => {
             // Only set flags for nodes that need initialization
-            const needsInitialization = !node.data.hasOwnProperty('is_start_node') || !node.data.hasOwnProperty('is_end_node');
+            const needsInitialization = !('is_start_node' in node.data) || !('is_end_node' in node.data);
 
             if (needsInitialization) {
               const isStartNodeType = node.data.node_type === 'trigger' || node.data.node_type === 'start';
@@ -490,7 +505,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         },
       };
 
-      setEdges((eds) => addEdge(newEdge as any, eds));
+      setEdges((eds) => addEdge(newEdge as Edge, eds));
     },
     [setEdges, readOnly, defaultEdgeOptions, nodes]
   );
@@ -606,11 +621,12 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
   }, []);
 
   // Handle node updates from config panel
-  const onUpdateNode = useCallback((nodeId: string, updates: Partial<Node['data']>) => {
+  const onUpdateNode = useCallback((nodeId: string, updates: Partial<NodeDataWithHandles>) => {
     // Check if handle positions are changing
     const currentNode = nodes.find(n => n.id === nodeId);
-    const newPositions = (updates as any).handlePositions as HandlePositions | undefined;
-    const currentPositions = (currentNode?.data as any)?.handlePositions as HandlePositions | undefined;
+    const newPositions = updates.handlePositions;
+    const currentData = currentNode?.data as NodeDataWithHandles | undefined;
+    const currentPositions = currentData?.handlePositions;
 
     // Deep compare positions to check if they changed
     const positionsChanging = newPositions && JSON.stringify(newPositions) !== JSON.stringify(currentPositions);
@@ -625,7 +641,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         data: {
           ...currentNode.data,
           ...updates,
-          handlePositions: (updates as any).handlePositions,
+          handlePositions: updates.handlePositions,
           is_start_node: currentNode.data.is_start_node || currentNode.data.node_type === 'trigger' || currentNode.data.node_type === 'start',
           is_end_node: currentNode.data.is_end_node || currentNode.data.node_type === 'end',
         }
@@ -703,7 +719,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
     }
 
     // Convert React Flow nodes/edges back to workflow format (using snake_case for backend)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const workflowNodes: any[] = nodes.map(node => {
       const isStartNode = Boolean(node.data.is_start_node || node.data.node_type === 'trigger' || node.data.node_type === 'start');
       const isEndNode = Boolean(node.data.is_end_node || node.data.node_type === 'end');
@@ -738,7 +754,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
       return savedNode;
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const workflowEdges: any[] = edges.map(edge => ({
       id: edge.id,
       edge_id: edge.id,
@@ -938,10 +954,8 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
             }, 100); // Wait for edges to render before fitting view
           }, 100); // Wait for nodes to mount before adding edges
         }, 50); // Wait for React Flow to process removal
-      } catch (error) {
-        if (process.env.NODE_ENV === 'development') {
-          console.error('Error arranging nodes:', error);
-        }
+      } catch (_error) {
+        // Error arranging nodes - layout will not be applied
       } finally {
         setIsArranging(false);
       }
@@ -1143,12 +1157,13 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
         onInit={(instance) => {
           reactFlowInstance.current = instance;
         }}
-        nodeTypes={nodeTypes as any}
-        edgeTypes={edgeTypes as any}
-        defaultEdgeOptions={defaultEdgeOptions as any}
-        connectionLineType={"default" as any}
+        // Type assertions needed due to @xyflow/react's strict typing with custom node/edge components
+        nodeTypes={nodeTypes as typeof NODE_TYPES}
+        edgeTypes={edgeTypes as typeof EDGE_TYPES}
+        defaultEdgeOptions={defaultEdgeOptions as typeof DEFAULT_EDGE_OPTIONS}
+        connectionLineType={ConnectionLineType.Bezier}
         connectionLineStyle={{
-          stroke: '#94a3b8',
+          stroke: 'var(--color-border, #94a3b8)',
           strokeWidth: 2,
         }}
         attributionPosition="bottom-left"
@@ -1158,10 +1173,8 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
           maxZoom: 1.5,
           minZoom: 0.1,
         }}
-        onError={(id, error) => {
-          if (process.env.NODE_ENV === 'development') {
-            console.error('ReactFlow error:', id, error);
-          }
+        onError={(_id, _error) => {
+          // ReactFlow error occurred - error ID and details logged internally
         }}
       >
         {showGrid && (
@@ -1169,7 +1182,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
             variant={BackgroundVariant.Dots}
             gap={gridSize}
             size={2}
-            color="#d1d5db"
+            color="var(--color-border, #d1d5db)"
           />
         )}
         

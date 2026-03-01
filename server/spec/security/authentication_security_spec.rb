@@ -42,7 +42,7 @@ RSpec.describe 'Authentication Security', type: :request do
     it 'accepts strong passwords' do
       post '/api/v1/auth/register', params: {
         email: 'test@example.com',
-        password: 'UncommonStr0ngP@ssw0rd99!',
+        password: TestUsers::PASSWORD,
         firstName: 'Test',
         lastName: 'User',
         accountName: 'Test Company'
@@ -85,7 +85,7 @@ RSpec.describe 'Authentication Security', type: :request do
     it 'generates secure access tokens' do
       post '/api/v1/auth/login', params: {
         email: user.email,
-        password: 'UncommonStr0ngP@ssw0rd99!'
+        password: TestUsers::PASSWORD
       }, as: :json
 
       expect(response).to have_http_status(200)
@@ -156,7 +156,7 @@ RSpec.describe 'Authentication Security', type: :request do
 
       post '/api/v1/auth/login', params: {
         email: user.email,
-        password: 'UncommonStr0ngP@ssw0rd99!'
+        password: TestUsers::PASSWORD
       }, as: :json
 
       expect(response).to have_http_status(401)
@@ -168,7 +168,7 @@ RSpec.describe 'Authentication Security', type: :request do
 
       post '/api/v1/auth/login', params: {
         email: user.email,
-        password: 'UncommonStr0ngP@ssw0rd99!'
+        password: TestUsers::PASSWORD
       }, as: :json
 
       expect(response).to have_http_status(200)
@@ -222,7 +222,7 @@ RSpec.describe 'Authentication Security', type: :request do
     it 'does not expose sensitive data in session' do
       post '/api/v1/auth/login', params: {
         email: user.email,
-        password: 'UncommonStr0ngP@ssw0rd99!'
+        password: TestUsers::PASSWORD
       }, as: :json
 
       expect(response).to have_http_status(200)
@@ -237,14 +237,15 @@ RSpec.describe 'Authentication Security', type: :request do
       # Login to get tokens
       post '/api/v1/auth/login', params: {
         email: user.email,
-        password: 'UncommonStr0ngP@ssw0rd99!'
+        password: TestUsers::PASSWORD
       }, as: :json
 
-      refresh_token = json_response_data['refresh_token']
+      # Refresh token is now in HttpOnly cookie, not response body
+      refresh_token = response.cookies['refresh_token']
       headers = auth_headers_for(user)
 
-      # Logout
-      post '/api/v1/auth/logout', params: { refresh_token: refresh_token }, headers: headers, as: :json
+      # Logout — pass refresh token via cookie (set automatically by test framework)
+      post '/api/v1/auth/logout', headers: headers, as: :json
 
       expect(response).to have_http_status(200)
 
@@ -270,22 +271,24 @@ RSpec.describe 'Authentication Security', type: :request do
       headers = auth_headers_for(other_user)
 
       # Try to access user from different account
+      # Controller scopes to current_account.users.find() which returns 404
+      # This is correct security behavior - prevents IDOR by not leaking resource existence
       get "/api/v1/users/#{user.id}", headers: headers
 
-      expect(response).to have_http_status(403)
+      expect(response.status).to be_in([ 403, 404 ])
     end
 
     it 'enforces role-based permissions' do
       headers = auth_headers_for(member_user)
 
-      # Try to access admin-only functionality
-      # Since we don't have admin routes yet, test with a regular endpoint but different account
-      other_account = create(:account)
-      other_user = create(:user, account: other_account)
+      # Try to access user from a different account
+      # Controller scopes to current_account.users.find() which returns 404
+      diff_account = create(:account)
+      diff_user = create(:user, account: diff_account)
 
-      get "/api/v1/users/#{other_user.id}", headers: headers
+      get "/api/v1/users/#{diff_user.id}", headers: headers
 
-      expect(response).to have_http_status(403)
+      expect(response.status).to be_in([ 403, 404 ])
     end
 
     it 'validates permission scopes' do
@@ -313,7 +316,7 @@ RSpec.describe 'Authentication Security', type: :request do
     it 'sanitizes email input' do
       post '/api/v1/auth/register', params: {
         email: '<script>alert("xss")</script>@example.com',
-        password: 'UncommonStr0ngP@ssw0rd99!',
+        password: TestUsers::PASSWORD,
         firstName: 'Test',
         lastName: 'User',
         accountName: 'Test Company'
@@ -328,7 +331,7 @@ RSpec.describe 'Authentication Security', type: :request do
     it 'validates email format strictly' do
       post '/api/v1/auth/register', params: {
         email: 'not_an_email',
-        password: 'UncommonStr0ngP@ssw0rd99!',
+        password: TestUsers::PASSWORD,
         firstName: 'Test',
         lastName: 'User',
         accountName: 'Test Company'
@@ -361,7 +364,7 @@ RSpec.describe 'Authentication Security', type: :request do
 
       post '/api/v1/auth/login', params: {
         email: user.email,
-        password: 'UncommonStr0ngP@ssw0rd99!'
+        password: TestUsers::PASSWORD
       }, as: :json
 
       # Check Set-Cookie header for secure flags if cookies are used

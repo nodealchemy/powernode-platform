@@ -17,7 +17,7 @@ class CreateMaintenanceModels < ActiveRecord::Migration[8.0]
       t.timestamp :completed_at
       t.string :user_id, limit: 36, null: false
       t.timestamps null: false
-      
+
       t.index :status
       t.index :backup_type
       t.index :created_at
@@ -35,7 +35,7 @@ class CreateMaintenanceModels < ActiveRecord::Migration[8.0]
       t.timestamp :completed_at
       t.string :user_id, limit: 36, null: false
       t.timestamps null: false
-      
+
       t.index :database_backup_id
       t.index :status
       t.index :created_at
@@ -54,7 +54,7 @@ class CreateMaintenanceModels < ActiveRecord::Migration[8.0]
       t.json :parameters # Additional task parameters
       t.string :user_id, limit: 36, null: false
       t.timestamps null: false
-      
+
       t.index :enabled
       t.index :task_type
       t.index :user_id
@@ -73,7 +73,7 @@ class CreateMaintenanceModels < ActiveRecord::Migration[8.0]
       t.timestamp :completed_at
       t.string :user_id, limit: 36 # null for scheduled executions
       t.timestamps null: false
-      
+
       t.index :scheduled_task_id
       t.index :status
       t.index :triggered_by
@@ -90,7 +90,7 @@ class CreateMaintenanceModels < ActiveRecord::Migration[8.0]
       t.integer :response_time_ms
       t.timestamp :checked_at, null: false
       t.timestamps null: false
-      
+
       t.index :check_type
       t.index :overall_status
       t.index :checked_at
@@ -108,7 +108,7 @@ class CreateMaintenanceModels < ActiveRecord::Migration[8.0]
       t.timestamp :completed_at
       t.string :user_id, limit: 36, null: false
       t.timestamps null: false
-      
+
       t.index :operation_type
       t.index :status
       t.index :started_at

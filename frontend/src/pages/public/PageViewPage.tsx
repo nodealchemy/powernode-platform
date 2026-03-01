@@ -31,8 +31,8 @@ export const PageViewPage: React.FC = () => {
       setError(null);
       const response = await pagesApi.getPublicPage(slug);
       setPage(response.data);
-    } catch (error: unknown) {
-      const errorMessage = getErrorMessage(error);
+    } catch (err) {
+      const errorMessage = getErrorMessage(err);
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -55,7 +55,7 @@ export const PageViewPage: React.FC = () => {
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin h-12 w-12 border-4 border-theme-info border-t-transparent rounded-full mx-auto mb-4"></div>
-            <p className="text-slate-600 dark:text-slate-400">Loading page...</p>
+            <p className="text-theme-secondary">Loading page...</p>
           </div>
         </div>
       </PublicPageContainer>
@@ -76,7 +76,7 @@ export const PageViewPage: React.FC = () => {
       >
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
           <div className="text-6xl mb-6">😕</div>
-          <p className="text-xl text-slate-600 dark:text-slate-300 mb-8">
+          <p className="text-xl text-theme-secondary mb-8">
             {error === 'Page not found' 
               ? "The page you're looking for doesn't exist or hasn't been published yet."
               : "We're having trouble loading this page. Please try again later."

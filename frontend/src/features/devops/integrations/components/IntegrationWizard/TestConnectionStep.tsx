@@ -51,7 +51,7 @@ export function TestConnectionStep({
         setTestStatus('success');
         setTestMessage('Configuration validated. Ready to create integration.');
       }
-    } catch {
+    } catch (_error) {
       setTestStatus('error');
       setTestError('An unexpected error occurred during testing');
     }
@@ -184,11 +184,11 @@ export function TestConnectionStep({
         <button
           onClick={onCreate}
           disabled={isCreating}
-          className="px-6 py-2 bg-theme-primary text-white rounded-lg hover:bg-theme-primary-hover disabled:opacity-50 transition-colors"
+          className="btn-theme btn-theme-primary btn-theme-md"
         >
           {isCreating ? (
             <span className="flex items-center gap-2">
-              <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+              <span className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent" />
               Creating...
             </span>
           ) : (

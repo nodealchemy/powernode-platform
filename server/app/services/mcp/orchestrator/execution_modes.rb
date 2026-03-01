@@ -4,7 +4,9 @@ module Mcp
   module Orchestrator
     module ExecutionModes
       def execute_workflow_by_mode
-        execution_mode = @workflow.mcp_orchestration_config&.dig("execution_mode") || "sequential"
+        execution_mode = @workflow.configuration&.dig("execution_mode") ||
+                         @workflow.mcp_orchestration_config&.dig("execution_mode") ||
+                         "sequential"
 
         @logger.info "[MCP_ORCHESTRATOR] Executing in #{execution_mode} mode"
 
@@ -77,16 +79,24 @@ module Mcp
       def execute_parallel_mode
         @logger.info "[MCP_ORCHESTRATOR] Executing workflow in parallel mode"
 
-        coordinator = Mcp::ParallelExecutionCoordinator.new(
-          orchestrator: self,
-          workflow: @workflow,
-          execution_context: @execution_context
-        )
+        execution_batches = build_dag_execution_plan
 
-        coordinator.execute_parallel
+        execution_batches.each_with_index do |batch, index|
+          @logger.debug "[MCP_ORCHESTRATOR] Executing parallel batch #{index + 1}/#{execution_batches.count} (#{batch.size} nodes)"
 
-        @node_results.merge!(coordinator.node_results)
-        @execution_context[:execution_path].concat(coordinator.execution_path)
+          batch.each do |node|
+            next unless prerequisites_complete?(node)
+
+            execute_node(node)
+            @execution_context[:execution_path] << node.node_id
+          end
+
+          @workflow_run.reload
+          if @workflow_run.status == "cancelled"
+            @logger.info "[MCP_ORCHESTRATOR] Workflow cancelled during parallel execution"
+            break
+          end
+        end
       end
 
       def execute_conditional_mode

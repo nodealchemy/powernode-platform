@@ -488,7 +488,7 @@ grep "ProcessingJobsController" server/log/development.log
 ### Health Checks
 ```bash
 # Check worker status
-scripts/worker-manager.sh status
+systemctl status powernode-worker@default
 
 # Verify queue is processing
 redis-cli -n 1
@@ -607,7 +607,7 @@ end
 - **Solution**: Verify environment variables match in worker and backend
 
 ### Debug Checklist
-1. ✓ Worker service running? (`scripts/worker-manager.sh status`)
+1. ✓ Worker service running? (`systemctl status powernode-worker@default`)
 2. ✓ Backend API accessible? (`curl http://localhost:3000/health`)
 3. ✓ Redis connection working? (`redis-cli -n 1 ping`)
 4. ✓ System binaries installed? (`which convert exiftool ffmpeg`)

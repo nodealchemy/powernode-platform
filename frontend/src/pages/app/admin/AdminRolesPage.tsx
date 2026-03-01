@@ -21,7 +21,7 @@ export const AdminRolesPage: React.FC = () => {
   const { confirm, ConfirmationDialog } = useConfirmation();
 
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'admin',
     onDataUpdate: () => {
       // Trigger data refresh if needed
@@ -51,7 +51,7 @@ export const AdminRolesPage: React.FC = () => {
       ]);
       setRoles(rolesResponse.data || []);
       setPermissions(permissionsResponse.data || []);
-    } catch (error: unknown) {
+    } catch (_error) {
       showNotificationRef.current('Failed to load roles', 'error');
     } finally {
       setLoading(false);
@@ -117,7 +117,7 @@ export const AdminRolesPage: React.FC = () => {
           await rolesApi.deleteRole(role.id);
           showNotification('Role deleted successfully', 'success');
           loadRoles();
-        } catch (error: unknown) {
+        } catch (error) {
           showNotification(error instanceof Error ? error.message : 'Failed to delete role', 'error');
         }
       }
@@ -162,9 +162,9 @@ export const AdminRolesPage: React.FC = () => {
   };
 
   const getBreadcrumbs = () => [
-    { label: 'Dashboard', href: '/app', icon: '🏠' },
-    { label: 'Admin', icon: '🔧' },
-    { label: 'Roles & Permissions', icon: '🔐' }
+    { label: 'Dashboard', href: '/app' },
+    { label: 'Admin', href: '/app/admin' },
+    { label: 'Roles & Permissions' }
   ];
 
   const groupPermissionsByResource = (permissions: Permission[]) => {

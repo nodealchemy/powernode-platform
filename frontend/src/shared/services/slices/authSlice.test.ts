@@ -13,7 +13,6 @@ import authReducer, {
 } from './authSlice';
 import { authApi } from '@/features/account/auth/services/authAPI';
 import uiReducer from './uiSlice';
-import subscriptionReducer from './subscriptionSlice';
 
 // Mock localStorage BEFORE importing anything else
 const localStorageMock = {
@@ -42,7 +41,6 @@ const mockedAuthAPI = authApi as jest.Mocked<typeof authApi>;
 type TestRootState = {
   auth: ReturnType<typeof authReducer>;
   ui: ReturnType<typeof uiReducer>;
-  subscription: ReturnType<typeof subscriptionReducer>;
 };
 
 describe('authSlice', () => {
@@ -53,7 +51,6 @@ describe('authSlice', () => {
       reducer: {
         auth: authReducer,
         ui: uiReducer,
-        subscription: subscriptionReducer,
       },
     });
     jest.clearAllMocks();
@@ -127,8 +124,7 @@ describe('authSlice', () => {
       expect(state.access_token).toBeNull();
       expect(state.refresh_token).toBeNull();
       expect(state.isAuthenticated).toBe(false);
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith('access_token');
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith('refresh_token');
+      // Tokens are no longer stored in localStorage (WP8: HttpOnly cookies)
     });
   });
 
@@ -168,9 +164,7 @@ describe('authSlice', () => {
       expect(state.access_token).toBe('mock-access-token');
       expect(state.refresh_token).toBe('mock-refresh-token');
       expect(state.error).toBeNull();
-
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('access_token', 'mock-access-token');
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('refresh_token', 'mock-refresh-token');
+      // Tokens are no longer stored in localStorage (WP8: HttpOnly cookies)
     });
 
     it('should handle login failure', async () => {
@@ -308,9 +302,7 @@ describe('authSlice', () => {
       expect(state.access_token).toBeNull();
       expect(state.refresh_token).toBeNull();
       expect(state.isAuthenticated).toBe(false);
-
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith('access_token');
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith('refresh_token');
+      // Tokens are no longer stored in localStorage (WP8: HttpOnly cookies)
     });
   });
 
@@ -387,9 +379,7 @@ describe('authSlice', () => {
       const state = store.getState().auth;
       expect(state.access_token).toBe('new-access-token');
       expect(state.refresh_token).toBe('new-refresh-token');
-
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('access_token', 'new-access-token');
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('refresh_token', 'new-refresh-token');
+      // Tokens are no longer stored in localStorage (WP8: HttpOnly cookies)
     });
 
     it('should clear auth on refresh failure', async () => {

@@ -1,13 +1,13 @@
 import React, { useCallback } from 'react';
 import { EnhancedSelect } from '@/shared/components/ui/EnhancedSelect';
 import { Input } from '@/shared/components/ui/Input';
-import { McpServerSelector } from './McpServerSelector';
-import { McpResourceSelector } from './McpResourceSelector';
+import { McpServerSelector } from '@/shared/components/workflow/config/McpServerSelector';
+import { McpResourceSelector } from '@/shared/components/workflow/config/McpResourceSelector';
 
 interface McpResourceConfigPanelProps {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   configuration: Record<string, any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   onConfigChange: (key: string, value: any) => void;
   errors?: Record<string, string>;
   disabled?: boolean;

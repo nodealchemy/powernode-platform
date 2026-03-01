@@ -17,7 +17,7 @@ module Ai
 
     # Associations
     belongs_to :account
-    belongs_to :creator, class_name: "User"
+    belongs_to :creator, class_name: "User", foreign_key: "creator_id"
 
     has_many :workflow_nodes, class_name: "Ai::WorkflowNode", foreign_key: "ai_workflow_id", dependent: :destroy
     has_many :workflow_edges, class_name: "Ai::WorkflowEdge", foreign_key: "ai_workflow_id", dependent: :destroy
@@ -28,7 +28,7 @@ module Ai
     has_many :workflow_validations, class_name: "WorkflowValidation", foreign_key: :workflow_id, dependent: :destroy
 
     # Versioning associations
-    belongs_to :parent_version, class_name: "Ai::Workflow", optional: true
+    belongs_to :parent_version, class_name: "Ai::Workflow", foreign_key: "parent_version_id", optional: true
     has_many :child_versions, class_name: "Ai::Workflow", foreign_key: "parent_version_id", dependent: :nullify
 
     # Association aliases for convenience and compatibility
@@ -60,7 +60,8 @@ module Ai
       in: WORKFLOW_TYPES,
       message: "must be 'ai' or 'cicd'"
     }
-    validates :configuration, presence: true
+    # Allow empty configuration as default - validate_configuration_format handles format validation
+    validate :configuration_must_be_hash
     validates :version, presence: true, format: { with: /\A\d+\.\d+\.\d+\z/, message: "must be in semantic version format (x.y.z)" },
                        uniqueness: { scope: [ :account_id, :name ] }
     validates :is_active, inclusion: { in: [ true, false ] }
@@ -72,6 +73,14 @@ module Ai
     # JSON columns for flexible data storage
     attribute :configuration, :json, default: -> { {} }
     attribute :metadata, :json, default: -> { {} }
+
+    # Default values matching database schema
+    attribute :workflow_type, :string, default: "ai"
+    attribute :version, :string, default: "1.0.0"
+    attribute :visibility, :string, default: "private"
+    attribute :status, :string, default: "draft"
+    attribute :is_active, :boolean, default: true
+    attribute :is_template, :boolean, default: false
 
     # Scopes
     scope :active, -> { where(status: "active") }
@@ -233,6 +242,14 @@ module Ai
       errors.add(:description, "must be present for templates") if description.blank?
     end
 
+    def configuration_must_be_hash
+      return if configuration.nil?
+
+      unless configuration.is_a?(Hash)
+        errors.add(:configuration, "must be a hash")
+      end
+    end
+
     def validate_configuration_format
       return if configuration.blank?
 
@@ -243,7 +260,7 @@ module Ai
 
       # Validate execution_mode if present
       if configuration["execution_mode"].present?
-        valid_modes = %w[sequential parallel conditional batch]
+        valid_modes = %w[sequential parallel conditional dag batch]
         unless valid_modes.include?(configuration["execution_mode"])
           errors.add(:configuration, "invalid execution_mode")
         end

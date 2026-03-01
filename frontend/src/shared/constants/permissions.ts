@@ -186,17 +186,6 @@ export const ADMIN_MAINTENANCE_PERMISSIONS = {
   TASKS: 'admin.maintenance.tasks'
 } as const;
 
-// System Permissions - Worker & automation operations
-export const SYSTEM_WORKER_PERMISSIONS = {
-  VIEW: 'system.workers.read',
-  CREATE: 'system.workers.create',
-  UPDATE: 'system.workers.update',
-  DELETE: 'system.workers.delete',
-  SUSPEND: 'system.workers.suspend',
-  ACTIVATE: 'system.workers.activate',
-  REGENERATE: 'system.workers.regenerate'
-} as const;
-
 // All permission constants grouped for easy access
 export const PERMISSIONS = {
   USER: USER_PERMISSIONS,
@@ -223,8 +212,7 @@ export const PERMISSIONS = {
   ADMIN_SETTINGS: ADMIN_SETTINGS_PERMISSIONS,
   ADMIN_KB: ADMIN_KB_PERMISSIONS,
   ADMIN_AUDIT: ADMIN_AUDIT_PERMISSIONS,
-  ADMIN_MAINTENANCE: ADMIN_MAINTENANCE_PERMISSIONS,
-  SYSTEM_WORKERS: SYSTEM_WORKER_PERMISSIONS
+  ADMIN_MAINTENANCE: ADMIN_MAINTENANCE_PERMISSIONS
 } as const;
 
 // Utility type for all permissions
@@ -253,8 +241,7 @@ export type Permission =
   | typeof ADMIN_SETTINGS_PERMISSIONS[keyof typeof ADMIN_SETTINGS_PERMISSIONS]
   | typeof ADMIN_KB_PERMISSIONS[keyof typeof ADMIN_KB_PERMISSIONS]
   | typeof ADMIN_AUDIT_PERMISSIONS[keyof typeof ADMIN_AUDIT_PERMISSIONS]
-  | typeof ADMIN_MAINTENANCE_PERMISSIONS[keyof typeof ADMIN_MAINTENANCE_PERMISSIONS]
-  | typeof SYSTEM_WORKER_PERMISSIONS[keyof typeof SYSTEM_WORKER_PERMISSIONS];
+  | typeof ADMIN_MAINTENANCE_PERMISSIONS[keyof typeof ADMIN_MAINTENANCE_PERMISSIONS];
 
 // Helper function to check if a string is a valid permission
 export const isValidPermission = (permission: string): permission is Permission => {
@@ -283,8 +270,7 @@ export const isValidPermission = (permission: string): permission is Permission 
     ...Object.values(ADMIN_SETTINGS_PERMISSIONS),
     ...Object.values(ADMIN_KB_PERMISSIONS),
     ...Object.values(ADMIN_AUDIT_PERMISSIONS),
-    ...Object.values(ADMIN_MAINTENANCE_PERMISSIONS),
-    ...Object.values(SYSTEM_WORKER_PERMISSIONS)
+    ...Object.values(ADMIN_MAINTENANCE_PERMISSIONS)
   ];
   return allPermissions.includes(permission as Permission);
 };

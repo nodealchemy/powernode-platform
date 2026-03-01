@@ -3,10 +3,7 @@
 module Api
   module V1
     module Internal
-      class InvitationsController < ApplicationController
-        skip_before_action :authenticate_request
-        before_action :authenticate_worker
-
+      class InvitationsController < InternalBaseController
         def show
           invitation = Invitation.find(params[:id])
 
@@ -23,17 +20,6 @@ module Api
           })
         rescue ActiveRecord::RecordNotFound
           render_not_found("Invitation")
-        end
-
-        private
-
-        def authenticate_worker
-          token = request.headers["Authorization"]&.sub(/^Bearer /, "")
-          worker_token = Rails.application.config.worker_token
-
-          unless token.present? && worker_token.present? && token == worker_token
-            render_unauthorized("Invalid worker authentication")
-          end
         end
       end
     end

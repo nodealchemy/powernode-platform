@@ -84,15 +84,15 @@ module Ai
       def parse_accessor(accessor)
         case accessor
         when User
-          ["user", accessor.id]
+          [ "user", accessor.id ]
         when Ai::Agent
-          ["agent", accessor.id]
+          [ "agent", accessor.id ]
         when Hash
-          [accessor[:type], accessor[:id]]
+          [ accessor[:type], accessor[:id] ]
         when nil
-          ["system", nil]
+          [ "system", nil ]
         else
-          ["unknown", nil]
+          [ "unknown", nil ]
         end
       end
 

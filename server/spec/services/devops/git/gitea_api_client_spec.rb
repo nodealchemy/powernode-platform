@@ -189,7 +189,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
         .with(query: { page: 1, limit: 30 })
         .to_return(
           status: 200,
-          body: [{ id: 1, name: 'org-repo', full_name: 'myorg/org-repo', owner: { login: 'myorg' } }].to_json,
+          body: [ { id: 1, name: 'org-repo', full_name: 'myorg/org-repo', owner: { login: 'myorg' } } ].to_json,
           headers: { 'Content-Type' => 'application/json' }
         )
     end
@@ -876,7 +876,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
             name: 'act-runner-1',
             status: 'online',
             busy: false,
-            labels: [{ name: 'ubuntu-latest' }, { name: 'docker' }],
+            labels: [ { name: 'ubuntu-latest' }, { name: 'docker' } ],
             version: '0.2.6',
             os: 'linux',
             arch: 'amd64'
@@ -885,7 +885,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
             id: 11,
             name: 'act-runner-2',
             busy: true,
-            labels: ['self-hosted', 'arm64'],
+            labels: [ 'self-hosted', 'arm64' ],
             version: '0.2.6',
             os: 'linux',
             arch: 'arm64'
@@ -905,20 +905,20 @@ RSpec.describe Devops::Git::GiteaApiClient do
       end
 
       it 'returns normalized runners' do
-        runners = client.list_runners(:repo, 'owner', 'repo')
+        runners = client.list_runners('owner', 'repo')
 
         expect(runners.length).to eq(2)
-        expect(runners.first['id']).to eq(10)
+        expect(runners.first['id']).to eq('10')
         expect(runners.first['name']).to eq('act-runner-1')
         expect(runners.first['status']).to eq('online')
         expect(runners.first['busy']).to be false
-        expect(runners.first['labels']).to eq(['ubuntu-latest', 'docker'])
+        expect(runners.first['labels']).to eq([ 'ubuntu-latest', 'docker' ])
         expect(runners.first['os']).to eq('linux')
-        expect(runners.first['arch']).to eq('amd64')
+        expect(runners.first['architecture']).to eq('amd64')
       end
 
       it 'infers status from busy flag when status missing' do
-        runners = client.list_runners(:repo, 'owner', 'repo')
+        runners = client.list_runners('owner', 'repo')
 
         expect(runners.last['status']).to eq('busy')
         expect(runners.last['busy']).to be true
@@ -932,7 +932,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
       end
 
       it 'calls org endpoint' do
-        runners = client.list_runners(:org, 'myorg')
+        runners = client.list_runners('myorg', nil, scope: :org)
 
         expect(runners.length).to eq(2)
       end
@@ -945,7 +945,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
       end
 
       it 'calls admin endpoint' do
-        runners = client.list_runners(:admin)
+        runners = client.list_runners(nil, nil, scope: :admin)
 
         expect(runners.length).to eq(2)
       end
@@ -953,7 +953,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
 
     context 'with invalid scope' do
       it 'raises ArgumentError' do
-        expect { client.list_runners(:invalid, 'owner', 'repo') }
+        expect { client.list_runners('owner', 'repo', scope: :invalid) }
           .to raise_error(ArgumentError, /Invalid scope/)
       end
     end
@@ -965,7 +965,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
       end
 
       it 'returns empty array' do
-        runners = client.list_runners(:repo, 'owner', 'repo')
+        runners = client.list_runners('owner', 'repo')
         expect(runners).to eq([])
       end
     end
@@ -981,7 +981,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
             name: 'act-runner-1',
             status: 'online',
             busy: false,
-            labels: [{ name: 'ubuntu-latest' }],
+            labels: [ { name: 'ubuntu-latest' } ],
             version: '0.2.6'
           }.to_json,
           headers: { 'Content-Type' => 'application/json' }
@@ -989,9 +989,9 @@ RSpec.describe Devops::Git::GiteaApiClient do
     end
 
     it 'returns normalized runner' do
-      runner = client.get_runner(10)
+      runner = client.get_runner(nil, nil, 10)
 
-      expect(runner['id']).to eq(10)
+      expect(runner['id']).to eq('10')
       expect(runner['name']).to eq('act-runner-1')
       expect(runner['status']).to eq('online')
     end
@@ -1009,7 +1009,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
       end
 
       it 'returns registration token' do
-        result = client.runner_registration_token(:repo, 'owner', 'repo')
+        result = client.runner_registration_token('owner', 'repo')
 
         expect(result[:token]).to eq('registration_token_abc123')
       end
@@ -1026,7 +1026,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
       end
 
       it 'returns organization registration token' do
-        result = client.runner_registration_token(:org, 'myorg')
+        result = client.runner_registration_token('myorg', nil, scope: :org)
 
         expect(result[:token]).to eq('org_token_123')
       end
@@ -1043,7 +1043,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
       end
 
       it 'returns admin registration token' do
-        result = client.runner_registration_token(:admin)
+        result = client.runner_registration_token(nil, nil, scope: :admin)
 
         expect(result[:token]).to eq('admin_token_456')
       end
@@ -1058,7 +1058,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
       it 'returns error hash and logs error' do
         expect(Rails.logger).to receive(:error).with(/Failed to get runner registration token/)
 
-        result = client.runner_registration_token(:repo, 'owner', 'repo')
+        result = client.runner_registration_token('owner', 'repo')
         expect(result[:success]).to be false
         expect(result[:error]).to be_present
       end
@@ -1066,7 +1066,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
 
     context 'with invalid scope' do
       it 'raises ArgumentError' do
-        expect { client.runner_registration_token(:invalid) }
+        expect { client.runner_registration_token(nil, nil, scope: :invalid) }
           .to raise_error(ArgumentError, /Invalid scope/)
       end
     end
@@ -1209,7 +1209,7 @@ RSpec.describe Devops::Git::GiteaApiClient do
               enable_push_whitelist: false,
               enable_merge_whitelist: false,
               enable_status_check: true,
-              status_check_contexts: ['ci/build'],
+              status_check_contexts: [ 'ci/build' ],
               required_approvals: 2,
               block_on_rejected_reviews: true,
               dismiss_stale_approvals: true,
@@ -1447,6 +1447,156 @@ RSpec.describe Devops::Git::GiteaApiClient do
         result = client.delete_deploy_key('owner', 'repo', 999)
 
         expect(result[:success]).to be true
+      end
+    end
+  end
+
+  # =============================================================================
+  # FILE CONTENT (WITH SLASHED REF RESOLUTION)
+  # =============================================================================
+
+  describe '#get_file_content' do
+    context 'with simple ref (no slashes)' do
+      before do
+        stub_request(:get, "#{base_url}/repos/owner/repo/contents/src/app.js")
+          .with(query: { ref: 'main' })
+          .to_return(
+            status: 200,
+            body: {
+              name: 'app.js',
+              path: 'src/app.js',
+              sha: 'abc123',
+              size: 42,
+              type: 'file',
+              encoding: 'base64',
+              content: Base64.strict_encode64('console.log("hello")')
+            }.to_json,
+            headers: { 'Content-Type' => 'application/json' }
+          )
+      end
+
+      it 'passes the ref directly without resolution' do
+        result = client.get_file_content('owner', 'repo', 'src/app.js', 'main')
+
+        expect(result[:path]).to eq('src/app.js')
+        expect(result[:sha]).to eq('abc123')
+        expect(result[:content]).to eq('console.log("hello")')
+      end
+    end
+
+    context 'with slashed ref (e.g. mission/abc-feature)' do
+      before do
+        # Resolve slashed branch name to commit SHA
+        stub_request(:get, "#{base_url}/repos/owner/repo/branches/mission/abc-feature")
+          .to_return(
+            status: 200,
+            body: { name: 'mission/abc-feature', commit: { id: 'resolved_sha_123' } }.to_json,
+            headers: { 'Content-Type' => 'application/json' }
+          )
+
+        # Contents API called with resolved SHA instead of slashed branch name
+        stub_request(:get, "#{base_url}/repos/owner/repo/contents/src/index.css")
+          .with(query: { ref: 'resolved_sha_123' })
+          .to_return(
+            status: 200,
+            body: {
+              name: 'index.css',
+              path: 'src/index.css',
+              sha: 'file_sha_456',
+              size: 20,
+              type: 'file',
+              encoding: 'base64',
+              content: Base64.strict_encode64('body { color: red; }')
+            }.to_json,
+            headers: { 'Content-Type' => 'application/json' }
+          )
+      end
+
+      it 'resolves the branch to a commit SHA before calling contents API' do
+        result = client.get_file_content('owner', 'repo', 'src/index.css', 'mission/abc-feature')
+
+        expect(result).not_to be_nil
+        expect(result[:path]).to eq('src/index.css')
+        expect(result[:sha]).to eq('file_sha_456')
+        expect(result[:content]).to eq('body { color: red; }')
+      end
+    end
+
+    context 'with slashed ref where file does not exist' do
+      before do
+        stub_request(:get, "#{base_url}/repos/owner/repo/branches/mission/xyz")
+          .to_return(
+            status: 200,
+            body: { name: 'mission/xyz', commit: { id: 'commit_abc' } }.to_json,
+            headers: { 'Content-Type' => 'application/json' }
+          )
+
+        stub_request(:get, "#{base_url}/repos/owner/repo/contents/nonexistent.txt")
+          .with(query: { ref: 'commit_abc' })
+          .to_return(status: 404, body: { message: 'Not found' }.to_json)
+      end
+
+      it 'returns nil' do
+        result = client.get_file_content('owner', 'repo', 'nonexistent.txt', 'mission/xyz')
+
+        expect(result).to be_nil
+      end
+    end
+
+    context 'with slashed ref where branch lookup fails' do
+      before do
+        stub_request(:get, "#{base_url}/repos/owner/repo/branches/feature/unknown")
+          .to_return(status: 404, body: { message: 'Not found' }.to_json)
+
+        # Falls through with original ref
+        stub_request(:get, "#{base_url}/repos/owner/repo/contents/README.md")
+          .with(query: { ref: 'feature/unknown' })
+          .to_return(status: 404, body: { message: 'Not found' }.to_json)
+      end
+
+      it 'passes original ref through and returns nil' do
+        result = client.get_file_content('owner', 'repo', 'README.md', 'feature/unknown')
+
+        expect(result).to be_nil
+      end
+    end
+
+    context 'with non-slashed ref that returns 404' do
+      before do
+        stub_request(:get, "#{base_url}/repos/owner/repo/contents/missing.txt")
+          .with(query: { ref: 'main' })
+          .to_return(status: 404, body: { message: 'Not found' }.to_json)
+      end
+
+      it 'returns nil without branch resolution' do
+        result = client.get_file_content('owner', 'repo', 'missing.txt', 'main')
+
+        expect(result).to be_nil
+      end
+    end
+
+    context 'without ref parameter' do
+      before do
+        stub_request(:get, "#{base_url}/repos/owner/repo/contents/README.md")
+          .to_return(
+            status: 200,
+            body: {
+              name: 'README.md',
+              path: 'README.md',
+              sha: 'readme_sha',
+              size: 5,
+              type: 'file',
+              encoding: 'base64',
+              content: Base64.strict_encode64('hello')
+            }.to_json,
+            headers: { 'Content-Type' => 'application/json' }
+          )
+      end
+
+      it 'works without ref' do
+        result = client.get_file_content('owner', 'repo', 'README.md')
+
+        expect(result[:content]).to eq('hello')
       end
     end
   end

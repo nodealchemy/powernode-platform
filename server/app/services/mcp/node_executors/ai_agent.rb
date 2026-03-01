@@ -59,7 +59,7 @@ module Mcp
             duration_ms: result_metadata["processing_time_ms"] || result_metadata[:processing_time_ms],
             model: result_metadata["model_used"] || result_metadata[:model_used],
             # Agent-specific metadata
-            agent_execution_id: @node_execution.ai_agent_execution&.id
+            agent_execution_id: @node_execution.agent_execution&.id
           }
         }
       end
@@ -95,9 +95,14 @@ module Mcp
             input.merge!(configuration["input"])
           end
 
-          # Include node input data
+          # Include node input data - but only schema-allowed properties
+          # Avoid merging workflow context variables that would violate agent schema
           if input_data.present?
-            input.merge!(input_data)
+            # Only merge 'input' and 'context' which are valid agent schema properties
+            input["input"] = input_data["input"] if input_data["input"].present? && !input.key?("input")
+            if input_data["context"].is_a?(Hash)
+              input["context"] = (input["context"] || {}).merge(input_data["context"])
+            end
           end
 
           # If the agent expects an 'input' property but we've collected raw variables,
@@ -108,6 +113,8 @@ module Mcp
               "context" => configuration["context"] || {}
             }
           else
+            # Ensure we have at least an empty context for schema compliance
+            input["context"] ||= configuration["context"] || {}
             input
           end
         end

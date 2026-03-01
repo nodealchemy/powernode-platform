@@ -21,7 +21,7 @@ export const getCurrentDomain = (): string => {
 export const getStoredAuthDomain = (): string | null => {
   try {
     return localStorage.getItem('authDomain');
-  } catch {
+  } catch (_error) {
     return null;
   }
 };
@@ -33,7 +33,7 @@ export const setAuthDomain = (domain?: string): void => {
   try {
     const currentDomain = domain || getCurrentDomain();
     localStorage.setItem('authDomain', currentDomain);
-  } catch {
+  } catch (_error) {
     // Handle localStorage errors gracefully
   }
 };
@@ -54,7 +54,7 @@ export const isDomainChanged = (): boolean => {
 export const clearAuthDomain = (): void => {
   try {
     localStorage.removeItem('authDomain');
-  } catch {
+  } catch (_error) {
     // Handle localStorage errors gracefully
   }
 };

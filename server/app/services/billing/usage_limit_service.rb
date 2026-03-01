@@ -38,6 +38,7 @@ module Billing
 
     # Get usage summary for all limits
     def self.usage_summary(account)
+      return unlimited_usage_summary(account) if Shared::FeatureGateService.core_mode?
       plan = account.subscription&.plan
       return {} unless plan
 
@@ -51,19 +52,21 @@ module Billing
           limit: limit,
           unlimited: is_unlimited,
           percentage: is_unlimited ? 0 : (current.to_f / limit * 100).round(1),
-          available: is_unlimited ? Float::INFINITY : [limit - current, 0].max
+          available: is_unlimited ? Float::INFINITY : [ limit - current, 0 ].max
         }
       end
     end
 
     # Check if account has reached any limits
     def self.has_reached_limits?(account)
+      return false if Shared::FeatureGateService.core_mode?
       summary = usage_summary(account)
       summary.any? { |_, data| !data[:unlimited] && data[:current] >= data[:limit] }
     end
 
     # Get the specific limit value for a resource type
     def self.get_limit(account, limit_type)
+      return 9999 if Shared::FeatureGateService.core_mode?
       plan = account.subscription&.plan
       return 0 unless plan
 
@@ -73,6 +76,7 @@ module Billing
     private
 
     def self.check_limit(account, limit_key, current_count)
+      return true if Shared::FeatureGateService.core_mode?
       plan = account.subscription&.plan
       return false unless plan
 
@@ -80,6 +84,17 @@ module Billing
       return true if plan_limit >= 999 # Unlimited threshold
 
       current_count < plan_limit
+    end
+    def self.unlimited_usage_summary(account)
+      %w[max_users max_api_keys max_webhooks max_workers].each_with_object({}) do |limit_type, summary|
+        summary[limit_type] = {
+          current: current_usage(account, limit_type),
+          limit: 9999,
+          unlimited: true,
+          percentage: 0,
+          available: Float::INFINITY
+        }
+      end
     end
   end
 end

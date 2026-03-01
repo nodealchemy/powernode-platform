@@ -216,8 +216,8 @@ export const useCircuitBreaker = (options: UseCircuitBreakerOptions = {}): UseCi
       }
 
       default:
-        if (process.env.NODE_ENV === 'development') {
-        }
+        // Unknown message type - ignored
+        break;
     }
   }, []);
 

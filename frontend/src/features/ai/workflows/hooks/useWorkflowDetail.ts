@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { workflowsApi } from '@/shared/services/ai';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { AiWorkflow } from '@/shared/types/workflow';
+import { logger } from '@/shared/utils/logger';
 
 interface UseWorkflowDetailOptions {
   workflowId: string;
@@ -41,6 +42,7 @@ export const useWorkflowDetail = ({
       setWorkflow(response);
       setLastUpdateTime(new Date());
     } catch (err) {
+      logger.error('[useWorkflowDetail] Failed to load workflow:', err);
       setError('Failed to load workflow details. Please try again.');
       addNotification({
         type: 'error',

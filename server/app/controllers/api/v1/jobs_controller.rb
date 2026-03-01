@@ -33,12 +33,17 @@ class Api::V1::JobsController < ApplicationController
   private
 
   def authenticate_service_token
-    token = request.headers["Authorization"]&.remove("Bearer ")
-    expected_token = ENV["WORKER_SERVICE_TOKEN"] ||
-                     Rails.application.credentials.dig(:worker, :service_token) ||
-                     "development_worker_service_token_that_persists_across_restarts"
+    token = request.headers["Authorization"]&.split(" ")&.last
+    return render_error("Service authentication required", status: :unauthorized) unless token
 
-    unless token.present? && expected_token.present? && ActiveSupport::SecurityUtils.secure_compare(token, expected_token)
+    begin
+      payload = Security::JwtService.decode(token)
+      worker = Worker.find_by(id: payload[:sub]) if payload[:type] == "worker"
+    rescue StandardError
+      worker = nil
+    end
+
+    unless worker&.active?
       render_error("Service authentication required", status: :unauthorized)
     end
   end
@@ -72,7 +77,7 @@ class Api::V1::JobsController < ApplicationController
       enqueued_at: Time.current.iso8601,
       status: "enqueued"
     }
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to enqueue job to Redis: #{e.message}"
     raise e
   end

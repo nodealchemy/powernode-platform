@@ -1,18 +1,24 @@
 import { api } from '@/shared/services/api';
 
+// Type for API error response data
+interface ApiErrorResponseData {
+  message?: string;
+  errors?: string[];
+}
+
 // Helper function to safely extract error information
 const getErrorInfo = (error: unknown, defaultMessage: string) => {
   let errorMessage = defaultMessage;
-  let errors = null;
-  
-  if (error && typeof error === 'object' && 'response' in error && error.response && 
+  let errors: string[] | undefined = undefined;
+
+  if (error && typeof error === 'object' && 'response' in error && error.response &&
       typeof error.response === 'object' && 'data' in error.response && error.response.data &&
       typeof error.response.data === 'object') {
-    const responseData = error.response.data as any;
+    const responseData = error.response.data as ApiErrorResponseData;
     errorMessage = responseData.message || errorMessage;
     errors = responseData.errors;
   }
-  
+
   return { errorMessage, errors };
 };
 
@@ -58,18 +64,9 @@ class InvitationsApi {
         success: true,
         data: response.data
       };
-    } catch (error: unknown) {
-      let errorMessage = 'Failed to fetch invitations';
-      let errors = null;
-      
-      if (error && typeof error === 'object' && 'response' in error && error.response && 
-          typeof error.response === 'object' && 'data' in error.response && error.response.data &&
-          typeof error.response.data === 'object') {
-        const responseData = error.response.data as any;
-        errorMessage = responseData.message || errorMessage;
-        errors = responseData.errors;
-      }
-      
+    } catch (error) {
+      const { errorMessage, errors } = getErrorInfo(error, 'Failed to fetch invitations');
+
       return {
         success: false,
         data: [],
@@ -94,7 +91,7 @@ class InvitationsApi {
         data: response.data,
         message: 'Invitation sent successfully'
       };
-    } catch (error: unknown) {
+    } catch (error) {
       const { errorMessage, errors } = getErrorInfo(error, 'Failed to send invitation');
       return {
         success: false,
@@ -116,7 +113,7 @@ class InvitationsApi {
         data: response.data,
         message: 'Invitation resent successfully'
       };
-    } catch (error: unknown) {
+    } catch (error) {
       const { errorMessage, errors } = getErrorInfo(error, 'Failed to resend invitation');
       return {
         success: false,
@@ -138,7 +135,7 @@ class InvitationsApi {
         data: true,
         message: 'Invitation canceled successfully'
       };
-    } catch (error: unknown) {
+    } catch (error) {
       const { errorMessage, errors } = getErrorInfo(error, 'Failed to cancel invitation');
       return {
         success: false,
@@ -157,7 +154,7 @@ class InvitationsApi {
     last_name: string;
     password: string;
     password_confirmation: string;
-  }): Promise<InvitationsApiResponse<any>> {
+  }): Promise<InvitationsApiResponse<{ user: { id: string; email: string } } | null>> {
     try {
       const response = await api.post(`/api/v1/invitations/${token}/accept`, userData);
       return {
@@ -165,7 +162,7 @@ class InvitationsApi {
         data: response.data,
         message: 'Invitation accepted successfully'
       };
-    } catch (error: unknown) {
+    } catch (error) {
       const { errorMessage, errors } = getErrorInfo(error, 'Failed to accept invitation');
       return {
         success: false,
@@ -186,7 +183,7 @@ class InvitationsApi {
         success: true,
         data: response.data
       };
-    } catch (error: unknown) {
+    } catch (error) {
       return {
         success: false,
         data: {} as Invitation,
@@ -209,7 +206,7 @@ class InvitationsApi {
         data: response.data,
         message: 'Invitation updated successfully'
       };
-    } catch (error: unknown) {
+    } catch (error) {
       return {
         success: false,
         data: {} as Invitation,

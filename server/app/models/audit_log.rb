@@ -1,118 +1,14 @@
 # frozen_string_literal: true
 
 class AuditLog < ApplicationRecord
+  include AuditActions
+
   # Associations
   belongs_to :user, optional: true
   belongs_to :account
 
   # Enhanced validations with comprehensive action types
-  validates :action, presence: true, inclusion: {
-    in: %w[
-      create update delete created updated deleted login logout payment subscription_change role_change
-      user_created user_updated user_deleted
-      create_plan update_plan delete_plan toggle_plan_status
-      suspend_account activate_account admin_settings_update
-      impersonation_started impersonation_ended
-      user_login user_logout user_registration login_failed password_reset
-      subscription_created subscription_updated subscription_cancelled subscription_paused
-      payment_completed payment_failed payment_refunded payment_disputed
-      invoice_generated invoice_sent invoice_paid invoice_overdue
-      webhook_received webhook_failed webhook_retry
-      api_key_created api_key_revoked api_access_denied
-      data_export data_import security_scan compliance_check
-      system_maintenance system_backup system_restore
-      account_locked account_unlocked password_changed email_verified
-      two_factor_enabled two_factor_disabled backup_codes_generated
-      plan_upgraded plan_downgraded billing_updated
-      integration_connected integration_disconnected
-      notification_sent notification_failed
-      audit_log_cleanup audit_log_export
-      security_alert fraud_detection suspicious_activity
-      gdpr_request ccpa_request data_deletion data_anonymization
-      test_email_sent test_email_failed email_sent email_failed
-      email_settings_refreshed notification_sent notification_failed
-      api_request api_request_failed
-      ai_execution_cost ai_daily_cost_summary ai_analytics.usage_recorded ai_analytics.update
-      ai_conversations.update ai_conversations.create ai_conversations.destroy
-      ai_messages.update ai_messages.create ai_messages.destroy
-      ai_agents.index ai_agents.create ai_agents.update ai_agents.destroy
-      ai_agents.execute ai_agents.clone ai_agents.pause ai_agents.resume
-      ai_agents.archive ai_agents.stats ai_agents.analytics
-      ai.agents.read ai.agents.create ai.agents.update ai.agents.delete
-      ai.agents.execute ai.agents.clone ai.agents.pause ai.agents.resume
-      ai.agents.archive ai.agents.test ai.agents.validate
-      audit_logging_error
-      ai_conversation_channel_subscribed ai_conversation_channel_unsubscribed
-      ai_conversation_message_sent ai_conversation_message_failed
-      ai_messages.create ai_messages.update ai_messages.destroy ai_messages.edit_content
-      ai_analytics.usage_recorded ai_analytics.report_generated
-      ai_provider_credential_created ai_provider_credential_updated ai_provider_credential_deleted
-      ai_provider_credential_tested ai_provider_credential_made_default ai_provider_credential_decrypted
-      ai_provider_credential_encryption_rotated
-      ai.providers.list ai.providers.view ai.providers.create ai.providers.update ai.providers.delete
-      ai.providers.test_connection ai.providers.sync_models ai.providers.credential.create
-      ai.providers.credential.update ai.providers.credential.delete ai.providers.credential.test
-      ai.providers.read ai.providers.test ai.providers.sync ai.providers.configure
-      ai.credentials.read ai.credentials.create ai.credentials.update ai.credentials.delete ai.credentials.test
-      ai.workflows.list ai.workflows.view ai.workflows.create ai.workflows.update ai.workflows.delete
-      ai.workflows.execute ai.workflows.pause ai.workflows.resume ai.workflows.duplicate
-      ai.workflows.read ai.workflows.export ai.workflows.validate ai.workflows.clone
-      ai.executions.read ai.executions.create ai.executions.update ai.executions.cancel ai.executions.retry
-      ai.workflow_runs.read ai.workflow_runs.create ai.workflow_runs.update ai.workflow_runs.cancel
-      ai.workflow_runs.retry ai.workflow_runs.pause ai.workflow_runs.resume
-      ai.agents.execution.cancel ai.agents.execution.delete ai.agents.execution.retry
-      ai.providers.sync_models ai.providers.credential.make_default ai.providers.credential.rotate
-      ai.analytics.cost_analysis ai.analytics.dashboard ai.analytics.export ai.analytics.insights
-      ai.analytics.report.cancel ai.analytics.report.create ai.analytics.report.download
-      ai.marketplace.installation_deleted ai.marketplace.template_created ai.marketplace.template_created_from_workflow
-      ai.marketplace.template_deleted ai.marketplace.template_installed ai.marketplace.template_published
-      ai.marketplace.template_rated ai.marketplace.template_updated ai.marketplace.workflow_published
-      ai.monitoring.alerts_check ai.monitoring.alerts_view ai.monitoring.circuit_breaker.close
-      ai.monitoring.circuit_breaker.open ai.monitoring.circuit_breaker.reset ai.monitoring.circuit_breakers.category_reset
-      ai.monitoring.circuit_breakers.reset_all ai.monitoring.dashboard ai.monitoring.health_check
-      ai.monitoring.start ai.monitoring.stop
-      ai.workflow_git_triggers.create ai.workflow_git_triggers.update ai.workflow_git_triggers.delete
-      ai.conversations.create ai.conversations.update ai.conversations.delete ai.conversations.archive
-      ai.conversations.complete ai.conversations.duplicate ai.conversations.export ai.conversations.pause
-      ai.conversations.resume ai.conversations.unarchive ai.conversations.message.send
-      ai.messages.rate ai.messages.regenerate
-      ai.validation_statistics.read ai.validation_statistics.health_distribution ai.validation_statistics.common_issues
-      ai.workflows.convert_to_template ai.workflows.convert_to_workflow ai.workflows.create_from_template ai.workflows.import
-      ai.workflows.run.cancel ai.workflows.run.delete ai.workflows.run.download ai.workflows.run.pause
-      ai.workflows.run.resume ai.workflows.run.retry ai.workflows.runs.bulk_delete
-      ai.workflow_validations.auto_fix ai.workflow_validations.create
-      ai.workflow_validations.read ai.workflow_validations.auto_fix_single ai.workflow_validations.preview_fixes
-      ai.providers.setup_defaults ai.providers.test_all
-      app_created app_deleted app_updated app_published app_unpublished app_submitted_for_review
-      app_feature_created app_feature_updated app_feature_deleted app_feature_duplicated
-      app_feature_enabled_by_default app_feature_disabled_by_default
-      app_plan_created app_plan_updated app_plan_deleted app_plan_activated app_plan_deactivated app_plans_reordered
-      ci_cd.pipelines.list ci_cd.pipelines.read ci_cd.pipelines.create ci_cd.pipelines.update ci_cd.pipelines.delete
-      ci_cd.pipelines.trigger ci_cd.pipelines.duplicate ci_cd.pipelines.export_yaml
-      ci_cd.pipeline_runs.list ci_cd.pipeline_runs.read ci_cd.pipeline_runs.cancel ci_cd.pipeline_runs.retry ci_cd.pipeline_runs.logs
-      ci_cd.providers.list ci_cd.providers.read ci_cd.providers.create ci_cd.providers.update ci_cd.providers.delete
-      ci_cd.providers.test_connection ci_cd.providers.sync_repositories
-      ci_cd.repositories.list ci_cd.repositories.read ci_cd.repositories.create ci_cd.repositories.update ci_cd.repositories.delete
-      ci_cd.repositories.sync ci_cd.repositories.attach_pipeline ci_cd.repositories.detach_pipeline
-      ci_cd.schedules.list ci_cd.schedules.read ci_cd.schedules.create ci_cd.schedules.update ci_cd.schedules.delete ci_cd.schedules.toggle
-      ci_cd.prompt_templates.list ci_cd.prompt_templates.read ci_cd.prompt_templates.create ci_cd.prompt_templates.update
-      ci_cd.prompt_templates.delete ci_cd.prompt_templates.duplicate ci_cd.prompt_templates.preview
-      mcp.servers.read mcp.servers.create mcp.servers.update mcp.servers.delete
-      mcp.servers.connect mcp.servers.disconnect mcp.servers.health_check mcp.servers.discover_tools mcp.servers.workflow_builder_read
-      mcp.tools.read mcp.tools.execute
-      mcp.executions.read mcp.executions.cancel
-      mcp.oauth.authorize_initiated mcp.oauth.callback_success mcp.oauth.disconnect mcp.oauth.status_read mcp.oauth.token_refreshed
-      marketplace_listing_resubmitted
-      ai_agent_team.created ai_agent_team.updated ai_agent_team.deleted
-      ai_agent_team.member_added ai_agent_team.member_removed
-      ai_agent_team.execution_started ai_agent_team.execution_completed ai_agent_team.execution_failed
-      invitation.created invitation.updated invitation.deleted
-      invitation.resent invitation.cancelled invitation.accepted
-      job_enqueue notification_send billing_operation webhook_process
-      analytics_request report_generation health_check email_configuration
-      error_occurred
-    ]
-  }
+  validates :action, presence: true, inclusion: { in: AuditActions::ALL_ACTIONS }
   validates :resource_type, presence: true
   validates :resource_id, presence: true
   validates :source, presence: true, inclusion: {
@@ -180,7 +76,7 @@ class AuditLog < ApplicationRecord
   # Apply cryptographic integrity hash for immutable audit chain
   def apply_integrity_hash
     Audit::LogIntegrityService.apply_integrity(self)
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to apply integrity hash to audit log: #{e.message}"
     # Don't block audit log creation if integrity service fails
   end
@@ -615,5 +511,7 @@ class AuditLog < ApplicationRecord
     self.old_values ||= {}
     self.new_values ||= {}
     self.metadata ||= {}
+    self.severity ||= "low"
+    self.risk_level ||= "low"
   end
 end

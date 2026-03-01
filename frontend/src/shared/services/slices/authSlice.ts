@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { authApi } from '@/features/account/auth/services/authAPI';
-import { impersonationApi } from '../account/impersonationApi';
+import { authApi, AuthResponse } from '@/features/account/auth/services/authAPI';
+import { impersonationApi } from '@/shared/services/account/impersonationApi';
 import { setAuthDomain, clearAuthDomain } from '@/shared/utils/domainUtils';
 import { getErrorMessage, isErrorWithResponse } from '@/shared/utils/errorHandling';
 
@@ -43,15 +43,13 @@ interface AuthState {
 }
 
 const getInitialState = (): AuthState => {
-  const access_token = localStorage.getItem('access_token');
-  const refresh_token = localStorage.getItem('refresh_token');
   const impersonationToken = localStorage.getItem('impersonationToken');
-  
+
   return {
     user: null,
-    access_token,
-    refresh_token,
-    isAuthenticated: !!access_token,
+    access_token: null,
+    refresh_token: null,
+    isAuthenticated: false,
     isLoading: false,
     error: null,
     resendingVerification: false,
@@ -110,16 +108,10 @@ export const logout = createAsyncThunk('auth/logout', async () => {
 
 export const refreshAccessToken = createAsyncThunk(
   'auth/refreshToken',
-  async (_, { getState, rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      const state = getState() as { auth: AuthState };
-      const refresh_token = state.auth.refresh_token;
-
-      if (!refresh_token) {
-        throw new Error('No refresh token available');
-      }
-
-      const response = await authApi.refreshToken(refresh_token);
+      // Refresh token is sent automatically via HttpOnly cookie
+      const response = await authApi.refreshToken();
       // Backend returns {success: true, data: {...}}, we need to unwrap the nested data
       return response.data.data || response.data;
     } catch (error) {
@@ -147,7 +139,8 @@ export const getCurrentUser = createAsyncThunk(
     try {
       const response = await authApi.getCurrentUser(silentAuth);
       // Backend returns {success: true, data: {...}}, we need to unwrap the nested data
-      return response.data.data || response.data;
+      const data = response.data as AuthResponse;
+      return data.data || data;
     } catch (error) {
       const errorMessage = isErrorWithResponse(error)
         ? (error.response?.data?.error || error.response?.data?.message || 'Failed to get current user')
@@ -172,7 +165,8 @@ export const resendVerificationEmail = createAsyncThunk(
     try {
       const response = await authApi.resendVerification();
       // Backend returns {success: true, data: {...}}, we need to unwrap the nested data
-      return response.data.data || response.data;
+      const data = response.data as AuthResponse;
+      return data.data || data;
     } catch (error) {
       return rejectWithValue(
         isErrorWithResponse(error) && error.response?.data?.error
@@ -303,8 +297,6 @@ const authSlice = createSlice({
         startedAt: null,
         expiresAt: null,
       };
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
       localStorage.removeItem('impersonationToken');
       clearAuthDomain();
     },
@@ -317,9 +309,6 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.error = 'Session expired. Please log in again.';
       // DON'T reset impersonation state here - let it be validated separately
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      // localStorage.removeItem('impersonationToken'); // REMOVED - preserve for validation
     },
     clearResendVerificationSuccess: (state) => {
       state.resendVerificationSuccess = false;
@@ -343,14 +332,7 @@ const authSlice = createSlice({
         state.user = action.payload.user || null;
         state.access_token = action.payload.access_token || null;
         state.refresh_token = action.payload.refresh_token || null;
-        
-        if (action.payload.access_token) {
-          localStorage.setItem('access_token', action.payload.access_token);
-        }
-        if (action.payload.refresh_token) {
-          localStorage.setItem('refresh_token', action.payload.refresh_token);
-        }
-        
+
         // Track the domain where authentication was established
         setAuthDomain();
       })
@@ -370,13 +352,6 @@ const authSlice = createSlice({
         state.user = action.payload.user || null;
         state.access_token = action.payload.access_token || null;
         state.refresh_token = action.payload.refresh_token || null;
-        
-        if (action.payload.access_token) {
-          localStorage.setItem('access_token', action.payload.access_token);
-        }
-        if (action.payload.refresh_token) {
-          localStorage.setItem('refresh_token', action.payload.refresh_token);
-        }
       })
       .addCase(register.rejected, (state, action) => {
         state.isLoading = false;
@@ -405,8 +380,7 @@ const authSlice = createSlice({
         state.access_token = null;
         state.refresh_token = null;
         state.isAuthenticated = false;
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
+        // Server will delete the refresh HttpOnly cookie
       })
 
       // Refresh token
@@ -418,13 +392,6 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.access_token = action.payload.access_token || null;
         state.refresh_token = action.payload.refresh_token || null;
-
-        if (action.payload.access_token) {
-          localStorage.setItem('access_token', action.payload.access_token);
-        }
-        if (action.payload.refresh_token) {
-          localStorage.setItem('refresh_token', action.payload.refresh_token);
-        }
       })
       .addCase(refreshAccessToken.rejected, (state, action) => {
         state.isLoading = false;
@@ -436,8 +403,6 @@ const authSlice = createSlice({
         state.refresh_token = null;
         state.isAuthenticated = false;
         state.error = typeof payload === 'object' ? payload.message : (payload || 'Token refresh failed');
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
       })
 
       // Get current user
@@ -460,8 +425,6 @@ const authSlice = createSlice({
         state.refresh_token = null;
         state.isAuthenticated = false;
         state.error = typeof payload === 'object' ? payload.message : (payload || 'Failed to get current user');
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
       })
       
       // Resend verification email
@@ -638,14 +601,7 @@ const authSlice = createSlice({
         state.user = action.payload.user || null;
         state.access_token = action.payload.access_token || null;
         state.refresh_token = action.payload.refresh_token || null;
-        
-        if (action.payload.access_token) {
-          localStorage.setItem('access_token', action.payload.access_token);
-        }
-        if (action.payload.refresh_token) {
-          localStorage.setItem('refresh_token', action.payload.refresh_token);
-        }
-        
+
         // Track the domain where authentication was established
         setAuthDomain();
       })

@@ -16,7 +16,6 @@ RSpec.describe Ai::Agent, type: :model do
 
     it { should validate_presence_of(:name) }
     it { should validate_presence_of(:agent_type) }
-    it { should validate_presence_of(:mcp_capabilities) }
     it { should validate_length_of(:name).is_at_most(255) }
     it { should validate_length_of(:description).is_at_most(1000) }
     it { should validate_inclusion_of(:agent_type).in_array(%w[assistant code_assistant data_analyst content_generator image_generator workflow_optimizer workflow_operations monitor]) }
@@ -45,17 +44,6 @@ RSpec.describe Ai::Agent, type: :model do
     end
 
     context 'MCP validation' do
-      it 'validates mcp_capabilities is present' do
-        agent = build(:ai_agent, mcp_capabilities: nil)
-        agent.valid?
-        expect(agent.errors[:mcp_capabilities]).to include("can't be blank")
-      end
-
-      it 'validates mcp_capabilities as array' do
-        agent = build(:ai_agent, mcp_capabilities: [ 'text_generation' ])
-        expect(agent).to be_valid
-      end
-
       it 'validates version format' do
         agent = build(:ai_agent, version: 'invalid')
         expect(agent).not_to be_valid
@@ -147,11 +135,8 @@ RSpec.describe Ai::Agent, type: :model do
         expect(agent.mcp_available?).to be false
       end
 
-      it 'returns false when mcp_capabilities is empty' do
-        # Bypass validation to test edge case behavior
-        agent.update_column(:mcp_capabilities, [])
-        agent.reload
-        expect(agent.mcp_available?).to be false
+      it 'returns false when agent has no skills' do
+        expect(agent.skill_slugs).to be_empty
       end
     end
 
@@ -302,7 +287,6 @@ RSpec.describe Ai::Agent, type: :model do
           name: 'Code Assistant',
           agent_type: 'code_assistant',
           description: 'Helps with coding tasks',
-          mcp_capabilities: [ 'code_generation', 'code_review' ],
           mcp_tool_manifest: {
             'name' => 'code_assistant_tool',
             'description' => 'Code assistance tool',
@@ -370,12 +354,6 @@ RSpec.describe Ai::Agent, type: :model do
   end
 
   describe 'edge cases and error handling' do
-    it 'handles missing mcp_capabilities gracefully' do
-      agent = build(:ai_agent, mcp_capabilities: nil)
-      agent.valid?
-      expect(agent.errors[:mcp_capabilities]).to be_present
-    end
-
     it 'handles malformed JSON in metadata' do
       agent = create(:ai_agent)
       # Directly update database to simulate corrupted data
@@ -384,11 +362,9 @@ RSpec.describe Ai::Agent, type: :model do
       expect { agent.reload.metadata }.not_to raise_error
     end
 
-    it 'validates mcp_capabilities changes' do
+    it 'handles agent with no skills assigned' do
       agent = create(:ai_agent)
-
-      agent.update(mcp_capabilities: [])
-      expect(agent.errors[:mcp_capabilities]).to be_present
+      expect(agent.skill_slugs).to eq([])
     end
   end
 end

@@ -47,8 +47,8 @@ class CreateAiPersistentContexts < ActiveRecord::Migration[8.0]
     add_index :ai_persistent_contexts, :context_id, unique: true
     add_index :ai_persistent_contexts, :context_type
     add_index :ai_persistent_contexts, :scope
-    add_index :ai_persistent_contexts, [:account_id, :context_type], name: "idx_contexts_account_type"
-    add_index :ai_persistent_contexts, [:account_id, :ai_agent_id], name: "idx_contexts_account_agent"
+    add_index :ai_persistent_contexts, [ :account_id, :context_type ], name: "idx_contexts_account_type"
+    add_index :ai_persistent_contexts, [ :account_id, :ai_agent_id ], name: "idx_contexts_account_agent"
     add_index :ai_persistent_contexts, :expires_at
     add_index :ai_persistent_contexts, :archived_at
   end

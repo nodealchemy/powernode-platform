@@ -3,7 +3,7 @@
 # Worker Activities Controller
 # Manages activity tracking and viewing for workers
 class Api::V1::ActivitiesController < ApplicationController
-  before_action -> { require_permission("system.workers.view") }
+  before_action -> { require_permission("system.workers.read") }
   before_action :set_worker
   before_action :set_activity, only: [ :show ]
 
@@ -46,10 +46,8 @@ class Api::V1::ActivitiesController < ApplicationController
           permissions: @worker.all_permissions
         }
       })
-    rescue => e
-      Rails.logger.error "Activities controller error: #{e.message}"
-      Rails.logger.error e.backtrace.join("\n")
-      render_error("Failed to load activities: #{e.message}", status: :internal_server_error)
+    rescue StandardError => e
+      render_internal_error("Failed to load activities", exception: e)
     end
   end
 

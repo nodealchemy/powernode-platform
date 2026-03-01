@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { devopsRepositoriesApi } from '@/services/devopsPipelinesApi';
-import type { CiCdRepository, CiCdRepositoryFormData } from '@/types/devops-pipelines';
+import type { DevopsRepository, DevopsRepositoryFormData } from '@/types/devops-pipelines';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface UseRepositoriesParams {
@@ -9,7 +9,7 @@ interface UseRepositoriesParams {
 }
 
 export function useRepositories(params: UseRepositoriesParams = {}) {
-  const [repositories, setRepositories] = useState<CiCdRepository[]>([]);
+  const [repositories, setRepositories] = useState<DevopsRepository[]>([]);
   const [meta, setMeta] = useState<{
     total: number;
     active_count: number;
@@ -44,28 +44,28 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
       currentParamsRef.current = paramsKey;
       fetchRepositories();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [params.provider_id, params.is_active]);
 
-  const createRepository = async (data: CiCdRepositoryFormData) => {
+  const createRepository = async (data: DevopsRepositoryFormData) => {
     try {
       const repository = await devopsRepositoriesApi.create(data);
       showNotification('Repository created successfully', 'success');
       await fetchRepositories();
       return repository;
-    } catch (err) {
+    } catch (_err) {
       showNotification('Failed to create repository', 'error');
       return null;
     }
   };
 
-  const updateRepository = async (id: string, data: Partial<CiCdRepositoryFormData>) => {
+  const updateRepository = async (id: string, data: Partial<DevopsRepositoryFormData>) => {
     try {
       const repository = await devopsRepositoriesApi.update(id, data);
       showNotification('Repository updated successfully', 'success');
       await fetchRepositories();
       return repository;
-    } catch (err) {
+    } catch (_err) {
       showNotification('Failed to update repository', 'error');
       return null;
     }
@@ -77,7 +77,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
       showNotification('Repository deleted successfully', 'success');
       await fetchRepositories();
       return true;
-    } catch (err) {
+    } catch (_err) {
       showNotification('Failed to delete repository', 'error');
       return false;
     }
@@ -89,7 +89,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
       showNotification(result.message || 'Repository synced', 'success');
       await fetchRepositories();
       return result;
-    } catch (err) {
+    } catch (_err) {
       showNotification('Failed to sync repository', 'error');
       return null;
     }
@@ -101,7 +101,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
       showNotification('Pipeline attached successfully', 'success');
       await fetchRepositories();
       return repository;
-    } catch (err) {
+    } catch (_err) {
       showNotification('Failed to attach pipeline', 'error');
       return null;
     }
@@ -113,7 +113,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
       showNotification('Pipeline detached successfully', 'success');
       await fetchRepositories();
       return repository;
-    } catch (err) {
+    } catch (_err) {
       showNotification('Failed to detach pipeline', 'error');
       return null;
     }
@@ -135,7 +135,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
 }
 
 export function useRepository(id: string | null) {
-  const [repository, setRepository] = useState<CiCdRepository | null>(null);
+  const [repository, setRepository] = useState<DevopsRepository | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -163,10 +163,10 @@ export function useRepository(id: string | null) {
       hasLoadedRef.current = id;
       fetchRepository();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [id]);
 
-  const updateRepository = async (data: Partial<CiCdRepositoryFormData>) => {
+  const updateRepository = async (data: Partial<DevopsRepositoryFormData>) => {
     if (!id) return null;
 
     try {
@@ -174,7 +174,7 @@ export function useRepository(id: string | null) {
       showNotification('Repository updated successfully', 'success');
       setRepository(updated);
       return updated;
-    } catch (err) {
+    } catch (_err) {
       showNotification('Failed to update repository', 'error');
       return null;
     }

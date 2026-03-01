@@ -4,8 +4,7 @@ module Devops
   # Template for CI/CD pipelines that can be published to the marketplace
   # Captures pipeline definitions, steps, and triggers for reuse
   class PipelineTemplate < ApplicationRecord
-    include MarketplacePublishable
-    include MarketplaceReviewable
+    self.table_name = "devops_pipeline_templates"
 
     # ============================================
     # Constants
@@ -20,15 +19,6 @@ module Devops
     belongs_to :account
     belongs_to :created_by_user, class_name: "User", foreign_key: :created_by_user_id, optional: true
     belongs_to :source_pipeline, class_name: "Devops::Pipeline", foreign_key: :source_pipeline_id, optional: true
-
-    # Installations tracking
-    has_many :installations, class_name: "Devops::PipelineTemplateInstallation",
-             foreign_key: :ci_cd_pipeline_template_id, dependent: :destroy
-    has_many :installed_pipelines, through: :installations, source: :pipeline
-
-    # Marketplace subscriptions
-    has_many :subscriptions, as: :subscribable, class_name: "Marketplace::Subscription", dependent: :destroy
-    has_many :subscribing_accounts, through: :subscriptions, source: :account
 
     # ============================================
     # Validations
@@ -111,7 +101,7 @@ module Devops
       def extract_definition(pipeline)
         {
           "pipeline_type" => pipeline.pipeline_type,
-          "steps" => pipeline.steps.order(:position).map do |step|
+          "steps" => pipeline.pipeline_steps.order(:position).map do |step|
             {
               "name" => step.name,
               "step_type" => step.step_type,
@@ -162,7 +152,7 @@ module Devops
 
     def can_delete?(user, account)
       return false unless user && account
-      return false if installations.exists?
+      return false if subscriptions.exists?
       return true if account_id == account.id && created_by_user_id == user.id
       user.has_permission?("ai.workflows.manage") && account_id == account.id
     end
@@ -235,10 +225,10 @@ module Devops
       slug
     end
 
-    # Installation check
-    def installed_by_account?(account)
+    # Subscription check
+    def subscribed_by_account?(account)
       return false unless account
-      installations.exists?(account_id: account.id)
+      subscriptions.exists?(account_id: account.id)
     end
 
     # Export definition

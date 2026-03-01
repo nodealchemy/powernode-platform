@@ -7,7 +7,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { devopsPipelinesApi, devopsPipelineRunsApi } from '@/services/devopsPipelinesApi';
-import type { CiCdPipeline, CiCdPipelineRun } from '@/types/devops-pipelines';
+import type { DevopsPipeline, DevopsPipelineRun } from '@/types/devops-pipelines';
 
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const config: Record<string, { color: string; icon: React.ElementType }> = {
@@ -35,7 +35,7 @@ export const PipelineDetailPage: React.FC = () => {
   const { showNotification } = useNotifications();
   const { currentUser } = useAuth();
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'devops',
     subscribeToDevops: true,
     onDataUpdate: () => {
@@ -43,8 +43,8 @@ export const PipelineDetailPage: React.FC = () => {
     }
   });
 
-  const [pipeline, setPipeline] = useState<CiCdPipeline | null>(null);
-  const [runs, setRuns] = useState<CiCdPipelineRun[]>([]);
+  const [pipeline, setPipeline] = useState<DevopsPipeline | null>(null);
+  const [runs, setRuns] = useState<DevopsPipelineRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
 
@@ -62,7 +62,7 @@ export const PipelineDetailPage: React.FC = () => {
       ]);
       setPipeline(pipelineData);
       setRuns(runsData.pipeline_runs || []);
-    } catch (error) {
+    } catch (_error) {
       showNotification('Failed to load pipeline', 'error');
     } finally {
       setLoading(false);
@@ -80,8 +80,8 @@ export const PipelineDetailPage: React.FC = () => {
     try {
       const run = await devopsPipelinesApi.trigger(id);
       showNotification('Pipeline triggered successfully', 'success');
-      navigate(`/app/devops/pipelines/${id}/runs/${run.id}`);
-    } catch (error) {
+      navigate(`/app/devops/ci-cd/pipelines/${id}/runs/${run.id}`);
+    } catch (_error) {
       showNotification('Failed to trigger pipeline', 'error');
     } finally {
       setTriggering(false);
@@ -94,8 +94,8 @@ export const PipelineDetailPage: React.FC = () => {
     try {
       const newPipeline = await devopsPipelinesApi.duplicate(id);
       showNotification('Pipeline duplicated successfully', 'success');
-      navigate(`/app/devops/pipelines/${newPipeline.id}`);
-    } catch (error) {
+      navigate(`/app/devops/ci-cd/pipelines/${newPipeline.id}`);
+    } catch (_error) {
       showNotification('Failed to duplicate pipeline', 'error');
     }
   };
@@ -115,7 +115,7 @@ export const PipelineDetailPage: React.FC = () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       showNotification('Pipeline YAML exported', 'success');
-    } catch (error) {
+    } catch (_error) {
       showNotification('Failed to export pipeline', 'error');
     }
   };
@@ -130,8 +130,8 @@ export const PipelineDetailPage: React.FC = () => {
     try {
       await devopsPipelinesApi.delete(id);
       showNotification('Pipeline deleted', 'success');
-      navigate('/app/devops/pipelines');
-    } catch (error) {
+      navigate('/app/devops/ci-cd/pipelines');
+    } catch (_error) {
       showNotification('Failed to delete pipeline', 'error');
     }
   };
@@ -143,7 +143,7 @@ export const PipelineDetailPage: React.FC = () => {
         breadcrumbs={[
           { label: 'Dashboard', href: '/app' },
           { label: 'DevOps', href: '/app/devops' },
-          { label: 'Pipelines', href: '/app/devops/pipelines' },
+          { label: 'Pipelines', href: '/app/devops/ci-cd/pipelines' },
           { label: 'Loading...' },
         ]}
       >
@@ -161,14 +161,14 @@ export const PipelineDetailPage: React.FC = () => {
         breadcrumbs={[
           { label: 'Dashboard', href: '/app' },
           { label: 'DevOps', href: '/app/devops' },
-          { label: 'Pipelines', href: '/app/devops/pipelines' },
+          { label: 'Pipelines', href: '/app/devops/ci-cd/pipelines' },
           { label: 'Not Found' },
         ]}
         actions={[
           {
             id: 'back',
             label: 'Back to Pipelines',
-            onClick: () => navigate('/app/devops/pipelines'),
+            onClick: () => navigate('/app/devops/ci-cd/pipelines'),
             icon: ArrowLeft,
             variant: 'outline',
           },
@@ -184,18 +184,18 @@ export const PipelineDetailPage: React.FC = () => {
   return (
     <PageContainer
       title={pipeline.name}
-      description={pipeline.description || 'CI/CD Pipeline'}
+      description={pipeline.description || 'DevOps Pipeline'}
       breadcrumbs={[
         { label: 'Dashboard', href: '/app' },
         { label: 'DevOps', href: '/app/devops' },
-        { label: 'Pipelines', href: '/app/devops/pipelines' },
+        { label: 'Pipelines', href: '/app/devops/ci-cd/pipelines' },
         { label: pipeline.name },
       ]}
       actions={[
         {
           id: 'back',
           label: 'Back',
-          onClick: () => navigate('/app/devops/pipelines'),
+          onClick: () => navigate('/app/devops/ci-cd/pipelines'),
           icon: ArrowLeft,
           variant: 'outline',
         },
@@ -211,7 +211,7 @@ export const PipelineDetailPage: React.FC = () => {
           {
             id: 'edit',
             label: 'Edit',
-            onClick: () => navigate(`/app/devops/pipelines/${id}/edit`),
+            onClick: () => navigate(`/app/devops/ci-cd/pipelines/${id}/edit`),
             icon: Edit,
             variant: 'outline' as const,
           },
@@ -305,7 +305,7 @@ export const PipelineDetailPage: React.FC = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate(`/app/devops/pipelines/${id}/runs`)}
+              onClick={() => navigate(`/app/devops/ci-cd/pipelines/${id}/runs`)}
             >
               View All Runs
             </Button>
@@ -315,7 +315,7 @@ export const PipelineDetailPage: React.FC = () => {
               {runs.map((run) => (
                 <div
                   key={run.id}
-                  onClick={() => navigate(`/app/devops/pipelines/${id}/runs/${run.id}`)}
+                  onClick={() => navigate(`/app/devops/ci-cd/pipelines/${id}/runs/${run.id}`)}
                   className="flex items-center gap-4 p-3 bg-theme-surface-hover rounded-lg hover:bg-theme-surface-active cursor-pointer transition-colors"
                 >
                   <span className="text-sm font-mono text-theme-secondary">#{run.run_number}</span>

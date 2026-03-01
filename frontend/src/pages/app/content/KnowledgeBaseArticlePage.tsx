@@ -9,6 +9,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { 
   ArrowLeftIcon, 
   PencilIcon, 
@@ -46,9 +47,9 @@ export default function KnowledgeBaseArticlePage() {
       const response = await api.getArticle(id);
       setArticle(response.data.data.article);
       setRelatedArticles(response.data.data.related_articles || []);
-    } catch (error: unknown) {
+    } catch (error) {
       if (error && typeof error === 'object' && 'response' in error && error.response && typeof error.response === 'object' && 'status' in error.response) {
-        const status = (error.response as any).status;
+        const status = (error.response as { status: number }).status;
         if (status === 404) {
           setError('Article not found');
         } else if (status === 403) {
@@ -69,7 +70,7 @@ export default function KnowledgeBaseArticlePage() {
     if (id) {
       loadArticle();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [id, canEditKb]);
 
   // Generate breadcrumbs based on article data
@@ -139,9 +140,7 @@ export default function KnowledgeBaseArticlePage() {
           { label: 'Knowledge Base', href: '/app/content/kb' }
         ]}
       >
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-primary"></div>
-        </div>
+        <LoadingSpinner className="h-64" />
       </PageContainer>
     );
   }

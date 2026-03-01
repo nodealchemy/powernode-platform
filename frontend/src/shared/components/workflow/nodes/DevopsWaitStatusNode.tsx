@@ -1,9 +1,9 @@
 import React from 'react';
 import { NodeProps } from '@xyflow/react';
 import { Timer, CheckCircle2, XCircle, Loader2, Clock } from 'lucide-react';
-import { DynamicNodeHandles } from './DynamicNodeHandles';
-import { NodeActionsMenu } from '../NodeActionsMenu';
-import { useWorkflowContext } from '../WorkflowContext';
+import { DynamicNodeHandles } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
+import { NodeActionsMenu } from '@/shared/components/workflow/NodeActionsMenu';
+import { useWorkflowContext } from '@/shared/components/workflow/WorkflowContext';
 import { DevopsWaitStatusNode as DevopsWaitStatusNodeType } from '@/shared/types/workflow';
 
 export const DevopsWaitStatusNode: React.FC<NodeProps<DevopsWaitStatusNodeType>> = ({
@@ -55,7 +55,7 @@ export const DevopsWaitStatusNode: React.FC<NodeProps<DevopsWaitStatusNodeType>>
       hover:shadow-xl transition-all duration-200
     `}>
       {/* Header */}
-      <div className="px-4 py-3 rounded-t-lg bg-gradient-to-r from-amber-500 to-amber-600">
+      <div className="px-4 py-3 rounded-t-lg bg-node-devops-wait-status">
         <div className="flex items-center gap-2 text-white">
           <Timer className="h-4 w-4" />
           <span className="font-medium text-sm">DEVOPS WAIT</span>

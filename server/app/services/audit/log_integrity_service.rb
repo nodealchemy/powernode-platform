@@ -223,7 +223,7 @@ module Audit
               apply_integrity(entry)
               entry.save!(validate: false) # Bypass validations for backfill
               results[:newly_hashed] += 1
-            rescue => e
+            rescue StandardError => e
               results[:errors] << {
                 id: entry.id,
                 error: e.message

@@ -1,0 +1,43 @@
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": "01HX9R8C8V2NP3QWKJ5F6D7M9Z",
+      "email": "demo@powernode.org",
+      "first_name": "Demo",
+      "last_name": "User",
+      "created_at": "2024-01-15T10:00:00Z",
+      "updated_at": "2024-12-01T08:30:00Z",
+      "email_verified_at": "2024-01-15T10:05:00Z",
+      "avatar_url": null,
+      "locale": "en",
+      "timezone": "America/New_York",
+      "last_login_at": "2024-12-20T14:30:00Z"
+    },
+    "account": {
+      "id": "01HX9R8C8V2NP3QWKJ5F6D7M8Y",
+      "name": "Demo Account",
+      "slug": "demo-account",
+      "status": "active",
+      "created_at": "2024-01-15T10:00:00Z"
+    },
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwMUhYOVI4QzhWMk5QM1FXS0o1RjZEN005WiIsImV4cCI6MTczNTMwNjYwMH0.mock-token",
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mock-refresh-token",
+    "expires_in": 3600,
+    "token_type": "Bearer",
+    "permissions": [
+      "dashboard.view",
+      "account.settings.view",
+      "account.settings.edit",
+      "billing.view",
+      "ai.agents.view",
+      "ai.agents.create",
+      "ai.workflows.view",
+      "ai.workflows.create",
+      "content.view",
+      "content.edit"
+    ],
+    "roles": ["account_admin"]
+  },
+  "message": "Login successful"
+}

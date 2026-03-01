@@ -1,6 +1,6 @@
-import { api } from '../api';
+import { api } from '@/shared/services/api';
 import { AxiosRequestConfig, AxiosResponse } from 'axios';
-import { handleApiError, isRecoverableError, logError, ApiError, ErrorCodes } from '../errorHandler';
+import { handleApiError, isRecoverableError, logError, ApiError, ErrorCodes } from '@/shared/services/errorHandler';
 
 /**
  * BaseApiService - Foundation for all AI Orchestration API services

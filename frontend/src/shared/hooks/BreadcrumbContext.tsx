@@ -43,7 +43,7 @@ const breadcrumbReducer = (state: BreadcrumbState, action: BreadcrumbAction): Br
       const { pageId, tabInfo } = action.payload;
       return {
         ...state,
-        // eslint-disable-next-line security/detect-object-injection
+         
         activeTabs: { ...state.activeTabs, [pageId]: tabInfo }
       };
     }
@@ -53,7 +53,7 @@ const breadcrumbReducer = (state: BreadcrumbState, action: BreadcrumbAction): Br
       
     case 'UPDATE_TAB_BREADCRUMB': {
       const { pageId, tabLabel, tabHref } = action.payload;
-      // eslint-disable-next-line security/detect-object-injection
+       
       const currentTab = state.activeTabs[pageId];
       
       if (!currentTab) return state;
@@ -132,7 +132,7 @@ export const BreadcrumbProvider: React.FC<{ children: ReactNode }> = ({ children
     dispatch({ type: 'SET_CURRENT_PAGE', payload: pageId });
     
     // Update breadcrumb if there's an active tab for this page
-    // eslint-disable-next-line security/detect-object-injection
+     
     const activeTab = state.activeTabs[pageId];
     if (activeTab) {
       dispatch({ 

@@ -164,7 +164,7 @@ module StorageProviders
       offset = 0
 
       while offset < blob_size
-        end_range = [offset + chunk_size - 1, blob_size - 1].min
+        end_range = [ offset + chunk_size - 1, blob_size - 1 ].min
         headers = { "Range" => "bytes=#{offset}-#{end_range}" }
         response = make_request(:get, blob_path(file_object.storage_key), headers: headers)
         yield response.body

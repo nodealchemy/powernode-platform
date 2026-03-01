@@ -3,7 +3,7 @@
 module Orchestration
   module Monitoring
     def monitor_executions
-      active_executions = @account.ai_agent_executions.where(status: ["pending", "running"])
+      active_executions = @account.ai_agent_executions.where(status: [ "pending", "running" ])
 
       monitoring_results = {
         total_active: active_executions.count,
@@ -22,7 +22,7 @@ module Orchestration
     def get_system_status
       return {} unless @account&.id
 
-      active_executions = @account.ai_agent_executions.where(status: ["queued", "processing"])
+      active_executions = @account.ai_agent_executions.where(status: [ "queued", "processing" ])
       recent_executions = @account.ai_agent_executions.where(created_at: 1.hour.ago..Time.current)
 
       providers = @account.ai_providers.active
@@ -40,7 +40,7 @@ module Orchestration
         }
       end
 
-      active_workflows = @account.ai_workflow_runs.where(status: ["pending", "running"])
+      active_workflows = @account.ai_workflow_runs.where(status: [ "pending", "running" ])
 
       {
         account_id: @account.id,
@@ -71,7 +71,7 @@ module Orchestration
     end
 
     def calculate_provider_current_load(provider)
-      provider.agent_executions.where(status: ["pending", "running"]).count
+      provider.agent_executions.where(status: [ "pending", "running" ]).count
     end
 
     def calculate_provider_avg_response_time(provider)
@@ -90,7 +90,7 @@ module Orchestration
       current_load = active_executions.count
 
       return 0 if max_concurrent == 0
-      [(current_load.to_f / max_concurrent * 100).round(1), 100.0].min
+      [ (current_load.to_f / max_concurrent * 100).round(1), 100.0 ].min
     end
 
     def determine_system_health(recent_executions, active_executions)

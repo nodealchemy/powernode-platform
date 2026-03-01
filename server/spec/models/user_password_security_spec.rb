@@ -103,7 +103,7 @@ RSpec.describe User, 'Password Security', type: :model do
   describe 'password history tracking' do
     it 'saves password to history after update' do
       user.save!
-      original_password = 'UncommonStr0ngP@ssw0rd99!' # Factory password
+      original_password = TestUsers::PASSWORD # Factory password
 
       expect {
         user.update!(password: 'NewSecurePhrase789!')

@@ -50,7 +50,7 @@ module Api
         })
       rescue StandardError => e
         Rails.logger.error "Failed to fetch allowed hosts: #{e.message}"
-        render_error("Failed to fetch configuration")
+        render_error("Failed to fetch configuration", status: :internal_server_error)
       end
 
       private
@@ -63,7 +63,9 @@ module Api
             detected_proxy: proxy_detected?
           },
           features: {
-            registration_enabled: registration_enabled?,
+            core_mode: Powernode::ExtensionRegistry.slugs.empty?,
+            loaded_extensions: Shared::FeatureGateService.loaded_extensions,
+            registration_enabled: Powernode::ExtensionRegistry.loaded?("enterprise") && registration_enabled?,
             email_verification_required: email_verification_required?,
             multi_tenancy_enabled: multi_tenancy_enabled?
           },

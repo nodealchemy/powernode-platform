@@ -40,7 +40,7 @@ export const EmailConfiguration: React.FC = () => {
   const { showNotification } = useNotifications();
 
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   const loadSettings = useCallback(async () => {
     try {
       setLoading(true);
@@ -53,12 +53,12 @@ export const EmailConfiguration: React.FC = () => {
       setEmailSettings(normalizedSettings);
       setOriginalSettings({ ...normalizedSettings });
       setHasChanges(false);
-    } catch (error) {
+    } catch (_error) {
       showNotification('Failed to load email settings', 'error');
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, []); // Remove showNotification from dependencies to prevent refresh loop
 
   useEffect(() => {
@@ -80,7 +80,7 @@ export const EmailConfiguration: React.FC = () => {
       setOriginalSettings({ ...emailSettings });
       setHasChanges(false);
       showNotification('Email settings updated successfully', 'success');
-    } catch (error: unknown) {
+    } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update email settings';
       showNotification(message, 'error');
     } finally {
@@ -105,7 +105,7 @@ export const EmailConfiguration: React.FC = () => {
       setTesting(true);
       const response = await emailSettingsApi.testEmail(testEmail);
       showNotification(response.message || `Test email sent to ${testEmail}`, 'success');
-    } catch (error: unknown) {
+    } catch (error) {
       const apiError = error as { response?: { data?: { error?: string; message?: string } } };
       let errorMessage = 'Failed to send test email';
 

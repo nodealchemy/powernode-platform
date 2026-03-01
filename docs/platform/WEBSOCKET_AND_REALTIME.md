@@ -262,7 +262,7 @@ workflow.node.execution.updated
 
 **1. Start Backend Monitoring**:
 ```bash
-scripts/backend-manager.sh follow | grep -E "Broadcasting|workflow.run|node.execution"
+journalctl -u powernode-backend@default -f | grep -E "Broadcasting|workflow.run|node.execution"
 ```
 
 **2. Enable Browser Debugging** (DevTools Console):
@@ -405,13 +405,39 @@ window.WebSocket = function(...args) {
 
 ---
 
+## All 17 Channels
+
+For detailed per-channel reference (subscription params, streams, events), see [ACTIONCABLE_CHANNELS_REFERENCE.md](ACTIONCABLE_CHANNELS_REFERENCE.md).
+
+| Channel | Subscription Params | Purpose |
+|---------|-------------------|---------|
+| AiAgentExecutionChannel | `execution_id` | Agent execution monitoring |
+| AiConversationChannel | `conversation_id` | AI chat messaging |
+| AiOrchestrationChannel | `type`, `id` | Unified AI orchestration |
+| AiStreamingChannel | `execution_id` / `conversation_id` | Token streaming |
+| AiWorkflowMonitoringChannel | `workflow_id` | Workflow analytics |
+| AiWorkflowOrchestrationChannel | — | Account workflow events |
+| AnalyticsChannel | `account_id` | Real-time analytics |
+| CodeFactoryChannel | `type`, `id` | Code Factory updates |
+| CustomerChannel | `account_id` | Customer data (admin) |
+| DevopsPipelineChannel | `account_id`, `pipeline_id` | CI/CD pipeline status |
+| GitJobLogsChannel | `repository_id`, `pipeline_id`, `job_id` | Live log streaming |
+| McpChannel | — | MCP protocol transport |
+| MissionChannel | `type`, `id` | Mission progress |
+| NotificationChannel | `account_id` | Notifications |
+| SubscriptionChannel | `account_id` | Subscription changes |
+| TeamChannelChannel | `channel_id` | Team messaging |
+| TeamExecutionChannel | `team_id` | Team execution monitoring |
+
+---
+
 ## Files Reference
 
 ### Backend
-- `server/app/channels/ai_orchestration_channel.rb` - Main channel
+- `server/app/channels/` - 17 channel files + `application_cable/`
+- `server/app/channels/ai_orchestration_channel.rb` - Main unified AI channel
 - `server/app/services/mcp/workflow_state_machine.rb` - State broadcasts
 - `server/app/services/concerns/base_workflow_service.rb` - Base broadcast methods
-- `server/app/models/ai_workflow_node_execution.rb` - Node execution callbacks
 
 ### Frontend
 - `frontend/src/shared/services/WebSocketManager.ts` - Singleton manager
@@ -423,6 +449,6 @@ window.WebSocket = function(...args) {
 
 ---
 
-**Document Status**: ✅ Complete
+**Document Status**: Complete (17 channels documented)
 **Consolidates**: WEBSOCKET_ARCHITECTURE.md, WORKFLOW_WEBSOCKET_COMPREHENSIVE_FIX_2025_10_11.md, WORKFLOW_WEBSOCKET_TESTING_GUIDE.md
 

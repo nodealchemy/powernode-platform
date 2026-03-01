@@ -81,6 +81,30 @@ class AiOrchestrationChannel < ApplicationCable::Channel
     circuit_breaker.failure
     circuit_breaker.success
     circuit_breaker.reset
+    worktree_session.status_changed
+    worktree_session.provisioning
+    worktree_session.active
+    worktree_session.merging
+    worktree_session.completed
+    worktree_session.failed
+    worktree_session.cancelled
+    worktree_session.conflicts_detected
+    worktree.status_changed
+    worktree.created
+    worktree.ready
+    worktree.task_started
+    worktree.completed
+    worktree.failed
+    worktree.log
+    worktree.timeout
+    worktree.test_started
+    worktree.test_passed
+    worktree.test_failed
+    merge.started
+    merge.completed
+    merge.conflict
+    merge.resolved
+    merge.failed
   ].freeze
 
   # =============================================================================
@@ -534,6 +558,8 @@ class AiOrchestrationChannel < ApplicationCable::Channel
       }
     end
 
+    public
+
     # =============================================================================
     # STREAMING EXECUTION BROADCASTING
     # =============================================================================
@@ -640,6 +666,116 @@ class AiOrchestrationChannel < ApplicationCable::Channel
     end
 
     # =============================================================================
+    # RALPH LOOP BROADCASTING
+    # =============================================================================
+
+    # Broadcast Ralph Loop status update
+    #
+    # @param ralph_loop [Ai::RalphLoop] Ralph loop
+    # @param event_type [String] Event type (e.g., 'loop_started', 'loop_progress')
+    # @param payload [Hash] Additional payload data
+    def broadcast_ralph_loop_event(ralph_loop, event_type, payload = {})
+      message = build_message(
+        "ralph_loop.#{event_type}",
+        "ralph_loop",
+        ralph_loop.id,
+        {
+          loop_id: ralph_loop.id,
+          status: ralph_loop.status,
+          progress_percentage: ralph_loop.progress_percentage,
+          current_iteration: ralph_loop.current_iteration,
+          completed_task_count: ralph_loop.completed_tasks,
+          task_count: ralph_loop.total_tasks,
+          **payload
+        }
+      )
+
+      # Broadcast to loop-specific stream
+      ActionCable.server.broadcast(stream_key("ralph_loop", ralph_loop.id), message)
+
+      # Also broadcast to account-level stream
+      ActionCable.server.broadcast(stream_key("account", ralph_loop.account_id), message)
+
+      Rails.logger.debug "[AiOrchestrationChannel] Ralph loop event #{event_type} broadcast for loop #{ralph_loop.id}"
+    end
+
+    # Broadcast Ralph Loop started
+    #
+    # @param ralph_loop [Ai::RalphLoop] Ralph loop
+    def broadcast_ralph_loop_started(ralph_loop)
+      broadcast_ralph_loop_event(ralph_loop, "started")
+    end
+
+    # Broadcast Ralph Loop progress
+    #
+    # @param ralph_loop [Ai::RalphLoop] Ralph loop
+    def broadcast_ralph_loop_progress(ralph_loop)
+      broadcast_ralph_loop_event(ralph_loop, "progress")
+    end
+
+    # Broadcast Ralph Loop iteration completed
+    #
+    # @param ralph_loop [Ai::RalphLoop] Ralph loop
+    # @param iteration_number [Integer] Completed iteration number
+    def broadcast_ralph_loop_iteration_completed(ralph_loop, iteration_number)
+      broadcast_ralph_loop_event(ralph_loop, "iteration_completed", {
+        iteration_number: iteration_number
+      })
+    end
+
+    # Broadcast Ralph Loop task status changed
+    #
+    # @param ralph_loop [Ai::RalphLoop] Ralph loop
+    # @param task [Ai::RalphTask] Task that changed
+    def broadcast_ralph_loop_task_status_changed(ralph_loop, task)
+      broadcast_ralph_loop_event(ralph_loop, "task_status_changed", {
+        task_id: task.id,
+        task_status: task.status
+      })
+    end
+
+    # Broadcast Ralph Loop learning added
+    #
+    # @param ralph_loop [Ai::RalphLoop] Ralph loop
+    # @param learning [String] Learning text
+    def broadcast_ralph_loop_learning_added(ralph_loop, learning)
+      broadcast_ralph_loop_event(ralph_loop, "learning_added", {
+        learning: learning
+      })
+    end
+
+    # Broadcast Ralph Loop completed
+    #
+    # @param ralph_loop [Ai::RalphLoop] Ralph loop
+    def broadcast_ralph_loop_completed(ralph_loop)
+      broadcast_ralph_loop_event(ralph_loop, "completed")
+    end
+
+    # Broadcast Ralph Loop failed
+    #
+    # @param ralph_loop [Ai::RalphLoop] Ralph loop
+    # @param error_message [String] Error message
+    def broadcast_ralph_loop_failed(ralph_loop, error_message = nil)
+      broadcast_ralph_loop_event(ralph_loop, "failed", {
+        error_message: error_message || ralph_loop.error_message
+      })
+    end
+
+    # Broadcast Ralph Loop paused
+    #
+    # @param ralph_loop [Ai::RalphLoop] Ralph loop
+    def broadcast_ralph_loop_paused(ralph_loop)
+      broadcast_ralph_loop_event(ralph_loop, "paused")
+    end
+
+    # Broadcast Ralph Loop cancelled
+    #
+    # @param ralph_loop [Ai::RalphLoop] Ralph loop
+    def broadcast_ralph_loop_cancelled(ralph_loop)
+      broadcast_ralph_loop_event(ralph_loop, "cancelled")
+    end
+
+    # =============================================================================
     # CIRCUIT BREAKER BROADCASTING
     # =============================================================================
 
@@ -715,6 +851,46 @@ class AiOrchestrationChannel < ApplicationCable::Channel
     # @param account [Account] Account context
     def broadcast_circuit_breaker_reset(breaker, account)
       broadcast_circuit_breaker_event("circuit_breaker.reset", breaker, account)
+    end
+
+    # =============================================================================
+    # WORKTREE SESSION BROADCASTING
+    # =============================================================================
+
+    # Broadcast worktree session event
+    #
+    # @param session [Ai::WorktreeSession] Worktree session
+    # @param event_type [String] Event type
+    # @param payload [Hash] Additional payload
+    def broadcast_worktree_session_event(session, event_type, payload = {})
+      message = build_message(
+        "worktree_session.#{event_type}",
+        "worktree_session",
+        session.id,
+        session.session_summary.merge(payload)
+      )
+
+      ActionCable.server.broadcast(stream_key("worktree_session", session.id), message)
+      ActionCable.server.broadcast(stream_key("account", session.account_id), message)
+
+      Rails.logger.debug "[AiOrchestrationChannel] Worktree session event #{event_type} for session #{session.id}"
+    end
+
+    # Broadcast individual worktree event
+    #
+    # @param worktree [Ai::Worktree] Worktree record
+    # @param event_type [String] Event type
+    # @param payload [Hash] Additional payload
+    def broadcast_worktree_event(worktree, event_type, payload = {})
+      message = build_message(
+        "worktree.#{event_type}",
+        "worktree_session",
+        worktree.worktree_session_id,
+        worktree.worktree_summary.merge(payload)
+      )
+
+      ActionCable.server.broadcast(stream_key("worktree_session", worktree.worktree_session_id), message)
+      ActionCable.server.broadcast(stream_key("account", worktree.account_id), message)
     end
 
     private
@@ -808,11 +984,46 @@ class AiOrchestrationChannel < ApplicationCable::Channel
       })
 
       Rails.logger.debug "[AiOrchestrationChannel] Sent initial status for workflow_run #{resource_id}: #{workflow_run.status}"
+    when "ralph_loop"
+      ralph_loop = Ai::RalphLoop.find_by(id: resource_id)
+      return unless ralph_loop
+
+      transmit({
+        event: "ralph_loop.progress",
+        resource_type: "ralph_loop",
+        resource_id: resource_id,
+        payload: {
+          loop_id: ralph_loop.id,
+          status: ralph_loop.status,
+          progress_percentage: ralph_loop.progress_percentage,
+          current_iteration: ralph_loop.current_iteration,
+          completed_task_count: ralph_loop.completed_tasks,
+          task_count: ralph_loop.total_tasks
+        },
+        timestamp: Time.current.iso8601,
+        is_initial_status: true
+      })
+
+      Rails.logger.debug "[AiOrchestrationChannel] Sent initial status for ralph_loop #{resource_id}: #{ralph_loop.status}"
+    when "worktree_session"
+      wt_session = Ai::WorktreeSession.find_by(id: resource_id)
+      return unless wt_session
+
+      transmit({
+        event: "worktree_session.status_changed",
+        resource_type: "worktree_session",
+        resource_id: resource_id,
+        payload: wt_session.session_summary,
+        timestamp: Time.current.iso8601,
+        is_initial_status: true
+      })
+
+      Rails.logger.debug "[AiOrchestrationChannel] Sent initial status for worktree_session #{resource_id}: #{wt_session.status}"
     end
   end
 
   def valid_subscription_type?(type)
-    %w[account workflow workflow_run agent monitoring system batch_execution circuit_breaker circuit_breaker_service].include?(type)
+    %w[account workflow workflow_run agent monitoring system batch_execution circuit_breaker circuit_breaker_service ralph_loop worktree_session].include?(type)
   end
 
   def authorized_for_subscription?(subscription_type, resource_id)
@@ -859,6 +1070,14 @@ class AiOrchestrationChannel < ApplicationCable::Channel
       # User can subscribe to all breakers for a specific service
       current_user.has_permission?("ai_orchestration.read") ||
         current_user.has_permission?("system.admin")
+    when "ralph_loop"
+      # User can subscribe to Ralph loops in their account
+      ralph_loop = Ai::RalphLoop.find_by(id: resource_id)
+      ralph_loop && ralph_loop.account_id == current_user.account_id
+    when "worktree_session"
+      # User can subscribe to worktree sessions in their account
+      wt_session = Ai::WorktreeSession.find_by(id: resource_id)
+      wt_session && wt_session.account_id == current_user.account_id
     else
       false
     end

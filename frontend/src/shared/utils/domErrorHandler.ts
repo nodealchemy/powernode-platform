@@ -102,6 +102,11 @@ export const setupFormDefenses = (): void => {
     childList: true,
     subtree: true
   });
+
+  // Disconnect after 30 seconds - form defenses only needed during initial page load
+  setTimeout(() => {
+    observer.disconnect();
+  }, 30000);
 };
 
 /**

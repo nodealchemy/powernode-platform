@@ -62,7 +62,7 @@ class Ai::ProviderLoadBalancerService
         credential = provider.provider_credentials.active.first
         raise LoadBalancingError, "No active credentials for provider #{provider.name}" unless credential
 
-        client = Ai::ProviderClientService.new(credential)
+        client = WorkerLlmClient.new(provider: provider, credential: credential)
         result = yield(client, provider)
 
         # Record successful execution
@@ -129,7 +129,7 @@ class Ai::ProviderLoadBalancerService
 
   def get_available_providers
     @account.ai_providers
-            .joins(:ai_provider_credentials)
+            .joins(:provider_credentials)
             .where(ai_provider_credentials: { is_active: true })
             .where(
               "(capabilities->>?) IS NOT NULL AND (capabilities->>?) != 'false'",

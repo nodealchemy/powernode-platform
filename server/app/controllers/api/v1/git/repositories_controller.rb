@@ -6,7 +6,7 @@ module Api
       class RepositoriesController < ApplicationController
         before_action :set_repository, only: %i[
           show destroy
-          configure_webhook remove_webhook
+          configure_webhook remove_webhook update_webhook_config
           branches commits commit commit_diff compare
           pull_requests issues pipelines
           file_content tree tags
@@ -22,8 +22,8 @@ module Api
           repositories = apply_filters(repositories)
 
           # Pagination
-          page = [params[:page].to_i, 1].max
-          per_page = [[params[:per_page].to_i, 100].min, 20].max
+          page = [ params[:page].to_i, 1 ].max
+          per_page = [ [ params[:per_page].to_i, 100 ].min, 20 ].max
           total = repositories.count
           repositories = repositories.offset((page - 1) * per_page).limit(per_page)
 
@@ -73,6 +73,14 @@ module Api
 
         # POST /api/v1/git/repositories/:id/configure_webhook
         def configure_webhook
+          # Update branch filter if provided
+          if webhook_config_params[:branch_filter_type].present?
+            @repository.update!(
+              branch_filter_type: webhook_config_params[:branch_filter_type],
+              branch_filter: webhook_config_params[:branch_filter]
+            )
+          end
+
           result = @repository.configure_webhook!
 
           if result[:success]
@@ -82,6 +90,18 @@ module Api
             })
           else
             render_error(result[:error], status: :unprocessable_content)
+          end
+        end
+
+        # PATCH /api/v1/git/repositories/:id/update_webhook_config
+        def update_webhook_config
+          if @repository.update(webhook_config_params)
+            render_success({
+              repository: serialize_repository(@repository.reload),
+              message: "Webhook configuration updated successfully"
+            })
+          else
+            render_validation_error(@repository.errors)
           end
         end
 
@@ -164,8 +184,8 @@ module Api
           pipelines = pipelines.where(ref: params[:ref]) if params[:ref].present?
 
           # Pagination
-          page = [params[:page].to_i, 1].max
-          per_page = [[params[:per_page].to_i, 100].min, 10].max
+          page = [ params[:page].to_i, 1 ].max
+          per_page = [ [ params[:per_page].to_i, 100 ].min, 10 ].max
           total = pipelines.count
           pipelines = pipelines.offset((page - 1) * per_page).limit(per_page)
 
@@ -337,7 +357,7 @@ module Api
             require_permission("git.repositories.delete")
           when "sync"
             require_permission("git.repositories.sync")
-          when "configure_webhook", "remove_webhook"
+          when "configure_webhook", "remove_webhook", "update_webhook_config"
             require_permission("git.repositories.webhooks.manage")
           end
         end
@@ -409,6 +429,10 @@ module Api
           params.permit(:page, :per_page)
         end
 
+        def webhook_config_params
+          params.permit(:branch_filter, :branch_filter_type)
+        end
+
         def serialize_repository(repo)
           {
             id: repo.id,
@@ -422,6 +446,9 @@ module Api
             is_fork: repo.is_fork,
             is_archived: repo.is_archived,
             webhook_configured: repo.webhook_configured,
+            branch_filter: repo.branch_filter,
+            branch_filter_type: repo.branch_filter_type,
+            branch_filter_enabled: repo.branch_filter_enabled?,
             stars_count: repo.stars_count,
             forks_count: repo.forks_count,
             open_issues_count: repo.open_issues_count,

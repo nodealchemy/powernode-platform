@@ -8,6 +8,7 @@ import { ProxyHostList } from './ProxyHostList';
 import { ProxyDetectionStatus } from './ProxyDetectionStatus';
 import { ProxyTestConnection } from './ProxyTestConnection';
 import { APIUrlPreview } from './APIUrlPreview';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { MultiTenancyConfigPanel } from './MultiTenancyConfigPanel';
 
 export const ProxySettingsTab: React.FC = () => {
@@ -23,14 +24,14 @@ export const ProxySettingsTab: React.FC = () => {
   useEffect(() => {
     loadConfig();
     loadDetection();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const loadConfig = async () => {
     try {
       const data = await proxySettingsApi.getUrlConfig();
       setConfig(data);
-    } catch (error) {
+    } catch (_error) {
       showError('Failed to load proxy configuration');
     } finally {
       setLoading(false);
@@ -41,8 +42,8 @@ export const ProxySettingsTab: React.FC = () => {
     try {
       const data = await proxySettingsApi.getCurrentDetection();
       setDetection(data);
-    } catch (error) {
-      console.error('Failed to load detection status:', error);
+    } catch (_error) {
+      // Silently fail - detection status is non-critical
     }
   };
 
@@ -57,7 +58,7 @@ export const ProxySettingsTab: React.FC = () => {
       
       // Reload detection after config change
       await loadDetection();
-    } catch (error) {
+    } catch (_error) {
       showError('Failed to save configuration');
     } finally {
       setSaving(false);
@@ -103,9 +104,7 @@ export const ProxySettingsTab: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-theme-primary"></div>
-      </div>
+      <LoadingSpinner size="lg" className="h-64" />
     );
   }
 

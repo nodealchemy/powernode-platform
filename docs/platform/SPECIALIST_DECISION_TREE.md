@@ -35,27 +35,27 @@ Working on Backend?
 │   └── Subscription logic ───────────────► Billing Engine (opus)
 │
 ├── Database/Schema changes?
-│   ├── New tables, migrations ───────────► Data Modeler (sonnet)
-│   ├── Query optimization ───────────────► Data Modeler (sonnet)
-│   └── Data relationships ───────────────► Data Modeler (sonnet)
+│   ├── New tables, migrations ───────────► Data Modeler (opus)
+│   ├── Query optimization ───────────────► Data Modeler (opus)
+│   └── Data relationships ───────────────► Data Modeler (opus)
 │
 ├── API endpoint work?
-│   ├── New endpoint ─────────────────────► API Developer (sonnet)
-│   ├── Authentication/Authorization ─────► API Developer (sonnet)
-│   └── API versioning ───────────────────► API Developer (sonnet)
+│   ├── New endpoint ─────────────────────► API Developer (opus)
+│   ├── Authentication/Authorization ─────► API Developer (opus)
+│   └── API versioning ───────────────────► API Developer (opus)
 │
 ├── Background job?
-│   ├── Sidekiq job creation ─────────────► Background Jobs (sonnet)
-│   ├── Job scheduling ───────────────────► Background Jobs (sonnet)
-│   └── Queue management ─────────────────► Background Jobs (sonnet)
+│   ├── Sidekiq job creation ─────────────► Background Jobs (opus)
+│   ├── Job scheduling ───────────────────► Background Jobs (opus)
+│   └── Queue management ─────────────────► Background Jobs (opus)
 │
 ├── Architecture decision?
-│   ├── Service design ───────────────────► Rails Architect (sonnet)
-│   ├── Code organization ────────────────► Rails Architect (sonnet)
-│   └── Pattern implementation ───────────► Rails Architect (sonnet)
+│   ├── Service design ───────────────────► Rails Architect (opus)
+│   ├── Code organization ────────────────► Rails Architect (opus)
+│   └── Pattern implementation ───────────► Rails Architect (opus)
 │
 └── Testing?
-    └── Any backend test ─────────────────► Backend Testing (sonnet)
+    └── Any backend test ─────────────────► Backend Testing (opus)
 ```
 
 ## Frontend Decision Tree
@@ -64,22 +64,22 @@ Working on Backend?
 Working on Frontend?
 │
 ├── UI Component?
-│   ├── Simple/reusable component ────────► UI Components (haiku)
-│   ├── Form components ──────────────────► UI Components (haiku)
-│   └── Button, input, card, etc. ────────► UI Components (haiku)
+│   ├── Simple/reusable component ────────► UI Components (opus)
+│   ├── Form components ──────────────────► UI Components (opus)
+│   └── Button, input, card, etc. ────────► UI Components (opus)
 │
 ├── Feature/Page?
-│   ├── Dashboard page ───────────────────► Dashboard (sonnet)
-│   ├── Admin panel ──────────────────────► Admin Panel (sonnet)
-│   └── Complex feature ──────────────────► React Architect (sonnet)
+│   ├── Dashboard page ───────────────────► Dashboard (opus)
+│   ├── Admin panel ──────────────────────► Admin Panel (opus)
+│   └── Complex feature ──────────────────► React Architect (opus)
 │
 ├── Architecture?
-│   ├── State management ─────────────────► React Architect (sonnet)
-│   ├── Routing ──────────────────────────► React Architect (sonnet)
-│   └── Code organization ────────────────► React Architect (sonnet)
+│   ├── State management ─────────────────► React Architect (opus)
+│   ├── Routing ──────────────────────────► React Architect (opus)
+│   └── Code organization ────────────────► React Architect (opus)
 │
 └── Testing?
-    └── Any frontend test ────────────────► Frontend Testing (haiku)
+    └── Any frontend test ────────────────► Frontend Testing (opus)
 ```
 
 ## Infrastructure Decision Tree
@@ -116,22 +116,22 @@ Working on Infrastructure?
 Working on Services?
 │
 ├── Notifications?
-│   ├── Email ────────────────────────────► Notification Engineer (sonnet)
-│   ├── Push notifications ───────────────► Notification Engineer (sonnet)
-│   └── In-app notifications ─────────────► Notification Engineer (sonnet)
+│   ├── Email ────────────────────────────► Notification Engineer (opus)
+│   ├── Push notifications ───────────────► Notification Engineer (opus)
+│   └── In-app notifications ─────────────► Notification Engineer (opus)
 │
 ├── Documentation?
-│   ├── API docs ─────────────────────────► Documentation (haiku)
-│   ├── User guides ──────────────────────► Documentation (haiku)
-│   └── Technical docs ───────────────────► Documentation (haiku)
+│   ├── API docs ─────────────────────────► Documentation (opus)
+│   ├── User guides ──────────────────────► Documentation (opus)
+│   └── Technical docs ───────────────────► Documentation (opus)
 │
 └── Project planning?
-    └── Task planning ────────────────────► Project Manager (sonnet)
+    └── Task planning ────────────────────► Project Manager (opus)
 ```
 
 ## Model Selection Reference
 
-### When to Use Opus (Complex/Critical Tasks)
+### All Specialists Use Opus 4.5
 
 | Specialist | Use For |
 |------------|---------|
@@ -141,11 +141,6 @@ Working on Services?
 | Performance | Critical optimizations, caching strategies |
 | DevOps Engineer | Production deployments, infrastructure |
 | Analytics Engineer | Complex data pipelines, reporting |
-
-### When to Use Sonnet (Standard Tasks)
-
-| Specialist | Use For |
-|------------|---------|
 | Rails Architect | Architecture decisions, code organization |
 | Data Modeler | Database design, migrations |
 | API Developer | New endpoints, API changes |
@@ -156,11 +151,6 @@ Working on Services?
 | Backend Testing | RSpec tests |
 | Notification Engineer | Notification systems |
 | Project Manager | Task planning |
-
-### When to Use Haiku (Simple/Routine Tasks)
-
-| Specialist | Use For |
-|------------|---------|
 | UI Components | Simple components, forms |
 | Frontend Testing | Jest tests |
 | Documentation | Documentation updates |
@@ -168,7 +158,7 @@ Working on Services?
 ## Task Tool Usage
 
 ```javascript
-// Example: Complex payment integration
+// Example: Payment integration
 Task({
   description: "Implement Stripe checkout",
   subagent_type: "general-purpose",
@@ -179,11 +169,11 @@ Task: Implement Stripe checkout flow
 Follow patterns in specialist documentation.`
 })
 
-// Example: Simple UI component
+// Example: UI component
 Task({
   description: "Create toggle switch component",
   subagent_type: "general-purpose",
-  model: "haiku",
+  model: "opus",
   prompt: `You are a UI Component Developer for Powernode.
 Reference: docs/frontend/UI_COMPONENT_DEVELOPER_SPECIALIST.md
 Task: Create a theme-aware toggle switch component
@@ -201,23 +191,23 @@ Follow patterns in specialist documentation.`
 | Performance | Performance Optimizer | opus |
 | Docker/K8s | DevOps Engineer | opus |
 | Data analytics | Analytics Engineer | opus |
-| Rails architecture | Rails Architect | sonnet |
-| Database schema | Data Modeler | sonnet |
-| API endpoints | API Developer | sonnet |
-| Background jobs | Background Jobs | sonnet |
-| React architecture | React Architect | sonnet |
-| Dashboard UI | Dashboard | sonnet |
-| Admin pages | Admin Panel | sonnet |
-| Backend tests | Backend Testing | sonnet |
-| Notifications | Notification Engineer | sonnet |
-| Project planning | Project Manager | sonnet |
-| UI components | UI Components | haiku |
-| Frontend tests | Frontend Testing | haiku |
-| Documentation | Documentation | haiku |
+| Rails architecture | Rails Architect | opus |
+| Database schema | Data Modeler | opus |
+| API endpoints | API Developer | opus |
+| Background jobs | Background Jobs | opus |
+| React architecture | React Architect | opus |
+| Dashboard UI | Dashboard | opus |
+| Admin pages | Admin Panel | opus |
+| Backend tests | Backend Testing | opus |
+| Notifications | Notification Engineer | opus |
+| Project planning | Project Manager | opus |
+| UI components | UI Components | opus |
+| Frontend tests | Frontend Testing | opus |
+| Documentation | Documentation | opus |
 
 ## Tips
 
-1. **Start with the right model** - Use opus for critical/complex tasks, sonnet for standard work, haiku for routine tasks
+1. **All specialists use Opus 4.5** - Maximum reasoning capability for all tasks
 2. **Reference specialist docs** - Always include the path to the specialist documentation
 3. **Be specific** - Clear, specific prompts get better results
 4. **Parallel agents** - Spawn multiple agents in parallel when tasks are independent

@@ -78,7 +78,7 @@ class Api::V1::WorkerAuthController < ApplicationController
       expires_at: (Time.current + 24.hours).iso8601,
       permissions: user.permissions.pluck(:resource, :action).map { |r, a| "#{r}.#{a}" }
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Worker authentication error: #{e.message}"
     Rails.logger.error e.backtrace.join("\n")
     render_error("Authentication failed", status: :internal_server_error)
@@ -131,34 +131,19 @@ class Api::V1::WorkerAuthController < ApplicationController
     token = auth_header.split(" ").last
     return false if token.blank?
 
-    # Cache worker authentication to reduce database calls
-    # Use token hash as cache key for security
-    cache_key = "worker_auth:#{Digest::SHA256.hexdigest(token)}"
+    # JWT-only worker authentication
+    begin
+      payload = Security::JwtService.decode(token)
+      return false unless payload[:type] == "worker"
 
-    cached_worker_id = Rails.cache.read(cache_key)
-    if cached_worker_id
-      # Use cached worker ID to avoid repeated authentication
-      worker = Worker.find_by(id: cached_worker_id, status: "active")
-      if worker&.system?
-        @current_worker = worker
-        return true
-      else
-        # Cache invalidation if worker no longer valid
-        Rails.cache.delete(cache_key)
-      end
+      worker = Worker.find_by(id: payload[:sub], status: "active")
+      return false unless worker&.system?
+
+      @current_worker = worker
+      true
+    rescue StandardError
+      false
     end
-
-    # Fallback to full authentication if not cached or cache invalid
-    # Only update last_seen_at on the first authentication, not on repeated verifications
-    worker = Worker.authenticate(token, update_last_seen: true)
-    return false unless worker&.system?
-
-    # Cache the successful authentication for 5 minutes
-    Rails.cache.write(cache_key, worker.id, expires_in: 5.minutes)
-
-    # Store the authenticated worker for use in other methods
-    @current_worker = worker
-    true
   end
 
   def generate_session_token(user)

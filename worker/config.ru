@@ -11,8 +11,8 @@ PowernodeWorker.application
 VERSION_FILE = File.expand_path('VERSION', __dir__)
 WORKER_VERSION = File.exist?(VERSION_FILE) ? File.read(VERSION_FILE).strip : '0.0.1-dev'
 
-# Jobs API endpoint
-map '/api/v1/jobs' do
+# API endpoint (jobs, embeddings, LLM)
+map '/api/v1' do
   run JobsController
 end
 

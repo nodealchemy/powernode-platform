@@ -291,6 +291,9 @@ Cypress.Commands.add('standardTestSetup', (options = {}) => {
       case 'privacy':
         cy.setupPrivacyIntercepts();
         break;
+      case 'supply-chain':
+        cy.setupSupplyChainIntercepts();
+        break;
     }
   });
 

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class AiTemplateUpdateJob < BaseJob
-  queue_as :default
+  sidekiq_options queue: :default
 
   def execute(installation_id, user_id = nil)
     validate_required_params(installation_id: installation_id)

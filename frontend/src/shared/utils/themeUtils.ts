@@ -24,7 +24,7 @@ export const validateThemeClasses = () => {
         return { ...acc, [prop]: style.getPropertyValue(prop) };
       }, {} as Record<string, string>)
     };
-  } catch (error) {
+  } catch (_error) {
     // Handle DOM manipulation errors gracefully
     return {
       theme: 'light' as const,
@@ -93,18 +93,13 @@ export const validateThemeConsistency = () => {
       'btn-theme': document.querySelectorAll('[class*="btn-theme"]').length,
       'card-theme': document.querySelectorAll('[class*="card-theme"]').length
     };
-    
-    
-    if (issues.length > 0) {
-    } else {
-    }
-    
+
     return {
       issues,
       themeElements,
       consistent: issues.length === 0
     };
-  } catch (error) {
+  } catch (_error) {
     // Handle querySelector errors gracefully
     return {
       issues: ['DOM query error occurred'],
@@ -141,7 +136,7 @@ export const testFormTheming = () => {
     
     
     return results;
-  } catch (error) {
+  } catch (_error) {
     // Handle querySelector errors gracefully
     return {
       forms: 0,

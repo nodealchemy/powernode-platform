@@ -11,23 +11,21 @@ Account.find_each do |account|
   end
 
   # Create local storage configuration
-  storage = FileStorage.create!(
-    account: account,
-    name: 'Local Storage',
-    provider_type: 'local',
-    status: 'active',
-    priority: 100,
-    configuration: {
+  storage = FileManagement::Storage.find_or_create_by!(account: account, name: 'Local Storage') do |s|
+    s.provider_type = 'local'
+    s.status = 'active'
+    s.priority = 100
+    s.configuration = {
       'root_path' => Rails.root.join('storage', 'files', account.id).to_s
-    },
-    capabilities: {
+    }
+    s.capabilities = {
       'max_file_size' => 100.megabytes,
       'supported_formats' => [ 'image/*', 'application/pdf', 'text/*', 'video/*', 'audio/*' ],
       'features' => [ 'versioning', 'sharing', 'tagging', 'processing' ]
-    },
-    quota_bytes: 10.gigabytes,
-    is_default: true
-  )
+    }
+    s.quota_bytes = 10.gigabytes
+    s.is_default = true
+  end
 
   # Initialize storage directory
   begin

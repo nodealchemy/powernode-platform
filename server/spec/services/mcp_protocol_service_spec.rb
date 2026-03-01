@@ -9,7 +9,7 @@ RSpec.describe Mcp::ProtocolService, type: :service do
 
   describe '#initialize' do
     it 'initializes with default protocol version' do
-      expect(service.instance_variable_get(:@protocol_version)).to eq('2025-06-18')
+      expect(service.instance_variable_get(:@protocol_version)).to eq(Mcp::ProtocolService::DEFAULT_VERSION)
     end
 
     it 'sets up registry and transport services' do
@@ -32,7 +32,7 @@ RSpec.describe Mcp::ProtocolService, type: :service do
 
   describe '#list_tools' do
     let(:ai_provider) { create(:ai_provider, account: account, provider_type: 'openai', capabilities: [ 'text_generation', 'chat' ]) }
-    let!(:agent) { create(:ai_agent, account: account, provider: ai_provider, mcp_capabilities: [ 'text_generation' ]) }
+    let!(:agent) { create(:ai_agent, account: account, provider: ai_provider, agent_type: 'assistant') }
 
     before do
       # Create credentials for the provider
@@ -61,14 +61,14 @@ RSpec.describe Mcp::ProtocolService, type: :service do
     it 'filters tools by type' do
       result = service.list_tools({ type: 'ai_agent' })
 
-      # All formatted tools should have type 'ai_agent' since that's the default
-      expect(result['tools']).to all(include('type' => 'ai_agent'))
+      # Formatted tools include name, description, and inputSchema (type is not exposed in discovery format)
+      expect(result['tools']).to all(include('name', 'description', 'inputSchema'))
     end
   end
 
   describe '#describe_tool' do
     let(:ai_provider) { create(:ai_provider, account: account, provider_type: 'openai', capabilities: [ 'text_generation', 'chat' ]) }
-    let!(:agent) { create(:ai_agent, account: account, provider: ai_provider, mcp_capabilities: [ 'text_generation' ]) }
+    let!(:agent) { create(:ai_agent, account: account, provider: ai_provider, agent_type: 'assistant') }
     let(:tool_id) { agent.mcp_tool_manifest['name'] }
 
     before do
@@ -100,10 +100,10 @@ RSpec.describe Mcp::ProtocolService, type: :service do
 
   describe '#invoke_tool' do
     let(:ai_provider) { create(:ai_provider, account: account, provider_type: 'openai', capabilities: [ 'text_generation', 'chat' ]) }
-    let!(:agent) { create(:ai_agent, account: account, provider: ai_provider, mcp_capabilities: [ 'text_generation' ]) }
+    let!(:agent) { create(:ai_agent, account: account, provider: ai_provider, agent_type: 'assistant') }
     let(:tool_id) { agent.mcp_tool_manifest['name'] }
     let(:params) { { 'input' => 'test input' } }
-    let(:options) { { user_id: user.id } }
+    let(:options) { { user: user } }
 
     before do
       # Create credentials for the provider

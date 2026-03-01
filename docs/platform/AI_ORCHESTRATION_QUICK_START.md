@@ -473,14 +473,14 @@ console.log('Has permission:',
 **Symptoms**: Batch executions hang or fail
 
 **Solutions**:
-1. Check Sidekiq is running: `scripts/worker-manager.sh status`
+1. Check Sidekiq is running: `systemctl status powernode-worker@default`
 2. Verify worker can communicate with backend API
 3. Check concurrency settings
 4. Review worker logs
 
 ```bash
 # Check Sidekiq
-scripts/worker-manager.sh status
+systemctl status powernode-worker@default
 
 # Monitor queue
 redis-cli LLEN queue:ai_workflows
@@ -567,7 +567,7 @@ const handleMessage = useCallback((message) => {
 
 ```bash
 # Start services
-scripts/auto-dev.sh ensure
+sudo systemctl start powernode.target
 
 # Run backend tests
 cd server && bundle exec rspec

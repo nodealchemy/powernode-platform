@@ -20,14 +20,14 @@ class ApplicationController < ActionController::API
   private
 
   def handle_expired_token
-    render json: { success: false, error: "Token has expired" }, status: :unauthorized
+    render_error("Token has expired", status: :unauthorized)
   end
 
   def handle_invalid_signature
-    render json: { success: false, error: "Invalid token signature" }, status: :unauthorized
+    render_error("Invalid token signature", status: :unauthorized)
   end
 
   def handle_invalid_token
-    render json: { success: false, error: "Invalid token format" }, status: :unauthorized
+    render_error("Invalid token format", status: :unauthorized)
   end
 end

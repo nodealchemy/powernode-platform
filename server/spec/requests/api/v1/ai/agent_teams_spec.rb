@@ -2,14 +2,8 @@
 
 require 'rails_helper'
 
-# Stub Ai::AgentTeamExecutionJob (defined in worker service)
-module Ai
-  class AgentTeamExecutionJob
-    def self.perform_async(*args)
-      'job-id'
-    end
-  end
-end
+# WorkerJobService.enqueue_ai_team_execution dispatches to the external worker
+# and returns a parsed JSON hash like {"job_id" => "uuid-string"}
 
 RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
   let(:account) { create(:account) }
@@ -116,13 +110,10 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
     end
 
     context 'without permission' do
-      before do
-        # Remove the team_role from user
-        user.roles.delete(team_role)
-      end
+      let(:no_perm_user) { create(:user, account: account, permissions: []) }
 
       it 'returns forbidden' do
-        get '/api/v1/ai/agent_teams', headers: headers, as: :json
+        get '/api/v1/ai/agent_teams', headers: auth_headers_for(no_perm_user), as: :json
         expect(response).to have_http_status(:forbidden)
       end
     end
@@ -198,7 +189,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
         name: 'New Team',
         description: 'A new test team',
         team_type: 'sequential',
-        coordination_strategy: 'manager_worker',
+        coordination_strategy: 'priority_based',
         status: 'active',
         team_config: { 'max_iterations' => 10 }
       }
@@ -261,7 +252,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
       it 'returns validation errors for incompatible coordination strategy' do
         invalid_params = valid_params.deep_dup
         invalid_params[:team_type] = 'mesh'
-        invalid_params[:coordination_strategy] = 'manager_worker'
+        invalid_params[:coordination_strategy] = 'manager_led'
 
         post '/api/v1/ai/agent_teams', params: invalid_params, headers: headers, as: :json
 
@@ -474,12 +465,12 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
       end
 
       it 'queues team execution job' do
-        expect(Ai::AgentTeamExecutionJob).to receive(:perform_async).with(
+        expect(WorkerJobService).to receive(:enqueue_ai_team_execution).with(
           hash_including(
             team_id: team.id,
             user_id: user.id
           )
-        ).and_return('job-123')
+        ).and_return({ "job_id" => "job-123" })
 
         post "/api/v1/ai/agent_teams/#{team.id}/execute", params: execute_params, headers: headers, as: :json
 
@@ -491,7 +482,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
       end
 
       it 'handles empty input' do
-        expect(Ai::AgentTeamExecutionJob).to receive(:perform_async).and_return('job-456')
+        expect(WorkerJobService).to receive(:enqueue_ai_team_execution).and_return({ "job_id" => "job-456" })
 
         post "/api/v1/ai/agent_teams/#{team.id}/execute", headers: headers, as: :json
 
@@ -501,7 +492,7 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
       end
 
       it 'creates audit log entry' do
-        allow(Ai::AgentTeamExecutionJob).to receive(:perform_async).and_return('job-789')
+        allow(WorkerJobService).to receive(:enqueue_ai_team_execution).and_return({ "job_id" => "job-789" })
         post "/api/v1/ai/agent_teams/#{team.id}/execute", params: execute_params, headers: headers, as: :json
 
         audit_log = AuditLog.where(action: 'ai_agent_team.execution_started').last
@@ -512,83 +503,23 @@ RSpec.describe 'Api::V1::Ai::AgentTeams', type: :request do
     end
 
     context 'without execute permission' do
-      before do
-        # Remove execute permission from team_role but keep manage permission
-        execute_permission = Permission.find_by(name: 'ai.teams.execute')
-        team_role.permissions.delete(execute_permission) if execute_permission
-      end
+      let(:manage_only_user) { create(:user, account: account, permissions: ['ai.teams.manage']) }
 
       it 'returns forbidden' do
-        post "/api/v1/ai/agent_teams/#{team.id}/execute", headers: headers, as: :json
+        post "/api/v1/ai/agent_teams/#{team.id}/execute", headers: auth_headers_for(manage_only_user), as: :json
         expect(response).to have_http_status(:forbidden)
       end
     end
 
     context 'when job fails to queue' do
       it 'returns error' do
-        allow(Ai::AgentTeamExecutionJob).to receive(:perform_async).and_raise(StandardError, 'Queue error')
+        allow(WorkerJobService).to receive(:enqueue_ai_team_execution).and_raise(StandardError, 'Queue error')
 
         post "/api/v1/ai/agent_teams/#{team.id}/execute", headers: headers, as: :json
 
         expect(response).to have_http_status(:unprocessable_content)
         full_response = json_response_full
         expect(full_response['error']).to include('Failed to execute team')
-      end
-    end
-  end
-
-  describe 'POST /api/v1/ai/agent_teams/:id/execution_complete' do
-    let!(:team) { create(:ai_agent_team, account: account) }
-
-    context 'with valid params' do
-      let(:completion_params) do
-        {
-          job_id: 'job-123',
-          completed_at: Time.current.iso8601,
-          result: { output: 'Generated content' }
-        }
-      end
-
-      it 'records execution completion' do
-        post "/api/v1/ai/agent_teams/#{team.id}/execute_complete",
-             params: completion_params,
-             headers: headers,
-             as: :json
-
-        expect_success_response
-
-        audit_log = AuditLog.where(action: 'ai_agent_team.execution_completed').last
-        expect(audit_log).to be_present
-        expect(audit_log.resource_type).to eq('Ai::AgentTeam')
-        expect(audit_log.metadata['job_id']).to eq('job-123')
-      end
-    end
-  end
-
-  describe 'POST /api/v1/ai/agent_teams/:id/execution_failed' do
-    let!(:team) { create(:ai_agent_team, account: account) }
-
-    context 'with valid params' do
-      let(:failure_params) do
-        {
-          job_id: 'job-456',
-          failed_at: Time.current.iso8601,
-          error: 'Agent execution failed'
-        }
-      end
-
-      it 'records execution failure' do
-        post "/api/v1/ai/agent_teams/#{team.id}/execute_failed",
-             params: failure_params,
-             headers: headers,
-             as: :json
-
-        expect_success_response
-
-        audit_log = AuditLog.where(action: 'ai_agent_team.execution_failed').last
-        expect(audit_log).to be_present
-        expect(audit_log.resource_type).to eq('Ai::AgentTeam')
-        expect(audit_log.metadata['error']).to eq('Agent execution failed')
       end
     end
   end

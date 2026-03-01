@@ -4,6 +4,7 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { Button } from '@/shared/components/ui/Button';
 import { FormField } from '@/shared/components/ui/FormField';
 import { Copy, Check } from 'lucide-react';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 import { sanitizeQrCode } from '@/shared/utils/sanitizeHtml';
 
 interface TwoFactorSetupProps {
@@ -40,7 +41,7 @@ export const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCa
       } else {
         setError(response.error || 'Failed to enable two-factor authentication');
       }
-    } catch (error) {
+    } catch (_error) {
       setError('Failed to enable two-factor authentication');
     } finally {
       setLoading(false);
@@ -64,7 +65,7 @@ export const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCa
       } else {
         setError(response.error || 'Invalid verification code');
       }
-    } catch (error) {
+    } catch (_error) {
       setError('Failed to verify the code. Please try again.');
     } finally {
       setIsVerifying(false);
@@ -149,11 +150,7 @@ export const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCa
             className="text-center text-lg font-mono tracking-widest"
           />
 
-          {error && (
-            <div className="p-3 bg-theme-error-background border border-theme-error rounded-md">
-              <p className="text-theme-error text-sm">{error}</p>
-            </div>
-          )}
+          {error && <ErrorAlert message={error} />}
 
           <div className="flex space-x-3">
             <Button

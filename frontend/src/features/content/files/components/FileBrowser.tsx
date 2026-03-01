@@ -116,7 +116,7 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
     try {
       await filesApi.downloadFile(file.id, file.filename);
       showNotification(`Downloading ${file.filename}`, 'success');
-    } catch {
+    } catch (_error) {
       showNotification('Download failed', 'error');
     }
   };
@@ -133,7 +133,7 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
       await filesApi.deleteFile(file.id);
       showNotification('File deleted successfully', 'success');
       void loadFiles(pagination.current_page);
-    } catch {
+    } catch (_error) {
       showNotification('Failed to delete file', 'error');
     }
   };
@@ -201,7 +201,7 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
       showNotification(`${selectedFiles.size} files deleted successfully`, 'success');
       setSelectedFiles(new Set());
       void loadFiles(pagination.current_page);
-    } catch {
+    } catch (_error) {
       showNotification('Failed to delete some files', 'error');
     }
   };
@@ -233,7 +233,7 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search files..."
-            className="w-full pl-10 pr-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary placeholder-theme-secondary focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-10 pr-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary placeholder-theme-secondary focus:outline-none focus:ring-2 focus:ring-theme-primary"
           />
         </div>
 
@@ -242,7 +242,7 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
           value={filterCategory}
           onChange={(e) => setFilterCategory(e.target.value)}
           aria-label="Category"
-          className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
         >
           <option value="">All Categories</option>
           <option value="user_upload">User Upload</option>
@@ -256,7 +256,7 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
           value={filterFileType}
           onChange={(e) => setFilterFileType(e.target.value)}
           aria-label="File type"
-          className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
         >
           <option value="">All Types</option>
           <option value="document">Document</option>
@@ -273,7 +273,7 @@ export const FileBrowser: React.FC<FileBrowserProps> = ({
           value={filterVisibility}
           onChange={(e) => setFilterVisibility(e.target.value)}
           aria-label="Visibility"
-          className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
         >
           <option value="">All Visibility</option>
           <option value="private">Private</option>

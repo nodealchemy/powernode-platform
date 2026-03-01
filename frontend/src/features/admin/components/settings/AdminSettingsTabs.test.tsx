@@ -20,8 +20,8 @@ describe('AdminSettingsTabs', () => {
   it('renders settings tabs', async () => {
     renderWithProviders(
       <AdminSettingsTabs />,
-      { 
-        preloadedState: { 
+      {
+        preloadedState: {
           ...mockAuthenticatedState,
           auth: {
             ...mockAuthenticatedState.auth,
@@ -38,15 +38,15 @@ describe('AdminSettingsTabs', () => {
       expect(screen.getAllByText('Overview')).toHaveLength(2); // Desktop and mobile
       expect(screen.getAllByText('Email Settings')).toHaveLength(2); // Desktop and mobile
       expect(screen.getAllByText('Security')).toHaveLength(2); // Desktop and mobile
-      expect(screen.getAllByText('Payment Gateways')).toHaveLength(2); // Desktop and mobile
+      // Payment Gateways requires enterprise extension — not rendered without it
     });
   });
 
   it('highlights active tab based on current location', async () => {
     renderWithProviders(
       <AdminSettingsTabs />,
-      { 
-        preloadedState: { 
+      {
+        preloadedState: {
           ...mockAuthenticatedState,
           auth: {
             ...mockAuthenticatedState.auth,
@@ -69,8 +69,8 @@ describe('AdminSettingsTabs', () => {
   it('navigates to selected tab on click', async () => {
     renderWithProviders(
       <AdminSettingsTabs />,
-      { 
-        preloadedState: { 
+      {
+        preloadedState: {
           ...mockAuthenticatedState,
           auth: {
             ...mockAuthenticatedState.auth,
@@ -97,8 +97,8 @@ describe('AdminSettingsTabs', () => {
   it('filters tabs based on user permissions', async () => {
     renderWithProviders(
       <AdminSettingsTabs />,
-      { 
-        preloadedState: { 
+      {
+        preloadedState: {
           ...mockAuthenticatedState,
           auth: {
             ...mockAuthenticatedState.auth,
@@ -115,7 +115,7 @@ describe('AdminSettingsTabs', () => {
       // Should see Overview (no specific permissions required) and Performance (basic permission)
       expect(screen.getAllByText('Overview')).toHaveLength(2); // Desktop and mobile
       expect(screen.getAllByText('Performance')).toHaveLength(2); // Desktop and mobile
-      
+
       // Should NOT see permission-restricted tabs
       expect(screen.queryByText('Email Settings')).not.toBeInTheDocument();
       expect(screen.queryByText('Security')).not.toBeInTheDocument();
@@ -126,8 +126,8 @@ describe('AdminSettingsTabs', () => {
   it('shows mobile dropdown on small screens', async () => {
     renderWithProviders(
       <AdminSettingsTabs />,
-      { 
-        preloadedState: { 
+      {
+        preloadedState: {
           ...mockAuthenticatedState,
           auth: {
             ...mockAuthenticatedState.auth,
@@ -150,8 +150,8 @@ describe('AdminSettingsTabs', () => {
   it('handles mobile dropdown navigation', async () => {
     renderWithProviders(
       <AdminSettingsTabs />,
-      { 
-        preloadedState: { 
+      {
+        preloadedState: {
           ...mockAuthenticatedState,
           auth: {
             ...mockAuthenticatedState.auth,
@@ -175,8 +175,8 @@ describe('AdminSettingsTabs', () => {
   it('displays tab descriptions correctly', async () => {
     renderWithProviders(
       <AdminSettingsTabs />,
-      { 
-        preloadedState: { 
+      {
+        preloadedState: {
           ...mockAuthenticatedState,
           auth: {
             ...mockAuthenticatedState.auth,
@@ -197,8 +197,8 @@ describe('AdminSettingsTabs', () => {
   it('handles tabs with no required permissions', async () => {
     renderWithProviders(
       <AdminSettingsTabs />,
-      { 
-        preloadedState: { 
+      {
+        preloadedState: {
           ...mockAuthenticatedState,
           auth: {
             ...mockAuthenticatedState.auth,
@@ -217,6 +217,108 @@ describe('AdminSettingsTabs', () => {
     });
   });
 
+  describe('Extensions tab visibility', () => {
+    it('shows Extensions tab with admin.settings.read permission', async () => {
+      renderWithProviders(
+        <AdminSettingsTabs />,
+        {
+          preloadedState: {
+            ...mockAuthenticatedState,
+            auth: {
+              ...mockAuthenticatedState.auth,
+              user: {
+                ...mockUsers.adminUser,
+                permissions: ['admin.settings.read']
+              }
+            }
+          }
+        }
+      );
+
+      await waitFor(() => {
+        expect(screen.getAllByText('Extensions')).toHaveLength(2); // Desktop and mobile
+      });
+    });
+
+    it('shows Extensions tab even when enterprise is disabled', async () => {
+      renderWithProviders(
+        <AdminSettingsTabs />,
+        {
+          preloadedState: {
+            ...mockAuthenticatedState,
+            auth: {
+              ...mockAuthenticatedState.auth,
+              user: {
+                ...mockUsers.adminUser,
+                permissions: ['admin.settings.read']
+              }
+            },
+            config: {
+              loadedExtensions: [],
+              coreMode: true,
+              isLoaded: true,
+            }
+          }
+        }
+      );
+
+      await waitFor(() => {
+        expect(screen.getAllByText('Extensions')).toHaveLength(2); // Desktop and mobile
+      });
+    });
+  });
+
+  describe('Development tab visibility', () => {
+    it('shows Development tab with admin.settings.read permission', async () => {
+      renderWithProviders(
+        <AdminSettingsTabs />,
+        {
+          preloadedState: {
+            ...mockAuthenticatedState,
+            auth: {
+              ...mockAuthenticatedState.auth,
+              user: {
+                ...mockUsers.adminUser,
+                permissions: ['admin.settings.read']
+              }
+            }
+          }
+        }
+      );
+
+      await waitFor(() => {
+        expect(screen.getAllByText('Development')).toHaveLength(2); // Desktop and mobile
+      });
+    });
+
+    it('shows Development tab even in core mode (no enterprise)', async () => {
+      renderWithProviders(
+        <AdminSettingsTabs />,
+        {
+          preloadedState: {
+            ...mockAuthenticatedState,
+            auth: {
+              ...mockAuthenticatedState.auth,
+              user: {
+                ...mockUsers.adminUser,
+                permissions: ['admin.settings.read']
+              }
+            },
+            config: {
+              loadedExtensions: [],
+              coreMode: true,
+              isLoaded: true,
+            }
+          }
+        }
+      );
+
+      await waitFor(() => {
+        expect(screen.getAllByText('Development')).toHaveLength(2); // Desktop and mobile
+      });
+    });
+  });
+
   it('shows correct active tab for different routes', async () => {
     // Temporarily modify the mock location for this test
     const originalPathname = mockLocation.pathname;
@@ -224,8 +326,8 @@ describe('AdminSettingsTabs', () => {
 
     renderWithProviders(
       <AdminSettingsTabs />,
-      { 
-        preloadedState: { 
+      {
+        preloadedState: {
           ...mockAuthenticatedState,
           auth: {
             ...mockAuthenticatedState.auth,
@@ -239,12 +341,12 @@ describe('AdminSettingsTabs', () => {
     );
 
     await waitFor(() => {
-      // Find the desktop Email Settings button specifically 
+      // Find the desktop Email Settings button specifically
       const buttons = screen.getAllByRole('button');
       const emailButton = buttons.find(button => button.textContent?.includes('Email Settings'));
       expect(emailButton).toHaveAttribute('aria-current', 'page');
     });
-    
+
     // Reset the mock back to original value for other tests
     mockLocation.pathname = originalPathname;
   });

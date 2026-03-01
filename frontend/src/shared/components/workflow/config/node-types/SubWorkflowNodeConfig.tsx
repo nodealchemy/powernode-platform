@@ -3,7 +3,7 @@ import { Input } from '@/shared/components/ui/Input';
 import { Textarea } from '@/shared/components/ui/Textarea';
 import { Checkbox } from '@/shared/components/ui/Checkbox';
 import { EnhancedSelect } from '@/shared/components/ui/EnhancedSelect';
-import type { NodeTypeConfigProps } from './types';
+import type { NodeTypeConfigProps } from '@/shared/components/workflow/config/node-types/types';
 
 export const SubWorkflowNodeConfig: React.FC<NodeTypeConfigProps> = ({
   config,
@@ -86,7 +86,7 @@ export const SubWorkflowNodeConfig: React.FC<NodeTypeConfigProps> = ({
             try {
               const parsed = JSON.parse(e.target.value);
               handleConfigChange('input_mapping', parsed);
-            } catch {
+            } catch (_error) {
               handleConfigChange('input_mapping', e.target.value);
             }
           }}
@@ -109,7 +109,7 @@ export const SubWorkflowNodeConfig: React.FC<NodeTypeConfigProps> = ({
             try {
               const parsed = JSON.parse(e.target.value);
               handleConfigChange('output_mapping', parsed);
-            } catch {
+            } catch (_error) {
               handleConfigChange('output_mapping', e.target.value);
             }
           }}

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 FactoryBot.define do
   factory :page do
     sequence(:title) { |n| "#{Faker::Lorem.sentence(word_count: 3).chomp('.')} #{n}" }
@@ -6,7 +8,8 @@ FactoryBot.define do
     meta_description { Faker::Lorem.sentence(word_count: 15) }
     meta_keywords { Faker::Lorem.words(number: 8).join(', ') }
     status { 'draft' }
-    association :user, factory: :user
+    user { association(:user, account: account) }
+    account
     published_at { nil }
 
     trait :published do
@@ -38,7 +41,7 @@ FactoryBot.define do
 
           ```ruby
           def hello_world
-            puts "Hello, World!"
+            Rails.logger.debug "Hello, World!"
           end
           ```
 

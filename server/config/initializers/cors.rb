@@ -18,8 +18,12 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
         CorsConfigurationService.origin_allowed?(source)
       rescue StandardError => e
         Rails.logger.error "CORS origin check failed: #{e.message}"
-        # Fallback: allow localhost in development
-        Rails.env.development? && (source.start_with?("http://localhost") || source.start_with?("http://127.0.0.1"))
+        if Rails.env.development?
+          source.start_with?("http://localhost") || source.start_with?("http://127.0.0.1")
+        else
+          Rails.logger.warn "CORS: Rejecting origin #{source} due to service error"
+          false
+        end
       end
     end
 

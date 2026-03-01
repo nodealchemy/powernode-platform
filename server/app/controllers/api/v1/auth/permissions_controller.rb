@@ -11,8 +11,6 @@ module Api
             render_success(user_permissions)
           elsif current_worker
             render_success(worker_permissions)
-          elsif current_service
-            render_success(service_permissions)
           else
             render_error("Authentication required", status: :unauthorized)
           end
@@ -33,9 +31,6 @@ module Api
                                   current_user.permission_names
           elsif current_worker
                                   current_worker.permission_names
-          elsif current_service
-                                  # Service tokens have all permissions by default
-                                  permissions_to_check
           else
                                   []
           end
@@ -81,15 +76,6 @@ module Api
             permissions: current_worker.permission_names,
             permission_version: calculate_worker_permission_version(current_worker),
             worker_status: current_worker.status
-          }
-        end
-
-        def service_permissions
-          {
-            type: "service",
-            service: current_service,
-            permissions: [ "*" ], # Service tokens have all permissions
-            permission_version: "service"
           }
         end
 

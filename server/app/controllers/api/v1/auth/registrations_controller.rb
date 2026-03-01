@@ -3,8 +3,10 @@
 class Api::V1::Auth::RegistrationsController < ApplicationController
   # Rate limiting is now included in ApplicationController
   include UserSerialization
+  include RefreshTokenCookie
 
   skip_before_action :authenticate_request, only: [ :create ]
+  before_action :require_saas_mode, only: [ :create ]
 
   # POST /api/v1/registrations
   def create
@@ -31,9 +33,8 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
       @user = @account.users.build(user_params)
       # First user in account gets owner role (this is handled by User model callback)
 
-      # Handle email verification based on system settings
-      if System::SettingsService.email_verification_required?
-        # Generate verification token for production/development
+      # Handle email verification based on environment settings
+      if ENV["DISABLE_EMAIL_VERIFICATION"] != "true" && !Rails.env.test?
         @user.generate_email_verification_token
       else
         @user.email_verified_at = Time.current
@@ -43,28 +44,29 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
         raise ActiveRecord::RecordInvalid.new(@user)
       end
 
-      # Create subscription if plan is selected
-      plan_id = params[:plan_id] || params.dig(:user, :plan_id)
-      if plan_id.present?
-        plan = Plan.find_by(id: plan_id, status: "active", is_public: true)
-        if plan
-          # Create subscription with trial period
-          @subscription = @account.build_subscription(
-            plan: plan,
-            status: "trialing",
-            quantity: 1,
-            trial_start: Time.current,
-            trial_end: Time.current + plan.trial_days.days,
-            current_period_start: Time.current,
-            current_period_end: Time.current + plan.trial_days.days
-          )
-          @subscription.save!
-
-          # Note: Plan-based role assignment not implemented in single-role system
+      # Create subscription if plan is selected (enterprise billing only)
+      if Shared::FeatureGateService.billing_enabled?
+        plan_id = params[:plan_id] || params.dig(:user, :plan_id)
+        if plan_id.present?
+          plan = Billing::Plan.find_by(id: plan_id, status: "active", is_public: true)
+          if plan
+            # Create subscription with trial period
+            @subscription = @account.build_subscription(
+              plan: plan,
+              status: "trialing",
+              quantity: 1,
+              trial_start: Time.current,
+              trial_end: Time.current + plan.trial_days.days,
+              current_period_start: Time.current,
+              current_period_end: Time.current + plan.trial_days.days
+            )
+            @subscription.save!
+          end
         end
       end
 
       tokens = Security::JwtService.generate_user_tokens(@user)
+      set_refresh_cookie(tokens[:refresh_token])
       @user.record_login!
 
       # Send verification email if not auto-verified
@@ -77,7 +79,7 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
               email: @user.email,
               verification_token: @user.email_verification_token,
               user_name: @user.full_name,
-              smtp_settings: System::SettingsService.get_setting("smtp_settings")
+              smtp_settings: Rails.application.credentials.dig(:mail, :smtp)
             }
           )
         rescue StandardError => e
@@ -91,7 +93,6 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
         account: account_data(@account),
         subscription: @subscription ? subscription_data(@subscription) : nil,
         access_token: tokens[:access_token],
-        refresh_token: tokens[:refresh_token],
         expires_at: tokens[:expires_at]
       }
 
@@ -115,6 +116,12 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
   end
 
   private
+
+  def require_saas_mode
+    unless Shared::FeatureGateService.enterprise_loaded?
+      render_error("Registration is disabled in self-hosted mode", :forbidden)
+    end
+  end
 
   def should_rate_limit?
     true # Always rate limit registration attempts

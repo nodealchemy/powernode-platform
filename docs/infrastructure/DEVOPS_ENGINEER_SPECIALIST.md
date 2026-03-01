@@ -1,69 +1,96 @@
 ---
-Last Updated: 2026-01-17
-Platform Version: 1.0.0
+Last Updated: 2026-02-28
+Platform Version: 0.3.0
 ---
 
 # DevOps Engineer Specialist
 
-**MCP Connection**: `devops_engineer`
-**Primary Role**: DevOps specialist handling deployment, CI/CD, monitoring, and infrastructure automation
+**Primary Role**: DevOps specialist handling deployment, CI/CD, container orchestration, and infrastructure automation
+
+## Platform DevOps Capabilities
+
+Powernode includes a built-in DevOps platform with 41 models, 30+ API controllers, and 20+ services:
+
+| Capability | Components |
+|-----------|-----------|
+| **CI/CD Pipelines** | 8 pipeline models, 12 step types, AI-powered steps |
+| **Container Orchestration** | Docker host management, container templates, resource quotas |
+| **Docker Swarm** | Cluster management, service deployment, stack orchestration |
+| **Git Integration** | GitHub, GitLab, Gitea, Bitbucket with webhooks and runners |
+| **Integration Framework** | Template marketplace for CI/CD, monitoring, notifications |
+
+**Key References:**
+- **[DevOps Platform Guide](../platform/DEVOPS_PLATFORM_GUIDE.md)** - Full DevOps subsystem documentation
+- **[Docker Swarm Operations](DOCKER_SWARM_OPERATIONS.md)** - Swarm management guide
 
 ## Role & Responsibilities
 
-The DevOps Engineer specializes in infrastructure automation, deployment pipelines, and production monitoring for the Powernode subscription platform. This role coordinates with the platform architect and other specialists to ensure reliable, scalable infrastructure.
+The DevOps Engineer specializes in infrastructure automation, deployment pipelines, container orchestration, and production monitoring for the Powernode platform. This role coordinates with the platform architect and other specialists to ensure reliable, scalable infrastructure.
 
 ### Core Areas
-- **CI/CD Pipeline Management**: GitHub Actions workflow automation
-- **Deployment Orchestration**: Multi-environment deployment strategies
-- **Infrastructure as Code**: Docker containerization and orchestration
+- **CI/CD Pipeline Management**: Built-in pipeline system + GitHub Actions/Gitea runners
+- **Container Orchestration**: Docker host management with resource quotas and Vault integration
+- **Docker Swarm Management**: Multi-cluster orchestration with blue/green and canary deployments
+- **Git Integration**: Multi-provider (GitHub/GitLab/Gitea/Bitbucket) with webhook-driven pipelines
+- **Deployment Orchestration**: Multi-environment deployment strategies (blue/green, canary)
 - **Monitoring & Alerting**: Application and infrastructure health monitoring
-- **Security Infrastructure**: Production security and compliance automation
-- **Database Operations**: Backup, recovery, and migration automation
-- **Performance Monitoring**: Resource optimization and scaling strategies
+- **Security Infrastructure**: TLS communication, Vault secrets, PCI compliance
+- **Database Operations**: Backup, recovery, and migration automation (352 tables)
 
 ### Integration Points
 - **Platform Architect**: Infrastructure planning and resource allocation
-- **Security Specialist**: Security automation and compliance monitoring
-- **Performance Optimizer**: Resource monitoring and scaling automation
+- **AI Platform**: Container execution for AI agents, A2A task integration
+- **Security Specialist**: Vault integration, TLS, security violation tracking
 - **Backend/Frontend Specialists**: Application deployment coordination
-- **Test Engineers**: Test environment provisioning and CI/CD integration
+- **Worker System**: Pipeline execution dispatched to Sidekiq workers
 
 ## Infrastructure Architecture
 
 ### Production Environment Stack
 ```yaml
 # Infrastructure Components
-Load Balancer: Nginx/HAProxy
-Application Servers: Puma (Rails API)
-Background Processing: Sidekiq with Redis
-Database: PostgreSQL with read replicas
-Cache Layer: Redis for sessions and caching
-File Storage: AWS S3/Azure Blob for uploads
-CDN: CloudFlare for static assets
-Monitoring: Datadog/New Relic for APM
+Application Servers: Puma (Rails 8.1 API) - systemd managed
+Background Processing: Sidekiq (standalone worker service) with Redis
+Database: PostgreSQL with pgvector extension (352 tables)
+Cache Layer: Redis (DB 0: cache, DB 1: Sidekiq, DB 2: ActionCable)
+WebSockets: ActionCable (17 channels) via Puma
+File Storage: Local / S3-compatible
+Container Runtime: Docker with optional Swarm clustering
+DevOps Platform: Built-in CI/CD with multi-provider git integration
 ```
 
 ### Environment Strategy
 ```bash
 # Environment Tiers
-Production:  Main branch deployment - Full monitoring
-Staging:     Develop branch deployment - Pre-production testing
+Production:  master branch deployment - Full monitoring
+Staging:     develop branch deployment - Pre-production testing
 Development: Feature branch deployment - Development testing
-Preview:     Pull request deployments - Code review testing
+Preview:     Pull request deployments - Pipeline-driven preview
 ```
 
-### Container Architecture
-```dockerfile
-# Multi-stage Docker builds
-FROM ruby:3.2-alpine AS backend-base
-# Rails API container configuration
-
-FROM node:18-alpine AS frontend-build
-# React build optimization
-
-FROM ruby:3.2-alpine AS worker
-# Sidekiq worker configuration
+### Service Architecture
 ```
+powernode.target (systemd)
+├── powernode-backend@default    # Rails API (port 3000)
+├── powernode-worker@default     # Sidekiq worker (port 4567)
+├── powernode-frontend@default   # Vite dev / Nginx (port 3002)
+├── postgresql                   # Database
+└── redis                        # Cache + queues + WebSocket
+```
+
+### Built-in DevOps Platform
+
+Unlike traditional external CI/CD tools, Powernode includes an integrated DevOps platform:
+
+| Component | Description |
+|-----------|-------------|
+| **Pipelines** | Multi-step CI/CD with AI-powered steps (review, implement, deploy) |
+| **Container Execution** | Docker-based container instances with Vault secrets |
+| **Docker Management** | Remote Docker host management with TLS |
+| **Swarm Orchestration** | Multi-cluster Swarm management with deployment strategies |
+| **Git Providers** | GitHub, GitLab, Gitea, Bitbucket integration |
+| **Runners** | Managed CI/CD runners with health monitoring |
+| **Integration Templates** | Marketplace for reusable CI/CD components |
 
 ## CI/CD Pipeline Standards
 
@@ -706,21 +733,24 @@ kubectl create secret generic payment-secrets \
 ## Development Workflow
 
 ### Process Management (CRITICAL)
-**NEVER start servers manually** - Always use management scripts with screen sessions.
+**NEVER start servers manually** - Always use systemd services.
 
 ```bash
 # Essential commands
-$POWERNODE_ROOT/scripts/auto-dev.sh ensure    # Start all services
-$POWERNODE_ROOT/scripts/auto-dev.sh status    # Health check
+sudo systemctl start powernode.target              # Start all services
+sudo scripts/systemd/powernode-installer.sh status  # Health check
 
 # Individual services
-$POWERNODE_ROOT/scripts/backend-manager.sh start|stop|status|logs
-$POWERNODE_ROOT/scripts/worker-manager.sh start|stop|status|start-web|stop-web  
-$POWERNODE_ROOT/scripts/frontend-manager.sh start|stop|status|logs
+sudo systemctl start|stop|restart powernode-backend@default
+sudo systemctl start|stop|restart powernode-worker@default
+sudo systemctl start|stop|restart powernode-frontend@default
+journalctl -u powernode-backend@default -f          # Tail backend logs
+journalctl -u powernode-worker@default -f           # Tail worker logs
+journalctl -u powernode-frontend@default -f         # Tail frontend logs
 
 # Service endpoints
 # Backend: http://localhost:3000
-# Worker Web: http://localhost:4567/sidekiq  
+# Worker Web: http://localhost:4567/sidekiq
 # Frontend: http://localhost:3002
 ```
 
@@ -774,9 +804,9 @@ end"
 ### Infrastructure Setup
 ```bash
 # Local development environment
-docker-compose up -d                    # Start all services
-docker-compose logs -f api             # View API logs
-docker-compose exec api rails console  # Access Rails console
+docker compose -f docker/docker-compose.yml up -d  # Start all services
+docker compose -f docker/docker-compose.yml logs -f api             # View API logs
+docker compose -f docker/docker-compose.yml exec api rails console  # Access Rails console
 
 # Production deployment
 kubectl apply -f k8s/                  # Deploy to Kubernetes
@@ -843,14 +873,16 @@ stern powernode-api  # Real-time log streaming
 ## Git Workflow & Release Management
 
 ### Git-Flow Model (MANDATORY)
-**Current Version**: `0.0.1` → `0.1.0` (next release)
+**Current Version**: `0.3.0`
 
 **Branch Structure**:
-- `main` - Production releases only (2 PR reviews required)
-- `develop` - Integration branch (1 PR review required)
-- `feature/ISSUE-description` - New features
-- `release/v1.2.0` - Release preparation
-- `hotfix/v1.2.1-description` - Production fixes
+- `master` - Production releases only
+- `develop` - Integration branch
+- `feature/*` - New features
+- `release/0.x.0` - Release preparation (NO "v" prefix)
+- `hotfix/*` - Production fixes
+
+**CRITICAL**: Tag naming uses NO "v" prefix — `0.3.0` not `v0.3.0`
 
 **Git Configuration**:
 - **IMPORTANT**: Clean commit messages without Claude attribution
@@ -902,9 +934,9 @@ feat!: redesign authentication API       # MAJOR bump
 - [ ] Performance benchmarks met
 - [ ] Documentation updated
 
-**Release Tagging**:
+**Release Tagging** (no "v" prefix):
 ```bash
-git tag -a v1.2.0 -m "Release v1.2.0
+git tag -a 1.2.0 -m "Release 1.2.0
 
 Features:
 - New payment gateway integration
@@ -949,7 +981,7 @@ find $POWERNODE_ROOT -name "*.tmp" -o -name ".DS_Store" -o -name "Thumbs.db" -o 
 ### Essential Commands
 ```bash
 # Development Workflow
-$POWERNODE_ROOT/scripts/auto-dev.sh ensure            # Start all services
+sudo systemctl start powernode.target                  # Start all services
 cd $POWERNODE_ROOT/server && rails db:migrate db:seed # Database setup
 cd $POWERNODE_ROOT/server && bundle exec rspec        # Backend tests
 cd $POWERNODE_ROOT/frontend && npm test               # Frontend tests

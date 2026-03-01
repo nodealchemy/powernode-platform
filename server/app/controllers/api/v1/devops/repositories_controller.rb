@@ -7,18 +7,18 @@ module Api
         include AuditLogging
 
         before_action :authenticate_request
-        before_action :require_read_permission, only: [:index, :show]
-        before_action :require_write_permission, only: [:create, :update, :destroy, :sync, :attach_pipeline, :detach_pipeline]
-        before_action :set_repository, only: [:show, :update, :destroy, :sync, :attach_pipeline, :detach_pipeline]
+        before_action :require_read_permission, only: [ :index, :show ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy, :sync, :attach_pipeline, :detach_pipeline ]
+        before_action :set_repository, only: [ :show, :update, :destroy, :sync, :attach_pipeline, :detach_pipeline ]
 
         # GET /api/v1/devops/repositories
         def index
-          repositories = current_user.account.devops_repositories
-                                     .includes(:provider, :pipelines)
+          repositories = current_user.account.git_repositories.from_devops
+                                     .includes(:provider)
                                      .order(created_at: :desc)
 
           # Filter by provider if provided
-          repositories = repositories.where(devops_provider_id: params[:provider_id]) if params[:provider_id].present?
+          repositories = repositories.by_provider(params[:provider_id]) if params[:provider_id].present?
 
           # Filter by active status if provided
           repositories = repositories.where(is_active: params[:is_active]) if params[:is_active].present?
@@ -27,8 +27,8 @@ module Api
             repositories: serialize_collection(repositories),
             meta: {
               total: repositories.count,
-              active_count: current_user.account.devops_repositories.where(is_active: true).count,
-              by_provider: current_user.account.devops_repositories.group(:devops_provider_id).count
+              active_count: current_user.account.git_repositories.from_devops.where(is_active: true).count,
+              by_provider: current_user.account.git_repositories.from_devops.group(:devops_provider_id).count
             }
           })
 
@@ -55,8 +55,11 @@ module Api
           # Verify provider belongs to account
           provider = current_user.account.devops_providers.find(params[:repository][:provider_id])
 
-          repository = current_user.account.devops_repositories.new(repository_params)
+          repository = current_user.account.git_repositories.new(repository_params)
           repository.provider = provider
+          repository.origin = "devops"
+          repository.owner = repository.full_name&.split("/")&.first
+          repository.external_id = params.dig(:repository, :external_id) || SecureRandom.hex(8)
 
           if repository.save
             render_success({
@@ -79,7 +82,8 @@ module Api
         def update
           # If changing provider, verify it belongs to the account
           if params[:repository][:provider_id].present?
-            current_user.account.devops_providers.find(params[:repository][:provider_id])
+            provider = current_user.account.devops_providers.find(params[:repository][:provider_id])
+            @repository.provider = provider
           end
 
           if @repository.update(repository_params)
@@ -121,7 +125,7 @@ module Api
           begin
             WorkerJobService.enqueue_job(
               "Devops::ProviderSyncJob",
-              args: [@repository.devops_provider_id, { repository_id: @repository.id }],
+              args: [ @repository.devops_provider_id, { repository_id: @repository.id } ],
               queue: "devops_default"
             )
             job_queued = true
@@ -139,8 +143,7 @@ module Api
 
           log_audit_event("devops.repositories.sync", @repository)
         rescue StandardError => e
-          Rails.logger.error "Failed to sync repository: #{e.message}"
-          render_error("Failed to sync repository: #{e.message}", status: :internal_server_error)
+          render_internal_error("Failed to sync repository", exception: e)
         end
 
         # POST /api/v1/devops/repositories/:id/attach_pipeline
@@ -148,12 +151,12 @@ module Api
           pipeline = current_user.account.devops_pipelines.find(params[:pipeline_id])
 
           # Check if already attached
-          if @repository.pipeline_repositories.exists?(ci_cd_pipeline_id: pipeline.id)
+          if @repository.devops_pipeline_repositories.exists?(devops_pipeline_id: pipeline.id)
             render_error("Pipeline already attached to this repository", status: :unprocessable_content)
             return
           end
 
-          pipeline_repo = @repository.pipeline_repositories.create!(
+          pipeline_repo = @repository.devops_pipeline_repositories.create!(
             pipeline: pipeline,
             overrides: params[:overrides] || {}
           )
@@ -172,13 +175,12 @@ module Api
         rescue ActiveRecord::RecordNotFound
           render_error("Pipeline not found", status: :not_found)
         rescue StandardError => e
-          Rails.logger.error "Failed to attach pipeline: #{e.message}"
-          render_error("Failed to attach pipeline: #{e.message}", status: :internal_server_error)
+          render_internal_error("Failed to attach pipeline", exception: e)
         end
 
         # DELETE /api/v1/devops/repositories/:id/detach_pipeline
         def detach_pipeline
-          pipeline_repo = @repository.pipeline_repositories.find_by!(ci_cd_pipeline_id: params[:pipeline_id])
+          pipeline_repo = @repository.devops_pipeline_repositories.find_by!(devops_pipeline_id: params[:pipeline_id])
           pipeline_repo.destroy!
 
           render_success({
@@ -190,14 +192,13 @@ module Api
         rescue ActiveRecord::RecordNotFound
           render_error("Pipeline not attached to this repository", status: :not_found)
         rescue StandardError => e
-          Rails.logger.error "Failed to detach pipeline: #{e.message}"
-          render_error("Failed to detach pipeline: #{e.message}", status: :internal_server_error)
+          render_internal_error("Failed to detach pipeline", exception: e)
         end
 
         private
 
         def set_repository
-          @repository = current_user.account.devops_repositories.find(params[:id])
+          @repository = current_user.account.git_repositories.from_devops.find(params[:id])
         rescue ActiveRecord::RecordNotFound
           render_error("Repository not found", status: :not_found)
         end
@@ -221,8 +222,7 @@ module Api
             :default_branch,
             :external_id,
             :is_active,
-            :provider_id,
-            settings: {}
+            metadata: {}
           )
         end
 
@@ -235,7 +235,7 @@ module Api
           result[:id] = repository.id
 
           if include_pipelines == "true" || include_pipelines == true
-            result[:pipelines] = repository.pipeline_repositories.includes(:pipeline).map do |pr|
+            result[:pipelines] = repository.devops_pipeline_repositories.includes(:pipeline).map do |pr|
               {
                 id: pr.pipeline.id,
                 name: pr.pipeline.name,

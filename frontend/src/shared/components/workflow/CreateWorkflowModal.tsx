@@ -6,7 +6,7 @@ import { Input } from '@/shared/components/ui/Input';
 import { Textarea } from '@/shared/components/ui/Textarea';
 import { EnhancedSelect } from '@/shared/components/ui/EnhancedSelect';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/components/ui/Tabs';
-import { WorkflowBuilderProvider } from './WorkflowBuilder';
+import { WorkflowBuilderProvider } from '@/shared/components/workflow/WorkflowBuilder';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { workflowsApi } from '@/shared/services/ai';
@@ -140,7 +140,7 @@ export const CreateWorkflowModal: React.FC<CreateWorkflowModalProps> = ({
   };
 
   // Handle form field changes
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const handleInputChange = (field: keyof WorkflowFormData, value: any) => {
     setFormData(prev => ({
       ...prev,
@@ -159,9 +159,9 @@ export const CreateWorkflowModal: React.FC<CreateWorkflowModalProps> = ({
 
   // Handle workflow builder data
   const handleWorkflowData = (workflowData: {
-    nodes: AiWorkflowNode[];
-    edges: AiWorkflowEdge[];
-    configuration: Record<string, any>;
+    nodes: any[];
+    edges: any[];
+    configuration: Record<string, unknown>;
   }) => {
     setFormData(prev => ({
       ...prev,

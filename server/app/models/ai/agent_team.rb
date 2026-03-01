@@ -7,9 +7,10 @@ module Ai
     # ==========================================
     # Constants
     # ==========================================
-    TEAM_TYPES = %w[hierarchical mesh sequential parallel].freeze
-    COORDINATION_STRATEGIES = %w[manager_worker peer_to_peer hybrid].freeze
+    TEAM_TYPES = %w[hierarchical mesh sequential parallel workspace].freeze
+    COORDINATION_STRATEGIES = %w[manager_led consensus auction round_robin priority_based].freeze
     STATUSES = %w[active inactive archived].freeze
+    PARALLEL_MODES = %w[standard worktree].freeze
 
     # ==========================================
     # Associations
@@ -17,6 +18,11 @@ module Ai
     belongs_to :account
     has_many :members, class_name: "Ai::AgentTeamMember", foreign_key: "ai_agent_team_id", dependent: :destroy
     has_many :agents, class_name: "Ai::Agent", through: :members, source: :agent
+    has_many :ai_team_roles, class_name: "Ai::TeamRole", foreign_key: "agent_team_id", dependent: :destroy
+    has_many :ai_team_channels, class_name: "Ai::TeamChannel", foreign_key: "agent_team_id", dependent: :destroy
+    has_many :team_executions, class_name: "Ai::TeamExecution", foreign_key: "agent_team_id", dependent: :destroy
+    has_many :conversations, class_name: "Ai::Conversation", foreign_key: "agent_team_id", dependent: :nullify
+    has_many :compound_learnings, class_name: "Ai::CompoundLearning", foreign_key: "ai_agent_team_id", dependent: :nullify
 
     # ==========================================
     # Validations
@@ -26,6 +32,7 @@ module Ai
     validates :team_type, inclusion: { in: TEAM_TYPES }
     validates :coordination_strategy, inclusion: { in: COORDINATION_STRATEGIES }
     validates :status, inclusion: { in: STATUSES }
+    validates :parallel_mode, inclusion: { in: PARALLEL_MODES }, allow_nil: true
 
     validate :validate_team_config_structure
     validate :validate_coordination_compatibility
@@ -41,12 +48,13 @@ module Ai
     scope :mesh, -> { where(team_type: "mesh") }
     scope :sequential, -> { where(team_type: "sequential") }
     scope :parallel, -> { where(team_type: "parallel") }
+    scope :workspaces, -> { where(team_type: "workspace") }
 
     # ==========================================
     # Callbacks
     # ==========================================
     before_validation :set_default_values, on: :create
-    after_create :initialize_team_communication
+    after_create :log_team_creation
 
     # ==========================================
     # Public Methods
@@ -79,13 +87,67 @@ module Ai
     # Get team statistics
     def team_stats
       {
-        total_members: members.count,
         member_count: members.count,
         has_lead: has_lead?,
         team_type: team_type,
         coordination_strategy: coordination_strategy,
         status: status
       }
+    end
+
+    # Validate team composition and return warnings/recommendations
+    def validate_team_composition
+      warnings = []
+      recommendations = []
+      loaded_members = members.to_a
+      lead_count = loaded_members.count(&:is_lead)
+      worker_count = loaded_members.count { |m| !m.is_lead }
+      total = loaded_members.size
+
+      # Hierarchical teams should have a lead
+      if team_type == "hierarchical" && lead_count.zero? && total.positive?
+        warnings << "Hierarchical team has no lead member"
+        recommendations << "Assign a lead to coordinate workers"
+      end
+
+      # Workers-per-lead ratio check
+      if lead_count.positive?
+        ratio = worker_count.to_f / lead_count
+        if ratio > 9
+          warnings << "Workers-per-lead ratio is #{ratio.round(1)}:1 (10+ is unhealthy)"
+          recommendations << "Add more leads or reduce workers"
+        elsif ratio > 5
+          warnings << "Workers-per-lead ratio is #{ratio.round(1)}:1 (6-9 needs attention)"
+        end
+      end
+
+      # Sequential teams need at least 2 members
+      if team_type == "sequential" && total < 2
+        warnings << "Sequential teams need at least 2 members for meaningful execution"
+        recommendations << "Add more members for sequential pipeline"
+      end
+
+      # No reviewer role suggestion
+      unless loaded_members.any? { |m| m.role&.include?("reviewer") || m.role&.include?("review") }
+        recommendations << "Consider adding a reviewer role for quality assurance"
+      end
+
+      # Store warnings in team_config
+      update_column(:team_config, (team_config || {}).merge("composition_warnings" => warnings)) if warnings.any?
+
+      { warnings: warnings, recommendations: recommendations }
+    end
+
+    def require_plan_approval?
+      team_config&.dig("require_plan_approval") == true
+    end
+
+    def coordinator_enabled?
+      team_config&.dig("coordinator_enabled") != false
+    end
+
+    def lead_agent
+      team_lead&.agent
     end
 
     # Check if team is active
@@ -140,7 +202,7 @@ module Ai
       self.team_config ||= {}
       self.status ||= "active"
       self.team_type ||= "hierarchical"
-      self.coordination_strategy ||= "manager_worker"
+      self.coordination_strategy ||= "manager_led"
     end
 
     def validate_team_config_structure
@@ -152,24 +214,26 @@ module Ai
     end
 
     def validate_coordination_compatibility
-      # Hierarchical teams should use manager_worker coordination
-      if team_type == "hierarchical" && coordination_strategy == "peer_to_peer"
-        errors.add(:coordination_strategy, "hierarchical teams should use manager_worker or hybrid coordination")
+      # Workspace teams are flexible - skip coordination validation
+      return if team_type == "workspace"
+
+      # Hierarchical teams should use manager_led coordination
+      if team_type == "hierarchical" && coordination_strategy == "consensus"
+        errors.add(:coordination_strategy, "hierarchical teams should use manager_led or priority_based coordination")
       end
 
-      # Sequential teams work best with manager_worker
-      if team_type == "sequential" && coordination_strategy == "peer_to_peer"
-        errors.add(:coordination_strategy, "sequential teams work best with manager_worker coordination")
+      # Sequential teams work best with priority_based or round_robin
+      if team_type == "sequential" && coordination_strategy == "consensus"
+        errors.add(:coordination_strategy, "sequential teams work best with priority_based or round_robin coordination")
       end
 
-      # Mesh teams should use peer_to_peer or hybrid
-      if team_type == "mesh" && coordination_strategy == "manager_worker"
-        errors.add(:coordination_strategy, "mesh teams should use peer_to_peer or hybrid coordination")
+      # Mesh teams should use consensus or auction
+      if team_type == "mesh" && coordination_strategy == "manager_led"
+        errors.add(:coordination_strategy, "mesh teams should use consensus or auction coordination")
       end
     end
 
-    def initialize_team_communication
-      # Hook for setting up team communication channels via MultiAgentCommunicationHub
+    def log_team_creation
       Rails.logger.info "[Ai::AgentTeam] Team created: #{name} (#{id})"
     end
   end

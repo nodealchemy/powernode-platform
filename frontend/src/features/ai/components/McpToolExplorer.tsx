@@ -12,8 +12,8 @@ export interface McpToolExplorerProps {
   tool: McpTool;
   isOpen: boolean;
   onClose: () => void;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onExecuteTool?: (toolId: string, params: Record<string, any>) => Promise<any>;
+   
+  onExecuteTool?: (toolId: string, params: Record<string, unknown>) => Promise<unknown>;
 }
 
 interface ToolParameter {
@@ -22,14 +22,14 @@ interface ToolParameter {
   description?: string;
   required: boolean;
   enum?: string[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  default?: any;
+   
+  default?: unknown;
 }
 
 interface ExecutionResult {
   success: boolean;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  result?: any;
+   
+  result?: unknown;
   error?: string;
   execution_time_ms?: number;
 }
@@ -40,8 +40,8 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
   onClose,
   onExecuteTool
 }) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [parameters, setParameters] = useState<Record<string, any>>({});
+   
+  const [parameters, setParameters] = useState<Record<string, unknown>>({});
   const [executing, setExecuting] = useState(false);
   const [executionResult, setExecutionResult] = useState<ExecutionResult | null>(null);
   const [showRawSchema, setShowRawSchema] = useState(false);
@@ -55,23 +55,23 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
     if (!tool.input_schema || !tool.input_schema.properties) return [];
 
     const props = tool.input_schema.properties;
-    const required = tool.input_schema.required || [];
+    const required = (tool.input_schema.required || []) as string[];
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return Object.entries(props).map(([name, schema]: [string, any]) => ({
+     
+    return Object.entries(props).map(([name, schema]: [string, Record<string, unknown>]) => ({
       name,
-      type: schema.type || 'string',
-      description: schema.description,
+      type: (schema.type as string) || 'string',
+      description: schema.description as string | undefined,
       required: required.includes(name),
-      enum: schema.enum,
+      enum: schema.enum as string[] | undefined,
       default: schema.default
     }));
   }, [tool.input_schema]);
 
   // Initialize default values
   React.useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const defaults: Record<string, any> = {};
+     
+    const defaults: Record<string, unknown> = {};
     extractedParameters.forEach(param => {
       if (param.default !== undefined) {
         defaults[param.name] = param.default;
@@ -81,8 +81,8 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
     setExecutionResult(null);
   }, [extractedParameters]);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleParameterChange = (name: string, value: any) => {
+   
+  const handleParameterChange = (name: string, value: string | boolean) => {
     setParameters(prev => ({
       ...prev,
       [name]: value
@@ -108,8 +108,8 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
     for (const param of extractedParameters) {
       if (['array', 'object'].includes(param.type) && parameters[param.name]) {
         try {
-          JSON.parse(parameters[param.name]);
-        } catch {
+          JSON.parse(parameters[param.name] as string);
+        } catch (_error) {
           addNotification({
             type: 'error',
             title: 'Invalid JSON',
@@ -131,24 +131,25 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
       setExecutionResult(null);
 
       // Convert parameters to appropriate types
-      const processedParams: Record<string, any> = {};
+      const processedParams: Record<string, unknown> = {};
       extractedParameters.forEach(param => {
         const value = parameters[param.name];
         if (value === undefined || value === '') return;
 
+        const strValue = String(value);
         switch (param.type) {
           case 'number':
           case 'integer':
-            processedParams[param.name] = parseFloat(value);
+            processedParams[param.name] = parseFloat(strValue);
             break;
           case 'boolean':
-            processedParams[param.name] = value === 'true' || value === true;
+            processedParams[param.name] = strValue === 'true' || value === true;
             break;
           case 'array':
           case 'object':
             try {
-              processedParams[param.name] = JSON.parse(value);
-            } catch {
+              processedParams[param.name] = JSON.parse(strValue);
+            } catch (_error) {
               processedParams[param.name] = value;
             }
             break;
@@ -226,7 +227,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
   };
 
   const renderParameterInput = (param: ToolParameter) => {
-    const value = parameters[param.name] || '';
+    const value = (parameters[param.name] as string) || '';
 
     if (param.enum) {
       return (
@@ -341,6 +342,8 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
           <button
             onClick={() => setShowRawSchema(!showRawSchema)}
             className="text-sm text-theme-interactive-primary hover:underline flex items-center gap-1"
+            aria-label={showRawSchema ? 'Hide JSON Schema' : 'Show JSON Schema'}
+            aria-expanded={showRawSchema}
           >
             <Code className="h-4 w-4" />
             {showRawSchema ? 'Hide' : 'Show'} JSON Schema
@@ -348,6 +351,8 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
           <button
             onClick={() => setShowHistory(!showHistory)}
             className="text-sm text-theme-interactive-primary hover:underline flex items-center gap-1"
+            aria-label={showHistory ? 'Hide execution history' : 'Show execution history'}
+            aria-expanded={showHistory}
           >
             <History className="h-4 w-4" />
             {showHistory ? 'Hide' : 'Show'} History
@@ -367,6 +372,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
               size="sm"
               onClick={() => copyToClipboard(JSON.stringify(tool.input_schema, null, 2))}
               className="absolute top-2 right-2"
+              aria-label="Copy JSON schema"
             >
               <Copy className="h-4 w-4" />
             </Button>
@@ -413,7 +419,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
               </div>
             )}
 
-            {executionResult.result && (
+            {executionResult.result != null && (
               <div className="relative">
                 <p className="text-xs text-theme-tertiary mb-2">Result:</p>
                 <pre className="p-3 bg-theme-surface rounded text-xs overflow-x-auto max-h-64">
@@ -426,6 +432,7 @@ export const McpToolExplorer: React.FC<McpToolExplorerProps> = ({
                   size="sm"
                   onClick={() => copyToClipboard(JSON.stringify(executionResult.result, null, 2))}
                   className="absolute top-6 right-2"
+                  aria-label="Copy execution result"
                 >
                   <Copy className="h-4 w-4" />
                 </Button>

@@ -1,5 +1,5 @@
-import { BaseApiService, QueryFilters, PaginatedResponse } from './BaseApiService';
-import type { AiProvider, AiProviderCredential } from '../../types/ai';
+import { BaseApiService, QueryFilters, PaginatedResponse } from '@/shared/services/ai/BaseApiService';
+import type { AiProvider, AiProviderCredential } from '@/shared/types/ai';
 
 /**
  * ProvidersApiService - Providers Controller API Client
@@ -40,7 +40,16 @@ export interface ProviderFilters extends QueryFilters {
 export interface CreateProviderRequest {
   name: string;
   provider_type: string;
-  configuration?: Record<string, any>;
+  slug?: string;
+  description?: string;
+  api_base_url?: string;
+  api_endpoint?: string;
+  capabilities?: string[];
+  documentation_url?: string;
+  status_url?: string;
+  supported_models?: Array<Record<string, unknown>> | unknown[];
+  configuration_schema?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
   is_active?: boolean;
 }
 

@@ -194,7 +194,7 @@ class BaseJob
 
   # Mark a job as processed with the given idempotency key
   def mark_processed(idempotency_key, ttl: 86400)
-    Sidekiq.redis { |conn| conn.setex("idempotency:#{idempotency_key}", ttl, Time.current.to_f) }
+    Sidekiq.redis { |conn| conn.set("idempotency:#{idempotency_key}", Time.current.to_f, ex: ttl) }
   end
 
   # Helper to handle API errors with retry logic
@@ -274,7 +274,7 @@ class BaseJob
     success_key = "job_success:#{job_key}"
 
     redis = Sidekiq.redis_pool.with { |conn| conn }
-    redis.setex(success_key, 300, Time.current.to_f) # Record success for 5 minutes
+    redis.set(success_key, Time.current.to_f, ex: 300) # Record success for 5 minutes
   end
 
   def record_execution_failure(*args, exception)

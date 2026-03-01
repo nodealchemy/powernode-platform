@@ -10,10 +10,10 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     render_success({
 
         enabled: maintenance_mode_enabled?,
-        message: Rails.application.config.maintenance_message || "System is under maintenance",
-        enabled_at: Rails.application.config.maintenance_enabled_at,
-        estimated_completion: Rails.application.config.maintenance_estimated_completion,
-        bypass_ips: Rails.application.config.maintenance_bypass_ips || []
+        message: safe_config(:maintenance_message) || "System is under maintenance",
+        enabled_at: safe_config(:maintenance_enabled_at),
+        estimated_completion: safe_config(:maintenance_estimated_completion),
+        bypass_ips: safe_config(:maintenance_bypass_ips) || []
       }
     )
   end
@@ -40,66 +40,6 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
       },
       message: enabled ? "Maintenance mode enabled" : "Maintenance mode disabled"
     )
-  end
-
-  # System Health endpoints
-  def system_health
-    health_data = System::HealthService.check_basic_health
-
-    render_success(health_data)
-  end
-
-  def detailed_health
-    detailed_data = System::HealthService.check_detailed_health
-
-    render_success(detailed_data)
-  end
-
-  def trigger_health_check
-    System::HealthService.trigger_comprehensive_check
-
-    render_success(message: "Comprehensive health check triggered")
-  end
-
-  # Database Backup endpoints
-  def list_backups
-    backups = System::DatabaseBackupService.list_backups
-
-    render_success(backups)
-  end
-
-  def create_backup
-    backup_type = params[:type] || "full"
-    description = params[:description]
-
-    backup_job = System::DatabaseBackupService.create_backup(backup_type, description, current_user)
-
-    render_success(
-      data: backup_job,
-      message: "Database backup initiated"
-    )
-  end
-
-  def delete_backup
-    backup_id = params[:id]
-    result = System::DatabaseBackupService.delete_backup(backup_id)
-
-    if result[:success]
-      render_success(message: "Backup deleted successfully")
-    else
-      render_error(result[:error], status: :unprocessable_content)
-    end
-  end
-
-  def restore_backup
-    backup_id = params[:id]
-    result = System::DatabaseBackupService.restore_backup(backup_id, current_user)
-
-    if result[:success]
-      render_success(message: "Database restore initiated")
-    else
-      render_error(result[:error], status: :unprocessable_content)
-    end
   end
 
   # Data Cleanup endpoints
@@ -143,41 +83,6 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     render_success(
       data: result,
       message: "Application cache cleared"
-    )
-  end
-
-  # System Operations endpoints
-  def system_operations
-    operations = System::OperationsService.get_available_operations
-
-    render_success(operations)
-  end
-
-  def restart_services
-    services = params[:services] || [ "all" ]
-    result = System::OperationsService.restart_services(services)
-
-    render_success(
-      data: result,
-      message: "Service restart initiated"
-    )
-  end
-
-  def reindex_database
-    result = System::OperationsService.reindex_database
-
-    render_success(
-      data: result,
-      message: "Database reindexing initiated"
-    )
-  end
-
-  def optimize_database
-    result = System::OperationsService.optimize_database
-
-    render_success(
-      data: result,
-      message: "Database optimization initiated"
     )
   end
 
@@ -332,29 +237,14 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
         }
       }
     )
-  rescue => e
-    # If Database::Backup model doesn't exist, return empty array
-    render_success([])
-  end
-
-  # Create backup endpoint
-  def create_backup
-    backup_job = DatabaseBackupJob.perform_later(
-      initiated_by: current_user.id,
-      backup_type: params[:type] || "manual"
-    )
-
-    render_success({
- job_id: backup_job.job_id },
-      message: "Backup initiated"
-    )
-  rescue => e
-    render_error("Backup service unavailable")
+  rescue StandardError => e
+    Rails.logger.error "Database backups unavailable: #{e.message}"
+    render_error("Unable to retrieve database backups", status: :service_unavailable)
   end
 
   # Schedules endpoint
   def schedules
-    schedules = ScheduledTask.where(category: "maintenance").order(:name)
+    schedules = ScheduledTask.where(task_type: "maintenance").order(:name)
 
     render_success(
       data: schedules.map { |schedule|
@@ -362,16 +252,15 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
           id: schedule.id,
           name: schedule.name,
           cron: schedule.cron_expression,
-          enabled: schedule.enabled,
+          enabled: schedule.enabled?,
           last_run: schedule.last_run_at,
-          next_run: schedule.next_run_at,
-          description: schedule.description
+          next_run: schedule.next_run_at
         }
       }
     )
-  rescue => e
-    # If ScheduledTask model doesn't exist, return empty array
-    render_success([])
+  rescue StandardError => e
+    Rails.logger.error "Scheduled tasks unavailable: #{e.message}"
+    render_error("Unable to retrieve scheduled tasks", status: :service_unavailable)
   end
 
   private
@@ -387,7 +276,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   end
 
   def require_health_permission
-    require_any_permission("admin.maintenance.mode", "admin.maintenance.backup", "system.admin", "system.health")
+    require_any_permission("admin.maintenance.mode", "admin.maintenance.backup", "system.admin")
   end
 
   def maintenance_mode_enabled?
@@ -411,7 +300,10 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
       account: current_account,
       action: "maintenance_mode_enabled",
       resource_type: "System",
-      details: {
+      resource_id: "system",
+      source: "admin_panel",
+      ip_address: request.remote_ip,
+      metadata: {
         message: message,
         estimated_completion: estimated_completion,
         bypass_ips: bypass_ips
@@ -435,7 +327,10 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
       account: current_account,
       action: "maintenance_mode_disabled",
       resource_type: "System",
-      details: {}
+      resource_id: "system",
+      source: "admin_panel",
+      ip_address: request.remote_ip,
+      metadata: {}
     )
   end
 
@@ -481,26 +376,30 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   # Helper methods for status checks
   def check_database_status
     ActiveRecord::Base.connection.active? ? "connected" : "disconnected"
-  rescue
+  rescue StandardError => e
+    Rails.logger.error "Database status check failed: #{e.message}"
     "error"
   end
 
   def check_redis_status
     Redis.current.ping == "PONG" ? "connected" : "disconnected"
-  rescue
+  rescue StandardError => e
+    Rails.logger.error "Redis status check failed: #{e.message}"
     "unavailable"
   end
 
   def check_sidekiq_status
     Sidekiq::Stats.new.processes_size > 0 ? "running" : "stopped"
-  rescue
+  rescue StandardError => e
+    Rails.logger.error "Sidekiq status check failed: #{e.message}"
     "unavailable"
   end
 
   def get_last_backup_info
     backup = Database::Backup.order(created_at: :desc).first
     backup ? { created_at: backup.created_at, size: backup.size } : nil
-  rescue
+  rescue StandardError => e
+    Rails.logger.error "Failed to get last backup info: #{e.message}"
     nil
   end
 
@@ -518,7 +417,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     response_time = ((Time.current - start) * 1000).round(2)
 
     { status: "healthy", response_time_ms: response_time }
-  rescue => e
+  rescue StandardError => e
     { status: "unhealthy", error: e.message }
   end
 
@@ -528,7 +427,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     response_time = ((Time.current - start) * 1000).round(2)
 
     { status: "healthy", response_time_ms: response_time }
-  rescue => e
+  rescue StandardError => e
     { status: "unhealthy", error: e.message }
   end
 
@@ -540,7 +439,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
       failed: stats.failed,
       queues: stats.queues
     }
-  rescue => e
+  rescue StandardError => e
     { status: "unhealthy", error: e.message }
   end
 
@@ -553,7 +452,8 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
       used_percentage: used_percentage,
       free_gb: (stat.bytes_free / 1.gigabyte).round(2)
     }
-  rescue
+  rescue StandardError => e
+    Rails.logger.error "Disk space check failed: #{e.message}"
     { status: "unknown" }
   end
 
@@ -569,7 +469,8 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
       used_mb: used.round,
       total_mb: total.round
     }
-  rescue
+  rescue StandardError => e
+    Rails.logger.error "Memory usage check failed: #{e.message}"
     { status: "unknown" }
   end
 
@@ -586,7 +487,8 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     else
       { status: "unknown" }
     end
-  rescue
+  rescue StandardError => e
+    Rails.logger.error "CPU usage check failed: #{e.message}"
     { status: "unknown" }
   end
 
@@ -594,10 +496,11 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     {
       users: User.count,
       accounts: Account.count,
-      subscriptions: Subscription.count,
-      payments: Payment.count
+      subscriptions: (defined?(Billing::Subscription) ? Billing::Subscription.count : 0),
+      payments: (defined?(Billing::Payment) ? Billing::Payment.count : 0)
     }
-  rescue
+  rescue StandardError => e
+    Rails.logger.error "Failed to get total records count: #{e.message}"
     {}
   end
 
@@ -636,5 +539,9 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     parts << "#{minutes}m" if minutes > 0 || parts.empty?
 
     parts.join(" ")
+  end
+
+  def safe_config(key)
+    Rails.application.config.respond_to?(key) ? Rails.application.config.send(key) : nil
   end
 end

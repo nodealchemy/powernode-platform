@@ -5,58 +5,28 @@ module Api
     module Internal
       module Git
         class RepositoriesController < InternalBaseController
-          before_action :set_repository, except: [:create]
+          before_action :set_repository, except: [ :create, :lookup ]
           before_action :validate_internal_permissions
+
+          # GET /api/v1/internal/git/repositories/lookup?full_name=owner/repo
+          def lookup
+            repository = ::Devops::GitRepository.find_by!(
+              full_name: params[:full_name]
+            )
+            render_success(serialize_repository(repository))
+          rescue ActiveRecord::RecordNotFound
+            render_error("Repository not found", status: :not_found)
+          end
 
           # POST /api/v1/internal/git/repositories
           # Upsert a repository from worker sync
           def create
-            credential = ::Devops::GitProviderCredential.find_by(id: params[:credential_id])
-            unless credential
-              render_error("Credential not found", status: :not_found)
-              return
-            end
-
-            repo_params = params[:repository] || {}
-            external_id = repo_params[:external_id]
-
-            # Find or initialize repository by external_id and credential
-            repository = credential.repositories.find_or_initialize_by(
-              external_id: external_id
-            )
-
-            # Build languages hash from primary_language if provided
-            languages = {}
-            languages[repo_params[:primary_language]] = 100 if repo_params[:primary_language].present?
-
-            repository.assign_attributes(
-              account: credential.account,
-              name: repo_params[:name],
-              full_name: repo_params[:full_name],
-              owner: repo_params[:owner],
-              description: repo_params[:description],
-              default_branch: repo_params[:default_branch] || "main",
-              clone_url: repo_params[:clone_url],
-              ssh_url: repo_params[:ssh_url],
-              web_url: repo_params[:web_url],
-              is_private: repo_params[:is_private] || false,
-              is_fork: repo_params[:is_fork] || false,
-              is_archived: repo_params[:is_archived] || false,
-              stars_count: repo_params[:stars_count] || 0,
-              forks_count: repo_params[:forks_count] || 0,
-              open_issues_count: repo_params[:open_issues_count] || 0,
-              languages: languages.presence || repo_params[:languages] || {},
-              topics: repo_params[:topics] || [],
-              last_synced_at: repo_params[:last_synced_at] || Time.current
-            )
-
-            if repository.save
-              render_success({
-                **serialize_repository(repository),
-                created: repository.previously_new_record?
-              })
+            if params[:credential_id].present?
+              create_from_credential
+            elsif params[:devops_provider_id].present?
+              create_from_devops_provider
             else
-              render_validation_error(repository)
+              render_error("Either credential_id or devops_provider_id is required", status: :unprocessable_entity)
             end
           end
 
@@ -140,8 +110,101 @@ module Api
 
           private
 
+          def create_from_credential
+            credential = ::Devops::GitProviderCredential.find_by(id: params[:credential_id])
+            unless credential
+              render_error("Credential not found", status: :not_found)
+              return
+            end
+
+            repo_params = params[:repository] || {}
+            external_id = repo_params[:external_id]
+
+            # Find or initialize repository by external_id and credential
+            repository = credential.repositories.find_or_initialize_by(
+              external_id: external_id
+            )
+
+            # Build languages hash from primary_language if provided
+            languages = {}
+            languages[repo_params[:primary_language]] = 100 if repo_params[:primary_language].present?
+
+            repository.assign_attributes(
+              account: credential.account,
+              name: repo_params[:name],
+              full_name: repo_params[:full_name],
+              owner: repo_params[:owner],
+              description: repo_params[:description],
+              default_branch: repo_params[:default_branch] || "main",
+              clone_url: repo_params[:clone_url],
+              ssh_url: repo_params[:ssh_url],
+              web_url: repo_params[:web_url],
+              is_private: repo_params[:is_private] || false,
+              is_fork: repo_params[:is_fork] || false,
+              is_archived: repo_params[:is_archived] || false,
+              stars_count: repo_params[:stars_count] || 0,
+              forks_count: repo_params[:forks_count] || 0,
+              open_issues_count: repo_params[:open_issues_count] || 0,
+              languages: languages.presence || repo_params[:languages] || {},
+              topics: repo_params[:topics] || [],
+              last_synced_at: repo_params[:last_synced_at] || Time.current
+            )
+
+            if repository.save
+              render_success({
+                **serialize_repository(repository),
+                created: repository.previously_new_record?
+              })
+            else
+              render_validation_error(repository)
+            end
+          end
+
+          def create_from_devops_provider
+            provider = ::Devops::Provider.find_by(id: params[:devops_provider_id])
+            unless provider
+              render_error("Devops provider not found", status: :not_found)
+              return
+            end
+
+            repo_params = params[:repository] || {}
+            external_id = repo_params[:external_id]
+
+            # Find or initialize repository by devops_provider + external_id
+            repository = ::Devops::GitRepository.find_or_initialize_by(
+              devops_provider_id: provider.id,
+              external_id: external_id
+            )
+
+            repository.assign_attributes(
+              account: provider.account,
+              origin: params[:origin] || "devops",
+              name: repo_params[:name],
+              full_name: repo_params[:full_name],
+              owner: repo_params[:owner],
+              description: repo_params[:description],
+              default_branch: repo_params[:default_branch] || "main",
+              clone_url: repo_params[:clone_url],
+              ssh_url: repo_params[:ssh_url],
+              web_url: repo_params[:web_url],
+              is_private: repo_params[:is_private] || false,
+              is_active: repo_params[:is_active].nil? ? true : repo_params[:is_active],
+              metadata: repo_params[:metadata] || {},
+              last_synced_at: repo_params[:last_synced_at] || Time.current
+            )
+
+            if repository.save
+              render_success({
+                **serialize_repository(repository),
+                created: repository.previously_new_record?
+              })
+            else
+              render_validation_error(repository)
+            end
+          end
+
           def set_repository
-            @repository = ::Devops::GitRepository.includes(:credential, credential: :provider)
+            @repository = ::Devops::GitRepository.includes(:provider, :credential)
                                        .find(params[:id])
           rescue ActiveRecord::RecordNotFound
             render_error("Repository not found", status: :not_found)
@@ -173,7 +236,7 @@ module Api
           end
 
           def serialize_repository(repo)
-            {
+            result = {
               id: repo.id,
               external_id: repo.external_id,
               name: repo.name,
@@ -185,20 +248,35 @@ module Api
               ssh_url: repo.ssh_url,
               web_url: repo.web_url,
               is_private: repo.is_private,
+              is_active: repo.is_active,
+              origin: repo.origin,
               webhook_configured: repo.webhook_configured,
               webhook_id: repo.webhook_id,
               last_synced_at: repo.last_synced_at&.iso8601,
               last_commit_at: repo.last_commit_at&.iso8601,
               account_id: repo.account_id,
-              credential: {
-                id: repo.git_provider_credential.id,
-                provider_type: repo.git_provider_credential.provider_type,
+              devops_provider_id: repo.devops_provider_id
+            }
+
+            if repo.credential.present?
+              result[:credential] = {
+                id: repo.credential.id,
+                provider_type: repo.credential.provider_type,
                 provider: {
-                  id: repo.git_provider_credential.git_provider.id,
-                  api_base_url: repo.git_provider_credential.git_provider.api_base_url
+                  id: repo.credential.git_provider.id,
+                  api_base_url: repo.credential.git_provider.api_base_url
                 }
               }
-            }
+            elsif repo.provider.present?
+              result[:provider] = {
+                id: repo.provider.id,
+                provider_type: repo.provider.provider_type,
+                base_url: repo.provider.base_url,
+                api_token: repo.provider.credential
+              }
+            end
+
+            result
           end
         end
       end

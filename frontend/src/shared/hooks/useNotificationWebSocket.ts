@@ -1,13 +1,15 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
-import { useWebSocket } from './useWebSocket';
+import { useWebSocket } from '@/shared/hooks/useWebSocket';
+import { logger } from '@/shared/utils/logger';
 
 // Notification event types
 type NotificationEventType =
   | 'connection_established'
   | 'new_notification'
   | 'notification_read'
+  | 'notification_dismissed'
   | 'pong'
   | 'error';
 
@@ -22,12 +24,14 @@ export interface WebSocketNotification {
   action_label?: string;
   icon?: string;
   category?: string;
+  metadata?: Record<string, unknown>;
   created_at: string;
 }
 
 interface NotificationWebSocketOptions {
   onNewNotification?: (notification: WebSocketNotification) => void;
   onNotificationRead?: (notificationId: string) => void;
+  onNotificationDismissed?: (notificationId: string) => void;
   onConnected?: () => void;
   onError?: (error: string) => void;
 }
@@ -35,6 +39,7 @@ interface NotificationWebSocketOptions {
 export const useNotificationWebSocket = ({
   onNewNotification,
   onNotificationRead,
+  onNotificationDismissed,
   onConnected,
   onError
 }: NotificationWebSocketOptions) => {
@@ -45,11 +50,13 @@ export const useNotificationWebSocket = ({
   // Store latest callback refs to avoid dependency issues
   const onNewNotificationRef = useRef(onNewNotification);
   const onNotificationReadRef = useRef(onNotificationRead);
+  const onNotificationDismissedRef = useRef(onNotificationDismissed);
   const onConnectedRef = useRef(onConnected);
   const onErrorRef = useRef(onError);
 
   onNewNotificationRef.current = onNewNotification;
   onNotificationReadRef.current = onNotificationRead;
+  onNotificationDismissedRef.current = onNotificationDismissed;
   onConnectedRef.current = onConnected;
   onErrorRef.current = onError;
 
@@ -79,6 +86,12 @@ export const useNotificationWebSocket = ({
         }
         break;
 
+      case 'notification_dismissed':
+        if (data.notification_id) {
+          onNotificationDismissedRef.current?.(data.notification_id as string);
+        }
+        break;
+
       case 'pong':
         // Connection test response - no action needed
         break;
@@ -103,7 +116,7 @@ export const useNotificationWebSocket = ({
     // Only subscribe if user has an account
     if (!user?.account?.id) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('[NotificationWebSocket] Cannot subscribe: user account not available');
+        logger.warn('[NotificationWebSocket] Cannot subscribe: user account not available');
       }
       return;
     }

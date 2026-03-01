@@ -2,14 +2,14 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { TwoFactorVerification } from './TwoFactorVerification';
 
+import { twoFactorApi } from '@/shared/services/account/twoFactorApi';
+
 // Mock the twoFactorApi
 jest.mock('@/shared/services/account/twoFactorApi', () => ({
   twoFactorApi: {
     verifyLogin: jest.fn()
   }
 }));
-
-import { twoFactorApi } from '@/shared/services/account/twoFactorApi';
 
 describe('TwoFactorVerification', () => {
   const defaultProps = {

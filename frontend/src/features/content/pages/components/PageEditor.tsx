@@ -177,7 +177,7 @@ export const PageEditor: React.FC<PageEditorProps> = ({
       }
       
       onClose();
-    } catch (error: unknown) {
+    } catch (error) {
       const httpError = error as { response?: { data?: { error?: string } } };
       onError(httpError.response?.data?.error || 'Failed to save page');
     } finally {

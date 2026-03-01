@@ -42,9 +42,9 @@ module Ai
           # Method might not be implemented in all providers
         end
 
-        # Finally, extract model names from supported_models
+        # Finally, extract model IDs from supported_models (prefer API identifier over display name)
         if supported_models&.any?
-          return supported_models.map { |model| model["name"] || model["id"] }.compact
+          return supported_models.map { |model| model["id"] || model["name"] }.compact
         end
 
         []

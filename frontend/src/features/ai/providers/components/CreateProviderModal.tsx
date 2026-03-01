@@ -22,7 +22,7 @@ export const CreateProviderModal: React.FC<CreateProviderModalProps> = ({
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
-    provider_type: 'text_generation',
+    provider_type: 'custom',
     description: '',
     api_base_url: '',
     capabilities: ['text_generation'],
@@ -40,24 +40,23 @@ export const CreateProviderModal: React.FC<CreateProviderModalProps> = ({
       await providersApi.createProvider({
         name: formData.name,
         provider_type: formData.provider_type,
-        configuration: {
-          slug: formData.slug,
-          description: formData.description,
-          api_base_url: formData.api_base_url,
-          capabilities: formData.capabilities,
-          documentation_url: formData.documentation_url,
-          status_url: formData.status_url,
-          supported_models: {},
-          configuration_schema: {
-            type: 'object',
-            properties: {
-              api_key: {
-                type: 'string',
-                description: 'API key for authentication'
-              }
-            },
-            required: ['api_key']
-          }
+        slug: formData.slug,
+        description: formData.description,
+        api_base_url: formData.api_base_url || undefined,
+        api_endpoint: formData.api_base_url || undefined,
+        capabilities: formData.capabilities,
+        documentation_url: formData.documentation_url || undefined,
+        status_url: formData.status_url || undefined,
+        supported_models: [{ name: 'default', id: 'default' }],
+        configuration_schema: {
+          type: 'object',
+          properties: {
+            api_key: {
+              type: 'string',
+              description: 'API key for authentication'
+            }
+          },
+          required: ['api_key']
         },
         is_active: true
       });
@@ -75,15 +74,14 @@ export const CreateProviderModal: React.FC<CreateProviderModalProps> = ({
       setFormData({
         name: '',
         slug: '',
-        provider_type: 'text_generation',
+        provider_type: 'custom',
         description: '',
         api_base_url: '',
         capabilities: ['text_generation'],
         documentation_url: '',
         status_url: ''
       });
-    } catch (error) {
-      console.error('Failed to create provider:', error);
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Creation Failed',
@@ -120,7 +118,7 @@ export const CreateProviderModal: React.FC<CreateProviderModalProps> = ({
     'function_calling',
     'code_execution',
     'image_generation',
-    'embeddings'
+    'text_embedding'
   ];
 
   return (
@@ -173,12 +171,15 @@ export const CreateProviderModal: React.FC<CreateProviderModalProps> = ({
             onChange={(value) => handleInputChange('provider_type', value)}
           >
             <option value="">Select a provider type</option>
-            <option value="text_generation">Text Generation</option>
-            <option value="image_generation">Image Generation</option>
-            <option value="audio_generation">Audio Generation</option>
-            <option value="video_generation">Video Generation</option>
-            <option value="code_execution">Code Execution</option>
-            <option value="embedding">Embedding</option>
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="google">Google</option>
+            <option value="azure">Azure</option>
+            <option value="huggingface">HuggingFace</option>
+            <option value="ollama">Ollama</option>
+            <option value="local">Local</option>
+            <option value="api_gateway">API Gateway</option>
+            <option value="custom">Custom</option>
           </Select>
         </div>
 
@@ -197,13 +198,14 @@ export const CreateProviderModal: React.FC<CreateProviderModalProps> = ({
 
         <div>
           <label className="block text-sm font-medium text-theme-secondary mb-1">
-            API Base URL
+            API Base URL *
           </label>
           <Input
             value={formData.api_base_url}
             onChange={(e) => handleInputChange('api_base_url', e.target.value)}
             placeholder="https://api.provider.com/v1"
             type="url"
+            required
           />
         </div>
 
@@ -265,7 +267,7 @@ export const CreateProviderModal: React.FC<CreateProviderModalProps> = ({
           </Button>
           <Button
             type="submit"
-            disabled={loading || !formData.name || !formData.slug}
+            disabled={loading || !formData.name || !formData.slug || !formData.api_base_url}
             className="flex items-center gap-2"
           >
             <Plus className="h-4 w-4" />

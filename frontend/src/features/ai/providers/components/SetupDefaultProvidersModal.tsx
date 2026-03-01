@@ -72,7 +72,7 @@ export const SetupDefaultProvidersModal: React.FC<SetupDefaultProvidersModalProp
               <p className="text-sm font-medium text-theme-warning">Important Note</p>
               <p className="text-sm text-theme-secondary mt-1">
                 This will create default AI provider configurations. You'll still need to add your own API credentials 
-                for each provider you want to use. Local providers like Ollama work without API keys.
+                for each provider you want to use. Ollama providers may work without API keys depending on your server configuration.
               </p>
             </div>
           </div>

@@ -77,7 +77,7 @@ module AiOrchestrationBroadcasting
       return unless @account&.id
 
       begin
-        metrics = Ai::AnalyticsInsightsService.new.real_time_metrics(@account.id)
+        metrics = Ai::Analytics::DashboardService.new(account: @account).real_time_metrics
 
         broadcast_data = {
           type: "system_metrics_update",

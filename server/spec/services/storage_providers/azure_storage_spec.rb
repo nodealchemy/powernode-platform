@@ -106,7 +106,7 @@ RSpec.describe StorageProviders::AzureStorage, type: :service do
   describe '#upload_file' do
     let(:file_content) { 'Test file content for Azure upload' }
     let(:temp_file) do
-      file = Tempfile.new(['test', '.txt'])
+      file = Tempfile.new([ 'test', '.txt' ])
       file.write(file_content)
       file.rewind
       file

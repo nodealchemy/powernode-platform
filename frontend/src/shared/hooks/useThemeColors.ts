@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useTheme } from './ThemeContext';
+import { useTheme } from '@/shared/hooks/ThemeContext';
 
 interface ThemeColors {
   primary: string;

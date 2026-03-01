@@ -2,6 +2,7 @@
 
 class Page < ApplicationRecord
   # Associations
+  belongs_to :account
   belongs_to :user, foreign_key: "author_id"
 
   # Polymorphic association to file objects (images attached to this page)

@@ -51,7 +51,7 @@ export const ResetPasswordPage: React.FC = () => {
         message: 'Password reset successful. You can now sign in.',
       }));
       navigate('/login');
-    } catch (error: unknown) {
+    } catch (error) {
       dispatch(addNotification({
         type: 'error',
         message: getErrorMessage(error),

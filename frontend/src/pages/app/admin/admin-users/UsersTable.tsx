@@ -69,7 +69,7 @@ export const UsersTable: React.FC<UsersTableProps> = ({
                 <div className="flex items-center">
                   <div className="flex-shrink-0 h-10 w-10">
                     <div className="h-10 w-10 rounded-full bg-theme-interactive-primary flex items-center justify-center">
-                      <span className="text-white text-sm font-medium">
+                      <span className="text-theme-on-primary text-sm font-medium">
                         {getUserInitials(user)}
                       </span>
                     </div>

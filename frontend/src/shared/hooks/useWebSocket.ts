@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useState, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/shared/services';
-import { refreshAccessToken } from '../services/slices/authSlice';
+import { refreshAccessToken } from '@/shared/services/slices/authSlice';
 import { wsManager } from '@/shared/services/WebSocketManager';
 
 // WebSocket connection state
@@ -59,7 +59,7 @@ export const useWebSocket = (): UseWebSocketReturn => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 
     // Use environment-aware host resolution
-    let host = window.location.hostname;
+    const host = window.location.hostname;
     let port = ':3000';
 
     // Handle different development environments

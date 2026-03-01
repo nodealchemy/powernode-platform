@@ -12,45 +12,6 @@ class WorkerJobService
   end
 
   class << self
-    # Enqueue a notification email job
-    def enqueue_notification_email(template_type, data = {})
-      new.make_worker_request("POST", "/notifications/email", {
-        template_type: template_type,
-        data: data
-      })
-    end
-
-    # Enqueue a billing job
-    def enqueue_billing_job(job_type, data = {})
-      new.make_worker_request("POST", "/billing/jobs", {
-        job_type: job_type,
-        data: data
-      })
-    end
-
-    # Enqueue an analytics job
-    def enqueue_analytics_job(job_type, data = {})
-      new.make_worker_request("POST", "/analytics/jobs", {
-        job_type: job_type,
-        data: data
-      })
-    end
-
-    # Enqueue a report generation job
-    def enqueue_report_job(report_type, data = {})
-      new.make_worker_request("POST", "/reports/generate", {
-        report_type: report_type,
-        data: data
-      })
-    end
-
-    # Enqueue password reset email job
-    def enqueue_password_reset_email(user_id)
-      new.make_worker_request("POST", "/notifications/password_reset", {
-        user_id: user_id
-      })
-    end
-
     # Enqueue email settings refresh job
     def enqueue_refresh_email_settings
       new.make_worker_request("POST", "/api/v1/jobs", {
@@ -66,6 +27,32 @@ class WorkerJobService
       new.make_worker_request("POST", "/api/v1/jobs", {
         job_class: "TestEmailJob",
         args: args
+      })
+    end
+
+    # Enqueue notification email job (email verification, welcome emails, etc.)
+    # @param notification_type [String] Type of notification (e.g., 'email_verification')
+    # @param options [Hash] Email options containing:
+    #   - user_id: The user UUID
+    #   - email: The recipient email address
+    #   - verification_token: Token for verification emails
+    #   - user_name: User's display name
+    #   - smtp_settings: SMTP configuration from system settings
+    def enqueue_notification_email(notification_type, options = {})
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "NotificationEmailJob",
+        "args" => [ notification_type, options ],
+        "queue" => "email"
+      })
+    end
+
+    # Enqueue password reset email job
+    # @param user_id [String] The user UUID requesting password reset
+    def enqueue_password_reset_email(user_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "PasswordResetEmailJob",
+        "args" => [ user_id ],
+        "queue" => "email"
       })
     end
 
@@ -91,6 +78,35 @@ class WorkerJobService
       })
     end
 
+    # Enqueue workspace response job for a non-primary team member agent
+    def enqueue_workspace_response(conversation_id, message_id, agent_id, account_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiWorkspaceResponseJob",
+        "args" => [conversation_id, message_id, agent_id, account_id],
+        "queue" => "ai_conversations"
+      })
+    end
+
+    # Enqueue A2A task execution job
+    def enqueue_ai_a2a_task_execution(task_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiA2aTaskExecutionJob",
+        "args" => [ task_id ],
+        "queue" => "ai_agents",
+        "options" => { "retry" => 3 }
+      })
+    end
+
+    # Enqueue A2A external task job
+    def enqueue_ai_a2a_external_task(task_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiA2aExternalTaskJob",
+        "args" => [ task_id ],
+        "queue" => "ai_agents",
+        "options" => { "retry" => 3 }
+      })
+    end
+
     # Enqueue AI agent execution job
     def enqueue_ai_agent_execution(agent_execution_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
@@ -101,8 +117,19 @@ class WorkerJobService
       })
     end
 
+    # Enqueue AI team execution job
+    def enqueue_ai_team_execution(team_id:, user_id:, input: {}, context: {})
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiTeamExecutionJob",
+        "args" => [{ "team_id" => team_id, "user_id" => user_id, "input" => input, "context" => context }],
+        "queue" => "ai_agents",
+        "options" => { "retry" => 3 }
+      })
+    end
+
     # Enqueue billing automation job
     def enqueue_billing_automation(subscription_id = nil, delay: 0)
+      return nil unless Shared::FeatureGateService.billing_enabled?
       payload = {
         "job_class" => "Billing::BillingAutomationJob",
         "args" => subscription_id ? [ subscription_id ] : [],
@@ -115,6 +142,7 @@ class WorkerJobService
 
     # Enqueue billing scheduler job
     def enqueue_billing_scheduler(date, delay: 0)
+      return nil unless Shared::FeatureGateService.billing_enabled?
       payload = {
         "job_class" => "Billing::BillingSchedulerJob",
         "args" => [ date ],
@@ -127,6 +155,7 @@ class WorkerJobService
 
     # Enqueue billing cleanup job
     def enqueue_billing_cleanup(delay: 0)
+      return nil unless Shared::FeatureGateService.billing_enabled?
       payload = {
         "job_class" => "Billing::BillingCleanupJob",
         "args" => [],
@@ -139,6 +168,7 @@ class WorkerJobService
 
     # Enqueue payment retry job
     def enqueue_payment_retry(payment_id, reason, retry_attempt)
+      return nil unless Shared::FeatureGateService.billing_enabled?
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "Billing::PaymentRetryJob",
         "args" => [ payment_id, reason, retry_attempt ],
@@ -153,6 +183,7 @@ class WorkerJobService
     # @option options [Integer] :delay Delay in seconds before job runs
     # @option options [Time] :run_at Time to run the job
     def enqueue_subscription_lifecycle(action, subscription_id, **options)
+      return nil unless Shared::FeatureGateService.billing_enabled?
       delay = options.delete(:delay) || 0
       run_at = options.delete(:run_at)
 
@@ -196,7 +227,7 @@ class WorkerJobService
       delay = options.delete(:delay) || 0
 
       # Ensure args is always an array
-      job_args = [job_args] unless job_args.is_a?(Array)
+      job_args = [ job_args ] unless job_args.is_a?(Array)
 
       payload = {
         "job_class" => job_class,
@@ -259,6 +290,131 @@ class WorkerJobService
     end
 
     # ==========================================
+    # AI Skills Jobs
+    # ==========================================
+
+    # Enqueue system skills seeding job
+    def enqueue_ai_skill_seed
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiSkillSyncJob",
+        "args" => [{ "action" => "seed" }],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # Enqueue skill connector refresh job
+    def enqueue_ai_skill_refresh_connectors(skill_id, account_id: nil)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiSkillSyncJob",
+        "args" => [{ "action" => "refresh_connectors", "skill_id" => skill_id, "account_id" => account_id }],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # ==========================================
+    # Knowledge Event-Driven Jobs
+    # ==========================================
+
+    # Enqueue learning promotion when access_count crosses threshold
+    def enqueue_ai_promote_learning(learning_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiPromoteLearningJob",
+        "args" => [learning_id],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # Enqueue STM entry consolidation to LTM
+    def enqueue_ai_consolidate_memory_entry(entry_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiConsolidateMemoryEntryJob",
+        "args" => [entry_id],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # Enqueue dedup check after learning creation
+    def enqueue_ai_dedup_learning(learning_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiDedupLearningJob",
+        "args" => [learning_id],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # Enqueue KG node recalculation after learning verification/disproval
+    def enqueue_ai_update_graph_node(node_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiUpdateGraphNodeJob",
+        "args" => [node_id],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # Enqueue AI conversation response job
+    def enqueue_ai_conversation_response(conversation_id, message_id, user_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiConversationResponseJob",
+        "args" => [conversation_id, message_id, user_id],
+        "queue" => "ai_conversations"
+      })
+    end
+
+    # Enqueue AI self-healing monitor job
+    def enqueue_ai_self_healing_monitor
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiSelfHealingMonitorJob",
+        "args" => [],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # Enqueue AI trajectory analysis job
+    def enqueue_ai_trajectory_analysis
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiTrajectoryAnalysisJob",
+        "args" => [],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # Enqueue AI ralph loop run-all job
+    def enqueue_ai_ralph_loop_run_all(ralph_loop_id, stop_on_error: false)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiRalphLoopRunAllJob",
+        "args" => [ralph_loop_id, { "stop_on_error" => stop_on_error }],
+        "queue" => "ai_execution"
+      })
+    end
+
+    # Enqueue AI monitoring health check job
+    def enqueue_ai_monitoring_health_check(account_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiMonitoringHealthCheckJob",
+        "args" => [account_id],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # Enqueue AI trajectory build job
+    def enqueue_ai_trajectory_build(account_id:, execution_id:)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiTrajectoryBuildJob",
+        "args" => [{ "account_id" => account_id, "execution_id" => execution_id }],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # Enqueue skill conflict check after skill creation/update
+    def enqueue_ai_skill_conflict_check(skill_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiSkillConflictCheckJob",
+        "args" => [skill_id],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # ==========================================
     # DevOps Jobs (CI/CD Pipelines, Integrations)
     # ==========================================
 
@@ -266,7 +422,7 @@ class WorkerJobService
     def enqueue_devops_step_execution(step_execution_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "Devops::StepExecutionJob",
-        "args" => [step_execution_id],
+        "args" => [ step_execution_id ],
         "queue" => "devops_default"
       })
     end
@@ -275,7 +431,7 @@ class WorkerJobService
     def enqueue_devops_pipeline_execution(pipeline_run_id, options = {})
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "Devops::PipelineExecutionJob",
-        "args" => [pipeline_run_id, options],
+        "args" => [ pipeline_run_id, options ],
         "queue" => "devops_high"
       })
     end
@@ -284,7 +440,7 @@ class WorkerJobService
     def enqueue_devops_approval_notification(step_execution_id, recipients)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "Devops::ApprovalNotificationJob",
-        "args" => [step_execution_id, recipients],
+        "args" => [ step_execution_id, recipients ],
         "queue" => "email"
       })
     end
@@ -293,7 +449,7 @@ class WorkerJobService
     def enqueue_devops_provider_sync(provider_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "Devops::ProviderSyncJob",
-        "args" => [provider_id],
+        "args" => [ provider_id ],
         "queue" => "devops_default"
       })
     end
@@ -302,8 +458,77 @@ class WorkerJobService
     def enqueue_devops_integration_execution(execution_id, input = {}, context = {})
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "Devops::IntegrationExecutionJob",
-        "args" => [{ execution_id: execution_id, input: input, context: context }],
+        "args" => [ { execution_id: execution_id, input: input, context: context } ],
         "queue" => "integrations"
+      })
+    end
+
+    # ==========================================
+    # AI Git/Worktree Jobs
+    # ==========================================
+
+    # Enqueue worktree provisioning job
+    def enqueue_ai_worktree_provisioning(session_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiWorktreeProvisioningJob",
+        "args" => [session_id],
+        "queue" => "ai_execution"
+      })
+    end
+
+    # Enqueue worktree cleanup job
+    def enqueue_ai_worktree_cleanup(session_id, delay: nil)
+      payload = {
+        "job_class" => "AiWorktreeCleanupJob",
+        "args" => [session_id],
+        "queue" => "ai_execution"
+      }
+      payload["delay"] = delay if delay
+      new.make_worker_request("POST", "/api/v1/jobs", payload)
+    end
+
+    # Enqueue worktree push and PR creation job
+    def enqueue_ai_worktree_push_and_pr(session_id, options = {})
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiWorktreePushAndPrJob",
+        "args" => [session_id, options],
+        "queue" => "ai_execution"
+      })
+    end
+
+    # Enqueue worktree timeout check job
+    def enqueue_ai_worktree_timeout
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiWorktreeTimeoutJob",
+        "args" => [],
+        "queue" => "ai_execution"
+      })
+    end
+
+    # Enqueue merge execution job
+    def enqueue_ai_merge_execution(session_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiMergeExecutionJob",
+        "args" => [session_id],
+        "queue" => "ai_execution"
+      })
+    end
+
+    # Enqueue conflict detection job
+    def enqueue_ai_conflict_detection(session_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiConflictDetectionJob",
+        "args" => [session_id],
+        "queue" => "ai_execution"
+      })
+    end
+
+    # Enqueue runner dispatch poll job
+    def enqueue_ai_runner_dispatch_poll(session_id, poll_count: 0)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiRunnerDispatchPollJob",
+        "args" => [session_id, { "poll_count" => poll_count }],
+        "queue" => "default"
       })
     end
 
@@ -342,9 +567,8 @@ class WorkerJobService
       request["Content-Type"] = "application/json"
       request["Accept"] = "application/json"
 
-      # Add worker service authentication
-      worker_token = Rails.application.config.worker_token
-      request["Authorization"] = "Bearer #{worker_token}" if worker_token
+      # Authenticate as system worker using JWT (token derived from database)
+      request["Authorization"] = "Bearer #{system_worker_jwt}"
 
       # Set body for requests that support it
       if %w[POST PUT PATCH].include?(method.upcase) && payload.present?
@@ -381,6 +605,33 @@ class WorkerJobService
         raise WorkerServiceError, "Invalid response format from worker service"
       end
     end
+
+  # Mint a short-lived JWT for the system worker, derived from the database record.
+  # Cached per-thread for 4 minutes (JWT expires in 5 minutes) to avoid DB lookups on every request.
+  # Class method so controllers can also use it for outgoing worker calls.
+  def self.system_worker_jwt
+    cached = Thread.current[:_system_worker_jwt]
+    if cached && cached[:expires_at] > Time.current
+      return cached[:token]
+    end
+
+    worker = Worker.system_worker
+    raise WorkerServiceError, "No active system worker found in database" unless worker&.active?
+
+    token = Security::JwtService.encode(
+      { type: "worker", sub: worker.id },
+      5.minutes.from_now
+    )
+
+    Thread.current[:_system_worker_jwt] = { token: token, expires_at: 4.minutes.from_now }
+    token
+  end
+
+  private
+
+  def system_worker_jwt
+    self.class.system_worker_jwt
+  end
 
   # Custom exception for worker service errors
   class WorkerServiceError < StandardError; end

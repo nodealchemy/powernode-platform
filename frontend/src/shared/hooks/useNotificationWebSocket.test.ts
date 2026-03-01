@@ -49,7 +49,7 @@ const mockUser = {
   },
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const createTestStore = (preloadedState?: any) => {
   return configureStore({
     reducer: rootReducer,

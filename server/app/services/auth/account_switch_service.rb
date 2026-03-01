@@ -123,16 +123,15 @@ module Auth
         is_switched: target_account.id != @primary_account.id,
         delegation_id: delegation&.id,
         switched_at: Time.current.to_i
-      }
+      }.merge(metadata.slice(:ip, :user_agent, :device_id))
 
-      access_token = Security::JwtService.encode(payload.merge(type: "access"), metadata: metadata)
+      access_token = Security::JwtService.encode(payload.merge(type: "access"))
       refresh_token = Security::JwtService.encode(
-        payload.slice(:sub, :account_id, :primary_account_id).merge(type: "refresh"),
-        metadata: metadata
+        payload.slice(:sub, :account_id, :primary_account_id, :ip, :device_id).merge(type: "refresh")
       )
 
       # Log the account switch
-      log_account_switch(target_account, delegation)
+      log_account_switch(target_account, delegation, metadata)
 
       {
         access_token: access_token,
@@ -157,20 +156,20 @@ module Auth
       }
     end
 
-    def log_account_switch(target_account, delegation)
+    def log_account_switch(target_account, delegation, metadata = {})
       AuditLog.create!(
         account: @primary_account,
         user: @user,
-        action: "account.switch",
+        action: "account_switch",
         resource_type: "Account",
         resource_id: target_account.id,
-        details: {
+        ip_address: metadata[:ip],
+        user_agent: metadata[:user_agent],
+        metadata: {
           target_account_id: target_account.id,
           target_account_name: target_account.name,
           delegation_id: delegation&.id,
-          delegated_by_id: delegation&.delegated_by_id,
-          ip_address: Current.ip_address,
-          user_agent: Current.user_agent
+          delegated_by_id: delegation&.delegated_by_id
         }
       )
     rescue StandardError => e
@@ -180,4 +179,3 @@ module Auth
     end
   end
 end
-

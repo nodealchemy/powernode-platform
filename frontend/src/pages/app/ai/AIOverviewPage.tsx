@@ -1,8 +1,9 @@
 import React, { useRef, useState, useCallback } from 'react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { EnhancedAIOverview, EnhancedAIOverviewHandle } from '@/features/ai/orchestration/components/EnhancedAIOverview';
-import { RefreshCw, Radio } from 'lucide-react';
+import { Radio } from 'lucide-react';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 
 export const AIOverviewPage: React.FC = () => {
   const overviewRef = useRef<EnhancedAIOverviewHandle>(null);
@@ -10,7 +11,7 @@ export const AIOverviewPage: React.FC = () => {
   const [isLiveUpdates, setIsLiveUpdates] = useState(false);
 
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'ai',
     onDataUpdate: () => {
       // Trigger data refresh if needed
@@ -32,24 +33,22 @@ export const AIOverviewPage: React.FC = () => {
     }
   }, []);
 
+  const { refreshAction } = useRefreshAction({
+    onRefresh: handleRefresh,
+    loading: isRefreshing,
+  });
+
   return (
     <PageContainer
-      title="AI Overview"
-      description="AI system dashboard and quick actions"
+      title="AI Dashboard"
+      description="Command center for AI agents, missions, and workflows"
       breadcrumbs={[
         { label: 'Dashboard', href: '/app' },
         { label: 'AI' }
       ]}
       actions={[
-        {
-          id: 'refresh',
-          label: isRefreshing ? 'Refreshing...' : 'Refresh',
-          onClick: handleRefresh,
-          variant: 'outline',
-          icon: RefreshCw,
-          disabled: isRefreshing
-        },
-        {
+        refreshAction,
+{
           id: 'live-updates',
           label: isLiveUpdates ? 'Live' : 'Paused',
           onClick: handleToggleLiveUpdates,

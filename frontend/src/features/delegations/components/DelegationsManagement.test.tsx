@@ -2,6 +2,14 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { DelegationsManagement } from './DelegationsManagement';
 
+// Mock ConfirmationModal - auto-confirm by default
+jest.mock('@/shared/components/ui/ConfirmationModal', () => ({
+  useConfirmation: () => ({
+    confirm: (opts: any) => { opts.onConfirm(); },
+    ConfirmationDialog: null,
+  }),
+}));
+
 // Mock delegation API
 const mockGetDelegations = jest.fn();
 const mockGetDelegationRequests = jest.fn();
@@ -431,8 +439,6 @@ describe('DelegationsManagement', () => {
     });
 
     it('calls revokeDelegation when Revoke clicked', async () => {
-      window.confirm = jest.fn(() => true);
-
       render(<DelegationsManagement />);
 
       await waitFor(() => {

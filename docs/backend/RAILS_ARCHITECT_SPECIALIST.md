@@ -1,33 +1,84 @@
 ---
-Last Updated: 2026-01-17
-Platform Version: 1.0.0
+Last Updated: 2026-02-28
+Platform Version: 0.3.0
 ---
 
 # Rails Architect Specialist Guide
+
+## Platform Statistics
+
+| Metric | Count |
+|--------|-------|
+| Ruby | 3.2.8 |
+| Rails | 8.1.2 |
+| Models | 261 |
+| Controllers | 244 |
+| Services | 560 |
+| Database Tables | 352 |
+| ActionCable Channels | 17 |
+| Model Namespaces | 13 |
+| Controller Namespaces | 16 |
+| Service Namespaces | 23 |
+| Schema Lines | ~10,500 |
+
+### Key Gems
+
+| Gem | Purpose |
+|-----|---------|
+| `rails` 8.1.2 | Web framework |
+| `uuid7` | UUIDv7 primary keys |
+| `neighbor` | pgvector integration (HNSW indexes) |
+| `doorkeeper` | OAuth2 provider |
+| `flipper` | Feature flags |
+| `sentry-ruby` | Error tracking |
+| `solid_cache` / `solid_queue` / `solid_cable` | Rails 8 solid adapters |
+
+### Model Namespaces
+
+| Namespace | Description |
+|-----------|-------------|
+| `Account` | Account-related models |
+| `Ai` | AI agents, conversations, workflows, teams, memory, knowledge graph (127+ models) |
+| `BaaS` | Backend-as-a-Service models |
+| `Chat` | Multi-platform chat (channels, sessions, messages) |
+| `Database` | Database management models |
+| `DataManagement` | Data import/export/transformation |
+| `Devops` | CI/CD, containers, Docker, Swarm, git (41 models) |
+| `FileManagement` | File storage and management |
+| `KnowledgeBase` | KB articles, categories, tags, workflows |
+| `Mcp` | MCP server and tool models |
+| `Monitoring` | System monitoring and health |
+| `Shared` | Cross-cutting shared models |
+| Root (no namespace) | Core models (User, Account, Plan, Subscription, etc.) |
 
 ## Related References
 
 For common patterns used across multiple specialists, see these consolidated references:
 - **[API Response Standards](../platform/API_RESPONSE_STANDARDS.md)** - Unified response format documentation
 - **[Permission System Reference](../platform/PERMISSION_SYSTEM_REFERENCE.md)** - Backend permission patterns
+- **[DevOps Platform Guide](../platform/DEVOPS_PLATFORM_GUIDE.md)** - CI/CD and container orchestration
+- **[Chat System Architecture](../platform/CHAT_SYSTEM_ARCHITECTURE.md)** - Real-time messaging
+- **[Content Management Guide](../platform/CONTENT_MANAGEMENT_GUIDE.md)** - KB articles and pages
 
 ## Role & Responsibilities
 
 The Rails Architect specializes in Rails 8 API setup, configuration, and architectural decisions for Powernode's subscription platform.
 
 ### Core Responsibilities
-- Setting up Rails 8 API-only applications
-- Configuring database connections and migrations
-- Designing RESTful API endpoints
+- Setting up Rails 8.1 API-only applications
+- Configuring database connections and migrations (352 tables, UUIDv7 PKs)
+- Designing RESTful API endpoints (244 controllers across 15+ namespaces)
 - Setting up middleware and security configurations
-- Implementing authentication systems (JWT)
+- Implementing authentication systems (JWT with impersonation)
+- Managing 17 ActionCable channels for real-time communication
 
 ### Key Focus Areas
-- Rails conventions and best practices
-- API-only architecture patterns
-- Security configuration and middleware
-- Database configuration and optimization
-- Authentication and authorization systems
+- Rails 8.1 conventions and best practices
+- API-only architecture patterns with 13 model namespaces
+- Security configuration and middleware (PCI compliance)
+- Database configuration and optimization (PostgreSQL + pgvector)
+- Authentication and authorization systems (permission-based, never role-based)
+- WebSocket communication via ActionCable
 
 ## Rails 8 API Architecture Standards
 

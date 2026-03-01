@@ -110,6 +110,7 @@ export const EnhancedNotification: React.FC<NotificationProps> = ({
               onClick={copyToClipboard}
               className="p-1.5 rounded-full transition-colors duration-150 hover:bg-black/10 toast-icon"
               title="Copy notification"
+              aria-label={copied ? 'Notification copied' : 'Copy notification'}
             >
               {copied ? (
                 <Check className="h-4 w-4" />
@@ -124,6 +125,8 @@ export const EnhancedNotification: React.FC<NotificationProps> = ({
                 onClick={() => setIsExpanded(!isExpanded)}
                 className="p-1.5 rounded-full transition-colors duration-150 hover:bg-black/10 toast-icon"
                 title={isExpanded ? 'Collapse details' : 'Expand details'}
+                aria-label={isExpanded ? 'Collapse notification details' : 'Expand notification details'}
+                aria-expanded={isExpanded}
               >
                 {isExpanded ? (
                   <ChevronUp className="h-4 w-4" />
@@ -138,6 +141,7 @@ export const EnhancedNotification: React.FC<NotificationProps> = ({
               onClick={() => onRemove(id)}
               className="p-1.5 rounded-full transition-colors duration-150 hover:bg-black/10 toast-icon"
               title="Dismiss"
+              aria-label="Dismiss notification"
             >
               <X className="h-4 w-4" />
             </button>

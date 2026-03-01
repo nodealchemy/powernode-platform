@@ -80,6 +80,20 @@ module Devops
 
     # Pull Requests
 
+    def create_pull_request(owner, repo, title:, body:, head:, base:, draft: false)
+      with_error_handling do
+        payload = {
+          title: title,
+          body: body,
+          head: head,
+          base: base,
+          draft: draft
+        }
+        result = post("/repos/#{owner}/#{repo}/pulls", payload)
+        symbolize_keys(result).merge(success: true, pr_number: result["number"], pr_url: result["html_url"])
+      end
+    end
+
     def list_pull_requests(owner, repo, options = {})
       params = {
         state: options[:state] || "open",
@@ -159,10 +173,10 @@ module Devops
       }
       payload[:config][:secret] = secret if secret.present?
 
-      result = post("/repos/#{owner}/#{repo}/hooks", payload)
-      symbolize_keys(result).merge(success: true, webhook_id: result["id"].to_s)
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        result = post("/repos/#{owner}/#{repo}/hooks", payload)
+        symbolize_keys(result).merge(success: true, webhook_id: result["id"].to_s)
+      end
     end
 
     # Delete webhook with explicit parameters
@@ -184,12 +198,10 @@ module Devops
         raise ArgumentError, "Invalid arguments for delete_webhook"
       end
 
-      delete("/repos/#{owner}/#{repo}/hooks/#{webhook_id}")
-      { success: true }
-    rescue NotFoundError
-      { success: true } # Already deleted
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling(default_on_not_found: { success: true }) do
+        delete("/repos/#{owner}/#{repo}/hooks/#{webhook_id}")
+        { success: true }
+      end
     end
 
     # Webhook Signature Verification
@@ -257,150 +269,134 @@ module Devops
     end
 
     def trigger_workflow(owner, repo, workflow_id, ref, inputs = {})
-      payload = { ref: ref }
-      payload[:inputs] = inputs if inputs.present?
-
-      post("/repos/#{owner}/#{repo}/actions/workflows/#{workflow_id}/dispatches", payload)
-      { success: true }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        payload = { ref: ref }
+        payload[:inputs] = inputs if inputs.present?
+        post("/repos/#{owner}/#{repo}/actions/workflows/#{workflow_id}/dispatches", payload)
+        { success: true }
+      end
     end
 
     def cancel_workflow_run(owner, repo, run_id)
-      post("/repos/#{owner}/#{repo}/actions/runs/#{run_id}/cancel")
-      { success: true }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        post("/repos/#{owner}/#{repo}/actions/runs/#{run_id}/cancel")
+        { success: true }
+      end
     end
 
     def rerun_workflow(owner, repo, run_id)
-      post("/repos/#{owner}/#{repo}/actions/runs/#{run_id}/rerun")
-      { success: true }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        post("/repos/#{owner}/#{repo}/actions/runs/#{run_id}/rerun")
+        { success: true }
+      end
     end
 
     def rerun_failed_jobs(owner, repo, run_id)
-      post("/repos/#{owner}/#{repo}/actions/runs/#{run_id}/rerun-failed-jobs")
-      { success: true }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        post("/repos/#{owner}/#{repo}/actions/runs/#{run_id}/rerun-failed-jobs")
+        { success: true }
+      end
     end
 
     # GitHub Actions Runners (Self-Hosted)
 
-    def list_runners(owner, repo)
-      result = get("/repos/#{owner}/#{repo}/actions/runners")
+    def supports_runners?
+      true
+    end
+
+    def list_runners(owner, repo, scope: :repo)
+      path = case scope
+      when :repo
+        "/repos/#{owner}/#{repo}/actions/runners"
+      when :org
+        "/orgs/#{owner}/actions/runners"
+      else
+        raise ArgumentError, "Invalid scope: #{scope}"
+      end
+
+      result = get(path)
       {
         total_count: result["total_count"],
         runners: (result["runners"] || []).map { |runner| normalize_runner(runner) }
       }
     end
 
-    def list_org_runners(org)
-      result = get("/orgs/#{org}/actions/runners")
-      {
-        total_count: result["total_count"],
-        runners: (result["runners"] || []).map { |runner| normalize_runner(runner) }
-      }
-    end
+    def get_runner(owner, repo, runner_id, scope: :repo)
+      path = case scope
+      when :repo
+        "/repos/#{owner}/#{repo}/actions/runners/#{runner_id}"
+      when :org
+        "/orgs/#{owner}/actions/runners/#{runner_id}"
+      else
+        raise ArgumentError, "Invalid scope: #{scope}"
+      end
 
-    def get_runner(owner, repo, runner_id)
-      result = get("/repos/#{owner}/#{repo}/actions/runners/#{runner_id}")
+      result = get(path)
       normalize_runner(result)
     end
 
-    def get_org_runner(org, runner_id)
-      result = get("/orgs/#{org}/actions/runners/#{runner_id}")
-      normalize_runner(result)
+    def delete_runner(owner, repo, runner_id, scope: :repo)
+      path = case scope
+      when :repo
+        "/repos/#{owner}/#{repo}/actions/runners/#{runner_id}"
+      when :org
+        "/orgs/#{owner}/actions/runners/#{runner_id}"
+      else
+        raise ArgumentError, "Invalid scope: #{scope}"
+      end
+
+      with_error_handling(default_on_not_found: { success: true }) do
+        delete(path)
+        { success: true }
+      end
     end
 
-    def delete_runner(owner, repo, runner_id)
-      delete("/repos/#{owner}/#{repo}/actions/runners/#{runner_id}")
-      { success: true }
-    rescue NotFoundError
-      { success: true } # Already deleted
-    rescue ApiError => e
-      { success: false, error: e.message }
+    def runner_registration_token(owner, repo, scope: :repo)
+      path = case scope
+      when :repo
+        "/repos/#{owner}/#{repo}/actions/runners/registration-token"
+      when :org
+        "/orgs/#{owner}/actions/runners/registration-token"
+      else
+        raise ArgumentError, "Invalid scope: #{scope}"
+      end
+
+      with_error_handling do
+        result = post(path)
+        { token: result["token"], expires_at: result["expires_at"] }
+      end
     end
 
-    def delete_org_runner(org, runner_id)
-      delete("/orgs/#{org}/actions/runners/#{runner_id}")
-      { success: true }
-    rescue NotFoundError
-      { success: true } # Already deleted
-    rescue ApiError => e
-      { success: false, error: e.message }
+    def runner_removal_token(owner, repo, scope: :repo)
+      path = case scope
+      when :repo
+        "/repos/#{owner}/#{repo}/actions/runners/remove-token"
+      when :org
+        "/orgs/#{owner}/actions/runners/remove-token"
+      else
+        raise ArgumentError, "Invalid scope: #{scope}"
+      end
+
+      with_error_handling do
+        result = post(path)
+        { token: result["token"], expires_at: result["expires_at"] }
+      end
     end
 
-    def runner_registration_token(owner, repo)
-      result = post("/repos/#{owner}/#{repo}/actions/runners/registration-token")
-      {
-        token: result["token"],
-        expires_at: result["expires_at"]
-      }
-    rescue ApiError => e
-      { success: false, error: e.message }
-    end
+    def set_runner_labels(owner, repo, runner_id, labels, scope: :repo)
+      path = case scope
+      when :repo
+        "/repos/#{owner}/#{repo}/actions/runners/#{runner_id}/labels"
+      when :org
+        "/orgs/#{owner}/actions/runners/#{runner_id}/labels"
+      else
+        raise ArgumentError, "Invalid scope: #{scope}"
+      end
 
-    def org_runner_registration_token(org)
-      result = post("/orgs/#{org}/actions/runners/registration-token")
-      {
-        token: result["token"],
-        expires_at: result["expires_at"]
-      }
-    rescue ApiError => e
-      { success: false, error: e.message }
-    end
-
-    def runner_removal_token(owner, repo)
-      result = post("/repos/#{owner}/#{repo}/actions/runners/remove-token")
-      {
-        token: result["token"],
-        expires_at: result["expires_at"]
-      }
-    rescue ApiError => e
-      { success: false, error: e.message }
-    end
-
-    def org_runner_removal_token(org)
-      result = post("/orgs/#{org}/actions/runners/remove-token")
-      {
-        token: result["token"],
-        expires_at: result["expires_at"]
-      }
-    rescue ApiError => e
-      { success: false, error: e.message }
-    end
-
-    def add_runner_labels(owner, repo, runner_id, labels)
-      result = post("/repos/#{owner}/#{repo}/actions/runners/#{runner_id}/labels", { labels: labels })
-      {
-        success: true,
-        labels: (result["labels"] || []).map { |l| l["name"] }
-      }
-    rescue ApiError => e
-      { success: false, error: e.message }
-    end
-
-    def remove_runner_label(owner, repo, runner_id, label)
-      result = delete("/repos/#{owner}/#{repo}/actions/runners/#{runner_id}/labels/#{label}")
-      {
-        success: true,
-        labels: (result["labels"] || []).map { |l| l["name"] }
-      }
-    rescue ApiError => e
-      { success: false, error: e.message }
-    end
-
-    def set_runner_labels(owner, repo, runner_id, labels)
-      result = put("/repos/#{owner}/#{repo}/actions/runners/#{runner_id}/labels", { labels: labels })
-      {
-        success: true,
-        labels: (result["labels"] || []).map { |l| l["name"] }
-      }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        result = put(path, { labels: labels })
+        { success: true, labels: (result["labels"] || []).map { |l| l["name"] } }
+      end
     end
 
     # Commit Statuses
@@ -415,15 +411,14 @@ module Devops
     end
 
     def create_commit_status(owner, repo, sha, state, options = {})
-      payload = { state: state }
-      payload[:target_url] = options[:target_url] if options[:target_url]
-      payload[:description] = options[:description] if options[:description]
-      payload[:context] = options[:context] || "default"
-
-      result = post("/repos/#{owner}/#{repo}/statuses/#{sha}", payload)
-      symbolize_keys(result).merge(success: true)
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        payload = { state: state }
+        payload[:target_url] = options[:target_url] if options[:target_url]
+        payload[:description] = options[:description] if options[:description]
+        payload[:context] = options[:context] || "default"
+        result = post("/repos/#{owner}/#{repo}/statuses/#{sha}", payload)
+        symbolize_keys(result).merge(success: true)
+      end
     end
 
     # Branch Protection
@@ -436,30 +431,27 @@ module Devops
     end
 
     def update_branch_protection(owner, repo, branch, options = {})
-      payload = {
-        required_status_checks: options[:required_status_checks],
-        enforce_admins: options[:enforce_admins] || false,
-        required_pull_request_reviews: options[:required_pull_request_reviews],
-        restrictions: options[:restrictions],
-        required_linear_history: options[:required_linear_history] || false,
-        allow_force_pushes: options[:allow_force_pushes] || false,
-        allow_deletions: options[:allow_deletions] || false,
-        required_conversation_resolution: options[:required_conversation_resolution] || false
-      }.compact
-
-      result = put("/repos/#{owner}/#{repo}/branches/#{branch}/protection", payload)
-      { success: true, protection: symbolize_keys(result) }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        payload = {
+          required_status_checks: options[:required_status_checks],
+          enforce_admins: options[:enforce_admins] || false,
+          required_pull_request_reviews: options[:required_pull_request_reviews],
+          restrictions: options[:restrictions],
+          required_linear_history: options[:required_linear_history] || false,
+          allow_force_pushes: options[:allow_force_pushes] || false,
+          allow_deletions: options[:allow_deletions] || false,
+          required_conversation_resolution: options[:required_conversation_resolution] || false
+        }.compact
+        result = put("/repos/#{owner}/#{repo}/branches/#{branch}/protection", payload)
+        { success: true, protection: symbolize_keys(result) }
+      end
     end
 
     def delete_branch_protection(owner, repo, branch)
-      delete("/repos/#{owner}/#{repo}/branches/#{branch}/protection")
-      { success: true }
-    rescue NotFoundError
-      { success: true } # Already unprotected
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling(default_on_not_found: { success: true }) do
+        delete("/repos/#{owner}/#{repo}/branches/#{branch}/protection")
+        { success: true }
+      end
     end
 
     def list_protected_branches(owner, repo)
@@ -479,25 +471,18 @@ module Devops
     end
 
     def create_deploy_key(owner, repo, title, key, options = {})
-      payload = {
-        title: title,
-        key: key,
-        read_only: options[:read_only] != false
-      }
-
-      result = post("/repos/#{owner}/#{repo}/keys", payload)
-      { success: true, key: symbolize_keys(result) }
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling do
+        payload = { title: title, key: key, read_only: options[:read_only] != false }
+        result = post("/repos/#{owner}/#{repo}/keys", payload)
+        { success: true, key: symbolize_keys(result) }
+      end
     end
 
     def delete_deploy_key(owner, repo, key_id)
-      delete("/repos/#{owner}/#{repo}/keys/#{key_id}")
-      { success: true }
-    rescue NotFoundError
-      { success: true } # Already deleted
-    rescue ApiError => e
-      { success: false, error: e.message }
+      with_error_handling(default_on_not_found: { success: true }) do
+        delete("/repos/#{owner}/#{repo}/keys/#{key_id}")
+        { success: true }
+      end
     end
 
     # Rate Limit
@@ -608,14 +593,14 @@ module Devops
       return nil unless runner
 
       {
-        id: runner["id"].to_s,
-        name: runner["name"],
-        status: runner["status"],
-        busy: runner["busy"] || false,
-        os: runner["os"],
-        labels: (runner["labels"] || []).map { |l| l.is_a?(Hash) ? l["name"] : l },
-        architecture: nil, # GitHub doesn't provide this directly
-        version: nil # GitHub doesn't provide this directly
+        "id" => runner["id"].to_s,
+        "name" => runner["name"],
+        "status" => runner["status"],
+        "busy" => runner["busy"] || false,
+        "os" => runner["os"],
+        "labels" => (runner["labels"] || []).map { |l| l.is_a?(Hash) ? l["name"] : l },
+        "architecture" => nil,
+        "version" => nil
       }
     end
 
@@ -734,64 +719,7 @@ module Devops
       }
     end
 
-    def parse_patch_hunks(patch)
-      return [] if patch.blank?
-
-      hunks = []
-      current_hunk = nil
-      old_line = 0
-      new_line = 0
-
-      patch.lines.each do |line|
-        if line.start_with?("@@")
-          # Parse hunk header: @@ -old_start,old_lines +new_start,new_lines @@
-          match = line.match(/@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/)
-          if match
-            current_hunk = {
-              header: line.chomp,
-              old_start: match[1].to_i,
-              old_lines: match[2]&.to_i || 1,
-              new_start: match[3].to_i,
-              new_lines: match[4]&.to_i || 1,
-              lines: []
-            }
-            hunks << current_hunk
-            old_line = current_hunk[:old_start]
-            new_line = current_hunk[:new_start]
-          end
-        elsif current_hunk
-          line_type = case line[0]
-                      when "+" then "addition"
-                      when "-" then "deletion"
-                      when " " then "context"
-                      else "context"
-                      end
-
-          diff_line = {
-            type: line_type,
-            content: line[1..].to_s.chomp
-          }
-
-          case line_type
-          when "deletion"
-            diff_line[:old_line_number] = old_line
-            old_line += 1
-          when "addition"
-            diff_line[:new_line_number] = new_line
-            new_line += 1
-          when "context"
-            diff_line[:old_line_number] = old_line
-            diff_line[:new_line_number] = new_line
-            old_line += 1
-            new_line += 1
-          end
-
-          current_hunk[:lines] << diff_line
-        end
-      end
-
-      hunks
-    end
+    # parse_patch_hunks is now inherited from ApiClient base class
 
     def normalize_comparison(comparison)
       return nil unless comparison
@@ -920,5 +848,5 @@ module Devops
       end
     end
   end
-end
+  end
 end

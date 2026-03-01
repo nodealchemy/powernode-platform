@@ -49,7 +49,7 @@ FactoryBot.define do
 
     trait :ollama do
       association :provider, factory: [ :ai_provider, :ollama ]
-      name { "Local Ollama" }
+      name { "Ollama" }
       credentials do
         {
           "base_url" => "http://localhost:11434",

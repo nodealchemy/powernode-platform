@@ -7,7 +7,7 @@ import {
   AlertCircle,
   Loader
 } from 'lucide-react';
-import { AuditLogFilters as FilterType, auditLogsApi } from '@/features/system/audit-logs/services/auditLogsApi';
+import { AuditLogFilters as FilterType, auditLogsApi } from '@/features/admin/audit-logs/services/auditLogsApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface AuditLogExportProps {
@@ -154,7 +154,7 @@ export const AuditLogExport: React.FC<AuditLogExportProps> = ({ filters, onClose
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const updateExportOptions = (key: keyof ExportOptions, value: any) => {
     setExportOptions(prev => ({ ...prev, [key]: value }));
   };

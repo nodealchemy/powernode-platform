@@ -1,6 +1,6 @@
 import React from 'react';
-import { Modal } from './Modal';
-import { Button } from './Button';
+import { Modal } from '@/shared/components/ui/Modal';
+import { Button } from '@/shared/components/ui/Button';
 import { AlertTriangle, Trash2, Info, HelpCircle } from 'lucide-react';
 
 export type ConfirmationVariant = 'danger' | 'warning' | 'info' | 'default';
@@ -130,14 +130,11 @@ export const useConfirmation = () => {
   const handleConfirm = async () => {
     if (!options) return;
 
+    setLoading(true);
     try {
-      setLoading(true);
       await options.onConfirm();
       setIsOpen(false);
       setOptions(null);
-    } catch (error) {
-      // Let the caller handle errors via their onConfirm
-      throw error;
     } finally {
       setLoading(false);
     }

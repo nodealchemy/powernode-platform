@@ -27,7 +27,7 @@ export const TestConfigurationModal: React.FC<TestConfigurationModalProps> = ({
       setJobId(result.job_id);
       setShowProgress(true);
       showNotification('Configuration test started', 'info');
-    } catch (error) {
+    } catch (_error) {
       showNotification('Failed to start configuration test', 'error');
     }
   };

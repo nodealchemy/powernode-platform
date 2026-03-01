@@ -2,7 +2,7 @@
 
 # Background job for executing workflows as part of a batch
 class WorkflowBatchExecutionJob < BaseJob
-  queue_as :workflow_high_priority
+  sidekiq_options queue: :workflow_high_priority
 
   # Execute a single workflow as part of a batch operation
   def execute(workflow_id:, batch_id:, user_id: nil, execution_options: {})

@@ -39,16 +39,16 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
   }, [title]);
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 ${className}`}>
+    <div className={`min-h-screen bg-theme-background ${className}`}>
       {/* Modern Header */}
-      <header className="sticky top-0 z-50 backdrop-blur-lg bg-slate-900/95 border-b border-white/10">
+      <header className="sticky top-0 z-50 backdrop-blur-lg bg-theme-background/95 border-b border-theme">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             <Link to="/" className="flex items-center space-x-3 group">
               <div className="w-11 h-11 bg-theme-info-solid rounded-xl flex items-center justify-center transform group-hover:scale-105 transition-transform duration-200 shadow-lg">
                 <span className="text-white font-bold text-xl">P</span>
               </div>
-              <h1 className="text-lg font-bold text-white">
+              <h1 className="text-lg font-bold text-theme-primary">
                 Powernode
               </h1>
             </Link>
@@ -57,7 +57,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
               {showBackButton && (
                 <Link
                   to={backButtonHref}
-                  className="inline-flex items-center space-x-2 text-sm font-semibold text-white/80 hover:text-white transition-colors duration-200"
+                  className="inline-flex items-center space-x-2 text-sm font-semibold text-theme-secondary hover:text-theme-primary transition-colors duration-200"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   <span>{backButtonLabel}</span>
@@ -66,7 +66,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
 
               {isAuthenticated && user ? (
                 <div className="flex items-center space-x-4">
-                  <span className="text-sm text-white/80">
+                  <span className="text-sm text-theme-secondary">
                     Welcome, {user.name}
                   </span>
                   <Link
@@ -81,7 +81,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                 <>
                   <Link
                     to="/login"
-                    className="text-sm font-semibold text-white/80 hover:text-white transition-colors duration-200"
+                    className="text-sm font-semibold text-theme-secondary hover:text-theme-primary transition-colors duration-200"
                   >
                     Sign in
                   </Link>
@@ -109,13 +109,13 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
 
           <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             {title && (
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-6 text-white">
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-6 text-theme-primary">
                 {title}
               </h1>
             )}
 
             {description && (
-              <p className="text-xl md:text-2xl text-white/80 max-w-3xl mx-auto leading-relaxed">
+              <p className="text-xl md:text-2xl text-theme-secondary max-w-3xl mx-auto leading-relaxed">
                 {description}
               </p>
             )}
@@ -129,10 +129,10 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
       </main>
 
       {/* Modern Footer */}
-      <footer className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white mt-20">
+      <footer className="bg-theme-background-secondary text-theme-primary mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Main Footer Content */}
-          <div className="py-16 border-b border-slate-700/50">
+          <div className="py-16 border-b border-theme">
             <div className="grid lg:grid-cols-4 md:grid-cols-2 gap-8">
               {/* Company Info */}
               <div className="lg:col-span-1">
@@ -141,13 +141,13 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                     <span className="text-white font-bold text-lg">P</span>
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">
+                    <h3 className="text-xl font-bold text-theme-primary">
                       {footerData?.site_name || 'Powernode'}
                     </h3>
-                    <p className="text-xs text-slate-400 font-medium">Subscription Platform</p>
+                    <p className="text-xs text-theme-tertiary font-medium">Subscription Platform</p>
                   </div>
                 </div>
-                <p className="text-slate-300 text-sm leading-relaxed mb-6">
+                <p className="text-theme-secondary text-sm leading-relaxed mb-6">
                   {footerData?.footer_description || 'Powerful subscription management platform designed to help businesses grow. Trusted by thousands of companies worldwide.'}
                 </p>
                 
@@ -155,27 +155,27 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                 {footerData && (footerData.social_facebook || footerData.social_twitter || footerData.social_linkedin || footerData.social_instagram || footerData.social_youtube) && (
                   <div className="flex items-center space-x-4">
                     {footerData.social_facebook && (
-                      <a href={footerData.social_facebook} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white transition-colors duration-200">
+                      <a href={footerData.social_facebook} target="_blank" rel="noopener noreferrer" className="text-theme-tertiary hover:text-theme-primary transition-colors duration-200">
                         <Facebook className="w-5 h-5" />
                       </a>
                     )}
                     {footerData.social_twitter && (
-                      <a href={footerData.social_twitter} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white transition-colors duration-200">
+                      <a href={footerData.social_twitter} target="_blank" rel="noopener noreferrer" className="text-theme-tertiary hover:text-theme-primary transition-colors duration-200">
                         <Twitter className="w-5 h-5" />
                       </a>
                     )}
                     {footerData.social_linkedin && (
-                      <a href={footerData.social_linkedin} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white transition-colors duration-200">
+                      <a href={footerData.social_linkedin} target="_blank" rel="noopener noreferrer" className="text-theme-tertiary hover:text-theme-primary transition-colors duration-200">
                         <Linkedin className="w-5 h-5" />
                       </a>
                     )}
                     {footerData.social_instagram && (
-                      <a href={footerData.social_instagram} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white transition-colors duration-200">
+                      <a href={footerData.social_instagram} target="_blank" rel="noopener noreferrer" className="text-theme-tertiary hover:text-theme-primary transition-colors duration-200">
                         <Instagram className="w-5 h-5" />
                       </a>
                     )}
                     {footerData.social_youtube && (
-                      <a href={footerData.social_youtube} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white transition-colors duration-200">
+                      <a href={footerData.social_youtube} target="_blank" rel="noopener noreferrer" className="text-theme-tertiary hover:text-theme-primary transition-colors duration-200">
                         <Youtube className="w-5 h-5" />
                       </a>
                     )}
@@ -185,55 +185,63 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
 
               {/* Product Links */}
               <div>
-                <h4 className="text-white font-semibold mb-6">Product</h4>
+                <h4 className="text-theme-primary font-semibold mb-6">Product</h4>
                 <ul className="space-y-4">
                   <li>
-                    <Link to="/plans" className="text-slate-300 hover:text-white transition-colors duration-200 text-sm">
+                    <Link to="/plans" className="text-theme-secondary hover:text-theme-primary transition-colors duration-200 text-sm">
                       Features
                     </Link>
                   </li>
                   <li>
-                    <Link to="/plans" className="text-slate-300 hover:text-white transition-colors duration-200 text-sm">
+                    <Link to="/plans" className="text-theme-secondary hover:text-theme-primary transition-colors duration-200 text-sm">
                       Pricing
                     </Link>
                   </li>
                   <li>
-                    <span className="text-slate-400 text-sm">Integrations</span>
+                    <span className="text-theme-quaternary text-sm cursor-default" title="Coming Soon">Integrations</span>
                   </li>
                   <li>
-                    <span className="text-slate-400 text-sm">API Documentation</span>
+                    <span className="text-theme-quaternary text-sm cursor-default" title="Coming Soon">API Documentation</span>
                   </li>
                 </ul>
               </div>
 
               {/* Support Links */}
               <div>
-                <h4 className="text-white font-semibold mb-6">Support</h4>
+                <h4 className="text-theme-primary font-semibold mb-6">Support</h4>
                 <ul className="space-y-4">
                   <li>
-                    <span className="text-slate-400 text-sm">Help Center</span>
+                    <Link to="/pages/help" className="text-theme-secondary hover:text-theme-primary transition-colors duration-200 text-sm" data-testid="footer-help-center">
+                      Help Center
+                    </Link>
                   </li>
                   <li>
-                    <span className="text-slate-400 text-sm">Contact Us</span>
+                    <Link to="/pages/contact" className="text-theme-secondary hover:text-theme-primary transition-colors duration-200 text-sm" data-testid="footer-contact">
+                      Contact Us
+                    </Link>
                   </li>
                   <li>
-                    <span className="text-slate-400 text-sm">System Status</span>
+                    <Link to="/status" className="text-theme-secondary hover:text-theme-primary transition-colors duration-200 text-sm" data-testid="footer-status">
+                      System Status
+                    </Link>
                   </li>
                 </ul>
               </div>
 
               {/* Company Links */}
               <div>
-                <h4 className="text-white font-semibold mb-6">Company</h4>
+                <h4 className="text-theme-primary font-semibold mb-6">Company</h4>
                 <ul className="space-y-4">
                   <li>
-                    <span className="text-slate-400 text-sm">About Us</span>
+                    <Link to="/pages/about" className="text-theme-secondary hover:text-theme-primary transition-colors duration-200 text-sm" data-testid="footer-about">
+                      About Us
+                    </Link>
                   </li>
                   <li>
-                    <span className="text-slate-400 text-sm">Careers</span>
+                    <span className="text-theme-quaternary text-sm cursor-default" title="Coming Soon">Careers</span>
                   </li>
                   <li>
-                    <span className="text-slate-400 text-sm">Blog</span>
+                    <span className="text-theme-quaternary text-sm cursor-default" title="Coming Soon">Blog</span>
                   </li>
                 </ul>
               </div>
@@ -243,20 +251,24 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
           {/* Footer Bottom */}
           <div className="py-8">
             <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
-              <div className="flex flex-wrap items-center gap-6 text-sm text-slate-400">
-                <span>© {footerData?.copyright_year || new Date().getFullYear()} {footerData?.site_name || 'Powernode'}. {footerData?.copyright_text || 'All rights reserved.'}</span>
+              <div className="flex flex-wrap items-center gap-6 text-sm text-theme-tertiary">
+                <span>© {footerData?.copyright_year || new Date().getFullYear()} {footerData?.copyright_text || 'Everett C. Haimes III. All rights reserved.'}</span>
                 <div className="flex items-center space-x-6">
-                  <span className="text-slate-500">Privacy Policy</span>
-                  <span className="text-slate-500">Terms of Service</span>
+                  <Link to="/pages/privacy" className="text-theme-tertiary hover:text-theme-primary transition-colors duration-200" data-testid="footer-privacy">
+                    Privacy Policy
+                  </Link>
+                  <Link to="/pages/terms" className="text-theme-tertiary hover:text-theme-primary transition-colors duration-200" data-testid="footer-terms">
+                    Terms of Service
+                  </Link>
                 </div>
               </div>
               
               <div className="flex items-center space-x-6">
-                <div className="flex items-center space-x-2 bg-slate-800/50 px-3 py-2 rounded-full">
+                <div className="flex items-center space-x-2 bg-theme-surface px-3 py-2 rounded-full">
                   <div className="w-2 h-2 bg-theme-success-solid rounded-full animate-pulse"></div>
-                  <span className="text-xs text-slate-300 font-medium">All systems operational</span>
+                  <span className="text-xs text-theme-secondary font-medium">All systems operational</span>
                 </div>
-                <div className="flex items-center space-x-2 text-xs text-slate-400">
+                <div className="flex items-center space-x-2 text-xs text-theme-tertiary">
                   <span className="text-sm">🛡️</span>
                   <span>SOC 2 Compliant</span>
                 </div>

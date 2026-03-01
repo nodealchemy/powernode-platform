@@ -11,9 +11,15 @@ class Api::V1::Kb::ArticlesController < ApplicationController
 
   # GET /api/v1/kb/articles
   def index
-    if editing_mode?
+    # Check if admin view was explicitly requested
+    admin_requested = params[:admin] == "true" || params[:edit] == "true" || request.path.include?("/admin")
+
+    if admin_requested
+      # Admin view was explicitly requested - check permission
+      return render_error("Access denied", status: :forbidden) unless can_edit_kb?
+
       # Admin view with all articles for editing
-      articles = KnowledgeBaseArticle.includes(:author, :category, :tags)
+      articles = KnowledgeBase::Article.includes(:author, :category, :tags)
       articles = apply_admin_filters(articles)
       articles = articles.page(params[:page]).per(params[:per_page] || 20)
 
@@ -24,7 +30,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
       })
     else
       # Public view with only published articles
-      articles = KnowledgeBaseArticle.published.public_articles
+      articles = KnowledgeBase::Article.published.public_articles
       articles = apply_filters(articles)
       articles = articles.includes(:author, :category, :tags).page(params[:page]).per(params[:per_page] || 20)
 
@@ -68,15 +74,15 @@ class Api::V1::Kb::ArticlesController < ApplicationController
 
   # POST /api/v1/kb/articles
   def create
-    article = KnowledgeBaseArticle.new(article_params)
+    article = KnowledgeBase::Article.new(article_params)
     article.author = current_user
 
     if article.save
       handle_tag_assignment(article) if params[:article][:tag_names].present?
 
-      render_success({
+      render_success(
         article: serialize_article_admin(article.reload)
-      }, "Article created successfully")
+      )
     else
       render_validation_error(article)
     end
@@ -90,9 +96,9 @@ class Api::V1::Kb::ArticlesController < ApplicationController
     if @article.update(article_params)
       handle_tag_assignment(@article) if params[:article][:tag_names].present?
 
-      render_success({
+      render_success(
         article: serialize_article_admin(@article.reload)
-      }, "Article updated successfully")
+      )
     else
       render_validation_error(@article)
     end
@@ -112,9 +118,9 @@ class Api::V1::Kb::ArticlesController < ApplicationController
     return render_error("Article not found", status: :not_found) unless @article
 
     if @article.update(status: "published", published_at: Time.current)
-      render_success({
+      render_success(
         article: serialize_article_admin(@article)
-      }, "Article published successfully")
+      )
     else
       render_validation_error(@article)
     end
@@ -125,9 +131,9 @@ class Api::V1::Kb::ArticlesController < ApplicationController
     return render_error("Article not found", status: :not_found) unless @article
 
     if @article.update(status: "draft", published_at: nil)
-      render_success({
+      render_success(
         article: serialize_article_admin(@article)
-      }, "Article unpublished successfully")
+      )
     else
       render_validation_error(@article)
     end
@@ -138,7 +144,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
     query = params[:q]
     return render_error("Search query is required", status: :bad_request) if query.blank?
 
-    articles = KnowledgeBaseArticle.published.public_articles
+    articles = KnowledgeBase::Article.published.public_articles
     articles = articles.search_by_text(query) if query.present?
     articles = apply_filters(articles)
     articles = articles.includes(:author, :category, :tags).page(params[:page]).per(params[:per_page] || 20)
@@ -152,19 +158,19 @@ class Api::V1::Kb::ArticlesController < ApplicationController
 
   # GET /api/v1/kb/articles/analytics
   def analytics
-    articles = KnowledgeBaseArticle.includes(:article_views)
+    articles = KnowledgeBase::Article.includes(:article_views)
     period = params[:period]&.to_i&.days || 30.days
 
     analytics_data = {
       total_articles: articles.count,
       published_articles: articles.published.count,
       draft_articles: articles.where(status: "draft").count,
-      total_views: KnowledgeBaseArticleView.for_period(period.ago, Time.current).count,
-      top_articles: KnowledgeBaseArticleView.top_articles(limit: 10, period: period),
+      total_views: KnowledgeBase::ArticleView.for_period(period.ago, Time.current).count,
+      top_articles: KnowledgeBase::ArticleView.top_articles(limit: 10, period: period),
       views_by_day: daily_views_breakdown(period)
     }
 
-    render_success(analytics_data, "Analytics retrieved successfully")
+    render_success(analytics_data)
   end
 
   # PATCH /api/v1/kb/articles/bulk
@@ -172,7 +178,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
     article_ids = params[:article_ids]
     return render_error("No article IDs provided", status: :bad_request) if article_ids.blank?
 
-    articles = KnowledgeBaseArticle.where(id: article_ids)
+    articles = KnowledgeBase::Article.where(id: article_ids)
     return render_error("No articles found", status: :not_found) if articles.empty?
 
     # Check permissions for all articles
@@ -190,11 +196,11 @@ class Api::V1::Kb::ArticlesController < ApplicationController
       end
     end
 
-    render_success({
+    render_success(
       updated_count: updated_count
-    }, "#{updated_count} articles updated successfully")
+    )
   rescue StandardError => e
-    render_error("Bulk update failed: #{e.message}", status: :internal_server_error)
+    render_internal_error("Bulk update failed", exception: e)
   end
 
   # DELETE /api/v1/kb/articles/bulk
@@ -202,7 +208,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
     article_ids = params[:article_ids]
     return render_error("No article IDs provided", status: :bad_request) if article_ids.blank?
 
-    articles = KnowledgeBaseArticle.where(id: article_ids)
+    articles = KnowledgeBase::Article.where(id: article_ids)
     return render_error("No articles found", status: :not_found) if articles.empty?
 
     # Check permissions for all articles
@@ -218,22 +224,29 @@ class Api::V1::Kb::ArticlesController < ApplicationController
       end
     end
 
-    render_success({
+    render_success(
       deleted_count: deleted_count
-    }, "#{deleted_count} articles deleted successfully")
+    )
   rescue StandardError => e
-    render_error("Bulk delete failed: #{e.message}", status: :internal_server_error)
+    render_internal_error("Bulk delete failed", exception: e)
   end
 
   private
 
+  def authenticate_optional
+    # Authenticate if Authorization header is present
+    return unless request.headers["Authorization"].present?
+    authenticate_request
+  end
+
   def set_article
-    @article = KnowledgeBaseArticle.find_by(id: params[:id]) ||
-               KnowledgeBaseArticle.find_by(slug: params[:id])
+    @article = KnowledgeBase::Article.find_by(id: params[:id]) ||
+               KnowledgeBase::Article.find_by(slug: params[:id])
   end
 
   def editing_mode?
-    params[:admin] == "true" || params[:edit] == "true" || request.path.include?("/admin")
+    # Only return editing mode if user explicitly requests it AND has permission
+    (params[:admin] == "true" || params[:edit] == "true" || request.path.include?("/admin")) && can_edit_kb?
   end
 
   def can_edit_kb?
@@ -277,7 +290,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
   end
 
   def apply_admin_filters(articles)
-    articles = articles.where("title ILIKE ?", "%#{params[:search]}%") if params[:search].present?
+    articles = articles.where("title ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(params[:search])}%") if params[:search].present?
     articles = articles.where(status: params[:status]) if params[:status].present?
     articles = articles.in_category(params[:category_id]) if params[:category_id].present?
     articles = articles.by_author(params[:author_id]) if params[:author_id].present?
@@ -305,7 +318,7 @@ class Api::V1::Kb::ArticlesController < ApplicationController
   def article_params
     params.require(:article).permit(
       :title, :slug, :content, :excerpt, :category_id, :status, :is_public, :is_featured,
-      :sort_order, :meta_title, :meta_description, tag_names: [], metadata: {}
+      :sort_order, :meta_title, :meta_description, metadata: {}
     )
   end
 
@@ -392,16 +405,16 @@ class Api::V1::Kb::ArticlesController < ApplicationController
 
   def calculate_article_stats
     {
-      total: KnowledgeBaseArticle.count,
-      published: KnowledgeBaseArticle.published.count,
-      draft: KnowledgeBaseArticle.where(status: "draft").count,
-      review: KnowledgeBaseArticle.where(status: "review").count,
-      archived: KnowledgeBaseArticle.where(status: "archived").count
+      total: KnowledgeBase::Article.count,
+      published: KnowledgeBase::Article.published.count,
+      draft: KnowledgeBase::Article.where(status: "draft").count,
+      review: KnowledgeBase::Article.where(status: "review").count,
+      archived: KnowledgeBase::Article.where(status: "archived").count
     }
   end
 
   def daily_views_breakdown(period)
-    KnowledgeBaseArticleView.for_period(period.ago, Time.current)
+    KnowledgeBase::ArticleView.for_period(period.ago, Time.current)
       .group_by_day(:created_at)
       .count
       .transform_keys { |date| date.strftime("%Y-%m-%d") }

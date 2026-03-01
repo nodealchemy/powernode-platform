@@ -2,6 +2,7 @@
 
 class Api::V1::Kb::AttachmentsController < ApplicationController
   skip_before_action :authenticate_request, only: [ :show ]
+  before_action :authenticate_optional, only: [ :show ]
   before_action :set_attachment, only: [ :show, :destroy ]
   before_action :authorize_kb_edit, only: [ :create, :destroy ]
 
@@ -11,7 +12,7 @@ class Api::V1::Kb::AttachmentsController < ApplicationController
 
     # For public access, ensure the attachment belongs to a published article
     unless can_edit_kb?
-      article = @attachment.attachable
+      article = @attachment.article
       return render_error("Access denied", status: :forbidden) unless article&.viewable_by?(current_user)
     end
 
@@ -24,20 +25,19 @@ class Api::V1::Kb::AttachmentsController < ApplicationController
   def create
     return render_error("No file provided", status: :bad_request) unless params[:file].present?
 
-    attachment = KnowledgeBaseAttachment.new(attachment_params)
-    attachment.uploader = current_user
+    attachment = KnowledgeBase::Attachment.new(attachment_params)
+    attachment.uploaded_by = current_user
 
     if attachment.save
-      render_success({
+      render_success(data: {
         attachment: serialize_attachment(attachment),
         url: attachment.file_url
-      }, "File uploaded successfully")
+      })
     else
       render_validation_error(attachment)
     end
   rescue StandardError => e
-    Rails.logger.error "Attachment upload failed: #{e.message}"
-    render_error("Upload failed: #{e.message}", status: :internal_server_error)
+    render_internal_error("Upload failed", exception: e)
   end
 
   # DELETE /api/v1/kb/attachments/:id
@@ -54,7 +54,7 @@ class Api::V1::Kb::AttachmentsController < ApplicationController
   private
 
   def set_attachment
-    @attachment = KnowledgeBaseAttachment.find_by(id: params[:id])
+    @attachment = KnowledgeBase::Attachment.find_by(id: params[:id])
   end
 
   def can_edit_kb?
@@ -69,6 +69,7 @@ class Api::V1::Kb::AttachmentsController < ApplicationController
   def attachment_params
     {
       file: params[:file],
+      article_id: params[:article_id],
       uploaded_by: current_user
     }
   end
@@ -81,7 +82,7 @@ class Api::V1::Kb::AttachmentsController < ApplicationController
       size: attachment.file_size,
       url: attachment.file_url,
       created_at: attachment.created_at,
-      uploader_name: attachment.uploader&.full_name
+      uploader_name: attachment.uploaded_by&.full_name
     }
   end
 end

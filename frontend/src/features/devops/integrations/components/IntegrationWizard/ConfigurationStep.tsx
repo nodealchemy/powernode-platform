@@ -231,7 +231,7 @@ export function ConfigurationStep({
               onChange={(e) => {
                 try {
                   handleFieldChange(key, JSON.parse(e.target.value));
-                } catch {
+                } catch (_error) {
                   // Keep raw value if not valid JSON
                 }
               }}
@@ -323,7 +323,7 @@ export function ConfigurationStep({
         </button>
         <button
           type="submit"
-          className="px-4 py-2 bg-theme-primary text-white rounded-lg hover:bg-theme-primary-hover transition-colors"
+          className="btn-theme btn-theme-primary btn-theme-md"
         >
           Next
         </button>

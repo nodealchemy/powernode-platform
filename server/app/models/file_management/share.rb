@@ -262,7 +262,7 @@ module FileManagement
     end
 
     def send_share_notifications
-      return unless email_share? || user_share?
+      nil unless email_share? || user_share?
     end
   end
 end

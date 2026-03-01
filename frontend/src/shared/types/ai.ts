@@ -28,7 +28,7 @@ export interface AiProvider {
   health_status: 'healthy' | 'unhealthy' | 'unknown' | 'inactive';
   created_at: string;
   updated_at: string;
-  account_credentials?: AiProviderCredential[];
+  credentials?: AiProviderCredential[];
 }
 
 export interface ModelInfo {
@@ -71,6 +71,8 @@ export interface AiProviderCredential {
   encryption_key_id: string;
   expires_soon: boolean;
   can_be_used: boolean;
+  last_test_at?: string;
+  last_test_status?: 'success' | 'failure';
   created_at: string;
   updated_at: string;
   recent_test?: {
@@ -85,12 +87,18 @@ export interface AiAgent {
   name: string;
   description: string;
   agent_type: 'assistant' | 'code_assistant' | 'data_analyst' | 'content_generator' | 'image_generator' | 'workflow_optimizer';
-  ai_provider: {
+  // Provider info
+  provider?: {
     id: string;
     name: string;
     slug: string;
     provider_type: string;
   };
+  // Model config - single source of truth (from backend accessors)
+  model?: string;
+  temperature?: number;
+  max_tokens?: number;
+  system_prompt?: string;
   // MCP Architecture fields
   mcp_tool_manifest: {
     name: string;
@@ -100,12 +108,22 @@ export interface AiAgent {
     configuration?: AgentConfiguration;
     [key: string]: unknown;
   };
-  mcp_capabilities: string[];
-  mcp_input_schema: Record<string, any>;
-  mcp_output_schema: Record<string, any>;
-  mcp_metadata: Record<string, any>;
+  mcp_input_schema: Record<string, unknown>;
+  mcp_output_schema: Record<string, unknown>;
+  mcp_metadata: Record<string, unknown>;
+  // Skills
+  skill_slugs?: string[];
+  skills?: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    category: string;
+    is_active: boolean;
+    priority: number;
+    command_count: number;
+  }>;
   status: 'active' | 'inactive' | 'error';
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -134,10 +152,17 @@ export interface AiConversation {
   id: string;
   title: string;
   status: 'active' | 'completed' | 'archived' | 'error';
+  conversation_type?: 'agent' | 'team';
   ai_agent: {
     id: string;
     name: string;
     agent_type: string;
+    is_concierge?: boolean;
+  };
+  agent_team?: {
+    id: string;
+    name: string;
+    team_type?: string;
   };
   metadata: {
     created_by: string;
@@ -152,13 +177,38 @@ export interface AiConversation {
   message_count?: number;
 }
 
+export interface MessageAction {
+  type: 'approve' | 'request_changes';
+  label: string;
+  style: 'primary' | 'secondary';
+  icon?: string;
+}
+
+export interface ActionContext {
+  execution_id: string;
+  team_id: string;
+  team_name: string;
+  status: 'pending' | 'approved' | 'changes_requested';
+  resolved_at?: string;
+}
+
 export interface AiMessage {
   id: string;
   sender_type: 'user' | 'ai' | 'system';
   sender_id?: string;
+  user_id?: string;
   content: string;
-  metadata: {
-    timestamp: string;
+  role?: 'user' | 'assistant' | 'system' | 'function';
+  message_type?: 'text' | 'image' | 'audio' | 'video' | 'file' | 'code';
+  status?: 'sent' | 'processing' | 'completed' | 'failed';
+  is_edited?: boolean;
+  edited_at?: string;
+  deleted_at?: string;
+  parent_message_id?: string;
+  reply_count?: number;
+  sequence_number?: number;
+  metadata?: {
+    timestamp?: string;
     processing?: boolean;
     error?: boolean;
     error_message?: string;
@@ -168,6 +218,10 @@ export interface AiMessage {
     response_time_ms?: number;
     cost_estimate?: number;
     processing_complete?: boolean;
+    actions?: MessageAction[];
+    action_context?: ActionContext;
+    concierge_action?: string;
+    action_params?: Record<string, unknown>;
     user_rating?: {
       rating: string;
       rated_at: string;
@@ -175,11 +229,20 @@ export interface AiMessage {
     };
     [key: string]: unknown;
   };
+  attachments?: Array<{
+    type: string;
+    name: string;
+    size: number;
+    url?: string;
+    preview_url?: string;
+  }>;
   created_at: string;
   sender_info?: {
+    id?: string;
     name: string;
     avatar_url?: string;
     provider?: string;
+    agent_type?: string;
   };
 }
 
@@ -329,7 +392,7 @@ export interface AccountMetrics {
 
 // WebSocket Message Types
 export interface ConversationChannelMessage {
-  type: 'subscription_confirmed' | 'message_created' | 'ai_response_streaming' | 'ai_response_complete' | 'processing_status' | 'typing_indicator' | 'message_read' | 'conversation_status' | 'error';
+  type: 'subscription_confirmed' | 'message_created' | 'message_updated' | 'ai_response_streaming' | 'ai_response_complete' | 'processing_status' | 'typing_indicator' | 'message_read' | 'conversation_status' | 'error';
   conversation_id?: string;
   status?: string;
   message?: AiMessage;

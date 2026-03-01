@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Clock, RotateCcw, CheckCircle, AlertTriangle, Database, ArrowRight } from 'lucide-react';
 import { Card } from '@/shared/components/ui/Card';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { api } from '@/shared/services/api';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
@@ -21,15 +22,15 @@ export interface Checkpoint {
     total_nodes?: number;
     completed_nodes?: number;
     reason?: string;
-    custom?: Record<string, any>;
+    custom?: Record<string, unknown>;
   };
   state_keys?: string[];
   state_snapshot?: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    variables?: Record<string, any>;
+     
+    variables?: Record<string, unknown>;
     completed_nodes?: string[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    [key: string]: any;
+
+    [key: string]: unknown;
   };
 }
 
@@ -104,7 +105,7 @@ export const CheckpointHistoryViewer: React.FC<CheckpointHistoryViewerProps> = (
       case 'error_handler':
         return { icon: AlertTriangle, color: 'text-theme-warning', bg: 'bg-theme-warning/10', label: 'Error Handler' };
       case 'conditional_branch':
-        return { icon: ArrowRight, color: 'text-indigo-600', bg: 'bg-indigo-500/10', label: 'Conditional' };
+        return { icon: ArrowRight, color: 'text-theme-info', bg: 'bg-theme-info/10', label: 'Conditional' };
     }
   };
 
@@ -131,9 +132,7 @@ export const CheckpointHistoryViewer: React.FC<CheckpointHistoryViewerProps> = (
   if (loading) {
     return (
       <Card className={`p-6 ${className}`}>
-        <div className="flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-interactive-primary"></div>
-        </div>
+        <LoadingSpinner />
       </Card>
     );
   }

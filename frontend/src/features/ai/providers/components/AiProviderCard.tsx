@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Settings,
   Zap,
@@ -44,6 +44,9 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
   const { addNotification } = useNotifications();
   const { confirm, ConfirmationDialog } = useConfirmation();
 
+  // Ref to prevent duplicate API calls in StrictMode
+  const testingRef = useRef(false);
+
   const handleDeleteProvider = () => {
     confirm({
       title: 'Delete Provider',
@@ -60,10 +63,7 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
             message: `${provider.name} has been deleted successfully`
           });
           onUpdate();
-        } catch (error) {
-          if (process.env.NODE_ENV === 'development') {
-            console.error('Failed to delete provider:', error);
-          }
+        } catch (_error) {
           addNotification({
             type: 'error',
             title: 'Delete Failed',
@@ -77,6 +77,10 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
   };
 
   const handleTestConnection = async () => {
+    // Prevent duplicate calls in StrictMode
+    if (testingRef.current) return;
+    testingRef.current = true;
+
     try {
       setTesting(true);
       const response = await providersApi.testConnection(provider.id);
@@ -93,8 +97,7 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
       if (response.success) {
         onUpdate();
       }
-    } catch (error) {
-      console.error('Failed to test connection:', error);
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Test Failed',
@@ -102,6 +105,7 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
       });
     } finally {
       setTesting(false);
+      testingRef.current = false;
     }
   };
 
@@ -117,8 +121,7 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
       });
       
       onUpdate();
-    } catch (error) {
-      console.error('Failed to sync models:', error);
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Sync Failed',
@@ -259,14 +262,14 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
       <div className="mb-4">
         <p className="text-xs font-medium text-theme-text-tertiary mb-2">CAPABILITIES</p>
         <div className="flex flex-wrap gap-1">
-          {provider.capabilities.slice(0, 4).map((capability) => (
+          {(provider.capabilities ?? []).slice(0, 4).map((capability) => (
             <Badge key={capability} variant="outline" size="xs">
               {capability.replace('_', ' ')}
             </Badge>
           ))}
-          {provider.capabilities.length > 4 && (
+          {(provider.capabilities?.length ?? 0) > 4 && (
             <Badge variant="outline" size="xs">
-              +{provider.capabilities.length - 4} more
+              +{(provider.capabilities?.length ?? 0) - 4} more
             </Badge>
           )}
         </div>

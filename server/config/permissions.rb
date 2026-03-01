@@ -22,16 +22,6 @@ module Permissions
     # User Impersonation
     "users.impersonate" => "Impersonate other users",
 
-    # Billing & Subscriptions
-    "billing.read" => "View billing information",
-    "billing.update" => "Update payment methods",
-    "billing.cancel" => "Cancel subscriptions",
-    "plans.read" => "View subscription plans",
-    "plans.create" => "Create subscription plans",
-    "plans.manage" => "Manage subscription plans",
-    "invoice.read" => "View invoices",
-    "invoice.download" => "Download invoices",
-
     # Content Management
     "page.create" => "Create pages",
     "page.read" => "View pages",
@@ -70,42 +60,6 @@ module Permissions
     "kb.publish" => "Publish knowledge base articles",
     "kb.manage" => "Manage knowledge base categories and settings",
     "kb.moderate" => "Moderate knowledge base comments",
-
-    # Marketplace - Apps
-    "app.read" => "View marketplace apps",
-    "app.create" => "Create marketplace apps",
-    "app.update" => "Update own apps",
-    "app.delete" => "Delete own apps",
-    "app.publish" => "Publish own apps",
-    "app.manage_features" => "Manage app features",
-    "app.manage_plans" => "Manage app plans",
-    "app.read_analytics" => "View app analytics",
-
-    # Marketplace - App Subscriptions
-    "subscription.read" => "View app subscriptions",
-    "subscription.create" => "Subscribe to apps",
-    "subscription.manage" => "Manage subscriptions",
-    "subscription.cancel" => "Cancel subscriptions",
-    "subscription.upgrade" => "Upgrade subscriptions",
-    "subscription.read_usage" => "View subscription usage",
-
-    # Marketplace - Reviews
-    "review.read" => "View app reviews",
-    "review.create" => "Write app reviews",
-    "review.update" => "Update own reviews",
-    "review.delete" => "Delete own reviews",
-    "review.moderate" => "Moderate reviews",
-
-    # Marketplace - Publishing (Feature Templates)
-    "marketplace.publish" => "Publish feature templates to the marketplace",
-    "marketplace.templates.read" => "View own published marketplace templates",
-    "marketplace.templates.manage" => "Manage own marketplace templates",
-
-    # Marketplace - Listings
-    "listing.read" => "View marketplace listings",
-    "listing.create" => "Create marketplace listings",
-    "listing.update" => "Update own listings",
-    "listing.delete" => "Delete own listings",
 
     # AI Orchestration - Providers
     "ai.providers.read" => "View available AI providers",
@@ -252,6 +206,12 @@ module Permissions
     "integrations.credentials.update" => "Update integration credentials",
     "integrations.credentials.delete" => "Delete integration credentials",
 
+    # AI Skills
+    "ai.skills.read" => "View AI skills",
+    "ai.skills.create" => "Create AI skills",
+    "ai.skills.update" => "Update AI skills",
+    "ai.skills.delete" => "Delete AI skills",
+
     # AI Persistent Context
     "ai.context.read" => "View AI persistent contexts",
     "ai.context.create" => "Create AI persistent contexts",
@@ -265,6 +225,40 @@ module Permissions
     "ai.memory.read" => "View AI agent memory",
     "ai.memory.write" => "Write to AI agent memory",
     "ai.memory.manage" => "Manage AI agent memory (clear, archive)",
+
+
+    # AI Discovery
+    "ai.discovery.read" => "View AI discovery scan results",
+    "ai.discovery.manage" => "Run AI discovery scans",
+
+    # AI Memory Pools
+    "ai.memory_pools.read" => "View AI memory pools",
+    "ai.memory_pools.manage" => "Create and manage AI memory pools",
+
+    # AI Code Reviews
+    "ai.code_reviews.read" => "View AI code review comments",
+    "ai.code_reviews.manage" => "Manage AI code review comments",
+
+    # AI Agent Teams
+    "ai.teams.manage" => "Manage AI agent teams",
+    "ai.teams.execute" => "Execute AI agent teams",
+
+    # AI Autonomy
+    "ai.autonomy.configure" => "Configure AI agent autonomy settings",
+    "ai.autonomy.manage" => "Manage AI agent trust scores, budgets, and autonomy write operations",
+    "ai.autonomy.approve" => "Approve or reject AI agent autonomy actions",
+
+    # AI Code Factory
+    "ai.code_factory.read" => "View Code Factory risk contracts and review states",
+    "ai.code_factory.manage" => "Manage Code Factory contracts, run preflight gates, and remediation",
+
+    # AI Missions
+    "ai.missions.read" => "View missions and mission details",
+    "ai.missions.manage" => "Create, manage, and approve missions",
+
+    # AI Knowledge Graph
+    "ai.knowledge_graph.read" => "View knowledge graph nodes and relationships",
+    "ai.knowledge_graph.manage" => "Create and manage knowledge graph nodes and edges",
 
     # DevOps Pipeline Management
     "devops.pipelines.read" => "View DevOps pipelines",
@@ -289,7 +283,19 @@ module Permissions
     "devops.integrations.credentials.read" => "View DevOps integration credentials",
     "devops.integrations.credentials.create" => "Create DevOps integration credentials",
     "devops.integrations.credentials.update" => "Update DevOps integration credentials",
-    "devops.integrations.credentials.delete" => "Delete DevOps integration credentials"
+    "devops.integrations.credentials.delete" => "Delete DevOps integration credentials",
+
+    # DevOps AI Configuration
+    "devops.ai.manage" => "Manage DevOps AI configurations (models, prompts, settings)",
+
+    # DevOps Container Orchestration
+    "devops.containers.read" => "View container executions",
+    "devops.containers.execute" => "Execute containers from templates",
+    "devops.containers.cancel" => "Cancel running containers",
+    "devops.container_templates.read" => "View container templates",
+    "devops.container_templates.write" => "Create, update, and delete container templates",
+    "devops.container_quotas.read" => "View resource quotas",
+    "devops.container_quotas.manage" => "Manage resource quotas"
   }.freeze
 
   # Admin Permissions - Administrative operations
@@ -319,13 +325,6 @@ module Permissions
     "admin.role.delete" => "Delete roles",
     "admin.role.assign" => "Assign roles",
 
-    # Billing Administration
-    "admin.billing.read" => "View all billing",
-    "admin.billing.override" => "Override billing",
-    "admin.billing.refund" => "Process refunds",
-    "admin.billing.credit" => "Issue credits",
-    "admin.billing.manage_gateways" => "Manage payment gateways",
-
     # System Settings
     "admin.settings.read" => "View settings",
     "admin.settings.update" => "Update settings",
@@ -354,30 +353,6 @@ module Permissions
     "admin.kb.moderate" => "Moderate all content and comments",
     "admin.kb.analytics" => "Access knowledge base analytics",
     "admin.kb.settings" => "Configure knowledge base settings",
-
-    # Worker Management - consolidated under system.workers namespace
-
-    # Marketplace Administration
-    "admin.marketplace.read" => "View marketplace management",
-    "admin.marketplace.manage" => "Manage marketplace settings",
-    "admin.marketplace.export" => "Export marketplace data",
-    "admin.marketplace.templates.review" => "Review and approve marketplace template submissions",
-    "admin.marketplace.templates.feature" => "Feature marketplace templates",
-    "admin.app.read" => "View all apps",
-    "admin.app.update" => "Update any app",
-    "admin.app.delete" => "Delete any app",
-    "admin.app.approve" => "Approve apps for publication",
-    "admin.app.suspend" => "Suspend apps",
-    "admin.listing.read" => "View all listings",
-    "admin.listing.update" => "Update any listing",
-    "admin.listing.delete" => "Delete any listing",
-    "admin.listing.approve" => "Approve listings",
-    "admin.listing.feature" => "Feature listings",
-    "admin.review.read" => "View all reviews",
-    "admin.review.moderate" => "Moderate reviews",
-    "admin.review.delete" => "Delete reviews",
-    "admin.subscription.read" => "View all subscriptions",
-    "admin.subscription.manage" => "Manage any subscription",
 
     # Circuit Breaker Administration
     "admin.circuit_breakers.read" => "View circuit breakers",
@@ -412,8 +387,6 @@ module Permissions
     "admin.ai.workflow_executions.manage" => "Manage any workflow execution",
     "admin.ai.analytics.read" => "View AI system analytics",
     "admin.ai.monitoring.read" => "View AI system monitoring",
-    "admin.ai.templates.approve" => "Approve AI templates for marketplace",
-    "admin.ai.marketplace.manage" => "Manage AI marketplace",
 
     # File Management Administration
     "admin.files.read" => "View all files across accounts",
@@ -491,46 +464,15 @@ module Permissions
     "system.worker.report" => "Report status",
     "system.worker.execute" => "Execute jobs",
 
-    # Worker Management (for frontend admin interface)
-    "system.workers.read" => "View worker management interface",
-    "system.workers.create" => "Create new workers",
-    "system.workers.update" => "Update worker configurations",
-    "system.workers.delete" => "Delete workers",
-    "system.workers.suspend" => "Suspend workers",
-    "system.workers.activate" => "Activate workers",
-    "system.workers.regenerate" => "Regenerate worker tokens",
-
     # Database Operations
     "system.database.read" => "Direct database read",
     "system.database.write" => "Direct database write",
-    "system.database.backup" => "Perform backups",
-    "system.database.restore" => "Perform restores",
-    "system.database.optimize" => "Optimize database",
 
     # Job Processing
     "system.jobs.process" => "Process background jobs",
     "system.jobs.retry" => "Retry failed jobs",
     "system.jobs.cancel" => "Cancel jobs",
     "system.jobs.schedule" => "Schedule jobs",
-
-    # System Monitoring
-    "system.health.check" => "Perform health checks",
-    "system.health.report" => "Report health status",
-    "system.metrics.collect" => "Collect metrics",
-    "system.metrics.report" => "Report metrics",
-
-    # Cache & Storage
-    "system.cache.read" => "Read from cache",
-    "system.cache.write" => "Write to cache",
-    "system.cache.clear" => "Clear cache",
-    "system.storage.read" => "Read from storage",
-    "system.storage.write" => "Write to storage",
-    "system.storage.clean" => "Clean storage",
-
-    # Service Control
-    "system.service.restart" => "Restart services",
-    "system.service.reload" => "Reload configurations",
-    "system.service.status" => "Check service status",
 
     # Integration Operations
     "system.webhook.process" => "Process webhooks",
@@ -589,27 +531,29 @@ module Permissions
       permissions: [
         "user.read", "user.edit_self",
         "team.read",
-        "billing.read",
         "page.read",
         "analytics.read",
         "report.read",
         "api.read",
         "webhook.read",
-        "invoice.read",
         "audit.read",
         "kb.read",
-        # Marketplace permissions
-        "app.read",
-        "listing.read",
-        "subscription.read", "subscription.create", "subscription.manage", "subscription.cancel",
-        "subscription.read_usage",
-        "review.read",
         # Basic AI permissions
         "ai.providers.read", "ai.agents.read", "ai.executions.read",
         "ai.workflows.read", "ai.workflow_executions.read",
         "ai.conversations.read", "ai.conversations.create", "ai.conversations.participate",
         "ai.messages.read", "ai.messages.create", "ai.templates.read", "ai.templates.install",
         "ai.prompt_templates.read",
+        # AI Skills permissions
+        "ai.skills.read",
+        # AI Teams (read-only)
+        "ai.teams.manage",
+        # AI Discovery, Memory Pools, Code Reviews (read-only)
+        "ai.discovery.read", "ai.memory_pools.read", "ai.code_reviews.read",
+        # AI Missions (read-only)
+        "ai.missions.read",
+        # AI Knowledge Graph (read-only)
+        "ai.knowledge_graph.read",
         # File management permissions
         "files.read", "files.create", "files.download", "files.update", "files.delete",
         "storage.read"
@@ -625,24 +569,14 @@ module Permissions
         # All member permissions
         "user.read", "user.edit_self",
         "team.read", "team.invite", "team.remove", "team.assign_roles",
-        "billing.read", "billing.update",
-        "plans.read", "plans.manage",
         "page.read", "page.create", "page.update", "page.delete", "page.publish",
         "analytics.read", "analytics.export",
         "report.read", "report.generate", "report.export",
         "api.read", "api.write", "api.manage_keys",
         "webhook.read", "webhook.create", "webhook.update", "webhook.delete",
-        "invoice.read", "invoice.download",
         "audit.read", "audit.export", "audit.manage",
         # Knowledge base permissions
         "kb.read", "kb.create", "kb.update", "kb.publish", "kb.manage",
-        # Marketplace permissions
-        "app.read", "app.create", "app.update", "app.delete", "app.publish",
-        "app.manage_features", "app.manage_plans", "app.read_analytics",
-        "listing.read", "listing.create", "listing.update", "listing.delete",
-        "subscription.read", "subscription.create", "subscription.manage",
-        "subscription.cancel", "subscription.upgrade", "subscription.read_usage",
-        "review.read", "review.create", "review.update", "review.delete", "review.moderate",
         # Full AI permissions for managers
         "ai.providers.read", "ai.providers.create", "ai.providers.update", "ai.providers.delete", "ai.providers.test",
         "ai.credentials.read", "ai.credentials.create", "ai.credentials.update",
@@ -692,29 +626,28 @@ module Permissions
         "devops.integrations.delete", "devops.integrations.execute",
         "devops.integrations.credentials.read", "devops.integrations.credentials.create",
         "devops.integrations.credentials.update", "devops.integrations.credentials.delete",
+        "devops.ai.manage",
+        # DevOps Container permissions
+        "devops.containers.read", "devops.containers.execute", "devops.containers.cancel",
+        "devops.container_templates.read", "devops.container_templates.write",
+        "devops.container_quotas.read", "devops.container_quotas.manage",
+        # AI Skills permissions
+        "ai.skills.read", "ai.skills.create", "ai.skills.update", "ai.skills.delete",
         # AI Context permissions
         "ai.context.read", "ai.context.create", "ai.context.update", "ai.context.delete",
         "ai.context.search", "ai.context.export", "ai.context.import",
-        "ai.memory.read", "ai.memory.write", "ai.memory.manage"
-      ]
-    },
-
-    # Billing administrator
-    "billing_admin" => {
-      display_name: "Billing Administrator",
-      description: "Manages billing, subscriptions, and financial operations",
-      role_type: "user",
-      permissions: [
-        "user.read", "user.edit_self",
-        "team.read",
-        "billing.read", "billing.update", "billing.cancel",
-        "plans.read", "plans.create", "plans.manage",
-        "invoice.read", "invoice.download",
-        "analytics.read",
-        "report.read", "report.generate",
-        "admin.billing.read", "admin.billing.override",
-        "admin.billing.refund", "admin.billing.credit",
-        "audit.read"
+        "ai.memory.read", "ai.memory.write", "ai.memory.manage",
+        # AI Teams
+        "ai.teams.manage", "ai.teams.execute",
+        # AI Discovery, Memory Pools, Code Reviews, Autonomy
+        "ai.discovery.read", "ai.discovery.manage",
+        "ai.memory_pools.read", "ai.memory_pools.manage",
+        "ai.code_reviews.read", "ai.code_reviews.manage",
+        "ai.autonomy.configure", "ai.autonomy.manage", "ai.autonomy.approve",
+        # AI Missions
+        "ai.missions.read", "ai.missions.manage",
+        # AI Knowledge Graph
+        "ai.knowledge_graph.read", "ai.knowledge_graph.manage"
       ]
     },
 
@@ -726,8 +659,6 @@ module Permissions
       permissions: [
         "user.read", "user.edit_self",
         "team.read",
-        "billing.read", "billing.update",
-        "plans.read",
         "page.read",
         "analytics.read", "analytics.export",
         "report.read", "report.generate",
@@ -735,15 +666,7 @@ module Permissions
         "webhook.read", "webhook.create", "webhook.update", "webhook.delete",
         # Knowledge base permissions
         "kb.read", "kb.create", "kb.update", "kb.publish", "kb.manage",
-        "invoice.read", "invoice.download",
-        "audit.read",
-        # Full marketplace permissions
-        "app.read", "app.create", "app.update", "app.delete", "app.publish",
-        "app.manage_features", "app.manage_plans", "app.read_analytics",
-        "listing.read", "listing.create", "listing.update", "listing.delete",
-        "subscription.read", "subscription.create", "subscription.manage",
-        "subscription.cancel", "subscription.upgrade", "subscription.read_usage",
-        "review.read", "review.create", "review.update", "review.delete", "review.moderate"
+        "audit.read"
       ]
     },
 
@@ -755,7 +678,6 @@ module Permissions
       permissions: [
         "user.read", "user.edit_self",
         "team.read",
-        "billing.read",
         "page.read", "page.create", "page.update", "page.publish",
         "analytics.read",
         "report.read",
@@ -779,7 +701,6 @@ module Permissions
         "admin.user.read", "admin.user.create", "admin.user.update", "admin.user.suspend",
         "users.impersonate",
         "admin.role.read", "admin.role.assign",
-        "admin.billing.read", "admin.billing.override",
         "admin.settings.read", "admin.settings.update",
         "admin.audit.read", "admin.audit.export", "admin.audit.manage",
         "admin.kb.read", "admin.kb.manage", "admin.kb.analytics",
@@ -849,7 +770,6 @@ module Permissions
         "system.worker.report",
         "system.worker.execute",
         "system.jobs.process",
-        "system.health.report",
         "system.api.internal"
       ]
     },
@@ -863,7 +783,6 @@ module Permissions
         # Basic user permissions
         "user.read", "user.edit_self",
         "team.read",
-        "billing.read",
         "analytics.read", "analytics.export",
         "report.read", "report.generate",
         "api.read", "api.write", "api.manage_keys",
@@ -915,10 +834,26 @@ module Permissions
         "devops.integrations.delete", "devops.integrations.execute",
         "devops.integrations.credentials.read", "devops.integrations.credentials.create",
         "devops.integrations.credentials.update", "devops.integrations.credentials.delete",
+        "devops.ai.manage",
+        # DevOps Container permissions
+        "devops.containers.read", "devops.containers.execute", "devops.containers.cancel",
+        "devops.container_templates.read", "devops.container_templates.write",
+        "devops.container_quotas.read", "devops.container_quotas.manage",
+        # AI Skills permissions
+        "ai.skills.read", "ai.skills.create", "ai.skills.update", "ai.skills.delete",
         # AI Context permissions
         "ai.context.read", "ai.context.create", "ai.context.update", "ai.context.delete",
         "ai.context.search", "ai.context.export", "ai.context.import",
-        "ai.memory.read", "ai.memory.write", "ai.memory.manage"
+        "ai.memory.read", "ai.memory.write", "ai.memory.manage",
+        # AI Teams
+        "ai.teams.manage", "ai.teams.execute",
+        # AI Discovery, Memory Pools, Code Reviews, Autonomy
+        "ai.discovery.read", "ai.discovery.manage",
+        "ai.memory_pools.read", "ai.memory_pools.manage",
+        "ai.code_reviews.read", "ai.code_reviews.manage",
+        "ai.autonomy.configure", "ai.autonomy.manage", "ai.autonomy.approve",
+        # AI Knowledge Graph
+        "ai.knowledge_graph.read", "ai.knowledge_graph.manage"
       ]
     }
   }.freeze

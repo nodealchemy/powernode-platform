@@ -19,3 +19,17 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+// Extension build flags injected by Vite define
+declare const __EXTENSIONS__: string[];
+
+// Extension module declarations — TS types for extension modules resolved by Vite alias.
+// Wildcard declaration covers all @ext/* imports so TypeScript doesn't try to
+// resolve into extension source files (which have no node_modules of their own).
+// Vite's Rollup build will catch any missing modules at build time.
+declare module '@ext/*' {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- ambient wildcard: export shape unknown at compile time
+  const value: any;
+  export default value;
+  export = value;
+}

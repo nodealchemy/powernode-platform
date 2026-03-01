@@ -160,7 +160,7 @@ describe('useAsyncState', () => {
       await act(async () => {
         try {
           await result.current[1].execute(failingFn);
-        } catch (e) {
+        } catch (_error) {
           // Expected to fail
         }
       });

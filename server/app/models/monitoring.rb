@@ -10,4 +10,3 @@
 # Models in this namespace must specify explicit `self.table_name`.
 module Monitoring
 end
-

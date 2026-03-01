@@ -13,7 +13,7 @@ RSpec.describe Ai::WorkflowRun, type: :model do
     it { is_expected.to have_many(:node_executions).dependent(:destroy) }
     it { is_expected.to have_many(:run_logs).dependent(:destroy) }
     it { is_expected.to have_many(:checkpoints).dependent(:destroy) }
-    it { is_expected.to have_many(:agent_messages).dependent(:destroy) }
+    it { is_expected.to have_many(:a2a_tasks).dependent(:destroy) }
   end
 
   describe 'validations' do

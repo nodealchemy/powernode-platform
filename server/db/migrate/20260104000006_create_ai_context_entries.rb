@@ -41,7 +41,7 @@ class CreateAiContextEntries < ActiveRecord::Migration[8.0]
       t.timestamps
     end
 
-    add_index :ai_context_entries, [:ai_persistent_context_id, :entry_key], unique: true, name: "idx_entries_context_key"
+    add_index :ai_context_entries, [ :ai_persistent_context_id, :entry_key ], unique: true, name: "idx_entries_context_key"
     add_index :ai_context_entries, :entry_type
     add_index :ai_context_entries, :source_type
     add_index :ai_context_entries, :importance_score

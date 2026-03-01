@@ -7,9 +7,9 @@ module Api
         include AuditLogging
 
         before_action :authenticate_request
-        before_action :require_read_permission, only: [:index, :show, :logs]
-        before_action :require_write_permission, only: [:cancel, :retry]
-        before_action :set_pipeline_run, only: [:show, :cancel, :retry, :logs]
+        before_action :require_read_permission, only: [ :index, :show, :logs ]
+        before_action :require_write_permission, only: [ :cancel, :retry ]
+        before_action :set_pipeline_run, only: [ :show, :cancel, :retry, :logs ]
 
         # GET /api/v1/devops/pipeline_runs
         def index
@@ -19,7 +19,7 @@ module Api
                                       .order(created_at: :desc)
 
           # Filter by pipeline if provided
-          runs = runs.where(ci_cd_pipeline_id: params[:pipeline_id]) if params[:pipeline_id].present?
+          runs = runs.where(devops_pipeline_id: params[:pipeline_id]) if params[:pipeline_id].present?
 
           # Filter by status if provided
           runs = runs.where(status: params[:status]) if params[:status].present?
@@ -29,7 +29,7 @@ module Api
 
           # Pagination
           page = (params[:page] || 1).to_i
-          per_page = [(params[:per_page] || 20).to_i, 100].min
+          per_page = [ (params[:per_page] || 20).to_i, 100 ].min
           total = runs.count
           runs = runs.offset((page - 1) * per_page).limit(per_page)
 
@@ -78,8 +78,7 @@ module Api
 
           log_audit_event("devops.pipeline_runs.cancel", @pipeline_run)
         rescue StandardError => e
-          Rails.logger.error "Failed to cancel pipeline run: #{e.message}"
-          render_error("Failed to cancel pipeline run: #{e.message}", status: :internal_server_error)
+          render_internal_error("Failed to cancel pipeline run", exception: e)
         end
 
         # POST /api/v1/devops/pipeline_runs/:id/retry
@@ -103,7 +102,7 @@ module Api
           begin
             WorkerJobService.enqueue_job(
               "Devops::PipelineExecutionJob",
-              args: [new_run.id],
+              args: [ new_run.id ],
               queue: "devops_high"
             )
           rescue WorkerJobService::WorkerServiceError => e
@@ -118,8 +117,7 @@ module Api
 
           log_audit_event("devops.pipeline_runs.retry", new_run)
         rescue StandardError => e
-          Rails.logger.error "Failed to retry pipeline run: #{e.message}"
-          render_error("Failed to retry pipeline run: #{e.message}", status: :internal_server_error)
+          render_internal_error("Failed to retry pipeline run", exception: e)
         end
 
         # GET /api/v1/devops/pipeline_runs/:id/logs
@@ -202,7 +200,7 @@ module Api
           end
 
           # Always include pipeline step definitions for execution
-          result[:steps] = run.pipeline.steps.active.order(:position).map do |step|
+          result[:steps] = run.pipeline.pipeline_steps.active.order(:position).map do |step|
             {
               id: step.id,
               name: step.name,

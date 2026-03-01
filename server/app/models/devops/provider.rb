@@ -4,14 +4,16 @@ module Devops
   # Git provider configuration (Gitea, GitHub, GitLab, Jenkins)
   # Stores connection details and credentials for CI/CD integrations
   class Provider < ApplicationRecord
+    self.table_name = "devops_providers"
+
     # ============================================
     # Associations
     # ============================================
     belongs_to :account
-    belongs_to :created_by, class_name: 'User', optional: true
+    belongs_to :created_by, class_name: "User", optional: true
 
-    has_many :repositories, class_name: 'Devops::Repository', foreign_key: :ci_cd_provider_id, dependent: :destroy
-    has_many :pipelines, class_name: 'Devops::Pipeline', foreign_key: :ci_cd_provider_id, dependent: :restrict_with_error
+    has_many :repositories, class_name: "Devops::GitRepository", foreign_key: :devops_provider_id, dependent: :destroy
+    has_many :pipelines, class_name: "Devops::Pipeline", foreign_key: :devops_provider_id, dependent: :restrict_with_error
 
     # ============================================
     # Validations
@@ -29,7 +31,7 @@ module Devops
     scope :active, -> { where(is_active: true) }
     scope :default_provider, -> { where(is_default: true) }
     scope :by_type, ->(type) { where(provider_type: type) }
-    scope :healthy, -> { where(health_status: 'healthy') }
+    scope :healthy, -> { where(health_status: "healthy") }
 
     # ============================================
     # Callbacks
@@ -42,13 +44,13 @@ module Devops
 
     def api_endpoint
       case provider_type
-      when 'gitea'
+      when "gitea"
         "#{base_url}/api/#{api_version}"
-      when 'github'
-        base_url.include?('github.com') ? 'https://api.github.com' : "#{base_url}/api/v3"
-      when 'gitlab'
+      when "github"
+        base_url.include?("github.com") ? "https://api.github.com" : "#{base_url}/api/v3"
+      when "gitlab"
         "#{base_url}/api/#{api_version}"
-      when 'jenkins'
+      when "jenkins"
         "#{base_url}/api/json"
       end
     end
@@ -67,7 +69,7 @@ module Devops
     end
 
     def healthy?
-      health_status == 'healthy'
+      health_status == "healthy"
     end
 
     def supports_capability?(capability)
@@ -78,7 +80,7 @@ module Devops
 
     def only_one_default_per_account
       existing_default = account.devops_providers.default_provider.where.not(id: id).exists?
-      errors.add(:is_default, 'can only have one default provider per account') if existing_default
+      errors.add(:is_default, "can only have one default provider per account") if existing_default
     end
 
     def ensure_single_default

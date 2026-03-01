@@ -9,6 +9,7 @@ import {
   ExternalLink,
   ChevronRight,
 } from 'lucide-react';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { GitPipeline, PipelineStats } from '../types';
 
 interface PipelineListProps {
@@ -44,9 +45,7 @@ export const PipelineList: React.FC<PipelineListProps> = ({
 }) => {
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-48">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-primary"></div>
-      </div>
+      <LoadingSpinner className="h-48" />
     );
   }
 

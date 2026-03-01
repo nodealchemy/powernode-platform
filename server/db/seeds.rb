@@ -57,251 +57,8 @@ else
   end
 end
 
-# Create default plans
-administrator_plan = Plan.find_or_create_by!(name: 'Administrator') do |plan|
-  plan.description = 'Special plan for system administrators'
-  plan.price_cents = 0
-  plan.currency = 'USD'
-  plan.billing_interval = 'monthly'
-  plan.trial_period_days = 0
-  plan.features = {
-    # Core Features (all included for admin)
-    'community_access' => true,
-    'dashboard_access' => true,
-    'mobile_responsive' => true,
-    'email_notifications' => true,
-    'basic_reporting' => true,
-    'standard_support' => true,
-    'basic_analytics' => true,
-    # Advanced Features (all included for admin)
-    'email_support' => true,
-    'advanced_analytics' => true,
-    'priority_support' => true,
-    'api_access' => true,
-    'custom_branding' => true,
-    'data_export' => true,
-    'team_collaboration' => true,
-    'webhook_integrations' => true,
-    # Enterprise Features (all included for admin)
-    'custom_fields' => true,
-    'advanced_filters' => true,
-    'custom_integrations' => true,
-    'dedicated_support' => true,
-    'white_label' => true,
-    'sso_integration' => true,
-    'advanced_security' => true,
-    'audit_logs' => true,
-    'sla_guarantees' => true,
-    # Marketplace Publishing (unlimited for admins)
-    'marketplace_publish_enabled' => true,
-    'marketplace_publish_limit' => nil
-  }
-  plan.limits = {
-    'max_users' => 9999,
-    'max_api_keys' => 100,
-    'max_webhooks' => 100,
-    'max_workers' => 100
-  }
-  plan.is_public = false # Hidden from public view
-  plan.slug = 'administrator'
-end
-
-# Add Free plan
-free_plan = Plan.find_or_create_by!(name: 'Free') do |plan|
-  plan.description = 'Perfect for individuals and small teams getting started'
-  plan.price_cents = 0
-  plan.currency = 'USD'
-  plan.billing_interval = 'monthly'
-  plan.trial_period_days = 0
-  plan.features = {
-    # Core Features
-    'community_access' => true,
-    'dashboard_access' => true,
-    'mobile_responsive' => true,
-    'email_notifications' => true,
-    'basic_reporting' => true,
-    'standard_support' => true,
-    'basic_analytics' => true,
-    # Advanced Features (limited for free)
-    'email_support' => false,
-    'advanced_analytics' => false,
-    'priority_support' => false,
-    'api_access' => false,
-    'custom_branding' => false,
-    'data_export' => false,
-    'team_collaboration' => false,
-    'webhook_integrations' => false,
-    # Enterprise Features (none for free)
-    'custom_fields' => false,
-    'advanced_filters' => false,
-    'custom_integrations' => false,
-    'dedicated_support' => false,
-    'white_label' => false,
-    'sso_integration' => false,
-    'advanced_security' => false,
-    'audit_logs' => false,
-    'sla_guarantees' => false
-  }
-  plan.limits = {
-    'max_users' => 3,
-    'max_api_keys' => 2,
-    'max_webhooks' => 2,
-    'max_workers' => 1
-  }
-  plan.is_active = true
-  plan.slug = 'free'
-end
-
-basic_plan = Plan.find_or_create_by!(name: 'Basic') do |plan|
-  plan.description = 'Essential features for growing teams and small businesses'
-  plan.price_cents = 1500
-  plan.currency = 'USD'
-  plan.billing_cycle = 'monthly'
-  plan.trial_days = 14
-  plan.features = {
-    # Core Features
-    'community_access' => true,
-    'dashboard_access' => true,
-    'mobile_responsive' => true,
-    'email_notifications' => true,
-    'basic_reporting' => true,
-    'standard_support' => true,
-    'basic_analytics' => true,
-    # Advanced Features (some included)
-    'email_support' => true,
-    'advanced_analytics' => false,
-    'priority_support' => false,
-    'api_access' => true,
-    'custom_branding' => false,
-    'data_export' => true,
-    'team_collaboration' => true,
-    'webhook_integrations' => false,
-    # Enterprise Features (none for basic)
-    'custom_fields' => false,
-    'advanced_filters' => false,
-    'custom_integrations' => false,
-    'dedicated_support' => false,
-    'white_label' => false,
-    'sso_integration' => false,
-    'advanced_security' => false,
-    'audit_logs' => false,
-    'sla_guarantees' => false
-  }
-  plan.limits = {
-    'max_users' => 10,
-    'max_api_keys' => 10,
-    'max_webhooks' => 10,
-    'max_workers' => 5
-  }
-  plan.is_active = true
-  plan.slug = 'basic'
-  # Add promotional discount
-  plan.promotional_discount_percent = 20.0
-  plan.promotional_discount_start = Time.current
-  plan.promotional_discount_end = 30.days.from_now
-end
-
-professional_plan = Plan.find_or_create_by!(name: 'Professional') do |plan|
-  plan.description = 'Advanced tools and integrations for scaling businesses'
-  plan.price_cents = 4900
-  plan.currency = 'USD'
-  plan.billing_cycle = 'monthly'
-  plan.trial_days = 14
-  plan.features = {
-    # Core Features (all included)
-    'community_access' => true,
-    'dashboard_access' => true,
-    'mobile_responsive' => true,
-    'email_notifications' => true,
-    'basic_reporting' => true,
-    'standard_support' => true,
-    'basic_analytics' => true,
-    # Advanced Features (most included)
-    'email_support' => true,
-    'advanced_analytics' => true,
-    'priority_support' => true,
-    'api_access' => true,
-    'custom_branding' => true,
-    'data_export' => true,
-    'team_collaboration' => true,
-    'webhook_integrations' => true,
-    # Enterprise Features (some included)
-    'custom_fields' => true,
-    'advanced_filters' => true,
-    'custom_integrations' => false,
-    'dedicated_support' => false,
-    'white_label' => false,
-    'sso_integration' => false,
-    'advanced_security' => false,
-    'audit_logs' => true,
-    'sla_guarantees' => false,
-    # Marketplace Publishing
-    'marketplace_publish_enabled' => true,
-    'marketplace_publish_limit' => 5
-  }
-  plan.limits = {
-    'max_users' => 50,
-    'max_api_keys' => 25,
-    'max_webhooks' => 25,
-    'max_workers' => 15
-  }
-  plan.is_active = true
-  plan.slug = 'professional'
-  # Add annual discount
-  plan.annual_discount_percent = 25.0
-end
-
-enterprise_plan = Plan.find_or_create_by!(name: 'Enterprise') do |plan|
-  plan.description = 'Complete solution with enterprise security and dedicated support'
-  plan.price_cents = 15000
-  plan.currency = 'USD'
-  plan.billing_cycle = 'monthly'
-  plan.trial_days = 30
-  plan.features = {
-    # Core Features (all included)
-    'community_access' => true,
-    'dashboard_access' => true,
-    'mobile_responsive' => true,
-    'email_notifications' => true,
-    'basic_reporting' => true,
-    'standard_support' => true,
-    'basic_analytics' => true,
-    # Advanced Features (all included)
-    'email_support' => true,
-    'advanced_analytics' => true,
-    'priority_support' => true,
-    'api_access' => true,
-    'custom_branding' => true,
-    'data_export' => true,
-    'team_collaboration' => true,
-    'webhook_integrations' => true,
-    # Enterprise Features (all included)
-    'custom_fields' => true,
-    'advanced_filters' => true,
-    'custom_integrations' => true,
-    'dedicated_support' => true,
-    'white_label' => true,
-    'sso_integration' => true,
-    'advanced_security' => true,
-    'audit_logs' => true,
-    'sla_guarantees' => true,
-    # Marketplace Publishing (unlimited)
-    'marketplace_publish_enabled' => true,
-    'marketplace_publish_limit' => nil
-  }
-  plan.limits = {
-    'max_users' => 9999,
-    'max_api_keys' => 100,
-    'max_webhooks' => 100,
-    'max_workers' => 50
-  }
-  plan.is_active = true
-  plan.slug = 'enterprise'
-  # Add annual discount
-  plan.annual_discount_percent = 30.0
-end
-
-puts "✅ Created #{Plan.count} plans"
+# Plans are seeded by the enterprise extension (extensions/enterprise/server/db/seeds/saas_plans_seed.rb)
+# In core-only mode, no Plan model exists — all features are unlocked via FeatureGateService.
 
 # Create system worker (required for worker-backend communication)
 puts "🔧 Creating system worker..."
@@ -316,14 +73,25 @@ begin
   end
 
   system_worker = Worker.find_by(name: 'System Worker')
+  # Workers should always belong to an account; system worker uses the admin account
+  admin_account = Account.first
 
   if system_worker
+    # Ensure system worker belongs to the admin account and is flagged as system
+    updates = {}
+    updates[:account_id] = admin_account&.id if system_worker.account_id != admin_account&.id
+    updates[:is_system] = true unless system_worker.is_system?
+    if updates.any?
+      system_worker.update_columns(updates)
+      puts "🔧 Updated system worker: #{updates.keys.join(', ')}"
+    end
     puts "✅ System worker already exists"
   else
     system_worker = Worker.create_worker!(
       name: 'System Worker',
       description: 'System worker for background processing and API communication',
-      account: nil,
+      account: admin_account,
+      is_system: true,
       roles: [ 'system_worker' ],
       token: worker_token
     )
@@ -358,35 +126,57 @@ Page.find_or_create_by!(slug: 'welcome') do |page|
   page.title = 'Welcome to Powernode'
   page.author = admin_user
   page.status = 'published'
-  page.meta_description = 'Streamline your subscription business with automated billing, analytics, and customer lifecycle management.'
-  page.meta_keywords = 'subscription management, billing automation, recurring revenue, SaaS platform'
+  page.meta_description = 'Streamline your subscription business with AI orchestration, DevOps integration, supply chain security, and automated billing.'
+  page.meta_keywords = 'subscription management, billing automation, recurring revenue, SaaS platform, AI orchestration, DevOps, supply chain security'
   page.content = <<~MARKDOWN
     # Welcome to Powernode
 
-    ## Streamline Your Subscription Business
+    ## AI Orchestration & DevOps Platform
 
-    Powernode is a comprehensive subscription management platform designed to help businesses automate billing, track analytics, and manage customer lifecycles with ease.
+    Powernode is an integrated platform for AI agent orchestration, DevOps automation, and intelligent workflow management. Build, deploy, and manage AI-powered operations with confidence.
 
-    ### 🚀 Key Features
+    ### 🤖 AI Orchestration
 
-    - **Automated Billing**: Seamless subscription billing and invoicing
-    - **Real-time Analytics**: Track revenue, churn, and customer metrics
-    - **Customer Management**: Complete subscriber lifecycle management
-    - **Multiple Payment Gateways**: Support for Stripe, PayPal, and more
-    - **API-First Architecture**: Integrate with your existing tools
-    - **Enterprise Security**: PCI compliance and data protection
+    - **Multi-Provider Support**: Connect OpenAI, Anthropic Claude, Grok, and local Ollama models
+    - **AI Agents**: Build intelligent agents with custom prompts and workflows
+    - **Workflow Automation**: Create visual workflows that orchestrate AI-powered tasks
+    - **Agent Teams**: Compose multi-agent teams with role-based coordination
+    - **Compound Learning**: AI systems that learn and improve from operational feedback
 
-    ### 💼 Perfect for Growing Businesses
+    ### 🔌 MCP (Model Context Protocol)
 
-    Whether you're a startup launching your first subscription product or an established company looking to optimize your recurring revenue, Powernode provides the tools you need to succeed.
+    - **Tool Registry**: 79+ platform tools accessible to AI agents via MCP
+    - **Knowledge Graph**: Entity-aware reasoning across your entire platform
+    - **RAG Integration**: Document ingestion, chunking, and semantic retrieval
+    - **Shared Memory**: Tiered memory system (working, short-term, long-term, shared) for agent coordination
+    - **Skill Discovery**: Agents discover and reuse capabilities across teams
 
-    ### 🎯 Get Started Today
+    ### 🔧 DevOps Integration
 
-    Ready to transform your subscription business? [Sign up for free](/register) and start your journey with Powernode.
+    - **Git Providers**: Connect GitHub, GitLab, Gitea, and Bitbucket repositories
+    - **CI/CD Pipelines**: Build, test, and deploy with automated pipelines
+    - **Webhooks**: Real-time event notifications for 60+ event types
+    - **API Keys**: Secure authentication for all integrations
+
+    ### 📊 Analytics & Monitoring
+
+    - **Real-time Dashboards**: Monitor AI agent performance and system health
+    - **Workflow Metrics**: Track execution times, success rates, and resource usage
+    - **Audit Logging**: Complete activity tracking across all operations
+
+    ### 🛡️ Security & Compliance
+
+    - **Role-Based Access**: Granular permissions and roles
+    - **AI Safety**: OWASP-aligned agent anomaly detection and PII redaction
+    - **Audit Trails**: Full traceability for all AI and DevOps operations
+
+    ### 🎯 Get Started
+
+    [Sign in](/login) to start building with Powernode.
 
     ---
 
-    *Questions? Visit our [help center](/help) or [contact our team](/contact).*
+    *Explore our [Knowledge Base](/kb) for detailed guides, or [contact our team](/pages/contact) for assistance.*
   MARKDOWN
 end
 
@@ -396,8 +186,8 @@ Page.find_or_create_by!(slug: 'terms') do |page|
   page.title = 'Terms of Service'
   page.author = admin_user
   page.status = 'published'
-  page.meta_description = 'Terms of Service for Powernode subscription management platform.'
-  page.meta_keywords = 'terms of service, legal, agreement, user agreement'
+  page.meta_description = 'Terms of Service for Powernode subscription management platform including AI services, DevOps, and supply chain security.'
+  page.meta_keywords = 'terms of service, legal, agreement, user agreement, AI terms, data processing'
   page.content = <<~MARKDOWN
     # Terms of Service
 
@@ -429,23 +219,65 @@ Page.find_or_create_by!(slug: 'terms') do |page|
     ### 3.3 Account Termination
     We may terminate accounts that violate these terms or engage in fraudulent activity.
 
-    ## 4. Privacy
+    ## 4. AI Services and Usage
+
+    ### 4.1 AI Provider Integration
+    Powernode integrates with third-party AI providers (OpenAI, Anthropic, xAI, Ollama). Your use of AI features is subject to:
+    - The respective AI provider's terms of service and usage policies
+    - Token usage limits based on your subscription plan
+    - Content policies prohibiting harmful, illegal, or abusive content
+
+    ### 4.2 AI Data Processing
+    - Prompts and responses may be processed by third-party AI providers
+    - We do not use your AI interactions to train models without explicit consent
+    - AI-generated content is provided "as is" without warranty of accuracy
+    - You are responsible for reviewing and validating AI-generated outputs
+
+    ### 4.3 AI Agents and Workflows
+    - You retain ownership of AI agent configurations and workflows you create
+    - Shared or marketplace-published agents are subject to licensing terms
+    - We reserve the right to disable agents that violate usage policies
+
+    ## 5. DevOps and Repository Integration
+
+    ### 5.1 Git Provider Access
+    - Repository access is limited to explicitly authorized repositories
+    - Credentials are encrypted and stored securely
+    - We do not access repository content beyond authorized operations
+
+    ### 5.2 CI/CD Pipelines
+    - Pipeline execution is subject to resource limits based on your plan
+    - You are responsible for securing pipeline secrets and credentials
+    - We are not liable for pipeline failures or deployment issues
+
+    ## 6. Supply Chain Security Data
+
+    ### 6.1 SBOM and Security Data
+    - SBOM data you upload remains your property
+    - Vulnerability data is sourced from public databases (NVD, OSV)
+    - We do not guarantee completeness or accuracy of vulnerability detection
+
+    ### 6.2 Vendor Information
+    - Vendor risk assessments are based on information you provide
+    - We are not liable for vendor compliance status accuracy
+
+    ## 7. Privacy
 
     Your privacy is important to us. Please review our Privacy Policy, which also governs your use of the Service.
 
-    ## 5. Data Security
+    ## 8. Data Security
 
     We implement industry-standard security measures to protect your data. However, no method of transmission over the Internet is 100% secure.
 
-    ## 6. Limitation of Liability
+    ## 9. Limitation of Liability
 
-    In no event shall Powernode be liable for any damages arising out of the use or inability to use the Service.
+    In no event shall Powernode be liable for any damages arising out of the use or inability to use the Service, including but not limited to AI-generated content, pipeline failures, or security vulnerabilities.
 
-    ## 7. Governing Law
+    ## 10. Governing Law
 
-    These terms shall be governed by and construed in accordance with the laws of [Jurisdiction], without regard to its conflict of law provisions.
+    These terms shall be governed by and construed in accordance with applicable laws.
 
-    ## 8. Changes to Terms
+    ## 11. Changes to Terms
 
     We reserve the right to modify these terms at any time. Users will be notified of significant changes.
 
@@ -460,8 +292,8 @@ Page.find_or_create_by!(slug: 'privacy') do |page|
   page.title = 'Privacy Policy'
   page.author = admin_user
   page.status = 'published'
-  page.meta_description = 'Privacy Policy for Powernode - learn how we collect, use, and protect your personal information.'
-  page.meta_keywords = 'privacy policy, data protection, GDPR, personal information, cookies'
+  page.meta_description = 'Privacy Policy for Powernode - learn how we collect, use, and protect your personal information including AI data processing.'
+  page.meta_keywords = 'privacy policy, data protection, GDPR, personal information, cookies, AI privacy, data processing'
   page.content = <<~MARKDOWN
     # Privacy Policy
 
@@ -485,6 +317,24 @@ Page.find_or_create_by!(slug: 'privacy') do |page|
     - Pages visited and time spent
     - Cookies and similar technologies
 
+    ### AI and Workflow Data
+    - AI prompts and agent configurations
+    - Workflow execution logs
+    - AI provider API interactions
+    - Context and memory data for AI agents
+
+    ### DevOps and Repository Data
+    - Repository metadata and commit information
+    - CI/CD pipeline configurations
+    - Webhook event data
+    - Integration credentials (encrypted)
+
+    ### Supply Chain Security Data
+    - Software Bill of Materials (SBOM) content
+    - Vulnerability scan results
+    - Vendor information and risk assessments
+    - Container image metadata and attestations
+
     ## How We Use Your Information
 
     We use your information to:
@@ -493,10 +343,37 @@ Page.find_or_create_by!(slug: 'privacy') do |page|
     - Send important account notifications
     - Improve our platform and user experience
     - Comply with legal obligations
+    - Execute AI workflows and agent operations
+    - Process supply chain security scans
+    - Facilitate DevOps integrations
+
+    ## AI Data Processing and Third-Party Providers
+
+    ### AI Provider Data Sharing
+    When you use AI features, certain data is processed by third-party AI providers:
+
+    | Provider | Data Shared | Purpose |
+    |----------|-------------|---------|
+    | OpenAI | Prompts, context | GPT model inference |
+    | Anthropic | Prompts, context | Claude model inference |
+    | xAI | Prompts, context | Grok model inference |
+    | Ollama (self-hosted) | Prompts, context | Local model inference |
+
+    ### AI Data Retention
+    - AI prompts and responses are logged for 90 days by default
+    - You can configure retention periods in your account settings
+    - AI providers may have their own retention policies
+    - Deleted data is purged within 30 days
+
+    ### AI Data Controls
+    - You can disable AI logging in your account settings
+    - You can request deletion of AI interaction history
+    - Context data can be cleared per agent or globally
 
     ## Information Sharing
 
     We do not sell your personal information. We may share information with:
+    - AI providers for model inference (with your consent)
     - Service providers and business partners
     - Legal authorities when required by law
     - In connection with business transfers or mergers
@@ -510,15 +387,18 @@ Page.find_or_create_by!(slug: 'privacy') do |page|
     - Regular security audits and updates
     - Access controls and authentication
     - PCI DSS compliance for payment data
+    - API key encryption and secure storage
+    - SBOM and vulnerability data isolation
 
     ## Your Rights
 
     Depending on your location, you may have the following rights:
     - Access your personal information
     - Correct inaccurate information
-    - Delete your information
+    - Delete your information (including AI data)
     - Data portability
     - Opt-out of marketing communications
+    - Opt-out of AI data processing
 
     ## Cookies and Tracking
 
@@ -526,7 +406,7 @@ Page.find_or_create_by!(slug: 'privacy') do |page|
 
     ## International Transfers
 
-    Your information may be processed in countries other than your own. We ensure appropriate safeguards are in place for such transfers.
+    Your information may be processed in countries other than your own. We ensure appropriate safeguards are in place for such transfers, including for AI processing.
 
     ## Children's Privacy
 
@@ -538,9 +418,7 @@ Page.find_or_create_by!(slug: 'privacy') do |page|
 
     ## Contact Us
 
-    Questions about this Privacy Policy should be directed to:
-    - Email: privacy@powernode.org
-    - Address: [Your Company Address]
+    Questions about this Privacy Policy should be directed to: privacy@powernode.org
 
     For EU residents: You may also contact our Data Protection Officer at dpo@powernode.org
   MARKDOWN
@@ -551,8 +429,8 @@ Page.find_or_create_by!(slug: 'help') do |page|
   page.title = 'Help & Support'
   page.author = admin_user
   page.status = 'published'
-  page.meta_description = 'Get help with Powernode - find answers to common questions and learn how to use our subscription management platform.'
-  page.meta_keywords = 'help, support, FAQ, documentation, guides, customer support'
+  page.meta_description = 'Get help with Powernode - guides for billing, AI orchestration, DevOps, supply chain security, and more.'
+  page.meta_keywords = 'help, support, FAQ, documentation, guides, customer support, AI, DevOps, supply chain'
   page.content = <<~MARKDOWN
     # Help & Support
 
@@ -566,54 +444,84 @@ Page.find_or_create_by!(slug: 'help') do |page|
     1. **Create Your Account** - Sign up and verify your email
     2. **Set Up Billing** - Configure your payment gateway
     3. **Create Your First Plan** - Define your subscription offerings
-    4. **Invite Team Members** - Collaborate with your team
-    5. **Launch Your Service** - Start accepting subscribers
+    4. **Connect AI Providers** - Set up OpenAI, Claude, or local models
+    5. **Invite Team Members** - Collaborate with your team
+    6. **Launch Your Service** - Start accepting subscribers
 
-    ### Essential Features
-    - **Dashboard Overview** - Monitor key metrics at a glance
-    - **Subscription Management** - Create and manage subscription plans
-    - **Customer Portal** - Self-service options for subscribers
-    - **Analytics & Reporting** - Track performance and growth
+    ### Platform Overview
+    - **Dashboard** - Monitor key metrics at a glance
+    - **Billing & Subscriptions** - Manage plans, payments, and invoices
+    - **AI Orchestration** - Build agents and automated workflows
+    - **DevOps** - Connect repositories and run CI/CD pipelines
+    - **Supply Chain** - Manage SBOMs, vulnerabilities, and vendor risk
+    - **Analytics** - Track MRR, churn, and customer insights
 
-    ## 📖 Frequently Asked Questions
+    ## 🤖 AI Orchestration
 
-    ### Account & Billing
+    ### Getting Started with AI
+    **Q: Which AI providers are supported?**
+    A: OpenAI (GPT-4), Anthropic (Claude), xAI (Grok), and local Ollama models.
+
+    **Q: How do I create an AI agent?**
+    A: Navigate to AI > Agents, click "New Agent", configure the model and system prompt, then test and deploy.
+
+    **Q: What are AI workflows?**
+    A: Visual automation sequences that chain AI agents with triggers, conditions, and actions.
+
+    **Q: What is MCP (Model Context Protocol)?**
+    A: A standard for connecting AI models to external tools and data sources for enhanced capabilities.
+
+    ## 🔧 DevOps Integration
+
+    ### Repository & Pipeline Setup
+    **Q: How do I connect a Git repository?**
+    A: Go to DevOps > Git Providers, click "Add Provider", authorize access, and select repositories to sync.
+
+    **Q: Which Git providers are supported?**
+    A: GitHub, GitLab, Gitea, and Bitbucket with OAuth or token authentication.
+
+    **Q: How do CI/CD pipelines work?**
+    A: Define pipeline stages and steps in YAML, trigger on commits or manually, and view execution logs in real-time.
+
+    **Q: How do webhooks work?**
+    A: Create webhook endpoints, subscribe to events (60+ types), and receive real-time HTTP notifications.
+
+    ## 🛡️ Supply Chain Security
+
+    ### SBOM and Vulnerability Management
+    **Q: What is an SBOM?**
+    A: A Software Bill of Materials - a complete inventory of components in your software.
+
+    **Q: How do I import an SBOM?**
+    A: Upload SPDX or CycloneDX files via the dashboard, API, or CI/CD integration.
+
+    **Q: How are vulnerabilities detected?**
+    A: Components are matched against NVD, OSV, and other vulnerability databases.
+
+    **Q: How do vendor risk assessments work?**
+    A: Add vendors, complete risk questionnaires, upload compliance documents, and track scores over time.
+
+    ## 💰 Billing & Subscriptions
+
+    ### Common Questions
     **Q: How do I change my subscription plan?**
     A: Visit your account settings and select "Change Plan" to upgrade or downgrade.
 
-    **Q: When am I charged for my subscription?**
+    **Q: When am I charged?**
     A: Billing occurs on your subscription anniversary date each month or year.
 
-    **Q: Can I cancel my subscription anytime?**
-    A: Yes, you can cancel anytime from your account settings. No long-term contracts.
+    **Q: Can I cancel anytime?**
+    A: Yes, cancel from account settings. No long-term contracts required.
 
-    ### Technical Support
-    **Q: How do I integrate Powernode with my existing website?**
-    A: Use our REST API or JavaScript SDK. Check our developer documentation for details.
+    **Q: What payment methods are accepted?**
+    A: Credit cards via Stripe, PayPal, and bank transfers for Enterprise plans.
 
-    **Q: What payment gateways do you support?**
-    A: We support Stripe, PayPal, and other major payment processors.
+    ## 🔌 API & Integrations
 
-    **Q: Is my data secure?**
-    A: Yes, we use enterprise-grade security including encryption, PCI compliance, and regular audits.
-
-    ## 🛠️ Advanced Features
-
-    ### API Integration
-    - REST API for custom integrations
-    - Webhooks for real-time notifications
-    - SDKs for popular programming languages
-
-    ### Analytics & Reporting
-    - Revenue tracking and forecasting
-    - Customer lifecycle analysis
-    - Churn prediction and prevention
-    - Custom report generation
-
-    ### Team Collaboration
-    - Role-based access control
-    - Team member invitations
-    - Audit logs and activity tracking
+    ### Developer Resources
+    - **REST API** - Full CRUD access to all resources
+    - **Webhooks** - Real-time event notifications
+    - **Rate Limits** - Based on your subscription plan
 
     ## 📞 Contact Support
 
@@ -626,18 +534,22 @@ Page.find_or_create_by!(slug: 'help') do |page|
     - **Help Desk**: Submit a ticket through your dashboard
 
     ### Response Times
-    - **Starter Plan**: 48 hours
-    - **Professional Plan**: 24 hours
-    - **Business Plan**: 12 hours
-    - **Enterprise Plan**: 2 hours
+    | Plan | Support Level |
+    |------|---------------|
+    | Starter | Email support |
+    | Professional | Priority email |
+    | Business | Priority email + chat |
+    | Enterprise | Dedicated support |
 
-    ## 📚 Additional Resources
+    ## 📚 Knowledge Base Categories
 
-    - [API Documentation](/docs/api)
-    - [Video Tutorials](/tutorials)
-    - [Developer Guides](/docs/guides)
-    - [Status Page](/status)
-    - [Community Forum](/community)
+    - [Getting Started](/kb/getting-started) - Setup guides and tutorials
+    - [Billing & Subscriptions](/kb/billing-subscriptions) - Payment and plan management
+    - [AI Orchestration](/kb/ai-orchestration) - Agents, workflows, and MCP
+    - [DevOps](/kb/devops) - Git, pipelines, and webhooks
+    - [Supply Chain Security](/kb/supply-chain-security) - SBOMs, CVEs, and vendors
+    - [API & Integrations](/kb/api-integrations) - REST API and webhook guides
+    - [Troubleshooting](/kb/troubleshooting) - Common issues and solutions
 
     ---
 
@@ -650,43 +562,49 @@ Page.find_or_create_by!(slug: 'about') do |page|
   page.title = 'About Powernode'
   page.author = admin_user
   page.status = 'published'
-  page.meta_description = 'Learn about Powernode - our mission to simplify subscription management for businesses of all sizes.'
-  page.meta_keywords = 'about, company, mission, team, subscription management, SaaS'
+  page.meta_description = 'Learn about Powernode - our mission to simplify subscription management with AI orchestration and supply chain security.'
+  page.meta_keywords = 'about, company, mission, team, subscription management, SaaS, AI, supply chain security'
   page.content = <<~MARKDOWN
     # About Powernode
 
-    ## Simplifying Subscription Management for Everyone
+    ## The Modern Platform for Subscription Businesses
 
-    Founded with the mission to democratize subscription business management, Powernode provides powerful tools that help businesses of all sizes build, manage, and scale their recurring revenue streams.
+    Founded with the mission to democratize subscription business management, Powernode combines powerful billing automation with AI orchestration, DevOps integration, and supply chain security to help businesses of all sizes build, manage, and scale with confidence.
 
     ## Our Mission
 
-    **To empower businesses to focus on what they do best while we handle the complexity of subscription management.**
+    **To empower businesses to focus on what they do best while we handle the complexity of subscription management, AI operations, and software security.**
 
-    We believe that every business should have access to enterprise-grade subscription tools, regardless of their size or technical expertise.
+    We believe that every business should have access to enterprise-grade tools, regardless of their size or technical expertise.
 
     ## Our Story
 
-    Powernode was born from the frustration of managing subscriptions across multiple platforms, dealing with complex billing scenarios, and lacking actionable insights into customer behavior.#{' '}
+    Powernode was born from the frustration of managing subscriptions across multiple platforms, dealing with complex billing scenarios, and lacking actionable insights into customer behavior.
 
-    We set out to build a platform that would:
-    - Simplify subscription billing and management
-    - Provide clear, actionable analytics
-    - Scale with businesses as they grow
-    - Integrate seamlessly with existing tools
+    As software businesses evolved, so did their needs. We expanded our vision to address:
+    - Subscription billing and lifecycle management
+    - AI-powered automation and intelligent agents
+    - DevOps integration for modern development workflows
+    - Supply chain security for compliance and risk management
 
     ## What Sets Us Apart
 
     ### 🎯 Customer-Centric Design
     Every feature is built with the end-user in mind, ensuring intuitive experiences for both businesses and their customers.
 
+    ### 🤖 AI-First Architecture
+    Native AI orchestration with support for OpenAI, Anthropic Claude, Grok, and local Ollama models. Build intelligent agents and automated workflows without writing code.
+
     ### 🔧 Developer-Friendly
-    Comprehensive APIs, webhooks, and SDKs make integration straightforward for technical teams.
+    Comprehensive APIs, webhooks, Git integration, and CI/CD pipelines make integration and automation straightforward for technical teams.
+
+    ### 🛡️ Supply Chain Security
+    Built-in SBOM management, vulnerability detection, and vendor risk assessment to help you ship secure software and maintain compliance.
 
     ### 📈 Growth-Oriented
     Our platform grows with your business, from first subscriber to IPO and beyond.
 
-    ### 🛡️ Security-First
+    ### 🔐 Security-First
     Enterprise-grade security and compliance built into every aspect of our platform.
 
     ## Our Values
@@ -697,21 +615,262 @@ Page.find_or_create_by!(slug: 'about') do |page|
 
     **Reliability** - Building robust, scalable infrastructure that businesses can depend on.
 
+    **Security** - Protecting your data and helping you ship secure software.
+
     **Support** - Providing exceptional customer service and resources for success.
+
+    ## Platform Capabilities
+
+    | Area | Features |
+    |------|----------|
+    | **Billing** | Subscriptions, invoicing, payment gateways, dunning |
+    | **Analytics** | MRR, ARR, churn, cohort analysis, forecasting |
+    | **AI** | Agents, workflows, MCP servers, multi-provider support |
+    | **DevOps** | Git providers, CI/CD pipelines, webhooks |
+    | **Security** | SBOMs, vulnerability scanning, vendor risk, attestations |
 
     ## The Team
 
-    Our diverse team combines expertise in subscription business models, financial technology, and user experience design. We're passionate about helping businesses succeed in the subscription economy.
+    Our diverse team combines expertise in subscription business models, financial technology, AI systems, security engineering, and user experience design. We're passionate about helping businesses succeed in the subscription economy.
 
     ## Join Our Journey
 
     Whether you're launching your first subscription product or optimizing an established business, we're here to support your success.
 
-    [Start your free trial today](/register) and discover how Powernode can transform your subscription business.
+    [Start your free trial today](/register) and discover how Powernode can transform your business.
 
     ---
 
-    **Questions about our company or platform?** [Contact us](/contact) - we'd love to hear from you!
+    **Questions about our company or platform?** [Contact us](/pages/contact) - we'd love to hear from you!
+  MARKDOWN
+end
+
+# Contact page
+Page.find_or_create_by!(slug: 'contact') do |page|
+  page.title = 'Contact Us'
+  page.author = admin_user
+  page.status = 'published'
+  page.meta_description = 'Get in touch with the Powernode team for sales, support, or general inquiries.'
+  page.meta_keywords = 'contact, support, sales, inquiries, help, customer service'
+  page.content = <<~MARKDOWN
+    # Contact Us
+
+    We're here to help! Choose the best way to reach our team based on your needs.
+
+    ---
+
+    ## 📧 Sales Inquiries
+
+    Interested in Powernode for your business? Our sales team can help you find the right plan and answer any questions about enterprise features.
+
+    **Email**: sales@powernode.org
+    **Response Time**: Within 24 hours
+
+    ---
+
+    ## 🛠️ Technical Support
+
+    Need help with your existing account or experiencing technical issues? Our support team is ready to assist.
+
+    **Email**: support@powernode.org
+    **Response Time**: Based on your plan tier (see [Help Center](/pages/help) for details)
+
+    For faster resolution, please include:
+    - Your account email
+    - A clear description of the issue
+    - Steps to reproduce (if applicable)
+    - Screenshots or error messages
+
+    ---
+
+    ## 💬 General Questions
+
+    Have general questions about Powernode, partnerships, or press inquiries?
+
+    **Email**: hello@powernode.org
+
+    ---
+
+    ## 🔗 Quick Links
+
+    - [Help Center & FAQ](/pages/help) - Find answers to common questions
+    - [System Status](/status) - Check current platform status
+    - [Knowledge Base](/kb) - Detailed guides and tutorials
+    - [API Documentation](/kb/api-integrations) - Developer resources
+
+    ---
+
+    *We typically respond to all inquiries within 1-2 business days. For urgent issues, paid plan customers can access priority support through the dashboard.*
+  MARKDOWN
+end
+
+# Features page
+Page.find_or_create_by!(slug: 'features') do |page|
+  page.title = 'Platform Features'
+  page.author = admin_user
+  page.status = 'published'
+  page.meta_description = 'Explore Powernode features: subscription billing, AI orchestration, DevOps integration, and supply chain security.'
+  page.meta_keywords = 'features, subscription billing, AI orchestration, DevOps, supply chain security, SaaS platform'
+  page.content = <<~MARKDOWN
+    # Platform Features
+
+    Powernode is a comprehensive platform that combines subscription management, AI orchestration, DevOps integration, and supply chain security into one unified solution.
+
+    ---
+
+    ## 💰 Subscription & Billing
+
+    **Flexible subscription management for any business model**
+
+    | Feature | Description |
+    |---------|-------------|
+    | Multiple Billing Cycles | Monthly, yearly, or custom intervals |
+    | Usage-Based Billing | Metered pricing with automatic invoicing |
+    | Plan Management | Create and manage unlimited subscription plans |
+    | Payment Gateways | Stripe, PayPal, and more |
+    | Automated Invoicing | Professional invoices with custom branding |
+    | Dunning Management | Automated retry logic for failed payments |
+    | Proration | Automatic credits for plan changes |
+    | Trial Periods | Configurable free trials per plan |
+
+    **Analytics & Insights**
+    - Real-time MRR, ARR, and churn tracking
+    - Cohort analysis and customer lifetime value
+    - Revenue forecasting and growth metrics
+    - Custom dashboards and reports
+
+    ---
+
+    ## 🤖 AI Orchestration
+
+    **Build intelligent automation with multi-provider AI support**
+
+    ### AI Providers
+    - **OpenAI** - GPT-4, GPT-4 Turbo, GPT-3.5
+    - **Anthropic** - Claude 3.5 Sonnet, Claude 3 Opus, Claude 3 Haiku
+    - **xAI** - Grok models
+    - **Ollama** - Local/self-hosted models (Llama, Mistral, Mixtral)
+
+    ### AI Agents
+    Create intelligent agents with:
+    - Custom system prompts and personas
+    - Memory and context retention
+    - Tool integration and function calling
+    - Conversation history management
+
+    ### Workflows
+    Visual workflow automation with:
+    - Drag-and-drop workflow builder
+    - Event triggers and scheduled execution
+    - Conditional branching and loops
+    - Multi-step AI chains
+    - Webhook integrations
+
+    ### MCP Integration
+    Model Context Protocol support for:
+    - External tool connections
+    - Database access for AI agents
+    - File system operations
+    - API integrations
+
+    ---
+
+    ## 🔧 DevOps Integration
+
+    **Streamline your development workflow**
+
+    ### Git Providers
+    Connect your repositories from:
+    - **GitHub** - OAuth and personal access tokens
+    - **GitLab** - Cloud and self-hosted instances
+    - **Gitea** - Self-hosted Git service
+    - **Bitbucket** - Cloud and server
+
+    ### CI/CD Pipelines
+    - YAML-based pipeline definitions
+    - Parallel and sequential stages
+    - Environment variables and secrets
+    - Build artifacts and caching
+    - Deployment automation
+
+    ### Webhooks
+    - 60+ event types for real-time notifications
+    - Custom headers and authentication
+    - Retry policies and delivery logs
+    - Event filtering and routing
+
+    ### API Keys
+    - Secure key generation and rotation
+    - Scoped permissions per key
+    - Usage tracking and rate limits
+    - IP allowlisting
+
+    ---
+
+    ## 🛡️ Supply Chain Security
+
+    **Secure your software supply chain**
+
+    ### SBOM Management
+    - **Import** - SPDX and CycloneDX formats
+    - **Generate** - Automatic SBOM creation
+    - **Analyze** - Component dependency graphs
+    - **Export** - Compliance-ready reports
+
+    ### Vulnerability Detection
+    - Real-time scanning against NVD, OSV
+    - CVE severity scoring and prioritization
+    - Remediation guidance and fix tracking
+    - Automated alerts and notifications
+
+    ### Container Attestations
+    - Verify image provenance
+    - Build integrity validation
+    - Sigstore and cosign support
+    - SLSA compliance tracking
+
+    ### Vendor Risk Assessment
+    - Vendor questionnaires and scoring
+    - Compliance document management
+    - Risk level tracking (Critical, High, Medium, Low)
+    - Audit trails and review history
+
+    ### License Compliance
+    - Open source license detection
+    - Policy violation alerts
+    - License compatibility analysis
+    - Compliance reporting
+
+    ---
+
+    ## 🏢 Enterprise Ready
+
+    **Built for scale and security**
+
+    | Capability | Details |
+    |------------|---------|
+    | **SSO/SAML** | Enterprise single sign-on |
+    | **Role-Based Access** | Granular permissions and roles |
+    | **Audit Logs** | Complete activity tracking |
+    | **White-Label** | Custom branding and domains |
+    | **SLA Guarantees** | 99.9% uptime commitment |
+    | **Dedicated Support** | Priority access to engineering |
+    | **Data Export** | Full data portability |
+    | **API Access** | Complete REST API |
+
+    ---
+
+    ## 🚀 Get Started
+
+    Ready to transform your business with Powernode?
+
+    - [View Pricing Plans](/plans) - Find the right plan for your needs
+    - [Create an Account](/register) - Start your free trial today
+    - [Contact Sales](/pages/contact) - Talk to our team about enterprise features
+
+    ---
+
+    *Have questions about a specific feature? Visit our [Help Center](/pages/help) or [Knowledge Base](/kb) for detailed documentation.*
   MARKDOWN
 end
 
@@ -721,6 +880,8 @@ puts "✅ Created #{Page.count} public pages"
 puts "\n📚 Loading Knowledge Base content..."
 load Rails.root.join('db', 'seeds', 'knowledge_base_permissions.rb')
 load Rails.root.join('db', 'seeds', 'knowledge_base_articles.rb')
+
+# Marketing permissions loaded via extension seeds (extensions/marketing/)
 
 # Load AI Providers and Workflows (only in development/test)
 if Rails.env.development? || Rails.env.test?
@@ -741,16 +902,103 @@ if Rails.env.development? || Rails.env.test?
 
   puts "\n🗄️  Loading File Storage configurations..."
   load Rails.root.join('db', 'seeds', 'file_storage_seeds.rb')
+
+  puts "\n📦 Loading DevOps Container Templates..."
+  load Rails.root.join('db', 'seeds', 'devops_container_templates.rb')
+
+  puts "\n🔌 Loading MCP Server Container Templates..."
+  load Rails.root.join('db', 'seeds', 'mcp_container_templates_seed.rb')
+
+  puts "\n🔧 Loading AI DevOps Templates..."
+  load Rails.root.join('db', 'seeds', 'ai_devops_templates_seed.rb')
+
+  puts "\n🔧 Loading AI DevOps Configs (Template Installations + AI Configs)..."
+  load Rails.root.join('db', 'seeds', 'ai_devops_configs_seed.rb')
+
+  puts "\n👥 Loading AI Agent Teams..."
+  load Rails.root.join('db', 'seeds', 'ai_teams_seed.rb')
+
+  puts "\n📋 Loading AI Todo App Team..."
+  load Rails.root.join('db', 'seeds', 'ai_todo_team_seed.rb')
+
+  puts "\n🧩 Loading AI Skills..."
+  load Rails.root.join('db', 'seeds', 'ai_skills_seed.rb')
+
+  puts "\n📋 Loading AI Example Templates..."
+  load Rails.root.join('db', 'seeds', 'ai_example_templates_seed.rb')
+
+  puts "\n🔧 Loading AI Utility Agents & Specialist Skills..."
+  load Rails.root.join('db', 'seeds', 'ai_utility_agents_seed.rb')
+
+  puts "\n🔧 Loading Powernode Development Team..."
+  load Rails.root.join('db', 'seeds', 'ai_dev_team_seed.rb')
+
+  puts "\n🎯 Loading AI Mission Templates..."
+  load Rails.root.join('db', 'seeds', 'ai_mission_templates.rb')
+
+  puts "\n🤖 Loading AI Concierge Agent..."
+  load Rails.root.join('db', 'seeds', 'ai_concierge_seed.rb')
+
+  puts "\n📝 Loading AI System Prompt Templates..."
+  load Rails.root.join('db', 'seeds', 'ai_system_prompt_templates_seed.rb')
+
+  puts "\n📚 Loading RAG Knowledge Base seed..."
+  load Rails.root.join('db', 'seeds', 'ai_knowledge_base_seed.rb')
+
+  puts "\n🤖 Loading Autonomy Data (consolidation + seeding)..."
+  load Rails.root.join('db', 'seeds', 'autonomy_data_seed.rb')
+
+  puts "\n🧠 Loading AI Memory Pools..."
+  load Rails.root.join('db', 'seeds', 'ai_memory_pools_seed.rb')
+
+  # Seed AI model pricing from hardcoded constant
+  if defined?(Ai::ProviderManagementService::MODEL_PRICING) && Ai::ModelPricing.count == 0
+    puts "\n💰 Seeding AI model pricing..."
+    Ai::ProviderManagementService::MODEL_PRICING.each do |model_id, pricing|
+      provider_type = case model_id
+                      when /^gpt-|^o[34]/ then "openai"
+                      when /^claude/ then "anthropic"
+                      when /^gemini/ then "google"
+                      when /^grok/ then "xai"
+                      when /^llama|^mixtral/ then "groq"
+                      when /^mistral|^codestral/ then "mistral"
+                      when /^command/ then "cohere"
+                      else "unknown"
+                      end
+
+      Ai::ModelPricing.find_or_create_by!(model_id: model_id, provider_type: provider_type) do |mp|
+        mp.input_per_1k = pricing["input"]
+        mp.output_per_1k = pricing["output"]
+        mp.cached_input_per_1k = pricing["cached_input"] || 0
+        mp.tier = pricing["tier"]
+        mp.source = "constant_fallback"
+        mp.last_synced_at = Time.current
+        mp.metadata = {}
+      end
+    end
+    puts "✅ Seeded #{Ai::ModelPricing.count} model pricings"
+  end
+end
+
+# Extension seeds (dynamically discovered from registered extensions)
+Powernode::ExtensionRegistry.each do |slug, ext|
+  seeds_dir = ext[:engine].root.join("db", "seeds")
+  next unless Dir.exist?(seeds_dir)
+
+  puts "\n📦 Loading #{slug} extension seeds..."
+  Dir[seeds_dir.join("*.rb")].sort.each { |f| load f }
+  puts "✅ #{slug.capitalize} extension seeds loaded"
 end
 
 puts "\n🎉 Seeding complete!"
 puts "   Permissions: #{Permission.count}"
 puts "   Roles: #{Role.count}"
-puts "   Plans: #{Plan.count}"
+plan_class = defined?(Billing::Plan) ? Billing::Plan : (defined?(Plan) ? Plan : nil)
+puts "   Plans: #{plan_class&.count || 0}"
 puts "   Workers: #{Worker.count}"
 puts "   Public Pages: #{Page.count}"
-puts "   KB Categories: #{KnowledgeBaseCategory.count}"
-puts "   KB Articles: #{KnowledgeBaseArticle.count}"
+puts "   KB Categories: #{KnowledgeBase::Category.count}"
+puts "   KB Articles: #{KnowledgeBase::Article.count}"
 
 if Rails.env.development? || Rails.env.test?
   puts "   AI Providers: #{Ai::Provider.count}"
@@ -758,6 +1006,12 @@ if Rails.env.development? || Rails.env.test?
   puts "   AI Workflows: #{Ai::Workflow.count}"
   puts "   AI Workflow Templates: #{Ai::WorkflowTemplate.count}"
   puts "   AI Workflow Runs: #{Ai::WorkflowRun.count}"
+  puts "   DevOps Container Templates: #{Devops::ContainerTemplate.count}"
+  puts "   AI DevOps Templates: #{Ai::DevopsTemplate.count}"
+  puts "   AI Skills: #{Ai::Skill.count}"
+  puts "   AI Agent Templates: #{Ai::AgentTemplate.count}"
+  puts "   AI Agent Teams: #{Ai::AgentTeam.count}"
+  puts "   AI Memory Pools: #{Ai::MemoryPool.count}"
 end
 
 # 🔧 Create default site settings
@@ -768,7 +1022,7 @@ SiteSetting.set('site_name', 'Powernode', description: 'Name of the site', setti
 SiteSetting.set('footer_description', 'Powerful subscription management platform designed to help businesses grow. Trusted by thousands of companies worldwide.', description: 'Footer description text', setting_type: 'text', is_public: true)
 
 # Copyright information
-SiteSetting.set('copyright_text', 'All rights reserved.', description: 'Copyright text displayed in footer', setting_type: 'string', is_public: true)
+SiteSetting.set('copyright_text', 'Everett C. Haimes III. All rights reserved.', description: 'Copyright text displayed in footer', setting_type: 'string', is_public: true)
 SiteSetting.set('copyright_year', Date.current.year.to_s, description: 'Copyright year', setting_type: 'string', is_public: true)
 
 # Contact information
@@ -794,9 +1048,14 @@ SiteSetting.set('footer_cache_enabled', 'true', description: 'Enable caching for
 
 puts "✅ Created #{SiteSetting.count} site settings"
 
+
 if Rails.env.development? || Rails.env.test?
   puts "   Accounts: #{Account.count}"
   puts "   Users: #{User.count}"
-  puts "   Subscriptions: #{Subscription.count}"
+  if defined?(Billing::Subscription)
+    puts "   Subscriptions: #{Billing::Subscription.count}"
+  elsif defined?(Subscription)
+    puts "   Subscriptions: #{Subscription.count}"
+  end
   puts "   Site Settings: #{SiteSetting.count}"
 end

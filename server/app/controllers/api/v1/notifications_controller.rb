@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::NotificationsController < ApplicationController
-  before_action :set_notification, only: [ :show, :mark_as_read, :mark_as_unread, :dismiss ]
+  before_action :set_notification, only: [ :show, :mark_as_read, :mark_as_unread, :destroy ]
 
   # GET /api/v1/notifications
   def index
@@ -80,7 +80,7 @@ class Api::V1::NotificationsController < ApplicationController
   end
 
   # DELETE /api/v1/notifications/:id
-  def dismiss
+  def destroy
     @notification.dismiss!
 
     render_success(

@@ -3,6 +3,7 @@ import { Download, Share2, Trash2, Tag, Copy, Check } from 'lucide-react';
 import Modal from '@/shared/components/ui/Modal';
 import { filesApi, FileObject } from '../services/filesApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { formatDateTime } from '@/shared/utils/formatters';
 
 interface FileDetailsProps {
   file: FileObject;
@@ -38,15 +39,11 @@ export const FileDetails: React.FC<FileDetailsProps> = ({
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
   };
 
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleString();
-  };
-
   const handleDownload = async (): Promise<void> => {
     try {
       await filesApi.downloadFile(file.id, file.filename);
       showNotification('Download started', 'success');
-    } catch (error) {
+    } catch (_error) {
       showNotification('Download failed', 'error');
     }
   };
@@ -61,7 +58,7 @@ export const FileDetails: React.FC<FileDetailsProps> = ({
 
       setShareUrl(result.url);
       showNotification('Share link created', 'success');
-    } catch (error) {
+    } catch (_error) {
       showNotification('Failed to create share link', 'error');
     }
   };
@@ -72,7 +69,7 @@ export const FileDetails: React.FC<FileDetailsProps> = ({
       setCopiedUrl(true);
       showNotification('URL copied to clipboard', 'success');
       setTimeout(() => setCopiedUrl(false), 2000);
-    } catch (error) {
+    } catch (_error) {
       showNotification('Failed to copy URL', 'error');
     }
   };
@@ -85,7 +82,7 @@ export const FileDetails: React.FC<FileDetailsProps> = ({
       showNotification('File deleted successfully', 'success');
       onFileUpdated?.();
       onClose();
-    } catch (error) {
+    } catch (_error) {
       showNotification('Failed to delete file', 'error');
     }
   };
@@ -153,7 +150,7 @@ export const FileDetails: React.FC<FileDetailsProps> = ({
 
               <div>
                 <p className="text-theme-secondary">Uploaded</p>
-                <p className="text-theme-primary font-medium">{formatDate(file.created_at)}</p>
+                <p className="text-theme-primary font-medium">{formatDateTime(file.created_at)}</p>
               </div>
 
               {file.uploaded_by && (

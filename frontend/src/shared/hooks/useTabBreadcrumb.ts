@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useBreadcrumb } from './BreadcrumbContext';
+import { useBreadcrumb } from '@/shared/hooks/BreadcrumbContext';
 
 interface TabConfig {
   id: string;

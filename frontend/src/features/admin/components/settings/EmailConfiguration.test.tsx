@@ -475,7 +475,7 @@ describe('EmailConfiguration', () => {
     // Initial loading - might be very fast, so check if present or already loaded
     try {
       expect(screen.getByText(/Loading/)).toBeInTheDocument();
-    } catch {
+    } catch (_error) {
       // Loading completed very quickly - this is acceptable
       expect(screen.queryByText(/Loading/)).not.toBeInTheDocument();
     }

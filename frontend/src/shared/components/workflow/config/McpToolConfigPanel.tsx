@@ -3,17 +3,17 @@ import { AlertCircle, CheckCircle } from 'lucide-react';
 import { EnhancedSelect } from '@/shared/components/ui/EnhancedSelect';
 import { Input } from '@/shared/components/ui/Input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/components/ui/Tabs';
-import { McpServerSelector } from './McpServerSelector';
-import { McpToolSelector } from './McpToolSelector';
-import { JsonSchemaForm } from './JsonSchemaForm';
+import { McpServerSelector } from '@/shared/components/workflow/config/McpServerSelector';
+import { McpToolSelector } from '@/shared/components/workflow/config/McpToolSelector';
+import { JsonSchemaForm } from '@/shared/components/workflow/config/JsonSchemaForm';
 import { Textarea } from '@/shared/components/ui/Textarea';
-import { useSchemaValidation } from './validation/useSchemaValidation';
+import { useSchemaValidation } from '@/shared/components/workflow/config/validation/useSchemaValidation';
 import type { McpToolForWorkflowBuilder } from '@/shared/types/workflow';
 
 interface McpToolConfigPanelProps {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   configuration: Record<string, any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   onConfigChange: (key: string, value: any) => void;
   errors?: Record<string, string>;
   disabled?: boolean;
@@ -101,9 +101,9 @@ export const McpToolConfigPanel: React.FC<McpToolConfigPanelProps> = ({
       const parsed = JSON.parse(value);
       onConfigChange('parameters', parsed);
       setJsonError(null);
-    } catch (e) {
+    } catch (parseError) {
       // Invalid JSON, don't update parameters
-      setJsonError(e instanceof Error ? e.message : 'Invalid JSON');
+      setJsonError(parseError instanceof Error ? parseError.message : 'Invalid JSON');
     }
   }, [onConfigChange]);
 

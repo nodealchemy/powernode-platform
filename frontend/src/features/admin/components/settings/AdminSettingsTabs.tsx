@@ -2,21 +2,25 @@
 
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { 
-  CreditCard, Mail, Gauge, 
-  LayoutDashboard, ShieldAlert, 
-  Network, Lock
+import {
+  CreditCard, Mail, Gauge,
+  LayoutDashboard, ShieldAlert,
+  Network, Lock, Wrench, Puzzle
 } from 'lucide-react';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
+
+declare const __EXTENSIONS__: string[];
 
 interface AdminSettingsTab {
   id: string;
   label: string;
   href: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   description: string;
   requiredPermissions?: string[];
+  extensionSlug?: string;
+  extensionInstalledOnly?: boolean;
 }
 
 const adminSettingsTabs: AdminSettingsTab[] = [
@@ -29,12 +33,21 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     // No specific permissions required - covered by parent admin.settings.read
   },
   {
+    id: 'extensions',
+    label: 'Extensions',
+    href: '/app/admin/settings/extensions',
+    icon: Puzzle,
+    description: 'Manage platform extensions and modules',
+    requiredPermissions: ['admin.settings.read']
+  },
+  {
     id: 'payment-gateways',
     label: 'Payment Gateways',
     href: '/app/admin/settings/payment-gateways',
     icon: CreditCard,
     description: 'Configure Stripe, PayPal, and other payment providers',
-    requiredPermissions: ['admin.billing.manage_gateways']
+    requiredPermissions: ['admin.billing.manage_gateways'],
+    extensionSlug: 'enterprise'
   },
   {
     id: 'email',
@@ -75,6 +88,14 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     icon: Gauge,
     description: 'Monitor and optimize system performance',
     requiredPermissions: ['admin.settings.read'] // Basic permission for now
+  },
+  {
+    id: 'development',
+    label: 'Development',
+    href: '/app/admin/settings/development',
+    icon: Wrench,
+    description: 'Development tools and enterprise mode toggle',
+    requiredPermissions: ['admin.settings.read']
   }
 ];
 
@@ -86,9 +107,20 @@ export const AdminSettingsTabs: React.FC<AdminSettingsTabsProps> = ({ className 
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);
+  const { loadedExtensions, coreMode } = useSelector((state: RootState) => state.config);
+  const enterpriseBuild = typeof __EXTENSIONS__ !== 'undefined' && __EXTENSIONS__.includes('enterprise');
+  const enterpriseInstalled = enterpriseBuild && !coreMode;
 
-  // Filter tabs based on user permissions
+  // Filter tabs based on user permissions and enterprise availability
   const availableTabs = adminSettingsTabs.filter(tab => {
+    // Hide extension-specific tabs when the required extension is not available
+    if (tab.extensionSlug && !loadedExtensions.includes(tab.extensionSlug)) {
+      return false;
+    }
+    // Hide tabs requiring an extension to be installed (build-time)
+    if (tab.extensionInstalledOnly && !enterpriseInstalled) {
+      return false;
+    }
     if (!tab.requiredPermissions || tab.requiredPermissions.length === 0) {
       return true; // No specific permissions required
     }

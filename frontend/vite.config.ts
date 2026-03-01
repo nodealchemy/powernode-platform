@@ -39,6 +39,22 @@ export default defineConfig(({ mode }: { mode: string }) => {
   const allowedHosts = getAllowedHosts();
   const additionalHosts = env.VITE_ALLOWED_HOSTS ? env.VITE_ALLOWED_HOSTS.split(',') : [];
 
+  // Dynamic extension discovery
+  const extensionsDir = path.resolve(__dirname, '../extensions');
+  const extensionAliases: Record<string, string> = {};
+  const discoveredSlugs: string[] = [];
+
+  if (fs.existsSync(extensionsDir)) {
+    for (const slug of fs.readdirSync(extensionsDir)) {
+      const manifestPath = path.resolve(extensionsDir, slug, 'extension.json');
+      const frontendSrc = path.resolve(extensionsDir, slug, 'frontend/src');
+      if (fs.existsSync(manifestPath) && fs.existsSync(frontendSrc)) {
+        extensionAliases[`@ext/${slug}`] = frontendSrc;
+        discoveredSlugs.push(slug);
+      }
+    }
+  }
+
   return {
     base: '/',
 
@@ -53,12 +69,17 @@ export default defineConfig(({ mode }: { mode: string }) => {
     ],
     
     resolve: {
+      // Resolve ALL packages from core node_modules when processing
+      // enterprise source files (enterprise dir has no own node_modules).
+      // Derived from package.json so it stays in sync automatically.
+      dedupe: Object.keys(packageJson.dependencies || {}),
       alias: {
         '@': path.resolve(__dirname, './src'),
         '@/shared': path.resolve(__dirname, './src/shared'),
         '@/features': path.resolve(__dirname, './src/features'),
         '@/pages': path.resolve(__dirname, './src/pages'),
         '@/assets': path.resolve(__dirname, './src/assets'),
+        ...extensionAliases,
       },
     },
     
@@ -89,6 +110,11 @@ export default defineConfig(({ mode }: { mode: string }) => {
       
       // API proxy - use 127.0.0.1 to force IPv4 (Rails binds to IPv4)
       proxy: {
+        '/.well-known': {
+          target: 'http://127.0.0.1:3000',
+          changeOrigin: true,
+          secure: false,
+        },
         '/api/v1': {
           target: 'http://127.0.0.1:3000/api/v1',
           changeOrigin: true,
@@ -147,6 +173,7 @@ export default defineConfig(({ mode }: { mode: string }) => {
     define: {
       'process.env.NODE_ENV': JSON.stringify(mode),
       'process.env.REACT_APP_VERSION': JSON.stringify(packageJson.version),
+      '__EXTENSIONS__': JSON.stringify(discoveredSlugs),
     },
     
     optimizeDeps: {

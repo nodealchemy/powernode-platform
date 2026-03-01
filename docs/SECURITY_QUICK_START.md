@@ -114,7 +114,7 @@ git log --all --grep="secret\|password\|key" --oneline
 git log --all -S "JWT_SECRET_KEY" --oneline  # Should be empty
 
 # Test application
-./scripts/auto-dev.sh ensure  # Should start normally
+sudo systemctl start powernode.target  # Should start normally
 ```
 
 ### Post-Cleanup Checklist

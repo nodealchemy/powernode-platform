@@ -12,6 +12,8 @@
  * - Proper subscription routing to multiple components
  */
 
+import { logger } from '@/shared/utils/logger';
+
 interface WebSocketConfig {
   getUrl: () => string;
   onConnect?: () => void;
@@ -43,6 +45,11 @@ export class WebSocketManager {
   private subscriptions: Map<string, Set<ChannelSubscription>> = new Map();
   private subscribedChannels: Set<string> = new Set();
 
+  // Deferred unsubscribe timers — prevents React StrictMode double-mount from
+  // sending unsubscribe→subscribe (the unsubscribe can arrive at the server
+  // AFTER the resubscribe, killing the active subscription)
+  private pendingUnsubscribes: Map<string, NodeJS.Timeout> = new Map();
+
   // Timeouts
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private connectDebounceTimeout: NodeJS.Timeout | null = null;
@@ -52,6 +59,10 @@ export class WebSocketManager {
 
   // Token refresh flag
   private isRefreshingToken: boolean = false;
+
+  // Browser event handlers for auto-reconnect
+  private boundOnlineHandler: (() => void) | null = null;
+  private boundVisibilityHandler: (() => void) | null = null;
 
   private constructor() {
     // Private constructor for singleton
@@ -68,17 +79,42 @@ export class WebSocketManager {
   }
 
   /**
-   * Initialize the WebSocket connection
-   * Only initializes once, subsequent calls are ignored
+   * Initialize the WebSocket connection.
+   * On first call, sets up the connection and browser listeners.
+   * On subsequent calls, updates the config (e.g., new auth token) and
+   * reconnects if the WebSocket URL has changed.
    */
   public initialize(config: WebSocketConfig): void {
     if (this.isInitialized) {
+      // Config changed (e.g., token refresh) — update getUrl and reconnect if URL differs
+      const oldUrl = this.config?.getUrl();
+      this.config = config;
+      const newUrl = config.getUrl();
+      if (oldUrl !== newUrl && this.ws) {
+        // URL changed (new token) — close old connection and reconnect
+        // Subscriptions are preserved in the map and resubscribed on reconnect
+        this.reconnectAttempts = 0;
+        const oldWs = this.ws;
+        // Detach handlers so stale close/error events don't interfere
+        oldWs.onopen = null;
+        oldWs.onmessage = null;
+        oldWs.onclose = null;
+        oldWs.onerror = null;
+        this.ws = null;
+        this.isConnecting = false;
+        this.isConnected = false;
+        if (oldWs.readyState === WebSocket.OPEN || oldWs.readyState === WebSocket.CONNECTING) {
+          oldWs.close(1000, 'Token refresh');
+        }
+        this.connect();
+      }
       return;
     }
 
     this.isInitialized = true;
     this.config = config;
     this.connect();
+    this.registerBrowserListeners();
   }
 
   /**
@@ -106,7 +142,7 @@ export class WebSocketManager {
     this.stateListeners.forEach(listener => {
       try {
         listener(isConnected, error);
-      } catch (error) {
+      } catch (_error) {
         // Prevent listener errors from affecting other listeners
       }
     });
@@ -168,10 +204,15 @@ export class WebSocketManager {
       this.reconnectTimeout = null;
     }
 
-    // Close any existing connection
+    // Close any existing connection, detaching handlers to prevent stale events
     if (this.ws) {
-      this.ws.close();
+      const oldWs = this.ws;
+      oldWs.onopen = null;
+      oldWs.onmessage = null;
+      oldWs.onclose = null;
+      oldWs.onerror = null;
       this.ws = null;
+      oldWs.close();
     }
 
     try {
@@ -228,24 +269,45 @@ export class WebSocketManager {
           this.isRefreshingToken = true;
           this.notifyStateListeners(false, 'Session expired');
 
-          // Close connection to prevent reconnection loops
+          // Close connection, detaching handlers to prevent reconnection loops
           if (this.ws) {
-            this.ws.close();
+            const oldWs = this.ws;
+            oldWs.onopen = null;
+            oldWs.onmessage = null;
+            oldWs.onclose = null;
+            oldWs.onerror = null;
             this.ws = null;
+            this.isConnected = false;
+            this.isConnecting = false;
+            oldWs.close();
           }
         }
         return;
       }
 
-      // Handle subscription confirmation
+      // Handle subscription confirmation — track by full channelKey (channel + params)
       if (data.type === 'confirm_subscription') {
         const identifier = JSON.parse(data.identifier);
-        this.subscribedChannels.add(identifier.channel);
+        const { channel, ...params } = identifier;
+        const channelKey = this.getChannelKey(channel, params);
+        this.subscribedChannels.add(channelKey);
+        logger.debug(`[WebSocket] Subscription confirmed: ${channel} (key=${channelKey})`);
         return;
       }
 
-      // Handle subscription rejection
+      // Handle subscription rejection — clean up local state
       if (data.type === 'reject_subscription') {
+        try {
+          const identifier = JSON.parse(data.identifier);
+          const { channel, ...params } = identifier;
+          const channelKey = this.getChannelKey(channel, params);
+          const subs = this.subscriptions.get(channelKey);
+          if (subs) {
+            subs.forEach(sub => sub.onError?.('Subscription rejected by server'));
+          }
+        } catch (_e) {
+          // Ignore parse errors
+        }
         return;
       }
 
@@ -265,14 +327,14 @@ export class WebSocketManager {
             try {
               sub.onMessage?.(data.message);
             } catch (error) {
-              console.error('[WebSocket] Handler error:', error);
+              logger.error('[WebSocket] Handler error', error);
             }
           });
         }
       }
 
     } catch (error) {
-      console.error('[WebSocket] Message parsing error:', error);
+      logger.error('[WebSocket] Message parsing error', error);
     }
   }
 
@@ -299,6 +361,8 @@ export class WebSocketManager {
     if (event.code !== 1000 && this.config) {
       this.reconnectAttempts += 1;
       const backoffTime = Math.min(3000 * Math.pow(1.5, this.reconnectAttempts - 1), 30000);
+
+      logger.debug(`[WebSocket] Connection closed (code=${event.code}), reconnecting in ${backoffTime}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}, subscriptions=${this.subscriptions.size})`);
 
       if (this.reconnectAttempts <= this.maxReconnectAttempts) {
         this.reconnectTimeout = setTimeout(() => {
@@ -334,16 +398,29 @@ export class WebSocketManager {
     const { channel, params } = subscription;
     const channelKey = this.getChannelKey(channel, params);
 
+    // Cancel any pending deferred unsubscribe for this channel key
+    // (React StrictMode: mount1 cleanup schedules unsubscribe, mount2 cancels it)
+    const pendingTimer = this.pendingUnsubscribes.get(channelKey);
+    if (pendingTimer) {
+      clearTimeout(pendingTimer);
+      this.pendingUnsubscribes.delete(channelKey);
+      logger.debug(`[WebSocket] Subscribe: cancelled pending unsubscribe for ${channel}`);
+    }
+
     // Add subscription to the set
-    if (!this.subscriptions.has(channelKey)) {
+    const isNew = !this.subscriptions.has(channelKey);
+    if (isNew) {
       this.subscriptions.set(channelKey, new Set());
     }
     this.subscriptions.get(channelKey)!.add(subscription);
 
-    // Send subscription message if connected
-    if (this.ws?.readyState === WebSocket.OPEN) {
+    // Send subscription message if connected and this is a genuinely new channel
+    // (or if it was previously unsubscribed from the server)
+    if (this.ws?.readyState === WebSocket.OPEN && !this.subscribedChannels.has(channelKey)) {
       this.sendSubscriptionMessage(channel, params);
     }
+
+    logger.debug(`[WebSocket] Subscribe: ${channel} (${this.subscriptions.get(channelKey)!.size} listeners, new=${isNew}, wsOpen=${this.ws?.readyState === WebSocket.OPEN})`);
 
     // Return unsubscribe function
     return () => {
@@ -364,15 +441,29 @@ export class WebSocketManager {
     if (subscriptions) {
       subscriptions.delete(subscription);
 
-      // If no more subscriptions for this channel, unsubscribe from server
+      // If no more local listeners, defer the server-side unsubscribe.
+      // This prevents React StrictMode's unmount→remount cycle from sending
+      // an unsubscribe that races with (and kills) the subsequent resubscribe.
       if (subscriptions.size === 0) {
         this.subscriptions.delete(channelKey);
 
-        if (this.ws?.readyState === WebSocket.OPEN) {
-          this.sendUnsubscriptionMessage(channel, params);
-        }
+        logger.debug(`[WebSocket] Unsubscribe: ${channel} (last listener removed, deferring server unsubscribe 300ms)`);
 
-        this.subscribedChannels.delete(channel);
+        // Defer server-side unsubscribe — if a new subscribe arrives within
+        // 300ms (StrictMode remount), the timer is cancelled in subscribe()
+        const timer = setTimeout(() => {
+          this.pendingUnsubscribes.delete(channelKey);
+          this.subscribedChannels.delete(channelKey);
+
+          if (this.ws?.readyState === WebSocket.OPEN) {
+            this.sendUnsubscriptionMessage(channel, params);
+            logger.debug(`[WebSocket] Unsubscribe: ${channel} (deferred unsubscribe sent to server)`);
+          }
+        }, 300);
+
+        this.pendingUnsubscribes.set(channelKey, timer);
+      } else {
+        logger.debug(`[WebSocket] Unsubscribe: ${channel} (${subscriptions.size} listeners remaining)`);
       }
     }
   }
@@ -401,7 +492,7 @@ export class WebSocketManager {
     try {
       this.ws.send(JSON.stringify(message));
       return true;
-    } catch (error) {
+    } catch (_error) {
       return false;
     }
   }
@@ -410,10 +501,22 @@ export class WebSocketManager {
    * Resubscribe to all channels after reconnection
    */
   private resubscribeAllChannels(): void {
-    this.subscriptions.forEach((_, channelKey) => {
-      const [channel, paramsStr] = channelKey.split('::');
+    if (this.subscriptions.size === 0) return;
+
+    // New connection — no channels are confirmed yet
+    this.subscribedChannels.clear();
+
+    // Cancel any pending deferred unsubscribes (stale from old connection)
+    this.pendingUnsubscribes.forEach(timer => clearTimeout(timer));
+    this.pendingUnsubscribes.clear();
+
+    this.subscriptions.forEach((subs, channelKey) => {
+      const separatorIdx = channelKey.indexOf('::');
+      const channel = separatorIdx >= 0 ? channelKey.substring(0, separatorIdx) : channelKey;
+      const paramsStr = separatorIdx >= 0 ? channelKey.substring(separatorIdx + 2) : undefined;
       const params = paramsStr ? JSON.parse(paramsStr) : undefined;
       this.sendSubscriptionMessage(channel, params);
+      logger.debug(`[WebSocket] Resubscribed: ${channel} (${subs.size} listeners)`);
     });
   }
 
@@ -433,7 +536,7 @@ export class WebSocketManager {
 
     try {
       this.ws.send(JSON.stringify(subscribeMessage));
-    } catch (error) {
+    } catch (_error) {
       // Ignore send errors
     }
   }
@@ -454,7 +557,7 @@ export class WebSocketManager {
 
     try {
       this.ws.send(JSON.stringify(unsubscribeMessage));
-    } catch (error) {
+    } catch (_error) {
       // Ignore send errors
     }
   }
@@ -480,9 +583,43 @@ export class WebSocketManager {
   }
 
   /**
-   * Disconnect from WebSocket server
+   * Register browser event listeners for network recovery auto-reconnect
    */
+  private registerBrowserListeners(): void {
+    this.boundOnlineHandler = () => {
+      if (!this.isConnected && this.config) {
+        this.reconnectAttempts = 0;
+        this.connect();
+      }
+    };
+
+    this.boundVisibilityHandler = () => {
+      if (document.visibilityState === 'visible' && !this.isConnected && this.config) {
+        this.reconnectAttempts = 0;
+        this.connect();
+      }
+    };
+
+    window.addEventListener('online', this.boundOnlineHandler);
+    document.addEventListener('visibilitychange', this.boundVisibilityHandler);
+  }
+
+  /**
+   * Remove browser event listeners
+   */
+  private removeBrowserListeners(): void {
+    if (this.boundOnlineHandler) {
+      window.removeEventListener('online', this.boundOnlineHandler);
+      this.boundOnlineHandler = null;
+    }
+    if (this.boundVisibilityHandler) {
+      document.removeEventListener('visibilitychange', this.boundVisibilityHandler);
+      this.boundVisibilityHandler = null;
+    }
+  }
+
   public disconnect(): void {
+    this.removeBrowserListeners();
     this.isConnecting = false;
     this.isRefreshingToken = false;
     this.isInitialized = false;
@@ -501,6 +638,10 @@ export class WebSocketManager {
       clearTimeout(this.connectDebounceTimeout);
       this.connectDebounceTimeout = null;
     }
+
+    // Clear pending deferred unsubscribes
+    this.pendingUnsubscribes.forEach(timer => clearTimeout(timer));
+    this.pendingUnsubscribes.clear();
 
     // Close WebSocket connection
     if (this.ws) {

@@ -4,7 +4,7 @@ module Compliance
   # Job for processing account terminations after grace period
   # Runs every 6 hours to check for accounts ready for termination
   class AccountTerminationJob < BaseJob
-    queue_as :compliance
+    sidekiq_options queue: 'compliance', retry: 3
 
     def execute(_args = nil)
       log_info 'Starting account termination processing'

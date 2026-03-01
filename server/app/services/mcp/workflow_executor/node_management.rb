@@ -122,6 +122,9 @@ module Mcp
                           Mcp::NodeExecutors::RunTests
         when "shell_command"
                           Mcp::NodeExecutors::ShellCommand
+        # Ralph Loop node type
+        when "ralph_loop"
+                          Mcp::NodeExecutors::RalphLoop
         else
                           raise Mcp::WorkflowExecutor::NodeExecutionError, "Unknown node type: #{node.node_type}"
         end

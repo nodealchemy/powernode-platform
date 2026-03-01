@@ -294,7 +294,7 @@ describe('Header', () => {
       fireEvent.click(userButton);
 
       const adminLink = screen.getByText('Admin Settings').closest('a');
-      expect(adminLink).toHaveAttribute('href', '/app/system/admin');
+      expect(adminLink).toHaveAttribute('href', '/app/admin/settings');
     });
 
     it('links to users page for admin users', () => {

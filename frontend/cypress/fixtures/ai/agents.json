@@ -1,0 +1,63 @@
+{
+  "items": [
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5F6AGENT1",
+      "name": "Customer Support Agent",
+      "description": "AI agent for handling customer inquiries and support tickets",
+      "status": "active",
+      "type": "assistant",
+      "model": "gpt-4",
+      "capabilities": ["chat", "ticket_handling", "knowledge_base"],
+      "created_at": "2024-11-01T10:00:00Z",
+      "updated_at": "2024-12-15T08:30:00Z",
+      "metrics": {
+        "total_conversations": 1250,
+        "avg_response_time_ms": 850,
+        "satisfaction_rating": 4.8
+      },
+      "configuration": {
+        "temperature": 0.7,
+        "max_tokens": 2048,
+        "system_prompt": "You are a helpful customer support agent."
+      }
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5F6AGENT2",
+      "name": "Data Analysis Agent",
+      "description": "Analyzes data and generates insights",
+      "status": "active",
+      "type": "analyst",
+      "model": "gpt-4",
+      "capabilities": ["data_analysis", "visualization", "reporting"],
+      "created_at": "2024-10-15T14:00:00Z",
+      "updated_at": "2024-12-10T16:45:00Z",
+      "metrics": {
+        "total_analyses": 450,
+        "avg_processing_time_ms": 3200,
+        "accuracy_score": 0.94
+      }
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5F6AGENT3",
+      "name": "Content Writer Agent",
+      "description": "Generates marketing content and copy",
+      "status": "paused",
+      "type": "writer",
+      "model": "gpt-4",
+      "capabilities": ["content_generation", "editing", "seo_optimization"],
+      "created_at": "2024-09-20T09:00:00Z",
+      "updated_at": "2024-12-01T11:20:00Z",
+      "metrics": {
+        "total_articles": 320,
+        "avg_word_count": 1200,
+        "engagement_rate": 0.72
+      }
+    }
+  ],
+  "meta": {
+    "total": 3,
+    "page": 1,
+    "per_page": 20,
+    "total_pages": 1
+  }
+}

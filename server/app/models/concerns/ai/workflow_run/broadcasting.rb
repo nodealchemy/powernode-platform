@@ -197,9 +197,9 @@ module Ai
       def build_workflow_run_data(live_duration: false)
         duration = if live_duration && running? && started_at
                      (Time.current - started_at).to_i
-                   else
+        else
                      execution_duration_seconds || (started_at ? (Time.current - started_at).to_i : nil)
-                   end
+        end
 
         {
           id: id,

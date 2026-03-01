@@ -1,132 +1,132 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, Suspense } from 'react';
 import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
-import { plansApi } from '@/features/business/plans/services/plansApi';
-import { paymentGatewaysApi } from '@/features/business/payment-gateways/services/paymentGatewaysApi';
 import { DashboardLayout } from '@/shared/components/layout/DashboardLayout';
 import { MetricCard } from '@/shared/components/ui/Card';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
-
-// Import all dashboard pages
-import { ReportsPage } from './business/ReportsPage';
-import { PlansPage } from './business/PlansPage';
-import { ProfilePage } from './account/ProfilePage';
-import { PagesPage } from './content/PagesPage';
-import KnowledgeBasePage from './content/KnowledgeBasePage';
-import KnowledgeBaseArticlePage from './content/KnowledgeBaseArticlePage';
-import KnowledgeBaseAdminPage from './content/KnowledgeBaseAdminPage';
-import { KnowledgeBaseArticleEditor } from '@/features/content/knowledge-base/components/KnowledgeBaseArticleEditor';
-import MyFilesPage from './content/MyFilesPage';
-import { UsersPage } from './account/UsersPage';
-import { AuditLogsPage } from './system/AuditLogsPage';
-import PrivacyDashboardPage from './privacy/PrivacyDashboardPage';
-import { ApiKeysPage } from './devops/ApiKeysPage';
-import { NotificationsPage } from './account/NotificationsPage';
-import { MetricsPage } from './business/MetricsPage';
-import { AnalyticsPage } from './business/AnalyticsPage';
+import { featureRegistry } from '@/shared/services/featureRegistry';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
-import { BarChart3, Users, CreditCard } from 'lucide-react';
+import { BarChart3, Users } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 
-// Import individual pages directly (no more management page groupings)
-import { CustomersPage } from './business/CustomersPage';
-import { BillingPage } from './business/BillingPage';
+// Context providers used inline in route elements (must be synchronous)
+import { ClusterProvider } from '@/features/devops/swarm/context/ClusterContext';
+import { HostProvider } from '@/features/devops/docker/context/HostContext';
 
-// Import system pages
-import WebhookManagementPage from '@/pages/app/devops/WebhooksPage';
+// === Lazy-loaded page components ===
 
-// Import marketplace pages
-import { MarketplacePage } from '@/pages/app/marketplace/MarketplacePage';
-import { ItemDetailPage } from '@/pages/app/marketplace/ItemDetailPage';
-import { MySubscriptionsPage } from '@/pages/app/marketplace/MySubscriptionsPage';
+// Account & Content
+const ProfilePage = React.lazy(() => import('./account/ProfilePage').then(m => ({ default: m.ProfilePage })));
+const PagesPage = React.lazy(() => import('./content/PagesPage').then(m => ({ default: m.PagesPage })));
+const KnowledgeBasePage = React.lazy(() => import('./content/KnowledgeBasePage'));
+const KnowledgeBaseArticlePage = React.lazy(() => import('./content/KnowledgeBaseArticlePage'));
+const KnowledgeBaseAdminPage = React.lazy(() => import('./content/KnowledgeBaseAdminPage'));
+const KnowledgeBaseArticleEditor = React.lazy(() => import('@/features/content/knowledge-base/components/KnowledgeBaseArticleEditor').then(m => ({ default: m.KnowledgeBaseArticleEditor })));
+const MyFilesPage = React.lazy(() => import('./content/MyFilesPage'));
+const UsersPage = React.lazy(() => import('./account/UsersPage').then(m => ({ default: m.UsersPage })));
+const AuditLogsPage = React.lazy(() => import('./admin/AuditLogsPage').then(m => ({ default: m.AuditLogsPage })));
+const PrivacyDashboardPage = React.lazy(() => import('./privacy/PrivacyDashboardPage'));
+const NotificationsPage = React.lazy(() => import('./account/NotificationsPage').then(m => ({ default: m.NotificationsPage })));
 
-// Import admin pages
-import { AdminSettingsPage } from '@/pages/app/admin/AdminSettingsPage';
-import { AdminUsersPage } from '@/pages/app/admin/AdminUsersPage';
-import { AdminRolesPage } from '@/pages/app/admin/AdminRolesPage';
-import { WorkersPage as SystemWorkersPage } from '@/pages/app/system/WorkersPage';
-import { ServicesPage } from '@/pages/app/system/ServicesPage';
-import StorageProvidersPage from '@/pages/app/system/StorageProvidersPage';
-// GitProvidersPage moved to Connections - route redirects to connections/git
+// Admin
+const AdminSettingsPage = React.lazy(() => import('@/pages/app/admin/AdminSettingsPage').then(m => ({ default: m.AdminSettingsPage })));
+const AdminUsersPage = React.lazy(() => import('@/pages/app/admin/AdminUsersPage').then(m => ({ default: m.AdminUsersPage })));
+const AdminRolesPage = React.lazy(() => import('@/pages/app/admin/AdminRolesPage').then(m => ({ default: m.AdminRolesPage })));
+const AdminWorkersPage = React.lazy(() => import('@/pages/app/admin/WorkersPage').then(m => ({ default: m.WorkersPage })));
+const AdminStoragePage = React.lazy(() => import('@/pages/app/admin/StorageProvidersPage'));
+const AdminMaintenancePage = React.lazy(() => import('@/pages/app/admin/AdminMaintenancePage').then(m => ({ default: m.AdminMaintenancePage })));
+// AI Providers
+const AIProvidersPage = React.lazy(() => import('./ai/AIProvidersPage').then(m => ({ default: m.AIProvidersPage })));
+const GitProvidersPage = React.lazy(() => import('./devops/GitProvidersPage').then(m => ({ default: m.GitProvidersPage })));
 
-// CI/CD Pages (used in System section for runners)
-import {
-  RunnersPage as AiPipelinesRunnersPage,
-} from '@/features/devops/pipelines';
+// AI Primary navigation
+const AIOverviewPage = React.lazy(() => import('./ai/AIOverviewPage').then(m => ({ default: m.AIOverviewPage })));
+const AIAgentsPage = React.lazy(() => import('./ai/AIAgentsPage').then(m => ({ default: m.AIAgentsPage })));
+const WorkflowsPage = React.lazy(() => import('./ai/WorkflowsPage').then(m => ({ default: m.WorkflowsPage })));
+const AIMonitoringPage = React.lazy(() => import('./ai/AIMonitoringPage').then(m => ({ default: m.AIMonitoringPage })));
+const GovernancePage = React.lazy(() => import('./ai/GovernancePage'));
+// SandboxPage absorbed into Execution tabs
 
-// Provider Pages
-import {
-  AiProvidersPage,
-  GitProvidersPage,
-  RepositoriesPage,
-} from '@/features/devops/connections';
-import { AdminMaintenancePage } from '@/pages/app/admin/AdminMaintenancePage';
-import { AdminMarketplacePage } from '@/pages/app/admin/AdminMarketplacePage';
-// AdminPluginsPage deprecated - now redirects to admin/marketplace
-import { AdminImpersonationPage } from '@/pages/app/admin/AdminImpersonationPage';
+// AI Tabbed wrappers
+const ExecutionPage = React.lazy(() => import('./ai/ExecutionPage').then(m => ({ default: m.ExecutionPage })));
+const KnowledgePage = React.lazy(() => import('./ai/KnowledgePage').then(m => ({ default: m.KnowledgePage })));
+const InfrastructurePage = React.lazy(() => import('./ai/InfrastructurePage').then(m => ({ default: m.InfrastructurePage })));
+// AiBillingPage absorbed into Observability (Credits & FinOps tabs)
 
-// Test page
-import { TestWebSocket } from '@/pages/app/TestWebSocket';
-
-// AI Pages - Standalone navigation (no longer using AIOrchestrationPage wrapper)
-import { AIOverviewPage } from './ai/AIOverviewPage';
-// AIProvidersPage moved to Connections - route redirects to connections/ai
-import { AIAgentsPage } from './ai/AIAgentsPage';
-import { WorkflowsPage } from './ai/WorkflowsPage';
-import { AIConversationsPage } from './ai/AIConversationsPage';
-import { WorkflowAnalyticsPage } from './ai/WorkflowAnalyticsPage';
-import { AIMonitoringPage } from './ai/AIMonitoringPage';
-import { McpBrowserPage } from './ai/McpBrowserPage';
 // AI Sub-pages
-import { CreateWorkflowPage, AIDebugPage } from './ai';
-import AgentTeamsPage from './ai/AgentTeamsPage';
-import { WorkflowDetailPage } from './ai/WorkflowDetailPage';
-import { WorkflowImportPage } from './ai/WorkflowImportPage';
-import { WorkflowMonitoringPage } from './ai/WorkflowMonitoringPage';
-import { WorkflowValidationStatisticsPage } from './ai/WorkflowValidationStatisticsPage';
-import { AIAnalyticsPage } from './ai/AIAnalyticsPage';
+const CreateWorkflowPage = React.lazy(() => import('./ai').then(m => ({ default: m.CreateWorkflowPage })));
+const AIDebugPage = React.lazy(() => import('./ai').then(m => ({ default: m.AIDebugPage })));
+const AgentDetailPage = React.lazy(() => import('./ai/AgentDetailPage').then(m => ({ default: m.AgentDetailPage })));
+const WorkflowDetailPage = React.lazy(() => import('./ai/WorkflowDetailPage').then(m => ({ default: m.WorkflowDetailPage })));
+const WorkflowImportPage = React.lazy(() => import('./ai/WorkflowImportPage').then(m => ({ default: m.WorkflowImportPage })));
+const WorkflowMonitoringPage = React.lazy(() => import('./ai/WorkflowMonitoringPage').then(m => ({ default: m.WorkflowMonitoringPage })));
+const WorkflowValidationStatisticsPage = React.lazy(() => import('./ai/WorkflowValidationStatisticsPage').then(m => ({ default: m.WorkflowValidationStatisticsPage })));
+const AIAnalyticsPage = React.lazy(() => import('./ai/AIAnalyticsPage').then(m => ({ default: m.AIAnalyticsPage })));
+const AgentMemoryPage = React.lazy(() => import('./ai/AgentMemoryPage').then(m => ({ default: m.AgentMemoryPage })));
+const ContextDetailPage = React.lazy(() => import('./ai/ContextDetailPage').then(m => ({ default: m.ContextDetailPage })));
 
-// AI Context Pages
-import { AgentMemoryPage } from './ai/AgentMemoryPage';
-import { ContextsPage } from './ai/ContextsPage';
-import { ContextDetailPage } from './ai/ContextDetailPage';
+// AI Hidden pages
+// SelfHealingDashboard absorbed into Observability Overview
+const RecommendationsDashboard = React.lazy(() => import('@/features/ai/learning/RecommendationsDashboard').then(m => ({ default: m.RecommendationsDashboard })));
+const TrajectoryInsights = React.lazy(() => import('@/features/ai/learning/TrajectoryInsights').then(m => ({ default: m.TrajectoryInsights })));
 
-// Prompt Templates
-import { PromptsPage } from '@/features/ai/prompts/pages/PromptsPage';
+// AI Orchestration
+// SandboxDashboardPage → Execution/Containers, AutonomyDashboardPage → Agents/Autonomy, CompoundLearningPage → Knowledge/Learning
+// AuditDashboardPage and SecurityDashboardPage absorbed into GovernancePage tabs
+// EvaluationDashboardPage absorbed into Observability, CodeFactoryPage absorbed into Missions
 
-// Integration Pages
-// IntegrationsMarketplacePage deprecated - now redirects to marketplace?types=integration
-import {
-  IntegrationsPage,
-  IntegrationDetailPage,
-  NewIntegrationPage,
-} from '@/pages/app/devops/integrations';
+// AI Missions
+const MissionsPageWrapper = React.lazy(() => import('./ai/MissionsPage').then(m => ({ default: m.MissionsPageWrapper })));
+
+// Containers
+const ContainersPage = React.lazy(() => import('@/features/devops/containers/pages/ContainersPage').then(m => ({ default: m.ContainersPage })));
+
+// Docker Swarm pages
+const ClusterDashboardPage = React.lazy(() => import('@/features/devops/swarm/pages/ClusterDashboardPage').then(m => ({ default: m.ClusterDashboardPage })));
+const SwarmNodesPage = React.lazy(() => import('@/features/devops/swarm/pages/SwarmNodesPage').then(m => ({ default: m.SwarmNodesPage })));
+const SwarmServiceDetailPage = React.lazy(() => import('@/features/devops/swarm/pages/SwarmServiceDetailPage').then(m => ({ default: m.SwarmServiceDetailPage })));
+
+// Docker Host pages
+const HostDashboardPage = React.lazy(() => import('@/features/devops/docker/pages/HostDashboardPage').then(m => ({ default: m.HostDashboardPage })));
+const ContainerDetailPage = React.lazy(() => import('@/features/devops/docker/pages/ContainerDetailPage').then(m => ({ default: m.ContainerDetailPage })));
+
+// AI Feature Pages (standalone)
+const TeamsPage = React.lazy(() => import('./ai/TeamsPage'));
+const DevOpsTemplatesPage = React.lazy(() => import('./ai/DevOpsTemplatesPage'));
+const WorkflowAnalyticsPage = React.lazy(() => import('./ai/WorkflowAnalyticsPage').then(m => ({ default: m.WorkflowAnalyticsPage })));
+
+// Integration pages
+const IntegrationDetailPage = React.lazy(() => import('@/pages/app/devops/integrations').then(m => ({ default: m.IntegrationDetailPage })));
+const NewIntegrationPage = React.lazy(() => import('@/pages/app/devops/integrations').then(m => ({ default: m.NewIntegrationPage })));
 
 // DevOps Pages
-import { DevOpsOverviewPage } from '@/pages/app/devops/DevOpsOverviewPage';
-import { PipelinesPage } from '@/pages/app/devops/PipelinesPage';
-import { PipelineCreatePage } from '@/pages/app/devops/PipelineCreatePage';
-import { PipelineDetailPage } from '@/pages/app/devops/PipelineDetailPage';
-import { PipelineEditPage } from '@/pages/app/devops/PipelineEditPage';
-import { RunnerDetailPage } from '@/pages/app/devops/RunnerDetailPage';
+const DevOpsOverviewPage = React.lazy(() => import('@/pages/app/devops/DevOpsOverviewPage').then(m => ({ default: m.DevOpsOverviewPage })));
+const PipelineCreatePage = React.lazy(() => import('@/pages/app/devops/PipelineCreatePage').then(m => ({ default: m.PipelineCreatePage })));
+const PipelineDetailPage = React.lazy(() => import('@/pages/app/devops/PipelineDetailPage').then(m => ({ default: m.PipelineDetailPage })));
+const PipelineEditPage = React.lazy(() => import('@/pages/app/devops/PipelineEditPage').then(m => ({ default: m.PipelineEditPage })));
+const RunnerDetailPage = React.lazy(() => import('@/pages/app/devops/RunnerDetailPage').then(m => ({ default: m.RunnerDetailPage })));
+
+// DevOps Hub Pages
+const SourceControlPage = React.lazy(() => import('@/pages/app/devops/SourceControlPage').then(m => ({ default: m.SourceControlPage })));
+const CiCdPage = React.lazy(() => import('@/pages/app/devops/CiCdPage').then(m => ({ default: m.CiCdPage })));
+const ConnectionsPage = React.lazy(() => import('@/pages/app/devops/ConnectionsPage').then(m => ({ default: m.ConnectionsPage })));
+const SwarmHubPage = React.lazy(() => import('@/pages/app/devops/SwarmHubPage').then(m => ({ default: m.SwarmHubPage })));
+const DockerHubPage = React.lazy(() => import('@/pages/app/devops/DockerHubPage').then(m => ({ default: m.DockerHubPage })));
+
+// Marketing routes handled by featureRegistry (marketing extension)
 
 // Dashboard overview page
 const DashboardOverview: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);
-  const [hasPlans, setHasPlans] = useState(false);
-  const [hasPaymentGateways, setHasPaymentGateways] = useState(false);
-  const [loading, setLoading] = useState(true);
-
   // Handle websocket data updates
   const handleDataUpdate = useCallback(() => {
     // Refresh data when receiving real-time updates
-    // Could trigger a re-fetch of metrics here
   }, []);
 
   // WebSocket connection for real-time dashboard updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'dashboard',
     onDataUpdate: handleDataUpdate,
     onSubscriptionUpdate: handleDataUpdate,
@@ -134,107 +134,36 @@ const DashboardOverview: React.FC = () => {
     onNotification: handleDataUpdate
   });
 
-  useEffect(() => {
-    let mounted = true; // Track if component is still mounted
-    
-    const checkSetupStatus = async () => {
-      try {
-        // Check plans status using dedicated endpoint (counts all plans regardless of permissions)
-        let hasPlansConfigured = false;
-        try {
-          const statusResponse = await plansApi.getStatus();
-          hasPlansConfigured = statusResponse.data?.has_plans ?? statusResponse.data?.total_count > 0;
-        } catch {
-          // Fallback to checking public plans if status endpoint fails
-          try {
-            const publicPlansResponse = await plansApi.getPublicPlans();
-            hasPlansConfigured = (publicPlansResponse.data?.plans?.length ?? 0) > 0;
-          } catch {
-            hasPlansConfigured = false;
-          }
-        }
-
-        // Check payment gateway status (requires admin.settings.payment permission)
-        let hasConfiguredGateways = false;
-        try {
-          const gatewaysOverview = await paymentGatewaysApi.getOverview();
-          // Consider gateways configured if either Stripe or PayPal is connected/configured
-          const stripeConfigured = gatewaysOverview.gateways.stripe.enabled &&
-            ['connected', 'configured'].includes(gatewaysOverview.status.stripe.status);
-          const paypalConfigured = gatewaysOverview.gateways.paypal.enabled &&
-            ['connected', 'configured'].includes(gatewaysOverview.status.paypal.status);
-          hasConfiguredGateways = stripeConfigured || paypalConfigured;
-        } catch (_gatewayError) {
-          // If user doesn't have permission or API fails, assume no gateways configured
-          hasConfiguredGateways = false;
-        }
-
-        // Only update state if component is still mounted
-        if (mounted) {
-          setHasPlans(hasPlansConfigured);
-          setHasPaymentGateways(hasConfiguredGateways);
-        }
-      } catch (_error) {
-        if (mounted) {
-          // Assume no setup on error
-          setHasPlans(false);
-          setHasPaymentGateways(false);
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-    
-    // Run check on mount
-    checkSetupStatus();
-
-    // Cleanup function to prevent state updates on unmounted component
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
   // Calculate completion status
   const completedTasks = [
     true, // Account created (always true if user is logged in)
-    user?.email_verified || false, // Email verification (check actual status)
-    hasPlans, // Plans setup
-    hasPaymentGateways // Payment gateways configured
+    user?.email_verified || false, // Email verification
   ];
   const completedCount = completedTasks.filter(Boolean).length;
   const totalTasks = completedTasks.length;
-  
+
   const pageActions: PageAction[] = [
     {
-      id: 'analytics',
-      label: 'Analytics',
-      onClick: () => navigate('/app/business/analytics'),
+      id: 'ai-overview',
+      label: 'AI Overview',
+      onClick: () => navigate('/app/ai'),
       variant: 'secondary',
       icon: BarChart3
     },
     {
-      id: 'customers',
-      label: 'Customers',
-      onClick: () => navigate('/app/business/customers'),
+      id: 'devops',
+      label: 'DevOps',
+      onClick: () => navigate('/app/devops'),
       variant: 'secondary',
       icon: Users
-    },
-    // Only show Payment Setup button if payment setup is required
-    ...((!hasPaymentGateways && !loading) ? [{
-      id: 'payment-gateways',
-      label: 'Payment Setup',
-      onClick: () => navigate('/app/admin/settings/payment-gateways'),
-      variant: 'secondary' as const,
-      icon: CreditCard
-    }] : [])
+    }
   ];
 
   const breadcrumbs = [
-    { label: 'Dashboard', icon: '🏠' }
+    { label: 'Dashboard', href: '/app' },
+    { label: 'Dashboard' }
   ];
-  
+
   return (
     <PageContainer
       title={`Welcome back, ${user?.name || 'User'}! 👋`}
@@ -246,32 +175,31 @@ const DashboardOverview: React.FC = () => {
         {/* Key Metrics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <MetricCard
-            title="Total Revenue"
-            value="$0.00"
-            icon="💰"
-            change={0}
-            description="Revenue from all subscriptions"
-          />
-
-          <MetricCard
-            title="Active Subscriptions"
-            value={0}
-            icon="📊"
-            description="Ready to grow"
-          />
-
-          <MetricCard
-            title="Monthly Growth"
-            value="0%"
-            icon="📈"
-            description="Start your journey"
-          />
-
-          <MetricCard
             title="System Health"
             value="100%"
             icon="✅"
             description="All systems operational"
+          />
+
+          <MetricCard
+            title="AI Agents"
+            value={0}
+            icon="🤖"
+            description="Configure AI agents"
+          />
+
+          <MetricCard
+            title="Pipelines"
+            value={0}
+            icon="🔄"
+            description="Set up CI/CD pipelines"
+          />
+
+          <MetricCard
+            title="Repositories"
+            value={0}
+            icon="📦"
+            description="Connect your repos"
           />
         </div>
 
@@ -283,10 +211,10 @@ const DashboardOverview: React.FC = () => {
               Getting Started
             </h3>
             <span className="bg-theme-info text-theme-on-primary px-3 py-1 rounded-full text-xs font-medium bg-opacity-10 text-theme-info">
-              {loading ? 'Loading...' : `${completedCount} of ${totalTasks} complete`}
+              {`${completedCount} of ${totalTasks} complete`}
             </span>
           </div>
-          
+
           <div className="space-y-4">
             <div className="flex items-start space-x-3">
               <div className="flex-shrink-0 mt-1">
@@ -320,7 +248,7 @@ const DashboardOverview: React.FC = () => {
                   {user?.email_verified ? 'Your email address has been verified' : 'Please verify your email address'}
                 </p>
                 {!user?.email_verified && (
-                  <Button 
+                  <Button
                     onClick={() => navigate('/verify-email')}
                     variant="primary"
                     size="xs"
@@ -332,65 +260,7 @@ const DashboardOverview: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-start space-x-3">
-              <div className="flex-shrink-0 mt-1">
-                <div className={`h-5 w-5 rounded-full flex items-center justify-center ${
-                  hasPlans ? 'bg-theme-success' : 'bg-theme-warning'
-                }`}>
-                  <span className="text-white text-xs">
-                    {hasPlans ? '✓' : '!'}
-                  </span>
-                </div>
-              </div>
-              <div className="flex-1">
-                <p className={`text-sm font-medium ${hasPlans ? 'text-theme-primary' : 'text-theme-primary'}`}>
-                  {hasPlans ? 'Subscription plans configured' : 'Set up your first subscription plan'}
-                </p>
-                <p className="text-xs text-theme-tertiary mt-1">
-                  {hasPlans ? 'You have plans ready for customers' : 'Create plans to start accepting payments'}
-                </p>
-                {!hasPlans && (
-                  <Button 
-                    onClick={() => navigate('/app/business/plans')}
-                    variant="primary"
-                    size="xs"
-                    className="mt-2"
-                  >
-                    Create Plan
-                  </Button>
-                )}
-              </div>
-            </div>
 
-            <div className="flex items-start space-x-3">
-              <div className="flex-shrink-0 mt-1">
-                <div className={`h-5 w-5 rounded-full flex items-center justify-center ${
-                  hasPaymentGateways ? 'bg-theme-success' : 'bg-theme-warning'
-                }`}>
-                  <span className="text-white text-xs">
-                    {hasPaymentGateways ? '✓' : '!'}
-                  </span>
-                </div>
-              </div>
-              <div className="flex-1">
-                <p className={`text-sm font-medium ${hasPaymentGateways ? 'text-theme-primary' : 'text-theme-primary'}`}>
-                  {hasPaymentGateways ? 'Payment gateways configured' : 'Configure payment methods'}
-                </p>
-                <p className="text-xs text-theme-tertiary mt-1">
-                  {hasPaymentGateways ? 'Stripe or PayPal is ready for payments' : 'Set up Stripe or PayPal integration'}
-                </p>
-                {!hasPaymentGateways && (
-                  <Button 
-                    onClick={() => navigate('/app/admin/settings/payment-gateways')}
-                    variant="primary"
-                    size="xs"
-                    className="mt-2"
-                  >
-                    Configure Payments
-                  </Button>
-                )}
-              </div>
-            </div>
           </div>
         </div>
 
@@ -399,57 +269,39 @@ const DashboardOverview: React.FC = () => {
           <h3 className="text-xl font-semibold text-theme-primary mb-6">
             Quick Actions
           </h3>
-          
+
           <div className="grid grid-cols-1 gap-3">
-            <Button 
-              onClick={() => navigate('/app/business/customers')}
+            <Button
+              onClick={() => navigate('/app/ai')}
               variant="secondary"
               className="flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover w-full"
             >
               <div className="flex items-center space-x-3">
-                <span className="text-2xl">👥</span>
+                <span className="text-2xl">🤖</span>
                 <div className="text-left">
-                  <p className="font-medium text-theme-primary">Manage Customers</p>
-                  <p className="text-xs text-theme-tertiary">View and organize your customer base</p>
+                  <p className="font-medium text-theme-primary">AI Workflows</p>
+                  <p className="text-xs text-theme-tertiary">Manage AI agents and workflows</p>
                 </div>
               </div>
               <span className="text-theme-tertiary">→</span>
             </Button>
 
-            <Button 
-              onClick={() => navigate('/app/business/analytics')}
+            <Button
+              onClick={() => navigate('/app/devops')}
               variant="secondary"
               className="flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover w-full"
             >
               <div className="flex items-center space-x-3">
-                <span className="text-2xl">📊</span>
+                <span className="text-2xl">🔧</span>
                 <div className="text-left">
-                  <p className="font-medium text-theme-primary">View Analytics</p>
-                  <p className="text-xs text-theme-tertiary">Track revenue and growth metrics</p>
+                  <p className="font-medium text-theme-primary">DevOps</p>
+                  <p className="text-xs text-theme-tertiary">Pipelines, containers, and infrastructure</p>
                 </div>
               </div>
               <span className="text-theme-tertiary">→</span>
             </Button>
 
-            {/* Only show Payment Gateways button in Quick Actions if setup is needed */}
-            {!hasPaymentGateways && !loading && (
-              <Button 
-                onClick={() => navigate('/app/admin/settings/payment-gateways')}
-                variant="secondary"
-                className="flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover w-full"
-              >
-                <div className="flex items-center space-x-3">
-                  <span className="text-2xl">💳</span>
-                  <div className="text-left">
-                    <p className="font-medium text-theme-primary">Payment Gateways</p>
-                    <p className="text-xs text-theme-tertiary">Configure Stripe and PayPal</p>
-                  </div>
-                </div>
-                <span className="text-theme-tertiary">→</span>
-              </Button>
-            )}
-
-            <Button 
+            <Button
               onClick={() => navigate('/app/profile')}
               variant="secondary"
               className="flex items-center justify-between p-4 text-left hover:bg-theme-surface-hover w-full"
@@ -474,7 +326,7 @@ const DashboardOverview: React.FC = () => {
           <div>
             <h4 className="font-medium text-theme-success">Powernode Platform Ready</h4>
             <p className="text-sm text-theme-success mt-1">
-              Your subscription platform is set up and ready for configuration. Start by creating your first subscription plan!
+              Your self-hosted platform is set up and ready. Start by connecting AI providers and setting up your first workflow!
             </p>
           </div>
         </div>
@@ -485,9 +337,10 @@ const DashboardOverview: React.FC = () => {
 };
 
 const DashboardPage: React.FC = () => {
-  
+
   return (
     <DashboardLayout>
+      <Suspense fallback={<div className="p-8 text-theme-secondary">Loading...</div>}>
       <Routes>
         {/* Dashboard Overview */}
         <Route path="/" element={<DashboardOverview />} />
@@ -496,38 +349,66 @@ const DashboardPage: React.FC = () => {
         <Route path="/notifications" element={<NotificationsPage />} />
 
         {/* Individual Pages - No More Management Page Groupings */}
-        
-        {/* Business Pages */}
-        <Route path="/business/customers" element={<CustomersPage />} />
-        <Route path="/business/billing/*" element={<BillingPage />} />
-        
-        {/* AI Pages - Standalone navigation */}
-        <Route path="/ai" element={<AIOverviewPage />} />
-        <Route path="/ai/providers" element={<AiProvidersPage />} />
-        <Route path="/ai/providers/new" element={<AiProvidersPage />} />
-        <Route path="/ai/providers/:id" element={<AiProvidersPage />} />
-        <Route path="/ai/agents" element={<AIAgentsPage />} />
-        <Route path="/ai/workflows" element={<WorkflowsPage />} />
-        <Route path="/ai/conversations" element={<AIConversationsPage />} />
-        <Route path="/ai/analytics" element={<WorkflowAnalyticsPage />} />
-        <Route path="/ai/monitoring/:tab?" element={<AIMonitoringPage />} />
-        <Route path="/ai/mcp" element={<McpBrowserPage />} />
 
-        {/* AI Sub-pages (detail/utility routes) */}
+        {/* AI Pages - Primary navigation */}
+        <Route path="/ai" element={<AIOverviewPage />} />
+        <Route path="/ai/agents/list" element={<AIAgentsPage />} />
+        <Route path="/ai/agents/cards" element={<AIAgentsPage />} />
+        <Route path="/ai/agents/marketplace" element={<AIAgentsPage />} />
+        <Route path="/ai/agents/community" element={<AIAgentsPage />} />
+        <Route path="/ai/agents/autonomy" element={<AIAgentsPage />} />
+        <Route path="/ai/agents/:agentId/memory/*" element={<AgentMemoryPage />} />
+        <Route path="/ai/agents/:agentId/*" element={<AgentDetailPage />} />
+        <Route path="/ai/agents/*" element={<AIAgentsPage />} />
+        <Route path="/ai/teams" element={<TeamsPage />} />
         <Route path="/ai/workflows/new" element={<CreateWorkflowPage />} />
         <Route path="/ai/workflows/import" element={<WorkflowImportPage />} />
         <Route path="/ai/workflows/monitoring" element={<WorkflowMonitoringPage />} />
         <Route path="/ai/workflows/validation-stats" element={<WorkflowValidationStatisticsPage />} />
+        <Route path="/ai/workflows/templates" element={<WorkflowsPage />} />
         <Route path="/ai/workflows/:id" element={<WorkflowDetailPage />} />
-        <Route path="/ai/analytics/system" element={<AIAnalyticsPage />} />
-        <Route path="/ai/debug" element={<AIDebugPage />} />
-        <Route path="/ai/agent-teams" element={<AgentTeamsPage />} />
-        <Route path="/ai/contexts" element={<ContextsPage />} />
-        <Route path="/ai/knowledge" element={<Navigate to="/app/ai/contexts" replace />} />
+        <Route path="/ai/workflows/*" element={<WorkflowsPage />} />
+        <Route path="/ai/communication/conversations" element={<Navigate to="/app/ai/observability/conversations" replace />} />
+        <Route path="/ai/communication/*" element={<Navigate to="/app/ai/teams" replace />} />
+        <Route path="/ai/governance/*" element={<GovernancePage />} />
+        <Route path="/ai/sandbox" element={<Navigate to="/app/ai/execution/testing" replace />} />
+
+        {/* AI Pages - Tabbed wrappers */}
+        <Route path="/ai/execution/*" element={<ExecutionPage />} />
         <Route path="/ai/contexts/:id" element={<ContextDetailPage />} />
-        <Route path="/ai/agents/:agentId/memory" element={<AgentMemoryPage />} />
-        <Route path="/ai/prompts" element={<PromptsPage />} />
-        <Route path="/ai/plugins" element={<Navigate to="/app/marketplace?types=plugin" replace />} />
+        <Route path="/ai/knowledge/contexts/:id" element={<ContextDetailPage />} />
+        <Route path="/ai/knowledge/*" element={<KnowledgePage />} />
+        <Route path="/ai/infrastructure/providers/new" element={<AIProvidersPage />} />
+        <Route path="/ai/infrastructure/providers/:id" element={<AIProvidersPage />} />
+        <Route path="/ai/infrastructure/*" element={<InfrastructurePage />} />
+        <Route path="/ai/billing/*" element={<Navigate to="/app/ai/observability/credits" replace />} />
+        <Route path="/ai/observability/*" element={<AIMonitoringPage />} />
+        <Route path="/ai/monitoring/*" element={<Navigate to="/app/ai/observability" replace />} />
+
+        {/* AI Pages - Agent Orchestration */}
+        <Route path="/ai/sandboxes" element={<Navigate to="/app/ai/execution/containers" replace />} />
+        <Route path="/ai/autonomy" element={<Navigate to="/app/ai/agents/autonomy" replace />} />
+        <Route path="/ai/learning" element={<Navigate to="/app/ai/knowledge/learning" replace />} />
+        <Route path="/ai/audit" element={<Navigate to="/app/ai/governance/audit" replace />} />
+        <Route path="/ai/security" element={<Navigate to="/app/ai/governance/security" replace />} />
+
+        {/* AI Missions - code-factory before :missionId, static tabs before dynamic */}
+        <Route path="/ai/missions/code-factory/*" element={<MissionsPageWrapper />} />
+        <Route path="/ai/missions/completed" element={<MissionsPageWrapper />} />
+        <Route path="/ai/missions/all" element={<MissionsPageWrapper />} />
+        <Route path="/ai/missions/:missionId" element={<MissionsPageWrapper />} />
+        <Route path="/ai/missions" element={<MissionsPageWrapper />} />
+
+        {/* AI Redirects - Absorbed pages */}
+        <Route path="/ai/code-factory/*" element={<Navigate to="/app/ai/missions/code-factory" replace />} />
+        <Route path="/ai/evaluation" element={<Navigate to="/app/ai/observability/evaluation" replace />} />
+        <Route path="/ai/self-healing" element={<Navigate to="/app/ai/observability" replace />} />
+        <Route path="/ai/learning/recommendations" element={<RecommendationsDashboard />} />
+        <Route path="/ai/learning/insights" element={<TrajectoryInsights />} />
+        <Route path="/ai/analytics/system" element={<AIAnalyticsPage />} />
+        <Route path="/ai/analytics/workflows" element={<WorkflowAnalyticsPage />} />
+        <Route path="/ai/devops/templates" element={<DevOpsTemplatesPage />} />
+        <Route path="/ai/debug" element={<AIDebugPage />} />
 
         {/* Core Pages */}
         <Route path="/content/pages" element={<PagesPage />} />
@@ -542,80 +423,97 @@ const DashboardPage: React.FC = () => {
         <Route path="/content/kb/articles/:id/edit" element={<KnowledgeBaseArticleEditor />} />
         <Route path="/content/kb/admin" element={<KnowledgeBaseAdminPage />} />
         <Route path="/content/kb/manage" element={<KnowledgeBaseAdminPage />} />
-        <Route path="/business/plans/*" element={<PlansPage />} />
-        
-        
-        {/* Reports Page */}
-        <Route path="/business/reports/*" element={<ReportsPage />} />
-        
+        {/* Business routes handled by featureRegistry (enterprise) */}
+
         {/* System Pages */}
         <Route path="/profile/*" element={<ProfilePage />} />
 
         {/* Privacy Page */}
         <Route path="/privacy" element={<PrivacyDashboardPage />} />
         {/* Workers moved to admin routes */}
-        
-        {/* System Management Pages */}
-        <Route path="/system/services" element={<ServicesPage />} />
-        <Route path="/system/storage" element={<StorageProvidersPage />} />
 
-        {/* DevOps Pages - Git, Repositories, Runners, Webhooks, Integrations, API Keys */}
+
+        {/* DevOps Pages */}
         <Route path="/devops" element={<DevOpsOverviewPage />} />
-        <Route path="/devops/git" element={<GitProvidersPage />} />
-        <Route path="/devops/git/new" element={<GitProvidersPage />} />
-        <Route path="/devops/git/:id" element={<GitProvidersPage />} />
-        <Route path="/devops/repositories" element={<RepositoriesPage />} />
-        <Route path="/devops/runners" element={<AiPipelinesRunnersPage />} />
-        <Route path="/devops/runners/:id" element={<RunnerDetailPage />} />
-        <Route path="/devops/webhooks" element={<WebhookManagementPage />} />
-        <Route path="/devops/integrations" element={<IntegrationsPage />} />
-        <Route path="/devops/integrations/new" element={<NewIntegrationPage />} />
-        <Route path="/devops/integrations/new/:templateId" element={<NewIntegrationPage />} />
-        <Route path="/devops/integrations/:id" element={<IntegrationDetailPage />} />
-        <Route path="/devops/api-keys" element={<ApiKeysPage />} />
 
-        {/* System Pages - Infrastructure only */}
-        <Route path="/system/audit-logs/*" element={<AuditLogsPage />} />
+        {/* Source Control - detail routes before catch-all */}
+        <Route path="/devops/source-control/providers/new" element={<GitProvidersPage />} />
+        <Route path="/devops/source-control/providers/:id" element={<GitProvidersPage />} />
+        <Route path="/devops/source-control/*" element={<SourceControlPage />} />
 
-        {/* DevOps Pipelines */}
-        <Route path="/devops/pipelines" element={<PipelinesPage />} />
-        <Route path="/devops/pipelines/new" element={<PipelineCreatePage />} />
-        <Route path="/devops/pipelines/:id" element={<PipelineDetailPage />} />
-        <Route path="/devops/pipelines/:id/edit" element={<PipelineEditPage />} />
-        <Route path="/devops/pipelines/:id/runs" element={<PipelineDetailPage />} />
-        <Route path="/devops/pipelines/:id/runs/:runId" element={<PipelineDetailPage />} />
+        {/* CI/CD - detail routes before catch-all */}
+        <Route path="/devops/ci-cd/pipelines/new" element={<PipelineCreatePage />} />
+        <Route path="/devops/ci-cd/pipelines/:id/edit" element={<PipelineEditPage />} />
+        <Route path="/devops/ci-cd/pipelines/:id/runs/:runId" element={<PipelineDetailPage />} />
+        <Route path="/devops/ci-cd/pipelines/:id/runs" element={<PipelineDetailPage />} />
+        <Route path="/devops/ci-cd/pipelines/:id" element={<PipelineDetailPage />} />
+        <Route path="/devops/ci-cd/runners/:id" element={<RunnerDetailPage />} />
+        <Route path="/devops/ci-cd/*" element={<CiCdPage />} />
 
-        {/* Business Analytics Pages */}
-        <Route path="/business/analytics/*" element={<AnalyticsPage />} />
-        <Route path="/metrics" element={<MetricsPage />} />
-        
-        {/* Marketplace Pages */}
-        <Route path="/marketplace" element={<MarketplacePage />} />
-        <Route path="/marketplace/:type/:id" element={<ItemDetailPage />} />
-        <Route path="/marketplace/subscriptions" element={<MySubscriptionsPage />} />
+        {/* Connections - detail routes before catch-all */}
+        <Route path="/devops/connections/integrations/new/:templateId" element={<NewIntegrationPage />} />
+        <Route path="/devops/connections/integrations/new" element={<NewIntegrationPage />} />
+        <Route path="/devops/connections/integrations/:id/*" element={<IntegrationDetailPage />} />
+        <Route path="/devops/connections/*" element={<ConnectionsPage />} />
+
+        {/* Sandboxes */}
+        <Route path="/devops/sandboxes/*" element={<ContainersPage />} />
+
+        {/* Swarm - static tab routes before :clusterId to prevent "services" etc. matching as an ID */}
+        <Route path="/devops/swarm/services" element={<SwarmHubPage />} />
+        <Route path="/devops/swarm/stacks" element={<SwarmHubPage />} />
+        <Route path="/devops/swarm/networks" element={<SwarmHubPage />} />
+        <Route path="/devops/swarm/secrets" element={<SwarmHubPage />} />
+        <Route path="/devops/swarm/operations" element={<SwarmHubPage />} />
+        {/* Swarm - detail routes before catch-all */}
+        <Route path="/devops/swarm/:clusterId/services/:serviceId/*" element={<ClusterProvider><SwarmServiceDetailPage /></ClusterProvider>} />
+        <Route path="/devops/swarm/:clusterId/nodes" element={<ClusterProvider><SwarmNodesPage /></ClusterProvider>} />
+        <Route path="/devops/swarm/:clusterId" element={<ClusterProvider><ClusterDashboardPage /></ClusterProvider>} />
+        <Route path="/devops/swarm/*" element={<SwarmHubPage />} />
+
+        {/* Docker - static tab routes before :hostId to prevent "containers" etc. matching as an ID */}
+        <Route path="/devops/docker/containers" element={<DockerHubPage />} />
+        <Route path="/devops/docker/images" element={<DockerHubPage />} />
+        <Route path="/devops/docker/networks" element={<DockerHubPage />} />
+        <Route path="/devops/docker/volumes" element={<DockerHubPage />} />
+        <Route path="/devops/docker/monitoring" element={<DockerHubPage />} />
+        {/* Docker - detail routes before catch-all */}
+        <Route path="/devops/docker/:hostId/containers/:containerId/*" element={<HostProvider><ContainerDetailPage /></HostProvider>} />
+        <Route path="/devops/docker/:hostId" element={<HostProvider><HostDashboardPage /></HostProvider>} />
+        <Route path="/devops/docker/*" element={<DockerHubPage />} />
+
+        {/* Audit Logs */}
+        <Route path="/admin/audit-logs/*" element={<AuditLogsPage />} />
+
+        {/* Supply Chain routes handled by featureRegistry (supply-chain extension) */}
+
+        {/* Marketing routes handled by featureRegistry (marketing extension) */}
+
+        {/* Business analytics + metrics routes handled by featureRegistry (enterprise) */}
+
+        {/* Marketplace routes handled by featureRegistry (enterprise) */}
 
         {/* Admin routes - consistent with navigation */}
         <Route path="/users" element={<UsersPage />} />
-        
+
         {/* Admin management routes */}
         <Route path="/admin/settings/*" element={<AdminSettingsPage />} />
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/roles" element={<AdminRolesPage />} />
-        <Route path="/admin/marketplace" element={<AdminMarketplacePage />} />
-        <Route path="/admin/marketplace/apps/:id/edit" element={<Navigate to="/app/admin/marketplace" replace />} />
-        {/* Legacy: redirect to consolidated marketplace admin with plugin filter */}
-        <Route path="/admin/plugins" element={<Navigate to="/app/admin/marketplace?types=plugin" replace />} />
-        <Route path="/admin/impersonation" element={<AdminImpersonationPage />} />
-        <Route path="/system/workers/*" element={<SystemWorkersPage />} />
         <Route path="/admin/maintenance/*" element={<AdminMaintenancePage />} />
-        <Route path="/admin" element={<Navigate to="/app/admin/settings" replace />} />
-        
-        {/* Redirect old admin settings to new services page */}
-        <Route path="/admin/settings/reverse-proxy" element={<Navigate to="/app/system/services" replace />} />
-        
-        {/* Test route */}
-        <Route path="/test-websocket" element={<TestWebSocket />} />
+        <Route path="/admin/workers/*" element={<AdminWorkersPage />} />
+        <Route path="/admin/storage" element={<AdminStoragePage />} />
+
+        {/* Enterprise routes (dynamically registered via featureRegistry) */}
+        {featureRegistry.getRoutes().map((route) => (
+          <Route
+            key={route.path}
+            path={route.path}
+            element={<route.component />}
+          />
+        ))}
       </Routes>
+      </Suspense>
     </DashboardLayout>
   );
 };

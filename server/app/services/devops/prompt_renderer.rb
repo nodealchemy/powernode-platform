@@ -51,7 +51,7 @@ module Devops
       Liquid::Template.parse(template_content)
       { valid: true, errors: [] }
     rescue Liquid::SyntaxError => e
-      { valid: false, errors: [e.message] }
+      { valid: false, errors: [ e.message ] }
     end
 
     class << self

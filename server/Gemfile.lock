@@ -1,3 +1,21 @@
+PATH
+  remote: ../extensions/enterprise/server
+  specs:
+    powernode_enterprise (0.1.0)
+      rails (~> 8.1)
+
+PATH
+  remote: ../extensions/marketing/server
+  specs:
+    powernode_marketing (0.1.0)
+      rails (>= 8.0)
+
+PATH
+  remote: ../extensions/supply-chain/server
+  specs:
+    powernode_supply_chain (0.1.0)
+      rails (>= 8.0)
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -81,8 +99,8 @@ GEM
       public_suffix (>= 2.0.2, < 8.0)
     ast (2.4.3)
     aws-eventstream (1.4.0)
-    aws-partitions (1.1206.0)
-    aws-sdk-core (3.241.4)
+    aws-partitions (1.1216.0)
+    aws-sdk-core (3.242.0)
       aws-eventstream (~> 1, >= 1.3.0)
       aws-partitions (~> 1, >= 1.992.0)
       aws-sigv4 (~> 1.9)
@@ -90,10 +108,10 @@ GEM
       bigdecimal
       jmespath (~> 1, >= 1.6.1)
       logger
-    aws-sdk-kms (1.121.0)
+    aws-sdk-kms (1.122.0)
       aws-sdk-core (~> 3, >= 3.241.4)
       aws-sigv4 (~> 1.5)
-    aws-sdk-s3 (1.212.0)
+    aws-sdk-s3 (1.213.0)
       aws-sdk-core (~> 3, >= 3.241.4)
       aws-sdk-kms (~> 1)
       aws-sigv4 (~> 1.5)
@@ -105,9 +123,9 @@ GEM
     bcrypt_pbkdf (1.1.2-arm64-darwin)
     bcrypt_pbkdf (1.1.2-x86_64-darwin)
     bigdecimal (3.3.1)
-    bootsnap (1.21.1)
+    bootsnap (1.23.0)
       msgpack (~> 1.2)
-    brakeman (7.1.2)
+    brakeman (8.0.2)
       racc
     builder (3.3.0)
     bundler-audit (0.9.3)
@@ -115,7 +133,7 @@ GEM
       thor (~> 1.0)
     chunky_png (1.4.0)
     concurrent-ruby (1.3.6)
-    connection_pool (3.0.2)
+    connection_pool (2.5.5)
     crack (1.0.1)
       bigdecimal
       rexml
@@ -151,12 +169,14 @@ GEM
     factory_bot_rails (6.5.1)
       factory_bot (~> 6.5)
       railties (>= 6.1.0)
-    faker (3.5.3)
+    faker (3.6.0)
       i18n (>= 1.8.11, < 2)
-    faraday (2.14.0)
+    faraday (2.14.1)
       faraday-net_http (>= 2.0, < 3.5)
       json
       logger
+    faraday-follow_redirects (0.5.0)
+      faraday (>= 1, < 3)
     faraday-multipart (1.2.0)
       multipart-post (~> 2.0)
     faraday-net_http (3.4.2)
@@ -172,22 +192,27 @@ GEM
     ffi-compiler (1.3.2)
       ffi (>= 1.15.5)
       rake
+    flipper (1.3.6)
+      concurrent-ruby (< 2)
+    flipper-active_record (1.3.6)
+      activerecord (>= 4.2, < 9)
+      flipper (~> 1.3.6)
     fugit (1.12.1)
       et-orbi (~> 1.4)
       raabro (~> 1.4)
     globalid (1.3.0)
       activesupport (>= 6.1)
-    google-apis-core (0.18.0)
-      addressable (~> 2.5, >= 2.5.1)
-      googleauth (~> 1.9)
-      httpclient (>= 2.8.3, < 3.a)
-      mini_mime (~> 1.0)
-      mutex_m
+    google-apis-core (1.0.2)
+      addressable (~> 2.8, >= 2.8.7)
+      faraday (~> 2.13)
+      faraday-follow_redirects (~> 0.3)
+      googleauth (~> 1.14)
+      mini_mime (~> 1.1)
       representable (~> 3.0)
-      retriable (>= 2.0, < 4.a)
+      retriable (~> 3.1)
     google-apis-iamcredentials_v1 (0.26.0)
       google-apis-core (>= 0.15.0, < 2.a)
-    google-apis-storage_v1 (0.58.0)
+    google-apis-storage_v1 (0.60.0)
       google-apis-core (>= 0.15.0, < 2.a)
     google-cloud-core (1.8.0)
       google-cloud-env (>= 1.0, < 3.a)
@@ -206,6 +231,29 @@ GEM
       googleauth (~> 1.9)
       mini_mime (~> 1.0)
     google-logging-utils (0.2.0)
+    google-protobuf (4.33.5)
+      bigdecimal
+      rake (>= 13)
+    google-protobuf (4.33.5-aarch64-linux-gnu)
+      bigdecimal
+      rake (>= 13)
+    google-protobuf (4.33.5-aarch64-linux-musl)
+      bigdecimal
+      rake (>= 13)
+    google-protobuf (4.33.5-arm64-darwin)
+      bigdecimal
+      rake (>= 13)
+    google-protobuf (4.33.5-x86_64-darwin)
+      bigdecimal
+      rake (>= 13)
+    google-protobuf (4.33.5-x86_64-linux-gnu)
+      bigdecimal
+      rake (>= 13)
+    google-protobuf (4.33.5-x86_64-linux-musl)
+      bigdecimal
+      rake (>= 13)
+    googleapis-common-protos-types (1.22.0)
+      google-protobuf (~> 4.26)
     googleauth (1.16.1)
       faraday (>= 1.0, < 3.a)
       google-cloud-env (~> 2.2)
@@ -229,17 +277,19 @@ GEM
       csv
       mini_mime (>= 1.0.0)
       multi_xml (>= 0.5.2)
-    httpclient (2.9.0)
-      mutex_m
     i18n (1.14.8)
       concurrent-ruby (~> 1.0)
     io-console (0.8.2)
-    irb (1.16.0)
+    irb (1.17.0)
       pp (>= 0.6.0)
+      prism (>= 1.3.0)
       rdoc (>= 4.0.0)
       reline (>= 0.4.2)
     jmespath (1.6.2)
-    json (2.18.0)
+    json (2.18.1)
+    json-schema (6.1.0)
+      addressable (~> 2.8)
+      bigdecimal (>= 3.1, < 5)
     jwt (3.1.2)
       base64
     kamal (2.10.1)
@@ -308,10 +358,13 @@ GEM
     multi_xml (0.8.1)
       bigdecimal (>= 3.1, < 5)
     multipart-post (2.4.1)
-    mutex_m (0.3.0)
+    neighbor (0.6.0)
+      activerecord (>= 7.1)
     net-http (0.9.1)
       uri (>= 0.11.1)
-    net-imap (0.6.2)
+    net-http-persistent (4.0.8)
+      connection_pool (>= 2.2.4, < 4)
+    net-imap (0.6.3)
       date
       net-protocol
     net-pop (0.1.2)
@@ -326,26 +379,89 @@ GEM
       net-protocol
     net-ssh (7.3.0)
     nio4r (2.7.5)
-    nokogiri (1.19.0-aarch64-linux-gnu)
+    nokogiri (1.19.1-aarch64-linux-gnu)
       racc (~> 1.4)
-    nokogiri (1.19.0-aarch64-linux-musl)
+    nokogiri (1.19.1-aarch64-linux-musl)
       racc (~> 1.4)
-    nokogiri (1.19.0-arm-linux-gnu)
+    nokogiri (1.19.1-arm-linux-gnu)
       racc (~> 1.4)
-    nokogiri (1.19.0-arm-linux-musl)
+    nokogiri (1.19.1-arm-linux-musl)
       racc (~> 1.4)
-    nokogiri (1.19.0-arm64-darwin)
+    nokogiri (1.19.1-arm64-darwin)
       racc (~> 1.4)
-    nokogiri (1.19.0-x86_64-darwin)
+    nokogiri (1.19.1-x86_64-darwin)
       racc (~> 1.4)
-    nokogiri (1.19.0-x86_64-linux-gnu)
+    nokogiri (1.19.1-x86_64-linux-gnu)
       racc (~> 1.4)
-    nokogiri (1.19.0-x86_64-linux-musl)
+    nokogiri (1.19.1-x86_64-linux-musl)
       racc (~> 1.4)
+    opentelemetry-api (1.7.0)
+    opentelemetry-common (0.23.0)
+      opentelemetry-api (~> 1.0)
+    opentelemetry-exporter-otlp (0.31.1)
+      google-protobuf (>= 3.18)
+      googleapis-common-protos-types (~> 1.3)
+      opentelemetry-api (~> 1.1)
+      opentelemetry-common (~> 0.20)
+      opentelemetry-sdk (~> 1.10)
+      opentelemetry-semantic_conventions
+    opentelemetry-helpers-sql (0.3.0)
+      opentelemetry-api (~> 1.7)
+    opentelemetry-helpers-sql-processor (0.4.0)
+      opentelemetry-api (~> 1.0)
+      opentelemetry-common (~> 0.21)
+    opentelemetry-instrumentation-action_mailer (0.6.1)
+      opentelemetry-instrumentation-active_support (~> 0.10)
+    opentelemetry-instrumentation-action_pack (0.15.1)
+      opentelemetry-instrumentation-rack (~> 0.29)
+    opentelemetry-instrumentation-action_view (0.11.2)
+      opentelemetry-instrumentation-active_support (~> 0.10)
+    opentelemetry-instrumentation-active_job (0.10.1)
+      opentelemetry-instrumentation-base (~> 0.25)
+    opentelemetry-instrumentation-active_record (0.11.1)
+      opentelemetry-instrumentation-base (~> 0.25)
+    opentelemetry-instrumentation-active_storage (0.3.1)
+      opentelemetry-instrumentation-active_support (~> 0.10)
+    opentelemetry-instrumentation-active_support (0.10.1)
+      opentelemetry-instrumentation-base (~> 0.25)
+    opentelemetry-instrumentation-base (0.25.0)
+      opentelemetry-api (~> 1.7)
+      opentelemetry-common (~> 0.21)
+      opentelemetry-registry (~> 0.1)
+    opentelemetry-instrumentation-concurrent_ruby (0.24.0)
+      opentelemetry-instrumentation-base (~> 0.25)
+    opentelemetry-instrumentation-net_http (0.27.0)
+      opentelemetry-instrumentation-base (~> 0.25)
+    opentelemetry-instrumentation-pg (0.35.0)
+      opentelemetry-helpers-sql
+      opentelemetry-helpers-sql-processor
+      opentelemetry-instrumentation-base (~> 0.25)
+    opentelemetry-instrumentation-rack (0.29.0)
+      opentelemetry-instrumentation-base (~> 0.25)
+    opentelemetry-instrumentation-rails (0.39.1)
+      opentelemetry-instrumentation-action_mailer (~> 0.6)
+      opentelemetry-instrumentation-action_pack (~> 0.15)
+      opentelemetry-instrumentation-action_view (~> 0.11)
+      opentelemetry-instrumentation-active_job (~> 0.10)
+      opentelemetry-instrumentation-active_record (~> 0.11)
+      opentelemetry-instrumentation-active_storage (~> 0.3)
+      opentelemetry-instrumentation-active_support (~> 0.10)
+      opentelemetry-instrumentation-concurrent_ruby (~> 0.23)
+    opentelemetry-instrumentation-redis (0.28.0)
+      opentelemetry-instrumentation-base (~> 0.25)
+    opentelemetry-registry (0.4.0)
+      opentelemetry-api (~> 1.1)
+    opentelemetry-sdk (1.10.0)
+      opentelemetry-api (~> 1.1)
+      opentelemetry-common (~> 0.20)
+      opentelemetry-registry (~> 0.2)
+      opentelemetry-semantic_conventions
+    opentelemetry-semantic_conventions (1.36.0)
+      opentelemetry-api (~> 1.0)
     os (1.1.4)
     ostruct (0.6.3)
     parallel (1.27.0)
-    parser (3.3.10.1)
+    parser (3.3.10.2)
       ast (~> 2.4.1)
       racc
     paypal-sdk-rest (1.7.6)
@@ -359,7 +475,6 @@ GEM
     pg (1.6.3-x86_64-darwin)
     pg (1.6.3-x86_64-linux)
     pg (1.6.3-x86_64-linux-musl)
-    pgvector (0.3.2)
     pp (0.6.3)
       prettyprint
     prawn (2.5.0)
@@ -369,16 +484,16 @@ GEM
     prawn-table (0.2.2)
       prawn (>= 1.3.0, < 3.0.0)
     prettyprint (0.2.0)
-    prism (1.8.0)
+    prism (1.9.0)
     psych (5.3.1)
       date
       stringio
     public_suffix (7.0.2)
-    puma (7.1.0)
+    puma (7.2.0)
       nio4r (~> 2.0)
     raabro (1.4.0)
     racc (1.8.1)
-    rack (3.2.4)
+    rack (3.2.5)
     rack-attack (6.8.0)
       rack (>= 1.0, < 4)
     rack-cors (3.0.0)
@@ -423,14 +538,14 @@ GEM
       zeitwerk (~> 2.6)
     rainbow (3.1.1)
     rake (13.3.1)
-    rdoc (7.1.0)
+    rdoc (7.2.0)
       erb
       psych (>= 4.0.0)
       tsort
     redcarpet (3.6.1)
     redis (5.4.1)
       redis-client (>= 0.22.0)
-    redis-client (0.26.3)
+    redis-client (0.26.4)
       connection_pool
     regexp_parser (2.11.3)
     reline (0.6.3)
@@ -441,7 +556,7 @@ GEM
       uber (< 0.2.0)
     request_store (1.7.0)
       rack (>= 1.4)
-    retriable (3.1.2)
+    retriable (3.2.1)
     rexml (3.4.4)
     rotp (6.3.0)
     rqrcode (2.2.0)
@@ -457,7 +572,7 @@ GEM
     rspec-mocks (3.13.7)
       diff-lcs (>= 1.2.0, < 2.0)
       rspec-support (~> 3.13.0)
-    rspec-rails (8.0.2)
+    rspec-rails (8.0.3)
       actionpack (>= 7.2)
       activesupport (>= 7.2)
       railties (>= 7.2)
@@ -465,8 +580,19 @@ GEM
       rspec-expectations (~> 3.13)
       rspec-mocks (~> 3.13)
       rspec-support (~> 3.13)
-    rspec-support (3.13.6)
-    rubocop (1.82.1)
+    rspec-support (3.13.7)
+    rswag-api (2.17.0)
+      activesupport (>= 5.2, < 8.2)
+      railties (>= 5.2, < 8.2)
+    rswag-specs (2.17.0)
+      activesupport (>= 5.2, < 8.2)
+      json-schema (>= 2.2, < 7.0)
+      railties (>= 5.2, < 8.2)
+      rspec-core (>= 2.14)
+    rswag-ui (2.17.0)
+      actionpack (>= 5.2, < 8.2)
+      railties (>= 5.2, < 8.2)
+    rubocop (1.84.2)
       json (~> 2.3)
       language_server-protocol (~> 3.17.0.2)
       lint_roller (~> 1.1.0)
@@ -474,7 +600,7 @@ GEM
       parser (>= 3.3.0.2)
       rainbow (>= 2.2.2, < 4.0)
       regexp_parser (>= 2.9.3, < 3.0)
-      rubocop-ast (>= 1.48.0, < 2.0)
+      rubocop-ast (>= 1.49.0, < 2.0)
       ruby-progressbar (~> 1.7)
       unicode-display_width (>= 2.4.0, < 4.0)
     rubocop-ast (1.49.0)
@@ -536,15 +662,15 @@ GEM
       net-ssh (>= 2.8.0)
       ostruct
     stringio (3.2.0)
-    stripe (18.2.0)
+    stripe (18.3.1)
     sys-filesystem (1.5.5)
       ffi (~> 1.1)
     thor (1.5.0)
-    thruster (0.1.17)
-    thruster (0.1.17-aarch64-linux)
-    thruster (0.1.17-arm64-darwin)
-    thruster (0.1.17-x86_64-darwin)
-    thruster (0.1.17-x86_64-linux)
+    thruster (0.1.18)
+    thruster (0.1.18-aarch64-linux)
+    thruster (0.1.18-arm64-darwin)
+    thruster (0.1.18-x86_64-darwin)
+    thruster (0.1.18-x86_64-linux)
     timeout (0.6.0)
     trailblazer-option (0.1.2)
     tsort (0.2.0)
@@ -560,6 +686,11 @@ GEM
     useragent (0.16.11)
     uuid7 (0.2.0)
       zeitwerk (~> 2.4)
+    vault (0.20.0)
+      aws-sigv4
+      base64
+      connection_pool (~> 2.4)
+      net-http-persistent (~> 4.0, >= 4.0.2)
     vcr (6.4.0)
     webmock (3.26.1)
       addressable (>= 2.8.0)
@@ -571,7 +702,7 @@ GEM
     websocket-extensions (0.1.5)
     xml-simple (1.1.9)
       rexml
-    zeitwerk (2.7.4)
+    zeitwerk (2.7.5)
 
 PLATFORMS
   aarch64-linux
@@ -581,7 +712,6 @@ PLATFORMS
   arm-linux-musl
   arm64-darwin
   x86_64-darwin
-  x86_64-linux
   x86_64-linux-gnu
   x86_64-linux-musl
 
@@ -600,6 +730,8 @@ DEPENDENCIES
   faker (~> 3.5)
   faraday (~> 2.0)
   faraday-multipart (~> 1.0)
+  flipper (~> 1.3)
+  flipper-active_record (~> 1.3)
   fugit
   google-cloud-storage (~> 1.51)
   groupdate
@@ -613,9 +745,21 @@ DEPENDENCIES
   marcel (~> 1.0)
   mini_magick (~> 5.0)
   money-rails
+  neighbor
+  opentelemetry-exporter-otlp (~> 0.28)
+  opentelemetry-instrumentation-action_pack (~> 0.9)
+  opentelemetry-instrumentation-active_record (~> 0.7)
+  opentelemetry-instrumentation-net_http (~> 0.22)
+  opentelemetry-instrumentation-pg (~> 0.29)
+  opentelemetry-instrumentation-rack (~> 0.24)
+  opentelemetry-instrumentation-rails (~> 0.31)
+  opentelemetry-instrumentation-redis (~> 0.25)
+  opentelemetry-sdk (~> 1.4)
   paypal-sdk-rest
   pg (~> 1.1)
-  pgvector
+  powernode_enterprise!
+  powernode_marketing!
+  powernode_supply_chain!
   prawn
   prawn-table
   puma (>= 5.0)
@@ -628,6 +772,9 @@ DEPENDENCIES
   rqrcode (~> 2.2)
   rspec-json_expectations (~> 2.2)
   rspec-rails
+  rswag-api (~> 2.13)
+  rswag-specs (~> 2.13)
+  rswag-ui (~> 2.13)
   rubocop-rails-omakase
   secure_headers (~> 7.1)
   sentry-rails (~> 5.17)
@@ -642,6 +789,7 @@ DEPENDENCIES
   thruster
   tzinfo-data
   uuid7 (~> 0.2.0)
+  vault (~> 0.18)
   vcr (~> 6.3)
   webmock (~> 3.25)
 

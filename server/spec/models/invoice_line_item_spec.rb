@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
-RSpec.describe InvoiceLineItem, type: :model do
+RSpec.describe Billing::InvoiceLineItem, type: :model do
   let(:line_item) { build(:invoice_line_item) }
 
   describe "associations" do
@@ -27,28 +29,28 @@ RSpec.describe InvoiceLineItem, type: :model do
     let!(:adjustment_item) { create(:invoice_line_item, line_type: "adjustment") }
 
     it "returns subscription items" do
-      expect(InvoiceLineItem.subscription_items).to include(subscription_item)
-      expect(InvoiceLineItem.subscription_items).not_to include(usage_item, discount_item, tax_item, adjustment_item)
+      expect(Billing::InvoiceLineItem.subscription_items).to include(subscription_item)
+      expect(Billing::InvoiceLineItem.subscription_items).not_to include(usage_item, discount_item, tax_item, adjustment_item)
     end
 
     it "returns usage items" do
-      expect(InvoiceLineItem.usage_items).to include(usage_item)
-      expect(InvoiceLineItem.usage_items).not_to include(subscription_item, discount_item, tax_item, adjustment_item)
+      expect(Billing::InvoiceLineItem.usage_items).to include(usage_item)
+      expect(Billing::InvoiceLineItem.usage_items).not_to include(subscription_item, discount_item, tax_item, adjustment_item)
     end
 
     it "returns discount items" do
-      expect(InvoiceLineItem.discounts).to include(discount_item)
-      expect(InvoiceLineItem.discounts).not_to include(subscription_item, usage_item, tax_item, adjustment_item)
+      expect(Billing::InvoiceLineItem.discounts).to include(discount_item)
+      expect(Billing::InvoiceLineItem.discounts).not_to include(subscription_item, usage_item, tax_item, adjustment_item)
     end
 
     it "returns tax items" do
-      expect(InvoiceLineItem.taxes).to include(tax_item)
-      expect(InvoiceLineItem.taxes).not_to include(subscription_item, usage_item, discount_item, adjustment_item)
+      expect(Billing::InvoiceLineItem.taxes).to include(tax_item)
+      expect(Billing::InvoiceLineItem.taxes).not_to include(subscription_item, usage_item, discount_item, adjustment_item)
     end
 
     it "returns adjustment items" do
-      expect(InvoiceLineItem.adjustments).to include(adjustment_item)
-      expect(InvoiceLineItem.adjustments).not_to include(subscription_item, usage_item, discount_item, tax_item)
+      expect(Billing::InvoiceLineItem.adjustments).to include(adjustment_item)
+      expect(Billing::InvoiceLineItem.adjustments).not_to include(subscription_item, usage_item, discount_item, tax_item)
     end
   end
 
@@ -82,7 +84,7 @@ RSpec.describe InvoiceLineItem, type: :model do
 
     describe "#set_defaults" do
       it "initializes metadata as empty hash" do
-        line_item = InvoiceLineItem.new
+        line_item = Billing::InvoiceLineItem.new
         expect(line_item.metadata).to eq({})
       end
     end
@@ -169,58 +171,159 @@ RSpec.describe InvoiceLineItem, type: :model do
         expect(line_item.proration_factor).to eq(1.0)
       end
 
-      context "with monthly billing cycle" do
-        it "calculates proration factor for partial month" do
+      it "returns 1.0 when no billing cycle available" do
+        invoice_without_sub = build(:invoice, subscription: nil)
+        line_item = build(:invoice_line_item,
+          invoice: invoice_without_sub,
+          period_start: Date.new(2024, 1, 1),
+          period_end: Date.new(2024, 1, 15)
+        )
+
+        expect(line_item.proration_factor).to eq(1.0)
+      end
+
+      context "with monthly billing cycle - calendar-aware calculations" do
+        # January 2024 has 31 days
+        it "calculates proration using actual days in January (31 days)" do
           line_item = build(:invoice_line_item,
             invoice: invoice,
             period_start: Date.new(2024, 1, 1),
-            period_end: Date.new(2024, 1, 15)
+            period_end: Date.new(2024, 1, 16)  # 15 days used
           )
 
-          expect(line_item.proration_factor).to be_within(0.01).of(0.47) # 14 days / 30 days
+          # 15 days / 31 days in January = 0.4839
+          expect(line_item.proration_factor).to be_within(0.001).of(15.0 / 31.0)
         end
 
-        it "returns 1.0 for full month" do
+        # February 2024 is a leap year (29 days)
+        it "calculates proration using actual days in February leap year (29 days)" do
+          line_item = build(:invoice_line_item,
+            invoice: invoice,
+            period_start: Date.new(2024, 2, 1),
+            period_end: Date.new(2024, 2, 15)  # 14 days used
+          )
+
+          # 14 days / 29 days in February 2024 = 0.4828
+          expect(line_item.proration_factor).to be_within(0.001).of(14.0 / 29.0)
+        end
+
+        # February 2023 is not a leap year (28 days)
+        it "calculates proration using actual days in February non-leap year (28 days)" do
+          line_item = build(:invoice_line_item,
+            invoice: invoice,
+            period_start: Date.new(2023, 2, 1),
+            period_end: Date.new(2023, 2, 15)  # 14 days used
+          )
+
+          # 14 days / 28 days in February 2023 = 0.5
+          expect(line_item.proration_factor).to be_within(0.001).of(14.0 / 28.0)
+        end
+
+        # April has 30 days
+        it "calculates proration using actual days in April (30 days)" do
+          line_item = build(:invoice_line_item,
+            invoice: invoice,
+            period_start: Date.new(2024, 4, 1),
+            period_end: Date.new(2024, 4, 16)  # 15 days used
+          )
+
+          # 15 days / 30 days in April = 0.5
+          expect(line_item.proration_factor).to be_within(0.001).of(15.0 / 30.0)
+        end
+
+        it "returns approximately 1.0 for full month coverage" do
           line_item = build(:invoice_line_item,
             invoice: invoice,
             period_start: Date.new(2024, 1, 1),
-            period_end: Date.new(2024, 1, 30)
+            period_end: Date.new(2024, 2, 1)  # Full January (31 days)
           )
 
-          expect(line_item.proration_factor).to be_within(0.01).of(0.97) # 29 days / 30 days
+          # 31 days / 31 days = 1.0
+          expect(line_item.proration_factor).to be_within(0.001).of(1.0)
         end
       end
 
-      context "with quarterly billing cycle" do
+      context "with quarterly billing cycle - calendar-aware calculations" do
         let(:plan) { create(:plan, billing_cycle: "quarterly") }
 
-        it "calculates proration factor for partial quarter" do
+        # Q1 2024: Jan (31) + Feb (29 leap) + Mar (31) = 91 days
+        it "calculates proration using actual days in Q1 2024 (91 days)" do
           line_item = build(:invoice_line_item,
             invoice: invoice,
             period_start: Date.new(2024, 1, 1),
-            period_end: Date.new(2024, 2, 1)
+            period_end: Date.new(2024, 2, 1)  # 31 days used
           )
 
-          expect(line_item.proration_factor).to be_within(0.01).of(0.34) # 31 days / 90 days
+          # 31 days / 91 days in Q1 2024 = 0.3407
+          expect(line_item.proration_factor).to be_within(0.001).of(31.0 / 91.0)
+        end
+
+        # Q1 2023: Jan (31) + Feb (28 non-leap) + Mar (31) = 90 days
+        it "calculates proration using actual days in Q1 2023 (90 days - non-leap)" do
+          line_item = build(:invoice_line_item,
+            invoice: invoice,
+            period_start: Date.new(2023, 1, 1),
+            period_end: Date.new(2023, 2, 1)  # 31 days used
+          )
+
+          # 31 days / 90 days in Q1 2023 = 0.3444
+          expect(line_item.proration_factor).to be_within(0.001).of(31.0 / 90.0)
+        end
+
+        # Q2 2024: Apr (30) + May (31) + Jun (30) = 91 days
+        it "calculates proration for Q2 period" do
+          line_item = build(:invoice_line_item,
+            invoice: invoice,
+            period_start: Date.new(2024, 4, 1),
+            period_end: Date.new(2024, 5, 1)  # 30 days used
+          )
+
+          # 30 days / 91 days in Q2 2024
+          expect(line_item.proration_factor).to be_within(0.001).of(30.0 / 91.0)
         end
       end
 
-      context "with yearly billing cycle" do
+      context "with yearly billing cycle - calendar-aware calculations" do
         let(:plan) { create(:plan, billing_cycle: "yearly") }
 
-        it "calculates proration factor for partial year" do
+        # 2024 is a leap year (366 days)
+        it "calculates proration using actual days in leap year 2024 (366 days)" do
           line_item = build(:invoice_line_item,
             invoice: invoice,
             period_start: Date.new(2024, 1, 1),
-            period_end: Date.new(2024, 7, 1)
+            period_end: Date.new(2024, 7, 1)  # Jan-Jun = 182 days
           )
 
-          expect(line_item.proration_factor).to be_within(0.01).of(0.49) # ~182 days / 365 days
+          # 182 days / 366 days in 2024 = 0.4973
+          expect(line_item.proration_factor).to be_within(0.001).of(182.0 / 366.0)
+        end
+
+        # 2023 is not a leap year (365 days)
+        it "calculates proration using actual days in non-leap year 2023 (365 days)" do
+          line_item = build(:invoice_line_item,
+            invoice: invoice,
+            period_start: Date.new(2023, 1, 1),
+            period_end: Date.new(2023, 7, 1)  # Jan-Jun = 181 days
+          )
+
+          # 181 days / 365 days in 2023 = 0.4959
+          expect(line_item.proration_factor).to be_within(0.001).of(181.0 / 365.0)
+        end
+
+        it "returns approximately 1.0 for full year coverage" do
+          line_item = build(:invoice_line_item,
+            invoice: invoice,
+            period_start: Date.new(2024, 1, 1),
+            period_end: Date.new(2025, 1, 1)  # Full 2024 (366 days)
+          )
+
+          # 366 days / 366 days = 1.0
+          expect(line_item.proration_factor).to be_within(0.001).of(1.0)
         end
       end
 
       context "with unknown billing cycle" do
-        it "returns 1.0 for unknown billing cycle" do
+        it "falls back to 30-day default for unknown billing cycle" do
           plan = build(:plan, billing_cycle: "monthly")
           allow(plan).to receive(:billing_cycle).and_return("unknown")
           subscription = build(:subscription, plan: plan)
@@ -229,10 +332,37 @@ RSpec.describe InvoiceLineItem, type: :model do
           line_item = build(:invoice_line_item,
             invoice: invoice,
             period_start: Date.new(2024, 1, 1),
-            period_end: Date.new(2024, 1, 15)
+            period_end: Date.new(2024, 1, 16)  # 15 days used
           )
 
-          expect(line_item.proration_factor).to eq(1.0)
+          # 15 days / 30 days fallback = 0.5
+          expect(line_item.proration_factor).to be_within(0.001).of(15.0 / 30.0)
+        end
+      end
+
+      context "edge cases" do
+        it "handles period spanning month boundary correctly" do
+          # Mid-January to mid-February
+          line_item = build(:invoice_line_item,
+            invoice: invoice,
+            period_start: Date.new(2024, 1, 15),
+            period_end: Date.new(2024, 2, 15)  # 31 days used
+          )
+
+          # Period starts in Jan, so use Jan's days (31)
+          # 31 days / 31 days = 1.0
+          expect(line_item.proration_factor).to be_within(0.001).of(31.0 / 31.0)
+        end
+
+        it "handles single day period" do
+          line_item = build(:invoice_line_item,
+            invoice: invoice,
+            period_start: Date.new(2024, 1, 1),
+            period_end: Date.new(2024, 1, 2)  # 1 day used
+          )
+
+          # 1 day / 31 days in January = 0.0323
+          expect(line_item.proration_factor).to be_within(0.001).of(1.0 / 31.0)
         end
       end
     end
@@ -266,11 +396,10 @@ RSpec.describe InvoiceLineItem, type: :model do
         line_item = build(:invoice_line_item,
           invoice: invoice,
           period_start: Date.new(2024, 1, 1),
-          period_end: Date.new(2024, 1, 31)
+          period_end: Date.new(2024, 2, 1)  # Full January (31 days)
         )
 
-        # 30 days (Jan 1 to Jan 31) / 30 days baseline = 1.0, so not prorated
-        # Note: (Jan 31 - Jan 1) = 30 days
+        # Jan 1 to Feb 1 = 31 days / 31 days in January = 1.0, so not prorated
         expect(line_item.is_prorated?).to be false
       end
     end

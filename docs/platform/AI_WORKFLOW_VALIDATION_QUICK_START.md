@@ -408,7 +408,7 @@ console.log(`${autoFixableIssues.length} issues can be auto-fixed`);
 
 ```bash
 # Check worker status
-scripts/worker-manager.sh status
+systemctl status powernode-worker@default
 
 # Check job queue
 bundle exec rails console

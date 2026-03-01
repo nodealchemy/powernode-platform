@@ -110,7 +110,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           relative transition-all duration-300 ease-out
           scroll-margin-top-16
           ${enableReadingMode ? 'max-w-4xl' : ''}
-          ${isPublic ? 'pl-4 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-gradient-to-b before:from-blue-400 before:to-blue-300 before:rounded-full before:opacity-80' : ''}
+          ${isPublic ? 'pl-4 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-gradient-to-b before:from-theme-interactive-primary before:to-theme-interactive-primary/70 before:rounded-full before:opacity-80' : ''}
         `}>
           {children}
         </h2>
@@ -125,7 +125,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
           relative transition-all duration-300 ease-out
           scroll-margin-top-16
           ${enableReadingMode ? 'max-w-4xl' : ''}
-          ${isPublic ? 'pl-3 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-0.5 before:bg-gradient-to-b before:from-blue-400 before:to-blue-300 before:rounded-full before:opacity-60' : ''}
+          ${isPublic ? 'pl-3 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-0.5 before:bg-gradient-to-b before:from-theme-interactive-primary before:to-theme-interactive-primary/70 before:rounded-full before:opacity-60' : ''}
         `}>
           {children}
         </h3>
@@ -375,7 +375,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             max-w-full h-auto rounded-xl shadow-lg my-6
             transition-all duration-300 ease-out
             hover:shadow-2xl hover:scale-[1.02]
-            border border-slate-200/50 dark:border-slate-700/50
+            border border-theme-light
           `}
         />
       )

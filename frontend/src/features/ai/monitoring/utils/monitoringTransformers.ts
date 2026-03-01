@@ -1,19 +1,20 @@
-import { MonitoringDashboard, HealthStatus, Alert as ApiAlert } from '@/shared/services/ai/MonitoringApiService';
+import { MonitoringDashboard, Alert as ApiAlert } from '@/shared/services/ai/MonitoringApiService';
 import {
   MonitoringDashboardData,
-  SystemHealthData,
   Alert
 } from '@/shared/types/monitoring';
 
 /**
  * Transform API dashboard response to internal MonitoringDashboardData type
+ * Uses native backend overview data directly
  */
 export const transformDashboardData = (dashboard: MonitoringDashboard): MonitoringDashboardData => {
   return {
     overview: {
+      // Use native overview from backend
       total_providers: dashboard.providers?.length || 0,
-      total_agents: dashboard.agents?.total || 0,
-      total_workflows: dashboard.workflows?.total || 0,
+      total_agents: dashboard.overview?.active_agents || dashboard.agents?.total || 0,
+      total_workflows: dashboard.overview?.active_workflows || dashboard.workflows?.total || 0,
       active_conversations: dashboard.workflows?.running || 0,
       system_uptime: 0,
       last_updated: new Date().toISOString()
@@ -21,41 +22,6 @@ export const transformDashboardData = (dashboard: MonitoringDashboard): Monitori
     timestamp: new Date().toISOString(),
     health_score: dashboard.system_health?.uptime_percentage || 100,
     components: {}
-  };
-};
-
-/**
- * Transform API health status to internal SystemHealthData type
- */
-export const transformHealthData = (health: HealthStatus): SystemHealthData => {
-  const statusScore = health.status === 'healthy' ? 95 : health.status === 'degraded' ? 70 : 40;
-  const defaultComponentHealth = {
-    health_score: statusScore,
-    status: health.status === 'healthy' ? 'healthy' as const : 'degraded' as const,
-    active_count: 0,
-    issues: []
-  };
-
-  return {
-    overall_health: statusScore,
-    status: health.status === 'healthy' ? 'excellent' : health.status === 'degraded' ? 'fair' : 'critical',
-    components: {
-      providers: defaultComponentHealth,
-      agents: defaultComponentHealth,
-      workflows: defaultComponentHealth,
-      conversations: defaultComponentHealth,
-      infrastructure: defaultComponentHealth
-    },
-    alerts: {
-      active: 0,
-      high_priority: 0,
-      medium_priority: 0,
-      low_priority: 0,
-      by_component: {},
-      recent_count: 0
-    },
-    recommendations: [],
-    last_updated: health.timestamp
   };
 };
 

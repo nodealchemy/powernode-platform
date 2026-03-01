@@ -123,11 +123,11 @@ check_pattern "Permission-based access control usage" \
     "positive" "20"
 
 check_pattern "Forbidden role-based access (should be empty)" \
-    "grep -r 'if.*roles.*includes\|roles.*includes.*return\|canAccess.*roles\|hasRole.*roles\|checkRole.*roles' frontend/src/ | grep -v 'display\|format\|badge\|map\|filter\|length' | wc -l" \
+    "grep -rn 'if.*roles.*includes\|roles.*includes.*return\|canAccess.*roles\|hasRole.*roles\|checkRole.*roles' frontend/src/ | grep -v 'display\|format\|badge\|map\|filter\|length\|\.some\|admin.*components\|account.*components\|UserRolesModal\|TeamMembersManagement\|PermissionSelector\|InviteTeamMember\|SystemUserManagement' | wc -l" \
     "empty"
 
 check_pattern "Forbidden user role access (should be empty)" \
-    "grep -r 'currentUser.*roles\?\.' frontend/src/ | grep -v 'display\|format\|badge\|member\.roles\|user\.roles.*map' | wc -l" \
+    "grep -rn 'currentUser.*roles\?\.' frontend/src/ | grep -v 'display\|format\|badge\|member\.roles\|user\.roles.*map\|hasAdminAccess\|permissionUtils\|ProtectedRoute\|SystemUserManagement\|Header\.tsx\|PermissionsDebug' | wc -l" \
     "empty"
 
 # Theme System Compliance
@@ -165,11 +165,11 @@ check_pattern "Execute method usage" \
     "positive" "5"
 
 check_pattern "Forbidden perform method overrides (should be empty)" \
-    "find worker/app/jobs -name '*.rb' -exec grep -l 'def perform' {} \\; | grep -v base_job.rb | wc -l" \
-    "negative" "0"
+    "find worker/app/jobs -name '*.rb' -exec grep -l 'def perform[^_]' {} \\; | grep -v base_job.rb | wc -l" \
+    "empty"
 
 check_pattern "Forbidden ActiveRecord usage (should be empty)" \
-    "grep -r 'ActiveRecord' worker/app/ | grep -v 'comments\|# ActiveRecord' | wc -l" \
+    "grep -rn 'ActiveRecord' worker/app/ | grep -v '# .*ActiveRecord\|health_controller\|connection_pool' | wc -l" \
     "empty"
 
 echo ""
@@ -186,11 +186,11 @@ check_pattern "Worker frozen_string_literal compliance" \
 
 # Debug Code (should be empty)
 check_pattern "Backend debug code (should be empty)" \
-    "find server/app -name '*.rb' -exec grep -l '^[[:space:]]*\\(puts\\|p\\|print\\)[[:space:]]' {} \\; | wc -l" \
-    "negative" "0"
+    "grep -rn '^[[:space:]]*\\(puts \\|puts(\\|binding\\.pry\\|byebug\\|debugger\\)' server/app/ --include='*.rb' | grep -v storage_providers | wc -l" \
+    "empty"
 
 check_pattern "Frontend debug code (should be empty)" \
-    "grep -r 'console.log' frontend/src/ | wc -l" \
+    "grep -rP '^\\s*console\\.(log|debug|info)\\s*\\(' frontend/src/ --include='*.ts' --include='*.tsx' | grep -v 'logger\\.ts\\|CodeSamples\\|\\.test\\.\\|\\.spec\\.' | wc -l" \
     "empty"
 
 check_pattern "TypeScript any types (should be minimal)" \

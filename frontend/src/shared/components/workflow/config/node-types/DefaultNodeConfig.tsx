@@ -1,6 +1,6 @@
 import React from 'react';
 import { Settings } from 'lucide-react';
-import type { NodeTypeConfigProps } from './types';
+import type { NodeTypeConfigProps } from '@/shared/components/workflow/config/node-types/types';
 
 export const DefaultNodeConfig: React.FC<NodeTypeConfigProps> = ({
   handlePositionsConfig

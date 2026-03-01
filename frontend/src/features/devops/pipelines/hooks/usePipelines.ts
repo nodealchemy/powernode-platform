@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { devopsPipelinesApi } from '@/services/devopsPipelinesApi';
-import type { CiCdPipeline, CiCdPipelineFormData } from '@/types/devops-pipelines';
+import type { DevopsPipeline, DevopsPipelineFormData } from '@/types/devops-pipelines';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface UsePipelinesParams {
@@ -8,7 +8,7 @@ interface UsePipelinesParams {
 }
 
 export function usePipelines(params: UsePipelinesParams = {}) {
-  const [pipelines, setPipelines] = useState<CiCdPipeline[]>([]);
+  const [pipelines, setPipelines] = useState<DevopsPipeline[]>([]);
   const [meta, setMeta] = useState<{
     total: number;
     active_count: number;
@@ -43,10 +43,10 @@ export function usePipelines(params: UsePipelinesParams = {}) {
       currentParamsRef.current = paramsKey;
       fetchPipelines();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [params.is_active]);
 
-  const createPipeline = async (data: CiCdPipelineFormData) => {
+  const createPipeline = async (data: DevopsPipelineFormData) => {
     try {
       const pipeline = await devopsPipelinesApi.create(data);
       showNotification('Pipeline created successfully', 'success');
@@ -62,7 +62,7 @@ export function usePipelines(params: UsePipelinesParams = {}) {
     }
   };
 
-  const updatePipeline = async (id: string, data: Partial<CiCdPipelineFormData>) => {
+  const updatePipeline = async (id: string, data: Partial<DevopsPipelineFormData>) => {
     try {
       const pipeline = await devopsPipelinesApi.update(id, data);
       showNotification('Pipeline updated successfully', 'success');
@@ -155,7 +155,7 @@ export function usePipelines(params: UsePipelinesParams = {}) {
 }
 
 export function usePipeline(id: string | null) {
-  const [pipeline, setPipeline] = useState<CiCdPipeline | null>(null);
+  const [pipeline, setPipeline] = useState<DevopsPipeline | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -184,10 +184,10 @@ export function usePipeline(id: string | null) {
       hasLoadedRef.current = id;
       fetchPipeline();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [id]);
 
-  const updatePipeline = async (data: Partial<CiCdPipelineFormData>) => {
+  const updatePipeline = async (data: Partial<DevopsPipelineFormData>) => {
     if (!id) return null;
 
     try {

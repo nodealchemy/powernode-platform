@@ -443,7 +443,7 @@ const STALE_THRESHOLD = 45 * 60 * 1000; // 45 minutes instead of 30
 3. Network firewall blocking WebSocket?
 
 **Fix**:
-1. Verify backend: `scripts/backend-manager.sh status`
+1. Verify backend: `systemctl status powernode-backend@default`
 2. Check polling fallback is working
 
 ### Issue: PostgreSQL UUID type error

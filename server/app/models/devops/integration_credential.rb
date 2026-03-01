@@ -166,9 +166,9 @@ module Devops
       if Rails.env.test?
         JSON.parse(Base64.strict_decode64(encrypted_credentials))
       else
-        Devops::CredentialEncryptionService.decrypt(
+        Security::CredentialEncryptionService.decrypt(
           encrypted_credentials,
-          encryption_key_id
+          namespace: "devops"
         )
       end
     rescue StandardError => e
@@ -182,12 +182,12 @@ module Devops
       if Rails.env.test?
         Base64.strict_encode64(credentials_hash.to_json)
       else
-        Devops::CredentialEncryptionService.encrypt(credentials_hash)
+        Security::CredentialEncryptionService.encrypt(credentials_hash, namespace: "devops")
       end
     end
 
     def current_encryption_key_id
-      Rails.env.test? ? "test_key" : Devops::CredentialEncryptionService.current_key_id
+      Rails.env.test? ? "test_key" : Security::CredentialEncryptionService.current_key_id("devops")
     end
 
     def credentials_format

@@ -175,7 +175,7 @@ class Ai::WorkflowAutoFixService
 
     log_fix("missing_start_node", "Marked '#{start_node.name}' as start node")
     true
-  rescue => e
+  rescue StandardError => e
     log_error("Failed to fix missing_start_node: #{e.message}")
     false
   end
@@ -209,7 +209,7 @@ class Ai::WorkflowAutoFixService
 
     log_fix(issue[:code], "Set timeout to #{recommended_timeout}s for '#{node.name}'")
     true
-  rescue => e
+  rescue StandardError => e
     log_error("Failed to fix #{issue[:code]}: #{e.message}")
     false
   end
@@ -228,7 +228,7 @@ class Ai::WorkflowAutoFixService
 
     log_fix("missing_max_iterations", "Set max_iterations to #{recommended_max} for '#{node.name}'")
     true
-  rescue => e
+  rescue StandardError => e
     log_error("Failed to fix missing_max_iterations: #{e.message}")
     false
   end
@@ -244,20 +244,20 @@ class Ai::WorkflowAutoFixService
                  workflow.nodes.where(node_type: "trigger").first ||
                  workflow.nodes.order(:created_at).first
 
-    return log_error("No start node found to connect to") if start_node.nil? || start_node.id == orphaned_node.id
+    return log_error("No start node found to connect to") if start_node.nil? || start_node.node_id == orphaned_node.node_id
 
     # Create edge from start node to orphaned node
     edge = workflow.edges.create!(
       edge_id: SecureRandom.uuid,
-      source_node_id: start_node.id,
-      target_node_id: orphaned_node.id,
+      source_node_id: start_node.node_id,
+      target_node_id: orphaned_node.node_id,
       edge_type: "default",
       metadata: { auto_created: true, created_by: "auto_fix" }
     )
 
     log_fix("orphaned_node", "Connected '#{orphaned_node.name}' to '#{start_node.name}'")
     true
-  rescue => e
+  rescue StandardError => e
     log_error("Failed to fix orphaned_node: #{e.message}")
     false
   end
@@ -274,7 +274,7 @@ class Ai::WorkflowAutoFixService
 
     log_fix("missing_configuration", "Applied default configuration for '#{node.name}'")
     true
-  rescue => e
+  rescue StandardError => e
     log_error("Failed to fix missing_configuration: #{e.message}")
     false
   end
@@ -293,7 +293,7 @@ class Ai::WorkflowAutoFixService
       }
     when "api_call", "http_request"
       {
-        "url" => "https://api.example.com/endpoint",
+        "url" => "<configure_api_endpoint_url>",
         "method" => "GET",
         "headers" => {}
       }

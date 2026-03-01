@@ -37,7 +37,7 @@ module Mcp
         headers = resolve_headers(configuration["headers"] || {})
         timeout_seconds = (configuration["timeout_seconds"] || DEFAULT_TIMEOUT_SECONDS).to_i
         async = configuration.fetch("async", false)
-        retry_count = [(configuration["retry_count"] || DEFAULT_RETRY_COUNT).to_i, MAX_RETRY_COUNT].min
+        retry_count = [ (configuration["retry_count"] || DEFAULT_RETRY_COUNT).to_i, MAX_RETRY_COUNT ].min
         retry_delay = (configuration["retry_delay_seconds"] || DEFAULT_RETRY_DELAY_SECONDS).to_f
 
         # Validate URL

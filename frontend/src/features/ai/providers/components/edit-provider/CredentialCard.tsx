@@ -27,9 +27,8 @@ interface CredentialCardProps {
 }
 
 const getTestStatusBadge = (credential: AiProviderCredential) => {
-  // Check if credential has test properties (they may not exist on type)
-  const lastTestAt = (credential as any).last_test_at;
-  const lastTestStatus = (credential as any).last_test_status;
+  const lastTestAt = credential.last_test_at;
+  const lastTestStatus = credential.last_test_status;
 
   if (!lastTestAt) {
     return <span className="text-xs px-2 py-0.5 rounded bg-theme-secondary/20 text-theme-muted">Not tested</span>;
@@ -127,8 +126,7 @@ export const CredentialCard: React.FC<CredentialCardProps> = ({
     );
   }
 
-  // Check for test properties
-  const lastTestAt = (credential as any).last_test_at;
+  const lastTestAt = credential.last_test_at;
 
   return (
     <div className="p-3 bg-theme-secondary/10 rounded-lg border border-theme">

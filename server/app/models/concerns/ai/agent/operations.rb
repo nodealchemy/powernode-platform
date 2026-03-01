@@ -28,7 +28,7 @@ module Ai
         errors_list << "Agent name is missing" if name.blank?
         errors_list << "Agent type is invalid" unless %w[assistant code_assistant data_analyst content_generator image_generator workflow_optimizer workflow_operations monitor].include?(agent_type)
         errors_list << "AI provider is missing or inactive" unless provider&.is_active?
-        errors_list << "MCP capabilities are missing" if mcp_capabilities.blank?
+        errors_list << "No skills assigned" if skill_slugs.empty?
 
         # Check for warnings
         warnings_list << "Agent has never been executed" if last_executed_at.nil?
@@ -76,7 +76,6 @@ module Ai
             name: template_data[:name],
             description: template_data[:description],
             agent_type: template_data[:agent_type],
-            mcp_capabilities: template_data[:mcp_capabilities] || [],
             mcp_tool_manifest: template_data[:mcp_tool_manifest] || {},
             version: template_data[:version] || "1.0.0",
             status: "active"

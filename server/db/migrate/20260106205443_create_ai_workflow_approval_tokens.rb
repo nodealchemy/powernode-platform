@@ -36,11 +36,11 @@ class CreateAiWorkflowApprovalTokens < ActiveRecord::Migration[8.0]
     add_index :ai_workflow_approval_tokens, :token_digest, unique: true
 
     # Index for finding tokens by execution and status
-    add_index :ai_workflow_approval_tokens, [:ai_workflow_node_execution_id, :status],
+    add_index :ai_workflow_approval_tokens, [ :ai_workflow_node_execution_id, :status ],
               name: "idx_ai_workflow_approval_tokens_execution_status"
 
     # Partial index for finding pending tokens that are expiring
-    add_index :ai_workflow_approval_tokens, [:status, :expires_at],
+    add_index :ai_workflow_approval_tokens, [ :status, :expires_at ],
               where: "status = 'pending'",
               name: "idx_ai_workflow_approval_tokens_pending_expiry"
 

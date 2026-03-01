@@ -78,7 +78,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
     
     const iconPaddingClasses = icon ? (size === 'sm' ? 'pl-9' : size === 'lg' ? 'pl-12' : 'pl-10') : '';
     
-    // eslint-disable-next-line security/detect-object-injection
+     
     const selectedSizeClasses = sizeClasses[size] || sizeClasses.md;
     
     const inputClasses = `${baseInputClasses} ${selectedSizeClasses} ${iconPaddingClasses} ${errorClasses} ${className}`.replace(/\s+/g, ' ').trim();

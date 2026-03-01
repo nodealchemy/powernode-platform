@@ -5,11 +5,12 @@ module Api
     module Ai
       class ContextsController < ApplicationController
         before_action :authenticate_request
-        before_action :set_context, only: [:show, :update, :destroy, :search, :archive, :unarchive, :export, :clone]
+        before_action :set_context, only: [ :show, :update, :destroy, :search, :archive, :unarchive, :export, :clone, :stats ]
 
         # GET /api/v1/ai/contexts
         def index
           authorize_action!("ai.context.read")
+          return if performed?
 
           contexts = ::Ai::ContextPersistenceService.list_contexts(
             account: current_account,
@@ -26,6 +27,7 @@ module Api
         # GET /api/v1/ai/contexts/:id
         def show
           authorize_action!("ai.context.read")
+          return if performed?
 
           render_success({ context: @context.context_details })
         end
@@ -33,6 +35,7 @@ module Api
         # POST /api/v1/ai/contexts
         def create
           authorize_action!("ai.context.create")
+          return if performed?
 
           context = ::Ai::ContextPersistenceService.create_context(
             account: current_account,
@@ -48,6 +51,7 @@ module Api
         # PATCH /api/v1/ai/contexts/:id
         def update
           authorize_action!("ai.context.update")
+          return if performed?
 
           context = ::Ai::ContextPersistenceService.update_context(
             account: current_account,
@@ -66,6 +70,7 @@ module Api
         # DELETE /api/v1/ai/contexts/:id
         def destroy
           authorize_action!("ai.context.delete")
+          return if performed?
 
           @context.destroy!
 
@@ -75,6 +80,7 @@ module Api
         # POST /api/v1/ai/contexts/:id/search
         def search
           authorize_action!("ai.context.read")
+          return if performed?
 
           results = ::Ai::ContextPersistenceService.search(
             context: @context,
@@ -92,6 +98,7 @@ module Api
         # POST /api/v1/ai/contexts/:id/archive
         def archive
           authorize_action!("ai.context.update")
+          return if performed?
 
           ::Ai::ContextPersistenceService.archive_context(
             account: current_account,
@@ -107,6 +114,7 @@ module Api
         # POST /api/v1/ai/contexts/:id/unarchive
         def unarchive
           authorize_action!("ai.context.update")
+          return if performed?
 
           @context.unarchive!
 
@@ -116,6 +124,7 @@ module Api
         # GET /api/v1/ai/contexts/:id/export
         def export
           authorize_action!("ai.context.export")
+          return if performed?
 
           data = ::Ai::ContextPersistenceService.export_context(
             context: @context,
@@ -131,6 +140,7 @@ module Api
         # POST /api/v1/ai/contexts/:id/clone
         def clone
           authorize_action!("ai.context.create")
+          return if performed?
 
           new_context = ::Ai::ContextPersistenceService.clone_context(
             account: current_account,
@@ -147,6 +157,7 @@ module Api
         # POST /api/v1/ai/contexts/import
         def import
           authorize_action!("ai.context.import")
+          return if performed?
 
           context = ::Ai::ContextPersistenceService.import_context(
             account: current_account,
@@ -160,13 +171,23 @@ module Api
           render_error("Invalid import data format", status: :unprocessable_content)
         end
 
-        # GET /api/v1/ai/contexts/stats
+        # GET /api/v1/ai/contexts/:id/stats
         def stats
           authorize_action!("ai.context.read")
+          return if performed?
 
-          stats = ::Ai::MemoryManagementService.memory_stats(account: current_account)
-
-          render_success({ stats: stats })
+          entries = @context.context_entries
+          render_success({
+            stats: {
+              total_entries: entries.count,
+              entries_by_type: entries.group(:entry_type).count,
+              data_size_bytes: entries.sum("COALESCE(octet_length(content::text), 0)"),
+              avg_importance_score: entries.average(:importance_score)&.to_f&.round(2) || 0,
+              access_count_total: entries.sum(:access_count),
+              entries_with_embeddings: entries.where.not(embedding: nil).count,
+              recent_accesses: entries.where("last_accessed_at >= ?", 7.days.ago).count
+            }
+          })
         end
 
         private
@@ -209,9 +230,9 @@ module Api
         end
 
         def authorize_action!(permission)
-          unless current_user.has_permission?(permission)
-            render_forbidden("You don't have permission to perform this action")
-          end
+          return if current_user.has_permission?(permission)
+
+          render_forbidden("You don't have permission to perform this action")
         end
 
         def pagination_meta(collection)

@@ -1,16 +1,28 @@
 // Git Providers Feature - Main exports
 
 // Components
-export { GitProvidersPage } from './components/GitProvidersPage';
 export { GitProviderCard } from './components/GitProviderCard';
 export { CredentialModal } from './components/CredentialModal';
 export { RepositoryList } from './components/RepositoryList';
 export { PipelineList } from './components/PipelineList';
 export { DiffViewer } from './components/DiffViewer';
 export { CommitDetailModal } from './components/CommitDetailModal';
+export { BranchFilterForm } from './components/BranchFilterForm';
+export { WebhookEventActions } from './components/WebhookEventActions';
+export { AccountWebhooksList } from './components/AccountWebhooksList';
 
 // Services
 export { gitProvidersApi } from './services/gitProvidersApi';
+export { repositoriesApi } from './services/git/repositoriesApi';
+export { webhooksApi } from './services/git/webhooksApi';
+export { accountWebhooksApi } from './services/git/accountWebhooksApi';
+
+// Account Webhooks Types
+export type {
+  AccountGitWebhookConfig,
+  AccountGitWebhookConfigDetail,
+  AccountGitWebhookFormData,
+} from './services/git/accountWebhooksApi';
 
 // Hooks
 export { useGitProviders, useGitCredentials } from './hooks/useGitProviders';
@@ -43,6 +55,7 @@ export type {
   ConnectionTestResult,
   SyncRepositoriesResult,
   PaginationInfo,
+  BranchFilterType,
   // Commit and diff types
   GitCommit,
   GitCommitDetail,

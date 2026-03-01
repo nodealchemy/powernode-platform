@@ -463,7 +463,10 @@ RSpec.describe Ai::ErrorRecoveryService, type: :service do
 
   describe '#switch_to_alternative_model' do
     context 'when alternative models are available' do
-      let(:openai_provider) { create(:ai_provider, account: account, slug: 'openai') }
+      let(:openai_provider) do
+        create(:ai_provider, account: account, slug: 'openai',
+               configuration: { "supported_models" => ["gpt-4", "gpt-3.5-turbo"] })
+      end
       let(:options) { { model: 'gpt-4' } }
 
       it 'switches to alternative model for OpenAI' do
@@ -540,23 +543,25 @@ RSpec.describe Ai::ErrorRecoveryService, type: :service do
   # ============================================================================
 
   describe '#get_alternative_models' do
-    it 'returns OpenAI alternatives excluding current model' do
-      openai_provider = create(:ai_provider, slug: 'openai')
+    it 'returns alternatives excluding current model from provider configuration' do
+      openai_provider = create(:ai_provider, slug: 'openai',
+                               configuration: { "supported_models" => ["gpt-4", "gpt-3.5-turbo"] })
       alternatives = service.send(:get_alternative_models, openai_provider, 'gpt-4')
 
       expect(alternatives).to eq([ 'gpt-3.5-turbo' ])
       expect(alternatives).not_to include('gpt-4')
     end
 
-    it 'returns Anthropic alternatives excluding current model' do
-      anthropic_provider = create(:ai_provider, slug: 'anthropic')
+    it 'returns alternatives for Anthropic excluding current model' do
+      anthropic_provider = create(:ai_provider, slug: 'anthropic',
+                                  configuration: { "supported_models" => ["claude-3-sonnet-20240229", "claude-3-haiku-20240307"] })
       alternatives = service.send(:get_alternative_models, anthropic_provider, 'claude-3-sonnet-20240229')
 
       expect(alternatives).to eq([ 'claude-3-haiku-20240307' ])
       expect(alternatives).not_to include('claude-3-sonnet-20240229')
     end
 
-    it 'returns empty array for unknown providers' do
+    it 'returns empty array for providers without configured supported_models' do
       unknown_provider = create(:ai_provider, slug: 'unknown')
       alternatives = service.send(:get_alternative_models, unknown_provider, 'some-model')
 

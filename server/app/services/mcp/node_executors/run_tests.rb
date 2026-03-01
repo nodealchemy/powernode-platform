@@ -2,7 +2,7 @@
 
 module Mcp
   module NodeExecutors
-    # Run Tests node executor - executes test suites
+    # Run Tests node executor - dispatches test execution to worker
     #
     # Configuration:
     # - test_command: Command to run tests (e.g., "npm test", "pytest")
@@ -14,6 +14,8 @@ module Mcp
     # - environment: Environment variables for tests
     #
     class RunTests < Base
+      include Concerns::WorkerDispatch
+
       protected
 
       def perform_execution
@@ -28,30 +30,27 @@ module Mcp
                             get_variable("checkout_path") || "."
         environment = configuration["environment"] || {}
 
-        test_context = {
-          test_command: test_command,
+        payload = {
+          type: "run_command",
+          command: test_command,
+          working_directory: working_directory,
+          environment: environment,
+          timeout_seconds: timeout_seconds,
           test_framework: test_framework,
           parallel: parallel,
           coverage: coverage,
-          timeout_seconds: timeout_seconds,
-          working_directory: working_directory,
-          environment: environment,
-          started_at: Time.current
+          node_id: @node.node_id
         }
 
-        log_info "Test context: #{test_context.slice(:test_command, :test_framework)}"
+        log_info "Dispatching test command: #{test_command}"
 
-        # Generate test run ID
-        test_run_id = SecureRandom.uuid
-
-        build_output(test_context, test_run_id)
+        dispatch_to_worker("Devops::StepExecutionJob", payload, queue: "devops_default")
       end
 
       private
 
       def detect_test_command
-        # Auto-detect based on common project files
-        "npm test" # Default fallback
+        "npm test"
       end
 
       def resolve_value(value)
@@ -63,38 +62,6 @@ module Mcp
         else
           value
         end
-      end
-
-      def build_output(test_context, test_run_id)
-        {
-          output: {
-            tests_executed: true,
-            test_run_id: test_run_id,
-            test_command: test_context[:test_command],
-            framework: test_context[:test_framework]
-          },
-          data: {
-            test_run_id: test_run_id,
-            command: test_context[:test_command],
-            framework: test_context[:test_framework],
-            parallel: test_context[:parallel],
-            coverage_enabled: test_context[:coverage],
-            working_directory: test_context[:working_directory],
-            started_at: test_context[:started_at].iso8601,
-            status: "running",
-            # These would be populated after actual execution
-            passed: 0,
-            failed: 0,
-            skipped: 0,
-            total: 0,
-            coverage_percentage: nil
-          },
-          metadata: {
-            node_id: @node.node_id,
-            node_type: "run_tests",
-            executed_at: Time.current.iso8601
-          }
-        }
       end
     end
   end

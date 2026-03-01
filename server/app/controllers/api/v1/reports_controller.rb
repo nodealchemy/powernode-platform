@@ -10,6 +10,9 @@ class Api::V1::ReportsController < ApplicationController
 
   # GET /api/v1/reports/:report_type
   def show
+    # Route provides :id param, treat as report_type
+    params[:report_type] ||= params[:id]
+
     unless REPORT_TYPES.include?(params[:report_type])
       return render_error(
         "Invalid report type. Supported types: #{REPORT_TYPES.join(', ')}",
@@ -32,9 +35,8 @@ class Api::V1::ReportsController < ApplicationController
     when "csv"
       generate_csv_report
     end
-  rescue => e
-    Rails.logger.error "Report generation failed: #{e.message}"
-    render_error(e.message, status: :internal_server_error)
+  rescue StandardError => e
+    render_internal_error("Report generation failed", exception: e)
   end
 
   # GET /api/v1/reports
@@ -73,7 +75,7 @@ class Api::V1::ReportsController < ApplicationController
                 name: "plan_id",
                 type: "select",
                 label: "Plan",
-                options: Plan.pluck(:name),
+                options: (defined?(Billing::Plan) ? Billing::Plan.pluck(:name) : []),
                 required: false
               }
             ]
@@ -248,9 +250,8 @@ class Api::V1::ReportsController < ApplicationController
         requested_at: request.created_at.iso8601
       }
     )
-  rescue => e
-    Rails.logger.error "Failed to create report request: #{e.message}"
-    render_error(e.message, status: :internal_server_error)
+  rescue StandardError => e
+    render_internal_error("Failed to create report request", exception: e)
   end
 
   # PATCH /api/v1/reports/requests/:id
@@ -269,10 +270,9 @@ class Api::V1::ReportsController < ApplicationController
       }
     )
   rescue ActiveRecord::RecordNotFound
-    render_error("Report request not found", status: :internal_server_error)
-  rescue => e
-    Rails.logger.error "Failed to update report request: #{e.message}"
-    render_error(e.message, status: :internal_server_error)
+    render_not_found("Report request")
+  rescue StandardError => e
+    render_internal_error("Failed to update report request", exception: e)
   end
 
   # DELETE /api/v1/reports/requests/:id
@@ -330,7 +330,7 @@ class Api::V1::ReportsController < ApplicationController
   # GET /api/v1/reports/scheduled
   def scheduled
     reports = ScheduledReport.for_account(@account_scope)
-                            .where(active: true)
+                            .where(is_active: true)
                             .order(:next_run_at)
 
     render_success(
@@ -342,8 +342,8 @@ class Api::V1::ReportsController < ApplicationController
           frequency: report.frequency,
           next_run: report.next_run_at&.iso8601,
           last_run: report.last_run_at&.iso8601,
-          enabled: report.active,
-          delivery_method: report.delivery_method || "email",
+          enabled: report.is_active,
+          delivery_method: report.try(:delivery_method) || "email",
           recipients: report.recipients || [],
           parameters: report.parameters || {},
           format: report.format
@@ -457,8 +457,8 @@ class Api::V1::ReportsController < ApplicationController
         recipients: scheduled_report.recipients
       }
     )
-  rescue => e
-    render_error(e.message, status: :internal_server_error)
+  rescue StandardError => e
+    render_internal_error("Failed to schedule report", exception: e)
   end
 
   # GET /api/v1/reports/scheduled
@@ -554,7 +554,18 @@ class Api::V1::ReportsController < ApplicationController
   end
 
   def generate_csv_data(report_type)
-    analytics_service = RevenueAnalyticsService.new(
+    case report_type
+    when "customer_report"
+      return export_customer_data_csv
+    when "subscription_report"
+      return export_subscription_data_csv
+    end
+
+    unless Powernode::ExtensionRegistry.loaded?("enterprise")
+      return CSV.generate(headers: true) { |csv| csv << ["Enterprise feature required"] }
+    end
+
+    analytics_service = Billing::RevenueAnalyticsService.new(
       account: @account_scope,
       start_date: @start_date,
       end_date: @end_date
@@ -563,10 +574,6 @@ class Api::V1::ReportsController < ApplicationController
     case report_type
     when "revenue_report"
       analytics_service.export_revenue_data_csv("monthly")
-    when "customer_report"
-      export_customer_data_csv
-    when "subscription_report"
-      export_subscription_data_csv
     else
       # Default to revenue data
       analytics_service.export_revenue_data_csv("monthly")
@@ -601,7 +608,12 @@ class Api::V1::ReportsController < ApplicationController
   def export_subscription_data_csv
     require "csv"
 
-    subscriptions = @account_scope ? @account_scope.subscriptions : Subscription.all
+    subscription_class = defined?(Billing::Subscription) ? Billing::Subscription : nil
+    subscriptions = if subscription_class
+      @account_scope ? @account_scope.subscriptions : subscription_class.all
+    else
+      return CSV.generate(headers: true) { |csv| csv << ["Billing not available"] }
+    end
     subscriptions = subscriptions.includes(:account, :plan)
 
     CSV.generate(headers: true) do |csv|

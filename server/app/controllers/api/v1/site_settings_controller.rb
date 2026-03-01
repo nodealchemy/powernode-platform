@@ -13,7 +13,7 @@ class Api::V1::SiteSettingsController < ApplicationController
       # Add defaults for missing settings
       defaults = {
         "site_name" => "Powernode",
-        "copyright_text" => "All rights reserved.",
+        "copyright_text" => "Everett C. Haimes III. All rights reserved.",
         "copyright_year" => Date.current.year.to_s,
         "footer_description" => "Powerful subscription management platform designed to help businesses grow."
       }
@@ -23,7 +23,7 @@ class Api::V1::SiteSettingsController < ApplicationController
       render_success({
         footer: footer_data
       })
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Footer API error: #{e.message}"
       Rails.logger.error e.backtrace.join("\n")
 
@@ -33,7 +33,7 @@ class Api::V1::SiteSettingsController < ApplicationController
 
   # GET /api/v1/site_settings
   def index
-    @settings = SiteSetting.all.order(:key)
+    @settings = SiteSetting.all.order(:key).limit(500)
 
     render_success({
       settings: @settings.map { |setting| setting_data(setting) },
@@ -162,18 +162,20 @@ class Api::V1::SiteSettingsController < ApplicationController
           is_public: value[:is_public] || false
         )
         updated_settings[key] = setting.parsed_value
-      rescue => e
+      rescue StandardError => e
         errors << "#{key}: #{e.message}"
       end
     end
 
     if errors.empty?
-      # Log bulk update
+      # Log bulk update - use first setting key as resource_id for bulk operations
+      first_setting = SiteSetting.find_by(key: updated_settings.keys.first)
       AuditLog.create!(
         user: current_user,
         account: current_user.account,
         action: "bulk_update_site_settings",
         resource_type: "SiteSetting",
+        resource_id: first_setting&.id || "bulk",
         source: "admin_panel",
         ip_address: request.remote_ip,
         user_agent: request.user_agent,

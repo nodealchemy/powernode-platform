@@ -1,5 +1,6 @@
 import { useCallback, useRef, useEffect } from 'react';
-import { useWebSocket } from './useWebSocket';
+import { useWebSocket } from '@/shared/hooks/useWebSocket';
+import { logger } from '@/shared/utils/logger';
 
 interface AnalyticsWebSocketOptions {
   onAnalyticsUpdate?: (data: unknown) => void;
@@ -23,7 +24,7 @@ export const useAnalyticsWebSocket = ({
   onErrorRef.current = onError;
 
   // Type guard for WebSocket message data
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const isWebSocketMessage = (data: unknown): data is { type: string; data?: any; message?: string } => {
     return typeof data === 'object' && data !== null && 'type' in data;
   };
@@ -53,7 +54,7 @@ export const useAnalyticsWebSocket = ({
     // Only subscribe if account_id is provided
     if (!accountId) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('[AnalyticsWebSocket] Cannot subscribe: account_id not provided');
+        logger.warn('[AnalyticsWebSocket] Cannot subscribe: account_id not provided');
       }
       return;
     }

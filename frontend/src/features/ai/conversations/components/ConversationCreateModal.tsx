@@ -76,8 +76,7 @@ export const ConversationCreateModal: React.FC<ConversationCreateModalProps> = (
           ai_agent_id: agents[0].id
         }));
       }
-    } catch (error) {
-      console.error('Failed to load agents:', error);
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Error',
@@ -88,7 +87,7 @@ export const ConversationCreateModal: React.FC<ConversationCreateModalProps> = (
     }
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- Load when modal opens
+   
   useEffect(() => {
     if (isOpen) {
       loadAgents();
@@ -229,7 +228,7 @@ export const ConversationCreateModal: React.FC<ConversationCreateModalProps> = (
       if (onConversationCreated) {
         onConversationCreated(conversation);
       }
-    } catch (error: unknown) {
+    } catch (error) {
       let errorMessage = 'Failed to create conversation. Please try again.';
       let errorTitle = 'Creation Failed';
 
@@ -299,7 +298,7 @@ export const ConversationCreateModal: React.FC<ConversationCreateModalProps> = (
   const agentOptions = agents.map(agent => ({
     value: agent.id,
     label: agent.name,
-    description: `${agent.agent_type.replace('_', ' ')} • ${agent.ai_provider.name}`
+    description: `${agent.agent_type.replace('_', ' ')}${agent.provider?.name ? ` • ${agent.provider.name}` : ''}`
   }));
 
   const temperatureOptions = [

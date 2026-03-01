@@ -92,23 +92,29 @@ module JobTestHelpers
 
     it 'handles different types of exceptions differently' do
       retry_block = subject.sidekiq_retry_in_block
-      
-      # API errors should have shorter intervals
+
+      # API errors should have fixed, shorter intervals (30, 60, 180 for counts 1, 2, 3)
       api_error_interval = retry_block.call(1, BackendApiClient::ApiError.new('API Error'))
-      expect(api_error_interval).to be <= 60
-      
-      # Test multiple samples of standard errors to account for randomization
-      standard_error_intervals = []
-      10.times do
-        standard_error_intervals << retry_block.call(1, StandardError.new('Standard Error'))
-      end
-      
-      # The average should be greater than API error interval due to exponential backoff base
-      average_interval = standard_error_intervals.sum / standard_error_intervals.size.to_f
-      expect(average_interval).to be > api_error_interval
-      
-      # All intervals should be at least the base exponential value (16 seconds minimum)
-      expect(standard_error_intervals.min).to be >= 16
+      expect(api_error_interval).to eq(30)  # Fixed value for count=1
+
+      # Standard errors use exponential backoff: (count**4) + 15 + (rand(30) * (count+1))
+      # For count=1: (1**4) + 15 + (rand(30) * 2) = 16 + (0 to 58) = 16 to 74
+      standard_error_interval = retry_block.call(1, StandardError.new('Standard Error'))
+      expect(standard_error_interval).to be_between(16, 74)
+
+      # Verify different counts work correctly for API errors (deterministic)
+      expect(retry_block.call(2, BackendApiClient::ApiError.new('API Error'))).to eq(60)
+      expect(retry_block.call(3, BackendApiClient::ApiError.new('API Error'))).to eq(180)
+      expect(retry_block.call(4, BackendApiClient::ApiError.new('API Error'))).to eq(300)  # default
+
+      # Verify exponential backoff increases with count for standard errors
+      # count=2: (2**4) + 15 + (rand(30) * 3) = 31 + (0 to 87) = 31 to 118
+      # count=3: (3**4) + 15 + (rand(30) * 4) = 96 + (0 to 116) = 96 to 212
+      count2_interval = retry_block.call(2, StandardError.new('Standard Error'))
+      expect(count2_interval).to be >= 31  # Minimum for count=2
+
+      count3_interval = retry_block.call(3, StandardError.new('Standard Error'))
+      expect(count3_interval).to be >= 96  # Minimum for count=3
     end
   end
 

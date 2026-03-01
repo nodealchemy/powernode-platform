@@ -3,6 +3,7 @@ import { render, RenderOptions } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
+import { BreadcrumbProvider } from '@/shared/hooks/BreadcrumbContext';
 
 // Mock theme context for all tests
 export const MockThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -72,9 +73,11 @@ const AllTheProviders: React.FC<AllTheProvidersProps> = ({ children, initialStat
   return (
     <Provider store={store}>
       <BrowserRouter>
-        <MockThemeProvider>
-          {children}
-        </MockThemeProvider>
+        <BreadcrumbProvider>
+          <MockThemeProvider>
+            {children}
+          </MockThemeProvider>
+        </BreadcrumbProvider>
       </BrowserRouter>
     </Provider>
   );

@@ -17,6 +17,7 @@ jest.mock('lucide-react', () => ({
   Eye: () => <span data-testid="icon-eye" />,
   EyeOff: () => <span data-testid="icon-eye-off" />,
   AlertCircle: () => <span data-testid="icon-alert" />,
+  AlertTriangle: () => <span data-testid="icon-alert-triangle" />,
 }));
 
 const mockUseGitCredentials = useGitCredentials as jest.MockedFunction<
@@ -36,8 +37,8 @@ describe('CredentialModal', () => {
     description: 'Connect to GitHub',
     supports_oauth: true,
     supports_pat: true,
-    supports_ci_cd: true,
-    capabilities: ['repositories', 'webhooks', 'ci_cd', 'oauth'],
+    supports_devops: true,
+    capabilities: ['repositories', 'webhooks', 'devops', 'oauth'],
     configured: false,
   };
 
@@ -49,8 +50,8 @@ describe('CredentialModal', () => {
     description: 'Connect to Gitea',
     supports_oauth: false,
     supports_pat: true,
-    supports_ci_cd: true,
-    capabilities: ['repositories', 'webhooks', 'ci_cd'],
+    supports_devops: true,
+    capabilities: ['repositories', 'webhooks', 'devops'],
     configured: false,
   };
 
@@ -83,7 +84,6 @@ describe('CredentialModal', () => {
   // Helper to get form elements by placeholder or label text
   const getNameInput = () => screen.getByPlaceholderText('My GitHub Token');
   const getTokenInput = () => screen.getByPlaceholderText('ghp_xxxxxxxxxxxx');
-  const getAutoSyncCheckbox = () => screen.getByRole('checkbox');
 
   describe('rendering', () => {
     it('renders modal when isOpen is true', () => {
@@ -103,7 +103,6 @@ describe('CredentialModal', () => {
 
       expect(screen.getByText('Credential Name')).toBeInTheDocument();
       expect(screen.getByPlaceholderText('ghp_xxxxxxxxxxxx')).toBeInTheDocument();
-      expect(screen.getByRole('checkbox')).toBeInTheDocument();
     });
 
     it('renders default credential name with provider name', () => {
@@ -146,35 +145,11 @@ describe('CredentialModal', () => {
   });
 
   describe('self-hosted providers (Gitea)', () => {
-    it('renders URL fields for Gitea provider', () => {
-      render(<CredentialModal {...defaultProps} provider={giteaProvider} />);
-
-      // Check for API Base URL field
-      expect(screen.getByPlaceholderText('https://git.example.com/api/v1')).toBeInTheDocument();
-      // Check for Web Base URL field
-      expect(screen.getByPlaceholderText('https://git.example.com')).toBeInTheDocument();
-    });
-
-    it('does not render URL fields for GitHub provider', () => {
-      render(<CredentialModal {...defaultProps} />);
-
-      expect(screen.queryByPlaceholderText('https://git.example.com/api/v1')).not.toBeInTheDocument();
-      expect(screen.queryByPlaceholderText('https://git.example.com')).not.toBeInTheDocument();
-    });
-
     it('shows Gitea-specific token help text', () => {
       render(<CredentialModal {...defaultProps} provider={giteaProvider} />);
 
       expect(
         screen.getByText(/Settings.*Applications.*Generate New Token/i)
-      ).toBeInTheDocument();
-    });
-
-    it('shows API URL help text for Gitea', () => {
-      render(<CredentialModal {...defaultProps} provider={giteaProvider} />);
-
-      expect(
-        screen.getByText(/API endpoint of your Gitea instance/i)
       ).toBeInTheDocument();
     });
   });
@@ -199,18 +174,6 @@ describe('CredentialModal', () => {
       expect(tokenInput).toHaveValue('ghp_test_token_123');
     });
 
-    it('toggles auto sync checkbox', async () => {
-      render(<CredentialModal {...defaultProps} />);
-
-      const checkbox = getAutoSyncCheckbox();
-      expect(checkbox).toBeChecked();
-
-      await userEvent.click(checkbox);
-      expect(checkbox).not.toBeChecked();
-
-      await userEvent.click(checkbox);
-      expect(checkbox).toBeChecked();
-    });
   });
 
   describe('token visibility toggle', () => {
@@ -249,13 +212,6 @@ describe('CredentialModal', () => {
       expect(tokenInput).toHaveAttribute('required');
     });
 
-    it('has required attribute on API URL for Gitea', () => {
-      render(<CredentialModal {...defaultProps} provider={giteaProvider} />);
-
-      const apiUrlInput = screen.getByPlaceholderText('https://git.example.com/api/v1');
-      expect(apiUrlInput).toHaveAttribute('required');
-    });
-
     it('has required attribute on credential name', () => {
       render(<CredentialModal {...defaultProps} />);
 
@@ -283,63 +239,7 @@ describe('CredentialModal', () => {
             },
             is_active: true,
             is_default: true,
-          }),
-          true // auto_sync
-        );
-      });
-    });
-
-    it('submits form with correct data for Gitea', async () => {
-      render(<CredentialModal {...defaultProps} provider={giteaProvider} />);
-
-      const tokenInput = screen.getByPlaceholderText('ghp_xxxxxxxxxxxx');
-      await userEvent.type(tokenInput, 'gitea_token');
-
-      const apiUrlInput = screen.getByPlaceholderText('https://git.example.com/api/v1');
-      await userEvent.type(apiUrlInput, 'https://git.example.com/api/v1');
-
-      const webUrlInput = screen.getByPlaceholderText('https://git.example.com');
-      await userEvent.type(webUrlInput, 'https://git.example.com');
-
-      fireEvent.click(screen.getByRole('button', { name: /connect/i }));
-
-      await waitFor(() => {
-        expect(mockCreateCredential).toHaveBeenCalledWith(
-          expect.objectContaining({
-            name: 'Gitea Token',
-            auth_type: 'personal_access_token',
-            credentials: {
-              access_token: 'gitea_token',
-              api_base_url: 'https://git.example.com/api/v1',
-              web_base_url: 'https://git.example.com',
-            },
-          }),
-          true
-        );
-      });
-    });
-
-    it('uses API URL as web URL when web URL is empty for Gitea', async () => {
-      render(<CredentialModal {...defaultProps} provider={giteaProvider} />);
-
-      const tokenInput = screen.getByPlaceholderText('ghp_xxxxxxxxxxxx');
-      await userEvent.type(tokenInput, 'gitea_token');
-
-      const apiUrlInput = screen.getByPlaceholderText('https://git.example.com/api/v1');
-      await userEvent.type(apiUrlInput, 'https://git.example.com/api/v1');
-
-      // Don't fill web URL
-
-      fireEvent.click(screen.getByRole('button', { name: /connect/i }));
-
-      await waitFor(() => {
-        expect(mockCreateCredential).toHaveBeenCalledWith(
-          expect.objectContaining({
-            credentials: expect.objectContaining({
-              web_base_url: 'https://git.example.com/api/v1',
-            }),
-          }),
-          true
+          })
         );
       });
     });
@@ -357,24 +257,6 @@ describe('CredentialModal', () => {
       });
     });
 
-    it('submits with auto_sync false when unchecked', async () => {
-      render(<CredentialModal {...defaultProps} />);
-
-      const tokenInput = getTokenInput();
-      await userEvent.type(tokenInput, 'ghp_test_token');
-
-      const checkbox = getAutoSyncCheckbox();
-      await userEvent.click(checkbox);
-
-      fireEvent.click(screen.getByRole('button', { name: /connect/i }));
-
-      await waitFor(() => {
-        expect(mockCreateCredential).toHaveBeenCalledWith(
-          expect.anything(),
-          false // auto_sync unchecked
-        );
-      });
-    });
   });
 
   describe('error handling', () => {
@@ -497,7 +379,6 @@ describe('CredentialModal', () => {
 
       expect(screen.getByText('Credential Name')).toBeInTheDocument();
       expect(screen.getByPlaceholderText('ghp_xxxxxxxxxxxx')).toBeInTheDocument();
-      expect(screen.getByRole('checkbox')).toBeInTheDocument();
     });
 
     it('form fields are keyboard accessible', async () => {

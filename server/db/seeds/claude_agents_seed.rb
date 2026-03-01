@@ -14,16 +14,22 @@ if admin_account && admin_user && claude_provider
   puts "✅ Using admin user: #{admin_user.name} (ID: #{admin_user.id})"
   puts "✅ Using Claude provider: #{claude_provider.name} (ID: #{claude_provider.id})"
 
-  # Set configuration for Claude provider
-  model_names = claude_provider.supported_models.map { |m| m['name'] }
-  model_ids = claude_provider.supported_models.map { |m| m['id'] }
-  all_models = (model_names + model_ids).uniq
+  # Only set default configuration if provider has no existing configuration
+  # This prevents overwriting real API keys with placeholders
+  if claude_provider.configuration.blank? || claude_provider.configuration == {}
+    model_names = claude_provider.supported_models.map { |m| m['name'] }
+    model_ids = claude_provider.supported_models.map { |m| m['id'] }
+    all_models = (model_names + model_ids).uniq
 
-  claude_provider.configuration = {
-    'models' => all_models,
-    'default_model' => 'claude-3.5-sonnet',
-    'api_key' => 'YOUR_ANTHROPIC_API_KEY_HERE'
-  }
+    claude_provider.configuration = {
+      'models' => all_models,
+      'default_model' => 'claude-3.5-sonnet',
+      'api_key' => 'YOUR_ANTHROPIC_API_KEY_HERE'
+    }
+    puts "  Set default Claude provider configuration (no existing config found)"
+  else
+    puts "  ⏭️  Claude provider already has configuration - preserving existing credentials"
+  end
 
   # Claude-Powered Strategic Planning Agent
   strategic_planner = Ai::Agent.find_or_create_by(
@@ -37,16 +43,6 @@ if admin_account && admin_user && claude_provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
-    agent.mcp_capabilities = [
-      'strategic_planning',
-      'business_analysis',
-      'risk_assessment',
-      'scenario_planning',
-      'competitive_analysis',
-      'market_research',
-      'decision_support',
-      'long_term_planning'
-    ]
     agent.mcp_tool_manifest = {
       'name' => 'claude_strategic_planner',
       'description' => 'Strategic planning and business analysis agent',
@@ -94,7 +90,7 @@ if admin_account && admin_user && claude_provider
 
         Leverage Claude's reasoning strength to provide deep, thoughtful strategic guidance that drives sustainable business success.
       PROMPT
-        'model' => 'claude-sonnet-4-5-20250514',
+        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.3,
         'max_tokens' => 4096,
         'response_format' => 'strategic_analysis'
@@ -108,7 +104,7 @@ if admin_account && admin_user && claude_provider
       'claude_optimized' => true,
       'reasoning_focus' => 'strategic_analysis',
       'model_config' => {
-        'model' => 'claude-sonnet-4-5-20250514',
+        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.3,
         'max_tokens' => 4096,
         'response_format' => 'strategic_analysis'
@@ -116,7 +112,8 @@ if admin_account && admin_user && claude_provider
     }
   end
 
-  # Claude-Powered Research Analyst
+  # Research Analyst — now on Ollama for cost optimization
+  ollama_provider = Ai::Provider.find_by(provider_type: 'ollama')
   research_analyst = Ai::Agent.find_or_create_by(
     account: admin_account,
     slug: 'claude-research-analyst',
@@ -124,20 +121,10 @@ if admin_account && admin_user && claude_provider
   ) do |agent|
     agent.name = "Claude Research Analyst"
     agent.description = "Comprehensive research and analysis agent leveraging Claude's analytical capabilities"
-    agent.provider = claude_provider
+    agent.provider = ollama_provider || claude_provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
-    agent.mcp_capabilities = [
-      'research_analysis',
-      'data_synthesis',
-      'report_generation',
-      'trend_analysis',
-      'comparative_analysis',
-      'literature_review',
-      'insights_extraction',
-      'evidence_evaluation'
-    ]
     agent.mcp_tool_manifest = {
       'name' => 'claude_research_analyst',
       'description' => 'Comprehensive research and analysis agent',
@@ -193,7 +180,7 @@ if admin_account && admin_user && claude_provider
 
         Use Claude's analytical strength to provide thorough, nuanced research that supports informed decision-making.
       PROMPT
-        'model' => 'claude-sonnet-4-5-20250514',
+        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.2,
         'max_tokens' => 4096,
         'response_format' => 'research_report'
@@ -204,13 +191,14 @@ if admin_account && admin_user && claude_provider
       'priority_level' => 'high',
       'execution_mode' => 'analytical',
       'capabilities_version' => '1.0',
-      'claude_optimized' => true,
-      'reasoning_focus' => 'analytical_research',
+      'cost_tier' => 'free',
       'model_config' => {
-        'model' => 'claude-sonnet-4-5-20250514',
+        'provider' => 'ollama',
+        'model' => 'qwen2.5:14b',
         'temperature' => 0.2,
         'max_tokens' => 4096,
-        'response_format' => 'research_report'
+        'response_format' => 'research_report',
+        'cost_per_1k' => { 'input' => 0.0, 'output' => 0.0 }
       }
     }
   end
@@ -227,16 +215,6 @@ if admin_account && admin_user && claude_provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
-    agent.mcp_capabilities = [
-      'content_creation',
-      'copywriting',
-      'storytelling',
-      'brand_voice',
-      'content_strategy',
-      'technical_writing',
-      'creative_writing',
-      'content_optimization'
-    ]
     agent.mcp_tool_manifest = {
       'name' => 'claude_content_creator',
       'description' => 'Advanced content creation and copywriting agent',
@@ -292,7 +270,7 @@ if admin_account && admin_user && claude_provider
 
         Leverage Claude's language expertise to create content that resonates with audiences and drives meaningful engagement.
       PROMPT
-        'model' => 'claude-sonnet-4-5-20250514',
+        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.7,
         'max_tokens' => 4096,
         'response_format' => 'creative_content'
@@ -306,7 +284,7 @@ if admin_account && admin_user && claude_provider
       'claude_optimized' => true,
       'reasoning_focus' => 'creative_language',
       'model_config' => {
-        'model' => 'claude-sonnet-4-5-20250514',
+        'model' => 'claude-sonnet-4-5-20250929',
         'temperature' => 0.7,
         'max_tokens' => 4096,
         'response_format' => 'creative_content'

@@ -4,7 +4,7 @@ import {
   AlertTriangle, AlertCircle, CheckCircle, Clock,
   Trash2, Bell, Filter
 } from 'lucide-react';
-import { performanceApi, PerformanceAlert } from '@/shared/services/system/performanceApi';
+import { performanceApi, PerformanceAlert } from '@/shared/services/admin/performanceApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface SystemAlertsPanelProps {
@@ -43,8 +43,9 @@ export const SystemAlertsPanel: React.FC<SystemAlertsPanelProps> = ({
       if (response.success && response.data) {
         setAlerts(response.data);
       }
-    } catch (error) {
-    } finally {
+    } catch (_error) {
+    // Error silently ignored
+  } finally {
       setLoading(false);
     }
   };
@@ -64,7 +65,7 @@ export const SystemAlertsPanel: React.FC<SystemAlertsPanelProps> = ({
       } else {
         showNotification(response.error || 'Failed to dismiss alert', 'error');
       }
-    } catch (error) {
+    } catch (_error) {
       showNotification('Failed to dismiss alert', 'error');
     } finally {
       setDismissingAlerts(prev => {

@@ -62,6 +62,6 @@ class CreateCiCdPipelineTemplates < ActiveRecord::Migration[7.2]
     add_index :ci_cd_pipeline_templates, :status
     add_index :ci_cd_pipeline_templates, :is_public
     add_index :ci_cd_pipeline_templates, :is_featured
-    add_index :ci_cd_pipeline_templates, [:is_marketplace_published, :marketplace_status], name: "idx_cicd_pipeline_templates_marketplace"
+    add_index :ci_cd_pipeline_templates, [ :is_marketplace_published, :marketplace_status ], name: "idx_cicd_pipeline_templates_marketplace"
   end
 end

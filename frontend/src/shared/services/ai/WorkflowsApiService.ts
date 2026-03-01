@@ -1,4 +1,4 @@
-import { BaseApiService, PaginatedResponse } from './BaseApiService';
+import { BaseApiService, PaginatedResponse } from '@/shared/services/ai/BaseApiService';
 
 // Import all types from the types file
 import type {
@@ -26,7 +26,7 @@ import type {
   BatchExecutionConfig,
   BatchWorkflowStatus,
   BatchExecutionStatus
-} from './types/workflow-api-types';
+} from '@/shared/services/ai/types/workflow-api-types';
 
 /**
  * WorkflowsApiService - Workflows Controller API Client

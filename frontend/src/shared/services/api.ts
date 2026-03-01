@@ -86,6 +86,7 @@ class APIClient {
     this.client = axios.create({
       baseURL,
       timeout: 30000,
+      withCredentials: true,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -100,8 +101,7 @@ class APIClient {
       (config) => {
         const state = store.getState();
 
-        // IMPORTANT: Prefer localStorage token over Redux state to avoid race conditions
-        // During login, localStorage is updated before React re-renders, so it has the latest token
+        // Check for impersonation token in localStorage (stays in localStorage - admin-only, session-scoped)
         const impersonationToken = localStorage.getItem('impersonationToken');
 
         // Determine which token to use
@@ -111,8 +111,8 @@ class APIClient {
           // Use impersonation token if actively impersonating
           token = impersonationToken;
         } else {
-          // Prefer localStorage token (most up-to-date), fall back to Redux state
-          token = localStorage.getItem('access_token') || state.auth.access_token;
+          // Use access token from Redux state only (no localStorage)
+          token = state.auth.access_token;
         }
 
         if (token) {

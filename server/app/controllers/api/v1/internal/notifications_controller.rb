@@ -20,12 +20,19 @@ class Api::V1::Internal::NotificationsController < Api::V1::Internal::InternalBa
     message = params[:message]
     notification_type = params[:type] || "info"
 
-    notifications = user_ids.compact.map do |user_id|
+    user = User.find_by(id: user_ids.compact.first)
+
+    notifications = user_ids.compact.map do |uid|
+      u = User.find_by(id: uid)
       Notification.create(
-        user_id: user_id,
+        user_id: uid,
+        account_id: u&.account_id,
+        title: params[:title] || message.to_s.truncate(100),
         message: message,
         notification_type: notification_type,
-        read: false
+        severity: params[:severity] || "info",
+        category: params[:category] || "general",
+        read_at: nil
       )
     end
 
@@ -47,10 +54,13 @@ class Api::V1::Internal::NotificationsController < Api::V1::Internal::InternalBa
     notification = Notification.create(
       user_id: user_id,
       account_id: account_id,
+      title: params[:title] || "Security Alert: #{alert_type}",
       message: message,
       notification_type: "security_alert",
+      severity: severity,
+      category: "security",
       metadata: { alert_type: alert_type, severity: severity },
-      read: false
+      read_at: nil
     )
 
     render_success(data: notification_data(notification), message: "Security alert sent")
@@ -59,7 +69,7 @@ class Api::V1::Internal::NotificationsController < Api::V1::Internal::InternalBa
   private
 
   def notification_params
-    params.permit(:user_id, :account_id, :message, :notification_type, :metadata)
+    params.permit(:user_id, :account_id, :message, :notification_type, :title, :severity, :category, :metadata)
   end
 
   def notification_data(notification)
@@ -68,7 +78,7 @@ class Api::V1::Internal::NotificationsController < Api::V1::Internal::InternalBa
       user_id: notification.user_id,
       message: notification.message,
       notification_type: notification.notification_type,
-      read: notification.read,
+      read: notification.read?,
       created_at: notification.created_at
     }
   end

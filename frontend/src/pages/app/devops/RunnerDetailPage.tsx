@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { ArrowLeft, Server, Trash2, RefreshCw, Activity, Cpu, Clock, CheckCircle, XCircle, Tag, Copy, Key } from 'lucide-react';
@@ -8,7 +8,8 @@ import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { gitProvidersApi } from '@/features/devops/git/services/gitProvidersApi';
-import type { GitRunnerDetail } from '@/features/devops/git/types';
+import { useRunner } from '@/features/devops/git/hooks/useRunners';
+import { RunnerLabelEditor } from '@/features/devops/git/components/RunnerLabelEditor';
 
 const StatusBadge: React.FC<{ status: string; busy: boolean }> = ({ status, busy }) => {
   const getStatusStyles = () => {
@@ -41,40 +42,20 @@ export const RunnerDetailPage: React.FC = () => {
   const { showNotification } = useNotifications();
   const { currentUser } = useAuth();
   const { confirm, ConfirmationDialog } = useConfirmation();
-  // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+
+  const { runner, loading, refresh: loadRunner, updateLabels } = useRunner(id || null);
+  const [deleting, setDeleting] = useState(false);
+  const [savingLabels, setSavingLabels] = useState(false);
+
+  usePageWebSocket({
     pageType: 'devops',
     subscribeToDevops: true,
     onDataUpdate: () => {
-      // Trigger data refresh if needed
+      loadRunner();
     }
   });
 
-  const [runner, setRunner] = useState<GitRunnerDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [deleting, setDeleting] = useState(false);
-
-
   const canManageRunners = currentUser?.permissions?.includes('git.runners.manage');
-
-  const loadRunner = useCallback(async () => {
-    if (!id) return;
-
-    setLoading(true);
-    try {
-      const data = await gitProvidersApi.getRunner(id);
-      setRunner(data);
-    } catch (error) {
-      showNotification('Failed to load runner', 'error');
-      navigate('/app/devops/runners');
-    } finally {
-      setLoading(false);
-    }
-  }, [id, showNotification, navigate]);
-
-  useEffect(() => {
-    loadRunner();
-  }, [loadRunner]);
 
   const handleDelete = () => {
     if (!runner) return;
@@ -89,8 +70,8 @@ export const RunnerDetailPage: React.FC = () => {
         try {
           await gitProvidersApi.deleteRunner(runner.id);
           showNotification('Runner deleted successfully', 'success');
-          navigate('/app/devops/runners');
-        } catch (error) {
+          navigate('/app/devops/ci-cd/runners');
+        } catch (_error) {
           showNotification('Failed to delete runner', 'error');
         } finally {
           setDeleting(false);
@@ -113,8 +94,32 @@ export const RunnerDetailPage: React.FC = () => {
       const result = await gitProvidersApi.getRunnerRemovalToken(runner.id);
       navigator.clipboard.writeText(result.token);
       showNotification('Removal token copied to clipboard', 'success');
-    } catch (error) {
+    } catch (_error) {
       showNotification('Failed to get removal token', 'error');
+    }
+  };
+
+  const handleGetRegistrationToken = async () => {
+    if (!runner) return;
+
+    try {
+      const result = await gitProvidersApi.getRunnerRegistrationToken(runner.id);
+      navigator.clipboard.writeText(result.token);
+      showNotification('Registration token copied to clipboard', 'success');
+    } catch (_error) {
+      showNotification('Failed to get registration token', 'error');
+    }
+  };
+
+  const handleLabelsChange = async (newLabels: string[]) => {
+    try {
+      setSavingLabels(true);
+      await updateLabels(newLabels);
+      showNotification('Labels updated successfully', 'success');
+    } catch (_error) {
+      showNotification('Failed to update labels', 'error');
+    } finally {
+      setSavingLabels(false);
     }
   };
 
@@ -125,7 +130,7 @@ export const RunnerDetailPage: React.FC = () => {
         breadcrumbs={[
           { label: 'Dashboard', href: '/app' },
           { label: 'DevOps', href: '/app/devops' },
-          { label: 'Runners', href: '/app/devops/runners' },
+          { label: 'Runners', href: '/app/devops/ci-cd/runners' },
           { label: 'Loading...' },
         ]}
       >
@@ -143,14 +148,14 @@ export const RunnerDetailPage: React.FC = () => {
         breadcrumbs={[
           { label: 'Dashboard', href: '/app' },
           { label: 'DevOps', href: '/app/devops' },
-          { label: 'Runners', href: '/app/devops/runners' },
+          { label: 'Runners', href: '/app/devops/ci-cd/runners' },
           { label: 'Not Found' },
         ]}
         actions={[
           {
             id: 'back',
             label: 'Back to Runners',
-            onClick: () => navigate('/app/devops/runners'),
+            onClick: () => navigate('/app/devops/ci-cd/runners'),
             icon: ArrowLeft,
             variant: 'outline',
           },
@@ -166,18 +171,18 @@ export const RunnerDetailPage: React.FC = () => {
   return (
     <PageContainer
       title={runner.name}
-      description={`CI/CD Runner - ${runner.provider_type}`}
+      description={`DevOps Runner - ${runner.provider_type}`}
       breadcrumbs={[
         { label: 'Dashboard', href: '/app' },
         { label: 'DevOps', href: '/app/devops' },
-        { label: 'Runners', href: '/app/devops/runners' },
+        { label: 'Runners', href: '/app/devops/ci-cd/runners' },
         { label: runner.name },
       ]}
       actions={[
         {
           id: 'back',
           label: 'Back',
-          onClick: () => navigate('/app/devops/runners'),
+          onClick: () => navigate('/app/devops/ci-cd/runners'),
           icon: ArrowLeft,
           variant: 'outline',
         },
@@ -295,24 +300,18 @@ export const RunnerDetailPage: React.FC = () => {
         </div>
 
         {/* Labels */}
-        {runner.labels && runner.labels.length > 0 && (
-          <div className="bg-theme-surface rounded-lg border border-theme p-6">
-            <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center gap-2">
-              <Tag className="w-5 h-5" />
-              Labels
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {runner.labels.map((label, idx) => (
-                <span
-                  key={idx}
-                  className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm bg-theme-primary/10 text-theme-primary"
-                >
-                  {label}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
+        <div className="bg-theme-surface rounded-lg border border-theme p-6">
+          <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center gap-2">
+            <Tag className="w-5 h-5" />
+            Labels
+          </h3>
+          <RunnerLabelEditor
+            labels={runner.labels || []}
+            onLabelsChange={handleLabelsChange}
+            canEdit={!!canManageRunners}
+            saving={savingLabels}
+          />
+        </div>
 
         {/* Repository Info */}
         {runner.repository && (
@@ -350,6 +349,10 @@ export const RunnerDetailPage: React.FC = () => {
           <div className="bg-theme-surface rounded-lg border border-theme p-6">
             <h3 className="text-lg font-semibold text-theme-primary mb-4">Actions</h3>
             <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={handleGetRegistrationToken}>
+                <Key className="w-4 h-4 mr-2" />
+                Get Registration Token
+              </Button>
               <Button variant="outline" size="sm" onClick={handleGetRemovalToken}>
                 <Key className="w-4 h-4 mr-2" />
                 Get Removal Token

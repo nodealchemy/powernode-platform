@@ -122,13 +122,13 @@ RSpec.describe AiAgentExecutionJob, type: :job do
 
       before do
         # Stub fetching agent execution
-        stub_backend_api_success(:get, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true,
           'data' => { 'agent_execution' => agent_execution_data }
         })
 
         # Stub updating status to running
-        stub_backend_api_success(:patch, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true
         })
 
@@ -167,7 +167,7 @@ RSpec.describe AiAgentExecutionJob, type: :job do
         }.not_to raise_error
 
         # Verify completion API call was made
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/ai\/executions\/#{agent_execution_id}/)
+        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
           .with(body: hash_including({
             'agent_execution' => hash_including('status' => 'completed')
           }))
@@ -188,7 +188,7 @@ RSpec.describe AiAgentExecutionJob, type: :job do
       it 'includes cost and token metrics in completion' do
         job_instance.execute(agent_execution_id)
 
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/ai\/executions\/#{agent_execution_id}/)
+        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
           .with(body: hash_including({
             'agent_execution' => hash_including(
               'cost_usd' => kind_of(Numeric),
@@ -210,13 +210,13 @@ RSpec.describe AiAgentExecutionJob, type: :job do
 
       before do
         # Stub fetching agent execution
-        stub_backend_api_success(:get, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true,
           'data' => { 'agent_execution' => agent_execution_with_multi_turn }
         })
 
         # Stub status updates
-        stub_backend_api_success(:patch, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true
         })
 
@@ -252,7 +252,7 @@ RSpec.describe AiAgentExecutionJob, type: :job do
       it 'accumulates cost and tokens across turns' do
         job_instance.execute(agent_execution_id)
 
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/ai\/executions\/#{agent_execution_id}/)
+        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
           .with(body: hash_including({
             'agent_execution' => hash_including(
               'tokens_used' => be > 50, # More than single turn
@@ -265,7 +265,7 @@ RSpec.describe AiAgentExecutionJob, type: :job do
         job_instance.execute(agent_execution_id)
 
         # After multi-turn execution, output should include both content and response fields
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/ai\/executions\/#{agent_execution_id}/)
+        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
           .with(body: hash_including({
             'agent_execution' => hash_including(
               'output_data' => hash_including(
@@ -280,7 +280,7 @@ RSpec.describe AiAgentExecutionJob, type: :job do
     context 'with state validation' do
       it 'does not execute agents in completed state' do
         completed_execution = agent_execution_data.merge('status' => 'completed')
-        stub_backend_api_success(:get, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true,
           'data' => { 'agent_execution' => completed_execution }
         })
@@ -298,7 +298,7 @@ RSpec.describe AiAgentExecutionJob, type: :job do
 
       it 'does not execute agents in failed state' do
         failed_execution = agent_execution_data.merge('status' => 'failed')
-        stub_backend_api_success(:get, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true,
           'data' => { 'agent_execution' => failed_execution }
         })
@@ -313,12 +313,12 @@ RSpec.describe AiAgentExecutionJob, type: :job do
 
       it 'executes agents in queued state' do
         queued_execution = agent_execution_data.merge('status' => 'queued')
-        stub_backend_api_success(:get, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true,
           'data' => { 'agent_execution' => queued_execution }
         })
 
-        stub_backend_api_success(:patch, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true
         })
 
@@ -342,7 +342,7 @@ RSpec.describe AiAgentExecutionJob, type: :job do
         }.not_to raise_error
 
         # Should update status to running
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/ai\/executions\/#{agent_execution_id}/)
+        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
           .with(body: hash_including({
             'agent_execution' => hash_including('status' => 'running')
           }))
@@ -350,7 +350,7 @@ RSpec.describe AiAgentExecutionJob, type: :job do
 
       it 'validates presence of agent data' do
         execution_without_agent = agent_execution_data.merge('ai_agent' => nil)
-        stub_backend_api_success(:get, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true,
           'data' => { 'agent_execution' => execution_without_agent }
         })
@@ -365,7 +365,7 @@ RSpec.describe AiAgentExecutionJob, type: :job do
 
       it 'validates presence of provider data' do
         execution_without_provider = agent_execution_data.merge('ai_provider' => nil)
-        stub_backend_api_success(:get, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true,
           'data' => { 'agent_execution' => execution_without_provider }
         })
@@ -382,7 +382,7 @@ RSpec.describe AiAgentExecutionJob, type: :job do
     context 'with API errors' do
       it 'handles fetch execution API failure' do
         # Stub a logical failure (API returns success but response indicates failure)
-        stub_backend_api_success(:get, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => false,
           'error' => 'Execution not found'
         })
@@ -396,12 +396,12 @@ RSpec.describe AiAgentExecutionJob, type: :job do
       end
 
       it 'handles credentials fetch failure' do
-        stub_backend_api_success(:get, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true,
           'data' => { 'agent_execution' => agent_execution_data }
         })
 
-        stub_backend_api_success(:patch, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true
         })
 
@@ -415,7 +415,7 @@ RSpec.describe AiAgentExecutionJob, type: :job do
         job_instance.execute(agent_execution_id)
 
         # Should update execution status to failed
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/ai\/executions\/#{agent_execution_id}/)
+        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
           .with(body: hash_including({
             'agent_execution' => hash_including(
               'status' => 'failed',
@@ -425,12 +425,12 @@ RSpec.describe AiAgentExecutionJob, type: :job do
       end
 
       it 'handles missing credentials' do
-        stub_backend_api_success(:get, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true,
           'data' => { 'agent_execution' => agent_execution_data }
         })
 
-        stub_backend_api_success(:patch, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true
         })
 
@@ -443,7 +443,7 @@ RSpec.describe AiAgentExecutionJob, type: :job do
 
         job_instance.execute(agent_execution_id)
 
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/ai\/executions\/#{agent_execution_id}/)
+        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
           .with(body: hash_including({
             'agent_execution' => hash_including(
               'status' => 'failed',
@@ -453,12 +453,12 @@ RSpec.describe AiAgentExecutionJob, type: :job do
       end
 
       it 'handles provider API errors' do
-        stub_backend_api_success(:get, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true,
           'data' => { 'agent_execution' => agent_execution_data }
         })
 
-        stub_backend_api_success(:patch, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true
         })
 
@@ -480,7 +480,7 @@ RSpec.describe AiAgentExecutionJob, type: :job do
 
         job_instance.execute(agent_execution_id)
 
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/ai\/executions\/#{agent_execution_id}/)
+        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
           .with(body: hash_including({
             'agent_execution' => hash_including(
               'status' => 'failed',
@@ -490,12 +490,12 @@ RSpec.describe AiAgentExecutionJob, type: :job do
       end
 
       it 'handles timeout errors' do
-        stub_backend_api_success(:get, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true,
           'data' => { 'agent_execution' => agent_execution_data }
         })
 
-        stub_backend_api_success(:patch, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true
         })
 
@@ -525,12 +525,12 @@ RSpec.describe AiAgentExecutionJob, type: :job do
 
       it 'updates execution to failed on StandardError' do
         # Only stub the PATCH endpoint - GET will raise an error
-        stub_backend_api_success(:patch, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true
         })
 
         # Stub to raise error on execution fetch - this will be caught by BaseJob
-        stub_request(:get, /\/api\/v1\/ai\/executions\/#{agent_execution_id}/)
+        stub_request(:get, /\/api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
           .with(headers: { 'Authorization' => expected_request_headers['Authorization'] })
           .to_raise(StandardError.new('Unexpected error'))
 
@@ -564,12 +564,12 @@ RSpec.describe AiAgentExecutionJob, type: :job do
       }
 
       before do
-        stub_backend_api_success(:get, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true,
           'data' => { 'agent_execution' => ollama_execution }
         })
 
-        stub_backend_api_success(:patch, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true
         })
 
@@ -620,7 +620,7 @@ RSpec.describe AiAgentExecutionJob, type: :job do
 
         job_instance.execute(agent_execution_id)
 
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/ai\/executions\/#{agent_execution_id}/)
+        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
           .with(body: hash_including({
             'agent_execution' => hash_including('cost_usd' => 0.0)
           }))
@@ -649,12 +649,12 @@ RSpec.describe AiAgentExecutionJob, type: :job do
       }
 
       before do
-        stub_backend_api_success(:get, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true,
           'data' => { 'agent_execution' => anthropic_execution }
         })
 
-        stub_backend_api_success(:patch, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true
         })
 
@@ -713,7 +713,7 @@ RSpec.describe AiAgentExecutionJob, type: :job do
         job_instance.execute(agent_execution_id)
 
         # Claude Sonnet: $0.003/1K input + $0.015/1K output - may have multiple turns
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/ai\/executions\/#{agent_execution_id}/)
+        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
           .with(body: hash_including({
             'agent_execution' => hash_including(
               'cost_usd' => kind_of(Numeric)
@@ -724,12 +724,12 @@ RSpec.describe AiAgentExecutionJob, type: :job do
 
     context 'with response processing' do
       before do
-        stub_backend_api_success(:get, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true,
           'data' => { 'agent_execution' => agent_execution_data }
         })
 
-        stub_backend_api_success(:patch, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true
         })
 
@@ -760,7 +760,7 @@ RSpec.describe AiAgentExecutionJob, type: :job do
 
         job_instance.execute(agent_execution_id)
 
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/ai\/executions\/#{agent_execution_id}/)
+        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
           .with(body: hash_including({
             'agent_execution' => hash_including(
               'output_data' => hash_including(
@@ -784,7 +784,7 @@ RSpec.describe AiAgentExecutionJob, type: :job do
 
         job_instance.execute(agent_execution_id)
 
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/ai\/executions\/#{agent_execution_id}/)
+        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
           .with(body: hash_including({
             'agent_execution' => hash_including(
               'output_data' => hash_including(
@@ -808,7 +808,7 @@ RSpec.describe AiAgentExecutionJob, type: :job do
 
         job_instance.execute(agent_execution_id)
 
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/ai\/executions\/#{agent_execution_id}/)
+        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
           .with(body: hash_including({
             'agent_execution' => hash_including(
               'output_data' => hash_including(
@@ -830,7 +830,7 @@ RSpec.describe AiAgentExecutionJob, type: :job do
 
         job_instance.execute(agent_execution_id)
 
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/ai\/executions\/#{agent_execution_id}/)
+        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
           .with(body: hash_including({
             'agent_execution' => hash_including(
               'output_data' => hash_including(
@@ -846,12 +846,12 @@ RSpec.describe AiAgentExecutionJob, type: :job do
   describe 'retry behavior' do
     it 'retries on BackendApiClient::ApiError' do
       Sidekiq::Testing.inline! do
-        stub_backend_api_success(:get, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:get, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true,
           'data' => { 'agent_execution' => agent_execution_data }
         })
 
-        stub_backend_api_success(:patch, "/api/v1/ai/executions/#{agent_execution_id}", {
+        stub_backend_api_success(:patch, "/api/v1/internal/ai/executions/#{agent_execution_id}", {
           'success' => true
         })
 
@@ -876,7 +876,7 @@ RSpec.describe AiAgentExecutionJob, type: :job do
         job.execute(agent_execution_id)
 
         # Verify status was updated to failed
-        expect(WebMock).to have_requested(:patch, /.*api\/v1\/ai\/executions\/#{agent_execution_id}/)
+        expect(WebMock).to have_requested(:patch, /.*api\/v1\/internal\/ai\/executions\/#{agent_execution_id}/)
           .with(body: hash_including({
             'agent_execution' => hash_including('status' => 'failed')
           }))

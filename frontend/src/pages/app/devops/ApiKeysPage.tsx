@@ -7,18 +7,19 @@ import { PageContainer, PageAction } from '@/shared/components/layout/PageContai
 import { ApiKeyModal } from '@/features/devops/api-keys/components/ApiKeyModal';
 import { Key, RefreshCw } from 'lucide-react';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import type { ApiKey } from '@/features/devops/api-keys/services/apiKeysApi';
 
 export const ApiKeysPage: React.FC = () => {
   const { addNotification } = useNotifications();
   const { confirm, ConfirmationDialog } = useConfirmation();
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'devops',
     onDataUpdate: () => {
       // Trigger data refresh if needed
     }
   });
-  const [apiKeys, setApiKeys] = useState<any[]>([]);
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -133,9 +134,9 @@ export const ApiKeysPage: React.FC = () => {
   ];
 
   const breadcrumbs = [
-    { label: 'Dashboard', href: '/app', icon: '🏠' },
-    { label: 'DevOps', href: '/app/devops', icon: '🔧' },
-    { label: 'API Keys', icon: '🔑' }
+    { label: 'Dashboard', href: '/app' },
+    { label: 'DevOps', href: '/app/devops' },
+    { label: 'API Keys' }
   ];
 
   const getPageDescription = () => {

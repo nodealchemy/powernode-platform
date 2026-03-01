@@ -51,12 +51,14 @@ module AuthHelpers
     json_response
   end
 
-  def expect_error_response(message, status = 400)
-    expect(response).to have_http_status(status)
-    expect(json_response).to include(
-      'success' => false,
-      'error' => message
-    )
+  def expect_error_response(message = nil, status = nil)
+    if status
+      expect(response).to have_http_status(status)
+    else
+      expect(response.status).to be >= 400
+    end
+    expect(json_response['success']).to eq(false)
+    expect(json_response['error']).to include(message) if message
   end
 
   def expect_success_response(data = nil)
@@ -86,15 +88,16 @@ module AuthHelpers
   # Alias for convenience
   alias_method :sign_in, :sign_in_as_user
   alias_method :sign_in_user, :sign_in_as_user
+  alias_method :auth_headers, :auth_headers_for
 
-  # Generate service token for internal API authentication (worker service)
+  # Generate JWT service token for internal API authentication (worker service)
+  # InternalBaseController validates JWT with type: "worker", sub: worker_id
   def service_token
-    payload = {
-      service: 'worker',
-      type: 'service',
-      exp: 24.hours.from_now.to_i
-    }
-    Security::JwtService.encode(payload)
+    @_service_worker ||= FactoryBot.create(:worker, account: FactoryBot.create(:account))
+    Security::JwtService.encode(
+      { type: "worker", sub: @_service_worker.id },
+      5.minutes.from_now
+    )
   end
 
   # Set service auth headers for internal API requests

@@ -1,6 +1,6 @@
 # AI Orchestration Complete Guide
 
-**Version**: 2.0 | **Last Updated**: December 2025 | **Status**: Production Ready
+**Version**: 3.0 | **Last Updated**: February 2026 | **Status**: Production Ready
 
 ---
 
@@ -9,31 +9,38 @@
 1. [System Overview](#system-overview)
 2. [Architecture](#architecture)
 3. [Core Components](#core-components)
-4. [Frontend Migration](#frontend-migration)
-5. [Integration Checklist](#integration-checklist)
-6. [Learning Paths](#learning-paths)
+4. [Subsystem Guides](#subsystem-guides)
+5. [Frontend Integration](#frontend-integration)
+6. [Security & Permissions](#security--permissions)
+7. [Documentation Index](#documentation-index)
 
 ---
 
 ## System Overview
 
-The Powernode AI Orchestration System provides enterprise-grade AI workflow execution, agent management, and multi-provider integration. Following a comprehensive 5-phase redesign, the system achieved:
+The Powernode AI Orchestration System provides enterprise-grade AI agent execution, workflow automation, and multi-provider integration. The platform encompasses:
 
-- **79% controller reduction** (29 → 6 consolidated controllers)
-- **56% code reduction** (12,638 → 5,624 lines)
-- **100% type coverage** with full TypeScript support
-- **Unified API architecture** with consistent patterns
+- **127 AI models** in `app/models/ai/` (plus 4 in `code_factory/` subdirectory)
+- **73 controllers** in `app/controllers/api/v1/ai/` (69 root + 4 in `security/`)
+- **200+ services** in `app/services/ai/` across 40+ subdirectories
+- **10 supported providers** (Anthropic, OpenAI, Ollama, Azure, Google, Groq, Grok, Mistral, Cohere, plus custom)
 
 ### Key Capabilities
 
 | Feature | Description |
 |---------|-------------|
-| AI Workflows | Visual workflow builder with 11+ node types |
-| AI Agents | Multi-provider support (OpenAI, Anthropic, Ollama) |
-| Batch Execution | Execute multiple workflows concurrently |
-| Real-time Monitoring | WebSocket-based live updates |
-| Circuit Breakers | Resilience patterns for external services |
-| Cost Optimization | Track and optimize AI provider costs |
+| **Missions** | End-to-end development pipeline with approval gates |
+| **Ralph Loops** | Recursive agentic task execution from PRDs |
+| **Code Factory** | Risk-aware code review with evidence-based merge gating |
+| **Model Router** | Intelligent provider selection with 7 routing strategies |
+| **Agent Autonomy** | Trust tiers (supervised → autonomous) with execution gates |
+| **Memory System** | 4-tier memory: working (Redis), STM, LTM (pgvector), shared pools |
+| **RAG Pipeline** | Hybrid search with vector, keyword, graph, and agentic retrieval |
+| **Skill Graph** | Skills registry with versioning, conflicts, and gap detection |
+| **Security Guardrails** | Input/output rails, PII detection, prompt injection protection |
+| **AGUI Protocol** | Agent GUI state synchronization |
+| **A2A Protocol** | Agent-to-agent task delegation and communication |
+| **Real-time Updates** | WebSocket channels for live mission/team/workflow status |
 
 ---
 
@@ -44,44 +51,52 @@ The Powernode AI Orchestration System provides enterprise-grade AI workflow exec
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     Frontend Layer                          │
-│  React Components → 6 Consolidated API Services             │
-│  (agentsApi, workflowsApi, providersApi, monitoringApi,    │
-│   analyticsApi, marketplaceApi)                             │
+│  React Components → API Services                           │
+│  (agents, workflows, missions, teams, providers, ...)      │
 └──────────────────────────┬──────────────────────────────────┘
-                           │ RESTful JSON API
+                           │ RESTful JSON API + WebSocket
 ┌──────────────────────────▼──────────────────────────────────┐
 │                    Backend API Layer                        │
-│  6 Consolidated Controllers (Api::V1::Ai namespace)        │
-│  • AgentsController      • WorkflowsController             │
-│  • ProvidersController   • MonitoringController            │
-│  • AnalyticsController   • MarketplaceController           │
+│  73 Controllers (Api::V1::Ai namespace)                    │
+│  Agents, Teams, Workflows, Missions, Ralph, Code Factory,  │
+│  Providers, Model Router, Memory, RAG, Skills, Security,   │
+│  A2A, ACP, AGUI, Autonomy, Analytics, Monitoring, ...      │
 └──────────────────────────┬──────────────────────────────────┘
                            │
 ┌──────────────────────────▼──────────────────────────────────┐
-│                  Service Layer Pattern                      │
-│  Root Facade Services → MCP Core Services                   │
-│  • AiAgentOrchestrationService → Mcp::WorkflowOrchestrator │
-│  • WorkflowRecoveryService → Mcp::WorkflowCheckpointManager│
+│                  Service Layer (200+ services)              │
+│  Orchestration │ Autonomy │ Security │ Memory │ RAG        │
+│  Ralph         │ Missions │ Code Factory │ Model Router     │
+│  Skill Graph   │ Analytics │ Teams │ Workflows              │
 └──────────────────────────┬──────────────────────────────────┘
                            │
 ┌──────────────────────────▼──────────────────────────────────┐
 │               Worker Service (Sidekiq)                      │
-│  • AiWorkflowExecutionJob                                   │
-│  • AiWorkflowNodeExecutionJob                               │
-│  • AiAgentExecutionJob                                      │
+│  Mission phase jobs, workflow execution, trust decay,       │
+│  memory consolidation, skill lifecycle, knowledge sync      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### Service Layer Pattern
 
-**Root Facade Services** (Public API):
-- `AiAgentOrchestrationService` - Main orchestration entry point
-- `WorkflowRecoveryService` - Recovery coordination
-- `AiErrorRecoveryService` - Error handling coordination
+**Root Services** (orchestration entry points):
+- `AiAgentOrchestrationService` — agent execution orchestrator
+- `Ai::Missions::OrchestratorService` — mission lifecycle
+- `Ai::Ralph::ExecutionService` — Ralph loop execution
+- `Ai::CodeFactory::OrchestratorService` — code review pipeline
+- `Ai::ModelRouterService` — intelligent provider routing
 
-**MCP Core Services** (Implementation):
-- `Mcp::WorkflowOrchestrator` - Actual workflow execution engine
-- `Mcp::WorkflowCheckpointManager` - Checkpoint/recovery implementation
+**Domain Services** (40+ subdirectories):
+- `ai/autonomy/` — trust, execution gates, conformance (12 services)
+- `ai/security/` — security gates, anomaly detection, PII (8 services)
+- `ai/memory/` — working memory, storage, routing (9 services)
+- `ai/rag/` — hybrid search, graph RAG, agentic RAG (4 services)
+- `ai/skill_graph/` — lifecycle, conflicts, coverage (12 services)
+- `ai/code_factory/` — risk classification, remediation (9 services)
+- `ai/ralph/` — agentic loop, task execution, git tools (5 services)
+- `ai/missions/` — PRD generation, repo analysis, deployment (6 services)
+- `ai/analytics/` — cost, performance, dashboard (5+ services)
+- `ai/teams/` — CRUD, execution, configuration (5 services)
 
 ---
 
@@ -89,199 +104,94 @@ The Powernode AI Orchestration System provides enterprise-grade AI workflow exec
 
 ### 1. AI Agents
 
-**Purpose**: Reusable AI components configured for specific tasks
+**127 models** covering agents, teams, workflows, missions, memory, security, skills, and more.
 
-**Database Models**:
+**Agent model hierarchy:**
+```
+Ai::Agent                    # Core agent configuration
+├── Ai::AgentExecution       # Execution records
+├── Ai::AgentTrustScore      # Trust scoring (5 dimensions)
+├── Ai::AgentSkill           # Skill assignments
+├── Ai::AgentBudget          # Budget management
+├── Ai::AgentShortTermMemory # Short-term memory entries
+├── Ai::BehavioralFingerprint # Anomaly baselines
+├── Ai::DelegationPolicy     # Delegation rules
+└── Ai::AgentIdentity        # Identity verification
+```
+
+### 2. Agent Teams
+
+Multi-agent collaboration with configurable execution strategies.
+
+**Execution strategies:** `hierarchical`, `sequential`, `parallel`, `mesh`
+
+**Team models:** `AgentTeam`, `AgentTeamMember`, `TeamRole`, `TeamExecution`, `TeamTask`, `TeamChannel`, `TeamMessage`
+
+### 3. AI Workflows
+
+Visual workflow builder with 45+ node executors across 8 categories.
+
+**Node categories:** Control Flow (8), AI/Agent (2), Integration (9), Content (9), DevOps (13), MCP (4), Utility (3)
+
+### 4. AI Providers
+
+Multi-provider support with automatic model sync.
+
+**Provider sync adapters:** Anthropic, OpenAI, Ollama, Azure, Google, Groq, Grok, Mistral, Cohere, generic
+
+### 5. LLM Adapters
+
+Unified LLM client with provider-specific adapters.
+
 ```ruby
-AiAgent           # Agent configuration and metadata
-AiAgentExecution  # Individual execution records
-AiConversation    # Conversation sessions
-AiMessage         # Conversation messages
+# Adapters: AnthropicAdapter, OpenAIAdapter, OllamaAdapter
+client = Ai::Llm::Client.new(provider: provider, credential: credential)
+response = client.send_message(messages, options)
 ```
-
-**Frontend Service**: `agentsApi` from `@/shared/services/ai`
-
-### 2. AI Workflows
-
-**Purpose**: Visual workflow builder for orchestrating multi-step AI processes
-
-**Node Types**:
-- `start`, `end` - Entry/exit points
-- `ai_agent` - Execute AI agent
-- `api_call` - HTTP API requests
-- `webhook` - Send webhooks
-- `condition` - Conditional branching
-- `loop` - Iteration
-- `transform` - Data transformation
-- `delay` - Timed delays
-- `human_approval` - Human-in-the-loop
-- `sub_workflow` - Nested workflows
-- `merge`, `split` - Path management
-
-**Frontend Service**: `workflowsApi` from `@/shared/services/ai`
-
-### 3. AI Providers
-
-**Purpose**: Manage connections to external AI services
-
-**Supported Providers**:
-- OpenAI (GPT-4, GPT-3.5)
-- Anthropic (Claude 3 Opus, Sonnet, Haiku)
-- Ollama (Local models)
-- Custom providers via MCP protocol
-
-**Frontend Service**: `providersApi` from `@/shared/services/ai`
-
-### 4. Monitoring & Analytics
-
-**Purpose**: Real-time system health and performance tracking
-
-**Frontend Services**:
-- `monitoringApi` - System dashboard, circuit breakers
-- `analyticsApi` - Metrics, cost breakdown
 
 ---
 
-## Frontend Migration
+## Subsystem Guides
 
-### Quick Import Update
+| Subsystem | Guide | Description |
+|-----------|-------|-------------|
+| Missions | [MISSIONS_GUIDE.md](MISSIONS_GUIDE.md) | End-to-end dev pipeline with approval gates |
+| Ralph Loops | [RALPH_LOOPS_GUIDE.md](RALPH_LOOPS_GUIDE.md) | Recursive agentic task execution |
+| Code Factory | [CODE_FACTORY_GUIDE.md](CODE_FACTORY_GUIDE.md) | Risk-aware code review pipeline |
+| Model Router | [MODEL_ROUTER_GUIDE.md](MODEL_ROUTER_GUIDE.md) | Intelligent provider routing |
+| Agent Autonomy | [AGENT_AUTONOMY_GUIDE.md](AGENT_AUTONOMY_GUIDE.md) | Trust tiers & execution gates |
+| Memory System | [MEMORY_SYSTEM_ARCHITECTURE.md](MEMORY_SYSTEM_ARCHITECTURE.md) | Multi-tier memory architecture |
+| Security | [AI_SECURITY_GUARDRAILS.md](AI_SECURITY_GUARDRAILS.md) | Guardrails & security gates |
+| RAG System | [RAG_SYSTEM_GUIDE.md](RAG_SYSTEM_GUIDE.md) | Document retrieval pipeline |
+| Skill Graph | [SKILL_GRAPH_REFERENCE.md](SKILL_GRAPH_REFERENCE.md) | Skills registry & lifecycle |
+| Provider Routing | [AI_PROVIDER_ROUTING.md](AI_PROVIDER_ROUTING.md) | Load balancing & circuit breakers |
+| Cost Attribution | [COST_ATTRIBUTION_SYSTEM.md](COST_ATTRIBUTION_SYSTEM.md) | Cost tracking & optimization |
+| Node Executors | [NODE_EXECUTOR_REFERENCE.md](../backend/NODE_EXECUTOR_REFERENCE.md) | Workflow node executor reference |
+
+---
+
+## Frontend Integration
+
+### API Services
 
 ```typescript
-// OLD - Don't use these anymore
-import { aiAgentApi } from '@/shared/services/aiAgentApi';
-import { workflowApi } from '@/shared/services/workflowApi';
+import {
+  agentsApi, workflowsApi, providersApi,
+  monitoringApi, analyticsApi
+} from '@/shared/services/ai';
 
-// NEW - Use consolidated services
-import { agentsApi, workflowsApi, providersApi } from '@/shared/services/ai';
-
-// OR use the aiApi convenience object
+// Or use the convenience object
 import { aiApi } from '@/shared/services/ai';
-const agents = await aiApi.agents.getAgents();
 ```
 
-### Service Migration Map
+### WebSocket Channels
 
-| Old Service | New Service |
-|-------------|-------------|
-| `aiAgentApi.ts` | `agentsApi` |
-| `aiConversationsApi.ts` | `agentsApi.conversations` |
-| `aiProviderApi.ts` | `providersApi` |
-| `workflowApi.ts` | `workflowsApi` |
-| `workflowMonitoringService.ts` | `monitoringApi` |
-| `aiMonitoringService.ts` | `monitoringApi` |
-
-### Response Unwrapping
-
-**Before** (manual unwrapping):
-```typescript
-const response = await workflowApi.getWorkflows(filters, page, perPage);
-const workflows = response.data.data.workflows;
-const pagination = response.data.data.pagination;
-```
-
-**After** (automatic unwrapping):
-```typescript
-const { items: workflows, pagination } = await workflowsApi.getWorkflows({
-  ...filters,
-  page,
-  per_page: perPage
-});
-```
-
-### Conversations API Change
-
-Conversations are now nested under agents:
-
-```typescript
-// OLD
-const messages = await aiConversationsApi.getMessages(conversationId);
-
-// NEW - requires agentId
-const messages = await agentsApi.getMessages(agentId, conversationId);
-```
-
----
-
-## Integration Checklist
-
-### Phase 1: Frontend Foundation
-
-- [ ] Verify TypeScript configuration with path aliases
-- [ ] Install dependencies: `recharts`, `lucide-react`, `date-fns`
-- [ ] Verify shared components exist (Card, Button, Modal, etc.)
-- [ ] Configure permissions in backend
-- [ ] Add AI Orchestration to navigation
-- [ ] Update routing configuration
-
-### Phase 2: Component Integration
-
-- [ ] Install batch execution components
-- [ ] Install streaming execution components
-- [ ] Install circuit breaker components
-- [ ] Install MCP browser components
-- [ ] Install validation components
-- [ ] Install cost optimization components
-- [ ] Verify theme compatibility
-
-### Phase 3: Backend Implementation
-
-- [ ] Create required database tables (UUIDv7 primary keys)
-- [ ] Create models with proper structure
-- [ ] Create API controllers (55+ endpoints)
-- [ ] Configure routes
-- [ ] Create service objects
-- [ ] Create background jobs (BaseJob pattern)
-- [ ] Implement WebSocket channels
-
-### Phase 4: Testing
-
-- [ ] Model tests (90%+ coverage)
-- [ ] Controller tests (80%+ coverage)
-- [ ] Service tests (85%+ coverage)
-- [ ] Integration tests
-- [ ] WebSocket integration tests
-- [ ] E2E tests (Cypress)
-
-### Phase 5: Production Deployment
-
-- [ ] Configure environment variables
-- [ ] Run database migrations
-- [ ] Build frontend production bundle
-- [ ] Configure services (Puma, Sidekiq, Redis)
-- [ ] Setup monitoring and alerting
-- [ ] Load testing
-- [ ] Security audit
-
----
-
-## Learning Paths
-
-### New Frontend Developer
-
-**Day 1**: Read System Overview → Review architecture
-**Day 2**: Study Component Examples
-**Week 1**: First feature implementation
-
-### New Backend Developer
-
-**Day 1**: Read System Overview → Review API Endpoints
-**Day 2**: Study Backend Roadmap Sprint 1
-**Week 1**: Implement Sprint 1
-
-### DevOps/SRE Engineer
-
-**Day 1**: Review Monitoring Guide
-**Week 1**: Monitoring setup
-**Week 2**: Production readiness
-
-### By Task
-
-| Task | Documentation Path |
-|------|-------------------|
-| Implement batch execution | Component Examples → API Endpoints → Backend Roadmap |
-| Setup monitoring | Monitoring Guide → Integration Checklist |
-| Understand architecture | This Guide → Quick Reference |
-| Troubleshoot issue | Quick Reference → Monitoring Guide |
+| Channel | Purpose |
+|---------|---------|
+| `MissionChannel` | Mission status/phase updates |
+| `CodeFactoryChannel` | Code review pipeline events |
+| `AiOrchestrationChannel` | Workflow/batch execution updates |
+| `TeamChannel` | Team execution events |
 
 ---
 
@@ -289,27 +199,28 @@ const messages = await agentsApi.getMessages(agentId, conversationId);
 
 ### Permission-Based Access Control
 
-**CRITICAL**: Frontend uses permission-based access control ONLY - never role-based.
+**CRITICAL**: Frontend uses permission-based access control ONLY — never role-based.
 
 ```typescript
-// ✅ CORRECT - Permission-based
-const canExecuteWorkflows = currentUser?.permissions?.includes('ai.workflows.execute');
+// CORRECT
+currentUser?.permissions?.includes('ai.workflows.execute');
 
-// ❌ WRONG - Role-based (never use this)
-const canExecute = currentUser?.roles?.includes('admin');
+// FORBIDDEN
+currentUser?.roles?.includes('admin');
 ```
 
-### AI-Specific Permissions
+### AI Permissions
 
 | Permission | Description |
 |------------|-------------|
-| `ai.agents.create` | Create AI agents |
-| `ai.agents.execute` | Execute AI agents |
-| `ai.workflows.create` | Create workflows |
-| `ai.workflows.execute` | Execute workflows |
-| `ai.providers.manage` | Manage AI providers |
-| `ai.monitoring.read` | View monitoring dashboard |
-| `ai.analytics.read` | View analytics |
+| `ai.agents.create/execute` | Agent management and execution |
+| `ai.workflows.create/execute/read/update/delete` | Workflow operations |
+| `ai.providers.manage` | Provider management |
+| `ai.missions.read/manage` | Mission operations |
+| `ai.routing.read/manage/optimize` | Model router |
+| `ai.code_factory.read/manage` | Code Factory |
+| `ai.monitoring.read` | Monitoring dashboard |
+| `ai.analytics.read` | Analytics |
 
 ---
 
@@ -317,42 +228,43 @@ const canExecute = currentUser?.roles?.includes('admin');
 
 | Document | Purpose | Audience |
 |----------|---------|----------|
-| AI_ORCHESTRATION_GUIDE.md | Complete system guide | Everyone |
-| AI_ORCHESTRATION_API_REFERENCE.md | API endpoints & examples | Developers |
-| AI_ORCHESTRATION_OPERATIONS.md | Testing & monitoring | QA/DevOps |
-| AI_ORCHESTRATION_QUICK_START.md | Quick start & roadmap | New developers |
+| **This Guide** | System overview & architecture | Everyone |
+| [API Reference](AI_ORCHESTRATION_API_REFERENCE.md) | API endpoints & examples | Developers |
+| [Operations](AI_ORCHESTRATION_OPERATIONS.md) | Testing & monitoring | QA/DevOps |
+| [Missions Guide](MISSIONS_GUIDE.md) | Mission pipeline | Developers |
+| [Ralph Loops Guide](RALPH_LOOPS_GUIDE.md) | Agentic execution | Developers |
+| [Code Factory Guide](CODE_FACTORY_GUIDE.md) | Code review pipeline | Developers |
+| [Model Router Guide](MODEL_ROUTER_GUIDE.md) | Provider routing | Developers/DevOps |
+| [Agent Autonomy Guide](AGENT_AUTONOMY_GUIDE.md) | Trust & governance | Security/DevOps |
+| [Memory Architecture](MEMORY_SYSTEM_ARCHITECTURE.md) | Memory tiers | Developers |
+| [Security Guardrails](AI_SECURITY_GUARDRAILS.md) | AI security | Security |
+| [RAG System Guide](RAG_SYSTEM_GUIDE.md) | Document retrieval | Developers |
+| [Skill Graph Reference](SKILL_GRAPH_REFERENCE.md) | Skills registry | Developers |
+| [Provider Routing](AI_PROVIDER_ROUTING.md) | Load balancing | DevOps |
+| [Cost Attribution](COST_ATTRIBUTION_SYSTEM.md) | Cost tracking | FinOps |
+| [Node Executor Reference](../backend/NODE_EXECUTOR_REFERENCE.md) | Workflow nodes | Developers |
 
 ---
 
 ## Key Files Reference
 
-### Backend Services
-- `server/app/services/ai_agent_orchestration_service.rb` - Root facade
-- `server/app/services/mcp/workflow_orchestrator.rb` - MCP core
-- `server/app/controllers/api/v1/ai/workflows_controller.rb` - API
+### Backend
+- `server/app/models/ai/` — 127 models (+ `code_factory/` subdirectory)
+- `server/app/controllers/api/v1/ai/` — 73 controllers (+ `security/` subdirectory)
+- `server/app/services/ai/` — 200+ services across 40+ subdirectories
+- `server/app/channels/` — WebSocket channels (Mission, CodeFactory, Team, etc.)
 
-### Frontend Services
-- `frontend/src/shared/services/ai/index.ts` - Export barrel
-- `frontend/src/shared/services/ai/WorkflowsApiService.ts`
-- `frontend/src/shared/types/workflow.ts` - Types
-
-### Workflow Builder
-- `frontend/src/shared/components/workflow/WorkflowBuilder.tsx`
-- `frontend/src/shared/components/workflow/WorkflowBuilderModal.tsx`
-
----
-
-## Common Commands
+### Common Commands
 
 ```bash
 # Backend tests
-cd server && bundle exec rspec spec/services/ai*
+cd server && bundle exec rspec spec/
 
 # Frontend type check
-cd frontend && npm run typecheck
+cd frontend && npx tsc --noEmit
 
-# Start development services
-scripts/auto-dev.sh ensure
+# Start all services
+sudo systemctl start powernode.target
 
 # Database migrations
 cd server && rails db:migrate
@@ -360,5 +272,4 @@ cd server && rails db:migrate
 
 ---
 
-**Document Status**: ✅ Production Ready
-**Consolidates**: AI_ORCHESTRATION_INDEX.md, AI_ORCHESTRATION_OVERVIEW.md, AI_ORCHESTRATION_MIGRATION_GUIDE.md, AI_ORCHESTRATION_INTEGRATION_CHECKLIST.md
+**Document Status**: Production Ready

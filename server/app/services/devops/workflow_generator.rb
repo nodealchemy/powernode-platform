@@ -236,12 +236,12 @@ module Devops
       # Get prompt from template or inline
       prompt = if step.prompt_template.present?
                  step.prompt_template.content
-               else
+      else
                  config["prompt"] || ""
-               end
+      end
 
       # Build the Claude command
-      cmd = ["claude --print"]
+      cmd = [ "claude --print" ]
 
       # Add model if specified
       if config["model"].present?

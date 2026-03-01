@@ -23,7 +23,7 @@ class ApiKey < ApplicationRecord
 
   # Callbacks
   before_validation :set_defaults
-  before_create :generate_key
+  before_validation :generate_key, on: :create
   after_update :log_status_change
 
   # Virtual attributes

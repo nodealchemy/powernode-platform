@@ -3,12 +3,17 @@
 FactoryBot.define do
   factory :report_request do
     association :account
-    association :user
+    association :user, factory: :user, strategy: :create
 
     report_type { 'revenue_analytics' }
     status { 'pending' }
     parameters { {} }
     requested_at { Time.current }
+
+    # Set the proper foreign key
+    after(:build) do |report_request|
+      report_request.requested_by_id = report_request.user&.id if report_request.user
+    end
 
     trait :completed do
       status { 'completed' }
@@ -53,23 +58,6 @@ FactoryBot.define do
 
     trait :comprehensive_report do
       report_type { 'comprehensive_report' }
-    end
-
-    # Format variations
-    trait :pdf_format do
-      format { 'pdf' }
-    end
-
-    trait :csv_format do
-      format { 'csv' }
-    end
-
-    trait :xlsx_format do
-      format { 'xlsx' }
-    end
-
-    trait :json_format do
-      format { 'json' }
     end
   end
 end

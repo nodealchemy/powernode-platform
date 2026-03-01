@@ -42,7 +42,9 @@ module FileManagement
       allow_nil: true
     }
     validates :category, inclusion: {
-      in: %w[user_upload workflow_output ai_generated temp system import page_content],
+      in: %w[user_upload workflow_output ai_generated temp system import page_content
+             sbom_export attestation_proof supply_chain_scan_report
+             vendor_compliance vendor_assessment vendor_certificate],
       allow_nil: true
     }
     validates :visibility, presence: true, inclusion: {

@@ -1,0 +1,101 @@
+{
+  "data": [
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5TAG001",
+      "name": "getting-started",
+      "slug": "getting-started",
+      "description": "Articles for new users getting started with Powernode",
+      "color": "#10B981",
+      "usage_count": 8
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5TAG002",
+      "name": "api",
+      "slug": "api",
+      "description": "API-related documentation and guides",
+      "color": "#3B82F6",
+      "usage_count": 12
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5TAG003",
+      "name": "billing",
+      "slug": "billing",
+      "description": "Billing and payment-related articles",
+      "color": "#8B5CF6",
+      "usage_count": 6
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5TAG004",
+      "name": "subscriptions",
+      "slug": "subscriptions",
+      "description": "Subscription management articles",
+      "color": "#EC4899",
+      "usage_count": 9
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5TAG005",
+      "name": "troubleshooting",
+      "slug": "troubleshooting",
+      "description": "Problem-solving and FAQ articles",
+      "color": "#F59E0B",
+      "usage_count": 7
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5TAG006",
+      "name": "integration",
+      "slug": "integration",
+      "description": "Third-party integration guides",
+      "color": "#06B6D4",
+      "usage_count": 5
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5TAG007",
+      "name": "webhooks",
+      "slug": "webhooks",
+      "description": "Webhook configuration and usage",
+      "color": "#84CC16",
+      "usage_count": 4
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5TAG008",
+      "name": "team",
+      "slug": "team",
+      "description": "Team management articles",
+      "color": "#F97316",
+      "usage_count": 3
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5TAG009",
+      "name": "permissions",
+      "slug": "permissions",
+      "description": "Permission and access control articles",
+      "color": "#EF4444",
+      "usage_count": 4
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5TAG010",
+      "name": "payments",
+      "slug": "payments",
+      "description": "Payment processing articles",
+      "color": "#22C55E",
+      "usage_count": 5
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5TAG011",
+      "name": "stripe",
+      "slug": "stripe",
+      "description": "Stripe integration articles",
+      "color": "#6366F1",
+      "usage_count": 3
+    },
+    {
+      "id": "01HX9R8C8V2NP3QWKJ5TAG012",
+      "name": "paypal",
+      "slug": "paypal",
+      "description": "PayPal integration articles",
+      "color": "#0EA5E9",
+      "usage_count": 2
+    }
+  ],
+  "message": "Tags retrieved successfully"
+}

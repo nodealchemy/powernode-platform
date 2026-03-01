@@ -2,25 +2,27 @@ import React from 'react';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { renderWithProviders, mockAuthenticatedState } from '@/shared/utils/test-utils';
 import { ErrorBoundary, PageErrorBoundary, SectionErrorBoundary } from './ErrorBoundary';
+import { logger } from '@/shared/utils/logger';
 
-// Mock console methods to avoid noise in tests
+// Mock the logger utility used by ErrorBoundary
+jest.mock('@/shared/utils/logger', () => ({
+  logger: {
+    error: jest.fn(),
+    warn: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
+  },
+}));
+
+// Mock console.error to suppress React's internal error boundary logging noise
 const originalConsoleError = console.error;
-const originalConsoleGroup = console.group;
-const originalConsoleGroupEnd = console.groupEnd;
-const originalConsoleWarn = console.warn;
 
 beforeAll(() => {
   console.error = jest.fn();
-  console.group = jest.fn();
-  console.groupEnd = jest.fn();
-  console.warn = jest.fn();
 });
 
 afterAll(() => {
   console.error = originalConsoleError;
-  console.group = originalConsoleGroup;
-  console.groupEnd = originalConsoleGroupEnd;
-  console.warn = originalConsoleWarn;
 });
 
 // Component that throws an error
@@ -245,8 +247,7 @@ describe('ErrorBoundary', () => {
 
   it('shows technical details in development mode', () => {
     const originalEnv = process.env.NODE_ENV;
-    // @ts-ignore: Intentionally overriding readonly for testing
-    process.env.NODE_ENV = 'development';
+        process.env.NODE_ENV = 'development';
 
     renderWithProviders(
       <ErrorBoundary showDetails={true}>
@@ -261,14 +262,12 @@ describe('ErrorBoundary', () => {
     fireEvent.click(detailsButton);
     expect(screen.getByText('Development error details')).toBeInTheDocument();
 
-    // @ts-ignore: Intentionally overriding readonly for testing
-    process.env.NODE_ENV = originalEnv;
+        process.env.NODE_ENV = originalEnv;
   });
 
   it('hides technical details in production mode', () => {
     const originalEnv = process.env.NODE_ENV;
-    // @ts-ignore: Intentionally overriding readonly for testing
-    process.env.NODE_ENV = 'production';
+        process.env.NODE_ENV = 'production';
 
     renderWithProviders(
       <ErrorBoundary>
@@ -279,14 +278,12 @@ describe('ErrorBoundary', () => {
 
     expect(screen.queryByText(/Technical Details/)).not.toBeInTheDocument();
 
-    // @ts-ignore: Intentionally overriding readonly for testing
-    process.env.NODE_ENV = originalEnv;
+        process.env.NODE_ENV = originalEnv;
   });
 
   it('can be forced to show details regardless of environment', () => {
     const originalEnv = process.env.NODE_ENV;
-    // @ts-ignore: Intentionally overriding readonly for testing
-    process.env.NODE_ENV = 'production';
+        process.env.NODE_ENV = 'production';
 
     renderWithProviders(
       <ErrorBoundary showDetails={true}>
@@ -297,11 +294,10 @@ describe('ErrorBoundary', () => {
 
     expect(screen.getByText(/Technical Details/)).toBeInTheDocument();
 
-    // @ts-ignore: Intentionally overriding readonly for testing
-    process.env.NODE_ENV = originalEnv;
+        process.env.NODE_ENV = originalEnv;
   });
 
-  it('logs error information to console', () => {
+  it('logs error information via logger', () => {
     renderWithProviders(
       <ErrorBoundary>
         <ThrowError errorMessage="Console logging test" />
@@ -309,12 +305,22 @@ describe('ErrorBoundary', () => {
       { preloadedState: mockAuthenticatedState }
     );
 
-    expect(console.group).toHaveBeenCalledWith(
-      expect.stringContaining('ERROR BOUNDARY TRIGGERED')
+    expect(logger.error).toHaveBeenCalledWith(
+      'Error Boundary triggered',
+      expect.any(Error),
+      expect.objectContaining({
+        errorId: expect.stringMatching(/^err_\d+_[a-z0-9]+$/),
+        componentStack: expect.any(String),
+      })
     );
-    expect(console.error).toHaveBeenCalledWith('Error:', expect.any(Error));
-    expect(console.error).toHaveBeenCalledWith('Error Info:', expect.any(Object));
-    expect(console.groupEnd).toHaveBeenCalled();
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Error Boundary Details',
+      expect.objectContaining({
+        message: 'Console logging test',
+        errorId: expect.stringMatching(/^err_\d+_[a-z0-9]+$/),
+      })
+    );
   });
 });
 

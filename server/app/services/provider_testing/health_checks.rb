@@ -26,7 +26,7 @@ module ProviderTesting
     def detect_performance_degradation
       return { degradation_detected: false } if @health_check_results.size < 2
 
-      half = [@health_check_results.size / 2, 1].max
+      half = [ @health_check_results.size / 2, 1 ].max
       older_times = @health_check_results.first(half).map { |r| r[:response_time_ms] || 0 }
       recent_times = @health_check_results.last(half).map { |r| r[:response_time_ms] || 0 }
 

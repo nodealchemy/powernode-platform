@@ -1,5 +1,5 @@
 import { useSelector } from 'react-redux';
-import { RootState } from '../services';
+import { RootState } from '@/shared/services';
 
 /**
  * Hook for checking user permissions
@@ -71,7 +71,7 @@ export const usePermissions = () => {
    * Check if user has account management permissions
    */
   const isAccountManager = (): boolean => {
-    return hasPermission('users.manage') && hasPermission('team.manage');
+    return hasPermission('team.assign_roles') || hasPermission('admin.user.update');
   };
   
   /**

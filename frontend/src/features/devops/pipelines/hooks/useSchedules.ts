@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { devopsSchedulesApi } from '@/services/devopsPipelinesApi';
-import type { CiCdSchedule, CiCdScheduleFormData } from '@/types/devops-pipelines';
+import type { DevopsSchedule, DevopsScheduleFormData } from '@/types/devops-pipelines';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface UseSchedulesParams {
@@ -9,7 +9,7 @@ interface UseSchedulesParams {
 }
 
 export function useSchedules(params: UseSchedulesParams = {}) {
-  const [schedules, setSchedules] = useState<CiCdSchedule[]>([]);
+  const [schedules, setSchedules] = useState<DevopsSchedule[]>([]);
   const [meta, setMeta] = useState<{
     total: number;
     active_count: number;
@@ -44,28 +44,28 @@ export function useSchedules(params: UseSchedulesParams = {}) {
       currentParamsRef.current = paramsKey;
       fetchSchedules();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [params.pipeline_id, params.is_active]);
 
-  const createSchedule = async (data: CiCdScheduleFormData) => {
+  const createSchedule = async (data: DevopsScheduleFormData) => {
     try {
       const schedule = await devopsSchedulesApi.create(data);
       showNotification('Schedule created successfully', 'success');
       await fetchSchedules();
       return schedule;
-    } catch (err) {
+    } catch (_err) {
       showNotification('Failed to create schedule', 'error');
       return null;
     }
   };
 
-  const updateSchedule = async (id: string, data: Partial<CiCdScheduleFormData>) => {
+  const updateSchedule = async (id: string, data: Partial<DevopsScheduleFormData>) => {
     try {
       const schedule = await devopsSchedulesApi.update(id, data);
       showNotification('Schedule updated successfully', 'success');
       await fetchSchedules();
       return schedule;
-    } catch (err) {
+    } catch (_err) {
       showNotification('Failed to update schedule', 'error');
       return null;
     }
@@ -77,7 +77,7 @@ export function useSchedules(params: UseSchedulesParams = {}) {
       showNotification('Schedule deleted successfully', 'success');
       await fetchSchedules();
       return true;
-    } catch (err) {
+    } catch (_err) {
       showNotification('Failed to delete schedule', 'error');
       return false;
     }
@@ -92,7 +92,7 @@ export function useSchedules(params: UseSchedulesParams = {}) {
       );
       await fetchSchedules();
       return schedule;
-    } catch (err) {
+    } catch (_err) {
       showNotification('Failed to toggle schedule', 'error');
       return null;
     }
@@ -112,7 +112,7 @@ export function useSchedules(params: UseSchedulesParams = {}) {
 }
 
 export function useSchedule(id: string | null) {
-  const [schedule, setSchedule] = useState<CiCdSchedule | null>(null);
+  const [schedule, setSchedule] = useState<DevopsSchedule | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -140,10 +140,10 @@ export function useSchedule(id: string | null) {
       hasLoadedRef.current = id;
       fetchSchedule();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [id]);
 
-  const updateSchedule = async (data: Partial<CiCdScheduleFormData>) => {
+  const updateSchedule = async (data: Partial<DevopsScheduleFormData>) => {
     if (!id) return null;
 
     try {
@@ -151,7 +151,7 @@ export function useSchedule(id: string | null) {
       showNotification('Schedule updated successfully', 'success');
       setSchedule(updated);
       return updated;
-    } catch (err) {
+    } catch (_err) {
       showNotification('Failed to update schedule', 'error');
       return null;
     }

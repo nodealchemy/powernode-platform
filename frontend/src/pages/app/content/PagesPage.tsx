@@ -11,6 +11,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { Plus, RefreshCw, Edit2, Eye, EyeOff, Copy, Trash2 } from 'lucide-react';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 
 export const PagesPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -43,7 +44,7 @@ export const PagesPage: React.FC = () => {
       });
       setPages(response.data);
       setTotalPages(response.meta.total_pages);
-    } catch (_error: unknown) {
+    } catch (_error) {
       dispatch(addNotification({
         type: 'error',
         message: 'Failed to load pages'
@@ -81,8 +82,8 @@ export const PagesPage: React.FC = () => {
   ];
 
   const breadcrumbs = [
-    { label: 'Dashboard', href: '/app', icon: '🏠' },
-    { label: 'Pages', icon: '📄' }
+    { label: 'Dashboard', href: '/app' },
+    { label: 'Pages' }
   ];
 
   useEffect(() => {
@@ -262,7 +263,7 @@ export const PagesPage: React.FC = () => {
             <label className="label-theme">Status</label>
             <select
               value={filters.status}
-              onChange={(e) => setFilters({ ...filters, status: e.target.value as any, currentPage: 1 })}
+              onChange={(e) => setFilters({ ...filters, status: e.target.value as typeof filters.status, currentPage: 1 })}
               className="select-theme"
             >
               <option value="all">All Status</option>
@@ -288,9 +289,8 @@ export const PagesPage: React.FC = () => {
         </div>
         
         {loading ? (
-          <div className="p-6 text-center">
-            <div className="animate-spin h-8 w-8 border-b-2 border-theme-link mx-auto mb-2"></div>
-            <p className="text-theme-secondary">Loading pages...</p>
+          <div className="p-6">
+            <LoadingSpinner message="Loading pages..." />
           </div>
         ) : pages.length === 0 ? (
           <div className="p-12 text-center">

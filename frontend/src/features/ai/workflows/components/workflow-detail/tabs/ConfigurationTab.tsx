@@ -84,7 +84,7 @@ export const ConfigurationTab: React.FC<ConfigurationTabProps> = ({
                 try {
                   const parsed = JSON.parse(e.target.value);
                   onEditChange({ configuration: parsed });
-                } catch (err) {
+                } catch (_error) {
                   onEditChange({ configuration: e.target.value as unknown as Record<string, unknown> });
                 }
               }}

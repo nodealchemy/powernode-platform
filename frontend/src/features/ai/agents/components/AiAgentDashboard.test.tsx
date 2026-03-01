@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
+import { BreadcrumbProvider } from '@/shared/hooks/BreadcrumbContext';
 import { AiAgentDashboard } from './AiAgentDashboard';
 import { agentsApi } from '@/shared/services/ai';
 
@@ -90,6 +91,13 @@ jest.mock('@/shared/components/layout/PageContainer', () => ({
   )
 }));
 
+// Mock ChatWindowContext (required by AiAgentDashboard)
+jest.mock('@/features/ai/chat/context/ChatWindowContext', () => ({
+  useChatWindow: () => ({
+    openConversationMaximized: jest.fn(),
+  }),
+}));
+
 // Mock modal components
 jest.mock('./CreateAgentModal', () => ({
   CreateAgentModal: ({ isOpen, onClose, onAgentCreated }: any) => (
@@ -126,19 +134,22 @@ describe('AiAgentDashboard', () => {
       agent_type: 'content_generator',
       status: 'active',
       is_active: true,
-      ai_provider: {
+      // Component uses 'provider' not 'ai_provider'
+      provider: {
         id: 'provider-1',
         name: 'OpenAI',
         slug: 'openai',
         provider_type: 'text_generation'
       },
+      // Component uses 'model' directly
+      model: 'gpt-4',
       mcp_tool_manifest: {
         name: 'data_processor',
         description: 'Data processing agent',
         type: 'ai_agent',
         version: '1.0.0'
       },
-      mcp_capabilities: ['text_generation'],
+      skill_slugs: ['text_generation'],
       mcp_input_schema: {},
       mcp_output_schema: {},
       mcp_metadata: {
@@ -166,19 +177,22 @@ describe('AiAgentDashboard', () => {
       agent_type: 'content_generator',
       status: 'inactive',
       is_active: false,
-      ai_provider: {
+      // Component uses 'provider' not 'ai_provider'
+      provider: {
         id: 'provider-2',
         name: 'Anthropic',
         slug: 'anthropic',
         provider_type: 'text_generation'
       },
+      // Component uses 'model' directly
+      model: 'claude-3-opus',
       mcp_tool_manifest: {
         name: 'content_generator',
         description: 'Content generation agent',
         type: 'ai_agent',
         version: '1.0.0'
       },
-      mcp_capabilities: ['text_generation'],
+      skill_slugs: ['text_generation'],
       mcp_input_schema: {},
       mcp_output_schema: {},
       mcp_metadata: {
@@ -220,7 +234,9 @@ describe('AiAgentDashboard', () => {
     return render(
       <Provider store={store}>
         <BrowserRouter>
-          <AiAgentDashboard />
+          <BreadcrumbProvider>
+            <AiAgentDashboard />
+          </BreadcrumbProvider>
         </BrowserRouter>
       </Provider>
     );

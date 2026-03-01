@@ -21,23 +21,27 @@ Get the Powernode platform running locally in under 10 minutes.
 git clone https://github.com/your-org/powernode-platform.git
 cd powernode-platform
 
-# Install all dependencies
-./scripts/auto-dev.sh setup
+# Install dependencies
+cd server && bundle install
+cd ../frontend && npm install
+cd ../worker && bundle install
+cd ..
+
+# Setup database
+cd server && bundle exec rails db:create db:migrate db:seed
 ```
 
-This runs:
-- `bundle install` for server and worker
-- `npm install` for frontend
-- Database setup and migrations
-
-### 2. Start All Services
+### 2. Install and Start All Services
 
 ```bash
-# Start everything (PostgreSQL, Redis, Rails, Vite, Sidekiq)
-./scripts/auto-dev.sh ensure
+# Install systemd services (one-time)
+sudo scripts/systemd/powernode-installer.sh install
+
+# Start everything
+sudo systemctl start powernode.target
 
 # Check status
-./scripts/auto-dev.sh status
+sudo scripts/systemd/powernode-installer.sh status
 ```
 
 ### 3. Access the Application
@@ -184,9 +188,12 @@ powernode-platform/
 ### Services Won't Start
 
 ```bash
-# Stop all services and restart
-./scripts/auto-dev.sh stop
-./scripts/auto-dev.sh ensure
+# Check logs for errors
+journalctl -u powernode-backend@default --since "5 min ago" --no-pager
+
+# Reset failed state and restart
+sudo systemctl reset-failed 'powernode-*'
+sudo systemctl start powernode.target
 ```
 
 ### Database Issues

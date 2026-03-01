@@ -1,0 +1,37 @@
+# frozen_string_literal: true
+
+module Api
+  module V1
+    module Internal
+      module Ai
+        class SkillsController < InternalBaseController
+          # POST /api/v1/internal/ai/skills/seed_system
+          def seed_system
+            seed_file = Rails.root.join("db/seeds/ai_skills_seed.rb")
+
+            unless File.exist?(seed_file)
+              render_error("Skills seed file not found", status: :not_found)
+              return
+            end
+
+            load seed_file
+            render_success(message: "System skills seeded")
+          rescue StandardError => e
+            render_error("Failed to seed skills: #{e.message}", status: :unprocessable_content)
+          end
+
+          # POST /api/v1/internal/ai/skills/:id/refresh_connectors
+          def refresh_connectors
+            skill = ::Ai::Skill.find(params[:id])
+            servers = skill.mcp_servers
+            render_success(
+              connectors: servers.map { |s| { id: s.id, name: s.name, status: s.status } }
+            )
+          rescue ActiveRecord::RecordNotFound
+            render_error("Skill not found", status: :not_found)
+          end
+        end
+      end
+    end
+  end
+end

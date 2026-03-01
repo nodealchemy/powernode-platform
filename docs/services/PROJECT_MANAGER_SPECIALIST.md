@@ -216,9 +216,9 @@ npm version prerelease --preid=alpha    # 1.0.0 → 1.0.1-alpha.0
 npm version prerelease --preid=beta     # 1.0.0-alpha.0 → 1.0.0-beta.0
 npm version prerelease --preid=rc       # 1.0.0-beta.0 → 1.0.0-rc.0
 
-# Manual tagging
-git tag -a v1.2.0 -m "Release v1.2.0: Feature description"
-git push origin v1.2.0
+# Manual tagging (no "v" prefix)
+git tag -a 1.2.0 -m "Release 1.2.0: Feature description"
+git push origin 1.2.0
 ```
 
 ---

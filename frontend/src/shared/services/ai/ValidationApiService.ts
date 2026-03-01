@@ -1,4 +1,4 @@
-import { BaseApiService } from './BaseApiService';
+import { BaseApiService } from '@/shared/services/ai/BaseApiService';
 import type {
   ValidationIssue,
   ValidationRule,

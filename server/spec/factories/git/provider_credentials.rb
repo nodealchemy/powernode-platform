@@ -66,21 +66,21 @@ FactoryBot.define do
     end
 
     trait :github do
-      association :provider, factory: [:git_provider, :github]
+      association :provider, factory: [ :git_provider, :github ]
       scopes { %w[repo read:user workflow] }
     end
 
     trait :gitlab do
-      association :provider, factory: [:git_provider, :gitlab]
+      association :provider, factory: [ :git_provider, :gitlab ]
       scopes { %w[api read_user read_repository] }
     end
 
     trait :gitea do
-      association :provider, factory: [:git_provider, :gitea]
+      association :provider, factory: [ :git_provider, :gitea ]
       scopes { %w[repo user] }
     end
 
-    factory :default_git_credential, traits: [:default, :healthy]
-    factory :unhealthy_git_credential, traits: [:unhealthy]
+    factory :default_git_credential, traits: [ :default, :healthy ]
+    factory :unhealthy_git_credential, traits: [ :unhealthy ]
   end
 end

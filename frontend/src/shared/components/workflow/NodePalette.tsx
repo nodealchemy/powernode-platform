@@ -172,19 +172,25 @@ const nodeColorThemes = {
   },
   // DevOps Orchestration Node Types (for AI workflow integration with DevOps pipelines)
   'devops_trigger': {
-    bg: 'bg-gradient-to-r from-orange-500 to-orange-600',
+    bg: 'bg-node-devops-trigger',
     indicator: 'bg-theme-warning',
     text: 'text-theme-warning'
   },
   'devops_wait_status': {
-    bg: 'bg-gradient-to-r from-amber-500 to-amber-600',
+    bg: 'bg-node-devops-wait-status',
     indicator: 'bg-theme-warning',
     text: 'text-theme-warning'
   },
   'devops_get_logs': {
-    bg: 'bg-gradient-to-r from-slate-500 to-slate-600',
+    bg: 'bg-node-devops-get-logs',
     indicator: 'bg-theme-secondary',
     text: 'text-theme-secondary'
+  },
+  // Ralph Loop - AI-driven iterative development
+  'ralph_loop': {
+    bg: 'bg-node-ralph-loop',
+    indicator: 'bg-node-ralph-loop',
+    text: 'text-node-ralph-loop'
   }
 } as const;
 
@@ -212,6 +218,14 @@ const nodeTypes: NodeTypeDefinition[] = [
     icon: <Bot className="h-4 w-4" />,
     category: 'AI',
     color: 'ai_agent'
+  },
+  {
+    type: 'ralph_loop',
+    label: 'Ralph Loop',
+    description: 'AI-driven iterative development with task parsing and learning',
+    icon: <RefreshCw className="h-4 w-4" />,
+    category: 'AI',
+    color: 'ralph_loop'
   },
   {
     type: 'api_call',

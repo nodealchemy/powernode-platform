@@ -55,7 +55,7 @@ export const ValidationStatisticsDashboard: React.FC<ValidationStatisticsDashboa
   const [loading, setLoading] = useState(true);
   const { addNotification } = useNotifications();
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- Load when timeRange changes
+   
   useEffect(() => {
     loadStatistics();
   }, [timeRange]);
@@ -65,10 +65,7 @@ export const ValidationStatisticsDashboard: React.FC<ValidationStatisticsDashboa
       setLoading(true);
       const response = await validationApi.getValidationStatistics('', timeRange);
       setStatistics(response.statistics as unknown as ValidationStatistics);
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to load statistics:', error);
-      }
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Failed to Load Statistics',

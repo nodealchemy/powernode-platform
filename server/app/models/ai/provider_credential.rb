@@ -17,9 +17,7 @@ module Ai
     validates :name, presence: true, length: { maximum: 255 }
     validates :encrypted_credentials, presence: true
     validates :encryption_key_id, presence: true
-    validates :account_id, uniqueness: { scope: [:ai_provider_id, :is_default],
-                                         conditions: -> { where(is_default: true) },
-                                         message: "can only have one default credential per provider" }
+    validate :only_one_default_per_provider
     validate :credentials_format
     validate :expiration_date_future
 
@@ -99,7 +97,7 @@ module Ai
 
       begin
         # This would be implemented by the AI provider service
-        Ai::ProviderTestService.new(self).test_connection
+        Ai::ProviderManagementService.new(self).test_connection
       rescue StandardError => e
         record_failure!(e.message)
         false
@@ -138,14 +136,18 @@ module Ai
     def decrypt_credentials
       return {} unless encrypted_credentials.present?
 
-      # In test environment, use simple base64 decoding
       if Rails.env.test?
         JSON.parse(Base64.strict_decode64(encrypted_credentials))
       else
-        Ai::CredentialEncryptionService.decrypt(
-          encrypted_credentials,
-          encryption_key_id
-        )
+        begin
+          ::Security::CredentialEncryptionService.decrypt(
+            encrypted_credentials,
+            namespace: "ai"
+          )
+        rescue ::Security::CredentialEncryptionService::DecryptionError
+          # Retry without namespace for credentials encrypted before namespace was added
+          ::Security::CredentialEncryptionService.decrypt(encrypted_credentials)
+        end
       end
     rescue StandardError => e
       Rails.logger.error "Failed to decrypt AI credentials: #{e.message}"
@@ -155,16 +157,15 @@ module Ai
     def encrypt_credentials(credentials_hash)
       return nil unless credentials_hash.present?
 
-      # In test environment, use simple base64 encoding
       if Rails.env.test?
         Base64.strict_encode64(credentials_hash.to_json)
       else
-        Ai::CredentialEncryptionService.encrypt(credentials_hash)
+        ::Security::CredentialEncryptionService.encrypt(credentials_hash, namespace: "ai")
       end
     end
 
     def current_encryption_key_id
-      Rails.env.test? ? "test_key" : Ai::CredentialEncryptionService.current_key_id
+      Rails.env.test? ? "test_key" : ::Security::CredentialEncryptionService.current_key_id("ai")
     end
 
     def credentials_format
@@ -205,26 +206,16 @@ module Ai
     end
 
     def validate_custom_configuration
-      # Custom providers vary by slug
-      case provider&.slug
-      when "ollama"
-        required_fields = %w[base_url]
-        optional_fields = %w[model]
-      when "huggingface"
-        required_fields = %w[api_key]
-        optional_fields = %w[model]
-      else
-        required_fields = %w[api_key]
-        optional_fields = %w[model base_url]
-      end
-
-      validate_required_fields(required_fields)
-      validate_field_formats(optional_fields)
+      # Custom providers are flexible - require either api_key or base_url
+      # This allows different custom provider configurations to work
+      validate_generic_configuration
     end
 
     def validate_generic_configuration
-      # At minimum, require either api_key or base_url
-      unless @credentials.key?("api_key") || @credentials.key?("base_url")
+      # At minimum, require either api_key or base_url (handle both string and symbol keys)
+      has_api_key = @credentials.key?("api_key") || @credentials.key?(:api_key)
+      has_base_url = @credentials.key?("base_url") || @credentials.key?(:base_url)
+      unless has_api_key || has_base_url
         errors.add(:credentials, "must include either api_key or base_url")
       end
     end
@@ -238,12 +229,15 @@ module Ai
     end
 
     def validate_field_formats(optional_fields)
-      # Additional format validation can be added here
-      if @credentials["api_key"].present? && @credentials["api_key"].length < 10
+      # Additional format validation can be added here (handle both string and symbol keys)
+      api_key = @credentials["api_key"] || @credentials[:api_key]
+      base_url = @credentials["base_url"] || @credentials[:base_url]
+
+      if api_key.present? && api_key.length < 10
         errors.add(:credentials, "api_key appears to be too short")
       end
 
-      if @credentials["base_url"].present? && !@credentials["base_url"].match(/\Ahttps?:\/\//)
+      if base_url.present? && !base_url.match(/\Ahttps?:\/\//)
         errors.add(:credentials, "base_url must be a valid HTTP/HTTPS URL")
       end
     end
@@ -314,6 +308,20 @@ module Ai
               .where(ai_provider_credentials: { id: id })
               .where("ai_agent_executions.created_at >= ?", period.ago)
               .sum(:tokens_used) || 0
+    end
+
+    def only_one_default_per_provider
+      return unless is_default?
+
+      existing = Ai::ProviderCredential.where(
+        account_id: account_id,
+        ai_provider_id: ai_provider_id,
+        is_default: true
+      ).where.not(id: id)
+
+      if existing.exists?
+        errors.add(:is_default, "can only have one default credential per provider")
+      end
     end
   end
 end

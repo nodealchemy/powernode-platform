@@ -63,8 +63,8 @@ class Permission < ApplicationRecord
           action: action,
           description: description || "Permission for #{name}"
         )
-      rescue ActiveRecord::RecordNotUnique
-        # Another thread created it, find and return
+      rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid
+        # Another thread/process created it, or model-level uniqueness validation caught it
         find_by(name: name) || find_by(resource: resource, action: action, category: category)
       end
     end

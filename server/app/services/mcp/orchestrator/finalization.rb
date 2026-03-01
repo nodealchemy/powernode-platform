@@ -15,9 +15,15 @@ module Mcp
 
         @workflow_run.update_progress!
 
+        # Ensure completed_at is always after started_at to satisfy validation
+        completion_time = Time.current
+        if @workflow_run.started_at.present? && completion_time <= @workflow_run.started_at
+          completion_time = @workflow_run.started_at + 0.001.seconds
+        end
+
         @workflow_run.update!(
           status: final_status,
-          completed_at: Time.current,
+          completed_at: completion_time,
           output_variables: final_output,
           duration_ms: calculate_total_duration,
           total_cost: calculate_total_cost
@@ -100,6 +106,12 @@ module Mcp
 
         cleanup_active_nodes(error)
 
+        # Ensure completed_at is always after started_at to satisfy validation
+        completion_time = Time.current
+        if @workflow_run.started_at.present? && completion_time <= @workflow_run.started_at
+          completion_time = @workflow_run.started_at + 0.001.seconds
+        end
+
         @workflow_run.update!(
           status: "failed",
           error_details: {
@@ -107,7 +119,7 @@ module Mcp
             exception_class: error.class.name,
             backtrace: error.backtrace&.first(20)
           },
-          completed_at: Time.current
+          completed_at: completion_time
         )
 
         @event_store.record_event(

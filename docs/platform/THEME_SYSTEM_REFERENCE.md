@@ -171,6 +171,15 @@ The only allowed hardcoded color is `text-white` when used on colored background
 <span className="bg-theme-success text-white">Success</span>
 ```
 
+## Tailwind CSS
+
+The project uses **Tailwind CSS v4.1** with CSS-first configuration.
+
+- Theme classes are defined via CSS custom properties in `frontend/src/index.css`
+- Dark mode uses the `dark` class on `<html>` element
+- Theme-aware classes (`bg-theme-*`, `text-theme-*`) are custom utilities built on CSS variables
+- Configuration: `frontend/tailwind.config.js` (extends default theme with custom colors)
+
 ## See Also
 
 - [UI Component Developer Specialist](../frontend/UI_COMPONENT_DEVELOPER_SPECIALIST.md)

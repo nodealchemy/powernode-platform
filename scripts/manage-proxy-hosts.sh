@@ -104,7 +104,7 @@ EOF
     # Check if frontend is running and notify user
     if pgrep -f "vite" > /dev/null 2>&1; then
         print_warning "Frontend is running - restart required for changes to take effect"
-        print_info "Run: ./scripts/frontend-manager.sh restart"
+        print_info "Run: sudo systemctl restart powernode-frontend@default"
     fi
 }
 

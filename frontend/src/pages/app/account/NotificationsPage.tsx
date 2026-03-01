@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { notificationApi, Notification } from '@/features/account/notifications/services/notificationApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useNotificationWebSocket, WebSocketNotification } from '@/shared/hooks/useNotificationWebSocket';
+import { useChatWindow } from '@/features/ai/chat/context/ChatWindowContext';
 import {
   BellIcon,
   CheckIcon,
@@ -31,6 +33,8 @@ const SEVERITY_COLORS: Record<string, string> = {
 
 export const NotificationsPage: React.FC = () => {
   const { showNotification } = useNotifications();
+  const navigate = useNavigate();
+  const { openConversationMaximized } = useChatWindow();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
@@ -68,8 +72,23 @@ export const NotificationsPage: React.FC = () => {
     setUnreadCount(prev => Math.max(0, prev - 1));
   }, []);
 
+  // Handle notification click — open chat for AI types, navigate for others
+  const handleNotificationClick = useCallback((notification: Notification) => {
+    if (notification.type === 'ai_plan_review' && notification.metadata) {
+      const agentId = notification.metadata.agent_id as string | undefined;
+      const conversationId = notification.metadata.conversation_id as string | undefined;
+      if (agentId) {
+        openConversationMaximized(agentId, '', conversationId);
+        return;
+      }
+    }
+    if (notification.action_url) {
+      navigate(notification.action_url);
+    }
+  }, [navigate, openConversationMaximized]);
+
   // WebSocket connection for real-time notifications
-  const { isConnected: _wsConnected } = useNotificationWebSocket({
+  useNotificationWebSocket({
     onNewNotification: handleNewNotification,
     onNotificationRead: handleNotificationRead
   });
@@ -90,7 +109,7 @@ export const NotificationsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [page, filter]);
 
   useEffect(() => {
@@ -104,7 +123,7 @@ export const NotificationsPage: React.FC = () => {
         prev.map((n) => (n.id === id ? { ...n, read: true } : n))
       );
       setUnreadCount((prev) => Math.max(0, prev - 1));
-    } catch {
+    } catch (_error) {
       // Silently fail
     }
   };
@@ -114,7 +133,7 @@ export const NotificationsPage: React.FC = () => {
       await notificationApi.dismiss(id);
       setNotifications((prev) => prev.filter((n) => n.id !== id));
       loadNotifications();
-    } catch {
+    } catch (_error) {
       // Silently fail
     }
   };
@@ -124,7 +143,7 @@ export const NotificationsPage: React.FC = () => {
       await notificationApi.markAllAsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);
-    } catch {
+    } catch (_error) {
       // Silently fail
     }
   };
@@ -181,7 +200,7 @@ export const NotificationsPage: React.FC = () => {
                   onClick={() => { setFilter('all'); setPage(1); }}
                   className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                     filter === 'all'
-                      ? 'bg-theme-interactive-primary text-white'
+                      ? 'bg-theme-interactive-primary text-theme-on-primary'
                       : 'bg-theme-surface text-theme-primary border border-theme hover:bg-theme-surface-hover'
                   }`}
                 >
@@ -191,7 +210,7 @@ export const NotificationsPage: React.FC = () => {
                   onClick={() => { setFilter('unread'); setPage(1); }}
                   className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
                     filter === 'unread'
-                      ? 'bg-theme-interactive-primary text-white'
+                      ? 'bg-theme-interactive-primary text-theme-on-primary'
                       : 'bg-theme-surface text-theme-primary border border-theme hover:bg-theme-surface-hover'
                   }`}
                 >
@@ -199,8 +218,8 @@ export const NotificationsPage: React.FC = () => {
                   {unreadCount > 0 && (
                     <span className={`px-1.5 py-0.5 text-xs rounded-full font-semibold ${
                       filter === 'unread'
-                        ? 'bg-white/20 text-white'
-                        : 'bg-theme-danger text-white'
+                        ? 'bg-theme-on-primary/20 text-theme-on-primary'
+                        : 'bg-theme-danger text-theme-on-primary'
                     }`}>
                       {unreadCount}
                     </span>
@@ -230,9 +249,10 @@ export const NotificationsPage: React.FC = () => {
                 return (
                   <div
                     key={notification.id}
-                    className={`px-6 py-4 hover:bg-theme-surface-hover transition-colors ${
+                    className={`px-6 py-4 hover:bg-theme-surface-hover transition-colors cursor-pointer ${
                       !notification.read ? 'bg-theme-info/5' : ''
                     }`}
+                    onClick={() => handleNotificationClick(notification)}
                   >
                     <div className="flex items-start gap-4">
                       <div className={`p-2 rounded-lg flex-shrink-0 ${colorClass}`}>

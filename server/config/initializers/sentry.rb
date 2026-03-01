@@ -21,7 +21,7 @@ if ENV["SENTRY_DSN"].present?
     config.profiles_sample_rate = Rails.env.production? ? 0.1 : 1.0
 
     # Breadcrumbs configuration
-    config.breadcrumbs_logger = [:active_support_logger, :http_logger]
+    config.breadcrumbs_logger = [ :active_support_logger, :http_logger ]
 
     # Release tracking (use git SHA or version)
     config.release = ENV.fetch("APP_VERSION") { `git rev-parse HEAD`.strip rescue "unknown" }

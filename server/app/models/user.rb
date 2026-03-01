@@ -37,10 +37,13 @@ class User < ApplicationRecord
            foreign_key: "impersonated_user_id",
            dependent: :destroy
   has_many :notifications, dependent: :destroy
+  has_many :user_tokens, dependent: :destroy
+  has_many :mcp_sessions, dependent: :destroy
 
   # Serialization
   serialize :preferences, coder: JSON
   serialize :notification_preferences, coder: JSON
+  serialize :backup_codes, coder: JSON
 
   # Validations
   validates :email, presence: true,
@@ -169,7 +172,7 @@ class User < ApplicationRecord
 
     # Assign permissions to the role (even if empty array)
     @pending_permissions.each do |permission_name|
-      permission = Permission.find_or_create_by!(name: permission_name)
+      permission = Permission.find_or_create_from_name!(permission_name)
       role.permissions << permission unless role.permissions.include?(permission)
     end
 
@@ -221,6 +224,19 @@ class User < ApplicationRecord
 
     roles.delete(role)
     true
+  end
+
+  # Grant a single permission to this user via their first role
+  def grant_permission(permission_name)
+    permission = Permission.find_or_create_from_name!(permission_name)
+
+    role = roles.first || Role.find_or_create_by!(name: "custom_#{id}") do |r|
+      r.display_name = "Custom Role"
+      r.role_type = "custom"
+    end
+    role.permissions << permission unless role.permissions.include?(permission)
+    self.roles << role unless self.roles.include?(role)
+    reload
   end
 
   # Convenience methods for common role checks
@@ -349,7 +365,7 @@ class User < ApplicationRecord
 
       true
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Password reset failed: #{e.message}"
     errors.add(:base, "Password reset failed: #{e.message}")
     false
@@ -407,16 +423,25 @@ class User < ApplicationRecord
   end
 
   def enable_two_factor!(secret = nil)
+    new_secret = secret || ROTP::Base32.random
+    new_codes = generate_backup_codes
     update!(
-      two_factor_secret: secret || ROTP::Base32.random,
-      backup_codes: generate_backup_codes
+      two_factor_secret: new_secret,
+      two_factor_enabled: true,
+      two_factor_enabled_at: Time.current,
+      backup_codes: new_codes,
+      two_factor_backup_codes_generated_at: Time.current
     )
+    new_secret
   end
 
   def disable_two_factor!
     update!(
       two_factor_secret: nil,
-      backup_codes: nil
+      two_factor_enabled: false,
+      two_factor_enabled_at: nil,
+      backup_codes: nil,
+      two_factor_backup_codes_generated_at: nil
     )
   end
 
@@ -433,6 +458,29 @@ class User < ApplicationRecord
     remaining_codes = backup_codes - [ code ]
     update!(backup_codes: remaining_codes)
     true
+  end
+
+  # Generate QR code URI for authenticator apps
+  def two_factor_qr_code
+    return nil unless two_factor_secret.present?
+
+    totp = ROTP::TOTP.new(two_factor_secret, issuer: "Powernode")
+    totp.provisioning_uri(email)
+  end
+
+  # Alias for controller compatibility
+  def two_factor_backup_codes
+    backup_codes || []
+  end
+
+  # Regenerate backup codes
+  def regenerate_backup_codes!
+    new_codes = generate_backup_codes
+    update!(
+      backup_codes: new_codes,
+      two_factor_backup_codes_generated_at: Time.current
+    )
+    new_codes
   end
 
   private
@@ -476,7 +524,7 @@ class User < ApplicationRecord
     @role_cache_key = nil
     cache_key_pattern = "user:#{id}:permission_names:*"
     Rails.cache.delete_matched(cache_key_pattern)
-  rescue => e
+  rescue StandardError => e
     Rails.logger.warn "Failed to clear permission cache for user #{id}: #{e.message}"
   end
 end

@@ -119,7 +119,7 @@ export const CreateAgentModal: React.FC<CreateAgentModalProps> = ({
     if (isOpen) {
       loadProviders();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [isOpen]);
 
   // Update selected provider when provider changes
@@ -138,7 +138,7 @@ export const CreateAgentModal: React.FC<CreateAgentModalProps> = ({
     } else {
       setSelectedProvider(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [form.values.ai_provider_id, providers]);
 
   const loadProviders = async () => {
@@ -146,8 +146,7 @@ export const CreateAgentModal: React.FC<CreateAgentModalProps> = ({
       setLoadingProviders(true);
       const { items: providersData } = await providersApi.getProviders({ status: 'active' });
       setProviders(providersData || []);
-    } catch (error) {
-      console.error('Failed to load providers:', error);
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Error',

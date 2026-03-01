@@ -1,7 +1,7 @@
 import React from 'react';
 import { NodeProps } from '@xyflow/react';
 import { Cpu } from 'lucide-react';
-import { DynamicNodeHandles } from './DynamicNodeHandles';
+import { DynamicNodeHandles } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
 import { DataProcessorNode as DataProcessorNodeType } from '@/shared/types/workflow';
 
 export const DataProcessorNode: React.FC<NodeProps<DataProcessorNodeType>> = ({

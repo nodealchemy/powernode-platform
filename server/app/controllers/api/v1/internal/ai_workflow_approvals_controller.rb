@@ -5,7 +5,7 @@ module Api
     module Internal
       # Internal API for worker service to manage AI workflow approval tokens
       class AiWorkflowApprovalsController < InternalBaseController
-        before_action :set_node_execution, only: [:show, :create_tokens]
+        before_action :set_node_execution, only: [ :show, :create_tokens ]
 
         # GET /api/v1/internal/ai_workflow_approvals/:node_execution_id
         # Returns node execution details for email template
@@ -98,8 +98,7 @@ module Api
             affected_execution_ids: affected_execution_ids
           })
         rescue StandardError => e
-          Rails.logger.error("Error expiring AI workflow approval tokens: #{e.message}")
-          render_error("Failed to expire tokens: #{e.message}", status: :internal_server_error)
+          render_internal_error("Failed to expire tokens", exception: e)
         end
 
         private

@@ -85,10 +85,8 @@ describe('Privacy Dashboard Page Tests', () => {
 
     it('should display stats cards with icons', () => {
       cy.get('body').then($body => {
-        if ($body.find('.grid').length > 0) {
-          cy.get('.grid').first().within(() => {
-            cy.get('[class*="rounded-lg"]').should('have.length.at.least', 1);
-          });
+        if ($body.find('[data-testid*="stat-card"], .grid').length > 0) {
+          cy.assertHasElement(['[data-testid*="stat-card"]', '[data-testid*="privacy"]', '.grid']);
         } else {
           cy.assertContainsAny(['Privacy', 'Consent', 'Data']);
         }

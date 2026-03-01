@@ -2,6 +2,7 @@
 
 class Api::V1::Kb::CategoriesController < ApplicationController
   skip_before_action :authenticate_request, only: [ :index, :show, :tree ]
+  before_action :authenticate_if_present, only: [ :index, :show, :tree ]
   before_action :set_category, only: [ :show, :update, :destroy ]
   before_action :authorize_kb_manage, only: [ :create, :update, :destroy ]
 
@@ -9,8 +10,8 @@ class Api::V1::Kb::CategoriesController < ApplicationController
   def index
     if editing_mode?
       # Admin view - all categories for editing
-      categories = KnowledgeBaseCategory.includes(:children, :articles, :parent)
-      categories = categories.where("name ILIKE ?", "%#{params[:search]}%") if params[:search].present?
+      categories = KnowledgeBase::Category.includes(:children, :articles, :parent)
+      categories = categories.where("name ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(params[:search])}%") if params[:search].present?
       categories = categories.ordered.page(params[:page]).per(params[:per_page] || 50)
 
       render_success({
@@ -19,7 +20,7 @@ class Api::V1::Kb::CategoriesController < ApplicationController
       })
     else
       # Public view - only public categories
-      categories = KnowledgeBaseCategory.public_categories
+      categories = KnowledgeBase::Category.public_categories
         .root_categories
         .includes(:children, :articles)
         .ordered
@@ -32,10 +33,10 @@ class Api::V1::Kb::CategoriesController < ApplicationController
   def tree
     if can_manage_kb?
       # Full tree for admin
-      categories = KnowledgeBaseCategory.includes(:children, :articles).ordered
+      categories = KnowledgeBase::Category.includes(:children, :articles).ordered
     else
       # Public tree only
-      categories = KnowledgeBaseCategory.public_categories.includes(:children, :articles).ordered
+      categories = KnowledgeBase::Category.public_categories.includes(:children, :articles).ordered
     end
 
     render_success(build_category_tree(categories.root_categories))
@@ -45,8 +46,11 @@ class Api::V1::Kb::CategoriesController < ApplicationController
   def show
     return render_error("Category not found", status: :not_found) unless @category
 
-    if editing_mode?
-      # Admin view - detailed category info for editing
+    # Check if admin view was explicitly requested
+    admin_requested = params[:admin] == "true" || params[:edit] == "true" || request.path.include?("/admin")
+
+    if admin_requested
+      # Admin view was explicitly requested - check permission
       return render_error("Access denied", status: :forbidden) unless can_manage_kb?
 
       render_success({
@@ -71,12 +75,12 @@ class Api::V1::Kb::CategoriesController < ApplicationController
 
   # POST /api/v1/kb/categories
   def create
-    category = KnowledgeBaseCategory.new(category_params)
+    category = KnowledgeBase::Category.new(category_params)
 
     if category.save
-      render_success({
+      render_success(
         category: serialize_category_admin(category)
-      }, "Category created successfully")
+      )
     else
       render_validation_error(category)
     end
@@ -87,9 +91,9 @@ class Api::V1::Kb::CategoriesController < ApplicationController
     return render_error("Category not found", status: :not_found) unless @category
 
     if @category.update(category_params)
-      render_success({
+      render_success(
         category: serialize_category_admin(@category)
-      }, "Category updated successfully")
+      )
     else
       render_validation_error(@category)
     end
@@ -106,13 +110,19 @@ class Api::V1::Kb::CategoriesController < ApplicationController
 
   private
 
+  def authenticate_if_present
+    # Authenticate if Authorization header is present
+    return unless request.headers["Authorization"].present?
+    authenticate_request
+  end
+
   def set_category
-    @category = KnowledgeBaseCategory.find_by(id: params[:id])
+    @category = KnowledgeBase::Category.find_by(id: params[:id])
   end
 
   def editing_mode?
-    params[:admin] == "true" || params[:edit] == "true" ||
-    request.path.include?("/admin") || can_manage_kb?
+    # Only return editing mode if user explicitly requests it AND has permission
+    (params[:admin] == "true" || params[:edit] == "true" || request.path.include?("/admin")) && can_manage_kb?
   end
 
   def can_manage_kb?

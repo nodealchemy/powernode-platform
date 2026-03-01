@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { usersApi, User } from '@/features/account/users/services/usersApi';
 import { getUserInitials } from '@/shared/utils/userUtils';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 
 interface TeamMembersManagementProps {
   accountId?: string;
@@ -10,6 +11,7 @@ interface TeamMembersManagementProps {
 
 export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ accountId }) => {
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMember, setSelectedMember] = useState<User | null>(null);
@@ -17,11 +19,11 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
   const [selectedRole, setSelectedRole] = useState<string>('');
 
   // Check if current user can manage team members based on permissions only
-  const canManageTeam = currentUser?.permissions?.includes('users.manage') || currentUser?.permissions?.includes('users.update') || currentUser?.permissions?.includes('team.manage');
+  const canManageTeam = currentUser?.permissions?.includes('team.assign_roles') || currentUser?.permissions?.includes('admin.user.update') || currentUser?.permissions?.includes('team.invite');
 
   useEffect(() => {
     loadTeamMembers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [accountId]);
 
   const loadTeamMembers = async () => {
@@ -32,14 +34,15 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
       if (response.success) {
         setTeamMembers(response.data);
       }
-    } catch (error) {
-    } finally {
+    } catch (_error) {
+    // Error silently ignored
+  } finally {
       setLoading(false);
     }
   };
 
   const handleRoleChange = async (userId: string, newRole: string) => {
-    if (!currentUser?.permissions?.includes('users.update') && !currentUser?.permissions?.includes('users.manage')) {
+    if (!currentUser?.permissions?.includes('team.assign_roles') && !currentUser?.permissions?.includes('admin.user.update')) {
       alert('You do not have permission to change user roles');
       return;
     }
@@ -50,23 +53,31 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
       setShowEditModal(false);
       setSelectedMember(null);
       setSelectedRole('');
-    } catch (error) {
-    }
+    } catch (_error) {
+    // Error silently ignored
+  }
   };
 
   const handleRemoveMember = async (userId: string) => {
-    if (!currentUser?.permissions?.includes('users.delete') && !currentUser?.permissions?.includes('users.manage')) {
+    if (!currentUser?.permissions?.includes('team.remove') && !currentUser?.permissions?.includes('admin.user.delete')) {
       alert('You do not have permission to remove team members');
       return;
     }
 
-    if (window.confirm('Are you sure you want to remove this team member?')) {
-      try {
-        await usersApi.removeFromAccount(userId, accountId || currentUser?.account?.id);
-        loadTeamMembers();
-      } catch (error) {
-      }
-    }
+    confirm({
+      title: 'Remove Team Member',
+      message: 'Are you sure you want to remove this team member?',
+      confirmLabel: 'Remove',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await usersApi.removeFromAccount(userId, accountId || currentUser?.account?.id);
+          loadTeamMembers();
+        } catch (_error) {
+          // Error silently ignored
+        }
+      },
+    });
   };
 
   const getRoleBadgeColor = (role: string) => {
@@ -242,6 +253,8 @@ export const TeamMembersManagement: React.FC<TeamMembersManagementProps> = ({ ac
       </div>
 
       {/* Edit Role Modal */}
+      {ConfirmationDialog}
+
       {showEditModal && selectedMember && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-theme-surface rounded-lg p-6 w-full max-w-md">

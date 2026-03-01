@@ -9,10 +9,10 @@ import {
   Globe,
   Hash
 } from 'lucide-react';
-import { DynamicNodeHandles } from './DynamicNodeHandles';
-import { NodeActionsMenu } from '../NodeActionsMenu';
-import { useWorkflowContext } from '../WorkflowContext';
-import { NodeStatusBadge } from '../ExecutionOverlay';
+import { DynamicNodeHandles } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
+import { NodeActionsMenu } from '@/shared/components/workflow/NodeActionsMenu';
+import { useWorkflowContext } from '@/shared/components/workflow/WorkflowContext';
+import { NodeStatusBadge } from '@/shared/components/workflow/ExecutionOverlay';
 import { PageNode as PageNodeType } from '@/shared/types/workflow';
 
 // Action configuration with icons and labels

@@ -49,6 +49,8 @@ module Mcp
       @workflow_run = workflow_run
       @events = []
       @event_sequence = 0
+      @events_mutex = Mutex.new
+      @sequence_mutex = Mutex.new
     end
 
     # =============================================================================
@@ -240,14 +242,16 @@ module Mcp
     # =============================================================================
 
     # Record a generic event
+    # Uses atomic sequence generation to prevent race conditions
     #
     # @param event_type [String] Type of event
     # @param event_data [Hash] Event data
     # @param metadata [Hash] Additional metadata
     def record_event(event_type:, event_data: {}, metadata: {})
       with_monitoring("event_recording", event_type: event_type) do
-        # Increment sequence
-        @event_sequence += 1
+        # Use Redis INCR for atomic sequence generation if available,
+        # otherwise use mutex for thread-safe increment
+        sequence = generate_atomic_sequence
 
         # Build event
         event = {
@@ -255,7 +259,7 @@ module Mcp
           event_type: event_type,
           event_data: event_data,
           metadata: metadata.merge(
-            sequence: @event_sequence,
+            sequence: sequence,
             workflow_run_id: @workflow_run.id,
             recorded_at: Time.current.iso8601,
             recorded_by: self.class.name
@@ -263,15 +267,15 @@ module Mcp
           timestamp: Time.current
         }
 
-        # Store event
-        @events << event
+        # Store event (thread-safe)
+        @events_mutex.synchronize { @events << event }
 
         # Persist to database
         persist_event(event)
 
         # Log event
         log_debug "Event recorded: #{event_type}", {
-          sequence: @event_sequence,
+          sequence: sequence,
           event_id: event[:event_id]
         }
 
@@ -397,6 +401,26 @@ module Mcp
     end
 
     private
+
+    # =============================================================================
+    # ATOMIC SEQUENCE GENERATION
+    # =============================================================================
+
+    # Generate atomic sequence number using Redis or mutex
+    def generate_atomic_sequence
+      cache_key = "workflow_event_sequence:#{@workflow_run.id}"
+
+      if defined?(Rails.cache) && Rails.cache.respond_to?(:increment)
+        # Use Redis INCR for atomic sequence generation
+        Rails.cache.increment(cache_key, 1, expires_in: 24.hours) || 1
+      else
+        # Fallback to mutex-protected increment
+        @sequence_mutex.synchronize do
+          @event_sequence += 1
+          @event_sequence
+        end
+      end
+    end
 
     # =============================================================================
     # PERSISTENCE

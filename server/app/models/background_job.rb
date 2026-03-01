@@ -6,7 +6,7 @@ class BackgroundJob < ApplicationRecord
   # Job statuses
   enum :status, {
     pending: "pending",
-    in_progress: "in_progress",
+    processing: "processing",
     completed: "completed",
     failed: "failed",
     cancelled: "cancelled"
@@ -19,18 +19,18 @@ class BackgroundJob < ApplicationRecord
 
   # Scopes
   scope :recent, -> { order(created_at: :desc) }
-  scope :active, -> { where(status: [ "pending", "in_progress" ]) }
+  scope :active, -> { where(status: [ "pending", "processing" ]) }
   scope :finished, -> { where(status: [ "completed", "failed", "cancelled" ]) }
 
   # Callbacks
-  before_create :set_default_status
+  before_validation :set_default_status, on: :create
   before_save :update_timestamps
 
   def self.create_for_sidekiq_job(sidekiq_jid, job_type, job_params = {})
     create!(
       job_id: sidekiq_jid,
       job_type: job_type,
-      parameters: job_params,
+      arguments: job_params,
       status: :pending,
       started_at: Time.current
     )
@@ -38,41 +38,59 @@ class BackgroundJob < ApplicationRecord
 
   def mark_in_progress!
     update!(
-      status: :in_progress,
+      status: :processing,
       started_at: Time.current
     )
   end
+  alias_method :mark_processing!, :mark_in_progress!
 
-  def mark_completed!(result = {})
+  def mark_completed!
     update!(
       status: :completed,
-      result: result,
-      completed_at: Time.current
+      finished_at: Time.current
     )
   end
 
-  def mark_failed!(error_message, error_details = {})
+  def mark_failed!(error_msg, error_trace = nil)
     update!(
       status: :failed,
-      error_message: error_message,
-      error_details: error_details,
-      completed_at: Time.current
+      error_message: error_msg,
+      backtrace: error_trace,
+      failed_at: Time.current,
+      finished_at: Time.current
     )
   end
 
   def duration
-    return nil unless completed_at && started_at
-    completed_at - started_at
+    return nil unless finished_at && started_at
+    finished_at - started_at
   end
 
   def progress_percentage
     case status
-    when "pending" then 0
-    when "in_progress" then (result&.dig("progress") || 50).to_i
     when "completed" then 100
-    when "failed", "cancelled" then 100
+    when "failed", "cancelled" then 0
+    when "processing" then 50
+    when "pending" then 0
     else 0
     end
+  end
+
+  # Alias accessors for controller compatibility
+  def parameters
+    arguments
+  end
+
+  def result
+    nil
+  end
+
+  def error_details
+    backtrace
+  end
+
+  def completed_at
+    finished_at
   end
 
   private
@@ -84,10 +102,13 @@ class BackgroundJob < ApplicationRecord
   def update_timestamps
     if status_changed?
       case status
-      when "in_progress"
+      when "processing"
         self.started_at ||= Time.current
-      when "completed", "failed", "cancelled"
-        self.completed_at ||= Time.current
+      when "completed", "cancelled"
+        self.finished_at ||= Time.current
+      when "failed"
+        self.failed_at ||= Time.current
+        self.finished_at ||= Time.current
       end
     end
   end

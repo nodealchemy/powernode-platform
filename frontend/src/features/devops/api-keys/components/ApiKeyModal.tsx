@@ -53,8 +53,8 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
         }));
         setAvailableScopes(scopes);
       }
-    } catch (error) {
-      console.error('Failed to load scopes:', error);
+    } catch (_error) {
+      // Silently fail - will use empty scopes list
     }
   };
 
@@ -84,7 +84,7 @@ export const ApiKeyModal: React.FC<ApiKeyModalProps> = ({
         setErrors([response.error || 'Failed to create API key']);
         showNotification('Failed to create API key', 'error');
       }
-    } catch (error) {
+    } catch (_error) {
       setErrors(['An unexpected error occurred']);
       showNotification('Failed to create API key', 'error');
     } finally {

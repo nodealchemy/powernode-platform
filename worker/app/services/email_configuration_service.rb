@@ -23,18 +23,16 @@ class EmailConfigurationService
     end
     
     begin
-      # Get worker token for authentication
-      worker_token = PowernodeWorker.application.config.worker_token
       backend_url = ENV['BACKEND_URL'] || 'http://localhost:3000'
-      
+
       uri = URI("#{backend_url}/api/v1/email_settings")
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = uri.scheme == 'https'
       http.read_timeout = 10
       http.open_timeout = 5
-      
+
       request = Net::HTTP::Get.new(uri)
-      request['Authorization'] = "Bearer #{worker_token}"
+      request['Authorization'] = "Bearer #{WorkerJwt.token}"
       request['Content-Type'] = 'application/json'
       request['Accept'] = 'application/json'
       

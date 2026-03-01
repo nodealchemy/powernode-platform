@@ -9,7 +9,7 @@ class Notification < ApplicationRecord
   validates :notification_type, presence: true
   validates :title, presence: true
   validates :message, presence: true
-  validates :severity, presence: true, inclusion: { in: %w[info success warning error] }
+  validates :severity, presence: true, inclusion: { in: %w[info success warning error critical] }
 
   # Scopes
   scope :unread, -> { where(read_at: nil) }
@@ -35,6 +35,15 @@ class Notification < ApplicationRecord
     workflow_complete
     payment_failed
     account_update
+    ai_plan_review
+    ai_concierge_message
+    agent_proposal
+    agent_escalation
+    agent_status_update
+    agent_issue_detected
+    agent_feedback_request
+    agent_goal_achieved
+    agent_improvement_applied
   ].freeze
 
   # Categories
@@ -45,6 +54,7 @@ class Notification < ApplicationRecord
     account
     system
     workflow
+    ai
   ].freeze
 
   # Callbacks
@@ -114,11 +124,11 @@ class Notification < ApplicationRecord
     NotificationChannel.broadcast_to_account(account, {
       type: "new_notification",
       notification: as_json(
-        only: [ :id, :notification_type, :title, :message, :severity, :action_url, :action_label, :icon, :category, :created_at ],
+        only: [ :id, :notification_type, :title, :message, :severity, :action_url, :action_label, :icon, :category, :metadata, :created_at ],
         methods: [ :read? ]
       )
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to broadcast notification: #{e.message}"
   end
 end

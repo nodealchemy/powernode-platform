@@ -1,4 +1,4 @@
 // Account services barrel export
-export * from './impersonationApi';
-export * from './invitationsApi';
-export * from './twoFactorApi';
+export * from '@/shared/services/account/impersonationApi';
+export * from '@/shared/services/account/invitationsApi';
+export * from '@/shared/services/account/twoFactorApi';

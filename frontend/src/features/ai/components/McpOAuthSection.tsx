@@ -43,7 +43,7 @@ export const McpOAuthSection: React.FC<McpOAuthSectionProps> = ({
       setLoading(true);
       const status = await mcpApi.getOAuthStatus(serverId);
       setOAuthStatus(status);
-    } catch (error) {
+    } catch (_error) {
       // OAuth status endpoint may fail if not configured yet
       setOAuthStatus(null);
     } finally {
@@ -70,6 +70,7 @@ export const McpOAuthSection: React.FC<McpOAuthSectionProps> = ({
 
       // Listen for callback message from popup
       const handleMessage = (event: MessageEvent) => {
+        if (event.origin !== window.location.origin) return;
         if (event.data?.type === 'MCP_OAUTH_CALLBACK') {
           window.removeEventListener('message', handleMessage);
           if (event.data.success) {
@@ -93,7 +94,7 @@ export const McpOAuthSection: React.FC<McpOAuthSectionProps> = ({
           setLoading(false);
         }
       }, 1000);
-    } catch (error) {
+    } catch (_error) {
       addNotification({ type: 'error', message: 'Failed to initiate OAuth flow' });
       setLoading(false);
     }
@@ -106,7 +107,7 @@ export const McpOAuthSection: React.FC<McpOAuthSectionProps> = ({
       addNotification({ type: 'success', message: `OAuth disconnected for ${serverName}` });
       fetchOAuthStatus();
       onStatusChange?.();
-    } catch (error) {
+    } catch (_error) {
       addNotification({ type: 'error', message: 'Failed to disconnect OAuth' });
     } finally {
       setLoading(false);
@@ -119,7 +120,7 @@ export const McpOAuthSection: React.FC<McpOAuthSectionProps> = ({
       await mcpApi.refreshOAuthToken(serverId);
       addNotification({ type: 'success', message: 'OAuth token refreshed' });
       fetchOAuthStatus();
-    } catch (error) {
+    } catch (_error) {
       addNotification({ type: 'error', message: 'Failed to refresh OAuth token' });
     } finally {
       setRefreshing(false);

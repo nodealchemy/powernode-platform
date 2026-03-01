@@ -43,8 +43,8 @@ class CreateIntegrationExecutions < ActiveRecord::Migration[8.0]
     add_index :integration_executions, :execution_id, unique: true
     add_index :integration_executions, :status
     add_index :integration_executions, :trigger_type
-    add_index :integration_executions, [:integration_instance_id, :status], name: "idx_executions_instance_status"
-    add_index :integration_executions, [:account_id, :created_at], name: "idx_executions_account_created"
+    add_index :integration_executions, [ :integration_instance_id, :status ], name: "idx_executions_instance_status"
+    add_index :integration_executions, [ :account_id, :created_at ], name: "idx_executions_account_created"
     add_index :integration_executions, :parent_execution_id
   end
 end

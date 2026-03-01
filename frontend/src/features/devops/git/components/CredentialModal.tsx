@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Key, Globe, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { X, Key, Eye, EyeOff } from 'lucide-react';
 import { AvailableProvider, CreateCredentialData, GitCredential } from '../types';
 import { useGitCredentials } from '../hooks/useGitProviders';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
 
 interface CredentialModalProps {
   isOpen: boolean;
@@ -28,21 +29,13 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
     name: string;
     auth_type: 'oauth' | 'personal_access_token';
     access_token: string;
-    api_base_url: string;
-    web_base_url: string;
-    auto_sync: boolean;
     is_active: boolean;
   }>({
     name: '',
     auth_type: 'personal_access_token',
     access_token: '',
-    api_base_url: '',
-    web_base_url: '',
-    auto_sync: true,
     is_active: true,
   });
-
-  const isSelfHosted = provider.provider_type === 'gitea';
 
   // Reset form when modal opens or credential changes
   useEffect(() => {
@@ -53,9 +46,6 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
           name: credential.name,
           auth_type: credential.auth_type,
           access_token: '', // Don't pre-fill token for security
-          api_base_url: '',
-          web_base_url: '',
-          auto_sync: false,
           is_active: credential.is_active,
         });
       } else {
@@ -64,9 +54,6 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
           name: `${provider.name} Token`,
           auth_type: 'personal_access_token',
           access_token: '',
-          api_base_url: '',
-          web_base_url: '',
-          auto_sync: true,
           is_active: true,
         });
       }
@@ -83,11 +70,6 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
     // For editing, token is optional (only update if provided)
     if (!isEditing && !formData.access_token) {
       setError('Access token is required');
-      return;
-    }
-
-    if (!isEditing && isSelfHosted && !formData.api_base_url) {
-      setError('API base URL is required for self-hosted providers');
       return;
     }
 
@@ -112,22 +94,18 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
 
         await updateCredential(credential.id, updateData);
       } else {
-        // Create new credential
+        // Create new credential - URLs are inherited from the provider
         const credentialData: CreateCredentialData = {
           name: formData.name,
           auth_type: formData.auth_type,
           credentials: {
             access_token: formData.access_token,
-            ...(isSelfHosted && {
-              api_base_url: formData.api_base_url,
-              web_base_url: formData.web_base_url || formData.api_base_url,
-            }),
           },
           is_active: true,
           is_default: true,
         };
 
-        await createCredential(credentialData, formData.auto_sync);
+        await createCredential(credentialData);
       }
 
       onSuccess();
@@ -149,10 +127,10 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/50 z-0" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative bg-theme-surface rounded-lg shadow-xl w-full max-w-md mx-4 border border-theme">
+      <div className="relative z-10 bg-theme-surface rounded-lg shadow-xl w-full max-w-md mx-4 border border-theme">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-theme">
           <h2 className="text-lg font-semibold text-theme-primary">
@@ -168,12 +146,7 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          {error && (
-            <div className="flex items-center gap-2 p-3 bg-theme-error/10 border border-theme-error/20 rounded-lg text-theme-error">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <p className="text-sm">{error}</p>
-            </div>
-          )}
+          {error && <ErrorAlert message={error} />}
 
           {/* Name */}
           <div>
@@ -191,49 +164,6 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
               required
             />
           </div>
-
-          {/* Self-hosted URL fields (only for new credentials) */}
-          {isSelfHosted && !isEditing && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-theme-primary mb-1">
-                  <Globe className="w-4 h-4 inline mr-1" />
-                  API Base URL
-                </label>
-                <input
-                  type="url"
-                  value={formData.api_base_url}
-                  onChange={(e) =>
-                    setFormData({ ...formData, api_base_url: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
-                  placeholder="https://git.example.com/api/v1"
-                  required
-                />
-                <p className="text-xs text-theme-secondary mt-1">
-                  The API endpoint of your Gitea instance
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-theme-primary mb-1">
-                  Web Base URL (Optional)
-                </label>
-                <input
-                  type="url"
-                  value={formData.web_base_url}
-                  onChange={(e) =>
-                    setFormData({ ...formData, web_base_url: e.target.value })
-                  }
-                  className="w-full px-3 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
-                  placeholder="https://git.example.com"
-                />
-                <p className="text-xs text-theme-secondary mt-1">
-                  Leave empty to use API base URL
-                </p>
-              </div>
-            </>
-          )}
 
           {/* Access Token */}
           <div>
@@ -298,27 +228,6 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
                 className="text-sm text-theme-primary cursor-pointer"
               >
                 Credential is active
-              </label>
-            </div>
-          )}
-
-          {/* Auto Sync (only when creating) */}
-          {!isEditing && (
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="auto_sync"
-                checked={formData.auto_sync}
-                onChange={(e) =>
-                  setFormData({ ...formData, auto_sync: e.target.checked })
-                }
-                className="w-4 h-4 rounded border-theme text-theme-primary focus:ring-theme-primary"
-              />
-              <label
-                htmlFor="auto_sync"
-                className="text-sm text-theme-primary cursor-pointer"
-              >
-                Automatically sync repositories after connecting
               </label>
             </div>
           )}

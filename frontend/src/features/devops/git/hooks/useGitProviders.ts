@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { gitProvidersApi } from '../services/gitProvidersApi';
+import { logger } from '@/shared/utils/logger';
 import {
   GitProvider,
   GitCredential,
   AvailableProvider,
   CreateCredentialData,
   ConnectionTestResult,
-  SyncRepositoriesResult,
 } from '../types';
 
 export function useGitProviders() {
@@ -33,7 +33,7 @@ export function useGitProviders() {
       const data = await gitProvidersApi.getAvailableProviders();
       setAvailableProviders(data);
     } catch (err) {
-      console.error('Failed to fetch available providers:', err);
+      logger.error('Failed to fetch available providers', err);
     }
   }, []);
 
@@ -77,13 +77,12 @@ export function useGitCredentials(providerId: string | null) {
   }, [fetchCredentials]);
 
   const createCredential = useCallback(
-    async (data: CreateCredentialData, autoSync = true) => {
+    async (data: CreateCredentialData) => {
       if (!providerId) throw new Error('No provider selected');
 
       const credential = await gitProvidersApi.createCredential(
         providerId,
-        data,
-        autoSync
+        data
       );
       await fetchCredentials();
       return credential;
@@ -138,18 +137,6 @@ export function useGitCredentials(providerId: string | null) {
     [providerId, fetchCredentials]
   );
 
-  const syncRepositories = useCallback(
-    async (
-      credentialId: string,
-      options?: { include_archived?: boolean; include_forks?: boolean }
-    ): Promise<SyncRepositoriesResult> => {
-      if (!providerId) throw new Error('No provider selected');
-
-      return gitProvidersApi.syncRepositories(providerId, credentialId, options);
-    },
-    [providerId]
-  );
-
   return {
     credentials,
     loading,
@@ -160,6 +147,5 @@ export function useGitCredentials(providerId: string | null) {
     deleteCredential,
     testCredential,
     makeDefault,
-    syncRepositories,
   };
 }

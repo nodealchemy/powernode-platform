@@ -5,6 +5,8 @@ import { startImpersonation } from '@/shared/services/slices/authSlice';
 import { impersonationApi, UserSummary } from '@/shared/services/account/impersonationApi';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
+import ErrorAlert from '@/shared/components/ui/ErrorAlert';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 
 interface ImpersonateUserModalProps {
   isOpen: boolean;
@@ -36,7 +38,7 @@ export const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
       } else {
         throw new Error(response.error || 'Failed to load users');
       }
-    } catch (error: unknown) {
+    } catch (_err) {
       const err = error as { message?: string };
       setError(err.message || 'Failed to load impersonatable users');
     } finally {
@@ -78,7 +80,7 @@ export const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
       resetForm();
       // Refresh the page after successful impersonation start to ensure clean state
       window.location.reload();
-    } catch (error: unknown) {
+    } catch (_err) {
       const err = error as { message?: string };
       setError(err.message || 'Failed to start impersonation');
     } finally {
@@ -122,10 +124,7 @@ export const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {isLoading ? (
-            <div className="flex justify-center items-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-interactive-primary"></div>
-              <span className="ml-2 text-theme-secondary">Loading users...</span>
-            </div>
+            <LoadingSpinner className="py-8" message="Loading users..." />
           ) : availableUsers.length > 0 ? (
             <div>
               <label className="block text-sm font-medium text-theme-primary mb-2">
@@ -222,11 +221,7 @@ export const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
             </div>
           )}
 
-          {error && (
-            <div className="p-3 bg-theme-error-background border border-theme-error rounded-md">
-              <p className="text-sm text-theme-error">{error}</p>
-            </div>
-          )}
+          {error && <ErrorAlert message={error} />}
 
           <div className="flex justify-end space-x-3">
             <Button

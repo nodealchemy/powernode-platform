@@ -5,7 +5,7 @@ class Api::V1::Kb::TagsController < ApplicationController
 
   # GET /api/v1/kb/tags
   def index
-    tags = KnowledgeBaseTag.popular.limit(50)
+    tags = KnowledgeBase::Tag.popular.limit(50)
 
     render_success(
       data: tags.map { |tag| serialize_tag(tag) },
@@ -15,8 +15,8 @@ class Api::V1::Kb::TagsController < ApplicationController
 
   # GET /api/v1/kb/tags/:id/articles
   def articles
-    tag = KnowledgeBaseTag.find_by(id: params[:id]) ||
-          KnowledgeBaseTag.find_by(slug: params[:id])
+    tag = KnowledgeBase::Tag.find_by(id: params[:id]) ||
+          KnowledgeBase::Tag.find_by(slug: params[:id])
 
     return render_error("Tag not found", status: :not_found) unless tag
 

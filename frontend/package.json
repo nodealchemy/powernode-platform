@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -67,28 +67,15 @@
     "test:watch": "NODE_OPTIONS='--no-deprecation --experimental-vm-modules' jest --watch",
     "test:coverage": "NODE_OPTIONS='--no-deprecation --experimental-vm-modules' jest --coverage",
     "preview": "vite preview",
-    "lint": "eslint src --ext .ts,.tsx --config .eslintrc.js",
-    "lint:fix": "eslint src --ext .ts,.tsx --config .eslintrc.js --fix",
-    "lint:security": "eslint src --ext .ts,.tsx --config .eslintrc.security.js",
-    "lint:production": "eslint src --ext .ts,.tsx --config .eslintrc.production.js",
-    "lint:check": "eslint --print-config .eslintrc.js",
+    "lint": "eslint 'src/**/*.{ts,tsx}'",
+    "lint:fix": "eslint 'src/**/*.{ts,tsx}' --fix",
+    "lint:check": "eslint --inspect-config",
     "typecheck": "tsc --noEmit",
     "cypress:open": "cypress open",
     "cypress:run": "cypress run",
     "cypress:parallel": "cypress-split",
     "cypress:parallel:2": "npm run cypress:parallel -- --split 2",
     "cypress:parallel:4": "npm run cypress:parallel -- --split 4"
-  },
-  "eslintConfig": {
-    "plugins": [
-      "security"
-    ],
-    "rules": {
-      "security/detect-object-injection": "error",
-      "security/detect-non-literal-regexp": "error",
-      "security/detect-possible-timing-attacks": "error",
-      "security/detect-pseudoRandomBytes": "error"
-    }
   },
   "browserslist": {
     "production": [
@@ -112,17 +99,21 @@
     "@babel/preset-typescript": "^7.28.5",
     "@cypress/react": "^9.0.1",
     "@cypress/webpack-dev-server": "^4.1.1",
+    "@eslint/js": "^9.39.2",
+    "@tailwindcss/postcss": "^4.1.11",
     "@testing-library/jest-dom": "^6.6.4",
     "@testing-library/user-event": "^14.6.1",
     "@types/glob": "^8.1.0",
     "@vitejs/plugin-react": "^5.1.2",
-    "@tailwindcss/postcss": "^4.1.11",
     "autoprefixer": "^10.4.21",
     "concurrently": "^9.2.0",
     "cypress": "^15.9.0",
     "cypress-split": "^1.24.25",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-security": "^3.0.1",
     "glob": "^11.0.3",
+    "globals": "^17.3.0",
     "identity-obj-proxy": "^3.0.0",
     "jest": "^30.2.0",
     "jest-environment-jsdom": "^30.2.0",
@@ -130,6 +121,7 @@
     "postcss": "^8.5.6",
     "redux-mock-store": "^1.5.5",
     "tailwindcss": "^4.1.11",
+    "typescript-eslint": "^8.54.0",
     "vite": "^7.2.0",
     "vite-plugin-svgr": "^4.5.0",
     "vite-tsconfig-paths": "^4.3.2"

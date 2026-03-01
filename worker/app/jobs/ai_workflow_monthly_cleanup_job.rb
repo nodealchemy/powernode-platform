@@ -3,7 +3,7 @@
 # Background job to perform monthly cleanup of AI workflow data
 # Runs on the 1st of every month to archive old executions and clean temp data
 class AiWorkflowMonthlyCleanupJob < BaseJob
-  queue_as :maintenance
+  sidekiq_options queue: :maintenance
 
   # Retention periods (configurable)
   EXECUTION_RETENTION_DAYS = 90      # Keep execution details for 90 days

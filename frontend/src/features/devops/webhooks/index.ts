@@ -5,6 +5,7 @@ export { WebhookDetails } from './components/WebhookDetails';
 export { WebhookStats } from './components/WebhookStats';
 export { WebhookTest } from './components/WebhookTest';
 export { WebhookModal } from './components/WebhookModal';
+export { CustomHeadersForm } from './components/CustomHeadersForm';
 
 // Services
 export { webhooksApi } from './services/webhooksApi';

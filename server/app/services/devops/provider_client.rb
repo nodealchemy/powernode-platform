@@ -315,12 +315,12 @@ module Devops
       encoded = CGI.escape(repository)
       # GitLab uses different state names
       gitlab_state = case state
-                     when "pending" then "pending"
-                     when "success" then "success"
-                     when "failure" then "failed"
-                     when "error" then "failed"
-                     else "pending"
-                     end
+      when "pending" then "pending"
+      when "success" then "success"
+      when "failure" then "failed"
+      when "error" then "failed"
+      else "pending"
+      end
 
       data = {
         state: gitlab_state,
@@ -349,17 +349,17 @@ module Devops
       http.read_timeout = 30
 
       request = case method
-                when :get
+      when :get
                   Net::HTTP::Get.new(uri)
-                when :post
+      when :post
                   Net::HTTP::Post.new(uri)
-                when :patch
+      when :patch
                   Net::HTTP::Patch.new(uri)
-                when :put
+      when :put
                   Net::HTTP::Put.new(uri)
-                when :delete
+      when :delete
                   Net::HTTP::Delete.new(uri)
-                end
+      end
 
       (custom_headers || headers).each { |k, v| request[k] = v }
       request.body = body if body

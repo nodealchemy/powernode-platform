@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { RotateCcw, Save, RefreshCw, Play, AlertTriangle, CheckCircle, Info } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Card } from '@/shared/components/ui/Card';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { api } from '@/shared/services/api';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
@@ -83,8 +84,8 @@ export const WorkflowRecoveryModal: React.FC<WorkflowRecoveryModalProps> = ({
       } else if (response.data.data.workflow_restart.available) {
         setSelectedStrategy('restart');
       }
-    } catch (error) {
-      console.error('Failed to load recovery options:', error);
+    } catch (_error) {
+      // Error handled silently - recovery options will show error state
     } finally {
       setLoading(false);
     }
@@ -96,8 +97,7 @@ export const WorkflowRecoveryModal: React.FC<WorkflowRecoveryModalProps> = ({
       await api.post(`/ai/workflow_runs/${workflowRunId}/recovery/checkpoint_recover`);
       onRecoveryInitiated?.('checkpoint');
       onClose();
-    } catch (error) {
-      console.error('Failed to recover from checkpoint:', error);
+    } catch (_error) {
       addNotification({ type: 'error', message: 'Failed to recover from checkpoint. Please try again.' });
     } finally {
       setRecovering(null);
@@ -109,8 +109,7 @@ export const WorkflowRecoveryModal: React.FC<WorkflowRecoveryModalProps> = ({
       setRecovering(`retry-${nodeExecutionId}`);
       await api.post(`/ai/workflow_runs/${workflowRunId}/recovery/nodes/${nodeExecutionId}/retry`);
       await loadRecoveryOptions(); // Refresh to show updated state
-    } catch (error) {
-      console.error('Failed to retry node:', error);
+    } catch (_error) {
       addNotification({ type: 'error', message: 'Failed to retry node. Please try again.' });
     } finally {
       setRecovering(null);
@@ -128,8 +127,7 @@ export const WorkflowRecoveryModal: React.FC<WorkflowRecoveryModalProps> = ({
       await api.post(`/ai/workflows/${workflowRunId}/execute`);
       onRecoveryInitiated?.('restart');
       onClose();
-    } catch (error) {
-      console.error('Failed to restart workflow:', error);
+    } catch (_error) {
       addNotification({ type: 'error', message: 'Failed to restart workflow. Please try again.' });
     } finally {
       setRecovering(null);
@@ -164,9 +162,7 @@ export const WorkflowRecoveryModal: React.FC<WorkflowRecoveryModalProps> = ({
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-interactive-primary"></div>
-          </div>
+          <LoadingSpinner className="py-8" />
         ) : !options ? (
           <div className="text-center py-8">
             <AlertTriangle className="h-12 w-12 text-theme-warning mx-auto mb-3" />

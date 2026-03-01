@@ -31,7 +31,7 @@ export const UserManagement: React.FC = () => {
         status: statusFilter || undefined
       });
       setUsersData(data);
-    } catch (error) {
+    } catch (_error) {
       // Error handling
     }
   };

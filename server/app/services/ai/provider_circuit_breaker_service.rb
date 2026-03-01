@@ -24,16 +24,16 @@ class Ai::ProviderCircuitBreakerService
 
   def initialize(provider)
     @provider = provider
-    @redis = Redis.new(url: Rails.application.credentials.redis_url || "redis://localhost:6379")
 
-    # Setup circuit breaker with provider-specific configuration
+    # Setup circuit breaker with provider-specific configuration and Redis storage
     setup_circuit_breaker(
       resource_id: "provider:#{provider.id}",
       service_name: provider.name,
       config: {
         failure_threshold: 5,
         success_threshold: 2,
-        timeout_duration: 60_000 # 60 seconds in ms
+        timeout_duration: 60_000, # 60 seconds in ms
+        storage: :redis
       }
     )
   end
@@ -107,50 +107,30 @@ class Ai::ProviderCircuitBreakerService
 
   private
 
-  # Override to use Redis directly instead of Rails.cache
-  # This provides better control and isolation for provider state
+  def on_state_change(old_state, new_state)
+    if new_state == "open"
+      account = @provider.respond_to?(:account) ? @provider.account : nil
+      if account
+        Ai::SelfHealing::RemediationDispatcher.dispatch(
+          account: account,
+          trigger_source: "ProviderCircuitBreaker:#{@provider.name}",
+          trigger_event: "circuit_breaker_opened",
+          context: {
+            provider_id: @provider.id,
+            service_type: "provider",
+            circuit_state: new_state,
+            previous_state: old_state,
+            failure_count: @consecutive_failures
+          }
+        )
+      end
+    end
+  rescue => e
+    Rails.logger.error "[ProviderCircuitBreaker] Remediation dispatch failed: #{e.message}"
+  end
+
+  # Override to use provider ID in the key
   def build_state_key(resource_id)
     "circuit_breaker:#{@provider.id}"
-  end
-
-  # Override to use Redis directly
-  def load_circuit_state
-    state_data = @redis.get(state_key)
-
-    if state_data
-      cached = JSON.parse(state_data, symbolize_names: true)
-      @state = cached[:state] || "closed"
-      @failure_count = cached[:failure_count] || 0
-      @success_count = cached[:success_count] || 0
-      @consecutive_failures = cached[:consecutive_failures] || 0
-      @consecutive_successes = cached[:consecutive_successes] || 0
-      @last_failure_time = cached[:last_failure_time] ? Time.parse(cached[:last_failure_time]) : nil
-      @last_success_time = cached[:last_success_time] ? Time.parse(cached[:last_success_time]) : nil
-      @state_changed_at = cached[:state_changed_at] ? Time.parse(cached[:state_changed_at]) : Time.current
-    else
-      reset_circuit!
-    end
-  rescue JSON::ParserError, StandardError => e
-    Rails.logger.error "[CircuitBreaker:#{@provider.name}] Failed to load state: #{e.message}"
-    reset_circuit!
-  end
-
-  # Override to use Redis directly
-  def save_circuit_state
-    state_data = {
-      state: @state,
-      failure_count: @failure_count,
-      success_count: @success_count,
-      consecutive_failures: @consecutive_failures,
-      consecutive_successes: @consecutive_successes,
-      last_failure_time: @last_failure_time&.iso8601,
-      last_success_time: @last_success_time&.iso8601,
-      state_changed_at: @state_changed_at.iso8601
-    }
-
-    @redis.set(state_key, state_data.to_json)
-    @redis.expire(state_key, 24.hours.to_i)
-  rescue StandardError => e
-    Rails.logger.error "[CircuitBreaker:#{@provider.name}] Failed to save state: #{e.message}"
   end
 end

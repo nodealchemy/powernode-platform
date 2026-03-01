@@ -27,7 +27,7 @@ export interface EmailSettings {
 
 export const emailSettingsApi = {
   async getSettings(): Promise<EmailSettings> {
-    const response = await api.get('/email_settings');
+    const response = await api.get<{ data: EmailSettings }>('/email_settings');
     return response.data.data;
   },
 
@@ -35,7 +35,7 @@ export const emailSettingsApi = {
     message: string;
     status: string;
   }> {
-    const response = await api.put('/email_settings', {
+    const response = await api.put<{ data: { message: string; status: string } }>('/email_settings', {
       email_settings: settings
     });
     // Handle standardized API response format: {success: true, data: {...}}
@@ -47,7 +47,7 @@ export const emailSettingsApi = {
     status: string;
   }> {
     try {
-      const response = await api.post('/email_settings/test', { email });
+      const response = await api.post<{ success: boolean; data: { message: string; status: string } }>('/email_settings/test', { email });
       
       // Handle standardized API response format: {success: true, data: {...}}
       if (response.data.success && response.data.data) {
@@ -58,7 +58,7 @@ export const emailSettingsApi = {
       }
       
       // Fallback for backward compatibility
-      return response.data.data || response.data || { message: 'Test email queued successfully', status: 'success' };
+      return response.data.data || { message: 'Test email queued successfully', status: 'success' };
     } catch (error) {
       // Re-throw with structured error information
       if (isErrorWithResponse(error) && error.response?.data) {

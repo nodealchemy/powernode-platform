@@ -1,10 +1,14 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
-RSpec.describe Plan, type: :model do
+RSpec.describe Billing::Plan, type: :model do
   let(:plan) { build(:plan) }
 
   describe "associations" do
-    it { should have_many(:subscriptions).dependent(:restrict_with_error) }
+    # Note: Plan uses before_destroy callback for custom deletion logic
+    # (allows deletion when only inactive subscriptions exist)
+    it { should have_many(:subscriptions) }
   end
 
   describe "validations" do
@@ -32,29 +36,29 @@ RSpec.describe Plan, type: :model do
     let!(:private_plan) { create(:plan, is_public: false) }
 
     it "returns active plans" do
-      expect(Plan.active).to include(active_plan)
-      expect(Plan.active).not_to include(inactive_plan, archived_plan)
+      expect(Billing::Plan.active).to include(active_plan)
+      expect(Billing::Plan.active).not_to include(inactive_plan, archived_plan)
     end
 
     it "returns public plans" do
-      expect(Plan.public_plans).to include(public_plan)
-      expect(Plan.public_plans).not_to include(private_plan)
+      expect(Billing::Plan.public_plans).to include(public_plan)
+      expect(Billing::Plan.public_plans).not_to include(private_plan)
     end
 
     it "filters by billing cycle" do
       monthly_plan = create(:plan, billing_cycle: "monthly")
       yearly_plan = create(:plan, billing_cycle: "yearly")
 
-      expect(Plan.by_billing_cycle("monthly")).to include(monthly_plan)
-      expect(Plan.by_billing_cycle("monthly")).not_to include(yearly_plan)
+      expect(Billing::Plan.by_billing_cycle("monthly")).to include(monthly_plan)
+      expect(Billing::Plan.by_billing_cycle("monthly")).not_to include(yearly_plan)
     end
 
     it "filters by currency" do
       usd_plan = create(:plan, currency: "USD")
       eur_plan = create(:plan, currency: "EUR")
 
-      expect(Plan.by_currency("USD")).to include(usd_plan)
-      expect(Plan.by_currency("USD")).not_to include(eur_plan)
+      expect(Billing::Plan.by_currency("USD")).to include(usd_plan)
+      expect(Billing::Plan.by_currency("USD")).not_to include(eur_plan)
     end
   end
 
@@ -213,10 +217,11 @@ RSpec.describe Plan, type: :model do
 
     describe "#set_defaults" do
       it "initializes default values" do
-        plan = Plan.new
+        plan = Billing::Plan.new
         expect(plan.features).to eq({})
         expect(plan.limits).to eq({
           'max_api_keys' => 5,
+          'max_repositories' => 10,
           'max_users' => 2,
           'max_webhooks' => 5,
           'max_workers' => 3

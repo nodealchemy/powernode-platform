@@ -10,6 +10,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { knowledgeBaseAdminApi, KbCategory } from '@/shared/services/content/knowledgeBaseApi';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 import { useTheme } from '@/shared/hooks/ThemeContext';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { MarkdownRenderer } from '@/shared/components/ui/MarkdownRenderer';
 import {
   ArrowDownTrayIcon as SaveIcon,
@@ -101,9 +102,8 @@ export function KnowledgeBaseArticleEditor() {
       try {
         const response = await knowledgeBaseAdminApi.getCategories({ per_page: 100 });
         setCategories(response.data.data);
-      } catch (error) {
+      } catch (_error) {
         dispatch(addNotification({ type: 'error', message: 'Failed to load categories' }));
-        console.error('Categories loading error:', error);
       }
     };
 
@@ -129,9 +129,8 @@ export function KnowledgeBaseArticleEditor() {
           meta_description: article.meta_description || article.metadata?.meta_description || '',
           sort_order: article.sort_order || article.metadata?.sort_order || 0
         });
-      } catch (error) {
+      } catch (_error) {
         dispatch(addNotification({ type: 'error', message: 'Failed to load article' }));
-        console.error('Article loading error:', error);
         navigate('/app/content/kb');
       } finally {
         setIsLoading(false);
@@ -148,7 +147,7 @@ export function KnowledgeBaseArticleEditor() {
   // Functions moved into useEffect to avoid dependency issues
 
   // Handle form field updates
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const updateField = (field: keyof ArticleFormData, value: any) => {
     setFormData(prev => {
       const updated = { ...prev, [field]: value };
@@ -231,7 +230,7 @@ export function KnowledgeBaseArticleEditor() {
       if (isNewArticle) {
         navigate(`/app/content/kb/articles/${article.id}/edit`);
       }
-    } catch (error: unknown) {
+    } catch (error) {
       const apiError = error as { response?: { data?: { error?: string } } };
       const errorMessage = apiError.response?.data?.error || 'Failed to save article';
       dispatch(addNotification({ type: 'error', message: errorMessage }));
@@ -287,9 +286,7 @@ export function KnowledgeBaseArticleEditor() {
           </div>
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-theme-focus"></div>
-          </div>
+          <LoadingSpinner className="h-64" />
         </div>
       </div>
     );

@@ -18,13 +18,12 @@ class Worker < ApplicationRecord
   validates :name, presence: true, length: { minimum: 3, maximum: 50 }
   validates :description, length: { maximum: 255 }
   validates :token_digest, presence: true, on: :update
-  # Permissions now handled through roles
   validates :status, presence: true
-  # Role field will be deprecated - roles now handled through worker_roles association
+  validates :account, presence: true
   validate :only_one_system_worker_globally
 
   # Associations
-  belongs_to :account, optional: true  # System workers don't belong to an account
+  belongs_to :account
   has_many :worker_activities, dependent: :destroy
   has_many :worker_roles, dependent: :destroy
   has_many :roles, through: :worker_roles
@@ -63,8 +62,8 @@ class Worker < ApplicationRecord
   scope :active, -> { where(status: "active") }
   scope :for_account, ->(account) { where(account: account) }
   scope :with_permission, ->(perm) { joins(roles: :permissions).where(permissions: { name: perm }) }
-  scope :system_workers, -> { where(account_id: nil) }
-  scope :account_workers, -> { where.not(account_id: nil) }
+  scope :system_workers, -> { where(is_system: true) }
+  scope :account_workers, -> { where(is_system: false) }
 
   # Callbacks
   before_create :generate_token
@@ -89,7 +88,7 @@ class Worker < ApplicationRecord
     authenticate(token, update_last_seen: false)
   end
 
-  def self.create_worker!(name:, description: nil, roles: [], account: nil, token: nil)
+  def self.create_worker!(name:, description: nil, roles: [], account: nil, token: nil, is_system: false)
     # Generate token if not provided
     token ||= generate_secure_token
 
@@ -97,6 +96,7 @@ class Worker < ApplicationRecord
       name: name,
       description: description,
       account: account,
+      is_system: is_system,
       token_digest: Digest::SHA256.hexdigest(token),
       status: "active"
     )
@@ -278,11 +278,32 @@ class Worker < ApplicationRecord
   end
 
   def system?
-    account_id.nil?
+    is_system?
   end
 
   def account?
     !system?
+  end
+
+  # Promote this worker to be the system worker.
+  # Fails if another system worker already exists — demote it first.
+  def promote_to_system!
+    raise "Another system worker already exists. Demote it first." if Worker.system_workers.where.not(id: id).exists?
+
+    transaction do
+      update!(is_system: true)
+      assign_role("system_worker")
+    end
+  end
+
+  # Demote the system worker back to a regular account worker.
+  def demote_from_system!
+    raise "Worker is not the system worker" unless system?
+
+    transaction do
+      update!(is_system: false)
+      remove_role("system_worker")
+    end
   end
 
   # Worker Configuration Methods
@@ -400,7 +421,7 @@ class Worker < ApplicationRecord
       resource_id: id,
       source: "system",
       new_values: {
-        token_regenerated_at: token_regenerated_at.iso8601
+        token_regenerated_at: Time.current.iso8601
       },
       metadata: {
         token_regeneration: true
@@ -409,12 +430,11 @@ class Worker < ApplicationRecord
   end
 
   def only_one_system_worker_globally
-    # Check if this worker is a system worker (no account_id)
-    return unless account_id.nil?
+    return unless is_system?
 
     existing_system = Worker.system_workers.where.not(id: id).first
     if existing_system
-      errors.add(:base, "Only one system worker is allowed globally")
+      errors.add(:base, "Only one system worker is allowed globally. Demote the existing system worker first.")
     end
   end
 end

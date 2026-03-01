@@ -19,7 +19,7 @@ module Ai
     has_many :target_edges, class_name: "Ai::WorkflowEdge",
              foreign_key: "target_node_id", primary_key: "node_id", dependent: :destroy
 
-    # Consolidated node types (38 total - includes CI/CD and integrations)
+    # Consolidated node types (39 total - includes CI/CD, integrations, and Ralph Loops)
     VALID_NODE_TYPES = %w[
       start end trigger
       ai_agent prompt_template data_processor transform
@@ -34,6 +34,7 @@ module Ai
       integration_execute
       git_checkout git_branch git_pull_request git_comment
       deploy run_tests shell_command
+      ralph_loop
     ].freeze
 
     # CI/CD node type constants
@@ -45,6 +46,13 @@ module Ai
     KB_ARTICLE_ACTIONS = %w[create read update search publish].freeze
     PAGE_ACTIONS = %w[create read update publish].freeze
     MCP_OPERATION_TYPES = %w[tool resource prompt].freeze
+
+    # Ralph Loop operations
+    RALPH_LOOP_OPERATIONS = %w[
+      create start run_iteration run_to_completion
+      pause resume cancel status
+      get_learnings add_task parse_prd
+    ].freeze
 
     # Validations
     validates :node_id, presence: true, uniqueness: { scope: :ai_workflow_id }

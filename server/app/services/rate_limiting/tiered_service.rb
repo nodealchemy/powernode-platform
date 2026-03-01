@@ -126,7 +126,6 @@ module RateLimiting
       webhook: {
         cost: 2,
         patterns: [
-          %r{^/webhooks/},
           %r{^/api/v1/webhook}
         ]
       },
@@ -316,7 +315,7 @@ module RateLimiting
       # Categorize an endpoint for rate limiting
       def categorize_endpoint(path, method)
         return :admin if path.start_with?("/api/v1/admin")
-        return :webhook if path.start_with?("/webhooks/")
+        return :webhook if path.start_with?("/api/v1/webhooks/")
         return :file if path.match?(%r{^/api/v1/files?})
 
         ENDPOINT_COSTS.each do |category, config|
@@ -396,7 +395,7 @@ module RateLimiting
 
       def rate_limiting_disabled?
         RateLimiting::BaseService.temporarily_disabled? ||
-          !System::SettingsService.rate_limiting_enabled?
+          ENV["DISABLE_RATE_LIMITING"] == "true"
       rescue StandardError
         false
       end

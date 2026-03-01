@@ -9,11 +9,11 @@ module Api
 
           # GET /api/v1/internal/git/credentials
           def index
-            credentials = ::Devops::GitProviderCredential.includes(:provider).all
+            credentials = ::Devops::GitProviderCredential.includes(:provider)
             credentials = credentials.where(account_id: params[:account_id]) if params[:account_id].present?
             credentials = credentials.active if params[:active] == "true"
 
-            render_success(credentials.map { |c| serialize_credential(c) })
+            render_success(credentials.limit(500).map { |c| serialize_credential(c) })
           end
 
           # GET /api/v1/internal/git/credentials/:id
@@ -45,7 +45,8 @@ module Api
               }
             })
           rescue StandardError => e
-            Rails.logger.error "Failed to decrypt Git credential #{@credential.id}: #{e.message}"
+            # Log credential ID and error class only - no sensitive decryption details
+            Rails.logger.error "Failed to decrypt Git credential #{@credential.id}: #{e.class.name}"
             render_error("Failed to decrypt credentials", status: :internal_server_error)
           end
 
@@ -85,7 +86,7 @@ module Api
                 provider_type: credential.git_provider.provider_type,
                 api_base_url: credential.git_provider.api_base_url,
                 web_base_url: credential.git_provider.web_base_url,
-                supports_ci_cd: credential.git_provider.supports_ci_cd
+                supports_devops: credential.git_provider.supports_devops
               }
             }
           end

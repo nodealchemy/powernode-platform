@@ -1,5 +1,5 @@
 // API Client - Wrapper around the main API service
-import { api } from './api';
+import { api } from '@/shared/services/api';
 
 // Export the existing API client instance
 export const apiClient = api;

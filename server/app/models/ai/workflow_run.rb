@@ -13,7 +13,7 @@ module Ai
     # Associations
     belongs_to :workflow, class_name: "Ai::Workflow", foreign_key: "ai_workflow_id"
     belongs_to :account
-    belongs_to :triggered_by_user, class_name: "User", optional: true
+    belongs_to :triggered_by_user, class_name: "User", foreign_key: "triggered_by_user_id", optional: true
     belongs_to :trigger, class_name: "Ai::WorkflowTrigger", foreign_key: "ai_workflow_trigger_id", optional: true
 
     has_many :node_executions, class_name: "Ai::WorkflowNodeExecution",
@@ -30,7 +30,7 @@ module Ai
              foreign_key: "ai_workflow_run_id", dependent: :destroy
     has_many :checkpoints, class_name: "Ai::WorkflowCheckpoint",
              foreign_key: "ai_workflow_run_id", dependent: :destroy
-    has_many :agent_messages, class_name: "Ai::AgentMessage",
+    has_many :a2a_tasks, class_name: "Ai::A2aTask",
              foreign_key: "ai_workflow_run_id", dependent: :destroy
     has_many :shared_context_pools, class_name: "Ai::SharedContextPool",
              foreign_key: "ai_workflow_run_id", dependent: :destroy
@@ -44,7 +44,7 @@ module Ai
       message: "must be a valid run status"
     }
     validates :trigger_type, presence: true, inclusion: {
-      in: %w[manual webhook schedule event api_call],
+      in: %w[manual webhook schedule event api_call retry],
       message: "must be a valid trigger type"
     }
     validates :total_nodes, numericality: { greater_than_or_equal_to: 0 }
@@ -85,6 +85,7 @@ module Ai
     after_update :log_status_changes, if: :saved_change_to_status?
     after_update :calculate_duration, if: :saved_change_to_completed_at?
     after_update :copy_variables_to_output, if: -> { saved_change_to_status? && status == "completed" }
+    after_update :cascade_cancellation_to_nodes, if: -> { saved_change_to_status? && status == "cancelled" }
 
     # Accessor methods for data stored in metadata
     def trigger_context
@@ -172,6 +173,14 @@ module Ai
       end
     end
 
+    def cascade_cancellation_to_nodes
+      active_nodes = node_executions.where(status: %w[pending running queued waiting_approval])
+      return unless active_nodes.exists?
+
+      count = active_nodes.update_all(status: "cancelled", cancelled_at: Time.current)
+      Rails.logger.info "[AI_WORKFLOW_RUN] Cascade-cancelled #{count} active node(s) for run #{run_id}"
+    end
+
     def generate_run_id
       self.run_id = UUID7.generate if run_id.blank?
     end
@@ -180,10 +189,10 @@ module Ai
       return unless new_record?
       return unless workflow.present?
 
-      self.total_nodes = workflow.workflow_nodes.count
-      self.completed_nodes = 0
-      self.failed_nodes = 0
-      self.total_cost = 0.0
+      self.total_nodes = workflow.workflow_nodes.count if total_nodes.zero?
+      self.completed_nodes ||= 0
+      self.failed_nodes ||= 0
+      self.total_cost ||= 0.0
 
       if runtime_context.blank?
         self.runtime_context = {
@@ -283,7 +292,7 @@ module Ai
           "queue" => "maintenance",
           "at" => 30.minutes.from_now.to_i
         })
-      rescue => e
+      rescue StandardError => e
         Rails.logger.warn "Failed to schedule timeout job for workflow run #{run_id}: #{e.message}"
       end
     end
@@ -312,7 +321,8 @@ module Ai
       begin
         scheduled_jobs = Sidekiq::ScheduledSet.new
         scheduled_jobs.any? { |job| job.klass == "WorkflowTimeoutJob" && job.args.include?(id) }
-      rescue
+      rescue StandardError => e
+        Rails.logger.error "Failed to check timeout job status: #{e.message}"
         false
       end
     end

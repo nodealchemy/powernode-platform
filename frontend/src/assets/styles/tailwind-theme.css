@@ -80,6 +80,14 @@
   --color-node-page-border: var(--node-page-border);
   --color-node-mcp-operation: var(--node-mcp-operation-bg);
   --color-node-mcp-operation-border: var(--node-mcp-operation-border);
+  --color-node-devops-trigger: var(--node-devops-trigger-bg);
+  --color-node-devops-trigger-border: var(--node-devops-trigger-border);
+  --color-node-devops-wait-status: var(--node-devops-wait-status-bg);
+  --color-node-devops-wait-status-border: var(--node-devops-wait-status-border);
+  --color-node-devops-get-logs: var(--node-devops-get-logs-bg);
+  --color-node-devops-get-logs-border: var(--node-devops-get-logs-border);
+  --color-node-ralph-loop: var(--node-ralph-loop-bg);
+  --color-node-ralph-loop-border: var(--node-ralph-loop-border);
 
   /* Workflow handle colors */
   --color-handle-default: var(--handle-default);
@@ -190,6 +198,10 @@
   .bg-node-kb-article { background-color: var(--node-kb-article-bg); }
   .bg-node-page { background-color: var(--node-page-bg); }
   .bg-node-mcp-operation { background-color: var(--node-mcp-operation-bg); }
+  .bg-node-devops-trigger { background-color: var(--node-devops-trigger-bg); }
+  .bg-node-devops-wait-status { background-color: var(--node-devops-wait-status-bg); }
+  .bg-node-devops-get-logs { background-color: var(--node-devops-get-logs-bg); }
+  .bg-node-ralph-loop { background-color: var(--node-ralph-loop-bg); }
 
   /* Node border colors */
   .border-node-trigger { border-color: var(--node-trigger-bg); }
@@ -217,6 +229,11 @@
   .border-node-kb-article { border-color: var(--node-kb-article-border); }
   .border-node-page { border-color: var(--node-page-border); }
   .border-node-mcp-operation { border-color: var(--node-mcp-operation-border); }
+  .border-node-devops-trigger { border-color: var(--node-devops-trigger-border); }
+  .border-node-devops-wait-status { border-color: var(--node-devops-wait-status-border); }
+  .border-node-devops-get-logs { border-color: var(--node-devops-get-logs-border); }
+  .border-node-ralph-loop { border-color: var(--node-ralph-loop-border); }
+  .text-node-ralph-loop { color: var(--node-ralph-loop-bg); }
 
   /* Dark mode specific classes from safelist */
   .dark\:text-green-100:is(.dark *) { color: #dcfce7; }

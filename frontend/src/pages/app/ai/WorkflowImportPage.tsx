@@ -81,7 +81,7 @@ export const WorkflowImportPage: React.FC = () => {
   const { hasPermission } = usePermissions();
 
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'ai',
     onDataUpdate: () => {
       // Trigger data refresh if needed
@@ -165,7 +165,7 @@ export const WorkflowImportPage: React.FC = () => {
           // In production, you'd want to add a YAML parser library
           try {
             parsedData = JSON.parse(content) as RawImportData;
-          } catch {
+          } catch (_error) {
             setValidationErrors([{ field: 'file', message: 'YAML support requires additional library. Please convert to JSON.' }]);
             return;
           }
@@ -281,10 +281,9 @@ export const WorkflowImportPage: React.FC = () => {
   }, [importData, workflowName, canImportWorkflows, addNotification, navigate]);
 
   const getBreadcrumbs = () => [
-    { label: 'Dashboard', href: '/app', icon: '<�' },
-    { label: 'AI Orchestration', href: '/app/ai', icon: '>' },
-    { label: 'Workflows', href: '/app/ai', icon: '�' },
-    { label: 'Import', icon: '=�' }
+    { label: 'Dashboard', href: '/app' },
+    { label: 'AI Orchestration', href: '/app/ai' },
+    { label: 'Import' }
   ];
 
   const getPageActions = () => [

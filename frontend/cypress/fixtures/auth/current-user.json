@@ -1,0 +1,66 @@
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": "01HX9R8C8V2NP3QWKJ5F6D7M9Z",
+      "email": "demo@powernode.org",
+      "first_name": "Demo",
+      "last_name": "User",
+      "created_at": "2024-01-15T10:00:00Z",
+      "updated_at": "2024-12-01T08:30:00Z",
+      "email_verified_at": "2024-01-15T10:05:00Z",
+      "avatar_url": null,
+      "locale": "en",
+      "timezone": "America/New_York",
+      "last_login_at": "2024-12-20T14:30:00Z",
+      "two_factor_enabled": false,
+      "notification_preferences": {
+        "email_notifications": true,
+        "push_notifications": false,
+        "weekly_digest": true
+      }
+    },
+    "account": {
+      "id": "01HX9R8C8V2NP3QWKJ5F6D7M8Y",
+      "name": "Demo Account",
+      "slug": "demo-account",
+      "status": "active",
+      "created_at": "2024-01-15T10:00:00Z",
+      "subscription": {
+        "id": "01HX9R8C8V2NP3QWKJ5F6D7SUB",
+        "plan_id": "01HX9R8C8V2NP3QWKJ5F6D7PRO",
+        "plan_name": "Professional",
+        "status": "active",
+        "current_period_end": "2025-01-15T10:00:00Z"
+      },
+      "limits": {
+        "users": 25,
+        "storage_gb": 100,
+        "api_calls_monthly": 100000,
+        "ai_agents": 50,
+        "ai_workflows": 100
+      }
+    },
+    "permissions": [
+      "dashboard.view",
+      "account.settings.view",
+      "account.settings.edit",
+      "users.view",
+      "users.manage",
+      "billing.view",
+      "billing.manage",
+      "ai.agents.view",
+      "ai.agents.create",
+      "ai.agents.edit",
+      "ai.agents.delete",
+      "ai.workflows.view",
+      "ai.workflows.create",
+      "ai.workflows.edit",
+      "ai.workflows.delete",
+      "content.view",
+      "content.edit",
+      "content.delete"
+    ],
+    "roles": ["account_admin"]
+  }
+}

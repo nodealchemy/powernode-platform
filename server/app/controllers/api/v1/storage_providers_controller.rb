@@ -5,7 +5,7 @@ module Api
     # Storage Providers controller
     # Manages file storage configurations and provider integrations
     class StorageProvidersController < ApplicationController
-      before_action :set_storage, only: %i[show update destroy test_connection health_check set_default]
+      before_action :set_storage, only: %i[show update destroy test_connection health_check set_default initialize_storage list_files]
       before_action :validate_permissions!
 
       # GET /api/v1/storage_providers
@@ -128,8 +128,7 @@ module Api
           )
         end
       rescue StandardError => e
-        Rails.logger.error "[StorageProvidersController] Connection test failed: #{e.message}"
-        render_error("Connection test failed: #{e.message}", status: :internal_server_error)
+        render_internal_error("Connection test failed", exception: e)
       end
 
       # GET /api/v1/storage_providers/:id/health
@@ -143,8 +142,7 @@ module Api
           checked_at: Time.current.iso8601
         })
       rescue StandardError => e
-        Rails.logger.error "[StorageProvidersController] Health check failed: #{e.message}"
-        render_error("Health check failed: #{e.message}", status: :internal_server_error)
+        render_internal_error("Health check failed", exception: e)
       end
 
       # POST /api/v1/storage_providers/:id/set_default
@@ -164,7 +162,7 @@ module Api
       end
 
       # GET /api/v1/storage_providers/supported
-      def supported_providers
+      def supported
         providers = StorageProviderFactory.supported_providers.map do |provider_type|
           capabilities = StorageProviderFactory.provider_capabilities(provider_type)
           dependencies = StorageProviderFactory.check_dependencies(provider_type)
@@ -197,8 +195,7 @@ module Api
           render_error("Failed to initialize storage backend", status: :unprocessable_content)
         end
       rescue StandardError => e
-        Rails.logger.error "[StorageProvidersController] Initialize failed: #{e.message}"
-        render_error("Initialization failed: #{e.message}", status: :internal_server_error)
+        render_internal_error("Initialization failed", exception: e)
       end
 
       # GET /api/v1/storage_providers/:id/files
@@ -217,13 +214,12 @@ module Api
           count: files.count
         })
       rescue StandardError => e
-        Rails.logger.error "[StorageProvidersController] List files failed: #{e.message}"
-        render_error("Failed to list files: #{e.message}", status: :internal_server_error)
+        render_internal_error("Failed to list files", exception: e)
       end
 
       # GET /api/v1/storage_providers/stats
       def aggregate_stats
-        storages = current_account.file_storages.includes(:file_objects)
+        storages = current_account.file_storages
 
         total_files = 0
         total_size = 0
@@ -268,7 +264,7 @@ module Api
 
       def validate_permissions!
         case action_name
-        when "index", "show", "supported_providers", "aggregate_stats", "health_check", "list_files"
+        when "index", "show", "supported", "aggregate_stats", "health_check", "list_files"
           require_any_permission("admin.storage.read", "admin.storage.manage")
         when "create"
           require_any_permission("admin.storage.create", "admin.storage.manage")
@@ -283,7 +279,6 @@ module Api
         params.permit(
           :name,
           :provider_type,
-          :description,
           :is_default,
           :quota_enabled,
           :quota_bytes,
@@ -295,7 +290,6 @@ module Api
       def storage_update_params
         params.permit(
           :name,
-          :description,
           :quota_enabled,
           :quota_bytes,
           blocked_extensions: [],
@@ -321,8 +315,7 @@ module Api
           next if encrypted[key].to_s.start_with?("encrypted:")
 
           # Encrypt sensitive value
-          encryptor = Ai::CredentialEncryptionService.new
-          encrypted_value = encryptor.encrypt(encrypted[key])
+          encrypted_value = ::Security::CredentialEncryptionService.encrypt_value(encrypted[key])
           encrypted[key] = "encrypted:#{encrypted_value}"
         end
 

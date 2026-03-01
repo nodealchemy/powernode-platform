@@ -20,21 +20,22 @@ import { EnhancedSelect } from '@/shared/components/ui/EnhancedSelect';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/components/ui/Tabs';
 import { WorkflowBuilderProvider } from '@/shared/components/workflow/WorkflowBuilder';
-import { workflowsApi } from '@/shared/services/ai';
+import { workflowsApi, CreateWorkflowRequest } from '@/shared/services/ai';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { logger } from '@/shared/utils/logger';
 import { AiWorkflowNode, AiWorkflowEdge } from '@/shared/types/workflow';
 
 interface WorkflowFormData {
   name: string;
   description: string;
-  status: 'draft' | 'active';
+  status: 'draft' | 'published';
   visibility: 'private' | 'account' | 'public';
   execution_mode: 'sequential' | 'parallel' | 'conditional';
   timeout_seconds: number;
   tags: string[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   configuration: Record<string, any>;
   nodes: AiWorkflowNode[];
   edges: AiWorkflowEdge[];
@@ -46,7 +47,7 @@ export const CreateWorkflowPage: React.FC = () => {
   const { addNotification } = useNotifications();
 
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'ai',
     onDataUpdate: () => {
       // Trigger data refresh if needed
@@ -153,8 +154,8 @@ export const CreateWorkflowPage: React.FC = () => {
   }, [formData]);
 
   // Handle form field changes
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleInputChange = useCallback((field: keyof WorkflowFormData, value: any) => {
+   
+  const handleInputChange = useCallback((field: keyof WorkflowFormData, value: unknown) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -171,8 +172,8 @@ export const CreateWorkflowPage: React.FC = () => {
   }, [errors]);
 
   // Handle configuration changes
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleConfigChange = useCallback((key: string, value: any) => {
+   
+  const handleConfigChange = useCallback((key: string, value: unknown) => {
     setFormData(prev => ({
       ...prev,
       configuration: {
@@ -183,11 +184,11 @@ export const CreateWorkflowPage: React.FC = () => {
   }, []);
 
   // Handle workflow builder data
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const handleWorkflowData = useCallback((workflowData: {
-    nodes: AiWorkflowNode[];
-    edges: AiWorkflowEdge[];
-    configuration: Record<string, any>;
+    nodes: any[];
+    edges: any[];
+    configuration: Record<string, unknown>;
   }) => {
     setFormData(prev => ({
       ...prev,
@@ -231,7 +232,7 @@ export const CreateWorkflowPage: React.FC = () => {
   }, [addTag]);
 
   // Submit form
-  const handleSubmit = async (saveAs: 'draft' | 'active' = 'draft') => {
+  const handleSubmit = async (saveAs: 'draft' | 'published' = 'draft') => {
     if (!canCreateWorkflows) {
       addNotification({
         type: 'error',
@@ -253,7 +254,7 @@ export const CreateWorkflowPage: React.FC = () => {
     try {
       setIsSubmitting(true);
 
-      const requestData = {
+      const requestData: CreateWorkflowRequest = {
         name: formData.name.trim(),
         description: formData.description.trim(),
         status: saveAs,
@@ -270,7 +271,7 @@ export const CreateWorkflowPage: React.FC = () => {
         edges: formData.edges
       };
 
-      const response = await workflowsApi.createWorkflow(requestData as any);
+      const response = await workflowsApi.createWorkflow(requestData);
 
       addNotification({
         type: 'success',
@@ -281,7 +282,7 @@ export const CreateWorkflowPage: React.FC = () => {
       // Navigate to the new workflow
       navigate(`/app/ai/workflows/${response.id}`);
     } catch (error) {
-      console.error('Failed to create workflow:', error);
+      logger.error('Failed to create workflow', error);
       addNotification({
         type: 'error',
         title: 'Creation Failed',
@@ -340,7 +341,7 @@ export const CreateWorkflowPage: React.FC = () => {
         },
         {
           label: 'Save & Activate',
-          onClick: () => handleSubmit('active'),
+          onClick: () => handleSubmit('published'),
           icon: Play,
           variant: 'primary',
           disabled: isSubmitting
@@ -663,7 +664,7 @@ export const CreateWorkflowPage: React.FC = () => {
               Save as Draft
             </Button>
             <Button
-              onClick={() => handleSubmit('active')}
+              onClick={() => handleSubmit('published')}
               disabled={isSubmitting}
             >
               <Play className="h-4 w-4 mr-2" />

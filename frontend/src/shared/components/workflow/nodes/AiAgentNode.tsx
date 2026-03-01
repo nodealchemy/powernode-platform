@@ -1,10 +1,10 @@
 import React from 'react';
 import { NodeProps } from '@xyflow/react';
 import { Bot } from 'lucide-react';
-import { DynamicNodeHandles } from './DynamicNodeHandles';
-import { NodeActionsMenu } from '../NodeActionsMenu';
-import { useWorkflowContext } from '../WorkflowContext';
-import { NodeStatusBadge } from '../ExecutionOverlay';
+import { DynamicNodeHandles } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
+import { NodeActionsMenu } from '@/shared/components/workflow/NodeActionsMenu';
+import { useWorkflowContext } from '@/shared/components/workflow/WorkflowContext';
+import { NodeStatusBadge } from '@/shared/components/workflow/ExecutionOverlay';
 import { AiAgentNode as AiAgentNodeType } from '@/shared/types/workflow';
 
 export const AiAgentNode: React.FC<NodeProps<AiAgentNodeType>> = ({

@@ -53,30 +53,55 @@ export function usePromptTemplates(params?: PromptTemplatesParams): UsePromptTem
   }, [loadTemplates]);
 
   const createTemplate = useCallback(async (data: PromptTemplateFormData) => {
-    const template = await promptsApi.create(data);
-    await loadTemplates();
-    return template;
+    try {
+      const template = await promptsApi.create(data);
+      await loadTemplates();
+      return template;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create template');
+      throw err;
+    }
   }, [loadTemplates]);
 
   const updateTemplate = useCallback(async (id: string, data: Partial<PromptTemplateFormData>) => {
-    const template = await promptsApi.update(id, data);
-    await loadTemplates();
-    return template;
+    try {
+      const template = await promptsApi.update(id, data);
+      await loadTemplates();
+      return template;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update template');
+      throw err;
+    }
   }, [loadTemplates]);
 
   const deleteTemplate = useCallback(async (id: string) => {
-    await promptsApi.delete(id);
-    await loadTemplates();
+    try {
+      await promptsApi.delete(id);
+      await loadTemplates();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete template');
+      throw err;
+    }
   }, [loadTemplates]);
 
   const duplicateTemplate = useCallback(async (id: string) => {
-    const template = await promptsApi.duplicate(id);
-    await loadTemplates();
-    return template;
+    try {
+      const template = await promptsApi.duplicate(id);
+      await loadTemplates();
+      return template;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to duplicate template');
+      throw err;
+    }
   }, [loadTemplates]);
 
   const previewTemplate = useCallback(async (id: string, variables: Record<string, string>) => {
-    return promptsApi.preview(id, variables);
+    try {
+      return await promptsApi.preview(id, variables);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to preview template');
+      throw err;
+    }
   }, []);
 
   return {

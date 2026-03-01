@@ -129,13 +129,23 @@ RSpec.describe BackendApiClient, type: :service do
     end
 
     describe '#get_account_subscription' do
-      it 'fetches subscription data' do
+      it 'fetches subscription data from account endpoint' do
         account_id = 'account-123'
-        subscription_data = { plan: 'pro', status: 'active' }
-        stub_backend_api_success(:get, "/api/v1/accounts/#{account_id}/subscription", subscription_data)
-        
+        subscription_data = { 'plan' => 'pro', 'status' => 'active' }
+        account_data = { 'id' => account_id, 'name' => 'Test Account', 'subscription' => subscription_data }
+        stub_backend_api_success(:get, "/api/v1/accounts/#{account_id}", account_data)
+
         result = client.get_account_subscription(account_id)
-        expect(result).to eq(subscription_data.stringify_keys)
+        expect(result).to eq(subscription_data)
+      end
+
+      it 'returns nil when account has no subscription' do
+        account_id = 'account-456'
+        account_data = { 'id' => account_id, 'name' => 'No Sub Account', 'subscription' => nil }
+        stub_backend_api_success(:get, "/api/v1/accounts/#{account_id}", account_data)
+
+        result = client.get_account_subscription(account_id)
+        expect(result).to be_nil
       end
     end
 

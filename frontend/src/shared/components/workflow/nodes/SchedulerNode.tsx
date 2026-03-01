@@ -1,9 +1,9 @@
 import React from 'react';
 import { NodeProps } from '@xyflow/react';
 import { Calendar } from 'lucide-react';
-import { DynamicNodeHandles } from './DynamicNodeHandles';
-import { NodeActionsMenu } from '../NodeActionsMenu';
-import { useWorkflowContext } from '../WorkflowContext';
+import { DynamicNodeHandles } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
+import { NodeActionsMenu } from '@/shared/components/workflow/NodeActionsMenu';
+import { useWorkflowContext } from '@/shared/components/workflow/WorkflowContext';
 import { SchedulerNode as SchedulerNodeType } from '@/shared/types/workflow';
 
 export const SchedulerNode: React.FC<NodeProps<SchedulerNodeType>> = ({
@@ -45,7 +45,7 @@ export const SchedulerNode: React.FC<NodeProps<SchedulerNodeType>> = ({
       try {
         const date = new Date(config.startTime);
         return date.toLocaleString();
-      } catch {
+      } catch (_error) {
         return config.startTime;
       }
     }

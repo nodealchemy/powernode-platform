@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { logger } from '@/shared/utils/logger';
 import { gitProvidersApi } from '@/features/devops/git/services/gitProvidersApi';
 import { webhooksApi } from '@/features/devops/webhooks/services/webhooksApi';
 import { integrationsApi } from '@/features/devops/integrations/services/integrationsApi';
@@ -150,7 +151,7 @@ interface WeeklyActivity {
 export function DevOpsOverviewPage() {
   const navigate = useNavigate();
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'devops',
     onDataUpdate: () => {
       // Trigger data refresh if needed
@@ -227,7 +228,7 @@ export function DevOpsOverviewPage() {
           : null
       });
     } catch (error) {
-      console.error('Failed to load DevOps stats:', error);
+      logger.error('Failed to load DevOps stats', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -272,13 +273,13 @@ export function DevOpsOverviewPage() {
                 activity.set(date, (activity.get(date) || 0) + 1);
               }
             });
-          } catch {
+          } catch (_error) {
             // Continue with other repos
           }
         }
 
         setActivityData(activity);
-      } catch {
+      } catch (_error) {
         // Silently fail
       } finally {
         setLoadingActivity(false);
@@ -332,7 +333,7 @@ export function DevOpsOverviewPage() {
       id: 'git-providers',
       name: 'Git Providers',
       description: 'Configure GitHub, GitLab, Gitea connections',
-      href: '/app/devops/git',
+      href: '/app/devops/source-control',
       icon: GitBranch,
       stat: stats.providers.total,
       status: stats.providers.active > 0 ? 'success' : 'neutral'
@@ -341,16 +342,16 @@ export function DevOpsOverviewPage() {
       id: 'repositories',
       name: 'Repositories',
       description: 'Synced repositories from all providers',
-      href: '/app/devops/repositories',
+      href: '/app/devops/source-control/repositories',
       icon: FolderGit2,
       stat: stats.repositories.total,
       status: stats.repositories.total > 0 ? 'success' : 'neutral'
     },
     {
       id: 'runners',
-      name: 'CI/CD Runners',
+      name: 'DevOps Runners',
       description: 'Self-hosted workflow execution agents',
-      href: '/app/devops/runners',
+      href: '/app/devops/ci-cd/runners',
       icon: Server,
       stat: stats.runners?.total || 0,
       status: stats.runners?.online ? (stats.runners.online > 0 ? 'success' : 'warning') : 'neutral'
@@ -359,7 +360,7 @@ export function DevOpsOverviewPage() {
       id: 'webhooks',
       name: 'Webhooks',
       description: 'Webhook endpoints and delivery monitoring',
-      href: '/app/devops/webhooks',
+      href: '/app/devops/connections/webhooks',
       icon: Link2,
       stat: stats.webhooks?.total_endpoints || 0,
       status: stats.webhooks?.failed_deliveries_today ? (stats.webhooks.failed_deliveries_today > 0 ? 'warning' : 'success') : 'neutral'
@@ -368,7 +369,7 @@ export function DevOpsOverviewPage() {
       id: 'integrations',
       name: 'Integrations',
       description: 'Third-party service integrations',
-      href: '/app/devops/integrations',
+      href: '/app/devops/connections',
       icon: Puzzle,
       stat: stats.integrations.total,
       status: stats.integrations.errors > 0 ? 'error' : (stats.integrations.active > 0 ? 'success' : 'neutral')
@@ -377,7 +378,7 @@ export function DevOpsOverviewPage() {
       id: 'api-keys',
       name: 'API Keys',
       description: 'Authentication tokens and access keys',
-      href: '/app/devops/api-keys',
+      href: '/app/devops/connections/api-keys',
       icon: Key,
       stat: stats.apiKeys?.total_keys || 0,
       status: stats.apiKeys?.active_keys ? (stats.apiKeys.active_keys > 0 ? 'success' : 'neutral') : 'neutral'
@@ -420,7 +421,7 @@ export function DevOpsOverviewPage() {
   return (
     <PageContainer
       title="DevOps Overview"
-      description="Infrastructure, CI/CD, and development operations dashboard"
+      description="Infrastructure, pipelines, and development operations dashboard"
       breadcrumbs={breadcrumbs}
       actions={actions}
     >
@@ -433,7 +434,7 @@ export function DevOpsOverviewPage() {
             subtitle={`${stats.providers.total} configured`}
             icon={GitBranch}
             status={stats.providers.active > 0 ? 'success' : 'neutral'}
-            onClick={() => navigate('/app/devops/git')}
+            onClick={() => navigate('/app/devops/source-control')}
           />
           <StatCard
             title="Repositories"
@@ -441,7 +442,7 @@ export function DevOpsOverviewPage() {
             subtitle={`${stats.repositories.withWebhooks} with webhooks`}
             icon={FolderGit2}
             status={stats.repositories.total > 0 ? 'success' : 'neutral'}
-            onClick={() => navigate('/app/devops/repositories')}
+            onClick={() => navigate('/app/devops/source-control/repositories')}
           />
           <StatCard
             title="Runners Online"
@@ -449,7 +450,7 @@ export function DevOpsOverviewPage() {
             subtitle={`${totalRunners} total`}
             icon={Server}
             status={stats.runners?.online ? (stats.runners.online > 0 ? 'success' : 'warning') : 'neutral'}
-            onClick={() => navigate('/app/devops/runners')}
+            onClick={() => navigate('/app/devops/ci-cd/runners')}
           />
           <StatCard
             title="Webhooks Active"
@@ -457,7 +458,7 @@ export function DevOpsOverviewPage() {
             subtitle={`${stats.webhooks?.total_endpoints || 0} total`}
             icon={Link2}
             status={stats.webhooks?.active_endpoints ? 'success' : 'neutral'}
-            onClick={() => navigate('/app/devops/webhooks')}
+            onClick={() => navigate('/app/devops/connections/webhooks')}
           />
           <StatCard
             title="Integrations"
@@ -465,7 +466,7 @@ export function DevOpsOverviewPage() {
             subtitle={stats.integrations.errors > 0 ? `${stats.integrations.errors} errors` : `${stats.integrations.total} total`}
             icon={Puzzle}
             status={stats.integrations.errors > 0 ? 'error' : (stats.integrations.active > 0 ? 'success' : 'neutral')}
-            onClick={() => navigate('/app/devops/integrations')}
+            onClick={() => navigate('/app/devops/connections')}
           />
           <StatCard
             title="API Keys"
@@ -473,7 +474,7 @@ export function DevOpsOverviewPage() {
             subtitle={`${stats.apiKeys?.requests_today || 0} requests today`}
             icon={Key}
             status={stats.apiKeys?.active_keys ? 'success' : 'neutral'}
-            onClick={() => navigate('/app/devops/api-keys')}
+            onClick={() => navigate('/app/devops/connections/api-keys')}
           />
         </div>
 
@@ -487,7 +488,7 @@ export function DevOpsOverviewPage() {
                 Runner Health
               </h3>
               <button
-                onClick={() => navigate('/app/devops/runners')}
+                onClick={() => navigate('/app/devops/ci-cd/runners')}
                 className="text-sm text-theme-primary hover:underline"
               >
                 View all
@@ -522,7 +523,7 @@ export function DevOpsOverviewPage() {
                 <Server className="w-8 h-8 text-theme-tertiary mx-auto mb-2" />
                 <p className="text-sm text-theme-secondary">No runners configured</p>
                 <button
-                  onClick={() => navigate('/app/devops/runners')}
+                  onClick={() => navigate('/app/devops/ci-cd/runners')}
                   className="text-sm text-theme-primary hover:underline mt-1"
                 >
                   Sync runners
@@ -539,7 +540,7 @@ export function DevOpsOverviewPage() {
                 Webhook Deliveries Today
               </h3>
               <button
-                onClick={() => navigate('/app/devops/webhooks')}
+                onClick={() => navigate('/app/devops/connections/webhooks')}
                 className="text-sm text-theme-primary hover:underline"
               >
                 View all
@@ -584,7 +585,7 @@ export function DevOpsOverviewPage() {
                 Commit Activity
               </h3>
               <button
-                onClick={() => navigate('/app/devops/repositories')}
+                onClick={() => navigate('/app/devops/source-control/repositories')}
                 className="text-sm text-theme-primary hover:underline"
               >
                 View repos
@@ -610,7 +611,7 @@ export function DevOpsOverviewPage() {
                           className="flex-1 flex flex-col items-center justify-end h-full group"
                         >
                           <div
-                            className={`w-full rounded-t-sm bg-emerald-500 transition-all group-hover:bg-emerald-400 cursor-default ${getActivityBarHeight(week.count, maxCount)}`}
+                            className={`w-full rounded-t-sm bg-theme-success-solid transition-all group-hover:opacity-80 cursor-default ${getActivityBarHeight(week.count, maxCount)}`}
                             title={`Week of ${week.weekLabel}: ${week.count} commit${week.count !== 1 ? 's' : ''}`}
                           />
                         </div>
@@ -635,7 +636,7 @@ export function DevOpsOverviewPage() {
                 <FolderGit2 className="w-8 h-8 text-theme-tertiary mx-auto mb-2" />
                 <p className="text-sm text-theme-secondary">No repositories synced</p>
                 <button
-                  onClick={() => navigate('/app/devops/git')}
+                  onClick={() => navigate('/app/devops/source-control')}
                   className="text-sm text-theme-primary hover:underline mt-1"
                 >
                   Add provider
@@ -673,7 +674,7 @@ export function DevOpsOverviewPage() {
                     {stats.integrations.errors} integration{stats.integrations.errors > 1 ? 's' : ''} with errors
                   </span>
                   <button
-                    onClick={() => navigate('/app/devops/integrations')}
+                    onClick={() => navigate('/app/devops/connections')}
                     className="text-theme-primary hover:underline"
                   >
                     Review
@@ -686,7 +687,7 @@ export function DevOpsOverviewPage() {
                     {stats.runners.offline} runner{stats.runners.offline > 1 ? 's' : ''} offline
                   </span>
                   <button
-                    onClick={() => navigate('/app/devops/runners')}
+                    onClick={() => navigate('/app/devops/ci-cd/runners')}
                     className="text-theme-primary hover:underline"
                   >
                     Check status

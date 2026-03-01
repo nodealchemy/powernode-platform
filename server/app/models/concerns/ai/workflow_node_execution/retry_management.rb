@@ -10,24 +10,29 @@ module Ai
       end
 
       def retry_execution!
-        return false unless can_retry?
+        # Use with_lock to prevent race conditions when checking and updating retry state
+        with_lock do
+          reload
 
-        transaction do
-          increment!(:retry_count)
+          return false unless can_retry?
 
-          update!(
-            status: "pending",
-            started_at: nil,
-            completed_at: nil,
-            cancelled_at: nil,
-            error_details: {},
-            metadata: metadata.merge({
-              "retry_attempt" => retry_count + 1,
-              "retried_at" => Time.current.iso8601
-            })
-          )
+          transaction do
+            increment!(:retry_count)
 
-          log_info("node_retry_scheduled", "Node execution retry scheduled (attempt #{retry_count}/#{max_retries})")
+            update!(
+              status: "pending",
+              started_at: nil,
+              completed_at: nil,
+              cancelled_at: nil,
+              error_details: {},
+              metadata: metadata.merge({
+                "retry_attempt" => retry_count + 1,
+                "retried_at" => Time.current.iso8601
+              })
+            )
+
+            log_info("node_retry_scheduled", "Node execution retry scheduled (attempt #{retry_count}/#{max_retries})")
+          end
         end
 
         true

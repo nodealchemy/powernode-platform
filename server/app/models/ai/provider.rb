@@ -13,23 +13,23 @@ module Ai
     include Ai::Provider::ModelManagement
     include Ai::Provider::Configurable
     include Ai::Provider::ProviderSetup
-    include Ai::Provider::CicdIntegration
+    include Ai::Provider::DevopsIntegration
 
     # Associations
     belongs_to :account
     has_many :provider_credentials, class_name: "Ai::ProviderCredential", foreign_key: "ai_provider_id", dependent: :destroy
     has_many :credentials, -> { where(is_active: true) }, class_name: "Ai::ProviderCredential", foreign_key: "ai_provider_id", dependent: :destroy
-    has_many :agents, class_name: "Ai::Agent", foreign_key: "ai_provider_id", dependent: :nullify
+    has_many :agents, class_name: "Ai::Agent", foreign_key: "ai_provider_id", dependent: :restrict_with_error
     has_many :agent_executions, class_name: "Ai::AgentExecution", foreign_key: "ai_provider_id", dependent: :restrict_with_error
     has_many :conversations, class_name: "Ai::Conversation", foreign_key: "ai_provider_id", dependent: :restrict_with_error
 
 
     # Validations
     validates :name, presence: true, length: { maximum: 255 }, uniqueness: { scope: :account_id }
-    validates :slug, presence: true, uniqueness: true, length: { maximum: 50 },
+    validates :slug, presence: true, uniqueness: { scope: :account_id }, length: { maximum: 50 },
                      format: { with: /\A[a-z0-9\-_]+\z/, message: "can only contain lowercase letters, numbers, hyphens, and underscores" }
     validates :provider_type, presence: true, inclusion: {
-      in: %w[openai anthropic google azure huggingface custom ollama local api_gateway],
+      in: %w[openai anthropic google azure huggingface custom ollama local api_gateway mistral groq grok cohere embedding],
       message: "is not included in the list"
     }
     validates :api_base_url, format: { with: URI::DEFAULT_PARSER.make_regexp(%w[http https]), allow_blank: true }
@@ -48,7 +48,7 @@ module Ai
     scope :active, -> { where(is_active: true) }
     scope :inactive, -> { where(is_active: false) }
     scope :by_type, ->(type) { where(provider_type: type) }
-    scope :supporting_capability, ->(capability) { where("capabilities @> ?", [capability].to_json) }
+    scope :supporting_capability, ->(capability) { where("capabilities @> ?", [ capability ].to_json) }
     scope :ordered_by_priority, -> { order(:priority_order, :name) }
     scope :with_streaming, -> { where(supports_streaming: true) }
     scope :with_functions, -> { where(supports_functions: true) }
@@ -62,6 +62,7 @@ module Ai
     before_validation :normalize_capabilities
     before_validation :normalize_provider_type
     before_validation :normalize_api_endpoint
+    after_commit :schedule_model_sync, on: [ :create, :update ]
 
     # Instance Methods
     def supports_capability?(capability)
@@ -133,6 +134,19 @@ module Ai
 
     private
 
+    def schedule_model_sync
+      # Only trigger sync when relevant fields change (not on routine metadata updates)
+      sync_triggers = %w[api_base_url api_endpoint provider_type is_active]
+      relevant_change = sync_triggers.any? { |attr| saved_change_to_attribute?(attr) }
+
+      return unless relevant_change
+      return unless is_active? # Don't sync if provider was just deactivated
+
+      Ai::ProviderManagementService.sync_provider_models(self, force_refresh: true)
+    rescue StandardError => e
+      Rails.logger.error "After-commit model sync failed for provider #{id}: #{e.message}"
+    end
+
     def update_metadata(key, value)
       current_metadata = metadata || {}
       current_metadata[key] = value
@@ -172,7 +186,7 @@ module Ai
         document_analysis image_generation image_analysis vision code_execution
         text_embedding code_embedding audio_generation audio_transcription
         video_generation video_analysis translation summarization
-        search retrieval fine_tuning model_training cicd_execution
+        search retrieval fine_tuning model_training devops_execution
       ]
 
       unknown_capabilities = capabilities - known_capabilities

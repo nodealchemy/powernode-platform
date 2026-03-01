@@ -87,7 +87,7 @@ The platform has achieved:
 ## Key Platform Documentation Files
 
 ### Platform Architecture & Standards
-- **[Permission System Complete](platform/PERMISSION_SYSTEM_COMPLETE.md)** - Complete permission system implementation
+- **[Permission System Reference](platform/PERMISSION_SYSTEM_REFERENCE.md)** - Complete permission system reference
 - **[Platform Patterns Analysis](platform/PLATFORM_PATTERNS_ANALYSIS.md)** - Comprehensive platform pattern documentation
 - **[Platform Standardization Recommendations](platform/PLATFORM_STANDARDIZATION_RECOMMENDATIONS.md)** - Architecture standardization guide
 - **[UUID System Implementation](platform/UUID_SYSTEM_IMPLEMENTATION.md)** - UUIDv7 system documentation
@@ -99,7 +99,6 @@ The platform has achieved:
 - **[Automated MCP Delegation Config](platform/AUTOMATED_MCP_DELEGATION_CONFIG.md)** - Auto-delegation configuration
 
 ### Compliance & Analysis
-- **[Roles Permissions Comprehensive Analysis](platform/ROLES_PERMISSIONS_COMPREHENSIVE_ANALYSIS.md)** - Complete RBAC analysis
 - **[Accessibility Compliance Standards](platform/ACCESSIBILITY_COMPLIANCE_STANDARDS.md)** - Platform accessibility standards
 - **[Design Compliance Audit Report](platform/DESIGN_COMPLIANCE_AUDIT_REPORT.md)** - UI/UX compliance audit
 - **[Pattern Usage Statistics](platform/PATTERN_USAGE_STATISTICS.md)** - Platform pattern adoption metrics

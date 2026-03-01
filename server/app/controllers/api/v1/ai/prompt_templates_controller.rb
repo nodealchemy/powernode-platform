@@ -7,9 +7,9 @@ module Api
         include AuditLogging
 
         before_action :authenticate_request
-        before_action :require_read_permission, only: [:index, :show, :preview]
-        before_action :require_write_permission, only: [:create, :update, :destroy, :duplicate]
-        before_action :set_prompt_template, only: [:show, :update, :destroy, :preview, :duplicate]
+        before_action :require_read_permission, only: [ :index, :show, :preview ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy, :duplicate ]
+        before_action :set_prompt_template, only: [ :show, :update, :destroy, :preview, :duplicate ]
 
         # GET /api/v1/ai/prompt_templates
         def index
@@ -101,13 +101,13 @@ module Api
         # DELETE /api/v1/ai/prompt_templates/:id
         def destroy
           # Check if template is in use by any AI workflow nodes
-          if @prompt_template.workflow_nodes.exists?
+          if @prompt_template.ai_workflow_nodes.exists?
             render_error("Cannot delete template that is in use by AI workflow nodes", status: :unprocessable_content)
             return
           end
 
           # Check if template is in use by any pipeline steps
-          if @prompt_template.ci_cd_pipeline_steps.exists?
+          if @prompt_template.devops_pipeline_steps.exists?
             render_error("Cannot delete template that is in use by pipeline steps", status: :unprocessable_content)
             return
           end
@@ -141,8 +141,7 @@ module Api
         rescue Liquid::SyntaxError => e
           render_error("Template syntax error: #{e.message}", status: :unprocessable_content)
         rescue StandardError => e
-          Rails.logger.error "Failed to preview prompt template: #{e.message}"
-          render_error("Failed to preview template: #{e.message}", status: :internal_server_error)
+          render_internal_error("Failed to preview template", exception: e)
         end
 
         # POST /api/v1/ai/prompt_templates/:id/duplicate

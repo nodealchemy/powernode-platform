@@ -1,6 +1,8 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { CreateAgentModal } from './CreateAgentModal';
 
+import { agentsApi, providersApi } from '@/shared/services/ai';
+
 // Mock the hooks and services
 jest.mock('@/shared/hooks/useNotifications', () => ({
   useNotifications: () => ({
@@ -16,8 +18,6 @@ jest.mock('@/shared/services/ai', () => ({
     getProviders: jest.fn()
   }
 }));
-
-import { agentsApi, providersApi } from '@/shared/services/ai';
 
 describe('CreateAgentModal', () => {
   const defaultProps = {

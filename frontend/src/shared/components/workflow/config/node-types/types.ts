@@ -1,4 +1,4 @@
-import type { HandlePosition, HandlePositions } from '../../nodes/DynamicNodeHandles';
+import type { HandlePosition, HandlePositions } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
 import type { AiAgent } from '@/shared/types/ai';
 
 // Node configuration state
@@ -11,16 +11,16 @@ export interface NodeConfiguration {
   timeoutSeconds: number;
   retryCount: number;
   handlePositions?: HandlePositions;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   configuration: Record<string, any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   metadata: Record<string, any>;
 }
 
 // Props passed to each node type config component
 export interface NodeTypeConfigProps {
   config: NodeConfiguration;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   handleConfigChange: (key: string, value: any) => void;
   handlePositionsConfig: React.ReactNode;
   markAsChanged: () => void;

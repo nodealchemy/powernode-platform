@@ -2,19 +2,19 @@ import React from 'react';
 import { FileText, Copy, Trash2, MoreVertical, Eye, Tag } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import type { CiCdPromptTemplate, CiCdPromptCategory } from '@/types/devops-pipelines';
+import type { DevopsPromptTemplate, DevopsPromptCategory } from '@/types/devops-pipelines';
 
 interface PromptTemplateListProps {
-  templates: CiCdPromptTemplate[];
+  templates: DevopsPromptTemplate[];
   loading: boolean;
-  onEdit: (template: CiCdPromptTemplate) => void;
-  onPreview: (template: CiCdPromptTemplate) => void;
+  onEdit: (template: DevopsPromptTemplate) => void;
+  onPreview: (template: DevopsPromptTemplate) => void;
   onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
 }
 
-const getCategoryConfig = (category: CiCdPromptCategory) => {
-  const configs: Record<CiCdPromptCategory, { bg: string; text: string; label: string }> = {
+const getCategoryConfig = (category: DevopsPromptCategory) => {
+  const configs: Record<DevopsPromptCategory, { bg: string; text: string; label: string }> = {
     review: { bg: 'bg-theme-info/10', text: 'text-theme-info', label: 'Review' },
     implement: { bg: 'bg-theme-success/10', text: 'text-theme-success', label: 'Implement' },
     security: { bg: 'bg-theme-error/10', text: 'text-theme-error', label: 'Security' },
@@ -28,7 +28,7 @@ const getCategoryConfig = (category: CiCdPromptCategory) => {
   return configs[category] || configs.custom;
 };
 
-const CategoryBadge: React.FC<{ category: CiCdPromptCategory }> = ({ category }) => {
+const CategoryBadge: React.FC<{ category: DevopsPromptCategory }> = ({ category }) => {
   const config = getCategoryConfig(category);
   return (
     <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
@@ -38,7 +38,7 @@ const CategoryBadge: React.FC<{ category: CiCdPromptCategory }> = ({ category })
 };
 
 const TemplateCard: React.FC<{
-  template: CiCdPromptTemplate;
+  template: DevopsPromptTemplate;
   onEdit: () => void;
   onPreview: () => void;
   onDuplicate: () => void;

@@ -5,7 +5,7 @@ import { AIPermissionsDebug } from '@/shared/components/ai/AIPermissionsDebug';
 
 export const AIDebugPage: React.FC = () => {
   // WebSocket for real-time updates
-  const { isConnected: _wsConnected } = usePageWebSocket({
+  usePageWebSocket({
     pageType: 'ai',
     onDataUpdate: () => {
       // Trigger data refresh if needed

@@ -82,49 +82,55 @@ def sensitive_action
 end
 ```
 
-## Permission Categories
+## Permission Categories (533 Total)
 
-### User Management
-| Permission | Description |
-|------------|-------------|
-| `users.create` | Create new users |
-| `users.read` | View user information |
-| `users.update` | Update user details |
-| `users.delete` | Delete users |
-| `users.manage` | Full user management |
-| `team.manage` | Manage team settings |
+Permissions are organized by prefix. Major categories:
 
-### Billing Operations
-| Permission | Description |
-|------------|-------------|
-| `billing.read` | View billing information |
-| `billing.update` | Update billing settings |
-| `billing.manage` | Full billing management |
-| `invoices.create` | Create invoices |
-| `payments.process` | Process payments |
+| Category | Count | Description |
+|----------|-------|-------------|
+| `admin.*` | 152 | Admin panel access — accounts, AI, audit, billing, DevOps, Docker, files, Git, marketplace |
+| `ai.*` | 80 | AI features — agents, workflows, memory, knowledge, conversations, providers |
+| `system.*` | 61 | System-level — admin, monitoring, health, configuration |
+| `supply_chain.*` | 34 | Supply chain management |
+| `devops.*` | 29 | DevOps — pipelines, providers, repositories, templates |
+| `swarm.*` | 27 | Docker Swarm operations |
+| `git.*` | 25 | Git — approvals, credentials, pipelines, providers, repositories |
+| `docker.*` | 19 | Docker container management |
+| `marketing.*` | 11 | Marketing campaigns |
+| `integrations.*` | 9 | Third-party integrations |
+| `app.*` | 8 | App marketplace |
+| `files.*` | 8 | File management |
+| `kb.*` | 7 | Knowledge base articles |
+| `mcp.*` | 6 | MCP protocol operations |
+| `subscription.*` | 6 | Subscription lifecycle |
+| `page.*` | 5 | CMS pages |
+| `review.*` | 5 | Code reviews |
+| `storage.*` | 5 | Storage backends |
+| `listing.*` | 4 | Marketplace listings |
+| `team.*` | 4 | Team management |
+| `webhook.*` | 4 | Webhook management |
+| `api.*` | 3 | API key management |
+| `audit.*` | 3 | Audit logs |
+| `billing.*` | 3 | Billing operations |
+| `plans.*` | 3 | Plan management |
+| `report.*` | 3 | Reports |
+| `user.*` | 3 | User management |
+| `invoice.*` | 2 | Invoice management |
+| `marketplace.*` | 3 | Marketplace access |
+| `users.*` | 1 | User listing |
 
-### System Administration
-| Permission | Description |
-|------------|-------------|
-| `admin.access` | Access admin panel |
-| `system.admin` | Full system access |
-| `accounts.manage` | Manage accounts |
-| `settings.update` | Update system settings |
+### Common Permission Patterns
 
-### Content Management
-| Permission | Description |
-|------------|-------------|
-| `pages.create` | Create pages |
-| `pages.update` | Update pages |
-| `pages.delete` | Delete pages |
-| `content.manage` | Full content management |
+```
+# CRUD pattern
+resource.create, resource.read, resource.update, resource.delete
 
-### Analytics
-| Permission | Description |
-|------------|-------------|
-| `analytics.read` | View analytics |
-| `analytics.export` | Export analytics data |
-| `reports.generate` | Generate reports |
+# Management shortcut
+resource.manage  (implies full CRUD)
+
+# Admin scoped
+admin.resource.read, admin.resource.update, admin.resource.delete
+```
 
 ## Backend Roles (For Permission Assignment Only)
 

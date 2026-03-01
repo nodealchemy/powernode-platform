@@ -5,7 +5,7 @@
  * Extracted from AgentsApiService.ts for better modularity.
  */
 
-import type { QueryFilters } from '../BaseApiService';
+import type { QueryFilters } from '@/shared/services/ai/BaseApiService';
 
 // ===================================================================
 // Filter Types
@@ -16,6 +16,9 @@ export interface AgentFilters extends QueryFilters {
   agent_type?: string;
   status?: 'active' | 'paused' | 'archived';
   visibility?: 'private' | 'account' | 'public';
+  sort?: string;
+  order?: 'asc' | 'desc';
+  my_agents?: boolean;
 }
 
 export interface AgentExecutionFilters extends QueryFilters {
@@ -57,9 +60,60 @@ export interface ExecuteAgentRequest {
 }
 
 export interface SendMessageRequest {
-  content: string;
-  role?: 'user' | 'assistant' | 'system';
-  metadata?: Record<string, unknown>;
+  message: {
+    content: string;
+    message_type?: string;
+    metadata?: Record<string, unknown>;
+  };
+}
+
+export interface SendMessageResponse {
+  user_message: {
+    id: string;
+    conversation_id: string;
+    role: string;
+    content: string;
+    content_preview: string;
+    message_type: string;
+    status: string;
+    user: string | null;
+    sequence_number: number;
+    token_count: number;
+    cost_usd: string;
+    has_attachments: boolean;
+    attachment_count: number;
+    is_edited: boolean;
+    created_at: string;
+    processed_at: string | null;
+    parent_message_id: string | null;
+  };
+  assistant_message: {
+    id: string;
+    conversation_id: string;
+    role: string;
+    content: string;
+    content_preview: string;
+    message_type: string;
+    status: string;
+    user: string | null;
+    sequence_number: number;
+    token_count: number;
+    cost_usd: string;
+    has_attachments: boolean;
+    attachment_count: number;
+    is_edited: boolean;
+    created_at: string;
+    processed_at: string | null;
+    parent_message_id: string | null;
+  } | null;
+  error?: string;
+  concierge_routed?: boolean;
+  conversation: {
+    id: string;
+    message_count: number;
+    total_tokens?: number;
+    total_cost?: number;
+  };
 }
 
 // ===================================================================
@@ -100,4 +154,18 @@ export interface AgentType {
   value: string;
   label: string;
   description: string;
+}
+
+// ===================================================================
+// Agent Skill Types
+// ===================================================================
+
+export interface AiAgentSkill {
+  id: string;
+  name: string;
+  slug: string;
+  category: string;
+  is_active: boolean;
+  priority: number;
+  command_count: number;
 }

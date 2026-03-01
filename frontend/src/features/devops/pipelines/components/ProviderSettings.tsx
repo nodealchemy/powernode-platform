@@ -1,21 +1,21 @@
 import React, { useState } from 'react';
-import { Server, CheckCircle, RefreshCw, Trash2, Edit, Plus } from 'lucide-react';
+import { Server, CheckCircle, RefreshCw, Trash2, Edit, Plus, Download } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import type { CiCdProvider, CiCdProviderType, CiCdProviderFormData } from '@/types/devops-pipelines';
+import type { DevopsProvider, DevopsProviderType, DevopsProviderFormData } from '@/types/devops-pipelines';
 
 interface ProviderSettingsProps {
-  providers: CiCdProvider[];
+  providers: DevopsProvider[];
   loading: boolean;
-  onAdd: (data: CiCdProviderFormData) => void;
-  onEdit: (id: string, data: Partial<CiCdProviderFormData>) => void;
+  onAdd: (data: DevopsProviderFormData) => void;
+  onEdit: (id: string, data: Partial<DevopsProviderFormData>) => void;
   onDelete: (id: string) => void;
   onTestConnection: (id: string) => void;
-  onSyncRepositories: (id: string) => void;
+  onImportRepositories?: (id: string) => void;
 }
 
-const getProviderIcon = (type: CiCdProviderType): string => {
-  const icons: Record<CiCdProviderType, string> = {
+const getProviderIcon = (type: DevopsProviderType): string => {
+  const icons: Record<DevopsProviderType, string> = {
     gitea: '🐙',
     github: '🐙',
     gitlab: '🦊',
@@ -25,25 +25,18 @@ const getProviderIcon = (type: CiCdProviderType): string => {
 };
 
 const ProviderCard: React.FC<{
-  provider: CiCdProvider;
+  provider: DevopsProvider;
   onEdit: () => void;
   onDelete: () => void;
   onTestConnection: () => void;
-  onSyncRepositories: () => void;
-}> = ({ provider, onEdit, onDelete, onTestConnection, onSyncRepositories }) => {
+  onImportRepositories?: () => void;
+}> = ({ provider, onEdit, onDelete, onTestConnection, onImportRepositories }) => {
   const [testing, setTesting] = useState(false);
-  const [syncing, setSyncing] = useState(false);
 
   const handleTest = async () => {
     setTesting(true);
     await onTestConnection();
     setTesting(false);
-  };
-
-  const handleSync = async () => {
-    setSyncing(true);
-    await onSyncRepositories();
-    setSyncing(false);
   };
 
   return (
@@ -90,19 +83,16 @@ const ProviderCard: React.FC<{
             )}
             Test
           </Button>
-          <Button
-            onClick={handleSync}
-            variant="secondary"
-            size="sm"
-            disabled={syncing}
-          >
-            {syncing ? (
-              <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
-            ) : (
-              <RefreshCw className="w-4 h-4 mr-1" />
-            )}
-            Sync
-          </Button>
+          {onImportRepositories && (
+            <Button
+              onClick={onImportRepositories}
+              variant="secondary"
+              size="sm"
+            >
+              <Download className="w-4 h-4 mr-1" />
+              Import
+            </Button>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -119,13 +109,13 @@ const ProviderCard: React.FC<{
 };
 
 interface ProviderFormProps {
-  provider?: CiCdProvider;
-  onSubmit: (data: CiCdProviderFormData) => void;
+  provider?: DevopsProvider;
+  onSubmit: (data: DevopsProviderFormData) => void;
   onCancel: () => void;
 }
 
 const ProviderForm: React.FC<ProviderFormProps> = ({ provider, onSubmit, onCancel }) => {
-  const [formData, setFormData] = useState<CiCdProviderFormData>({
+  const [formData, setFormData] = useState<DevopsProviderFormData>({
     name: provider?.name || '',
     provider_type: provider?.provider_type || 'gitea',
     base_url: provider?.base_url || '',
@@ -165,7 +155,7 @@ const ProviderForm: React.FC<ProviderFormProps> = ({ provider, onSubmit, onCance
           </label>
           <select
             value={formData.provider_type}
-            onChange={(e) => setFormData({ ...formData, provider_type: e.target.value as CiCdProviderType })}
+            onChange={(e) => setFormData({ ...formData, provider_type: e.target.value as DevopsProviderType })}
             className="w-full px-3 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-primary"
           >
             <option value="gitea">Gitea</option>
@@ -247,12 +237,12 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
   onEdit,
   onDelete,
   onTestConnection,
-  onSyncRepositories,
+  onImportRepositories,
 }) => {
   const [showForm, setShowForm] = useState(false);
-  const [editingProvider, setEditingProvider] = useState<CiCdProvider | null>(null);
+  const [editingProvider, setEditingProvider] = useState<DevopsProvider | null>(null);
 
-  const handleSubmit = (data: CiCdProviderFormData) => {
+  const handleSubmit = (data: DevopsProviderFormData) => {
     if (editingProvider) {
       onEdit(editingProvider.id, data);
     } else {
@@ -299,7 +289,7 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
             No Git Providers Configured
           </h3>
           <p className="text-theme-secondary mb-4">
-            Add a Git provider to connect repositories and enable CI/CD pipelines.
+            Add a Git provider to connect repositories and enable DevOps pipelines.
           </p>
           <Button onClick={() => setShowForm(true)} variant="primary">
             <Plus className="w-4 h-4 mr-1" />
@@ -315,7 +305,7 @@ export const ProviderSettings: React.FC<ProviderSettingsProps> = ({
               onEdit={() => setEditingProvider(provider)}
               onDelete={() => onDelete(provider.id)}
               onTestConnection={() => onTestConnection(provider.id)}
-              onSyncRepositories={() => onSyncRepositories(provider.id)}
+              onImportRepositories={onImportRepositories ? () => onImportRepositories(provider.id) : undefined}
             />
           ))}
         </div>

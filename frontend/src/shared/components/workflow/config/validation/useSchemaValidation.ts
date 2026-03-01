@@ -1,7 +1,7 @@
 import { useMemo, useCallback } from 'react';
 import Ajv, { ErrorObject } from 'ajv';
 import addFormats from 'ajv-formats';
-import type { JsonSchema, JsonSchemaProperty } from '../JsonSchemaForm';
+import type { JsonSchema, JsonSchemaProperty } from '@/shared/components/workflow/config/JsonSchemaForm';
 
 export interface ValidationResult {
   isValid: boolean;
@@ -166,7 +166,7 @@ export function useSchemaValidation(
 
         const errors = fieldValidator.errors || [];
         return errors.length > 0 ? formatSingleError(errors[0]) : null;
-      } catch {
+      } catch (_error) {
         return null;
       }
     },

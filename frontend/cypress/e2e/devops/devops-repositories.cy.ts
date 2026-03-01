@@ -63,13 +63,13 @@ describe('DevOps Repositories Tests', () => {
     });
   });
 
-  describe('Sync Repositories', () => {
+  describe('Import Repositories', () => {
     beforeEach(() => {
       cy.assertPageReady('/app/devops/repositories');
     });
 
-    it('should have Sync All button', () => {
-      cy.assertContainsAny(['Sync All', 'Sync']);
+    it('should have Import Repositories button', () => {
+      cy.assertContainsAny(['Import Repositories', 'Import']);
     });
   });
 

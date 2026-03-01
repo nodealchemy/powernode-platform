@@ -33,7 +33,7 @@ class Api::V1::Admin::ValidationRulesController < ApplicationController
         severities: ValidationRule.distinct.pluck(:severity)
       }
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to list validation rules: #{e.message}"
     render_error("Failed to list validation rules", status: :internal_server_error)
   end
@@ -43,7 +43,7 @@ class Api::V1::Admin::ValidationRulesController < ApplicationController
     render_success({
       validation_rule: serialize_validation_rule(@validation_rule, include_details: true)
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to get validation rule: #{e.message}"
     render_error("Failed to get validation rule", status: :internal_server_error)
   end
@@ -60,7 +60,7 @@ class Api::V1::Admin::ValidationRulesController < ApplicationController
     else
       render_validation_error(rule.errors)
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to create validation rule: #{e.message}"
     render_error("Failed to create validation rule", status: :internal_server_error)
   end
@@ -75,7 +75,7 @@ class Api::V1::Admin::ValidationRulesController < ApplicationController
     else
       render_validation_error(@validation_rule.errors)
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to update validation rule: #{e.message}"
     render_error("Failed to update validation rule", status: :internal_server_error)
   end
@@ -87,7 +87,7 @@ class Api::V1::Admin::ValidationRulesController < ApplicationController
     render_success({
       message: "Validation rule deleted successfully"
     })
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to delete validation rule: #{e.message}"
     render_error("Failed to delete validation rule", status: :internal_server_error)
   end
@@ -102,7 +102,7 @@ class Api::V1::Admin::ValidationRulesController < ApplicationController
     else
       render_validation_error(@validation_rule.errors)
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to enable validation rule: #{e.message}"
     render_error("Failed to enable validation rule", status: :internal_server_error)
   end
@@ -117,7 +117,7 @@ class Api::V1::Admin::ValidationRulesController < ApplicationController
     else
       render_validation_error(@validation_rule.errors)
     end
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to disable validation rule: #{e.message}"
     render_error("Failed to disable validation rule", status: :internal_server_error)
   end

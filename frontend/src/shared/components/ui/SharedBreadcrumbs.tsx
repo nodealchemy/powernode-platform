@@ -6,19 +6,21 @@ import { ChevronRight, Home } from 'lucide-react';
 interface BreadcrumbItem {
   label: string;
   href?: string;
-  icon?: React.ComponentType<any>;
+  icon?: React.ComponentType<{ className?: string }>;
 }
 
 interface SharedBreadcrumbsProps {
   items?: BreadcrumbItem[];
   className?: string;
   showHome?: boolean;
+  variant?: 'default' | 'contained';
 }
 
-export const SharedBreadcrumbs: React.FC<SharedBreadcrumbsProps> = ({ 
-  items = [], 
+export const SharedBreadcrumbs: React.FC<SharedBreadcrumbsProps> = ({
+  items = [],
   className = '',
-  showHome = true 
+  showHome = true,
+  variant = 'contained'
 }) => {
   const location = useLocation();
 
@@ -30,7 +32,7 @@ export const SharedBreadcrumbs: React.FC<SharedBreadcrumbsProps> = ({
     const breadcrumbs: BreadcrumbItem[] = [];
 
     if (showHome) {
-      breadcrumbs.push({ label: 'Dashboard', href: '/app', icon: Home });
+      breadcrumbs.push({ label: '', href: '/app', icon: Home });
     }
 
     // Build breadcrumbs from path segments
@@ -77,29 +79,42 @@ export const SharedBreadcrumbs: React.FC<SharedBreadcrumbsProps> = ({
 
   if (breadcrumbItems.length === 0) return null;
 
+  // Variant styles
+  const isContained = variant === 'contained';
+  const navClasses = isContained
+    ? `inline-flex items-center bg-theme-surface border border-theme rounded-lg px-3 py-1.5 text-sm text-theme-secondary ${className}`
+    : `flex items-center space-x-1 text-sm text-theme-secondary ${className}`;
+
+  const separatorClasses = isContained
+    ? 'w-4 h-4 mx-1.5 text-theme-tertiary'
+    : 'w-4 h-4 mx-1 text-theme-tertiary';
+
   return (
-    <nav className={`flex items-center space-x-1 text-sm text-theme-secondary ${className}`} aria-label="Breadcrumb">
-      <ol className="flex items-center space-x-1">
+    <nav className={navClasses} aria-label="Breadcrumb">
+      <ol className="flex items-center">
         {breadcrumbItems.map((item, index) => {
           const isLast = index === breadcrumbItems.length - 1;
-          
+          const isFirst = index === 0;
+          const isHomeIcon = isFirst && item.icon === Home;
+
           return (
             <li key={index} className="flex items-center">
               {index > 0 && (
-                <ChevronRight className="w-4 h-4 mx-1 text-theme-tertiary" />
+                <ChevronRight className={separatorClasses} />
               )}
-              
+
               {item.href ? (
                 <Link
                   to={item.href}
                   className="flex items-center hover:text-theme-primary transition-colors duration-150"
+                  title={isHomeIcon ? 'Dashboard' : undefined}
                 >
-                  {item.icon && <item.icon className="w-4 h-4 mr-1" />}
-                  <span>{item.label}</span>
+                  {item.icon && <item.icon className={`w-4 h-4 ${!isHomeIcon && item.label ? 'mr-1' : ''}`} />}
+                  {!isHomeIcon && <span>{item.label}</span>}
                 </Link>
               ) : (
                 <span className={`flex items-center ${isLast ? 'text-theme-primary font-medium' : ''}`}>
-                  {item.icon && <item.icon className="w-4 h-4 mr-1" />}
+                  {item.icon && <item.icon className={`w-4 h-4 ${item.label ? 'mr-1' : ''}`} />}
                   {item.label}
                 </span>
               )}

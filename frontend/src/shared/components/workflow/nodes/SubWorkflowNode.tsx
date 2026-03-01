@@ -1,7 +1,7 @@
 import React from 'react';
 import { NodeProps } from '@xyflow/react';
 import { Workflow } from 'lucide-react';
-import { DynamicNodeHandles } from './DynamicNodeHandles';
+import { DynamicNodeHandles } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
 import { SubWorkflowNode as SubWorkflowNodeType } from '@/shared/types/workflow';
 
 export const SubWorkflowNode: React.FC<NodeProps<SubWorkflowNodeType>> = ({

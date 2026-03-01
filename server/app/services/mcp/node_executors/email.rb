@@ -2,7 +2,7 @@
 
 module Mcp
   module NodeExecutors
-    # Email node executor - sends emails via configured providers
+    # Email node executor - dispatches emails to worker
     #
     # Configuration:
     # - provider: smtp, sendgrid, mailgun, ses
@@ -16,6 +16,8 @@ module Mcp
     # - attachments: Array of file references
     #
     class Email < Base
+      include Concerns::WorkerDispatch
+
       ALLOWED_PROVIDERS = %w[smtp sendgrid mailgun ses].freeze
 
       protected
@@ -37,7 +39,7 @@ module Mcp
 
         validate_configuration!(provider, to, subject)
 
-        email_context = {
+        payload = {
           provider: provider,
           to: to,
           cc: cc,
@@ -49,15 +51,12 @@ module Mcp
           template_id: template_id,
           template_data: template_data,
           attachments: attachments,
-          started_at: Time.current
+          node_id: @node.node_id
         }
 
-        log_info "Sending email to: #{to.join(', ')}"
+        log_info "Dispatching email to: #{to.join(', ')}"
 
-        # Send the email
-        result = send_email(email_context)
-
-        build_output(email_context, result)
+        dispatch_to_worker("Mcp::McpEmailExecutionJob", payload)
       end
 
       private
@@ -84,29 +83,6 @@ module Mcp
         end
       end
 
-      def send_email(context)
-        # NOTE: This is a simulation. In production, this would:
-        # 1. Select the appropriate email provider
-        # 2. Build the email with proper formatting
-        # 3. Send via the provider's API
-        # 4. Return delivery status
-
-        message_id = "msg_#{SecureRandom.hex(16)}"
-
-        {
-          message_id: message_id,
-          status: "sent",
-          provider: context[:provider],
-          recipients: {
-            to: context[:to],
-            cc: context[:cc],
-            bcc: context[:bcc]
-          },
-          subject: context[:subject],
-          sent_at: Time.current.iso8601
-        }
-      end
-
       def resolve_value(value)
         return nil if value.nil?
 
@@ -116,27 +92,6 @@ module Mcp
         else
           value
         end
-      end
-
-      def build_output(context, result)
-        {
-          output: {
-            email_sent: true,
-            message_id: result[:message_id],
-            recipients_count: context[:to].length
-          },
-          data: result.merge(
-            from: context[:from],
-            template_used: context[:template_id].present?,
-            attachments_count: context[:attachments].length,
-            duration_ms: ((Time.current - context[:started_at]) * 1000).round
-          ),
-          metadata: {
-            node_id: @node.node_id,
-            node_type: "email",
-            executed_at: Time.current.iso8601
-          }
-        }
       end
     end
   end

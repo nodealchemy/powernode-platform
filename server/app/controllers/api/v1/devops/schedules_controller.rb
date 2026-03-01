@@ -7,9 +7,9 @@ module Api
         include AuditLogging
 
         before_action :authenticate_request
-        before_action :require_read_permission, only: [:index, :show]
-        before_action :require_write_permission, only: [:create, :update, :destroy, :toggle]
-        before_action :set_schedule, only: [:show, :update, :destroy, :toggle]
+        before_action :require_read_permission, only: [ :index, :show ]
+        before_action :require_write_permission, only: [ :create, :update, :destroy, :toggle ]
+        before_action :set_schedule, only: [ :show, :update, :destroy, :toggle ]
 
         # GET /api/v1/devops/schedules
         def index
@@ -19,7 +19,7 @@ module Api
                                         .order(created_at: :desc)
 
           # Filter by pipeline if provided
-          schedules = schedules.where(ci_cd_pipeline_id: params[:pipeline_id]) if params[:pipeline_id].present?
+          schedules = schedules.where(devops_pipeline_id: params[:pipeline_id]) if params[:pipeline_id].present?
 
           # Filter by active status if provided
           schedules = schedules.where(is_active: params[:is_active]) if params[:is_active].present?

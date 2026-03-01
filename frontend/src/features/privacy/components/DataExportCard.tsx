@@ -80,7 +80,7 @@ export const DataExportCard: React.FC<DataExportCardProps> = ({
           <button
             onClick={handleRequestExport}
             disabled={requesting || loading}
-            className="px-6 py-2 bg-theme-primary text-white rounded-lg hover:bg-theme-primary-dark transition-colors disabled:opacity-50 flex items-center space-x-2"
+            className="btn-theme btn-theme-primary btn-theme-md flex items-center space-x-2"
           >
             <ArrowDownTrayIcon className="h-5 w-5" />
             <span>{requesting ? 'Requesting...' : 'Request Export'}</span>

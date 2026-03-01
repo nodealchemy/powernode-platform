@@ -3,8 +3,9 @@
 class Api::V1::Auth::SessionsController < ApplicationController
   # Rate limiting is now included in ApplicationController
   include UserSerialization
+  include RefreshTokenCookie
 
-  skip_before_action :authenticate_request, only: [ :create, :refresh ]
+  skip_before_action :authenticate_request, only: [ :create, :refresh, :verify_2fa ]
 
   # POST /api/v1/sessions
   def create
@@ -58,6 +59,7 @@ class Api::V1::Auth::SessionsController < ApplicationController
         }
 
         token_result = Security::JwtService.generate_user_tokens(user, metadata: metadata)
+        set_refresh_cookie(token_result[:refresh_token])
         user.record_login!
 
         # Create audit log entry
@@ -78,7 +80,6 @@ class Api::V1::Auth::SessionsController < ApplicationController
           user: user_data(user),
           account: account_data(user.account),
           access_token: token_result[:access_token],
-          refresh_token: token_result[:refresh_token],
           expires_at: token_result[:expires_at]
         }
 
@@ -91,7 +92,6 @@ class Api::V1::Auth::SessionsController < ApplicationController
           user: response_data[:user],
           account: response_data[:account],
           access_token: response_data[:access_token],
-          refresh_token: response_data[:refresh_token],
           expires_at: response_data[:expires_at]
         }.merge(response_data[:warning] ? { warning: response_data[:warning] } : {}))
       else
@@ -123,22 +123,23 @@ class Api::V1::Auth::SessionsController < ApplicationController
 
   # POST /api/v1/sessions/refresh
   def refresh
-    refresh_token = params[:refresh_token]
+    refresh_token = cookies[:refresh_token] || params[:refresh_token]
     return render_error("Refresh token required", status: :bad_request) unless refresh_token
 
     begin
       # Use JWT service to refresh the token
       token_result = Security::JwtService.refresh_access_token(refresh_token)
+      set_refresh_cookie(token_result[:refresh_token])
 
       render_success({
         access_token: token_result[:access_token],
-        refresh_token: token_result[:refresh_token],
         expires_at: token_result[:expires_at]
       }
       )
     rescue StandardError => e
-      Rails.logger.error "Token refresh error: #{e.message}"
-      Rails.logger.error "Token refresh backtrace: #{e.backtrace.join("\n")}"
+      # Log error class and sanitized message (no token data)
+      Rails.logger.error "Token refresh failed: #{e.class.name}"
+      Rails.logger.error e.backtrace.first(5).join("\n") if Rails.env.development?
 
       # Check if this is a permissions change that requires re-login
       if e.message.include?("Permissions changed")
@@ -163,7 +164,12 @@ class Api::V1::Auth::SessionsController < ApplicationController
       if params[:refresh_token].present?
         Security::JwtService.blacklist_token(params[:refresh_token], reason: "logout", user_id: current_user.id)
       end
-    rescue => e
+
+      # Also blacklist cookie-based refresh token
+      if cookies[:refresh_token].present?
+        Security::JwtService.blacklist_token(cookies[:refresh_token], reason: "logout", user_id: current_user.id)
+      end
+    rescue StandardError => e
       Rails.logger.error "Error blacklisting tokens: #{e.message}"
       # Continue with logout even if blacklisting fails
     end
@@ -181,6 +187,7 @@ class Api::V1::Auth::SessionsController < ApplicationController
       metadata: { logout_method: "api" }
     )
 
+    delete_refresh_cookie
     render_success(message: "Successfully logged out")
   end
 
@@ -213,6 +220,7 @@ class Api::V1::Auth::SessionsController < ApplicationController
     begin
       # Use JWT service to verify 2FA and get full tokens
       token_result = Security::JwtService.verify_2fa_token(verification_token, two_factor_code)
+      set_refresh_cookie(token_result[:refresh_token])
 
       # Get user from the token result (user info should be in the JWT)
       payload = Security::JwtService.decode(token_result[:access_token])
@@ -237,7 +245,6 @@ class Api::V1::Auth::SessionsController < ApplicationController
         user: user_data(user),
         account: account_data(user.account),
         access_token: token_result[:access_token],
-        refresh_token: token_result[:refresh_token],
         expires_at: token_result[:expires_at]
       }
 
@@ -250,12 +257,12 @@ class Api::V1::Auth::SessionsController < ApplicationController
         user: response_data[:user],
         account: response_data[:account],
         access_token: response_data[:access_token],
-          refresh_token: response_data[:refresh_token],
-          expires_at: response_data[:expires_at]
-        }.merge(response_data[:warning] ? { warning: response_data[:warning] } : {})
+        expires_at: response_data[:expires_at]
+      }.merge(response_data[:warning] ? { warning: response_data[:warning] } : {})
       )
     rescue StandardError => e
-      Rails.logger.error "2FA verification error: #{e.message}"
+      # Log error class only - no token/code data
+      Rails.logger.error "2FA verification failed: #{e.class.name}"
       render_error(
         "Authentication verification failed",
         :unauthorized

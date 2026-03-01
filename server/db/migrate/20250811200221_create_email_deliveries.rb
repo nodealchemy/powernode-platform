@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class CreateEmailDeliveries < ActiveRecord::Migration[8.0]
   def change
     create_table :email_deliveries, id: { type: :string, limit: 36 } do |t|
@@ -23,7 +25,7 @@ class CreateEmailDeliveries < ActiveRecord::Migration[8.0]
     add_index :email_deliveries, :email_type
     add_index :email_deliveries, :status
     add_index :email_deliveries, :created_at
-    add_index :email_deliveries, [:status, :created_at]
-    add_index :email_deliveries, [:email_type, :status]
+    add_index :email_deliveries, [ :status, :created_at ]
+    add_index :email_deliveries, [ :email_type, :status ]
   end
 end

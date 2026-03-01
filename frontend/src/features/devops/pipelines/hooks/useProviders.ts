@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { devopsProvidersApi } from '@/services/devopsPipelinesApi';
-import type { CiCdProvider, CiCdProviderFormData, CiCdConnectionTestResponse } from '@/types/devops-pipelines';
+import type { DevopsProvider, DevopsProviderFormData, DevopsConnectionTestResponse } from '@/types/devops-pipelines';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface UseProvidersParams {
@@ -9,7 +9,7 @@ interface UseProvidersParams {
 }
 
 export function useProviders(params: UseProvidersParams = {}) {
-  const [providers, setProviders] = useState<CiCdProvider[]>([]);
+  const [providers, setProviders] = useState<DevopsProvider[]>([]);
   const [meta, setMeta] = useState<{
     total: number;
     by_type: Record<string, number>;
@@ -43,28 +43,28 @@ export function useProviders(params: UseProvidersParams = {}) {
       currentParamsRef.current = paramsKey;
       fetchProviders();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [params.provider_type, params.is_active]);
 
-  const createProvider = async (data: CiCdProviderFormData) => {
+  const createProvider = async (data: DevopsProviderFormData) => {
     try {
       const provider = await devopsProvidersApi.create(data);
       showNotification('Provider created successfully', 'success');
       await fetchProviders();
       return provider;
-    } catch (err) {
+    } catch (_err) {
       showNotification('Failed to create provider', 'error');
       return null;
     }
   };
 
-  const updateProvider = async (id: string, data: Partial<CiCdProviderFormData>) => {
+  const updateProvider = async (id: string, data: Partial<DevopsProviderFormData>) => {
     try {
       const provider = await devopsProvidersApi.update(id, data);
       showNotification('Provider updated successfully', 'success');
       await fetchProviders();
       return provider;
-    } catch (err) {
+    } catch (_err) {
       showNotification('Failed to update provider', 'error');
       return null;
     }
@@ -76,13 +76,13 @@ export function useProviders(params: UseProvidersParams = {}) {
       showNotification('Provider deleted successfully', 'success');
       await fetchProviders();
       return true;
-    } catch (err) {
+    } catch (_err) {
       showNotification('Failed to delete provider', 'error');
       return false;
     }
   };
 
-  const testConnection = async (id: string): Promise<CiCdConnectionTestResponse | null> => {
+  const testConnection = async (id: string): Promise<DevopsConnectionTestResponse | null> => {
     try {
       const result = await devopsProvidersApi.testConnection(id);
       if (result.connected) {
@@ -91,19 +91,8 @@ export function useProviders(params: UseProvidersParams = {}) {
         showNotification(result.message || 'Connection failed', 'error');
       }
       return result;
-    } catch (err) {
+    } catch (_err) {
       showNotification('Failed to test connection', 'error');
-      return null;
-    }
-  };
-
-  const syncRepositories = async (id: string) => {
-    try {
-      const result = await devopsProvidersApi.syncRepositories(id);
-      showNotification(result.message || 'Repositories synced', 'success');
-      return result;
-    } catch (err) {
-      showNotification('Failed to sync repositories', 'error');
       return null;
     }
   };
@@ -118,12 +107,11 @@ export function useProviders(params: UseProvidersParams = {}) {
     updateProvider,
     deleteProvider,
     testConnection,
-    syncRepositories,
   };
 }
 
 export function useProvider(id: string | null) {
-  const [provider, setProvider] = useState<CiCdProvider | null>(null);
+  const [provider, setProvider] = useState<DevopsProvider | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -151,10 +139,10 @@ export function useProvider(id: string | null) {
       hasLoadedRef.current = id;
       fetchProvider();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [id]);
 
-  const updateProvider = async (data: Partial<CiCdProviderFormData>) => {
+  const updateProvider = async (data: Partial<DevopsProviderFormData>) => {
     if (!id) return null;
 
     try {
@@ -162,7 +150,7 @@ export function useProvider(id: string | null) {
       showNotification('Provider updated successfully', 'success');
       setProvider(updated);
       return updated;
-    } catch (err) {
+    } catch (_err) {
       showNotification('Failed to update provider', 'error');
       return null;
     }

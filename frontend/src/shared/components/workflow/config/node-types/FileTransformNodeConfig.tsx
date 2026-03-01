@@ -3,7 +3,7 @@ import { Input } from '@/shared/components/ui/Input';
 import { Textarea } from '@/shared/components/ui/Textarea';
 import { Checkbox } from '@/shared/components/ui/Checkbox';
 import { EnhancedSelect } from '@/shared/components/ui/EnhancedSelect';
-import type { NodeTypeConfigProps } from './types';
+import type { NodeTypeConfigProps } from '@/shared/components/workflow/config/node-types/types';
 
 export const FileTransformNodeConfig: React.FC<NodeTypeConfigProps> = ({
   config,
@@ -169,7 +169,7 @@ export const FileTransformNodeConfig: React.FC<NodeTypeConfigProps> = ({
             try {
               const parsed = JSON.parse(e.target.value);
               handleConfigChange('field_mapping', parsed);
-            } catch {
+            } catch (_error) {
               handleConfigChange('field_mapping', e.target.value);
             }
           }}

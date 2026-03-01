@@ -29,6 +29,7 @@
 .env
 .env.*
 !.env.example
+!.env.*.example
 !.env.sample
 !.env.template
 
@@ -52,6 +53,7 @@ encryption.key
 
 # API keys and tokens
 *secret*
+!**/secret_manager.rb
 *private*
 *.token
 *.tokens
@@ -193,6 +195,12 @@ cypress/downloads/
 spec/reports/
 junit.xml
 
+# Playwright
+playwright-report/
+playwright/.cache/
+e2e/.auth/
+blob-report/
+
 # Dependency directories
 jspm_packages/
 
@@ -250,6 +258,9 @@ dist
 # Claude Flow system metrics and cache
 .claude-flow/
 
+# Claude Code worktrees (temporary isolated git worktrees from agent execution)
+.claude/worktrees/
+
 # IDE and editor files (consolidated)
 .vscode/
 .idea/
@@ -302,3 +313,6 @@ worker/spec/examples.txt
 # Ad-hoc test scripts with potential secrets
 server/scripts/test_*.sh
 server/scripts/trigger_*.sh
+
+# Test output artifacts
+rspec_results.json

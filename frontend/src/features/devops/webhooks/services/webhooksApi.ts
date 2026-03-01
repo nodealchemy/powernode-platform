@@ -136,7 +136,7 @@ export const webhooksApi = {
     try {
       const response = await api.get(`/webhooks?page=${page}&per_page=${perPage}`);
       return response.data;
-    } catch (error: unknown) {
+    } catch (error) {
       // Error handled by return statement
       const errorMessage = error && typeof error === 'object' && 'response' in error
         ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to fetch webhooks'
@@ -170,7 +170,7 @@ export const webhooksApi = {
     try {
       const response = await api.get(`/webhooks/${id}`);
       return response.data;
-    } catch (error: unknown) {
+    } catch (error) {
       // Error handled by return statement
       const errorMessage = error && typeof error === 'object' && 'response' in error
         ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to fetch webhook'
@@ -187,7 +187,7 @@ export const webhooksApi = {
     try {
       const response = await api.post('/webhooks', { webhook: webhookData });
       return response.data;
-    } catch (error: unknown) {
+    } catch (error) {
       // Error handled by return statement
       const errorMessage = error && typeof error === 'object' && 'response' in error
         ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to create webhook'
@@ -204,7 +204,7 @@ export const webhooksApi = {
     try {
       const response = await api.put(`/webhooks/${id}`, { webhook: webhookData });
       return response.data;
-    } catch (error: unknown) {
+    } catch (error) {
       // Error handled by return statement
       const errorMessage = error && typeof error === 'object' && 'response' in error
         ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to update webhook'
@@ -221,7 +221,7 @@ export const webhooksApi = {
     try {
       const response = await api.delete(`/webhooks/${id}`);
       return response.data;
-    } catch (error: unknown) {
+    } catch (error) {
       // Error handled by return statement
       const errorMessage = error && typeof error === 'object' && 'response' in error
         ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to delete webhook'
@@ -238,7 +238,7 @@ export const webhooksApi = {
     try {
       const response = await api.post(`/webhooks/${id}/test`, { event_type: eventType });
       return response.data;
-    } catch (error: unknown) {
+    } catch (error) {
       // Error handled by return statement
       const errorMessage = error && typeof error === 'object' && 'response' in error
         ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to test webhook'
@@ -255,7 +255,7 @@ export const webhooksApi = {
     try {
       const response = await api.post(`/webhooks/${id}/toggle_status`);
       return response.data;
-    } catch (error: unknown) {
+    } catch (error) {
       // Error handled by return statement
       const errorMessage = error && typeof error === 'object' && 'response' in error
         ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to toggle webhook status'
@@ -272,7 +272,7 @@ export const webhooksApi = {
     try {
       const response = await api.get('/webhooks/available_events');
       return response.data;
-    } catch (error: unknown) {
+    } catch (error) {
       // Error handled by return statement
       const errorMessage = error && typeof error === 'object' && 'response' in error
         ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to fetch available events'
@@ -310,7 +310,7 @@ export const webhooksApi = {
 
       const response = await api.get(`/webhooks/deliveries?${params}`);
       return response.data;
-    } catch (error: unknown) {
+    } catch (error) {
       // Error handled by return statement
       const errorMessage = error && typeof error === 'object' && 'response' in error
         ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to fetch delivery history'
@@ -327,7 +327,7 @@ export const webhooksApi = {
     try {
       const response = await api.get('/webhooks/stats');
       return response.data;
-    } catch (error: unknown) {
+    } catch (error) {
       // Error handled by return statement
       const errorMessage = error && typeof error === 'object' && 'response' in error
         ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to fetch webhook stats'
@@ -344,7 +344,7 @@ export const webhooksApi = {
     try {
       const response = await api.post('/webhooks/retry_failed');
       return response.data;
-    } catch (error: unknown) {
+    } catch (error) {
       // Error handled by return statement
       const errorMessage = error && typeof error === 'object' && 'response' in error
         ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to retry failed webhooks'
@@ -397,7 +397,7 @@ export const webhooksApi = {
 
       const response = await api.get(`/webhooks/failed_deliveries?${urlParams}`);
       return response.data;
-    } catch (error: unknown) {
+    } catch (error) {
       const errorMessage = error && typeof error === 'object' && 'response' in error
         ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to fetch failed deliveries'
         : 'Failed to fetch failed deliveries';
@@ -420,7 +420,7 @@ export const webhooksApi = {
     try {
       const response = await api.post(`/webhooks/${webhookId}/deliveries/${deliveryId}/retry`);
       return response.data;
-    } catch (error: unknown) {
+    } catch (error) {
       const errorMessage = error && typeof error === 'object' && 'response' in error
         ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to retry delivery'
         : 'Failed to retry delivery';
@@ -494,7 +494,7 @@ export const webhooksApi = {
     try {
       const urlObj = new URL(url);
       return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
-    } catch {
+    } catch (_error) {
       return false;
     }
   },

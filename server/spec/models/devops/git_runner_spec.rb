@@ -137,7 +137,7 @@ RSpec.describe Devops::GitRunner, type: :model do
     end
 
     describe '.with_label' do
-      let!(:labeled_runner) { create(:git_runner, labels: ['linux', 'x64'], credential: credential, account: account) }
+      let!(:labeled_runner) { create(:git_runner, labels: [ 'linux', 'x64' ], credential: credential, account: account) }
 
       it 'returns runners with specific label' do
         expect(described_class.with_label('linux')).to include(labeled_runner)
@@ -224,8 +224,8 @@ RSpec.describe Devops::GitRunner, type: :model do
         expect(build(:git_runner, :offline).workload_percentage).to eq(0)
       end
 
-      it 'returns 50 for online but not busy runners' do
-        expect(build(:git_runner, :online).workload_percentage).to eq(50)
+      it 'returns 0 for online runners with no active dispatches' do
+        expect(build(:git_runner, :online).workload_percentage).to eq(0)
       end
     end
 
@@ -265,7 +265,7 @@ RSpec.describe Devops::GitRunner, type: :model do
 
     describe '#has_label?' do
       it 'checks if runner has specific label' do
-        runner = build(:git_runner, labels: ['linux', 'x64'])
+        runner = build(:git_runner, labels: [ 'linux', 'x64' ])
         expect(runner.has_label?('linux')).to be true
         expect(runner.has_label?('windows')).to be false
       end
@@ -273,7 +273,7 @@ RSpec.describe Devops::GitRunner, type: :model do
 
     describe '#label_list' do
       it 'returns comma-separated labels' do
-        runner = build(:git_runner, labels: ['linux', 'x64', 'docker'])
+        runner = build(:git_runner, labels: [ 'linux', 'x64', 'docker' ])
         expect(runner.label_list).to eq('linux, x64, docker')
       end
     end
@@ -370,26 +370,26 @@ RSpec.describe Devops::GitRunner, type: :model do
     let(:account) { create(:account) }
     let(:provider) { create(:git_provider) }
     let(:credential) { create(:git_provider_credential, provider: provider, account: account) }
-    let(:runner) { create(:git_runner, labels: ['linux', 'x64'], credential: credential, account: account) }
+    let(:runner) { create(:git_runner, labels: [ 'linux', 'x64' ], credential: credential, account: account) }
 
     describe '#update_labels!' do
       it 'replaces all labels' do
-        runner.update_labels!(['windows', 'arm64'])
-        expect(runner.labels).to eq(['windows', 'arm64'])
+        runner.update_labels!([ 'windows', 'arm64' ])
+        expect(runner.labels).to eq([ 'windows', 'arm64' ])
       end
     end
 
     describe '#add_labels!' do
       it 'adds new labels without duplicates' do
-        runner.add_labels!(['docker', 'linux'])
+        runner.add_labels!([ 'docker', 'linux' ])
         expect(runner.labels).to contain_exactly('linux', 'x64', 'docker')
       end
     end
 
     describe '#remove_labels!' do
       it 'removes specified labels' do
-        runner.remove_labels!(['x64'])
-        expect(runner.labels).to eq(['linux'])
+        runner.remove_labels!([ 'x64' ])
+        expect(runner.labels).to eq([ 'linux' ])
       end
     end
   end
@@ -408,7 +408,7 @@ RSpec.describe Devops::GitRunner, type: :model do
         'os' => 'Linux',
         'architecture' => 'X64',
         'version' => '2.311.0',
-        'labels' => [{ 'name' => 'self-hosted' }, { 'name' => 'linux' }]
+        'labels' => [ { 'name' => 'self-hosted' }, { 'name' => 'linux' } ]
       }
     end
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import DOMPurify from 'dompurify';
 import { Download, Copy, Check, ArrowDown, Loader2, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { devopsPipelineRunsApi } from '@/services/devopsPipelinesApi';
@@ -35,7 +36,16 @@ const ansiToHtml = (text: string): string => {
     '96': '<span class="text-theme-info">',
   };
 
-  const result = text
+  // First, escape HTML entities to prevent XSS from raw log content
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+  // Then convert ANSI codes to HTML
+  const result = escaped
     // eslint-disable-next-line no-control-regex
     .replace(/\x1b\[(\d+)m/g, (_, code) => ansiCodes[code] || '')
     // eslint-disable-next-line no-control-regex
@@ -43,7 +53,11 @@ const ansiToHtml = (text: string): string => {
     // eslint-disable-next-line no-control-regex
     .replace(/\x1b\[K/g, ''); // Remove clear line codes
 
-  return result;
+  // Sanitize the final HTML to allow only safe tags (span with class)
+  return DOMPurify.sanitize(result, {
+    ALLOWED_TAGS: ['span'],
+    ALLOWED_ATTR: ['class'],
+  });
 };
 
 export const JobLogViewer: React.FC<JobLogViewerProps> = ({
@@ -151,7 +165,7 @@ export const JobLogViewer: React.FC<JobLogViewerProps> = ({
       setCopied(true);
       showNotification('Logs copied to clipboard', 'success');
       setTimeout(() => setCopied(false), 2000);
-    } catch {
+    } catch (_error) {
       // Copy failed silently
     }
   };

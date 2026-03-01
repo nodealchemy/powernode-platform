@@ -6,7 +6,7 @@ module RateLimiting
       # Get current rate limit statistics
       def get_statistics
         {
-          enabled: System::SettingsService.rate_limiting_enabled?,
+          enabled: ENV["DISABLE_RATE_LIMITING"] != "true",
           current_violations: count_current_violations,
           active_limits: count_active_limits,
           configuration: get_current_configuration,
@@ -139,35 +139,32 @@ module RateLimiting
           violations += 1 if limit && current_count >= limit
         end
         violations
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Error counting rate limit violations: #{e.message}"
         0
       end
 
       def count_active_limits
         Rails.cache.redis.keys("rate_limit:*").count
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Error counting active limits: #{e.message}"
         0
       end
 
       def get_current_configuration
-        settings = System::SettingsService.load_settings
-        rate_limiting_config = settings.dig(:rate_limiting) || {}
+        rate_limit_keys = %w[
+          api_requests_per_minute login_attempts_per_hour registration_attempts_per_hour
+          password_reset_attempts_per_hour email_verification_attempts_per_hour
+          authenticated_requests_per_hour impersonation_attempts_per_hour
+          webhook_requests_per_minute websocket_connections_per_minute
+        ]
+        limits = rate_limit_keys.each_with_object({}) do |key, hash|
+          hash[key.to_sym] = AdminSetting.find_by(key: key)&.value&.to_i
+        end
 
         {
-          enabled: rate_limiting_config[:enabled],
-          limits: {
-            api_requests_per_minute: rate_limiting_config[:api_requests_per_minute],
-            login_attempts_per_hour: rate_limiting_config[:login_attempts_per_hour],
-            registration_attempts_per_hour: rate_limiting_config[:registration_attempts_per_hour],
-            password_reset_attempts_per_hour: rate_limiting_config[:password_reset_attempts_per_hour],
-            email_verification_attempts_per_hour: rate_limiting_config[:email_verification_attempts_per_hour],
-            authenticated_requests_per_hour: rate_limiting_config[:authenticated_requests_per_hour],
-            impersonation_attempts_per_hour: rate_limiting_config[:impersonation_attempts_per_hour],
-            webhook_requests_per_minute: rate_limiting_config[:webhook_requests_per_minute],
-            websocket_connections_per_minute: rate_limiting_config[:websocket_connections_per_minute]
-          }
+          enabled: ENV["DISABLE_RATE_LIMITING"] != "true",
+          limits: limits
         }
       end
 
@@ -177,7 +174,7 @@ module RateLimiting
 
         controller_name = parts[1]
         limit_type = determine_limit_type_for_controller(controller_name)
-        System::SettingsService.rate_limit_setting(limit_type)
+        AdminSetting.find_by(key: limit_type)&.value&.to_i
       end
 
       def determine_limit_type_for_controller(controller_name)

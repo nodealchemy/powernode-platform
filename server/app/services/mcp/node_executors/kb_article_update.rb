@@ -52,7 +52,7 @@ module Mcp
             node_type: "kb_article_update",
             executed_at: Time.current.iso8601,
             operation: "update",
-            record_type: "KnowledgeBaseArticle"
+            record_type: "KnowledgeBase::Article"
           }
         }
       end
@@ -61,9 +61,9 @@ module Mcp
 
       def find_article(article_id, article_slug)
         article = if article_id.present?
-                   KnowledgeBaseArticle.find_by(id: article_id)
+                   KnowledgeBase::Article.find_by(id: article_id)
         else
-                   KnowledgeBaseArticle.find_by(slug: article_slug)
+                   KnowledgeBase::Article.find_by(slug: article_slug)
         end
 
         unless article
@@ -114,7 +114,7 @@ module Mcp
         end
 
         # Validate category if being updated
-        if data[:category_id].present? && !KnowledgeBaseCategory.exists?(data[:category_id])
+        if data[:category_id].present? && !KnowledgeBase::Category.exists?(data[:category_id])
           raise Mcp::AiWorkflowOrchestrator::NodeExecutionError,
                 "Category not found: #{data[:category_id]}"
         end

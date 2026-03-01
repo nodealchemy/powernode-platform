@@ -62,10 +62,7 @@ export const NodeValidationPanel: React.FC<NodeValidationPanelProps> = ({
         title: 'Validation Complete',
         message: `Found ${validationResult?.issues.length || 0} issues`
       });
-    } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Validation failed:', error);
-      }
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Validation Failed',
@@ -131,7 +128,7 @@ export const NodeValidationPanel: React.FC<NodeValidationPanelProps> = ({
       // Re-validate after auto-fix
       setSelectedIssues(new Set());
       await performValidation();
-    } catch (error) {
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Auto-Fix Failed',
@@ -278,7 +275,7 @@ export const NodeValidationPanel: React.FC<NodeValidationPanelProps> = ({
             <Filter className="h-4 w-4 text-theme-tertiary" />
             <Select
               value={filterSeverity}
-              onChange={(value) => setFilterSeverity(value as any)}
+              onChange={(value) => setFilterSeverity(value as typeof filterSeverity)}
               className="w-40"
             >
               <option value="all">All Severities</option>
@@ -288,7 +285,7 @@ export const NodeValidationPanel: React.FC<NodeValidationPanelProps> = ({
             </Select>
             <Select
               value={filterCategory}
-              onChange={(value) => setFilterCategory(value as any)}
+              onChange={(value) => setFilterCategory(value as typeof filterCategory)}
               className="w-48"
             >
               <option value="all">All Categories</option>

@@ -36,14 +36,14 @@ export const FooterProvider: React.FC<FooterProviderProps> = ({ children }) => {
       } else {
         setError('Failed to load footer data');
       }
-    } catch (error: unknown) {
+    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load footer data';
       setError(errorMessage);
       
       // Set fallback data if API fails
       setFooterData({
         site_name: 'Powernode',
-        copyright_text: 'All rights reserved.',
+        copyright_text: 'Everett C. Haimes III. All rights reserved.',
         copyright_year: new Date().getFullYear().toString(),
         footer_description: 'Powerful subscription management platform designed to help businesses grow.',
         contact_email: '',

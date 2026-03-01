@@ -1,33 +1,16 @@
 // Rebuilt Header Component
 import React from 'react';
-import { UserMenu } from './UserMenu';
-import { WebSocketStatusIndicator } from '../ui/WebSocketStatusIndicator';
-import { ThemeToggle } from '../ui/ThemeToggle';
+import { UserMenu } from '@/shared/components/navigation/UserMenu';
+import { WebSocketStatusIndicator } from '@/shared/components/ui/WebSocketStatusIndicator';
+import { ThemeToggle } from '@/shared/components/ui/ThemeToggle';
 import { AccountSwitcher } from '@/features/account/switcher';
 import { NotificationBell } from '@/features/account/notifications';
 
-interface HeaderProps {
-  onToggleSidebar: () => void;
-}
-
-export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
+export const Header: React.FC = () => {
   return (
     <header className="bg-theme-surface h-16 border-b border-theme">
       <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 h-full gap-2 sm:gap-4">
-        {/* Left side - Sidebar toggle */}
-        <div className="flex items-center shrink-0">
-          <button
-            onClick={onToggleSidebar}
-            className="md:hidden p-2 rounded-md text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover"
-            title="Toggle sidebar"
-          >
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Center - Account Switcher */}
+        {/* Left side - Account Switcher */}
         <div className="flex justify-center flex-1 min-w-0">
           <AccountSwitcher />
         </div>

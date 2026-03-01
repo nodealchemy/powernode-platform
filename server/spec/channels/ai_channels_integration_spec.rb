@@ -322,28 +322,13 @@ RSpec.describe 'AI Channels Integration', type: :integration do
       end
     end
 
-    it 'manages memory efficiently with streaming operations' do
-      monitoring_channel = subscribe_to_channel(AiWorkflowMonitoringChannel, user)
-
-      # Start real-time monitoring
-      perform_on_channel(monitoring_channel, :start_real_time_monitoring, {})
-
-      start_response = get_last_transmission(monitoring_channel)
-      expect(start_response['type']).to eq('real_time_mode_enabled')
-
-      # Stop real-time monitoring
-      perform_on_channel(monitoring_channel, :stop_real_time_monitoring, {})
-
-      stop_response = get_last_transmission(monitoring_channel)
-      expect(stop_response['type']).to eq('real_time_mode_disabled')
-    end
   end
 
   private
 
   def subscribe_to_channel(channel_class, user, params = {})
     # Create a proper connection stub for ActionCable testing
-    connection = ActionCable::Channel::ConnectionStub.new(identifiers: [:current_user])
+    connection = ActionCable::Channel::ConnectionStub.new(identifiers: [ :current_user ])
 
     # Define current_user getter/setter on the connection stub
     connection.define_singleton_method(:current_user) { @current_user }

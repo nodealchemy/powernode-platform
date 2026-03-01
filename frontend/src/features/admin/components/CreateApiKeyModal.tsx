@@ -37,7 +37,7 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
         setAvailableScopes(response.data.scopes);
         setScopeDescriptions(response.data.scope_descriptions);
       }
-    } catch (error) {
+    } catch (_error) {
       // Silently handle - not critical
     }
   };
@@ -64,7 +64,7 @@ export const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({
       } else {
         setErrors([response.error || 'Failed to create API key']);
       }
-    } catch (error) {
+    } catch (_error) {
       setErrors(['Failed to create API key']);
     } finally {
       setLoading(false);

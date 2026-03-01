@@ -201,10 +201,16 @@ class Api::V1::SettingsController < ApplicationController
   end
 
   def update_user_preferences(key, new_preferences)
-    current_preferences = current_user.send(key) || {}
+    # Map key to actual attribute name
+    attribute_key = case key
+    when "notifications" then "notification_preferences"
+    else key
+    end
+
+    current_preferences = current_user.send(attribute_key) || {}
     updated_preferences = current_preferences.merge(new_preferences.to_h)
 
-    current_user.update(key.to_sym => updated_preferences)
+    current_user.update(attribute_key.to_sym => updated_preferences)
   end
 
   def broadcast_settings_update(message_type, data)
@@ -218,12 +224,12 @@ class Api::V1::SettingsController < ApplicationController
         timestamp: Time.current.iso8601
       }
     )
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Failed to broadcast settings update: #{e.message}"
   end
 
   def formatted_copyright_text
-    copyright_template = System::SettingsService.get_setting(:copyright_text) || "© {year} Powernode Platform. All rights reserved."
+    copyright_template = AdminSetting.find_by(key: "copyright_text")&.value || "© {year} Everett C. Haimes III. All rights reserved."
     copyright_template.gsub("{year}", Date.current.year.to_s)
   end
 end

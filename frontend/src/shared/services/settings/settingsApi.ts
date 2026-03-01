@@ -88,7 +88,7 @@ export const settingsApi = {
   // Get public settings (no authentication required)
   async getPublicSettings(): Promise<PublicSettingsResponse> {
     try {
-      const response = await api.get('/settings/public');
+      const response = await api.get<PublicSettingsResponse>('/settings/public');
       return response.data;
     } catch (error) {
       return {
@@ -102,7 +102,7 @@ export const settingsApi = {
   // Get user settings (authentication required)
   async getUserSettings(): Promise<UserSettingsResponse> {
     try {
-      const response = await api.get('/settings');
+      const response = await api.get<UserSettingsResponse>('/settings');
       return response.data;
     } catch (error) {
       return {
@@ -116,7 +116,7 @@ export const settingsApi = {
   // Update user settings (authentication required)
   async updateUserSettings(settings: Partial<UserSettings>): Promise<UserSettingsResponse> {
     try {
-      const response = await api.put('/settings', { settings });
+      const response = await api.put<UserSettingsResponse>('/settings', { settings });
       return response.data;
     } catch (error) {
       return {
@@ -138,7 +138,7 @@ export const settingsApi = {
         if (Date.now() - timestamp < 3600000) {
           return text;
         }
-      } catch (e) {
+      } catch (_error) {
         // Invalid cache, remove it
         localStorage.removeItem('powernode_copyright');
       }
@@ -163,8 +163,9 @@ export const settingsApi = {
         this.setCachedCopyright(response.data.copyright_text);
         return response.data.copyright_text;
       }
-    } catch (error) {
-    }
+    } catch (_error) {
+    // Error silently ignored
+  }
     
     return this.getCachedCopyright();
   },
@@ -187,7 +188,7 @@ export const settingsApi = {
         }
       };
       
-      const response = await api.put('/auth/change-password', backendParams);
+      const response = await api.put<{ success: boolean; error?: string; message?: string }>('/auth/change-password', backendParams);
       return response.data;
     } catch (error) {
       return {
@@ -201,7 +202,7 @@ export const settingsApi = {
   // Update user profile (authentication required)
   async updateProfile(profileData: { name: string; email: string }): Promise<{ success: boolean; error?: string; message?: string }> {
     try {
-      const response = await api.put('/users/profile', profileData);
+      const response = await api.put<{ success: boolean; error?: string; message?: string }>('/users/profile', profileData);
       return response.data;
     } catch (error) {
       return {

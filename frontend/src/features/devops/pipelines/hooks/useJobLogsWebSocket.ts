@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { store } from '@/shared/services';
 
 interface LogChunk {
   content: string;
@@ -143,7 +144,7 @@ export function useJobLogsWebSocket({
   const connect = useCallback(() => {
     if (!enabled || !jobId) return;
 
-    const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+    const token = store.getState().auth.access_token;
 
     if (!token) {
       setError('Authentication required');
@@ -179,7 +180,7 @@ export function useJobLogsWebSocket({
         try {
           const data = JSON.parse(event.data);
           handleMessage(data);
-        } catch {
+        } catch (_error) {
           // Ignore parse errors
         }
       };
@@ -200,7 +201,7 @@ export function useJobLogsWebSocket({
         setConnectionMethod('disconnected');
       };
 
-    } catch {
+    } catch (_error) {
       setConnectionMethod('disconnected');
     }
   }, [enabled, jobId, repositoryId, pipelineId, handleMessage]);

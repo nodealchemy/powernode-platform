@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { devopsPipelineRunsApi } from '@/services/devopsPipelinesApi';
-import type { CiCdPipelineRun } from '@/types/devops-pipelines';
+import type { DevopsPipelineRun } from '@/types/devops-pipelines';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { useCiCdRunsWebSocket } from './useCiCdWebSocket';
+import { useDevopsRunsWebSocket } from './useDevopsWebSocket';
 
 interface UsePipelineRunsParams {
   pipeline_id?: string;
@@ -13,7 +13,7 @@ interface UsePipelineRunsParams {
 }
 
 export function usePipelineRuns(params: UsePipelineRunsParams = {}) {
-  const [runs, setRuns] = useState<CiCdPipelineRun[]>([]);
+  const [runs, setRuns] = useState<DevopsPipelineRun[]>([]);
   const [meta, setMeta] = useState<{
     total: number;
     page: number;
@@ -44,14 +44,14 @@ export function usePipelineRuns(params: UsePipelineRunsParams = {}) {
   }, [params]);
 
   // WebSocket integration for live updates
-  useCiCdRunsWebSocket(
+  useDevopsRunsWebSocket(
     params.pipeline_id,
     // On run created - add to list
     (newRun) => {
       setRuns((prev) => {
         // Check if run already exists
         if (prev.some((r) => r.id === newRun.id)) return prev;
-        return [newRun as CiCdPipelineRun, ...prev];
+        return [newRun as DevopsPipelineRun, ...prev];
       });
     },
     // On run updated - update in list
@@ -71,7 +71,7 @@ export function usePipelineRuns(params: UsePipelineRunsParams = {}) {
       currentParamsRef.current = paramsKey;
       fetchRuns();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [params.pipeline_id, params.status, params.trigger_type, params.page, params.per_page]);
 
   const cancelRun = async (id: string) => {
@@ -118,7 +118,7 @@ export function usePipelineRuns(params: UsePipelineRunsParams = {}) {
 }
 
 export function usePipelineRun(id: string | null) {
-  const [run, setRun] = useState<CiCdPipelineRun | null>(null);
+  const [run, setRun] = useState<DevopsPipelineRun | null>(null);
   const [logs, setLogs] = useState<Array<{
     step_id: string;
     step_name: string;
@@ -161,7 +161,7 @@ export function usePipelineRun(id: string | null) {
       setLogsLoading(true);
       const data = await devopsPipelineRunsApi.getLogs(id);
       setLogs(data.logs);
-    } catch (err) {
+    } catch (_err) {
       // Logs might not be available yet
     } finally {
       setLogsLoading(false);
@@ -177,11 +177,11 @@ export function usePipelineRun(id: string | null) {
       fetchRun();
       fetchLogs();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [id]);
 
   // WebSocket integration for live updates on this specific run
-  useCiCdRunsWebSocket(
+  useDevopsRunsWebSocket(
     undefined, // Subscribe to all account updates
     undefined, // Not needed for single run
     // On run updated - update if it's our run

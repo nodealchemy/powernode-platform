@@ -3,11 +3,7 @@
 module Api
   module V1
     module Ai
-      # ValidationStatisticsController
-      #
-      # Provides aggregate validation statistics and analytics across workflows.
-      # Supports platform-wide and account-scoped statistics.
-      #
+      # Provides aggregate validation statistics and analytics across workflows
       class ValidationStatisticsController < ApplicationController
         include AuditLogging
 
@@ -24,7 +20,7 @@ module Api
           # Get validations within time range
           validations = WorkflowValidation
                           .joins(:workflow)
-                          .where(workflows: { account_id: current_user.account_id })
+                          .where(ai_workflows: { account_id: current_user.account_id })
                           .where("workflow_validations.created_at >= ?", time_range)
 
           statistics = {
@@ -46,7 +42,7 @@ module Api
           })
 
           log_audit_event("ai.validation_statistics.read", current_user.account)
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Failed to get validation statistics: #{e.message}"
           render_error("Failed to get validation statistics", status: :internal_server_error)
         end
@@ -58,7 +54,7 @@ module Api
 
           validations = WorkflowValidation
                           .joins(:workflow)
-                          .where(workflows: { account_id: current_user.account_id })
+                          .where(ai_workflows: { account_id: current_user.account_id })
                           .where("workflow_validations.created_at >= ?", time_range)
 
           # Aggregate issues by code
@@ -101,7 +97,7 @@ module Api
           })
 
           log_audit_event("ai.validation_statistics.common_issues", current_user.account)
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Failed to get common issues: #{e.message}"
           render_error("Failed to get common issues", status: :internal_server_error)
         end
@@ -112,13 +108,17 @@ module Api
 
           validations = WorkflowValidation
                           .joins(:workflow)
-                          .where(workflows: { account_id: current_user.account_id })
+                          .where(ai_workflows: { account_id: current_user.account_id })
                           .where("workflow_validations.created_at >= ?", time_range)
 
-          # Get latest validation for each workflow
-          latest_validations = validations
-                                .select("DISTINCT ON (workflow_id) *")
-                                .order("workflow_id, created_at DESC")
+          # Get latest validation for each workflow using subquery approach
+          latest_ids = WorkflowValidation
+                         .select("DISTINCT ON (workflow_id) id")
+                         .where(id: validations.pluck(:id))
+                         .order("workflow_id, created_at DESC")
+                         .pluck(:id)
+
+          latest_validations = WorkflowValidation.where(id: latest_ids)
 
           # Calculate distribution buckets
           distribution = {
@@ -128,19 +128,19 @@ module Api
             poor: latest_validations.where("health_score < ?", 50).count
           }
 
-          # Calculate average by bucket
+          # Calculate average by bucket (convert BigDecimal to Float for JSON serialization)
           averages = {
-            excellent: latest_validations.where("health_score >= ?", 90).average(:health_score)&.round(1) || 0,
-            good: latest_validations.where("health_score >= ? AND health_score < ?", 70, 90).average(:health_score)&.round(1) || 0,
-            fair: latest_validations.where("health_score >= ? AND health_score < ?", 50, 70).average(:health_score)&.round(1) || 0,
-            poor: latest_validations.where("health_score < ?", 50).average(:health_score)&.round(1) || 0
+            excellent: latest_validations.where("health_score >= ?", 90).average(:health_score)&.to_f&.round(1) || 0,
+            good: latest_validations.where("health_score >= ? AND health_score < ?", 70, 90).average(:health_score)&.to_f&.round(1) || 0,
+            fair: latest_validations.where("health_score >= ? AND health_score < ?", 50, 70).average(:health_score)&.to_f&.round(1) || 0,
+            poor: latest_validations.where("health_score < ?", 50).average(:health_score)&.to_f&.round(1) || 0
           }
 
           render_success({
             distribution: distribution,
             averages: averages,
             total_workflows: latest_validations.count,
-            overall_average: latest_validations.average(:health_score)&.round(1) || 0,
+            overall_average: latest_validations.average(:health_score)&.to_f&.round(1) || 0,
             time_range: {
               start: time_range.iso8601,
               end: Time.current.iso8601,
@@ -149,7 +149,7 @@ module Api
           })
 
           log_audit_event("ai.validation_statistics.health_distribution", current_user.account)
-        rescue => e
+        rescue StandardError => e
           Rails.logger.error "Failed to get health distribution: #{e.message}"
           render_error("Failed to get health distribution", status: :internal_server_error)
         end
@@ -157,9 +157,7 @@ module Api
         private
 
         def require_read_permission
-          unless current_user.has_permission?("ai.workflows.read")
-            render_error("Insufficient permissions to view validation statistics", status: :forbidden)
-          end
+          render_error("Insufficient permissions", status: :forbidden) unless current_user.has_permission?("ai.workflows.read")
         end
 
         def parse_time_range(range_param)
@@ -181,27 +179,36 @@ module Api
           total_workflows = workflows.count
           validated_workflows = workflows.joins(:workflow_validations).distinct.count
 
-          latest_validations = validations
-                                .select("DISTINCT ON (workflow_id) *")
-                                .order("workflow_id, created_at DESC")
+          # Get latest validation IDs using a subquery approach
+          latest_ids = WorkflowValidation
+                         .select("DISTINCT ON (workflow_id) id")
+                         .where(id: validations.pluck(:id))
+                         .order("workflow_id, created_at DESC")
+                         .pluck(:id)
+
+          latest_validations = WorkflowValidation.where(id: latest_ids)
 
           {
             total_workflows: total_workflows,
             validated_workflows: validated_workflows,
             unvalidated_workflows: total_workflows - validated_workflows,
-            average_health_score: latest_validations.average(:health_score)&.round(1) || 0,
+            average_health_score: latest_validations.average(:health_score)&.to_f&.round(1) || 0,
             valid_count: latest_validations.valid.count,
             invalid_count: latest_validations.invalid.count,
             warning_count: latest_validations.warnings.count,
             total_validations: validations.count,
-            validations_last_24h: validations.where("created_at >= ?", 24.hours.ago).count
+            validations_last_24h: validations.where("workflow_validations.created_at >= ?", 24.hours.ago).count
           }
         end
 
         def calculate_health_distribution(validations)
-          latest_validations = validations
-                                .select("DISTINCT ON (workflow_id) *")
-                                .order("workflow_id, created_at DESC")
+          latest_ids = WorkflowValidation
+                         .select("DISTINCT ON (workflow_id) id")
+                         .where(id: validations.pluck(:id))
+                         .order("workflow_id, created_at DESC")
+                         .pluck(:id)
+
+          latest_validations = WorkflowValidation.where(id: latest_ids)
 
           {
             healthy: latest_validations.healthy.count,
@@ -211,9 +218,13 @@ module Api
         end
 
         def calculate_status_distribution(validations)
-          latest_validations = validations
-                                .select("DISTINCT ON (workflow_id) *")
-                                .order("workflow_id, created_at DESC")
+          latest_ids = WorkflowValidation
+                         .select("DISTINCT ON (workflow_id) id")
+                         .where(id: validations.pluck(:id))
+                         .order("workflow_id, created_at DESC")
+                         .pluck(:id)
+
+          latest_validations = WorkflowValidation.where(id: latest_ids)
 
           {
             valid: latest_validations.valid.count,
@@ -239,8 +250,8 @@ module Api
         def calculate_trends(validations)
           # Group by day and calculate average health score
           daily_stats = validations
-                          .group("DATE(created_at)")
-                          .select("DATE(created_at) as date,
+                          .group("DATE(workflow_validations.created_at)")
+                          .select("DATE(workflow_validations.created_at) as date,
                                    AVG(health_score) as avg_score,
                                    COUNT(*) as validation_count")
                           .order("date DESC")
@@ -249,7 +260,7 @@ module Api
           daily_stats.map do |stat|
             {
               date: stat.date.iso8601,
-              avg_health_score: stat.avg_score&.round(1) || 0,
+              avg_health_score: stat.avg_score&.to_f&.round(1) || 0,
               validation_count: stat.validation_count
             }
           end.reverse

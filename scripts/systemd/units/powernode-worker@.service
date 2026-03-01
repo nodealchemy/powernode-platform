@@ -1,0 +1,33 @@
+[Unit]
+Description=Powernode Sidekiq Worker (instance %i)
+Documentation=https://github.com/powernode/platform
+After=powernode-backend@default.service redis.service network.target
+Requires=redis.service
+PartOf=powernode.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/powernode/powernode.conf
+EnvironmentFile=/etc/powernode/worker-%i.conf
+
+WorkingDirectory=/opt/powernode/worker
+ExecStart=/opt/powernode/scripts/systemd/powernode-worker.sh
+ExecReload=/bin/kill -SIGTSTP $MAINPID
+
+Restart=on-failure
+RestartSec=10s
+TimeoutStartSec=60s
+TimeoutStopSec=60s
+
+SyslogIdentifier=powernode-worker-%i
+
+# Security hardening (injected by installer in production mode)
+# NoNewPrivileges=true
+# ProtectSystem=strict
+# PrivateTmp=true
+# ReadWritePaths=/opt/powernode/worker/tmp /opt/powernode/worker/log
+
+[Install]
+WantedBy=powernode.target

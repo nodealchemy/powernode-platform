@@ -2,22 +2,21 @@
 
 module Ai
   class WorkflowSchedule < ApplicationRecord
+    include Schedulable
+
     # Associations
     belongs_to :workflow, class_name: "Ai::Workflow", foreign_key: "ai_workflow_id"
-    belongs_to :created_by, class_name: "User"
+    belongs_to :created_by, class_name: "User", foreign_key: "created_by_id"
 
     delegate :account, to: :workflow
 
     # Validations
     validates :name, presence: true, length: { maximum: 255 }
-    validates :cron_expression, presence: true
-    validates :timezone, presence: true
     validates :status, presence: true, inclusion: {
       in: %w[active paused disabled expired],
       message: "must be a valid schedule status"
     }
     validates :execution_count, numericality: { greater_than_or_equal_to: 0 }
-    validate :validate_cron_expression
     validate :validate_date_range_consistency
     validate :validate_max_executions
 
@@ -130,26 +129,11 @@ module Ai
     end
 
     def next_execution_time(from_time = Time.current)
-      return nil unless cron_expression.present?
+      next_time = super(from_time)
+      return nil if next_time.nil?
+      return nil if ends_at.present? && next_time > ends_at
 
-      begin
-        cron = Fugit::Cron.new(cron_expression)
-        return nil unless cron
-
-        next_time = cron.next_time(from_time)
-        return nil unless next_time
-
-        next_time = next_time.to_t if next_time.respond_to?(:to_t)
-
-        if ends_at.present? && next_time > ends_at
-          return nil
-        end
-
-        next_time
-      rescue StandardError => e
-        Rails.logger.error "Failed to calculate next execution time for schedule #{id}: #{e.message}"
-        nil
-      end
+      next_time
     end
 
     def time_until_next_execution
@@ -212,16 +196,6 @@ module Ai
 
     def calculate_next_execution_time
       next_execution_time(last_execution_at || Time.current)
-    end
-
-    def validate_cron_expression
-      return unless cron_expression.present?
-
-      begin
-        Fugit::Cron.new(cron_expression)
-      rescue StandardError => e
-        errors.add(:cron_expression, "is invalid: #{e.message}")
-      end
     end
 
     def validate_date_range_consistency

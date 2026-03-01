@@ -199,7 +199,7 @@ module ExecutionTrackable
   def calculate_execution_duration
     return unless started_at.present? && completed_at.present?
 
-    duration = [(completed_at - started_at), 0].max
+    duration = [ (completed_at - started_at), 0 ].max
 
     if respond_to?(:duration_ms=)
       calculated_ms = (duration * 1000).to_i

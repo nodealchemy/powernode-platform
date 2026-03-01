@@ -2,11 +2,13 @@
 
 class Api::V1::UsersController < ApplicationController
   include UserSerialization
+  include AuditLogging
 
-  before_action :set_user, only: [ :show, :update, :destroy ]
-  before_action -> { require_permission("admin.user.view") }, only: [ :index, :stats ]
+  before_action :set_user, only: [ :show, :update, :destroy, :suspend, :activate, :unlock, :reset_password, :resend_verification ]
+  before_action -> { require_permission("admin.user.read") }, only: [ :index, :stats ]
   before_action -> { require_permission("admin.user.create") }, only: [ :create ]
   before_action -> { require_permission("admin.user.delete") }, only: [ :destroy ]
+  before_action -> { require_permission("admin.user.manage") }, only: [ :suspend, :activate, :unlock, :reset_password, :resend_verification ]
 
   # GET /api/v1/users
   def index
@@ -96,15 +98,70 @@ class Api::V1::UsersController < ApplicationController
     render_success(stats_data)
   end
 
+  # PUT /api/v1/users/:id/suspend
+  def suspend
+    if @user == current_user
+      return render_error("Cannot suspend your own account", :unprocessable_content)
+    end
+
+    reason = params[:reason] || "Suspended by administrator"
+
+    if @user.update(status: "suspended")
+      log_audit_event("user.suspended", @user, metadata: { reason: reason })
+      render_success(user_data(@user), message: "User suspended successfully")
+    else
+      render_validation_error(@user)
+    end
+  end
+
+  # PUT /api/v1/users/:id/activate
+  def activate
+    if @user.update(status: "active")
+      log_audit_event("user.activated", @user)
+      render_success(user_data(@user), message: "User activated successfully")
+    else
+      render_validation_error(@user)
+    end
+  end
+
+  # PUT /api/v1/users/:id/unlock
+  def unlock
+    @user.update!(locked_until: nil, failed_login_attempts: 0)
+    log_audit_event("user.unlocked", @user)
+    render_success(user_data(@user), message: "User account unlocked successfully")
+  rescue StandardError => e
+    render_error("Failed to unlock user: #{e.message}")
+  end
+
+  # POST /api/v1/users/:id/reset_password
+  def reset_password
+    temp_password = SecureRandom.hex(8)
+    if @user.update(password: temp_password, password_confirmation: temp_password)
+      log_audit_event("user.password_reset", @user, metadata: { initiated_by: current_user.id })
+      render_success({ temporary_password: temp_password }, message: "Password reset successfully")
+    else
+      render_validation_error(@user)
+    end
+  end
+
+  # POST /api/v1/users/:id/resend_verification
+  def resend_verification
+    if @user.email_verified_at.present?
+      return render_error("User email is already verified", :unprocessable_content)
+    end
+
+    @user.update!(email_verification_token: SecureRandom.urlsafe_base64(32), email_verification_sent_at: Time.current)
+    log_audit_event("user.verification_resent", @user)
+    render_success(nil, message: "Verification email queued for delivery")
+  rescue StandardError => e
+    render_error("Failed to resend verification: #{e.message}")
+  end
+
   private
 
   def set_user
-    @user = User.find(params[:id])
-
-    # First check if user is in a different account (account isolation)
-    if @user.account != current_account
-      return render_error("Access denied", status: :forbidden)
-    end
+    # Scope query to current_account first to prevent IDOR
+    @user = current_account.users.find(params[:id])
 
     # Users can only access their own data unless they have users.read permission
     if @user != current_user && !current_user.has_permission?("users.read")
@@ -141,6 +198,7 @@ class Api::V1::UsersController < ApplicationController
   # The concern's user_data method properly handles permissions
 
   def assign_default_roles(user)
+    return unless Shared::FeatureGateService.billing_enabled?
     return unless current_account.subscription&.plan
 
     # Assign all default roles from the plan using new permission-based system

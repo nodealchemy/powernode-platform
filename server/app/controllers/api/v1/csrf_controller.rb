@@ -6,7 +6,7 @@ module Api
       # Generate CSRF token for authenticated users
       def token
         unless current_user
-          return render_error("Authentication required for CSRF token")
+          return render_error("Authentication required for CSRF token", status: :unauthorized)
         end
 
         csrf_token = generate_csrf_token
@@ -33,10 +33,14 @@ module Api
           user: current_user,
           account: current_account,
           action: "csrf_token_generated",
-          resource: "security",
+          resource_type: "User",
+          resource_id: current_user.id,
+          source: "api",
+          severity: "low",
+          risk_level: "low",
+          ip_address: request.remote_ip,
+          user_agent: request.user_agent&.truncate(255),
           metadata: {
-            ip_address: request.remote_ip,
-            user_agent: request.user_agent&.truncate(255),
             token_expires_at: (Time.current + (Rails.configuration.x.csrf_token_expiry || 2.hours)).iso8601
           }
         )

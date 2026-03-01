@@ -9,19 +9,15 @@ module Api
 
           # GET /api/v1/internal/git/pipelines/:id
           def show
-            render json: {
-              success: true,
-              data: serialize_pipeline(@pipeline)
-            }
+            render_success(serialize_pipeline(@pipeline))
           end
 
           # PATCH /api/v1/internal/git/pipelines/:id
           def update
             if @pipeline.update(pipeline_params)
-              render json: { success: true, data: serialize_pipeline(@pipeline) }
+              render_success(serialize_pipeline(@pipeline))
             else
-              render json: { success: false, error: @pipeline.errors.full_messages.join(", ") },
-                     status: :unprocessable_content
+              render_error(@pipeline.errors.full_messages.join(", "), status: :unprocessable_content)
             end
           end
 
@@ -59,14 +55,11 @@ module Api
             # Update pipeline job counts
             @pipeline.update_job_counts!
 
-            render json: {
-              success: true,
-              data: {
-                pipeline_id: @pipeline.id,
-                synced_count: synced.count,
-                job_ids: synced.map(&:id)
-              }
-            }
+            render_success({
+              pipeline_id: @pipeline.id,
+              synced_count: synced.count,
+              job_ids: synced.map(&:id)
+            })
           end
 
           private
@@ -74,8 +67,7 @@ module Api
           def set_pipeline
             @pipeline = ::Devops::GitPipeline.includes(:repository, :jobs).find(params[:id])
           rescue ActiveRecord::RecordNotFound
-            render json: { success: false, error: "Pipeline not found" },
-                   status: :not_found
+            render_error("Pipeline not found", status: :not_found)
           end
 
           def pipeline_params

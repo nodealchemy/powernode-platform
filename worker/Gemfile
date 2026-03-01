@@ -11,6 +11,9 @@ gem 'sidekiq-scheduler', '~> 5.0'
 gem 'faraday', '~> 2.7'
 gem 'faraday-retry', '~> 2.2'
 
+# HTTP client for direct AI provider calls (adapters use HTTParty for non-streaming)
+gem 'httparty', '~> 0.21'
+
 # Configuration and environment
 gem 'dotenv', '~> 3.0'
 
@@ -46,8 +49,8 @@ gem 'mini_exiftool', '~> 2.11'     # EXIF data extraction
 gem 'streamio-ffmpeg', '~> 3.0'    # Video/audio processing
 
 # Payment providers (for reconciliation)
-gem 'stripe', '~> 18.0'
-gem 'paypal-sdk-rest', '~> 1.7'
+gem 'stripe', '~> 18.0', require: false
+gem 'paypal-sdk-rest', '~> 1.7', require: false
 
 # Document generation
 gem 'prawn', '~> 2.4'               # PDF generation

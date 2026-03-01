@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
-RSpec.describe Subscription, type: :model do
+RSpec.describe Billing::Subscription, type: :model do
   let(:subscription) { build(:subscription) }
 
   describe "associations" do
@@ -82,8 +84,8 @@ RSpec.describe Subscription, type: :model do
 
     describe ".active" do
       it "returns trialing and active subscriptions" do
-        expect(Subscription.active).to include(trialing_sub, active_sub)
-        expect(Subscription.active).not_to include(canceled_sub, past_due_sub, unpaid_sub)
+        expect(Billing::Subscription.active).to include(trialing_sub, active_sub)
+        expect(Billing::Subscription.active).not_to include(canceled_sub, past_due_sub, unpaid_sub)
       end
     end
 
@@ -91,22 +93,22 @@ RSpec.describe Subscription, type: :model do
       it "returns canceled, unpaid, and incomplete_expired subscriptions" do
         incomplete_expired = create(:subscription, status: "incomplete_expired")
 
-        expect(Subscription.inactive).to include(canceled_sub, unpaid_sub, incomplete_expired)
-        expect(Subscription.inactive).not_to include(trialing_sub, active_sub, past_due_sub)
+        expect(Billing::Subscription.inactive).to include(canceled_sub, unpaid_sub, incomplete_expired)
+        expect(Billing::Subscription.inactive).not_to include(trialing_sub, active_sub, past_due_sub)
       end
     end
 
     describe ".past_due" do
       it "returns only past_due subscriptions" do
-        expect(Subscription.past_due).to include(past_due_sub)
-        expect(Subscription.past_due).not_to include(trialing_sub, active_sub, canceled_sub)
+        expect(Billing::Subscription.past_due).to include(past_due_sub)
+        expect(Billing::Subscription.past_due).not_to include(trialing_sub, active_sub, canceled_sub)
       end
     end
 
     describe ".trialing" do
       it "returns only trialing subscriptions" do
-        expect(Subscription.trialing).to include(trialing_sub)
-        expect(Subscription.trialing).not_to include(active_sub, canceled_sub, past_due_sub)
+        expect(Billing::Subscription.trialing).to include(trialing_sub)
+        expect(Billing::Subscription.trialing).not_to include(active_sub, canceled_sub, past_due_sub)
       end
     end
 
@@ -120,8 +122,8 @@ RSpec.describe Subscription, type: :model do
         # Create subscription that expires in 10 days (outside 7-day window)
         not_expiring = create(:subscription, plan: plan_no_trial, current_period_end: 10.days.from_now)
 
-        expect(Subscription.expiring_soon).to include(expiring_soon)
-        expect(Subscription.expiring_soon).not_to include(not_expiring)
+        expect(Billing::Subscription.expiring_soon).to include(expiring_soon)
+        expect(Billing::Subscription.expiring_soon).not_to include(not_expiring)
       end
     end
 
@@ -130,8 +132,8 @@ RSpec.describe Subscription, type: :model do
         trial_ending = create(:subscription, trial_end: 2.days.from_now)
         trial_not_ending = create(:subscription, trial_end: 5.days.from_now)
 
-        expect(Subscription.trial_ending_soon).to include(trial_ending)
-        expect(Subscription.trial_ending_soon).not_to include(trial_not_ending)
+        expect(Billing::Subscription.trial_ending_soon).to include(trial_ending)
+        expect(Billing::Subscription.trial_ending_soon).not_to include(trial_not_ending)
       end
     end
   end
@@ -170,7 +172,7 @@ RSpec.describe Subscription, type: :model do
 
     describe "#set_defaults" do
       it "initializes metadata as empty hash" do
-        subscription = Subscription.new
+        subscription = Billing::Subscription.new
         expect(subscription.metadata).to eq({})
       end
     end
@@ -180,7 +182,7 @@ RSpec.describe Subscription, type: :model do
     describe "initial state" do
       it "starts in trialing state" do
         # Create subscription without status override to test AASM initial state
-        subscription = Subscription.new(account: build(:account), plan: build(:plan), quantity: 1)
+        subscription = Billing::Subscription.new(account: build(:account), plan: build(:plan), quantity: 1)
         expect(subscription.status).to eq("trialing")
         expect(subscription).to be_trialing
       end
@@ -531,7 +533,7 @@ RSpec.describe Subscription, type: :model do
       plan = create(:plan, trial_days: 7)
       account = create(:account)
 
-      subscription = Subscription.create!(account: account, plan: plan, quantity: 1)
+      subscription = Billing::Subscription.create!(account: account, plan: plan, quantity: 1)
 
       expect(subscription).to be_persisted
       expect(subscription.status).to eq("trialing")

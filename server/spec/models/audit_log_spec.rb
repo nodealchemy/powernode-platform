@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 RSpec.describe AuditLog, type: :model do
@@ -112,7 +114,7 @@ RSpec.describe AuditLog, type: :model do
 
         expect(audit).to be_persisted
         expect(audit.action).to eq("create")
-        expect(audit.resource_type).to eq("Subscription")
+        expect(audit.resource_type).to eq("Billing::Subscription")
         expect(audit.resource_id).to eq(resource.id)
         expect(audit.user).to eq(user)
         expect(audit.account).to eq(account)
@@ -192,7 +194,7 @@ RSpec.describe AuditLog, type: :model do
         )
 
         expect(audit.action).to eq("payment")
-        expect(audit.resource_type).to eq("Payment")
+        expect(audit.resource_type).to eq("Billing::Payment")
         expect(audit.resource_id).to eq(payment.id)
         expect(audit.account).to eq(account)
         expect(audit.new_values).to include(
@@ -216,7 +218,7 @@ RSpec.describe AuditLog, type: :model do
         )
 
         expect(audit.action).to eq("subscription_change")
-        expect(audit.resource_type).to eq("Subscription")
+        expect(audit.resource_type).to eq("Billing::Subscription")
         expect(audit.resource_id).to eq(subscription.id)
         expect(audit.user).to eq(user)
         expect(audit.account).to eq(account)

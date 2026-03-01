@@ -24,7 +24,7 @@ module Ai
     scope :by_scope, ->(scope) { where(scope: scope) }
     scope :owned_by, ->(agent_id) { where(owner_agent_id: agent_id) }
     scope :accessible_by, ->(agent_id) do
-      where("access_control->>'agents' @> ?", [agent_id].to_json)
+      where("access_control->>'agents' @> ?", [ agent_id ].to_json)
         .or(where(owner_agent_id: agent_id))
         .or(where("access_control->>'public' = 'true'"))
     end

@@ -1,5 +1,6 @@
 import { authApi } from './authAPI';
 import { createMockAxiosResponse } from '@/shared/utils/test-utils';
+import { api } from '@/shared/services/api';
 
 // Mock the API client
 jest.mock('@/shared/services/api', () => ({
@@ -11,7 +12,7 @@ jest.mock('@/shared/services/api', () => ({
   }
 }));
 
-const mockApi = require('@/shared/services/api').api;
+const mockApi = jest.mocked(api);
 
 describe('authApi', () => {
   beforeEach(() => {
@@ -72,11 +73,9 @@ describe('authApi', () => {
 
       mockApi.post.mockResolvedValue(createMockAxiosResponse(mockResponse));
 
-      const result = await authApi.refreshToken('refresh_token123');
+      const result = await authApi.refreshToken();
 
-      expect(mockApi.post).toHaveBeenCalledWith('/auth/refresh', {
-        refresh_token: 'refresh_token123'
-      });
+      expect(mockApi.post).toHaveBeenCalledWith('/auth/refresh');
       expect(result.data).toEqual(mockResponse);
     });
   });

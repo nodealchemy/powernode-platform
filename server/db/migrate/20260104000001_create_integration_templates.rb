@@ -43,6 +43,6 @@ class CreateIntegrationTemplates < ActiveRecord::Migration[8.0]
     add_index :integration_templates, :is_public
     add_index :integration_templates, :is_featured
     add_index :integration_templates, :is_active
-    add_index :integration_templates, [:is_public, :is_active], name: "idx_templates_public_active"
+    add_index :integration_templates, [ :is_public, :is_active ], name: "idx_templates_public_active"
   end
 end

@@ -139,11 +139,11 @@ export const Modal: React.FC<ModalProps> = ({
     `
   };
 
-  // eslint-disable-next-line security/detect-object-injection
+   
   const selectedVariantClasses = variantClasses[variant] || variantClasses.default;
-  // eslint-disable-next-line security/detect-object-injection
+   
   const selectedModalPositioning = modalPositioning[variant] || modalPositioning.default;
-  // eslint-disable-next-line security/detect-object-injection
+   
   const selectedModalStyles = modalStyles[variant] || modalStyles.default;
 
   return (
@@ -160,7 +160,7 @@ export const Modal: React.FC<ModalProps> = ({
         {/* Enhanced background overlay with blur */}
         <div
           className={`
-            fixed inset-0 transition-all duration-300
+            fixed inset-0 transition-all duration-300 z-0
             ${blur ? 'backdrop-blur-sm' : ''}
             ${animate ? 'animate-fade-in' : ''}
             bg-black/60 dark:bg-black/80
@@ -178,12 +178,13 @@ export const Modal: React.FC<ModalProps> = ({
         <div
           ref={modalRef}
           className={`
+            relative z-10
             ${selectedModalStyles}
             ${selectedVariantClasses}
             ${variant !== 'fullscreen' && variant !== 'drawer' ? 'w-full' : ''}
             ${variant === 'drawer' ? 'w-full max-w-md' : ''}
             ${
-              // eslint-disable-next-line security/detect-object-injection
+               
               variant !== 'fullscreen' && variant !== 'drawer' ? (maxWidthClasses[effectiveMaxWidth] || maxWidthClasses.lg) : ''
             }
             ${className}
@@ -192,7 +193,7 @@ export const Modal: React.FC<ModalProps> = ({
           {/* Enhanced Header */}
           <div className="relative bg-gradient-to-b from-theme-surface to-theme-background px-6 pt-6 pb-4">
             {/* Decorative top border */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-theme-interactive-primary via-purple-500 to-pink-500" />
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-theme-interactive-primary via-theme-interactive-secondary to-theme-interactive-primary" />
             
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3">

@@ -20,17 +20,9 @@ class RefreshEmailSettingsJob < BaseJob
     else
       log_warn("No email settings retrieved from backend, using fallback configuration")
     end
-    
-    # Schedule next refresh in 5 minutes
-    log_info("Scheduling next email settings refresh in 5 minutes")
-    RefreshEmailSettingsJob.perform_in(5.minutes)
-    
   rescue StandardError => e
     log_error("RefreshEmailSettingsJob failed: #{e.message}")
     log_error(e.backtrace.join("\n"))
-    log_info("Retrying email settings refresh in 10 minutes due to error")
-    
-    # Retry in 10 minutes on error
-    RefreshEmailSettingsJob.perform_in(10.minutes)
+    raise # Allow Sidekiq retry mechanism to handle retries
   end
 end

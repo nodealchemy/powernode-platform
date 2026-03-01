@@ -1,25 +1,25 @@
 import { apiClient } from '@/shared/services/apiClient';
 import type {
-  CiCdProvider,
-  CiCdProviderFormData,
-  CiCdProvidersResponse,
-  CiCdPromptTemplate,
-  CiCdPromptTemplateFormData,
-  CiCdPromptTemplatesResponse,
-  CiCdPromptPreviewResponse,
-  CiCdPipeline,
-  CiCdPipelineFormData,
-  CiCdPipelinesResponse,
-  CiCdPipelineExportResponse,
-  CiCdPipelineRun,
-  CiCdPipelineRunsResponse,
-  CiCdSchedule,
-  CiCdScheduleFormData,
-  CiCdSchedulesResponse,
-  CiCdRepository,
-  CiCdRepositoryFormData,
-  CiCdRepositoriesResponse,
-  CiCdConnectionTestResponse,
+  DevopsProvider,
+  DevopsProviderFormData,
+  DevopsProvidersResponse,
+  DevopsPromptTemplate,
+  DevopsPromptTemplateFormData,
+  DevopsPromptTemplatesResponse,
+  DevopsPromptPreviewResponse,
+  DevopsPipeline,
+  DevopsPipelineFormData,
+  DevopsPipelinesResponse,
+  DevopsPipelineExportResponse,
+  DevopsPipelineRun,
+  DevopsPipelineRunsResponse,
+  DevopsSchedule,
+  DevopsScheduleFormData,
+  DevopsSchedulesResponse,
+  DevopsRepository,
+  DevopsRepositoryFormData,
+  DevopsRepositoriesResponse,
+  DevopsConnectionTestResponse,
 } from '@/types/devops-pipelines';
 
 // DevOps Pipelines API Service
@@ -30,7 +30,7 @@ const BASE_PATH = '/devops';
 
 export const devopsProvidersApi = {
   getAll: async (params?: { provider_type?: string; is_active?: boolean }) => {
-    const response = await apiClient.get<{ data: CiCdProvidersResponse }>(
+    const response = await apiClient.get<{ data: DevopsProvidersResponse }>(
       `${BASE_PATH}/providers`,
       { params }
     );
@@ -38,23 +38,23 @@ export const devopsProvidersApi = {
   },
 
   getById: async (id: string, includeRepositories = false) => {
-    const response = await apiClient.get<{ data: { provider: CiCdProvider } }>(
+    const response = await apiClient.get<{ data: { provider: DevopsProvider } }>(
       `${BASE_PATH}/providers/${id}`,
       { params: { include_repositories: includeRepositories } }
     );
     return response.data.data.provider;
   },
 
-  create: async (data: CiCdProviderFormData) => {
-    const response = await apiClient.post<{ data: { provider: CiCdProvider } }>(
+  create: async (data: DevopsProviderFormData) => {
+    const response = await apiClient.post<{ data: { provider: DevopsProvider } }>(
       `${BASE_PATH}/providers`,
       { provider: data }
     );
     return response.data.data.provider;
   },
 
-  update: async (id: string, data: Partial<CiCdProviderFormData>) => {
-    const response = await apiClient.patch<{ data: { provider: CiCdProvider } }>(
+  update: async (id: string, data: Partial<DevopsProviderFormData>) => {
+    const response = await apiClient.patch<{ data: { provider: DevopsProvider } }>(
       `${BASE_PATH}/providers/${id}`,
       { provider: data }
     );
@@ -66,7 +66,7 @@ export const devopsProvidersApi = {
   },
 
   testConnection: async (id: string) => {
-    const response = await apiClient.post<{ data: CiCdConnectionTestResponse }>(
+    const response = await apiClient.post<{ data: DevopsConnectionTestResponse }>(
       `${BASE_PATH}/providers/${id}/test_connection`
     );
     return response.data.data;
@@ -84,7 +84,7 @@ export const devopsProvidersApi = {
 
 export const devopsPromptTemplatesApi = {
   getAll: async (params?: { category?: string; is_active?: boolean; root_only?: boolean }) => {
-    const response = await apiClient.get<{ data: CiCdPromptTemplatesResponse }>(
+    const response = await apiClient.get<{ data: DevopsPromptTemplatesResponse }>(
       `${BASE_PATH}/prompt_templates`,
       { params }
     );
@@ -92,23 +92,23 @@ export const devopsPromptTemplatesApi = {
   },
 
   getById: async (id: string, includeVersions = false) => {
-    const response = await apiClient.get<{ data: { prompt_template: CiCdPromptTemplate } }>(
+    const response = await apiClient.get<{ data: { prompt_template: DevopsPromptTemplate } }>(
       `${BASE_PATH}/prompt_templates/${id}`,
       { params: { include_versions: includeVersions } }
     );
     return response.data.data.prompt_template;
   },
 
-  create: async (data: CiCdPromptTemplateFormData) => {
-    const response = await apiClient.post<{ data: { prompt_template: CiCdPromptTemplate } }>(
+  create: async (data: DevopsPromptTemplateFormData) => {
+    const response = await apiClient.post<{ data: { prompt_template: DevopsPromptTemplate } }>(
       `${BASE_PATH}/prompt_templates`,
       { prompt_template: data }
     );
     return response.data.data.prompt_template;
   },
 
-  update: async (id: string, data: Partial<CiCdPromptTemplateFormData>) => {
-    const response = await apiClient.patch<{ data: { prompt_template: CiCdPromptTemplate } }>(
+  update: async (id: string, data: Partial<DevopsPromptTemplateFormData>) => {
+    const response = await apiClient.patch<{ data: { prompt_template: DevopsPromptTemplate } }>(
       `${BASE_PATH}/prompt_templates/${id}`,
       { prompt_template: data }
     );
@@ -120,7 +120,7 @@ export const devopsPromptTemplatesApi = {
   },
 
   preview: async (id: string, variables: Record<string, string>) => {
-    const response = await apiClient.post<{ data: CiCdPromptPreviewResponse }>(
+    const response = await apiClient.post<{ data: DevopsPromptPreviewResponse }>(
       `${BASE_PATH}/prompt_templates/${id}/preview`,
       { variables }
     );
@@ -128,7 +128,7 @@ export const devopsPromptTemplatesApi = {
   },
 
   duplicate: async (id: string) => {
-    const response = await apiClient.post<{ data: { prompt_template: CiCdPromptTemplate } }>(
+    const response = await apiClient.post<{ data: { prompt_template: DevopsPromptTemplate } }>(
       `${BASE_PATH}/prompt_templates/${id}/duplicate`
     );
     return response.data.data.prompt_template;
@@ -139,7 +139,7 @@ export const devopsPromptTemplatesApi = {
 
 export const devopsPipelinesApi = {
   getAll: async (params?: { is_active?: boolean }) => {
-    const response = await apiClient.get<{ data: CiCdPipelinesResponse }>(
+    const response = await apiClient.get<{ data: DevopsPipelinesResponse }>(
       `${BASE_PATH}/pipelines`,
       { params }
     );
@@ -147,23 +147,23 @@ export const devopsPipelinesApi = {
   },
 
   getById: async (id: string, includeRuns = false) => {
-    const response = await apiClient.get<{ data: { pipeline: CiCdPipeline } }>(
+    const response = await apiClient.get<{ data: { pipeline: DevopsPipeline } }>(
       `${BASE_PATH}/pipelines/${id}`,
       { params: { include_runs: includeRuns } }
     );
     return response.data.data.pipeline;
   },
 
-  create: async (data: CiCdPipelineFormData) => {
-    const response = await apiClient.post<{ data: { pipeline: CiCdPipeline } }>(
+  create: async (data: DevopsPipelineFormData) => {
+    const response = await apiClient.post<{ data: { pipeline: DevopsPipeline } }>(
       `${BASE_PATH}/pipelines`,
       { pipeline: data, steps: data.steps }
     );
     return response.data.data.pipeline;
   },
 
-  update: async (id: string, data: Partial<CiCdPipelineFormData>) => {
-    const response = await apiClient.patch<{ data: { pipeline: CiCdPipeline } }>(
+  update: async (id: string, data: Partial<DevopsPipelineFormData>) => {
+    const response = await apiClient.patch<{ data: { pipeline: DevopsPipeline } }>(
       `${BASE_PATH}/pipelines/${id}`,
       { pipeline: data, steps: data.steps }
     );
@@ -175,7 +175,7 @@ export const devopsPipelinesApi = {
   },
 
   trigger: async (id: string, context?: Record<string, unknown>) => {
-    const response = await apiClient.post<{ data: { pipeline_run: CiCdPipelineRun } }>(
+    const response = await apiClient.post<{ data: { pipeline_run: DevopsPipelineRun } }>(
       `${BASE_PATH}/pipelines/${id}/trigger`,
       { context }
     );
@@ -183,14 +183,14 @@ export const devopsPipelinesApi = {
   },
 
   exportYaml: async (id: string) => {
-    const response = await apiClient.get<{ data: CiCdPipelineExportResponse }>(
+    const response = await apiClient.get<{ data: DevopsPipelineExportResponse }>(
       `${BASE_PATH}/pipelines/${id}/export_yaml`
     );
     return response.data.data;
   },
 
   duplicate: async (id: string) => {
-    const response = await apiClient.post<{ data: { pipeline: CiCdPipeline } }>(
+    const response = await apiClient.post<{ data: { pipeline: DevopsPipeline } }>(
       `${BASE_PATH}/pipelines/${id}/duplicate`
     );
     return response.data.data.pipeline;
@@ -207,7 +207,7 @@ export const devopsPipelineRunsApi = {
     page?: number;
     per_page?: number;
   }) => {
-    const response = await apiClient.get<{ data: CiCdPipelineRunsResponse }>(
+    const response = await apiClient.get<{ data: DevopsPipelineRunsResponse }>(
       `${BASE_PATH}/pipeline_runs`,
       { params }
     );
@@ -215,21 +215,21 @@ export const devopsPipelineRunsApi = {
   },
 
   getById: async (id: string) => {
-    const response = await apiClient.get<{ data: { pipeline_run: CiCdPipelineRun } }>(
+    const response = await apiClient.get<{ data: { pipeline_run: DevopsPipelineRun } }>(
       `${BASE_PATH}/pipeline_runs/${id}`
     );
     return response.data.data.pipeline_run;
   },
 
   cancel: async (id: string) => {
-    const response = await apiClient.post<{ data: { pipeline_run: CiCdPipelineRun } }>(
+    const response = await apiClient.post<{ data: { pipeline_run: DevopsPipelineRun } }>(
       `${BASE_PATH}/pipeline_runs/${id}/cancel`
     );
     return response.data.data.pipeline_run;
   },
 
   retry: async (id: string) => {
-    const response = await apiClient.post<{ data: { pipeline_run: CiCdPipelineRun } }>(
+    const response = await apiClient.post<{ data: { pipeline_run: DevopsPipelineRun } }>(
       `${BASE_PATH}/pipeline_runs/${id}/retry`
     );
     return response.data.data.pipeline_run;
@@ -262,7 +262,7 @@ export const devopsPipelineRunsApi = {
 
 export const devopsSchedulesApi = {
   getAll: async (params?: { pipeline_id?: string; is_active?: boolean }) => {
-    const response = await apiClient.get<{ data: CiCdSchedulesResponse }>(
+    const response = await apiClient.get<{ data: DevopsSchedulesResponse }>(
       `${BASE_PATH}/schedules`,
       { params }
     );
@@ -270,23 +270,23 @@ export const devopsSchedulesApi = {
   },
 
   getById: async (id: string, includePipeline = false) => {
-    const response = await apiClient.get<{ data: { schedule: CiCdSchedule } }>(
+    const response = await apiClient.get<{ data: { schedule: DevopsSchedule } }>(
       `${BASE_PATH}/schedules/${id}`,
       { params: { include_pipeline: includePipeline } }
     );
     return response.data.data.schedule;
   },
 
-  create: async (data: CiCdScheduleFormData) => {
-    const response = await apiClient.post<{ data: { schedule: CiCdSchedule } }>(
+  create: async (data: DevopsScheduleFormData) => {
+    const response = await apiClient.post<{ data: { schedule: DevopsSchedule } }>(
       `${BASE_PATH}/schedules`,
       { schedule: data }
     );
     return response.data.data.schedule;
   },
 
-  update: async (id: string, data: Partial<CiCdScheduleFormData>) => {
-    const response = await apiClient.patch<{ data: { schedule: CiCdSchedule } }>(
+  update: async (id: string, data: Partial<DevopsScheduleFormData>) => {
+    const response = await apiClient.patch<{ data: { schedule: DevopsSchedule } }>(
       `${BASE_PATH}/schedules/${id}`,
       { schedule: data }
     );
@@ -298,7 +298,7 @@ export const devopsSchedulesApi = {
   },
 
   toggle: async (id: string) => {
-    const response = await apiClient.post<{ data: { schedule: CiCdSchedule } }>(
+    const response = await apiClient.post<{ data: { schedule: DevopsSchedule } }>(
       `${BASE_PATH}/schedules/${id}/toggle`
     );
     return response.data.data.schedule;
@@ -309,7 +309,7 @@ export const devopsSchedulesApi = {
 
 export const devopsRepositoriesApi = {
   getAll: async (params?: { provider_id?: string; is_active?: boolean }) => {
-    const response = await apiClient.get<{ data: CiCdRepositoriesResponse }>(
+    const response = await apiClient.get<{ data: DevopsRepositoriesResponse }>(
       `${BASE_PATH}/repositories`,
       { params }
     );
@@ -317,23 +317,23 @@ export const devopsRepositoriesApi = {
   },
 
   getById: async (id: string, includePipelines = false) => {
-    const response = await apiClient.get<{ data: { repository: CiCdRepository } }>(
+    const response = await apiClient.get<{ data: { repository: DevopsRepository } }>(
       `${BASE_PATH}/repositories/${id}`,
       { params: { include_pipelines: includePipelines } }
     );
     return response.data.data.repository;
   },
 
-  create: async (data: CiCdRepositoryFormData) => {
-    const response = await apiClient.post<{ data: { repository: CiCdRepository } }>(
+  create: async (data: DevopsRepositoryFormData) => {
+    const response = await apiClient.post<{ data: { repository: DevopsRepository } }>(
       `${BASE_PATH}/repositories`,
       { repository: data }
     );
     return response.data.data.repository;
   },
 
-  update: async (id: string, data: Partial<CiCdRepositoryFormData>) => {
-    const response = await apiClient.patch<{ data: { repository: CiCdRepository } }>(
+  update: async (id: string, data: Partial<DevopsRepositoryFormData>) => {
+    const response = await apiClient.patch<{ data: { repository: DevopsRepository } }>(
       `${BASE_PATH}/repositories/${id}`,
       { repository: data }
     );
@@ -356,7 +356,7 @@ export const devopsRepositoriesApi = {
     pipelineId: string,
     overrides?: Record<string, unknown>
   ) => {
-    const response = await apiClient.post<{ data: { repository: CiCdRepository } }>(
+    const response = await apiClient.post<{ data: { repository: DevopsRepository } }>(
       `${BASE_PATH}/repositories/${id}/attach_pipeline`,
       { pipeline_id: pipelineId, overrides }
     );
@@ -364,7 +364,7 @@ export const devopsRepositoriesApi = {
   },
 
   detachPipeline: async (id: string, pipelineId: string) => {
-    const response = await apiClient.delete<{ data: { repository: CiCdRepository } }>(
+    const response = await apiClient.delete<{ data: { repository: DevopsRepository } }>(
       `${BASE_PATH}/repositories/${id}/detach_pipeline`,
       { params: { pipeline_id: pipelineId } }
     );

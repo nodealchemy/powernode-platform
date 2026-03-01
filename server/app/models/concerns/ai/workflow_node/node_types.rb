@@ -135,6 +135,17 @@ module Ai
 
         configuration["state"]
       end
+
+      # Ralph Loop node type check methods
+      def ralph_loop_node?
+        node_type == "ralph_loop"
+      end
+
+      def ralph_loop_operation
+        return nil unless ralph_loop_node?
+
+        configuration["operation"]
+      end
     end
   end
 end

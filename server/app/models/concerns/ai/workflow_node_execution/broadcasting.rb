@@ -15,7 +15,7 @@ module Ai
 
       def capture_pending_status_change
         if status_changed?
-          @pending_status_change = [status_was, status]
+          @pending_status_change = [ status_was, status ]
           Rails.logger.debug "[NodeExecution] Captured pending status change: #{status_was} -> #{status}"
         end
       end

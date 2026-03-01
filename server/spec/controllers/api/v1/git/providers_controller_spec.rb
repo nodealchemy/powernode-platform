@@ -7,7 +7,7 @@ RSpec.describe Api::V1::Git::ProvidersController, type: :controller do
   let(:user) { create(:user, account: account) }
 
   # Permission users
-  let(:provider_read_user) { create(:user, account: account, permissions: ['git.providers.read']) }
+  let(:provider_read_user) { create(:user, account: account, permissions: [ 'git.providers.read' ]) }
   let(:provider_manage_user) do
     create(:user, account: account, permissions: %w[
       git.providers.read git.providers.create git.providers.update git.providers.delete

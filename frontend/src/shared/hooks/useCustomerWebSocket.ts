@@ -1,7 +1,8 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
-import { useWebSocket } from './useWebSocket';
+import { useWebSocket } from '@/shared/hooks/useWebSocket';
+import { logger } from '@/shared/utils/logger';
 
 interface CustomerWebSocketOptions {
   onCustomerUpdate?: (data: unknown) => void;
@@ -28,7 +29,7 @@ export const useCustomerWebSocket = ({
   onErrorRef.current = onError;
 
   // Type guard for WebSocket message data
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const isWebSocketMessage = (data: unknown): data is { type: string; data?: any; message?: string } => {
     return typeof data === 'object' && data !== null && 'type' in data;
   };
@@ -68,7 +69,7 @@ export const useCustomerWebSocket = ({
     // Only subscribe if user has an account
     if (!user?.account?.id) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('[CustomerWebSocket] Cannot subscribe: user account not available');
+        logger.warn('[CustomerWebSocket] Cannot subscribe: user account not available');
       }
       return;
     }

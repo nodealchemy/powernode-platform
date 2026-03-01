@@ -6,17 +6,17 @@ import {
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import type { CiCdPipelineRun, CiCdPipelineRunStatus } from '@/types/devops-pipelines';
+import type { DevopsPipelineRun, DevopsPipelineRunStatus } from '@/types/devops-pipelines';
 
 interface RunHistoryProps {
-  runs: CiCdPipelineRun[];
+  runs: DevopsPipelineRun[];
   loading: boolean;
   onCancel: (id: string) => void;
   onRetry: (id: string) => void;
 }
 
-const getStatusConfig = (status: CiCdPipelineRunStatus) => {
-  const configs: Record<CiCdPipelineRunStatus, { bg: string; text: string; icon: React.ElementType; label: string }> = {
+const getStatusConfig = (status: DevopsPipelineRunStatus) => {
+  const configs: Record<DevopsPipelineRunStatus, { bg: string; text: string; icon: React.ElementType; label: string }> = {
     pending: { bg: 'bg-theme-warning/10', text: 'text-theme-warning', icon: Clock, label: 'Pending' },
     queued: { bg: 'bg-theme-warning/10', text: 'text-theme-warning', icon: Clock, label: 'Queued' },
     running: { bg: 'bg-theme-info/10', text: 'text-theme-info', icon: RefreshCw, label: 'Running' },
@@ -27,7 +27,7 @@ const getStatusConfig = (status: CiCdPipelineRunStatus) => {
   return configs[status] || configs.pending;
 };
 
-const StatusBadge: React.FC<{ status: CiCdPipelineRunStatus }> = ({ status }) => {
+const StatusBadge: React.FC<{ status: DevopsPipelineRunStatus }> = ({ status }) => {
   const config = getStatusConfig(status);
   const Icon = config.icon;
   return (
@@ -72,7 +72,7 @@ const getTriggerLabel = (triggerType: string): string => {
 };
 
 const RunRow: React.FC<{
-  run: CiCdPipelineRun;
+  run: DevopsPipelineRun;
   isExpanded: boolean;
   onToggle: () => void;
   onNavigate: () => void;
@@ -299,7 +299,7 @@ export const RunHistory: React.FC<RunHistoryProps> = ({
           run={run}
           isExpanded={expandedId === run.id}
           onToggle={() => toggleExpand(run.id)}
-          onNavigate={() => navigate(`/app/devops/pipelines/${run.id}`)}
+          onNavigate={() => navigate(`/app/devops/ci-cd/pipelines/${run.id}`)}
           onCancel={() => onCancel(run.id)}
           onRetry={() => onRetry(run.id)}
         />

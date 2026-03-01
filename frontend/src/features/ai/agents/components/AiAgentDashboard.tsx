@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Brain, Plus, Play, Pause, Settings, BarChart3, Users, Clock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Brain, Plus, Play, Pause, Settings, BarChart3, Users, Clock, MessageSquare } from 'lucide-react';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -10,6 +11,7 @@ import { useNotifications } from '@/shared/hooks/useNotifications';
 import { agentsApi } from '@/shared/services/ai';
 import { CreateAgentModal } from './CreateAgentModal';
 import { EditAgentModal } from './EditAgentModal';
+import { useChatWindow } from '@/features/ai/chat/context/ChatWindowContext';
 
 import type { AiAgent } from '@/shared/types/ai';
 
@@ -33,6 +35,8 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
   const [internalShowCreateModal, setInternalShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<AiAgent | null>(null);
+  const navigate = useNavigate();
+  const { openConversationMaximized } = useChatWindow();
 
   // Use external state if provided, otherwise use internal state
   const showCreateModal = externalShowCreateModal !== undefined ? externalShowCreateModal : internalShowCreateModal;
@@ -52,7 +56,7 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
 
   useEffect(() => {
     loadDashboardData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, []);
 
   const loadDashboardData = async () => {
@@ -94,12 +98,9 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
         success_rate: Math.round(avgSuccessRate)
       });
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to load dashboard data:', error);
-      }
-
       // Check if it's an authentication error
-      const isAuthError = (error as any)?.response?.status === 401;
+      const httpError = error as { response?: { status?: number } };
+      const isAuthError = httpError?.response?.status === 401;
       const errorMessage = isAuthError
         ? 'Please log in to view AI agents data'
         : 'Failed to load AI agents from server';
@@ -181,8 +182,7 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
         });
       }
       loadDashboardData(); // Refresh the list
-    } catch (error) {
-      console.error('Failed to toggle agent status:', error);
+    } catch (_error) {
       addNotification({
         type: 'error',
         title: 'Error',
@@ -276,7 +276,11 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {agents.map((agent) => (
-              <Card key={agent.id} className="p-6">
+              <Card
+                key={agent.id}
+                className="p-6 cursor-pointer hover:border-theme-info transition-colors"
+                onClick={() => navigate(`/app/ai/agents/${agent.id}`)}
+              >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-start gap-3">
                     <div className="h-10 w-10 bg-theme-info bg-opacity-10 rounded-lg flex items-center justify-center">
@@ -293,15 +297,29 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
                 <div className="space-y-3">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-theme-tertiary">AI Provider</span>
-                    <span className="text-theme-primary">{agent.ai_provider?.name || 'N/A'}</span>
+                    <span className="text-theme-primary">{agent.provider?.name || 'N/A'}</span>
                   </div>
 
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-theme-tertiary">Model</span>
                     <span className="text-theme-primary">
-                      {agent.mcp_metadata?.model_config?.model || 'N/A'}
+                      {agent.model || 'N/A'}
                     </span>
                   </div>
+
+                  {agent.skill_slugs && agent.skill_slugs.length > 0 && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-theme-tertiary">Skills</span>
+                      <div className="flex flex-wrap gap-1 justify-end">
+                        {agent.skill_slugs.slice(0, 3).map((slug) => (
+                          <Badge key={slug} variant="info" size="sm">{slug}</Badge>
+                        ))}
+                        {agent.skill_slugs.length > 3 && (
+                          <Badge variant="outline" size="sm">+{agent.skill_slugs.length - 3}</Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-theme-tertiary">Executions</span>
@@ -319,7 +337,7 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
                   )}
                 </div>
 
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-theme">
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-theme" onClick={(e) => e.stopPropagation()}>
                   <div className="flex items-center gap-2">
                     {canManageAgents && (
                       <Button
@@ -341,17 +359,28 @@ export const AiAgentDashboard: React.FC<AiAgentDashboardProps> = ({
                         )}
                       </Button>
                     )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-1.5 min-w-[80px] justify-center"
+                      onClick={() => openConversationMaximized(agent.id, agent.name)}
+                    >
+                      <MessageSquare className="h-3 w-3" />
+                      Chat
+                    </Button>
                   </div>
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex items-center gap-1.5 min-w-[80px] justify-center"
-                    onClick={() => handleEditAgent(agent)}
-                  >
-                    <Settings className="h-3 w-3" />
-                    Manage
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-1.5 min-w-[80px] justify-center"
+                      onClick={() => handleEditAgent(agent)}
+                    >
+                      <Settings className="h-3 w-3" />
+                      Manage
+                    </Button>
+                  </div>
                 </div>
               </Card>
             ))}

@@ -20,10 +20,10 @@ import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { agentsApi } from '@/shared/services/ai';
 import { useAuth } from '@/shared/hooks/useAuth';
 import type { AiAgent } from '@/shared/types/ai';
-import type { HandlePosition, HandlePositions } from './nodes/DynamicNodeHandles';
-import { getHandleIdsForNodeType, getDefaultHandlePositions } from './nodes/DynamicNodeHandles';
-import { getNodeTypeConfig, positionOptions } from './config/node-types';
-import type { NodeConfiguration } from './config/node-types';
+import type { HandlePosition, HandlePositions } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
+import { getHandleIdsForNodeType, getDefaultHandlePositions } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
+import { getNodeTypeConfig, positionOptions } from '@/shared/components/workflow/config/node-types';
+import type { NodeConfiguration } from '@/shared/components/workflow/config/node-types';
 
 // Define the workflow node data structure
 export interface WorkflowNodeData {
@@ -35,13 +35,13 @@ export interface WorkflowNodeData {
   timeoutSeconds?: number;
   retryCount?: number;
   handlePositions?: HandlePositions;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  configuration?: Record<string, any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  metadata?: Record<string, any>;
+   
+  configuration?: Record<string, unknown>;
+
+  metadata?: Record<string, unknown>;
   _handleUpdateTimestamp?: number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [key: string]: any;
+
+  [key: string]: unknown;
 }
 
 export interface NodeConfigPanelProps {
@@ -161,7 +161,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       const agentList = extractAgentList(response);
       setAgents(agentList);
       agentsLoadedRef.current = true;
-    } catch (error: unknown) {
+    } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.error('Failed to load available agents:', error);
       }
@@ -213,13 +213,25 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
       setAgents(prev => {
         const existingAgent = prev.find(a => a.id === agentId);
         if (existingAgent) return prev;
-        return [...prev, {
+        // Create a minimal error-state agent that satisfies the AiAgent interface
+        const errorAgent: AiAgent = {
           id: agentId,
           name: 'Agent details unavailable',
-          status: 'unknown',
-          error: 'Failed to load agent details'
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        } as any];
+          description: 'Failed to load agent details',
+          agent_type: 'assistant',
+          provider: { id: '', name: 'Unknown', slug: '', provider_type: '' },
+          mcp_tool_manifest: { name: '', description: '', type: '', version: '' },
+          skill_slugs: [],
+          mcp_input_schema: {},
+          mcp_output_schema: {},
+          mcp_metadata: {},
+          status: 'error',
+          metadata: { error: 'Failed to load agent details' },
+          is_active: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        return [...prev, errorAgent];
       });
     } finally {
       loadingAgentsRef.current = false;
@@ -229,7 +241,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
 
   // Fetch agent if not in list
   useEffect(() => {
-    const agentId = node.data?.configuration?.agent_id;
+    const agentId = node.data?.configuration?.agent_id as string | undefined;
     if (node.type === 'ai_agent' && agentId && isAuthenticated && agents.length > 0) {
       const agentExists = agents.find(a => a.id === agentId);
       if (!agentExists && !loadingAgentsRef.current) {
@@ -240,7 +252,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
 
   // Update config when node changes
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+     
     const { _handleUpdateTimestamp: _temp, ...cleanNodeData } = node.data || {};
 
     setConfig({
@@ -301,7 +313,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const handleFieldChange = (field: keyof NodeConfiguration, value: any) => {
     setConfig(prev => ({ ...prev, [field]: value }));
     markAsChanged();
@@ -314,7 +326,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const handleConfigChange = (key: string, value: any) => {
     setConfig(prev => ({
       ...prev,
@@ -323,7 +335,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
     markAsChanged();
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const handleMetadataChange = (key: string, value: any) => {
     setConfig(prev => ({
       ...prev,
@@ -339,8 +351,8 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
         ...config.configuration,
         agent_id: agentId,
         agent_name: selectedAgent.name,
-        model: selectedAgent.mcp_metadata?.model_config?.model || config.configuration.model,
-        provider: selectedAgent.ai_provider?.slug || config.configuration.provider
+        model: selectedAgent.model || config.configuration.model,
+        provider: selectedAgent.provider?.slug || config.configuration.provider
       };
       setConfig(prev => ({ ...prev, configuration: updatedConfig }));
       markAsChanged();
@@ -618,7 +630,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
               <div>
                 <Input
                   label="Condition Expression"
-                  value={config.metadata?.condition || ''}
+                  value={(config.metadata?.condition as string) || ''}
                   onChange={(e) => handleMetadataChange('condition', e.target.value || null)}
                   placeholder="${{ steps.previous.outputs.success == true }}"
                   description="Expression that must evaluate to true for this node to execute"
@@ -636,7 +648,7 @@ export const NodeConfigPanel: React.FC<NodeConfigPanelProps> = ({
                     try {
                       const parsed = JSON.parse(e.target.value);
                       handleFieldChange('metadata', parsed);
-                    } catch {
+                    } catch (_error) {
                       // Invalid JSON, don't update
                     }
                   }}

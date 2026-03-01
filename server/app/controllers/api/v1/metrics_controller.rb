@@ -3,7 +3,7 @@
 module Api
   module V1
     class MetricsController < ApplicationController
-      # Prometheus endpoint disabled - no authentication skipping needed
+      skip_before_action :authenticate_request, only: [ :health, :prometheus ]
 
       # Prometheus metrics endpoint - DISABLED
       def prometheus
@@ -24,14 +24,14 @@ module Api
         }
 
         render_success(health_data)
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Health check error: #{e.message}"
         render_error("Health check failed", status: :service_unavailable)
       end
 
       # Detailed application metrics (authenticated)
       def application
-        require_permission!("analytics.read")
+        require_permission("analytics.read")
 
         metrics = {
           users: user_metrics,
@@ -43,7 +43,7 @@ module Api
         }
 
         render_success(metrics)
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Application metrics error: #{e.message}"
         render_error("Failed to retrieve metrics")
       end
@@ -52,7 +52,8 @@ module Api
 
       def uptime_seconds
         Time.current - Rails.application.config.start_time
-      rescue
+      rescue StandardError => e
+        Rails.logger.error "Failed to calculate uptime: #{e.message}"
         0
       end
 
@@ -63,7 +64,7 @@ module Api
           status: "healthy",
           response_time_ms: ((Time.current - start_time) * 1000).round(2)
         }
-      rescue => e
+      rescue StandardError => e
         {
           status: "unhealthy",
           error: e.message
@@ -79,7 +80,7 @@ module Api
           status: "healthy",
           response_time_ms: ((Time.current - start_time) * 1000).round(2)
         }
-      rescue => e
+      rescue StandardError => e
         {
           status: "unhealthy",
           error: e.message
@@ -97,18 +98,19 @@ module Api
         else
           { available: false }
         end
-      rescue
+      rescue StandardError => e
+        Rails.logger.error "Failed to fetch memory usage: #{e.message}"
         { available: false }
       end
 
       def business_health_metrics
         {
           total_users: User.count,
-          active_subscriptions: Subscription.active.count,
-          total_revenue_cents: Subscription.active.joins(:plan).sum("plans.price"),
-          successful_payments_today: Payment.successful.where("created_at >= ?", 1.day.ago).count
+          active_subscriptions: subscription_class&.active&.count || 0,
+          total_revenue_cents: (subscription_class&.active&.joins(:plan)&.sum("plans.price")) || 0,
+          successful_payments_today: defined?(Billing::Payment) ? Billing::Payment.successful.where("created_at >= ?", 1.day.ago).count : 0
         }
-      rescue => e
+      rescue StandardError => e
         Rails.logger.error "Business metrics error: #{e.message}"
         { error: "Unable to retrieve business metrics" }
       end
@@ -127,52 +129,78 @@ module Api
 
       def subscription_metrics
         {
-          total: Subscription.count,
-          active: Subscription.active.count,
-          cancelled: Subscription.cancelled.count,
-          expired: Subscription.expired.count,
-          trial: Subscription.trial.count,
-          by_plan: Subscription.joins(:plan).group("plans.name").count,
-          monthly_revenue_cents: Subscription.active.joins(:plan).sum("plans.price"),
-          churn_rate_percent: calculate_churn_rate,
-          new_this_month: Subscription.where("created_at >= ?", 1.month.ago).count
+          subscriptions: if subscription_class
+            {
+              total: subscription_class.count,
+              active: subscription_class.active.count,
+              cancelled: subscription_class.cancelled.count,
+              expired: subscription_class.expired.count,
+              trial: subscription_class.trial.count,
+              by_plan: subscription_class.joins(:plan).group("plans.name").count,
+              monthly_revenue_cents: subscription_class.active.joins(:plan).sum("plans.price"),
+              mrr: (subscription_class.active.joins(:plan).sum("plans.price") / 100.0).round(2),
+              new_this_month: subscription_class.where("created_at >= ?", 1.month.ago).count
+            }
+          else
+            { total: 0, active: 0, cancelled: 0, expired: 0, trial: 0, by_plan: {}, monthly_revenue_cents: 0, mrr: 0, new_this_month: 0 }
+          end,
+          churn_rate_percent: calculate_churn_rate
         }
       end
 
       def payment_metrics
+        return { total: 0, successful: 0, failed: 0, pending: 0, total_amount_cents: 0, today: 0, this_week: 0, this_month: 0, by_provider: {}, average_amount_cents: 0 } unless defined?(Billing::Payment)
         {
-          total: Payment.count,
-          successful: Payment.successful.count,
-          failed: Payment.failed.count,
-          pending: Payment.pending.count,
-          total_amount_cents: Payment.successful.sum(:amount_cents),
-          today: Payment.where("created_at >= ?", 1.day.ago).count,
-          this_week: Payment.where("created_at >= ?", 1.week.ago).count,
-          this_month: Payment.where("created_at >= ?", 1.month.ago).count,
-          by_provider: Payment.group(:provider).count,
-          average_amount_cents: Payment.successful.average(:amount_cents)&.round
+          total: Billing::Payment.count,
+          successful: Billing::Payment.successful.count,
+          failed: Billing::Payment.failed.count,
+          pending: Billing::Payment.pending.count,
+          total_amount_cents: Billing::Payment.successful.sum(:amount_cents),
+          today: Billing::Payment.where("created_at >= ?", 1.day.ago).count,
+          this_week: Billing::Payment.where("created_at >= ?", 1.week.ago).count,
+          this_month: Billing::Payment.where("created_at >= ?", 1.month.ago).count,
+          by_provider: Billing::Payment.group(:provider).count,
+          average_amount_cents: Billing::Payment.successful.average(:amount_cents)&.round
         }
       end
 
       def api_metrics
-        # This would need to be stored in Redis or database for persistence
-        # For now, return placeholder data
         {
-          total_requests: "tracked_in_prometheus",
-          average_response_time: "tracked_in_prometheus",
-          error_rate: "tracked_in_prometheus",
-          endpoints: "tracked_in_prometheus"
+          total_requests_today: AuditLog.where("created_at >= ?", 1.day.ago).count,
+          total_requests_this_week: AuditLog.where("created_at >= ?", 1.week.ago).count,
+          total_requests_this_month: AuditLog.where("created_at >= ?", 1.month.ago).count,
+          requests_by_action: AuditLog.where("created_at >= ?", 1.day.ago).group(:action).count,
+          error_count_today: AuditLog.where("created_at >= ? AND action LIKE ?", 1.day.ago, "%error%").count
         }
+      rescue StandardError => e
+        Rails.logger.error "Failed to fetch API metrics: #{e.message}"
+        { error: "Unable to retrieve API metrics" }
       end
 
       def job_metrics
-        # This would integrate with Sidekiq stats if available
-        {
-          processed: "tracked_via_sidekiq_web",
-          failed: "tracked_via_sidekiq_web",
-          scheduled: "tracked_via_sidekiq_web",
-          retries: "tracked_via_sidekiq_web"
+        redis = Redis.new(url: ENV.fetch("WORKER_REDIS_URL", "redis://localhost:6379/1"))
+        stats = {
+          processed: redis.get("stat:processed").to_i,
+          failed: redis.get("stat:failed").to_i,
+          scheduled_size: redis.zcard("schedule"),
+          retry_size: redis.zcard("retry"),
+          dead_size: redis.zcard("dead"),
+          queues: fetch_queue_sizes(redis)
         }
+        redis.close
+        stats
+      rescue StandardError => e
+        Rails.logger.error "Failed to fetch job metrics: #{e.message}"
+        { error: "Unable to connect to job queue" }
+      end
+
+      def fetch_queue_sizes(redis)
+        queues = redis.smembers("queues")
+        queues.each_with_object({}) do |queue, sizes|
+          sizes[queue] = redis.llen("queue:#{queue}")
+        end
+      rescue StandardError
+        {}
       end
 
       def system_metrics
@@ -186,24 +214,31 @@ module Api
       end
 
       def calculate_churn_rate
+        return 0.0 unless subscription_class
+
         current_month_start = Date.current.beginning_of_month
         last_month_start = 1.month.ago.beginning_of_month
         last_month_end = 1.month.ago.end_of_month
 
-        active_last_month = Subscription.where(
+        active_last_month = subscription_class.where(
           "created_at <= ? AND (cancelled_at IS NULL OR cancelled_at > ?)",
           last_month_end, last_month_end
         ).count
 
-        cancelled_last_month = Subscription.where(
+        cancelled_last_month = subscription_class.where(
           cancelled_at: last_month_start..last_month_end
         ).count
 
         return 0 if active_last_month.zero?
 
         ((cancelled_last_month.to_f / active_last_month) * 100).round(2)
-      rescue
+      rescue StandardError => e
+        Rails.logger.error "Failed to calculate churn rate: #{e.message}"
         0
+      end
+
+      def subscription_class
+        defined?(Billing::Subscription) ? Billing::Subscription : nil
       end
 
       def calculate_database_size
@@ -226,7 +261,8 @@ module Api
         else
           "not_available"
         end
-      rescue StandardError
+      rescue StandardError => e
+        Rails.logger.error "Failed to calculate database size: #{e.message}"
         "calculation_failed"
       end
     end

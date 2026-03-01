@@ -1,93 +1,97 @@
 // Node type configuration components
-export { StartNodeConfig } from './StartNodeConfig';
-export { EndNodeConfig } from './EndNodeConfig';
-export { AiAgentNodeConfig } from './AiAgentNodeConfig';
-export { ApiCallNodeConfig } from './ApiCallNodeConfig';
-export { ConditionNodeConfig } from './ConditionNodeConfig';
-export { TransformNodeConfig } from './TransformNodeConfig';
-export { LoopNodeConfig } from './LoopNodeConfig';
-export { MergeNodeConfig } from './MergeNodeConfig';
-export { SplitNodeConfig } from './SplitNodeConfig';
-export { TriggerNodeConfig } from './TriggerNodeConfig';
-export { HumanApprovalNodeConfig } from './HumanApprovalNodeConfig';
-export { SubWorkflowNodeConfig } from './SubWorkflowNodeConfig';
-export { WebhookNodeConfig } from './WebhookNodeConfig';
-export { DatabaseNodeConfig } from './DatabaseNodeConfig';
-export { EmailNodeConfig } from './EmailNodeConfig';
-export { FileNodeConfig } from './FileNodeConfig';
-export { FileTransformNodeConfig } from './FileTransformNodeConfig';
-export { ValidatorNodeConfig } from './ValidatorNodeConfig';
-export { PromptTemplateNodeConfig } from './PromptTemplateNodeConfig';
-export { DataProcessorNodeConfig } from './DataProcessorNodeConfig';
-export { NotificationNodeConfig } from './NotificationNodeConfig';
-export { SchedulerNodeConfig } from './SchedulerNodeConfig';
-export { DefaultNodeConfig } from './DefaultNodeConfig';
+// Registry imports
+import { StartNodeConfig } from '@/shared/components/workflow/config/node-types/StartNodeConfig';
+import { EndNodeConfig } from '@/shared/components/workflow/config/node-types/EndNodeConfig';
+import { AiAgentNodeConfig } from '@/shared/components/workflow/config/node-types/AiAgentNodeConfig';
+import { ApiCallNodeConfig } from '@/shared/components/workflow/config/node-types/ApiCallNodeConfig';
+import { ConditionNodeConfig } from '@/shared/components/workflow/config/node-types/ConditionNodeConfig';
+import { TransformNodeConfig } from '@/shared/components/workflow/config/node-types/TransformNodeConfig';
+import { LoopNodeConfig } from '@/shared/components/workflow/config/node-types/LoopNodeConfig';
+import { MergeNodeConfig } from '@/shared/components/workflow/config/node-types/MergeNodeConfig';
+import { SplitNodeConfig } from '@/shared/components/workflow/config/node-types/SplitNodeConfig';
+import { TriggerNodeConfig } from '@/shared/components/workflow/config/node-types/TriggerNodeConfig';
+import { HumanApprovalNodeConfig } from '@/shared/components/workflow/config/node-types/HumanApprovalNodeConfig';
+import { SubWorkflowNodeConfig } from '@/shared/components/workflow/config/node-types/SubWorkflowNodeConfig';
+import { WebhookNodeConfig } from '@/shared/components/workflow/config/node-types/WebhookNodeConfig';
+import { DatabaseNodeConfig } from '@/shared/components/workflow/config/node-types/DatabaseNodeConfig';
+import { EmailNodeConfig } from '@/shared/components/workflow/config/node-types/EmailNodeConfig';
+import { FileNodeConfig } from '@/shared/components/workflow/config/node-types/FileNodeConfig';
+import { FileTransformNodeConfig } from '@/shared/components/workflow/config/node-types/FileTransformNodeConfig';
+import { ValidatorNodeConfig } from '@/shared/components/workflow/config/node-types/ValidatorNodeConfig';
+import { PromptTemplateNodeConfig } from '@/shared/components/workflow/config/node-types/PromptTemplateNodeConfig';
+import { DataProcessorNodeConfig } from '@/shared/components/workflow/config/node-types/DataProcessorNodeConfig';
+import { NotificationNodeConfig } from '@/shared/components/workflow/config/node-types/NotificationNodeConfig';
+import { SchedulerNodeConfig } from '@/shared/components/workflow/config/node-types/SchedulerNodeConfig';
+import { DefaultNodeConfig } from '@/shared/components/workflow/config/node-types/DefaultNodeConfig';
+import { KbArticleCreateConfig } from '@/shared/components/workflow/config/node-types/KbArticleCreateConfig';
+import { KbArticleReadConfig } from '@/shared/components/workflow/config/node-types/KbArticleReadConfig';
+import { KbArticleUpdateConfig } from '@/shared/components/workflow/config/node-types/KbArticleUpdateConfig';
+import { KbArticleSearchConfig } from '@/shared/components/workflow/config/node-types/KbArticleSearchConfig';
+import { KbArticlePublishConfig } from '@/shared/components/workflow/config/node-types/KbArticlePublishConfig';
+import { KbArticleUnifiedConfig } from '@/shared/components/workflow/config/node-types/KbArticleUnifiedConfig';
+import { PageCreateConfig } from '@/shared/components/workflow/config/node-types/PageCreateConfig';
+import { PageReadConfig } from '@/shared/components/workflow/config/node-types/PageReadConfig';
+import { PageUpdateConfig } from '@/shared/components/workflow/config/node-types/PageUpdateConfig';
+import { PagePublishConfig } from '@/shared/components/workflow/config/node-types/PagePublishConfig';
+import { PageUnifiedConfig } from '@/shared/components/workflow/config/node-types/PageUnifiedConfig';
+import { McpToolNodeConfig } from '@/shared/components/workflow/config/node-types/McpToolNodeConfig';
+import { McpResourceNodeConfig } from '@/shared/components/workflow/config/node-types/McpResourceNodeConfig';
+import { McpPromptNodeConfig } from '@/shared/components/workflow/config/node-types/McpPromptNodeConfig';
+import { McpOperationConfig } from '@/shared/components/workflow/config/node-types/McpOperationConfig';
+import { RalphLoopConfig } from '@/shared/components/workflow/config/node-types/RalphLoopConfig';
+import type { NodeTypeConfigComponent } from '@/shared/components/workflow/config/node-types/types';
+
+export { StartNodeConfig } from '@/shared/components/workflow/config/node-types/StartNodeConfig';
+export { EndNodeConfig } from '@/shared/components/workflow/config/node-types/EndNodeConfig';
+export { AiAgentNodeConfig } from '@/shared/components/workflow/config/node-types/AiAgentNodeConfig';
+export { ApiCallNodeConfig } from '@/shared/components/workflow/config/node-types/ApiCallNodeConfig';
+export { ConditionNodeConfig } from '@/shared/components/workflow/config/node-types/ConditionNodeConfig';
+export { TransformNodeConfig } from '@/shared/components/workflow/config/node-types/TransformNodeConfig';
+export { LoopNodeConfig } from '@/shared/components/workflow/config/node-types/LoopNodeConfig';
+export { MergeNodeConfig } from '@/shared/components/workflow/config/node-types/MergeNodeConfig';
+export { SplitNodeConfig } from '@/shared/components/workflow/config/node-types/SplitNodeConfig';
+export { TriggerNodeConfig } from '@/shared/components/workflow/config/node-types/TriggerNodeConfig';
+export { HumanApprovalNodeConfig } from '@/shared/components/workflow/config/node-types/HumanApprovalNodeConfig';
+export { SubWorkflowNodeConfig } from '@/shared/components/workflow/config/node-types/SubWorkflowNodeConfig';
+export { WebhookNodeConfig } from '@/shared/components/workflow/config/node-types/WebhookNodeConfig';
+export { DatabaseNodeConfig } from '@/shared/components/workflow/config/node-types/DatabaseNodeConfig';
+export { EmailNodeConfig } from '@/shared/components/workflow/config/node-types/EmailNodeConfig';
+export { FileNodeConfig } from '@/shared/components/workflow/config/node-types/FileNodeConfig';
+export { FileTransformNodeConfig } from '@/shared/components/workflow/config/node-types/FileTransformNodeConfig';
+export { ValidatorNodeConfig } from '@/shared/components/workflow/config/node-types/ValidatorNodeConfig';
+export { PromptTemplateNodeConfig } from '@/shared/components/workflow/config/node-types/PromptTemplateNodeConfig';
+export { DataProcessorNodeConfig } from '@/shared/components/workflow/config/node-types/DataProcessorNodeConfig';
+export { NotificationNodeConfig } from '@/shared/components/workflow/config/node-types/NotificationNodeConfig';
+export { SchedulerNodeConfig } from '@/shared/components/workflow/config/node-types/SchedulerNodeConfig';
+export { DefaultNodeConfig } from '@/shared/components/workflow/config/node-types/DefaultNodeConfig';
 
 // KB Article node configs
-export { KbArticleCreateConfig } from './KbArticleCreateConfig';
-export { KbArticleReadConfig } from './KbArticleReadConfig';
-export { KbArticleUpdateConfig } from './KbArticleUpdateConfig';
-export { KbArticleSearchConfig } from './KbArticleSearchConfig';
-export { KbArticlePublishConfig } from './KbArticlePublishConfig';
-export { KbArticleUnifiedConfig } from './KbArticleUnifiedConfig';
+export { KbArticleCreateConfig } from '@/shared/components/workflow/config/node-types/KbArticleCreateConfig';
+export { KbArticleReadConfig } from '@/shared/components/workflow/config/node-types/KbArticleReadConfig';
+export { KbArticleUpdateConfig } from '@/shared/components/workflow/config/node-types/KbArticleUpdateConfig';
+export { KbArticleSearchConfig } from '@/shared/components/workflow/config/node-types/KbArticleSearchConfig';
+export { KbArticlePublishConfig } from '@/shared/components/workflow/config/node-types/KbArticlePublishConfig';
+export { KbArticleUnifiedConfig } from '@/shared/components/workflow/config/node-types/KbArticleUnifiedConfig';
 
 // Page node configs
-export { PageCreateConfig } from './PageCreateConfig';
-export { PageReadConfig } from './PageReadConfig';
-export { PageUpdateConfig } from './PageUpdateConfig';
-export { PagePublishConfig } from './PagePublishConfig';
-export { PageUnifiedConfig } from './PageUnifiedConfig';
+export { PageCreateConfig } from '@/shared/components/workflow/config/node-types/PageCreateConfig';
+export { PageReadConfig } from '@/shared/components/workflow/config/node-types/PageReadConfig';
+export { PageUpdateConfig } from '@/shared/components/workflow/config/node-types/PageUpdateConfig';
+export { PagePublishConfig } from '@/shared/components/workflow/config/node-types/PagePublishConfig';
+export { PageUnifiedConfig } from '@/shared/components/workflow/config/node-types/PageUnifiedConfig';
 
 // MCP node configs
-export { McpToolNodeConfig } from './McpToolNodeConfig';
-export { McpResourceNodeConfig } from './McpResourceNodeConfig';
-export { McpPromptNodeConfig } from './McpPromptNodeConfig';
-export { McpOperationConfig } from './McpOperationConfig';
+export { McpToolNodeConfig } from '@/shared/components/workflow/config/node-types/McpToolNodeConfig';
+export { McpResourceNodeConfig } from '@/shared/components/workflow/config/node-types/McpResourceNodeConfig';
+export { McpPromptNodeConfig } from '@/shared/components/workflow/config/node-types/McpPromptNodeConfig';
+export { McpOperationConfig } from '@/shared/components/workflow/config/node-types/McpOperationConfig';
+
+// Ralph Loop config
+export { RalphLoopConfig } from '@/shared/components/workflow/config/node-types/RalphLoopConfig';
 
 // Types
-export type { NodeTypeConfigProps, NodeConfiguration, NodeTypeConfigComponent } from './types';
-export { positionOptions } from './types';
-
-// Registry imports
-import { StartNodeConfig } from './StartNodeConfig';
-import { EndNodeConfig } from './EndNodeConfig';
-import { AiAgentNodeConfig } from './AiAgentNodeConfig';
-import { ApiCallNodeConfig } from './ApiCallNodeConfig';
-import { ConditionNodeConfig } from './ConditionNodeConfig';
-import { TransformNodeConfig } from './TransformNodeConfig';
-import { LoopNodeConfig } from './LoopNodeConfig';
-import { MergeNodeConfig } from './MergeNodeConfig';
-import { SplitNodeConfig } from './SplitNodeConfig';
-import { TriggerNodeConfig } from './TriggerNodeConfig';
-import { HumanApprovalNodeConfig } from './HumanApprovalNodeConfig';
-import { SubWorkflowNodeConfig } from './SubWorkflowNodeConfig';
-import { WebhookNodeConfig } from './WebhookNodeConfig';
-import { DatabaseNodeConfig } from './DatabaseNodeConfig';
-import { EmailNodeConfig } from './EmailNodeConfig';
-import { FileNodeConfig } from './FileNodeConfig';
-import { FileTransformNodeConfig } from './FileTransformNodeConfig';
-import { ValidatorNodeConfig } from './ValidatorNodeConfig';
-import { PromptTemplateNodeConfig } from './PromptTemplateNodeConfig';
-import { DataProcessorNodeConfig } from './DataProcessorNodeConfig';
-import { NotificationNodeConfig } from './NotificationNodeConfig';
-import { SchedulerNodeConfig } from './SchedulerNodeConfig';
-import { DefaultNodeConfig } from './DefaultNodeConfig';
-import { KbArticleCreateConfig } from './KbArticleCreateConfig';
-import { KbArticleReadConfig } from './KbArticleReadConfig';
-import { KbArticleUpdateConfig } from './KbArticleUpdateConfig';
-import { KbArticleSearchConfig } from './KbArticleSearchConfig';
-import { KbArticlePublishConfig } from './KbArticlePublishConfig';
-import { KbArticleUnifiedConfig } from './KbArticleUnifiedConfig';
-import { PageCreateConfig } from './PageCreateConfig';
-import { PageReadConfig } from './PageReadConfig';
-import { PageUpdateConfig } from './PageUpdateConfig';
-import { PagePublishConfig } from './PagePublishConfig';
-import { PageUnifiedConfig } from './PageUnifiedConfig';
-import { McpToolNodeConfig } from './McpToolNodeConfig';
-import { McpResourceNodeConfig } from './McpResourceNodeConfig';
-import { McpPromptNodeConfig } from './McpPromptNodeConfig';
-import { McpOperationConfig } from './McpOperationConfig';
-import type { NodeTypeConfigComponent } from './types';
+export type { NodeTypeConfigProps, NodeConfiguration, NodeTypeConfigComponent } from '@/shared/components/workflow/config/node-types/types';
+export { positionOptions } from '@/shared/components/workflow/config/node-types/types';
 
 export const nodeTypeConfigRegistry: Record<string, NodeTypeConfigComponent> = {
   // Core workflow nodes
@@ -144,6 +148,9 @@ export const nodeTypeConfigRegistry: Record<string, NodeTypeConfigComponent> = {
   mcp_resource: McpResourceNodeConfig,
   mcp_prompt: McpPromptNodeConfig,
   mcp_operation: McpOperationConfig,
+
+  // Ralph Loop node
+  ralph_loop: RalphLoopConfig,
 
   // Default fallback
   default: DefaultNodeConfig,

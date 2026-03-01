@@ -2,23 +2,42 @@
 
 import { useCallback, useRef } from 'react';
 import { Node } from '@xyflow/react';
-import { AiWorkflow } from '@/shared/types/workflow';
-import { migrateHandleId, generateUniqueEdgeId } from '../utils';
-import { getDefaultHandlePositions, type HandlePositions } from '../../nodes/DynamicNodeHandles';
+import { AiWorkflow, AiWorkflowNode } from '@/shared/types/workflow';
+import { migrateHandleId, generateUniqueEdgeId } from '@/shared/components/workflow/workflow-builder/utils';
+import { getDefaultHandlePositions, type HandlePositions } from '@/shared/components/workflow/nodes/DynamicNodeHandles';
+
+// Extended node type that may have position object from ReactFlow format
+interface ExtendedWorkflowNode extends AiWorkflowNode {
+  position?: { x: number; y: number };
+}
+
+// Node data type with handle positions
+interface WorkflowNodeData extends Record<string, unknown> {
+  name?: string;
+  description?: string;
+  node_type?: string;
+  configuration?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  is_start_node?: boolean;
+  is_end_node?: boolean;
+  timeout_seconds?: number;
+  retry_count?: number;
+  handlePositions?: HandlePositions;
+}
 
 interface UseWorkflowBuilderNodesOptions {
   workflow: AiWorkflow | undefined;
   nodes: Node[];
-  edges: any[];
+  edges: unknown[];
   setNodes: React.Dispatch<React.SetStateAction<Node[]>>;
-  setEdges: React.Dispatch<React.SetStateAction<any[]>>;
+  setEdges: React.Dispatch<React.SetStateAction<unknown[]>>;
   readOnly: boolean;
 }
 
 interface UseWorkflowBuilderNodesReturn {
-  initializeNodesFromWorkflow: () => { nodes: Node[]; edges: any[] } | null;
+  initializeNodesFromWorkflow: () => { nodes: Node[]; edges: unknown[] } | null;
   onAddNode: (nodeType: string, position: { x: number; y: number }) => void;
-  onUpdateNode: (nodeId: string, updates: Partial<Node['data']>) => void;
+  onUpdateNode: (nodeId: string, updates: Partial<WorkflowNodeData>) => void;
   initializedWorkflowIdRef: React.MutableRefObject<string | null>;
 }
 
@@ -51,8 +70,9 @@ export const useWorkflowBuilderNodes = ({
         }
         usedNodeIds.add(nodeId);
 
-        const positionX = Number(node.position_x) || Number((node as any).position?.x) || 0;
-        const positionY = Number(node.position_y) || Number((node as any).position?.y) || 0;
+        const extendedNode = node as ExtendedWorkflowNode;
+        const positionX = Number(node.position_x) || Number(extendedNode.position?.x) || 0;
+        const positionY = Number(node.position_y) || Number(extendedNode.position?.y) || 0;
 
         return {
           id: nodeId,
@@ -176,28 +196,42 @@ export const useWorkflowBuilderNodes = ({
   }, [readOnly, nodes, setNodes]);
 
   // Handle node updates from config panel
-  const onUpdateNode = useCallback((nodeId: string, updates: Partial<Node['data']>) => {
+  const onUpdateNode = useCallback((nodeId: string, updates: Partial<WorkflowNodeData>) => {
     const currentNode = nodes.find(n => n.id === nodeId);
-    const newPositions = (updates as any).handlePositions as HandlePositions | undefined;
-    const currentPositions = (currentNode?.data as any)?.handlePositions as HandlePositions | undefined;
+    const currentNodeData = currentNode?.data as WorkflowNodeData | undefined;
+    const newPositions = updates.handlePositions;
+    const currentPositions = currentNodeData?.handlePositions;
     const positionsChanging = newPositions && JSON.stringify(newPositions) !== JSON.stringify(currentPositions);
 
     if (positionsChanging && currentNode) {
-      const affectedEdges = edges.filter(edge => edge.source === nodeId || edge.target === nodeId);
+      interface EdgeWithSource {
+        id?: string;
+        source: string;
+        target: string;
+        sourceHandle?: string | null;
+        targetHandle?: string | null;
+        type?: string;
+        animated?: boolean;
+        style?: Record<string, unknown>;
+        markerEnd?: unknown;
+        label?: string;
+        data?: Record<string, unknown>;
+      }
+      const affectedEdges = (edges as EdgeWithSource[]).filter(edge => edge.source === nodeId || edge.target === nodeId);
 
       const updatedNode = {
         ...currentNode,
         data: {
           ...currentNode.data,
           ...updates,
-          handlePositions: (updates as any).handlePositions,
-          is_start_node: currentNode.data.is_start_node || currentNode.data.node_type === 'trigger' || currentNode.data.node_type === 'start',
-          is_end_node: currentNode.data.is_end_node || currentNode.data.node_type === 'end',
+          handlePositions: updates.handlePositions,
+          is_start_node: currentNodeData?.is_start_node || currentNodeData?.node_type === 'trigger' || currentNodeData?.node_type === 'start',
+          is_end_node: currentNodeData?.is_end_node || currentNodeData?.node_type === 'end',
         }
       };
 
       setNodes((nds) => nds.filter(n => n.id !== nodeId));
-      setEdges((eds) => eds.filter(e => e.source !== nodeId && e.target !== nodeId));
+      setEdges((eds) => (eds as EdgeWithSource[]).filter(e => e.source !== nodeId && e.target !== nodeId));
 
       setTimeout(() => {
         setNodes((nds) => [...nds, updatedNode]);

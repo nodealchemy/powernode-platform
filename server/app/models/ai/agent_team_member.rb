@@ -35,6 +35,7 @@ module Ai
     validate :validate_capabilities_structure
     validate :validate_member_config_structure
     validate :validate_single_team_lead
+    validate :restrict_mcp_client_to_workspace_teams
 
     # ==========================================
     # Scopes
@@ -47,6 +48,9 @@ module Ai
     scope :researchers, -> { where(role: "researcher") }
     scope :writers, -> { where(role: "writer") }
     scope :reviewers, -> { where(role: "reviewer") }
+    scope :by_agent_names, ->(names) {
+      includes(:agent).where(ai_agents: { name: names })
+    }
 
     # ==========================================
     # Callbacks
@@ -159,6 +163,13 @@ module Ai
       if existing_leads.exists?
         errors.add(:is_lead, "team can only have one lead")
       end
+    end
+
+    def restrict_mcp_client_to_workspace_teams
+      return unless agent&.mcp_client?
+      return if team&.team_type == "workspace"
+
+      errors.add(:base, "MCP client agents can only join workspace teams")
     end
 
     def build_execution_context(context)

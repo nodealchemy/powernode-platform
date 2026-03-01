@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home, Bug } from 'lucide-react';
+import { logger } from '@/shared/utils/logger';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -47,30 +48,22 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
     this.setState({ errorInfo });
 
-    // Log error details with enhanced debugging for page refresh investigation
-    console.group(`🚨 ERROR BOUNDARY TRIGGERED - POTENTIAL REFRESH CAUSE [${errorId}]`);
-    console.error('⚠️ ERROR BOUNDARY: This error may be causing automatic page refreshes!');
-    console.error('Error:', error);
-    console.error('Error Message:', error.message);
-    console.error('Error Info:', errorInfo);
-    console.error('Component Stack:', errorInfo.componentStack);
-    console.trace('Stack trace when error boundary triggered:');
-    console.groupEnd();
+    // Log error details for debugging
+    logger.error('Error Boundary triggered', error, {
+      errorId,
+      componentStack: errorInfo.componentStack
+    });
 
     // Report to external error tracking service
     if (onError) {
       onError(error, errorInfo, errorId);
     }
 
-    // In development, also report to browser console for easier debugging
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('Error Boundary Details:', {
-        message: error.message,
-        stack: error.stack,
-        componentStack: errorInfo.componentStack,
-        errorId
-      });
-    }
+    // In development, also report additional details for easier debugging
+    logger.warn('Error Boundary Details', {
+      message: error.message,
+      errorId
+    });
   }
 
   handleRetry = () => {

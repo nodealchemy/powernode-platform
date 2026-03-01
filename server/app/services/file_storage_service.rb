@@ -291,9 +291,7 @@ class FileStorageService
                   # Future: OCR job
                   "MetadataExtractionJob"
     when "virus_scan"
-                  # Future: Virus scan job
-                  log_info("Virus scan job queued but not implemented: #{job.id}")
-                  nil
+                  "FileProcessing::VirusScanJob"
     else
                   log_warn("Unknown job type #{job_type}, using metadata extraction")
                   "MetadataExtractionJob"

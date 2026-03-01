@@ -1,18 +1,33 @@
 // WebSocket hook for real-time team execution monitoring
-import { useEffect, useRef, useState } from 'react';
-import { useSelector } from 'react-redux';
-import { RootState } from '@/shared/services';
+// Uses the shared WebSocket manager (singleton connection) instead of a raw WebSocket
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { useWebSocket } from '@/shared/hooks/useWebSocket';
+
+export type TeamExecutionEventType =
+  | 'execution_started' | 'execution_progress' | 'member_completed'
+  | 'execution_completed' | 'execution_failed' | 'execution_timeout'
+  | 'execution_paused' | 'execution_resumed' | 'execution_cancelled'
+  | 'execution_redirected' | 'command_acknowledged' | 'command_error';
 
 export interface TeamExecutionUpdate {
-  type: 'execution_started' | 'execution_progress' | 'execution_completed' | 'execution_failed';
+  type: TeamExecutionEventType;
   team_id: string;
   job_id?: string;
+  execution_id?: string;
   status?: string;
   progress?: number;
   current_member?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  result?: any;
+  current_role?: string;
+  member_index?: number;
+  member_name?: string;
+  member_success?: boolean;
+  member_duration_ms?: number;
+  tasks_total?: number;
+  tasks_completed?: number;
+  tasks_failed?: number;
+  result?: unknown;
   error?: string;
+  duration_ms?: number;
   timestamp: string;
 }
 
@@ -24,104 +39,47 @@ interface UseTeamExecutionWebSocketOptions {
 
 export const useTeamExecutionWebSocket = (options: UseTeamExecutionWebSocketOptions = {}) => {
   const { teamId, onUpdate, enabled = true } = options;
-  const { access_token } = useSelector((state: RootState) => state.auth);
-  const wsRef = useRef<WebSocket | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
+  const { isConnected, subscribe, sendMessage } = useWebSocket();
   const [lastUpdate, setLastUpdate] = useState<TeamExecutionUpdate | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const onUpdateRef = useRef(onUpdate);
+  onUpdateRef.current = onUpdate;
 
   useEffect(() => {
-    if (!enabled || !access_token) return;
+    if (!enabled || !teamId || !isConnected) return;
 
-    const connect = () => {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/cable`;
+    const unsubscribe = subscribe({
+      channel: 'TeamExecutionChannel',
+      params: { team_id: teamId },
+      onMessage: (data) => {
+        const update = data as TeamExecutionUpdate;
+        setLastUpdate(update);
+        onUpdateRef.current?.(update);
+      },
+    });
 
-      if (process.env.NODE_ENV === 'development') {
-      }
+    return unsubscribe;
+  }, [teamId, enabled, isConnected, subscribe]);
 
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
+  const sendCommand = useCallback(
+    (command: 'pause' | 'resume' | 'cancel' | 'redirect', executionId: string, instructions?: Record<string, unknown>) => {
+      if (!teamId) return;
 
-      ws.onopen = () => {
-        if (process.env.NODE_ENV === 'development') {
-        }
-        setIsConnected(true);
-
-        // Subscribe to team execution channel
-        const subscribeMessage = {
-          command: 'subscribe',
-          identifier: JSON.stringify({
-            channel: 'TeamExecutionChannel',
-            team_id: teamId
-          })
-        };
-
-        ws.send(JSON.stringify(subscribeMessage));
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-
-          if (data.type === 'ping') return;
-          if (data.type === 'welcome') return;
-          if (data.type === 'confirm_subscription') {
-            if (process.env.NODE_ENV === 'development') {
-            }
-            return;
-          }
-
-          if (data.message) {
-            const update: TeamExecutionUpdate = data.message;
-
-            if (process.env.NODE_ENV === 'development') {
-            }
-
-            setLastUpdate(update);
-            onUpdate?.(update);
-          }
-        } catch (error) {
-          console.error('[TeamExecutionWS] Error parsing message:', error);
-        }
-      };
-
-      ws.onerror = (error) => {
-        console.error('[TeamExecutionWS] WebSocket error:', error);
-      };
-
-      ws.onclose = () => {
-        if (process.env.NODE_ENV === 'development') {
-        }
-        setIsConnected(false);
-
-        // Attempt to reconnect after 3 seconds
-        if (enabled) {
-          reconnectTimeoutRef.current = setTimeout(() => {
-            if (process.env.NODE_ENV === 'development') {
-            }
-            connect();
-          }, 3000);
-        }
-      };
-    };
-
-    connect();
-
-    return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-    };
-  }, [teamId, access_token, enabled, onUpdate]);
+      sendMessage(
+        'TeamExecutionChannel',
+        command,
+        {
+          execution_id: executionId,
+          ...(instructions ? { instructions } : {}),
+        },
+        { team_id: teamId }
+      );
+    },
+    [teamId, sendMessage]
+  );
 
   return {
     isConnected,
-    lastUpdate
+    lastUpdate,
+    sendCommand,
   };
 };

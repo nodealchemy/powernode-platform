@@ -4,6 +4,8 @@ module Devops
   # Execution record for an individual pipeline step
   # Tracks status, outputs, logs, and errors
   class StepExecution < ApplicationRecord
+    self.table_name = "devops_step_executions"
+
     include ExecutionTrackable
 
     STATUSES = %w[pending running waiting_approval success failure skipped].freeze
@@ -11,8 +13,8 @@ module Devops
     # ============================================
     # Associations
     # ============================================
-    belongs_to :pipeline_run, class_name: "Devops::PipelineRun", foreign_key: :ci_cd_pipeline_run_id
-    belongs_to :pipeline_step, class_name: "Devops::PipelineStep", foreign_key: :ci_cd_pipeline_step_id
+    belongs_to :pipeline_run, class_name: "Devops::PipelineRun", foreign_key: :devops_pipeline_run_id
+    belongs_to :pipeline_step, class_name: "Devops::PipelineStep", foreign_key: :devops_pipeline_step_id
 
     has_many :approval_tokens, class_name: "Devops::StepApprovalToken", foreign_key: :step_execution_id, dependent: :destroy
 
@@ -20,7 +22,7 @@ module Devops
     # Validations
     # ============================================
     validates :status, presence: true, inclusion: { in: STATUSES }
-    validates :ci_cd_pipeline_step_id, uniqueness: { scope: :ci_cd_pipeline_run_id }
+    validates :devops_pipeline_step_id, uniqueness: { scope: :devops_pipeline_run_id }
 
     # ============================================
     # Scopes
@@ -139,7 +141,7 @@ module Devops
       # Enqueue notification job via backend API (worker will create tokens and send emails)
       WorkerJobService.enqueue_job(
         job_class: "Devops::ApprovalNotificationJob",
-        args: [id, recipients],
+        args: [ id, recipients ],
         queue: "email"
       )
     rescue StandardError => e

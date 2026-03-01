@@ -7,7 +7,7 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
   let(:user) { create(:user, account: account) }
 
   # Permission users
-  let(:runner_read_user) { create(:user, account: account, permissions: ['git.runners.read']) }
+  let(:runner_read_user) { create(:user, account: account, permissions: [ 'git.runners.read' ]) }
   let(:runner_manage_user) do
     create(:user, account: account, permissions: %w[
       git.runners.read git.runners.manage git.runners.token
@@ -174,7 +174,7 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
 
   describe 'DELETE #destroy' do
     let!(:runner) { create(:git_runner, :with_repository, credential: credential, account: account, repository: repository) }
-    let(:mock_client) { double('GitApiClient') }
+    let(:mock_client) { double('GitApiClient', supports_runners?: true) }
 
     before do
       allow(::Devops::Git::ApiClient).to receive(:for).and_return(mock_client)
@@ -252,11 +252,10 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
 
   describe 'POST #registration_token' do
     let(:runner) { create(:git_runner, :with_repository, credential: credential, account: account, repository: repository) }
-    let(:mock_client) { double('GitApiClient') }
+    let(:mock_client) { double('GitApiClient', supports_runners?: true) }
 
     before do
       allow(::Devops::Git::ApiClient).to receive(:for).and_return(mock_client)
-      allow(mock_client).to receive(:is_a?).with(::Devops::Git::GiteaApiClient).and_return(false)
     end
 
     context 'with valid permissions' do
@@ -304,12 +303,10 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
 
   describe 'POST #removal_token' do
     let(:runner) { create(:git_runner, :with_repository, credential: credential, account: account, repository: repository) }
-    let(:mock_client) { double('GitApiClient') }
+    let(:mock_client) { double('GitApiClient', supports_runners?: true) }
 
     before do
       allow(::Devops::Git::ApiClient).to receive(:for).and_return(mock_client)
-      allow(mock_client).to receive(:is_a?).with(::Devops::Git::GiteaApiClient).and_return(false)
-      allow(mock_client).to receive(:respond_to?).with(:runner_removal_token).and_return(true)
     end
 
     context 'with valid permissions' do
@@ -335,13 +332,11 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
   # =============================================================================
 
   describe 'PUT #update_labels' do
-    let(:runner) { create(:git_runner, :with_repository, labels: ['linux'], credential: credential, account: account, repository: repository) }
-    let(:mock_client) { double('GitApiClient') }
+    let(:runner) { create(:git_runner, :with_repository, labels: [ 'linux' ], credential: credential, account: account, repository: repository) }
+    let(:mock_client) { double('GitApiClient', supports_runners?: true) }
 
     before do
       allow(::Devops::Git::ApiClient).to receive(:for).and_return(mock_client)
-      allow(mock_client).to receive(:respond_to?).with(:set_runner_labels).and_return(true)
-      allow(mock_client).to receive(:respond_to?).with(:update_runner_labels).and_return(false)
     end
 
     context 'with valid permissions' do
@@ -349,10 +344,10 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
 
       it 'updates runner labels' do
         allow(mock_client).to receive(:set_runner_labels).and_return({
-          labels: ['linux', 'docker', 'self-hosted']
+          labels: [ 'linux', 'docker', 'self-hosted' ]
         })
 
-        put :update_labels, params: { id: runner.id, labels: ['linux', 'docker', 'self-hosted'] }
+        put :update_labels, params: { id: runner.id, labels: [ 'linux', 'docker', 'self-hosted' ] }
 
         expect(response).to have_http_status(:success)
         json = JSON.parse(response.body)
@@ -370,7 +365,7 @@ RSpec.describe Api::V1::Git::RunnersController, type: :controller do
       before { sign_in runner_read_user }
 
       it 'returns forbidden error' do
-        put :update_labels, params: { id: runner.id, labels: ['new-label'] }
+        put :update_labels, params: { id: runner.id, labels: [ 'new-label' ] }
 
         expect(response).to have_http_status(:forbidden)
       end

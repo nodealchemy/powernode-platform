@@ -18,7 +18,7 @@ export const safeWebSocketSend = (ws: WebSocket | null, message: WebSocketMessag
         try {
           ws.send(JSON.stringify(message));
           resolve(true);
-        } catch (error) {
+        } catch (_error) {
           resolve(false);
         }
       } else if (ws.readyState === WebSocket.CONNECTING && attempt < maxRetries) {

@@ -312,13 +312,26 @@ module StorageProviders
     def mount_nfs_share
       return true unless @server_address && @share_path
 
-      # Attempt to mount (requires appropriate permissions)
-      mount_command = "mount -t nfs #{@server_address}:#{@share_path} #{@mount_path}"
+      validate_mount_inputs!(@server_address, @share_path, @mount_path)
 
-      system(mount_command)
+      # Use array form to prevent command injection
+      system("mount", "-t", "nfs", "#{@server_address}:#{@share_path}", @mount_path)
+    rescue ArgumentError => e
+      log_error("Invalid mount parameters: #{e.message}")
+      false
     rescue StandardError => e
       log_error("Failed to mount NFS share: #{e.message}")
       false
+    end
+
+    def validate_mount_inputs!(*values)
+      values.each do |value|
+        next if value.nil?
+
+        if value.match?(/[;&|`$(){}\n\r]/)
+          raise ArgumentError, "Invalid characters in mount parameter"
+        end
+      end
     end
 
     def ensure_directory_structure

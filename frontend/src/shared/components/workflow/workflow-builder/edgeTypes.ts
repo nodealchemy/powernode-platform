@@ -1,7 +1,7 @@
 // Custom Edge Components
-import { ConditionalEdge } from '../edges/ConditionalEdge';
-import { CurvedEdge } from '../edges/CurvedEdge';
-import { ColoredEdge } from '../edges/ColoredEdge';
+import { ConditionalEdge } from '@/shared/components/workflow/edges/ConditionalEdge';
+import { CurvedEdge } from '@/shared/components/workflow/edges/CurvedEdge';
+import { ColoredEdge } from '@/shared/components/workflow/edges/ColoredEdge';
 
 // Edge types mapping for React Flow
 export const EDGE_TYPES = {

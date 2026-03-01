@@ -1,4 +1,4 @@
-import { BaseApiService } from './BaseApiService';
+import { BaseApiService } from '@/shared/services/ai/BaseApiService';
 
 export interface CircuitBreakerMetrics {
   total_breakers: number;

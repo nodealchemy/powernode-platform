@@ -3,14 +3,7 @@
 # Background job to monitor AI workflow costs and trigger alerts on anomalies
 # Runs every hour to track spending patterns and detect unusual cost spikes
 class AiWorkflowCostMonitoringJob < BaseJob
-  queue_as :ai_workflow_health
-
-  # Cost thresholds for alerts
-  HOURLY_COST_WARNING_THRESHOLD = 50.0     # $50/hour warning
-  HOURLY_COST_CRITICAL_THRESHOLD = 100.0   # $100/hour critical
-  DAILY_COST_WARNING_THRESHOLD = 500.0     # $500/day warning
-  DAILY_COST_CRITICAL_THRESHOLD = 1000.0   # $1000/day critical
-  COST_SPIKE_PERCENTAGE = 200              # 200% increase triggers alert
+  sidekiq_options queue: :ai_workflow_health
 
   def execute
     log_info("Starting AI Workflow Cost Monitoring")
@@ -24,6 +17,9 @@ class AiWorkflowCostMonitoringJob < BaseJob
     }
 
     begin
+      # Fetch configurable thresholds from backend
+      @thresholds = fetch_cost_thresholds
+
       # Fetch cost data from backend
       fetch_hourly_costs(cost_report)
       fetch_daily_costs(cost_report)
@@ -31,6 +27,9 @@ class AiWorkflowCostMonitoringJob < BaseJob
 
       # Analyze for anomalies
       detect_cost_anomalies(cost_report)
+
+      # Check per-agent budget alerts
+      check_agent_budget_alerts(cost_report)
 
       # Calculate cost projections
       calculate_projections(cost_report)
@@ -129,43 +128,49 @@ class AiWorkflowCostMonitoringJob < BaseJob
     daily = cost_report[:metrics][:daily] || {}
     previous_day = cost_report[:metrics][:previous_day] || {}
 
+    hourly_warning = @thresholds['hourly_warning'] || 50.0
+    hourly_critical = @thresholds['hourly_critical'] || 100.0
+    daily_warning = @thresholds['daily_warning'] || 500.0
+    daily_critical = @thresholds['daily_critical'] || 1000.0
+    spike_pct = @thresholds['spike_percentage'] || 200
+
     # Check hourly thresholds
     hourly_cost = hourly[:total_cost] || 0.0
-    if hourly_cost >= HOURLY_COST_CRITICAL_THRESHOLD
+    if hourly_cost >= hourly_critical
       cost_report[:alerts] << {
         type: 'hourly_cost_critical',
         severity: 'critical',
-        message: "Hourly cost ($#{hourly_cost.round(2)}) exceeds critical threshold ($#{HOURLY_COST_CRITICAL_THRESHOLD})",
+        message: "Hourly cost ($#{hourly_cost.round(2)}) exceeds critical threshold ($#{hourly_critical})",
         value: hourly_cost,
-        threshold: HOURLY_COST_CRITICAL_THRESHOLD
+        threshold: hourly_critical
       }
-    elsif hourly_cost >= HOURLY_COST_WARNING_THRESHOLD
+    elsif hourly_cost >= hourly_warning
       cost_report[:alerts] << {
         type: 'hourly_cost_warning',
         severity: 'warning',
-        message: "Hourly cost ($#{hourly_cost.round(2)}) exceeds warning threshold ($#{HOURLY_COST_WARNING_THRESHOLD})",
+        message: "Hourly cost ($#{hourly_cost.round(2)}) exceeds warning threshold ($#{hourly_warning})",
         value: hourly_cost,
-        threshold: HOURLY_COST_WARNING_THRESHOLD
+        threshold: hourly_warning
       }
     end
 
     # Check daily thresholds
     daily_cost = daily[:total_cost] || 0.0
-    if daily_cost >= DAILY_COST_CRITICAL_THRESHOLD
+    if daily_cost >= daily_critical
       cost_report[:alerts] << {
         type: 'daily_cost_critical',
         severity: 'critical',
-        message: "Daily cost ($#{daily_cost.round(2)}) exceeds critical threshold ($#{DAILY_COST_CRITICAL_THRESHOLD})",
+        message: "Daily cost ($#{daily_cost.round(2)}) exceeds critical threshold ($#{daily_critical})",
         value: daily_cost,
-        threshold: DAILY_COST_CRITICAL_THRESHOLD
+        threshold: daily_critical
       }
-    elsif daily_cost >= DAILY_COST_WARNING_THRESHOLD
+    elsif daily_cost >= daily_warning
       cost_report[:alerts] << {
         type: 'daily_cost_warning',
         severity: 'warning',
-        message: "Daily cost ($#{daily_cost.round(2)}) exceeds warning threshold ($#{DAILY_COST_WARNING_THRESHOLD})",
+        message: "Daily cost ($#{daily_cost.round(2)}) exceeds warning threshold ($#{daily_warning})",
         value: daily_cost,
-        threshold: DAILY_COST_WARNING_THRESHOLD
+        threshold: daily_warning
       }
     end
 
@@ -175,13 +180,13 @@ class AiWorkflowCostMonitoringJob < BaseJob
       percentage_change = ((daily_cost - previous_cost) / previous_cost * 100).round(1)
       cost_report[:metrics][:day_over_day_change] = percentage_change
 
-      if percentage_change >= COST_SPIKE_PERCENTAGE
+      if percentage_change >= spike_pct
         cost_report[:alerts] << {
           type: 'cost_spike',
           severity: 'warning',
           message: "Cost spike detected: #{percentage_change}% increase from previous day",
           value: percentage_change,
-          threshold: COST_SPIKE_PERCENTAGE,
+          threshold: spike_pct,
           previous_cost: previous_cost,
           current_cost: daily_cost
         }
@@ -251,12 +256,59 @@ class AiWorkflowCostMonitoringJob < BaseJob
     end
   end
 
-  def broadcast_cost_status(cost_report)
-    # Broadcast via WebSocket for real-time monitoring dashboards
-    begin
-      AiWorkflowMonitoringChannel.broadcast_cost_status(cost_report)
-    rescue StandardError => e
-      log_error("Failed to broadcast cost status", e)
+  def check_agent_budget_alerts(cost_report)
+    response = with_api_retry do
+      api_client.get('ai/autonomy/budgets/alerts')
     end
+
+    budget_alerts = response['data'] || []
+    budget_alerts.each do |alert|
+      severity = case alert['level']
+                 when 'exhausted' then 'critical'
+                 when 'danger' then 'warning'
+                 else 'info'
+                 end
+
+      cost_report[:alerts] << {
+        type: "agent_budget_#{alert['level']}",
+        severity: severity,
+        message: "Agent '#{alert['agent_name']}' budget at #{alert['utilization_pct']&.round(1)}% (#{alert['remaining_cents']} cents remaining)",
+        value: alert['utilization_pct'],
+        agent_id: alert['agent_id'],
+        budget_id: alert['budget_id']
+      }
+    end
+  rescue StandardError => e
+    log_error("Failed to check agent budget alerts", e)
+  end
+
+  def broadcast_cost_status(cost_report)
+    with_api_retry(max_attempts: 1) do
+      api_client.post("/api/v1/ai/autonomy/broadcast", {
+        broadcast_type: "cost_status",
+        data: cost_report
+      })
+    end
+  rescue StandardError => e
+    log_error("Failed to broadcast cost status", e)
+  end
+
+  def fetch_cost_thresholds
+    response = api_client.get("/api/v1/ai/autonomy/cost_thresholds")
+    if response['success']
+      response['data']
+    else
+      default_thresholds
+    end
+  rescue StandardError
+    default_thresholds
+  end
+
+  def default_thresholds
+    {
+      'hourly_warning' => 50.0, 'hourly_critical' => 100.0,
+      'daily_warning' => 500.0, 'daily_critical' => 1000.0,
+      'spike_percentage' => 200
+    }
   end
 end

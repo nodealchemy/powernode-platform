@@ -3,6 +3,7 @@ import { adminSettingsApi, AdminOverviewData } from '@/features/admin/services/a
 import { servicesApi, HealthStatus } from '@/features/admin/services/servicesApi';
 import { ActionCard, MetricCard as StandardMetricCard } from '@/shared/components/ui/Card';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import {
   SystemStatusCard,
   SecurityConfigCard,
@@ -38,7 +39,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
       
       setData(overviewData.data || null);
       setServicesHealth(healthStatus);
-    } catch (error: unknown) {
+    } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load admin overview data';
       console.error('Admin overview load error:', error);
       setError(errorMessage);
@@ -55,12 +56,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
 
   if (loading && !data) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-theme-interactive-primary mx-auto mb-4"></div>
-          <p className="text-theme-secondary">Loading system overview...</p>
-        </div>
-      </div>
+      <LoadingSpinner size="lg" className="h-64" message="Loading system overview..." />
     );
   }
 
@@ -76,7 +72,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
         </div>
         <button
           onClick={loadOverviewData}
-          className="bg-theme-error text-white px-4 py-2 rounded-lg hover:bg-theme-error transition-colors"
+          className="btn-theme btn-theme-danger"
         >
           Retry Loading
         </button>
@@ -180,7 +176,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <SystemStatusCard
           title="System Health"
-          status={metrics.system_health as any}
+          status={metrics.system_health}
           value={metrics.system_health === 'healthy' ? 'Operational' : 
                  metrics.system_health === 'warning' ? 'Warnings' : 'Critical'}
           description={`Uptime: ${adminSettingsApi.formatUptime(metrics.uptime)}`}
@@ -287,7 +283,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
             icon="🔗"
             title="Webhooks"
             description="Manage payment gateway webhooks and endpoints"
-            href="/app/devops/webhooks"
+            href="/app/devops/connections/webhooks"
           />
           <ActionCard
             icon="📝"
@@ -518,7 +514,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
               <h3 className="font-semibold text-theme-primary flex items-center gap-2">
                 <span>👥</span>
                 <span>Recent Users</span>
-                <span className="bg-theme-interactive-primary text-white text-xs px-2 py-1 rounded-full">
+                <span className="bg-theme-interactive-primary text-theme-on-primary text-xs px-2 py-1 rounded-full">
                   {recent_users.length}
                 </span>
               </h3>
@@ -535,7 +531,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                     <div key={user.id} className="p-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-theme-interactive-primary rounded-full flex items-center justify-center flex-shrink-0">
-                          <span className="text-white font-medium text-sm">
+                          <span className="text-theme-on-primary font-medium text-sm">
                             {user.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '??'}
                           </span>
                         </div>
@@ -544,7 +540,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
                           <p className="text-sm text-theme-secondary truncate">{user.email}</p>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-xs bg-theme-background px-2 py-1 rounded text-theme-secondary">
-                              {Array.isArray(user.roles) && user.roles.length > 0 ? (typeof user.roles[0] === 'object' ? (user.roles[0] as any)?.display_name || (user.roles[0] as any)?.name : user.roles[0]) : 'N/A'}
+                              {Array.isArray(user.roles) && user.roles.length > 0 ? (typeof user.roles[0] === 'object' ? (user.roles[0] as { display_name?: string; name?: string })?.display_name || (user.roles[0] as { display_name?: string; name?: string })?.name : user.roles[0]) : 'N/A'}
                             </span>
                             <span className="text-xs text-theme-tertiary">
                               {adminSettingsApi.formatRelativeTime(user.created_at)}
@@ -565,7 +561,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
               <h3 className="font-semibold text-theme-primary flex items-center gap-2">
                 <span>🏢</span>
                 <span>Recent Accounts</span>
-                <span className="bg-theme-interactive-primary text-white text-xs px-2 py-1 rounded-full">
+                <span className="bg-theme-interactive-primary text-theme-on-primary text-xs px-2 py-1 rounded-full">
                   {recent_accounts.length}
                 </span>
               </h3>
@@ -611,7 +607,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
               <h3 className="font-semibold text-theme-primary flex items-center gap-2">
                 <span>📝</span>
                 <span>System Logs</span>
-                <span className="bg-theme-interactive-primary text-white text-xs px-2 py-1 rounded-full">
+                <span className="bg-theme-interactive-primary text-theme-on-primary text-xs px-2 py-1 rounded-full">
                   {recent_logs.length}
                 </span>
               </h3>

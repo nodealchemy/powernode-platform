@@ -82,8 +82,8 @@ describe('System Storage Providers Page Tests', () => {
     });
 
     it('should display stats cards', () => {
-      // Stats are in card-like containers with border-theme class
-      cy.assertHasElement(['[class*="rounded-lg"]', '[class*="border"]', '[class*="grid"]']);
+      // Stats are in card-like containers
+      cy.assertHasElement(['[data-testid="storage-stats"]', '[data-testid*="stat-card"]', '[class*="rounded-lg"]']);
     });
   });
 
@@ -161,11 +161,12 @@ describe('System Storage Providers Page Tests', () => {
     it('should display provider list or empty state or permission message', () => {
       // Page shows either a grid of providers, empty state, or permission denied
       cy.get('body').then(($body) => {
-        const hasGrid = $body.find('[class*="grid"]').length > 0;
+        const hasProviderCards = $body.find('[data-testid="storage-provider-card"]').length > 0;
+        const hasGrid = $body.find('[data-testid="storage-providers-grid"]').length > 0 || $body.find('[class*="grid"]').length > 0;
         const hasTextCenter = $body.find('[class*="text-center"]').length > 0;
         const text = $body.text().toLowerCase();
         const hasPermissionMessage = text.includes('permission');
-        expect(hasGrid || hasTextCenter || hasPermissionMessage, 'Page should show content or permission message').to.be.true;
+        expect(hasProviderCards || hasGrid || hasTextCenter || hasPermissionMessage, 'Page should show content or permission message').to.be.true;
       });
     });
 
@@ -177,7 +178,7 @@ describe('System Storage Providers Page Tests', () => {
                                    text.includes('get started') ||
                                    text.includes('add storage provider') ||
                                    text.includes('permission') ||
-                                   $body.find('[class*="hover:border-theme-info"]').length > 0; // Has providers
+                                   $body.find('[data-testid="storage-provider-card"]').length > 0; // Has providers
         expect(hasExpectedContent, 'Page should show empty state, providers, or permission message').to.be.true;
       });
     });
@@ -256,10 +257,10 @@ describe('System Storage Providers Page Tests', () => {
     it('should have dropdown menu for provider actions', () => {
       // Provider cards have a MoreVertical icon button for dropdown menu
       cy.get('body').then(($body) => {
-        const hasProviderCards = $body.find('[class*="hover:border-theme-info"]').length > 0;
+        const hasProviderCards = $body.find('[data-testid="storage-provider-card"]').length > 0;
         if (hasProviderCards) {
           // Look for the menu trigger button (MoreVertical icon)
-          cy.assertHasElement(['button svg', '[class*="hover:bg-theme-hover"]']);
+          cy.assertHasElement(['[data-testid="provider-action-menu"]', 'button svg']);
         }
       });
     });
@@ -267,9 +268,9 @@ describe('System Storage Providers Page Tests', () => {
     it('should have Configure option in dropdown', () => {
       // Dropdown menu has "Configure" (not "Edit")
       cy.get('body').then(($body) => {
-        const hasProviderCards = $body.find('[class*="hover:border-theme-info"]').length > 0;
+        const hasProviderCards = $body.find('[data-testid="storage-provider-card"]').length > 0;
         if (hasProviderCards) {
-          cy.get('[class*="hover:bg-theme-hover"]').first().click();
+          cy.get('[data-testid="provider-action-menu"]').first().click();
           cy.waitForStableDOM();
           cy.assertContainsAny(['Configure', 'Settings']);
         }
@@ -278,9 +279,9 @@ describe('System Storage Providers Page Tests', () => {
 
     it('should have Test Connection option in dropdown', () => {
       cy.get('body').then(($body) => {
-        const hasProviderCards = $body.find('[class*="hover:border-theme-info"]').length > 0;
+        const hasProviderCards = $body.find('[data-testid="storage-provider-card"]').length > 0;
         if (hasProviderCards) {
-          cy.get('[class*="hover:bg-theme-hover"]').first().click();
+          cy.get('[data-testid="provider-action-menu"]').first().click();
           cy.waitForStableDOM();
           cy.assertContainsAny(['Test Connection', 'Test']);
         }
@@ -289,9 +290,9 @@ describe('System Storage Providers Page Tests', () => {
 
     it('should have Delete option in dropdown', () => {
       cy.get('body').then(($body) => {
-        const hasProviderCards = $body.find('[class*="hover:border-theme-info"]').length > 0;
+        const hasProviderCards = $body.find('[data-testid="storage-provider-card"]').length > 0;
         if (hasProviderCards) {
-          cy.get('[class*="hover:bg-theme-hover"]').first().click();
+          cy.get('[data-testid="provider-action-menu"]').first().click();
           cy.waitForStableDOM();
           cy.assertContainsAny(['Delete']);
         }
@@ -300,9 +301,9 @@ describe('System Storage Providers Page Tests', () => {
 
     it('should have Set as Default option for non-default providers', () => {
       cy.get('body').then(($body) => {
-        const hasProviderCards = $body.find('[class*="hover:border-theme-info"]').length > 0;
+        const hasProviderCards = $body.find('[data-testid="storage-provider-card"]').length > 0;
         if (hasProviderCards) {
-          cy.get('[class*="hover:bg-theme-hover"]').first().click();
+          cy.get('[data-testid="provider-action-menu"]').first().click();
           cy.waitForStableDOM();
           // May or may not have this option depending on provider state
           cy.get('body').should('be.visible');
@@ -319,9 +320,9 @@ describe('System Storage Providers Page Tests', () => {
     it('should show connection test modal when testing', () => {
       // Connection test modal shows "Testing connection..." or results
       cy.get('body').then(($body) => {
-        const hasProviderCards = $body.find('[class*="hover:border-theme-info"]').length > 0;
+        const hasProviderCards = $body.find('[data-testid="storage-provider-card"]').length > 0;
         if (hasProviderCards) {
-          cy.get('[class*="hover:bg-theme-hover"]').first().click();
+          cy.get('[data-testid="provider-action-menu"]').first().click();
           cy.waitForStableDOM();
           if ($body.find('button:contains("Test Connection")').length > 0) {
             cy.contains('button', 'Test Connection').click();
@@ -353,9 +354,9 @@ describe('System Storage Providers Page Tests', () => {
 
     it('should open edit provider modal via Configure', () => {
       cy.get('body').then(($body) => {
-        const hasProviderCards = $body.find('[class*="hover:border-theme-info"]').length > 0;
+        const hasProviderCards = $body.find('[data-testid="storage-provider-card"]').length > 0;
         if (hasProviderCards) {
-          cy.get('[class*="hover:bg-theme-hover"]').first().click();
+          cy.get('[data-testid="provider-action-menu"]').first().click();
           cy.waitForStableDOM();
           if ($body.find('button:contains("Configure")').length > 0) {
             cy.contains('button', 'Configure').click();
@@ -368,9 +369,9 @@ describe('System Storage Providers Page Tests', () => {
 
     it('should populate form with existing data in edit mode', () => {
       cy.get('body').then(($body) => {
-        const hasProviderCards = $body.find('[class*="hover:border-theme-info"]').length > 0;
+        const hasProviderCards = $body.find('[data-testid="storage-provider-card"]').length > 0;
         if (hasProviderCards) {
-          cy.get('[class*="hover:bg-theme-hover"]').first().click();
+          cy.get('[data-testid="provider-action-menu"]').first().click();
           cy.waitForStableDOM();
           if ($body.find('button:contains("Configure")').length > 0) {
             cy.contains('button', 'Configure').click();
@@ -390,9 +391,9 @@ describe('System Storage Providers Page Tests', () => {
 
     it('should show delete confirmation dialog', () => {
       cy.get('body').then(($body) => {
-        const hasProviderCards = $body.find('[class*="hover:border-theme-info"]').length > 0;
+        const hasProviderCards = $body.find('[data-testid="storage-provider-card"]').length > 0;
         if (hasProviderCards) {
-          cy.get('[class*="hover:bg-theme-hover"]').first().click();
+          cy.get('[data-testid="provider-action-menu"]').first().click();
           cy.waitForStableDOM();
           if ($body.find('button:contains("Delete")').length > 0) {
             // Delete uses window.confirm, which Cypress stubs automatically

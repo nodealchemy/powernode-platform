@@ -188,7 +188,7 @@ export const ScheduledTasksTab: React.FC<ScheduledTasksTabProps> = ({
       await maintenanceApi.runScheduledTask(scheduleId);
       showNotification('Scheduled task executed successfully', 'success');
       onRefresh();
-    } catch (_error: unknown) {
+    } catch (_error) {
       showNotification('Failed to execute scheduled task', 'error');
     }
   };

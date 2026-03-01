@@ -464,8 +464,8 @@ RSpec.describe Devops::Git::GitlabApiClient do
             status: 200,
             body: {
               name: 'main',
-              push_access_levels: [{ access_level: 40 }],
-              merge_access_levels: [{ access_level: 40 }],
+              push_access_levels: [ { access_level: 40 } ],
+              merge_access_levels: [ { access_level: 40 } ],
               allow_force_push: false,
               code_owner_approval_required: true
             }.to_json,
@@ -514,8 +514,8 @@ RSpec.describe Devops::Git::GitlabApiClient do
           status: 201,
           body: {
             name: 'main',
-            push_access_levels: [{ access_level: 40 }],
-            merge_access_levels: [{ access_level: 40 }]
+            push_access_levels: [ { access_level: 40 } ],
+            merge_access_levels: [ { access_level: 40 } ]
           }.to_json,
           headers: { 'Content-Type' => 'application/json' }
         )
@@ -566,8 +566,8 @@ RSpec.describe Devops::Git::GitlabApiClient do
         .to_return(
           status: 200,
           body: [
-            { name: 'main', push_access_levels: [{ access_level: 40 }] },
-            { name: 'release', push_access_levels: [{ access_level: 30 }] }
+            { name: 'main', push_access_levels: [ { access_level: 40 } ] },
+            { name: 'release', push_access_levels: [ { access_level: 30 } ] }
           ].to_json,
           headers: { 'Content-Type' => 'application/json' }
         )

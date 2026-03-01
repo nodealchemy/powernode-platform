@@ -44,7 +44,7 @@ module Audit
     queue_analysis(audit_log) if requires_analysis?(audit_log)
 
     audit_log
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error "Audit logging failed: #{e.message}"
     Rails.logger.error e.backtrace.join("\n")
 
@@ -221,7 +221,7 @@ module Audit
         perform_real_time_analysis
         sleep 30 # Check every 30 seconds
       end
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Audit monitoring thread error: #{e.message}"
       retry
     end if Rails.env.production?
@@ -548,7 +548,7 @@ module Audit
           backtrace: error.backtrace&.first(5)
         }
       )
-    rescue => e
+    rescue StandardError => e
       Rails.logger.error "Failed to log audit logging error: #{e.message}"
     end
   end

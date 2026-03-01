@@ -89,7 +89,7 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({
     const validResources = Object.keys(groupedPermissions);
     if (!validResources.includes(resource)) return;
     
-    // eslint-disable-next-line security/detect-object-injection
+     
     const resourcePermissions = groupedPermissions[resource];
     if (!resourcePermissions || resourcePermissions.length === 0) return;
     

@@ -4,7 +4,7 @@ module Api
   module V1
     module Git
       class WebhookEventsController < ApplicationController
-        before_action :set_event, only: %i[show retry]
+        before_action :set_event, only: %i[show retry redeliver]
         before_action :validate_permissions
 
         # GET /api/v1/git/webhook_events
@@ -31,8 +31,8 @@ module Api
           end
 
           # Pagination
-          page = [params[:page].to_i, 1].max
-          per_page = [[params[:per_page].to_i, 100].min, 20].max
+          page = [ params[:page].to_i, 1 ].max
+          per_page = [ [ params[:per_page].to_i, 100 ].min, 20 ].max
           total = events.count
           events = events.order(created_at: :desc).offset((page - 1) * per_page).limit(per_page)
 
@@ -59,6 +59,24 @@ module Api
           else
             render_error("Event cannot be retried", status: :unprocessable_content)
           end
+        end
+
+        # POST /api/v1/git/webhook_events/:id/redeliver
+        # Creates a new webhook event with the same payload and queues it for processing
+        def redeliver
+          new_event = @event.redeliver!
+
+          if new_event
+            render_success({
+              message: "Event redelivered successfully",
+              original_event: serialize_event(@event),
+              new_event: serialize_event(new_event)
+            }, status: :created)
+          else
+            render_error("Event cannot be redelivered", status: :unprocessable_content)
+          end
+        rescue StandardError => e
+          render_error("Failed to redeliver event: #{e.message}", status: :unprocessable_content)
         end
 
         # GET /api/v1/git/webhook_events/stats

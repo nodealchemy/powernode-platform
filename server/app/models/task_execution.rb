@@ -3,19 +3,14 @@
 class TaskExecution < ApplicationRecord
   # Associations
   belongs_to :scheduled_task
-  belongs_to :user, optional: true # null for scheduled executions
 
   # Validations
-  validates :status, presence: true, inclusion: { in: %w[pending running completed failed] }
-  validates :triggered_by, presence: true, inclusion: { in: %w[scheduled manual] }
+  validates :status, presence: true, inclusion: { in: %w[running completed failed timeout] }
 
   # Scopes
   scope :completed, -> { where(status: "completed") }
   scope :failed, -> { where(status: "failed") }
   scope :running, -> { where(status: "running") }
-  scope :pending, -> { where(status: "pending") }
-  scope :manual, -> { where(triggered_by: "manual") }
-  scope :scheduled, -> { where(triggered_by: "scheduled") }
   scope :recent, -> { order(created_at: :desc) }
 
   # Callbacks
@@ -34,16 +29,8 @@ class TaskExecution < ApplicationRecord
     status == "running"
   end
 
-  def pending?
-    status == "pending"
-  end
-
-  def manual?
-    triggered_by == "manual"
-  end
-
-  def scheduled?
-    triggered_by == "scheduled"
+  def timeout?
+    status == "timeout"
   end
 
   def duration
@@ -72,44 +59,14 @@ class TaskExecution < ApplicationRecord
   private
 
   def log_execution_creation
-    audit_user = user || scheduled_task.user
-
-    AuditLog.create!(
-      user: audit_user,
-      account: audit_user.account,
-      action: "task_execution_created",
-      resource_type: "TaskExecution",
-      resource_id: id,
-      details: {
-        task_name: scheduled_task.name,
-        task_type: scheduled_task.task_type,
-        triggered_by: triggered_by,
-        triggered_by_user: user&.email
-      }
-    )
-  rescue => e
+    Rails.logger.info "Task execution created for: #{scheduled_task.name}"
+  rescue StandardError => e
     Rails.logger.error "Failed to log execution creation: #{e.message}"
   end
 
   def log_execution_status_change
-    audit_user = user || scheduled_task.user
-
-    AuditLog.create!(
-      user: audit_user,
-      account: audit_user.account,
-      action: "task_execution_status_changed",
-      resource_type: "TaskExecution",
-      resource_id: id,
-      details: {
-        task_name: scheduled_task.name,
-        previous_status: status_before_last_save,
-        new_status: status,
-        duration_seconds: (duration&.to_i),
-        error_message: error_message,
-        output_preview: output&.truncate(200)
-      }
-    )
-  rescue => e
+    Rails.logger.info "Task execution status changed for: #{scheduled_task.name} (#{status_before_last_save} -> #{status})"
+  rescue StandardError => e
     Rails.logger.error "Failed to log execution status change: #{e.message}"
   end
 end

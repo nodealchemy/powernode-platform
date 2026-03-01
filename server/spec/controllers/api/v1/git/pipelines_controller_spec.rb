@@ -7,7 +7,7 @@ RSpec.describe Api::V1::Git::PipelinesController, type: :controller do
   let(:user) { create(:user, account: account) }
 
   # Permission users
-  let(:pipeline_read_user) { create(:user, account: account, permissions: ['git.pipelines.read']) }
+  let(:pipeline_read_user) { create(:user, account: account, permissions: [ 'git.pipelines.read' ]) }
   let(:pipeline_manage_user) do
     create(:user, account: account, permissions: %w[
       git.pipelines.read git.pipelines.trigger git.pipelines.cancel git.pipelines.logs
@@ -15,7 +15,7 @@ RSpec.describe Api::V1::Git::PipelinesController, type: :controller do
   end
   let(:user_without_permissions) { create(:user, account: account, permissions: []) }
 
-  let(:provider) { create(:git_provider, :github, supports_ci_cd: true) }
+  let(:provider) { create(:git_provider, :github, supports_devops: true) }
   let(:credential) { create(:git_provider_credential, provider: provider, account: account) }
   let(:repository) { create(:git_repository, credential: credential, account: account) }
 
