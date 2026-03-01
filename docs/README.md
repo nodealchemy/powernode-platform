@@ -16,7 +16,7 @@ System-wide architectural and integration documentation:
 - **Permission System**: Complete permission-based access control implementation
 - **Pattern Analysis**: Platform standardization and compliance documentation (95%+ consistency)
 - **MCP Configuration**: Model Context Protocol setup and automated delegation
-- **UUID System**: UUIDv7 implementation across all 64 platform models
+- **UUID System**: UUIDv7 implementation across all 327+ platform models
 - **Accessibility Standards**: Platform accessibility compliance and guidelines
 - **Platform Audit Strategy**: Comprehensive platform analysis and monitoring
 
@@ -60,12 +60,8 @@ Background processing documentation:
 ## Additional Documentation Files
 
 ### Quick Reference Guides
-- **[GitHub Setup](GITHUB_SETUP.md)** - Repository configuration and GitHub integration
-- **[Security Quick Start](SECURITY_QUICK_START.md)** - Essential security implementation guide
-
-### Platform Components
-- **[Permission Naming Convention](platform/PERMISSION_NAMING_CONVENTION.md)** - Permission naming standards
-- **[Standardization Component Patterns](platform/STANDARDIZATION_COMPONENT_PATTERNS.md)** - Component standardization guide
+- **[QUICKSTART](QUICKSTART.md)** - Getting started guide
+- **[DEVELOPMENT](DEVELOPMENT.md)** - Development setup and workflow
 
 ## Additional Documentation Locations
 
@@ -77,7 +73,7 @@ For service-specific implementation documentation:
 ## Platform Status
 
 The platform has achieved:
-- ✅ **100% Test Coverage** - All 628+ tests passing across frontend and backend
+- ✅ **Comprehensive Test Coverage** - Tests passing across frontend and backend
 - ✅ **Complete Documentation** - Comprehensive guides with 18+ specialist documentation files
 - ✅ **Standardized Patterns** - 95%+ pattern consistency across all services
 - ✅ **Production Ready** - Full-stack subscription platform with payment integration
@@ -88,20 +84,14 @@ The platform has achieved:
 
 ### Platform Architecture & Standards
 - **[Permission System Reference](platform/PERMISSION_SYSTEM_REFERENCE.md)** - Complete permission system reference
-- **[Platform Patterns Analysis](platform/PLATFORM_PATTERNS_ANALYSIS.md)** - Comprehensive platform pattern documentation
-- **[Platform Standardization Recommendations](platform/PLATFORM_STANDARDIZATION_RECOMMENDATIONS.md)** - Architecture standardization guide
 - **[UUID System Implementation](platform/UUID_SYSTEM_IMPLEMENTATION.md)** - UUIDv7 system documentation
-
-### MCP Configuration & Delegation
-- **[MCP Documentation Enhancement Plan](platform/MCP_DOCUMENTATION_ENHANCEMENT_PLAN.md)** - MCP specialist integration
-- **[MCP Delegation Implementation Guide](platform/MCP_DELEGATION_IMPLEMENTATION_GUIDE.md)** - Automated delegation patterns
-- **[MCP Model Configuration](platform/MCP_MODEL_CONFIGURATION.md)** - Model context protocol setup
-- **[Automated MCP Delegation Config](platform/AUTOMATED_MCP_DELEGATION_CONFIG.md)** - Auto-delegation configuration
+- **[MCP Configuration](platform/MCP_CONFIGURATION.md)** - Model Context Protocol setup and tools
+- **[AI Orchestration Guide](platform/AI_ORCHESTRATION_GUIDE.md)** - AI agent and workflow architecture
+- **[Theme System Reference](platform/THEME_SYSTEM_REFERENCE.md)** - Theme system documentation
+- **[API Response Standards](platform/API_RESPONSE_STANDARDS.md)** - API response format standards
 
 ### Compliance & Analysis
 - **[Accessibility Compliance Standards](platform/ACCESSIBILITY_COMPLIANCE_STANDARDS.md)** - Platform accessibility standards
-- **[Design Compliance Audit Report](platform/DESIGN_COMPLIANCE_AUDIT_REPORT.md)** - UI/UX compliance audit
-- **[Pattern Usage Statistics](platform/PATTERN_USAGE_STATISTICS.md)** - Platform pattern adoption metrics
 
 ## Documentation Standards
 
