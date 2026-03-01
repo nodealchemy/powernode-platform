@@ -57,12 +57,14 @@ end
 # STEP 1 — Agent Consolidation
 # ===========================================================================
 KEEP_AGENT_NAMES = [
+  # Dev team agents (ai_dev_team_seed.rb)
   "Powernode Project Lead",
   "Powernode Backend Developer",
   "Powernode Frontend Developer",
   "Powernode QA/Test Engineer",
   "Powernode DevOps Engineer",
   "Powernode Documentation Specialist",
+  # Business agents (claude_agents_seed.rb + monitoring_analytics_agents_seed.rb)
   "Claude Research Analyst",
   "Visual Design Assistant",
   "Infrastructure Health Monitor",
@@ -71,7 +73,15 @@ KEEP_AGENT_NAMES = [
   "Life Sciences Research Analyst",
   "Finance Operations Analyst",
   "Sales Operations Specialist",
-  "Customer Success Agent"
+  "Customer Success Agent",
+  # Utility agents (ai_utility_agents_seed.rb)
+  "PRD Generator",
+  "LLM Judge",
+  "Knowledge Graph Curator",
+  "RAG Reranker",
+  "RAG Query Engine",
+  "Intent Classifier",
+  "Semantic Tool Scorer"
 ].freeze
 
 # Ensure the 4 extra agents exist (they may not have been created by earlier seeds)

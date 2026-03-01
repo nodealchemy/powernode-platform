@@ -927,6 +927,9 @@ if Rails.env.development? || Rails.env.test?
   puts "\n📋 Loading AI Example Templates..."
   load Rails.root.join('db', 'seeds', 'ai_example_templates_seed.rb')
 
+  puts "\n🔧 Loading AI Utility Agents & Specialist Skills..."
+  load Rails.root.join('db', 'seeds', 'ai_utility_agents_seed.rb')
+
   puts "\n🔧 Loading Powernode Development Team..."
   load Rails.root.join('db', 'seeds', 'ai_dev_team_seed.rb')
 
