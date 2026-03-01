@@ -589,10 +589,8 @@ end
 ## 📚 Additional Resources
 
 ### Related Documentation
-- [AI Orchestration Master Index](../platform/AI_ORCHESTRATION_MASTER_INDEX.md)
-- [Multi-Agent Communication](../platform/AI_ORCHESTRATION_PHASE2_COMPLETE.md)
-- [Saga Pattern Guide](../platform/AI_ORCHESTRATION_ENHANCEMENT_COMPLETE.md)
-- [Marketplace Integration](../platform/AI_ORCHESTRATION_INTEGRATION_COMPLETE.md)
+- [AI Orchestration Guide](../platform/AI_ORCHESTRATION_GUIDE.md)
+- [Workflow System Standards](../platform/WORKFLOW_SYSTEM_STANDARDS.md)
 
 ### API Endpoints
 - `POST /api/v1/ai/workflows/{id}/execute` - Execute workflow
@@ -615,5 +613,4 @@ end
 ---
 
 *Created: October 2025*
-*Version: 1.0.0*
-*License: MIT*
+*Platform Version: 0.3.0*
