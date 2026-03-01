@@ -118,12 +118,14 @@ export const NavigationItem: React.FC<NavigationItemProps> = ({
 
   const itemClasses = `
     ${isActive
-      ? 'bg-theme-surface-selected border-theme-focus text-theme-link'
-      : 'border-transparent text-theme-secondary hover:bg-theme-surface-hover hover:text-theme-primary'
-    } 
-    group flex items-center 
-    ${isCollapsed ? 'justify-center px-3 py-3' : 'px-3 py-2'} 
-    text-sm font-medium border-l-4 rounded-md transition-all duration-150
+      ? 'bg-theme-surface-selected text-theme-link'
+        + (isCollapsed ? ' ring-2 ring-theme-focus ring-inset' : ' border-theme-focus')
+      : 'text-theme-secondary hover:bg-theme-surface-hover hover:text-theme-primary'
+        + (isCollapsed ? '' : ' border-transparent')
+    }
+    group flex items-center
+    ${isCollapsed ? 'justify-center px-3 py-3' : 'px-3 py-2 border-l-4'}
+    text-sm font-medium rounded-md transition-colors duration-150
     ${level > 0 ? 'ml-4' : ''}
   `;
 

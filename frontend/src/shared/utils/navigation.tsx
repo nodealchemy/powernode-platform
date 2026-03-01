@@ -209,7 +209,7 @@ export const defaultNavigationConfig: NavigationConfig = {
       items: [
         {
           id: 'devops-overview',
-          name: 'Overview',
+          name: 'DevOps',
           href: '/app/devops',
           icon: Server,
           description: 'DevOps dashboard and quick access',

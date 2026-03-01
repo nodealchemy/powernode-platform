@@ -342,16 +342,28 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     };
   }, []);
 
-  // Fetch workspace members for mention autocomplete
+  // Fetch workspace members for mention autocomplete.
+  // The conversation prop may be a synthetic object from tab state (SplitPanelContainer)
+  // with stale workspace flags, so we verify via the real conversations API first.
   useEffect(() => {
-    const conv = conversation as AiConversation;
-    const isWorkspace = conv.conversation_type === 'team' &&
-      (conv.agent_team?.team_type === 'workspace' || conv.agent_team?.id);
-    if (isWorkspace) {
-      workspacesApi.getWorkspace(conversation.id)
-        .then(res => setWorkspaceMembers(res.members || []))
-        .catch(() => {}); // Non-critical — autocomplete just won't work
-    }
+    let cancelled = false;
+    const fetchWorkspaceMembers = async () => {
+      try {
+        const real = await conversationsApi.getConversation(conversation.id);
+        if (cancelled) return;
+        const isWorkspace = real.conversation_type === 'team' &&
+          real.agent_team?.team_type === 'workspace' &&
+          real.agent_team?.id;
+        if (isWorkspace) {
+          const res = await workspacesApi.getWorkspace(conversation.id);
+          if (!cancelled) setWorkspaceMembers(res.members || []);
+        }
+      } catch {
+        // Non-critical — autocomplete just won't work
+      }
+    };
+    fetchWorkspaceMembers();
+    return () => { cancelled = true; };
   }, [conversation.id]);
 
   // Listen for chat-cleared events from the header

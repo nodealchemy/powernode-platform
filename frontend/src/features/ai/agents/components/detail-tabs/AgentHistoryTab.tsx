@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader2, XCircle, RotateCcw } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { agentsApi } from '@/shared/services/ai';
+import { useNotification } from '@/shared/hooks/useNotification';
+import { usePermissions } from '@/shared/hooks/usePermissions';
 import type { AiAgentExecution } from '@/shared/types/ai';
 
 type ExecutionStatus = AiAgentExecution['status'];
@@ -38,6 +40,9 @@ interface AgentHistoryTabProps {
 }
 
 export const AgentHistoryTab: React.FC<AgentHistoryTabProps> = ({ agentId }) => {
+  const { showNotification } = useNotification();
+  const { hasPermission } = usePermissions();
+  const canExecute = hasPermission('ai.agents.execute');
   const [executions, setExecutions] = useState<AiAgentExecution[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -130,6 +135,47 @@ export const AgentHistoryTab: React.FC<AgentHistoryTabProps> = ({ agentId }) => 
                     </div>
                   )}
                 </div>
+
+                {canExecute && (exec.status === 'running' || exec.status === 'queued' || exec.status === 'failed') && (
+                  <div className="flex items-center gap-2 py-2">
+                    {(exec.status === 'running' || exec.status === 'queued') && (
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        onClick={async () => {
+                          try {
+                            await agentsApi.cancelExecution(agentId, exec.id);
+                            showNotification('Execution cancelled', 'success');
+                            loadExecutions(1);
+                          } catch {
+                            showNotification('Failed to cancel execution', 'error');
+                          }
+                        }}
+                      >
+                        <XCircle className="h-3 w-3 mr-1" />
+                        Cancel
+                      </Button>
+                    )}
+                    {exec.status === 'failed' && (
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        onClick={async () => {
+                          try {
+                            await agentsApi.retryExecution(agentId, exec.id);
+                            showNotification('Execution retried', 'success');
+                            loadExecutions(1);
+                          } catch {
+                            showNotification('Failed to retry execution', 'error');
+                          }
+                        }}
+                      >
+                        <RotateCcw className="h-3 w-3 mr-1" />
+                        Retry
+                      </Button>
+                    )}
+                  </div>
+                )}
 
                 {exec.input_data && (
                   <div className="mt-2">

@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import {
   Shield, Users, TrendingUp, TrendingDown, Eye, Bot,
-  Zap, GitBranch, Radio, ShieldCheck, ClipboardCheck
+  Zap, GitBranch, Radio, ShieldCheck, ClipboardCheck,
+  Power, Target, FileText, AlertOctagon, Star, Settings,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/components/ui/Tabs';
-import { useAutonomyStats, useTrustScores, useAgentBudgets, useAgentLineage, useAgentLineageForest } from '../api/autonomyApi';
+import { useAutonomyStats, useTrustScores, useAgentBudgets, useAgentLineage, useAgentLineageForest, useKillSwitchStatus } from '../api/autonomyApi';
 import { TrustScoreCard } from '../components/TrustScoreCard';
 import { AgentLineageTree } from '../components/AgentLineageTree';
 import { BudgetAllocationPanel } from '../components/BudgetAllocationPanel';
@@ -17,8 +18,13 @@ import { CircuitBreakerStatusPanel } from '../components/CircuitBreakerStatusPan
 import { BehavioralFingerprintChart } from '../components/BehavioralFingerprintChart';
 import { ApprovalQueuePanel } from '../components/ApprovalQueuePanel';
 import { DelegationPolicyPanel } from '../components/DelegationPolicyPanel';
-import { ShadowModeResultsPanel } from '../components/ShadowModeResultsPanel';
 import { TelemetryEventStream } from '../components/TelemetryEventStream';
+import { KillSwitchPanel } from '../components/KillSwitchPanel';
+import { GoalsPanel } from '../components/GoalsPanel';
+import { ProposalsPanel } from '../components/ProposalsPanel';
+import { EscalationsPanel } from '../components/EscalationsPanel';
+import { FeedbackPanel } from '../components/FeedbackPanel';
+import { InterventionPoliciesPanel } from '../components/InterventionPoliciesPanel';
 import type { TrustScore, AgentBudget, AutonomyStats, BudgetRegime } from '../types/autonomy';
 
 const breadcrumbs = [
@@ -60,6 +66,22 @@ function computeBudgetRegime(stats: AutonomyStats): BudgetRegime | null {
   else { level = 'NORMAL'; message = 'Budget availability is healthy'; }
   return { level, utilization_pct: pct, remaining_cents: remaining, message };
 }
+
+const KillSwitchStatusBar: React.FC = () => {
+  const { data: status } = useKillSwitchStatus();
+  if (!status?.halted) return null;
+
+  return (
+    <div className="flex items-center gap-3 p-3 mb-4 rounded-lg border border-theme-error/50 bg-theme-error/5">
+      <div className="h-3 w-3 rounded-full bg-theme-error animate-pulse" />
+      <div className="flex-1">
+        <p className="text-sm font-medium text-theme-error">AI Activity Suspended</p>
+        {status.reason && <p className="text-xs text-theme-secondary">{status.reason}</p>}
+      </div>
+      <span className="text-xs text-theme-muted">Since {new Date(status.halted_since!).toLocaleString()}</span>
+    </div>
+  );
+};
 
 const OverviewTab: React.FC<{ stats: AutonomyStats }> = ({ stats }) => {
   const regime = computeBudgetRegime(stats);
@@ -195,7 +217,26 @@ const SecurityTab: React.FC<{ selectedAgentId: string }> = ({ selectedAgentId })
   </div>
 );
 
+const SIDEBAR_ITEMS = [
+  { id: 'overview', label: 'Overview', icon: Bot },
+  { id: 'goals', label: 'Goals', icon: Target },
+  { id: 'proposals', label: 'Proposals', icon: FileText },
+  { id: 'escalations', label: 'Escalations', icon: AlertOctagon },
+  { id: 'trust', label: 'Trust', icon: Shield },
+  { id: 'lineage', label: 'Lineage', icon: GitBranch },
+  { id: 'budgets', label: 'Budgets', icon: Zap },
+  { id: 'policies', label: 'Policies', icon: Settings },
+  { id: 'feedback', label: 'Feedback', icon: Star },
+  { id: 'approvals', label: 'Approvals', icon: ClipboardCheck },
+  { id: 'security', label: 'Security', icon: ShieldCheck },
+  { id: 'killswitch', label: 'Kill Switch', icon: Power },
+  { id: 'telemetry', label: 'Telemetry', icon: Radio },
+] as const satisfies ReadonlyArray<{ id: string; label: string; icon: LucideIcon }>;
+
+type SectionId = typeof SIDEBAR_ITEMS[number]['id'];
+
 export const AutonomyContent: React.FC = () => {
+  const [activeSection, setActiveSection] = useState<SectionId>('overview');
   const [selectedAgentId, setSelectedAgentId] = useState('');
 
   const { data: stats, isLoading: statsLoading } = useAutonomyStats();
@@ -212,71 +253,89 @@ export const AutonomyContent: React.FC = () => {
   const safeTrustScores = trustScores ?? [];
   const safeBudgets = budgets ?? [];
 
+  const renderContent = () => {
+    switch (activeSection) {
+      case 'overview':
+        return <OverviewTab stats={safeStats} />;
+      case 'goals':
+        return <GoalsPanel />;
+      case 'proposals':
+        return <ProposalsPanel />;
+      case 'escalations':
+        return <EscalationsPanel />;
+      case 'trust':
+        return <TrustScoresTab trustScores={safeTrustScores} />;
+      case 'lineage':
+        return (
+          <LineageTab
+            trustScores={safeTrustScores}
+            selectedAgentId={selectedAgentId}
+            onAgentSelect={setSelectedAgentId}
+          />
+        );
+      case 'budgets':
+        return <BudgetsTab budgets={safeBudgets} stats={safeStats} />;
+      case 'policies':
+        return <InterventionPoliciesPanel />;
+      case 'feedback':
+        return <FeedbackPanel />;
+      case 'approvals':
+        return <ApprovalQueuePanel />;
+      case 'security':
+        return <SecurityTab selectedAgentId={selectedAgentId} />;
+      case 'killswitch':
+        return <KillSwitchPanel />;
+      case 'telemetry':
+        return <TelemetryEventStream />;
+    }
+  };
+
   return (
-    <Tabs defaultValue="overview">
-      <TabsList className="mb-2 overflow-x-auto">
-        <TabsTrigger value="overview">
-          <span className="flex items-center gap-1.5"><Bot className="h-3.5 w-3.5" /> Overview</span>
-        </TabsTrigger>
-        <TabsTrigger value="trust">
-          <span className="flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" /> Trust Scores</span>
-        </TabsTrigger>
-        <TabsTrigger value="lineage">
-          <span className="flex items-center gap-1.5"><GitBranch className="h-3.5 w-3.5" /> Lineage</span>
-        </TabsTrigger>
-        <TabsTrigger value="budgets">
-          <span className="flex items-center gap-1.5"><Zap className="h-3.5 w-3.5" /> Budgets</span>
-        </TabsTrigger>
-        <TabsTrigger value="approvals">
-          <span className="flex items-center gap-1.5"><ClipboardCheck className="h-3.5 w-3.5" /> Approvals</span>
-        </TabsTrigger>
-        <TabsTrigger value="security">
-          <span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> Security</span>
-        </TabsTrigger>
-        <TabsTrigger value="shadow">
-          <span className="flex items-center gap-1.5"><Eye className="h-3.5 w-3.5" /> Shadow Mode</span>
-        </TabsTrigger>
-        <TabsTrigger value="telemetry">
-          <span className="flex items-center gap-1.5"><Radio className="h-3.5 w-3.5" /> Telemetry</span>
-        </TabsTrigger>
-      </TabsList>
+    <>
+      <KillSwitchStatusBar />
 
-      <TabsContent value="overview">
-        <OverviewTab stats={safeStats} />
-      </TabsContent>
+      {/* Mobile section selector */}
+      <select
+        className="md:hidden w-full mb-4 rounded-md border border-theme bg-theme-surface text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info"
+        value={activeSection}
+        onChange={(e) => setActiveSection(e.target.value as SectionId)}
+      >
+        {SIDEBAR_ITEMS.map((item) => (
+          <option key={item.id} value={item.id}>{item.label}</option>
+        ))}
+      </select>
 
-      <TabsContent value="trust">
-        <TrustScoresTab trustScores={safeTrustScores} />
-      </TabsContent>
+      <div className="flex gap-6">
+        {/* Sidebar — hidden on mobile, visible md+ */}
+        <nav className="hidden md:block w-48 shrink-0">
+          <div className="sticky top-4 space-y-1">
+            {SIDEBAR_ITEMS.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeSection === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveSection(item.id)}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm rounded-r-md transition-colors text-left ${
+                    isActive
+                      ? 'bg-theme-surface border-l-2 border-theme-interactive-primary text-theme-primary font-medium'
+                      : 'border-l-2 border-transparent text-theme-secondary hover:text-theme-primary hover:bg-theme-surface/50'
+                  }`}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
 
-      <TabsContent value="lineage">
-        <LineageTab
-          trustScores={safeTrustScores}
-          selectedAgentId={selectedAgentId}
-          onAgentSelect={setSelectedAgentId}
-        />
-      </TabsContent>
-
-      <TabsContent value="budgets">
-        <BudgetsTab budgets={safeBudgets} stats={safeStats} />
-      </TabsContent>
-
-      <TabsContent value="approvals">
-        <ApprovalQueuePanel />
-      </TabsContent>
-
-      <TabsContent value="security">
-        <SecurityTab selectedAgentId={selectedAgentId} />
-      </TabsContent>
-
-      <TabsContent value="shadow">
-        <ShadowModeResultsPanel />
-      </TabsContent>
-
-      <TabsContent value="telemetry">
-        <TelemetryEventStream />
-      </TabsContent>
-    </Tabs>
+        {/* Content area */}
+        <div className="flex-1 min-w-0">
+          {renderContent()}
+        </div>
+      </div>
+    </>
   );
 };
 

@@ -134,6 +134,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
 
   return (
     <>
+      {/* Mobile sidebar toggle — visible when sidebar is closed */}
+      {!isOpen && (
+        <button
+          onClick={onToggle}
+          className="fixed top-3 left-3 z-50 md:hidden p-2 rounded-lg bg-theme-surface shadow-md border border-theme text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover transition-colors"
+          title="Open sidebar"
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      )}
+
       {/* Mobile sidebar overlay */}
       {isOpen && (
         <div className="fixed inset-0 flex z-40 md:hidden">
@@ -155,8 +168,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className={`flex items-center justify-between h-16 ${state.isCollapsed ? 'px-3' : 'px-4 sm:px-6 lg:px-8'} border-b border-theme`}>
-            <div className="flex items-center">
-              <div className="h-8 w-8 bg-theme-interactive-primary rounded-lg flex items-center justify-center flex-shrink-0">
+            <div
+              className={`flex items-center ${state.isCollapsed ? 'cursor-pointer' : ''}`}
+              onClick={state.isCollapsed ? handleCollapseToggle : undefined}
+              title={state.isCollapsed ? 'Expand sidebar (Ctrl+B)' : undefined}
+            >
+              <div className={`h-8 w-8 bg-theme-interactive-primary rounded-lg flex items-center justify-center flex-shrink-0 ${state.isCollapsed ? 'hover:ring-2 hover:ring-theme-interactive-primary/50 transition-shadow' : ''}`}>
                 <span className="text-white font-bold">P</span>
               </div>
               {!state.isCollapsed && (
@@ -165,23 +182,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
                 </span>
               )}
             </div>
-            
-            {/* Desktop collapse toggle */}
-            <button
-              onClick={handleCollapseToggle}
-              className="hidden md:block p-1 rounded-md text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover transition-colors duration-200"
-              title={state.isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            >
-              <svg 
-                className={`h-5 w-5 transform transition-transform duration-300 ${state.isCollapsed ? 'rotate-180' : ''}`} 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-              </svg>
-            </button>
-            
+
             {/* Mobile close button */}
             <button
               onClick={onToggle}
@@ -195,10 +196,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
 
           {/* Navigation */}
           <div className="flex-1 relative min-h-0">
-            <nav 
+            <nav
               ref={navRef}
-              className={`h-full ${state.isCollapsed ? 'px-2' : 'px-3'} py-6 space-y-2 overflow-y-auto sidebar-scrollbar`}
-              style={{ 
+              className={`h-full ${state.isCollapsed ? 'px-2' : 'px-3'} py-6 space-y-2 overflow-y-auto overflow-x-hidden sidebar-scrollbar`}
+              style={{
                 maxHeight: 'calc(100vh - 8rem)',
                 overflowY: 'auto'
               }}
@@ -227,6 +228,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
                 ))
               }
             </nav>
+          </div>
+
+          {/* Collapse/Expand toggle */}
+          <div className={`hidden md:flex border-t border-theme ${state.isCollapsed ? 'p-2 justify-center' : 'px-3 py-2'}`}>
+            <button
+              onClick={handleCollapseToggle}
+              className={`flex items-center ${state.isCollapsed ? 'justify-center p-1.5' : 'w-full justify-between p-2'} rounded-lg text-theme-tertiary hover:text-theme-secondary hover:bg-theme-surface-hover transition-colors duration-200`}
+              title={state.isCollapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
+            >
+              {!state.isCollapsed && (
+                <span className="text-xs">Collapse</span>
+              )}
+              <svg
+                className={`h-3.5 w-3.5 transform transition-transform duration-300 ${state.isCollapsed ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+              </svg>
+            </button>
           </div>
 
           {/* Footer */}

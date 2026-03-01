@@ -16,6 +16,9 @@ export interface AgentFilters extends QueryFilters {
   agent_type?: string;
   status?: 'active' | 'paused' | 'archived';
   visibility?: 'private' | 'account' | 'public';
+  sort?: string;
+  order?: 'asc' | 'desc';
+  my_agents?: boolean;
 }
 
 export interface AgentExecutionFilters extends QueryFilters {

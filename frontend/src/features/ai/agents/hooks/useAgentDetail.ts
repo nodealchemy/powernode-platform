@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { agentsApi } from '@/shared/services/ai';
 import type { AiAgent } from '@/shared/types/ai';
-import type { AgentStats } from '@/shared/services/ai/types/agent-api-types';
+import type { AgentStats, AgentAnalytics } from '@/shared/services/ai/types/agent-api-types';
 
 interface UseAgentDetailResult {
   agent: AiAgent | null;
   stats: AgentStats | null;
+  analytics: AgentAnalytics | null;
   loading: boolean;
   error: string | null;
   reload: () => void;
@@ -14,6 +15,7 @@ interface UseAgentDetailResult {
 export function useAgentDetail(agentId: string | null): UseAgentDetailResult {
   const [agent, setAgent] = useState<AiAgent | null>(null);
   const [stats, setStats] = useState<AgentStats | null>(null);
+  const [analytics, setAnalytics] = useState<AgentAnalytics | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,6 +23,7 @@ export function useAgentDetail(agentId: string | null): UseAgentDetailResult {
     if (!agentId) {
       setAgent(null);
       setStats(null);
+      setAnalytics(null);
       setError(null);
       return;
     }
@@ -29,9 +32,10 @@ export function useAgentDetail(agentId: string | null): UseAgentDetailResult {
       setLoading(true);
       setError(null);
 
-      const [agentData, statsData] = await Promise.allSettled([
+      const [agentData, statsData, analyticsData] = await Promise.allSettled([
         agentsApi.getAgent(agentId),
         agentsApi.getAgentStats(agentId),
+        agentsApi.getAgentAnalytics(agentId, '30'),
       ]);
 
       if (agentData.status === 'fulfilled') {
@@ -50,6 +54,11 @@ export function useAgentDetail(agentId: string | null): UseAgentDetailResult {
             created_at: agentData.value.created_at,
           });
         }
+        if (analyticsData.status === 'fulfilled') {
+          setAnalytics(analyticsData.value);
+        } else {
+          setAnalytics(null);
+        }
       } else {
         setError(agentData.reason?.message || 'Failed to load agent');
       }
@@ -64,5 +73,5 @@ export function useAgentDetail(agentId: string | null): UseAgentDetailResult {
     load();
   }, [load]);
 
-  return { agent, stats, loading, error, reload: load };
+  return { agent, stats, analytics, loading, error, reload: load };
 }

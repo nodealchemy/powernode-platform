@@ -7,10 +7,15 @@ import {
   Pause,
   Trash2,
   Loader2,
+  Copy,
+  MoreVertical,
+  Shield,
+  Archive,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/Tabs';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
+import { DropdownMenu } from '@/shared/components/ui/DropdownMenu';
 import { AgentDetailStatsCards } from './AgentDetailStatsCards';
 import { AgentConfigTab } from './detail-tabs/AgentConfigTab';
 import { AgentHistoryTab } from './detail-tabs/AgentHistoryTab';
@@ -19,7 +24,7 @@ import { AgentSkillsTab } from './detail-tabs/AgentSkillsTab';
 import { AgentWorkspacesTab } from './detail-tabs/AgentWorkspacesTab';
 import { cn } from '@/shared/utils/cn';
 import type { AiAgent } from '@/shared/types/ai';
-import type { AgentStats } from '@/shared/services/ai/types/agent-api-types';
+import type { AgentStats, AgentAnalytics } from '@/shared/services/ai/types/agent-api-types';
 
 const STATUS_CONFIG: Record<AiAgent['status'], {
   variant: 'success' | 'warning' | 'danger' | 'info' | 'outline';
@@ -40,31 +45,48 @@ const AGENT_TYPE_LABELS: Record<string, string> = {
   workflow_operations: 'Ops',
 };
 
+const TRUST_CONFIG: Record<string, {
+  variant: 'outline' | 'info' | 'success' | 'primary';
+  label: string;
+  icon?: boolean;
+}> = {
+  supervised: { variant: 'outline', label: 'Supervised', icon: true },
+  monitored: { variant: 'info', label: 'Monitored' },
+  trusted: { variant: 'success', label: 'Trusted' },
+  autonomous: { variant: 'primary', label: 'Autonomous' },
+};
+
 interface AgentDetailPanelProps {
   agent: AiAgent | null;
   stats: AgentStats | null;
+  analytics: AgentAnalytics | null;
   loading: boolean;
   error: string | null;
   activeTab: string;
   onActiveTabChange: (tab: string) => void;
   onChat: () => void;
   onEdit: () => void;
+  onClone: () => void;
   onToggleStatus: () => void;
   onDelete: () => void;
+  onArchive: () => void;
   canManage: boolean;
 }
 
 export const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({
   agent,
   stats,
+  analytics,
   loading,
   error,
   activeTab,
   onActiveTabChange,
   onChat,
   onEdit,
+  onClone,
   onToggleStatus,
   onDelete,
+  onArchive,
   canManage,
 }) => {
   // Empty state
@@ -101,6 +123,9 @@ export const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({
 
   const status = STATUS_CONFIG[agent.status] || STATUS_CONFIG.inactive;
   const successRate = stats?.success_rate ?? agent.execution_stats?.success_rate ?? 0;
+  const trustLevel = (agent as { trust_level?: string }).trust_level;
+  const trustConfig = trustLevel ? TRUST_CONFIG[trustLevel] : undefined;
+  const version = (agent as { mcp_tool_manifest?: { version?: string } }).mcp_tool_manifest?.version;
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
@@ -118,6 +143,15 @@ export const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({
                 <Badge variant="outline" size="xs">
                   {AGENT_TYPE_LABELS[agent.agent_type] || agent.agent_type}
                 </Badge>
+                {trustConfig && (
+                  <Badge variant={trustConfig.variant} size="xs">
+                    {trustConfig.icon && <Shield className="h-2.5 w-2.5 mr-0.5" />}
+                    {trustConfig.label}
+                  </Badge>
+                )}
+                {version && (
+                  <Badge variant="outline" size="xs">v{version}</Badge>
+                )}
                 {agent.provider?.name && (
                   <span className="text-xs text-theme-tertiary">
                     {agent.provider.name}{agent.model ? ` · ${agent.model}` : ''}
@@ -135,6 +169,10 @@ export const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({
             </Button>
             {canManage && (
               <>
+                <Button variant="outline" size="sm" onClick={onClone} title="Clone agent">
+                  <Copy className="h-3.5 w-3.5 mr-1" />
+                  Clone
+                </Button>
                 <Button variant="ghost" size="sm" onClick={onEdit}>
                   <Settings className="h-3.5 w-3.5 mr-1" />
                   Edit
@@ -149,9 +187,19 @@ export const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({
                     : <><Play className="h-3.5 w-3.5 mr-1" />Resume</>
                   }
                 </Button>
-                <Button variant="danger" size="sm" iconOnly onClick={onDelete} title="Delete agent">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                <DropdownMenu
+                  trigger={
+                    <Button variant="ghost" size="sm" iconOnly title="More actions">
+                      <MoreVertical className="h-3.5 w-3.5" />
+                    </Button>
+                  }
+                  items={[
+                    { icon: Archive, label: 'Archive', onClick: onArchive },
+                    { icon: Trash2, label: 'Delete', onClick: onDelete, danger: true },
+                  ]}
+                  align="right"
+                  width="w-40"
+                />
               </>
             )}
           </div>
@@ -184,6 +232,42 @@ export const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({
             </div>
           </div>
         )}
+
+        {/* Analytics Sparkline */}
+        {analytics?.execution_trends && analytics.execution_trends.length > 1 && (() => {
+          const trends = analytics.execution_trends;
+          const maxCount = Math.max(...trends.map(t => t.count), 1);
+          const svgWidth = 200;
+          const svgHeight = 32;
+          const points = trends.map((t, i) => {
+            const x = (i / (trends.length - 1)) * svgWidth;
+            const y = svgHeight - (t.count / maxCount) * (svgHeight - 4) - 2;
+            return `${x},${y}`;
+          }).join(' ');
+
+          return (
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-theme-secondary">Executions (30d)</span>
+                <span className="text-xs text-theme-tertiary">{trends.length} days</span>
+              </div>
+              <svg
+                viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+                preserveAspectRatio="none"
+                className="w-full"
+                style={{ height: `${svgHeight}px` }}
+              >
+                <polyline
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  className="text-theme-interactive-primary"
+                  points={points}
+                />
+              </svg>
+            </div>
+          );
+        })()}
 
         {/* Stats Cards */}
         {stats && stats.total_executions > 0 && <AgentDetailStatsCards stats={stats} />}

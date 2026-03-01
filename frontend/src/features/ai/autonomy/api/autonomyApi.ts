@@ -16,6 +16,15 @@ import type {
   BudgetCheckResponse,
   BudgetAlertItem,
   PaginatedTransactions,
+  KillSwitchStatus,
+  KillSwitchEvent,
+  AgentGoal,
+  AgentProposal,
+  AgentEscalation,
+  AgentFeedback,
+  InterventionPolicy,
+  PolicyResolutionResult,
+  BatchReviewResult,
 } from '../types/autonomy';
 
 const AUTONOMY_KEYS = {
@@ -42,6 +51,19 @@ const AUTONOMY_KEYS = {
   budgetCheck: (budgetId: string) => [...AUTONOMY_KEYS.all, 'budget-check', budgetId] as const,
   budgetAlerts: () => [...AUTONOMY_KEYS.all, 'budget-alerts'] as const,
   pricing: () => [...AUTONOMY_KEYS.all, 'pricing'] as const,
+  // Kill switch
+  killSwitchStatus: () => [...AUTONOMY_KEYS.all, 'kill-switch-status'] as const,
+  killSwitchEvents: () => [...AUTONOMY_KEYS.all, 'kill-switch-events'] as const,
+  // Goals
+  goals: () => [...AUTONOMY_KEYS.all, 'goals'] as const,
+  // Proposals
+  proposals: () => [...AUTONOMY_KEYS.all, 'proposals'] as const,
+  // Escalations
+  escalations: () => [...AUTONOMY_KEYS.all, 'escalations'] as const,
+  // Feedback
+  feedback: () => [...AUTONOMY_KEYS.all, 'feedback'] as const,
+  // Intervention policies
+  interventionPolicies: () => [...AUTONOMY_KEYS.all, 'intervention-policies'] as const,
 };
 
 // ===== Read Queries =====
@@ -448,6 +470,321 @@ export function useDeleteDelegationPolicy() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.delegationPolicies() });
+    },
+  });
+}
+
+// ===== Kill Switch =====
+
+export function useKillSwitchStatus() {
+  return useQuery({
+    queryKey: AUTONOMY_KEYS.killSwitchStatus(),
+    queryFn: async () => {
+      const response = await apiClient.get('/ai/kill_switch/status');
+      const raw = response.data?.data ?? {};
+      // Backend returns { halted, since, snapshot_preview, latest_event }
+      return {
+        halted: raw.halted ?? false,
+        halted_since: raw.since,
+        reason: raw.latest_event?.reason,
+        triggered_by: raw.latest_event?.triggered_by?.name,
+        snapshot_preview: raw.snapshot_preview,
+      } as KillSwitchStatus;
+    },
+    refetchInterval: 30000,
+  });
+}
+
+export function useKillSwitchEvents() {
+  return useQuery({
+    queryKey: AUTONOMY_KEYS.killSwitchEvents(),
+    queryFn: async () => {
+      const response = await apiClient.get('/ai/kill_switch/events');
+      const raw = response.data?.data ?? {};
+      // Backend returns { events: [...], total_count }
+      const events = raw.events ?? raw ?? [];
+      return (Array.isArray(events) ? events : []).map((e: Record<string, unknown>) => ({
+        ...e,
+        triggered_by_name: (e.triggered_by as Record<string, unknown>)?.name ?? e.triggered_by_name,
+      })) as KillSwitchEvent[];
+    },
+  });
+}
+
+export function useEmergencyHalt() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (reason: string) => {
+      const response = await apiClient.post('/ai/kill_switch/halt', { reason });
+      return response.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.killSwitchStatus() });
+      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.killSwitchEvents() });
+      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.stats() });
+    },
+  });
+}
+
+export function useEmergencyResume() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (mode: 'full' | 'minimal') => {
+      const response = await apiClient.post('/ai/kill_switch/resume', { mode });
+      return response.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.killSwitchStatus() });
+      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.killSwitchEvents() });
+      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.stats() });
+    },
+  });
+}
+
+// ===== Goals =====
+
+export function useGoals(filters?: { agent_id?: string; status?: string }) {
+  return useQuery({
+    queryKey: [...AUTONOMY_KEYS.goals(), filters],
+    queryFn: async () => {
+      const response = await apiClient.get('/ai/goals', { params: filters });
+      const raw = response.data?.data;
+      // Backend returns { goals: [...], total_count } wrapper
+      return (raw?.goals ?? raw ?? []) as AgentGoal[];
+    },
+  });
+}
+
+export function useCreateGoal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: Partial<AgentGoal>) => {
+      const response = await apiClient.post('/ai/goals', params);
+      return response.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.goals() });
+    },
+  });
+}
+
+export function useUpdateGoal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...params }: { id: string } & Partial<AgentGoal>) => {
+      const response = await apiClient.put(`/ai/goals/${id}`, params);
+      return response.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.goals() });
+    },
+  });
+}
+
+export function useDeleteGoal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiClient.delete(`/ai/goals/${id}`);
+      return response.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.goals() });
+    },
+  });
+}
+
+// ===== Proposals =====
+
+export function useProposals(filters?: { status?: string }) {
+  return useQuery({
+    queryKey: [...AUTONOMY_KEYS.proposals(), filters],
+    queryFn: async () => {
+      const response = await apiClient.get('/ai/proposals', { params: filters });
+      const raw = response.data?.data;
+      // Backend returns { proposals: [...], total_count } wrapper
+      return (raw?.proposals ?? raw ?? []) as AgentProposal[];
+    },
+  });
+}
+
+export function useApproveProposal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, comments }: { id: string; comments?: string }) => {
+      const response = await apiClient.post(`/ai/proposals/${id}/approve`, { comments });
+      return response.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.proposals() });
+    },
+  });
+}
+
+export function useRejectProposal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, comments }: { id: string; comments?: string }) => {
+      const response = await apiClient.post(`/ai/proposals/${id}/reject`, { comments });
+      return response.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.proposals() });
+    },
+  });
+}
+
+export function useWithdrawProposal() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiClient.put(`/ai/proposals/${id}/withdraw`);
+      return response.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.proposals() });
+    },
+  });
+}
+
+export function useBatchReviewProposals() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: { proposal_ids: string[]; action: 'approve' | 'reject'; comments?: string }) => {
+      const response = await apiClient.post('/ai/proposals/batch_review', params);
+      return response.data?.data as BatchReviewResult;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.proposals() });
+    },
+  });
+}
+
+// ===== Escalations =====
+
+export function useEscalations(filters?: { status?: string }) {
+  return useQuery({
+    queryKey: [...AUTONOMY_KEYS.escalations(), filters],
+    queryFn: async () => {
+      const response = await apiClient.get('/ai/escalations', { params: filters });
+      const raw = response.data?.data;
+      // Backend returns { escalations: [...], total_count } wrapper
+      return (raw?.escalations ?? raw ?? []) as AgentEscalation[];
+    },
+  });
+}
+
+export function useAcknowledgeEscalation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiClient.post(`/ai/escalations/${id}/acknowledge`);
+      return response.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.escalations() });
+    },
+  });
+}
+
+export function useResolveEscalation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, resolution }: { id: string; resolution?: string }) => {
+      const response = await apiClient.post(`/ai/escalations/${id}/resolve`, { resolution });
+      return response.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.escalations() });
+    },
+  });
+}
+
+// ===== Feedback =====
+
+export function useFeedbackList(filters?: { agent_id?: string }) {
+  return useQuery({
+    queryKey: [...AUTONOMY_KEYS.feedback(), filters],
+    queryFn: async () => {
+      const response = await apiClient.get('/ai/feedback', { params: filters });
+      const raw = response.data?.data;
+      // Backend returns { feedbacks: [...], total_count } wrapper
+      return (raw?.feedbacks ?? raw ?? []) as AgentFeedback[];
+    },
+  });
+}
+
+export function useSubmitFeedback() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: { agent_id: string; feedback_type: string; rating: number; comment?: string; context_type?: string; context_id?: string }) => {
+      const response = await apiClient.post('/ai/feedback', params);
+      return response.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.feedback() });
+    },
+  });
+}
+
+// ===== Intervention Policies =====
+
+export function useInterventionPolicies() {
+  return useQuery({
+    queryKey: AUTONOMY_KEYS.interventionPolicies(),
+    queryFn: async () => {
+      const response = await apiClient.get('/ai/intervention_policies');
+      const raw = response.data?.data;
+      // Backend returns { policies: [...], total_count } wrapper
+      return (raw?.policies ?? raw ?? []) as InterventionPolicy[];
+    },
+  });
+}
+
+export function useCreateInterventionPolicy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: Partial<InterventionPolicy>) => {
+      const response = await apiClient.post('/ai/intervention_policies', params);
+      return response.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.interventionPolicies() });
+    },
+  });
+}
+
+export function useUpdateInterventionPolicy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...params }: { id: string } & Partial<InterventionPolicy>) => {
+      const response = await apiClient.put(`/ai/intervention_policies/${id}`, params);
+      return response.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.interventionPolicies() });
+    },
+  });
+}
+
+export function useResolveInterventionPolicy() {
+  return useMutation({
+    mutationFn: async (params: { action_category: string; agent_id?: string }) => {
+      const response = await apiClient.post('/ai/intervention_policies/resolve', params);
+      return response.data?.data as PolicyResolutionResult;
+    },
+  });
+}
+
+export function useDeleteInterventionPolicy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiClient.delete(`/ai/intervention_policies/${id}`);
+      return response.data?.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.interventionPolicies() });
     },
   });
 }

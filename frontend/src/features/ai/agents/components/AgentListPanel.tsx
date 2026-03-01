@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { Plus, Brain, Search } from 'lucide-react';
+import { Plus, Brain, Search, ArrowUp, ArrowDown } from 'lucide-react';
 import { ResizableListPanel } from '@/shared/components/layout/ResizableListPanel';
 import { AgentListItem } from './AgentListItem';
 import { agentsApi } from '@/shared/services/ai';
@@ -27,11 +27,32 @@ const STATUS_DOT: Record<AiAgent['status'], string> = {
   error: 'bg-theme-error',
 };
 
+const SORT_OPTIONS = [
+  { key: 'name', label: 'Name' },
+  { key: 'created_at', label: 'Created' },
+  { key: 'last_execution_at', label: 'Last Run' },
+  { key: 'agent_type', label: 'Type' },
+] as const;
+
+const AGENT_TYPE_LABELS: Record<string, string> = {
+  assistant: 'Assistant',
+  code_assistant: 'Code',
+  data_analyst: 'Data',
+  content_generator: 'Content',
+  image_generator: 'Image',
+  workflow_optimizer: 'Workflow',
+  workflow_operations: 'Ops',
+};
+
 interface AgentListPanelProps {
   selectedAgentId: string | null;
   onSelectAgent: (agent: AiAgent) => void;
   onCreateAgent: () => void;
   refreshKey?: number;
+  onClone?: (agent: AiAgent) => void;
+  onToggleStatus?: (agent: AiAgent) => void;
+  onArchive?: (agent: AiAgent) => void;
+  canManage?: boolean;
 }
 
 export const AgentListPanel: React.FC<AgentListPanelProps> = ({
@@ -39,25 +60,38 @@ export const AgentListPanel: React.FC<AgentListPanelProps> = ({
   onSelectAgent,
   onCreateAgent,
   refreshKey,
+  onClone,
+  onToggleStatus,
+  onArchive,
+  canManage,
 }) => {
   const [agents, setAgents] = useState<AiAgent[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabId>('all');
   const [search, setSearch] = useState('');
   const [focusIndex, setFocusIndex] = useState(-1);
+  const [sortBy, setSortBy] = useState('updated_at');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [myAgentsOnly, setMyAgentsOnly] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
 
   const loadAgents = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await agentsApi.getAgents({ per_page: 100 });
+      const response = await agentsApi.getAgents({
+        per_page: 100,
+        sort: sortBy,
+        order: sortOrder,
+        ...(myAgentsOnly ? { my_agents: true } : {}),
+      });
       setAgents(response.items || []);
     } catch {
       // Silently fail — list will show empty state
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [sortBy, sortOrder, myAgentsOnly]);
 
   useEffect(() => {
     loadAgents();
@@ -70,12 +104,15 @@ export const AgentListPanel: React.FC<AgentListPanelProps> = ({
     }
   }, [refreshKey, loadAgents]);
 
-  // Filter by tab + search
+  // Filter by tab + search + type
   const filteredAgents = useMemo(() => {
     let filtered = agents;
     const statuses = TAB_STATUS_MAP[activeTab];
     if (statuses) {
       filtered = filtered.filter(a => statuses.includes(a.status));
+    }
+    if (typeFilter) {
+      filtered = filtered.filter(a => a.agent_type === typeFilter);
     }
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -87,10 +124,19 @@ export const AgentListPanel: React.FC<AgentListPanelProps> = ({
       );
     }
     return filtered;
-  }, [agents, activeTab, search]);
+  }, [agents, activeTab, search, typeFilter]);
 
   // Stats
   const activeCount = agents.filter(a => a.status === 'active').length;
+
+  const handleSortClick = (key: string) => {
+    if (sortBy === key) {
+      setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
+    } else {
+      setSortBy(key);
+      setSortOrder('desc');
+    }
+  };
 
   // Keyboard navigation
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -123,14 +169,27 @@ export const AgentListPanel: React.FC<AgentListPanelProps> = ({
       title="Agents"
       onKeyDown={handleKeyDown}
       headerAction={
-        <button
-          onClick={onCreateAgent}
-          className="btn-theme btn-theme-primary text-xs px-2 py-1 flex items-center gap-1"
-          title="New Agent"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">New</span>
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setMyAgentsOnly(prev => !prev)}
+            className={`text-xs px-2 py-1 rounded transition-colors ${
+              myAgentsOnly
+                ? 'bg-theme-interactive-primary/10 text-theme-accent border border-theme-accent/30'
+                : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
+            }`}
+            title="Show only my agents"
+          >
+            Mine
+          </button>
+          <button
+            onClick={onCreateAgent}
+            className="btn-theme btn-theme-primary text-xs px-2 py-1 flex items-center gap-1"
+            title="New Agent"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">New</span>
+          </button>
+        </div>
       }
       tabPills={
         <div className="flex px-3 pt-2 pb-1 gap-1">
@@ -150,7 +209,7 @@ export const AgentListPanel: React.FC<AgentListPanelProps> = ({
         </div>
       }
       search={
-        <div className="px-3 py-2">
+        <div className="px-3 py-2 space-y-2">
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-theme-tertiary" />
             <input
@@ -161,6 +220,40 @@ export const AgentListPanel: React.FC<AgentListPanelProps> = ({
               className="w-full pl-7 pr-2 py-1.5 text-xs bg-theme-background border border-theme rounded text-theme-primary placeholder:text-theme-tertiary focus:outline-none focus:ring-1 focus:ring-theme-accent"
             />
           </div>
+
+          {/* Sort pills */}
+          <div className="flex gap-1 flex-wrap">
+            {SORT_OPTIONS.map((opt) => (
+              <button
+                key={opt.key}
+                onClick={() => handleSortClick(opt.key)}
+                className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded transition-colors ${
+                  sortBy === opt.key
+                    ? 'bg-theme-interactive-primary/10 text-theme-accent border border-theme-accent/30'
+                    : 'text-theme-tertiary hover:text-theme-secondary hover:bg-theme-surface-hover border border-transparent'
+                }`}
+              >
+                {opt.label}
+                {sortBy === opt.key && (
+                  sortOrder === 'desc'
+                    ? <ArrowDown className="h-2.5 w-2.5" />
+                    : <ArrowUp className="h-2.5 w-2.5" />
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Type filter */}
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="w-full px-2 py-1 text-xs bg-theme-background border border-theme rounded text-theme-primary focus:outline-none focus:ring-1 focus:ring-theme-accent"
+          >
+            <option value="">All types</option>
+            {Object.entries(AGENT_TYPE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
         </div>
       }
       footer={
@@ -217,6 +310,10 @@ export const AgentListPanel: React.FC<AgentListPanelProps> = ({
                 agent={agent}
                 isSelected={selectedAgentId === agent.id}
                 onClick={() => onSelectAgent(agent)}
+                onClone={onClone}
+                onToggleStatus={onToggleStatus}
+                onArchive={onArchive}
+                canManage={canManage}
               />
             </div>
           ))

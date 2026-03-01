@@ -125,46 +125,50 @@ const AppContent: React.FC = () => {
             }
           }
           
-          // If no valid impersonation session, proceed with regular authentication
-          try {
-            await dispatch(getCurrentUser(true)).unwrap(); // silentAuth = true during initialization
-          } catch (error) {
-            
-            // Check if this error indicates invalid tokens that should be cleared immediately
-            if (isTokenInvalidError(error)) {
-              dispatch(forceTokenClear());
-              return;
-            }
-            
-            // If that fails, try to refresh the access token (uses HttpOnly cookie)
+          // If no valid impersonation session, proceed with regular authentication.
+          // When we have an access_token in memory, try /auth/me directly.
+          // Otherwise skip straight to refresh (avoids a guaranteed 401 on every page load).
+          if (access_token) {
             try {
-              await dispatch(refreshAccessToken()).unwrap();
+              await dispatch(getCurrentUser(true)).unwrap();
+              return; // Success — session restored
+            } catch (error) {
+              if (isTokenInvalidError(error)) {
+                dispatch(forceTokenClear());
+                return;
+              }
+              // Token expired — fall through to refresh below
+            }
+          }
 
-              // After refresh, check for impersonation session again
-              const impersonationToken = localStorage.getItem('impersonationToken');
-              if (impersonationToken) {
-                try {
-                  const impersonationData = await dispatch(checkImpersonationStatus()).unwrap();
-                  if (impersonationData && impersonationData.valid) {
-                    return; // Skip regular user fetch
-                  } else {
-                    localStorage.removeItem('impersonationToken');
-                  }
-                } catch (impersonationError) {
+          // Refresh the access token via HttpOnly cookie
+          try {
+            await dispatch(refreshAccessToken()).unwrap();
+
+            // After refresh, check for impersonation session again
+            const impersonationToken = localStorage.getItem('impersonationToken');
+            if (impersonationToken) {
+              try {
+                const impersonationData = await dispatch(checkImpersonationStatus()).unwrap();
+                if (impersonationData && impersonationData.valid) {
+                  return; // Skip regular user fetch
+                } else {
                   localStorage.removeItem('impersonationToken');
                 }
+              } catch (impersonationError) {
+                localStorage.removeItem('impersonationToken');
               }
+            }
 
-              // If no valid impersonation, get regular user
-              await dispatch(getCurrentUser(true)).unwrap(); // silentAuth = true during initialization
-            } catch (refreshError) {
-              // Check if this is a token invalidity error
-              if (isTokenInvalidError(refreshError)) {
-                dispatch(forceTokenClear());
-              } else {
-                // No valid refresh cookie or refresh failed — user needs to log in
-                dispatch(clearAuth());
-              }
+            // If no valid impersonation, get regular user
+            await dispatch(getCurrentUser(true)).unwrap();
+          } catch (refreshError) {
+            // Check if this is a token invalidity error
+            if (isTokenInvalidError(refreshError)) {
+              dispatch(forceTokenClear());
+            } else {
+              // No valid refresh cookie or refresh failed — user needs to log in
+              dispatch(clearAuth());
             }
           }
         }

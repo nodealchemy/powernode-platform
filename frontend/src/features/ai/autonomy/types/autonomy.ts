@@ -213,3 +213,167 @@ export interface PaginatedTransactions {
     total_pages: number;
   };
 }
+
+// ===== Kill Switch =====
+
+export interface KillSwitchStatus {
+  halted: boolean;
+  halted_since?: string;
+  reason?: string;
+  triggered_by?: string;
+  snapshot_preview?: {
+    agents_to_restore: number;
+    ralph_loops_to_resume: number;
+    workflow_schedules_to_resume: number;
+    snapshot_taken_at: string;
+  };
+}
+
+export interface KillSwitchEvent {
+  id: string;
+  event_type: 'halt' | 'resume';
+  reason: string;
+  triggered_by_name?: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+// ===== Agent Goals =====
+
+export type GoalStatus = 'pending' | 'active' | 'paused' | 'achieved' | 'abandoned' | 'failed';
+export type GoalType = 'maintenance' | 'improvement' | 'creation' | 'monitoring' | 'feature_suggestion' | 'reaction';
+
+export interface AgentGoal {
+  id: string;
+  agent?: { id: string; name: string };
+  parent_goal_id?: string;
+  title: string;
+  description?: string;
+  goal_type: GoalType;
+  priority: number;
+  status: GoalStatus;
+  progress: number;
+  success_criteria: Record<string, unknown>;
+  deadline?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ===== Proposals =====
+
+export type ProposalStatus = 'pending_review' | 'approved' | 'rejected' | 'implemented' | 'withdrawn';
+export type ProposalType = 'feature' | 'knowledge_update' | 'code_change' | 'architecture' | 'process_improvement' | 'configuration';
+
+export interface AgentProposal {
+  id: string;
+  agent?: { id: string; name: string };
+  target_user?: { id: string; email: string };
+  reviewed_by?: { id: string; email: string };
+  proposal_type: ProposalType;
+  title: string;
+  description: string;
+  rationale?: string;
+  status: ProposalStatus;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  impact_assessment: Record<string, unknown>;
+  proposed_changes: Record<string, unknown>;
+  review_deadline?: string;
+  reviewed_at?: string;
+  overdue?: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// ===== Escalations =====
+
+export type EscalationStatus = 'open' | 'acknowledged' | 'in_progress' | 'resolved' | 'auto_resolved';
+export type EscalationType = 'stuck' | 'error' | 'budget_exceeded' | 'approval_timeout' | 'quality_concern' | 'security_issue';
+
+export interface AgentEscalation {
+  id: string;
+  agent?: { id: string; name: string };
+  escalated_to?: { id: string; email: string };
+  escalation_type: EscalationType;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  status: EscalationStatus;
+  title: string;
+  context: Record<string, unknown>;
+  current_level: number;
+  timeout_hours?: number;
+  next_escalation_at?: string;
+  acknowledged_at?: string;
+  resolved_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// ===== Feedback =====
+
+export interface AgentFeedback {
+  id: string;
+  agent?: { id: string; name: string };
+  user?: { id: string; email: string };
+  feedback_type: 'execution_quality' | 'proposal_quality' | 'communication_quality';
+  rating: number;
+  comment?: string;
+  context_type?: string;
+  context_id?: string;
+  applied_to_trust: boolean;
+  created_at: string;
+}
+
+// ===== Intervention Policies =====
+
+export type InterventionPolicyAction = 'auto_approve' | 'notify_and_proceed' | 'require_approval' | 'silent' | 'block';
+
+export interface InterventionPolicy {
+  id: string;
+  scope: 'global' | 'agent' | 'action_type';
+  action_category: string;
+  policy: InterventionPolicyAction;
+  conditions: Record<string, unknown>;
+  preferred_channels: string[];
+  priority: number;
+  is_active: boolean;
+  agent?: { id: string; name: string };
+  user?: { id: string; email: string };
+  created_at: string;
+  updated_at: string;
+}
+
+// ===== Goal Detail =====
+
+export interface AgentGoalDetail extends AgentGoal {
+  sub_goals?: AgentGoal[];
+}
+
+// ===== Policy Resolution =====
+
+export interface PolicyResolutionResult {
+  policy: string;
+  matched_policy_id?: string;
+  action_category: string;
+  reason: string;
+}
+
+// ===== Batch Review =====
+
+export interface BatchReviewResult {
+  results: Array<{ proposal_id: string; status: string; success: boolean; error?: string }>;
+}
+
+// ===== Observations =====
+
+export interface AgentObservation {
+  id: string;
+  agent_id: string;
+  agent_name?: string;
+  sensor_type: string;
+  observation_type: string;
+  severity: 'info' | 'warning' | 'critical';
+  title: string;
+  data: Record<string, unknown>;
+  requires_action: boolean;
+  processed: boolean;
+  created_at: string;
+}
