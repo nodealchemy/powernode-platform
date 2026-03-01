@@ -452,6 +452,28 @@ Rails.application.routes.draw do
           post "worktree_sessions/:id/worktrees/:worktree_id/provision",
                to: "worktree_sessions#provision_worktree",
                as: :provision_worktree_session_worktree
+
+          # Kill switch check (worker → server)
+          get "kill_switch/check", to: "kill_switch#check"
+
+          # Autonomy observation pipeline (worker → server)
+          get "observation_pipeline/accounts", to: "autonomy#observation_accounts"
+          post "observation_pipeline/run", to: "autonomy#run_observation_pipeline"
+
+          # Autonomy goal maintenance (worker → server)
+          post "goals/maintenance", to: "autonomy#goals_maintenance"
+
+          # Autonomy observation cleanup (worker → server)
+          post "observations/cleanup", to: "autonomy#observations_cleanup"
+
+          # Autonomy escalation auto-escalate (worker → server)
+          post "escalations/auto_escalate", to: "autonomy#auto_escalate_escalations"
+
+          # Autonomy proposal expiry (worker → server)
+          post "proposals/expire_overdue", to: "autonomy#expire_overdue_proposals"
+
+          # Autonomy intervention policy tuning (worker → server)
+          post "intervention_policies/analyze_patterns", to: "autonomy#analyze_policy_patterns"
         end
 
         # Container execution callbacks for Gitea workflow
@@ -2572,6 +2594,60 @@ Rails.application.routes.draw do
           get "pricing", action: :pricing_catalog
           patch "pricing/:model_id", action: :update_pricing
         end
+
+        # ===================================================================
+        # KILL SWITCH - Emergency halt for all AI activity
+        # ===================================================================
+        scope :kill_switch, controller: "kill_switch" do
+          post :halt
+          post :resume
+          get :status
+          get :preview_restore
+          get :events
+        end
+
+        # ===================================================================
+        # AGENT GOALS - Hierarchical goal tracking for autonomous agents
+        # ===================================================================
+        resources :goals, controller: "goals"
+
+        # ===================================================================
+        # INTERVENTION POLICIES - User-configurable agent notification rules
+        # ===================================================================
+        resources :intervention_policies, controller: "intervention_policies" do
+          collection do
+            post :resolve
+          end
+        end
+
+        # ===================================================================
+        # PROPOSALS - Agent-initiated change proposals for human review
+        # ===================================================================
+        resources :proposals, controller: "proposals", only: %i[index show] do
+          member do
+            post :approve
+            post :reject
+            put :withdraw
+          end
+          collection do
+            post :batch_review
+          end
+        end
+
+        # ===================================================================
+        # ESCALATIONS - Structured escalation for stuck/failed agents
+        # ===================================================================
+        resources :escalations, controller: "escalations", only: %i[index show] do
+          member do
+            post :acknowledge
+            post :resolve
+          end
+        end
+
+        # ===================================================================
+        # FEEDBACK - User feedback on agent performance
+        # ===================================================================
+        resources :feedback, controller: "feedback", only: %i[create index]
 
         # ===================================================================
         # 22. TIERED MEMORY - Multi-tier agent memory management

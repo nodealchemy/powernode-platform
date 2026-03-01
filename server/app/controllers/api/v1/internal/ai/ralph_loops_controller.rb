@@ -10,10 +10,15 @@ module Api
             processed = 0
             skipped = 0
 
-            ::Ai::RalphLoop.due_for_execution.find_each do |loop|
+            ::Ai::RalphLoop.due_for_execution.includes(:account).find_each do |loop|
               begin
+                if loop.account&.ai_suspended?
+                  skipped += 1
+                  next
+                end
+
                 service = ::Ai::Ralph::ExecutionService.new(ralph_loop: loop)
-                service.execute_iteration
+                service.run_iteration
                 processed += 1
               rescue StandardError => e
                 Rails.logger.error "[RalphLoopScheduler] Failed to process loop #{loop.id}: #{e.message}"
@@ -26,7 +31,12 @@ module Api
 
           # POST /api/v1/internal/ai/ralph_loops/:id/run_iteration
           def run_iteration
-            ralph_loop = ::Ai::RalphLoop.find(params[:id])
+            ralph_loop = ::Ai::RalphLoop.includes(:account).find(params[:id])
+
+            # Kill switch check
+            if ralph_loop.account&.ai_suspended?
+              return render_success(cancelled: true, message: "AI activity suspended for this account")
+            end
 
             # Check if loop is still active
             unless ralph_loop.run_all_active?
@@ -39,7 +49,7 @@ module Api
             end
 
             service = ::Ai::Ralph::ExecutionService.new(ralph_loop: ralph_loop)
-            result = service.execute_iteration
+            result = service.run_iteration
 
             if result[:success]
               render_success(
