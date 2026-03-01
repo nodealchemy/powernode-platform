@@ -112,7 +112,24 @@ module Ai
         "get_mission_status" => "Ai::Tools::ActivityMonitorTool",
         "get_notifications" => "Ai::Tools::ActivityMonitorTool",
         "dismiss_notification" => "Ai::Tools::ActivityMonitorTool",
-        "get_system_health" => "Ai::Tools::ActivityMonitorTool"
+        "get_system_health" => "Ai::Tools::ActivityMonitorTool",
+        # Kill switch
+        "emergency_halt" => "Ai::Tools::KillSwitchTool",
+        "emergency_resume" => "Ai::Tools::KillSwitchTool",
+        "kill_switch_status" => "Ai::Tools::KillSwitchTool",
+        # Agent autonomy
+        "create_agent_goal" => "Ai::Tools::AgentAutonomyTool",
+        "list_agent_goals" => "Ai::Tools::AgentAutonomyTool",
+        "update_agent_goal" => "Ai::Tools::AgentAutonomyTool",
+        "agent_introspect" => "Ai::Tools::AgentAutonomyTool",
+        "propose_feature" => "Ai::Tools::AgentAutonomyTool",
+        "send_proactive_notification" => "Ai::Tools::AgentAutonomyTool",
+        "discover_claude_sessions" => "Ai::Tools::AgentAutonomyTool",
+        "request_code_change" => "Ai::Tools::AgentAutonomyTool",
+        "create_proposal" => "Ai::Tools::AgentAutonomyTool",
+        "escalate" => "Ai::Tools::AgentAutonomyTool",
+        "request_feedback" => "Ai::Tools::AgentAutonomyTool",
+        "report_issue" => "Ai::Tools::AgentAutonomyTool"
       }.freeze
 
       def self.available_tools(agent: nil)

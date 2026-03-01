@@ -267,6 +267,63 @@ module Ai
         tasks.map { |task| wait_for_task(task) }
       end
 
+      # ==================== Agent Handoff ====================
+
+      # Transfer an in-progress task to a different agent, preserving conversation
+      # context, history, and artifacts. Lighter than creating a new task because
+      # the original task's full context carries over.
+      #
+      # @param task_id [String] the task to hand off
+      # @param to_agent_card [String] target agent card identifier
+      # @param reason [String] why the handoff is happening
+      # @param additional_context [Hash] extra context for the receiving agent
+      # @return [Ai::A2aTask] the new task created for the target agent
+      def handoff_task(task_id:, to_agent_card:, reason: nil, additional_context: {})
+        source_task = find_task(task_id)
+        target_card = resolve_agent_card(to_agent_card)
+
+        unless source_task.status.in?(%w[active input_required])
+          raise InvalidTaskError.new(
+            "Cannot handoff task in #{source_task.status} status",
+            details: { allowed: %w[active input_required] }
+          )
+        end
+
+        # Build handoff message incorporating the original task's full context
+        handoff_message = build_handoff_message(source_task, reason, additional_context)
+
+        # Create the new task for the target agent with inherited context
+        new_task = Ai::A2aTask.create!(
+          account: @account,
+          from_agent_id: source_task.to_agent_id,
+          to_agent_id: target_card.ai_agent_id,
+          to_agent_card_id: target_card.id,
+          ai_workflow_run_id: source_task.ai_workflow_run_id,
+          message: handoff_message,
+          input: source_task.input,
+          history: source_task.history,
+          artifacts: source_task.artifacts,
+          metadata: build_handoff_metadata(source_task, reason, additional_context),
+          is_external: false
+        )
+
+        # Complete the source task with a handoff marker
+        source_task.complete!(
+          result: {
+            "handoff" => true,
+            "handed_off_to_task_id" => new_task.task_id,
+            "handed_off_to_agent_id" => target_card.ai_agent_id,
+            "reason" => reason
+          },
+          artifacts: []
+        )
+
+        # Enqueue execution for the new task
+        WorkerJobService.enqueue_ai_a2a_task_execution(new_task.id)
+
+        new_task
+      end
+
       private
 
       def find_agent_card(identifier)
@@ -439,6 +496,37 @@ module Ai
         end
 
         context
+      end
+
+      def build_handoff_message(source_task, reason, additional_context)
+        parts = [
+          { "type" => "text", "text" => "[HANDOFF] This task was handed off from agent #{source_task.to_agent&.name || source_task.to_agent_id}." }
+        ]
+
+        parts << { "type" => "text", "text" => "Reason: #{reason}" } if reason.present?
+
+        # Include the original message content
+        if source_task.message.is_a?(Hash) && source_task.message["parts"].is_a?(Array)
+          parts << { "type" => "text", "text" => "--- Original task ---" }
+          parts.concat(source_task.message["parts"])
+        end
+
+        if additional_context.present?
+          parts << { "type" => "data", "data" => additional_context }
+        end
+
+        { "role" => "user", "parts" => parts }
+      end
+
+      def build_handoff_metadata(source_task, reason, additional_context)
+        (source_task.metadata || {}).merge(
+          "handoff" => true,
+          "handoff_from_task_id" => source_task.task_id,
+          "handoff_from_agent_id" => source_task.to_agent_id,
+          "handoff_reason" => reason,
+          "handoff_additional_context" => additional_context,
+          "handoff_at" => Time.current.iso8601
+        )
       end
 
       def store_execution_memory(task, success:, error: nil)

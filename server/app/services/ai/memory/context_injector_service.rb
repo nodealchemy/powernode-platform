@@ -22,7 +22,7 @@ module Ai
         used_chars = 0
 
         # Determine which memory types to include
-        types = include_types || %w[factual working experiential trajectories shared_learnings compound_learnings graph_rag]
+        types = include_types || %w[factual working experiential trajectories shared_learnings compound_learnings graph_rag goals observations self_awareness]
 
         # 1. Always include critical facts first (highest priority)
         if types.include?("factual")
@@ -93,6 +93,27 @@ module Ai
           used_chars += graph_rag_chars
         end
 
+        # 8. Include active goals (autonomy context)
+        if types.include?("goals")
+          goals_context, goals_chars = inject_goals(budget_chars - used_chars)
+          context_parts << goals_context if goals_context.present?
+          used_chars += goals_chars
+        end
+
+        # 9. Include recent unprocessed observations (autonomy context)
+        if types.include?("observations")
+          obs_context, obs_chars = inject_observations(budget_chars - used_chars)
+          context_parts << obs_context if obs_context.present?
+          used_chars += obs_chars
+        end
+
+        # 10. Include self-awareness (trust, performance, budget)
+        if types.include?("self_awareness")
+          self_context, self_chars = inject_self_awareness(budget_chars - used_chars)
+          context_parts << self_context if self_context.present?
+          used_chars += self_chars
+        end
+
         {
           context: context_parts.join("\n\n"),
           token_estimate: (used_chars / CHARS_PER_TOKEN.to_f).ceil,
@@ -103,7 +124,10 @@ module Ai
             trajectories: context_parts.count { |p| p.start_with?("## Past Trajectories") },
             shared_knowledge: context_parts.count { |p| p.start_with?("## Shared Knowledge") },
             compound_learnings: context_parts.count { |p| p.start_with?("## Compound Learnings") },
-            graph_rag: context_parts.count { |p| p.start_with?("## Graph Knowledge") }
+            graph_rag: context_parts.count { |p| p.start_with?("## Graph Knowledge") },
+            goals: context_parts.count { |p| p.start_with?("## Active Goals") },
+            observations: context_parts.count { |p| p.start_with?("## Recent Observations") },
+            self_awareness: context_parts.count { |p| p.start_with?("## Self Awareness") }
           }
         }
       end
@@ -285,6 +309,92 @@ module Ai
         [context_text, context_text.length]
       rescue StandardError => e
         Rails.logger.warn("[ContextInjector] GraphRAG injection failed: #{e.message}")
+        [nil, 0]
+      end
+
+      def inject_goals(char_budget)
+        goals = Ai::AgentGoal.for_agent(@agent.id).actionable.by_priority.limit(5)
+        return [nil, 0] if goals.empty?
+
+        context_lines = ["## Active Goals"]
+        used_chars = context_lines.first.length + 2
+
+        goals.each do |goal|
+          line = "- [P#{goal.priority}] #{goal.title} (#{goal.goal_type}, #{(goal.progress * 100).round}% complete)"
+          line += " — #{goal.description.truncate(100)}" if goal.description.present?
+          break if used_chars + line.length > char_budget
+
+          context_lines << line
+          used_chars += line.length + 1
+        end
+
+        return [nil, 0] if context_lines.size == 1
+        [context_lines.join("\n"), used_chars]
+      rescue StandardError => e
+        Rails.logger.warn("[ContextInjector] Goals injection failed: #{e.message}")
+        [nil, 0]
+      end
+
+      def inject_observations(char_budget)
+        observations = Ai::AgentObservation
+          .where(ai_agent_id: @agent.id, processed: false)
+          .where("expires_at IS NULL OR expires_at > ?", Time.current)
+          .order(severity: :desc, created_at: :desc)
+          .limit(10)
+        return [nil, 0] if observations.empty?
+
+        context_lines = ["## Recent Observations"]
+        used_chars = context_lines.first.length + 2
+
+        observations.each do |obs|
+          line = "- [#{obs.severity.upcase}] #{obs.title} (#{obs.sensor_type}/#{obs.observation_type})"
+          line += " ⚡ requires action" if obs.requires_action?
+          break if used_chars + line.length > char_budget
+
+          context_lines << line
+          used_chars += line.length + 1
+        end
+
+        return [nil, 0] if context_lines.size == 1
+        [context_lines.join("\n"), used_chars]
+      rescue StandardError => e
+        Rails.logger.warn("[ContextInjector] Observations injection failed: #{e.message}")
+        [nil, 0]
+      end
+
+      def inject_self_awareness(char_budget)
+        trust_score = Ai::AgentTrustScore.find_by(agent_id: @agent.id)
+        budget = Ai::AgentBudget.where(agent_id: @agent.id).active.first
+
+        context_lines = ["## Self Awareness"]
+        used_chars = context_lines.first.length + 2
+
+        if trust_score
+          line = "- Trust: tier=#{trust_score.tier}, score=#{trust_score.overall_score&.round(2)}, last_evaluated=#{trust_score.last_evaluated_at&.iso8601 || 'never'}"
+          context_lines << line
+          used_chars += line.length + 1
+        end
+
+        if budget
+          line = "- Budget: #{budget.remaining_cents}¢ remaining of #{budget.allocated_cents}¢ (#{budget.utilization_percentage}% used)"
+          context_lines << line
+          used_chars += line.length + 1
+        end
+
+        # Recent execution stats
+        recent_execs = Ai::AgentExecution.where(ai_agent_id: @agent.id).where("created_at >= ?", 24.hours.ago)
+        total = recent_execs.count
+        failed = recent_execs.where(status: "failed").count
+        if total > 0
+          line = "- Recent (24h): #{total} executions, #{failed} failed (#{((failed.to_f / total) * 100).round(1)}% failure rate)"
+          context_lines << line
+          used_chars += line.length + 1
+        end
+
+        return [nil, 0] if context_lines.size == 1
+        [context_lines.join("\n"), used_chars]
+      rescue StandardError => e
+        Rails.logger.warn("[ContextInjector] Self-awareness injection failed: #{e.message}")
         [nil, 0]
       end
 

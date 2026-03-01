@@ -16,15 +16,23 @@ module Ai
       #
       # @param agent [Ai::Agent]
       # @param action_type [String] e.g. "execute", "spawn_agent", "modify_system"
+      # @param user [User, nil] optional user context for intervention policy resolution
       # @return [Hash] { decision: :proceed/:requires_approval/:denied, reason: String|nil, approval_request_id: nil }
-      def check(agent:, action_type: "execute")
+      def check(agent:, action_type: "execute", user: nil)
         checks = %i[
+          check_account_suspension
           check_capability
+          check_intervention_policy
           check_budget
           check_conformance
           check_behavioral_anomaly
           check_trust_freshness
         ]
+
+        @current_agent = agent
+        @current_action_type = action_type
+        @current_user = user
+        @capability_result = nil
 
         checks.each do |check_method|
           result = send(check_method, agent, action_type)
@@ -36,6 +44,13 @@ module Ai
 
       private
 
+      # 0. Account AI suspension — is all AI activity halted?
+      def check_account_suspension(_agent, _action_type)
+        if @account.ai_suspended?
+          { decision: :denied, reason: "AI activity suspended by administrator (since #{@account.ai_suspended_at&.iso8601})" }
+        end
+      end
+
       # 1. Capability matrix — does the agent's trust tier allow this action?
       def check_capability(agent, action_type)
         decision = Ai::Autonomy::CapabilityMatrixService
@@ -46,8 +61,42 @@ module Ai
         when :denied
           { decision: :denied, reason: "Capability matrix denies '#{action_type}' for agent trust tier" }
         when :requires_approval
-          { decision: :requires_approval, reason: "Capability matrix requires approval for '#{action_type}'", approval_request_id: nil }
+          # Store for intervention policy check — policy may override to :proceed
+          @capability_result = :requires_approval
+          nil
         end
+      end
+
+      # 1.5. Intervention policy — can auto-approve override requires_approval?
+      # When capability matrix says requires_approval, the intervention policy
+      # may promote to :proceed if auto_approve conditions are met.
+      def check_intervention_policy(agent, action_type)
+        # Only relevant when capability returned requires_approval
+        if @capability_result == :requires_approval
+          policy_service = ::Ai::InterventionPolicyService.new(account: @account)
+
+          if policy_service.auto_approve?(action_category: action_type, agent: agent, user: @current_user)
+            # Policy overrides — allow the action
+            @capability_result = nil
+            return nil
+          end
+
+          # No override — enforce the original requires_approval
+          @capability_result = nil
+          return {
+            decision: :requires_approval,
+            reason: "Capability matrix requires approval for '#{action_type}'",
+            approval_request_id: nil
+          }
+        end
+
+        # Check if policy explicitly blocks this action category
+        policy_service = ::Ai::InterventionPolicyService.new(account: @account)
+        if policy_service.blocked?(action_category: action_type, agent: agent, user: @current_user)
+          return { decision: :denied, reason: "Intervention policy blocks '#{action_type}'" }
+        end
+
+        nil
       end
 
       # 2. Budget sufficiency — does the agent have remaining budget?

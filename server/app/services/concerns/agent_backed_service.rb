@@ -66,8 +66,19 @@ module AgentBackedService
 
   # Build a WorkerLlmClient that routes through the agent's provider config.
   # The worker resolves the provider and credential from the agent_id.
-  def build_agent_client(agent)
-    WorkerLlmClient.new(agent_id: agent.id)
+  #
+  # By default, wraps the client in TrackedWorkerLlmClient which creates
+  # Ai::AgentExecution records for every LLM call (complete, complete_structured,
+  # complete_with_tools). Pass tracked: false for raw access.
+  def build_agent_client(agent, tracked: true)
+    client = WorkerLlmClient.new(agent_id: agent.id)
+    return client unless tracked
+
+    TrackedWorkerLlmClient.new(
+      inner_client: client,
+      agent: agent,
+      execution_context_type: "service:#{self.class.name}"
+    )
   end
 
   # Resolve model from agent configuration.

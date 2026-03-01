@@ -90,7 +90,7 @@ module Ai
             source: "platform",
             search_text: build_search_text(name, defn)
           }
-        rescue NameError => e
+        rescue NameError, NotImplementedError => e
           Rails.logger.warn "[SemanticToolDiscovery] Skipping unavailable tool: #{class_name} - #{e.message}"
         end
 
