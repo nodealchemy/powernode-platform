@@ -336,6 +336,48 @@
     queue: ai_orchestration
     description: 'Analyze execution trajectories and generate improvement recommendations'
 
+  # Observation pipeline - collect sensor data for autonomous agents
+  ai_observation_pipeline:
+    every: '10m'
+    class: AiObservationPipelineJob
+    queue: ai_orchestration
+    description: 'Run observation sensors for autonomous agents and create observations'
+
+  # Goal maintenance - auto-abandon stale goals
+  ai_goal_maintenance:
+    cron: '30 4 * * *'  # Daily at 4:30 AM UTC
+    class: AiGoalMaintenanceJob
+    queue: maintenance
+    description: 'Auto-abandon goals with no progress for 30+ days'
+
+  # Observation cleanup - delete expired and old processed observations
+  ai_observation_cleanup:
+    cron: '45 4 * * *'  # Daily at 4:45 AM UTC
+    class: AiObservationCleanupJob
+    queue: maintenance
+    description: 'Delete expired and old processed observations'
+
+  # Escalation timeout - auto-escalate overdue escalations
+  ai_escalation_timeout:
+    every: '15m'
+    class: AiEscalationTimeoutJob
+    queue: ai_orchestration
+    description: 'Auto-escalate overdue escalations to next level in chain'
+
+  # Proposal expiry - expire overdue unreviewed proposals
+  ai_proposal_expiry:
+    cron: '0 * * * *'  # Every hour
+    class: AiProposalExpiryJob
+    queue: maintenance
+    description: 'Expire unreviewed proposals past their review deadline'
+
+  # Intervention policy tuning - analyze patterns and suggest policy adjustments
+  ai_intervention_policy_tuning:
+    cron: '0 6 * * 0'  # Weekly at 6:00 AM UTC on Sunday
+    class: AiInterventionPolicyTuningJob
+    queue: maintenance
+    description: 'Analyze approval patterns and suggest intervention policy adjustments'
+
   # Ralph loop scheduler - find and execute due ralph loops
   ai_ralph_loop_scheduler:
     cron: '* * * * *'  # Every minute

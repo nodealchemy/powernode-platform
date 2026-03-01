@@ -7,6 +7,7 @@ class AiAgentExecutionJob < BaseJob
   include AiJobsConcern
   include AiLlmProxyConcern
   include AiCostCalculationConcern
+  include AiSuspensionCheckConcern
 
   sidekiq_options queue: 'ai_agents', retry: 3
 
@@ -17,6 +18,9 @@ class AiAgentExecutionJob < BaseJob
 
     @agent_execution = fetch_agent_execution(agent_execution_id)
     return unless @agent_execution
+
+    # Kill switch check — bail if AI activity is suspended
+    return if bail_if_ai_suspended!(@agent_execution['account_id'])
 
     unless can_execute_agent?
       log_error("Cannot execute agent - invalid state", status: @agent_execution['status'])

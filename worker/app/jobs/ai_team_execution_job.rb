@@ -6,6 +6,7 @@
 class AiTeamExecutionJob < BaseJob
   include AiJobsConcern
   include AiLlmProxyConcern
+  include AiSuspensionCheckConcern
 
   sidekiq_options queue: 'ai_execution', retry: 2
 
@@ -21,6 +22,9 @@ class AiTeamExecutionJob < BaseJob
     validate_required_params(params, 'team_id')
 
     log_info("Starting AI team execution", team_id: team_id, user_id: user_id)
+
+    # Kill switch check
+    return if bail_if_ai_suspended!(params['account_id'])
 
     # Create execution via server API
     execution = create_execution(team_id, user_id, input, context)

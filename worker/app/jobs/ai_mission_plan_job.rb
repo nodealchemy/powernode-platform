@@ -33,13 +33,21 @@ class AiMissionPlanJob < BaseJob
     branch_name = "mission/#{mission_id[0..7]}-#{selected_feature['title']&.parameterize&.truncate(30, omission: '') || 'feature'}"
     base_branch = mission['base_branch'] || 'main'
 
-    branch_result = backend_api_post("/api/v1/ai/missions/#{mission_id}/create_branch", {
-      branch_name: branch_name,
-      base_branch: base_branch
-    })
+    begin
+      branch_result = backend_api_post("/api/v1/ai/missions/#{mission_id}/create_branch", {
+        branch_name: branch_name,
+        base_branch: base_branch
+      })
 
-    unless branch_result['success']
-      log_warn("Branch creation failed, continuing", error: branch_result['error'])
+      unless branch_result['success']
+        log_warn("Branch creation failed, continuing", error: branch_result['error'])
+      end
+    rescue BackendApiClient::ApiError => e
+      if e.message.include?("already exists")
+        log_info("Branch already exists, continuing", branch: branch_name)
+      else
+        raise
+      end
     end
 
     # Generate PRD by triggering the code factory PRD job flow

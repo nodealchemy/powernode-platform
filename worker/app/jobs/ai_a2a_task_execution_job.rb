@@ -5,6 +5,7 @@ class AiA2aTaskExecutionJob < BaseJob
   include AiLlmProxyConcern
   include AiCostCalculationConcern
   include A2aArtifactExtractionConcern
+  include AiSuspensionCheckConcern
 
   sidekiq_options queue: 'ai_agents', retry: 3
 
@@ -14,6 +15,9 @@ class AiA2aTaskExecutionJob < BaseJob
     # Fetch the A2A task from backend
     @task = fetch_a2a_task(a2a_task_id)
     return unless @task
+
+    # Kill switch check
+    return if bail_if_ai_suspended!(@task['account_id'])
 
     # Validate task state
     unless can_execute_task?
