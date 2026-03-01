@@ -1,6 +1,6 @@
 # Database Schema Reference
 
-354 tables across 13 model namespaces, all using UUIDv7 primary keys on PostgreSQL.
+359 tables across 13 model namespaces, all using UUIDv7 primary keys on PostgreSQL.
 
 ---
 
@@ -15,7 +15,7 @@ Core platform models not in a namespace:
 | `User` | Platform users with authentication and permissions |
 | `Account` | Multi-tenant account (one per organization) |
 | `Role` | Permission grouping (system.admin, account.manager, etc.) |
-| `Permission` | Individual permission (533 total) |
+| `Permission` | Individual permission (543 total) |
 | `RolePermission` | Role-to-permission join table |
 | `Plan` | Subscription plan with features/limits |
 | `Subscription` | Account subscription (AASM state machine: 8 states) |
@@ -39,7 +39,7 @@ Core platform models not in a namespace:
 | `BackgroundJob` | Job status tracking |
 | `BatchWorkflowRun` | Batch workflow execution |
 
-### Ai:: Namespace (127 models)
+### Ai:: Namespace (135 models)
 
 The largest namespace — covers the entire AI platform.
 

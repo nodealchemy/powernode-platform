@@ -199,7 +199,7 @@ end
 
 ---
 
-**Document Status**: Complete (92 MCP tools registered)
+**Document Status**: Complete (107 MCP tools registered)
 **Consolidates**: MCP_MODEL_CONFIGURATION.md, MCP_DOCUMENTATION_ENHANCEMENT_PLAN.md, AUTOMATED_MCP_DELEGATION_CONFIG.md
 **Tool Registry**: `server/app/services/ai/tools/platform_api_tool_registry.rb`
 **Tool Catalog**: [MCP_TOOL_CATALOG.md](MCP_TOOL_CATALOG.md) (regenerate with `rails mcp:generate_tool_catalog`)

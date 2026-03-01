@@ -171,7 +171,7 @@ end
 # Get auth token first (or use existing session)
 # Then call the execute endpoint
 
-curl -X POST "https://dev.powernode.org/api/v1/ai/agents/{AGENT_ID}/execute" \
+curl -X POST "https://<your-proxy-host>/api/v1/ai/agents/{AGENT_ID}/execute" \
   -H "Authorization: Bearer {TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"input_parameters": {"input": "What is 2 + 2?"}}'
@@ -223,13 +223,13 @@ puts response2.inspect
 ### 2.3 Test Conversation via API
 ```bash
 # Create conversation
-curl -X POST "https://dev.powernode.org/api/v1/ai/agents/{AGENT_ID}/conversations" \
+curl -X POST "https://<your-proxy-host>/api/v1/ai/agents/{AGENT_ID}/conversations" \
   -H "Authorization: Bearer {TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"title": "API Test Conversation"}'
 
 # Send message
-curl -X POST "https://dev.powernode.org/api/v1/ai/agents/{AGENT_ID}/conversations/{CONV_ID}/send_message" \
+curl -X POST "https://<your-proxy-host>/api/v1/ai/agents/{AGENT_ID}/conversations/{CONV_ID}/send_message" \
   -H "Authorization: Bearer {TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"content": "Hello from API!"}'
@@ -375,7 +375,7 @@ puts "Run summary: #{run.run_summary}"
 ### 4.3 Test via API
 ```bash
 # Trigger workflow execution
-curl -X POST "https://dev.powernode.org/api/v1/ai/workflows/{WORKFLOW_ID}/execute" \
+curl -X POST "https://<your-proxy-host>/api/v1/ai/workflows/{WORKFLOW_ID}/execute" \
   -H "Authorization: Bearer {TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"trigger_data": {"input": "Test input from API"}}'
@@ -479,15 +479,15 @@ puts "Progress: #{ralph_loop.progress_percentage}%"
 ### 5.5 Test via API
 ```bash
 # Start loop
-curl -X POST "https://dev.powernode.org/api/v1/ai/ralph_loops/{LOOP_ID}/start" \
+curl -X POST "https://<your-proxy-host>/api/v1/ai/ralph_loops/{LOOP_ID}/start" \
   -H "Authorization: Bearer {TOKEN}"
 
 # Run iteration
-curl -X POST "https://dev.powernode.org/api/v1/ai/ralph_loops/{LOOP_ID}/run_iteration" \
+curl -X POST "https://<your-proxy-host>/api/v1/ai/ralph_loops/{LOOP_ID}/run_iteration" \
   -H "Authorization: Bearer {TOKEN}"
 
 # Get progress
-curl "https://dev.powernode.org/api/v1/ai/ralph_loops/{LOOP_ID}/progress" \
+curl "https://<your-proxy-host>/api/v1/ai/ralph_loops/{LOOP_ID}/progress" \
   -H "Authorization: Bearer {TOKEN}"
 ```
 
@@ -730,11 +730,11 @@ end
 ### 8.7 Test via API
 ```bash
 # Get agent's context
-curl "https://dev.powernode.org/api/v1/ai/agents/{AGENT_ID}/context" \
+curl "https://<your-proxy-host>/api/v1/ai/agents/{AGENT_ID}/context" \
   -H "Authorization: Bearer {TOKEN}"
 
 # Add context entry
-curl -X POST "https://dev.powernode.org/api/v1/ai/agents/{AGENT_ID}/context/entries" \
+curl -X POST "https://<your-proxy-host>/api/v1/ai/agents/{AGENT_ID}/context/entries" \
   -H "Authorization: Bearer {TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -745,7 +745,7 @@ curl -X POST "https://dev.powernode.org/api/v1/ai/agents/{AGENT_ID}/context/entr
   }'
 
 # Search context
-curl "https://dev.powernode.org/api/v1/ai/agents/{AGENT_ID}/context/search?query=preference" \
+curl "https://<your-proxy-host>/api/v1/ai/agents/{AGENT_ID}/context/search?query=preference" \
   -H "Authorization: Bearer {TOKEN}"
 ```
 
@@ -872,7 +872,7 @@ card = Ai::AgentCard.create!(
   description: agent.description,
   version: '1.0.0',
   status: 'published',
-  url: "https://dev.powernode.org/a2a/agents/#{agent.id}",
+  url: "https://<your-proxy-host>/a2a/agents/#{agent.id}",
   capabilities: {
     streaming: true,
     pushNotifications: false,
@@ -978,11 +978,11 @@ end
 ### 10.6 Test via API
 ```bash
 # Get agent's A2A card
-curl "https://dev.powernode.org/api/v1/ai/agents/{AGENT_ID}/card" \
+curl "https://<your-proxy-host>/api/v1/ai/agents/{AGENT_ID}/card" \
   -H "Authorization: Bearer {TOKEN}"
 
 # Create A2A task
-curl -X POST "https://dev.powernode.org/api/v1/ai/a2a_tasks" \
+curl -X POST "https://<your-proxy-host>/api/v1/ai/a2a_tasks" \
   -H "Authorization: Bearer {TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -992,7 +992,7 @@ curl -X POST "https://dev.powernode.org/api/v1/ai/a2a_tasks" \
   }'
 
 # Get task status
-curl "https://dev.powernode.org/api/v1/ai/a2a_tasks/{TASK_ID}" \
+curl "https://<your-proxy-host>/api/v1/ai/a2a_tasks/{TASK_ID}" \
   -H "Authorization: Bearer {TOKEN}"
 ```
 
@@ -1286,11 +1286,11 @@ trigger = Ai::WorkflowTrigger.create!(
   }
 )
 
-puts "Webhook URL: https://dev.powernode.org/webhooks/ai/workflows/#{trigger.id}"
+puts "Webhook URL: https://<your-proxy-host>/webhooks/ai/workflows/#{trigger.id}"
 puts "Secret: #{trigger.configuration['secret_token']}"
 
 # Test webhook (from external system)
-# curl -X POST "https://dev.powernode.org/webhooks/ai/workflows/{TRIGGER_ID}" \
+# curl -X POST "https://<your-proxy-host>/webhooks/ai/workflows/{TRIGGER_ID}" \
 #   -H "X-Signature: {computed_signature}" \
 #   -d '{"event": "new_ticket", "data": {...}}'
 ```
@@ -1358,7 +1358,7 @@ git_trigger = Ai::WorkflowTrigger.create!(
 ### 12.5 API Trigger
 ```bash
 # Test manual API trigger
-curl -X POST "https://dev.powernode.org/api/v1/ai/workflows/{WORKFLOW_ID}/execute" \
+curl -X POST "https://<your-proxy-host>/api/v1/ai/workflows/{WORKFLOW_ID}/execute" \
   -H "Authorization: Bearer {TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -1685,15 +1685,15 @@ moderation.update!(
 ### 14.6 Test via API
 ```bash
 # Browse marketplace
-curl "https://dev.powernode.org/api/v1/ai/marketplace?category=agents&sort=popular" \
+curl "https://<your-proxy-host>/api/v1/ai/marketplace?category=agents&sort=popular" \
   -H "Authorization: Bearer {TOKEN}"
 
 # Get item details
-curl "https://dev.powernode.org/api/v1/ai/marketplace/items/{ITEM_ID}" \
+curl "https://<your-proxy-host>/api/v1/ai/marketplace/items/{ITEM_ID}" \
   -H "Authorization: Bearer {TOKEN}"
 
 # Purchase item
-curl -X POST "https://dev.powernode.org/api/v1/ai/marketplace/items/{ITEM_ID}/purchase" \
+curl -X POST "https://<your-proxy-host>/api/v1/ai/marketplace/items/{ITEM_ID}/purchase" \
   -H "Authorization: Bearer {TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"payment_method_id": "pm_xxx"}'
@@ -1855,21 +1855,21 @@ puts "ROI: #{metric.values['roi_percent']}%"
 ### 15.8 Test via API
 ```bash
 # Get credit balance
-curl "https://dev.powernode.org/api/v1/ai/credits/balance" \
+curl "https://<your-proxy-host>/api/v1/ai/credits/balance" \
   -H "Authorization: Bearer {TOKEN}"
 
 # Get credit packs
-curl "https://dev.powernode.org/api/v1/ai/credits/packs" \
+curl "https://<your-proxy-host>/api/v1/ai/credits/packs" \
   -H "Authorization: Bearer {TOKEN}"
 
 # Purchase credits
-curl -X POST "https://dev.powernode.org/api/v1/ai/credits/purchase" \
+curl -X POST "https://<your-proxy-host>/api/v1/ai/credits/purchase" \
   -H "Authorization: Bearer {TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"pack_id": "{PACK_ID}", "payment_method_id": "pm_xxx"}'
 
 # Get usage history
-curl "https://dev.powernode.org/api/v1/ai/credits/transactions?page=1" \
+curl "https://<your-proxy-host>/api/v1/ai/credits/transactions?page=1" \
   -H "Authorization: Bearer {TOKEN}"
 ```
 
@@ -2044,7 +2044,7 @@ classification = Ai::DataClassification.create!(
 ### 16.8 Test via API
 ```bash
 # Create knowledge base
-curl -X POST "https://dev.powernode.org/api/v1/ai/knowledge_bases" \
+curl -X POST "https://<your-proxy-host>/api/v1/ai/knowledge_bases" \
   -H "Authorization: Bearer {TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -2053,7 +2053,7 @@ curl -X POST "https://dev.powernode.org/api/v1/ai/knowledge_bases" \
   }'
 
 # Add document
-curl -X POST "https://dev.powernode.org/api/v1/ai/knowledge_bases/{KB_ID}/documents" \
+curl -X POST "https://<your-proxy-host>/api/v1/ai/knowledge_bases/{KB_ID}/documents" \
   -H "Authorization: Bearer {TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -2063,7 +2063,7 @@ curl -X POST "https://dev.powernode.org/api/v1/ai/knowledge_bases/{KB_ID}/docume
   }'
 
 # RAG query
-curl -X POST "https://dev.powernode.org/api/v1/ai/rag/query" \
+curl -X POST "https://<your-proxy-host>/api/v1/ai/rag/query" \
   -H "Authorization: Bearer {TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -2343,15 +2343,15 @@ end
 ### 17.5 Test via API
 ```bash
 # Get monitoring dashboard
-curl "https://dev.powernode.org/api/v1/ai/monitoring/dashboard" \
+curl "https://<your-proxy-host>/api/v1/ai/monitoring/dashboard" \
   -H "Authorization: Bearer {TOKEN}"
 
 # Get execution trace
-curl "https://dev.powernode.org/api/v1/ai/execution_traces/{TRACE_ID}" \
+curl "https://<your-proxy-host>/api/v1/ai/execution_traces/{TRACE_ID}" \
   -H "Authorization: Bearer {TOKEN}"
 
 # Get AIOps metrics
-curl "https://dev.powernode.org/api/v1/ai/aiops/metrics?period=24h" \
+curl "https://<your-proxy-host>/api/v1/ai/aiops/metrics?period=24h" \
   -H "Authorization: Bearer {TOKEN}"
 ```
 
@@ -2503,7 +2503,7 @@ puts "Sandbox cleaned up"
 ### 18.8 Test via API
 ```bash
 # Create sandbox
-curl -X POST "https://dev.powernode.org/api/v1/ai/sandboxes" \
+curl -X POST "https://<your-proxy-host>/api/v1/ai/sandboxes" \
   -H "Authorization: Bearer {TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -2513,13 +2513,13 @@ curl -X POST "https://dev.powernode.org/api/v1/ai/sandboxes" \
   }'
 
 # Deploy agent to sandbox
-curl -X POST "https://dev.powernode.org/api/v1/ai/sandboxes/{SANDBOX_ID}/deploy_agent" \
+curl -X POST "https://<your-proxy-host>/api/v1/ai/sandboxes/{SANDBOX_ID}/deploy_agent" \
   -H "Authorization: Bearer {TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"agent_id": "{AGENT_ID}"}'
 
 # Execute in sandbox
-curl -X POST "https://dev.powernode.org/api/v1/ai/sandboxes/{SANDBOX_ID}/execute" \
+curl -X POST "https://<your-proxy-host>/api/v1/ai/sandboxes/{SANDBOX_ID}/execute" \
   -H "Authorization: Bearer {TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -2609,11 +2609,11 @@ optimizer.apply_recommendations(recommendations.select { |r| r[:auto_apply] })
 ### 19.5 Test via API
 ```bash
 # Get routing rules
-curl "https://dev.powernode.org/api/v1/ai/model_router/rules" \
+curl "https://<your-proxy-host>/api/v1/ai/model_router/rules" \
   -H "Authorization: Bearer {TOKEN}"
 
 # Test routing decision
-curl -X POST "https://dev.powernode.org/api/v1/ai/model_router/route" \
+curl -X POST "https://<your-proxy-host>/api/v1/ai/model_router/route" \
   -H "Authorization: Bearer {TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -2742,15 +2742,15 @@ end
 ### 20.7 Test via API
 ```bash
 # Validate workflow
-curl -X POST "https://dev.powernode.org/api/v1/ai/workflows/{WORKFLOW_ID}/validate" \
+curl -X POST "https://<your-proxy-host>/api/v1/ai/workflows/{WORKFLOW_ID}/validate" \
   -H "Authorization: Bearer {TOKEN}"
 
 # Auto-fix workflow
-curl -X POST "https://dev.powernode.org/api/v1/ai/workflows/{WORKFLOW_ID}/auto_fix" \
+curl -X POST "https://<your-proxy-host>/api/v1/ai/workflows/{WORKFLOW_ID}/auto_fix" \
   -H "Authorization: Bearer {TOKEN}"
 
 # Get circuit breaker status
-curl "https://dev.powernode.org/api/v1/ai/workflows/{WORKFLOW_ID}/circuit_breaker" \
+curl "https://<your-proxy-host>/api/v1/ai/workflows/{WORKFLOW_ID}/circuit_breaker" \
   -H "Authorization: Bearer {TOKEN}"
 ```
 

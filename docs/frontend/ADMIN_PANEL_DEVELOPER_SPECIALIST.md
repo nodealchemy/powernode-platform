@@ -1,6 +1,6 @@
 ---
-Last Updated: 2026-01-17
-Platform Version: 1.0.0
+Last Updated: 2026-02-28
+Platform Version: 0.3.1
 ---
 
 # Admin Panel Developer Specialist Guide

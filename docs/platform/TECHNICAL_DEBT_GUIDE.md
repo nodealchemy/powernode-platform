@@ -1,5 +1,7 @@
 # Technical Debt Guide
 
+> **Staleness Warning (2026-02-28)**: This document was last audited in Jan 2026. Several items are now resolved (e.g., 2FA is fully implemented, monitoring services consolidated). The counts and priorities below should be verified against the current codebase before acting on them.
+
 **Comprehensive tracking, deprecation plans, and type improvements**
 
 ---
@@ -27,7 +29,7 @@
 | Metric | Count |
 |--------|-------|
 | **Total Items** | 59 |
-| **Critical (Security)** | 2 |
+| **Critical (Security)** | 1 (2FA resolved) |
 | **High Priority** | 8 |
 | **Medium Priority** | 38 |
 | **Low Priority** | 11 |
@@ -55,7 +57,7 @@
 ## Priority Categories
 
 ### Immediate Action Required
-1. **Two-Factor Authentication** - Critical security feature
+1. ~~**Two-Factor Authentication**~~ ✅ Resolved — fully implemented
 2. **Worker Service Authentication** - Security vulnerability
 3. **Missing Backend Integration** - Core functionality gaps
 4. **Worker Activity Logging Fix** - Currently disabled
@@ -125,15 +127,11 @@ avgResponseTime: '45ms'
 
 ## High Priority: Security & Authentication
 
-### Two-Factor Authentication
+### ~~Two-Factor Authentication~~ ✅ RESOLVED
 
-**File**: `server/app/controllers/api/v1/settings_controller.rb` (line 178)
-```ruby
-two_factor_enabled: false, # TODO: Implement 2FA
-```
-- **Impact**: No two-factor authentication option
-- **Effort**: Large - Full 2FA implementation required
-- **Priority**: High (security feature)
+~~**File**: `server/app/controllers/api/v1/settings_controller.rb`~~
+- **Status**: Fully implemented via `two_factors_controller.rb` with TOTP, backup codes, and setup verification
+- **Resolved**: 2FA is production-ready with enable/disable/verify/backup-codes endpoints
 
 ### Worker Authentication
 

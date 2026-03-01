@@ -69,11 +69,11 @@ cd server && pkill -f rspec 2>/dev/null; bundle exec rspec --format progress
 # Frontend tests
 cd frontend && CI=true npm test
 
-# E2E tests
-cd frontend && npm run cypress:run
+# E2E tests (Playwright)
+cd frontend && npx playwright test
 
 # Type checking
-cd frontend && npm run typecheck
+cd frontend && npx tsc --noEmit
 ```
 
 ## Key Files to Know
@@ -173,7 +173,7 @@ powernode-platform/
 │   │   ├── features/    # Feature modules
 │   │   ├── pages/       # Page components
 │   │   └── shared/      # Shared utilities
-│   └── cypress/         # E2E tests
+│   └── e2e/             # E2E tests (Playwright)
 │
 ├── worker/          # Sidekiq background jobs
 │   └── app/jobs/        # Job classes
