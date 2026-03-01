@@ -33,6 +33,7 @@ Before writing any code:
 | State management | `platform.query_learnings` query: "state management" — known patterns and anti-patterns |
 | Form implementation | `platform.search_knowledge` query: "form patterns" |
 | AI feature UI | `platform.search_knowledge_graph` query: "AI frontend" — entity relationships, page structure |
+| Autonomy dashboard/panels | `platform.search_knowledge` query: "autonomy dashboard" |
 | Admin panel | `platform.search_knowledge` query: "admin panel" |
 | API hooks / data fetching | `platform.query_learnings` query: "React hooks" — established fetch patterns |
 | Agent/team/workflow UI | `platform.get_agent` / `platform.get_team` / `platform.get_workflow` — understand data shapes |
@@ -68,6 +69,7 @@ Query MCP first. Use these files when MCP returns no relevant results:
 | Forms | `platform.search_knowledge` query: "form patterns" | [FORM_PATTERNS.md](../docs/frontend/FORM_PATTERNS.md) |
 | State management | `platform.query_learnings` query: "state management" | [STATE_MANAGEMENT_GUIDE.md](../docs/frontend/STATE_MANAGEMENT_GUIDE.md) |
 | `features/admin/*` | `platform.search_knowledge` query: "admin panel" | [ADMIN_PANEL_DEVELOPER_SPECIALIST.md](../docs/frontend/ADMIN_PANEL_DEVELOPER_SPECIALIST.md) |
+| `features/ai/autonomy/*` | `platform.search_knowledge` query: "AI autonomy frontend" | [AGENT_AUTONOMY_GUIDE.md](../docs/platform/AGENT_AUTONOMY_GUIDE.md) |
 
 ## Frontend-Relevant MCP Tools
 

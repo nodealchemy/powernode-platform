@@ -8,6 +8,7 @@ Sidekiq standalone worker for Powernode.
 - API-only communication with server
 - `Rails.logger` - no puts/print
 - `# frozen_string_literal: true` pragma required
+- All AI execution jobs MUST include `AiSuspensionCheckConcern` for kill switch compliance
 
 ## MCP-First Worker Workflow
 
@@ -23,6 +24,7 @@ Sidekiq standalone worker for Powernode.
 | Billing/payment jobs | `platform.search_knowledge` query: "billing jobs" |
 | Job error handling | `platform.query_learnings` query: "Sidekiq error handling" — known failure modes |
 | Job scheduling | `platform.query_learnings` query: "job scheduling" — cron patterns, race conditions |
+| Autonomy maintenance jobs | `platform.search_knowledge` query: "autonomy jobs" — escalation timeout, goal maintenance, observation pipeline |
 
 ### During Work
 

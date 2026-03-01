@@ -366,6 +366,25 @@ All `platform.*` tools organized by development task. Full parameter docs: [MCP_
 | `delete_skill` | Remove a skill |
 | `toggle_skill` | Enable or disable a skill |
 
+### AI Autonomy & Safety (16 tools)
+| Tool | Description |
+|------|-------------|
+| `emergency_halt` | Emergency halt ALL AI activity (kill switch) |
+| `emergency_resume` | Resume AI activity after emergency halt |
+| `kill_switch_status` | Check current kill switch state |
+| `create_agent_goal` | Create a goal for an agent (self or managed) |
+| `list_agent_goals` | List an agent's goals (introspection) |
+| `update_agent_goal` | Update goal progress or status |
+| `agent_introspect` | View own execution history, trust score, performance, and budget |
+| `propose_feature` | Create a feature suggestion for human review |
+| `send_proactive_notification` | Notify users about detected issues or suggestions |
+| `discover_claude_sessions` | Find active Claude Code MCP client sessions |
+| `request_code_change` | Request code changes via workspace message |
+| `create_proposal` | Formally propose a change for human review |
+| `escalate` | Structured escalation when stuck or encountering issues |
+| `request_feedback` | Request user feedback on completed work |
+| `report_issue` | Report a detected platform issue |
+
 ### DevOps & CI/CD (5 tools)
 | Tool | Description |
 |------|-------------|
@@ -390,6 +409,12 @@ The platform runs automated maintenance (see `worker/config/sidekiq.yml`). Claud
 | Trust score decay | 2:00 AM daily | Decays idle agent trust scores |
 | Skill lifecycle | 4:15 AM daily / 5 AM weekly / 3 AM monthly | Conflict scan, stale decay, re-embedding, gap detection |
 | Shared knowledge maintenance | Daily | Import from learnings, recalculate quality scores, audit stale entries |
+| Escalation timeout | Every 15 min | Auto-escalate overdue escalations |
+| Goal maintenance | Every 6 hours | Auto-abandon stale goals |
+| Intervention policy tuning | Weekly | Analyze approval patterns and suggest policy adjustments |
+| Observation pipeline | Every 30 min | Collect sensor data for autonomous agents |
+| Observation cleanup | Daily | Delete expired and old processed observations |
+| Proposal expiry | Every hour | Expire overdue unreviewed proposals |
 
 ### Manual (Claude Code responsibilities)
 | Trigger | Action | Tool |
