@@ -1,6 +1,6 @@
 ---
 Last Updated: 2026-02-28
-Platform Version: 0.3.0
+Platform Version: 0.3.1
 ---
 
 # UI Component Developer Specialist Guide
