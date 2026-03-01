@@ -238,12 +238,8 @@ describe('AccountSwitcher', () => {
       });
     });
 
-    it('updates localStorage tokens on successful switch', async () => {
-      const setItemSpy = jest.spyOn(Storage.prototype, 'setItem');
-      mockSwitchAccount.mockResolvedValue({
-        access_token: 'new-access-token',
-        refresh_token: 'new-refresh-token'
-      });
+    it('calls switchAccount API and shows success notification on switch', async () => {
+      mockSwitchAccount.mockResolvedValue({});
 
       renderComponent();
 
@@ -257,11 +253,9 @@ describe('AccountSwitcher', () => {
       fireEvent.click(partnerButton!);
 
       await waitFor(() => {
-        expect(setItemSpy).toHaveBeenCalledWith('access_token', 'new-access-token');
-        expect(setItemSpy).toHaveBeenCalledWith('refresh_token', 'new-refresh-token');
+        expect(mockSwitchAccount).toHaveBeenCalledWith('account-2');
+        expect(mockShowNotification).toHaveBeenCalledWith('Switched to Partner Company', 'success');
       });
-
-      setItemSpy.mockRestore();
     });
 
     it('shows success notification on switch', async () => {

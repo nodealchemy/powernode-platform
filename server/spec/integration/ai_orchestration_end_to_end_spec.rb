@@ -84,6 +84,7 @@ RSpec.describe 'AI Orchestration End-to-End Integration', type: :request do
 
     # Grant permissions
     allow_any_instance_of(Api::V1::Ai::ProvidersController).to receive(:require_permission).and_return(true)
+    allow_any_instance_of(Api::V1::Ai::ProviderCredentialsController).to receive(:require_permission).and_return(true)
     allow_any_instance_of(Api::V1::Ai::AgentsController).to receive(:require_permission).and_return(true)
     allow_any_instance_of(Api::V1::Ai::WorkflowsController).to receive(:require_permission).and_return(true)
   end

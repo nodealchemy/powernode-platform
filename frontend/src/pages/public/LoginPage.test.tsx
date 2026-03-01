@@ -49,13 +49,29 @@ describe('LoginPage', () => {
       expect(screen.getByText('Forgot password?').closest('a')).toHaveAttribute('href', '/forgot-password');
     });
 
-    it('renders create account link', () => {
+    it('renders create account link when registration enabled', () => {
+      const stateWithRegistration = {
+        ...mockUnauthenticatedState,
+        config: {
+          ...mockUnauthenticatedState.config,
+          registrationEnabled: true,
+        },
+      };
+
       renderWithProviders(<LoginPage />, {
-        preloadedState: mockUnauthenticatedState,
+        preloadedState: stateWithRegistration,
       });
 
       expect(screen.getByText('Create your account')).toBeInTheDocument();
       expect(screen.getByText('Create your account').closest('a')).toHaveAttribute('href', '/plans');
+    });
+
+    it('hides create account link when registration disabled', () => {
+      renderWithProviders(<LoginPage />, {
+        preloadedState: mockUnauthenticatedState,
+      });
+
+      expect(screen.queryByText('Create your account')).not.toBeInTheDocument();
     });
 
     it('renders remember me checkbox', () => {
@@ -196,8 +212,16 @@ describe('LoginPage', () => {
     });
 
     it('links to plans page from create account', () => {
+      const stateWithRegistration = {
+        ...mockUnauthenticatedState,
+        config: {
+          ...mockUnauthenticatedState.config,
+          registrationEnabled: true,
+        },
+      };
+
       renderWithProviders(<LoginPage />, {
-        preloadedState: mockUnauthenticatedState,
+        preloadedState: stateWithRegistration,
       });
 
       const createAccountLink = screen.getByText('Create your account').closest('a');

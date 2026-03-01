@@ -9,6 +9,15 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
   })
 }));
 
+// Mock AgentSkillsSection to avoid React Query dependency (useSkillGraph)
+jest.mock('./AgentSkillsSection', () => ({
+  AgentSkillsSection: ({ assignedSkills, loadingSkills }: any) => (
+    <div data-testid="agent-skills-section">
+      {loadingSkills ? 'Loading skills...' : `${assignedSkills?.length || 0} assigned skills`}
+    </div>
+  ),
+}));
+
 jest.mock('@/shared/services/ai', () => ({
   agentsApi: {
     updateAgent: jest.fn(),

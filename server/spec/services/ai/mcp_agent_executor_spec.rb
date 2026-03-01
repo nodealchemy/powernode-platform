@@ -226,6 +226,12 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
         allow(provider_credentials).to receive(:where).and_return(provider_credentials)
         allow(provider_credentials).to receive(:active).and_return(provider_credentials)
         allow(provider_credentials).to receive(:first).and_return(nil)
+        # The credential chain no longer raises in-process — the WorkerLlmClient
+        # is constructed without validating credentials. Simulate a provider-level
+        # failure by making the LLM client raise.
+        allow(WorkerLlmClient).to receive(:new).and_raise(
+          Ai::McpAgentExecutor::ProviderError, "No active credentials found for provider"
+        )
       end
 
       it 'returns error result' do

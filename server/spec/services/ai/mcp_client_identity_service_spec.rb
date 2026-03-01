@@ -41,15 +41,14 @@ RSpec.describe Ai::McpClientIdentityService do
       expect(first).to equal(second)
     end
 
-    it "never reuses an existing agent — always creates fresh" do
+    it "reuses an existing active agent for the same OAuth application" do
       first_service = described_class.new(account: account, user: user, doorkeeper_token: doorkeeper_token)
       first_agent = first_service.resolve_agent
 
       second_service = described_class.new(account: account, user: user, doorkeeper_token: doorkeeper_token)
       second_agent = second_service.resolve_agent
 
-      expect(second_agent.id).not_to eq(first_agent.id)
-      expect(second_agent.name).to eq("Claude Code #2")
+      expect(second_agent.id).to eq(first_agent.id)
     end
 
     it "increments sequence even when prior agents are archived" do

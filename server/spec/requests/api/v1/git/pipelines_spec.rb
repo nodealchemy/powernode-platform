@@ -12,7 +12,7 @@ RSpec.describe 'Api::V1::Git::Pipelines', type: :request do
 
   let(:provider) { create(:git_provider, :github) }
   let(:credential) { create(:git_provider_credential, account: account, provider: provider) }
-  let(:repository) { create(:git_repository, account: account, provider: provider, credential: credential) }
+  let(:repository) { create(:git_repository, account: account, credential: credential) }
 
   describe 'GET /api/v1/git/pipelines' do
     let(:headers) { auth_headers_for(user_with_read_permission) }
@@ -49,7 +49,7 @@ RSpec.describe 'Api::V1::Git::Pipelines', type: :request do
       end
 
       it 'filters by repository_id' do
-        other_repo = create(:git_repository, account: account, provider: provider, credential: credential)
+        other_repo = create(:git_repository, account: account, credential: credential)
         create(:git_pipeline, account: account, repository: other_repo)
 
         get '/api/v1/git/pipelines',
@@ -158,7 +158,7 @@ RSpec.describe 'Api::V1::Git::Pipelines', type: :request do
       let(:other_account) { create(:account) }
       let(:other_provider) { create(:git_provider) }
       let(:other_credential) { create(:git_provider_credential, account: other_account, provider: other_provider) }
-      let(:other_repo) { create(:git_repository, account: other_account, provider: other_provider, credential: other_credential) }
+      let(:other_repo) { create(:git_repository, account: other_account, credential: other_credential) }
       let(:other_pipeline) { create(:git_pipeline, account: other_account, repository: other_repo) }
 
       it 'returns not found error' do

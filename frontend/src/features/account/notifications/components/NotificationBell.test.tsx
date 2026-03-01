@@ -12,6 +12,20 @@ const mockMarkAsRead = jest.fn();
 const mockDismiss = jest.fn();
 const mockMarkAllAsRead = jest.fn();
 
+// Mock ChatWindowContext used by NotificationBell
+jest.mock('@/features/ai/chat/context/ChatWindowContext', () => ({
+  useChatWindow: () => ({
+    openConversationMaximized: jest.fn(),
+  }),
+}));
+
+// Mock notification WebSocket
+jest.mock('@/shared/hooks/useNotificationWebSocket', () => ({
+  useNotificationWebSocket: () => ({
+    isConnected: false,
+  }),
+}));
+
 jest.mock('../services/notificationApi', () => ({
   notificationApi: {
     getNotifications: (...args: any[]) => mockGetNotifications(...args),

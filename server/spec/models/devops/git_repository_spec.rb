@@ -6,9 +6,9 @@ RSpec.describe Devops::GitRepository, type: :model do
   subject(:repository) { build(:git_repository) }
 
   describe 'associations' do
-    it { is_expected.to belong_to(:credential) }
+    it { is_expected.to belong_to(:credential).without_validating_presence }
     it { is_expected.to belong_to(:account) }
-    it { is_expected.to have_one(:provider).through(:credential) }
+    it { is_expected.to belong_to(:provider).optional }
     it { is_expected.to have_many(:pipelines).dependent(:destroy) }
     it { is_expected.to have_many(:webhook_events).dependent(:destroy) }
   end

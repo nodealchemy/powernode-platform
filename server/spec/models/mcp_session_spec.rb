@@ -264,6 +264,7 @@ RSpec.describe McpSession, type: :model do
 
     it "expires older sessions for the same user" do
       old_session = McpSession.create!(user: user, account: account)
+      old_session.update_columns(last_activity_at: 10.minutes.ago)
       new_session = McpSession.create!(user: user, account: account)
 
       new_session.expire_previous_sessions!
@@ -283,6 +284,7 @@ RSpec.describe McpSession, type: :model do
     it "triggers the deactivate_agent_on_end callback" do
       agent = create(:ai_agent, :mcp_client, account: account, provider: provider)
       old_session = McpSession.create!(user: user, account: account, ai_agent_id: agent.id)
+      old_session.update_columns(last_activity_at: 10.minutes.ago)
       new_session = McpSession.create!(user: user, account: account)
 
       new_session.expire_previous_sessions!
@@ -294,7 +296,9 @@ RSpec.describe McpSession, type: :model do
       app2 = create(:oauth_application, :mcp_client)
 
       session_app1 = McpSession.create!(user: user, account: account, oauth_application_id: app1.id)
+      session_app1.update_columns(last_activity_at: 10.minutes.ago)
       session_app2 = McpSession.create!(user: user, account: account, oauth_application_id: app2.id)
+      session_app2.update_columns(last_activity_at: 10.minutes.ago)
       new_session = McpSession.create!(user: user, account: account, oauth_application_id: app1.id)
 
       new_session.expire_previous_sessions!
@@ -317,9 +321,11 @@ RSpec.describe McpSession, type: :model do
       expect(agent.reload.status).to eq("archived")
     end
 
-    it "fires when session is revoked" do
+    it "fires when session is revoked past the reconnect grace period" do
       agent = create(:ai_agent, :mcp_client, account: account, provider: provider)
       mcp_session = McpSession.create!(user: user, account: account, ai_agent_id: agent.id)
+      # Stub reactivatable? to simulate the grace period having expired
+      allow(mcp_session).to receive(:reactivatable?).and_return(false)
 
       mcp_session.revoke!
       expect(agent.reload.status).to eq("archived")

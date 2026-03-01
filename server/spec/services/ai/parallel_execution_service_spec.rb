@@ -130,9 +130,7 @@ RSpec.describe Ai::ParallelExecutionService, type: :service do
       end
 
       it 'enqueues cleanup job when auto_cleanup is enabled' do
-        expect {
-          service.cancel_session(session_id: session.id, reason: 'User requested')
-        }
+        service.cancel_session(session_id: session.id, reason: 'User requested')
         expect(WorkerJobService).to have_received(:enqueue_ai_worktree_cleanup).with(session.id)
       end
     end
@@ -179,9 +177,7 @@ RSpec.describe Ai::ParallelExecutionService, type: :service do
       end
 
       it 'does not enqueue MergeExecutionJob' do
-        expect {
-          service.worktree_completed(worktree_id: worktree1.id, result: completion_result)
-        }
+        service.worktree_completed(worktree_id: worktree1.id, result: completion_result)
         expect(WorkerJobService).not_to have_received(:enqueue_ai_merge_execution)
       end
     end
@@ -201,9 +197,7 @@ RSpec.describe Ai::ParallelExecutionService, type: :service do
       end
 
       it 'enqueues MergeExecutionJob' do
-        expect {
-          service.worktree_completed(worktree_id: worktree1.id, result: completion_result)
-        }
+        service.worktree_completed(worktree_id: worktree1.id, result: completion_result)
         expect(WorkerJobService).to have_received(:enqueue_ai_merge_execution).with(session.id)
       end
     end

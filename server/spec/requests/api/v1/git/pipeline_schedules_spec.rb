@@ -258,6 +258,7 @@ RSpec.describe 'Api::V1::Git::PipelineSchedules', type: :request do
     context 'with proper permissions' do
       before do
         allow_any_instance_of(Devops::GitProviderCredential).to receive(:can_be_used?).and_return(true)
+        allow_any_instance_of(Devops::GitPipelineSchedule).to receive(:git_provider).and_return(double(provider_type: 'github'))
         allow(Devops::Git::ApiClient).to receive(:for).and_return(double(trigger_workflow: { success: true, id: 'pipeline-123' }))
       end
 

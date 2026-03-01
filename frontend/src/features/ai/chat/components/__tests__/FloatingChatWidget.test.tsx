@@ -42,9 +42,11 @@ const renderWidget = (
   user?: MockUser
 ) => {
   const mockSetMode = jest.fn<void, [ChatWindowMode]>();
+  const mockOpenConcierge = jest.fn().mockResolvedValue(undefined);
   mockedUseChatWindow.mockReturnValue({
     state: createMockState(stateOverrides),
     setMode: mockSetMode,
+    openConcierge: mockOpenConcierge,
     dispatch: jest.fn(),
     openConversation: jest.fn(),
     openConversationMaximized: jest.fn(),
@@ -66,7 +68,7 @@ const renderWidget = (
     </Provider>
   );
 
-  return { ...result, mockSetMode };
+  return { ...result, mockSetMode, mockOpenConcierge };
 };
 
 describe('FloatingChatWidget', () => {
@@ -99,28 +101,56 @@ describe('FloatingChatWidget', () => {
     expect(screen.getByLabelText('Open AI Chat')).toBeInTheDocument();
   });
 
-  it('click opens in preferred mode when closed', () => {
-    const { mockSetMode } = renderWidget({ mode: 'closed', preferredOpenMode: 'floating' });
+  it('click opens concierge when closed with no tabs', () => {
+    const { mockOpenConcierge } = renderWidget({ mode: 'closed', tabs: [] });
+    fireEvent.click(screen.getByLabelText('Open AI Chat'));
+    expect(mockOpenConcierge).toHaveBeenCalled();
+  });
+
+  it('click opens in preferred mode when closed with existing tabs', () => {
+    const tabs = [
+      {
+        id: 'tab-1',
+        conversationId: 'conv-1',
+        agentId: 'agent-1',
+        agentName: 'Agent',
+        title: 'Chat',
+        unreadCount: 0,
+        createdAt: Date.now(),
+      },
+    ];
+    const { mockSetMode } = renderWidget({ mode: 'closed', preferredOpenMode: 'floating', tabs });
     fireEvent.click(screen.getByLabelText('Open AI Chat'));
     expect(mockSetMode).toHaveBeenCalledWith('floating');
   });
 
-  it('click opens detached when preferred mode is detached', () => {
-    const { mockSetMode } = renderWidget({ mode: 'closed', preferredOpenMode: 'detached' });
+  it('click opens detached when preferred mode is detached and has tabs', () => {
+    const tabs = [
+      {
+        id: 'tab-1',
+        conversationId: 'conv-1',
+        agentId: 'agent-1',
+        agentName: 'Agent',
+        title: 'Chat',
+        unreadCount: 0,
+        createdAt: Date.now(),
+      },
+    ];
+    const { mockSetMode } = renderWidget({ mode: 'closed', preferredOpenMode: 'detached', tabs });
     fireEvent.click(screen.getByLabelText('Open AI Chat'));
     expect(mockSetMode).toHaveBeenCalledWith('detached');
   });
 
-  it('click reopens detached window when already detached', () => {
-    const { mockSetMode } = renderWidget({ mode: 'detached' });
-    fireEvent.click(screen.getByLabelText('Open AI Chat'));
-    expect(mockSetMode).toHaveBeenCalledWith('detached');
-  });
-
-  it('click focuses floating when already floating', () => {
+  it('click closes floating when already floating', () => {
     const { mockSetMode } = renderWidget({ mode: 'floating' });
     fireEvent.click(screen.getByLabelText('Open AI Chat'));
-    expect(mockSetMode).toHaveBeenCalledWith('floating');
+    expect(mockSetMode).toHaveBeenCalledWith('closed');
+  });
+
+  it('click closes maximized when already maximized', () => {
+    const { mockSetMode } = renderWidget({ mode: 'maximized' });
+    fireEvent.click(screen.getByLabelText('Open AI Chat'));
+    expect(mockSetMode).toHaveBeenCalledWith('closed');
   });
 
   it('shows unread badge with count', () => {

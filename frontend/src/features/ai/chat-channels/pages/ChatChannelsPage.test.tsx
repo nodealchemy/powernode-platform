@@ -28,79 +28,46 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
   }),
 }));
 
-// Mock UI components
-jest.mock('@/shared/components/ui/Button', () => ({
-  Button: ({ children, onClick, variant, className }: any) => (
-    <button onClick={onClick} data-variant={variant} className={className}>
-      {children}
-    </button>
-  ),
+// Mock the split-panel child components (replaces old ChannelList/ChannelSessions/ChannelMetrics)
+const mockOnSelectChannel = jest.fn();
+
+jest.mock('../components/ChannelListPanel', () => ({
+  ChannelListPanel: ({ selectedChannelId, onSelectChannel }: any) => {
+    // Store the callback so tests can trigger channel selection
+    mockOnSelectChannel.mockImplementation(onSelectChannel);
+    return (
+      <div data-testid="channel-list-panel">
+        <span>Selected: {selectedChannelId || 'none'}</span>
+        <button
+          data-testid="select-channel-btn"
+          onClick={() =>
+            onSelectChannel({
+              id: 'channel-1',
+              name: 'Test Channel',
+              platform: 'telegram',
+              status: 'connected',
+            })
+          }
+        >
+          Select Channel
+        </button>
+      </div>
+    );
+  },
 }));
 
-// Mock child components
-jest.mock('../components/ChannelList', () => ({
-  ChannelList: ({ onSelectChannel, onSettingsChannel }: any) => (
-    <div data-testid="channel-list">
-      <button
-        data-testid="select-channel-btn"
-        onClick={() =>
-          onSelectChannel({
-            id: 'channel-1',
-            name: 'Test Channel',
-            platform: 'telegram',
-            status: 'connected',
-          })
-        }
-      >
-        Select Channel
-      </button>
-      <button
-        data-testid="settings-channel-btn"
-        onClick={() =>
-          onSettingsChannel({
-            id: 'channel-1',
-            name: 'Test Channel',
-            platform: 'telegram',
-            status: 'connected',
-          })
-        }
-      >
-        Open Settings
-      </button>
-    </div>
-  ),
-}));
-
-jest.mock('../components/ChannelSessions', () => ({
-  ChannelSessions: ({ channelId, onSelectSession }: any) => (
-    <div data-testid="channel-sessions">
-      Channel Sessions for {channelId}
-      <button onClick={onSelectSession}>Select Session</button>
-    </div>
-  ),
-}));
-
-jest.mock('../components/ChannelMetrics', () => ({
-  ChannelMetrics: ({ channelId }: any) => (
-    <div data-testid="channel-metrics">Metrics for {channelId}</div>
-  ),
-}));
-
-jest.mock('../components/SessionTransferModal', () => ({
-  SessionTransferModal: ({ isOpen }: any) =>
-    isOpen ? <div data-testid="transfer-modal">Transfer Modal</div> : null,
-}));
-
-jest.mock('../components/ChannelSettingsModal', () => ({
-  ChannelSettingsModal: ({ isOpen, channelId }: any) =>
-    isOpen ? <div data-testid="settings-modal">Settings for {channelId}</div> : null,
-}));
-
-jest.mock('../components/SessionMessages', () => ({
-  SessionMessages: ({ sessionId, onBack }: any) => (
-    <div data-testid="session-messages">
-      Messages for {sessionId}
-      <button onClick={onBack}>Back</button>
+jest.mock('../components/ChannelDetailPanel', () => ({
+  ChannelDetailPanel: ({ channel }: any) => (
+    <div data-testid="channel-detail-panel">
+      {channel ? (
+        <>
+          <span data-testid="detail-channel-name">{channel.name}</span>
+          <span data-testid="detail-channel-platform">{channel.platform}</span>
+          <span data-testid="detail-channel-status">{channel.status}</span>
+        </>
+      ) : (
+        <span data-testid="no-channel-selected">No channel selected</span>
+      )}
     </div>
   ),
 }));
@@ -131,103 +98,63 @@ describe('ChatChannelsPage', () => {
   };
 
   describe('Initial Rendering', () => {
-    it('renders the channel list by default', () => {
+    it('renders the channel list panel', () => {
       renderComponent();
 
-      expect(screen.getByTestId('channel-list')).toBeInTheDocument();
+      expect(screen.getByTestId('channel-list-panel')).toBeInTheDocument();
     });
 
-    it('does not show channel detail view initially', () => {
+    it('renders the channel detail panel', () => {
       renderComponent();
 
-      expect(screen.queryByTestId('channel-metrics')).not.toBeInTheDocument();
-      expect(screen.queryByTestId('channel-sessions')).not.toBeInTheDocument();
+      expect(screen.getByTestId('channel-detail-panel')).toBeInTheDocument();
+    });
+
+    it('shows no channel selected initially', () => {
+      renderComponent();
+
+      expect(screen.getByTestId('no-channel-selected')).toBeInTheDocument();
     });
   });
 
   describe('Channel Selection', () => {
-    it('shows channel detail view when a channel is selected', async () => {
+    it('passes selected channel to detail panel when a channel is selected', async () => {
       renderComponent();
 
       fireEvent.click(screen.getByTestId('select-channel-btn'));
 
       await waitFor(() => {
-        // Title appears in multiple places (page title + breadcrumb), so use getAllByText
-        expect(screen.getAllByText('Test Channel').length).toBeGreaterThan(0);
-        expect(screen.getByTestId('channel-metrics')).toBeInTheDocument();
-        expect(screen.getByTestId('channel-sessions')).toBeInTheDocument();
+        expect(screen.getByTestId('detail-channel-name')).toHaveTextContent('Test Channel');
       });
     });
 
-    it('displays channel platform and status in detail view', async () => {
+    it('displays channel platform in detail panel', async () => {
       renderComponent();
 
       fireEvent.click(screen.getByTestId('select-channel-btn'));
 
       await waitFor(() => {
-        expect(screen.getByText(/telegram/i)).toBeInTheDocument();
-        expect(screen.getByText(/connected/i)).toBeInTheDocument();
+        expect(screen.getByTestId('detail-channel-platform')).toHaveTextContent('telegram');
       });
     });
 
-    it('passes correct channelId to child components', async () => {
+    it('displays channel status in detail panel', async () => {
       renderComponent();
 
       fireEvent.click(screen.getByTestId('select-channel-btn'));
 
       await waitFor(() => {
-        expect(screen.getByText('Metrics for channel-1')).toBeInTheDocument();
-        expect(screen.getByText('Channel Sessions for channel-1')).toBeInTheDocument();
+        expect(screen.getByTestId('detail-channel-status')).toHaveTextContent('connected');
       });
     });
-  });
 
-  describe('Navigation', () => {
-    it('returns to channel list when back button is clicked', async () => {
+    it('passes selected channel id to list panel', async () => {
       renderComponent();
 
-      // Select a channel
       fireEvent.click(screen.getByTestId('select-channel-btn'));
 
       await waitFor(() => {
-        expect(screen.getByTestId('channel-metrics')).toBeInTheDocument();
-      });
-
-      // Click back button (component uses "Back to List")
-      fireEvent.click(screen.getByText('Back to List'));
-
-      await waitFor(() => {
-        expect(screen.getByTestId('channel-list')).toBeInTheDocument();
-        expect(screen.queryByTestId('channel-metrics')).not.toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('Settings Modal', () => {
-    it('opens settings modal from channel list', async () => {
-      renderComponent();
-
-      fireEvent.click(screen.getByTestId('settings-channel-btn'));
-
-      await waitFor(() => {
-        expect(screen.getByTestId('settings-modal')).toBeInTheDocument();
-      });
-    });
-
-    it('opens settings modal from channel detail view', async () => {
-      renderComponent();
-
-      // Select a channel first
-      fireEvent.click(screen.getByTestId('select-channel-btn'));
-
-      await waitFor(() => {
-        expect(screen.getByText('Settings')).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByText('Settings'));
-
-      await waitFor(() => {
-        expect(screen.getByTestId('settings-modal')).toBeInTheDocument();
+        expect(screen.getByText('Selected: channel-1')).toBeInTheDocument();
       });
     });
   });
