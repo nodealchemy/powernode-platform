@@ -140,6 +140,67 @@ RSpec.describe "AI Concierge Conversations", type: :request do
       expect(data["user_message"]).to be_present
     end
 
+    context "workspace mention segmentation" do
+      let(:workspace_team) { create(:ai_agent_team, :workspace, account: account) }
+      let(:cc2) { create(:ai_agent, :mcp_client, account: account, provider: provider, name: "Claude Code (powernode) #2") }
+      let(:workspace_conversation) do
+        create(:ai_conversation, account: account, user: user, agent: concierge_agent,
+               agent_team: workspace_team, conversation_type: "team", status: "active")
+      end
+
+      before do
+        create(:ai_agent_team_member, team: workspace_team, agent: concierge_agent, role: "facilitator")
+        create(:ai_agent_team_member, team: workspace_team, agent: cc2, role: "executor")
+      end
+
+      it "always triggers concierge even when other agents are @mentioned" do
+        expect_any_instance_of(Ai::ConciergeService).to receive(:process_message).with(anything)
+
+        post "/api/v1/ai/agents/#{concierge_agent.id}/conversations/#{workspace_conversation.id}/send_message",
+          params: { message: {
+            content: "@Claude Code (powernode) #2 check the logs",
+            metadata: { mentions: [{ id: cc2.id, name: cc2.name }] }
+          } }.to_json,
+          headers: headers
+
+        expect(response).to have_http_status(:ok)
+        expect(json_response_data["concierge_routed"]).to eq(true)
+      end
+
+      it "stores mention_segments in message content_metadata" do
+        post "/api/v1/ai/agents/#{concierge_agent.id}/conversations/#{workspace_conversation.id}/send_message",
+          params: { message: {
+            content: "General note, @Claude Code (powernode) #2 check the deployment",
+            metadata: { mentions: [{ id: cc2.id, name: cc2.name }] }
+          } }.to_json,
+          headers: headers
+
+        user_msg = workspace_conversation.messages.where(role: "user").last
+        segments = user_msg.content_metadata["mention_segments"]
+
+        expect(segments).to be_present
+        expect(segments["preamble"]).to eq("General note,")
+        expect(segments["segments"][cc2.id]).to eq("check the deployment")
+      end
+
+      it "dispatches to mentioned workspace agents" do
+        allow(WorkerJobService).to receive(:enqueue_workspace_response)
+        # Stub concierge to create a response message
+        allow_any_instance_of(Ai::ConciergeService).to receive(:process_message) do |svc|
+          workspace_conversation.add_assistant_message("Acknowledged.")
+        end
+
+        post "/api/v1/ai/agents/#{concierge_agent.id}/conversations/#{workspace_conversation.id}/send_message",
+          params: { message: {
+            content: "@Claude Code (powernode) #2 check the logs",
+            metadata: { mentions: [{ id: cc2.id, name: cc2.name }] }
+          } }.to_json,
+          headers: headers
+
+        expect(response).to have_http_status(:ok)
+      end
+    end
+
     it "does not route regular agent conversations through concierge" do
       regular_agent = create(:ai_agent, account: account, provider: provider, is_concierge: false)
       regular_conv = create(:ai_conversation, account: account, user: user, agent: regular_agent, provider: provider, status: "active")

@@ -138,6 +138,37 @@ RSpec.describe McpSession, type: :model do
       end
     end
 
+    describe ".in_grace_period" do
+      it "includes sessions revoked within the grace period with valid TTL" do
+        s = McpSession.create!(user: user, account: account, status: "active", expires_at: 24.hours.from_now)
+        s.update!(status: "revoked", revoked_at: 5.minutes.ago)
+
+        expect(McpSession.in_grace_period).to include(s)
+      end
+
+      it "excludes sessions revoked past the grace period" do
+        s = McpSession.create!(user: user, account: account, status: "active", expires_at: 24.hours.from_now)
+        s.update!(status: "revoked", revoked_at: Time.current)
+        s.update_columns(revoked_at: 11.minutes.ago)
+
+        expect(McpSession.in_grace_period).not_to include(s)
+      end
+
+      it "excludes active sessions" do
+        s = McpSession.create!(user: user, account: account, status: "active", expires_at: 24.hours.from_now)
+
+        expect(McpSession.in_grace_period).not_to include(s)
+      end
+
+      it "excludes revoked sessions whose TTL has expired" do
+        s = McpSession.create!(user: user, account: account, status: "active", expires_at: 24.hours.from_now)
+        s.update!(status: "revoked", revoked_at: 5.minutes.ago)
+        s.update_columns(expires_at: 1.minute.ago)
+
+        expect(McpSession.in_grace_period).not_to include(s)
+      end
+    end
+
     describe ".stale" do
       it "returns sessions with last_activity_at older than the given duration" do
         recent_session = McpSession.create!(user: user, account: account)
@@ -281,14 +312,14 @@ RSpec.describe McpSession, type: :model do
       expect(other_session.reload.status).to eq("active")
     end
 
-    it "triggers the deactivate_agent_on_end callback" do
+    it "triggers the deactivate_agent_on_end callback (agent persists)" do
       agent = create(:ai_agent, :mcp_client, account: account, provider: provider)
       old_session = McpSession.create!(user: user, account: account, ai_agent_id: agent.id)
       old_session.update_columns(last_activity_at: 10.minutes.ago)
       new_session = McpSession.create!(user: user, account: account)
 
       new_session.expire_previous_sessions!
-      expect(agent.reload.status).to eq("archived")
+      expect(agent.reload).to be_active
     end
 
     it "scopes by oauth_application_id when present" do
@@ -313,22 +344,21 @@ RSpec.describe McpSession, type: :model do
   describe "deactivate_agent_on_end callback" do
     let(:provider) { create(:ai_provider, account: account, is_active: true) }
 
-    it "fires when session status changes to expired" do
+    it "fires when session status changes to expired — agent persists" do
       agent = create(:ai_agent, :mcp_client, account: account, provider: provider)
       mcp_session = McpSession.create!(user: user, account: account, ai_agent_id: agent.id)
 
       mcp_session.update!(status: "expired")
-      expect(agent.reload.status).to eq("archived")
+      expect(agent.reload).to be_active
     end
 
-    it "fires when session is revoked past the reconnect grace period" do
+    it "fires when session is revoked past the reconnect grace period — agent persists" do
       agent = create(:ai_agent, :mcp_client, account: account, provider: provider)
       mcp_session = McpSession.create!(user: user, account: account, ai_agent_id: agent.id)
-      # Stub reactivatable? to simulate the grace period having expired
       allow(mcp_session).to receive(:reactivatable?).and_return(false)
 
       mcp_session.revoke!
-      expect(agent.reload.status).to eq("archived")
+      expect(agent.reload).to be_active
     end
 
     it "does not fire when session remains active" do
