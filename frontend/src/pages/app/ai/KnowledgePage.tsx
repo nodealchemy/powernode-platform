@@ -18,7 +18,7 @@ const tabs = [
   { id: 'rag', label: 'RAG', icon: <Database size={16} />, path: '/rag' },
   { id: 'graph', label: 'Knowledge Graph', icon: <Share2 size={16} />, path: '/graph' },
   { id: 'memory', label: 'Memory Tiers', icon: <Layers size={16} />, path: '/memory' },
-  { id: 'learning', label: 'Learning', icon: <Lightbulb size={16} />, path: '/learning' },
+  { id: 'learning', label: 'Compound Learning', icon: <Lightbulb size={16} />, path: '/learning' },
 ];
 
 export const KnowledgePage: React.FC = () => {

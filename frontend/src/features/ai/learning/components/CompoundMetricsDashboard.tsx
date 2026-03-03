@@ -193,9 +193,23 @@ export const CompoundMetricsDashboard: React.FC = () => {
 
       {metrics.active_learnings === 0 && (
         <Card>
-          <CardContent className="p-8 text-center text-theme-muted">
-            <Award className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p>No compound learnings yet. Execute agent teams to start building knowledge.</p>
+          <CardContent className="p-8 text-center">
+            <Award className="w-12 h-12 mx-auto mb-4 text-theme-warning opacity-40" />
+            <p className="text-theme-primary font-medium mb-2">No compound learnings yet</p>
+            <p className="text-sm text-theme-muted max-w-md mx-auto mb-4">
+              Learnings are automatically extracted when agent teams execute tasks.
+              Each execution can produce insights across several categories:
+            </p>
+            <div className="flex flex-wrap justify-center gap-2 mb-4">
+              <Badge variant="info">patterns</Badge>
+              <Badge variant="success">best practices</Badge>
+              <Badge variant="warning">discoveries</Badge>
+              <Badge variant="danger">failure modes</Badge>
+            </div>
+            <p className="text-xs text-theme-muted max-w-sm mx-auto">
+              As learnings accumulate, their effectiveness is tracked and the most impactful
+              ones are promoted across teams to improve future executions.
+            </p>
           </CardContent>
         </Card>
       )}

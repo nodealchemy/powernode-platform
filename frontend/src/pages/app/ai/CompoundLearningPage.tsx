@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, ArrowUpRight } from 'lucide-react';
+import { RefreshCw, ArrowUpRight, Lightbulb } from 'lucide-react';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
@@ -17,6 +17,20 @@ interface CompoundLearningContentProps {
 export const CompoundLearningContent: React.FC<CompoundLearningContentProps> = ({ onActionsReady }) => {
   const [activeTab, setActiveTab] = useState<TabType>('metrics');
   const [refreshKey, setRefreshKey] = useState(0);
+  const { addNotification } = useNotifications();
+
+  const handlePromote = useCallback(async () => {
+    try {
+      const count = await promoteCrossTeam();
+      addNotification({
+        type: 'success',
+        message: count > 0 ? `Promoted ${count} learnings to global scope` : 'No learnings eligible for promotion',
+      });
+      setRefreshKey((k) => k + 1);
+    } catch (_error) {
+      addNotification({ type: 'error', message: 'Failed to promote learnings' });
+    }
+  }, [addNotification]);
 
   const { refreshAction } = useRefreshAction({
     onRefresh: useCallback(() => {
@@ -25,8 +39,16 @@ export const CompoundLearningContent: React.FC<CompoundLearningContentProps> = (
   });
 
   useEffect(() => {
-    onActionsReady?.([refreshAction]);
-  }, [onActionsReady, refreshAction]);
+    onActionsReady?.([
+      {
+        label: 'Promote Cross-Team',
+        onClick: handlePromote,
+        icon: ArrowUpRight,
+        variant: 'secondary' as const,
+      },
+      refreshAction,
+    ]);
+  }, [onActionsReady, refreshAction, handlePromote]);
 
   const tabs = [
     { id: 'metrics' as const, label: 'Metrics' },
@@ -35,6 +57,19 @@ export const CompoundLearningContent: React.FC<CompoundLearningContentProps> = (
 
   return (
     <>
+      <div className="rounded-lg border border-theme-border bg-theme-surface/50 p-4 mb-6">
+        <div className="flex items-start gap-3">
+          <Lightbulb className="w-5 h-5 text-theme-warning shrink-0 mt-0.5" />
+          <div className="text-sm text-theme-secondary">
+            <p className="font-medium text-theme-primary mb-1">Knowledge that compounds over time</p>
+            <p>
+              As agents execute tasks, they discover patterns, best practices, and failure modes.
+              These findings are tracked as compound learnings — their effectiveness is measured
+              across executions, and the most valuable ones are promoted for cross-team use.
+            </p>
+          </div>
+        </div>
+      </div>
       <div className="flex gap-1 mb-6 border-b border-theme-border">
         {tabs.map((tab) => (
           <button
