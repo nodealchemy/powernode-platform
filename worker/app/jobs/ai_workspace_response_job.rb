@@ -151,8 +151,9 @@ class AiWorkspaceResponseJob < BaseJob
     # Build workspace context injection
     workspace_context = build_workspace_context(conversation_data, agent)
 
-    # System prompt: agent's own prompt + workspace context
-    system_prompt = agent['system_prompt'] || ""
+    # System prompt: prefer full_system_prompt (includes skill prompts + profile),
+    # fall back to system_prompt (raw accessor) for non-skill agents
+    system_prompt = agent['full_system_prompt'].presence || agent['system_prompt'] || ""
     full_system = [workspace_context, system_prompt].reject(&:blank?).join("\n\n")
     messages << { role: 'system', content: full_system } if full_system.present?
 
@@ -208,20 +209,21 @@ class AiWorkspaceResponseJob < BaseJob
                      conversation_data&.dig('title') ||
                      "Workspace"
 
-    # Build participant list from team members if available
-    participants = []
+    # Build structured WORKSPACE MEMBERS list — matches the format referenced by
+    # skill prompts (e.g. "use EXACT name from WORKSPACE MEMBERS")
+    member_lines = []
     team_members = conversation_data&.dig('agent_team', 'members')
     if team_members.is_a?(Array)
       team_members.each do |member|
         member_agent = member['agent'] || member
         name = member_agent['name'] || 'Unknown Agent'
         agent_type = member_agent['agent_type'] || 'assistant'
-        participants << "#{name} (#{agent_type})"
+        role = member['role'] || 'member'
+        member_lines << "- #{name} (role: #{role}, type: #{agent_type})"
       end
     end
 
     agent_name = agent['name'] || 'AI Assistant'
-    participant_list = participants.any? ? participants.join(", ") : "multiple agents"
 
     # Find who sent the trigger message for @mention context
     recent = conversation_data&.dig('recent_messages') || []
@@ -229,12 +231,36 @@ class AiWorkspaceResponseJob < BaseJob
     sender_name = trigger_msg&.dig('sender_info', 'name') || trigger_msg&.dig('user') ||
                   'a participant'
 
+    # Extract targeted segment for this agent from content_metadata
+    segment_context = ""
+    if trigger_msg
+      mention_segments = trigger_msg.dig('content_metadata', 'mention_segments')
+      full_message = trigger_msg['content']
+      if mention_segments
+        agent_segment = mention_segments.dig('segments', @agent_id)
+        preamble = mention_segments['preamble']
+        if agent_segment.present?
+          segment_context = "\n\nYour TARGETED instruction: \"#{agent_segment}\""
+          segment_context += "\nGeneral context from the user: \"#{preamble}\"" if preamble.present?
+          segment_context += "\nFull message for reference: \"#{full_message}\"" if full_message.present?
+        end
+      end
+    end
+
+    members_section = if member_lines.any?
+      "WORKSPACE MEMBERS:\n#{member_lines.join("\n")}"
+    else
+      "WORKSPACE MEMBERS: (none listed)"
+    end
+
     <<~CONTEXT.strip
       You are #{agent_name}, participating in a collaborative workspace called "#{workspace_name}".
-      Other participants: #{participant_list}.
+      #{members_section}
 
-      You were @mentioned by #{sender_name}. Read the conversation history and respond
-      directly to the message that @mentioned you. Be helpful, focused, and concise.
+      You were @mentioned by #{sender_name}.#{segment_context}
+      Respond to your targeted instruction. The full message is provided for context
+      but focus your response on the instruction directed at you.
+      Be helpful, focused, and concise.
       Do NOT simulate or roleplay other participants — only respond as yourself.
     CONTEXT
   end
