@@ -5,10 +5,12 @@ import { RootState } from '@/shared/services';
 import { DashboardLayout } from '@/shared/components/layout/DashboardLayout';
 import { MetricCard } from '@/shared/components/ui/Card';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
+import { useDashboardStats } from '@/shared/hooks/useDashboardStats';
 import { featureRegistry } from '@/shared/services/featureRegistry';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { BarChart3, Users } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
+import { DashboardAIOverview } from '@/features/ai/monitoring/components/DashboardAIOverview';
 
 // Context providers used inline in route elements (must be synchronous)
 import { ClusterProvider } from '@/features/devops/swarm/context/ClusterContext';
@@ -120,10 +122,12 @@ const DockerHubPage = React.lazy(() => import('@/pages/app/devops/DockerHubPage'
 const DashboardOverview: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);
+  const { stats, loading: statsLoading, refresh: refreshStats } = useDashboardStats();
+
   // Handle websocket data updates
   const handleDataUpdate = useCallback(() => {
-    // Refresh data when receiving real-time updates
-  }, []);
+    refreshStats();
+  }, [refreshStats]);
 
   // WebSocket connection for real-time dashboard updates
   usePageWebSocket({
@@ -176,30 +180,34 @@ const DashboardOverview: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <MetricCard
             title="System Health"
-            value="100%"
+            value={statsLoading ? '...' : `${stats.systemHealth.score}%`}
             icon="✅"
-            description="All systems operational"
+            description={statsLoading ? 'Loading...' : stats.systemHealth.status === 'healthy' ? 'All systems operational' : `Status: ${stats.systemHealth.status}`}
+            onClick={() => navigate('/app/ai/observability')}
           />
 
           <MetricCard
             title="AI Agents"
-            value={0}
+            value={statsLoading ? '...' : stats.agents.total}
             icon="🤖"
-            description="Configure AI agents"
+            description={statsLoading ? 'Loading...' : stats.agents.active > 0 ? `${stats.agents.active} active` : 'Configure AI agents'}
+            onClick={() => navigate('/app/ai/agents')}
           />
 
           <MetricCard
-            title="Pipelines"
-            value={0}
+            title="Workflows"
+            value={statsLoading ? '...' : stats.workflows.total}
             icon="🔄"
-            description="Set up CI/CD pipelines"
+            description={statsLoading ? 'Loading...' : stats.workflows.active > 0 ? `${stats.workflows.active} active` : 'Set up AI workflows'}
+            onClick={() => navigate('/app/ai/workflows')}
           />
 
           <MetricCard
             title="Repositories"
-            value={0}
+            value={statsLoading ? '...' : stats.repositories}
             icon="📦"
-            description="Connect your repos"
+            description={statsLoading ? 'Loading...' : stats.repositories > 0 ? `${stats.repositories} connected` : 'Connect your repos'}
+            onClick={() => navigate('/app/devops/source-control')}
           />
         </div>
 
@@ -318,6 +326,9 @@ const DashboardOverview: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* AI Platform Overview */}
+      <DashboardAIOverview stats={stats} loading={statsLoading} />
 
       {/* System Status Alert */}
       <div className="alert-theme alert-theme-success">
