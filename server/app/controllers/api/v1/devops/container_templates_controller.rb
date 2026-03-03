@@ -5,8 +5,9 @@ module Api
     module Devops
       class ContainerTemplatesController < ApplicationController
         include AuditLogging
+        include ::Ai::ResourceFiltering
 
-        before_action :set_template, only: %i[show update destroy publish unpublish executions stats]
+        before_action :set_template, only: %i[show update destroy publish unpublish executions stats trigger_build builds]
 
         # GET /api/v1/mcp/templates
         def index
@@ -178,6 +179,67 @@ module Api
           render_success(items: scope.map(&:template_summary))
         end
 
+        # POST /api/v1/devops/container_templates/:id/trigger_build
+        def trigger_build
+          unless @template.account_id == current_user.account_id
+            render_error("You can only build your own templates", status: :forbidden)
+            return
+          end
+
+          unless @template.gitea_repo_full_name.present?
+            render_error("Template has no linked Gitea repository", status: :unprocessable_content)
+            return
+          end
+
+          build = ::Devops::ContainerImageBuildService
+            .new(account: current_user.account)
+            .trigger_build(template: @template, trigger_type: "manual")
+
+          render_success({ build: build.build_summary }, status: :created)
+          log_audit_event("devops.container_templates.trigger_build", @template)
+        rescue ::Devops::ContainerImageBuildService::BuildError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
+        # GET /api/v1/devops/container_templates/:id/builds
+        def builds
+          scope = @template.image_builds.recent
+          scope = scope.where(status: params[:status]) if params[:status].present?
+          scope = apply_pagination(scope)
+
+          render_success(
+            items: scope.map(&:build_summary),
+            pagination: pagination_data(scope)
+          )
+        end
+
+        # POST /api/v1/devops/container_templates/create_image_repo
+        def create_image_repo
+          repo_params = params.require(:image_repo).permit(:name, :variant_type, :parent_template_id)
+
+          parent_template = nil
+          if repo_params[:parent_template_id].present?
+            parent_template = ::Devops::ContainerTemplate.find(repo_params[:parent_template_id])
+          end
+
+          result = ::Devops::ContainerImageRepoService
+            .new(account: current_user.account, user: current_user)
+            .create_image_repo(
+              name: repo_params[:name],
+              variant_type: repo_params[:variant_type],
+              parent_template: parent_template
+            )
+
+          render_success({
+            template: result[:template].template_details,
+            repository: result[:repository],
+            files_created: result[:files_created]
+          }, status: :created)
+          log_audit_event("devops.container_templates.create_image_repo", result[:template])
+        rescue ::Devops::ContainerImageRepoService::RepoCreationError => e
+          render_error(e.message, status: :unprocessable_content)
+        end
+
         private
 
         def set_template
@@ -198,6 +260,9 @@ module Api
             :sandbox_mode,
             :network_access,
             :featured,
+            :parent_template_id,
+            :gitea_repo_full_name,
+            :auto_update,
             input_schema: {},
             output_schema: {},
             environment_variables: {},

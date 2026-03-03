@@ -338,6 +338,13 @@ Rails.application.routes.draw do
             post "hosts/:id/health_results", to: "docker#health_results", as: :host_health_results
             post "events", to: "docker#create_event", as: :events
           end
+
+          # Container & DevOps maintenance (worker → server)
+          scope :maintenance, controller: "maintenance" do
+            post :reconcile_instances
+            post :cleanup_expired_ports
+            post :archive_stale_templates
+          end
         end
 
         # AI Workflow approval management for worker service
@@ -995,6 +1002,9 @@ Rails.application.routes.draw do
       namespace :webhooks do
         # Git webhook receiver (core)
         post "git/:provider_type", to: "git#handle"
+
+        # Container registry build notifications
+        post "container_registry", to: "container_registry#handle"
 
         # Generic webhook event processing (for worker service)
         resources :events, only: [ :show, :update ] do
@@ -2915,11 +2925,14 @@ Rails.application.routes.draw do
             post :unpublish
             get :executions
             get :stats
+            post :trigger_build
+            get :builds
           end
 
           collection do
             get :categories
             get :featured
+            post :create_image_repo
           end
         end
 
