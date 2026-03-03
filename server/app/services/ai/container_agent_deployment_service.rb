@@ -14,6 +14,7 @@ module Ai
     class DeploymentError < StandardError; end
     class SwarmUnavailableError < DeploymentError; end
     class TemplateNotFoundError < DeploymentError; end
+    class ExecutionGateError < DeploymentError; end
 
     def initialize(account:)
       @account = account
@@ -27,9 +28,12 @@ module Ai
     # @param swarm_cluster [Devops::SwarmCluster] target Swarm cluster (auto-detected if nil)
     # @param user [User] the user who triggered deployment
     # @return [Devops::ContainerInstance] the created container instance
-    def deploy_agent_session(agent:, conversation_id:, swarm_cluster: nil, user: nil)
+    def deploy_agent_session(agent:, conversation_id:, swarm_cluster: nil, user: nil, template: nil)
+      # Execution gate check — enforce governance before provisioning
+      check_execution_gate!(agent)
+
       cluster = swarm_cluster || find_available_cluster
-      template = find_chat_agent_template
+      template ||= find_chat_agent_template
 
       @logger.info "[ContainerAgentDeployment] Deploying agent #{agent.name} " \
                    "for conversation #{conversation_id} on cluster #{cluster.name}"
@@ -155,7 +159,13 @@ module Ai
     end
 
     def create_container_instance(agent:, conversation_id:, cluster:, template:, user:)
-      Devops::ContainerInstance.create!(
+      # Provision MCP OAuth credentials
+      mcp_auth = Ai::ContainerMcpAuthService.new.provision_mcp_credentials(agent: agent, account: @account)
+
+      env_vars = build_environment_variables(agent, conversation_id, nil)
+        .merge(mcp_auth[:env_vars])
+
+      instance = Devops::ContainerInstance.create!(
         account: @account,
         template: template,
         triggered_by: user,
@@ -164,6 +174,7 @@ module Ai
         status: "pending",
         timeout_seconds: template.timeout_seconds,
         sandbox_enabled: template.sandbox_mode,
+        oauth_application: mcp_auth[:oauth_application],
         input_parameters: {
           "agent_id" => agent.id,
           "agent_name" => agent.name,
@@ -175,22 +186,26 @@ module Ai
           "template_name" => template.name,
           "chat_enabled" => true
         },
-        environment_variables: build_environment_variables(agent, conversation_id, nil),
+        environment_variables: env_vars,
         runner_labels: %w[powernode-ai-agent chat-agent]
       )
+
+      # Allocate MCP bridge port
+      allocate_mcp_port!(instance, cluster)
+
+      instance
     end
 
     def build_service_spec(agent:, conversation_id:, template:, instance:)
       agent_id_short = agent.id.to_s[0..7]
       conv_id_short = conversation_id.to_s[0..7]
 
-      {
+      spec = {
         "Name" => "powernode-agent-#{agent_id_short}-#{conv_id_short}",
         "TaskTemplate" => {
           "ContainerSpec" => {
-            "Image" => "#{template.image_name}:#{template.image_tag}",
-            "Env" => build_environment_variables(agent, conversation_id, instance)
-                       .map { |k, v| "#{k}=#{v}" },
+            "Image" => template.full_image_name,
+            "Env" => instance.environment_variables.map { |k, v| "#{k}=#{v}" },
             "Labels" => {
               "powernode.agent_id" => agent.id,
               "powernode.conversation_id" => conversation_id,
@@ -216,6 +231,20 @@ module Ai
           "powernode.type" => "chat-agent"
         }
       }
+
+      # Add MCP bridge port mapping if allocated
+      if instance.mcp_bridge_port.present?
+        spec["EndpointSpec"] = {
+          "Ports" => [{
+            "Protocol" => "tcp",
+            "TargetPort" => 8080,
+            "PublishedPort" => instance.mcp_bridge_port,
+            "PublishMode" => "ingress"
+          }]
+        }
+      end
+
+      spec
     end
 
     def build_environment_variables(agent, conversation_id, instance)
@@ -242,6 +271,30 @@ module Ai
       env["PROVIDER"] = provider if provider.present?
 
       env
+    end
+
+    def check_execution_gate!(agent)
+      gate = Ai::Autonomy::ExecutionGateService.new(account: @account)
+      decision = gate.check(agent: agent, action_type: "container_execute")
+      unless decision[:decision] == :proceed
+        raise ExecutionGateError, "Blocked: #{decision[:reason]}"
+      end
+    end
+
+    def allocate_mcp_port!(instance, cluster)
+      host_id = cluster.try(:identifier) || cluster.try(:name) || "localhost"
+      port = Devops::PortAllocatorService.new.allocate!(
+        host_identifier: host_id,
+        allocatable: instance,
+        purpose: "mcp_bridge",
+        expires_at: (instance.timeout_seconds || 3600).seconds.from_now
+      )
+      instance.update!(
+        mcp_bridge_port: port,
+        environment_variables: instance.environment_variables.merge("POWERNODE_MCP_BRIDGE_PORT" => port.to_s)
+      )
+    rescue Devops::PortAllocatorService::AllocationError => e
+      @logger.warn "[ContainerAgentDeployment] Port allocation failed: #{e.message} — continuing without dedicated port"
     end
   end
 end

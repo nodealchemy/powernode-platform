@@ -15,16 +15,18 @@ module Ai
       end
 
       def allocate_port!
-        used_ports = Ai::Mission
-          .where(status: "active")
-          .where.not(deployed_port: nil)
-          .pluck(:deployed_port)
+        port = Devops::PortAllocatorService.new.allocate!(
+          host_identifier: "localhost",
+          allocatable: mission,
+          purpose: "app_server",
+          port_range: PORT_RANGE,
+          expires_at: 24.hours.from_now
+        )
 
-        available_port = PORT_RANGE.find { |p| !used_ports.include?(p) }
-        raise LaunchError, "No available ports in range #{PORT_RANGE}" unless available_port
-
-        mission.update!(deployed_port: available_port)
-        available_port
+        mission.update!(deployed_port: port)
+        port
+      rescue Devops::PortAllocatorService::NoPortAvailableError
+        raise LaunchError, "No available ports in range #{PORT_RANGE}"
       end
 
       def launch!(branch:)
@@ -81,6 +83,7 @@ module Ai
       end
 
       def cleanup!
+        Devops::PortAllocatorService.new.release!(allocatable: mission)
         mission.update!(
           deployed_port: nil,
           deployed_url: nil,

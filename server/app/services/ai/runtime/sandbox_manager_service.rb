@@ -4,6 +4,14 @@ module Ai
   module Runtime
     class SandboxManagerService
       class SandboxError < StandardError; end
+      class ExecutionGateError < SandboxError; end
+
+      TRUST_LEVEL_IMAGES = {
+        "supervised" => { image: "powernode-agent-base",  tag: "latest" },
+        "monitored"  => { image: "powernode-agent-code",  tag: "latest" },
+        "trusted"    => { image: "powernode-agent-full",  tag: "latest" },
+        "autonomous" => { image: "powernode-agent-full",  tag: "latest" }
+      }.freeze
 
       attr_reader :account
 
@@ -17,7 +25,17 @@ module Ai
       # @param config [Hash] additional configuration (environment, volumes, labels)
       # @return [Devops::ContainerInstance] the sandbox instance
       def create_sandbox(agent:, config: {})
+        # Execution gate check — enforce governance before provisioning
+        check_execution_gate!(agent)
+
         template = find_or_create_template(agent, config)
+
+        # Provision MCP OAuth credentials for the container
+        mcp_auth = Ai::ContainerMcpAuthService.new.provision_mcp_credentials(agent: agent, account: account)
+        mcp_env_vars = mcp_auth[:env_vars]
+        oauth_app = mcp_auth[:oauth_application]
+
+        env_vars = (config[:environment] || {}).merge(mcp_env_vars)
 
         instance = Devops::ContainerInstance.create!(
           account: account,
@@ -27,17 +45,21 @@ module Ai
           status: "pending",
           timeout_seconds: template.timeout_seconds,
           sandbox_enabled: true,
+          oauth_application: oauth_app,
           input_parameters: {
             "agent_id" => agent.id,
             "agent_name" => agent.name,
             "sandbox_mode" => true,
             "trust_level" => agent.try(:trust_level) || "supervised"
           }.merge(config.slice(:environment, :volumes, :labels).stringify_keys),
-          environment_variables: config[:environment] || {},
+          environment_variables: env_vars,
           runner_labels: ["powernode-ai-agent", "sandbox"]
         )
 
-        Rails.logger.info("[SandboxManager] Created sandbox #{instance.execution_id} for agent #{agent.id}")
+        # Allocate MCP bridge port
+        allocate_mcp_port!(instance)
+
+        Rails.logger.info("[SandboxManager] Created sandbox #{instance.execution_id} for agent #{agent.id} with MCP auth")
         instance
       rescue StandardError => e
         Rails.logger.error("[SandboxManager] Failed to create sandbox for agent #{agent.id}: #{e.message}")
@@ -139,13 +161,17 @@ module Ai
         trust_level = agent.try(:trust_level) || "supervised"
         template_name = "ai-sandbox-#{trust_level}"
 
+        # Resolve trust-level image from Gitea registry, falling back to default
+        image_config = resolve_trust_level_image(trust_level, config)
+
         Devops::ContainerTemplate.find_or_create_by!(
           account_id: account.id,
           name: template_name
         ) do |t|
           t.category = "ai-agent"
-          t.image_name = config[:image_name] || "powernode/agent-sandbox"
-          t.image_tag = config[:image_tag] || "latest"
+          t.image_name = image_config[:image_name]
+          t.image_tag = image_config[:image_tag]
+          t.registry_url = image_config[:registry_url]
           t.visibility = "private"
           t.status = "active"
           t.sandbox_mode = true
@@ -156,8 +182,61 @@ module Ai
           t.resource_limits = default_resource_limits(trust_level)
           t.memory_mb = resource_memory_mb(trust_level)
           t.cpu_millicores = resource_cpu_millicores(trust_level)
-          t.configuration = config.except(:environment, :volumes, :labels, :image_name, :image_tag)
         end
+      end
+
+      def resolve_trust_level_image(trust_level, config)
+        # Honor explicit overrides from config
+        if config[:image_name]
+          return {
+            image_name: config[:image_name],
+            image_tag: config[:image_tag] || "latest",
+            registry_url: config[:registry_url]
+          }
+        end
+
+        # Map trust level to Gitea registry image variant
+        variant = TRUST_LEVEL_IMAGES[trust_level] || TRUST_LEVEL_IMAGES["supervised"]
+        registry_url = ENV["POWERNODE_REGISTRY_URL"]
+
+        if registry_url.present?
+          {
+            image_name: variant[:image],
+            image_tag: variant[:tag],
+            registry_url: registry_url
+          }
+        else
+          # Fallback to default image if Gitea registry not configured
+          {
+            image_name: "powernode/agent-sandbox",
+            image_tag: "latest",
+            registry_url: nil
+          }
+        end
+      end
+
+      def check_execution_gate!(agent)
+        gate = Ai::Autonomy::ExecutionGateService.new(account: account)
+        decision = gate.check(agent: agent, action_type: "container_execute")
+        unless decision[:decision] == :proceed
+          raise ExecutionGateError, "Blocked: #{decision[:reason]}"
+        end
+      end
+
+      def allocate_mcp_port!(instance)
+        host_id = find_docker_host(instance)&.try(:identifier) || "localhost"
+        port = Devops::PortAllocatorService.new.allocate!(
+          host_identifier: host_id,
+          allocatable: instance,
+          purpose: "mcp_bridge",
+          expires_at: (instance.timeout_seconds || 3600).seconds.from_now
+        )
+        instance.update!(
+          mcp_bridge_port: port,
+          environment_variables: instance.environment_variables.merge("POWERNODE_MCP_BRIDGE_PORT" => port.to_s)
+        )
+      rescue Devops::PortAllocatorService::AllocationError => e
+        Rails.logger.warn "[SandboxManager] Port allocation failed: #{e.message} — continuing without dedicated port"
       end
 
       def default_security_options(trust_level)

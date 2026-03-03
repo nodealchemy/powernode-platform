@@ -6,6 +6,7 @@ module Devops
     class QuotaExceededError < OrchestrationError; end
     class TemplateNotFoundError < OrchestrationError; end
     class ExecutionError < OrchestrationError; end
+    class ExecutionGateError < OrchestrationError; end
 
     attr_reader :account, :user
 
@@ -125,7 +126,10 @@ module Devops
     private
 
     def create_instance(template, input_parameters, timeout_seconds, a2a_task)
-      Devops::ContainerInstance.create!(
+      @mcp_oauth_app = nil
+      env_vars = build_environment_variables(template, input_parameters)
+
+      instance = Devops::ContainerInstance.create!(
         account: account,
         template: template,
         triggered_by: user,
@@ -136,9 +140,17 @@ module Devops
         input_parameters: input_parameters,
         timeout_seconds: timeout_seconds || template.timeout_seconds,
         sandbox_enabled: template.sandbox_mode.nil? ? true : template.sandbox_mode,
-        environment_variables: build_environment_variables(template, input_parameters),
+        environment_variables: env_vars,
+        oauth_application: @mcp_oauth_app,
         runner_labels: template.labels["runner_labels"] || [ "powernode-ai-agent" ]
       )
+
+      # Allocate MCP bridge port for ai-agent containers
+      if template.category == "ai-agent" && @mcp_oauth_app
+        allocate_mcp_port!(instance)
+      end
+
+      instance
     end
 
     def build_environment_variables(template, input_parameters)
@@ -150,6 +162,17 @@ module Devops
       # Add execution metadata
       env["POWERNODE_ACCOUNT_ID"] = account.id
       env["POWERNODE_EXECUTION_TIME"] = Time.current.iso8601
+
+      # Provision MCP credentials for ai-agent templates that specify an agent_id
+      if template.category == "ai-agent" && input_parameters["agent_id"].present?
+        agent = Ai::Agent.find_by(id: input_parameters["agent_id"])
+        if agent
+          check_execution_gate!(agent)
+          mcp_auth = Ai::ContainerMcpAuthService.new.provision_mcp_credentials(agent: agent, account: account)
+          env.merge!(mcp_auth[:env_vars])
+          @mcp_oauth_app = mcp_auth[:oauth_application]
+        end
+      end
 
       env
     end
@@ -243,6 +266,29 @@ module Devops
       raise OrchestrationError, "No active Gitea provider configured" unless provider
 
       Devops::Git::GiteaApiClient.new(provider.credentials.first)
+    end
+
+    def check_execution_gate!(agent)
+      gate = Ai::Autonomy::ExecutionGateService.new(account: account)
+      decision = gate.check(agent: agent, action_type: "container_execute")
+      unless decision[:decision] == :proceed
+        raise ExecutionGateError, "Blocked: #{decision[:reason]}"
+      end
+    end
+
+    def allocate_mcp_port!(instance)
+      port = Devops::PortAllocatorService.new.allocate!(
+        host_identifier: "localhost",
+        allocatable: instance,
+        purpose: "mcp_bridge",
+        expires_at: (instance.timeout_seconds || 3600).seconds.from_now
+      )
+      instance.update!(
+        mcp_bridge_port: port,
+        environment_variables: instance.environment_variables.merge("POWERNODE_MCP_BRIDGE_PORT" => port.to_s)
+      )
+    rescue Devops::PortAllocatorService::AllocationError => e
+      Rails.logger.warn "[ContainerOrchestration] Port allocation failed: #{e.message}"
     end
 
     def gitea_org
