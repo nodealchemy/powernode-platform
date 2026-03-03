@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { ArrowLeft, User, Facebook, Twitter, Linkedin, Instagram, Youtube } from 'lucide-react';
 import { useFooter } from '@/shared/contexts/FooterContext';
+import logoIcon from '@/assets/images/logo-icon.png';
 
 interface PublicPageContainerProps {
   children: React.ReactNode;
@@ -45,8 +46,8 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             <Link to="/" className="flex items-center space-x-3 group">
-              <div className="w-11 h-11 bg-theme-info-solid rounded-xl flex items-center justify-center transform group-hover:scale-105 transition-transform duration-200 shadow-lg">
-                <span className="text-white font-bold text-xl">P</span>
+              <div className="w-11 h-11 rounded-xl overflow-hidden transform group-hover:scale-105 transition-transform duration-200 shadow-lg">
+                <img src={logoIcon} alt="Powernode" className="w-11 h-11 object-cover" />
               </div>
               <h1 className="text-lg font-bold text-theme-primary">
                 Powernode
@@ -137,8 +138,8 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
               {/* Company Info */}
               <div className="lg:col-span-1">
                 <div className="flex items-center space-x-3 mb-6">
-                  <div className="w-10 h-10 bg-theme-info-solid rounded-xl flex items-center justify-center">
-                    <span className="text-white font-bold text-lg">P</span>
+                  <div className="w-10 h-10 rounded-xl overflow-hidden">
+                    <img src={logoIcon} alt="Powernode" className="w-10 h-10 object-cover" />
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-theme-primary">

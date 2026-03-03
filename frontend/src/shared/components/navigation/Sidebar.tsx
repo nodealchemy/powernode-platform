@@ -5,6 +5,7 @@ import { NavigationSection } from '@/shared/components/navigation/NavigationSect
 import { useNavigation } from '@/shared/hooks/NavigationContext';
 import { VersionDisplay } from '@/shared/components/ui/VersionDisplay';
 import { settingsApi } from '@/shared/services/settings/settingsApi';
+import logoIcon from '@/assets/images/logo-icon.png';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -173,8 +174,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
               onClick={state.isCollapsed ? handleCollapseToggle : undefined}
               title={state.isCollapsed ? 'Expand sidebar (Ctrl+B)' : undefined}
             >
-              <div className={`h-8 w-8 bg-theme-interactive-primary rounded-lg flex items-center justify-center flex-shrink-0 ${state.isCollapsed ? 'hover:ring-2 hover:ring-theme-interactive-primary/50 transition-shadow' : ''}`}>
-                <span className="text-white font-bold">P</span>
+              <div className={`h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden ${state.isCollapsed ? 'hover:ring-2 hover:ring-theme-interactive-primary/50 transition-shadow' : ''}`}>
+                <img src={logoIcon} alt="Powernode" className="h-8 w-8 object-cover" />
               </div>
               {!state.isCollapsed && (
                 <span className="ml-2 text-xl font-semibold text-theme-primary sidebar-content-transition">

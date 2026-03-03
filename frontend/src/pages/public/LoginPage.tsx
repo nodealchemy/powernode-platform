@@ -18,6 +18,7 @@ import { settingsApi } from '@/shared/services/settings/settingsApi';
 import { TwoFactorVerification } from '@/features/account/auth/components/TwoFactorVerification';
 import { DomainChangeNotice } from '@/shared/components/ui/DomainChangeNotice';
 import ErrorAlert from '@/shared/components/ui/ErrorAlert';
+import logoIcon from '@/assets/images/logo-icon.png';
 
 
 interface LocationState {
@@ -173,8 +174,8 @@ export const LoginPage: React.FC = () => {
           {/* Modern Logo and Title */}
           <div className="text-center">
             <Link to="/welcome" className="inline-block group">
-              <div className="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-xl transition-all duration-200 group-hover:scale-105 border bg-gradient-to-br from-theme-interactive-primary to-theme-interactive-secondary border-theme-info">
-                <span className="text-white font-bold text-2xl">P</span>
+              <div className="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-xl transition-all duration-200 group-hover:scale-105 overflow-hidden">
+                <img src={logoIcon} alt="Powernode" className="w-16 h-16 object-cover" />
               </div>
             </Link>
             <h1 className="text-3xl font-bold mb-2 text-theme-primary">
