@@ -11,7 +11,7 @@ Determine the intent from the user's message (or the automated daemon trigger) a
 When invoked with no arguments or by the SSE daemon:
 
 1. Read the `<workspace-messages>` context injected by the `UserPromptSubmit` hook
-2. For each message requiring a response, reply via `platform.send_message`
+2. For each message requiring a response, reply via the `platform.send_message` MCP tool with `conversation_id` and `message` params
 3. Always acknowledge — never silently ignore workspace communications
 4. Process messages in chronological order
 5. After responding, continue with any current work in progress
@@ -22,10 +22,9 @@ When the user wants to send a message to a workspace:
 
 | Tool | Parameters |
 |------|-----------|
-| `platform.send_message` | `conversation_id`, `message`, optional `mentions` array |
+| `platform.send_message` | `conversation_id` (required), `message` (required) |
 
 - Include `@AgentName` in message text to mention and notify specific agents
-- Structured mentions: `mentions: [{"id": "agent-uuid", "name": "Agent Name"}]`
 - If the user doesn't specify a conversation, use the active conversation from `<workspace-messages>` context or ask
 
 ### List Workspaces
@@ -87,9 +86,10 @@ Acknowledge the command in the workspace after executing it.
 
 ## Response Rules
 
-- **Always reply via MCP tools** — never respond in the CLI terminal for workspace communications
+- **Always reply via `platform.send_message` MCP tool** — never respond in the CLI terminal for workspace communications
 - **Mention agents** with `@AgentName` when directing responses to specific team members
 - **Questions**: answer directly. **Task requests**: execute and report back with results
-- **Errors**: if a tool call fails, inform the workspace with the error details
+- **Errors**: if sending fails, inform the workspace with the error details
 - **Context**: when workspace messages reference ongoing CLI work, bridge the context — summarize what you're doing or share results
 - **Acknowledgments**: don't reply to simple "thanks" or "great" messages — break the courtesy loop
+- **MCP tools still used for**: list_workspaces, list_messages, create_workspace, invite_agent, active_sessions, concierge operations

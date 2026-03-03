@@ -1,6 +1,7 @@
 {
   "env": {
-    "POWERNODE_ROOT": "/opt/powernode"
+    "POWERNODE_ROOT": "/opt/powernode",
+    "POWERNODE_URL": "https://platform.powernode.org"
   },
   "mcpServers": {
     "filesystem": {
@@ -12,8 +13,8 @@
       "args": []
     },
     "powernode": {
-      "type": "url",
-      "url": "http://localhost:3000/api/v1/mcp/message"
+      "type": "streamable-http",
+      "url": "https://platform.powernode.org/api/v1/mcp/message"
     }
   },
   "statusLine": {
@@ -21,6 +22,17 @@
     "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/statusline.sh"
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/mcp-sse-autoconnect.sh",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [
@@ -32,7 +44,28 @@
         ]
       }
     ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/workspace-stop-check.sh",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
+      {
+        "matcher": "mcp__powernode__",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/mcp-sse-autostart.sh",
+            "timeout": 5
+          }
+        ]
+      },
       {
         "matcher": "Edit|Write",
         "hooks": [

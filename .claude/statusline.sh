@@ -4,8 +4,14 @@
 
 set -euo pipefail
 
-PID_FILE="/tmp/powernode_sse_daemon.pid"
-SESSION_FILE="/tmp/powernode_sse_session.txt"
+PID_FILE="/tmp/powernode_sse_daemon_${PPID}.pid"
+# Per-instance session (keyed by Claude Code PID), fallback to daemon's shared session
+INSTANCE_SESSION="/tmp/powernode_mcp_session_${PPID}.txt"
+if [[ -f "$INSTANCE_SESSION" && -s "$INSTANCE_SESSION" ]]; then
+  SESSION_FILE="$INSTANCE_SESSION"
+else
+  SESSION_FILE="/tmp/powernode_sse_session.txt"
+fi
 
 # Parse session JSON from stdin in one jq call
 read -r MODEL CTX COST < <(
@@ -39,12 +45,34 @@ fi
 OUTPUT=$(printf "[%s] powernode: %b | %b%d%%\033[0m ctx | $%s" \
   "$MODEL" "$STATUS" "$CTX_COLOR" "$CTX" "$COST")
 
+PLAIN=$(printf "[%s] powernode: %s | %d%% ctx | $%s" "$MODEL" \
+  "$(echo -e "$STATUS" | sed 's/\x1b\[[0-9;]*m//g')" "$CTX" "$COST")
+
+# Unread workspace messages (read-state architecture: inbox is read-only,
+# seen IDs tracked in a separate file)
+INBOX="/tmp/powernode_workspace_inbox_${PPID}.jsonl"
+READ_STATE="/tmp/powernode_workspace_read_${PPID}.ids"
+UNREAD=0
+if [[ -f "$INBOX" ]]; then
+  if [[ -f "$READ_STATE" ]]; then
+    # Count inbox message IDs not present in read-state file
+    TOTAL=$(grep -co '"message_id": *"[^"]*"' "$INBOX" 2>/dev/null || echo 0)
+    READ=$(wc -l < "$READ_STATE" 2>/dev/null || echo 0)
+    UNREAD=$(( TOTAL > READ ? TOTAL - READ : 0 ))
+  else
+    # No read-state file — all inbox messages are unread
+    UNREAD=$(grep -c '"message_id"' "$INBOX" 2>/dev/null || true)
+  fi
+fi
+if (( UNREAD > 0 )); then
+  OUTPUT="${OUTPUT} | \033[33m${UNREAD} unread\033[0m"
+  PLAIN="${PLAIN} | ${UNREAD} unread"
+fi
+
 # Display in Claude Code statusline
 printf '%s' "$OUTPUT"
 
 # Also write to per-instance temp file for tmux status bar (strip ANSI for tmux plain text).
 # Uses $PPID (Claude Code's PID) so multiple sessions don't overwrite each other.
 TMUX_FILE="/tmp/claude-status-tmux-${PPID}"
-PLAIN=$(printf "[%s] powernode: %s | %d%% ctx | $%s" "$MODEL" \
-  "$(echo -e "$STATUS" | sed 's/\x1b\[[0-9;]*m//g')" "$CTX" "$COST")
 printf '%s' "$PLAIN" > "$TMUX_FILE"

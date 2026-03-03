@@ -2,22 +2,53 @@
 # Send a reply to a workspace conversation via the MCP platform.send_message tool.
 #
 # Usage:
-#   workspace-reply.sh <conversation_id> <message>
+#   workspace-reply.sh <conversation_id> <message> [mentions_json]
 #
 # Uses the daemon's OAuth token and MCP session for authentication.
+# The session file is keyed to Claude's PID — we walk the process tree
+# upward from $$ to find the ancestor `claude` process.
 
 set -eo pipefail
 
+# --- Resolve Claude's PID by walking the process tree upward ---
+_resolve_claude_pid() {
+  local pid=$$
+  while [ "$pid" -gt 1 ] 2>/dev/null; do
+    local comm
+    comm=$(ps -p "$pid" -o comm= 2>/dev/null) || break
+    [ "$comm" = "claude" ] && echo "$pid" && return 0
+    pid=$(ps -p "$pid" -o ppid= 2>/dev/null | tr -d ' ')
+    [ -z "$pid" ] && break
+  done
+  return 1
+}
+
 PLATFORM_URL="${POWERNODE_URL:-http://localhost:3000}"
 MCP_ENDPOINT="${PLATFORM_URL}/api/v1/mcp/message"
-TOKEN_FILE="/tmp/powernode_sse_token.txt"
-SESSION_FILE="/tmp/powernode_sse_session.txt"
+TOKEN_FILE="/tmp/powernode_mcp_token.txt"
+
+# Session discovery: ancestor walk → glob fallback
+CLAUDE_PID=$(_resolve_claude_pid 2>/dev/null || true)
+if [[ -n "$CLAUDE_PID" && -f "/tmp/powernode_mcp_session_${CLAUDE_PID}.txt" ]]; then
+  SESSION_FILE="/tmp/powernode_mcp_session_${CLAUDE_PID}.txt"
+else
+  # Glob fallback: pick the first available session file
+  SESSION_FILE=""
+  for f in /tmp/powernode_mcp_session_*.txt; do
+    [[ -f "$f" && -s "$f" ]] && SESSION_FILE="$f" && break
+  done
+  if [[ -z "$SESSION_FILE" ]]; then
+    echo "Error: No MCP session file found. Start the SSE daemon first." >&2
+    exit 1
+  fi
+fi
 
 CONVERSATION_ID="$1"
 MESSAGE="$2"
+MENTIONS_JSON="${3:-}"
 
 if [[ -z "$CONVERSATION_ID" || -z "$MESSAGE" ]]; then
-  echo "Usage: $0 <conversation_id> <message>" >&2
+  echo "Usage: $0 <conversation_id> <message> [mentions_json]" >&2
   exit 1
 fi
 
@@ -32,20 +63,24 @@ SESSION=$(cat "$SESSION_FILE")
 # Build JSON payload safely with python3 (handles all escaping)
 PAYLOAD=$(python3 -c "
 import json, sys
+args = {
+    'action': 'send_message',
+    'conversation_id': sys.argv[1],
+    'message': sys.argv[2]
+}
+mentions = sys.argv[3] if len(sys.argv) > 3 and sys.argv[3] else None
+if mentions:
+    args['mentions'] = json.loads(mentions)
 print(json.dumps({
     'jsonrpc': '2.0',
     'id': 1,
     'method': 'tools/call',
     'params': {
         'name': 'platform.send_message',
-        'arguments': {
-            'action': 'send_message',
-            'conversation_id': sys.argv[1],
-            'message': sys.argv[2]
-        }
+        'arguments': args
     }
 }))
-" "$CONVERSATION_ID" "$MESSAGE")
+" "$CONVERSATION_ID" "$MESSAGE" "$MENTIONS_JSON")
 
 RESPONSE=$(curl -s -X POST "$MCP_ENDPOINT" \
   -H "Authorization: Bearer $TOKEN" \
