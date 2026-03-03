@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Login to Gitea Container Registry
-        run: echo "${{ secrets.GITEA_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ gitea.repository_owner }} --password-stdin
+        run: echo "${{ gitea.token }}" | docker login ${{ env.REGISTRY }} -u ${{ gitea.repository_owner }} --password-stdin
 
       - name: Build backend image
         run: docker build -t ${{ env.REGISTRY }}/${{ gitea.repository_owner }}/powernode-backend:${{ env.IMAGE_TAG }} -f server/Dockerfile server/
@@ -40,7 +40,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Login to Gitea Container Registry
-        run: echo "${{ secrets.GITEA_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ gitea.repository_owner }} --password-stdin
+        run: echo "${{ gitea.token }}" | docker login ${{ env.REGISTRY }} -u ${{ gitea.repository_owner }} --password-stdin
 
       - name: Build frontend image
         run: |
@@ -59,7 +59,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Login to Gitea Container Registry
-        run: echo "${{ secrets.GITEA_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ gitea.repository_owner }} --password-stdin
+        run: echo "${{ gitea.token }}" | docker login ${{ env.REGISTRY }} -u ${{ gitea.repository_owner }} --password-stdin
 
       - name: Build worker image
         run: docker build -t ${{ env.REGISTRY }}/${{ gitea.repository_owner }}/powernode-worker:${{ env.IMAGE_TAG }} -f worker/Dockerfile worker/
