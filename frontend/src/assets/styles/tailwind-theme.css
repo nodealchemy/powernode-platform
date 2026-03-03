@@ -161,7 +161,7 @@
   .border-theme-error { border-color: var(--color-error-border); }
   .border-theme-danger { border-color: var(--color-error-border); } /* Alias for theme-error */
   .border-theme-info { border-color: var(--color-info-border); }
-  .divide-theme > :not([hidden]) ~ :not([hidden]) { border-color: var(--color-divider); }
+  .divide-theme > :not([hidden]) { border-color: var(--color-divider); }
 
   /* Workflow handle backgrounds */
   .bg-handle-default { background-color: var(--handle-default); }

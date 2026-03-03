@@ -407,6 +407,17 @@
   --shadow-focus: 0 0 0 3px rgb(59 130 246 / 0.25);     /* Brighter focus ring */
 }
 
+/* ===== DEFAULT BORDER COLOR ===== */
+/* Tailwind v4 preflight sets border-color to currentColor (black/white).
+   Override to use the theme border color as the default for all elements.
+   This ensures border-b, border-t, divide-y etc. use themed colors
+   even without an explicit color class. */
+@layer base {
+  *, ::before, ::after {
+    border-color: var(--color-border);
+  }
+}
+
 /* ===== UTILITY CLASSES ===== */
 
 /* Background Utilities */
@@ -437,8 +448,8 @@
 .border-theme-light { border-color: var(--color-border-light); }
 .border-theme-strong { border-color: var(--color-border-strong); }
 .border-theme-focus { border-color: var(--color-border-focus); }
-.divide-theme > :not([hidden]) ~ :not([hidden]) { border-color: var(--color-divider); }
-.divide-theme-light > :not([hidden]) ~ :not([hidden]) { border-color: var(--color-border-light); }
+.divide-theme > :not([hidden]) { border-color: var(--color-divider); }
+.divide-theme-light > :not([hidden]) { border-color: var(--color-border-light); }
 
 /* Subtle border utilities for better visual hierarchy */
 .border-subtle { 
