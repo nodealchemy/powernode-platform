@@ -61,6 +61,8 @@ module Ai
         status: archived? ? "archived" : "active",
         scope: scope,
         agent_id: ai_agent_id,
+        is_archived: archived?,
+        ai_agent: ai_agent_id && agent ? { id: agent.id, name: agent.name } : nil,
         version: version,
         entry_count: entry_count,
         data_size_bytes: data_size_bytes,

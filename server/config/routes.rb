@@ -1789,6 +1789,7 @@ Rails.application.routes.draw do
 
           collection do
             post :import
+            post 'search', action: :global_search
           end
 
           # Nested entries

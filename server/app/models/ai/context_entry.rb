@@ -67,10 +67,14 @@ module Ai
       {
         id: id,
         entry_key: entry_key,
+        key: entry_key,
         entry_type: entry_type,
         memory_type: memory_type,
         importance_score: importance_score,
         confidence_score: confidence_score,
+        content_text: content_text,
+        access_count: access_count,
+        tags: context_tags || [],
         version: version,
         created_at: created_at,
         last_accessed_at: last_accessed_at
