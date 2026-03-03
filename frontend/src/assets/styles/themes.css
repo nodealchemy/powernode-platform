@@ -260,9 +260,9 @@
 /* ===== LIGHT THEME ===== */
 .light {
   /* Background Hierarchy */
-  --color-background: #ffffff;                    /* Pure white primary background */
-  --color-background-secondary: var(--color-neutral-50);  /* Subtle off-white for cards */
-  --color-background-tertiary: var(--color-neutral-100);  /* Input backgrounds, disabled states */
+  --color-background: var(--color-neutral-50);   /* Off-white page — white cards pop against it */
+  --color-background-secondary: var(--color-neutral-100); /* One step darker for outer wrappers */
+  --color-background-tertiary: var(--color-neutral-200);  /* Inputs, disabled states step down */
   --color-background-elevated: #ffffff;           /* Modals, dropdowns, floating elements */
   --color-background-muted: var(--color-neutral-100);     /* Subtle backgrounds */
   
@@ -273,12 +273,12 @@
   --color-surface-selected: var(--color-primary-50); /* Selected states */
   --color-surface-disabled: var(--color-neutral-100); /* Disabled surfaces */
   
-  /* Border Hierarchy - More subtle and refined */
-  --color-border: rgba(0, 0, 0, 0.06);            /* Standard borders - very subtle */
-  --color-border-light: rgba(0, 0, 0, 0.03);      /* Subtle borders - almost invisible */
-  --color-border-strong: rgba(0, 0, 0, 0.12);     /* Emphasized borders - still subtle */
-  --color-border-focus: var(--color-primary-500); /* Focus rings */
-  --color-divider: rgba(0, 0, 0, 0.04);           /* Divider lines - very subtle */
+  /* Border Hierarchy - Solid hex for visibility */
+  --color-border: var(--color-neutral-200);        /* Standard borders - visible but not heavy */
+  --color-border-light: var(--color-neutral-100);  /* Subtle borders - perceptible */
+  --color-border-strong: var(--color-neutral-300); /* Emphasized borders - focused/active states */
+  --color-border-focus: var(--color-primary-500);  /* Focus rings */
+  --color-divider: var(--color-neutral-200);       /* Table rows, card separators - visible */
   
   /* Text Hierarchy - WCAG AA compliant */
   --color-text-primary: var(--color-neutral-900);    /* 4.5:1 contrast - body text, headings */
@@ -322,14 +322,14 @@
   --color-info-background: var(--color-info-50);
   --color-info-border: var(--color-info-200);
   
-  /* Elevation System - Subtle shadows for depth */
-  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  /* Elevation System - Tuned shadows (solid borders now carry structure) */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.06);
   --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-  --shadow-base: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-base: 0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.08);
+  --shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.08);
   --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
   --shadow-xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
-  --shadow-focus: 0 0 0 3px rgb(59 130 246 / 0.15);  /* Focus ring */
+  --shadow-focus: 0 0 0 3px rgb(59 130 246 / 0.2);   /* Stronger focus ring */
 }
 
 /* ===== DARK THEME ===== */
