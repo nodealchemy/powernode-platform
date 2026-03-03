@@ -22,6 +22,14 @@ RSpec.describe Ai::Runtime::SandboxManagerService, type: :service do
       # Stub find_or_create_template because the service sets `configuration=`
       # which doesn't exist as a column on ContainerTemplate
       allow(service).to receive(:find_or_create_template).and_return(template)
+      # Stub execution gate — these tests exercise sandbox logic, not governance checks
+      allow_any_instance_of(Ai::Autonomy::ExecutionGateService).to receive(:check)
+        .and_return({ decision: :proceed, reason: nil })
+      # Stub MCP auth provisioning — tested separately
+      allow_any_instance_of(Ai::ContainerMcpAuthService).to receive(:provision_mcp_credentials)
+        .and_return({ env_vars: {}, oauth_application: nil })
+      # Stub port allocation — tested separately
+      allow_any_instance_of(Devops::PortAllocatorService).to receive(:allocate!).and_return(7001)
     end
 
     it 'creates a container instance for the agent' do
@@ -59,7 +67,7 @@ RSpec.describe Ai::Runtime::SandboxManagerService, type: :service do
         environment: { "FOO" => "bar" }
       })
 
-      expect(instance.environment_variables).to eq({ "FOO" => "bar" })
+      expect(instance.environment_variables).to include("FOO" => "bar")
     end
 
     it 'logs sandbox creation' do

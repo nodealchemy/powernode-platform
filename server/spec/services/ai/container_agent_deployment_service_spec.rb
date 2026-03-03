@@ -32,7 +32,19 @@ RSpec.describe Ai::ContainerAgentDeploymentService do
 
 
   describe "#deploy_agent_session" do
-    before { template; cluster }
+    let(:mock_oauth_app) { create(:oauth_application, owner: account) }
+
+    before do
+      template; cluster
+      # Stub execution gate — these tests exercise deployment logic, not governance checks
+      allow_any_instance_of(Ai::Autonomy::ExecutionGateService).to receive(:check)
+        .and_return({ decision: :proceed, reason: nil })
+      # Stub MCP auth provisioning — tested separately in ContainerMcpAuthService specs
+      allow_any_instance_of(Ai::ContainerMcpAuthService).to receive(:provision_mcp_credentials)
+        .and_return({ env_vars: { "POWERNODE_MCP_URL" => "http://test:3000" }, oauth_application: mock_oauth_app })
+      # Stub port allocation — tested separately in PortAllocatorService specs
+      allow_any_instance_of(Devops::PortAllocatorService).to receive(:allocate!).and_return(7001)
+    end
 
     it "creates a container instance and starts provisioning" do
       instance = service.deploy_agent_session(agent: agent, conversation_id: conversation_id, user: user)
