@@ -40,7 +40,7 @@ module Devops
     # ============================================
     # Callbacks
     # ============================================
-    after_update :notify_pipeline_run, if: :status_changed?
+    after_update :notify_pipeline_run, if: :saved_change_to_status?
 
     # ============================================
     # Instance Methods

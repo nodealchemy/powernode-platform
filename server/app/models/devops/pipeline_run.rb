@@ -43,7 +43,7 @@ module Devops
     before_validation :generate_run_number, on: :create
     after_create_commit :broadcast_created
     after_update_commit :broadcast_updated
-    after_update :calculate_duration, if: :completed_at_changed?
+    after_update :calculate_duration, if: :saved_change_to_completed_at?
 
     # ============================================
     # Instance Methods
@@ -107,7 +107,7 @@ module Devops
     end
 
     def enqueue_execution
-      Devops::PipelineExecutionJob.perform_async(id)
+      WorkerJobService.enqueue_devops_pipeline_execution(id)
     end
 
     private

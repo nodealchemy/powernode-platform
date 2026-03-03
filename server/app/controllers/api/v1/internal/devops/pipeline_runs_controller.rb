@@ -59,6 +59,7 @@ module Api
             result[:pipeline_id] = run.devops_pipeline_id
             result[:pipeline_name] = run.pipeline.name
             result[:trigger_type] = run.trigger_type
+            result[:trigger_context] = run.trigger_context
             result[:steps] = run.pipeline.pipeline_steps.where(is_active: true).order(:position).map do |step|
               {
                 id: step.id,
@@ -67,6 +68,7 @@ module Api
                 position: step.position,
                 is_active: step.is_active,
                 continue_on_error: step.continue_on_error,
+                requires_approval: step.requires_approval,
                 configuration: step.configuration
               }
             end
