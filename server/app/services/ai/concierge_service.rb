@@ -89,6 +89,9 @@ module Ai
     # Tool-bridge path (primary — for OpenAI/Anthropic providers)
     # =========================================================================
 
+    # Detect explicit delegation intent: "ask Claude ...", "tell X ...", "have X do ..."
+    DELEGATION_PATTERN = /\b(ask|tell|have|message|ping|notify)\s+(claude|the\s+assistant)/i
+
     def process_with_tools(content, _credential = nil)
       llm_client = WorkerLlmClient.new(agent_id: @agent.id)
       tool_bridge = Ai::ConciergeToolBridge.new(
@@ -99,10 +102,17 @@ module Ai
       messages = build_tool_messages(content)
       model = concierge_model || credential.provider.default_model
 
+      # When the user explicitly asks to delegate, force the model to call send_message
+      # rather than letting it decide (gpt-4.1-mini often ignores tool-use instructions)
+      opts = { temperature: 0.3, max_tokens: 4096, system_prompt: concierge_tool_system_prompt }
+      if @conversation.workspace_conversation? && content.match?(DELEGATION_PATTERN)
+        opts[:tool_choice] = { "type" => "function", "function" => { "name" => "send_message" } }
+        Rails.logger.info("[ConciergeService] Delegation intent detected — forcing send_message tool_choice")
+      end
+
       result = tool_bridge.execute_tool_loop(
         llm_client: llm_client, messages: messages, model: model,
-        temperature: 0.3, max_tokens: 4096,
-        system_prompt: concierge_tool_system_prompt
+        **opts
       )
 
       # When the concierge delegated via send_message, the tool call already
@@ -156,13 +166,32 @@ module Ai
       parts = []
 
       # Static prompt from the agent's DB record (editable via API/UI)
-      base_prompt = @agent&.build_system_prompt_with_profile.presence
+      # Pass workspace context to filter skills (only workspace-tagged skills in workspace mode)
+      ctx = @conversation.workspace_conversation? ? :workspace : nil
+      base_prompt = @agent&.build_system_prompt_with_profile(context: ctx).presence
       parts << base_prompt if base_prompt
 
       # Dynamic runtime context (live data: missions, repos, teams, workspace members)
-      parts << build_context_section
+      context_section = build_context_section
+      parts << context_section
 
-      parts.join("\n\n")
+      assembled = parts.join("\n\n")
+
+      # Diagnostic logging — helps verify skill injection and workspace context
+      has_skill_prompts = assembled.include?("MANDATORY RULE") || assembled.include?("HOW TO DELEGATE")
+      has_workspace_context = assembled.include?("CURRENT WORKSPACE:")
+      has_delegation_block = assembled.include?("TO SEND A MESSAGE TO AN AGENT")
+      Rails.logger.info(
+        "[ConciergeService] System prompt assembled: " \
+        "length=#{assembled.length} " \
+        "has_base_prompt=#{base_prompt.present?} " \
+        "base_prompt_length=#{base_prompt&.length || 0} " \
+        "has_skill_prompts=#{has_skill_prompts} " \
+        "has_delegation_block=#{has_delegation_block} " \
+        "has_workspace_context=#{has_workspace_context}"
+      )
+
+      assembled
     end
 
     # =========================================================================
@@ -219,7 +248,8 @@ module Ai
       parts = []
 
       # Static prompt from the agent's DB record (editable via API/UI)
-      base_prompt = @agent&.build_system_prompt_with_profile.presence
+      ctx = @conversation.workspace_conversation? ? :workspace : nil
+      base_prompt = @agent&.build_system_prompt_with_profile(context: ctx).presence
       parts << base_prompt if base_prompt
 
       # Dynamic runtime context (live data: missions, repos, teams, workspace members)
@@ -282,33 +312,53 @@ module Ai
         parts << "AVAILABLE AGENTS:\n#{agent_lines.join("\n")}"
       end
 
-      # Workspace members (when in a workspace conversation)
+      # Workspace context (when in a workspace conversation)
+      # Behavioral instructions come from the Powernode Concierge skill (injected via
+      # build_system_prompt_with_profile). This section provides runtime data only.
       if @conversation.workspace_conversation? && @conversation.agent_team
         team = @conversation.agent_team
-        members = team.members.includes(:agent).where.not(ai_agent_id: @agent&.id)
-        if members.any?
-          member_lines = members.map do |m|
-            caps = m.capabilities.present? ? " [#{m.capabilities.join(', ')}]" : ""
-            "- #{m.agent.name} (id: #{m.ai_agent_id}, role: #{m.role}, type: #{m.agent.agent_type}#{caps})"
-          end
-          parts << <<~WORKSPACE.strip
-            CURRENT WORKSPACE: "#{team.name}" (conversation_id: #{@conversation.conversation_id})
-            WORKSPACE MEMBERS:
-            #{member_lines.join("\n")}
+        workspace_lines = []
+        workspace_lines << "CURRENT WORKSPACE: \"#{team.name}\" (conversation_id: #{@conversation.conversation_id})"
 
-            DELEGATION RULES:
-            - Do NOT create a new workspace. You are already in one.
-            - To delegate to an agent, call send_message with conversation_id "#{@conversation.conversation_id}"
-              and include the mentions parameter: [{"id": "<agent_id>", "name": "<agent_name>"}]
-            - Also write @AgentName in the message text so the agent sees the mention.
-            - CRITICAL: When you delegate via send_message, do NOT answer the user's question yourself.
-              Your text response after delegating should be empty or a brief acknowledgment only.
-              The mentioned agent will handle the actual response.
-            - Example: send_message(conversation_id: "#{@conversation.conversation_id}",
-              message: "@#{members.first.agent.name} what time is it?",
-              mentions: [{"id": "#{members.first.ai_agent_id}", "name": "#{members.first.agent.name}"}])
-          WORKSPACE
+        # Unified WORKSPACE MEMBERS header — all participants under one section
+        member_lines = []
+
+        # Human participants
+        human_users = [@conversation.user].compact
+        if @conversation.is_collaborative? && @conversation.participants.any?
+          human_users += User.where(id: @conversation.participants).where.not(id: human_users.map(&:id)).to_a
         end
+        human_users.each { |u| member_lines << "- #{u.full_name} (human)" }
+
+        # Agent members (type label helps the LLM understand capabilities)
+        members = team.members.includes(:agent).where.not(ai_agent_id: @agent&.id)
+        members.each do |m|
+          next unless m.agent
+          type_label = m.agent.agent_type == "mcp_client" ? "mcp_client" : "server"
+          member_lines << "- #{m.agent.name} (#{type_label}, role: #{m.role})"
+        end
+
+        workspace_lines << "WORKSPACE MEMBERS:\n#{member_lines.join("\n")}" if member_lines.any?
+
+        # Delegation instructions — immediately after member list (proximity principle)
+        if members.any?
+          mcp_agent = members.find { |m| m.agent&.agent_type == "mcp_client" }&.agent
+          example_agent = mcp_agent || members.first&.agent
+          workspace_lines << <<~DELEGATION.strip
+            TO SEND A MESSAGE TO AN AGENT, call the send_message tool with:
+              message: "@#{example_agent&.name} <your request>"
+            The conversation_id is auto-filled — do NOT provide it.
+            #{mcp_agent ? "\"Claude\" or \"Claude Code\" = @#{mcp_agent.name}" : ""}
+            You HAVE access to all agents above via send_message. NEVER say you cannot communicate with them.
+          DELEGATION
+        end
+
+        parts << workspace_lines.join("\n\n")
+        Rails.logger.info("[ConciergeService] Workspace context included: team=#{team.name} humans=#{human_users.size} agents=#{members.size}")
+      else
+        is_workspace = @conversation.workspace_conversation?
+        has_team = @conversation.agent_team.present?
+        Rails.logger.info("[ConciergeService] Workspace context skipped: workspace_conversation=#{is_workspace} has_agent_team=#{has_team}")
       end
 
       parts.join("\n\n")

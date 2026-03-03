@@ -26,7 +26,7 @@ module Ai
       def self.action_definitions
         {
           "create_workspace" => {
-            description: "Create a workspace conversation with selected agents. The calling MCP client is automatically added.",
+            description: "Create a workspace conversation with selected agents. Pass agent_ids explicitly to include MCP clients.",
             parameters: {
               name: { type: "string", required: true, description: "Workspace name" },
               agent_ids: { type: "array", required: false, description: "Additional agent IDs to include" },
@@ -97,9 +97,6 @@ module Ai
 
         agent_ids = Array(params[:agent_ids])
 
-        # Auto-add the calling MCP client agent if present
-        agent_ids.unshift(agent.id) if agent&.agent_type == "mcp_client" && !agent_ids.include?(agent.id)
-
         # Optionally add concierge
         if params[:include_concierge]
           concierge = account.ai_agents.default_concierge.first
@@ -146,6 +143,10 @@ module Ai
           fuzzy = resolve_fuzzy_mentions(params[:message], conversation.agent_team)
           metadata["mentions"] = fuzzy if fuzzy.present?
         end
+
+        # Parse mention segments so MCP-originated messages also carry segment data
+        mention_segments = conversation.parse_mention_segments(params[:message])
+        metadata["mention_segments"] = mention_segments if mention_segments.present?
 
         # Send message attributed to this MCP client agent (not the user)
         sending_agent = agent&.agent_type == "mcp_client" ? agent : nil
@@ -310,7 +311,17 @@ module Ai
             sender: message.agent&.name || message.user&.name || "Unknown",
             created_at: message.created_at&.iso8601
           }
-        }.to_json
+        }
+
+        # Include agent-specific segment if available
+        mention_segments = message.content_metadata&.dig("mention_segments")
+        if mention_segments
+          agent_segment = mention_segments.dig("segments", target_agent.id)
+          notification[:segment] = agent_segment if agent_segment.present?
+          notification[:preamble] = mention_segments["preamble"]
+        end
+
+        notification = notification.to_json
 
         sessions.find_each do |session|
           ActionCable.server.pubsub.broadcast("mcp_session:#{session.session_token}", notification)

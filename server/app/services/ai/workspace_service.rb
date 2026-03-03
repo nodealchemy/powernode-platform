@@ -26,9 +26,6 @@ module Ai
         end
       end
 
-      # Auto-include active MCP client sessions for this user
-      auto_include_mcp_sessions(agent_ids)
-
       ActiveRecord::Base.transaction do
         team = create_workspace_team(name)
         add_agents_to_team(team, agent_ids)
@@ -47,6 +44,11 @@ module Ai
 
       role = agent.agent_type == "mcp_client" ? "executor" : "facilitator"
       team.add_member(agent: agent, role: role)
+
+      workspace_conversation.add_system_message(
+        "#{agent.name} joined the workspace",
+        content_metadata: { "activity_type" => "agent_joined", "agent_id" => agent.id, "agent_name" => agent.name }
+      )
 
       broadcast_workspace_event(workspace_conversation, "agent_joined", {
         agent_id: agent.id,
@@ -67,6 +69,11 @@ module Ai
       raise ArgumentError, "Cannot remove the concierge agent from a workspace" if agent.is_concierge?
 
       member.destroy!
+
+      workspace_conversation.add_system_message(
+        "#{agent.name} left the workspace",
+        content_metadata: { "activity_type" => "agent_left", "agent_id" => agent.id, "agent_name" => agent.name }
+      )
 
       broadcast_workspace_event(workspace_conversation, "agent_left", {
         agent_id: agent.id,
@@ -121,15 +128,6 @@ module Ai
         role = agent.agent_type == "mcp_client" ? "executor" : "facilitator"
         team.add_member(agent: agent, role: role)
       end
-    end
-
-    def auto_include_mcp_sessions(agent_ids)
-      McpSession.active
-        .where(account: account, user: user)
-        .where.not(ai_agent_id: nil)
-        .pluck(:ai_agent_id)
-        .uniq
-        .each { |id| agent_ids << id unless agent_ids.include?(id) }
     end
 
     def auto_add_concierge(team)

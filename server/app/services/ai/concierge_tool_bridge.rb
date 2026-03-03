@@ -21,6 +21,28 @@ module Ai
       list_conversations get_conversation_messages
     ].freeze
 
+    # Autonomy tools the concierge should never use — workspace context already
+    # provides agent/session information via WORKSPACE MEMBERS in the system prompt.
+    # Keeping these available causes the LLM to call them instead of reading the
+    # already-present workspace member list.
+    EXCLUDED_AUTONOMY_TOOLS = %w[
+      discover_claude_sessions
+      request_code_change
+    ].freeze
+
+    # In workspace conversations, only expose tools relevant to delegation and monitoring.
+    # Reduces tool count from ~84 to ~25, making send_message immediately visible to the LLM.
+    WORKSPACE_TOOLS = %w[
+      send_message invite_agent list_messages list_workspaces active_sessions
+      create_workspace
+      list_agents get_agent execute_agent
+      list_teams get_team execute_team add_team_member
+      search_knowledge query_learnings search_knowledge_graph
+      read_shared_memory search_memory
+      get_mission_status get_activity_feed get_notifications dismiss_notification
+      get_system_health kill_switch_status
+    ].freeze
+
     # Tools that modify significant state and should use confirmation
     HIGH_RISK_TOOLS = %w[
       execute_team execute_workflow execute_agent
@@ -42,23 +64,82 @@ module Ai
       CONCIERGE_MAX_ITERATIONS
     end
 
-    # Intercept the virtual `request_confirmation` tool; delegate everything else
+    # Intercept the virtual `request_confirmation` tool; delegate everything else.
+    # Auto-injects conversation_id for workspace tools — LLMs (especially gpt-4.1-mini)
+    # frequently hallucinate conversation IDs instead of extracting the actual UUID
+    # from the system prompt.
+    WORKSPACE_CONTEXT_TOOLS = %w[send_message list_messages invite_agent].freeze
+
     def dispatch_tool_call(tool_call)
       tool_name = tool_call[:name] || tool_call["name"]
 
       if tool_name == "request_confirmation"
         handle_confirmation_request(tool_call)
       else
-        super
+        if @conversation&.workspace_conversation? && WORKSPACE_CONTEXT_TOOLS.include?(tool_name)
+          arguments = tool_call[:arguments] || tool_call["arguments"] || {}
+          arguments = JSON.parse(arguments) if arguments.is_a?(String)
+          arguments = arguments.stringify_keys.merge("conversation_id" => @conversation.conversation_id)
+
+          # Auto-prepend @mention when the model omits it from send_message.
+          # gpt-4.1-mini frequently delegates with just the request text
+          # (e.g. "What time is it?") without the required @AgentName prefix.
+          if tool_name == "send_message" && arguments["message"].present?
+            arguments["message"] = ensure_mention(arguments["message"])
+          end
+
+          tool_call = tool_call.merge(arguments: arguments, "arguments" => arguments)
+          Rails.logger.info("[ConciergeToolBridge] Auto-injected conversation_id=#{@conversation.conversation_id} into #{tool_name}")
+        end
+        super(tool_call)
       end
     end
 
     private
 
+    # Ensure the message contains an @mention for at least one workspace member.
+    # If the LLM omitted it, prepend a mention for the default delegation target
+    # (first mcp_client agent, or first non-concierge member).
+    def ensure_mention(message)
+      team = @conversation.agent_team
+      return message unless team
+
+      members = team.members.includes(:agent).where.not(ai_agent_id: agent.id)
+      return message if members.empty?
+
+      # Check if message already has an @mention for any member.
+      # Also match base names without the #N suffix — LLMs frequently write
+      # "@Claude Code (powernode)" instead of "@Claude Code (powernode) #1".
+      has_mention = members.any? do |m|
+        next false unless m.agent
+        name = m.agent.name
+        next true if message.include?("@#{name}")
+        # Strip "#N" suffix and check base name
+        base = name.sub(/\s*#\d+\z/, "")
+        base != name && message.include?("@#{base}")
+      end
+      return message if has_mention
+
+      # Pick the default target: prefer mcp_client, then first non-concierge
+      target = members.find { |m| m.agent&.agent_type == "mcp_client" }&.agent ||
+               members.find { |m| m.agent&.agent_type != "assistant" }&.agent ||
+               members.first&.agent
+      return message unless target
+
+      Rails.logger.info("[ConciergeToolBridge] Auto-prepended @#{target.name} to send_message")
+      "@#{target.name} #{message}"
+    end
+
     # Override: filter self-referential tools and append the confirmation tool
     def build_tool_definitions
       definitions = Ai::Tools::PlatformApiToolRegistry.tool_definitions(agent: agent)
-      definitions = definitions.reject { |d| SELF_REFERENTIAL_TOOLS.include?(d[:name].to_s) }
+      excluded = SELF_REFERENTIAL_TOOLS + EXCLUDED_AUTONOMY_TOOLS
+      definitions = definitions.reject { |d| excluded.include?(d[:name].to_s) }
+
+      # In workspace mode, restrict to delegation-relevant tools only (~25 vs ~84)
+      if @conversation&.workspace_conversation?
+        definitions = definitions.select { |d| WORKSPACE_TOOLS.include?(d[:name].to_s) }
+      end
 
       llm_tools = definitions.map { |defn| convert_to_llm_tool(defn) }
       llm_tools << confirmation_tool_definition

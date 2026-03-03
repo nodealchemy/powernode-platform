@@ -10,6 +10,7 @@ module Ai
     MAX_SKILLS = 50
     MAX_GRAPH_NODES = 75
     MAX_GRAPH_EDGES = 150
+    MAX_TODOS = 100
 
     # Quality gates
     LEARNING_MIN_IMPORTANCE = 0.5
@@ -37,7 +38,8 @@ module Ai
         learnings: sync_learnings(timestamp),
         knowledge: sync_knowledge(timestamp),
         skills: sync_skills(timestamp),
-        graph: sync_graph(timestamp)
+        graph: sync_graph(timestamp),
+        todos: sync_todos(timestamp)
       }
 
       results[:success] = results.values.all? { |r| r[:success] }
@@ -251,6 +253,50 @@ module Ai
       { success: true, nodes: top_nodes.size, edges: edges.size, stats: stats.slice(:node_count, :edge_count) }
     rescue StandardError => e
       Rails.logger.error("[KnowledgeDocSync] Graph sync failed: #{e.message}")
+      { success: false, error: e.message }
+    end
+
+    def sync_todos(timestamp)
+      entries = SharedKnowledge
+        .where(account: @account)
+        .with_tag("todo")
+        .order(Arel.sql("COALESCE((provenance->>'priority'), 'low') ASC, quality_score DESC NULLS LAST"))
+        .limit(MAX_TODOS)
+
+      todo_dir = Rails.root.join("..", "docs")
+      lines = doc_header("Powernode Platform — TODO", timestamp,
+        "Source: `ai_shared_knowledges` | Filter: tagged \"todo\"")
+      lines << "**#{entries.size} items** exported (max #{MAX_TODOS})"
+      lines << ""
+
+      grouped = entries.group_by { |e| e.provenance&.dig("phase") || e.provenance&.dig("category") || "General" }
+      grouped.each do |group_name, items|
+        lines << "## #{group_name} (#{items.size})"
+        lines << ""
+
+        items.each do |entry|
+          status = entry.provenance&.dig("status") || "pending"
+          checkbox = status == "completed" ? "[x]" : "[ ]"
+          priority = entry.provenance&.dig("priority")
+
+          lines << "- #{checkbox} #{entry.title}"
+          content_preview = truncate_content(entry.content)
+          lines << "  #{content_preview}" if content_preview != "_No content_"
+
+          meta_parts = []
+          meta_parts << "Priority: #{priority}" if priority.present?
+          meta_parts << "Status: #{status}" if status != "completed" && status != "pending"
+          lines << "  *#{meta_parts.join(' | ')}*" if meta_parts.any?
+
+          lines << ""
+        end
+      end
+
+      File.write(todo_dir.join("TODO.md"), lines.join("\n") + "\n")
+      Rails.logger.info("[KnowledgeDocSync] Wrote #{todo_dir.join('TODO.md')}")
+      { success: true, count: entries.size }
+    rescue StandardError => e
+      Rails.logger.error("[KnowledgeDocSync] Todos sync failed: #{e.message}")
       { success: false, error: e.message }
     end
 

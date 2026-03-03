@@ -95,13 +95,22 @@ module Ai
       accumulated_usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
       tool_calls_log = []
 
+      tool_names = tools.map { |t| t[:name] || t.dig(:function, :name) }.compact
+      Rails.logger.info "[AgentToolBridge] Starting loop: model=#{model} tools=#{tool_names.length} (#{tool_names.join(', ')}) messages=#{messages.length} system_prompt_length=#{opts[:system_prompt]&.length}"
+
       loop do
         iteration += 1
         Rails.logger.info "[AgentToolBridge] Iteration #{iteration}/#{max_iter} for agent #{agent.id}"
 
+        # tool_choice only applies to the first iteration (forced tool call);
+        # subsequent iterations use auto so the model can generate a text response
+        iter_opts = iteration > 1 ? opts.except(:tool_choice) : opts
+
         response = llm_client.complete_with_tools(
-          messages: messages, tools: tools, model: model, **opts
+          messages: messages, tools: tools, model: model, **iter_opts
         )
+
+        Rails.logger.info "[AgentToolBridge] Response: has_tool_calls=#{response.has_tool_calls?} finish_reason=#{response.finish_reason} content_length=#{response.content&.length} usage=#{response.usage}"
 
         accumulate_usage(accumulated_usage, response.usage)
 
