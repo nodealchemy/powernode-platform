@@ -1,7 +1,8 @@
-import React from 'react';
-import { BookOpen, Tag, Globe, Lock, Sparkles } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { BookOpen, Tag, Globe, Lock, Sparkles, ChevronUp, ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
+import { Select } from '@/shared/components/ui/Select';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import type { SharedKnowledgeEntry } from '../types/memory';
 
@@ -17,11 +18,55 @@ const CONTENT_TYPE_VARIANT: Record<string, 'info' | 'success' | 'warning' | 'def
   config: 'warning',
 };
 
+type SortField = 'title' | 'quality_score' | 'usage_count';
+type SortDirection = 'asc' | 'desc';
+
+function SortIcon({ field, activeField, direction }: { field: SortField; activeField: SortField; direction: SortDirection }) {
+  if (field !== activeField) {
+    return <ChevronDown className="h-3 w-3 text-theme-muted/40 inline ml-0.5" />;
+  }
+  return direction === 'asc'
+    ? <ChevronUp className="h-3 w-3 text-theme-primary inline ml-0.5" />
+    : <ChevronDown className="h-3 w-3 text-theme-primary inline ml-0.5" />;
+}
+
 export const SharedKnowledgeList: React.FC<SharedKnowledgeListProps> = ({
   entries,
   loading,
   className,
 }) => {
+  const [contentTypeFilter, setContentTypeFilter] = useState<string>('');
+  const [sortField, setSortField] = useState<SortField>('title');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortDirection(field === 'title' ? 'asc' : 'desc');
+    }
+  };
+
+  const displayEntries = useMemo(() => {
+    let filtered = entries;
+    if (contentTypeFilter) {
+      filtered = filtered.filter((e) => e.content_type === contentTypeFilter);
+    }
+    return [...filtered].sort((a, b) => {
+      const dir = sortDirection === 'asc' ? 1 : -1;
+      switch (sortField) {
+        case 'quality_score':
+          return ((a.quality_score ?? 0) - (b.quality_score ?? 0)) * dir;
+        case 'usage_count':
+          return (a.usage_count - b.usage_count) * dir;
+        case 'title':
+        default:
+          return a.title.localeCompare(b.title) * dir;
+      }
+    });
+  }, [entries, contentTypeFilter, sortField, sortDirection]);
+
   if (loading) {
     return (
       <Card className={className}>
@@ -42,25 +87,62 @@ export const SharedKnowledgeList: React.FC<SharedKnowledgeListProps> = ({
     );
   }
 
+  // Collect unique content types for the filter dropdown
+  const contentTypes = [...new Set(entries.map((e) => e.content_type))].sort();
+
   return (
     <Card className={className}>
-      <CardHeader title={`Shared Knowledge (${entries.length})`} />
+      <CardHeader
+        title={`Shared Knowledge (${displayEntries.length}${contentTypeFilter ? ` of ${entries.length}` : ''})`}
+      />
       <CardContent>
+        {/* Filter bar */}
+        <div className="flex items-center gap-3 mb-4">
+          <Select
+            value={contentTypeFilter}
+            onChange={(value) => setContentTypeFilter(value)}
+            className="w-40"
+          >
+            <option value="">All Types</option>
+            {contentTypes.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </Select>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-theme">
-                <th className="text-left py-2 px-3 text-theme-secondary font-medium">Title</th>
+                <th
+                  className="text-left py-2 px-3 text-theme-secondary font-medium cursor-pointer select-none hover:text-theme-primary"
+                  onClick={() => handleSort('title')}
+                >
+                  Title
+                  <SortIcon field="title" activeField={sortField} direction={sortDirection} />
+                </th>
                 <th className="text-left py-2 px-3 text-theme-secondary font-medium">Type</th>
                 <th className="text-left py-2 px-3 text-theme-secondary font-medium">Access</th>
                 <th className="text-left py-2 px-3 text-theme-secondary font-medium">Tags</th>
-                <th className="text-right py-2 px-3 text-theme-secondary font-medium">Quality</th>
-                <th className="text-right py-2 px-3 text-theme-secondary font-medium">Usage</th>
+                <th
+                  className="text-right py-2 px-3 text-theme-secondary font-medium cursor-pointer select-none hover:text-theme-primary"
+                  onClick={() => handleSort('quality_score')}
+                >
+                  Quality
+                  <SortIcon field="quality_score" activeField={sortField} direction={sortDirection} />
+                </th>
+                <th
+                  className="text-right py-2 px-3 text-theme-secondary font-medium cursor-pointer select-none hover:text-theme-primary"
+                  onClick={() => handleSort('usage_count')}
+                >
+                  Usage
+                  <SortIcon field="usage_count" activeField={sortField} direction={sortDirection} />
+                </th>
                 <th className="text-center py-2 px-3 text-theme-secondary font-medium">Embedding</th>
               </tr>
             </thead>
             <tbody>
-              {entries.map((entry) => (
+              {displayEntries.map((entry) => (
                 <tr
                   key={entry.id}
                   className="border-b border-theme last:border-b-0 hover:bg-theme-surface transition-colors"

@@ -51,7 +51,7 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
                 {entry.key}
               </span>
               <Badge variant={TIER_BADGE_VARIANT[entry.tier] || 'default'} size="sm">
-                {entry.tier?.replace('_', ' ') ?? 'unknown'}
+                {entry.tier?.replace(/_/g, ' ') ?? 'unknown'}
               </Badge>
               {entry.memory_type && (
                 <Badge variant="outline" size="sm">
@@ -111,6 +111,27 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
             <span className="font-mono">session: {entry.session_id.substring(0, 8)}...</span>
           )}
         </div>
+
+        {/* Extra metadata for long-term entries */}
+        {(entry.importance_score !== undefined || entry.category) && (
+          <div className="flex items-center gap-2 mt-2">
+            {entry.importance_score !== undefined && (
+              <span className={cn(
+                'px-1.5 py-0.5 text-xs rounded',
+                entry.importance_score >= 0.8 ? 'bg-theme-error/10 text-theme-error' :
+                entry.importance_score >= 0.6 ? 'bg-theme-warning/10 text-theme-warning' :
+                'bg-theme-secondary/10 text-theme-secondary'
+              )}>
+                {Math.round(entry.importance_score * 100)}% importance
+              </span>
+            )}
+            {entry.category && (
+              <span className="px-1.5 py-0.5 text-xs rounded bg-theme-accent/10 text-theme-accent">
+                {entry.category}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Expand toggle for objects */}
         {isObject && (

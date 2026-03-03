@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { BookOpen, ChevronDown, ChevronRight } from 'lucide-react';
 import { sharedLearningsApi, type Learning } from '../api/sharedLearningsApi';
 
@@ -70,27 +70,46 @@ interface SharedLearningsPanelProps {
 export function SharedLearningsPanel({ poolId }: SharedLearningsPanelProps) {
   const [learnings, setLearnings] = useState<Learning[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = poolId
+        ? await sharedLearningsApi.fetchPoolLearnings(poolId)
+        : await sharedLearningsApi.fetchGlobalLearnings();
+      setLearnings(data);
+    } catch {
+      setError('Failed to load shared learnings');
+    } finally {
+      setLoading(false);
+    }
+  }, [poolId]);
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const data = poolId
-          ? await sharedLearningsApi.fetchPoolLearnings(poolId)
-          : await sharedLearningsApi.fetchGlobalLearnings();
-        setLearnings(data);
-      } catch {
-        // Silently handle
-      } finally {
-        setLoading(false);
-      }
-    };
     load();
-  }, [poolId]);
+  }, [load]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-2 border-theme-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-8 bg-theme-surface border border-theme-danger/30 rounded-lg">
+        <p className="text-theme-danger text-sm mb-3">{error}</p>
+        <button
+          type="button"
+          onClick={load}
+          className="px-3 py-1.5 text-sm rounded-lg bg-theme-primary text-white hover:bg-theme-primary/90 transition-colors"
+        >
+          Retry
+        </button>
       </div>
     );
   }

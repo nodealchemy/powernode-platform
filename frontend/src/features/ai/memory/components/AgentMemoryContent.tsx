@@ -7,7 +7,6 @@ import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { agentsApi } from '@/shared/services/ai';
 import { MemoryStats } from './AgentMemoryStats';
 import { MemoryTimeline } from './MemoryTimeline';
-import { ContextInjectionPreview } from './ContextInjectionPreview';
 import { SharedLearningsPanel } from './SharedLearningsPanel';
 import type { PageAction } from '@/shared/components/layout/PageContainer';
 import type { AiAgent } from '@/shared/types/ai';
@@ -93,7 +92,6 @@ export const AgentMemoryContent: React.FC<AgentMemoryContentProps> = ({ onAction
               <SharedLearningsPanel />
             </div>
           </div>
-          <ContextInjectionPreview agentId={selectedAgentId} />
         </>
       )}
     </div>

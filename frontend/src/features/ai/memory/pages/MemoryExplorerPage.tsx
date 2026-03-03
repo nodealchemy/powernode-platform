@@ -171,7 +171,7 @@ export const MemoryExplorerContent: React.FC<MemoryExplorerContentProps> = ({ on
       </Card>
 
       {/* Stats Bar */}
-      <MemoryStatsBar stats={stats} loading={statsLoading} />
+      <MemoryStatsBar stats={stats} loading={statsLoading} onTierClick={setActiveTier} />
 
       {/* Tier Tabs + Entries */}
       <Card>
@@ -192,7 +192,7 @@ export const MemoryExplorerContent: React.FC<MemoryExplorerContentProps> = ({ on
           ) : entries.length === 0 ? (
             <EmptyState
               icon={Brain}
-              title={`No ${activeTier.replace('_', ' ')} memory entries`}
+              title={`No ${activeTier.replace(/_/g, ' ')} memory entries`}
               description="Memory entries will appear here as the agent operates"
             />
           ) : (

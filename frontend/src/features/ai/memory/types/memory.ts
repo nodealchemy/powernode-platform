@@ -10,6 +10,10 @@ export interface MemoryEntry {
   access_count?: number;
   expires_at?: string;
   created_at?: string;
+  importance_score?: number;
+  confidence_score?: number;
+  category?: string;
+  content?: string;
 }
 
 export interface SharedKnowledgeEntry {
