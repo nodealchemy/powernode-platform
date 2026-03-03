@@ -16,6 +16,7 @@ module Devops
     belongs_to :template, class_name: "Devops::ContainerTemplate", optional: true
     belongs_to :triggered_by, class_name: "User", optional: true
     belongs_to :a2a_task, class_name: "Ai::A2aTask", optional: true
+    belongs_to :oauth_application, class_name: "OauthApplication", optional: true
 
     # Validations
     validates :execution_id, presence: true, uniqueness: true
@@ -229,6 +230,12 @@ module Devops
       # Clean up Vault token
       cleanup_vault_token! if vault_token_id.present?
 
+      # Revoke container's OAuth tokens on completion
+      revoke_container_oauth_tokens! if oauth_application.present?
+
+      # Release allocated ports
+      release_allocated_ports!
+
       # Update A2A task if linked
       update_linked_task if a2a_task.present?
     end
@@ -239,6 +246,19 @@ module Devops
       else
         a2a_task.fail!(error_message: error_message || "Container execution failed")
       end
+    end
+
+    def revoke_container_oauth_tokens!
+      oauth_application.access_tokens.where(revoked_at: nil).update_all(revoked_at: Time.current)
+      Rails.logger.info "[ContainerInstance] Revoked OAuth tokens for #{execution_id}"
+    rescue StandardError => e
+      Rails.logger.warn "Failed to revoke container OAuth tokens: #{e.message}"
+    end
+
+    def release_allocated_ports!
+      Devops::PortAllocatorService.new.release!(allocatable: self)
+    rescue StandardError => e
+      Rails.logger.warn "Failed to release ports for #{execution_id}: #{e.message}"
     end
   end
 end

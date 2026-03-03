@@ -18,10 +18,17 @@ module Devops
     # Associations
     belongs_to :account, optional: true  # nil = system template
     belongs_to :created_by, class_name: "User", optional: true
+    belongs_to :parent_template, class_name: "Devops::ContainerTemplate", optional: true
 
     has_many :container_instances, class_name: "Devops::ContainerInstance",
                                    foreign_key: "template_id",
                                    dependent: :nullify
+    has_many :child_templates, class_name: "Devops::ContainerTemplate",
+                                foreign_key: "parent_template_id",
+                                dependent: :nullify
+    has_many :image_builds, class_name: "Devops::ContainerImageBuild",
+                             foreign_key: "container_template_id",
+                             dependent: :destroy
 
     # Validations
     validates :name, presence: true, length: { maximum: 255 }
@@ -41,6 +48,9 @@ module Devops
     scope :public_templates, -> { where(visibility: "public", status: "active") }
     scope :system_templates, -> { where(account_id: nil) }
     scope :for_account, ->(account) { where(account: account).or(where(visibility: "public")).or(where(account_id: nil)) }
+    scope :base_images, -> { where(parent_template_id: nil, category: "ai-agent") }
+    scope :with_gitea_repo, -> { where.not(gitea_repo_full_name: nil) }
+    scope :featured, -> { where(featured: true) }
 
     # Callbacks
     before_validation :generate_slug, on: :create
@@ -147,6 +157,11 @@ module Devops
       (success_count.to_f / execution_count * 100).round(2)
     end
 
+    # Check if the template needs a rebuild based on git SHA
+    def needs_rebuild?(sha)
+      last_build_sha != sha
+    end
+
     # Summary
     def template_summary
       {
@@ -163,7 +178,14 @@ module Devops
         execution_count: execution_count,
         success_rate: success_rate,
         network_access: network_access,
-        timeout_seconds: timeout_seconds
+        timeout_seconds: timeout_seconds,
+        parent_template_id: parent_template_id,
+        gitea_repo_full_name: gitea_repo_full_name,
+        last_build_sha: last_build_sha,
+        last_built_at: last_built_at,
+        auto_update: auto_update,
+        featured: featured,
+        child_template_count: child_templates.size
       }
     end
 
@@ -181,6 +203,11 @@ module Devops
         labels: labels,
         entrypoint: entrypoint,
         command_args: command_args,
+        webhook_secret: webhook_secret.present?,
+        registry_url: registry_url,
+        parent_template_name: parent_template&.name,
+        child_templates: child_templates.active.map { |ct| { id: ct.id, name: ct.name, slug: ct.slug } },
+        recent_builds: image_builds.recent.limit(5).map(&:build_summary),
         created_by: created_by&.full_name,
         created_at: created_at,
         last_used_at: last_used_at
