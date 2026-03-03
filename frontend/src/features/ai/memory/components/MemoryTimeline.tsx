@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
+  ChevronDown,
+  ChevronUp,
   Clock,
   Database,
   Filter,
   RefreshCw,
   Search,
+  Trash2,
 } from 'lucide-react';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -15,17 +18,30 @@ import { Loading } from '@/shared/components/ui/Loading';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { cn } from '@/shared/utils/cn';
 import { fetchMemoryEntries } from '../api/memoryApi';
-import type { MemoryEntry, MemoryTier } from '../types/memory';
+import type { MemoryEntry, MemoryTier, MemoryStats } from '../types/memory';
 
 interface MemoryTimelineProps {
   agentId: string;
   onSelectMemory?: (memory: MemoryEntry) => void;
+  stats?: MemoryStats;
+  tier?: MemoryTier;
+  onTierChange?: (tier: MemoryTier) => void;
+  onDeleteEntry?: (entry: MemoryEntry) => void;
   className?: string;
 }
 
 const TIER_CONFIG: Record<string, { color: string; label: string }> = {
+  working: { color: 'text-theme-warning', label: 'Working' },
   short_term: { color: 'text-theme-info', label: 'Short-Term' },
   long_term: { color: 'text-theme-success', label: 'Long-Term' },
+  shared: { color: 'text-theme-primary', label: 'Shared' },
+};
+
+const TIER_EMPTY_DESCRIPTIONS: Record<string, string> = {
+  working: 'Ephemeral session data stored in Redis — active only during agent execution.',
+  short_term: 'Recent observations and context, subject to TTL expiry.',
+  long_term: 'Persisted knowledge promoted from short-term memory based on access patterns.',
+  shared: 'Cross-agent knowledge accessible to all agents in the account.',
 };
 
 function formatValue(value: unknown): string {
@@ -37,13 +53,43 @@ function formatValue(value: unknown): string {
 export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
   agentId,
   onSelectMemory,
+  stats,
+  tier,
+  onTierChange,
+  onDeleteEntry,
   className,
 }) => {
   const [memories, setMemories] = useState<MemoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [tierFilter, setTierFilter] = useState<MemoryTier>('short_term');
+  const [tierFilter, setTierFilter] = useState<MemoryTier>(tier || 'short_term');
+  const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
+
+  // Sync tier from parent when it changes (e.g. clicking a stats card)
+  useEffect(() => {
+    if (tier !== undefined && tier !== tierFilter) {
+      setTierFilter(tier);
+    }
+  }, [tier]);
+
+  const handleTierChange = useCallback((value: MemoryTier) => {
+    setTierFilter(value);
+    setExpandedEntries(new Set());
+    onTierChange?.(value);
+  }, [onTierChange]);
+
+  const toggleExpanded = useCallback((entryId: string) => {
+    setExpandedEntries((prev) => {
+      const next = new Set(prev);
+      if (next.has(entryId)) {
+        next.delete(entryId);
+      } else {
+        next.add(entryId);
+      }
+      return next;
+    });
+  }, []);
 
   const loadMemories = useCallback(async () => {
     try {
@@ -132,13 +178,27 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
               <Filter className="h-4 w-4 text-theme-muted" />
               <Select
                 value={tierFilter}
-                onChange={(value) => setTierFilter(value as MemoryTier)}
-                className="w-36"
+                onChange={(value) => handleTierChange(value as MemoryTier)}
+                className="w-48"
               >
-                <option value="short_term">Short-Term</option>
-                <option value="long_term">Long-Term</option>
+                <option value="working">
+                  Working{stats ? ` (${stats.working.count})` : ''}
+                </option>
+                <option value="short_term">
+                  Short-Term{stats ? ` (${stats.short_term.total})` : ''}
+                </option>
+                <option value="long_term">
+                  Long-Term{stats ? ` (${stats.long_term.total})` : ''}
+                </option>
+                <option value="shared">
+                  Shared{stats ? ` (${stats.shared.total})` : ''}
+                </option>
               </Select>
             </div>
+
+            <span className="text-sm text-theme-muted whitespace-nowrap">
+              {filteredMemories.length} {filteredMemories.length === 1 ? 'entry' : 'entries'}
+            </span>
 
             <Button variant="outline" size="sm" onClick={loadMemories} disabled={loading}>
               <RefreshCw className={cn('h-4 w-4 mr-2', loading && 'animate-spin')} />
@@ -163,7 +223,7 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
           description={
             searchQuery
               ? 'No entries match your search. Try a different query.'
-              : `This agent has no ${tierFilter.replace(/_/g, ' ')} memories yet`
+              : TIER_EMPTY_DESCRIPTIONS[tierFilter] || `This agent has no ${tierFilter.replace(/_/g, ' ')} memories yet.`
           }
         />
       )}
@@ -184,12 +244,17 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
 
               {dayMemories.map((entry, idx) => {
                 const config = TIER_CONFIG[tierFilter] || TIER_CONFIG.short_term;
+                const entryId = entry.id || `${entry.key}-${idx}`;
+                const isExpanded = expandedEntries.has(entryId);
 
                 return (
                   <Card
-                    key={entry.id || `${entry.key}-${idx}`}
+                    key={entryId}
                     className="ml-8 cursor-pointer hover:border-theme-primary/50 transition-colors"
-                    onClick={() => onSelectMemory?.(entry)}
+                    onClick={() => {
+                      toggleExpanded(entryId);
+                      onSelectMemory?.(entry);
+                    }}
                   >
                     <CardContent className="p-4">
                       {/* Timeline dot */}
@@ -210,9 +275,37 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
                               </Badge>
                             )}
                           </div>
-                          <p className="text-sm text-theme-secondary mt-1 line-clamp-2">
-                            {getContentPreview(entry)}
-                          </p>
+
+                          {/* Collapsed: content preview */}
+                          {!isExpanded && (
+                            <p className="text-sm text-theme-secondary mt-1 line-clamp-2">
+                              {getContentPreview(entry)}
+                            </p>
+                          )}
+
+                          {/* Expanded: full JSON + metadata */}
+                          {isExpanded && (
+                            <div className="mt-2 space-y-2">
+                              <pre className="text-sm text-theme-secondary bg-theme-surface rounded p-3 overflow-x-auto max-h-64 overflow-y-auto">
+                                <code>{formatValue(entry.value)}</code>
+                              </pre>
+                              <div className="flex flex-wrap items-center gap-3 text-xs text-theme-muted">
+                                {entry.confidence_score !== undefined && (
+                                  <span>Confidence: {Math.round(entry.confidence_score * 100)}%</span>
+                                )}
+                                {entry.session_id && (
+                                  <span className="font-mono">Session: {entry.session_id.substring(0, 12)}...</span>
+                                )}
+                                {entry.expires_at && (
+                                  <span>Expires: {new Date(entry.expires_at).toLocaleString()}</span>
+                                )}
+                                {entry.memory_type && (
+                                  <Badge variant="outline" size="sm">{entry.memory_type}</Badge>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
                           <div className="flex items-center gap-4 mt-2 text-xs text-theme-muted">
                             {entry.created_at && (
                               <span className="flex items-center gap-1">
@@ -229,6 +322,37 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
                               <span>{entry.access_count} accesses</span>
                             )}
                           </div>
+                        </div>
+
+                        {/* Actions: delete + expand toggle */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          {onDeleteEntry && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteEntry(entry);
+                              }}
+                              className="text-theme-danger hover:text-theme-danger"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleExpanded(entryId);
+                            }}
+                          >
+                            {isExpanded ? (
+                              <ChevronUp className="h-4 w-4" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4" />
+                            )}
+                          </Button>
                         </div>
                       </div>
                     </CardContent>

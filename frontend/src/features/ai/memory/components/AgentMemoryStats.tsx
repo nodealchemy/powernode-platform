@@ -12,36 +12,47 @@ import { Button } from '@/shared/components/ui/Button';
 import { Loading } from '@/shared/components/ui/Loading';
 import { cn } from '@/shared/utils/cn';
 import { fetchMemoryStats } from '../api/memoryApi';
-import type { MemoryStats as MemoryStatsType } from '../types/memory';
+import type { MemoryStats as MemoryStatsType, MemoryTier } from '../types/memory';
 
 interface MemoryStatsProps {
   agentId: string;
+  stats?: MemoryStatsType;
+  onTierClick?: (tier: MemoryTier) => void;
   className?: string;
 }
 
-export const MemoryStats: React.FC<MemoryStatsProps> = ({ agentId, className }) => {
-  const [stats, setStats] = useState<MemoryStatsType | null>(null);
-  const [loading, setLoading] = useState(true);
+export const MemoryStats: React.FC<MemoryStatsProps> = ({
+  agentId,
+  stats: externalStats,
+  onTierClick,
+  className,
+}) => {
+  const [internalStats, setInternalStats] = useState<MemoryStatsType | null>(null);
+  const [loading, setLoading] = useState(!externalStats);
   const [error, setError] = useState<string | null>(null);
 
+  // Use externally-provided stats when available, fall back to internal fetch
+  const stats = externalStats || internalStats;
+
   const loadStats = useCallback(async () => {
+    if (externalStats) return; // Parent provides stats — skip redundant fetch
     try {
       setLoading(true);
       setError(null);
       const response = await fetchMemoryStats(agentId);
-      setStats(response);
+      setInternalStats(response);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load stats');
     } finally {
       setLoading(false);
     }
-  }, [agentId]);
+  }, [agentId, externalStats]);
 
   useEffect(() => {
     loadStats();
   }, [loadStats]);
 
-  if (loading) {
+  if (loading && !stats) {
     return (
       <Card className={className}>
         <CardContent className="flex items-center justify-center py-8">
@@ -51,7 +62,7 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({ agentId, className }) 
     );
   }
 
-  if (error || !stats) {
+  if (error && !stats) {
     return (
       <Card className={className}>
         <CardContent className="py-8 text-center text-theme-danger">
@@ -60,6 +71,8 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({ agentId, className }) 
       </Card>
     );
   }
+
+  if (!stats) return null;
 
   const totalEntries =
     stats.working.count +
@@ -89,14 +102,26 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({ agentId, className }) 
         <div>
           <h4 className="text-sm font-medium text-theme-secondary mb-3">By Tier</h4>
           <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 bg-theme-warning/10 rounded-lg text-center">
+            <div
+              className={cn(
+                'p-3 bg-theme-warning/10 rounded-lg text-center transition-colors',
+                onTierClick && 'cursor-pointer hover:ring-1 hover:ring-theme-warning/50'
+              )}
+              onClick={() => onTierClick?.('working')}
+            >
               <Zap className="h-5 w-5 text-theme-warning mx-auto mb-1" />
               <div className="text-lg font-semibold text-theme-primary">
                 {stats.working.count}
               </div>
               <div className="text-xs text-theme-muted">Working</div>
             </div>
-            <div className="p-3 bg-theme-info/10 rounded-lg text-center">
+            <div
+              className={cn(
+                'p-3 bg-theme-info/10 rounded-lg text-center transition-colors',
+                onTierClick && 'cursor-pointer hover:ring-1 hover:ring-theme-info/50'
+              )}
+              onClick={() => onTierClick?.('short_term')}
+            >
               <Clock className="h-5 w-5 text-theme-info mx-auto mb-1" />
               <div className="text-lg font-semibold text-theme-primary">
                 {stats.short_term.total}
@@ -106,7 +131,13 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({ agentId, className }) 
                 {stats.short_term.active} active / {stats.short_term.expired} expired
               </div>
             </div>
-            <div className="p-3 bg-theme-success/10 rounded-lg text-center">
+            <div
+              className={cn(
+                'p-3 bg-theme-success/10 rounded-lg text-center transition-colors',
+                onTierClick && 'cursor-pointer hover:ring-1 hover:ring-theme-success/50'
+              )}
+              onClick={() => onTierClick?.('long_term')}
+            >
               <Database className="h-5 w-5 text-theme-success mx-auto mb-1" />
               <div className="text-lg font-semibold text-theme-primary">
                 {stats.long_term.total}
@@ -116,7 +147,13 @@ export const MemoryStats: React.FC<MemoryStatsProps> = ({ agentId, className }) 
                 {stats.long_term.active} active
               </div>
             </div>
-            <div className="p-3 bg-theme-primary/10 rounded-lg text-center">
+            <div
+              className={cn(
+                'p-3 bg-theme-primary/10 rounded-lg text-center transition-colors',
+                onTierClick && 'cursor-pointer hover:ring-1 hover:ring-theme-primary/50'
+              )}
+              onClick={() => onTierClick?.('shared')}
+            >
               <Share2 className="h-5 w-5 text-theme-primary mx-auto mb-1" />
               <div className="text-lg font-semibold text-theme-primary">
                 {stats.shared.total}
