@@ -10,6 +10,7 @@ module Api
         MCP_PROTOCOL_VERSION = "2025-11-25"
         SESSION_TTL = 24.hours
         SSE_KEEPALIVE_INTERVAL = 30 # seconds
+        SSE_CHANNEL_REFRESH_CYCLES = 4 # Re-check workspace channels every N keepalive cycles (~2 min)
         ALLOWED_WORKSPACE_EVENTS = %w[message_created ai_response_complete agent_joined agent_left mention].freeze
 
         # Session-level dedup: prevents duplicate SSE events across multiple
@@ -124,58 +125,8 @@ module Api
           dedup = { mutex: Mutex.new, ids: Set.new }
 
           all_channels.each do |channel|
-            is_workspace_channel = workspace_channel_set.include?(channel)
-
-            callback = proc do |raw_message|
-              data = JSON.parse(raw_message) rescue next
-
-              if data["jsonrpc"] == "2.0" && data["method"].is_a?(String)
-                # MCP JSON-RPC 2.0 notification — spec-compliant event: message
-                sse.write(data, event: "message")
-              else
-                # Workspace event — forward with event type name
-                event_type = data["type"] || data[:type]
-                next unless ALLOWED_WORKSPACE_EVENTS.include?(event_type.to_s)
-
-                # For workspace channels, only forward if this agent is @mentioned.
-                # Checks both structured metadata mentions and text @Name patterns.
-                # Structural events (agent_joined/agent_left) pass through unfiltered.
-                if is_workspace_channel && %w[message_created ai_response_complete].include?(event_type.to_s)
-                  msg = data["message"] || {}
-                  mentions = msg.dig("metadata", "mentions") ||
-                             msg.dig("content_metadata", "mentions") || []
-                  agent_mentioned = false
-
-                  if mentions.any?
-                    mentioned_ids = mentions.filter_map { |m| m["id"] || m[:id] }
-                    mentioned_names = mentions.filter_map { |m| m["name"] || m[:name] }
-                    agent_mentioned = mentioned_ids.include?(agent&.id) ||
-                                      mentioned_names.include?(agent&.name)
-                  end
-
-                  # Fallback: check for @AgentName in message content (agent-to-agent path)
-                  unless agent_mentioned
-                    content = (msg["content"] || "").to_s
-                    agent_mentioned = agent&.name.present? && content.include?("@#{agent.name}")
-                  end
-
-                  next unless agent_mentioned
-                end
-
-                # Deduplicate: same message can arrive via session + workspace channels,
-                # and also across concurrent SSE connections for the same session.
-                # Include event_type in dedup key so ai_response_complete passes through
-                # even when message_created was already seen for the same message.
-                msg_id = (data["message"].is_a?(Hash) && data["message"]["id"]) || data["message_id"]
-                if msg_id.present?
-                  dedup_key = "#{event_type}:#{msg_id}"
-                  next if sse_dedup_seen?(dedup, dedup_key)
-                end
-
-                sse.write(data, event: event_type.to_s)
-              end
-            end
-
+            is_workspace = workspace_channel_set.include?(channel)
+            callback = is_workspace ? build_workspace_callback(channel, sse, agent, dedup) : build_session_callback(sse)
             callbacks[channel] = callback
             pubsub.subscribe(channel, callback)
           end
@@ -188,11 +139,30 @@ module Api
 
           # Keepalive loop — borrows a connection only for the brief touch_activity!
           # query, then returns it immediately via with_connection.
+          keepalive_cycle = 0
           loop do
             sleep SSE_KEEPALIVE_INTERVAL
             sse.write({ type: "ping", timestamp: Time.current.iso8601 }, event: "ping")
+            keepalive_cycle += 1
+
             ActiveRecord::Base.connection_pool.with_connection do
               session.touch_activity!
+
+              # Periodically re-check workspace channels and subscribe to new ones.
+              # Handles the race where an agent is added to a workspace AFTER the
+              # SSE stream connects (e.g., MCP client agents that are invited
+              # asynchronously after session initialization).
+              if agent && (keepalive_cycle % SSE_CHANNEL_REFRESH_CYCLES).zero?
+                fresh_channels = workspace_channels_for_agent(agent)
+                new_channels = fresh_channels.reject { |ch| workspace_channel_set.include?(ch) }
+                new_channels.each do |channel|
+                  workspace_channel_set << channel
+                  callback = build_workspace_callback(channel, sse, agent, dedup)
+                  callbacks[channel] = callback
+                  pubsub.subscribe(channel, callback)
+                  Rails.logger.info "[MCP StreamableHTTP] Late-subscribed to workspace channel: #{channel} (agent: #{agent.name})"
+                end
+              end
             end
           end
         rescue ActionController::Live::ClientDisconnected, IOError, Errno::EPIPE
@@ -223,7 +193,43 @@ module Api
 
         def track_session_activity
           session_id = request.headers["Mcp-Session-Id"]
-          return unless session_id.present?
+
+          if session_id.present?
+            session = McpSession.find_by(session_token: session_id, status: "active")
+
+            # Reconnect recovery: if the session was recently revoked (e.g., server
+            # restart dropped the SSE connection), reactivate it. The OAuth token is
+            # already validated by authenticate_mcp_request, so the client is legit.
+            if session.nil?
+              revoked_session = McpSession.find_by(session_token: session_id)
+              if revoked_session&.reactivatable?
+                revoked_session.reactivate!
+                session = revoked_session
+              end
+            end
+          end
+
+          # Fallback: find any active session for this user/account/app.
+          # Handles requests without Mcp-Session-Id (e.g., first request after
+          # auto-provision) or with an expired/revoked session ID.
+          if session.nil? && @doorkeeper_token&.application_id.present?
+            session = McpSession.active
+              .where(user: current_user, account: current_account,
+                     oauth_application_id: @doorkeeper_token.application_id)
+              .order(created_at: :desc)
+              .first
+          end
+
+          return unless session
+
+          # Store for mcp_client_agent fallback — it prefers Mcp-Session-Id header
+          # but falls back to this when the header is missing or stale.
+          @tracked_session = session
+
+          # Deferred agent linking: if session has no agent but one is resolvable now, link it.
+          # Runs on ALL request methods (including GET/SSE) to catch sessions that were
+          # created before identity resolution was deployed.
+          resolve_and_link_agent(session) if session.ai_agent_id.nil?
 
           # SSE stream connections (GET) are passive listeners — they should NOT
           # refresh last_activity_at. Only actual JSON-RPC requests (POST) count
@@ -232,28 +238,7 @@ module Api
           # connected, allowing expire_previous_sessions! to clean it up.
           return if request.get?
 
-          session = McpSession.find_by(session_token: session_id, status: "active")
-
-          # Reconnect recovery: if the session was recently revoked (e.g., server
-          # restart dropped the SSE connection), reactivate it. The OAuth token is
-          # already validated by authenticate_mcp_request, so the client is legit.
-          if session.nil?
-            revoked_session = McpSession.find_by(session_token: session_id)
-            if revoked_session&.reactivatable?
-              revoked_session.reactivate!
-              session = revoked_session
-            end
-          end
-
-          return unless session
-
           session.touch_activity!
-
-          # Deferred agent linking: if session has no agent but one is resolvable now, link it
-          if session.ai_agent_id.nil?
-            agent = mcp_client_agent
-            session.link_agent!(agent) if agent
-          end
         end
 
         def parse_request_body
@@ -293,6 +278,8 @@ module Api
           case method
           when "initialize"
             handle_initialize(params, message_id)
+          when "session/discover"
+            handle_session_discover(params)
           when "ping"
             {}
           when "tools/list"
@@ -326,36 +313,66 @@ module Api
             return nil
           end
 
-          # Create DB-backed session
-          session = McpSession.create!(
-            user: current_user,
-            account: current_account,
-            protocol_version: negotiated,
-            client_info: params["clientInfo"] || {},
-            ip_address: request.remote_ip,
-            user_agent: request.user_agent,
-            expires_at: SESSION_TTL.from_now
-          )
-
-          # Link OAuth application identity — the auth concern's link_mcp_session_to_application
-          # runs before_action but the session doesn't exist yet on initialize requests
+          # Reuse auto-provisioned sessions (created by session/discover self-healing)
+          # instead of creating a new session + agent. This prevents the race where
+          # session/discover auto-provisions agent #1, then initialize creates agent #2.
+          session = nil
           if @doorkeeper_token&.application_id.present?
-            session.update_columns(oauth_application_id: @doorkeeper_token.application_id)
+            auto_session = McpSession.active
+              .where(user: current_user, account: current_account,
+                     oauth_application_id: @doorkeeper_token.application_id)
+              .where("client_info->>'version' = ?", "auto-provisioned")
+              .order(created_at: :desc)
+              .first
+
+            if auto_session
+              auto_session.update!(
+                protocol_version: negotiated,
+                client_info: params["clientInfo"] || {},
+                ip_address: request.remote_ip,
+                user_agent: request.user_agent,
+                expires_at: SESSION_TTL.from_now
+              )
+              session = auto_session
+              Rails.logger.info "[MCP StreamableHTTP] Upgraded auto-provisioned session #{session.id} with real client info"
+            end
+          end
+
+          unless session
+            # Create DB-backed session
+            session = McpSession.create!(
+              user: current_user,
+              account: current_account,
+              protocol_version: negotiated,
+              client_info: params["clientInfo"] || {},
+              ip_address: request.remote_ip,
+              user_agent: request.user_agent,
+              expires_at: SESSION_TTL.from_now
+            )
+
+            # Link OAuth application identity — the auth concern's link_mcp_session_to_application
+            # runs before_action but the session doesn't exist yet on initialize requests
+            if @doorkeeper_token&.application_id.present?
+              session.update_columns(oauth_application_id: @doorkeeper_token.application_id)
+            end
           end
 
           # Resolve and bind MCP client agent identity to the session.
-          # Wrapped in a transaction so a failed link_agent! rolls back agent creation.
-          ActiveRecord::Base.transaction do
-            agent = mcp_client_agent
-            session.link_agent!(agent) if agent
-          end
+          # The block runs inside the advisory lock transaction so link_agent!
+          # commits atomically with agent creation — preventing another concurrent
+          # request from seeing the agent as orphaned between creation and binding.
+          # Skip if the upgraded auto-provisioned session already has an agent linked.
+          agent = resolve_and_link_agent(session) unless session.ai_agent_id.present?
 
-          # Expire previous sessions for this user/app to prevent accumulation
-          session.expire_previous_sessions!
+          # Allow multiple concurrent sessions per OAuth app (e.g., multiple Claude
+          # Code instances). Stale sessions expire naturally via their 24h TTL and the
+          # daily cleanup job (McpSession.cleanup_expired!).
+          # session.expire_previous_sessions!
 
           protocol_service = build_protocol_service
 
           response.set_header("Mcp-Session-Id", session.session_token)
+          response.set_header("X-Mcp-Display-Name", session.display_name || session.ai_agent&.name || "MCP")
 
           {
             protocolVersion: negotiated,
@@ -365,6 +382,42 @@ module Api
               version: Rails.application.config.respond_to?(:version) ? Rails.application.config.version : "1.0.0"
             }
           }
+        end
+
+        def handle_session_discover(_params)
+          # Include grace-period sessions so daemons can reclaim their own session
+          # after disconnect. The server will call reactivate! automatically when
+          # the daemon sends an SSE GET with the revoked session token.
+          scope = McpSession.active.or(McpSession.in_grace_period)
+            .where(user: current_user, account: current_account)
+
+          if @doorkeeper_token&.application_id.present?
+            scope = scope.where(oauth_application_id: @doorkeeper_token.application_id)
+          end
+
+          discovered = scope.order(created_at: :desc).limit(10).includes(:ai_agent).to_a
+
+          # Self-healing: no sessions survived for this authenticated client.
+          # Auto-provision one so the SSE daemon (and workspace UI) can recover
+          # from the dead state caused by server restarts or cleanup tasks.
+          if discovered.empty? && @doorkeeper_token&.application_id.present?
+            new_session = auto_provision_mcp_session
+            discovered = [new_session] if new_session
+          end
+
+          sessions = discovered.map do |s|
+            {
+              session_token: s.session_token,
+              display_name: s.display_name || s.ai_agent&.name,
+              agent_id: s.ai_agent_id,
+              created_at: s.created_at.iso8601,
+              last_activity_at: s.last_activity_at&.iso8601,
+              client_info: s.client_info,
+              status: s.status
+            }
+          end
+
+          { sessions: sessions }
         end
 
         def handle_tools_list(_params)
@@ -583,15 +636,85 @@ module Api
             .compact
         end
 
+        # Self-healing session creation for the dead state where all sessions
+        # expired beyond grace period and agents were destroyed. Called from
+        # handle_session_discover when no sessions exist for an authenticated client.
+        # Creates a new session + agent so the SSE daemon can discover and claim it.
+        def auto_provision_mcp_session
+          app_id = @doorkeeper_token.application_id
+
+          # Guard: don't create if a concurrent request just created one
+          existing = McpSession.active
+            .where(user: current_user, account: current_account, oauth_application_id: app_id)
+            .first
+          return existing if existing
+
+          app_name = @doorkeeper_token.application&.name || "MCP Client"
+
+          session = McpSession.create!(
+            user: current_user,
+            account: current_account,
+            protocol_version: MCP_PROTOCOL_VERSION,
+            client_info: { "name" => app_name, "version" => "auto-provisioned" },
+            ip_address: request.remote_ip,
+            user_agent: request.user_agent,
+            expires_at: SESSION_TTL.from_now,
+            oauth_application_id: app_id
+          )
+
+          resolve_and_link_agent(session)
+
+          Rails.logger.info(
+            "[MCP StreamableHTTP] Auto-provisioned session #{session.id} " \
+            "with agent #{session.reload.display_name} (#{session.ai_agent_id}) — self-heal recovery"
+          )
+          session
+        rescue ActiveRecord::RecordInvalid => e
+          Rails.logger.warn "[MCP StreamableHTTP] Auto-provision failed: #{e.message}"
+          nil
+        end
+
+        # Resolves the MCP client agent and links it to the session inside the
+        # same advisory-locked transaction, ensuring atomicity.
+        def resolve_and_link_agent(session)
+          return nil unless @doorkeeper_token
+
+          ::Ai::McpClientIdentityService.new(
+            account: current_account,
+            user: current_user,
+            doorkeeper_token: @doorkeeper_token
+          ).resolve_agent do |agent|
+            session.link_agent!(agent)
+          end
+        end
+
         def mcp_client_agent
           @mcp_client_agent ||= begin
             return nil unless @doorkeeper_token
 
-            ::Ai::McpClientIdentityService.new(
-              account: current_account,
-              user: current_user,
-              doorkeeper_token: @doorkeeper_token
-            ).resolve_agent
+            # Prefer the agent already bound to the current MCP session (from
+            # Mcp-Session-Id header), falling back to the session resolved by
+            # track_session_activity (OAuth app fallback). This avoids creating
+            # transient agents on every tools/call when a valid session exists.
+            session_agent = (current_mcp_session || @tracked_session)&.ai_agent
+            if session_agent&.active? && session_agent&.mcp_client?
+              session_agent
+            else
+              ::Ai::McpClientIdentityService.new(
+                account: current_account,
+                user: current_user,
+                doorkeeper_token: @doorkeeper_token
+              ).resolve_agent
+            end
+          end
+        end
+
+        def current_mcp_session
+          @current_mcp_session ||= begin
+            session_id = request.headers["Mcp-Session-Id"]
+            return nil unless session_id.present?
+
+            McpSession.find_by(session_token: session_id, status: "active")
           end
         end
 
@@ -601,6 +724,63 @@ module Api
 
         def current_account
           @current_account
+        end
+
+        # --- SSE callback builders ---
+
+        # Builds a callback for the MCP session channel (JSON-RPC notifications only)
+        def build_session_callback(sse)
+          proc do |raw_message|
+            data = JSON.parse(raw_message) rescue next
+            if data["jsonrpc"] == "2.0" && data["method"].is_a?(String)
+              sse.write(data, event: "message")
+            end
+          end
+        end
+
+        # Builds a callback for workspace channels (filters by agent type and mention)
+        def build_workspace_callback(_channel, sse, agent, dedup)
+          proc do |raw_message|
+            data = JSON.parse(raw_message) rescue next
+
+            event_type = data["type"] || data[:type]
+            next unless ALLOWED_WORKSPACE_EVENTS.include?(event_type.to_s)
+
+            # MCP client agents receive ALL workspace events (filtered client-side by daemon).
+            # Non-MCP agents only receive events where they are @mentioned.
+            # Structural events (agent_joined/agent_left) pass through unfiltered.
+            if %w[message_created ai_response_complete].include?(event_type.to_s)
+              unless agent&.agent_type == "mcp_client"
+                msg = data["message"] || {}
+                mentions = msg.dig("metadata", "mentions") ||
+                           msg.dig("content_metadata", "mentions") || []
+                agent_mentioned = false
+
+                if mentions.any?
+                  mentioned_ids = mentions.filter_map { |m| m["id"] || m[:id] }
+                  mentioned_names = mentions.filter_map { |m| m["name"] || m[:name] }
+                  agent_mentioned = mentioned_ids.include?(agent&.id) ||
+                                    mentioned_names.include?(agent&.name)
+                end
+
+                unless agent_mentioned
+                  content = (msg["content"] || "").to_s
+                  agent_mentioned = agent&.name.present? && content.include?("@#{agent.name}")
+                end
+
+                next unless agent_mentioned
+              end
+            end
+
+            # Deduplicate across channels and concurrent SSE connections
+            msg_id = (data["message"].is_a?(Hash) && data["message"]["id"]) || data["message_id"]
+            if msg_id.present?
+              dedup_key = "#{event_type}:#{msg_id}"
+              next if sse_dedup_seen?(dedup, dedup_key)
+            end
+
+            sse.write(data, event: event_type.to_s)
+          end
         end
 
         # --- Session-level SSE dedup helpers ---

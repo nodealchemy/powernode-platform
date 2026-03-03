@@ -151,7 +151,6 @@ module Ai
 
         if mentioned_ids.present?
           dispatch_workspace_responses(conversation, mention_message, mentioned_agent_ids: mentioned_ids)
-          notify_mentioned_mcp_clients(conversation, mention_message, mentioned_ids)
         end
       elsif conversation.workspace_conversation?
         # No split needed — but still dispatch if the full message contains @mentions.
@@ -159,7 +158,6 @@ module Ai
         unsplit_ids = detect_workspace_mentions(conversation, content, responding_agent)
         if unsplit_ids.present?
           dispatch_workspace_responses(conversation, assistant_message, mentioned_agent_ids: unsplit_ids)
-          notify_mentioned_mcp_clients(conversation, assistant_message, unsplit_ids)
         end
       end
 

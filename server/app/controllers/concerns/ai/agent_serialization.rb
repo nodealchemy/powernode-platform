@@ -49,6 +49,7 @@ module Ai
         temperature: agent.temperature,
         max_tokens: agent.max_tokens,
         system_prompt: agent.system_prompt,
+        full_system_prompt: agent.build_system_prompt_with_profile,
         # Legacy fields for backwards compatibility
         mcp_tool_manifest: agent.mcp_tool_manifest,
         mcp_input_schema: agent.mcp_input_schema,

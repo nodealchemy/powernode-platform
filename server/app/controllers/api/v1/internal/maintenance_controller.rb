@@ -229,7 +229,8 @@ class Api::V1::Internal::MaintenanceController < Api::V1::Internal::InternalBase
     results[:sessions_deleted] = McpSession.cleanup_expired!(older_than: 48.hours)
 
     # 3. Archive orphaned MCP client agents (active but not linked to any active session)
-    active_agent_ids = McpSession.active.where.not(ai_agent_id: nil).pluck(:ai_agent_id)
+    active_agent_ids = McpSession.active.or(McpSession.in_grace_period)
+      .where.not(ai_agent_id: nil).pluck(:ai_agent_id)
     orphaned_agents = Ai::Agent.where(agent_type: "mcp_client", status: "active")
       .where.not(id: active_agent_ids)
     results[:agents_archived] = 0
