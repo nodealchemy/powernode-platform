@@ -30,13 +30,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           <Sidebar isOpen={sidebarOpen} onToggle={handleToggleSidebar} />
 
           {/* Main content */}
-          <div className="flex flex-col w-0 flex-1 overflow-hidden">
+          <div className="flex flex-col w-0 flex-1 min-w-0">
             <Header />
 
             {/* Impersonation Banner */}
             <ImpersonationBanner />
 
-            <main className="flex-1 relative overflow-y-auto focus:outline-none bg-theme-background">
+            <main className="flex-1 relative overflow-y-auto overflow-x-hidden focus:outline-none bg-theme-background">
               <div className="py-6">
                 <div className="px-4 sm:px-6 md:px-8">
                   {children}

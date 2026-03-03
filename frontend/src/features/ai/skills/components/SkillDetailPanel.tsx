@@ -263,7 +263,7 @@ export function SkillDetailPanel({ skillId, onClose, onUpdated }: SkillDetailPan
         <div className="flex items-center gap-2 text-xs">
           <button
             type="button"
-            onClick={() => navigate('/app/ai/knowledge?tab=skill-graph')}
+            onClick={() => navigate('/app/ai/knowledge/skills/graph', { state: { focusSkillId: skill.id } })}
             className="text-theme-info hover:underline"
           >
             View in Skill Graph →

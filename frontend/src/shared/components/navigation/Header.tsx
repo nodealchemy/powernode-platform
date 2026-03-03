@@ -8,7 +8,7 @@ import { NotificationBell } from '@/features/account/notifications';
 
 export const Header: React.FC = () => {
   return (
-    <header className="bg-theme-surface h-16 border-b border-theme">
+    <header className="relative z-[60] bg-theme-surface h-16 border-b border-theme">
       <div className="flex items-center justify-between px-4 sm:px-6 lg:px-8 h-full gap-2 sm:gap-4">
         {/* Left side - Account Switcher */}
         <div className="flex justify-center flex-1 min-w-0">

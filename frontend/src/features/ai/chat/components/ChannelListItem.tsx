@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Hash, Radio, Zap, MessageSquare } from 'lucide-react';
 import type { TeamChannelSidebarItem } from '@/shared/services/ai/TeamsApiService';
 
@@ -50,10 +50,18 @@ export const ChannelListItem: React.FC<ChannelListItemProps> = ({
   isActive,
   onClick,
 }) => {
+  const itemRef = useRef<HTMLDivElement>(null);
   const typeColor = CHANNEL_TYPE_COLORS[channel.channel_type] || CHANNEL_TYPE_COLORS.topic;
+
+  useEffect(() => {
+    if (isActive && itemRef.current) {
+      itemRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [isActive]);
 
   return (
     <div
+      ref={itemRef}
       onClick={onClick}
       className={`group flex items-start gap-2 px-3 py-2 cursor-pointer transition-colors ${
         isActive

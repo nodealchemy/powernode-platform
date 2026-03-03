@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { skillsApi } from './services/skillsApi';
 import { skillLifecycleApi } from './services/skillLifecycleApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
@@ -44,8 +45,18 @@ const ALL_CATEGORIES: { value: SkillCategory | ''; label: string }[] = [
 
 type TopTab = 'skills' | 'graph' | 'proposals' | 'optimization';
 
+const SKILLS_BASE_PATH = '/app/ai/knowledge/skills';
+
+const getSubTab = (pathname: string): TopTab => {
+  if (pathname.includes('/skills/graph')) return 'graph';
+  if (pathname.includes('/skills/proposals')) return 'proposals';
+  if (pathname.includes('/skills/optimization')) return 'optimization';
+  return 'skills';
+};
+
 export function SkillsPage({ onActionsReady }: SkillsPageProps) {
   const { showNotification } = useNotifications();
+  const location = useLocation();
   const [skills, setSkills] = useState<AiSkillSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -53,7 +64,7 @@ export function SkillsPage({ onActionsReady }: SkillsPageProps) {
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
   const [showEditor, setShowEditor] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<TopTab>('skills');
+  const [activeTab, setActiveTab] = useState<TopTab>(getSubTab(location.pathname));
   const [pendingCount, setPendingCount] = useState(0);
   const [showResearch, setShowResearch] = useState(false);
 
@@ -88,6 +99,12 @@ export function SkillsPage({ onActionsReady }: SkillsPageProps) {
     },
     loading: isRefreshing,
   });
+
+  // Sync sub-tab state from URL path
+  useEffect(() => {
+    const newTab = getSubTab(location.pathname);
+    if (newTab !== activeTab) setActiveTab(newTab);
+  }, [location.pathname]);
 
   useEffect(() => {
     loadSkills();
@@ -145,14 +162,15 @@ export function SkillsPage({ onActionsReady }: SkillsPageProps) {
   }
 
   const topTabs = [
-    { id: 'skills', label: 'Skills' },
-    { id: 'graph', label: 'Skill Graph' },
+    { id: 'skills', label: 'Skills', path: '/' },
+    { id: 'graph', label: 'Skill Graph', path: '/graph' },
     {
       id: 'proposals',
       label: 'Proposals',
+      path: '/proposals',
       badge: pendingCount > 0 ? { count: pendingCount, variant: 'warning' as const } : undefined,
     },
-    { id: 'optimization', label: 'Optimization' },
+    { id: 'optimization', label: 'Optimization', path: '/optimization' },
   ];
 
   return (
@@ -162,6 +180,7 @@ export function SkillsPage({ onActionsReady }: SkillsPageProps) {
         tabs={topTabs}
         activeTab={activeTab}
         onTabChange={(tabId) => setActiveTab(tabId as TopTab)}
+        basePath={SKILLS_BASE_PATH}
         variant="pills"
         size="md"
       />
@@ -240,6 +259,7 @@ export function SkillsPage({ onActionsReady }: SkillsPageProps) {
       {/* Skill Graph Tab */}
       {activeTab === 'graph' && (
         <SkillGraphEmbed
+          focusSkillId={(location.state as { focusSkillId?: string } | null)?.focusSkillId}
           onViewSkill={(skillId) => {
             setActiveTab('skills');
             setSelectedSkillId(skillId);

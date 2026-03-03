@@ -26,7 +26,7 @@ export const ChatWindowMaximized: React.FC = () => {
   }, []);
 
   return (
-    <div className="fixed inset-0 top-16 z-[9999] bg-theme-background">
+    <div className="fixed inset-0 top-16 z-40 bg-theme-background">
       <ChatWindow />
     </div>
   );

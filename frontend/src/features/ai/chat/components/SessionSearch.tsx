@@ -66,10 +66,10 @@ export const SessionSearch: React.FC<SessionSearchProps> = ({
   // Collect MCP session agent IDs so we don't show duplicates in the AI agents list
   const mcpAgentIds = useMemo(() => new Set(sessions.map(s => s.agent?.id).filter(Boolean)), [sessions]);
 
-  // AI agents: exclude MCP session agents (already shown above) and concierge (has its own toggle)
+  // AI agents: exclude concierge (has its own toggle) and agents already shown in MCP sessions
   const aiAgents = useMemo(() => {
     const filtered = agents.filter(a =>
-      a.agent_type === 'assistant' && !a.is_concierge && !mcpAgentIds.has(a.id)
+      !a.is_concierge && !mcpAgentIds.has(a.id)
     );
     if (!search.trim()) return filtered;
     const q = search.toLowerCase();
@@ -200,6 +200,10 @@ export const SessionSearch: React.FC<SessionSearchProps> = ({
                     const agentId = session.agent?.id;
                     if (!agentId) return null;
                     const isSelected = selectedIds.has(agentId);
+                    const rawName = session.agent?.name || session.display_name || 'MCP Client';
+                    const seqMatch = rawName.match(/#(\d+)$/);
+                    const sessionDisplayName = seqMatch ? rawName.slice(0, seqMatch.index).trim() : rawName;
+                    const sessionSeqNum = seqMatch?.[1];
 
                     return (
                       <button
@@ -221,8 +225,13 @@ export const SessionSearch: React.FC<SessionSearchProps> = ({
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
                             <span className="text-sm font-medium text-theme-primary truncate">
-                              {session.agent?.name || session.display_name || 'MCP Client'}
+                              {sessionDisplayName}
                             </span>
+                            {sessionSeqNum && (
+                              <span className="flex-shrink-0 min-w-[1.25rem] h-5 px-1 bg-theme-info/15 text-theme-info text-[10px] font-bold rounded flex items-center justify-center">
+                                #{sessionSeqNum}
+                              </span>
+                            )}
                             {isSelected && (
                               <span className="flex-shrink-0 w-4 h-4 bg-theme-interactive-primary rounded-full flex items-center justify-center">
                                 <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -273,6 +282,9 @@ export const SessionSearch: React.FC<SessionSearchProps> = ({
                 ) : (
                   aiAgents.map((agent) => {
                     const isSelected = selectedIds.has(agent.id);
+                    const agentSeqMatch = agent.name.match(/#(\d+)$/);
+                    const agentDisplayName = agentSeqMatch ? agent.name.slice(0, agentSeqMatch.index).trim() : agent.name;
+                    const agentSeqNum = agentSeqMatch?.[1];
 
                     return (
                       <button
@@ -294,8 +306,13 @@ export const SessionSearch: React.FC<SessionSearchProps> = ({
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
                             <span className="text-sm font-medium text-theme-primary truncate">
-                              {agent.name}
+                              {agentDisplayName}
                             </span>
+                            {agentSeqNum && (
+                              <span className="flex-shrink-0 min-w-[1.25rem] h-5 px-1 bg-theme-info/15 text-theme-info text-[10px] font-bold rounded flex items-center justify-center">
+                                #{agentSeqNum}
+                              </span>
+                            )}
                             {isSelected && (
                               <span className="flex-shrink-0 w-4 h-4 bg-theme-interactive-primary rounded-full flex items-center justify-center">
                                 <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -306,7 +323,7 @@ export const SessionSearch: React.FC<SessionSearchProps> = ({
                           </div>
                         </div>
                         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-theme-interactive-primary/10 text-theme-interactive-primary rounded-full">
-                          AI
+                          {agent.agent_type === 'mcp_client' ? 'MCP' : 'AI'}
                         </span>
                       </button>
                     );

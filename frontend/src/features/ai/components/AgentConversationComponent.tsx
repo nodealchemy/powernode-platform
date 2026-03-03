@@ -342,29 +342,54 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     };
   }, []);
 
-  // Fetch workspace members for mention autocomplete.
+  // Ref to track whether this conversation is a workspace (set after first verification)
+  const isWorkspaceRef = useRef(false);
+
+  // Refresh workspace members for mention autocomplete
+  const refreshWorkspaceMembers = useCallback(async () => {
+    try {
+      const res = await workspacesApi.getWorkspace(conversation.id);
+      setWorkspaceMembers(res.members || []);
+    } catch {
+      // Non-critical — autocomplete just won't work
+    }
+  }, [conversation.id]);
+
+  // Initial workspace verification + member fetch.
   // The conversation prop may be a synthetic object from tab state (SplitPanelContainer)
   // with stale workspace flags, so we verify via the real conversations API first.
   useEffect(() => {
     let cancelled = false;
-    const fetchWorkspaceMembers = async () => {
+    const verifyAndFetch = async () => {
       try {
         const real = await conversationsApi.getConversation(conversation.id);
         if (cancelled) return;
         const isWorkspace = real.conversation_type === 'team' &&
           real.agent_team?.team_type === 'workspace' &&
           real.agent_team?.id;
+        isWorkspaceRef.current = !!isWorkspace;
         if (isWorkspace) {
-          const res = await workspacesApi.getWorkspace(conversation.id);
-          if (!cancelled) setWorkspaceMembers(res.members || []);
+          await refreshWorkspaceMembers();
         }
       } catch {
-        // Non-critical — autocomplete just won't work
+        // Non-critical
       }
     };
-    fetchWorkspaceMembers();
+    verifyAndFetch();
     return () => { cancelled = true; };
-  }, [conversation.id]);
+  }, [conversation.id, refreshWorkspaceMembers]);
+
+  // Re-fetch workspace members when members are added/removed via the panel
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.conversationId === conversation.id && isWorkspaceRef.current) {
+        refreshWorkspaceMembers();
+      }
+    };
+    window.addEventListener('powernode:workspace-members-changed', handler);
+    return () => window.removeEventListener('powernode:workspace-members-changed', handler);
+  }, [conversation.id, refreshWorkspaceMembers]);
 
   // Listen for chat-cleared events from the header
   useEffect(() => {

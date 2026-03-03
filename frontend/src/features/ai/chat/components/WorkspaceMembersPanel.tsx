@@ -118,6 +118,9 @@ export const WorkspaceMembersPanel: React.FC<WorkspaceMembersPanelProps> = ({
       await workspacesApi.inviteAgent(conversationId, agentId);
       addNotification({ type: 'success', message: 'Agent added to workspace' });
       await fetchMembers();
+      window.dispatchEvent(new CustomEvent('powernode:workspace-members-changed', {
+        detail: { conversationId }
+      }));
     } catch {
       addNotification({ type: 'error', message: 'Failed to add agent' });
     } finally {
@@ -131,6 +134,9 @@ export const WorkspaceMembersPanel: React.FC<WorkspaceMembersPanelProps> = ({
       await workspacesApi.removeMember(conversationId, agentId);
       addNotification({ type: 'success', message: 'Member removed from workspace' });
       await fetchMembers();
+      window.dispatchEvent(new CustomEvent('powernode:workspace-members-changed', {
+        detail: { conversationId }
+      }));
     } catch {
       addNotification({ type: 'error', message: 'Failed to remove member' });
     } finally {

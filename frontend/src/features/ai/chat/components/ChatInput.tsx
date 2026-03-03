@@ -69,6 +69,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     setPendingFiles([]);
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
+      textareaRef.current.focus();
     }
   }, [value, pendingFiles, disabled, onSend]);
 

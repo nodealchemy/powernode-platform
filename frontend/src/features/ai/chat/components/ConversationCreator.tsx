@@ -100,6 +100,9 @@ export const ConversationCreator: React.FC<ConversationCreatorProps> = ({ onComp
   const renderAgentCard = (agent: AgentInfo) => {
     const isSelected = agent.id === selectedAgentId;
     const isMcp = agent.agent_type === 'mcp_client';
+    const seqMatch = agent.name.match(/#(\d+)$/);
+    const displayName = seqMatch ? agent.name.slice(0, seqMatch.index).trim() : agent.name;
+    const seqNum = seqMatch?.[1];
 
     return (
       <button
@@ -121,8 +124,13 @@ export const ConversationCreator: React.FC<ConversationCreatorProps> = ({ onComp
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <span className="text-sm font-medium text-theme-primary truncate">
-              {agent.name}
+              {displayName}
             </span>
+            {seqNum && (
+              <span className="flex-shrink-0 min-w-[1.25rem] h-5 px-1 bg-theme-info/15 text-theme-info text-[10px] font-bold rounded flex items-center justify-center">
+                #{seqNum}
+              </span>
+            )}
             {isSelected && (
               <span className="flex-shrink-0 w-4 h-4 bg-theme-interactive-primary rounded-full flex items-center justify-center">
                 <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">

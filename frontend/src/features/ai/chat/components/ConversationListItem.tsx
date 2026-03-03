@@ -68,8 +68,15 @@ export const ConversationListItem: React.FC<ConversationListItemProps> = ({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showTagInput, setShowTagInput] = useState(false);
   const [tagValue, setTagValue] = useState('');
+  const itemRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isActive && itemRef.current) {
+      itemRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [isActive]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -116,6 +123,7 @@ export const ConversationListItem: React.FC<ConversationListItemProps> = ({
 
   return (
     <div
+      ref={itemRef}
       onClick={selectable ? undefined : onClick}
       className={`group relative flex items-start gap-2.5 px-3 py-2.5 cursor-pointer transition-colors ${
         isActive

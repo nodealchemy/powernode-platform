@@ -161,7 +161,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onToggle }) => {
       <div
         className={`${
           isOpen ? 'translate-x-0' : '-translate-x-full'
-        } fixed inset-y-0 left-0 z-50 ${
+        } fixed inset-y-0 left-0 z-20 ${
           state.isCollapsed ? 'w-16' : 'w-64'
         } bg-theme-surface shadow-lg transform sidebar-transition md:translate-x-0 md:static md:inset-0`}
       >

@@ -284,11 +284,11 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
 
       {/* Conversation list */}
       <div className="flex-1 overflow-y-auto">
-        {loading && conversations.length === 0 ? (
+        {loading && conversations.length === 0 && workspaceConversations.length === 0 ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-5 w-5 text-theme-text-tertiary animate-spin" />
           </div>
-        ) : conversations.length === 0 ? (
+        ) : conversations.length === 0 && workspaceConversations.length === 0 && channels.length === 0 ? (
           <EmptyState
             icon={MessageSquare}
             title="No conversations"

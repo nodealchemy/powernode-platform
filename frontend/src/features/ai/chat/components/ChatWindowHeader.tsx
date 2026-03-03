@@ -33,6 +33,7 @@ export const ChatWindowHeader: React.FC<ChatWindowHeaderProps> = ({ onPointerDow
   const [showActions, setShowActions] = useState(false);
   const [showSchedule, setShowSchedule] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<'archive' | 'clear' | 'delete' | null>(null);
   const membersRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
   const scheduleRef = useRef<HTMLDivElement>(null);
@@ -47,6 +48,11 @@ export const ChatWindowHeader: React.FC<ChatWindowHeaderProps> = ({ onPointerDow
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showMembers, showActions, showSchedule]);
+
+  // Reset confirm state when actions menu closes
+  useEffect(() => {
+    if (!showActions) setConfirmAction(null);
+  }, [showActions]);
 
   const activeTab = state.tabs.find(t => t.id === state.activeTabId);
   const isMaximized = state.mode === 'maximized';
@@ -86,7 +92,6 @@ export const ChatWindowHeader: React.FC<ChatWindowHeaderProps> = ({ onPointerDow
 
   const handleClearChat = useCallback(async () => {
     if (!activeTab?.agentId || !activeTab?.conversationId) return;
-    if (!window.confirm('Clear all messages in this conversation? This cannot be undone.')) return;
     try {
       await agentsApi.clearMessages(activeTab.agentId, activeTab.conversationId);
       addNotification({ type: 'success', message: 'Chat cleared' });
@@ -102,7 +107,6 @@ export const ChatWindowHeader: React.FC<ChatWindowHeaderProps> = ({ onPointerDow
 
   const handleDelete = useCallback(async () => {
     if (!activeTab?.conversationId) return;
-    if (!window.confirm('Delete this conversation? This cannot be undone.')) return;
     try {
       await conversationsApi.deleteConversation(activeTab.conversationId);
       closeTab(activeTab.id);
@@ -207,28 +211,58 @@ export const ChatWindowHeader: React.FC<ChatWindowHeaderProps> = ({ onPointerDow
                 >
                   <PinOff className="h-3.5 w-3.5" /> Unpin
                 </button>
-                <button
-                  type="button"
-                  onClick={handleArchive}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-theme-primary hover:bg-theme-surface-hover transition-colors"
-                >
-                  <Archive className="h-3.5 w-3.5" /> Archive
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClearChat}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-theme-primary hover:bg-theme-surface-hover transition-colors"
-                >
-                  <Eraser className="h-3.5 w-3.5" /> Clear chat
-                </button>
+                {confirmAction === 'archive' ? (
+                  <button
+                    type="button"
+                    onClick={() => { setConfirmAction(null); handleArchive(); }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-white bg-theme-danger hover:bg-theme-danger/90 transition-colors"
+                  >
+                    <Archive className="h-3.5 w-3.5" /> Confirm Archive
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmAction('archive')}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-theme-primary hover:bg-theme-surface-hover transition-colors"
+                  >
+                    <Archive className="h-3.5 w-3.5" /> Archive
+                  </button>
+                )}
+                {confirmAction === 'clear' ? (
+                  <button
+                    type="button"
+                    onClick={() => { setConfirmAction(null); handleClearChat(); }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-white bg-theme-danger hover:bg-theme-danger/90 transition-colors"
+                  >
+                    <Eraser className="h-3.5 w-3.5" /> Confirm Clear
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmAction('clear')}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-theme-primary hover:bg-theme-surface-hover transition-colors"
+                  >
+                    <Eraser className="h-3.5 w-3.5" /> Clear chat
+                  </button>
+                )}
                 <div className="border-t border-theme my-1" />
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-theme-danger hover:bg-theme-surface-hover transition-colors"
-                >
-                  <Trash2 className="h-3.5 w-3.5" /> Delete
-                </button>
+                {confirmAction === 'delete' ? (
+                  <button
+                    type="button"
+                    onClick={() => { setConfirmAction(null); handleDelete(); }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-white bg-theme-danger hover:bg-theme-danger/90 transition-colors"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Confirm Delete
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmAction('delete')}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-theme-error hover:bg-theme-error-background transition-colors"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Delete
+                  </button>
+                )}
               </div>
             )}
           </div>

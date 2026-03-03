@@ -98,16 +98,17 @@ const nodeTypes: NodeTypes = {
 };
 
 interface SkillGraphVisualizationProps {
+  focusSkillId?: string;
   onNodeSelect?: (nodeId: string) => void;
   onViewSkill?: (skillId: string) => void;
 }
 
-export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = ({ onNodeSelect: externalNodeSelect, onViewSkill }) => {
+export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = ({ focusSkillId, onNodeSelect: externalNodeSelect, onViewSkill }) => {
   const [loading, setLoading] = useState(true);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [searchFilter, setSearchFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
-  const [showUnconnected, setShowUnconnected] = useState(false);
+  const [showUnconnected, setShowUnconnected] = useState(true);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [connectModal, setConnectModal] = useState<{ source: string; target: string } | null>(null);
@@ -132,13 +133,6 @@ export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = (
     if (!graphData?.nodes) return 0;
     return graphData.nodes.filter(n => !connectedNodeIds.has(n.id)).length;
   }, [graphData, connectedNodeIds]);
-
-  // Auto-show all nodes when no edges exist (otherwise the graph appears empty)
-  useEffect(() => {
-    if (graphData && graphData.nodes.length > 0 && (!graphData.edges || graphData.edges.length === 0)) {
-      setShowUnconnected(true);
-    }
-  }, [graphData]);
 
   const categories = useMemo(() => {
     if (!graphData?.nodes) return [];
@@ -225,6 +219,29 @@ export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = (
       rfInstance.current?.fitView({ padding: 0.3 });
     }, 50);
   }, [graphData, filteredNodes, graphLoading, setNodes, setEdges]);
+
+  // Focus on a specific skill node when focusSkillId is provided
+  const hasFocused = useRef(false);
+  useEffect(() => {
+    if (!focusSkillId || hasFocused.current || loading || nodes.length === 0) return;
+
+    const targetNode = nodes.find(
+      (n) => (n.data as SkillGraphNodeData).skillId === focusSkillId || n.id === focusSkillId
+    );
+    if (!targetNode) return;
+
+    hasFocused.current = true;
+    setSelectedNodeId(targetNode.id);
+
+    // Zoom to the node after a short delay to let ReactFlow settle
+    setTimeout(() => {
+      rfInstance.current?.fitView({
+        nodes: [{ id: targetNode.id }],
+        padding: 1.5,
+        duration: 400,
+      });
+    }, 150);
+  }, [focusSkillId, loading, nodes]);
 
   const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
     setSelectedNodeId(node.id);
