@@ -378,6 +378,34 @@
     queue: maintenance
     description: 'Analyze approval patterns and suggest intervention policy adjustments'
 
+  # Container instance reconciliation - detect stale/crashed containers
+  container_instance_reconciliation:
+    cron: '*/5 * * * *'
+    class: Devops::ContainerInstanceReconciliationJob
+    queue: devops_default
+    description: 'Reconcile container instance statuses with Docker reality'
+
+  # Port allocation cleanup - release expired port allocations
+  port_allocation_cleanup:
+    cron: '*/10 * * * *'
+    class: Devops::PortAllocationCleanupJob
+    queue: devops_default
+    description: 'Release expired port allocations to prevent port exhaustion'
+
+  # Integration health check - monitor third-party integration connectivity
+  integration_health_check:
+    cron: '*/15 * * * *'
+    class: Integrations::IntegrationHealthCheckJob
+    queue: integrations
+    description: 'Check third-party integration health and auto-pause failing instances'
+
+  # Template maintenance - archive stale templates, clean old builds (weekly)
+  template_maintenance:
+    cron: '0 3 * * 0'
+    class: Devops::TemplateMaintenanceJob
+    queue: devops_default
+    description: 'Archive unused templates and clean up old container image builds'
+
   # Ralph loop scheduler - find and execute due ralph loops
   ai_ralph_loop_scheduler:
     cron: '* * * * *'  # Every minute

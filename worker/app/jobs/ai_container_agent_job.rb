@@ -5,6 +5,8 @@
 # Called by ContainerChatBridgeService when async deployment is needed.
 # Handles the full lifecycle: provision → monitor → completion/timeout.
 class AiContainerAgentJob < BaseJob
+  include AiSuspensionCheckConcern
+
   sidekiq_options queue: "ai_agents", retry: 2, dead: true
 
   def execute(params)
@@ -12,6 +14,9 @@ class AiContainerAgentJob < BaseJob
 
     execution_id = params["execution_id"]
     account_id = params["account_id"]
+
+    # Kill switch compliance — bail if AI activity is suspended
+    return if bail_if_ai_suspended!(account_id)
 
     log_info("[ContainerAgent] Starting deployment",
              execution_id: execution_id, account_id: account_id)
