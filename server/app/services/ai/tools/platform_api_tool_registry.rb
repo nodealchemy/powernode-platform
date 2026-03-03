@@ -7,6 +7,13 @@ module Ai
         # Project & CI/CD
         "create_gitea_repository" => "Ai::Tools::ProjectInitTool",
         "dispatch_to_runner" => "Ai::Tools::RunnerDispatchTool",
+        # Container deployment & management
+        "deploy_container_agent" => "Ai::Tools::ContainerDeploymentTool",
+        "container_status" => "Ai::Tools::ContainerStatusTool",
+        "container_logs" => "Ai::Tools::ContainerLogsTool",
+        "container_terminate" => "Ai::Tools::ContainerTerminateTool",
+        # Integration health
+        "integration_health" => "Ai::Tools::IntegrationHealthTool",
         # Agent management
         "create_agent" => "Ai::Tools::AgentManagementTool",
         "list_agents" => "Ai::Tools::AgentManagementTool",
