@@ -129,6 +129,46 @@ export interface ContainerTemplateSummary {
   status: TemplateStatus;
   execution_count: number;
   success_rate?: number;
+  parent_template_id?: string;
+  gitea_repo_full_name?: string;
+  last_build_sha?: string;
+  last_built_at?: string;
+  auto_update?: boolean;
+  featured?: boolean;
+  child_template_count?: number;
+}
+
+export type BuildStatus = 'pending' | 'building' | 'completed' | 'failed';
+export type BuildTriggerType = 'push' | 'cascade' | 'manual';
+
+export interface ContainerImageBuild {
+  id: string;
+  trigger_type: BuildTriggerType;
+  status: BuildStatus;
+  git_sha?: string;
+  image_tag?: string;
+  duration_ms?: number;
+  started_at?: string;
+  completed_at?: string;
+  triggered_by_build_id?: string;
+  cascade_build_count: number;
+  created_at: string;
+}
+
+export interface CreateImageRepoRequest {
+  name: string;
+  variant_type: 'base' | 'code' | 'data' | 'media' | 'full' | 'custom';
+  parent_template_id?: string;
+}
+
+export interface CreateImageRepoResponse {
+  template: ContainerTemplate;
+  repository: {
+    name: string;
+    full_name: string;
+    owner: string;
+  };
+  files_created: string[];
 }
 
 export interface CreateContainerTemplateRequest {

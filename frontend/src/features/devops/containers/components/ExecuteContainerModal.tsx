@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Play, FileCode, Globe, Shield, Cpu, HardDrive } from 'lucide-react';
+import { Play, FileCode, Globe, Shield, Cpu, HardDrive, Key } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Textarea } from '@/shared/components/ui/Textarea';
 import { Input } from '@/shared/components/ui/Input';
@@ -189,6 +189,12 @@ export const ExecuteContainerModal: React.FC<ExecuteContainerModalProps> = ({
                   <Badge variant="outline" size="sm">
                     <Shield className="w-3 h-3 mr-1" />
                     Sandbox
+                  </Badge>
+                )}
+                {template.category === 'ai-agent' && (
+                  <Badge variant="success" size="sm">
+                    <Key className="w-3 h-3 mr-1" />
+                    MCP Auth: Auto
                   </Badge>
                 )}
               </div>

@@ -6,8 +6,11 @@ import type {
   ContainerFilters,
   ContainerTemplate,
   ContainerTemplateSummary,
+  ContainerImageBuild,
   CreateContainerTemplateRequest,
   UpdateContainerTemplateRequest,
+  CreateImageRepoRequest,
+  CreateImageRepoResponse,
   TemplateFilters,
   TemplateStats,
   QuotaResponse,
@@ -222,6 +225,35 @@ class ContainerExecutionApiService extends BaseApiService {
   async getFeaturedTemplates(limit?: number): Promise<{ items: ContainerTemplateSummary[] }> {
     const queryString = limit ? `?limit=${limit}` : '';
     return this.get<{ items: ContainerTemplateSummary[] }>(`${this.templatesPath}/featured${queryString}`);
+  }
+
+  // ===================================================================
+  // Build Operations
+  // ===================================================================
+
+  /**
+   * Trigger a manual build for a template
+   * POST /api/v1/devops/container_templates/:id/trigger_build
+   */
+  async triggerBuild(templateId: string): Promise<{ build: ContainerImageBuild }> {
+    return this.post<{ build: ContainerImageBuild }>(`${this.templatesPath}/${templateId}/trigger_build`);
+  }
+
+  /**
+   * Get build history for a template
+   * GET /api/v1/devops/container_templates/:id/builds
+   */
+  async getBuildHistory(templateId: string, filters?: { status?: string; page?: number; per_page?: number }): Promise<PaginatedResponse<ContainerImageBuild>> {
+    const queryString = this.buildQueryString(filters);
+    return this.get<PaginatedResponse<ContainerImageBuild>>(`${this.templatesPath}/${templateId}/builds${queryString}`);
+  }
+
+  /**
+   * Create a new image repository with Gitea scaffolding
+   * POST /api/v1/devops/container_templates/create_image_repo
+   */
+  async createImageRepo(request: CreateImageRepoRequest): Promise<CreateImageRepoResponse> {
+    return this.post<CreateImageRepoResponse>(`${this.templatesPath}/create_image_repo`, { image_repo: request });
   }
 
   // ===================================================================

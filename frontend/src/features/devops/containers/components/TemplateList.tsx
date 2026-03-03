@@ -9,6 +9,9 @@ import {
   Play,
   CheckCircle,
   AlertTriangle,
+  Hammer,
+  GitBranch,
+  Layers,
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
@@ -217,6 +220,33 @@ export const TemplateList: React.FC<TemplateListProps> = ({
                     {template.image_name}
                   </div>
 
+                  {/* Hierarchy & Build Info */}
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    {template.parent_template_id && (
+                      <Badge variant="outline" size="sm">
+                        <Layers className="w-3 h-3 mr-1" />
+                        Variant
+                      </Badge>
+                    )}
+                    {(template.child_template_count ?? 0) > 0 && (
+                      <Badge variant="outline" size="sm">
+                        <GitBranch className="w-3 h-3 mr-1" />
+                        Base ({template.child_template_count})
+                      </Badge>
+                    )}
+                    {template.gitea_repo_full_name && (
+                      <Badge variant="outline" size="sm">
+                        <Hammer className="w-3 h-3 mr-1" />
+                        CI/CD
+                      </Badge>
+                    )}
+                    {template.last_built_at && (
+                      <span className="text-xs text-theme-text-secondary">
+                        Built {new Date(template.last_built_at).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+
                   {/* Stats */}
                   <div className="flex items-center gap-4 text-sm text-theme-text-secondary mb-3">
                     <div className="flex items-center gap-1">
@@ -238,7 +268,20 @@ export const TemplateList: React.FC<TemplateListProps> = ({
                   </div>
 
                   {/* Footer */}
-                  <div className="flex items-center justify-end pt-3 border-t border-theme-border-primary">
+                  <div className="flex items-center justify-end gap-2 pt-3 border-t border-theme-border-primary">
+                    {template.gitea_repo_full_name && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          containerExecutionApi.triggerBuild(template.id).catch(() => {});
+                        }}
+                      >
+                        <Hammer className="w-3 h-3 mr-1" />
+                        Build
+                      </Button>
+                    )}
                     <Button
                       variant="primary"
                       size="sm"

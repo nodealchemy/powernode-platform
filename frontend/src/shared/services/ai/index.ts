@@ -469,6 +469,11 @@ export type {
   UsageHistory,
   OverageInfo,
   ContainerStats,
+  ContainerImageBuild,
+  BuildStatus,
+  BuildTriggerType,
+  CreateImageRepoRequest,
+  CreateImageRepoResponse,
 } from '@/shared/services/ai/types/container-types';
 
 // Re-export Ralph Loops service (Autonomous AI Agent Loops)
