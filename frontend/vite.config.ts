@@ -67,6 +67,17 @@ export default defineConfig(({ mode }: { mode: string }) => {
           icon: true,
         },
       }),
+      // When extensions are absent, resolve @ext/* imports to a stub module
+      // so Rollup doesn't fail on dead-code dynamic imports (e.g. App.tsx conditionals)
+      ...(discoveredSlugs.length === 0 ? [{
+        name: 'missing-extensions-stub',
+        resolveId(id: string) {
+          if (id.startsWith('@ext/')) return '\0ext-stub';
+        },
+        load(id: string) {
+          if (id === '\0ext-stub') return 'export default null;';
+        },
+      }] : []),
     ],
     
     resolve: {

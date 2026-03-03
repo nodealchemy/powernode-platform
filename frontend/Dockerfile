@@ -28,8 +28,8 @@ FROM nginx:alpine
 # Copy custom nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy built application (Vite outputs to dist/)
-COPY --from=build /app/dist /usr/share/nginx/html
+# Copy built application (Vite outputs to build/ per vite.config.ts outDir)
+COPY --from=build /app/build /usr/share/nginx/html
 
 # Expose port
 EXPOSE 80

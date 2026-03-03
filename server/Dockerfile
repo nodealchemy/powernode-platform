@@ -32,6 +32,10 @@ RUN apt-get update -qq && \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
+# Create stub for extensions_loader_helper (lives at project root, outside Docker context)
+# The real helper returns [] when no extensions/ directory exists; this stub does the same.
+RUN printf '# frozen_string_literal: true\ndef discover_extension_gems; []; end\n' > /extensions_loader_helper.rb
+
 # Install gems
 COPY Gemfile Gemfile.lock ./
 RUN bundle install && \
