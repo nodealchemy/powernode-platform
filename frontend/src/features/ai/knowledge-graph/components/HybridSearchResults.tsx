@@ -66,7 +66,11 @@ export const HybridSearchResults: React.FC = () => {
               className="p-4 cursor-pointer"
               hoverable
               clickable
-              onClick={() => setSelectedNodeId(result.node.id)}
+              onClick={() => {
+                if (result.match_type === 'graph') {
+                  setSelectedNodeId(result.node.id);
+                }
+              }}
             >
               <div className="flex items-start gap-3">
                 <div className="h-10 w-10 rounded-lg bg-theme-info bg-opacity-10 flex items-center justify-center flex-shrink-0">

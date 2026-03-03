@@ -15,7 +15,7 @@ import {
   Position,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Circle, FileText, Bot, Wrench, BookOpen, Brain, Lightbulb } from 'lucide-react';
+import { Circle, FileText, Bot, Wrench, BookOpen, Brain, Lightbulb, Search } from 'lucide-react';
 import { Card } from '@/shared/components/ui/Card';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
@@ -41,10 +41,6 @@ const graphStyles = `
 }
 .kg-controls .react-flow__controls-button svg {
   fill: var(--color-text-primary);
-}
-.react-flow__minimap-mask {
-  fill: var(--color-bg, rgba(0,0,0,0.1));
-  opacity: 0.6;
 }
 `;
 
@@ -100,6 +96,9 @@ function KGNode({ data }: { data: KGNodeData }) {
         <div className="min-w-0">
           <div className="font-medium text-theme-primary text-xs truncate">{data.label}</div>
           <div className="text-[10px] text-theme-tertiary">{data.entityType} | {data.edgeCount} edges</div>
+          {data.description && (
+            <div className="text-[10px] text-theme-tertiary truncate mt-0.5">{data.description}</div>
+          )}
         </div>
       </div>
       <Handle type="source" position={Position.Bottom} className="!bg-theme-border" />
@@ -112,25 +111,33 @@ const nodeTypes: NodeTypes = {
 };
 
 export const KnowledgeGraphVisualization: React.FC = () => {
-  const [loading, setLoading] = useState(true);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [searchFilter, setSearchFilter] = useState<string>('');
   const [entityFilter, setEntityFilter] = useState<EntityType | undefined>(undefined);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
-  const { data: nodesData, isLoading: nodesLoading } = useKnowledgeNodes({
-    per_page: 100,
-    entity_type: entityFilter,
-    search: searchFilter || undefined,
-  });
-  const { data: edgesData, isLoading: edgesLoading } = useKnowledgeEdges({ per_page: 500 });
+  const hasSearch = !!searchFilter;
+
+  const { data: nodesData, isLoading: nodesLoading } = useKnowledgeNodes(
+    { per_page: 50, entity_type: entityFilter, query: searchFilter || undefined },
+    hasSearch,
+  );
+  const { data: edgesData, isLoading: edgesLoading } = useKnowledgeEdges(
+    { per_page: 500 },
+    hasSearch && !!nodesData?.data?.length,
+  );
+
+  const isSearching = hasSearch && (nodesLoading || edgesLoading);
 
   useEffect(() => {
-    if (nodesLoading || edgesLoading) {
-      setLoading(true);
+    if (!hasSearch) {
+      setNodes([]);
+      setEdges([]);
       return;
     }
+
+    if (nodesLoading || edgesLoading) return;
 
     const knowledgeNodes = nodesData?.data || [];
     const knowledgeEdges = edgesData?.data || [];
@@ -138,7 +145,6 @@ export const KnowledgeGraphVisualization: React.FC = () => {
     if (knowledgeNodes.length === 0) {
       setNodes([]);
       setEdges([]);
-      setLoading(false);
       return;
     }
 
@@ -157,12 +163,12 @@ export const KnowledgeGraphVisualization: React.FC = () => {
     }));
 
     const flowEdges: Edge[] = knowledgeEdges
-      .filter((edge) => nodeIdSet.has(edge.source_id) && nodeIdSet.has(edge.target_id))
+      .filter((edge) => nodeIdSet.has(edge.source_node_id) && nodeIdSet.has(edge.target_node_id))
       .map((edge, idx) => ({
         id: `edge-${idx}-${edge.id}`,
-        source: edge.source_id,
-        target: edge.target_id,
-        label: edge.relation_type.replace('_', ' '),
+        source: edge.source_node_id,
+        target: edge.target_node_id,
+        label: edge.relation_type.replace(/_/g, ' '),
         type: 'default',
         animated: edge.relation_type === 'depends_on',
         markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--color-text-tertiary)' },
@@ -173,17 +179,20 @@ export const KnowledgeGraphVisualization: React.FC = () => {
     const arrangedNodes = autoArrangeNodes(flowNodes, flowEdges, {
       direction: 'TB',
       nodeWidth: 180,
-      nodeHeight: 60,
+      nodeHeight: 80,
       spacing: 80,
     });
 
     setNodes(arrangedNodes);
     setEdges(flowEdges);
-    setLoading(false);
-  }, [nodesData, edgesData, nodesLoading, edgesLoading, setNodes, setEdges]);
+  }, [hasSearch, nodesData, edgesData, nodesLoading, edgesLoading, setNodes, setEdges]);
 
   const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
     setSelectedNodeId(node.id);
+  }, []);
+
+  const onPaneClick = useCallback(() => {
+    setSelectedNodeId(null);
   }, []);
 
   const handleSearch = useCallback((query: string, entityType?: EntityType, _mode?: SearchMode) => {
@@ -194,7 +203,9 @@ export const KnowledgeGraphVisualization: React.FC = () => {
   const handleClearSearch = useCallback(() => {
     setSearchFilter('');
     setEntityFilter(undefined);
-  }, []);
+    setNodes([]);
+    setEdges([]);
+  }, [setNodes, setEdges]);
 
   return (
     <div className="space-y-4">
@@ -205,17 +216,23 @@ export const KnowledgeGraphVisualization: React.FC = () => {
 
       {/* Search */}
       <Card className="p-4">
-        <GraphSearch onSearch={handleSearch} onClear={handleClearSearch} />
+        <GraphSearch onSearch={handleSearch} onClear={handleClearSearch} showSearchMode={false} />
       </Card>
 
       {/* Graph */}
-      {loading ? (
-        <LoadingSpinner size="lg" className="py-12" message="Loading knowledge graph..." />
-      ) : nodes.length === 0 ? (
+      {!hasSearch ? (
+        <EmptyState
+          icon={Search}
+          title="Search to explore"
+          description="Enter a search query above to visualize matching nodes and their connections."
+        />
+      ) : isSearching ? (
+        <LoadingSpinner size="lg" className="py-12" message="Searching knowledge graph..." />
+      ) : hasSearch && nodes.length === 0 ? (
         <EmptyState
           icon={Brain}
           title="No nodes found"
-          description="The knowledge graph is empty or no nodes match your search criteria."
+          description="No nodes match your search criteria. Try a different query or entity type."
         />
       ) : (
         <div className="h-[600px] rounded-lg border border-theme bg-theme-surface">
@@ -225,6 +242,7 @@ export const KnowledgeGraphVisualization: React.FC = () => {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onNodeClick={onNodeClick}
+            onPaneClick={onPaneClick}
             nodeTypes={nodeTypes}
             fitView
             fitViewOptions={{ padding: 0.3 }}
@@ -234,6 +252,10 @@ export const KnowledgeGraphVisualization: React.FC = () => {
             <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
             <Controls className="kg-controls" />
             <MiniMap
+              style={{
+                backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--color-surface').trim() || '#1a1a2e',
+              }}
+              maskColor="rgba(0,0,0,0.3)"
               nodeColor={(node) => {
                 const style = getComputedStyle(document.documentElement);
                 const data = node.data as KGNodeData | undefined;
@@ -249,7 +271,6 @@ export const KnowledgeGraphVisualization: React.FC = () => {
                   default: return style.getPropertyValue('--color-text-secondary').trim() || '#6b7280';
                 }
               }}
-              maskColor="rgba(0,0,0,0.1)"
             />
           </ReactFlow>
         </div>

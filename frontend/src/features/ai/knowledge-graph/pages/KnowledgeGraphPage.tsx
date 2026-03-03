@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { GitBranch, Search, Network, Wrench } from 'lucide-react';
+import { GitBranch, Search, Network } from 'lucide-react';
 import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer } from '@/shared/components/ui/TabContainer';
 import { usePermissions } from '@/shared/hooks/usePermissions';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { KnowledgeGraphVisualization } from '../components/KnowledgeGraphVisualization';
-import { SkillGraphVisualization } from '../components/SkillGraphVisualization';
 import { HybridSearchResults } from '../components/HybridSearchResults';
 
 interface KnowledgeGraphContentProps {
@@ -44,12 +43,6 @@ export const KnowledgeGraphContent: React.FC<KnowledgeGraphContentProps> = ({ on
       label: 'Graph Explorer',
       icon: <GitBranch className="h-4 w-4" />,
       content: <KnowledgeGraphVisualization key={`graph-${refreshKey}`} />,
-    },
-    {
-      id: 'skill-graph',
-      label: 'Skill Graph',
-      icon: <Wrench className="h-4 w-4" />,
-      content: <SkillGraphVisualization key={`skill-${refreshKey}`} />,
     },
     {
       id: 'hybrid-search',

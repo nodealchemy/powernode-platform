@@ -89,8 +89,8 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
               </div>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
-                  <span className="text-theme-tertiary">Edges:</span>{' '}
-                  <span className="font-medium text-theme-primary">{nodeDetail.mention_count}</span>
+                  <span className="text-theme-tertiary">Degree:</span>{' '}
+                  <span className="font-medium text-theme-primary">{nodeDetail.degree ?? nodeDetail.mention_count}</span>
                 </div>
                 <div>
                   <span className="text-theme-tertiary">Neighbors:</span>{' '}
@@ -110,6 +110,12 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
                   <span className="text-theme-tertiary">Created:</span>{' '}
                   <span className="text-theme-secondary">{new Date(nodeDetail.created_at).toLocaleString()}</span>
                 </div>
+                {nodeDetail.last_seen_at && (
+                  <div>
+                    <span className="text-theme-tertiary">Last seen:</span>{' '}
+                    <span className="text-theme-secondary">{new Date(nodeDetail.last_seen_at).toLocaleString()}</span>
+                  </div>
+                )}
                 <div>
                   <span className="text-theme-tertiary">Confidence:</span>{' '}
                   <span className="text-theme-secondary">{(nodeDetail.confidence * 100).toFixed(0)}%</span>
@@ -134,6 +140,23 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
               </Card>
             )}
 
+            {/* Metadata */}
+            {nodeDetail.metadata && Object.keys(nodeDetail.metadata).length > 0 && (
+              <Card className="p-3">
+                <h4 className="text-sm font-medium text-theme-primary mb-2">Metadata</h4>
+                <div className="space-y-1">
+                  {Object.entries(nodeDetail.metadata).map(([key, value]) => (
+                    <div key={key} className="flex items-start justify-between text-sm">
+                      <span className="text-theme-tertiary">{key}</span>
+                      <span className="text-theme-secondary text-right max-w-[60%] truncate">
+                        {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
             {/* Outgoing Edges */}
             {(nodeDetail.outgoing_edges?.length ?? 0) > 0 && (
               <div>
@@ -145,13 +168,13 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
                   {nodeDetail.outgoing_edges?.map((edge) => (
                     <button
                       key={edge.id}
-                      onClick={() => onNodeSelect(edge.target_id)}
+                      onClick={() => onNodeSelect(edge.target_node_id)}
                       className="w-full text-left p-2 rounded-lg border border-theme bg-theme-surface hover:bg-theme-surface-hover transition-colors"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-theme-primary truncate">{edge.target_name || edge.target_id}</span>
+                        <span className="text-sm text-theme-primary truncate">{edge.target_name || edge.target_node_id}</span>
                         <Badge variant={RELATION_TYPE_BADGE[edge.relation_type]} size="xs">
-                          {edge.relation_type.replace('_', ' ')}
+                          {edge.relation_type.replace(/_/g, ' ')}
                         </Badge>
                       </div>
                     </button>
@@ -171,13 +194,13 @@ export const NodeDetailPanel: React.FC<NodeDetailPanelProps> = ({
                   {nodeDetail.incoming_edges?.map((edge) => (
                     <button
                       key={edge.id}
-                      onClick={() => onNodeSelect(edge.source_id)}
+                      onClick={() => onNodeSelect(edge.source_node_id)}
                       className="w-full text-left p-2 rounded-lg border border-theme bg-theme-surface hover:bg-theme-surface-hover transition-colors"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-theme-primary truncate">{edge.source_name || edge.source_id}</span>
+                        <span className="text-sm text-theme-primary truncate">{edge.source_name || edge.source_node_id}</span>
                         <Badge variant={RELATION_TYPE_BADGE[edge.relation_type]} size="xs">
-                          {edge.relation_type.replace('_', ' ')}
+                          {edge.relation_type.replace(/_/g, ' ')}
                         </Badge>
                       </div>
                     </button>

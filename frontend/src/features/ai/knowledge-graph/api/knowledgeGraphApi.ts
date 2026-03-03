@@ -7,6 +7,7 @@ import type {
   SubgraphResult,
   ShortestPathResult,
   HybridSearchResult,
+  HybridSearchRawResult,
   GraphStatistics,
   NodeListParams,
   EdgeListParams,
@@ -36,7 +37,7 @@ function unwrap(responseData: any): any {
   return responseData?.data ?? responseData;
 }
 
-export function useKnowledgeNodes(params?: NodeListParams) {
+export function useKnowledgeNodes(params?: NodeListParams, enabled = true) {
   return useQuery({
     queryKey: KG_KEYS.nodes(params),
     queryFn: async (): Promise<PaginatedResponse<KnowledgeNode>> => {
@@ -54,6 +55,7 @@ export function useKnowledgeNodes(params?: NodeListParams) {
         },
       };
     },
+    enabled,
   });
 }
 
@@ -69,7 +71,7 @@ export function useKnowledgeNodeDetail(id: string, enabled = true) {
   });
 }
 
-export function useKnowledgeEdges(params?: EdgeListParams) {
+export function useKnowledgeEdges(params?: EdgeListParams, enabled = true) {
   return useQuery({
     queryKey: KG_KEYS.edges(params),
     queryFn: async (): Promise<PaginatedResponse<KnowledgeEdge>> => {
@@ -86,6 +88,7 @@ export function useKnowledgeEdges(params?: EdgeListParams) {
         },
       };
     },
+    enabled,
   });
 }
 
@@ -127,16 +130,32 @@ export function useHybridSearch(params: SearchParams, enabled = true) {
   return useQuery({
     queryKey: KG_KEYS.search(params),
     queryFn: async () => {
-      const response = await apiClient.get('/ai/knowledge_graph/nodes', {
-        params: {
-          search: params.query,
-          mode: params.mode,
-          entity_type: params.entity_type,
-          per_page: params.limit,
-        },
+      const response = await apiClient.post('/ai/knowledge_graph/search', {
+        query: params.query,
+        mode: params.mode || 'hybrid',
+        top_k: params.limit || 20,
+        entity_type: params.entity_type,
       });
       const body = unwrap(response.data);
-      return (body?.nodes || body) as HybridSearchResult[];
+      const rawResults: HybridSearchRawResult[] = body?.results || [];
+
+      return rawResults.map((r): HybridSearchResult => ({
+        id: r.id,
+        node: {
+          id: r.id,
+          name: r.metadata?.name as string || r.content.slice(0, 60),
+          node_type: r.type || 'chunk',
+          entity_type: (r.metadata?.entity_type as HybridSearchResult['node']['entity_type']) || 'document',
+          description: r.content,
+          confidence: r.score,
+          mention_count: 0,
+          status: 'active',
+          created_at: '',
+        },
+        score: r.rrf_score ?? r.score,
+        match_type: (r.source as HybridSearchResult['match_type']) || 'hybrid',
+        highlights: r.content ? [r.content.slice(0, 200)] : [],
+      }));
     },
     enabled: enabled && !!params.query && params.query.length >= 2,
   });

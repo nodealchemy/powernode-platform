@@ -44,10 +44,6 @@ const graphStyles = `
 .sg-controls .react-flow__controls-button svg {
   fill: var(--color-text-primary);
 }
-.react-flow__minimap-mask {
-  fill: var(--color-bg, rgba(0,0,0,0.1));
-  opacity: 0.6;
-}
 `;
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -104,7 +100,6 @@ interface SkillGraphVisualizationProps {
 }
 
 export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = ({ focusSkillId, onNodeSelect: externalNodeSelect, onViewSkill }) => {
-  const [loading, setLoading] = useState(true);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [searchFilter, setSearchFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
@@ -140,8 +135,10 @@ export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = (
     return Array.from(cats).sort();
   }, [graphData]);
 
+  const hasFilter = !!searchFilter || !!categoryFilter;
+
   const filteredNodes = useMemo(() => {
-    if (!graphData?.nodes) return [];
+    if (!graphData?.nodes || !hasFilter) return [];
     let filtered = graphData.nodes;
     if (!showUnconnected) {
       filtered = filtered.filter(n => connectedNodeIds.has(n.id));
@@ -154,18 +151,18 @@ export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = (
       filtered = filtered.filter(n => n.category === categoryFilter);
     }
     return filtered;
-  }, [graphData, searchFilter, categoryFilter, showUnconnected, connectedNodeIds]);
+  }, [graphData, hasFilter, searchFilter, categoryFilter, showUnconnected, connectedNodeIds]);
 
   useEffect(() => {
-    if (graphLoading) {
-      setLoading(true);
+    if (!hasFilter || graphLoading) {
+      setNodes([]);
+      setEdges([]);
       return;
     }
 
     if (!graphData || filteredNodes.length === 0) {
       setNodes([]);
       setEdges([]);
-      setLoading(false);
       return;
     }
 
@@ -212,18 +209,17 @@ export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = (
 
     setNodes(arrangedNodes);
     setEdges(flowEdges);
-    setLoading(false);
 
     // Fit viewport after layout changes (toggle, filter, search)
     setTimeout(() => {
       rfInstance.current?.fitView({ padding: 0.3 });
     }, 50);
-  }, [graphData, filteredNodes, graphLoading, setNodes, setEdges]);
+  }, [hasFilter, graphData, filteredNodes, graphLoading, setNodes, setEdges]);
 
   // Focus on a specific skill node when focusSkillId is provided
   const hasFocused = useRef(false);
   useEffect(() => {
-    if (!focusSkillId || hasFocused.current || loading || nodes.length === 0) return;
+    if (!focusSkillId || hasFocused.current || graphLoading || nodes.length === 0) return;
 
     const targetNode = nodes.find(
       (n) => (n.data as SkillGraphNodeData).skillId === focusSkillId || n.id === focusSkillId
@@ -241,7 +237,7 @@ export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = (
         duration: 400,
       });
     }, 150);
-  }, [focusSkillId, loading, nodes]);
+  }, [focusSkillId, graphLoading, nodes]);
 
   const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
     setSelectedNodeId(node.id);
@@ -286,14 +282,6 @@ export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = (
           </div>
 
           <div className="flex items-center gap-1.5 flex-wrap">
-            <button
-              onClick={() => setCategoryFilter('')}
-              className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
-                !categoryFilter ? 'bg-theme-interactive-primary text-theme-surface' : 'bg-theme-surface-secondary text-theme-secondary hover:bg-theme-surface-hover'
-              }`}
-            >
-              All
-            </button>
             {categories.map(cat => (
               <button
                 key={cat}
@@ -331,15 +319,19 @@ export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = (
       </Card>
 
       {/* Graph */}
-      {loading ? (
+      {!hasFilter ? (
+        <EmptyState
+          icon={Search}
+          title="Search to explore"
+          description="Enter a search query or select a category above to visualize matching skills and their connections."
+        />
+      ) : graphLoading ? (
         <LoadingSpinner size="lg" className="py-12" message="Loading skill graph..." />
       ) : nodes.length === 0 ? (
         <EmptyState
           icon={Wrench}
-          title="No connected skills found"
-          description={unconnectedCount > 0
-            ? `${unconnectedCount} unconnected skill${unconnectedCount !== 1 ? 's' : ''} hidden. Click "Show unconnected" to reveal them.`
-            : 'The skill graph is empty. Sync skills to populate it.'}
+          title="No skills found"
+          description="No skills match your search criteria. Try a different query or category."
         />
       ) : (
         <div className="relative h-[600px] rounded-lg border border-theme bg-theme-surface">
@@ -360,16 +352,19 @@ export const SkillGraphVisualization: React.FC<SkillGraphVisualizationProps> = (
             <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
             <Controls className="sg-controls" />
             <MiniMap
+              style={{
+                backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--color-surface').trim() || '#1a1a2e',
+              }}
+              maskColor="rgba(0,0,0,0.3)"
               nodeColor={() => {
                 const style = getComputedStyle(document.documentElement);
                 return style.getPropertyValue('--color-text-secondary').trim() || '#6b7280';
               }}
-              maskColor="rgba(0,0,0,0.1)"
             />
           </ReactFlow>
 
           {/* Edge Legend */}
-          <div className="absolute bottom-4 right-4 bg-theme-surface border border-theme rounded-lg p-3 shadow-lg z-10">
+          <div className="absolute bottom-4 left-14 bg-theme-surface border border-theme rounded-lg p-3 shadow-lg z-10">
             <div className="text-[10px] font-semibold text-theme-primary mb-1.5">Edge Types</div>
             <div className="space-y-1">
               {Object.entries(SKILL_EDGE_DISPLAY).map(([key, config]) => (

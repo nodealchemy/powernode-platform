@@ -30,21 +30,21 @@ export const GraphStatisticsPanel: React.FC = () => {
   const summaryCards = [
     {
       label: 'Total Nodes',
-      value: stats.total_nodes,
+      value: stats.node_count,
       icon: Circle,
       colorClass: 'text-theme-info',
       bgClass: 'bg-theme-info',
     },
     {
       label: 'Total Edges',
-      value: stats.total_edges,
+      value: stats.edge_count,
       icon: Link2,
       colorClass: 'text-theme-success',
       bgClass: 'bg-theme-success',
     },
     {
-      label: 'Avg Edges / Node',
-      value: (stats.avg_edges_per_node ?? 0).toFixed(1),
+      label: 'Avg Degree',
+      value: (stats.avg_degree ?? 0).toFixed(1),
       icon: GitBranch,
       colorClass: 'text-theme-warning',
       bgClass: 'bg-theme-warning',
@@ -102,24 +102,44 @@ export const GraphStatisticsPanel: React.FC = () => {
         </Card>
       )}
 
+      {/* Edges by Type */}
+      {stats.by_relation_type && Object.keys(stats.by_relation_type).length > 0 && (
+        <Card className="p-4">
+          <h4 className="text-sm font-semibold text-theme-primary mb-3">Edges by Type</h4>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(stats.by_relation_type).map(([type, count]) => (
+              <div
+                key={type}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-theme bg-theme-surface"
+              >
+                <span className="text-sm font-medium text-theme-primary">
+                  {type.replace(/_/g, ' ')}
+                </span>
+                <Badge variant="default" size="xs">{count}</Badge>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {/* Most Connected Nodes */}
-      {stats.most_connected && stats.most_connected.length > 0 && (
+      {stats.top_connected_nodes && stats.top_connected_nodes.length > 0 && (
         <Card className="p-4">
           <h4 className="text-sm font-semibold text-theme-primary mb-3">Most Connected Nodes</h4>
           <div className="space-y-2">
-            {stats.most_connected.map((node) => (
+            {stats.top_connected_nodes.map((node) => (
               <div
                 key={node.id}
                 className="flex items-center justify-between p-2 rounded-lg border border-theme bg-theme-surface"
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className={`text-sm font-medium ${ENTITY_TYPE_COLORS[node.entity_type] || 'text-theme-primary'}`}>
+                  <span className="text-sm font-medium text-theme-primary">
                     {node.name}
                   </span>
-                  <Badge variant="info" size="xs">{node.entity_type}</Badge>
+                  <Badge variant="info" size="xs">{node.node_type}</Badge>
                 </div>
                 <span className="text-sm font-semibold text-theme-primary flex-shrink-0">
-                  {node.mention_count} mentions
+                  {node.degree} edges
                 </span>
               </div>
             ))}

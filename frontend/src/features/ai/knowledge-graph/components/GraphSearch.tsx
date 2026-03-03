@@ -7,6 +7,7 @@ interface GraphSearchProps {
   onSearch: (query: string, entityType?: EntityType, mode?: SearchMode) => void;
   onClear: () => void;
   className?: string;
+  showSearchMode?: boolean;
 }
 
 const ENTITY_TYPE_OPTIONS: { id: EntityType | undefined; label: string }[] = [
@@ -31,6 +32,7 @@ export const GraphSearch: React.FC<GraphSearchProps> = ({
   onSearch,
   onClear,
   className = '',
+  showSearchMode = true,
 }) => {
   const [query, setQuery] = useState('');
   const [entityType, setEntityType] = useState<EntityType | undefined>(undefined);
@@ -98,22 +100,24 @@ export const GraphSearch: React.FC<GraphSearchProps> = ({
         </div>
 
         {/* Search Mode filter */}
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-theme-tertiary mr-1">Mode:</span>
-          {SEARCH_MODE_OPTIONS.map((opt) => (
-            <button
-              key={opt.id}
-              onClick={() => setSearchMode(opt.id)}
-              className={`px-2 py-0.5 text-xs rounded-md transition-colors ${
-                searchMode === opt.id
-                  ? 'bg-theme-interactive-primary text-white'
-                  : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+        {showSearchMode && (
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-theme-tertiary mr-1">Mode:</span>
+            {SEARCH_MODE_OPTIONS.map((opt) => (
+              <button
+                key={opt.id}
+                onClick={() => setSearchMode(opt.id)}
+                className={`px-2 py-0.5 text-xs rounded-md transition-colors ${
+                  searchMode === opt.id
+                    ? 'bg-theme-interactive-primary text-white'
+                    : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -17,8 +17,8 @@ export interface KnowledgeNode {
 
 export interface KnowledgeEdge {
   id: string;
-  source_id: string;
-  target_id: string;
+  source_node_id: string;
+  target_node_id: string;
   source_name?: string;
   target_name?: string;
   relation_type: RelationType;
@@ -31,6 +31,12 @@ export interface NodeDetail extends KnowledgeNode {
   neighbors?: NeighborInfo[];
   incoming_edges?: KnowledgeEdge[];
   outgoing_edges?: KnowledgeEdge[];
+  metadata?: Record<string, unknown>;
+  knowledge_base_id?: string;
+  source_document_id?: string;
+  last_seen_at?: string;
+  merged_into_id?: string;
+  degree?: number;
 }
 
 export interface NeighborInfo {
@@ -58,20 +64,42 @@ export interface HybridSearchResult {
   highlights: string[];
 }
 
+export interface HybridSearchRawResult {
+  id: string;
+  type: string;
+  document_id?: string;
+  content: string;
+  score: number;
+  source: string;
+  rrf_score?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface TopConnectedNode {
+  id: string;
+  name: string;
+  node_type: string;
+  degree: number;
+}
+
 export interface GraphStatistics {
-  total_nodes: number;
-  total_edges: number;
+  node_count: number;
+  edge_count: number;
   by_entity_type: Record<EntityType, number>;
   by_relation_type: Record<RelationType, number>;
-  avg_edges_per_node: number;
-  most_connected: KnowledgeNode[];
+  by_node_type?: Record<string, number>;
+  avg_degree: number;
+  density?: number;
+  nodes_with_embeddings?: number;
+  avg_confidence?: number;
+  top_connected_nodes: TopConnectedNode[];
 }
 
 export interface NodeListParams {
   page?: number;
   per_page?: number;
   entity_type?: EntityType;
-  search?: string;
+  query?: string;
 }
 
 export interface EdgeListParams {
