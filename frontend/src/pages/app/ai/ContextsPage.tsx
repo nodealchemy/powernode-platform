@@ -112,7 +112,6 @@ export const ContextsContent: React.FC<ContextsContentProps> = ({ onActionsReady
       {activeTab === 'browse' && (
         <ContextBrowser
           key={refreshKey}
-          filters={{ context_type: 'knowledge_base' }}
         />
       )}
 
@@ -135,6 +134,25 @@ export const ContextsContent: React.FC<ContextsContentProps> = ({ onActionsReady
                   placeholder="e.g., Product Documentation, Company Policies"
                   error={formErrors.name}
                   required
+                />
+              </div>
+
+              {/* Context Type */}
+              <div className="mb-4">
+                <Select
+                  label="Context Type"
+                  value={formData.context_type}
+                  onChange={(value) =>
+                    setFormData({
+                      ...formData,
+                      context_type: value as ContextFormData['context_type'],
+                    })
+                  }
+                  options={[
+                    { value: 'knowledge_base', label: 'Knowledge Base' },
+                    { value: 'agent_memory', label: 'Agent Memory' },
+                    { value: 'shared_context', label: 'Shared Context' },
+                  ]}
                 />
               </div>
 

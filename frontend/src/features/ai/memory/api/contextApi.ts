@@ -40,10 +40,10 @@ export const contextApi = {
         per_page: perPage.toString(),
       });
 
-      if (filters?.context_type) params.append('context_type', filters.context_type);
+      if (filters?.context_type) params.append('type', filters.context_type);
       if (filters?.scope) params.append('scope', filters.scope);
-      if (filters?.ai_agent_id) params.append('ai_agent_id', filters.ai_agent_id);
-      if (filters?.is_archived !== undefined) params.append('is_archived', String(filters.is_archived));
+      if (filters?.ai_agent_id) params.append('agent_id', filters.ai_agent_id);
+      if (filters?.is_archived !== undefined) params.append('include_archived', String(filters.is_archived));
 
       const response = await api.get(`/ai/contexts?${params}`);
       return response.data;
@@ -117,7 +117,7 @@ export const contextApi = {
 
   async restoreContext(id: string): Promise<ContextResponse> {
     try {
-      const response = await api.post(`/ai/contexts/${id}/restore`);
+      const response = await api.post(`/ai/contexts/${id}/unarchive`);
       return response.data;
     } catch (error) {
       return {
@@ -345,7 +345,7 @@ export const contextApi = {
     format: 'json' | 'csv' = 'json'
   ): Promise<ExportResponse> {
     try {
-      const response = await api.post(`/ai/contexts/${contextId}/export`, { format });
+      const response = await api.get(`/ai/contexts/${contextId}/export?format=${format}`);
       return response.data;
     } catch (error) {
       return {

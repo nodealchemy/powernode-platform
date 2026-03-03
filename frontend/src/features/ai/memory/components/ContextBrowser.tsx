@@ -37,6 +37,7 @@ export function ContextBrowser({
   const [showArchived, setShowArchived] = useState(showArchivedProp);
   const [cloneTargetId, setCloneTargetId] = useState<string | null>(null);
   const [cloneName, setCloneName] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadContexts();
@@ -44,12 +45,15 @@ export function ContextBrowser({
 
   const loadContexts = async () => {
     setIsLoading(true);
+    setError(null);
     const response = await contextApi.getContexts(1, 100, {
       ...filters,
       is_archived: showArchived,
     });
     if (response.success && response.data) {
       setContexts(response.data.contexts);
+    } else {
+      setError(response.error || 'Failed to load contexts');
     }
     setIsLoading(false);
   };
@@ -264,6 +268,19 @@ export function ContextBrowser({
           {showArchived ? 'Showing Archived' : 'Show Archived'}
         </button>
       </div>
+
+      {/* Error State */}
+      {error && (
+        <div className="flex items-center justify-between p-3 bg-theme-error/10 border border-theme-error/30 rounded-lg">
+          <span className="text-sm text-theme-error">{error}</span>
+          <button
+            onClick={loadContexts}
+            className="text-sm text-theme-error hover:text-theme-error/80 font-medium"
+          >
+            Try Again
+          </button>
+        </div>
+      )}
 
       {/* Results */}
       {filteredContexts.length === 0 ? (
