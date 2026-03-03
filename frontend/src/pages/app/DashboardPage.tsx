@@ -103,13 +103,13 @@ const IntegrationDetailPage = React.lazy(() => import('@/pages/app/devops/integr
 const NewIntegrationPage = React.lazy(() => import('@/pages/app/devops/integrations').then(m => ({ default: m.NewIntegrationPage })));
 
 // DevOps Pages
-const DevOpsOverviewPage = React.lazy(() => import('@/pages/app/devops/DevOpsOverviewPage').then(m => ({ default: m.DevOpsOverviewPage })));
 const PipelineCreatePage = React.lazy(() => import('@/pages/app/devops/PipelineCreatePage').then(m => ({ default: m.PipelineCreatePage })));
 const PipelineDetailPage = React.lazy(() => import('@/pages/app/devops/PipelineDetailPage').then(m => ({ default: m.PipelineDetailPage })));
 const PipelineEditPage = React.lazy(() => import('@/pages/app/devops/PipelineEditPage').then(m => ({ default: m.PipelineEditPage })));
 const RunnerDetailPage = React.lazy(() => import('@/pages/app/devops/RunnerDetailPage').then(m => ({ default: m.RunnerDetailPage })));
 
 // DevOps Hub Pages
+const DevOpsHubPage = React.lazy(() => import('@/pages/app/devops/DevOpsHubPage').then(m => ({ default: m.DevOpsHubPage })));
 const SourceControlPage = React.lazy(() => import('@/pages/app/devops/SourceControlPage').then(m => ({ default: m.SourceControlPage })));
 const CiCdPage = React.lazy(() => import('@/pages/app/devops/CiCdPage').then(m => ({ default: m.CiCdPage })));
 const ConnectionsPage = React.lazy(() => import('@/pages/app/devops/ConnectionsPage').then(m => ({ default: m.ConnectionsPage })));
@@ -445,7 +445,7 @@ const DashboardPage: React.FC = () => {
 
 
         {/* DevOps Pages */}
-        <Route path="/devops" element={<DevOpsOverviewPage />} />
+        <Route path="/devops" element={<DevOpsHubPage />} />
 
         {/* Source Control - detail routes before catch-all */}
         <Route path="/devops/source-control/providers/new" element={<GitProvidersPage />} />

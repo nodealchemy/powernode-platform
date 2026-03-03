@@ -16,7 +16,6 @@ import {
   Zap,
   GitCommit
 } from 'lucide-react';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { logger } from '@/shared/utils/logger';
 import { gitProvidersApi } from '@/features/devops/git/services/gitProvidersApi';
@@ -333,7 +332,7 @@ export function DevOpsOverviewPage() {
       id: 'git-providers',
       name: 'Git Providers',
       description: 'Configure GitHub, GitLab, Gitea connections',
-      href: '/app/devops/source-control',
+      href: '/app/devops/source-control/providers',
       icon: GitBranch,
       stat: stats.providers.total,
       status: stats.providers.active > 0 ? 'success' : 'neutral'
@@ -385,49 +384,32 @@ export function DevOpsOverviewPage() {
     }
   ];
 
-  const breadcrumbs = [
-    { label: 'Dashboard', href: '/app' },
-    { label: 'DevOps' }
-  ];
-
-  const actions = [
-    {
-      id: 'refresh',
-      label: refreshing ? 'Refreshing...' : 'Refresh',
-      onClick: () => loadStats(true),
-      variant: 'secondary' as const,
-      icon: RefreshCw,
-      disabled: refreshing
-    }
-  ];
-
   if (loading) {
     return (
-      <PageContainer
-        title="DevOps Overview"
-        description="Infrastructure and development operations"
-        breadcrumbs={breadcrumbs}
-      >
-        <div className="flex items-center justify-center py-12">
-          <LoadingSpinner size="lg" />
-          <span className="ml-3 text-theme-secondary">Loading DevOps dashboard...</span>
-        </div>
-      </PageContainer>
+      <div className="flex items-center justify-center py-12">
+        <LoadingSpinner size="lg" />
+        <span className="ml-3 text-theme-secondary">Loading DevOps dashboard...</span>
+      </div>
     );
   }
 
   const totalRunners = stats.runners?.total || 0;
 
   return (
-    <PageContainer
-      title="DevOps Overview"
-      description="Infrastructure, pipelines, and development operations dashboard"
-      breadcrumbs={breadcrumbs}
-      actions={actions}
-    >
-      <div className="space-y-6">
-        {/* Key Metrics */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+    <div className="space-y-6">
+      {/* Key Metrics */}
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="font-semibold text-theme-primary">Key Metrics</h3>
+        <button
+          onClick={() => loadStats(true)}
+          disabled={refreshing}
+          className="flex items-center gap-1.5 text-sm text-theme-secondary hover:text-theme-primary transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Refreshing...' : 'Refresh'}
+        </button>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <StatCard
             title="Git Providers"
             value={stats.providers.active}
@@ -697,8 +679,7 @@ export function DevOpsOverviewPage() {
             </div>
           </div>
         )}
-      </div>
-    </PageContainer>
+    </div>
   );
 }
 
