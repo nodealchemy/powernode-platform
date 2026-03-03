@@ -283,6 +283,45 @@ module ServiceConfiguration
       }
     end
 
+    # Resolve the frontend URL from an incoming request.
+    # Uses the request's own origin and checks trusted hosts for a matching
+    # frontend port (e.g., host:3001 paired with host:3000). Behind a reverse
+    # proxy where both services share one hostname, returns the same origin.
+    def frontend_url_for_request(request)
+      forwarded_host = request.headers["X-Forwarded-Host"]
+      proto = request.headers["X-Forwarded-Proto"] || request.scheme
+      host = forwarded_host || request.host
+
+      # Strip port from hostname for matching (IPv6 addresses preserved)
+      bare_host = host.include?(":") && !host.start_with?(":") && host.match?(/:\d+\z/) ?
+        host.sub(/:\d+\z/, "") : host
+
+      # Look for a different-port entry for the same hostname in trusted hosts
+      # (e.g., dev.ipnode.net:3001 paired with dev.ipnode.net:3000)
+      config = reverse_proxy_url_config
+      trusted = config[:trusted_hosts] || []
+      backend_port = request.headers["X-Forwarded-Port"]&.to_i || request.port
+
+      frontend_entry = trusted.find do |entry|
+        next false unless entry.include?(":")
+        entry_host, entry_port = entry.rpartition(":").values_at(0, 2)
+        entry_host == bare_host && entry_port.to_i != backend_port
+      end
+
+      if frontend_entry
+        fe_host, _, fe_port = frontend_entry.rpartition(":")
+        url = "#{proto}://#{fe_host}"
+        url += ":#{fe_port}" unless default_port?(proto, fe_port)
+        url
+      else
+        # Same-origin setup (reverse proxy): frontend is at the same base URL
+        url = "#{proto}://#{host}"
+        port = request.headers["X-Forwarded-Port"] || request.port.to_s
+        url += ":#{port}" unless default_port?(proto, port)
+        url
+      end
+    end
+
     # Add trusted host pattern
     def add_trusted_host(pattern)
       config = reverse_proxy_url_config

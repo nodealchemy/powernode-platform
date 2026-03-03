@@ -119,26 +119,51 @@ module Ai
       conversation_profile["verbosity"]
     end
 
-    def build_system_prompt_with_profile
+    def build_system_prompt_with_profile(context: nil)
       base_prompt = mcp_metadata&.dig("system_prompt") || ""
-      return base_prompt if conversation_profile.blank?
+      skill_prompts = build_skill_system_prompts(context: context)
 
       profile_lines = []
-      profile_lines << "PERSONALITY TRAITS:" if conversation_profile.any?
-      profile_lines << "- Tone: #{conversation_profile['tone']}" if conversation_profile["tone"].present?
-      profile_lines << "- Verbosity: #{conversation_profile['verbosity']}" if conversation_profile["verbosity"].present?
-      profile_lines << "- Style: #{conversation_profile['style']}" if conversation_profile["style"].present?
-      profile_lines << "- Greeting: #{conversation_profile['greeting']}" if conversation_profile["greeting"].present?
+      if conversation_profile.present?
+        profile_lines << "PERSONALITY TRAITS:" if conversation_profile.any?
+        profile_lines << "- Tone: #{conversation_profile['tone']}" if conversation_profile["tone"].present?
+        profile_lines << "- Verbosity: #{conversation_profile['verbosity']}" if conversation_profile["verbosity"].present?
+        profile_lines << "- Style: #{conversation_profile['style']}" if conversation_profile["style"].present?
+        profile_lines << "- Greeting: #{conversation_profile['greeting']}" if conversation_profile["greeting"].present?
 
-      custom_traits = conversation_profile.except("tone", "verbosity", "style", "greeting")
-      custom_traits.each do |key, value|
-        profile_lines << "- #{key.humanize}: #{value}"
+        custom_traits = conversation_profile.except("tone", "verbosity", "style", "greeting")
+        custom_traits.each do |key, value|
+          profile_lines << "- #{key.humanize}: #{value}"
+        end
       end
 
-      [base_prompt, profile_lines.join("\n")].reject(&:blank?).join("\n\n")
+      [base_prompt, skill_prompts, profile_lines.join("\n")].reject(&:blank?).join("\n\n")
     end
 
     private
+
+    def build_skill_system_prompts(context: nil)
+      skill_query = agent_skills.where(is_active: true)
+        .joins(:skill)
+        .where(ai_skills: { status: "active", is_enabled: true })
+        .order("ai_agent_skills.priority ASC")
+
+      # In workspace context, only inject skills tagged with "workspace" to reduce prompt bloat
+      if context == :workspace
+        skill_query = skill_query.where("ai_skills.tags @> ?", '["workspace"]')
+      end
+
+      skill_data = skill_query.pluck("ai_skills.slug", "ai_skills.system_prompt")
+
+      injected_slugs = skill_data.reject { |_slug, prompt| prompt.blank? }.map(&:first)
+      if injected_slugs.any?
+        Rails.logger.info("[Ai::Agent] #{name}: injecting #{injected_slugs.size} skill prompts: #{injected_slugs.join(', ')}")
+      else
+        Rails.logger.info("[Ai::Agent] #{name}: no skill prompts to inject (#{skill_data.size} skills matched, all prompts blank)")
+      end
+
+      skill_data.map(&:last).reject(&:blank?).join("\n\n")
+    end
 
     # Prevent model/provider mismatches (e.g. grok-3 on Anthropic provider)
     def model_matches_provider

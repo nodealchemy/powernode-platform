@@ -23,6 +23,11 @@ class McpSession < ApplicationRecord
   scope :for_account, ->(account_id) { where(account_id: account_id) }
   scope :for_user, ->(user_id) { where(user_id: user_id) }
   scope :stale, ->(duration = 1.hour) { where("last_activity_at < ?", duration.ago) }
+  scope :in_grace_period, -> {
+    where(status: "revoked")
+      .where("revoked_at > ?", RECONNECT_GRACE_PERIOD.ago)
+      .where("expires_at > ?", Time.current)
+  }
 
   # Callbacks
   before_validation :set_defaults, on: :create

@@ -16,7 +16,8 @@ module Ai
     belongs_to :agent_team, class_name: "Ai::AgentTeam", foreign_key: "agent_team_id", optional: true
     has_many :messages, class_name: "Ai::Message", foreign_key: "ai_conversation_id", dependent: :destroy
     has_many :scheduled_messages, class_name: "Ai::ScheduledMessage", foreign_key: "conversation_id", dependent: :destroy
-    has_one :mission, class_name: "Ai::Mission", foreign_key: "conversation_id", dependent: :nullify
+    has_many :missions, class_name: "Ai::Mission", foreign_key: "conversation_id", dependent: :nullify
+    has_one :mission, class_name: "Ai::Mission", foreign_key: "conversation_id"
     has_many :team_executions, class_name: "Ai::TeamExecution", foreign_key: "ai_conversation_id", dependent: :nullify
     has_many :chat_sessions, class_name: "Chat::Session", foreign_key: "ai_conversation_id", dependent: :nullify
 
@@ -204,14 +205,12 @@ module Ai
       return unless websocket_channel.present?
 
       AiConversationChannel.broadcast_message_created(self, message)
-      notify_mcp_sessions_of_message(message)
     end
 
     def broadcast_ai_complete(message)
       return unless websocket_channel.present?
 
       AiConversationChannel.broadcast_ai_complete(self, message)
-      notify_mcp_sessions_of_message(message, event_type: "ai_response_complete")
     end
 
     def broadcast_typing_indicator(user, typing: true)
@@ -260,10 +259,52 @@ module Ai
       conversation_id
     end
 
+    # Parse @mention positions in content and split into preamble + per-agent segments.
+    # Returns { "preamble" => "...", "segments" => { agent_id => "text", ... } }
+    # or nil if no workspace team, no content, or no @mentions found.
+    def parse_mention_segments(content)
+      return nil unless agent_team && content.present? && content.include?("@")
+
+      members = agent_team.members.includes(:agent).to_a
+      members.sort_by! { |m| -(m.agent&.name&.length || 0) } # longest match first
+
+      # Find @mention positions (overlap-aware, same approach as auto_detect_mentions)
+      positions = []
+      members.each do |member|
+        name = member.agent&.name
+        next if name.blank?
+
+        pattern = "@#{name}"
+        idx = 0
+        while (found = content.index(pattern, idx))
+          unless positions.any? { |p| found >= p[:index] && found < p[:index] + p[:length] }
+            positions << { index: found, length: pattern.length,
+                           agent_id: member.ai_agent_id, name: name }
+          end
+          idx = found + 1
+        end
+      end
+      return nil if positions.empty?
+
+      positions.sort_by! { |p| p[:index] }
+      preamble = content[0...positions.first[:index]].strip
+
+      segments = {}
+      positions.each_with_index do |p, i|
+        text_end = positions[i + 1]&.dig(:index) || content.length
+        text = content[p[:index] + p[:length]...text_end].strip
+        segments[p[:agent_id]] = [segments[p[:agent_id]], text].compact.join(" ")
+      end
+
+      { "preamble" => preamble, "segments" => segments }
+    end
+
     private
 
     # Auto-detect @mentions of workspace team members in message content.
     # Returns array of { "id" => agent_id, "name" => agent_name } hashes.
+    # Supports exact match first, then prefix fallback for LLM-generated names
+    # that drop suffixes (e.g. "@Claude Code (powernode)" matching "Claude Code (powernode) #1").
     def auto_detect_mentions(content)
       return [] unless agent_team.present?
 
@@ -271,59 +312,37 @@ module Ai
       members.sort_by! { |m| -(m.agent&.name&.length || 0) }
 
       detected = []
+      detected_ids = Set.new
+
+      # Pass 1: exact match (highest confidence)
       members.each do |member|
         name = member.agent&.name
         next if name.blank?
         next unless content.include?("@#{name}")
 
         detected << { "id" => member.ai_agent_id, "name" => name }
+        detected_ids << member.ai_agent_id
+      end
+
+      # Pass 2: prefix fallback — match when LLM drops suffixes like " #1"
+      # Only for members not already matched. Requires @prefix to appear in content.
+      members.each do |member|
+        next if detected_ids.include?(member.ai_agent_id)
+
+        name = member.agent&.name
+        next if name.blank?
+
+        # Try progressively shorter prefixes of the agent name (min 5 chars to avoid false positives)
+        # e.g. "Claude Code (powernode) #1" → check "@Claude Code (powernode)"
+        base_name = name.sub(/\s*#\d+\z/, "").strip
+        if base_name.length >= 5 && base_name != name && content.include?("@#{base_name}")
+          Rails.logger.info("[Ai::Conversation] Prefix @mention match: '@#{base_name}' → '#{name}'")
+          detected << { "id" => member.ai_agent_id, "name" => name }
+          detected_ids << member.ai_agent_id
+        end
       end
 
       detected
-    end
-
-    def notify_mcp_sessions_of_message(message, event_type: "message_created")
-      return unless agent_team.present?
-
-      # Find MCP client agents in this workspace team
-      mcp_agent_ids = agent_team.members
-        .joins(:agent)
-        .where(ai_agents: { agent_type: "mcp_client" })
-        .pluck(:ai_agent_id)
-
-      return if mcp_agent_ids.empty?
-
-      # Skip notifying the agent that sent this message (avoid echo)
-      mcp_agent_ids -= [message.ai_agent_id] if message.ai_agent_id.present?
-      return if mcp_agent_ids.empty?
-
-      # MCP clients always receive all workspace messages — they are lightweight
-      # listeners (SSE daemon) that handle their own filtering. The @mention
-      # filter only applies to non-MCP agents (which trigger expensive LLM calls).
-
-      sessions = McpSession.active.where(ai_agent_id: mcp_agent_ids)
-      return if sessions.empty?
-
-      # For ai_response_complete, send full content (it replaces the truncated message_created)
-      content_limit = event_type == "ai_response_complete" ? 4000 : 500
-      notification = {
-        type: event_type,
-        conversation_id: conversation_id,
-        workspace: agent_team.name,
-        message: {
-          id: message.message_id,
-          role: message.role,
-          content: message.content.to_s.truncate(content_limit),
-          sender: message.user&.name || message.agent&.name || "Unknown",
-          created_at: message.created_at&.iso8601
-        }
-      }.to_json
-
-      sessions.find_each do |session|
-        ActionCable.server.pubsub.broadcast("mcp_session:#{session.session_token}", notification)
-      end
-    rescue StandardError => e
-      Rails.logger.warn("[Conversation] Failed to notify MCP sessions: #{e.message}")
     end
 
     # Resolve which MCP agents are @mentioned in a message, checking both
@@ -343,9 +362,19 @@ module Ai
         content = message.content.to_s
         if content.include?("@")
           mcp_agents = Ai::Agent.where(id: candidate_agent_ids).pluck(:id, :name)
+          # Pass 1: exact match
           mcp_agents.each do |agent_id, agent_name|
             next if mentioned_ids.include?(agent_id)
             mentioned_ids << agent_id if content.include?("@#{agent_name}")
+          end
+          # Pass 2: prefix fallback (LLMs often drop " #N" suffixes)
+          mcp_agents.each do |agent_id, agent_name|
+            next if mentioned_ids.include?(agent_id)
+            base_name = agent_name.sub(/\s*#\d+\z/, "").strip
+            if base_name.length >= 5 && base_name != agent_name && content.include?("@#{base_name}")
+              Rails.logger.info("[Ai::Conversation] Prefix MCP mention match: '@#{base_name}' → '#{agent_name}'")
+              mentioned_ids << agent_id
+            end
           end
         end
       end
