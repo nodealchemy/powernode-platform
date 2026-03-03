@@ -78,8 +78,12 @@ module Devops
                         StepHandlers::DeployHandler
                       when "upload_artifact"
                         StepHandlers::UploadArtifactHandler
-                      when "run_command"
+                      when "run_command", "run_tests"
                         StepHandlers::RunCommandHandler
+                      when "create_branch"
+                        StepHandlers::CheckoutHandler
+                      when "notify", "custom", "ai_workflow", "download_artifact", "code_factory_gate"
+                        StepHandlers::GenericHandler
                       else
                         StepHandlers::GenericHandler
                       end
