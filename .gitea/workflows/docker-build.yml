@@ -1,0 +1,68 @@
+name: Build Docker Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag (e.g. dev-latest, 0.2.0)'
+        required: false
+        default: 'dev-latest'
+  push:
+    branches: [develop]
+    paths:
+      - 'server/**'
+      - 'frontend/**'
+      - 'worker/**'
+      - '.gitea/workflows/docker-build.yml'
+
+env:
+  REGISTRY: git.ipnode.org
+  IMAGE_TAG: ${{ github.event.inputs.tag || 'dev-latest' }}
+
+jobs:
+  build-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Gitea Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.repository_owner }} --password-stdin
+
+      - name: Build backend image
+        run: docker build -t ${{ env.REGISTRY }}/${{ github.repository_owner }}/powernode-backend:${{ env.IMAGE_TAG }} -f server/Dockerfile server/
+
+      - name: Push backend image
+        run: docker push ${{ env.REGISTRY }}/${{ github.repository_owner }}/powernode-backend:${{ env.IMAGE_TAG }}
+
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Gitea Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.repository_owner }} --password-stdin
+
+      - name: Build frontend image
+        run: |
+          docker build \
+            -t ${{ env.REGISTRY }}/${{ github.repository_owner }}/powernode-frontend:${{ env.IMAGE_TAG }} \
+            --build-arg VITE_API_URL="" \
+            --build-arg VITE_WS_URL="" \
+            -f frontend/Dockerfile frontend/
+
+      - name: Push frontend image
+        run: docker push ${{ env.REGISTRY }}/${{ github.repository_owner }}/powernode-frontend:${{ env.IMAGE_TAG }}
+
+  build-worker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Gitea Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.repository_owner }} --password-stdin
+
+      - name: Build worker image
+        run: docker build -t ${{ env.REGISTRY }}/${{ github.repository_owner }}/powernode-worker:${{ env.IMAGE_TAG }} -f worker/Dockerfile worker/
+
+      - name: Push worker image
+        run: docker push ${{ env.REGISTRY }}/${{ github.repository_owner }}/powernode-worker:${{ env.IMAGE_TAG }}

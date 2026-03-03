@@ -1,0 +1,179 @@
+# Docker Swarm stack for Powernode Platform - Dev Testing
+# Deploy: docker stack deploy -c docker/swarm/dev.yml --with-registry-auth powernode-dev
+# Teardown: docker stack rm powernode-dev
+#
+# NOTE: This is a DEV-ONLY configuration. Secrets are plain env vars.
+#       Do NOT use these values in staging/production.
+
+services:
+  # PostgreSQL with pgvector extension (required by schema)
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: powernode
+      POSTGRES_PASSWORD: pn-dev-db-2026-xK9mQ4
+      POSTGRES_DB: powernode_development
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U powernode -d powernode_development"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Redis (no password - internal overlay network only)
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - backend
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # Rails Backend API
+  # Runs production image in development mode (seeds create admin user only in dev/test)
+  backend:
+    image: git.ipnode.org/powernode/powernode-backend:${TAG:-dev-latest}
+    environment:
+      - RAILS_ENV=development
+      - DATABASE_HOST=postgres
+      - DATABASE_USER=powernode
+      - POWERNODE_DATABASE_PASSWORD=pn-dev-db-2026-xK9mQ4
+      - DATABASE_NAME=powernode_development
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY_BASE=a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8
+      - RAILS_LOG_TO_STDOUT=1
+      - RAILS_SERVE_STATIC_FILES=true
+      - FORCE_SSL=false
+    configs:
+      - source: dev_cable_config
+        target: /app/config/cable.yml
+    networks:
+      - frontend
+      - backend
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+      labels:
+        - traefik.enable=true
+        # API routing
+        - traefik.http.routers.dev-api.rule=PathPrefix(`/api`)
+        - traefik.http.routers.dev-api.entrypoints=web
+        - traefik.http.services.dev-api.loadbalancer.server.port=3000
+        # ActionCable WebSocket routing
+        - traefik.http.routers.dev-cable.rule=PathPrefix(`/cable`)
+        - traefik.http.routers.dev-cable.entrypoints=web
+        - traefik.http.services.dev-cable.loadbalancer.server.port=3000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+  # Sidekiq Worker (standalone, communicates with backend via HTTP API)
+  worker:
+    image: git.ipnode.org/powernode/powernode-worker:${TAG:-dev-latest}
+    environment:
+      - REDIS_URL=redis://redis:6379/1
+      - BACKEND_API_URL=http://backend:3000
+      - RAILS_LOG_TO_STDOUT=1
+    networks:
+      - backend
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 5
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "sidekiq"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # React Frontend (nginx:alpine serves built SPA)
+  frontend:
+    image: git.ipnode.org/powernode/powernode-frontend:${TAG:-dev-latest}
+    networks:
+      - frontend
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.dev-frontend.rule=PathPrefix(`/`)
+        - traefik.http.routers.dev-frontend.entrypoints=web
+        - traefik.http.routers.dev-frontend.priority=1
+        - traefik.http.services.dev-frontend.loadbalancer.server.port=80
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Traefik v3 Reverse Proxy (HTTP-only, path-based routing)
+  proxy:
+    image: traefik:v3.0
+    command:
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --providers.docker.swarmMode=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=powernode-dev_frontend
+      - --entrypoints.web.address=:80
+    ports:
+      - "9080:80"
+      - "9081:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - frontend
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+
+configs:
+  dev_cable_config:
+    file: docker/swarm/configs/cable.yml
+
+networks:
+  frontend:
+    driver: overlay
+    attachable: true
+  backend:
+    driver: overlay
+    internal: true
+
+volumes:
+  postgres_dev_data:
+    driver: local
+  redis_dev_data:
+    driver: local
