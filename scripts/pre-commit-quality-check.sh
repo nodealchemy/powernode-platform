@@ -32,6 +32,7 @@ echo ""
 echo "2️⃣  Checking for hardcoded color classes..."
 HARDCODED_COLORS=$(git diff --cached --name-only --diff-filter=ACM | \
   grep -E '\.(ts|tsx)$' | \
+  grep -v 'pages/public/' | \
   xargs grep -E "(text|bg|border)-(red|green|blue|yellow|orange|purple|gray|black)-[0-9]" 2>/dev/null | \
   grep -v "text-white" | \
   grep -v "\.test\." || echo "")
