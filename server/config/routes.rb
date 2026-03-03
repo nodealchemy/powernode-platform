@@ -2904,6 +2904,9 @@ Rails.application.routes.draw do
       # ===================================================================
 
       namespace :devops do
+        # Aggregated overview
+        resource :overview, only: [ :show ], controller: "overview"
+
         # Container Orchestration
         resources :containers do
           member do

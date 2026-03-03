@@ -13,19 +13,16 @@ module Api
 
         # GET /api/v1/devops/providers
         def index
-          providers = current_user.account.devops_providers.order(created_at: :desc)
+          providers = current_user.account.git_providers.active.ordered_by_priority
 
-          # Filter by provider_type if provided
           providers = providers.where(provider_type: params[:provider_type]) if params[:provider_type].present?
-
-          # Filter by active status if provided
           providers = providers.where(is_active: params[:is_active]) if params[:is_active].present?
 
           render_success({
-            providers: serialize_collection(providers),
+            providers: providers.map { |p| serialize_provider(p) },
             meta: {
               total: providers.count,
-              by_type: current_user.account.devops_providers.group(:provider_type).count
+              by_type: current_user.account.git_providers.group(:provider_type).count
             }
           })
 
@@ -49,7 +46,7 @@ module Api
 
         # POST /api/v1/devops/providers
         def create
-          provider = current_user.account.devops_providers.new(provider_params)
+          provider = current_user.account.git_providers.new(provider_params)
 
           if provider.save
             render_success({
@@ -99,13 +96,26 @@ module Api
 
         # POST /api/v1/devops/providers/:id/test_connection
         def test_connection
-          result = @provider.test_connection
+          credential = @provider.default_credential_for_account(current_user.account)
+          unless credential
+            render_error("No credentials configured for this provider", status: :unprocessable_content)
+            return
+          end
+
+          result = ::Devops::Git::ProviderTestService.new(credential).test_connection
+
+          if result[:success]
+            credential.record_success!
+            @provider.update_columns(metadata: @provider.metadata.merge("last_health_check_at" => Time.current.iso8601))
+          else
+            credential.record_failure!(result[:error])
+          end
 
           render_success({
             provider_id: @provider.id,
             connected: result[:success],
-            message: result[:message],
-            details: result[:details],
+            message: result[:success] ? result[:message] : result[:error],
+            details: result.except(:success, :error, :message),
             tested_at: Time.current
           })
 
@@ -117,7 +127,6 @@ module Api
 
         # POST /api/v1/devops/providers/:id/sync_repositories
         def sync_repositories
-          # Trigger async sync job via worker service
           begin
             WorkerJobService.enqueue_job(
               "Devops::ProviderSyncJob",
@@ -146,7 +155,7 @@ module Api
         private
 
         def set_provider
-          @provider = current_user.account.devops_providers.find(params[:id])
+          @provider = current_user.account.git_providers.find(params[:id])
         rescue ActiveRecord::RecordNotFound
           render_error("Provider not found", status: :not_found)
         end
@@ -167,25 +176,53 @@ module Api
           params.require(:provider).permit(
             :name,
             :provider_type,
-            :base_url,
-            :api_token,
-            :webhook_secret,
+            :api_base_url,
+            :web_base_url,
             :is_active,
-            settings: {}
+            capabilities: []
           )
         end
 
-        def serialize_collection(providers)
-          providers.map { |p| serialize_provider(p) }
-        end
-
         def serialize_provider(provider, include_repositories: false)
-          result = ::Devops::ProviderSerializer.new(provider).serializable_hash[:data][:attributes]
-          result[:id] = provider.id
+          credential = provider.default_credential_for_account(current_user.account)
+          result = {
+            id: provider.id,
+            name: provider.name,
+            slug: provider.slug,
+            provider_type: provider.provider_type,
+            api_base_url: provider.effective_api_base_url,
+            web_base_url: provider.effective_web_base_url,
+            capabilities: provider.capabilities,
+            is_active: provider.is_active,
+            supports_devops: provider.supports_devops,
+            supports_webhooks: provider.supports_webhooks,
+            credential_status: credential ? {
+              name: credential.name,
+              auth_type: credential.auth_type,
+              is_active: credential.is_active,
+              last_test_status: credential.last_test_status,
+              last_test_at: credential.last_test_at,
+              external_username: credential.external_username
+            } : nil,
+            repository_count: provider.credentials_for_account(current_user.account)
+                                      .joins(:repositories).count,
+            created_at: provider.created_at,
+            updated_at: provider.updated_at
+          }
 
           if include_repositories == "true" || include_repositories == true
-            result[:repositories] = provider.repositories.map do |repo|
-              ::Devops::RepositorySerializer.new(repo).serializable_hash[:data][:attributes].merge(id: repo.id)
+            repos = ::Devops::GitRepository.where(
+              git_provider_credential_id: provider.credentials_for_account(current_user.account).select(:id)
+            )
+            result[:repositories] = repos.map do |repo|
+              {
+                id: repo.id,
+                name: repo.name,
+                full_name: repo.full_name,
+                default_branch: repo.default_branch,
+                is_private: repo.is_private,
+                last_synced_at: repo.last_synced_at
+              }
             end
           end
 

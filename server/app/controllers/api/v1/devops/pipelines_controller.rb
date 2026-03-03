@@ -238,10 +238,10 @@ module Api
           params.require(:pipeline).permit(
             :name,
             :description,
+            :pipeline_type,
             :ai_config_id,
             :is_active,
-            triggers: {},
-            settings: {}
+            triggers: {}
           )
         end
 

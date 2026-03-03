@@ -48,6 +48,7 @@ module Devops
 
         instance
       rescue StandardError => e
+        Rails.logger.error "[ContainerOrchestration] Execution failed for #{instance.execution_id}: #{e.class} - #{e.message}"
         instance.fail!(e.message)
         raise ExecutionError, "Failed to start container: #{e.message}"
       end
