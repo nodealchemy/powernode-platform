@@ -129,7 +129,10 @@ module Ai
         "create_proposal" => "Ai::Tools::AgentAutonomyTool",
         "escalate" => "Ai::Tools::AgentAutonomyTool",
         "request_feedback" => "Ai::Tools::AgentAutonomyTool",
-        "report_issue" => "Ai::Tools::AgentAutonomyTool"
+        "report_issue" => "Ai::Tools::AgentAutonomyTool",
+        # Image generation
+        "generate_image" => "Ai::Tools::ImageGenerationTool",
+        "list_generated_images" => "Ai::Tools::ImageGenerationTool"
       }.freeze
 
       def self.available_tools(agent: nil)

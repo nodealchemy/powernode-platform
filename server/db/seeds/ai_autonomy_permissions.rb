@@ -28,7 +28,10 @@ autonomy_permissions = [
   { resource: "ai.feedback", action: "view", description: "View AI agent feedback history" },
 
   # Autonomy Management
-  { resource: "ai.autonomy", action: "manage", description: "Manage AI agent autonomous behavior and duty cycles" }
+  { resource: "ai.autonomy", action: "manage", description: "Manage AI agent autonomous behavior and duty cycles" },
+
+  # Image Generation
+  { resource: "ai.image", action: "generate", description: "Generate images using AI models (DALL-E)" }
 ]
 
 autonomy_permissions.each do |perm_data|
@@ -44,17 +47,19 @@ autonomy_permissions.each do |perm_data|
   print "."
 end
 
-# Assign ai.kill_switch.manage to owner and admin roles
+# Assign ai.kill_switch.manage and ai.image.generate to owner and admin roles
 %w[owner admin].each do |role_name|
   role = Role.find_by(name: role_name)
   next unless role
 
-  kill_switch_perm = Permission.find_by(name: "ai.kill_switch.manage")
-  next unless kill_switch_perm
+  %w[ai.kill_switch.manage ai.image.generate].each do |perm_name|
+    perm = Permission.find_by(name: perm_name)
+    next unless perm
 
-  unless role.permissions.include?(kill_switch_perm)
-    role.permissions << kill_switch_perm
-    puts "\n  Assigned ai.kill_switch.manage to #{role_name} role"
+    unless role.permissions.include?(perm)
+      role.permissions << perm
+      puts "\n  Assigned #{perm_name} to #{role_name} role"
+    end
   end
 end
 

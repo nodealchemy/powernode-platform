@@ -24,7 +24,7 @@ module Ai
                   api_data = JSON.parse(response.body.to_s)
                   models = api_data["data"] || []
 
-                  # Filter to only chat/completion models (exclude embeddings, whisper, dall-e, etc.)
+                  # Filter to chat/completion models (exclude embeddings, whisper, etc.)
                   chat_models = models.select { |m| openai_chat_model?(m["id"]) }
 
                   supported_models = chat_models.map do |model|
@@ -35,6 +35,22 @@ module Ai
                       "max_output_tokens" => openai_max_output(model["id"]),
                       "description" => openai_model_description(model["id"]),
                       "capabilities" => openai_capabilities(model["id"]),
+                      "cost_per_1k_tokens" => model_pricing_for(model["id"]),
+                      "owned_by" => model["owned_by"],
+                      "created_at" => model["created"] ? Time.at(model["created"]).iso8601 : nil
+                    }
+                  end
+
+                  # Also collect image generation models (DALL-E)
+                  image_models = models.select { |m| openai_image_model?(m["id"]) }
+                  image_models.each do |model|
+                    supported_models << {
+                      "name" => format_openai_model_name(model["id"]),
+                      "id" => model["id"],
+                      "context_length" => 0,
+                      "max_output_tokens" => 0,
+                      "description" => openai_image_model_description(model["id"]),
+                      "capabilities" => %w[image_generation],
                       "cost_per_1k_tokens" => model_pricing_for(model["id"]),
                       "owned_by" => model["owned_by"],
                       "created_at" => model["created"] ? Time.at(model["created"]).iso8601 : nil
@@ -57,6 +73,10 @@ module Ai
 
           def openai_chat_model?(model_id)
             model_id.match?(/^(gpt-4|gpt-3\.5|o1|o3|o4|chatgpt)/i) && !model_id.include?("instruct")
+          end
+
+          def openai_image_model?(model_id)
+            model_id.match?(/^dall-e/i)
           end
 
           def format_openai_model_name(model_id)
@@ -93,6 +113,12 @@ module Ai
             "OpenAI language model"
           end
 
+          def openai_image_model_description(model_id)
+            return "Most capable image generation model with highest quality" if model_id == "dall-e-3"
+            return "Fast image generation and editing" if model_id == "dall-e-2"
+            "OpenAI image generation model"
+          end
+
           def openai_model_priority(model_id)
             return 100 if model_id == "gpt-4o"
             return 95 if model_id.include?("o3")
@@ -102,6 +128,8 @@ module Ai
             return 70 if model_id.include?("gpt-4-turbo")
             return 60 if model_id.include?("gpt-4")
             return 50 if model_id.include?("gpt-3.5")
+            return 40 if model_id == "dall-e-3"
+            return 30 if model_id == "dall-e-2"
             0
           end
         end
