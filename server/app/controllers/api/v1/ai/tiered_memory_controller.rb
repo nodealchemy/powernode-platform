@@ -252,6 +252,7 @@ module Api
             tags: knowledge.tags,
             quality_score: knowledge.quality_score,
             usage_count: knowledge.usage_count,
+            has_embedding: knowledge.embedding.present?,
             last_used_at: knowledge.last_used_at,
             created_at: knowledge.created_at
           }

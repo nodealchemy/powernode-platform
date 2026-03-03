@@ -15,7 +15,7 @@ module Api
 
         # GET /api/v1/git/providers
         def index
-          providers = ::Devops::GitProvider.active.ordered_by_priority
+          providers = ::Devops::GitProvider.active.ordered_by_priority.includes(credentials: :repositories)
 
           # Filter by provider_type
           providers = providers.where(provider_type: params[:provider_type]) if params[:provider_type].present?
@@ -30,7 +30,7 @@ module Api
           providers = providers.offset((page - 1) * per_page).limit(per_page)
 
           render_success({
-            providers: providers.map { |p| serialize_provider(p) },
+            providers: providers.map { |p| serialize_provider(p, account: current_user.account) },
             count: total_count,
             pagination: {
               current_page: page,
@@ -395,12 +395,15 @@ module Api
           )
         end
 
-        def serialize_provider(provider)
-          {
+        def serialize_provider(provider, account: nil)
+          result = {
             id: provider.id,
             name: provider.name,
             slug: provider.slug,
             provider_type: provider.provider_type,
+            description: provider.description,
+            api_base_url: provider.api_base_url,
+            web_base_url: provider.web_base_url,
             is_active: provider.is_active,
             supports_oauth: provider.supports_oauth,
             supports_pat: provider.supports_pat,
@@ -410,19 +413,32 @@ module Api
             priority_order: provider.priority_order,
             created_at: provider.created_at.iso8601
           }
+
+          if account
+            account_creds = provider.credentials.select { |c| c.account_id == account.id && c.is_active }
+            account_repos = account_creds.flat_map { |c| c.repositories.to_a }
+            result[:credentials_count] = account_creds.size
+            result[:repositories_count] = account_repos.size
+            result[:webhooks_count] = account_repos.count(&:webhook_configured?)
+            result[:organizations_count] = account_repos.filter_map(&:owner).uniq.size
+            result[:status] = if account_creds.any? { |c| c.healthy? }
+                                "connected"
+                              elsif account_creds.any? { |c| !c.healthy? }
+                                "error"
+                              else
+                                "disconnected"
+                              end
+          end
+
+          result
         end
 
         def serialize_provider_detail(provider)
-          serialize_provider(provider).merge(
-            description: provider.description,
-            api_base_url: provider.api_base_url,
-            web_base_url: provider.web_base_url,
+          serialize_provider(provider, account: current_user.account).merge(
             oauth_config: provider.oauth_config.except("client_secret"),
             webhook_config: provider.webhook_config,
             devops_config: provider.devops_config,
-            metadata: provider.metadata,
-            credentials_count: provider.credentials
-                                .where(account: current_user.account).count
+            metadata: provider.metadata
           )
         end
 

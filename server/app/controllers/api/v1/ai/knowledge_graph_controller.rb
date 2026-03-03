@@ -265,6 +265,8 @@ module Api
             data[:last_seen_at] = node.last_seen_at
             data[:merged_into_id] = node.merged_into_id
             data[:degree] = node.degree
+            data[:outgoing_edges] = node.outgoing_edges.includes(:target_node).map { |e| serialize_edge_with_names(e) }
+            data[:incoming_edges] = node.incoming_edges.includes(:source_node).map { |e| serialize_edge_with_names(e) }
           end
 
           data
@@ -283,6 +285,13 @@ module Api
             status: edge.status,
             created_at: edge.created_at
           }
+        end
+
+        def serialize_edge_with_names(edge)
+          data = serialize_edge(edge)
+          data[:source_name] = edge.source_node&.name
+          data[:target_name] = edge.target_node&.name
+          data
         end
       end
     end
