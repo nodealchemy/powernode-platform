@@ -126,6 +126,7 @@ class Account < ApplicationRecord
   has_many :mcp_sessions, dependent: :destroy
 
   # Git Provider associations
+  has_many :git_providers, class_name: "Devops::GitProvider", dependent: :destroy
   has_many :git_provider_credentials, class_name: "Devops::GitProviderCredential", dependent: :destroy
   has_many :git_repositories, class_name: "Devops::GitRepository", dependent: :destroy
   has_many :git_webhook_events, class_name: "Devops::GitWebhookEvent", dependent: :destroy

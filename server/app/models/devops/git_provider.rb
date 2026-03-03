@@ -5,13 +5,11 @@ module Devops
     # Table name (using git_ prefix, not devops_)
     self.table_name = "git_providers"
 
-    # Authentication
-    # Provider definitions are global - access controlled by account through credentials
-
     # Concerns
     include Auditable
 
     # Associations
+    belongs_to :account
     has_many :credentials, class_name: "Devops::GitProviderCredential", foreign_key: "git_provider_id", dependent: :destroy
     has_many :webhook_events, class_name: "Devops::GitWebhookEvent", foreign_key: "git_provider_id", dependent: :destroy
 
