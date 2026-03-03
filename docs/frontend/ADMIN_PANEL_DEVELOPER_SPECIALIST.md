@@ -1418,5 +1418,3 @@ grep -r "className=.*input" src/features/admin/ | grep -E "bg-theme-surface.*tex
 - Color usage exclusively through theme classes
 - Form inputs meet contrast requirements
 - Accessibility features properly implemented
-
-**ALWAYS REFERENCE ../TODO.md FOR CURRENT TASKS AND PRIORITIES**

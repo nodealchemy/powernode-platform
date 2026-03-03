@@ -1,18 +1,29 @@
 # Powernode Platform
 
-> **Subscription lifecycle management with integrated AI orchestration, built for scale**
+> **AI orchestration infrastructure with production-grade platform engineering**
 
-Powernode is a full-stack platform handling authentication, billing, AI agent orchestration, and DevOps automation. Built with Rails 8.1.2, React 19.1 TypeScript, and a standalone Sidekiq worker service.
+Powernode is a self-hosted platform that gives you full control over AI agents, automated workflows, and the infrastructure they run on. It combines multi-provider LLM routing, knowledge graph reasoning, and agent autonomy with a complete operational foundation — authentication, permissions, real-time communication, DevOps pipelines, and container orchestration — in a single, coherent system. Every component is designed to work together: agents share memory, learn from execution history, and operate within safety guardrails you define.
+
+### Why Powernode
+
+- **AI Agent Orchestration** — Deploy agents with trust scoring, autonomy tiers, and 5 team strategies. Kill switch, goal tracking, proposals, escalations, and behavioral fingerprinting keep agents operating within defined boundaries.
+- **Multi-Provider LLM Routing** — 10+ providers (Anthropic, OpenAI, Ollama, Azure, Google, Groq, Grok, Mistral, Cohere), 135+ models, cost-optimized selection with per-agent budgets and ROI tracking.
+- **Knowledge Infrastructure** — GraphRAG over 1,190+ nodes and 1,670+ edges, 4-tier memory system (working → STM → LTM → shared), compound learning with decay and reinforcement, RAG pipeline with pgvector embeddings and 3-round agentic retrieval.
+- **MCP-Native Platform** — 107 platform tools spanning knowledge, memory, skills, autonomy, DevOps, and content management. Full A2A protocol support for agent-to-agent communication.
+- **DevOps Automation** — CI/CD pipelines with 13 step types (including AI-powered), Docker Swarm orchestration, multi-provider Git integration (GitHub, GitLab, Gitea), supply chain security with SBOM generation.
+- **Production Foundation** — 543+ granular permissions, 17 WebSocket channels, JWT + OAuth 2.0 authentication, and 20,600+ tests across backend, frontend, and E2E.
+
+*Built with Rails 8.1.2, React 19.1 TypeScript, Sidekiq 7.2, and PostgreSQL + pgvector.*
 
 ## Key Features
 
 ### Core Platform
-- **Enterprise Authentication** - JWT + OAuth 2.0, 2FA, account lockout, rate limiting
-- **Payment Processing** - Stripe & PayPal with PCI compliance (enterprise)
-- **Smart Analytics** - MRR/ARR, churn analysis, customer health scoring
-- **Real-time** - 17 ActionCable WebSocket channels for live updates
-- **Modern UI** - React 19.1 with Tailwind CSS v4.1 and theme system
-- **Permission-Based Access** - 543+ granular permissions across 30+ categories
+- **Authentication & Security** - JWT + OAuth 2.0, 2FA, account lockout, rate limiting, CORS, CSP
+- **Permission-Based Access** - 543+ granular permissions across 30+ categories, role-to-permission mapping
+- **Real-time Communication** - 17 ActionCable WebSocket channels for live updates, cross-tab sync
+- **Modern UI** - React 19.1 with Tailwind CSS v4.1, theme system, 11 feature modules
+- **Content Management** - Knowledge base articles, content pages, CMS
+- **Analytics** - Customer health scoring, usage tracking, platform telemetry
 
 ### AI & Automation (135 models, 107 MCP tools)
 - **AI Agents** - Create, deploy, and manage agents with trust scoring and autonomy tiers
@@ -51,12 +62,15 @@ Powernode is a full-stack platform handling authentication, billing, AI agent or
 - **Circuit Breakers** - 600s AI workflows, 120s backend API timeouts
 - **36+ Scheduled Jobs** - Maintenance, decay, consolidation, health checks, autonomy
 
-### Enterprise Features (submodule)
-- **Billing Engine** - Stripe & PayPal subscription lifecycle
+### Enterprise Features (optional submodule)
+
+Available via the `extensions/enterprise` git submodule. When absent, Powernode runs in core mode — single-user self-hosted with all platform features unlocked.
+
+- **Billing Engine** - Stripe & PayPal subscription lifecycle with PCI compliance
 - **BaaS** - Multi-tenancy with usage metering
 - **Reseller System** - White-label management
 - **AI Publisher** - Agent marketplace with monetization
-- **Predictive Analytics** - Churn prediction, revenue forecasting
+- **Predictive Analytics** - Churn prediction, revenue forecasting, MRR/ARR
 
 ## Architecture Overview
 
@@ -81,7 +95,6 @@ powernode-platform/
 - **Frontend**: React 19.1 | TypeScript 5.9 | Vite 7.2 | Tailwind CSS v4.1 | Redux Toolkit + React Query
 - **Worker**: Sidekiq 7.2 | Redis | Faraday | Circuit breakers
 - **AI/ML**: 10+ providers | MCP Protocol | A2A Protocol | pgvector (HNSW)
-- **Payments**: Stripe | PayPal | PCI DSS Compliance (enterprise)
 - **Testing**: RSpec | Jest 30 | Cypress 15 | 20,600+ tests
 - **Database**: 364+ tables | 13 model namespaces | pgvector embeddings
 
@@ -93,14 +106,26 @@ powernode-platform/
 
 ## Quick Start
 
+> For detailed setup instructions, see the **[Quick Start Guide](docs/QUICKSTART.md)**.
+
 ```bash
-# Install systemd services (one-time)
+# 1. Install dependencies
+cd server && bundle install
+cd ../frontend && npm install
+cd ../worker && bundle install
+cd ..
+
+# 2. Setup database
+cd server && rails db:create db:migrate db:seed
+cd ..
+
+# 3. Install systemd services (one-time)
 sudo scripts/systemd/powernode-installer.sh install
 
-# Start all services
+# 4. Start all services
 sudo systemctl start powernode.target
 
-# Check status
+# 5. Check status
 sudo scripts/systemd/powernode-installer.sh status
 ```
 
@@ -109,23 +134,13 @@ Services:
 - **API**: http://localhost:3000
 - **Worker Web UI**: http://localhost:4567
 
-## Platform Status
-
-- 20,600+ tests (14,500 backend, 6,100 frontend)
-- 95%+ pattern consistency
-- 131 documentation files with specialist guides
-- 543+ permissions across 30+ categories
-- 107 MCP platform tools
-- 50 KB articles, 10 content pages
-- Knowledge graph: 1,190+ nodes, 1,670+ edges
-
 ## Documentation
 
 ### Getting Started
 - **[Development Guide](docs/DEVELOPMENT.md)** - Architecture, namespaces, setup
 - **[Quick Start](docs/QUICKSTART.md)** - Fast setup guide
 - **[CLAUDE.md](CLAUDE.md)** - Development patterns and rules
-- **[TODO](docs/TODO.md)** - Current status and roadmap
+- **[TODO](docs/TODO.md)** - Current status and roadmap (auto-generated from MCP shared knowledge)
 
 ### Backend
 - **[Rails Architect](docs/backend/RAILS_ARCHITECT_SPECIALIST.md)** - API architecture (Rails 8.1.2, 13 namespaces)
@@ -187,7 +202,6 @@ Services:
 - **[Node Executors](docs/backend/NODE_EXECUTOR_REFERENCE.md)** - 35+ workflow node types
 
 ### Security
-- **[Security Quick Start](docs/SECURITY_QUICK_START.md)** - Security setup overview
 - **[Security Specialist](docs/infrastructure/SECURITY_SPECIALIST.md)** - Security architecture
 - **[Supply Chain Security](docs/platform/SUPPLY_CHAIN_SECURITY.md)** - SBOM, attestations, compliance
 
@@ -201,13 +215,36 @@ Services:
 
 ## Contributing
 
-This platform follows strict architectural patterns. Before contributing:
+Powernode follows strict architectural patterns and enforces them through automated tooling.
 
-1. Read **[CLAUDE.md](CLAUDE.md)** for development guidelines
-2. Check **[docs/TODO.md](docs/TODO.md)** for current priorities
-3. Review specialist documentation for your area
-4. Ensure all tests pass before submitting changes
+### Getting Oriented
+1. Read **[CLAUDE.md](CLAUDE.md)** for development guidelines and conventions
+2. Check **[docs/TODO.md](docs/TODO.md)** for current priorities (auto-generated from MCP shared knowledge)
+3. Review the specialist documentation for your area (see [Documentation](#documentation) above)
+
+### Branch Strategy
+```
+develop → feature/* → release/* → master
+```
+- Create feature branches from `develop`
+- Release branches follow `release/x.y.z` naming (no "v" prefix)
+- Tags use bare semver: `0.2.0`, not `v0.2.0`
+
+### Before Submitting
+```bash
+# Backend: run specs
+cd server && bundle exec rspec --format progress
+
+# Frontend: run tests + type check
+cd frontend && CI=true npm test
+cd frontend && npx tsc --noEmit
+
+# Full validation (specs + TS + pattern checks)
+./scripts/validate.sh
+```
+
+All tests must pass. Permissions must use the permission system (never role-based checks). Frontend must use theme classes (`bg-theme-*`, `text-theme-*`) — no hardcoded colors.
 
 ## License
 
-See **[LICENSE](LICENSE)** for licensing information.
+MIT License — see **[LICENSE](LICENSE)** for full text.

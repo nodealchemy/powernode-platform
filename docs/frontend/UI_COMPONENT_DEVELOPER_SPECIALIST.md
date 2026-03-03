@@ -1681,5 +1681,3 @@ import { stripMarkdown } from '@/shared/utils/markdownUtils';
 - ✅ **Loading states**: Built-in spinner and disabled states
 - ✅ **Icon integration**: Consistent positioning and sizing
 - ✅ **Accessibility props**: ARIA labels, keyboard support
-
-**ALWAYS REFERENCE ../TODO.md FOR CURRENT TASKS AND PRIORITIES**

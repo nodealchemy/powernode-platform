@@ -1409,5 +1409,3 @@ cd $POWERNODE_ROOT/server && rails generate:changelog             # Generate cha
 - **Broken Links**: Run link checker, update outdated URLs, verify external services
 - **Missing Content**: Check content pipeline, verify auto-generation scripts
 - **Style Violations**: Run linting tools, fix formatting, update style guide
-
-**ALWAYS REFERENCE ../TODO.md FOR CURRENT TASKS AND PRIORITIES**

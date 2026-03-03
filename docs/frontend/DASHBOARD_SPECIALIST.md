@@ -925,5 +925,3 @@ return (
   />
 );
 ```
-
-**ALWAYS REFERENCE ../TODO.md FOR CURRENT TASKS AND PRIORITIES**

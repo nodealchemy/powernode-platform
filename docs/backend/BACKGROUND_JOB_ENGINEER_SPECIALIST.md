@@ -1401,5 +1401,3 @@ WorkerJobService.cancel_billing_job('subscription_renewal', {
 # Check job status
 WorkerJobService.new.get_job_status(worker_job_id)
 ```
-
-**ALWAYS REFERENCE ../TODO.md FOR CURRENT TASKS AND PRIORITIES**

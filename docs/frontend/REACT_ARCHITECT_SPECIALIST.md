@@ -1810,5 +1810,3 @@ grep -r "Suspense" src/ | wc -l
 - Type safety maintained across all components
 - Performance optimizations properly implemented
 - Theme integration consistent and complete
-
-**ALWAYS REFERENCE ../TODO.md FOR CURRENT TASKS AND PRIORITIES**

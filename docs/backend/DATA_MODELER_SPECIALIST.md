@@ -616,5 +616,3 @@ grep -r "dependent: :destroy\|dependent: :nullify" server/app/models/ | wc -l
 grep -r "format: { with: URI::MailTo::EMAIL_REGEXP }" server/app/models/
 grep -r "inclusion: { in: %w\[" server/app/models/ | wc -l
 ```
-
-**ALWAYS REFERENCE ../TODO.md FOR CURRENT TASKS AND PRIORITIES**

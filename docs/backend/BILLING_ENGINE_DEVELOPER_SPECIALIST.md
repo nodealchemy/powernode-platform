@@ -1393,5 +1393,3 @@ rails runner "DunningProcessService.call(subscription: Subscription.past_due.fir
 - `ProrationCalculatorService` - Calculate plan change billing
 - `DunningProcessService` - Handle failed payment recovery
 - `InvoiceGenerationService` - Create and format invoices
-
-**ALWAYS REFERENCE ../TODO.md FOR CURRENT TASKS AND PRIORITIES**

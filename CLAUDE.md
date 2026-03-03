@@ -12,7 +12,7 @@ Development guidance for **Powernode** subscription platform.
 - **Database**: PostgreSQL with native UUID schema
 - **Payments**: Stripe, PayPal with PCI compliance (enterprise only)
 
-**Project Status**: See [docs/TODO.md](docs/TODO.md)
+**Project Status**: See [docs/TODO.md](docs/TODO.md) (auto-generated from shared knowledge — do not edit manually)
 
 ### Core Models
 ```

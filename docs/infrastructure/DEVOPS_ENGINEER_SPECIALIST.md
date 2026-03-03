@@ -766,8 +766,6 @@ cd $POWERNODE_ROOT/server && rails db:create db:migrate db:seed && rails runner 
 cd $POWERNODE_ROOT/server && bundle exec rspec        # Backend (203+ tests)
 cd $POWERNODE_ROOT/frontend && npm test              # Frontend
 
-# Project tracking
-# Use ../TODO.md with: [ ] [🔄] [✅] [❌] [⚠️]
 ```
 
 ### Database Operations (Development)

@@ -1366,5 +1366,3 @@ RSpec.describe Service, type: :service do
   end
 end
 ```
-
-**ALWAYS REFERENCE ../TODO.md FOR CURRENT TASKS AND PRIORITIES**

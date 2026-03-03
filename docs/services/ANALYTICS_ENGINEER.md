@@ -1332,5 +1332,3 @@ cd $POWERNODE_ROOT/server && rails runner "DataWarehouse.sync_daily_metrics"
 - **Missing Metrics**: Check data pipeline, verify integrations, run backfill jobs
 - **Dashboard Issues**: Clear cache, refresh data connections, verify API keys
 - **Report Delays**: Check scheduled jobs, verify data availability, run manual updates
-
-**ALWAYS REFERENCE ../TODO.md FOR CURRENT TASKS AND PRIORITIES**

@@ -3,7 +3,7 @@
 This directory contains comprehensive documentation for the Powernode subscription platform.
 
 ## Quick Access
-- **[TODO.md](TODO.md)** - Project tracking and development status
+- **[TODO.md](TODO.md)** - Project tracking and development status (auto-generated from MCP shared knowledge)
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history and release notes
 - **[DEVELOPMENT.md](DEVELOPMENT.md)** - Development setup and workflow
 - **[Backend Test Engineer](testing/BACKEND_TEST_ENGINEER_SPECIALIST.md)** - Rails testing specialist

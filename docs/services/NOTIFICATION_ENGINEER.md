@@ -1315,5 +1315,3 @@ cd $POWERNODE_ROOT/server && rails runner "NotificationProviders.health_check"
 - **Bounce Issues**: Clean email lists, check sender reputation, verify DNS records
 - **SMS Failures**: Validate phone numbers, check Twilio balance, verify message content
 - **Push Not Delivered**: Check subscription status, verify certificates, test endpoints
-
-**ALWAYS REFERENCE ../TODO.md FOR CURRENT TASKS AND PRIORITIES**

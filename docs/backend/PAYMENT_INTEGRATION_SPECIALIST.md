@@ -968,5 +968,3 @@ rails console
 - ✅ Use HTTPS for all payment communications
 - ✅ Implement proper error handling without exposing sensitive data
 - ✅ Regular security audits and penetration testing
-
-**ALWAYS REFERENCE ../TODO.md FOR CURRENT TASKS AND PRIORITIES**

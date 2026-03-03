@@ -413,35 +413,6 @@ Related to #456
 
 ## Project Tracking
 
-### TODO.md Management
-
-**Location**: `docs/TODO.md`
-
-**Status Indicators**:
-| Symbol | Meaning |
-|--------|---------|
-| `[ ]` | Not started |
-| `[🔄]` | In progress |
-| `[✅]` | Completed |
-| `[❌]` | Blocked/Cancelled |
-| `[⚠️]` | Needs attention |
-
-**TODO Format**:
-```markdown
-## Phase 1: Core Features
-
-### Authentication
-- [✅] JWT token implementation
-- [🔄] OAuth2 integration (#123)
-- [ ] Two-factor authentication (#145)
-- [❌] LDAP integration (descoped)
-
-### Billing
-- [✅] Stripe integration
-- [⚠️] PayPal webhooks (needs review)
-- [ ] Invoice PDF generation
-```
-
 ### Sprint Planning
 
 **Sprint Duration**: 2 weeks

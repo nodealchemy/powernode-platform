@@ -1254,5 +1254,3 @@ class Api::V1::ResourcesController < Api::V1::BaseController
   end
 end
 ```
-
-**ALWAYS REFERENCE ../TODO.md FOR CURRENT TASKS AND PRIORITIES**
