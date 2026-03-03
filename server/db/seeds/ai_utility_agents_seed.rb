@@ -546,18 +546,9 @@ SPECIALIST_SKILLS = [
   },
 
   # ── Platform Operations ────────────────────────────────────────
-  {
-    slug: "concierge",
-    name: "Concierge",
-    category: "customer_support",
-    description: "Platform navigation assistant that helps users find capabilities, create missions, and delegate tasks to agent teams.",
-    system_prompt: "You are the Powernode platform concierge. Help users navigate the platform: answer questions about available capabilities, create missions that decompose into delegatable tasks, route work to appropriate agent teams, and confirm high-impact actions before execution. Be friendly, concise, and action-oriented.",
-    commands: [
-      { name: "/ask", description: "Ask the concierge a question about the platform" },
-      { name: "/create-mission", description: "Create a mission to accomplish an objective" }
-    ],
-    tags: ["concierge", "navigation", "missions"]
-  },
+  # NOTE: "Concierge" skill removed — superseded by "Powernode Concierge" skill
+  # in ai_skills_seed.rb (slug: powernode-concierge) which contains the full
+  # workspace routing, @mention mechanics, and implicit agent reference rules.
   {
     slug: "workspace-collaboration",
     name: "Workspace Collaboration",

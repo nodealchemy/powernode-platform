@@ -27,7 +27,8 @@ namespace :mcp do
       puts "  Knowledge: #{result[:knowledge][:count]} entries"
       puts "  Skills:    #{result[:skills][:count]} entries"
       puts "  Graph:     #{result[:graph][:nodes]} nodes, #{result[:graph][:edges]} edges"
-      puts "Output: docs/platform/knowledge/"
+      puts "  TODOs:     #{result[:todos][:count]} items"
+      puts "Output: docs/platform/knowledge/ + docs/TODO.md"
     else
       puts "Sync failed: #{result[:error]}"
       exit 1

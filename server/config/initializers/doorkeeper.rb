@@ -27,8 +27,11 @@ Doorkeeper.configure do
       end
     else
       # Browser-based flow: redirect to frontend consent page with OAuth params
+      # Derive the frontend URL from the request origin the client is connected through
+      frontend = AdminSetting.frontend_url_for_request(request)
+
       query = request.query_string.present? ? "?#{request.query_string}" : ""
-      redirect_to("/app/oauth/authorize#{query}", allow_other_host: true)
+      redirect_to("#{frontend}/app/oauth/authorize#{query}", allow_other_host: true)
       nil
     end
   end

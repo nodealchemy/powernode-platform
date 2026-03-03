@@ -50,8 +50,29 @@ MCP_SERVER_DEFS = {
   "Benchling" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-benchling", tpl: nil }
 }.freeze
 
+# ── Powernode Platform MCP (built-in) ────────────────────────────────────────
+# The platform's own Streamable HTTP MCP endpoint — provides the platform.*
+# tools (agents, teams, knowledge, memory, skills, workflows, autonomy, etc.).
+# This is always "connected" because it's served by the Rails app itself.
+powernode_mcp = McpServer.find_or_initialize_by(account: account, name: "Powernode MCP")
+powernode_mcp.assign_attributes(
+  connection_type: "http",
+  status: "connected",
+  auth_type: "none",
+  command: "/mcp",
+  description: "Built-in Powernode platform MCP endpoint (Streamable HTTP)",
+  args: [],
+  env: {},
+  capabilities: {
+    "tools" => true,
+    "resources" => false,
+    "prompts" => false
+  }
+)
+powernode_mcp.save!
+
 # Build MCP server lookup and hosted server links
-mcp_servers = {}
+mcp_servers = { "powernode mcp" => powernode_mcp }
 template_cache = {}
 hosted_server_count = 0
 
@@ -510,7 +531,7 @@ skills_data = [
       { "name" => "audit", "description" => "Audit a subsystem for pattern violations", "argument_hint" => "<subsystem>",
         "workflow_steps" => ["Query MCP for known issues", "Scan files for violations", "Check sizes", "Report findings"] }
     ],
-    connectors: [],
+    connectors: ["powernode mcp"],
     tags: ["rails", "react", "typescript", "sidekiq", "enterprise", "mcp", "powernode"]
   },
   {
@@ -577,4 +598,53 @@ skills_data.each do |data|
   Rails.logger.info "[Seeds] Created/Updated skill: #{skill.name} (#{server_ids.size} MCP servers)"
 end
 
-Rails.logger.info "[Seeds] AI Skills seeding complete: #{created_count} skills, #{server_link_count} MCP server links, #{hosted_server_count} hosted servers"
+# ============================================================================
+# Powernode Concierge skill — workspace routing & agent delegation rules
+# ============================================================================
+concierge_skill = Ai::Skill.find_or_initialize_by(slug: "powernode-concierge")
+concierge_skill.assign_attributes(
+  account: account,
+  name: "Powernode Concierge",
+  description: "Workspace routing, agent delegation, and @mention mechanics for the Powernode Concierge agent.",
+  category: "skill_management",
+  status: "active",
+  system_prompt: <<~PROMPT,
+    MANDATORY RULE — YOU MUST FOLLOW THIS:
+    When the user says "ask Claude", "tell Claude", "have Claude do", or mentions any agent by name with a request, you MUST call the `send_message` tool. Do NOT reply with text saying you cannot communicate. You CAN communicate — use the send_message tool. NEVER say "I don't have access to Claude" or "I cannot communicate with Claude". You have direct access via send_message.
+
+    HOW TO DELEGATE:
+    Call send_message with: message: "@AgentName your request here"
+    The conversation_id is auto-filled — you do NOT need to provide it.
+
+    AGENT NAME MATCHING:
+    "Claude" / "Claude Code" / "the assistant" → the mcp_client agent listed in WORKSPACE MEMBERS.
+
+    WHEN TO DELEGATE vs ANSWER:
+    - DELEGATE (call send_message): user says "ask X", "tell X", "have X do...", references another agent
+    - ANSWER DIRECTLY: general questions, status checks, knowledge queries
+  PROMPT
+  commands: [
+    { "name" => "ask", "description" => "Ask the concierge a question about the platform", "argument_hint" => "<question>",
+      "workflow_steps" => ["Parse question intent", "Check workspace context", "Query platform tools if needed", "Respond concisely"] },
+    { "name" => "delegate", "description" => "Delegate a task to a workspace agent via @mention", "argument_hint" => "<agent name> <task>",
+      "workflow_steps" => ["Match agent name to WORKSPACE MEMBERS", "@mention agent with task", "Acknowledge delegation"] },
+    { "name" => "invite", "description" => "Invite an agent to the current workspace", "argument_hint" => "<agent name>",
+      "workflow_steps" => ["Search available agents", "Use invite_agent tool", "Confirm addition to workspace"] },
+    { "name" => "status", "description" => "Show status of active missions and workspace agents", "argument_hint" => "",
+      "workflow_steps" => ["Check active missions", "Check workspace member status", "Summarize activity"] }
+  ],
+  activation_rules: {},
+  metadata: { "author" => "system", "icon" => "concierge" },
+  tags: ["concierge", "workspace", "routing", "delegation"],
+  is_system: true,
+  is_enabled: true,
+  version: "1.1.0"
+)
+concierge_skill.save!
+
+# Link Powernode MCP server to the concierge skill
+concierge_skill.mcp_server_ids = [powernode_mcp.id]
+
+Rails.logger.info "[Seeds] Created/Updated Powernode Concierge skill (1 MCP server)"
+
+Rails.logger.info "[Seeds] AI Skills seeding complete: #{created_count + 1} skills, #{server_link_count} MCP server links, #{hosted_server_count} hosted servers"

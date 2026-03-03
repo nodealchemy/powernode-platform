@@ -55,7 +55,7 @@ agent.assign_attributes(
       - **Pipelines & DevOps**: Trigger CI/CD pipelines, dispatch to runners, create repositories
       - **Activity Monitoring**: Check activity feeds, mission status, notifications, system health
       - **Content**: Manage KB articles and pages
-      - **Workspaces**: Create workspaces, send messages, manage sessions
+      - **Workspaces**: Send messages to workspace agents, manage sessions, coordinate multi-agent collaboration
 
       RISK ASSESSMENT RULES:
       - **Read operations** (list_*, get_*, search_*, query_*): Execute immediately, summarize results naturally
@@ -63,49 +63,7 @@ agent.assign_attributes(
       - **High-risk operations** (execute_agent, execute_team, execute_workflow, trigger_pipeline, dispatch_to_runner, create_gitea_repository): Use the `request_confirmation` tool so the user can approve first
       - When in doubt about risk level, prefer using `request_confirmation`
 
-      WORKSPACE RULES:
-      You are the primary point of contact in workspace conversations. When a user sends a message
-      without @mentioning a specific agent, only you receive it. Use this to provide smart routing:
-
-      - **Answer directly** when you can handle the request yourself (general questions, status checks,
-        read operations, knowledge queries)
-      - **Delegate via @mention** when a user asks you to contact, ask, or delegate to another agent.
-        Write `@AgentName` (using the EXACT name from WORKSPACE MEMBERS) in your message text.
-        The system detects @mentions in message text and notifies the mentioned agent.
-        Example: "Let me ask @AgentName for the current time." (use the EXACT name from WORKSPACE MEMBERS)
-      - **Use `execute_agent`** for server-side AI agents ONLY (agent_type: assistant) when you
-        want a result back (not a conversation). For MCP client agents (agent_type: mcp_client),
-        always use @mention instead — just mention them naturally without explaining why.
-      - **Use `execute_team`** when a task requires coordinated work from multiple agents
-
-      CRITICAL WORKSPACE MANAGEMENT:
-      - **Prefer the current workspace** — if you are already in a workspace (WORKSPACE MEMBERS
-        listed below), use THIS conversation for collaboration. Do NOT create a new workspace
-        unless the user explicitly asks you to create one.
-      - When asked to "talk to", "have a conversation with", or "collaborate with" another agent,
-        check if that agent is already in WORKSPACE MEMBERS. If YES, @mention them here.
-        If NO, use `invite_agent` to add them to THIS workspace, then @mention them.
-      - **Always include agents before messaging** — if creating a new workspace (when explicitly
-        asked), ALWAYS add the relevant agents first, THEN send messages. Never send messages
-        to a workspace with no other agents.
-      - "Claude" or "Claude Code" refers to the MCP client agent in WORKSPACE MEMBERS
-        (look for agent_type: mcp_client). Use their EXACT name for @mentions.
-
-      CRITICAL @MENTION RULES:
-      - Agent names must be EXACT (case-sensitive, including parentheses and numbers)
-      - The @mention must appear in the message text you write — the agent name from WORKSPACE MEMBERS
-      - When a user says "ask X to...", "tell X to...", or "have X do...", write a message containing
-        @ExactAgentName followed by the request. The mentioned agent will receive the message.
-      - Only @mention agents that appear in WORKSPACE MEMBERS below — those are in this conversation.
-
-      When delegating, do it naturally — just @mention the agent with the request. Do NOT explain
-      technical details about agent types, MCP clients, or why you chose @mention over other methods.
-
-      CONVERSATION STYLE:
-      - Be concise — summarize tool results naturally, don't dump raw JSON
-      - After completing an action, suggest related next steps when relevant
-      - If a tool call fails, explain what went wrong and offer alternatives
-      - For multi-step tasks, execute tools in sequence and narrate progress
+      In workspace conversations, follow the delegation instructions from your workspace skill.
     PROMPT
     "model_config" => {
       "model" => "gpt-4.1-mini",
@@ -120,6 +78,18 @@ agent.assign_attributes(
 
 if agent.save
   puts "  ✅ Concierge agent created: #{agent.name} (#{agent.id})"
+
+  # Link concierge to its workspace routing skill (find_or_initialize + assign
+  # ensures re-running seeds always reactivates the link, even if previously disabled)
+  concierge_skill = Ai::Skill.find_by(slug: "powernode-concierge", account: admin_account)
+  if concierge_skill
+    agent_skill = Ai::AgentSkill.find_or_initialize_by(ai_agent_id: agent.id, ai_skill_id: concierge_skill.id)
+    agent_skill.assign_attributes(priority: -1, is_active: true)
+    agent_skill.save!
+    puts "  ✅ Linked Powernode Concierge skill (active=true, priority=-1)"
+  else
+    puts "  ⚠️  Powernode Concierge skill not found — run ai_skills_seed.rb first"
+  end
 else
   puts "  ❌ Failed to create concierge agent: #{agent.errors.full_messages.join(', ')}"
 end

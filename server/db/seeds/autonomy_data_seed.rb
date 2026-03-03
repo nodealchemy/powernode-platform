@@ -214,6 +214,7 @@ KEEP_TEAM_NAMES = ["Powernode Development Team", "Architecture Review Board"].fr
 
 teams_to_delete = Ai::AgentTeam.where(account: admin_account)
   .where.not(name: KEEP_TEAM_NAMES)
+  .where.not(team_type: "workspace")
 
 if teams_to_delete.any?
   team_ids = teams_to_delete.pluck(:id)
