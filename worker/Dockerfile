@@ -23,6 +23,9 @@ WORKDIR /app
 # Build stage for compiling gems
 FROM base AS build
 
+# Allow Gemfile.lock drift when extension gems are absent from the Docker context
+ENV BUNDLE_FROZEN=false
+
 # Install build dependencies
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y \
@@ -32,9 +35,9 @@ RUN apt-get update -qq && \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-# Install gems
+# Install gems (unfreeze bundle to allow lock drift when extension gems are absent)
 COPY Gemfile Gemfile.lock ./
-RUN bundle install && \
+RUN BUNDLE_FROZEN=false bundle install && \
     rm -rf ~/.bundle/ "${BUNDLE_PATH}"/ruby/*/cache "${BUNDLE_PATH}"/ruby/*/bundler/gems/*/.git
 
 # Copy application code
@@ -62,4 +65,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
 
 # Use tini as init system for proper signal handling and zombie reaping
 ENTRYPOINT ["tini", "--"]
-CMD ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml"]
+# Use -r to tell Sidekiq to require our boot file instead of auto-detecting Rails
+CMD ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml", "-r", "./config/application.rb"]

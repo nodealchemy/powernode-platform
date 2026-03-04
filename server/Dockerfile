@@ -48,6 +48,9 @@ RUN BUNDLE_FROZEN=false bundle install && \
 # Copy application code
 COPY . .
 
+# Ensure database.yml exists (gitignored locally, absent in CI checkout)
+RUN cp -n config/database.yml.example config/database.yml 2>/dev/null || true
+
 # Precompile bootsnap code for faster boot times
 RUN bundle exec bootsnap precompile --gemfile app/ lib/
 
