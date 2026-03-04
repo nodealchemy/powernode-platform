@@ -24,6 +24,7 @@ import type {
   SwarmEvent,
   EventFilters,
   SwarmNetwork,
+  SwarmNetworkDetail,
   NetworkFormData,
   SwarmVolume,
   SwarmSecret,
@@ -520,6 +521,15 @@ export const swarmApi = {
   },
 
   // ==================== Networks ====================
+
+  async getNetwork(clusterId: string, networkId: string): Promise<ApiResponse<{ network: SwarmNetworkDetail }>> {
+    try {
+      const response = await api.get(`/devops/swarm/clusters/${clusterId}/networks/${networkId}`);
+      return response.data;
+    } catch (error) {
+      return { success: false, error: handleApiError(error, 'Failed to fetch network') };
+    }
+  },
 
   async getNetworks(clusterId: string): Promise<ApiResponse<{ items: SwarmNetwork[] }>> {
     try {

@@ -249,6 +249,30 @@ export interface SwarmNetwork {
   created_at: string;
 }
 
+export interface IpamConfig {
+  subnet?: string;
+  gateway?: string;
+  ip_range?: string;
+  aux_addresses?: Record<string, string>;
+}
+
+export interface NetworkContainer {
+  id: string;
+  name: string;
+  ipv4_address: string;
+  ipv6_address: string;
+  mac_address: string;
+}
+
+export interface SwarmNetworkDetail extends SwarmNetwork {
+  ipam_driver?: string;
+  ipam_config: IpamConfig[];
+  containers: NetworkContainer[];
+  options: Record<string, string>;
+  enable_ipv6: boolean;
+  peers?: { name: string; ip: string }[];
+}
+
 export interface SwarmVolume {
   name: string;
   driver: string;

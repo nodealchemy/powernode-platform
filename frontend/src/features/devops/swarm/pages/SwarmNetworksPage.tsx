@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, RefreshCw, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Plus, RefreshCw } from 'lucide-react';
 import type { PageAction } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
@@ -8,6 +8,9 @@ import { useClusterContext } from '../hooks/useClusterContext';
 import { useSwarmNetworks } from '../hooks/useSwarmNetworks';
 import { ClusterSelector } from '../components/ClusterSelector';
 import { NetworkFormModal } from '../components/NetworkFormModal';
+import { NetworkCard } from '../components/NetworkCard';
+import type { NetworkExpandedData } from '../components/NetworkCard';
+import { swarmApi } from '../services/swarmApi';
 import type { NetworkFormData } from '../types';
 
 export const SwarmNetworksPage: React.FC<{ onActionsReady?: (actions: PageAction[]) => void }> = ({ onActionsReady }) => {
@@ -17,7 +20,39 @@ export const SwarmNetworksPage: React.FC<{ onActionsReady?: (actions: PageAction
     autoLoad: !!selectedClusterId,
   });
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [expandedNetworkId, setExpandedNetworkId] = useState<string | null>(null);
+  const expandedDataCache = useRef(new Map<string, NetworkExpandedData>());
+  const [, forceRender] = useState(0);
   const { confirm, ConfirmationDialog } = useConfirmation();
+
+  // ─── Expand / collapse ────────────────────────────────────────────
+
+  const handleToggleExpand = useCallback((networkId: string) => {
+    if (expandedNetworkId === networkId) {
+      setExpandedNetworkId(null);
+      return;
+    }
+    setExpandedNetworkId(networkId);
+
+    const cached = expandedDataCache.current.get(networkId);
+    if (cached && !cached.error) return;
+
+    expandedDataCache.current.set(networkId, { details: null, isLoading: true, error: null });
+    forceRender((n) => n + 1);
+
+    const clusterId = selectedClusterId!;
+    swarmApi.getNetwork(clusterId, networkId).then((res) => {
+      const entry: NetworkExpandedData = {
+        details: res.success && res.data ? res.data.network : null,
+        isLoading: false,
+        error: !res.success ? (res.error || 'Failed to fetch network details') : null,
+      };
+      expandedDataCache.current.set(networkId, entry);
+      forceRender((n) => n + 1);
+    });
+  }, [expandedNetworkId, selectedClusterId]);
+
+  // ─── Actions ──────────────────────────────────────────────────────
 
   const handleCreate = async (data: NetworkFormData) => {
     const result = await createNetwork(data);
@@ -36,14 +71,24 @@ export const SwarmNetworksPage: React.FC<{ onActionsReady?: (actions: PageAction
     });
   };
 
+  // ─── Refresh ──────────────────────────────────────────────────────
+
+  const handleRefresh = useCallback(() => {
+    expandedDataCache.current.clear();
+    setExpandedNetworkId(null);
+    refetch();
+  }, [refetch]);
+
+  // ─── Page actions ─────────────────────────────────────────────────
+
   const pageActions: PageAction[] = [
     { label: 'Create Network', onClick: () => setShowCreateModal(true), variant: 'primary', icon: Plus },
-    { label: 'Refresh', onClick: refetch, variant: 'secondary', icon: RefreshCw },
+    { label: 'Refresh', onClick: handleRefresh, variant: 'secondary', icon: RefreshCw },
   ];
 
   useEffect(() => {
     onActionsReady?.(pageActions);
-  }, [onActionsReady, refetch]);
+  }, [onActionsReady, handleRefresh]);
 
   return (
     <>
@@ -62,7 +107,7 @@ export const SwarmNetworksPage: React.FC<{ onActionsReady?: (actions: PageAction
         ) : error ? (
           <div className="text-center py-20">
             <p className="text-theme-error mb-4">{error}</p>
-            <Button onClick={refetch} variant="secondary" size="sm">Retry</Button>
+            <Button onClick={handleRefresh} variant="secondary" size="sm">Retry</Button>
           </div>
         ) : networks.length === 0 ? (
           <Card variant="default" padding="lg" className="text-center">
@@ -74,26 +119,14 @@ export const SwarmNetworksPage: React.FC<{ onActionsReady?: (actions: PageAction
         ) : (
           <div className="space-y-3">
             {networks.map((network) => (
-              <Card key={network.id} variant="default" padding="md">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3">
-                      <h3 className="text-base font-semibold text-theme-primary">{network.name}</h3>
-                      <span className="px-2 py-0.5 rounded bg-theme-surface text-theme-secondary text-xs font-medium">{network.driver}</span>
-                      <span className="px-2 py-0.5 rounded bg-theme-surface text-theme-secondary text-xs font-medium">{network.scope}</span>
-                    </div>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-theme-tertiary">
-                      {network.internal && <span>Internal</span>}
-                      {network.attachable && <span>Attachable</span>}
-                      {network.ingress && <span>Ingress</span>}
-                      <span>Created: {new Date(network.created_at).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                  <Button size="xs" variant="danger" onClick={() => handleDelete(network.id, network.name)} disabled={network.ingress}>
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-              </Card>
+              <NetworkCard
+                key={network.id}
+                network={network}
+                isExpanded={expandedNetworkId === network.id}
+                expandedData={expandedDataCache.current.get(network.id) || null}
+                onToggleExpand={() => handleToggleExpand(network.id)}
+                onDelete={() => handleDelete(network.id, network.name)}
+              />
             ))}
           </div>
         )}
