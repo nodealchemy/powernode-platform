@@ -39,6 +39,17 @@ For each file to test, read:
 3. Existing factories in `spec/factories/` relevant to the models used
 4. Similar existing specs for pattern reference
 
+### Step 2b: Query MCP for Test Patterns (if available)
+
+Before generating specs, query MCP for relevant learnings that may improve spec quality:
+
+1. `platform.query_learnings` — query: `"<model/service name> test"` (e.g., `"ai agent test"`, `"subscription service test"`)
+2. `platform.query_learnings` — query: `"factory <model name>"` (e.g., `"factory ai_agent"`, `"factory account"`)
+
+Apply any relevant findings (required factory traits, tricky setup, known assertion patterns) to the spec generation approach.
+
+**Graceful degradation**: If MCP tools are unavailable or return errors, skip this step and proceed with standard spec generation. MCP is additive, not required.
+
 ### Step 3: Generate Spec
 
 Use these mandatory patterns from the project:
@@ -118,3 +129,19 @@ Output a summary:
 - Specs generated (with paths)
 - Pass/fail status
 - Any specs that need manual attention
+
+### Step 5b: Contribute Learning (conditional)
+
+If spec generation revealed a **non-obvious pattern** worth capturing for future test generation, create a learning:
+
+```
+platform.create_learning(
+  title: "Test pattern: <concise description>",
+  content: "<what was non-obvious and how to handle it>",
+  category: "pattern"
+)
+```
+
+**Create a learning when**: required factory setup was non-trivial, mocking/stubbing required unusual configuration, assertions needed specific structure due to serializer behavior, or account-scoping had edge cases.
+
+**Skip for**: straightforward CRUD controller specs, standard factory usage, obvious permission checks.
