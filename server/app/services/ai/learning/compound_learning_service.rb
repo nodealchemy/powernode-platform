@@ -74,6 +74,28 @@ module Ai
         boost_injected_learnings_on_success(execution) if successful
 
         Rails.logger.info("[CompoundLearning] Extracted #{stored_count} learnings from execution #{execution.id}")
+
+        # 6. Trigger experience replay capture for successful high-quality executions
+        if successful && execution_quality_sufficient?(execution)
+          begin
+            WorkerJobService.enqueue_ai_experience_replay_capture(execution.id)
+          rescue StandardError => e
+            Rails.logger.warn("[CompoundLearning] Failed to enqueue experience replay: #{e.message}")
+          end
+        end
+
+        # 7. Trigger reflexion for failed executions
+        unless successful
+          begin
+            reflexion_service = Ai::Learning::ReflexionService.new(account: @account)
+            if reflexion_service.should_reflect?(execution)
+              WorkerJobService.enqueue_ai_reflexion(execution.id)
+            end
+          rescue StandardError => e
+            Rails.logger.warn("[CompoundLearning] Failed to enqueue reflexion: #{e.message}")
+          end
+        end
+
         stored_count
       rescue StandardError => e
         Rails.logger.warn("[CompoundLearning] Extraction failed: #{e.message}")
@@ -540,6 +562,12 @@ module Ai
 
       def promotion_enabled?
         Shared::FeatureFlagService.enabled?(:compound_learning_promotion, @account)
+      end
+
+      def execution_quality_sufficient?(execution)
+        return false unless execution.respond_to?(:status) && execution.status == "completed"
+        return false unless execution.respond_to?(:output_data) && execution.output_data.present?
+        true
       end
     end
   end

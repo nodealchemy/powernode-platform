@@ -22,7 +22,7 @@ module Ai
         used_chars = 0
 
         # Determine which memory types to include
-        types = include_types || %w[factual working experiential trajectories shared_learnings compound_learnings graph_rag goals observations self_awareness]
+        types = include_types || %w[factual working experiential trajectories shared_learnings compound_learnings experience_replays graph_rag goals observations self_awareness]
 
         # 1. Always include critical facts first (highest priority)
         if types.include?("factual")
@@ -82,6 +82,17 @@ module Ai
           used_chars += compound_chars
         end
 
+        # 6.5. Include experience replays (few-shot examples)
+        if types.include?("experience_replays") && (query.present? || task.present?)
+          search_query = query || extract_task_query(task)
+          replay_context, replay_chars = inject_experience_replays(
+            budget_chars - used_chars,
+            search_query
+          )
+          context_parts << replay_context if replay_context.present?
+          used_chars += replay_chars
+        end
+
         # 7. Include GraphRAG context (knowledge graph + RAG fusion)
         if types.include?("graph_rag") && (query.present? || task.present?)
           search_query = query || extract_task_query(task)
@@ -124,6 +135,7 @@ module Ai
             trajectories: context_parts.count { |p| p.start_with?("## Past Trajectories") },
             shared_knowledge: context_parts.count { |p| p.start_with?("## Shared Knowledge") },
             compound_learnings: context_parts.count { |p| p.start_with?("## Compound Learnings") },
+            experience_replays: context_parts.count { |p| p.start_with?("## Experience Replays") },
             graph_rag: context_parts.count { |p| p.start_with?("## Graph Knowledge") },
             goals: context_parts.count { |p| p.start_with?("## Active Goals") },
             observations: context_parts.count { |p| p.start_with?("## Recent Observations") },
@@ -309,6 +321,29 @@ module Ai
         [context_text, context_text.length]
       rescue StandardError => e
         Rails.logger.warn("[ContextInjector] GraphRAG injection failed: #{e.message}")
+        [nil, 0]
+      end
+
+      def inject_experience_replays(char_budget, query)
+        return [nil, 0] if query.blank?
+
+        service = Ai::Learning::ExperienceReplayService.new(account: @account)
+        result = service.build_replay_context(
+          agent: @agent,
+          task_description: query,
+          token_budget: char_budget / CHARS_PER_TOKEN
+        )
+
+        context_text = result[:context]
+        return [nil, 0] if context_text.blank?
+
+        if context_text.length > char_budget
+          context_text = context_text.truncate(char_budget)
+        end
+
+        [context_text, context_text.length]
+      rescue StandardError => e
+        Rails.logger.warn("[ContextInjector] Experience replay injection failed: #{e.message}")
         [nil, 0]
       end
 

@@ -15,6 +15,14 @@ class Ai::CostOptimizationService
 
   class OptimizationError < StandardError; end
 
+  # Returns the cheapest active provider for an account, preferring those
+  # with the lowest priority order (highest priority). Falls back to any active provider.
+  def self.cheapest_provider(account)
+    Ai::Provider.where(account: account, is_active: true)
+                .order(priority_order: :asc)
+                .first
+  end
+
   def initialize(account:, time_range: 30.days)
     @account = account
     @time_range = time_range

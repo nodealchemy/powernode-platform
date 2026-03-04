@@ -78,7 +78,10 @@ module Ai
           "peer_agents" => "Ai::Autonomy::Sensors::PeerAgentSensor",
           "workspace" => "Ai::Autonomy::Sensors::WorkspaceActivitySensor",
           "code_changes" => "Ai::Autonomy::Sensors::CodeChangeSensor",
-          "budget" => "Ai::Autonomy::Sensors::BudgetSensor"
+          "budget" => "Ai::Autonomy::Sensors::BudgetSensor",
+          "goal_progress" => "Ai::Autonomy::Sensors::GoalProgressSensor",
+          "stigmergic_signal" => "Ai::Autonomy::Sensors::StigmergicSignalSensor",
+          "governance" => "Ai::Autonomy::Sensors::GovernanceSensor"
         }
 
         if config.is_a?(Hash) && config.any?
