@@ -403,14 +403,8 @@ class AgentsApiService extends BaseApiService {
       ? { message: { content } }
       : { message: content };
 
-    return this.performNestedAction<SendMessageResponse>(
-      this.resource,
-      agentId,
-      'conversations',
-      conversationId,
-      'send_message',
-      message
-    );
+    const path = this.buildPath(this.resource, agentId, 'conversations', conversationId, 'send_message');
+    return this.post<SendMessageResponse>(path, message, { timeout: 120000 });
   }
 
   /**
