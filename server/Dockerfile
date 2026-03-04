@@ -57,6 +57,8 @@ FROM base AS production
 # Copy built gems and application
 COPY --from=build /usr/local/bundle /usr/local/bundle
 COPY --from=build /app /app
+# Copy extensions_loader_helper stub (Gemfile require_relative resolves to /)
+COPY --from=build /extensions_loader_helper.rb /extensions_loader_helper.rb
 
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash rails && \
