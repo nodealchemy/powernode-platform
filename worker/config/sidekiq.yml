@@ -412,3 +412,52 @@
     class: AiRalphLoopSchedulerJob
     queue: ai_orchestration
     description: 'Check for due ralph loops and execute scheduled iterations'
+
+  # Stigmergic signal decay - apply temporal decay to signal strengths
+  ai_stigmergic_signal_decay:
+    cron: '*/30 * * * *'  # Every 30 minutes
+    class: AiStigmergicSignalDecayJob
+    queue: ai_orchestration
+    description: 'Decay stigmergic signal strengths and expire dead signals'
+
+  # Pressure field measurement - measure quality pressure on tracked artifacts
+  ai_pressure_field_measurement:
+    cron: '*/15 * * * *'  # Every 15 minutes
+    class: AiPressureFieldMeasurementJob
+    queue: ai_orchestration
+    description: 'Re-measure pressure fields and broadcast changes'
+
+  # Pressure field decay - apply temporal decay to pressure values
+  ai_pressure_field_decay:
+    cron: '0 * * * *'  # Every hour at minute 0
+    class: AiPressureFieldDecayJob
+    queue: ai_orchestration
+    description: 'Apply exponential decay to pressure field values'
+
+  # Skill auto-evolution - mutate underperforming skills weekly
+  ai_skill_auto_evolution:
+    cron: '0 5 * * 1'  # Weekly at 5:00 AM UTC on Monday
+    class: AiSkillAutoEvolutionJob
+    queue: ai_orchestration
+    description: 'Find and mutate underperforming skills using failure analysis'
+
+  # Self-challenge scheduler - generate daily challenges for agents
+  ai_self_challenge_scheduler:
+    cron: '0 6 * * *'  # Daily at 6:00 AM UTC
+    class: AiSelfChallengeSchedulerJob
+    queue: ai_orchestration
+    description: 'Generate self-challenges for agent weakest skills'
+
+  # Governance scan - periodic scan of all active agents
+  ai_governance_scan:
+    cron: '0 */6 * * *'  # Every 6 hours
+    class: AiGovernanceScanJob
+    queue: ai_orchestration
+    description: 'Scan active agents for policy violations, anomalies, and resource abuse'
+
+  # Collusion detection - weekly pairwise analysis of agent behavior
+  ai_collusion_detection:
+    cron: '0 3 * * 0'  # Weekly at 3:00 AM UTC on Sunday
+    class: AiCollusionDetectionJob
+    queue: ai_orchestration
+    description: 'Detect potential collusion patterns between agent pairs'
