@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_03_203405) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_03_210000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -6586,6 +6586,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_03_203405) do
     t.string "name", null: false
     t.integer "service_count", default: 0
     t.string "slug", null: false
+    t.string "source", default: "platform", null: false
     t.string "status", default: "draft", null: false
     t.datetime "updated_at", null: false
     t.index ["cluster_id", "name"], name: "index_devops_swarm_stacks_on_cluster_id_and_name", unique: true

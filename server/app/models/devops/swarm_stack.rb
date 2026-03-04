@@ -7,6 +7,7 @@ module Devops
     include Auditable
 
     STATUSES = %w[draft deploying deployed failed removing removed].freeze
+    SOURCES = %w[platform discovered].freeze
 
     belongs_to :cluster, class_name: "Devops::SwarmCluster"
     has_many :services, class_name: "Devops::SwarmService", foreign_key: "stack_id", dependent: :nullify
@@ -15,10 +16,13 @@ module Devops
     validates :name, presence: true, uniqueness: { scope: :cluster_id }
     validates :slug, presence: true
     validates :status, presence: true, inclusion: { in: STATUSES }
+    validates :source, inclusion: { in: SOURCES }
     validate :validate_compose_file
 
     scope :deployed, -> { where(status: "deployed") }
     scope :draft, -> { where(status: "draft") }
+    scope :discovered, -> { where(source: "discovered") }
+    scope :platform_created, -> { where(source: "platform") }
 
     before_validation :generate_slug, on: :create
 
@@ -44,6 +48,7 @@ module Devops
         name: name,
         slug: slug,
         status: status,
+        source: source,
         service_count: service_count,
         last_deployed_at: last_deployed_at,
         deploy_count: deploy_count
