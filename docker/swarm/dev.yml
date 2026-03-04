@@ -162,7 +162,7 @@ services:
 
 configs:
   dev_cable_config:
-    file: docker/swarm/configs/cable.yml
+    external: true
 
 networks:
   frontend:
