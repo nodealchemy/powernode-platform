@@ -47,9 +47,10 @@ module Swarm
       connection = fetch_connection_details(cluster["id"])
       docker = build_docker_client(connection)
 
-      # Fetch nodes and services from Docker API
+      # Fetch nodes, services, and running task counts from Docker API
       nodes = fetch_docker_nodes(docker)
-      services = fetch_docker_services(docker)
+      running_counts = fetch_running_task_counts(docker)
+      services = fetch_docker_services(docker, running_counts)
 
       # Push results back to backend
       api_client.post("/api/v1/internal/swarm/clusters/#{cluster['id']}/sync_results", {
@@ -102,26 +103,27 @@ module Swarm
       raw_nodes = JSON.parse(response.body)
 
       raw_nodes.map do |node|
+        nano_cpus = node.dig("Description", "Resources", "NanoCPUs")
         {
-          docker_id: node["ID"],
+          docker_node_id: node["ID"],
           hostname: node.dig("Description", "Hostname"),
           role: node.dig("Spec", "Role"),
           availability: node.dig("Spec", "Availability"),
           status: node.dig("Status", "State"),
-          addr: node.dig("Status", "Addr"),
+          manager_status: node.dig("ManagerStatus", "Reachability"),
+          ip_address: node.dig("Status", "Addr"),
           engine_version: node.dig("Description", "Engine", "EngineVersion"),
           os: node.dig("Description", "Platform", "OS"),
           architecture: node.dig("Description", "Platform", "Architecture"),
-          resources: {
-            nano_cpus: node.dig("Description", "Resources", "NanoCPUs"),
-            memory_bytes: node.dig("Description", "Resources", "MemoryBytes")
-          },
+          memory_bytes: node.dig("Description", "Resources", "MemoryBytes"),
+          cpu_count: nano_cpus ? nano_cpus / 1_000_000_000 : nil,
+          labels: node.dig("Spec", "Labels") || {},
           leader: node.dig("ManagerStatus", "Leader") || false
         }
       end
     end
 
-    def fetch_docker_services(docker)
+    def fetch_docker_services(docker, running_counts = {})
       response = docker.get("/services")
 
       unless response.success?
@@ -131,17 +133,45 @@ module Swarm
       raw_services = JSON.parse(response.body)
 
       raw_services.map do |svc|
+        spec = svc["Spec"] || {}
+        task_template = spec["TaskTemplate"] || {}
         {
-          docker_id: svc["ID"],
-          name: svc.dig("Spec", "Name"),
-          image: svc.dig("Spec", "TaskTemplate", "ContainerSpec", "Image"),
-          replicas: svc.dig("Spec", "Mode", "Replicated", "Replicas"),
-          labels: svc.dig("Spec", "Labels") || {},
+          docker_service_id: svc["ID"],
+          service_name: spec["Name"],
+          image: task_template.dig("ContainerSpec", "Image"),
+          mode: spec.dig("Mode", "Replicated") ? "replicated" : "global",
+          desired_replicas: spec.dig("Mode", "Replicated", "Replicas") || 1,
+          running_replicas: running_counts[svc["ID"]] || 0,
           ports: extract_ports(svc),
-          stack_namespace: svc.dig("Spec", "Labels", "com.docker.stack.namespace"),
+          constraints: task_template.dig("Placement", "Constraints") || [],
+          resource_limits: task_template.dig("Resources", "Limits") || {},
+          resource_reservations: task_template.dig("Resources", "Reservations") || {},
+          update_config: spec["UpdateConfig"] || {},
+          rollback_config: spec["RollbackConfig"] || {},
+          labels: spec["Labels"] || {},
+          environment: task_template.dig("ContainerSpec", "Env") || [],
+          version: svc.dig("Version", "Index"),
+          stack_namespace: spec.dig("Labels", "com.docker.stack.namespace"),
           created_at: svc["CreatedAt"],
           updated_at: svc["UpdatedAt"]
         }
+      end
+    end
+
+    def fetch_running_task_counts(docker)
+      response = docker.get("/tasks", filters: { "desired-state" => ["running"] }.to_json)
+
+      unless response.success?
+        log_warn "Failed to fetch tasks for running counts: #{response.status}"
+        return {}
+      end
+
+      raw_tasks = JSON.parse(response.body)
+
+      raw_tasks.each_with_object(Hash.new(0)) do |task, counts|
+        next unless task.dig("Status", "State") == "running"
+
+        counts[task["ServiceID"]] += 1
       end
     end
 
@@ -150,9 +180,9 @@ module Swarm
       ports.map do |port|
         {
           protocol: port["Protocol"],
-          target_port: port["TargetPort"],
-          published_port: port["PublishedPort"],
-          publish_mode: port["PublishMode"]
+          target: port["TargetPort"],
+          published: port["PublishedPort"],
+          mode: port["PublishMode"]
         }
       end
     end
