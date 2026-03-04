@@ -89,10 +89,12 @@ services:
         # API routing
         - traefik.http.routers.dev-api.rule=PathPrefix(`/api`)
         - traefik.http.routers.dev-api.entrypoints=web
+        - traefik.http.routers.dev-api.service=dev-api
         - traefik.http.services.dev-api.loadbalancer.server.port=3000
         # ActionCable WebSocket routing
         - traefik.http.routers.dev-cable.rule=PathPrefix(`/cable`)
         - traefik.http.routers.dev-cable.entrypoints=web
+        - traefik.http.routers.dev-cable.service=dev-cable
         - traefik.http.services.dev-cable.loadbalancer.server.port=3000
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/v1/health"]

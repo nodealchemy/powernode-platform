@@ -141,4 +141,12 @@ namespace :mcp do
     puts "Generated catalog for #{action_count} actions across #{tool_classes_seen.size} tool classes"
     puts "Output: #{output_path}"
   end
+
+  desc "Sync platform tools to mcp_tools database table (for frontend MCP browser)"
+  task sync_tools: :environment do
+    Account.find_each do |account|
+      count = Ai::Tools::McpPlatformToolRegistrar.sync_to_database!(account: account)
+      puts "#{account.name}: synced #{count} tools"
+    end
+  end
 end

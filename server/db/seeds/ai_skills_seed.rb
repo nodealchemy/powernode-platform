@@ -62,7 +62,7 @@ powernode_mcp.assign_attributes(
   command: "/mcp",
   description: "Built-in Powernode platform MCP endpoint (Streamable HTTP)",
   args: [],
-  env: {},
+  env: { "MCP_URL" => "/mcp" },
   capabilities: {
     "tools" => true,
     "resources" => false,
@@ -70,6 +70,10 @@ powernode_mcp.assign_attributes(
   }
 )
 powernode_mcp.save!
+
+# Sync platform tools to database so the MCP browser page shows them
+tool_count = Ai::Tools::McpPlatformToolRegistrar.sync_to_database!(account: account)
+puts "  Synced #{tool_count} platform tools to Powernode MCP server"
 
 # Build MCP server lookup and hosted server links
 mcp_servers = { "powernode mcp" => powernode_mcp }
