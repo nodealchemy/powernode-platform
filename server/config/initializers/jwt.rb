@@ -15,7 +15,7 @@ Rails.application.configure do
   end
 
   # JWT RSA Keys for RS256 signing (production recommended)
-  if Rails.env.production? || ENV["USE_RSA_JWT"] == "true"
+  if config.jwt_algorithm == "RS256"
     # RSA Private Key for signing
     config.jwt_private_key = ENV.fetch("JWT_PRIVATE_KEY") do
       if Rails.env.development? || Rails.env.test?
@@ -39,8 +39,8 @@ Rails.application.configure do
     end
   end
 
-  # JWT Algorithm preference
-  config.jwt_algorithm = Rails.env.production? ? "RS256" : "HS256"
+  # JWT Algorithm preference (env override for containerized dev deployments)
+  config.jwt_algorithm = ENV.fetch("JWT_ALGORITHM", Rails.env.production? ? "RS256" : "HS256")
 
   # Token configuration
   config.jwt_token_version = 2
