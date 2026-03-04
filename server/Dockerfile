@@ -36,9 +36,9 @@ RUN apt-get update -qq && \
 # The real helper returns [] when no extensions/ directory exists; this stub does the same.
 RUN printf '# frozen_string_literal: true\ndef discover_extension_gems; []; end\n' > /extensions_loader_helper.rb
 
-# Install gems
+# Install gems (unfreeze bundle to allow lock drift when extension gems are absent)
 COPY Gemfile Gemfile.lock ./
-RUN bundle install && \
+RUN BUNDLE_FROZEN=false bundle install && \
     rm -rf ~/.bundle/ "${BUNDLE_PATH}"/ruby/*/cache "${BUNDLE_PATH}"/ruby/*/bundler/gems/*/.git
 
 # Copy application code
