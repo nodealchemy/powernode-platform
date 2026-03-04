@@ -47,6 +47,11 @@ module Ai
         "consolidate_memory" => "Ai::Tools::MemoryTool",
         "memory_stats" => "Ai::Tools::MemoryTool",
         "list_pools" => "Ai::Tools::MemoryTool",
+        # Agent-managed memory (MemGPT-style)
+        "agent_remember" => "Ai::Tools::AgentMemoryManagementTool",
+        "agent_forget" => "Ai::Tools::AgentMemoryManagementTool",
+        "agent_reflect" => "Ai::Tools::AgentMemoryManagementTool",
+        "agent_recall" => "Ai::Tools::AgentMemoryManagementTool",
         # Knowledge & RAG
         "query_knowledge_base" => "Ai::Tools::KnowledgeTool",
         "list_knowledge_bases" => "Ai::Tools::RagManagementTool",
@@ -137,6 +142,32 @@ module Ai
         "escalate" => "Ai::Tools::AgentAutonomyTool",
         "request_feedback" => "Ai::Tools::AgentAutonomyTool",
         "report_issue" => "Ai::Tools::AgentAutonomyTool",
+        # Goal decomposition (autonomous planning)
+        "decompose_goal" => "Ai::Tools::AgentAutonomyTool",
+        "validate_plan" => "Ai::Tools::AgentAutonomyTool",
+        "approve_plan" => "Ai::Tools::AgentAutonomyTool",
+        # Self-improvement (skill mutation, challenges)
+        "generate_self_challenge" => "Ai::Tools::SelfImprovementTool",
+        "list_challenges" => "Ai::Tools::SelfImprovementTool",
+        "get_challenge_result" => "Ai::Tools::SelfImprovementTool",
+        "mutate_skill" => "Ai::Tools::SelfImprovementTool",
+        "compose_skills" => "Ai::Tools::SelfImprovementTool",
+        "auto_evolve_skill" => "Ai::Tools::SelfImprovementTool",
+        # Governance (monitoring, collusion detection)
+        "governance_scan" => "Ai::Tools::GovernanceTool",
+        "list_governance_reports" => "Ai::Tools::GovernanceTool",
+        "get_governance_report" => "Ai::Tools::GovernanceTool",
+        "resolve_governance_report" => "Ai::Tools::GovernanceTool",
+        "detect_collusion" => "Ai::Tools::GovernanceTool",
+        "governance_dashboard" => "Ai::Tools::GovernanceTool",
+        # Coordination (stigmergic signals, pressure fields, self-organizing teams)
+        "emit_signal" => "Ai::Tools::CoordinationTool",
+        "perceive_signals" => "Ai::Tools::CoordinationTool",
+        "reinforce_signal" => "Ai::Tools::CoordinationTool",
+        "measure_pressure" => "Ai::Tools::CoordinationTool",
+        "perceive_pressure" => "Ai::Tools::CoordinationTool",
+        "optimize_team" => "Ai::Tools::CoordinationTool",
+        "recruit_agent" => "Ai::Tools::CoordinationTool",
         # Image generation
         "generate_image" => "Ai::Tools::ImageGenerationTool",
         "list_generated_images" => "Ai::Tools::ImageGenerationTool",

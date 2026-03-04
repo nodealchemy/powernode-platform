@@ -121,8 +121,8 @@ module Ai
         }
       end
 
-      def execute(action:, params:)
-        case action
+      def call(params)
+        case params[:action]
         when "create_agent_goal" then create_agent_goal(params)
         when "list_agent_goals" then list_agent_goals(params)
         when "update_agent_goal" then update_agent_goal(params)
@@ -136,7 +136,7 @@ module Ai
         when "request_feedback" then request_feedback(params)
         when "report_issue" then report_issue(params)
         else
-          error_result("Unknown action: #{action}")
+          error_result("Unknown action: #{params[:action]}")
         end
       end
 
@@ -403,22 +403,12 @@ module Ai
         success_result(observation_id: observation.id, title: params["title"])
       end
 
-      # ----- Helpers -----
-
       def resolve_agent(agent_id)
         if agent_id.present?
           account.ai_agents.find_by(id: agent_id)
         else
           agent
         end
-      end
-
-      def success_result(data)
-        { success: true, data: data }
-      end
-
-      def error_result(message)
-        { success: false, error: message }
       end
     end
   end

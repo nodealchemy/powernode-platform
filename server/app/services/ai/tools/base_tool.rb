@@ -64,7 +64,13 @@ module Ai
       end
 
       def validate_params!(params)
-        required = self.class.definition.dig(:parameters)&.select { |_, v| v[:required] }&.keys || []
+        param_def = self.class.definition[:parameters]
+        return unless param_def.is_a?(Hash)
+
+        # Skip JSON Schema-style definitions (have :type key) — validated at action level
+        return if param_def.key?(:type)
+
+        required = param_def.select { |_, v| v.is_a?(Hash) && v[:required] }.keys
         missing = required.select { |k| params[k].blank? }
         raise ArgumentError, "Missing required parameters: #{missing.join(', ')}" if missing.any?
       end
@@ -79,6 +85,14 @@ module Ai
         unless account.is_a?(Account) && account.persisted?
           raise ArgumentError, "Invalid account context for tool execution"
         end
+      end
+
+      def success_result(data)
+        { success: true, data: data }
+      end
+
+      def error_result(message)
+        { success: false, error: message }
       end
 
       private

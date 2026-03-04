@@ -116,14 +116,16 @@ module Ai
             "user=#{user&.id} account=#{account.id} agent=#{agent_id}"
           )
 
-          execution_params = params.symbolize_keys
+          execution_params = params.with_indifferent_access
 
           # Multi-action tools use an :action param to route internally.
           # Auto-inject the registry key as the action when the tool class
           # handles multiple registry entries (e.g. create_agent, list_agents
           # all map to AgentManagementTool).
-          if tool_class.definition[:parameters]&.key?(:action) && !execution_params.key?(:action)
-            execution_params[:action] = ACTION_ALIASES.fetch(tool_name, tool_name)
+          unless execution_params.key?(:action)
+            needs_action = tool_class.definition[:parameters]&.key?(:action) ||
+                           tool_class.action_definitions.size > 1
+            execution_params[:action] = ACTION_ALIASES.fetch(tool_name, tool_name) if needs_action
           end
 
           tool_instance = tool_class.new(account: account, user: user, agent: mcp_agent)
