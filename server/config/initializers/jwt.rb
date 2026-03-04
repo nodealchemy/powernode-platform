@@ -4,6 +4,9 @@
 # Supports both HMAC (HS256) and RSA (RS256) algorithms
 
 Rails.application.configure do
+  # JWT Algorithm preference (env override for containerized dev deployments)
+  config.jwt_algorithm = ENV.fetch("JWT_ALGORITHM", Rails.env.production? ? "RS256" : "HS256")
+
   # JWT Secret Key for HMAC signing (HS256)
   config.jwt_secret_key = ENV.fetch("JWT_SECRET_KEY") do
     if Rails.env.development? || Rails.env.test?
@@ -38,9 +41,6 @@ Rails.application.configure do
       end
     end
   end
-
-  # JWT Algorithm preference (env override for containerized dev deployments)
-  config.jwt_algorithm = ENV.fetch("JWT_ALGORITHM", Rails.env.production? ? "RS256" : "HS256")
 
   # Token configuration
   config.jwt_token_version = 2

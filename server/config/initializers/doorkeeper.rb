@@ -218,10 +218,11 @@ if defined?(Doorkeeper::JWT)
     end
 
     # Use RS256 for production, HS256 for development (env override for containerized dev deployments)
-    encryption_method (ENV["DOORKEEPER_ENCRYPTION_METHOD"] || (Rails.env.production? ? "rs256" : "hs256")).to_sym
+    dk_encryption = (ENV["DOORKEEPER_ENCRYPTION_METHOD"] || (Rails.env.production? ? "rs256" : "hs256")).to_sym
+    encryption_method dk_encryption
 
     # Use separate key pair for RS256
-    if encryption_method == :rs256
+    if dk_encryption == :rs256
       secret_key_path Rails.root.join("config", "keys", "oauth_private.pem")
       public_key_path Rails.root.join("config", "keys", "oauth_public.pem")
     end
