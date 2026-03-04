@@ -72,11 +72,12 @@ Query MCP first. Use these files when MCP returns no relevant results:
 
 ## Backend MCP Tool Reference
 
-All 107 actions grouped by subsystem. Full parameter docs: [MCP_TOOL_CATALOG.md](../docs/platform/MCP_TOOL_CATALOG.md).
+All 166 actions grouped by subsystem. Full parameter docs: [MCP_TOOL_CATALOG.md](../docs/platform/MCP_TOOL_CATALOG.md).
 
 | Subsystem | Tools (all `platform.*`) |
 |-----------|--------------------------|
 | Agents | `create_agent`, `list_agents`, `get_agent`, `update_agent`, `execute_agent` |
+| Agent Containers | `deploy_container_agent`, `container_status`, `container_logs`, `container_terminate` |
 | Teams | `create_team`, `list_teams`, `get_team`, `update_team`, `add_team_member`, `execute_team` |
 | Workflows | `create_workflow`, `list_workflows`, `get_workflow`, `update_workflow`, `execute_workflow` |
 | Pipelines | `trigger_pipeline`, `list_pipelines`, `get_pipeline_status` |
@@ -90,7 +91,17 @@ All 107 actions grouped by subsystem. Full parameter docs: [MCP_TOOL_CATALOG.md]
 | Skills | `list_skills`, `get_skill`, `discover_skills`, `get_skill_context`, `skill_health`, `skill_metrics`, `create_skill`, `update_skill`, `delete_skill`, `toggle_skill` |
 | Graph | `search_knowledge_graph`, `reason_knowledge_graph`, `get_graph_node`, `list_graph_nodes`, `get_graph_neighbors`, `graph_statistics`, `get_subgraph`, `extract_to_knowledge_graph` |
 | Autonomy | `emergency_halt`, `emergency_resume`, `kill_switch_status`, `create_agent_goal`, `list_agent_goals`, `update_agent_goal`, `agent_introspect`, `propose_feature`, `send_proactive_notification`, `discover_claude_sessions`, `request_code_change`, `create_proposal`, `escalate`, `request_feedback`, `report_issue` |
+| Workspace | `send_message`, `list_messages`, `list_conversations`, `get_conversation_messages`, `send_concierge_message`, `confirm_concierge_action` |
+| Monitoring | `get_activity_feed`, `recent_events`, `get_notifications`, `dismiss_notification`, `get_mission_status`, `integration_health` |
 | DevOps | `create_gitea_repository`, `dispatch_to_runner`, `get_api_reference` |
+| Docker Hosts | `docker_list_hosts`, `docker_get_host`, `docker_sync_host`, `docker_test_host` |
+| Docker Containers | `docker_list_containers`, `docker_get_container`, `docker_create_container`, `docker_start_container`, `docker_stop_container`, `docker_restart_container`, `docker_remove_container`, `docker_container_logs`, `docker_container_stats`, `docker_container_exec` |
+| Docker Images | `docker_list_images`, `docker_pull_image`, `docker_remove_image`, `docker_tag_image` |
+| Docker Services | `docker_list_services`, `docker_get_service`, `docker_create_service`, `docker_update_service`, `docker_scale_service`, `docker_rollback_service`, `docker_remove_service`, `docker_service_logs`, `docker_service_tasks` |
+| Docker Stacks | `docker_list_stacks`, `docker_get_stack`, `docker_deploy_stack`, `docker_remove_stack`, `docker_adopt_stack` |
+| Docker Clusters | `docker_list_clusters`, `docker_get_cluster`, `docker_cluster_health`, `docker_list_nodes`, `docker_node_promote`, `docker_node_demote`, `docker_node_drain`, `docker_node_activate`, `docker_list_secrets`, `docker_create_secret`, `docker_remove_secret`, `docker_list_configs`, `docker_create_config`, `docker_remove_config` |
+| Docker Networks/Volumes | `docker_list_networks`, `docker_create_network`, `docker_remove_network`, `docker_list_volumes`, `docker_create_volume`, `docker_remove_volume` |
+| Image Generation | `generate_image`, `list_generated_images` |
 
 ## Test Execution
 
