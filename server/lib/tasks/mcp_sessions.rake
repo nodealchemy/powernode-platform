@@ -41,6 +41,20 @@ namespace :mcp do
     total_deleted = McpSession.delete_all
     puts "Deleted #{total_deleted} session record(s)"
 
+    # 5. Destroy all MCP client agents (now orphaned since all sessions are gone).
+    #    Nullify FKs on conversations/messages to preserve history, remove team
+    #    memberships, then destroy the agent records.
+    mcp_agents = Ai::Agent.where(agent_type: "mcp_client")
+    agents_destroyed = 0
+    mcp_agents.find_each do |agent|
+      Ai::Conversation.where(ai_agent_id: agent.id).update_all(ai_agent_id: nil)
+      Ai::Message.where(ai_agent_id: agent.id).update_all(ai_agent_id: nil)
+      Ai::AgentTeamMember.where(ai_agent_id: agent.id).destroy_all
+      agent.destroy!
+      agents_destroyed += 1
+    end
+    puts "Destroyed #{agents_destroyed} orphaned MCP client agent(s)"
+
     puts ""
     puts "=== Summary ==="
     puts "  Sessions revoked:      #{active_count}"
@@ -48,6 +62,7 @@ namespace :mcp do
     puts "  OAuth apps processed:  #{app_ids.size}"
     puts "  Tokens revoked:        #{tokens_revoked}"
     puts "  Records deleted:       #{total_deleted}"
+    puts "  Agents destroyed:      #{agents_destroyed}"
     puts "  Done."
   end
 end
