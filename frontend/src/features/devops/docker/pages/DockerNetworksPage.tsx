@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, RefreshCw, Trash2 } from 'lucide-react';
-import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
+import type { PageAction } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { Modal } from '@/shared/components/ui/Modal';
@@ -31,7 +31,11 @@ const HostSelector: React.FC = () => {
   );
 };
 
-export const DockerNetworksPage: React.FC = () => {
+interface DockerNetworksPageProps {
+  onActionsReady?: (actions: PageAction[]) => void;
+}
+
+export const DockerNetworksPage: React.FC<DockerNetworksPageProps> = ({ onActionsReady }) => {
   const { selectedHostId } = useHostContext();
   const { networks, isLoading, error, refresh } = useDockerNetworks(selectedHostId);
   const [showCreate, setShowCreate] = useState(false);
@@ -67,14 +71,12 @@ export const DockerNetworksPage: React.FC = () => {
     { label: 'Refresh', onClick: refresh, variant: 'secondary', icon: RefreshCw },
   ];
 
-  const breadcrumbs = [
-    { label: 'DevOps', href: '/app/devops' },
-    { label: 'Docker Hosts', href: '/app/devops/docker' },
-    { label: 'Networks' },
-  ];
+  useEffect(() => {
+    onActionsReady?.(pageActions);
+  }, [onActionsReady]);
 
   return (
-    <PageContainer title="Docker Networks" description="Manage Docker networks on hosts" breadcrumbs={breadcrumbs} actions={pageActions}>
+    <>
       <div className="space-y-4">
         <HostSelector />
 
@@ -161,6 +163,6 @@ export const DockerNetworksPage: React.FC = () => {
         </div>
       </Modal>
       {ConfirmationDialog}
-    </PageContainer>
+    </>
   );
 };

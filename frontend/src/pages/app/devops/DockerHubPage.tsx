@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { HardDrive, Container, Layers, Network, Database, Activity } from 'lucide-react';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { HostProvider } from '@/features/devops/docker/context/HostContext';
 import { DockerHostsPage } from '@/features/devops/docker/pages/DockerHostsPage';
@@ -35,11 +35,24 @@ export const DockerHubPage: React.FC = () => {
   };
 
   const [activeTab, setActiveTab] = useState(getActiveTab());
+  const [actions, setActions] = useState<PageAction[]>([]);
 
   useEffect(() => {
     const newTab = getActiveTab();
-    if (newTab !== activeTab) setActiveTab(newTab);
+    if (newTab !== activeTab) {
+      setActiveTab(newTab);
+      setActions([]);
+    }
   }, [location.pathname]);
+
+  const handleTabChange = useCallback((tabId: string) => {
+    setActiveTab(tabId);
+    setActions([]);
+  }, []);
+
+  const handleActionsReady = useCallback((newActions: PageAction[]) => {
+    setActions(newActions);
+  }, []);
 
   const getBreadcrumbs = () => {
     const base: Array<{ label: string; href?: string }> = [
@@ -62,33 +75,34 @@ export const DockerHubPage: React.FC = () => {
         title="Docker"
         description="Docker hosts, containers, images, and monitoring"
         breadcrumbs={getBreadcrumbs()}
+        actions={actions}
       >
         <TabContainer
           tabs={tabs}
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={handleTabChange}
           basePath="/app/devops/docker"
           variant="underline"
           className="mb-6"
         >
           <TabPanel tabId="hosts" activeTab={activeTab}>
-            <DockerHostsPage />
+            <DockerHostsPage onActionsReady={handleActionsReady} />
           </TabPanel>
           <TabPanel tabId="containers" activeTab={activeTab}>
-            <DockerContainersPage />
+            <DockerContainersPage onActionsReady={handleActionsReady} />
           </TabPanel>
           <TabPanel tabId="images" activeTab={activeTab}>
-            <DockerImagesPage />
+            <DockerImagesPage onActionsReady={handleActionsReady} />
           </TabPanel>
           <TabPanel tabId="networks" activeTab={activeTab}>
-            <DockerNetworksPage />
+            <DockerNetworksPage onActionsReady={handleActionsReady} />
           </TabPanel>
           <TabPanel tabId="volumes" activeTab={activeTab}>
-            <DockerVolumesPage />
+            <DockerVolumesPage onActionsReady={handleActionsReady} />
           </TabPanel>
           <TabPanel tabId="monitoring" activeTab={activeTab}>
             <div className="space-y-8">
-              <DockerActivitiesPage />
+              <DockerActivitiesPage onActionsReady={handleActionsReady} />
               <DockerHealthPage />
             </div>
           </TabPanel>

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Download, RefreshCw, Trash2, FolderInput } from 'lucide-react';
-import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
+import type { PageAction } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { Modal } from '@/shared/components/ui/Modal';
@@ -32,7 +32,11 @@ const HostSelector: React.FC = () => {
   );
 };
 
-export const DockerImagesPage: React.FC = () => {
+interface DockerImagesPageProps {
+  onActionsReady?: (actions: PageAction[]) => void;
+}
+
+export const DockerImagesPage: React.FC<DockerImagesPageProps> = ({ onActionsReady }) => {
   const { selectedHostId } = useHostContext();
   const { images, isLoading, error, refresh } = useDockerImages(selectedHostId);
   const [showPull, setShowPull] = useState(false);
@@ -73,14 +77,12 @@ export const DockerImagesPage: React.FC = () => {
     { label: 'Refresh', onClick: refresh, variant: 'secondary', icon: RefreshCw },
   ];
 
-  const breadcrumbs = [
-    { label: 'DevOps', href: '/app/devops' },
-    { label: 'Docker Hosts', href: '/app/devops/docker' },
-    { label: 'Images' },
-  ];
+  useEffect(() => {
+    onActionsReady?.(pageActions);
+  }, [onActionsReady]);
 
   return (
-    <PageContainer title="Docker Images" description="Manage Docker images across hosts" breadcrumbs={breadcrumbs} actions={pageActions}>
+    <>
       <div className="space-y-4">
         <HostSelector />
 
@@ -181,6 +183,6 @@ export const DockerImagesPage: React.FC = () => {
           onImported={refresh}
         />
       )}
-    </PageContainer>
+    </>
   );
 };

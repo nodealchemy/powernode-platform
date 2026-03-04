@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, Heart, Box, HardDrive, AlertTriangle } from 'lucide-react';
-import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
+import type { PageAction } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { useHostContext } from '../hooks/useHostContext';
@@ -29,7 +29,11 @@ const HostSelector: React.FC = () => {
   );
 };
 
-export const DockerHealthPage: React.FC = () => {
+interface DockerHealthPageProps {
+  onActionsReady?: (actions: PageAction[]) => void;
+}
+
+export const DockerHealthPage: React.FC<DockerHealthPageProps> = ({ onActionsReady }) => {
   const { selectedHostId } = useHostContext();
   const { health, isLoading, error, refresh } = useDockerHealth(selectedHostId);
   const { events, refresh: refreshEvents } = useDockerEvents(selectedHostId, 1, 10);
@@ -49,14 +53,12 @@ export const DockerHealthPage: React.FC = () => {
     { label: 'Refresh', onClick: handleRefresh, variant: 'secondary', icon: RefreshCw },
   ];
 
-  const breadcrumbs = [
-    { label: 'DevOps', href: '/app/devops' },
-    { label: 'Docker Hosts', href: '/app/devops/docker' },
-    { label: 'Health' },
-  ];
+  useEffect(() => {
+    onActionsReady?.(pageActions);
+  }, [onActionsReady]);
 
   return (
-    <PageContainer title="Docker Health" description="Host health monitoring and diagnostics" breadcrumbs={breadcrumbs} actions={pageActions}>
+    <>
       <div className="space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <HostSelector />
@@ -194,6 +196,6 @@ export const DockerHealthPage: React.FC = () => {
           </div>
         ) : null}
       </div>
-    </PageContainer>
+    </>
   );
 };

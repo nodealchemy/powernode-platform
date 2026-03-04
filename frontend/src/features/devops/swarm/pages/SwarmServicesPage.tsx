@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, RefreshCw, Scale, RotateCcw, Trash2, Download } from 'lucide-react';
-import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
+import type { PageAction } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
@@ -15,7 +15,7 @@ import { ServiceCreateModal } from '../components/ServiceCreateModal';
 import { ServiceImportModal } from '../components/ServiceImportModal';
 import type { SwarmServiceSummary } from '../types';
 
-export const SwarmServicesPage: React.FC = () => {
+export const SwarmServicesPage: React.FC<{ onActionsReady?: (actions: PageAction[]) => void }> = ({ onActionsReady }) => {
   const navigate = useNavigate();
   const { selectedClusterId } = useClusterContext();
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -61,14 +61,12 @@ export const SwarmServicesPage: React.FC = () => {
     { label: 'Refresh', onClick: refetch, variant: 'secondary', icon: RefreshCw },
   ];
 
-  const breadcrumbs = [
-    { label: 'DevOps', href: '/app/devops' },
-    { label: 'Swarm Clusters', href: '/app/devops/swarm' },
-    { label: 'Services' },
-  ];
+  useEffect(() => {
+    onActionsReady?.(pageActions);
+  }, [onActionsReady, refetch]);
 
   return (
-    <PageContainer title="Swarm Services" description="Manage Docker Swarm services and replicas" breadcrumbs={breadcrumbs} actions={pageActions}>
+    <>
       <div className="space-y-4">
         <div className="flex items-center gap-4">
           <ClusterSelector />
@@ -159,6 +157,6 @@ export const SwarmServicesPage: React.FC = () => {
         />
       )}
       {ConfirmationDialog}
-    </PageContainer>
+    </>
   );
 };

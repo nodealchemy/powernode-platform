@@ -7,7 +7,7 @@ import {
   Trash2, TestTube, ExternalLink, ChevronDown, ChevronRight,
   Key, Shield, Webhook, Cpu
 } from 'lucide-react';
-import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
+import { type PageAction } from '@/shared/components/layout/PageContainer';
 import { gitProvidersApi } from '@/features/devops/git/services/gitProvidersApi';
 import { GitProviderModal } from '@/features/devops/git/components/GitProviderModal';
 import { CredentialModal } from '@/features/devops/git/components/CredentialModal';
@@ -41,7 +41,11 @@ interface GitProvider {
   credentialsCount: number;
 }
 
-export function GitProvidersPage() {
+interface GitProvidersPageProps {
+  onActionsReady?: (actions: PageAction[]) => void;
+}
+
+export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { showNotification } = useNotifications();
@@ -73,12 +77,6 @@ export function GitProvidersPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const breadcrumbs = [
-    { label: 'Dashboard', href: '/app' },
-    { label: 'DevOps', href: '/app/devops' },
-    { label: 'Git Providers' }
-  ];
-
   const { refreshAction } = useRefreshAction({
     onRefresh: async () => {
       await fetchProviders();
@@ -101,6 +99,11 @@ export function GitProvidersPage() {
       icon: Plus
     }
   ];
+
+  // Report actions to parent hub page
+  useEffect(() => {
+    onActionsReady?.(pageActions);
+  }, [onActionsReady, refreshAction]);
 
   const fetchProviders = async () => {
     try {
@@ -491,26 +494,14 @@ export function GitProvidersPage() {
 
   if (loading) {
     return (
-      <PageContainer
-        title="Git Providers"
-        description="Manage connections to GitHub, GitLab, Gitea, and other git providers"
-        breadcrumbs={breadcrumbs}
-        actions={pageActions}
-      >
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-theme-primary" />
-        </div>
-      </PageContainer>
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-theme-primary" />
+      </div>
     );
   }
 
   return (
-    <PageContainer
-      title="Git Providers"
-      description="Manage connections to GitHub, GitLab, Gitea, and other git providers"
-      breadcrumbs={breadcrumbs}
-      actions={pageActions}
-    >
+    <>
       {/* Provider Cards */}
       <div className="space-y-4">
         {providers.length === 0 ? (
@@ -907,7 +898,7 @@ export function GitProvidersPage() {
           credential={editingCredential}
         />
       )}
-    </PageContainer>
+    </>
   );
 }
 

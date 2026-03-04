@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, RefreshCw, Wifi, Trash2, Edit3, Server } from 'lucide-react';
-import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
+import type { PageAction } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { Modal } from '@/shared/components/ui/Modal';
@@ -10,7 +10,11 @@ import { useDockerHosts } from '../hooks/useDockerHosts';
 import { dockerApi } from '../services/dockerApi';
 import type { HostFormData, HostEnvironment } from '../types';
 
-export const DockerHostsPage: React.FC = () => {
+interface DockerHostsPageProps {
+  onActionsReady?: (actions: PageAction[]) => void;
+}
+
+export const DockerHostsPage: React.FC<DockerHostsPageProps> = ({ onActionsReady }) => {
   const navigate = useNavigate();
   const [envFilter, setEnvFilter] = useState<HostEnvironment | undefined>();
   const { hosts, isLoading, error, refresh } = useDockerHosts(1, 100, envFilter ? { environment: envFilter } : undefined);
@@ -90,35 +94,30 @@ export const DockerHostsPage: React.FC = () => {
     { label: 'Refresh', onClick: refresh, variant: 'secondary', icon: RefreshCw },
   ];
 
-  const breadcrumbs = [
-    { label: 'DevOps', href: '/app/devops' },
-    { label: 'Docker Hosts' },
-  ];
+  useEffect(() => {
+    onActionsReady?.(pageActions);
+  }, [onActionsReady]);
 
   if (isLoading) {
     return (
-      <PageContainer title="Docker Hosts" breadcrumbs={breadcrumbs}>
-        <div className="flex items-center justify-center py-20">
-          <RefreshCw className="w-6 h-6 animate-spin text-theme-tertiary" />
-          <span className="ml-3 text-theme-secondary">Loading hosts...</span>
-        </div>
-      </PageContainer>
+      <div className="flex items-center justify-center py-20">
+        <RefreshCw className="w-6 h-6 animate-spin text-theme-tertiary" />
+        <span className="ml-3 text-theme-secondary">Loading hosts...</span>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <PageContainer title="Docker Hosts" breadcrumbs={breadcrumbs}>
-        <div className="text-center py-20">
-          <p className="text-theme-error mb-4">{error}</p>
-          <Button onClick={refresh} variant="secondary" size="sm">Retry</Button>
-        </div>
-      </PageContainer>
+      <div className="text-center py-20">
+        <p className="text-theme-error mb-4">{error}</p>
+        <Button onClick={refresh} variant="secondary" size="sm">Retry</Button>
+      </div>
     );
   }
 
   return (
-    <PageContainer title="Docker Hosts" description="Manage Docker hosts and connections" breadcrumbs={breadcrumbs} actions={pageActions}>
+    <>
       <div className="space-y-4">
         <div className="flex items-center gap-3">
           <label className="text-sm font-medium text-theme-secondary">Environment:</label>
@@ -244,6 +243,6 @@ export const DockerHostsPage: React.FC = () => {
         </div>
       </Modal>
       {ConfirmationDialog}
-    </PageContainer>
+    </>
   );
 };

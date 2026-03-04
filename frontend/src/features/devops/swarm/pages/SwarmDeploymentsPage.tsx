@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
-import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
+import type { PageAction } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
@@ -10,7 +10,7 @@ import { ClusterSelector } from '../components/ClusterSelector';
 import { DeploymentTimeline } from '../components/DeploymentTimeline';
 import type { DeploymentFilters, DeploymentType, DeploymentStatus } from '../types';
 
-export const SwarmDeploymentsPage: React.FC = () => {
+export const SwarmDeploymentsPage: React.FC<{ onActionsReady?: (actions: PageAction[]) => void }> = ({ onActionsReady }) => {
   const { selectedClusterId } = useClusterContext();
   const [filters, setFilters] = useState<DeploymentFilters>({});
   const { deployments, pagination, isLoading, error, refetch, loadMore, cancelDeployment } = useSwarmDeployments({
@@ -34,14 +34,12 @@ export const SwarmDeploymentsPage: React.FC = () => {
     { label: 'Refresh', onClick: refetch, variant: 'secondary', icon: RefreshCw },
   ];
 
-  const breadcrumbs = [
-    { label: 'DevOps', href: '/app/devops' },
-    { label: 'Swarm Clusters', href: '/app/devops/swarm' },
-    { label: 'Deployments' },
-  ];
+  useEffect(() => {
+    onActionsReady?.(pageActions);
+  }, [onActionsReady, refetch]);
 
   return (
-    <PageContainer title="Deployments" description="Swarm deployment history and timeline" breadcrumbs={breadcrumbs} actions={pageActions}>
+    <>
       <div className="space-y-4">
         <div className="flex items-center gap-4">
           <ClusterSelector />
@@ -103,6 +101,6 @@ export const SwarmDeploymentsPage: React.FC = () => {
         )}
       </div>
       {ConfirmationDialog}
-    </PageContainer>
+    </>
   );
 };

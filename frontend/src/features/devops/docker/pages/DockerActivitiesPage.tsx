@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RefreshCw, Clock } from 'lucide-react';
-import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
+import type { PageAction } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { useHostContext } from '../hooks/useHostContext';
@@ -29,7 +29,11 @@ const HostSelector: React.FC = () => {
   );
 };
 
-export const DockerActivitiesPage: React.FC = () => {
+interface DockerActivitiesPageProps {
+  onActionsReady?: (actions: PageAction[]) => void;
+}
+
+export const DockerActivitiesPage: React.FC<DockerActivitiesPageProps> = ({ onActionsReady }) => {
   const { selectedHostId } = useHostContext();
   const [typeFilter, setTypeFilter] = useState<ActivityType | undefined>();
   const [statusFilter, setStatusFilter] = useState<ActivityStatus | undefined>();
@@ -49,14 +53,12 @@ export const DockerActivitiesPage: React.FC = () => {
     { label: 'Refresh', onClick: refresh, variant: 'secondary', icon: RefreshCw },
   ];
 
-  const breadcrumbs = [
-    { label: 'DevOps', href: '/app/devops' },
-    { label: 'Docker Hosts', href: '/app/devops/docker' },
-    { label: 'Activities' },
-  ];
+  useEffect(() => {
+    onActionsReady?.(pageActions);
+  }, [onActionsReady]);
 
   return (
-    <PageContainer title="Docker Activities" description="Activity timeline and history" breadcrumbs={breadcrumbs} actions={pageActions}>
+    <>
       <div className="space-y-4">
         <div className="flex items-center gap-4 flex-wrap">
           <HostSelector />
@@ -135,6 +137,6 @@ export const DockerActivitiesPage: React.FC = () => {
           </div>
         )}
       </div>
-    </PageContainer>
+    </>
   );
 };

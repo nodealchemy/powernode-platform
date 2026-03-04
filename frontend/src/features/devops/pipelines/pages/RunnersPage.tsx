@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Server, Search, RefreshCw, Trash2, Activity, Cpu } from 'lucide-react';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
+import type { PageAction } from '@/shared/components/layout/PageContainer';
 import { PageErrorBoundary } from '@/shared/components/error/ErrorBoundary';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
@@ -142,7 +142,11 @@ const StatsCards: React.FC<{ stats: RunnerStats }> = ({ stats }) => (
   </div>
 );
 
-const RunnersPageContent: React.FC = () => {
+interface RunnersPageProps {
+  onActionsReady?: (actions: PageAction[]) => void;
+}
+
+const RunnersPageContent: React.FC<RunnersPageProps> = ({ onActionsReady }) => {
   const navigate = useNavigate();
   const { showNotification } = useNotifications();
   const { currentUser } = useAuth();
@@ -163,6 +167,28 @@ const RunnersPageContent: React.FC = () => {
   });
 
   const [syncing, setSyncing] = useState(false);
+
+  // Report actions to parent hub page
+  useEffect(() => {
+    const pageActions: PageAction[] = [
+      {
+        id: 'sync',
+        label: syncing ? 'Syncing...' : 'Sync Runners',
+        onClick: handleSync,
+        variant: 'primary' as const,
+        icon: RefreshCw,
+        disabled: syncing
+      },
+      {
+        id: 'refresh',
+        label: 'Refresh',
+        onClick: refresh,
+        variant: 'secondary' as const,
+        icon: RefreshCw
+      }
+    ];
+    onActionsReady?.(pageActions);
+  }, [onActionsReady, syncing, refresh]);
 
   const handleSync = async () => {
     try {
@@ -193,37 +219,8 @@ const RunnersPageContent: React.FC = () => {
     });
   };
 
-  const breadcrumbs = [
-    { label: 'Dashboard', href: '/app' },
-    { label: 'DevOps', href: '/app/devops' },
-    { label: 'Runners' }
-  ];
-
-  const actions = [
-    {
-      id: 'sync',
-      label: syncing ? 'Syncing...' : 'Sync Runners',
-      onClick: handleSync,
-      variant: 'primary' as const,
-      icon: RefreshCw,
-      disabled: syncing
-    },
-    {
-      id: 'refresh',
-      label: 'Refresh',
-      onClick: refresh,
-      variant: 'secondary' as const,
-      icon: RefreshCw
-    }
-  ];
-
   return (
-    <PageContainer
-      title="DevOps Runners"
-      description="Manage self-hosted runners for GitHub Actions, Gitea Actions, and GitLab CI"
-      breadcrumbs={breadcrumbs}
-      actions={actions}
-    >
+    <>
       <div className="space-y-6">
         {stats && <StatsCards stats={stats} />}
 
@@ -349,13 +346,13 @@ const RunnersPageContent: React.FC = () => {
         )}
         {ConfirmationDialog}
       </div>
-    </PageContainer>
+    </>
   );
 };
 
-export const RunnersPage: React.FC = () => (
+export const RunnersPage: React.FC<RunnersPageProps> = ({ onActionsReady }) => (
   <PageErrorBoundary>
-    <RunnersPageContent />
+    <RunnersPageContent onActionsReady={onActionsReady} />
   </PageErrorBoundary>
 );
 

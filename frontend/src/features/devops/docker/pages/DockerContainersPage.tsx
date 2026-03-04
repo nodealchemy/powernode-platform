@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, RefreshCw, Play, Square, RotateCcw, Trash2, Download } from 'lucide-react';
-import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
+import type { PageAction } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { Modal } from '@/shared/components/ui/Modal';
@@ -33,7 +33,11 @@ const HostSelector: React.FC = () => {
   );
 };
 
-export const DockerContainersPage: React.FC = () => {
+interface DockerContainersPageProps {
+  onActionsReady?: (actions: PageAction[]) => void;
+}
+
+export const DockerContainersPage: React.FC<DockerContainersPageProps> = ({ onActionsReady }) => {
   const navigate = useNavigate();
   const { selectedHostId } = useHostContext();
   const [stateFilter, setStateFilter] = useState<ContainerState | undefined>();
@@ -67,14 +71,12 @@ export const DockerContainersPage: React.FC = () => {
     { label: 'Refresh', onClick: refresh, variant: 'secondary', icon: RefreshCw },
   ];
 
-  const breadcrumbs = [
-    { label: 'DevOps', href: '/app/devops' },
-    { label: 'Docker Hosts', href: '/app/devops/docker' },
-    { label: 'Containers' },
-  ];
+  useEffect(() => {
+    onActionsReady?.(pageActions);
+  }, [onActionsReady]);
 
   return (
-    <PageContainer title="Docker Containers" description="Manage containers across Docker hosts" breadcrumbs={breadcrumbs} actions={pageActions}>
+    <>
       <div className="space-y-4">
         <div className="flex items-center gap-4 flex-wrap">
           <HostSelector />
@@ -213,6 +215,6 @@ export const DockerContainersPage: React.FC = () => {
           onImported={refresh}
         />
       )}
-    </PageContainer>
+    </>
   );
 };

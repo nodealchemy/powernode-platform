@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Plus, RefreshCw, Trash2, Rocket, XCircle } from 'lucide-react';
-import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Plus, RefreshCw } from 'lucide-react';
+import type { PageAction } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
@@ -8,16 +8,70 @@ import { useClusterContext } from '../hooks/useClusterContext';
 import { useSwarmStacks } from '../hooks/useSwarmStacks';
 import { ClusterSelector } from '../components/ClusterSelector';
 import { StackDeployModal } from '../components/StackDeployModal';
+import { StackCard } from '../components/StackCard';
+import { ServiceScaleModal } from '../components/ServiceScaleModal';
+import { ServiceRollbackModal } from '../components/ServiceRollbackModal';
 import { swarmApi } from '../services/swarmApi';
+import type { SwarmStack, SwarmServiceSummary } from '../types';
 
-export const SwarmStacksPage: React.FC = () => {
+interface ExpandedData {
+  details: SwarmStack | null;
+  services: SwarmServiceSummary[];
+  isLoading: boolean;
+  error: string | null;
+}
+
+export const SwarmStacksPage: React.FC<{ onActionsReady?: (actions: PageAction[]) => void }> = ({ onActionsReady }) => {
   const { selectedClusterId } = useClusterContext();
   const { stacks, isLoading, error, refetch, createStack, deployStack, removeStack, deleteStack } = useSwarmStacks({
     clusterId: selectedClusterId || '',
     autoLoad: !!selectedClusterId,
   });
+
   const [showDeployModal, setShowDeployModal] = useState(false);
+  const [expandedStackId, setExpandedStackId] = useState<string | null>(null);
+  const expandedDataCache = useRef(new Map<string, ExpandedData>());
+  const [, forceRender] = useState(0);
+
+  const [scaleTarget, setScaleTarget] = useState<SwarmServiceSummary | null>(null);
+  const [rollbackTarget, setRollbackTarget] = useState<SwarmServiceSummary | null>(null);
+
   const { confirm, ConfirmationDialog } = useConfirmation();
+
+  // ─── Expand / collapse ────────────────────────────────────────────
+
+  const handleToggleExpand = useCallback((stack: { id: string; name: string }) => {
+    if (expandedStackId === stack.id) {
+      setExpandedStackId(null);
+      return;
+    }
+    setExpandedStackId(stack.id);
+
+    const cached = expandedDataCache.current.get(stack.id);
+    if (cached && !cached.error) return; // already fetched
+
+    // Set loading state
+    expandedDataCache.current.set(stack.id, { details: null, services: [], isLoading: true, error: null });
+    forceRender((n) => n + 1);
+
+    // Parallel fetch: stack details + services
+    const clusterId = selectedClusterId!;
+    Promise.all([
+      swarmApi.getStack(clusterId, stack.id),
+      swarmApi.getServices(clusterId, { stack_name: stack.name }),
+    ]).then(([stackRes, servicesRes]) => {
+      const entry: ExpandedData = {
+        details: stackRes.success && stackRes.data ? stackRes.data.stack : null,
+        services: servicesRes.success && servicesRes.data ? servicesRes.data.items : [],
+        isLoading: false,
+        error: (!stackRes.success ? stackRes.error : !servicesRes.success ? servicesRes.error : null) || null,
+      };
+      expandedDataCache.current.set(stack.id, entry);
+      forceRender((n) => n + 1);
+    });
+  }, [expandedStackId, selectedClusterId]);
+
+  // ─── Stack actions ────────────────────────────────────────────────
 
   const handleDeploy = async (name: string, composeFile: string) => {
     const stack = await createStack({ name, compose_file: composeFile });
@@ -51,19 +105,56 @@ export const SwarmStacksPage: React.FC = () => {
     });
   };
 
+  // ─── Service actions (from expanded cards) ────────────────────────
+
+  const handleScaleService = async (replicas: number) => {
+    if (!scaleTarget || !selectedClusterId) return;
+    await swarmApi.scaleService(selectedClusterId, scaleTarget.id, { replicas });
+    // Invalidate cache for the parent stack and re-expand
+    invalidateExpandedStack(scaleTarget.stack_id);
+    setScaleTarget(null);
+  };
+
+  const handleRollbackService = async () => {
+    if (!rollbackTarget || !selectedClusterId) return;
+    await swarmApi.rollbackService(selectedClusterId, rollbackTarget.id);
+    invalidateExpandedStack(rollbackTarget.stack_id);
+    setRollbackTarget(null);
+  };
+
+  const invalidateExpandedStack = (stackId?: string) => {
+    if (!stackId) return;
+    expandedDataCache.current.delete(stackId);
+    // Find stack name to re-trigger expand
+    const stack = stacks.find((s) => s.id === stackId);
+    if (stack && expandedStackId === stackId) {
+      setExpandedStackId(null);
+      // Re-expand after state settles
+      setTimeout(() => handleToggleExpand({ id: stack.id, name: stack.name }), 0);
+    }
+  };
+
+  // ─── Refresh ──────────────────────────────────────────────────────
+
+  const handleRefresh = useCallback(() => {
+    expandedDataCache.current.clear();
+    setExpandedStackId(null);
+    refetch();
+  }, [refetch]);
+
+  // ─── Render ───────────────────────────────────────────────────────
+
   const pageActions: PageAction[] = [
     { label: 'Deploy Stack', onClick: () => setShowDeployModal(true), variant: 'primary', icon: Plus },
-    { label: 'Refresh', onClick: refetch, variant: 'secondary', icon: RefreshCw },
+    { label: 'Refresh', onClick: handleRefresh, variant: 'secondary', icon: RefreshCw },
   ];
 
-  const breadcrumbs = [
-    { label: 'DevOps', href: '/app/devops' },
-    { label: 'Swarm Clusters', href: '/app/devops/swarm' },
-    { label: 'Stacks' },
-  ];
+  useEffect(() => {
+    onActionsReady?.(pageActions);
+  }, [onActionsReady, handleRefresh]);
 
   return (
-    <PageContainer title="Swarm Stacks" description="Deploy and manage Docker Compose stacks" breadcrumbs={breadcrumbs} actions={pageActions}>
+    <>
       <div className="space-y-4">
         <ClusterSelector />
 
@@ -79,7 +170,7 @@ export const SwarmStacksPage: React.FC = () => {
         ) : error ? (
           <div className="text-center py-20">
             <p className="text-theme-error mb-4">{error}</p>
-            <Button onClick={refetch} variant="secondary" size="sm">Retry</Button>
+            <Button onClick={handleRefresh} variant="secondary" size="sm">Retry</Button>
           </div>
         ) : stacks.length === 0 ? (
           <Card variant="default" padding="lg" className="text-center">
@@ -91,41 +182,45 @@ export const SwarmStacksPage: React.FC = () => {
         ) : (
           <div className="space-y-3">
             {stacks.map((stack) => (
-              <Card key={stack.id} variant="default" padding="md">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3">
-                      <h3 className="text-base font-semibold text-theme-primary">{stack.name}</h3>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${swarmApi.getStackStatusColor(stack.status)}`}>
-                        {stack.status}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-4 mt-1 text-xs text-theme-tertiary">
-                      <span>{stack.service_count} services</span>
-                      <span>{stack.deploy_count} deploys</span>
-                      {stack.last_deployed_at && <span>Last: {new Date(stack.last_deployed_at).toLocaleString()}</span>}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button size="xs" variant="ghost" onClick={() => handleRedeploy(stack.id)} title="Deploy">
-                      <Rocket className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button size="xs" variant="ghost" onClick={() => handleRemove(stack.id, stack.name)} title="Remove">
-                      <XCircle className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button size="xs" variant="danger" onClick={() => handleDelete(stack.id, stack.name)} title="Delete">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              </Card>
+              <StackCard
+                key={stack.id}
+                stack={stack}
+                isExpanded={expandedStackId === stack.id}
+                expandedData={expandedDataCache.current.get(stack.id) || null}
+                onToggleExpand={() => handleToggleExpand({ id: stack.id, name: stack.name })}
+                onDeploy={() => handleRedeploy(stack.id)}
+                onRemove={() => handleRemove(stack.id, stack.name)}
+                onDelete={() => handleDelete(stack.id, stack.name)}
+                onScaleService={setScaleTarget}
+                onRollbackService={setRollbackTarget}
+              />
             ))}
           </div>
         )}
       </div>
 
       <StackDeployModal isOpen={showDeployModal} onClose={() => setShowDeployModal(false)} onDeploy={handleDeploy} />
+
+      {scaleTarget && (
+        <ServiceScaleModal
+          isOpen
+          onClose={() => setScaleTarget(null)}
+          serviceName={scaleTarget.service_name}
+          currentReplicas={scaleTarget.desired_replicas}
+          onScale={handleScaleService}
+        />
+      )}
+
+      {rollbackTarget && (
+        <ServiceRollbackModal
+          isOpen
+          onClose={() => setRollbackTarget(null)}
+          serviceName={rollbackTarget.service_name}
+          onRollback={handleRollbackService}
+        />
+      )}
+
       {ConfirmationDialog}
-    </PageContainer>
+    </>
   );
 };

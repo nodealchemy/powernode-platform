@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, X, Loader2, Clock, Archive, Eye,
   Download, RefreshCw
 } from 'lucide-react';
-import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
+import { type PageAction } from '@/shared/components/layout/PageContainer';
 import { Button } from '@/shared/components/ui/Button';
 import { gitProvidersApi } from '@/features/devops/git/services/gitProvidersApi';
 import { CommitDetailModal } from '@/features/devops/git/components/CommitDetailModal';
@@ -770,7 +770,11 @@ interface Commit {
   date: string;
 }
 
-export function RepositoriesPage() {
+interface RepositoriesPageProps {
+  onActionsReady?: (actions: PageAction[]) => void;
+}
+
+export function RepositoriesPage({ onActionsReady }: RepositoriesPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const { showNotification } = useNotifications();
   const { confirm, ConfirmationDialog } = useConfirmation();
@@ -887,12 +891,6 @@ export function RepositoriesPage() {
 
   const hasActiveFilters = filters.provider_id || filters.search || filters.is_private !== undefined || filters.webhook_configured !== undefined;
 
-  const breadcrumbs = [
-    { label: 'Dashboard', href: '/app' },
-    { label: 'DevOps', href: '/app/devops' },
-    { label: 'Repositories' }
-  ];
-
   const pageActions: PageAction[] = [
     {
       id: 'refresh',
@@ -911,13 +909,13 @@ export function RepositoriesPage() {
     }
   ];
 
+  // Report actions to parent hub page
+  useEffect(() => {
+    onActionsReady?.(pageActions);
+  }, [onActionsReady, refreshing, loading]);
+
   return (
-    <PageContainer
-      title="Git Repositories"
-      description="Manage synced repositories from all connected Git providers"
-      breadcrumbs={breadcrumbs}
-      actions={pageActions}
-    >
+    <>
       <div className="space-y-4">
         {/* Search and Filters */}
         <div className="flex flex-col sm:flex-row gap-4">
@@ -1083,7 +1081,7 @@ export function RepositoriesPage() {
         onClose={() => setShowImportModal(false)}
         onSuccess={handleImportSuccess}
       />
-    </PageContainer>
+    </>
   );
 }
 

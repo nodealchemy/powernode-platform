@@ -1,15 +1,19 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, RefreshCw, Play, GitBranch } from 'lucide-react';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
+import type { PageAction } from '@/shared/components/layout/PageContainer';
 import { SearchInput } from '@/shared/components/ui/SearchInput';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { usePipelines } from '@/features/devops/pipelines/hooks/usePipelines';
 import { PipelineList } from '@/features/devops/pipelines/components/PipelineList';
 
-export const PipelinesPage: React.FC = () => {
+interface PipelinesPageProps {
+  onActionsReady?: (actions: PageAction[]) => void;
+}
+
+export const PipelinesPage: React.FC<PipelinesPageProps> = ({ onActionsReady }) => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { showNotification } = useNotifications();
@@ -44,6 +48,27 @@ export const PipelinesPage: React.FC = () => {
 
   // Check permissions
   const canCreatePipelines = currentUser?.permissions?.includes('devops.pipelines.write') || false;
+
+  // Report actions to parent hub page
+  useEffect(() => {
+    const pageActions: PageAction[] = [
+      {
+        id: 'refresh',
+        label: 'Refresh',
+        onClick: refresh,
+        icon: RefreshCw,
+        variant: 'outline'
+      },
+      ...(canCreatePipelines ? [{
+        id: 'create-pipeline',
+        label: 'Create Pipeline',
+        onClick: () => navigate('/app/devops/ci-cd/pipelines/new'),
+        icon: Plus,
+        variant: 'primary' as const
+      }] : [])
+    ];
+    onActionsReady?.(pageActions);
+  }, [onActionsReady, refresh, canCreatePipelines, navigate]);
 
   // Filter pipelines by search query
   const filteredPipelines = pipelines.filter(pipeline => {
@@ -100,33 +125,7 @@ export const PipelinesPage: React.FC = () => {
   }, [exportPipelineYaml, showNotification]);
 
   return (
-    <PageContainer
-      title="DevOps Pipelines"
-      description="Create and manage automated deployment pipelines"
-      breadcrumbs={[
-        { label: 'Dashboard', href: '/app' },
-        { label: 'DevOps', href: '/app/devops' },
-        { label: 'Pipelines' }
-      ]}
-      actions={[
-        {
-          id: 'refresh',
-          label: 'Refresh',
-          onClick: refresh,
-          icon: RefreshCw,
-          variant: 'outline'
-        },
-        ...(canCreatePipelines ? [
-          {
-            id: 'create-pipeline',
-            label: 'Create Pipeline',
-            onClick: () => navigate('/app/devops/ci-cd/pipelines/new'),
-            icon: Plus,
-            variant: 'primary' as const
-          }
-        ] : [])
-      ]}
-    >
+    <>
       <div className="space-y-6">
         {/* Stats Cards */}
         {meta && (
@@ -221,7 +220,7 @@ export const PipelinesPage: React.FC = () => {
           onExportYaml={handleExportYaml}
         />
       </div>
-    </PageContainer>
+    </>
   );
 };
 

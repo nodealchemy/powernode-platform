@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Plus, RefreshCw, Trash2 } from 'lucide-react';
-import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
+import type { PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
@@ -18,7 +18,7 @@ const tabs = [
   { id: 'configs', label: 'Configs', path: '/configs' },
 ];
 
-export const SwarmSecretsPage: React.FC = () => {
+export const SwarmSecretsPage: React.FC<{ onActionsReady?: (actions: PageAction[]) => void }> = ({ onActionsReady }) => {
   const location = useLocation();
   const { selectedClusterId } = useClusterContext();
   const { secrets, configs, isLoading, error, refetch, createSecret, deleteSecret, createConfig, deleteConfig } = useSwarmSecrets({
@@ -61,22 +61,12 @@ export const SwarmSecretsPage: React.FC = () => {
     { label: 'Refresh', onClick: refetch, variant: 'secondary', icon: RefreshCw },
   ];
 
-  const getBreadcrumbs = () => {
-    const base: Array<{ label: string; href?: string }> = [
-      { label: 'Dashboard', href: '/app' },
-      { label: 'DevOps', href: '/app/devops' },
-      { label: 'Swarm Clusters', href: '/app/devops/swarm' },
-      { label: 'Secrets & Configs' },
-    ];
-    const activeTabInfo = tabs.find(t => t.id === activeTab);
-    if (activeTabInfo && activeTab !== 'secrets') {
-      base.push({ label: activeTabInfo.label });
-    }
-    return base;
-  };
+  useEffect(() => {
+    onActionsReady?.(pageActions);
+  }, [onActionsReady, activeTab, refetch]);
 
   return (
-    <PageContainer title="Secrets & Configs" description="Manage Docker Swarm secrets and configuration objects" breadcrumbs={getBreadcrumbs()} actions={pageActions}>
+    <>
       <div className="space-y-4">
         <ClusterSelector />
 
@@ -192,6 +182,6 @@ export const SwarmSecretsPage: React.FC = () => {
       <SecretFormModal isOpen={showSecretModal} onClose={() => setShowSecretModal(false)} onSubmit={handleCreateSecret} />
       <ConfigFormModal isOpen={showConfigModal} onClose={() => setShowConfigModal(false)} onSubmit={handleCreateConfig} />
       {ConfirmationDialog}
-    </PageContainer>
+    </>
   );
 };

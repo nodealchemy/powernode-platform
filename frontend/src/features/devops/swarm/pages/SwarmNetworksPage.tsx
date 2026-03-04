@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, RefreshCw, Trash2 } from 'lucide-react';
-import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
+import type { PageAction } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
@@ -10,7 +10,7 @@ import { ClusterSelector } from '../components/ClusterSelector';
 import { NetworkFormModal } from '../components/NetworkFormModal';
 import type { NetworkFormData } from '../types';
 
-export const SwarmNetworksPage: React.FC = () => {
+export const SwarmNetworksPage: React.FC<{ onActionsReady?: (actions: PageAction[]) => void }> = ({ onActionsReady }) => {
   const { selectedClusterId } = useClusterContext();
   const { networks, isLoading, error, refetch, createNetwork, deleteNetwork } = useSwarmNetworks({
     clusterId: selectedClusterId || '',
@@ -41,14 +41,12 @@ export const SwarmNetworksPage: React.FC = () => {
     { label: 'Refresh', onClick: refetch, variant: 'secondary', icon: RefreshCw },
   ];
 
-  const breadcrumbs = [
-    { label: 'DevOps', href: '/app/devops' },
-    { label: 'Swarm Clusters', href: '/app/devops/swarm' },
-    { label: 'Networks' },
-  ];
+  useEffect(() => {
+    onActionsReady?.(pageActions);
+  }, [onActionsReady, refetch]);
 
   return (
-    <PageContainer title="Swarm Networks" description="Manage Docker Swarm overlay networks" breadcrumbs={breadcrumbs} actions={pageActions}>
+    <>
       <div className="space-y-4">
         <ClusterSelector />
 
@@ -103,6 +101,6 @@ export const SwarmNetworksPage: React.FC = () => {
 
       <NetworkFormModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} onSubmit={handleCreate} />
       {ConfirmationDialog}
-    </PageContainer>
+    </>
   );
 };

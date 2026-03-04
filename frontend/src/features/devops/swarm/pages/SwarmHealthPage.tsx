@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { RefreshCw } from 'lucide-react';
-import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
+import type { PageAction } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { useSwarmClusters } from '../hooks/useSwarmClusters';
@@ -8,7 +8,7 @@ import { swarmApi } from '../services/swarmApi';
 import { HealthStatusGrid } from '../components/HealthStatusGrid';
 import type { ClusterHealthSummary } from '../types';
 
-export const SwarmHealthPage: React.FC = () => {
+export const SwarmHealthPage: React.FC<{ onActionsReady?: (actions: PageAction[]) => void }> = ({ onActionsReady }) => {
   const { clusters } = useSwarmClusters();
   const [healthData, setHealthData] = useState<ClusterHealthSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,14 +58,12 @@ export const SwarmHealthPage: React.FC = () => {
     { label: 'Refresh', onClick: fetchAllHealth, variant: 'secondary', icon: RefreshCw },
   ];
 
-  const breadcrumbs = [
-    { label: 'DevOps', href: '/app/devops' },
-    { label: 'Swarm Clusters', href: '/app/devops/swarm' },
-    { label: 'Health Monitor' },
-  ];
+  useEffect(() => {
+    onActionsReady?.(pageActions);
+  }, [onActionsReady, fetchAllHealth]);
 
   return (
-    <PageContainer title="Health Monitor" description="Multi-cluster health monitoring and alerts" breadcrumbs={breadcrumbs} actions={pageActions}>
+    <>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -99,6 +97,6 @@ export const SwarmHealthPage: React.FC = () => {
           <HealthStatusGrid healthData={healthData} clusterNames={clusters} isLoading={isLoading} />
         )}
       </div>
-    </PageContainer>
+    </>
   );
 };

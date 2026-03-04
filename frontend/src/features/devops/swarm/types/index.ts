@@ -163,11 +163,14 @@ export interface ServiceScaleData {
 
 // ==================== Stack ====================
 
+export type StackSource = 'platform' | 'discovered';
+
 export interface SwarmStackSummary {
   id: string;
   name: string;
   slug: string;
   status: StackStatus;
+  source?: StackSource;
   service_count: number;
   last_deployed_at?: string;
   deploy_count: number;
@@ -393,6 +396,7 @@ export interface NodeFilters {
 export interface ServiceFilters {
   mode?: ServiceMode;
   stack_id?: string;
+  stack_name?: string;
   q?: string;
 }
 

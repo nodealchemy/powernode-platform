@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, RefreshCw, Wifi, Trash2, Edit3, Server } from 'lucide-react';
-import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
+import type { PageAction } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { Modal } from '@/shared/components/ui/Modal';
@@ -10,7 +10,7 @@ import { useSwarmClusters } from '../hooks/useSwarmClusters';
 import { ClusterStatusBadge } from '../components/ClusterStatusBadge';
 import type { ClusterFormData, ClusterEnvironment } from '../types';
 
-export const SwarmClustersPage: React.FC = () => {
+export const SwarmClustersPage: React.FC<{ onActionsReady?: (actions: PageAction[]) => void }> = ({ onActionsReady }) => {
   const navigate = useNavigate();
   const { clusters, isLoading, error, refetch, createCluster, updateCluster, deleteCluster, testConnection } = useSwarmClusters();
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -87,35 +87,30 @@ export const SwarmClustersPage: React.FC = () => {
     { label: 'Refresh', onClick: refetch, variant: 'secondary', icon: RefreshCw },
   ];
 
-  const breadcrumbs = [
-    { label: 'DevOps', href: '/app/devops' },
-    { label: 'Swarm Clusters' },
-  ];
+  useEffect(() => {
+    onActionsReady?.(pageActions);
+  }, [onActionsReady, refetch]);
 
   if (isLoading) {
     return (
-      <PageContainer title="Swarm Clusters" breadcrumbs={breadcrumbs}>
-        <div className="flex items-center justify-center py-20">
-          <RefreshCw className="w-6 h-6 animate-spin text-theme-tertiary" />
-          <span className="ml-3 text-theme-secondary">Loading clusters...</span>
-        </div>
-      </PageContainer>
+      <div className="flex items-center justify-center py-20">
+        <RefreshCw className="w-6 h-6 animate-spin text-theme-tertiary" />
+        <span className="ml-3 text-theme-secondary">Loading clusters...</span>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <PageContainer title="Swarm Clusters" breadcrumbs={breadcrumbs}>
-        <div className="text-center py-20">
-          <p className="text-theme-error mb-4">{error}</p>
-          <Button onClick={refetch} variant="secondary" size="sm">Retry</Button>
-        </div>
-      </PageContainer>
+      <div className="text-center py-20">
+        <p className="text-theme-error mb-4">{error}</p>
+        <Button onClick={refetch} variant="secondary" size="sm">Retry</Button>
+      </div>
     );
   }
 
   return (
-    <PageContainer title="Swarm Clusters" description="Manage Docker Swarm clusters and connections" breadcrumbs={breadcrumbs} actions={pageActions}>
+    <>
       {clusters.length === 0 ? (
         <Card variant="default" padding="lg" className="text-center">
           <Server className="w-12 h-12 mx-auto text-theme-tertiary mb-4" />
@@ -220,6 +215,6 @@ export const SwarmClustersPage: React.FC = () => {
         </div>
       </Modal>
       {ConfirmationDialog}
-    </PageContainer>
+    </>
   );
 };

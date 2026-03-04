@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { LayoutDashboard, GitBranch, FolderGit2 } from 'lucide-react';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { DevOpsOverviewPage } from '@/pages/app/devops/DevOpsOverviewPage';
 import { GitProvidersPage } from '@/pages/app/devops/GitProvidersPage';
@@ -24,11 +24,24 @@ export const SourceControlPage: React.FC = () => {
   };
 
   const [activeTab, setActiveTab] = useState(getActiveTab());
+  const [actions, setActions] = useState<PageAction[]>([]);
 
   useEffect(() => {
     const newTab = getActiveTab();
-    if (newTab !== activeTab) setActiveTab(newTab);
+    if (newTab !== activeTab) {
+      setActiveTab(newTab);
+      setActions([]);
+    }
   }, [location.pathname]);
+
+  const handleTabChange = useCallback((tabId: string) => {
+    setActiveTab(tabId);
+    setActions([]);
+  }, []);
+
+  const handleActionsReady = useCallback((newActions: PageAction[]) => {
+    setActions(newActions);
+  }, []);
 
   const getBreadcrumbs = () => {
     const base: Array<{ label: string; href?: string }> = [
@@ -50,11 +63,12 @@ export const SourceControlPage: React.FC = () => {
       title="Source Control"
       description="Git providers and repository management"
       breadcrumbs={getBreadcrumbs()}
+      actions={actions}
     >
       <TabContainer
         tabs={tabs}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         basePath="/app/devops/source-control"
         variant="underline"
         className="mb-6"
@@ -63,10 +77,10 @@ export const SourceControlPage: React.FC = () => {
           <DevOpsOverviewPage />
         </TabPanel>
         <TabPanel tabId="providers" activeTab={activeTab}>
-          <GitProvidersPage />
+          <GitProvidersPage onActionsReady={handleActionsReady} />
         </TabPanel>
         <TabPanel tabId="repositories" activeTab={activeTab}>
-          <RepositoriesPage />
+          <RepositoriesPage onActionsReady={handleActionsReady} />
         </TabPanel>
       </TabContainer>
     </PageContainer>
