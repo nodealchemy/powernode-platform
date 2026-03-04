@@ -72,6 +72,7 @@ module Devops
         sync_nodes(cluster, nodes)
 
         services = client.service_list
+        sync_stacks(cluster, services)
         sync_services(cluster, services)
 
         cluster.update!(
@@ -115,6 +116,54 @@ module Devops
             already_imported: imported_ids.include?(ds["ID"])
           }
         end
+      end
+
+      def adopt_stack(cluster, stack_name)
+        client = ApiClient.new(cluster)
+        stack_label = Devops::Docker::StackManager::STACK_LABEL
+        managed_label = Devops::Docker::StackManager::MANAGED_LABEL
+
+        docker_services = client.service_list
+        stack_services = docker_services.select do |ds|
+          ds.dig("Spec", "Labels", stack_label) == stack_name
+        end
+
+        return { success: false, error: "No Docker services found for stack '#{stack_name}'" } if stack_services.empty?
+
+        # Tag each service with powernode.managed=true via Docker API
+        tagged = 0
+        stack_services.each do |ds|
+          labels = ds.dig("Spec", "Labels") || {}
+          next if labels[managed_label] == "true"
+
+          spec = ds["Spec"].deep_dup
+          spec["Labels"][managed_label] = "true"
+          version = ds.dig("Version", "Index")
+          client.service_update(ds["ID"], version, spec)
+          tagged += 1
+        end
+
+        # Create or update the stack record
+        stack = cluster.swarm_stacks.find_or_initialize_by(name: stack_name)
+        stack.assign_attributes(
+          source: "discovered",
+          status: "deployed",
+          service_count: stack_services.size,
+          last_deployed_at: Time.current
+        )
+        stack.save!
+
+        # Import the services
+        stack_services.each do |ds|
+          service = cluster.swarm_services.find_or_initialize_by(docker_service_id: ds["ID"])
+          update_service_from_docker(service, ds, cluster)
+        end
+
+        Rails.logger.info("Adopted stack #{stack_name}: #{stack_services.size} services, #{tagged} newly tagged")
+        { success: true, stack: stack, services: stack_services.size, tagged: tagged }
+      rescue ApiClient::ApiError => e
+        Rails.logger.error("Failed to adopt stack #{stack_name}: #{e.message}")
+        { success: false, error: e.message }
       end
 
       def import_services(cluster, docker_service_ids)
@@ -164,22 +213,68 @@ module Devops
         end
       end
 
+      def sync_stacks(cluster, docker_services)
+        stack_label = Devops::Docker::StackManager::STACK_LABEL
+        managed_label = Devops::Docker::StackManager::MANAGED_LABEL
+
+        # Group managed services by stack namespace
+        stack_groups = docker_services.each_with_object({}) do |ds, groups|
+          labels = ds.dig("Spec", "Labels") || {}
+          next unless labels[managed_label] == "true"
+
+          stack_name = labels[stack_label]
+          next unless stack_name.present?
+
+          groups[stack_name] ||= 0
+          groups[stack_name] += 1
+        end
+
+        # Create or update managed stacks
+        stack_groups.each do |stack_name, svc_count|
+          stack = cluster.swarm_stacks.find_or_initialize_by(name: stack_name)
+
+          if stack.new_record?
+            stack.assign_attributes(
+              source: "discovered",
+              status: "deployed",
+              service_count: svc_count,
+              last_deployed_at: Time.current
+            )
+          else
+            stack.assign_attributes(
+              status: "deployed",
+              service_count: svc_count
+            )
+          end
+
+          stack.save!
+        end
+
+        # Mark discovered stacks as removed if no longer found in Docker
+        cluster.swarm_stacks.discovered.where.not(name: stack_groups.keys).where.not(status: "removed").update_all(status: "removed", service_count: 0)
+      end
+
       def sync_services(cluster, docker_services)
+        managed_label = Devops::Docker::StackManager::MANAGED_LABEL
         remote_ids = docker_services.map { |s| s["ID"] }
 
         # Remove imported services that no longer exist in Docker
         cluster.swarm_services.where.not(docker_service_id: remote_ids).destroy_all
 
-        # Only update already-imported services (do not create new ones)
-        imported_ids = cluster.swarm_services.pluck(:docker_service_id)
-
         docker_services.each do |docker_service|
-          next unless imported_ids.include?(docker_service["ID"])
+          labels = docker_service.dig("Spec", "Labels") || {}
 
-          service = cluster.swarm_services.find_by(docker_service_id: docker_service["ID"])
-          next unless service
+          if labels[managed_label] == "true"
+            # Auto-import services tagged as Powernode-managed
+            service = cluster.swarm_services.find_or_initialize_by(docker_service_id: docker_service["ID"])
+            update_service_from_docker(service, docker_service, cluster)
+          else
+            # Unmanaged services: only update already-imported ones
+            service = cluster.swarm_services.find_by(docker_service_id: docker_service["ID"])
+            next unless service
 
-          update_service_from_docker(service, docker_service, cluster)
+            update_service_from_docker(service, docker_service, cluster)
+          end
         end
       end
 

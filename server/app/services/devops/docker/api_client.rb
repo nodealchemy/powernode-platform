@@ -222,6 +222,27 @@ module Devops
         get("/containers/#{id}/top")
       end
 
+      # Container exec (2-step process: create → start)
+      def container_exec_create(container_id, cmd, opts = {})
+        body = {
+          "AttachStdout" => true,
+          "AttachStderr" => true,
+          "Cmd" => Array(cmd)
+        }
+        body["Env"] = opts[:env] if opts[:env]
+        body["WorkingDir"] = opts[:working_dir] if opts[:working_dir]
+        post("/containers/#{container_id}/exec", body)
+      end
+
+      def container_exec_start(exec_id)
+        raw = post_raw("/exec/#{exec_id}/start", { "Detach" => false, "Tty" => false })
+        parse_docker_logs(raw)
+      end
+
+      def container_exec_inspect(exec_id)
+        get("/exec/#{exec_id}/json")
+      end
+
       # Images
       def image_list
         get("/images/json")
@@ -333,6 +354,23 @@ module Devops
       def delete(path)
         response = connection.delete(versioned_path(path))
         handle_response(response)
+      rescue Faraday::ConnectionFailed, Faraday::SSLError => e
+        raise ConnectionError.new("Connection failed: #{e.message}")
+      rescue Faraday::TimeoutError => e
+        raise ConnectionError.new("Request timed out: #{e.message}")
+      end
+
+      def post_raw(path, body = {})
+        response = connection.post(versioned_path(path), body.to_json)
+        case response.status
+        when 200..299
+          response.body
+        when 404
+          raise NotFoundError.new("Resource not found", response.status, response.body)
+        else
+          error_message = response.body.is_a?(Hash) ? extract_error_message(response.body) : response.body.to_s
+          raise ApiError.new("API error (#{response.status}): #{error_message}", response.status, response.body)
+        end
       rescue Faraday::ConnectionFailed, Faraday::SSLError => e
         raise ConnectionError.new("Connection failed: #{e.message}")
       rescue Faraday::TimeoutError => e

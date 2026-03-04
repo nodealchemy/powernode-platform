@@ -94,6 +94,39 @@ module Devops
         @client.container_top(container.docker_container_id)
       end
 
+      # Execute a command inside a running container (non-interactive, 100KB output limit).
+      def exec_command(container, command, opts = {})
+        activity = create_activity("exec", container: container, params: { command: command })
+
+        begin
+          activity.start!
+          exec_result = @client.container_exec_create(container.docker_container_id, command, opts)
+          exec_id = exec_result["Id"]
+
+          output = @client.container_exec_start(exec_id)
+          inspect = @client.container_exec_inspect(exec_id)
+
+          # Flatten log entries to a single string, truncate to 100KB
+          output_text = if output.is_a?(Array)
+                          output.map { |e| e[:message] }.join("\n")
+                        else
+                          output.to_s
+                        end
+          output_text = output_text.truncate(102_400)
+
+          activity.complete!(exit_code: inspect["ExitCode"])
+
+          {
+            success: true,
+            output: output_text,
+            exit_code: inspect["ExitCode"]
+          }
+        rescue ApiClient::ApiError => e
+          activity.fail!(error: e.message)
+          raise
+        end
+      end
+
       private
 
       def create_activity(type, container: nil, params: {})
