@@ -21,7 +21,20 @@ test:
   database: powernode_test<%= ENV['TEST_ENV_NUMBER'] %>
 
 production:
-  <<: *default
-  database: <%= ENV.fetch("DATABASE_NAME") { "powernode_production" } %>
-  username: powernode
-  password: <%= ENV["POWERNODE_DATABASE_PASSWORD"] %>
+  primary:
+    <<: *default
+    database: <%= ENV.fetch("DATABASE_NAME") { "powernode_production" } %>
+    username: powernode
+    password: <%= ENV["POWERNODE_DATABASE_PASSWORD"] %>
+  cache:
+    <<: *default
+    database: <%= ENV.fetch("DATABASE_NAME_CACHE") { ENV.fetch("DATABASE_NAME", "powernode_production") } %>
+    username: powernode
+    password: <%= ENV["POWERNODE_DATABASE_PASSWORD"] %>
+    migrations_paths: db/cache_migrate
+  queue:
+    <<: *default
+    database: <%= ENV.fetch("DATABASE_NAME_QUEUE") { ENV.fetch("DATABASE_NAME", "powernode_production") } %>
+    username: powernode
+    password: <%= ENV["POWERNODE_DATABASE_PASSWORD"] %>
+    migrations_paths: db/queue_migrate
