@@ -99,7 +99,8 @@ export const StackCard: React.FC<StackCardProps> = ({
               {expandedData && expandedData.services.length > 0 && (
                 <div>
                   <h4 className="text-xs font-semibold text-theme-secondary uppercase tracking-wider mb-2">Services</h4>
-                  <div className="space-y-1.5">
+                  <ServiceHeader />
+                  <div className="space-y-0.5">
                     {expandedData.services.map((svc) => (
                       <ServiceRow
                         key={svc.id}
@@ -152,7 +153,22 @@ export const StackCard: React.FC<StackCardProps> = ({
   );
 };
 
-// ─── Compact inline service row ───────────────────────────────────────
+// ─── Service grid layout ──────────────────────────────────────────────
+
+const SERVICE_GRID = 'grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_5rem_2.5rem_4rem_2.5rem_5.5rem_3.5rem] items-center gap-x-3 px-2';
+
+const ServiceHeader: React.FC = () => (
+  <div className={`${SERVICE_GRID} pb-1 text-[10px] text-theme-tertiary uppercase tracking-wider`}>
+    <span>Name</span>
+    <span>Image</span>
+    <span>Mode</span>
+    <span>Repl.</span>
+    <span>Health</span>
+    <span></span>
+    <span>Ports</span>
+    <span></span>
+  </div>
+);
 
 interface ServiceRowProps {
   service: SwarmServiceSummary;
@@ -166,25 +182,25 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ service, onScale, onRollback })
   const replicaColor = service.running_replicas >= service.desired_replicas ? 'text-theme-success' : 'text-theme-warning';
 
   return (
-    <div className="flex items-center gap-3 px-2 py-1.5 rounded hover:bg-theme-surface/50 group">
-      {/* Name + image */}
-      <div className="flex-1 min-w-0">
-        <span className="text-sm font-medium text-theme-primary">{service.service_name}</span>
-        <span className="ml-2 text-xs text-theme-tertiary truncate">{service.image}</span>
-      </div>
+    <div className={`${SERVICE_GRID} py-1.5 rounded hover:bg-theme-surface/50 group`}>
+      {/* Name */}
+      <span className="text-sm font-medium text-theme-primary truncate">{service.service_name}</span>
+
+      {/* Image */}
+      <span className="text-xs text-theme-tertiary truncate">{service.image}</span>
 
       {/* Mode badge */}
-      <span className="px-1.5 py-0.5 rounded bg-theme-surface text-xs text-theme-secondary capitalize shrink-0">
+      <span className="px-1.5 py-0.5 rounded bg-theme-surface text-xs text-theme-secondary capitalize text-center">
         {service.mode}
       </span>
 
       {/* Replicas */}
-      <span className={`text-xs font-semibold shrink-0 ${replicaColor}`}>
+      <span className={`text-xs font-semibold text-center ${replicaColor}`}>
         {service.running_replicas}/{service.desired_replicas}
       </span>
 
       {/* Mini health bar */}
-      <div className="w-16 h-1 bg-theme-surface rounded-full overflow-hidden shrink-0">
+      <div className="w-full h-1 bg-theme-surface rounded-full overflow-hidden">
         <div
           className={`h-full rounded-full ${
             service.health_percentage >= 100 ? 'bg-theme-success' :
@@ -196,23 +212,21 @@ const ServiceRow: React.FC<ServiceRowProps> = ({ service, onScale, onRollback })
       </div>
 
       {/* Health % */}
-      <span className={`text-xs font-medium w-8 text-right shrink-0 ${healthColor}`}>
+      <span className={`text-xs font-medium text-right ${healthColor}`}>
         {service.health_percentage}%
       </span>
 
       {/* Ports */}
-      {service.ports.length > 0 && (
-        <div className="flex gap-0.5 shrink-0">
-          {service.ports.map((port, i) => (
-            <span key={i} className="px-1 py-0.5 rounded bg-theme-surface text-xs text-theme-tertiary">
-              {port.published}:{port.target}
-            </span>
-          ))}
-        </div>
-      )}
+      <div className="flex gap-0.5 overflow-hidden">
+        {service.ports.map((port, i) => (
+          <span key={i} className="px-1 py-0.5 rounded bg-theme-surface text-xs text-theme-tertiary whitespace-nowrap">
+            {port.published}:{port.target}
+          </span>
+        ))}
+      </div>
 
       {/* Actions */}
-      <div className="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
         {service.mode === 'replicated' && (
           <Button size="xs" variant="ghost" onClick={onScale} title="Scale">
             <Scale className="w-3 h-3" />
