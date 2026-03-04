@@ -267,9 +267,9 @@ module Devops
         (endpoint_spec["Ports"] || []).map do |port|
           {
             protocol: port["Protocol"],
-            target_port: port["TargetPort"],
-            published_port: port["PublishedPort"],
-            publish_mode: port["PublishMode"]
+            target: port["TargetPort"],
+            published: port["PublishedPort"],
+            mode: port["PublishMode"]
           }
         end
       end

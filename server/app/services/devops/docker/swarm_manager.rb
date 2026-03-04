@@ -72,8 +72,9 @@ module Devops
         sync_nodes(cluster, nodes)
 
         services = client.service_list
+        running_counts = fetch_running_task_counts(client)
         sync_stacks(cluster, services)
-        sync_services(cluster, services)
+        sync_services(cluster, services, running_counts: running_counts)
 
         cluster.update!(
           node_count: nodes.size,
@@ -153,10 +154,11 @@ module Devops
         )
         stack.save!
 
-        # Import the services
+        # Import the services with running replica counts
+        running_counts = fetch_running_task_counts(client)
         stack_services.each do |ds|
           service = cluster.swarm_services.find_or_initialize_by(docker_service_id: ds["ID"])
-          update_service_from_docker(service, ds, cluster)
+          update_service_from_docker(service, ds, cluster, running_counts: running_counts)
         end
 
         Rails.logger.info("Adopted stack #{stack_name}: #{stack_services.size} services, #{tagged} newly tagged")
@@ -169,6 +171,7 @@ module Devops
       def import_services(cluster, docker_service_ids)
         client = ApiClient.new(cluster)
         docker_services = client.service_list
+        running_counts = fetch_running_task_counts(client)
         imported = []
 
         docker_services.each do |docker_service|
@@ -176,7 +179,7 @@ module Devops
           next if cluster.swarm_services.exists?(docker_service_id: docker_service["ID"])
 
           service = cluster.swarm_services.new(docker_service_id: docker_service["ID"])
-          update_service_from_docker(service, docker_service, cluster)
+          update_service_from_docker(service, docker_service, cluster, running_counts: running_counts)
           imported << service
         end
 
@@ -254,7 +257,7 @@ module Devops
         cluster.swarm_stacks.discovered.where.not(name: stack_groups.keys).where.not(status: "removed").update_all(status: "removed", service_count: 0)
       end
 
-      def sync_services(cluster, docker_services)
+      def sync_services(cluster, docker_services, running_counts: {})
         managed_label = Devops::Docker::StackManager::MANAGED_LABEL
         remote_ids = docker_services.map { |s| s["ID"] }
 
@@ -267,18 +270,18 @@ module Devops
           if labels[managed_label] == "true"
             # Auto-import services tagged as Powernode-managed
             service = cluster.swarm_services.find_or_initialize_by(docker_service_id: docker_service["ID"])
-            update_service_from_docker(service, docker_service, cluster)
+            update_service_from_docker(service, docker_service, cluster, running_counts: running_counts)
           else
             # Unmanaged services: only update already-imported ones
             service = cluster.swarm_services.find_by(docker_service_id: docker_service["ID"])
             next unless service
 
-            update_service_from_docker(service, docker_service, cluster)
+            update_service_from_docker(service, docker_service, cluster, running_counts: running_counts)
           end
         end
       end
 
-      def update_service_from_docker(service, docker_service, cluster)
+      def update_service_from_docker(service, docker_service, cluster, running_counts: {})
         spec = docker_service["Spec"] || {}
         task_template = spec["TaskTemplate"] || {}
 
@@ -287,6 +290,7 @@ module Devops
           image: task_template.dig("ContainerSpec", "Image") || "unknown",
           mode: spec.dig("Mode", "Replicated") ? "replicated" : "global",
           desired_replicas: spec.dig("Mode", "Replicated", "Replicas") || 1,
+          running_replicas: running_counts[docker_service["ID"]] || service.running_replicas,
           ports: extract_ports(spec["EndpointSpec"]),
           constraints: task_template.dig("Placement", "Constraints") || [],
           resource_limits: task_template.dig("Resources", "Limits") || {},
@@ -307,15 +311,28 @@ module Devops
         service.save!
       end
 
+      def fetch_running_task_counts(client)
+        tasks = client.task_list("desired-state" => ["running"])
+
+        tasks.each_with_object(Hash.new(0)) do |task, counts|
+          next unless task.dig("Status", "State") == "running"
+
+          counts[task["ServiceID"]] += 1
+        end
+      rescue ApiClient::ApiError => e
+        Rails.logger.warn("Failed to fetch task counts: #{e.message}")
+        {}
+      end
+
       def extract_ports(endpoint_spec)
         return [] unless endpoint_spec
 
         (endpoint_spec["Ports"] || []).map do |port|
           {
             protocol: port["Protocol"],
-            target_port: port["TargetPort"],
-            published_port: port["PublishedPort"],
-            publish_mode: port["PublishMode"]
+            target: port["TargetPort"],
+            published: port["PublishedPort"],
+            mode: port["PublishMode"]
           }
         end
       end
