@@ -17,7 +17,12 @@ export const transformDashboardData = (dashboard: MonitoringDashboard): Monitori
       total_workflows: dashboard.overview?.active_workflows || dashboard.workflows?.total || 0,
       active_conversations: dashboard.workflows?.running || 0,
       system_uptime: 0,
-      last_updated: new Date().toISOString()
+      last_updated: new Date().toISOString(),
+      // Extended operational metrics
+      total_executions_today: dashboard.overview?.total_executions_today || 0,
+      total_cost_today: dashboard.overview?.total_cost_today || 0,
+      avg_response_time: dashboard.overview?.avg_response_time || 0,
+      success_rate: dashboard.overview?.success_rate || 0,
     },
     timestamp: new Date().toISOString(),
     health_score: dashboard.system_health?.uptime_percentage || 100,

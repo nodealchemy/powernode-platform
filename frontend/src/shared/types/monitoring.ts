@@ -5,6 +5,11 @@ export interface SystemOverview {
   active_conversations: number;
   system_uptime: number;
   last_updated: string;
+  // Extended operational metrics from monitoring dashboard
+  total_executions_today?: number;
+  total_cost_today?: number;
+  avg_response_time?: number;
+  success_rate?: number;
 }
 
 export interface SystemMetrics {

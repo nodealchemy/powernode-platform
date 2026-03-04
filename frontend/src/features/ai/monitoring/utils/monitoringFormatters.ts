@@ -1,5 +1,5 @@
 import React from 'react';
-import { HeartPulse, Server, MessageSquare, ClipboardCheck, Bell, Coins } from 'lucide-react';
+import { HeartPulse, Server, MessageSquare, ClipboardCheck, Bell, Coins, Activity } from 'lucide-react';
 
 /**
  * Get color class for health score
@@ -37,12 +37,13 @@ export const formatLastUpdate = (date: Date | null): string => {
  * Tab definitions for Observability
  */
 export const MONITORING_TABS: ReadonlyArray<{
-  id: 'overview' | 'systems' | 'conversations' | 'evaluation' | 'alerts' | 'credits';
+  id: 'overview' | 'operations' | 'systems' | 'conversations' | 'evaluation' | 'alerts' | 'credits';
   label: string;
   icon: React.ReactNode;
   path: string;
 }> = [
   { id: 'overview', label: 'System Health', icon: React.createElement(HeartPulse, { size: 16 }), path: '/' },
+  { id: 'operations', label: 'Operations', icon: React.createElement(Activity, { size: 16 }), path: '/operations' },
   { id: 'systems', label: 'Systems', icon: React.createElement(Server, { size: 16 }), path: '/systems' },
   { id: 'conversations', label: 'Conversations', icon: React.createElement(MessageSquare, { size: 16 }), path: '/conversations' },
   { id: 'evaluation', label: 'Evaluation', icon: React.createElement(ClipboardCheck, { size: 16 }), path: '/evaluation' },

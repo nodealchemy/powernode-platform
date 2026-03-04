@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Settings, Users, Zap, BarChart3 } from 'lucide-react';
+import { Bell, Settings, Users, Zap, Clock, CheckCircle, DollarSign, Activity } from 'lucide-react';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { MonitoringDashboardData, Alert } from '@/shared/types/monitoring';
 
@@ -14,74 +14,102 @@ export const MonitoringOverviewCards: React.FC<MonitoringOverviewCardsProps> = (
 }) => {
   if (!dashboardData) return null;
 
+  const { overview } = dashboardData;
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
       <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-theme-muted">Active Providers</p>
-              <p className="text-2xl font-bold text-theme-primary">
-                {dashboardData.overview.total_providers}
-              </p>
+        <CardContent className="p-3">
+          <div className="flex items-center gap-2">
+            <Settings className="h-5 w-5 text-theme-info shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs text-theme-muted truncate">Providers</p>
+              <p className="text-lg font-bold text-theme-primary">{overview.total_providers}</p>
             </div>
-            <Settings className="h-8 w-8 text-theme-info" />
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-theme-muted">AI Agents</p>
-              <p className="text-2xl font-bold text-theme-primary">
-                {dashboardData.overview.total_agents}
-              </p>
+        <CardContent className="p-3">
+          <div className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-theme-success shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs text-theme-muted truncate">Agents</p>
+              <p className="text-lg font-bold text-theme-primary">{overview.total_agents}</p>
             </div>
-            <Users className="h-8 w-8 text-theme-success" />
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-theme-muted">Active Workflows</p>
-              <p className="text-2xl font-bold text-theme-primary">
-                {dashboardData.overview.total_workflows}
-              </p>
+        <CardContent className="p-3">
+          <div className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-theme-primary shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs text-theme-muted truncate">Workflows</p>
+              <p className="text-lg font-bold text-theme-primary">{overview.total_workflows}</p>
             </div>
-            <Zap className="h-8 w-8 text-theme-primary" />
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-theme-muted">Conversations</p>
-              <p className="text-2xl font-bold text-theme-primary">
-                {dashboardData.overview.active_conversations}
-              </p>
+        <CardContent className="p-3">
+          <div className="flex items-center gap-2">
+            <Activity className="h-5 w-5 text-theme-warning shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs text-theme-muted truncate">Executions Today</p>
+              <p className="text-lg font-bold text-theme-primary">{overview.total_executions_today ?? 0}</p>
             </div>
-            <BarChart3 className="h-8 w-8 text-theme-warning" />
           </div>
         </CardContent>
       </Card>
 
       <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-theme-muted">Active Alerts</p>
-              <p className="text-2xl font-bold text-theme-primary">
-                {alerts.filter(a => !a.resolved).length}
-              </p>
+        <CardContent className="p-3">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="h-5 w-5 text-theme-success shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs text-theme-muted truncate">Success Rate</p>
+              <p className="text-lg font-bold text-theme-primary">{Number(overview.success_rate ?? 0).toFixed(1)}%</p>
             </div>
-            <Bell className="h-8 w-8 text-theme-error" />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-3">
+          <div className="flex items-center gap-2">
+            <Clock className="h-5 w-5 text-theme-info shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs text-theme-muted truncate">Avg Response</p>
+              <p className="text-lg font-bold text-theme-primary">{Number(overview.avg_response_time ?? 0).toFixed(0)}ms</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-3">
+          <div className="flex items-center gap-2">
+            <DollarSign className="h-5 w-5 text-theme-success shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs text-theme-muted truncate">Cost Today</p>
+              <p className="text-lg font-bold text-theme-primary">${Number(overview.total_cost_today ?? 0).toFixed(2)}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-3">
+          <div className="flex items-center gap-2">
+            <Bell className="h-5 w-5 text-theme-error shrink-0" />
+            <div className="min-w-0">
+              <p className="text-xs text-theme-muted truncate">Alerts</p>
+              <p className="text-lg font-bold text-theme-primary">{alerts.filter(a => !a.resolved).length}</p>
+            </div>
           </div>
         </CardContent>
       </Card>

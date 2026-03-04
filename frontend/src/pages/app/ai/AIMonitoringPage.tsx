@@ -11,6 +11,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useAiMonitoringWebSocket, DashboardStats, SystemAlert } from '@/shared/hooks/useAiMonitoringWebSocket';
 import { monitoringApi, HealthStatus } from '@/shared/services/ai/MonitoringApiService';
+import { conversationsApi, ConversationBase } from '@/shared/services/ai/ConversationsApiService';
 import {
   MonitoringDashboardData,
   Alert,
@@ -43,6 +44,7 @@ import { AiErrorBoundary } from '@/shared/components/error/AiErrorBoundary';
 import { SelfHealingContent } from '@/features/ai/self-healing/SelfHealingDashboard';
 import { EvaluationContent } from '@/features/ai/evaluation/pages/EvaluationDashboardPage';
 import { AiBillingContent } from '@/pages/app/ai/AiBillingPage';
+import { AiOpsContent } from '@/features/ai/aiops/components/AiOpsDashboard';
 
 export const AIMonitoringPage: React.FC = () => {
   const { currentUser } = useAuth();
@@ -60,7 +62,7 @@ export const AIMonitoringPage: React.FC = () => {
   const [systemHealth, setSystemHealth] = useState<HealthStatus | null>(null);
   const [providers, setProviders] = useState<ProviderMetrics[]>([]);
   const [agents, setAgents] = useState<AgentMetrics[]>([]);
-  const [conversations] = useState<ConversationMetrics[]>([]);
+  const [conversations, setConversations] = useState<ConversationMetrics[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [resources, setResources] = useState<ResourceUtilization | null>(null);
 
@@ -167,10 +169,11 @@ export const AIMonitoringPage: React.FC = () => {
 
     try {
       // Fetch all data in parallel
-      const [dashboardResponse, healthResponse, alertsResponse] = await Promise.all([
+      const [dashboardResponse, healthResponse, alertsResponse, conversationsResponse] = await Promise.all([
         monitoringApi.getDashboard(),
         monitoringApi.getHealth(),
-        monitoringApi.getAlerts()
+        monitoringApi.getAlerts(),
+        conversationsApi.getConversations({ per_page: 50 }).catch(() => ({ items: [] as ConversationBase[], pagination: { current_page: 1, per_page: 50, total_pages: 0, total_count: 0 } }))
       ]);
 
       // Transform and set dashboard data
@@ -347,6 +350,42 @@ export const AIMonitoringPage: React.FC = () => {
       // Transform and set alerts
       setAlerts(transformAlerts(alertsResponse));
 
+      // Transform conversations for analytics
+      if (conversationsResponse.items.length > 0) {
+        setConversations(conversationsResponse.items.map((c: ConversationBase) => ({
+          id: c.id,
+          title: c.title || 'Untitled',
+          status: c.status === 'active' ? 'active' as const : c.status === 'archived' ? 'archived' as const : 'inactive' as const,
+          health_score: 100,
+          performance: {
+            avg_response_time: 0,
+            message_throughput: c.message_count > 0 ? c.message_count : 0,
+            success_rate: 100
+          },
+          usage: {
+            messages_count: c.message_count,
+            total_tokens: c.total_tokens,
+            total_cost: c.total_cost || 0
+          },
+          participants: {
+            human_messages: 0,
+            ai_messages: 0,
+            system_messages: 0
+          },
+          agent_usage: c.ai_agent ? [{
+            agent_id: c.ai_agent.id,
+            agent_name: c.ai_agent.name,
+            message_count: c.message_count,
+            total_tokens: c.total_tokens,
+            total_cost: c.total_cost || 0
+          }] : [],
+          alerts: [],
+          last_activity: c.last_activity_at,
+          created_at: c.created_at,
+          updated_at: c.last_activity_at || c.created_at
+        })));
+      }
+
       // Mark as connected
       setIsConnected(true);
       setLastUpdate(new Date());
@@ -473,6 +512,10 @@ export const AIMonitoringPage: React.FC = () => {
               />
             </div>
             <SelfHealingContent />
+          </TabPanel>
+
+          <TabPanel tabId="operations" activeTab={activeTab}>
+            <AiOpsContent />
           </TabPanel>
 
           <TabPanel tabId="systems" activeTab={activeTab} className="space-y-6">

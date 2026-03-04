@@ -11,4 +11,4 @@
  * - Enterprise (white-label + embedding): $499/mo
  */
 
-export { AiOpsDashboard } from './components/AiOpsDashboard';
+export { AiOpsDashboard, AiOpsContent } from './components/AiOpsDashboard';
