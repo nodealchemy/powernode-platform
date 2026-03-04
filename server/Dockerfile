@@ -23,6 +23,9 @@ WORKDIR /app
 # Build stage for compiling gems
 FROM base AS build
 
+# Allow Gemfile.lock drift when extension gems are absent from the Docker context
+ENV BUNDLE_FROZEN=false
+
 # Install build dependencies
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y \
