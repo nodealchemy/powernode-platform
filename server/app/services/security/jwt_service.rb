@@ -323,7 +323,7 @@ module Security
 
       # Get default signing algorithm
       def default_algorithm
-        Rails.env.production? ? "RS256" : "HS256"
+        Rails.application.config.jwt_algorithm
       end
 
       # Get signing key based on algorithm

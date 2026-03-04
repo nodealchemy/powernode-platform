@@ -38,3 +38,9 @@ production:
     username: powernode
     password: <%= ENV["POWERNODE_DATABASE_PASSWORD"] %>
     migrations_paths: db/queue_migrate
+  cable:
+    <<: *default
+    database: <%= ENV.fetch("DATABASE_NAME_CABLE") { ENV.fetch("DATABASE_NAME", "powernode_production") } %>
+    username: powernode
+    password: <%= ENV["POWERNODE_DATABASE_PASSWORD"] %>
+    migrations_paths: db/cable_migrate

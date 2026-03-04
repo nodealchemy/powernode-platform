@@ -369,12 +369,22 @@ frontend_credentials = {
 }
 
 # Write to project root (primary, easy to find)
-File.write(primary_credentials_path, JSON.pretty_generate(frontend_credentials))
-puts "\n📁 Test credentials written to: #{primary_credentials_path}"
+begin
+  File.write(primary_credentials_path, JSON.pretty_generate(frontend_credentials))
+  puts "\n📁 Test credentials written to: #{primary_credentials_path}"
+rescue Errno::EACCES, Errno::EROFS => e
+  puts "\n⚠️  Could not write #{primary_credentials_path}: #{e.message}"
+  puts "   (This is expected in containerized environments)"
+end
 
 # Write detailed credentials for server tests
-File.write(server_credentials_path, JSON.pretty_generate(test_credentials))
-puts "📁 Server test details: #{server_credentials_path}"
+begin
+  FileUtils.mkdir_p(File.dirname(server_credentials_path))
+  File.write(server_credentials_path, JSON.pretty_generate(test_credentials))
+  puts "📁 Server test details: #{server_credentials_path}"
+rescue Errno::EACCES, Errno::EROFS => e
+  puts "⚠️  Could not write #{server_credentials_path}: #{e.message}"
+end
 
 # ============================================
 # Summary
