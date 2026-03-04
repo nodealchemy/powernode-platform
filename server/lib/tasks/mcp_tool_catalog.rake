@@ -10,6 +10,7 @@ namespace :mcp do
     categories = {
       "Project & CI/CD" => [],
       "Agent Management" => [],
+      "Agent Containers" => [],
       "Team Management" => [],
       "Workflow Management" => [],
       "Pipeline Management" => [],
@@ -21,7 +22,14 @@ namespace :mcp do
       "Shared Knowledge" => [],
       "Skills" => [],
       "Knowledge Quality" => [],
-      "Knowledge Graph" => []
+      "Knowledge Graph" => [],
+      "AI Safety & Autonomy" => [],
+      "Workspace & Communication" => [],
+      "Activity Monitoring" => [],
+      "System Health" => [],
+      "Concierge" => [],
+      "Image Generation" => [],
+      "Docker Management" => []
     }
 
     # Map tool classes to categories based on registry comments
@@ -29,6 +37,10 @@ namespace :mcp do
       "Ai::Tools::ProjectInitTool" => "Project & CI/CD",
       "Ai::Tools::RunnerDispatchTool" => "Project & CI/CD",
       "Ai::Tools::AgentManagementTool" => "Agent Management",
+      "Ai::Tools::ContainerDeploymentTool" => "Agent Containers",
+      "Ai::Tools::ContainerStatusTool" => "Agent Containers",
+      "Ai::Tools::ContainerLogsTool" => "Agent Containers",
+      "Ai::Tools::ContainerTerminateTool" => "Agent Containers",
       "Ai::Tools::TeamManagementTool" => "Team Management",
       "Ai::Tools::WorkflowManagementTool" => "Workflow Management",
       "Ai::Tools::PipelineManagementTool" => "Pipeline Management",
@@ -42,7 +54,21 @@ namespace :mcp do
       "Ai::Tools::SharedKnowledgeTool" => "Shared Knowledge",
       "Ai::Tools::SkillTool" => "Skills",
       "Ai::Tools::KnowledgeQualityTool" => "Knowledge Quality",
-      "Ai::Tools::KnowledgeGraphTool" => "Knowledge Graph"
+      "Ai::Tools::KnowledgeGraphTool" => "Knowledge Graph",
+      "Ai::Tools::KillSwitchTool" => "AI Safety & Autonomy",
+      "Ai::Tools::AgentAutonomyTool" => "AI Safety & Autonomy",
+      "Ai::Tools::WorkspaceTool" => "Workspace & Communication",
+      "Ai::Tools::ActivityMonitorTool" => "Activity Monitoring",
+      "Ai::Tools::IntegrationHealthTool" => "System Health",
+      "Ai::Tools::ConciergeTool" => "Concierge",
+      "Ai::Tools::ImageGenerationTool" => "Image Generation",
+      "Ai::Tools::DockerContainerTool" => "Docker Management",
+      "Ai::Tools::DockerServiceTool" => "Docker Management",
+      "Ai::Tools::DockerStackTool" => "Docker Management",
+      "Ai::Tools::DockerClusterTool" => "Docker Management",
+      "Ai::Tools::DockerHostTool" => "Docker Management",
+      "Ai::Tools::DockerImageTool" => "Docker Management",
+      "Ai::Tools::DockerNetworkVolumeTool" => "Docker Management"
     }
 
     # Collect action definitions grouped by category
