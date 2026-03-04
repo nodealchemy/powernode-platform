@@ -364,6 +364,8 @@ Rails.application.routes.draw do
           resources :skills, only: [] do
             collection do
               post :seed_system
+              post :mutate
+              post :auto_evolve
             end
             member do
               post :refresh_connectors
@@ -481,6 +483,32 @@ Rails.application.routes.draw do
 
           # Autonomy intervention policy tuning (worker → server)
           post "intervention_policies/analyze_patterns", to: "autonomy#analyze_policy_patterns"
+
+          # Phase 1: Experience replay + reflexion (worker → server)
+          post "experience_replays/capture", to: "experience_replays#capture"
+          post "reflexions/reflect", to: "reflexions#reflect"
+
+          # Phase 2: Goal plan execution (worker → server)
+          post "goal_plans/execute_step", to: "goal_plans#execute_step"
+
+          # Phase 3: Coordination (worker → server)
+          scope "coordination", controller: "coordination" do
+            post :decay_signals
+            post :measure_all_fields
+            post :decay_fields
+          end
+
+          # Phase 4: Self-challenges (worker → server)
+          scope "self_challenges", controller: "self_challenges" do
+            post :process, action: :process_challenge
+            post :schedule_daily
+          end
+
+          # Phase 4: Governance (worker → server)
+          scope "governance", controller: "governance" do
+            post :scan_all
+            post :detect_collusion
+          end
         end
 
         # Container execution callbacks for Gitea workflow
@@ -1565,6 +1593,11 @@ Rails.application.routes.draw do
             get :statistics
           end
 
+          # Agent intelligence (experience replays, self-challenges)
+          get "intelligence/summary", to: "agent_intelligence#summary", as: :intelligence_summary
+          get "intelligence/experience_replays", to: "agent_intelligence#experience_replays", as: :intelligence_experience_replays
+          get "intelligence/self_challenges", to: "agent_intelligence#self_challenges", as: :intelligence_self_challenges
+
           # Nested executions (replaces ai_agent_executions)
           # Explicitly map REST actions to prefixed controller methods
           get "executions", to: "agents#executions_index"
@@ -1721,7 +1754,31 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
-        # 5.5 EXECUTION TRACES - Debugging & tracing
+        # 5.5 GOVERNANCE REPORTS - Phase 4 governance scan results & collusion
+        # ===================================================================
+        resources :governance_reports, only: [:index, :show] do
+          member do
+            put :resolve
+          end
+          collection do
+            get :summary
+            get :collusion_indicators
+            get :collusion_summary
+          end
+        end
+
+        # ===================================================================
+        # 5.6 COORDINATION DASHBOARD - Stigmergic signals, pressure fields, team events
+        # ===================================================================
+        scope "coordination", controller: "coordination_dashboard" do
+          get :summary
+          get :signals
+          get :pressure_fields
+          get :team_events
+        end
+
+        # ===================================================================
+        # 5.7 EXECUTION TRACES - Debugging & tracing
         # ===================================================================
         resources :execution_traces, only: [ :index, :show ] do
           member do
@@ -2620,7 +2677,9 @@ Rails.application.routes.draw do
         # ===================================================================
         # AGENT GOALS - Hierarchical goal tracking for autonomous agents
         # ===================================================================
-        resources :goals, controller: "goals"
+        resources :goals, controller: "goals" do
+          resources :plans, only: [:index, :show], controller: "goal_plans"
+        end
 
         # ===================================================================
         # INTERVENTION POLICIES - User-configurable agent notification rules

@@ -342,6 +342,24 @@ class WorkerJobService
       })
     end
 
+    # Enqueue experience replay capture after a successful execution
+    def enqueue_ai_experience_replay_capture(execution_id, trajectory_id = nil)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiExperienceReplayCaptureJob",
+        "args" => [execution_id, trajectory_id].compact,
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # Enqueue LLM-based reflexion analysis for a failed execution
+    def enqueue_ai_reflexion(execution_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiReflexionJob",
+        "args" => [execution_id],
+        "queue" => "ai_orchestration"
+      })
+    end
+
     # Enqueue KG node recalculation after learning verification/disproval
     def enqueue_ai_update_graph_node(node_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
@@ -410,6 +428,42 @@ class WorkerJobService
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "AiSkillConflictCheckJob",
         "args" => [skill_id],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # Enqueue goal plan step execution for autonomous goal pursuit
+    def enqueue_ai_goal_plan_step_execution(step_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiGoalPlanExecutionJob",
+        "args" => [step_id],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # Enqueue skill mutation job
+    def enqueue_ai_skill_mutation(skill_id, strategy)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiSkillMutationJob",
+        "args" => [skill_id, strategy],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # Enqueue self-challenge pipeline (generate → execute → validate → complete)
+    def enqueue_ai_self_challenge(challenge_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiSelfChallengeJob",
+        "args" => [challenge_id],
+        "queue" => "ai_orchestration"
+      })
+    end
+
+    # Enqueue governance scan for an agent or account
+    def enqueue_ai_governance_scan(account_id, agent_id = nil)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "AiGovernanceScanJob",
+        "args" => [account_id, agent_id].compact,
         "queue" => "ai_orchestration"
       })
     end
