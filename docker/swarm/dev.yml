@@ -69,6 +69,7 @@ services:
       - ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=dev-pn-derivation-salt-2026-zM1oS6cD
       - JWT_SECRET_KEY=dev-pn-jwt-secret-2026-long-enough-for-hmac-signing
       - JWT_ALGORITHM=HS256
+      - DOORKEEPER_ENCRYPTION_METHOD=hs256
     configs:
       - source: dev_cable_config
         target: /app/config/cable.yml
