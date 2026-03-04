@@ -59,6 +59,7 @@ import { communityAgentsApi } from '@/shared/services/ai/CommunityAgentsApiServi
 import { containerExecutionApi } from '@/shared/services/ai/ContainerExecutionApiService';
 import { ralphLoopsApi } from '@/shared/services/ai/RalphLoopsApiService';
 import { workspacesApi } from '@/shared/services/ai/WorkspacesApiService';
+import { intelligenceApi } from '@/shared/services/ai/IntelligenceApiService';
 
 export { BaseApiService } from '@/shared/services/ai/BaseApiService';
 export type {
@@ -479,6 +480,20 @@ export type {
 // Re-export Ralph Loops service (Autonomous AI Agent Loops)
 export { ralphLoopsApi };
 
+// Re-export Intelligence service (Phase 1-4 AGI: Learning, Coordination, Goals)
+export { intelligenceApi };
+export type {
+  ExperienceReplay,
+  SelfChallenge,
+  IntelligenceSummary,
+  StigmergicSignal,
+  PressureField,
+  TeamRestructureEvent,
+  CoordinationSummary,
+  GoalPlan,
+  GoalPlanStep,
+} from '@/shared/services/ai/IntelligenceApiService';
+
 // Re-export Workspaces service (MCP Client Identity & Team Chat)
 export { workspacesApi };
 export type {
@@ -546,6 +561,8 @@ export const aiApi = {
   ralphLoops: ralphLoopsApi,
   // Workspaces (MCP Client Identity & Team Chat)
   workspaces: workspacesApi,
+  // Intelligence (Phase 1-4 AGI: Learning, Coordination, Goals)
+  intelligence: intelligenceApi,
 } as const;
 
 export default aiApi;

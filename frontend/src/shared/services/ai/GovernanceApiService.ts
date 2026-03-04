@@ -157,6 +157,56 @@ export interface ComplianceSummary {
   };
 }
 
+// Phase 4: Governance Reports & Collusion Detection
+export type GovernanceReportType = 'policy_violation' | 'anomaly' | 'resource_abuse' | 'collusion_suspicion' | 'pattern_drift' | 'safety_concern';
+export type GovernanceReportSeverity = 'info' | 'warning' | 'critical';
+export type GovernanceReportStatus = 'open' | 'investigating' | 'confirmed' | 'dismissed' | 'remediated';
+
+export interface GovernanceReport {
+  id: string;
+  report_type: GovernanceReportType;
+  severity: GovernanceReportSeverity;
+  status: GovernanceReportStatus;
+  confidence_score: number | null;
+  auto_remediated: boolean;
+  subject_agent: { id: string; name: string } | null;
+  monitor_agent: { id: string; name: string } | null;
+  subject_team_id: string | null;
+  evidence?: Record<string, unknown>;
+  recommended_actions?: unknown[];
+  created_at: string;
+  updated_at: string;
+}
+
+export type CollusionIndicatorType = 'synchronized_output' | 'mutual_approval' | 'resource_hoarding' | 'trust_inflation' | 'echo_chamber';
+
+export interface CollusionIndicator {
+  id: string;
+  indicator_type: CollusionIndicatorType;
+  agent_cluster: string[];
+  correlation_score: number;
+  evidence_summary: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface GovernanceReportSummary {
+  total: number;
+  open: number;
+  critical: number;
+  by_type: Record<string, number>;
+  by_severity: Record<string, number>;
+  by_status: Record<string, number>;
+  auto_remediated: number;
+}
+
+export interface CollusionSummary {
+  total: number;
+  high_confidence: number;
+  by_type: Record<string, number>;
+  avg_correlation: number;
+  recent_24h: number;
+}
+
 export interface PolicyEvaluationResult {
   policy_id: string;
   policy_name: string;
@@ -316,6 +366,45 @@ class GovernanceApiService extends BaseApiService {
   async getAuditLog(filters: AuditFilters = {}): Promise<PaginatedResponse<AuditEntry>> {
     const queryString = this.buildQueryString(filters);
     return this.get<PaginatedResponse<AuditEntry>>(`${this.basePath}/audit_log${queryString}`);
+  }
+
+  // Phase 4: Governance Reports
+  async getGovernanceReports(filters: QueryFilters & {
+    report_type?: string;
+    severity?: string;
+    status?: string;
+    agent_id?: string;
+  } = {}): Promise<PaginatedResponse<GovernanceReport>> {
+    const queryString = this.buildQueryString(filters);
+    return this.get<PaginatedResponse<GovernanceReport>>(`/ai/governance_reports${queryString}`);
+  }
+
+  async getGovernanceReport(id: string): Promise<{ report: GovernanceReport }> {
+    return this.get(`/ai/governance_reports/${id}`);
+  }
+
+  async resolveGovernanceReport(id: string, data: {
+    resolution_status?: string;
+    notes?: string;
+  }): Promise<{ report: GovernanceReport }> {
+    return this.put(`/ai/governance_reports/${id}/resolve`, data);
+  }
+
+  async getGovernanceReportSummary(): Promise<{ summary: GovernanceReportSummary }> {
+    return this.get('/ai/governance_reports/summary');
+  }
+
+  // Phase 4: Collusion Detection
+  async getCollusionIndicators(filters: QueryFilters & {
+    indicator_type?: string;
+    high_confidence?: string;
+  } = {}): Promise<PaginatedResponse<CollusionIndicator>> {
+    const queryString = this.buildQueryString(filters);
+    return this.get<PaginatedResponse<CollusionIndicator>>(`/ai/governance_reports/collusion_indicators${queryString}`);
+  }
+
+  async getCollusionSummary(): Promise<{ summary: CollusionSummary }> {
+    return this.get('/ai/governance_reports/collusion_summary');
   }
 }
 

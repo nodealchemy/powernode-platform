@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Bot, MessageSquare, Brain, ArrowLeft, BookOpen } from 'lucide-react';
+import { Bot, MessageSquare, Brain, ArrowLeft, BookOpen, Trophy, Lightbulb } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
-import { agentsApi } from '@/shared/services/ai';
+import { agentsApi, intelligenceApi } from '@/shared/services/ai';
+import type { ExperienceReplay, SelfChallenge, IntelligenceSummary } from '@/shared/services/ai/IntelligenceApiService';
 import { AgentConnectionsGraph } from '@/features/ai/agents/components/AgentConnectionsGraph';
 import { ContextBrowser } from '@/features/ai/memory/components/ContextBrowser';
 import { useChatWindow } from '@/features/ai/chat/context/ChatWindowContext';
@@ -14,9 +15,147 @@ import type { AiAgent } from '@/shared/types/ai';
 
 const tabs = [
   { id: 'overview', label: 'Overview', path: '/' },
+  { id: 'intelligence', label: 'Intelligence', path: '/intelligence' },
   { id: 'connections', label: 'Connections', path: '/connections' },
   { id: 'knowledge', label: 'Knowledge', path: '/knowledge' },
 ];
+
+// ---- Intelligence Tab Content ----
+const getDifficultyColor = (d: string) => {
+  switch (d) {
+    case 'easy': return 'success';
+    case 'medium': return 'info';
+    case 'hard': return 'warning';
+    case 'expert': return 'danger';
+    default: return 'secondary';
+  }
+};
+
+const getChallengeStatusColor = (s: string) => {
+  switch (s) {
+    case 'completed': return 'success';
+    case 'failed': case 'abandoned': return 'danger';
+    case 'executing': case 'validating': return 'info';
+    default: return 'secondary';
+  }
+};
+
+const IntelligenceContent: React.FC<{ agentId: string }> = ({ agentId }) => {
+  const [summary, setSummary] = useState<IntelligenceSummary | null>(null);
+  const [replays, setReplays] = useState<ExperienceReplay[]>([]);
+  const [challenges, setChallenges] = useState<SelfChallenge[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      const [summaryRes, replaysRes, challengesRes] = await Promise.all([
+        intelligenceApi.getIntelligenceSummary(agentId).catch(() => null),
+        intelligenceApi.getExperienceReplays(agentId, { per_page: 10 }).catch(() => null),
+        intelligenceApi.getSelfChallenges(agentId, { per_page: 10 }).catch(() => null),
+      ]);
+      if (summaryRes?.summary) setSummary(summaryRes.summary);
+      if (replaysRes?.items) setReplays(replaysRes.items);
+      if (challengesRes?.items) setChallenges(challengesRes.items);
+      setLoading(false);
+    };
+    load();
+  }, [agentId]);
+
+  if (loading) return <LoadingSpinner size="md" className="py-8" message="Loading intelligence data..." />;
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      {summary && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-theme-primary">{summary.experience_replays.active}</div>
+            <div className="text-xs text-theme-tertiary">Active Replays</div>
+            <div className="text-xs text-theme-secondary mt-1">Avg Quality: {(summary.experience_replays.avg_quality * 100).toFixed(0)}%</div>
+          </Card>
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-theme-primary">{(summary.experience_replays.avg_effectiveness * 100).toFixed(0)}%</div>
+            <div className="text-xs text-theme-tertiary">Replay Effectiveness</div>
+            <div className="text-xs text-theme-secondary mt-1">{summary.experience_replays.total} total</div>
+          </Card>
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-theme-primary">{summary.self_challenges.completed}</div>
+            <div className="text-xs text-theme-tertiary">Challenges Completed</div>
+            <div className="text-xs text-theme-secondary mt-1">{summary.self_challenges.active} active</div>
+          </Card>
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-theme-primary">{summary.self_challenges.pass_rate.toFixed(0)}%</div>
+            <div className="text-xs text-theme-tertiary">Challenge Pass Rate</div>
+            <div className="text-xs text-theme-secondary mt-1">{summary.self_challenges.total} total</div>
+          </Card>
+        </div>
+      )}
+
+      {/* Experience Replays */}
+      <Card className="p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Lightbulb size={18} className="text-theme-warning" />
+          <h3 className="text-lg font-medium text-theme-primary">Experience Replays</h3>
+          <Badge variant="secondary" size="sm">{replays.length}</Badge>
+        </div>
+        {replays.length === 0 ? (
+          <p className="text-sm text-theme-tertiary">No experience replays captured yet. Replays are created from successful executions.</p>
+        ) : (
+          <div className="space-y-3">
+            {replays.map(r => (
+              <div key={r.id} className="border border-theme-border rounded-lg p-3">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant={r.status === 'active' ? 'success' : 'secondary'} size="sm">{r.status}</Badge>
+                    <span className="text-xs text-theme-tertiary">{new Date(r.created_at).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs">
+                    <span className="text-theme-secondary">Quality: <strong>{((r.quality_score || 0) * 100).toFixed(0)}%</strong></span>
+                    <span className="text-theme-secondary">Effect: <strong>{((r.effectiveness_score || 0) * 100).toFixed(0)}%</strong></span>
+                    <span className="text-theme-tertiary">Injected {r.injection_count}x</span>
+                  </div>
+                </div>
+                <p className="text-sm text-theme-secondary line-clamp-2">{r.compressed_example}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {/* Self-Challenges */}
+      <Card className="p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Trophy size={18} className="text-theme-info" />
+          <h3 className="text-lg font-medium text-theme-primary">Self-Challenges</h3>
+          <Badge variant="secondary" size="sm">{challenges.length}</Badge>
+        </div>
+        {challenges.length === 0 ? (
+          <p className="text-sm text-theme-tertiary">No self-challenges generated yet. Challenges test and improve agent capabilities.</p>
+        ) : (
+          <div className="space-y-3">
+            {challenges.map(c => (
+              <div key={c.id} className="border border-theme-border rounded-lg p-3">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant={getChallengeStatusColor(c.status) as 'success' | 'danger' | 'info' | 'secondary'} size="sm">{c.status}</Badge>
+                    <Badge variant={getDifficultyColor(c.difficulty) as 'success' | 'info' | 'warning' | 'danger'} size="sm">{c.difficulty}</Badge>
+                    {c.skill && <span className="text-xs text-theme-info">{c.skill.name}</span>}
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    {c.quality_score != null && <span className="text-theme-secondary">Score: <strong>{(c.quality_score * 100).toFixed(0)}%</strong></span>}
+                    <span className="text-theme-tertiary">{new Date(c.created_at).toLocaleDateString()}</span>
+                  </div>
+                </div>
+                {c.challenge_prompt && <p className="text-sm text-theme-secondary line-clamp-2">{c.challenge_prompt}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+};
 
 export const AgentDetailPage: React.FC = () => {
   const { agentId } = useParams<{ agentId: string }>();
@@ -27,6 +166,7 @@ export const AgentDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   const getActiveTab = () => {
+    if (location.pathname.includes('/intelligence')) return 'intelligence';
     if (location.pathname.includes('/connections')) return 'connections';
     if (location.pathname.includes('/knowledge')) return 'knowledge';
     return 'overview';
@@ -176,6 +316,10 @@ export const AgentDetailPage: React.FC = () => {
               </div>
             </div>
           </Card>
+        </TabPanel>
+
+        <TabPanel tabId="intelligence" activeTab={activeTab}>
+          {agentId && <IntelligenceContent agentId={agentId} />}
         </TabPanel>
 
         <TabPanel tabId="connections" activeTab={activeTab}>
