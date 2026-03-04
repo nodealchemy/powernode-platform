@@ -53,7 +53,8 @@ services:
   backend:
     image: git.ipnode.org/powernode/powernode-backend:${TAG:-dev-latest}
     environment:
-      - RAILS_ENV=development
+      - RAILS_ENV=production
+      - SEED_ADMIN_USERS=true
       - DATABASE_HOST=postgres
       - DATABASE_USER=powernode
       - POWERNODE_DATABASE_PASSWORD=pn-dev-db-2026-xK9mQ4

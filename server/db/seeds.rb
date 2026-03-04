@@ -106,8 +106,8 @@ rescue => e
   puts "   This may cause worker authentication issues"
 end
 
-# Only create admin account in development/test environments
-if Rails.env.development? || Rails.env.test?
+# Only create admin account in development/test environments (or when SEED_ADMIN_USERS=true for Docker dev deploys)
+if Rails.env.development? || Rails.env.test? || ENV['SEED_ADMIN_USERS'] == 'true'
   puts "\n🏢 Creating development/test accounts and users..."
 
   # Load the unified test user seed which handles all user creation
