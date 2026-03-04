@@ -139,7 +139,66 @@ module Ai
         "report_issue" => "Ai::Tools::AgentAutonomyTool",
         # Image generation
         "generate_image" => "Ai::Tools::ImageGenerationTool",
-        "list_generated_images" => "Ai::Tools::ImageGenerationTool"
+        "list_generated_images" => "Ai::Tools::ImageGenerationTool",
+        # Docker infrastructure management — containers
+        "docker_list_containers" => "Ai::Tools::DockerContainerTool",
+        "docker_get_container" => "Ai::Tools::DockerContainerTool",
+        "docker_create_container" => "Ai::Tools::DockerContainerTool",
+        "docker_start_container" => "Ai::Tools::DockerContainerTool",
+        "docker_stop_container" => "Ai::Tools::DockerContainerTool",
+        "docker_restart_container" => "Ai::Tools::DockerContainerTool",
+        "docker_remove_container" => "Ai::Tools::DockerContainerTool",
+        "docker_container_logs" => "Ai::Tools::DockerContainerTool",
+        "docker_container_stats" => "Ai::Tools::DockerContainerTool",
+        "docker_container_exec" => "Ai::Tools::DockerContainerTool",
+        # Docker infrastructure management — Swarm services
+        "docker_list_services" => "Ai::Tools::DockerServiceTool",
+        "docker_get_service" => "Ai::Tools::DockerServiceTool",
+        "docker_create_service" => "Ai::Tools::DockerServiceTool",
+        "docker_update_service" => "Ai::Tools::DockerServiceTool",
+        "docker_scale_service" => "Ai::Tools::DockerServiceTool",
+        "docker_rollback_service" => "Ai::Tools::DockerServiceTool",
+        "docker_remove_service" => "Ai::Tools::DockerServiceTool",
+        "docker_service_logs" => "Ai::Tools::DockerServiceTool",
+        "docker_service_tasks" => "Ai::Tools::DockerServiceTool",
+        # Docker infrastructure management — Swarm stacks
+        "docker_list_stacks" => "Ai::Tools::DockerStackTool",
+        "docker_get_stack" => "Ai::Tools::DockerStackTool",
+        "docker_deploy_stack" => "Ai::Tools::DockerStackTool",
+        "docker_remove_stack" => "Ai::Tools::DockerStackTool",
+        "docker_adopt_stack" => "Ai::Tools::DockerStackTool",
+        # Docker infrastructure management — clusters, nodes, secrets, configs
+        "docker_list_clusters" => "Ai::Tools::DockerClusterTool",
+        "docker_get_cluster" => "Ai::Tools::DockerClusterTool",
+        "docker_cluster_health" => "Ai::Tools::DockerClusterTool",
+        "docker_list_nodes" => "Ai::Tools::DockerClusterTool",
+        "docker_node_promote" => "Ai::Tools::DockerClusterTool",
+        "docker_node_demote" => "Ai::Tools::DockerClusterTool",
+        "docker_node_drain" => "Ai::Tools::DockerClusterTool",
+        "docker_node_activate" => "Ai::Tools::DockerClusterTool",
+        "docker_list_secrets" => "Ai::Tools::DockerClusterTool",
+        "docker_create_secret" => "Ai::Tools::DockerClusterTool",
+        "docker_remove_secret" => "Ai::Tools::DockerClusterTool",
+        "docker_list_configs" => "Ai::Tools::DockerClusterTool",
+        "docker_create_config" => "Ai::Tools::DockerClusterTool",
+        "docker_remove_config" => "Ai::Tools::DockerClusterTool",
+        # Docker infrastructure management — hosts
+        "docker_list_hosts" => "Ai::Tools::DockerHostTool",
+        "docker_get_host" => "Ai::Tools::DockerHostTool",
+        "docker_sync_host" => "Ai::Tools::DockerHostTool",
+        "docker_test_host" => "Ai::Tools::DockerHostTool",
+        # Docker infrastructure management — images
+        "docker_list_images" => "Ai::Tools::DockerImageTool",
+        "docker_pull_image" => "Ai::Tools::DockerImageTool",
+        "docker_remove_image" => "Ai::Tools::DockerImageTool",
+        "docker_tag_image" => "Ai::Tools::DockerImageTool",
+        # Docker infrastructure management — networks and volumes
+        "docker_list_networks" => "Ai::Tools::DockerNetworkVolumeTool",
+        "docker_create_network" => "Ai::Tools::DockerNetworkVolumeTool",
+        "docker_remove_network" => "Ai::Tools::DockerNetworkVolumeTool",
+        "docker_list_volumes" => "Ai::Tools::DockerNetworkVolumeTool",
+        "docker_create_volume" => "Ai::Tools::DockerNetworkVolumeTool",
+        "docker_remove_volume" => "Ai::Tools::DockerNetworkVolumeTool"
       }.freeze
 
       def self.available_tools(agent: nil)

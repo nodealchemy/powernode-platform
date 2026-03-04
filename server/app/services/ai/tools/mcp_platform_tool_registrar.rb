@@ -38,6 +38,61 @@ module Ai
           end
         end
 
+        # Sync all platform tools to the mcp_tools database table so the
+        # frontend MCP browser page can display them. Also syncs introspection
+        # tools from Ai::Introspection::McpToolRegistrar.
+        def sync_to_database!(account:)
+          mcp_server = account.mcp_servers.find_by(name: "Powernode MCP")
+          unless mcp_server
+            Rails.logger.warn "[McpPlatformToolRegistrar] Powernode MCP server not found for account #{account.id}"
+            return 0
+          end
+
+          synced_names = Set.new
+
+          # Sync platform tools from PlatformApiToolRegistry::TOOLS
+          PlatformApiToolRegistry::TOOLS.each do |action_name, class_name|
+            tool_class = class_name.constantize
+            action_defs = tool_class.action_definitions
+            action_def = action_defs[action_name] || {}
+
+            description = action_def[:description] || tool_class.definition[:description]
+            parameters = action_def[:parameters] || {}
+            input_schema = convert_to_json_schema(parameters)
+            required_permission = tool_class::REQUIRED_PERMISSION rescue nil
+
+            upsert_mcp_tool!(mcp_server, action_name, description, input_schema, "account", [required_permission].compact)
+            synced_names << action_name
+          rescue NameError => e
+            Rails.logger.warn "[McpPlatformToolRegistrar] Skipping #{action_name}: #{e.message}"
+          end
+
+          # Sync introspection tools
+          if defined?(Ai::Introspection::McpToolRegistrar::INTROSPECTION_TOOLS)
+            Ai::Introspection::McpToolRegistrar::INTROSPECTION_TOOLS.each do |tool_def|
+              name = tool_def[:name]
+              upsert_mcp_tool!(
+                mcp_server, name, tool_def[:description],
+                tool_def[:input_schema]&.deep_stringify_keys || {},
+                "account", tool_def[:required_permissions] || []
+              )
+              synced_names << name
+            end
+          end
+
+          # Remove tools no longer in the registry
+          stale_count = mcp_server.mcp_tools.where.not(name: synced_names.to_a).delete_all
+
+          # Update server capabilities with tool count
+          mcp_server.update_columns(
+            capabilities: mcp_server.capabilities.merge("tool_count" => synced_names.size),
+            last_health_check: Time.current
+          )
+
+          Rails.logger.info "[McpPlatformToolRegistrar] Synced #{synced_names.size} tools to database (removed #{stale_count} stale)"
+          synced_names.size
+        end
+
         def execute_tool(tool_id, params:, account:, user: nil, agent_id: nil, token: nil, mcp_agent: nil)
           tool_name = tool_id.delete_prefix("#{TOOL_ID_PREFIX}.")
           tool_class = find_tool_class(tool_name)
@@ -97,6 +152,18 @@ module Ai
             raise ::Mcp::ProtocolService::PermissionDeniedError,
                   "Token does not grant permission for #{tool_id}: requires '#{required}'"
           end
+        end
+
+        def upsert_mcp_tool!(mcp_server, name, description, input_schema, permission_level, required_permissions)
+          tool = mcp_server.mcp_tools.find_or_initialize_by(name: name)
+          tool.assign_attributes(
+            description: description,
+            input_schema: input_schema,
+            enabled: true,
+            permission_level: permission_level,
+            required_permissions: required_permissions
+          )
+          tool.save!
         end
 
         def build_manifest(tool_class)
