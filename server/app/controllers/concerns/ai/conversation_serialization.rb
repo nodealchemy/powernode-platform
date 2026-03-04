@@ -31,6 +31,7 @@ module Ai
     end
 
     def apply_filters(conversations)
+      conversations = conversations.exclude_workspace unless params[:include_workspace] == "true"
       conversations = conversations.where(status: params[:status]) if params[:status].present?
       conversations = conversations.where(ai_agent_id: params[:agent_id]) if params[:agent_id].present?
       conversations = conversations.where(user_id: params[:user_id]) if params[:user_id].present?

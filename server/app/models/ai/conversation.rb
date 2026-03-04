@@ -49,6 +49,9 @@ module Ai
     scope :tagged_with_any, ->(tags) { where("tags ?| array[:tags]", tags: tags) }
     scope :by_last_activity, -> { order(last_activity_at: :desc) }
     scope :pinned_first, -> { order(Arel.sql("CASE WHEN pinned_at IS NOT NULL THEN 0 ELSE 1 END, pinned_at DESC, last_activity_at DESC")) }
+    scope :exclude_workspace, -> {
+      where.not(id: joins(:agent_team).where(ai_agent_teams: { team_type: "workspace" }).select(:id))
+    }
 
     # Callbacks
     before_validation :set_conversation_id, on: :create
