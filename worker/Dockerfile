@@ -11,6 +11,7 @@ RUN apt-get update -qq && \
     libvips42 \
     imagemagick \
     ffmpeg \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 # Set environment

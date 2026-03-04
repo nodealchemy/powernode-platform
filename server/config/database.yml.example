@@ -22,6 +22,6 @@ test:
 
 production:
   <<: *default
-  database: powernode_production
+  database: <%= ENV.fetch("DATABASE_NAME") { "powernode_production" } %>
   username: powernode
   password: <%= ENV["POWERNODE_DATABASE_PASSWORD"] %>
