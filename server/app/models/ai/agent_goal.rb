@@ -20,6 +20,7 @@ module Ai
 
     has_many :sub_goals, class_name: "Ai::AgentGoal", foreign_key: "parent_goal_id", dependent: :destroy
     has_many :observations, class_name: "Ai::AgentObservation", foreign_key: "goal_id", dependent: :nullify
+    has_many :plans, class_name: "Ai::GoalPlan", foreign_key: "goal_id", dependent: :destroy
 
     # Validations
     validates :title, presence: true, length: { maximum: 255 }
@@ -84,6 +85,14 @@ module Ai
 
     def pause!
       update!(status: "paused") if status == "active"
+    end
+
+    def current_plan
+      plans.active.by_version.first
+    end
+
+    def has_active_plan?
+      plans.active.exists?
     end
 
     private

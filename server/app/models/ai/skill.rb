@@ -35,6 +35,9 @@ module Ai
     has_many :proposals, class_name: "Ai::SkillProposal", foreign_key: "created_skill_id", dependent: :nullify
     has_many :conflicts_as_a, class_name: "Ai::SkillConflict", foreign_key: "skill_a_id", dependent: :destroy
     has_many :conflicts_as_b, class_name: "Ai::SkillConflict", foreign_key: "skill_b_id", dependent: :nullify
+    has_many :compositions_as_composite, class_name: "Ai::SkillComposition", foreign_key: "composite_skill_id", dependent: :destroy
+    has_many :component_skills, through: :compositions_as_composite, source: :component_skill
+    has_many :compositions_as_component, class_name: "Ai::SkillComposition", foreign_key: "component_skill_id", dependent: :nullify
 
     # ==========================================
     # Validations
@@ -145,6 +148,10 @@ module Ai
       return 0.5 if total.zero?
 
       (positive_usage_count.to_f / total).round(4)
+    end
+
+    def composite?
+      is_composite == true
     end
 
     def active_conflicts

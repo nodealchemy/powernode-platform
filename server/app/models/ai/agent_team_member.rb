@@ -7,7 +7,7 @@ module Ai
     # ==========================================
     # Constants
     # ==========================================
-    ROLES = %w[manager researcher writer reviewer executor analyst coordinator facilitator].freeze
+    ROLES = %w[manager researcher writer reviewer executor analyst coordinator facilitator specialist floater].freeze
 
     # ==========================================
     # Associations

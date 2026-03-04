@@ -8,7 +8,7 @@ module Ai
     # Constants
     # ==========================================
     TEAM_TYPES = %w[hierarchical mesh sequential parallel workspace].freeze
-    COORDINATION_STRATEGIES = %w[manager_led consensus auction round_robin priority_based].freeze
+    COORDINATION_STRATEGIES = %w[manager_led consensus auction round_robin priority_based pressure_driven self_organizing].freeze
     STATUSES = %w[active inactive archived].freeze
     PARALLEL_MODES = %w[standard worktree].freeze
 

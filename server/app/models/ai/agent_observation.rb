@@ -9,7 +9,7 @@ module Ai
 
     SENSOR_TYPES = %w[
       knowledge_health platform_health recommendation peer_agent
-      workspace code_change budget
+      workspace code_change budget goal_progress stigmergic_signal governance
     ].freeze
 
     OBSERVATION_TYPES = %w[anomaly degradation opportunity recommendation request alert].freeze

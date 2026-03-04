@@ -101,6 +101,16 @@ class Account < ApplicationRecord
   has_many :ai_agent_proposals, class_name: "Ai::AgentProposal", dependent: :destroy
   has_many :ai_agent_escalations, class_name: "Ai::AgentEscalation", dependent: :destroy
   has_many :ai_agent_feedbacks, class_name: "Ai::AgentFeedback", dependent: :destroy
+  has_many :ai_governance_reports, class_name: "Ai::GovernanceReport", dependent: :destroy
+  has_many :ai_collusion_indicators, class_name: "Ai::CollusionIndicator", dependent: :destroy
+
+  # AI Self-Learning & Coordination (Phase 1-4 AGI)
+  has_many :ai_experience_replays, class_name: "Ai::ExperienceReplay", dependent: :destroy
+  has_many :ai_self_challenges, class_name: "Ai::SelfChallenge", dependent: :destroy
+  has_many :ai_goal_plans, class_name: "Ai::GoalPlan", dependent: :destroy
+  has_many :ai_stigmergic_signals, class_name: "Ai::StigmergicSignal", dependent: :destroy
+  has_many :ai_pressure_fields, class_name: "Ai::PressureField", dependent: :destroy
+  has_many :ai_team_restructure_events, class_name: "Ai::TeamRestructureEvent", dependent: :destroy
 
   # AI Skill Lifecycle associations
   has_many :ai_skill_proposals, class_name: "Ai::SkillProposal", dependent: :destroy

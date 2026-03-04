@@ -8,7 +8,7 @@ module Ai
     # Constants
     # ==========================================
     STATUSES = %w[building completed archived].freeze
-    TRAJECTORY_TYPES = %w[task_completion workflow_run investigation implementation].freeze
+    TRAJECTORY_TYPES = %w[task_completion workflow_run investigation implementation self_challenge].freeze
 
     # ==========================================
     # Associations

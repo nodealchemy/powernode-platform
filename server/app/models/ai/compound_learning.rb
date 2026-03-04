@@ -9,10 +9,10 @@ module Ai
     # ==========================================
     # Constants
     # ==========================================
-    CATEGORIES = %w[pattern anti_pattern best_practice discovery fact failure_mode review_finding performance_insight].freeze
+    CATEGORIES = %w[pattern anti_pattern best_practice discovery fact failure_mode review_finding performance_insight reflexion].freeze
     SCOPES = %w[team global].freeze
     STATUSES = %w[active deprecated superseded verified disproven].freeze
-    EXTRACTION_METHODS = %w[marker auto_success auto_failure review evaluation].freeze
+    EXTRACTION_METHODS = %w[marker auto_success auto_failure review evaluation reflexion].freeze
 
     # ==========================================
     # Associations
