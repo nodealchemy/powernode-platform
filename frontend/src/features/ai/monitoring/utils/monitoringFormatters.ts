@@ -5,10 +5,8 @@ import { HeartPulse, Server, MessageSquare, ClipboardCheck, Bell, Coins } from '
  * Get color class for health score
  */
 export const getHealthScoreColor = (score: number): string => {
-  if (score >= 90) return 'text-theme-success';
-  if (score >= 80) return 'text-theme-primary';
-  if (score >= 70) return 'text-theme-warning';
-  if (score >= 50) return 'text-theme-error';
+  if (score >= 80) return 'text-theme-success';
+  if (score >= 50) return 'text-theme-warning';
   return 'text-theme-error';
 };
 

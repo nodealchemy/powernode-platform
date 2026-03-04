@@ -24,12 +24,14 @@ export const MonitoringStatusBar: React.FC<MonitoringStatusBarProps> = ({
   timeRange,
   onTimeRangeChange
 }) => {
-  // Derive display status label from health score
-  const getStatusLabel = (score: number): string => {
-    if (score >= 90) return 'excellent';
-    if (score >= 70) return 'good';
-    if (score >= 50) return 'fair';
-    return 'critical';
+  const getStatusBadgeVariant = (status: string): 'success' | 'warning' | 'danger' | 'outline' => {
+    switch (status) {
+      case 'healthy': return 'success';
+      case 'degraded': return 'warning';
+      case 'unhealthy':
+      case 'critical': return 'danger';
+      default: return 'outline';
+    }
   };
 
   return (
@@ -49,12 +51,8 @@ export const MonitoringStatusBar: React.FC<MonitoringStatusBarProps> = ({
             <span className={`text-sm font-medium ${getHealthScoreColor(systemHealth.health_score)}`}>
               {systemHealth.health_score.toFixed(1)}%
             </span>
-            <Badge variant={
-              systemHealth.health_score >= 90 ? 'success' :
-              systemHealth.health_score >= 70 ? 'info' :
-              systemHealth.health_score >= 50 ? 'warning' : 'danger'
-            }>
-              {getStatusLabel(systemHealth.health_score)}
+            <Badge variant={getStatusBadgeVariant(systemHealth.status)}>
+              {systemHealth.status}
             </Badge>
           </div>
         )}

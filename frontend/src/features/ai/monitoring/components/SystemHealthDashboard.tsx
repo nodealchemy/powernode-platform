@@ -44,11 +44,21 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
   };
 
   const getHealthScoreColor = (score: number) => {
-    if (score >= 90) return 'text-theme-success';
-    if (score >= 80) return 'text-theme-info';
-    if (score >= 70) return 'text-theme-warning';
-    if (score >= 50) return 'text-theme-error';
+    if (score >= 80) return 'text-theme-success';
+    if (score >= 50) return 'text-theme-warning';
     return 'text-theme-error';
+  };
+
+  const getDatabaseAvailability = (): number => {
+    const pool = healthData?.database?.connection_pool;
+    if (!pool || pool.size === 0) return 100;
+    return (pool.available / pool.size) * 100;
+  };
+
+  const getWorkerThroughput = (): number => {
+    const workers = healthData?.workers;
+    if (!workers || workers.recent_starts === 0) return 100;
+    return Math.min(100, (workers.recent_completions / workers.recent_starts) * 100);
   };
 
   const getComponentStatusIcon = (status: string) => {
@@ -109,11 +119,6 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
     );
   }
 
-  // Derive status label from health score
-  const statusLabel = healthData.health_score >= 90 ? 'Excellent' :
-                     healthData.health_score >= 70 ? 'Good' :
-                     healthData.health_score >= 50 ? 'Fair' : 'Critical';
-
   return (
     <Card>
       <CardHeader
@@ -137,7 +142,7 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
             {healthData.health_score.toFixed(1)}%
           </div>
           <Badge variant={getHealthStatusBadge(healthData.status)} className="mt-2">
-            {statusLabel}
+            {healthData.status.charAt(0).toUpperCase() + healthData.status.slice(1)}
           </Badge>
           <p className="text-sm text-theme-muted mt-1">
             Updated {formatTimestamp(healthData.timestamp)}
@@ -190,11 +195,9 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
                   </div>
                 </div>
               </div>
-              <div className="text-right">
-                <p className={`text-sm font-medium ${getHealthScoreColor(healthData.health_score)}`}>
-                  {healthData.health_score.toFixed(1)}%
-                </p>
-              </div>
+              <Badge variant={getHealthStatusBadge(healthData.system.status)} size="sm">
+                {healthData.system.status}
+              </Badge>
             </div>
 
             {/* Workflows - from native system object */}
@@ -211,11 +214,9 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
                   </div>
                 </div>
               </div>
-              <div className="text-right">
-                <p className={`text-sm font-medium ${getHealthScoreColor(healthData.health_score)}`}>
-                  {healthData.health_score.toFixed(1)}%
-                </p>
-              </div>
+              <Badge variant={getHealthStatusBadge(healthData.system.status)} size="sm">
+                {healthData.system.status}
+              </Badge>
             </div>
 
             {/* Database - from native database object */}
@@ -234,13 +235,17 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
                   </div>
                 </div>
               </div>
-              <div className="text-right">
-                <p className={`text-sm font-medium ${getHealthScoreColor(
-                  healthData.database.status === 'healthy' ? 100 : 50
-                )}`}>
-                  {healthData.database.status === 'healthy' ? '100.0%' : '50.0%'}
-                </p>
-              </div>
+              {healthData.database.connection_pool ? (
+                <div className="text-right">
+                  <p className={`text-sm font-medium ${getHealthScoreColor(getDatabaseAvailability())}`}>
+                    {getDatabaseAvailability().toFixed(1)}% avail
+                  </p>
+                </div>
+              ) : (
+                <Badge variant={getHealthStatusBadge(healthData.database.status)} size="sm">
+                  {healthData.database.status}
+                </Badge>
+              )}
             </div>
 
             {/* Redis - from native redis object */}
@@ -259,13 +264,9 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
                   </div>
                 </div>
               </div>
-              <div className="text-right">
-                <p className={`text-sm font-medium ${getHealthScoreColor(
-                  healthData.redis.status === 'healthy' ? 100 : 50
-                )}`}>
-                  {healthData.redis.status === 'healthy' ? '100.0%' : '50.0%'}
-                </p>
-              </div>
+              <Badge variant={getHealthStatusBadge(healthData.redis.status)} size="sm">
+                {healthData.redis.status}
+              </Badge>
             </div>
 
             {/* Workers - from native workers object */}
@@ -282,13 +283,17 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
                   </div>
                 </div>
               </div>
-              <div className="text-right">
-                <p className={`text-sm font-medium ${getHealthScoreColor(
-                  healthData.workers.status === 'healthy' ? 100 : 70
-                )}`}>
-                  {healthData.workers.status === 'healthy' ? '100.0%' : '70.0%'}
-                </p>
-              </div>
+              {healthData.workers.estimated_backlog > 0 ? (
+                <div className="text-right">
+                  <p className={`text-sm font-medium ${getHealthScoreColor(getWorkerThroughput())}`}>
+                    {getWorkerThroughput().toFixed(1)}%
+                  </p>
+                </div>
+              ) : (
+                <Badge variant={getHealthStatusBadge(healthData.workers.status)} size="sm">
+                  {healthData.workers.status}
+                </Badge>
+              )}
             </div>
           </div>
         </div>
