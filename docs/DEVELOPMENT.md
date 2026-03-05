@@ -53,39 +53,37 @@ journalctl -u 'powernode-*' --since "5 min ago"
 | Frontend | React + TypeScript + Tailwind | `frontend/` |
 | Worker | Sidekiq (standalone) | `worker/` |
 | Enterprise | Git submodule | `extensions/enterprise/` |
-| Database | PostgreSQL (UUIDv7 PKs) | 359 tables |
+| Database | PostgreSQL (UUIDv7 PKs) | 396 tables |
 | Cache/Queues | Redis | DB 0 (cache), DB 1 (Sidekiq) |
 
 ### Codebase Scale
 
 | Layer | Count | Location |
 |-------|-------|----------|
-| Models | 327 | `server/app/models/` |
-| Controllers | 298 | `server/app/controllers/` |
-| Services | 584 | `server/app/services/` |
-| Worker Jobs | 195 | `worker/app/jobs/` |
+| Models | 340 | `server/app/models/` |
+| Controllers | 311 | `server/app/controllers/` |
+| Services | 634 | `server/app/services/` |
+| Worker Jobs | 220 | `worker/app/jobs/` |
 | WebSocket Channels | 17 | `server/app/channels/` |
-| Database Tables | 359 | `server/db/migrate/` |
-| MCP Tools | 107 | `server/app/services/ai/tools/` |
+| Database Tables | 396 | `server/db/migrate/` |
+| MCP Tools | 194 | `server/app/services/ai/tools/` |
 | Permissions | 543 | `server/db/seeds/` |
-| Scripts | 47 | `scripts/` |
+| Scripts | 48 | `scripts/` |
 
 ---
 
-## Model Namespaces (13)
+## Model Namespaces (10)
 
 | Namespace | Models | Description |
 |-----------|--------|-------------|
 | `Account` | 3 | Multi-tenant account hierarchy, delegations |
-| `Ai` | 135 | Agents, teams, workflows, memory, knowledge graph, providers, skills, tools, autonomy, observations |
-| `BaaS` | — | Billing-as-a-Service tenants, customers, meters (enterprise) |
+| `Ai` | 145 | Agents, teams, workflows, memory, knowledge graph, providers, skills, tools, autonomy, observations, AGI (experience replay, goal decomposition, stigmergic coordination, pressure fields, governance, self-improvement) |
 | `Chat` | 5 | Conversations, messages, attachments, sessions |
 | `Database` | 2 | Database connections, query history |
 | `DataManagement` | 3 | Data sanitization, retention policies |
-| `Devops` | 41 | Pipelines, runners, repositories, deployments, Docker, Git providers |
+| `Devops` | 43 | Pipelines, runners, repositories, deployments, Docker, Git providers |
 | `FileManagement` | 7 | File uploads, storage backends, virus scanning |
 | `KnowledgeBase` | 8 | Articles, categories, tags, comments, attachments |
-| `Mcp` | — | MCP servers, tools, sessions, executions (top-level models) |
 | `Monitoring` | 2 | Health checks, service status |
 | `Shared` | 1 | Feature gate service, shared utilities |
 | Top-level | 120+ | User, Role, Permission, Plan, Subscription, Invoice, Payment, etc. |
@@ -118,13 +116,13 @@ Plus 40 top-level controllers (accounts, users, plans, subscriptions, etc.).
 
 ---
 
-## Service Namespaces (25)
+## Service Namespaces (22+)
 
 | Namespace | Files | Description |
 |-----------|-------|-------------|
-| `ai/` | 317 | Agent orchestration, providers, workflows, cost optimization, memory, knowledge, autonomy |
+| `ai/` | 356 | Agent orchestration, providers, workflows, cost optimization, memory, knowledge, autonomy, AGI |
 | `mcp/` | 101 | Node executors (50+), orchestration, conditional evaluation |
-| `devops/` | 38 | CI/CD, Git operations, deployment, registry |
+| `devops/` | 45 | CI/CD, Git operations, deployment, registry, Docker |
 | `a2a/` | 17 | Agent-to-Agent protocol services |
 | `chat/` | 10 | Conversation management, context building |
 | `security/` | 11 | Authentication, authorization, encryption |
@@ -149,7 +147,7 @@ Plus 40 top-level controllers (accounts, users, plans, subscriptions, etc.).
 
 ## AI Subsystem Map
 
-The AI platform is the largest subsystem (317 services, 135 models).
+The AI platform is the largest subsystem (356 services, 145 models).
 
 ### Core Systems
 
@@ -163,11 +161,18 @@ The AI platform is the largest subsystem (317 services, 135 models).
 | **Knowledge Graph** | Entity-relationship graph with multi-hop reasoning | `ai/knowledge_graph/` |
 | **Compound Learning** | Pattern/discovery/best-practice learning with decay and reinforcement | `ai/compound_learning/` |
 | **Memory Tiers** | STM → Working → LTM with consolidation and decay | `ai/memory/` |
-| **MCP Protocol** | 107-tool Model Context Protocol for agent capabilities | `mcp/` |
+| **MCP Protocol** | 194-tool Model Context Protocol for agent capabilities | `mcp/` |
 | **A2A Protocol** | Agent-to-Agent communication and task delegation | `a2a/` |
 | **Skill Registry** | Reusable agent capabilities with lifecycle management | `ai/skills/` |
 | **Team Execution** | Multi-agent orchestration with role-based coordination | `ai/team_execution/` |
 | **Agent Autonomy** | Kill switch, goals, proposals, escalations, observation pipeline, intervention policies | `ai/autonomy/` |
+| **Experience Replay** | Execution history analysis and pattern extraction | `ai/agi/` |
+| **Goal Decomposition** | Hierarchical goal breakdown and planning | `ai/agi/` |
+| **Stigmergic Coordination** | Environment-mediated multi-agent coordination | `ai/agi/` |
+| **Pressure Fields** | Gradient-based resource allocation and task prioritization | `ai/agi/` |
+| **Governance** | Monitoring, collusion detection, behavioral analysis | `ai/agi/` |
+| **Self-Improvement** | Autonomous capability enhancement and reflexion | `ai/agi/` |
+| **Self-Healing** | Automated error recovery and system repair | `ai/agi/` |
 
 ### Workflow System
 
@@ -181,14 +186,13 @@ The AI platform is the largest subsystem (317 services, 135 models).
 
 ---
 
-## Frontend Feature Modules (11)
+## Frontend Feature Modules (10)
 
 | Module | Path | Description |
 |--------|------|-------------|
 | `account` | `frontend/src/features/account/` | Account settings, profile management |
 | `admin` | `frontend/src/features/admin/` | Admin panel, system management |
 | `ai` | `frontend/src/features/ai/` | AI agents, workflows, chat, knowledge |
-| `baas` | `frontend/src/features/baas/` | BaaS tenant management |
 | `business` | `frontend/src/features/business/` | Billing, subscriptions, invoices |
 | `content` | `frontend/src/features/content/` | CMS pages, KB articles |
 | `delegations` | `frontend/src/features/delegations/` | Cross-account access delegation |
@@ -199,13 +203,14 @@ The AI platform is the largest subsystem (317 services, 135 models).
 
 ---
 
-## Worker Job Categories (195 jobs)
+## Worker Job Categories (220 jobs)
 
 The worker is a standalone Sidekiq process that communicates with the server via HTTP API.
 
 | Category | Jobs | Queue | Description |
 |----------|------|-------|-------------|
 | AI (top-level) | 74 | `ai_agents`, `ai_workflows`, `ai_orchestration` | Agent execution, workflows, memory, knowledge, missions |
+| AGI | 13 | `ai_orchestration`, `ai_agents` | Experience replay, goal decomposition, stigmergic coordination, pressure fields, governance, self-improvement, self-healing |
 | AI Workflow | 2 | `ai_workflows` | Approval expiry, notifications |
 | Analytics | 3 | `analytics` | Metrics aggregation, live metrics, recalculation |
 | Compliance | 4 | `compliance` | GDPR data deletion, export, retention, account termination |
@@ -221,9 +226,10 @@ The worker is a standalone Sidekiq process that communicates with the server via
 | Reports | 2 | `reports` | Report generation, scheduled reports |
 | Services | 5 | `services` | Health checks, service discovery, config generation |
 | Swarm | 5 | `maintenance` | Docker Swarm cluster sync, stack deploy, health |
+| Trading | 9 | `trading` | Strategy execution, portfolio updates, risk monitoring, evolution |
 | Webhooks | 6 | `webhooks` | Stripe/PayPal processing, delivery, retry |
 
-32 queues configured in `worker/config/sidekiq.yml` with weighted priorities (1-3).
+33 queues configured in `worker/config/sidekiq.yml` with weighted priorities (1-3).
 
 ---
 

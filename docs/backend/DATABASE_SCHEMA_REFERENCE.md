@@ -1,6 +1,6 @@
 # Database Schema Reference
 
-359 tables across 13 model namespaces, all using UUIDv7 primary keys on PostgreSQL.
+396 tables across 10 model namespaces, all using UUIDv7 primary keys on PostgreSQL.
 
 ---
 

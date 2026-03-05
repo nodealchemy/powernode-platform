@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **AGI Autonomy Phases 1-4**: Experience replay, goal decomposition, stigmergic coordination, pressure fields, governance monitoring, collusion detection, self-improvement, self-healing
+  - 10 new models, 4 MCP tool classes, 6 service namespaces, 13+ worker jobs, public + internal API controllers
+- **Docker MCP Tools**: 52 tool actions across 7 classes (containers, services, stacks, clusters, hosts, images, networks/volumes)
+- **Trading Extension** (`extensions/trading/`): Algorithmic trading with strategies, portfolios, risk monitoring, evolution, 9 worker jobs, 25+ migrations
+- **Supply Chain Extension** (`extensions/supply-chain/`): Supply chain management module
+- **Marketing Extension** (`extensions/marketing/`): Campaign management module
+- **Extension Framework**: Generic extension detection via `FeatureGateService`, frontend extension navigation
+- **Container Execution System**: Image builds, port allocation, sandbox management
+- **DevOps Hub**: Overview dashboard, expandable network cards, stack grid layout
+- **Observability Page**: Operations tab with conversation data
+- Intelligence and coordination tabs on agent detail and governance pages
+
+### Changed
+- Frontend stack layout, memory explorer, knowledge graph visualization, DevOps page architecture
+- Backend network serializer enriched, context search enhanced, MCP catalog generator updated
+
+### Fixed
+- 12+ Docker deployment fixes (JWT, Solid Cable, Doorkeeper, Alpine IPv6, CI builds)
+- Mission completion state display in PhaseTimeline/PhaseCard
+- Health dashboard threshold alignment, workspace conversation filtering
+
+### Infrastructure
+- Gitea Actions CI/CD for Docker image builds
+- Docker Swarm dev stack composition
+
 ## [0.3.1] - 2026-02-28
 
 ### Fixed
@@ -170,3 +196,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `0.2.0` - AI Orchestration, MCP integration, GDPR, notifications
 - `0.3.0` - AI Autonomy System (kill switch, goals, proposals, escalations)
 - `0.3.1` - Configuration tooling, documentation hostname cleanup, version-bump fix
+- `unreleased` - AGI Phases 1-4, Docker MCP tools, Trading/Supply-Chain/Marketing extensions

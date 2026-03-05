@@ -22,7 +22,7 @@
 
 The Powernode backend uses a service-oriented architecture with services organized in `server/app/services/`. Services encapsulate business logic and are called from controllers, jobs, and other services.
 
-### Directory Structure (584 service files across 25 namespaces)
+### Directory Structure (634 service files across 22+ namespaces)
 
 ```
 server/app/services/
@@ -665,4 +665,4 @@ end
 
 **Document Status**: Complete
 **Last Updated**: 2026-02-26
-**Source**: `server/app/services/` (584 files)
+**Source**: `server/app/services/` (634 files)

@@ -1,6 +1,6 @@
 # Worker Operations Guide
 
-The Powernode worker is a standalone Sidekiq process (195 jobs) that communicates with the server exclusively via HTTP API. It does NOT share a database connection with the Rails backend.
+The Powernode worker is a standalone Sidekiq process (220+ jobs) that communicates with the server exclusively via HTTP API. It does NOT share a database connection with the Rails backend.
 
 ---
 
@@ -9,8 +9,8 @@ The Powernode worker is a standalone Sidekiq process (195 jobs) that communicate
 ```
 ┌─────────────────────┐     HTTP API     ┌─────────────────────┐
 │  Worker (Sidekiq)   │ ───────────────> │  Server (Rails 8)   │
-│  195 jobs           │ <─────────────── │  298 controllers    │
-│  32 queues          │                  │  584 services       │
+│  220+ jobs          │ <─────────────── │  311 controllers    │
+│  33 queues          │                  │  634 services       │
 │  Redis DB 1         │                  │  PostgreSQL         │
 └─────────────────────┘                  └─────────────────────┘
 ```

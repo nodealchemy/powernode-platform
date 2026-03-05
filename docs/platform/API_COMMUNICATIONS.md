@@ -42,7 +42,7 @@ This document provides a complete mapping of all API communications between the 
 │                                                                 │
 │  ┌─────────────────┐    ┌─────────────────┐                    │
 │  │  BackendApiClient│    │  Background Jobs│                    │
-│  │  (47+ endpoints) │    │  (195 job files)│                    │
+│  │  (47+ endpoints) │    │  (220+ job files)│                    │
 │  └─────────────────┘    └─────────────────┘                    │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -711,7 +711,7 @@ Frontend                Backend                 Worker
 | **Frontend API Calls** | ~400+ unique endpoints |
 | **Worker API Calls** | 47+ unique endpoints |
 | **WebSocket Channels** | 17 |
-| **Background Job Files** | 195 |
+| **Background Job Files** | 220+ |
 | **External Webhooks** | 2 (Stripe, PayPal) |
 
 ---

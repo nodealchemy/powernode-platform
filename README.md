@@ -7,9 +7,9 @@ Powernode is a self-hosted platform that gives you full control over AI agents, 
 ### Why Powernode
 
 - **AI Agent Orchestration** — Deploy agents with trust scoring, autonomy tiers, and 5 team strategies. Kill switch, goal tracking, proposals, escalations, and behavioral fingerprinting keep agents operating within defined boundaries.
-- **Multi-Provider LLM Routing** — 10+ providers (Anthropic, OpenAI, Ollama, Azure, Google, Groq, Grok, Mistral, Cohere), 135+ models, cost-optimized selection with per-agent budgets and ROI tracking.
+- **Multi-Provider LLM Routing** — 10+ providers (Anthropic, OpenAI, Ollama, Azure, Google, Groq, Grok, Mistral, Cohere), 145+ models, cost-optimized selection with per-agent budgets and ROI tracking.
 - **Knowledge Infrastructure** — GraphRAG over 1,190+ nodes and 1,670+ edges, 4-tier memory system (working → STM → LTM → shared), compound learning with decay and reinforcement, RAG pipeline with pgvector embeddings and 3-round agentic retrieval.
-- **MCP-Native Platform** — 107 platform tools spanning knowledge, memory, skills, autonomy, DevOps, and content management. Full A2A protocol support for agent-to-agent communication.
+- **MCP-Native Platform** — 194 platform tools spanning knowledge, memory, skills, autonomy, DevOps, Docker, and content management. Full A2A protocol support for agent-to-agent communication.
 - **DevOps Automation** — CI/CD pipelines with 13 step types (including AI-powered), Docker Swarm orchestration, multi-provider Git integration (GitHub, GitLab, Gitea), supply chain security with SBOM generation.
 - **Production Foundation** — 543+ granular permissions, 17 WebSocket channels, JWT + OAuth 2.0 authentication, and 20,600+ tests across backend, frontend, and E2E.
 
@@ -21,11 +21,11 @@ Powernode is a self-hosted platform that gives you full control over AI agents, 
 - **Authentication & Security** - JWT + OAuth 2.0, 2FA, account lockout, rate limiting, CORS, CSP
 - **Permission-Based Access** - 543+ granular permissions across 30+ categories, role-to-permission mapping
 - **Real-time Communication** - 17 ActionCable WebSocket channels for live updates, cross-tab sync
-- **Modern UI** - React 19.1 with Tailwind CSS v4.1, theme system, 11 feature modules
+- **Modern UI** - React 19.1 with Tailwind CSS v4.1, theme system, 10 feature modules
 - **Content Management** - Knowledge base articles, content pages, CMS
 - **Analytics** - Customer health scoring, usage tracking, platform telemetry
 
-### AI & Automation (135 models, 107 MCP tools)
+### AI & Automation (145 models, 194 MCP tools)
 - **AI Agents** - Create, deploy, and manage agents with trust scoring and autonomy tiers
 - **Agent Teams** - Multi-agent orchestration (5 strategies: manager_led, consensus, auction, round_robin, priority_based)
 - **AI Workflows** - Visual builder with 35+ node types and circuit breakers
@@ -33,7 +33,7 @@ Powernode is a self-hosted platform that gives you full control over AI agents, 
 - **Code Factory** - PRD generation, automated code review, remediation loops
 - **Ralph Loops** - Recursive agent learning with 15-round tool calling
 - **Model Router** - Cost-optimized provider selection across 10+ providers (Anthropic, OpenAI, Ollama, Azure, Google, Groq, Grok, Mistral, Cohere)
-- **MCP Integration** - 107 platform tools for knowledge, memory, skills, RAG, autonomy, and DevOps
+- **MCP Integration** - 194 platform tools for knowledge, memory, skills, RAG, autonomy, Docker, and DevOps
 - **A2A Protocol** - Agent-to-Agent communication with agent cards
 - **Memory System** - 4-tier architecture (working, STM, LTM, shared) with consolidation
 - **Knowledge Graph** - 1,190+ nodes, 1,670+ edges with hybrid search and GraphRAG
@@ -42,7 +42,7 @@ Powernode is a self-hosted platform that gives you full control over AI agents, 
 - **FinOps** - Agent budgets, cost attribution, ROI metrics, optimization logging
 - **AI Monitoring** - Execution traces, telemetry events, circuit breakers, performance benchmarks
 
-### DevOps & Infrastructure (41 models)
+### DevOps & Infrastructure (43 models)
 - **Git Integration** - GitHub, GitLab, Gitea, Jenkins provider support
 - **CI/CD Pipelines** - 13 step types including AI-powered steps, approval gates
 - **Container Orchestration** - Docker host management, container templates, sandboxed execution
@@ -56,37 +56,36 @@ Powernode is a self-hosted platform that gives you full control over AI agents, 
 - **AI-Powered Routing** - Automatic agent assignment with escalation
 - **Prompt Injection Protection** - Content sanitization with delimiter wrapping
 
-### Worker System (181+ jobs, 31 queues)
+### Worker System (220+ jobs, 33 queues)
 - **Standalone Sidekiq 7.2** - Fully isolated, API-only communication with backend
 - **3 Priority Tiers** - Critical (weight 3), standard (weight 2), background (weight 1)
 - **Circuit Breakers** - 600s AI workflows, 120s backend API timeouts
-- **36+ Scheduled Jobs** - Maintenance, decay, consolidation, health checks, autonomy
+- **54 Scheduled Jobs** - Maintenance, decay, consolidation, health checks, autonomy, trading
 
-### Enterprise Features (optional submodule)
+### Extensions (4 modules)
 
-Available via the `extensions/enterprise` git submodule. When absent, Powernode runs in core mode — single-user self-hosted with all platform features unlocked.
+Extensions are loaded dynamically via `FeatureGateService`. When no extensions are present, Powernode runs in core mode — single-user self-hosted with all platform features unlocked.
 
-- **Billing Engine** - Stripe & PayPal subscription lifecycle with PCI compliance
-- **BaaS** - Multi-tenancy with usage metering
-- **Reseller System** - White-label management
-- **AI Publisher** - Agent marketplace with monetization
-- **Predictive Analytics** - Churn prediction, revenue forecasting, MRR/ARR
+- **Enterprise** (`extensions/enterprise/`) - Billing engine (Stripe/PayPal), BaaS multi-tenancy, reseller system, AI publisher marketplace, predictive analytics
+- **Trading** (`extensions/trading/`) - Algorithmic trading with strategies, portfolios, risk monitoring, and evolution
+- **Supply Chain** (`extensions/supply-chain/`) - Supply chain management and logistics
+- **Marketing** (`extensions/marketing/`) - Campaign management and marketing automation
 
 ## Architecture Overview
 
 ```
 powernode-platform/
-├── server/              - Rails 8.1.2 API (327+ models, 293+ controllers, 580+ services)
-│   ├── app/models/      - 13 namespaces (Ai, Devops, Chat, KnowledgeBase, ...)
-│   ├── app/services/    - 23 service namespaces (580+ files)
+├── server/              - Rails 8.1.2 API (340+ models, 311+ controllers, 634+ services)
+│   ├── app/models/      - 10 namespaces (Ai, Devops, Chat, KnowledgeBase, ...)
+│   ├── app/services/    - 22+ service namespaces (634+ files)
 │   └── app/channels/    - 17 ActionCable channels
-├── frontend/            - React 19.1 TypeScript (11 feature modules)
-│   └── src/features/    - account, admin, ai, baas, business, content, delegations,
+├── frontend/            - React 19.1 TypeScript (10 feature modules)
+│   └── src/features/    - account, admin, ai, business, content, delegations,
 │                          developer, devops, missions, privacy
-├── worker/              - Sidekiq 7.2 (181+ jobs, 41 services, 4 API clients)
-├── extensions/          - Enterprise submodule (billing, BaaS, reseller, publisher)
-├── docs/                - 131 documentation files
-└── scripts/             - 47 automation scripts
+├── worker/              - Sidekiq 7.2 (220+ jobs, 45 services, 4 API clients)
+├── extensions/          - 4 extensions (enterprise, trading, supply-chain, marketing)
+├── docs/                - 111 documentation files
+└── scripts/             - 48 automation scripts
 ```
 
 ### Technology Stack
@@ -96,7 +95,7 @@ powernode-platform/
 - **Worker**: Sidekiq 7.2 | Redis | Faraday | Circuit breakers
 - **AI/ML**: 10+ providers | MCP Protocol | A2A Protocol | pgvector (HNSW)
 - **Testing**: RSpec | Jest 30 | Cypress 15 | 20,600+ tests
-- **Database**: 364+ tables | 13 model namespaces | pgvector embeddings
+- **Database**: 396+ tables | 10 model namespaces | pgvector embeddings
 
 ### Prerequisites
 - Ruby 3.2.8
@@ -143,10 +142,10 @@ Services:
 - **[TODO](docs/TODO.md)** - Current status and roadmap (auto-generated from MCP shared knowledge)
 
 ### Backend
-- **[Rails Architect](docs/backend/RAILS_ARCHITECT_SPECIALIST.md)** - API architecture (Rails 8.1.2, 13 namespaces)
+- **[Rails Architect](docs/backend/RAILS_ARCHITECT_SPECIALIST.md)** - API architecture (Rails 8.1.2, 10 namespaces)
 - **[Data Modeler](docs/backend/DATA_MODELER_SPECIALIST.md)** - Database & ActiveRecord
-- **[Database Schema](docs/backend/DATABASE_SCHEMA_REFERENCE.md)** - 359 tables, namespace reference
-- **[Service Architecture](docs/backend/BACKEND_SERVICE_ARCHITECTURE.md)** - 584 services, 23 namespaces
+- **[Database Schema](docs/backend/DATABASE_SCHEMA_REFERENCE.md)** - 396 tables, namespace reference
+- **[Service Architecture](docs/backend/BACKEND_SERVICE_ARCHITECTURE.md)** - 634 services, 22 namespaces
 - **[Background Jobs](docs/backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md)** - Job patterns
 - **[Payment Integration](docs/backend/PAYMENT_INTEGRATION_SPECIALIST.md)** - Stripe/PayPal
 
@@ -174,16 +173,16 @@ Services:
 - **[AI Operations](docs/platform/AI_ORCHESTRATION_OPERATIONS.md)** - Monitoring, incident runbooks
 
 ### DevOps & Infrastructure
-- **[DevOps Platform](docs/platform/DEVOPS_PLATFORM_GUIDE.md)** - 41 models, pipelines, containers, Swarm
+- **[DevOps Platform](docs/platform/DEVOPS_PLATFORM_GUIDE.md)** - 43 models, pipelines, containers, Swarm
 - **[Docker Swarm](docs/infrastructure/DOCKER_SWARM_OPERATIONS.md)** - Cluster operations
 - **[Docker Deployment](docs/infrastructure/DOCKER_DEPLOYMENT.md)** - Container setup
 - **[Configuration](docs/infrastructure/CONFIGURATION_MANAGEMENT.md)** - Env vars, secrets
-- **[Scripts Reference](docs/infrastructure/SCRIPTS_REFERENCE.md)** - 47 automation scripts
+- **[Scripts Reference](docs/infrastructure/SCRIPTS_REFERENCE.md)** - 48 automation scripts
 - **[DevOps Engineer](docs/infrastructure/DEVOPS_ENGINEER_SPECIALIST.md)** - CI/CD specialist
 
 ### Worker
 - **[Worker Architecture](docs/worker/WORKER_ARCHITECTURE_OVERVIEW.md)** - Isolation, API clients, circuit breakers
-- **[Worker Operations](docs/worker/WORKER_OPERATIONS_GUIDE.md)** - 181+ jobs, 31 queues, scheduling
+- **[Worker Operations](docs/worker/WORKER_OPERATIONS_GUIDE.md)** - 220+ jobs, 33 queues, scheduling
 - **[CI/CD Architecture](docs/worker/CI_CD_ARCHITECTURE.md)** - Pipeline execution
 - **[File Processing](docs/worker/FILE_PROCESSING_ARCHITECTURE.md)** - File handling subsystem
 
@@ -195,9 +194,9 @@ Services:
 - **[Content Management](docs/platform/CONTENT_MANAGEMENT_GUIDE.md)** - KB articles, pages, CMS
 - **[Theme System](docs/platform/THEME_SYSTEM_REFERENCE.md)** - Tailwind v4.1 theming
 - **[API Standards](docs/platform/API_RESPONSE_STANDARDS.md)** - API conventions
-- **[UUID System](docs/platform/UUID_SYSTEM_IMPLEMENTATION.md)** - UUIDv7 across 327+ models
+- **[UUID System](docs/platform/UUID_SYSTEM_IMPLEMENTATION.md)** - UUIDv7 across 340+ models
 - **[MCP Configuration](docs/platform/MCP_CONFIGURATION.md)** - MCP server setup and OAuth
-- **[MCP Tool Catalog](docs/platform/MCP_TOOL_CATALOG.md)** - 107 platform tools reference
+- **[MCP Tool Catalog](docs/platform/MCP_TOOL_CATALOG.md)** - 194 platform tools reference
 - **[Workflow System](docs/platform/WORKFLOW_SYSTEM_STANDARDS.md)** - Workflow patterns
 - **[Node Executors](docs/backend/NODE_EXECUTOR_REFERENCE.md)** - 35+ workflow node types
 

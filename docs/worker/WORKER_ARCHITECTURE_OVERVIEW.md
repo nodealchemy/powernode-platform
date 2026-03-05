@@ -10,9 +10,9 @@ The Powernode Worker is a fully isolated Sidekiq 7.2 process that executes backg
 ┌─────────────────────────────────┐          ┌──────────────────────────────┐
 │          WORKER                 │          │          SERVER              │
 │                                 │          │                              │
-│  Sidekiq 7.2 (195 jobs)        │   HTTP   │  Rails 8 API                 │
-│  41 services                    │ ───────> │  298 controllers             │
-│  Redis DB 1 (queues only)       │ <─────── │  584 services                │
+│  Sidekiq 7.2 (220+ jobs)       │   HTTP   │  Rails 8 API                 │
+│  45 services                    │ ───────> │  311 controllers             │
+│  Redis DB 1 (queues only)       │ <─────── │  634 services                │
 │  NO database access             │   JSON   │  PostgreSQL + Redis DB 0     │
 │  NO ActiveRecord models         │          │                              │
 │  NO shared gems with server     │          │                              │
@@ -82,7 +82,7 @@ Sidekiq::Job (from sidekiq gem)
             ├── AiWorkflowExecutionJob
             ├── Devops::StepExecutionJob
             ├── Notifications::EmailDeliveryJob
-            ├── ... (all 195 jobs)
+            ├── ... (all 220+ jobs)
             └── Maintenance::ScheduledBackupJob
 ```
 
