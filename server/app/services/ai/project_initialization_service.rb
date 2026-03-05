@@ -2,13 +2,14 @@
 
 module Ai
   class ProjectInitializationService
-    attr_reader :account, :repo_name, :description, :organization
+    attr_reader :account, :repo_name, :description, :organization, :private
 
-    def initialize(account:, repo_name: 'todo-app', description: nil, organization: nil)
+    def initialize(account:, repo_name: 'todo-app', description: nil, organization: nil, private: true)
       @account = account
       @repo_name = repo_name
       @description = description || 'Full-stack Todo/Task application built by an AI agent team'
       @organization = organization
+      @private = private
     end
 
     def call
@@ -50,7 +51,7 @@ module Ai
     def create_repository(client)
       options = {
         description: description,
-        private: false,
+        private: self.private,
         auto_init: true,
         default_branch: 'master'
       }

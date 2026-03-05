@@ -12,7 +12,8 @@ module Ai
           parameters: {
             repo_name: { type: "string", required: true, description: "Repository name" },
             description: { type: "string", required: false, description: "Repository description" },
-            organization: { type: "string", required: false, description: "Organization name to create the repository under (omit for personal namespace)" }
+            organization: { type: "string", required: false, description: "Organization name to create the repository under (omit for personal namespace)" },
+            private: { type: "boolean", required: false, description: "Whether the repository should be private (default: true)" }
           }
         }
       end
@@ -24,7 +25,8 @@ module Ai
           account: account,
           repo_name: params[:repo_name],
           description: params[:description],
-          organization: params[:organization]
+          organization: params[:organization],
+          private: params.fetch(:private, true)
         )
         service.call
       end

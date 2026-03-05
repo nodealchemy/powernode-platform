@@ -87,6 +87,23 @@ module Devops
       end
     end
 
+    def update_repository(owner, repo, options = {})
+      with_error_handling do
+        payload = {
+          description: options[:description],
+          private: options[:private],
+          archived: options[:archived],
+          default_branch: options[:default_branch],
+          has_issues: options[:has_issues],
+          has_wiki: options[:has_wiki],
+          has_pull_requests: options[:has_pull_requests],
+          has_projects: options[:has_projects]
+        }.compact
+        result = patch("/repos/#{owner}/#{repo}", payload)
+        normalize_repository(result)
+      end
+    end
+
     def delete_repository(owner, repo)
       with_error_handling(default_on_not_found: { success: true }) do
         delete("/repos/#{owner}/#{repo}")

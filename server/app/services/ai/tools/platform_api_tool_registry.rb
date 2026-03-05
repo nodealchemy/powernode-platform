@@ -6,6 +6,7 @@ module Ai
       TOOLS = {
         # Project & CI/CD
         "create_gitea_repository" => "Ai::Tools::ProjectInitTool",
+        "update_gitea_repository" => "Ai::Tools::RepoManagementTool",
         "dispatch_to_runner" => "Ai::Tools::RunnerDispatchTool",
         # Container deployment & management
         "deploy_container_agent" => "Ai::Tools::ContainerDeploymentTool",
