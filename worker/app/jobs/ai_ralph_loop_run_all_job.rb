@@ -28,17 +28,18 @@ class AiRalphLoopRunAllJob < BaseJob
         iteration: iteration
       })
 
+      # Check for completion/cancellation in both success and error responses
+      if response.dig('data', 'completed')
+        log_info("[RalphLoopRunAll] All iterations completed after #{iteration} iterations")
+        break
+      end
+
+      if response.dig('data', 'cancelled')
+        log_info("[RalphLoopRunAll] Loop cancelled after #{iteration} iterations")
+        break
+      end
+
       unless response['success']
-        if response.dig('data', 'completed')
-          log_info("[RalphLoopRunAll] All iterations completed after #{iteration} iterations")
-          break
-        end
-
-        if response.dig('data', 'cancelled')
-          log_info("[RalphLoopRunAll] Loop cancelled after #{iteration} iterations")
-          break
-        end
-
         if stop_on_error
           log_error("[RalphLoopRunAll] Iteration #{iteration} failed, stopping: #{response['error']}")
           break

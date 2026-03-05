@@ -317,14 +317,14 @@ module Api
             rescue ::Ai::Missions::AppLaunchService::LaunchError => e
               # Workflow not available — fall back to stub deployment and advance
               Rails.logger.warn("Deploy workflow failed (#{e.message}), using stub deployment")
-              url = "http://localhost:#{port}"
+              url = service.preview_url(port)
               mission.update!(deployed_url: url)
               orchestrator = ::Ai::Missions::OrchestratorService.new(mission: mission)
               orchestrator.advance!(result: { deployed_url: url, stub: true })
               render_success(deployment: { port: port, url: url, status: "stub", note: e.message }, mission: mission.reload.mission_details)
             end
           else
-            url = "http://localhost:#{port}"
+            url = service.preview_url(port)
             mission.update!(deployed_url: url)
             orchestrator = ::Ai::Missions::OrchestratorService.new(mission: mission)
             orchestrator.advance!(result: { deployed_url: url, stub: true })

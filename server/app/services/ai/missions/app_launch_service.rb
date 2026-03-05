@@ -15,8 +15,11 @@ module Ai
       end
 
       def allocate_port!
+        cluster = resolve_deploy_cluster
+        host_id = cluster&.slug || "localhost"
+
         port = Devops::PortAllocatorService.new.allocate!(
-          host_identifier: "localhost",
+          host_identifier: host_id,
           allocatable: mission,
           purpose: "app_server",
           port_range: PORT_RANGE,
@@ -27,6 +30,11 @@ module Ai
         port
       rescue Devops::PortAllocatorService::NoPortAvailableError
         raise LaunchError, "No available ports in range #{PORT_RANGE}"
+      end
+
+      def preview_url(port)
+        hostname = resolve_deploy_cluster&.public_hostname || "localhost"
+        "http://#{hostname}:#{port}"
       end
 
       def launch!(branch:)
@@ -92,6 +100,10 @@ module Ai
       end
 
       private
+
+      def resolve_deploy_cluster
+        account.devops_swarm_clusters.connected.first
+      end
 
       def find_credential(repository)
         account.git_provider_credentials

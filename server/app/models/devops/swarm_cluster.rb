@@ -77,6 +77,12 @@ module Devops
       }
     end
 
+    def public_hostname
+      URI.parse(api_endpoint).host
+    rescue URI::InvalidURIError
+      nil
+    end
+
     def cluster_details
       cluster_summary.merge(
         description: description,

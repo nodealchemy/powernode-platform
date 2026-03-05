@@ -71,7 +71,19 @@ class AiMissionExecuteJob < BaseJob
       log_error("Execution failed", mission_id: mission_id, status: loop_status)
       report_failure(mission_id, "Execution #{loop_status}")
     else
-      # Still running — re-enqueue with incremented poll count
+      # Still running — check if all tasks are actually done (run_all may have
+      # exited without transitioning the loop status)
+      completed_tasks = loop_data['completed_tasks'].to_i
+      total_tasks = loop_data['total_tasks'].to_i
+      if total_tasks > 0 && completed_tasks >= total_tasks
+        log_warn("Loop stuck: all tasks done but status=#{loop_status}, triggering run_iteration to complete",
+                 mission_id: mission_id, ralph_loop_id: ralph_loop_id)
+        backend_api_post("/api/v1/internal/ai/ralph_loops/#{ralph_loop_id}/run_iteration", {})
+        schedule_next_poll(params, poll_count)
+        return
+      end
+
+      # Re-enqueue with incremented poll count
       if poll_count >= MAX_POLLS
         log_error("Execution timed out", mission_id: mission_id)
         report_failure(mission_id, "Execution timed out after #{MAX_POLLS} polls")
