@@ -1,7 +1,7 @@
 // Navigation Item Component
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, icons } from 'lucide-react';
 import { NavigationItem as NavItem } from '@/shared/types/navigation';
 import { useNavigation } from '@/shared/hooks/NavigationContext';
 
@@ -72,12 +72,16 @@ export const NavigationItem: React.FC<NavigationItemProps> = ({
     return false;
   })();
 
-  // Render icon
+  // Render icon — supports both React components and Lucide icon name strings
   const renderIcon = () => {
     if (typeof item.icon === 'string') {
-      return <span className="text-lg">{item.icon}</span>;
+      const LucideIcon = icons[item.icon as keyof typeof icons];
+      if (LucideIcon) {
+        return <LucideIcon className="w-5 h-5" />;
+      }
+      return <icons.Puzzle className="w-5 h-5" />;
     }
-    const IconComponent = item.icon as React.ComponentType<any>;
+    const IconComponent = item.icon as React.ComponentType<{ className?: string }>;
     return <IconComponent className="w-5 h-5" />;
   };
 

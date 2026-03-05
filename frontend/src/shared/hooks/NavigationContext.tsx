@@ -123,19 +123,32 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
       config.sections = [...(config.sections || []), ...convertedSections];
     }
 
-    // Merge extension-registered nav items (top-level, like Marketplace)
+    // Merge extension-registered nav items
     const extensionItems = featureRegistry.getNavItems();
     if (extensionItems.length > 0) {
-      const convertedItems = extensionItems.map(item => ({
-        id: item.label.toLowerCase().replace(/\s+/g, '-'),
-        name: item.label,
-        href: item.path,
-        icon: item.icon || 'Puzzle',
-        description: '',
-        permissions: item.permission ? [item.permission] : [],
-        order: item.order,
-      }));
-      config.items = [...config.items, ...convertedItems];
+      for (const item of extensionItems) {
+        const converted = {
+          id: item.label.toLowerCase().replace(/\s+/g, '-'),
+          name: item.label,
+          href: item.path,
+          icon: item.icon || 'Puzzle',
+          description: '',
+          permissions: item.permission ? [item.permission] : [],
+          order: item.order,
+        };
+
+        // Items with a section property get injected into matching sections
+        if (item.section && config.sections) {
+          const targetSection = config.sections.find(s => s.id === item.section);
+          if (targetSection) {
+            targetSection.items.push(converted);
+            continue;
+          }
+        }
+
+        // Top-level items (no section, or section not found)
+        config.items = [...config.items, converted];
+      }
     }
 
     // Filter extension-gated items at all levels

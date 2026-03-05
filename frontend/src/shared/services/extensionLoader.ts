@@ -17,34 +17,40 @@ interface ExtensionManifest {
 }
 
 // Build-time glob discovery of extension register modules and manifests
+// Path goes up 4 levels: services/ → shared/ → src/ → frontend/ → project root
 const registerModules = import.meta.glob<ExtensionModule>(
-  '../../../extensions/*/frontend/src/register.ts',
+  '../../../../extensions/*/frontend/src/register.ts',
   { eager: false }
 );
 
 const manifestModules = import.meta.glob<{ default: ExtensionManifest }>(
-  '../../../extensions/*/extension.json',
+  '../../../../extensions/*/extension.json',
   { eager: true }
 );
 
 const loaded = new Map<string, ExtensionManifest>();
+let extensionsLoaded = false;
 
 /**
  * Discover and load all extensions found at build time.
  * Each extension must export a `register()` function from `frontend/src/register.ts`.
+ * Idempotent — safe to call multiple times (React StrictMode double-fires effects).
  */
 export async function loadAllExtensions(): Promise<void> {
+  if (extensionsLoaded) return;
+  extensionsLoaded = true;
+
   for (const [modulePath, loader] of Object.entries(registerModules)) {
-    // Extract slug from path: ../../../extensions/{slug}/frontend/src/register.ts
+    // Extract slug from path: ../../../../extensions/{slug}/frontend/src/register.ts
     const parts = modulePath.split('/');
-    const slug = parts[4];
+    const slug = parts[5];
 
     try {
       const mod = await loader();
       mod.register();
 
       // Load manifest if available
-      const manifestPath = `../../../extensions/${slug}/extension.json`;
+      const manifestPath = `../../../../extensions/${slug}/extension.json`;
       const manifest = manifestModules[manifestPath]?.default;
       if (manifest) {
         loaded.set(slug, manifest);
