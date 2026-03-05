@@ -9780,6 +9780,513 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_210034) do
     t.index ["user_id"], name: "index_terms_acceptances_on_user_id"
   end
 
+  create_table "trading_audit_logs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "action", null: false
+    t.uuid "actor_id"
+    t.string "actor_type"
+    t.uuid "auditable_id", null: false
+    t.string "auditable_type", null: false
+    t.jsonb "changes_data", default: {}
+    t.datetime "created_at", null: false
+    t.inet "ip_address"
+    t.jsonb "metadata", default: {}
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_trading_audit_logs_on_account_id"
+    t.index ["action"], name: "index_trading_audit_logs_on_action"
+    t.index ["auditable_type", "auditable_id"], name: "idx_trading_audit_logs_auditable"
+    t.index ["created_at"], name: "index_trading_audit_logs_on_created_at"
+  end
+
+  create_table "trading_chain_tokens", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "config", default: {}
+    t.string "contract_address"
+    t.datetime "created_at", null: false
+    t.integer "decimals", default: 18, null: false
+    t.boolean "is_active", default: true, null: false
+    t.string "name", null: false
+    t.string "symbol", null: false
+    t.uuid "trading_chain_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["trading_chain_id", "symbol"], name: "index_trading_chain_tokens_on_trading_chain_id_and_symbol", unique: true
+    t.index ["trading_chain_id"], name: "index_trading_chain_tokens_on_trading_chain_id"
+  end
+
+  create_table "trading_chains", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.integer "chain_id", null: false
+    t.jsonb "config", default: {}
+    t.datetime "created_at", null: false
+    t.string "explorer_url"
+    t.boolean "is_active", default: true, null: false
+    t.boolean "is_testnet", default: false, null: false
+    t.string "name", null: false
+    t.string "native_token", null: false
+    t.string "rpc_url"
+    t.datetime "updated_at", null: false
+    t.index ["chain_id"], name: "index_trading_chains_on_chain_id", unique: true
+    t.index ["is_active"], name: "index_trading_chains_on_is_active"
+  end
+
+  create_table "trading_evolution_candidates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "action_taken"
+    t.decimal "capital_after_usd", precision: 19, scale: 2
+    t.decimal "capital_before_usd", precision: 19, scale: 2
+    t.datetime "created_at", null: false
+    t.jsonb "fitness_breakdown", default: {}
+    t.decimal "fitness_score", precision: 10, scale: 6, default: "0.0", null: false
+    t.jsonb "metadata", default: {}
+    t.integer "rank"
+    t.uuid "trading_evolution_epoch_id", null: false
+    t.uuid "trading_strategy_id", null: false
+    t.uuid "trading_strategy_version_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["trading_evolution_epoch_id", "rank"], name: "idx_trading_evo_candidates_epoch_rank"
+    t.index ["trading_evolution_epoch_id"], name: "idx_on_trading_evolution_epoch_id_345b08ff53"
+    t.index ["trading_strategy_id"], name: "index_trading_evolution_candidates_on_trading_strategy_id"
+    t.index ["trading_strategy_version_id"], name: "idx_on_trading_strategy_version_id_8d17831961"
+  end
+
+  create_table "trading_evolution_epochs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.integer "epoch_number", null: false
+    t.jsonb "fitness_weights", default: {}
+    t.jsonb "results", default: {}
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.integer "strategies_bred", default: 0
+    t.integer "strategies_decommissioned", default: 0
+    t.integer "strategies_demoted", default: 0
+    t.integer "strategies_evaluated", default: 0
+    t.integer "strategies_promoted", default: 0
+    t.uuid "trading_portfolio_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["status"], name: "index_trading_evolution_epochs_on_status"
+    t.index ["trading_portfolio_id", "epoch_number"], name: "idx_trading_evolution_portfolio_epoch", unique: true
+    t.index ["trading_portfolio_id"], name: "index_trading_evolution_epochs_on_trading_portfolio_id"
+  end
+
+  create_table "trading_orders", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.decimal "average_fill_price", precision: 19, scale: 8
+    t.string "cancel_reason"
+    t.datetime "cancelled_at"
+    t.datetime "created_at", null: false
+    t.decimal "fees_usd", precision: 19, scale: 2, default: "0.0"
+    t.datetime "filled_at"
+    t.decimal "filled_quantity", precision: 19, scale: 8, default: "0.0"
+    t.jsonb "metadata", default: {}
+    t.string "order_type", default: "limit", null: false
+    t.string "pair", null: false
+    t.decimal "price", precision: 19, scale: 8
+    t.decimal "quantity", precision: 19, scale: 8, null: false
+    t.string "side", null: false
+    t.string "status", default: "pending", null: false
+    t.datetime "submitted_at"
+    t.uuid "trading_position_id"
+    t.uuid "trading_strategy_id", null: false
+    t.uuid "trading_venue_id", null: false
+    t.datetime "updated_at", null: false
+    t.string "venue_order_id"
+    t.index ["status"], name: "index_trading_orders_on_status"
+    t.index ["trading_position_id"], name: "index_trading_orders_on_trading_position_id"
+    t.index ["trading_strategy_id", "status"], name: "idx_trading_orders_strat_status"
+    t.index ["trading_strategy_id"], name: "index_trading_orders_on_trading_strategy_id"
+    t.index ["trading_venue_id"], name: "index_trading_orders_on_trading_venue_id"
+    t.index ["venue_order_id"], name: "index_trading_orders_on_venue_order_id"
+  end
+
+  create_table "trading_performance_metrics", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.decimal "avg_loss_usd", precision: 19, scale: 2
+    t.decimal "avg_win_usd", precision: 19, scale: 2
+    t.decimal "calmar_ratio", precision: 10, scale: 6
+    t.datetime "created_at", null: false
+    t.decimal "largest_loss_usd", precision: 19, scale: 2
+    t.decimal "largest_win_usd", precision: 19, scale: 2
+    t.integer "losing_trades", default: 0
+    t.decimal "max_drawdown_pct", precision: 8, scale: 4
+    t.jsonb "metadata", default: {}
+    t.date "period_date", null: false
+    t.string "period_type", default: "daily", null: false
+    t.decimal "pnl_pct", precision: 8, scale: 4, default: "0.0"
+    t.decimal "pnl_usd", precision: 19, scale: 2, default: "0.0"
+    t.decimal "profit_factor", precision: 10, scale: 4
+    t.decimal "sharpe_ratio", precision: 10, scale: 6
+    t.decimal "sortino_ratio", precision: 10, scale: 6
+    t.integer "total_trades", default: 0
+    t.uuid "trading_strategy_id", null: false
+    t.datetime "updated_at", null: false
+    t.decimal "win_rate", precision: 5, scale: 4
+    t.integer "winning_trades", default: 0
+    t.index ["period_date"], name: "index_trading_performance_metrics_on_period_date"
+    t.index ["trading_strategy_id", "period_date", "period_type"], name: "idx_trading_perf_metrics_strat_date_type", unique: true
+    t.index ["trading_strategy_id"], name: "index_trading_performance_metrics_on_trading_strategy_id"
+  end
+
+  create_table "trading_portfolios", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "ai_agent_budget_id"
+    t.uuid "ai_agent_team_id"
+    t.decimal "allocated_capital_usd", precision: 19, scale: 2, default: "0.0", null: false
+    t.decimal "available_capital_usd", precision: 19, scale: 2, default: "0.0", null: false
+    t.jsonb "config", default: {}
+    t.datetime "created_at", null: false
+    t.string "name", default: "Default Portfolio", null: false
+    t.string "status", default: "active", null: false
+    t.decimal "total_capital_usd", precision: 19, scale: 2, default: "0.0", null: false
+    t.decimal "total_pnl_pct", precision: 8, scale: 4, default: "0.0", null: false
+    t.decimal "total_pnl_usd", precision: 19, scale: 2, default: "0.0", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_trading_portfolios_on_account_id", unique: true
+    t.index ["ai_agent_budget_id"], name: "index_trading_portfolios_on_ai_agent_budget_id"
+    t.index ["ai_agent_team_id"], name: "index_trading_portfolios_on_ai_agent_team_id"
+  end
+
+  create_table "trading_positions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "closed_at"
+    t.datetime "created_at", null: false
+    t.decimal "current_price", precision: 19, scale: 8
+    t.decimal "entry_price", precision: 19, scale: 8, null: false
+    t.decimal "exit_price", precision: 19, scale: 8
+    t.decimal "fees_usd", precision: 19, scale: 2, default: "0.0"
+    t.jsonb "metadata", default: {}
+    t.datetime "opened_at", null: false
+    t.string "pair", null: false
+    t.decimal "quantity", precision: 19, scale: 8, null: false
+    t.decimal "realized_pnl_usd", precision: 19, scale: 2, default: "0.0"
+    t.string "side", null: false
+    t.string "status", default: "open", null: false
+    t.decimal "stop_loss_price", precision: 19, scale: 8
+    t.decimal "take_profit_price", precision: 19, scale: 8
+    t.uuid "trading_strategy_id", null: false
+    t.uuid "trading_venue_id", null: false
+    t.decimal "unrealized_pnl_usd", precision: 19, scale: 2, default: "0.0"
+    t.datetime "updated_at", null: false
+    t.index ["opened_at"], name: "index_trading_positions_on_opened_at"
+    t.index ["status"], name: "index_trading_positions_on_status"
+    t.index ["trading_strategy_id", "status"], name: "idx_trading_positions_strat_status"
+    t.index ["trading_strategy_id"], name: "index_trading_positions_on_trading_strategy_id"
+    t.index ["trading_venue_id"], name: "index_trading_positions_on_trading_venue_id"
+  end
+
+  create_table "trading_price_feeds", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "config", default: {}
+    t.datetime "created_at", null: false
+    t.string "interval", default: "1m", null: false
+    t.boolean "is_active", default: true, null: false
+    t.decimal "last_price", precision: 19, scale: 8
+    t.datetime "last_updated_at"
+    t.string "name", null: false
+    t.string "pair", null: false
+    t.string "source", null: false
+    t.datetime "updated_at", null: false
+    t.index ["is_active"], name: "index_trading_price_feeds_on_is_active"
+    t.index ["source", "pair"], name: "index_trading_price_feeds_on_source_and_pair", unique: true
+  end
+
+  create_table "trading_price_snapshots", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.decimal "close", precision: 19, scale: 8, null: false
+    t.datetime "created_at", null: false
+    t.decimal "high", precision: 19, scale: 8, null: false
+    t.string "interval", default: "1m", null: false
+    t.decimal "low", precision: 19, scale: 8, null: false
+    t.decimal "open", precision: 19, scale: 8, null: false
+    t.datetime "timestamp", null: false
+    t.uuid "trading_price_feed_id", null: false
+    t.datetime "updated_at", null: false
+    t.decimal "volume", precision: 19, scale: 8, default: "0.0"
+    t.index ["timestamp"], name: "index_trading_price_snapshots_on_timestamp"
+    t.index ["trading_price_feed_id", "timestamp", "interval"], name: "idx_trading_price_snaps_feed_time_interval", unique: true
+    t.index ["trading_price_feed_id"], name: "index_trading_price_snapshots_on_trading_price_feed_id"
+  end
+
+  create_table "trading_risk_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "acknowledged_at"
+    t.datetime "created_at", null: false
+    t.text "description", null: false
+    t.string "event_type", null: false
+    t.jsonb "metadata", default: {}
+    t.datetime "resolved_at"
+    t.string "severity", default: "warning", null: false
+    t.string "status", default: "active", null: false
+    t.decimal "threshold_value", precision: 19, scale: 4
+    t.uuid "trading_risk_profile_id", null: false
+    t.uuid "trading_strategy_id"
+    t.decimal "trigger_value", precision: 19, scale: 4
+    t.datetime "updated_at", null: false
+    t.index ["event_type"], name: "index_trading_risk_events_on_event_type"
+    t.index ["severity"], name: "index_trading_risk_events_on_severity"
+    t.index ["status"], name: "index_trading_risk_events_on_status"
+    t.index ["trading_risk_profile_id"], name: "index_trading_risk_events_on_trading_risk_profile_id"
+    t.index ["trading_strategy_id"], name: "index_trading_risk_events_on_trading_strategy_id"
+  end
+
+  create_table "trading_risk_profiles", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.boolean "circuit_breaker_enabled", default: true, null: false
+    t.boolean "circuit_breaker_tripped", default: false, null: false
+    t.datetime "circuit_breaker_tripped_at"
+    t.jsonb "config", default: {}
+    t.datetime "created_at", null: false
+    t.decimal "max_daily_loss_usd", precision: 19, scale: 2
+    t.integer "max_open_positions", default: 20, null: false
+    t.decimal "max_portfolio_drawdown_pct", precision: 5, scale: 2, default: "20.0", null: false
+    t.decimal "max_position_size_pct", precision: 5, scale: 2, default: "25.0", null: false
+    t.integer "max_strategies", default: 10, null: false
+    t.decimal "max_strategy_drawdown_pct", precision: 5, scale: 2, default: "15.0", null: false
+    t.string "risk_tier", default: "conservative", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_trading_risk_profiles_on_account_id", unique: true
+  end
+
+  create_table "trading_signals", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "acted_on_at"
+    t.decimal "confidence", precision: 5, scale: 4, null: false
+    t.datetime "created_at", null: false
+    t.string "direction"
+    t.datetime "expires_at"
+    t.jsonb "indicators", default: {}
+    t.jsonb "metadata", default: {}
+    t.string "pair", null: false
+    t.decimal "price", precision: 19, scale: 8
+    t.text "reasoning"
+    t.string "signal_type", null: false
+    t.string "status", default: "generated", null: false
+    t.decimal "strength", precision: 5, scale: 4
+    t.uuid "trading_strategy_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["signal_type"], name: "index_trading_signals_on_signal_type"
+    t.index ["status"], name: "index_trading_signals_on_status"
+    t.index ["trading_strategy_id", "created_at"], name: "idx_trading_signals_strategy_created"
+    t.index ["trading_strategy_id", "status"], name: "idx_trading_signals_strat_status"
+    t.index ["trading_strategy_id"], name: "index_trading_signals_on_trading_strategy_id"
+  end
+
+  create_table "trading_simulations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "completed_at"
+    t.integer "completed_ticks", default: 0
+    t.jsonb "config", default: {}
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.jsonb "results", default: {}
+    t.datetime "started_at"
+    t.string "status", default: "setup", null: false
+    t.jsonb "timeline", default: []
+    t.integer "total_ticks", default: 0
+    t.uuid "trading_portfolio_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "status"], name: "idx_trading_simulations_account_status"
+    t.index ["account_id"], name: "index_trading_simulations_on_account_id"
+    t.index ["status"], name: "index_trading_simulations_on_status"
+    t.index ["trading_portfolio_id"], name: "index_trading_simulations_on_trading_portfolio_id"
+  end
+
+  create_table "trading_strategies", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "activated_at"
+    t.uuid "ai_agent_budget_id"
+    t.uuid "ai_agent_team_id"
+    t.uuid "ai_mission_id"
+    t.uuid "ai_ralph_loop_id"
+    t.decimal "allocated_capital_usd", precision: 19, scale: 2, default: "0.0", null: false
+    t.jsonb "config", default: {}
+    t.datetime "created_at", null: false
+    t.decimal "current_pnl_pct", precision: 8, scale: 4, default: "0.0", null: false
+    t.decimal "current_pnl_usd", precision: 19, scale: 2, default: "0.0", null: false
+    t.datetime "decommissioned_at"
+    t.datetime "last_tick_at"
+    t.string "lifecycle_phase", default: "conception", null: false
+    t.string "name", null: false
+    t.string "pair"
+    t.jsonb "parameters", default: {}
+    t.string "risk_tier", default: "medium", null: false
+    t.string "status", default: "draft", null: false
+    t.string "strategy_type", null: false
+    t.integer "tick_interval_seconds", default: 60, null: false
+    t.uuid "trading_portfolio_id", null: false
+    t.uuid "trading_venue_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["ai_agent_budget_id"], name: "index_trading_strategies_on_ai_agent_budget_id"
+    t.index ["ai_agent_team_id"], name: "index_trading_strategies_on_ai_agent_team_id"
+    t.index ["ai_mission_id"], name: "index_trading_strategies_on_ai_mission_id"
+    t.index ["ai_ralph_loop_id"], name: "index_trading_strategies_on_ai_ralph_loop_id"
+    t.index ["lifecycle_phase"], name: "index_trading_strategies_on_lifecycle_phase"
+    t.index ["risk_tier"], name: "index_trading_strategies_on_risk_tier"
+    t.index ["status", "lifecycle_phase"], name: "idx_trading_strategies_status_phase"
+    t.index ["status"], name: "index_trading_strategies_on_status"
+    t.index ["strategy_type"], name: "index_trading_strategies_on_strategy_type"
+    t.index ["trading_portfolio_id", "pair"], name: "idx_trading_strategies_portfolio_pair"
+    t.index ["trading_portfolio_id", "status"], name: "idx_trading_strats_portfolio_status"
+    t.index ["trading_portfolio_id"], name: "index_trading_strategies_on_trading_portfolio_id"
+    t.index ["trading_venue_id"], name: "index_trading_strategies_on_trading_venue_id"
+  end
+
+  create_table "trading_strategy_versions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "change_reason"
+    t.datetime "created_at", null: false
+    t.jsonb "parameters", default: {}, null: false
+    t.uuid "parent_version_id"
+    t.string "source", default: "manual", null: false
+    t.uuid "trading_strategy_id", null: false
+    t.datetime "updated_at", null: false
+    t.integer "version_number", null: false
+    t.index ["parent_version_id"], name: "index_trading_strategy_versions_on_parent_version_id"
+    t.index ["trading_strategy_id", "version_number"], name: "idx_trading_strat_versions_strat_num", unique: true
+    t.index ["trading_strategy_id"], name: "index_trading_strategy_versions_on_trading_strategy_id"
+  end
+
+  create_table "trading_sweep_proposals", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "ai_agent_proposal_id"
+    t.decimal "amount_usd", precision: 19, scale: 2, null: false
+    t.uuid "cold_wallet_id", null: false
+    t.decimal "confidence", precision: 5, scale: 4, default: "0.5"
+    t.datetime "created_at", null: false
+    t.datetime "decided_at"
+    t.datetime "executed_at"
+    t.text "market_analysis"
+    t.jsonb "metadata", default: {}
+    t.decimal "portfolio_profit_pct", precision: 8, scale: 4
+    t.text "reasoning"
+    t.string "status", default: "pending", null: false
+    t.uuid "trading_portfolio_id", null: false
+    t.uuid "trading_wallet_id", null: false
+    t.uuid "trading_wallet_transaction_id"
+    t.datetime "updated_at", null: false
+    t.index ["ai_agent_proposal_id"], name: "index_trading_sweep_proposals_on_ai_agent_proposal_id"
+    t.index ["cold_wallet_id"], name: "index_trading_sweep_proposals_on_cold_wallet_id"
+    t.index ["status"], name: "index_trading_sweep_proposals_on_status"
+    t.index ["trading_portfolio_id", "status"], name: "idx_trading_sweep_proposals_portfolio_status"
+    t.index ["trading_portfolio_id"], name: "index_trading_sweep_proposals_on_trading_portfolio_id"
+    t.index ["trading_wallet_id"], name: "index_trading_sweep_proposals_on_trading_wallet_id"
+    t.index ["trading_wallet_transaction_id"], name: "index_trading_sweep_proposals_on_trading_wallet_transaction_id"
+  end
+
+  create_table "trading_sweep_rules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.boolean "auto_execute", default: false, null: false
+    t.uuid "cold_wallet_id", null: false
+    t.datetime "created_at", null: false
+    t.boolean "is_active", default: true, null: false
+    t.datetime "last_triggered_at"
+    t.decimal "min_retain_amount", precision: 19, scale: 2, default: "0.0", null: false
+    t.decimal "sweep_amount", precision: 19, scale: 2
+    t.decimal "threshold_amount", precision: 19, scale: 2, null: false
+    t.uuid "trading_chain_token_id", null: false
+    t.uuid "trading_wallet_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["cold_wallet_id"], name: "index_trading_sweep_rules_on_cold_wallet_id"
+    t.index ["trading_chain_token_id"], name: "index_trading_sweep_rules_on_trading_chain_token_id"
+    t.index ["trading_wallet_id"], name: "index_trading_sweep_rules_on_trading_wallet_id"
+  end
+
+  create_table "trading_trades", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "executed_at", null: false
+    t.decimal "fee_usd", precision: 19, scale: 2, default: "0.0"
+    t.jsonb "metadata", default: {}
+    t.string "pair", null: false
+    t.decimal "price", precision: 19, scale: 8, null: false
+    t.decimal "quantity", precision: 19, scale: 8, null: false
+    t.string "side", null: false
+    t.decimal "total_usd", precision: 19, scale: 2, null: false
+    t.uuid "trading_order_id", null: false
+    t.uuid "trading_position_id", null: false
+    t.uuid "trading_venue_id", null: false
+    t.datetime "updated_at", null: false
+    t.string "venue_trade_id"
+    t.index ["executed_at"], name: "index_trading_trades_on_executed_at"
+    t.index ["trading_order_id"], name: "index_trading_trades_on_trading_order_id"
+    t.index ["trading_position_id"], name: "index_trading_trades_on_trading_position_id"
+    t.index ["trading_venue_id"], name: "index_trading_trades_on_trading_venue_id"
+    t.index ["venue_trade_id"], name: "index_trading_trades_on_venue_trade_id"
+  end
+
+  create_table "trading_venue_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.text "encrypted_api_key"
+    t.text "encrypted_api_secret"
+    t.text "encrypted_passphrase"
+    t.boolean "is_active", default: true, null: false
+    t.string "label"
+    t.datetime "last_verified_at"
+    t.jsonb "permissions", default: {}
+    t.uuid "trading_venue_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "trading_venue_id"], name: "idx_trading_venue_creds_account_venue"
+    t.index ["account_id"], name: "index_trading_venue_credentials_on_account_id"
+    t.index ["trading_venue_id"], name: "index_trading_venue_credentials_on_trading_venue_id"
+  end
+
+  create_table "trading_venues", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "adapter_class", null: false
+    t.jsonb "config", default: {}
+    t.datetime "created_at", null: false
+    t.boolean "is_active", default: false, null: false
+    t.string "name", null: false
+    t.string "slug", null: false
+    t.jsonb "supported_pairs", default: []
+    t.datetime "updated_at", null: false
+    t.string "venue_type", null: false
+    t.index ["is_active"], name: "index_trading_venues_on_is_active"
+    t.index ["slug"], name: "index_trading_venues_on_slug", unique: true
+    t.index ["venue_type"], name: "index_trading_venues_on_venue_type"
+  end
+
+  create_table "trading_wallet_balances", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.decimal "available_balance", precision: 19, scale: 8, default: "0.0", null: false
+    t.decimal "balance", precision: 19, scale: 8, default: "0.0", null: false
+    t.datetime "created_at", null: false
+    t.datetime "last_synced_at"
+    t.decimal "locked_balance", precision: 19, scale: 8, default: "0.0", null: false
+    t.uuid "trading_chain_token_id", null: false
+    t.uuid "trading_wallet_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["trading_chain_token_id"], name: "index_trading_wallet_balances_on_trading_chain_token_id"
+    t.index ["trading_wallet_id", "trading_chain_token_id"], name: "idx_trading_wallet_bal_wallet_token", unique: true
+    t.index ["trading_wallet_id"], name: "index_trading_wallet_balances_on_trading_wallet_id"
+  end
+
+  create_table "trading_wallet_transactions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.decimal "amount", precision: 19, scale: 8, null: false
+    t.integer "block_number"
+    t.integer "confirmations", default: 0
+    t.datetime "confirmed_at"
+    t.datetime "created_at", null: false
+    t.string "from_address"
+    t.decimal "gas_fee", precision: 19, scale: 8, default: "0.0"
+    t.jsonb "metadata", default: {}
+    t.string "status", default: "pending", null: false
+    t.string "to_address"
+    t.uuid "trading_chain_token_id", null: false
+    t.uuid "trading_wallet_id", null: false
+    t.string "transaction_type", null: false
+    t.string "tx_hash"
+    t.datetime "updated_at", null: false
+    t.index ["status"], name: "index_trading_wallet_transactions_on_status"
+    t.index ["trading_chain_token_id"], name: "index_trading_wallet_transactions_on_trading_chain_token_id"
+    t.index ["trading_wallet_id"], name: "index_trading_wallet_transactions_on_trading_wallet_id"
+    t.index ["transaction_type"], name: "index_trading_wallet_transactions_on_transaction_type"
+    t.index ["tx_hash"], name: "index_trading_wallet_transactions_on_tx_hash", unique: true
+  end
+
+  create_table "trading_wallets", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "address", null: false
+    t.jsonb "config", default: {}
+    t.datetime "created_at", null: false
+    t.boolean "is_active", default: true, null: false
+    t.string "label"
+    t.string "provider"
+    t.string "provider_wallet_id"
+    t.uuid "trading_chain_id", null: false
+    t.uuid "trading_portfolio_id", null: false
+    t.datetime "updated_at", null: false
+    t.string "wallet_type", null: false
+    t.index ["address"], name: "index_trading_wallets_on_address", unique: true
+    t.index ["trading_chain_id"], name: "index_trading_wallets_on_trading_chain_id"
+    t.index ["trading_portfolio_id", "wallet_type"], name: "idx_trading_wallets_portfolio_type"
+    t.index ["trading_portfolio_id"], name: "index_trading_wallets_on_trading_portfolio_id"
+    t.index ["wallet_type"], name: "index_trading_wallets_on_wallet_type"
+  end
+
   create_table "usage_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.datetime "created_at", null: false
@@ -10991,6 +11498,55 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_210034) do
   add_foreign_key "task_executions", "scheduled_tasks"
   add_foreign_key "terms_acceptances", "accounts"
   add_foreign_key "terms_acceptances", "users"
+  add_foreign_key "trading_audit_logs", "accounts"
+  add_foreign_key "trading_chain_tokens", "trading_chains"
+  add_foreign_key "trading_evolution_candidates", "trading_evolution_epochs"
+  add_foreign_key "trading_evolution_candidates", "trading_strategies"
+  add_foreign_key "trading_evolution_candidates", "trading_strategy_versions"
+  add_foreign_key "trading_evolution_epochs", "trading_portfolios"
+  add_foreign_key "trading_orders", "trading_positions"
+  add_foreign_key "trading_orders", "trading_strategies"
+  add_foreign_key "trading_orders", "trading_venues"
+  add_foreign_key "trading_performance_metrics", "trading_strategies"
+  add_foreign_key "trading_portfolios", "accounts"
+  add_foreign_key "trading_portfolios", "ai_agent_budgets"
+  add_foreign_key "trading_portfolios", "ai_agent_teams"
+  add_foreign_key "trading_positions", "trading_strategies"
+  add_foreign_key "trading_positions", "trading_venues"
+  add_foreign_key "trading_price_snapshots", "trading_price_feeds"
+  add_foreign_key "trading_risk_events", "trading_risk_profiles"
+  add_foreign_key "trading_risk_events", "trading_strategies"
+  add_foreign_key "trading_risk_profiles", "accounts"
+  add_foreign_key "trading_signals", "trading_strategies"
+  add_foreign_key "trading_simulations", "accounts"
+  add_foreign_key "trading_simulations", "trading_portfolios"
+  add_foreign_key "trading_strategies", "ai_agent_budgets"
+  add_foreign_key "trading_strategies", "ai_agent_teams"
+  add_foreign_key "trading_strategies", "ai_missions"
+  add_foreign_key "trading_strategies", "ai_ralph_loops"
+  add_foreign_key "trading_strategies", "trading_portfolios"
+  add_foreign_key "trading_strategies", "trading_venues"
+  add_foreign_key "trading_strategy_versions", "trading_strategies"
+  add_foreign_key "trading_strategy_versions", "trading_strategy_versions", column: "parent_version_id"
+  add_foreign_key "trading_sweep_proposals", "ai_agent_proposals"
+  add_foreign_key "trading_sweep_proposals", "trading_portfolios"
+  add_foreign_key "trading_sweep_proposals", "trading_wallet_transactions"
+  add_foreign_key "trading_sweep_proposals", "trading_wallets"
+  add_foreign_key "trading_sweep_proposals", "trading_wallets", column: "cold_wallet_id"
+  add_foreign_key "trading_sweep_rules", "trading_chain_tokens"
+  add_foreign_key "trading_sweep_rules", "trading_wallets"
+  add_foreign_key "trading_sweep_rules", "trading_wallets", column: "cold_wallet_id"
+  add_foreign_key "trading_trades", "trading_orders"
+  add_foreign_key "trading_trades", "trading_positions"
+  add_foreign_key "trading_trades", "trading_venues"
+  add_foreign_key "trading_venue_credentials", "accounts"
+  add_foreign_key "trading_venue_credentials", "trading_venues"
+  add_foreign_key "trading_wallet_balances", "trading_chain_tokens"
+  add_foreign_key "trading_wallet_balances", "trading_wallets"
+  add_foreign_key "trading_wallet_transactions", "trading_chain_tokens"
+  add_foreign_key "trading_wallet_transactions", "trading_wallets"
+  add_foreign_key "trading_wallets", "trading_chains"
+  add_foreign_key "trading_wallets", "trading_portfolios"
   add_foreign_key "usage_events", "accounts"
   add_foreign_key "usage_events", "usage_meters"
   add_foreign_key "usage_events", "users"

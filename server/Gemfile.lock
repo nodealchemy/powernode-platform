@@ -16,6 +16,12 @@ PATH
     powernode_supply_chain (0.1.0)
       rails (>= 8.0)
 
+PATH
+  remote: ../extensions/trading/server
+  specs:
+    powernode_trading (0.1.0)
+      rails (~> 8.1)
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -760,6 +766,7 @@ DEPENDENCIES
   powernode_enterprise!
   powernode_marketing!
   powernode_supply_chain!
+  powernode_trading!
   prawn
   prawn-table
   puma (>= 5.0)

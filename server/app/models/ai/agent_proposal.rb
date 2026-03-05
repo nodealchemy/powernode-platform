@@ -6,7 +6,7 @@ module Ai
 
     PROPOSAL_TYPES = %w[
       feature knowledge_update code_change architecture
-      process_improvement configuration
+      process_improvement configuration sweep_execution
     ].freeze
 
     STATUSES = %w[pending_review approved rejected implemented withdrawn].freeze
