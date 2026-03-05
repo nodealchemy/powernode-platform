@@ -176,7 +176,7 @@ const EventLog: React.FC<{ events: MissionWebSocketEvent[] }> = ({ events }) => 
 export const PhaseCard: React.FC<PhaseCardProps> = ({ mission, events }) => {
   const phase = mission.current_phase;
 
-  if (!phase) {
+  if (!phase || mission.status === 'completed') {
     if (mission.status === 'completed') {
       return (
         <div className="card-theme-elevated p-6 text-center">

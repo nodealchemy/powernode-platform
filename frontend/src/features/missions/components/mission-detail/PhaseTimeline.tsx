@@ -8,7 +8,7 @@ interface PhaseTimelineProps {
   currentPhase: MissionPhase | null;
   phaseHistory: PhaseEntry[];
   status: MissionStatus;
-  onPhaseClick?: (phase: MissionPhase) => void;
+  onPhaseClick?: (phase: MissionPhase | null) => void;
   selectedPhase?: MissionPhase | null;
 }
 
@@ -21,6 +21,7 @@ function getPhaseState(
   currentIndex: number
 ): 'completed' | 'active' | 'failed' | 'pending' {
   if (status === 'failed' && phase === currentPhase) return 'failed';
+  if (status === 'completed') return 'completed';
 
   const historyEntry = phaseHistory.find(e => e.phase === phase);
   if (historyEntry?.exited_at) return 'completed';
@@ -58,10 +59,10 @@ export const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
               )}
               <div
                 className={`flex flex-col items-center flex-shrink-0 min-w-[64px] ${onPhaseClick ? 'cursor-pointer' : ''}`}
-                onClick={onPhaseClick ? () => onPhaseClick(phase) : undefined}
+                onClick={onPhaseClick ? () => onPhaseClick(selectedPhase === phase ? null : phase) : undefined}
                 role={onPhaseClick ? 'button' : undefined}
                 tabIndex={onPhaseClick ? 0 : undefined}
-                onKeyDown={onPhaseClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') onPhaseClick(phase); } : undefined}
+                onKeyDown={onPhaseClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') onPhaseClick(selectedPhase === phase ? null : phase); } : undefined}
               >
                 <div className={`mb-1 ${selectedPhase === phase ? 'ring-2 ring-theme-accent ring-offset-1 ring-offset-theme-bg-surface rounded-full' : ''}`}>
                   {state === 'completed' && (
