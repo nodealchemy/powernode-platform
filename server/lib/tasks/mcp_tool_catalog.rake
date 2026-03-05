@@ -68,7 +68,12 @@ namespace :mcp do
       "Ai::Tools::DockerClusterTool" => "Docker Management",
       "Ai::Tools::DockerHostTool" => "Docker Management",
       "Ai::Tools::DockerImageTool" => "Docker Management",
-      "Ai::Tools::DockerNetworkVolumeTool" => "Docker Management"
+      "Ai::Tools::DockerNetworkVolumeTool" => "Docker Management",
+      "Ai::Tools::RepoManagementTool" => "Project & CI/CD",
+      "Ai::Tools::AgentMemoryManagementTool" => "Memory Management",
+      "Ai::Tools::GovernanceTool" => "AI Safety & Autonomy",
+      "Ai::Tools::CoordinationTool" => "AI Safety & Autonomy",
+      "Ai::Tools::SelfImprovementTool" => "AI Safety & Autonomy"
     }
 
     # Collect action definitions grouped by category
@@ -141,6 +146,17 @@ namespace :mcp do
         lines << "- **Permission**: #{action[:permission] || 'none'}"
 
         params = action[:parameters]
+        # Normalize JSON Schema format ({ type: "object", properties: {...}, required: [...] })
+        # to flat format ({ param_name: { type:, required:, description: } })
+        if params[:type] == "object" && params.key?(:properties)
+          required_list = Array(params[:required]).map(&:to_s)
+          flat_params = {}
+          (params[:properties] || {}).each do |pname, pspec|
+            flat_params[pname] = pspec.merge(required: required_list.include?(pname.to_s))
+          end
+          params = flat_params
+        end
+
         if params.any?
           lines << ""
           lines << "| Parameter | Type | Required | Description |"
