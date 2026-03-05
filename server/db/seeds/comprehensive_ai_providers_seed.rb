@@ -173,7 +173,7 @@ if admin_account && admin_user
     supports_functions: true,
     supports_vision: true,
     supports_code_execution: false,
-    priority_order: 2,
+    priority_order: 1,
     metadata: {
       'organization' => 'OpenAI',
       'api_key_env' => 'OPENAI_API_KEY',
@@ -343,7 +343,7 @@ if admin_account && admin_user
     supports_functions: false,
     supports_vision: false,
     supports_code_execution: false,
-    priority_order: 1,
+    priority_order: 2,
     metadata: {
       'organization' => 'Ollama',
       'strengths' => %w[privacy zero_cost self_hosted offline_capable],

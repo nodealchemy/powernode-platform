@@ -133,12 +133,13 @@ module Ai
       private
 
       def default_provider
-        # Find an AI provider that supports embeddings
+        # Find an AI provider that supports embeddings, respecting priority_order
         Ai::Provider
           .where(account_id: @account.id)
           .where("capabilities @> ?", [ "text_embedding" ].to_json)
           .active
-          .first || Ai::Provider.where(account_id: @account.id).active.first
+          .ordered_by_priority
+          .first || Ai::Provider.where(account_id: @account.id).active.ordered_by_priority.first
       end
 
       def normalize_text(text)
