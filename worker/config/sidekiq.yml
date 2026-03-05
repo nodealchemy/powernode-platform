@@ -44,6 +44,7 @@
   - [reports, 2]                 # Report generation
   - [integrations, 2]            # Third-party integration processing
   - [mcp, 2]                     # MCP server operations
+  - [trading, 2]                  # Trading strategy execution, price feeds, risk monitoring
   - [notifications, 1]           # Notification delivery
   - [analytics, 1]               # Analytics cache warmup and processing
   - [schedules, 1]               # General scheduled task processing
@@ -461,3 +462,59 @@
     class: AiCollusionDetectionJob
     queue: ai_orchestration
     description: 'Detect potential collusion patterns between agent pairs'
+
+  # ── Trading Module ──
+
+  trading_strategy_tick:
+    cron: '*/5 * * * *'
+    class: TradingStrategyExecutionJob
+    queue: trading
+    description: 'Execute due trading strategy ticks'
+
+  trading_price_feed:
+    cron: '*/3 * * * *'
+    class: TradingPriceFeedJob
+    queue: trading
+    description: 'Fetch price data from feeds'
+
+  trading_evolution_epoch:
+    cron: '0 0 * * *'
+    class: TradingEvolutionEpochJob
+    queue: trading
+    description: 'Run daily Darwinian evolution epoch'
+
+  trading_metrics_snapshot:
+    cron: '0 23 * * *'
+    class: TradingMetricsSnapshotJob
+    queue: trading
+    description: 'Calculate end-of-day performance metrics'
+
+  trading_sweep_check:
+    cron: '0 */4 * * *'
+    class: TradingSweepCheckJob
+    queue: trading
+    description: 'Check portfolios for sweep opportunities'
+
+  trading_risk_monitor:
+    cron: '*/15 * * * *'
+    class: TradingRiskMonitorJob
+    queue: trading
+    description: 'Portfolio circuit breaker risk checks'
+
+  trading_venue_sync:
+    cron: '*/15 * * * *'
+    class: TradingVenueSyncJob
+    queue: trading
+    description: 'Sync balances and positions from venues'
+
+  trading_order_fill_check:
+    cron: '*/1 * * * *'
+    class: TradingOrderFillCheckJob
+    queue: trading
+    description: 'Poll for order fill status'
+
+  trading_phase_review:
+    cron: '0 6 * * *'
+    class: TradingPhaseReviewJob
+    queue: trading
+    description: 'Review strategy lifecycle phase graduation'
