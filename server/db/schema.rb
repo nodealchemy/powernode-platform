@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_04_210034) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_05_120001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -9984,16 +9984,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_04_210034) do
   end
 
   create_table "trading_price_snapshots", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.decimal "ask", precision: 19, scale: 8
+    t.decimal "bid", precision: 19, scale: 8
     t.decimal "close", precision: 19, scale: 8, null: false
     t.datetime "created_at", null: false
     t.decimal "high", precision: 19, scale: 8, null: false
     t.string "interval", default: "1m", null: false
     t.decimal "low", precision: 19, scale: 8, null: false
     t.decimal "open", precision: 19, scale: 8, null: false
+    t.string "pair"
+    t.decimal "price", precision: 19, scale: 8
+    t.datetime "recorded_at"
+    t.string "source"
     t.datetime "timestamp", null: false
-    t.uuid "trading_price_feed_id", null: false
+    t.uuid "trading_price_feed_id"
     t.datetime "updated_at", null: false
     t.decimal "volume", precision: 19, scale: 8, default: "0.0"
+    t.index ["pair", "recorded_at"], name: "idx_trading_price_snaps_pair_recorded"
+    t.index ["pair", "source"], name: "idx_trading_price_snaps_pair_source"
     t.index ["timestamp"], name: "index_trading_price_snapshots_on_timestamp"
     t.index ["trading_price_feed_id", "timestamp", "interval"], name: "idx_trading_price_snaps_feed_time_interval", unique: true
     t.index ["trading_price_feed_id"], name: "index_trading_price_snapshots_on_trading_price_feed_id"
