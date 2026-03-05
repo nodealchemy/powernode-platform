@@ -385,10 +385,11 @@ All `platform.*` tools organized by development task. Full parameter docs: [MCP_
 | `request_feedback` | Request user feedback on completed work |
 | `report_issue` | Report a detected platform issue |
 
-### DevOps & CI/CD (5 tools)
+### DevOps & CI/CD (6 tools)
 | Tool | Description |
 |------|-------------|
-| `create_gitea_repository` | Create a Gitea repository with default settings |
+| `create_gitea_repository` | Create a Gitea repository (private by default) |
+| `update_gitea_repository` | Update Gitea repo settings (visibility, description, archival) |
 | `dispatch_to_runner` | Dispatch a job to a Git runner (GitHub/Gitea) |
 | `trigger_pipeline` | Trigger a CI/CD pipeline run |
 | `list_pipelines` | List pipelines (filterable by status) |

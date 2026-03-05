@@ -93,7 +93,7 @@ All 166 actions grouped by subsystem. Full parameter docs: [MCP_TOOL_CATALOG.md]
 | Autonomy | `emergency_halt`, `emergency_resume`, `kill_switch_status`, `create_agent_goal`, `list_agent_goals`, `update_agent_goal`, `agent_introspect`, `propose_feature`, `send_proactive_notification`, `discover_claude_sessions`, `request_code_change`, `create_proposal`, `escalate`, `request_feedback`, `report_issue` |
 | Workspace | `send_message`, `list_messages`, `list_conversations`, `get_conversation_messages`, `send_concierge_message`, `confirm_concierge_action` |
 | Monitoring | `get_activity_feed`, `recent_events`, `get_notifications`, `dismiss_notification`, `get_mission_status`, `integration_health` |
-| DevOps | `create_gitea_repository`, `dispatch_to_runner`, `get_api_reference` |
+| DevOps | `create_gitea_repository`, `update_gitea_repository`, `dispatch_to_runner`, `get_api_reference` |
 | Docker Hosts | `docker_list_hosts`, `docker_get_host`, `docker_sync_host`, `docker_test_host` |
 | Docker Containers | `docker_list_containers`, `docker_get_container`, `docker_create_container`, `docker_start_container`, `docker_stop_container`, `docker_restart_container`, `docker_remove_container`, `docker_container_logs`, `docker_container_stats`, `docker_container_exec` |
 | Docker Images | `docker_list_images`, `docker_pull_image`, `docker_remove_image`, `docker_tag_image` |
