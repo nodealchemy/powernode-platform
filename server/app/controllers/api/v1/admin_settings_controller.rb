@@ -403,29 +403,12 @@ class Api::V1::AdminSettingsController < ApplicationController
 
   # Check if an extension's engine is loaded in the Rails runtime
   def extension_installed?(slug)
-    case slug
-    when "enterprise"
-      Shared::FeatureGateService.enterprise_loaded?
-    else
-      false
-    end
+    Shared::FeatureGateService.extension_loaded?(slug)
   end
 
   # Check if an extension is enabled via its feature flag
-  def extension_enabled?(slug, meta)
-    case slug
-    when "enterprise"
-      Shared::FeatureGateService.enterprise_enabled?
-    else
-      flag = meta["feature_flag"]
-      return false unless flag.present? && defined?(Flipper)
-
-      begin
-        Flipper.enabled?(flag.to_sym)
-      rescue StandardError
-        false
-      end
-    end
+  def extension_enabled?(slug, _meta = nil)
+    Shared::FeatureGateService.extension_enabled?(slug)
   end
 
   def update_settings_metadata
