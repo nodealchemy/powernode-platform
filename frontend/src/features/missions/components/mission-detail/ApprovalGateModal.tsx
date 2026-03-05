@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, CheckCircle2, XCircle } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, XCircle, GitBranch, TestTube, Eye } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
 import type { Mission, FeatureSuggestion } from '../../types/mission';
@@ -140,6 +140,62 @@ export const ApprovalGateModal: React.FC<ApprovalGateModalProps> = ({
             <pre className="mt-1 text-xs text-theme-primary bg-theme-surface p-3 rounded overflow-x-auto max-h-48">
               {JSON.stringify(mission.prd_json, null, 2)}
             </pre>
+          </div>
+        )}
+
+        {/* Code review content for code approval gate */}
+        {phase === 'awaiting_code_approval' && (
+          <div className="space-y-3">
+            {mission.branch_name && (
+              <div className="flex items-center gap-2 p-2.5 bg-theme-surface rounded-lg border border-theme">
+                <GitBranch className="w-4 h-4 text-theme-accent flex-shrink-0" />
+                <span className="text-xs text-theme-secondary">Branch:</span>
+                <code className="text-xs font-mono text-theme-primary">{mission.branch_name}</code>
+              </div>
+            )}
+
+            {Object.keys(mission.test_result).length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <TestTube className="w-3.5 h-3.5 text-theme-secondary" />
+                  <label className="text-xs font-medium text-theme-secondary">Test Results:</label>
+                </div>
+                <pre className="text-xs text-theme-primary bg-theme-surface p-3 rounded overflow-y-auto max-h-40 whitespace-pre-wrap break-words">
+                  {JSON.stringify(mission.test_result, null, 2)}
+                </pre>
+              </div>
+            )}
+
+            {Object.keys(mission.review_result).length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Eye className="w-3.5 h-3.5 text-theme-secondary" />
+                  <label className="text-xs font-medium text-theme-secondary">Code Review:</label>
+                </div>
+                <pre className="text-xs text-theme-primary bg-theme-surface p-3 rounded overflow-y-auto max-h-40 whitespace-pre-wrap break-words">
+                  {JSON.stringify(mission.review_result, null, 2)}
+                </pre>
+              </div>
+            )}
+
+            {Object.keys(mission.test_result).length === 0 && Object.keys(mission.review_result).length === 0 && (
+              <p className="text-xs text-theme-tertiary italic">No test or review results available yet.</p>
+            )}
+          </div>
+        )}
+
+        {/* Preview gate content */}
+        {phase === 'previewing' && mission.deployed_url && (
+          <div className="p-2.5 bg-theme-surface rounded-lg border border-theme">
+            <label className="text-xs font-medium text-theme-secondary">Preview URL:</label>
+            <a
+              href={mission.deployed_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block text-sm text-theme-accent hover:underline mt-1"
+            >
+              {mission.deployed_url}
+            </a>
           </div>
         )}
 

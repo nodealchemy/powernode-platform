@@ -20,6 +20,27 @@ interface MissionTaskGraphProps {
   selectedPhase?: MissionPhase | null;
 }
 
+const graphStyles = `
+.mission-controls .react-flow__controls-button {
+  background-color: var(--color-surface);
+  border-color: var(--color-border);
+  border-bottom-width: 1px;
+  border-bottom-style: solid;
+  fill: var(--color-text-primary);
+  color: var(--color-text-primary);
+}
+.mission-controls .react-flow__controls-button:hover {
+  background-color: var(--color-surface-hover);
+}
+.mission-controls .react-flow__controls-button svg {
+  fill: var(--color-text-primary);
+}
+.react-flow__minimap-mask {
+  fill: var(--color-bg, rgba(0,0,0,0.1));
+  opacity: 0.6;
+}
+`;
+
 const nodeTypes = {
   ralphTask: RalphTaskNode,
   approvalGate: ApprovalGateNode,
@@ -93,6 +114,7 @@ export const MissionTaskGraph: React.FC<MissionTaskGraphProps> = ({
 
   return (
     <div className="card-theme overflow-hidden" style={{ height: 400 }}>
+      <style>{graphStyles}</style>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -103,13 +125,28 @@ export const MissionTaskGraph: React.FC<MissionTaskGraphProps> = ({
         elementsSelectable={false}
         proOptions={{ hideAttribution: true }}
       >
-        <Controls showInteractive={false} />
+        <Controls className="mission-controls" showInteractive={false} />
         <Background gap={16} size={1} />
         <MiniMap
           nodeStrokeWidth={3}
           pannable
           zoomable
-          className="!bg-theme-surface"
+          style={{
+            backgroundColor: getComputedStyle(document.documentElement)
+              .getPropertyValue('--color-surface').trim() || '#1a1a2e',
+          }}
+          maskColor="rgba(0,0,0,0.3)"
+          nodeColor={(node) => {
+            const s = getComputedStyle(document.documentElement);
+            const status = (node.data as Record<string, unknown>)?.status as string;
+            switch (status) {
+              case 'in_progress': return s.getPropertyValue('--color-info').trim() || '#3b82f6';
+              case 'passed': return s.getPropertyValue('--color-success').trim() || '#22c55e';
+              case 'failed': return s.getPropertyValue('--color-error').trim() || '#ef4444';
+              case 'blocked': return s.getPropertyValue('--color-warning').trim() || '#f97316';
+              default: return s.getPropertyValue('--color-text-secondary').trim() || '#6b7280';
+            }
+          }}
         />
       </ReactFlow>
     </div>

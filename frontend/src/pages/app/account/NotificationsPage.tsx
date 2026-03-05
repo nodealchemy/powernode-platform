@@ -74,11 +74,23 @@ export const NotificationsPage: React.FC = () => {
 
   // Handle notification click — open chat for AI types, navigate for others
   const handleNotificationClick = useCallback((notification: Notification) => {
+    if (notification.type === 'ai_concierge_message' && notification.metadata) {
+      const agentId = notification.metadata.agent_id as string | undefined;
+      const conversationId = notification.metadata.conversation_id as string | undefined;
+      if (agentId || conversationId) {
+        openConversationMaximized(agentId || '', '', conversationId);
+        return;
+      }
+    }
     if (notification.type === 'ai_plan_review' && notification.metadata) {
       const agentId = notification.metadata.agent_id as string | undefined;
       const conversationId = notification.metadata.conversation_id as string | undefined;
       if (agentId) {
         openConversationMaximized(agentId, '', conversationId);
+        return;
+      }
+      if (notification.action_url) {
+        navigate(notification.action_url, { state: { openApproval: true } });
         return;
       }
     }
@@ -277,12 +289,12 @@ export const NotificationsPage: React.FC = () => {
                                 </span>
                               )}
                               {notification.action_url && notification.action_label && (
-                                <a
-                                  href={notification.action_url}
-                                  className="text-xs text-theme-primary font-medium hover:underline"
+                                <span
+                                  className="text-xs text-theme-primary font-medium hover:underline cursor-pointer"
+                                  onClick={(e) => { e.stopPropagation(); handleNotificationClick(notification); }}
                                 >
                                   {notification.action_label} →
-                                </a>
+                                </span>
                               )}
                             </div>
                           </div>
