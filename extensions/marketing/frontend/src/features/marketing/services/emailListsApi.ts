@@ -81,23 +81,11 @@ export const emailListsApi = {
   }): Promise<EmailSubscriber> => {
     const response = await apiClient.post<ApiResponse<{
       subscriber: EmailSubscriber;
-    }>>(`/marketing/email_lists/${listId}/subscribers`, { subscriber: data });
+    }>>(`/marketing/email_lists/${listId}/add_subscriber`, { subscriber: data });
     return response.data.data.subscriber;
   },
 
-  removeSubscriber: async (listId: string, subscriberId: string): Promise<void> => {
-    await apiClient.delete(`/marketing/email_lists/${listId}/subscribers/${subscriberId}`);
-  },
-
-  updateSubscriber: async (listId: string, subscriberId: string, data: {
-    status?: SubscriberStatus;
-    first_name?: string;
-    last_name?: string;
-    metadata?: Record<string, string>;
-  }): Promise<EmailSubscriber> => {
-    const response = await apiClient.patch<ApiResponse<{
-      subscriber: EmailSubscriber;
-    }>>(`/marketing/email_lists/${listId}/subscribers/${subscriberId}`, { subscriber: data });
-    return response.data.data.subscriber;
+  removeSubscriber: async (listId: string, _subscriberId: string): Promise<void> => {
+    await apiClient.delete(`/marketing/email_lists/${listId}/remove_subscriber`);
   },
 };

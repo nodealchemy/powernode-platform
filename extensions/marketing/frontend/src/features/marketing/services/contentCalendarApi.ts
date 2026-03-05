@@ -21,33 +21,33 @@ export const contentCalendarApi = {
     const response = await apiClient.get<ApiResponse<{
       entries: ContentCalendarEntry[];
       pagination: Pagination;
-    }>>('/marketing/calendar_entries', { params });
+    }>>('/marketing/calendar', { params });
     return response.data.data;
   },
 
   get: async (id: string): Promise<ContentCalendarEntry> => {
     const response = await apiClient.get<ApiResponse<{
       entry: ContentCalendarEntry;
-    }>>(`/marketing/calendar_entries/${id}`);
+    }>>(`/marketing/calendar/${id}`);
     return response.data.data.entry;
   },
 
   create: async (data: CalendarEntryFormData): Promise<ContentCalendarEntry> => {
     const response = await apiClient.post<ApiResponse<{
       entry: ContentCalendarEntry;
-    }>>('/marketing/calendar_entries', { calendar_entry: data });
+    }>>('/marketing/calendar', { calendar_entry: data });
     return response.data.data.entry;
   },
 
   update: async (id: string, data: Partial<CalendarEntryFormData>): Promise<ContentCalendarEntry> => {
     const response = await apiClient.patch<ApiResponse<{
       entry: ContentCalendarEntry;
-    }>>(`/marketing/calendar_entries/${id}`, { calendar_entry: data });
+    }>>(`/marketing/calendar/${id}`, { calendar_entry: data });
     return response.data.data.entry;
   },
 
   delete: async (id: string): Promise<void> => {
-    await apiClient.delete(`/marketing/calendar_entries/${id}`);
+    await apiClient.delete(`/marketing/calendar/${id}`);
   },
 
   conflicts: async (params: {
@@ -57,7 +57,7 @@ export const contentCalendarApi = {
   }): Promise<ContentCalendarEntry[]> => {
     const response = await apiClient.get<ApiResponse<{
       conflicts: ContentCalendarEntry[];
-    }>>('/marketing/calendar_entries/conflicts', { params });
+    }>>('/marketing/calendar/conflicts', { params });
     return response.data.data.conflicts;
   },
 };

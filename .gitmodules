@@ -5,3 +5,7 @@
 [submodule "extensions/supply-chain"]
 	path = extensions/supply-chain
 	url = git@git.ipnode.net:powernode/powernode-supply-chain.git
+[submodule "extensions/trading"]
+	path = extensions/trading
+	url = git@git.ipnode.net:everett/powernode-trading.git
+	branch = master
