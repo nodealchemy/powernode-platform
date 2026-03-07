@@ -9,43 +9,40 @@ class LoopProtectionManager
     puts "[STATUS] Loop Protection Status"
     puts "=" * 50
 
-    redis = Sidekiq.redis_pool.with { |conn| conn }
+    Sidekiq.redis do |conn|
+      execution_keys = conn.keys("job_executions:*")
+      disabled_keys = conn.keys("job_disabled:*")
+      failure_keys = conn.keys("job_failures:*")
 
-    # Find all job execution tracking keys
-    execution_keys = redis.keys("job_executions:*")
-    disabled_keys = redis.keys("job_disabled:*")
-    failure_keys = redis.keys("job_failures:*")
+      puts "\n[INFO] Current Tracking:"
+      puts "  Active execution trackers: #{execution_keys.length}"
+      puts "  Disabled jobs: #{disabled_keys.length}"
+      puts "  Failure trackers: #{failure_keys.length}"
 
-    puts "\n[INFO] Current Tracking:"
-    puts "  Active execution trackers: #{execution_keys.length}"
-    puts "  Disabled jobs: #{disabled_keys.length}"
-    puts "  Failure trackers: #{failure_keys.length}"
-
-    if disabled_keys.any?
-      puts "\n[BLOCKED] Disabled Jobs:"
-      disabled_keys.each do |key|
-        job_key = key.sub('job_disabled:', '')
-        reason = redis.get(key)
-        ttl = redis.ttl(key)
-        puts "  - #{job_key}: #{reason} (expires in #{ttl}s)"
+      if disabled_keys.any?
+        puts "\n[BLOCKED] Disabled Jobs:"
+        disabled_keys.each do |key|
+          job_key = key.sub('job_disabled:', '')
+          reason = conn.get(key)
+          ttl = conn.ttl(key)
+          puts "  - #{job_key}: #{reason} (expires in #{ttl}s)"
+        end
       end
-    end
 
-    if execution_keys.any?
-      puts "\n[INFO] Recent Executions (last 10 trackers):"
-      execution_keys.first(10).each do |key|
-        job_key = key.sub('job_executions:', '')
-        executions = redis.lrange(key, 0, -1).map(&:to_f)
-        recent_count = executions.count { |ts| (Time.current.to_f - ts) <= 60 }
-        puts "  - #{job_key}: #{executions.length} total, #{recent_count} in last minute"
+      if execution_keys.any?
+        puts "\n[INFO] Recent Executions (last 10 trackers):"
+        execution_keys.first(10).each do |key|
+          job_key = key.sub('job_executions:', '')
+          executions = conn.lrange(key, 0, -1).map(&:to_f)
+          recent_count = executions.count { |ts| (Time.current.to_f - ts) <= 60 }
+          puts "  - #{job_key}: #{executions.length} total, #{recent_count} in last minute"
+        end
       end
     end
   end
 
   def self.clear_all
     puts "[CLEANUP] Clearing all loop protection data..."
-
-    redis = Sidekiq.redis_pool.with { |conn| conn }
 
     patterns = [
       "job_executions:*",
@@ -55,12 +52,14 @@ class LoopProtectionManager
     ]
 
     total_deleted = 0
-    patterns.each do |pattern|
-      keys = redis.keys(pattern)
-      if keys.any?
-        deleted = redis.del(*keys)
-        total_deleted += deleted
-        puts "  Deleted #{deleted} keys matching #{pattern}"
+    Sidekiq.redis do |conn|
+      patterns.each do |pattern|
+        keys = conn.keys(pattern)
+        if keys.any?
+          deleted = conn.del(*keys)
+          total_deleted += deleted
+          puts "  Deleted #{deleted} keys matching #{pattern}"
+        end
       end
     end
 
@@ -70,14 +69,15 @@ class LoopProtectionManager
   def self.enable_job(job_pattern)
     puts "[UNLOCK] Enabling jobs matching: #{job_pattern}"
 
-    redis = Sidekiq.redis_pool.with { |conn| conn }
-    disabled_keys = redis.keys("job_disabled:*#{job_pattern}*")
+    Sidekiq.redis do |conn|
+      disabled_keys = conn.keys("job_disabled:*#{job_pattern}*")
 
-    if disabled_keys.any?
-      deleted = redis.del(*disabled_keys)
-      puts "[OK] Enabled #{deleted} disabled jobs"
-    else
-      puts "[INFO] No disabled jobs found matching pattern"
+      if disabled_keys.any?
+        deleted = conn.del(*disabled_keys)
+        puts "[OK] Enabled #{deleted} disabled jobs"
+      else
+        puts "[INFO] No disabled jobs found matching pattern"
+      end
     end
   end
 
