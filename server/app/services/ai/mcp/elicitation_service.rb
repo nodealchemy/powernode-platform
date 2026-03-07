@@ -93,15 +93,22 @@ module Ai
 
       def pending_requests(tool_execution_id: nil)
         pattern = if tool_execution_id
-                    "mcp_elicitation:#{@account.id}:#{tool_execution_id}:*"
+                    "mcp:elicitation:#{@account.id}:#{tool_execution_id}:*"
                   else
-                    "mcp_elicitation:#{@account.id}:*"
+                    "mcp:elicitation:#{@account.id}:*"
                   end
 
-        keys = redis.keys(pattern)
-        keys.map { |k| JSON.parse(redis.get(k)) }
-            .select { |r| r["status"] == "pending" }
-            .sort_by { |r| r["created_at"] }
+        results = []
+        redis.scan_each(match: pattern) do |k|
+          next if k.include?(":idx:")
+
+          data = redis.get(k)
+          next unless data
+
+          parsed = JSON.parse(data)
+          results << parsed if parsed["status"] == "pending"
+        end
+        results.sort_by { |r| r["created_at"] }
       rescue StandardError
         []
       end
@@ -111,14 +118,19 @@ module Ai
       def store_request(request)
         key = request_key(request[:id], request[:tool_execution_id])
         redis.setex(key, PENDING_TTL, request.to_json)
+        # Secondary index: request_id → tool_execution_id (for direct lookup)
+        idx_key = "mcp:elicitation:idx:#{@account.id}:#{request[:id]}"
+        redis.setex(idx_key, PENDING_TTL, request[:tool_execution_id])
       end
 
       def fetch_request(request_id)
-        pattern = "mcp_elicitation:#{@account.id}:*:#{request_id}"
-        keys = redis.keys(pattern)
-        return nil if keys.empty?
+        # Direct lookup via index instead of KEYS scan
+        idx_key = "mcp:elicitation:idx:#{@account.id}:#{request_id}"
+        tool_execution_id = redis.get(idx_key)
+        return nil unless tool_execution_id
 
-        data = redis.get(keys.first)
+        key = request_key(request_id, tool_execution_id)
+        data = redis.get(key)
         data ? JSON.parse(data) : nil
       rescue JSON::ParserError
         nil
@@ -186,11 +198,11 @@ module Ai
       end
 
       def request_key(request_id, tool_execution_id)
-        "mcp_elicitation:#{@account.id}:#{tool_execution_id}:#{request_id}"
+        "mcp:elicitation:#{@account.id}:#{tool_execution_id}:#{request_id}"
       end
 
       def redis
-        @redis ||= Redis.new(url: ENV.fetch("REDIS_URL", "redis://localhost:6379/0"))
+        @redis ||= Powernode::Redis.client
       end
     end
   end

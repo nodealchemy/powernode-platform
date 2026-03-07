@@ -4,7 +4,7 @@ module Ai
   module Autonomy
     class WorkClaimService
       CLAIM_TTL = 1.hour
-      CLAIM_PREFIX = "work_claim.goal."
+      CLAIM_PREFIX = "ai:work_claim:goal:"
 
       attr_reader :account
 
@@ -54,11 +54,11 @@ module Ai
       private
 
       def claim_key(goal_id)
-        "#{CLAIM_PREFIX}#{account.id}.#{goal_id}"
+        "#{CLAIM_PREFIX}#{account.id}:#{goal_id}"
       end
 
       def redis
-        @redis ||= Redis.new(url: ENV.fetch("REDIS_URL", "redis://localhost:6379/0"))
+        @redis ||= Powernode::Redis.client
       end
     end
   end

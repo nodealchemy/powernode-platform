@@ -51,7 +51,7 @@ module RateLimiting
         end
 
         keys_cleared = 0
-        Rails.cache.redis.keys(pattern).each do |key|
+        Rails.cache.redis.scan_each(match: pattern) do |key|
           Rails.cache.delete(key)
           keys_cleared += 1
         end
@@ -70,11 +70,16 @@ module RateLimiting
                    return false
         end
 
-        Rails.cache.redis.keys(pattern).any? do |key|
+        found = false
+        Rails.cache.redis.scan_each(match: pattern) do |key|
           current_count = Rails.cache.read(key) || 0
           limit = extract_limit_from_key(key)
-          current_count >= limit if limit
+          if limit && current_count >= limit
+            found = true
+            break
+          end
         end
+        found
       end
 
       # Get detailed rate limit info for an identifier
@@ -89,7 +94,7 @@ module RateLimiting
         end
 
         limits = {}
-        Rails.cache.redis.keys(pattern).each do |key|
+        Rails.cache.redis.scan_each(match: pattern) do |key|
           parts = key.split(":")
           next if parts.length < 4
 
@@ -133,7 +138,7 @@ module RateLimiting
 
       def count_current_violations
         violations = 0
-        Rails.cache.redis.keys("rate_limit:*").each do |key|
+        Rails.cache.redis.scan_each(match: "rate_limit:*") do |key|
           current_count = Rails.cache.read(key) || 0
           limit = extract_limit_from_key(key)
           violations += 1 if limit && current_count >= limit
@@ -145,7 +150,9 @@ module RateLimiting
       end
 
       def count_active_limits
-        Rails.cache.redis.keys("rate_limit:*").count
+        count = 0
+        Rails.cache.redis.scan_each(match: "rate_limit:*") { count += 1 }
+        count
       rescue StandardError => e
         Rails.logger.error "Error counting active limits: #{e.message}"
         0

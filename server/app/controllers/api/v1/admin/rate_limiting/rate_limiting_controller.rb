@@ -292,7 +292,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
 
     # Get all rate limit keys and check for violations
     begin
-      Rails.cache.redis.keys("rate_limit:*").each do |key|
+      Rails.cache.redis.scan_each(match: "rate_limit:*") do |key|
         current_count = Rails.cache.read(key) || 0
         limit = extract_limit_from_key(key)
 

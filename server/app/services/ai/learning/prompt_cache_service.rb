@@ -5,7 +5,7 @@ module Ai
     class PromptCacheService
       DEFAULT_TTL = 5.minutes
       REDIS_NAMESPACE = "prompt_cache"
-      METRICS_NAMESPACE = "prompt_cache_metrics"
+      METRICS_NAMESPACE = "prompt_cache:metrics"
 
       class << self
         def lookup(system_prompt:, user_prompt:, model_name:, temperature:)
@@ -68,13 +68,21 @@ module Ai
         end
 
         def record_hit(model_name)
-          redis.incr("#{METRICS_NAMESPACE}:hits")
-          redis.incr("#{METRICS_NAMESPACE}:hits:#{model_name}")
+          key = "#{METRICS_NAMESPACE}:hits"
+          model_key = "#{METRICS_NAMESPACE}:hits:#{model_name}"
+          redis.incr(key)
+          redis.expire(key, 7.days.to_i) if redis.ttl(key) < 0
+          redis.incr(model_key)
+          redis.expire(model_key, 7.days.to_i) if redis.ttl(model_key) < 0
         end
 
         def record_miss(model_name)
-          redis.incr("#{METRICS_NAMESPACE}:misses")
-          redis.incr("#{METRICS_NAMESPACE}:misses:#{model_name}")
+          key = "#{METRICS_NAMESPACE}:misses"
+          model_key = "#{METRICS_NAMESPACE}:misses:#{model_name}"
+          redis.incr(key)
+          redis.expire(key, 7.days.to_i) if redis.ttl(key) < 0
+          redis.incr(model_key)
+          redis.expire(model_key, 7.days.to_i) if redis.ttl(model_key) < 0
         end
 
         def estimated_savings(hit_count)
@@ -83,7 +91,7 @@ module Ai
         end
 
         def redis
-          @redis ||= Redis.new(url: ENV.fetch("REDIS_URL", "redis://localhost:6379/0"))
+          @redis ||= Powernode::Redis.client
         end
       end
     end

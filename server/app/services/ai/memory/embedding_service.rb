@@ -16,11 +16,7 @@ module Ai
       end
 
       def redis_client
-        if Rails.application.config.respond_to?(:redis_client) && Rails.application.config.redis_client
-          Rails.application.config.redis_client
-        else
-          Redis.new(url: ENV.fetch("REDIS_URL", "redis://localhost:6379/0"))
-        end
+        Powernode::Redis.client
       end
 
       # Generate embedding for text
@@ -126,8 +122,7 @@ module Ai
       # Clear all embedding cache
       def clear_all_cache
         pattern = "#{CACHE_PREFIX}:#{@account.id}:*"
-        keys = @redis.keys(pattern)
-        @redis.del(*keys) if keys.any?
+        @redis.scan_each(match: pattern) { |key| @redis.del(key) }
       end
 
       private

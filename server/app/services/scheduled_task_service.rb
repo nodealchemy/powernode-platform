@@ -347,7 +347,9 @@ class ScheduledTaskService
         }
 
         redis_client.set(schedule_key, schedule_data.to_json)
+        redis_client.expire(schedule_key, 24.hours.to_i)
         redis_client.sadd("powernode:scheduled_tasks:active", task.id)
+        redis_client.expire("powernode:scheduled_tasks:active", 24.hours.to_i)
 
         Rails.logger.info "Scheduled task '#{task.name}' (#{task.id}) registered in Redis"
       end
@@ -414,7 +416,7 @@ class ScheduledTaskService
     end
 
     def redis_client
-      @redis_client ||= Redis.new(url: ENV.fetch("REDIS_URL", "redis://localhost:6379/0"))
+      @redis_client ||= Powernode::Redis.client
     end
 
     def execute_data_cleanup_task(task)

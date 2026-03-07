@@ -141,7 +141,7 @@ module Ai
         return { found: false, tier: "working" } unless session_id
 
         redis_key = working_memory_key(session_id, key)
-        value = Redis.current.get(redis_key)
+        value = Powernode::Redis.client.get(redis_key)
 
         if value.present?
           { found: true, tier: "working", key: key, value: JSON.parse(value) }
@@ -158,14 +158,14 @@ module Ai
         redis_key = working_memory_key(session_id, key)
         ttl = options[:ttl] || 1800 # 30 minutes default
 
-        Redis.current.setex(redis_key, ttl, value.to_json)
+        Powernode::Redis.client.setex(redis_key, ttl, value.to_json)
         { success: true, tier: "working", key: key }
       end
 
       def delete_working(key, session_id)
         return { success: false } unless session_id
 
-        Redis.current.del(working_memory_key(session_id, key))
+        Powernode::Redis.client.del(working_memory_key(session_id, key))
         { success: true, tier: "working" }
       end
 
@@ -349,9 +349,11 @@ module Ai
       # === Stats ===
 
       def working_memory_stats
-        pattern = "wm:#{agent.id}:*"
-        keys = Redis.current.keys(pattern) rescue []
-        { count: keys.size }
+        count = 0
+        Powernode::Redis.client.scan_each(match: "wm:#{agent.id}:*") { count += 1 }
+        { count: count }
+      rescue StandardError
+        { count: 0 }
       end
 
       def short_term_stats

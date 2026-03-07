@@ -14,7 +14,7 @@ class Ai::ProviderLoadBalancerService
     @capability = capability
     @strategy = strategy
     @logger = Rails.logger
-    @redis = Redis.new(url: Rails.application.credentials.redis_url || "redis://localhost:6379")
+    @redis = Powernode::Redis.client
 
     raise ArgumentError, "Invalid strategy: #{strategy}" unless LOAD_BALANCING_STRATEGIES.include?(strategy)
   end
@@ -241,6 +241,7 @@ class Ai::ProviderLoadBalancerService
     @redis.incr(provider_usage_key(provider))
     @redis.expire(provider_usage_key(provider), 5.minutes) # Usage decays over 5 minutes
     @redis.set(provider_last_used_key(provider), Time.current.iso8601)
+    @redis.expire(provider_last_used_key(provider), 24.hours.to_i)
   end
 
   def record_execution_success(provider, options)

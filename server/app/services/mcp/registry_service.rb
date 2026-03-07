@@ -28,7 +28,7 @@ module Mcp
     @name_to_id_index = {}  # Add name-to-ID mapping for tool lookup by name
 
     # Initialize Redis connection for distributed registry if available
-    @redis = Rails.cache.redis if Rails.cache.respond_to?(:redis)
+    @redis = Powernode::Redis.client
 
     load_existing_tools
   end
@@ -484,7 +484,7 @@ module Mcp
 
     # Persist to Redis if available
     if @redis
-      @redis.hset("mcp_registry:#{@account&.id || 'global'}", tool_id, manifest.to_json)
+      @redis.hset("mcp:registry:#{@account&.id || 'global'}", tool_id, manifest.to_json)
     end
 
     # Persist to database
@@ -496,7 +496,7 @@ module Mcp
 
     # Remove from Redis
     if @redis
-      @redis.hdel("mcp_registry:#{@account&.id || 'global'}", tool_id)
+      @redis.hdel("mcp:registry:#{@account&.id || 'global'}", tool_id)
     end
 
     # Remove from database
@@ -709,7 +709,7 @@ module Mcp
   def persist_health_status(tool_id, health_status)
     # Persist to Redis if available
     if @redis
-      @redis.hset("mcp_health:#{@account&.id || 'global'}", tool_id, health_status.to_json)
+      @redis.hset("mcp:health:#{@account&.id || 'global'}", tool_id, health_status.to_json)
     end
   end
 

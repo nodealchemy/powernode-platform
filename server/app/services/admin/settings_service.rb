@@ -434,9 +434,7 @@ module Admin
       rate_limit_violations = 0
 
       begin
-        cache_keys = Rails.cache.redis.keys("rate_limit:*")
-
-        cache_keys.each do |key|
+        Rails.cache.redis.scan_each(match: "rate_limit:*") do |key|
           current_count = Rails.cache.read(key) || 0
           parts = key.split(":")
           next if parts.length < 4
@@ -448,7 +446,7 @@ module Admin
           if expected_limit && current_count >= (expected_limit * 0.8).to_i
             rate_limit_violations += 1
           end
-        end
+        end  # scan_each
       rescue StandardError => e
         Rails.logger.error "Error checking API activity: #{e.message}"
       end

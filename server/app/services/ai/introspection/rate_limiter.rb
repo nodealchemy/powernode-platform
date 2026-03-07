@@ -5,7 +5,7 @@ module Ai
     class RateLimiter
       DEFAULT_MAX_CALLS = 10
       DEFAULT_WINDOW_SECONDS = 60
-      REDIS_NAMESPACE = "introspection_rate_limit"
+      REDIS_NAMESPACE = "ai:introspection:rate_limit"
 
       class RateLimitExceeded < StandardError
         attr_reader :retry_after
@@ -60,7 +60,7 @@ module Ai
         end
 
         def redis
-          @redis ||= Redis.new(url: ENV.fetch("REDIS_URL", "redis://localhost:6379/0"))
+          @redis ||= Powernode::Redis.client
         end
       end
     end
