@@ -11,7 +11,7 @@
 # Jobs that may exceed this should use their own timeout handling.
 
 :environment: <%= ENV['WORKER_ENV'] || ENV['RAILS_ENV'] || 'development' %>
-:concurrency: <%= ENV.fetch('WORKER_CONCURRENCY', '5').to_i %>
+:concurrency: <%= ENV.fetch('WORKER_CONCURRENCY', '25').to_i %>
 :timeout: 300
 :verbose: <%= ENV['WORKER_ENV'] == 'development' %>
 
@@ -55,6 +55,7 @@
 # Redis configuration
 :redis:
   url: <%= ENV.fetch('REDIS_URL', 'redis://localhost:6379/1') %>
+  size: <%= ENV.fetch('WORKER_CONCURRENCY', '25').to_i + 5 %>
   network_timeout: 5
   pool_timeout: 5
 
@@ -86,435 +87,446 @@
   :enabled: true
   :dynamic: false
   :listened_queues_only: false
+  :schedule:
+    # Expire stale DevOps approval tokens hourly
+    devops_approval_expiry:
+      cron: '0 * * * *'  # Every hour at minute 0
+      class: Devops::ApprovalExpiryJob
+      queue: default
+      description: 'Expire stale DevOps pipeline step approval tokens'
 
-:schedule:
-  # Expire stale DevOps approval tokens hourly
-  devops_approval_expiry:
-    cron: '0 * * * *'  # Every hour at minute 0
-    class: Devops::ApprovalExpiryJob
-    queue: default
-    description: 'Expire stale DevOps pipeline step approval tokens'
+    # Expire stale AI workflow approval tokens hourly
+    ai_workflow_approval_expiry:
+      cron: '15 * * * *'  # Every hour at minute 15 (offset from CI/CD)
+      class: AiWorkflow::ApprovalExpiryJob
+      queue: default
+      description: 'Expire stale AI workflow approval tokens'
 
-  # Expire stale AI workflow approval tokens hourly
-  ai_workflow_approval_expiry:
-    cron: '15 * * * *'  # Every hour at minute 15 (offset from CI/CD)
-    class: AiWorkflow::ApprovalExpiryJob
-    queue: default
-    description: 'Expire stale AI workflow approval tokens'
+    # Database backup - daily full backup at 2 AM UTC
+    daily_database_backup:
+      cron: '0 2 * * *'  # Every day at 2:00 AM UTC
+      class: Maintenance::ScheduledBackupJob
+      queue: maintenance
+      args:
+        backup_type: full
+      description: 'Automated daily full database backup'
 
-  # Database backup - daily full backup at 2 AM UTC
-  daily_database_backup:
-    cron: '0 2 * * *'  # Every day at 2:00 AM UTC
-    class: Maintenance::ScheduledBackupJob
-    queue: maintenance
-    args:
-      backup_type: full
-    description: 'Automated daily full database backup'
+    # Database backup - weekly schema backup on Sundays at 3 AM UTC
+    weekly_schema_backup:
+      cron: '0 3 * * 0'  # Every Sunday at 3:00 AM UTC
+      class: Maintenance::ScheduledBackupJob
+      queue: maintenance
+      args:
+        backup_type: schema_only
+      description: 'Automated weekly schema-only backup'
 
-  # Database backup - weekly schema backup on Sundays at 3 AM UTC
-  weekly_schema_backup:
-    cron: '0 3 * * 0'  # Every Sunday at 3:00 AM UTC
-    class: Maintenance::ScheduledBackupJob
-    queue: maintenance
-    args:
-      backup_type: schema_only
-    description: 'Automated weekly schema-only backup'
+    # Backup cleanup - remove backups older than retention period
+    backup_cleanup:
+      cron: '0 4 * * *'  # Every day at 4:00 AM UTC
+      class: Maintenance::BackupCleanupJob
+      queue: maintenance
+      description: 'Remove expired backups beyond retention period'
 
-  # Backup cleanup - remove backups older than retention period
-  backup_cleanup:
-    cron: '0 4 * * *'  # Every day at 4:00 AM UTC
-    class: Maintenance::BackupCleanupJob
-    queue: maintenance
-    description: 'Remove expired backups beyond retention period'
+    # NOTE: Billing scheduled jobs (billing_scheduler, daily_payment_reconciliation,
+    # billing_cleanup) have been moved to enterprise:
+    # extensions/enterprise/worker/config/sidekiq_billing.yml
 
-  # NOTE: Billing scheduled jobs (billing_scheduler, daily_payment_reconciliation,
-  # billing_cleanup) have been moved to enterprise:
-  # extensions/enterprise/worker/config/sidekiq_billing.yml
+    # Account termination processing - every 6 hours
+    account_termination_processing:
+      cron: '0 */6 * * *'
+      class: Compliance::AccountTerminationJob
+      queue: compliance
+      description: 'Process account terminations after grace period expires'
 
-  # Account termination processing - every 6 hours
-  account_termination_processing:
-    cron: '0 */6 * * *'
-    class: Compliance::AccountTerminationJob
-    queue: compliance
-    description: 'Process account terminations after grace period expires'
+    # Data retention enforcement - daily at 2 AM UTC
+    data_retention_enforcement:
+      cron: '0 2 * * *'
+      class: Compliance::DataRetentionEnforcementJob
+      queue: compliance
+      description: 'Enforce data retention policies and cleanup expired data'
 
-  # Data retention enforcement - daily at 2 AM UTC
-  data_retention_enforcement:
-    cron: '0 2 * * *'
-    class: Compliance::DataRetentionEnforcementJob
-    queue: compliance
-    description: 'Enforce data retention policies and cleanup expired data'
+    # Docker Swarm cluster sync - every minute
+    swarm_cluster_sync:
+      cron: '* * * * *'
+      class: Swarm::ClusterSyncJob
+      queue: devops_default
+      description: 'Sync Docker Swarm cluster state'
 
-  # Docker Swarm cluster sync - every minute
-  swarm_cluster_sync:
-    cron: '* * * * *'
-    class: Swarm::ClusterSyncJob
-    queue: devops_default
-    description: 'Sync Docker Swarm cluster state'
+    # Docker Swarm health check - every 5 minutes
+    swarm_health_check:
+      every: '5m'
+      class: Swarm::HealthCheckJob
+      queue: devops_default
+      description: 'Check Docker Swarm cluster health'
 
-  # Docker Swarm health check - every 5 minutes
-  swarm_health_check:
-    every: '5m'
-    class: Swarm::HealthCheckJob
-    queue: devops_default
-    description: 'Check Docker Swarm cluster health'
+    # Docker Swarm event cleanup - daily at 5 AM UTC
+    swarm_event_cleanup:
+      cron: '0 5 * * *'
+      class: Swarm::EventCleanupJob
+      queue: maintenance
+      description: 'Clean up old acknowledged swarm events'
 
-  # Docker Swarm event cleanup - daily at 5 AM UTC
-  swarm_event_cleanup:
-    cron: '0 5 * * *'
-    class: Swarm::EventCleanupJob
-    queue: maintenance
-    description: 'Clean up old acknowledged swarm events'
+    # Docker Host sync - every minute
+    docker_host_sync:
+      cron: '* * * * *'
+      class: Docker::HostSyncJob
+      queue: devops_default
+      description: 'Sync Docker host container and image state'
 
-  # Docker Host sync - every minute
-  docker_host_sync:
-    cron: '* * * * *'
-    class: Docker::HostSyncJob
-    queue: devops_default
-    description: 'Sync Docker host container and image state'
+    # Git Runner health check - every 5 minutes
+    git_runner_health_check:
+      every: '5m'
+      class: Git::RunnerHealthCheckJob
+      queue: devops_default
+      description: 'Check Git runner health and mark stale runners offline'
 
-  # Git Runner health check - every 5 minutes
-  git_runner_health_check:
-    every: '5m'
-    class: Git::RunnerHealthCheckJob
-    queue: devops_default
-    description: 'Check Git runner health and mark stale runners offline'
+    # Docker Host health check - every 5 minutes
+    docker_health_check:
+      every: '5m'
+      class: Docker::HealthCheckJob
+      queue: devops_default
+      description: 'Check Docker host connectivity and health'
 
-  # Docker Host health check - every 5 minutes
-  docker_health_check:
-    every: '5m'
-    class: Docker::HealthCheckJob
-    queue: devops_default
-    description: 'Check Docker host connectivity and health'
+    # Docker event cleanup - daily at 5:15 AM UTC
+    docker_event_cleanup:
+      cron: '15 5 * * *'
+      class: Docker::EventCleanupJob
+      queue: maintenance
+      description: 'Clean up old acknowledged Docker events'
 
-  # Docker event cleanup - daily at 5:15 AM UTC
-  docker_event_cleanup:
-    cron: '15 5 * * *'
-    class: Docker::EventCleanupJob
-    queue: maintenance
-    description: 'Clean up old acknowledged Docker events'
+    # AI Provider model sync - every 6 hours
+    ai_provider_model_sync:
+      cron: '0 */6 * * *'
+      class: AiProviderModelSyncJob
+      queue: ai_workflow_health
+      description: 'Sync AI provider models and pricing from upstream APIs'
 
-  # AI Provider model sync - every 6 hours
-  ai_provider_model_sync:
-    cron: '0 */6 * * *'
-    class: AiProviderModelSyncJob
-    queue: ai_workflow_health
-    description: 'Sync AI provider models and pricing from upstream APIs'
+    # AI Provider health check - every 10 minutes
+    ai_provider_health_check:
+      every: '10m'
+      class: AiProviderHealthCheckJob
+      queue: ai_workflow_health
+      description: 'Check AI provider health and connectivity'
 
-  # AI Provider health check - every 10 minutes
-  ai_provider_health_check:
-    every: '10m'
-    class: AiProviderHealthCheckJob
-    queue: ai_workflow_health
-    description: 'Check AI provider health and connectivity'
+    # AI Memory Pool cleanup - daily at 3:30 AM UTC
+    ai_memory_pool_cleanup:
+      cron: '30 3 * * *'
+      class: AiMemoryPoolCleanupJob
+      queue: ai_orchestration
+      description: 'Clean up expired AI memory pools'
 
-  # AI Memory Pool cleanup - daily at 3:30 AM UTC
-  ai_memory_pool_cleanup:
-    cron: '30 3 * * *'
-    class: AiMemoryPoolCleanupJob
-    queue: ai_orchestration
-    description: 'Clean up expired AI memory pools'
+    # Compound Learning maintenance - daily decay and cross-team promotion
+    ai_compound_learning_maintenance:
+      cron: '45 3 * * *'
+      class: AiCompoundLearningMaintenanceJob
+      queue: ai_orchestration
+      description: 'Decay stale compound learnings and promote cross-team knowledge'
 
-  # Compound Learning maintenance - daily decay and cross-team promotion
-  ai_compound_learning_maintenance:
-    cron: '45 3 * * *'
-    class: AiCompoundLearningMaintenanceJob
-    queue: ai_orchestration
-    description: 'Decay stale compound learnings and promote cross-team knowledge'
+    # Memory maintenance - daily consolidation, decay, and rot detection
+    ai_memory_maintenance:
+      cron: '0 4 * * *'
+      class: AiMemoryMaintenanceJob
+      queue: ai_orchestration
+      description: 'Run memory tier consolidation, decay pipelines, and auto-archive stale entries'
 
-  # Memory maintenance - daily consolidation, decay, and rot detection
-  ai_memory_maintenance:
-    cron: '0 4 * * *'
-    class: AiMemoryMaintenanceJob
-    queue: ai_orchestration
-    description: 'Run memory tier consolidation, decay pipelines, and auto-archive stale entries'
+    # Auth artifact cleanup - daily purge of stale sessions, tokens, orphaned agents
+    auth_artifact_cleanup:
+      cron: '0 3 * * *'  # Daily at 3:00 AM UTC
+      class: AuthCleanupJob
+      queue: maintenance
+      description: 'Clean up stale MCP sessions, expired tokens, and orphaned agents'
 
-  # Auth artifact cleanup - daily purge of stale sessions, tokens, orphaned agents
-  auth_artifact_cleanup:
-    cron: '0 3 * * *'  # Daily at 3:00 AM UTC
-    class: AuthCleanupJob
-    queue: maintenance
-    description: 'Clean up stale MCP sessions, expired tokens, and orphaned agents'
+    # Chat session cleanup - idle/close stale sessions every 6 hours
+    chat_session_cleanup:
+      cron: '0 */6 * * *'
+      class: ChatSessionCleanupJob
+      queue: maintenance
+      description: 'Clean up stale chat sessions (idle active, close old idle)'
 
-  # Chat session cleanup - idle/close stale sessions every 6 hours
-  chat_session_cleanup:
-    cron: '0 */6 * * *'
-    class: ChatSessionCleanupJob
-    queue: maintenance
-    description: 'Clean up stale chat sessions (idle active, close old idle)'
+    # AI team message cleanup - remove old messages daily at 4 AM UTC
+    ai_team_message_cleanup:
+      cron: '0 4 * * *'
+      class: AiTeamMessageCleanupJob
+      queue: ai_orchestration
+      description: 'Clean up old AI team messages based on channel retention policy'
 
-  # AI team message cleanup - remove old messages daily at 4 AM UTC
-  ai_team_message_cleanup:
-    cron: '0 4 * * *'
-    class: AiTeamMessageCleanupJob
-    queue: ai_orchestration
-    description: 'Clean up old AI team messages based on channel retention policy'
+    # Trust score decay - apply temporal decay to idle agents
+    ai_trust_decay:
+      cron: '0 2 * * *'
+      class: AiTrustDecayJob
+      queue: ai_orchestration
+      description: 'Apply temporal decay to trust scores of idle agents'
 
-  # Trust score decay - apply temporal decay to idle agents
-  ai_trust_decay:
-    cron: '0 2 * * *'
-    class: AiTrustDecayJob
-    queue: ai_orchestration
-    description: 'Apply temporal decay to trust scores of idle agents'
+    # Budget rollover - create new period budgets for expired ones
+    ai_budget_rollover:
+      cron: '0 * * * *'
+      class: AiBudgetRolloverJob
+      queue: ai_orchestration
+      description: 'Roll over expired agent budgets to new periods'
 
-  # Budget rollover - create new period budgets for expired ones
-  ai_budget_rollover:
-    cron: '0 * * * *'
-    class: AiBudgetRolloverJob
-    queue: ai_orchestration
-    description: 'Roll over expired agent budgets to new periods'
+    # Budget reconciliation - verify transaction ledger matches spent_cents
+    ai_budget_reconciliation:
+      cron: '0 4 * * *'
+      class: AiBudgetReconciliationJob
+      queue: ai_orchestration
+      description: 'Reconcile budget transaction ledger with spent_cents totals'
 
-  # Budget reconciliation - verify transaction ledger matches spent_cents
-  ai_budget_reconciliation:
-    cron: '0 4 * * *'
-    class: AiBudgetReconciliationJob
-    queue: ai_orchestration
-    description: 'Reconcile budget transaction ledger with spent_cents totals'
+    # AI model pricing sync - fetch latest pricing from LiteLLM
+    ai_pricing_sync:
+      cron: '0 1 * * *'
+      class: AiPricingSyncJob
+      queue: ai_orchestration
+      description: 'Sync AI model pricing from LiteLLM community data'
 
-  # AI model pricing sync - fetch latest pricing from LiteLLM
-  ai_pricing_sync:
-    cron: '0 1 * * *'
-    class: AiPricingSyncJob
-    queue: ai_orchestration
-    description: 'Sync AI model pricing from LiteLLM community data'
+    # Skill lifecycle daily maintenance - conflict scan, auto-resolve, stale decay
+    ai_skill_lifecycle_daily:
+      cron: '15 4 * * *'
+      class: AiSkillLifecycleMaintenanceJob
+      queue: ai_orchestration
+      args: ['daily']
+      description: 'Daily skill lifecycle maintenance: conflict scan, auto-resolve, stale decay'
 
-  # Skill lifecycle daily maintenance - conflict scan, auto-resolve, stale decay
-  ai_skill_lifecycle_daily:
-    cron: '15 4 * * *'
-    class: AiSkillLifecycleMaintenanceJob
-    queue: ai_orchestration
-    args: ['daily']
-    description: 'Daily skill lifecycle maintenance: conflict scan, auto-resolve, stale decay'
+    # Skill lifecycle weekly maintenance - prompt refinements, gap detection, effectiveness
+    ai_skill_lifecycle_weekly:
+      cron: '0 5 * * 0'
+      class: AiSkillLifecycleMaintenanceJob
+      queue: ai_orchestration
+      args: ['weekly']
+      description: 'Weekly skill lifecycle maintenance: prompt refinements, gap detection'
 
-  # Skill lifecycle weekly maintenance - prompt refinements, gap detection, effectiveness
-  ai_skill_lifecycle_weekly:
-    cron: '0 5 * * 0'
-    class: AiSkillLifecycleMaintenanceJob
-    queue: ai_orchestration
-    args: ['weekly']
-    description: 'Weekly skill lifecycle maintenance: prompt refinements, gap detection'
+    # Skill lifecycle monthly maintenance - re-embed, comprehensive health report
+    ai_skill_lifecycle_monthly:
+      cron: '0 3 1 * *'
+      class: AiSkillLifecycleMaintenanceJob
+      queue: ai_orchestration
+      args: ['monthly']
+      description: 'Monthly skill lifecycle maintenance: re-embed skills, health report'
 
-  # Skill lifecycle monthly maintenance - re-embed, comprehensive health report
-  ai_skill_lifecycle_monthly:
-    cron: '0 3 1 * *'
-    class: AiSkillLifecycleMaintenanceJob
-    queue: ai_orchestration
-    args: ['monthly']
-    description: 'Monthly skill lifecycle maintenance: re-embed skills, health report'
+    # Shared knowledge maintenance - import learnings and recalculate quality scores
+    ai_shared_knowledge_maintenance:
+      cron: '30 4 * * *'
+      class: AiSharedKnowledgeMaintenanceJob
+      queue: ai_orchestration
+      description: 'Import high-importance learnings into shared knowledge and recalculate quality scores'
 
-  # Shared knowledge maintenance - import learnings and recalculate quality scores
-  ai_shared_knowledge_maintenance:
-    cron: '30 4 * * *'
-    class: AiSharedKnowledgeMaintenanceJob
-    queue: ai_orchestration
-    description: 'Import high-importance learnings into shared knowledge and recalculate quality scores'
+    # Knowledge graph maintenance - decay confidence and recalculate quality scores
+    ai_knowledge_graph_maintenance:
+      cron: '45 4 * * *'
+      class: AiKnowledgeGraphMaintenanceJob
+      queue: ai_orchestration
+      description: 'Decay knowledge graph node confidence and recalculate quality scores'
 
-  # Knowledge graph maintenance - decay confidence and recalculate quality scores
-  ai_knowledge_graph_maintenance:
-    cron: '45 4 * * *'
-    class: AiKnowledgeGraphMaintenanceJob
-    queue: ai_orchestration
-    description: 'Decay knowledge graph node confidence and recalculate quality scores'
+    # Knowledge documentation sync - export MCP knowledge to markdown fallback docs
+    ai_knowledge_doc_sync:
+      cron: '30 5 * * *'  # Daily at 5:30 AM UTC (after all maintenance jobs)
+      class: AiKnowledgeDocSyncJob
+      queue: maintenance
+      description: 'Sync MCP knowledge stores to markdown docs for offline fallback'
 
-  # Knowledge documentation sync - export MCP knowledge to markdown fallback docs
-  ai_knowledge_doc_sync:
-    cron: '30 5 * * *'  # Daily at 5:30 AM UTC (after all maintenance jobs)
-    class: AiKnowledgeDocSyncJob
-    queue: maintenance
-    description: 'Sync MCP knowledge stores to markdown docs for offline fallback'
+    # Self-healing monitor - checks stuck workflows, degraded providers, orphaned executions
+    ai_self_healing_monitor:
+      every: '5m'
+      class: AiSelfHealingMonitorJob
+      queue: ai_orchestration
+      description: 'AI system self-healing: detect and remediate stuck/degraded/orphaned resources'
 
-  # Self-healing monitor - checks stuck workflows, degraded providers, orphaned executions
-  ai_self_healing_monitor:
-    every: '5m'
-    class: AiSelfHealingMonitorJob
-    queue: ai_orchestration
-    description: 'AI system self-healing: detect and remediate stuck/degraded/orphaned resources'
+    # Trajectory analysis - generate improvement recommendations per account
+    ai_trajectory_analysis:
+      cron: '0 5 * * *'  # Daily at 5:00 AM UTC
+      class: AiTrajectoryAnalysisJob
+      queue: ai_orchestration
+      description: 'Analyze execution trajectories and generate improvement recommendations'
 
-  # Trajectory analysis - generate improvement recommendations per account
-  ai_trajectory_analysis:
-    cron: '0 5 * * *'  # Daily at 5:00 AM UTC
-    class: AiTrajectoryAnalysisJob
-    queue: ai_orchestration
-    description: 'Analyze execution trajectories and generate improvement recommendations'
+    # Observation pipeline - collect sensor data for autonomous agents
+    ai_observation_pipeline:
+      every: '10m'
+      class: AiObservationPipelineJob
+      queue: ai_orchestration
+      description: 'Run observation sensors for autonomous agents and create observations'
 
-  # Observation pipeline - collect sensor data for autonomous agents
-  ai_observation_pipeline:
-    every: '10m'
-    class: AiObservationPipelineJob
-    queue: ai_orchestration
-    description: 'Run observation sensors for autonomous agents and create observations'
+    # Goal maintenance - auto-abandon stale goals
+    ai_goal_maintenance:
+      cron: '30 4 * * *'  # Daily at 4:30 AM UTC
+      class: AiGoalMaintenanceJob
+      queue: maintenance
+      description: 'Auto-abandon goals with no progress for 30+ days'
 
-  # Goal maintenance - auto-abandon stale goals
-  ai_goal_maintenance:
-    cron: '30 4 * * *'  # Daily at 4:30 AM UTC
-    class: AiGoalMaintenanceJob
-    queue: maintenance
-    description: 'Auto-abandon goals with no progress for 30+ days'
+    # Observation cleanup - delete expired and old processed observations
+    ai_observation_cleanup:
+      cron: '45 4 * * *'  # Daily at 4:45 AM UTC
+      class: AiObservationCleanupJob
+      queue: maintenance
+      description: 'Delete expired and old processed observations'
 
-  # Observation cleanup - delete expired and old processed observations
-  ai_observation_cleanup:
-    cron: '45 4 * * *'  # Daily at 4:45 AM UTC
-    class: AiObservationCleanupJob
-    queue: maintenance
-    description: 'Delete expired and old processed observations'
+    # Escalation timeout - auto-escalate overdue escalations
+    ai_escalation_timeout:
+      every: '15m'
+      class: AiEscalationTimeoutJob
+      queue: ai_orchestration
+      description: 'Auto-escalate overdue escalations to next level in chain'
 
-  # Escalation timeout - auto-escalate overdue escalations
-  ai_escalation_timeout:
-    every: '15m'
-    class: AiEscalationTimeoutJob
-    queue: ai_orchestration
-    description: 'Auto-escalate overdue escalations to next level in chain'
+    # Proposal expiry - expire overdue unreviewed proposals
+    ai_proposal_expiry:
+      cron: '0 * * * *'  # Every hour
+      class: AiProposalExpiryJob
+      queue: maintenance
+      description: 'Expire unreviewed proposals past their review deadline'
 
-  # Proposal expiry - expire overdue unreviewed proposals
-  ai_proposal_expiry:
-    cron: '0 * * * *'  # Every hour
-    class: AiProposalExpiryJob
-    queue: maintenance
-    description: 'Expire unreviewed proposals past their review deadline'
+    # Intervention policy tuning - analyze patterns and suggest policy adjustments
+    ai_intervention_policy_tuning:
+      cron: '0 6 * * 0'  # Weekly at 6:00 AM UTC on Sunday
+      class: AiInterventionPolicyTuningJob
+      queue: maintenance
+      description: 'Analyze approval patterns and suggest intervention policy adjustments'
 
-  # Intervention policy tuning - analyze patterns and suggest policy adjustments
-  ai_intervention_policy_tuning:
-    cron: '0 6 * * 0'  # Weekly at 6:00 AM UTC on Sunday
-    class: AiInterventionPolicyTuningJob
-    queue: maintenance
-    description: 'Analyze approval patterns and suggest intervention policy adjustments'
+    # Container instance reconciliation - detect stale/crashed containers
+    container_instance_reconciliation:
+      cron: '*/5 * * * *'
+      class: Devops::ContainerInstanceReconciliationJob
+      queue: devops_default
+      description: 'Reconcile container instance statuses with Docker reality'
 
-  # Container instance reconciliation - detect stale/crashed containers
-  container_instance_reconciliation:
-    cron: '*/5 * * * *'
-    class: Devops::ContainerInstanceReconciliationJob
-    queue: devops_default
-    description: 'Reconcile container instance statuses with Docker reality'
+    # Port allocation cleanup - release expired port allocations
+    port_allocation_cleanup:
+      cron: '*/10 * * * *'
+      class: Devops::PortAllocationCleanupJob
+      queue: devops_default
+      description: 'Release expired port allocations to prevent port exhaustion'
 
-  # Port allocation cleanup - release expired port allocations
-  port_allocation_cleanup:
-    cron: '*/10 * * * *'
-    class: Devops::PortAllocationCleanupJob
-    queue: devops_default
-    description: 'Release expired port allocations to prevent port exhaustion'
+    # Integration health check - monitor third-party integration connectivity
+    integration_health_check:
+      cron: '*/15 * * * *'
+      class: Integrations::IntegrationHealthCheckJob
+      queue: integrations
+      description: 'Check third-party integration health and auto-pause failing instances'
 
-  # Integration health check - monitor third-party integration connectivity
-  integration_health_check:
-    cron: '*/15 * * * *'
-    class: Integrations::IntegrationHealthCheckJob
-    queue: integrations
-    description: 'Check third-party integration health and auto-pause failing instances'
+    # Template maintenance - archive stale templates, clean old builds (weekly)
+    template_maintenance:
+      cron: '0 3 * * 0'
+      class: Devops::TemplateMaintenanceJob
+      queue: devops_default
+      description: 'Archive unused templates and clean up old container image builds'
 
-  # Template maintenance - archive stale templates, clean old builds (weekly)
-  template_maintenance:
-    cron: '0 3 * * 0'
-    class: Devops::TemplateMaintenanceJob
-    queue: devops_default
-    description: 'Archive unused templates and clean up old container image builds'
+    # Ralph loop scheduler - find and execute due ralph loops
+    ai_ralph_loop_scheduler:
+      cron: '* * * * *'  # Every minute
+      class: AiRalphLoopSchedulerJob
+      queue: ai_orchestration
+      description: 'Check for due ralph loops and execute scheduled iterations'
 
-  # Ralph loop scheduler - find and execute due ralph loops
-  ai_ralph_loop_scheduler:
-    cron: '* * * * *'  # Every minute
-    class: AiRalphLoopSchedulerJob
-    queue: ai_orchestration
-    description: 'Check for due ralph loops and execute scheduled iterations'
+    # Stigmergic signal decay - apply temporal decay to signal strengths
+    ai_stigmergic_signal_decay:
+      cron: '*/30 * * * *'  # Every 30 minutes
+      class: AiStigmergicSignalDecayJob
+      queue: ai_orchestration
+      description: 'Decay stigmergic signal strengths and expire dead signals'
 
-  # Stigmergic signal decay - apply temporal decay to signal strengths
-  ai_stigmergic_signal_decay:
-    cron: '*/30 * * * *'  # Every 30 minutes
-    class: AiStigmergicSignalDecayJob
-    queue: ai_orchestration
-    description: 'Decay stigmergic signal strengths and expire dead signals'
+    # Pressure field measurement - measure quality pressure on tracked artifacts
+    ai_pressure_field_measurement:
+      cron: '*/15 * * * *'  # Every 15 minutes
+      class: AiPressureFieldMeasurementJob
+      queue: ai_orchestration
+      description: 'Re-measure pressure fields and broadcast changes'
 
-  # Pressure field measurement - measure quality pressure on tracked artifacts
-  ai_pressure_field_measurement:
-    cron: '*/15 * * * *'  # Every 15 minutes
-    class: AiPressureFieldMeasurementJob
-    queue: ai_orchestration
-    description: 'Re-measure pressure fields and broadcast changes'
+    # Pressure field decay - apply temporal decay to pressure values
+    ai_pressure_field_decay:
+      cron: '0 * * * *'  # Every hour at minute 0
+      class: AiPressureFieldDecayJob
+      queue: ai_orchestration
+      description: 'Apply exponential decay to pressure field values'
 
-  # Pressure field decay - apply temporal decay to pressure values
-  ai_pressure_field_decay:
-    cron: '0 * * * *'  # Every hour at minute 0
-    class: AiPressureFieldDecayJob
-    queue: ai_orchestration
-    description: 'Apply exponential decay to pressure field values'
+    # Skill auto-evolution - mutate underperforming skills weekly
+    ai_skill_auto_evolution:
+      cron: '0 5 * * 1'  # Weekly at 5:00 AM UTC on Monday
+      class: AiSkillAutoEvolutionJob
+      queue: ai_orchestration
+      description: 'Find and mutate underperforming skills using failure analysis'
 
-  # Skill auto-evolution - mutate underperforming skills weekly
-  ai_skill_auto_evolution:
-    cron: '0 5 * * 1'  # Weekly at 5:00 AM UTC on Monday
-    class: AiSkillAutoEvolutionJob
-    queue: ai_orchestration
-    description: 'Find and mutate underperforming skills using failure analysis'
+    # Self-challenge scheduler - generate daily challenges for agents
+    ai_self_challenge_scheduler:
+      cron: '0 6 * * *'  # Daily at 6:00 AM UTC
+      class: AiSelfChallengeSchedulerJob
+      queue: ai_orchestration
+      description: 'Generate self-challenges for agent weakest skills'
 
-  # Self-challenge scheduler - generate daily challenges for agents
-  ai_self_challenge_scheduler:
-    cron: '0 6 * * *'  # Daily at 6:00 AM UTC
-    class: AiSelfChallengeSchedulerJob
-    queue: ai_orchestration
-    description: 'Generate self-challenges for agent weakest skills'
+    # Governance scan - periodic scan of all active agents
+    ai_governance_scan:
+      cron: '0 */6 * * *'  # Every 6 hours
+      class: AiGovernanceScanJob
+      queue: ai_orchestration
+      description: 'Scan active agents for policy violations, anomalies, and resource abuse'
 
-  # Governance scan - periodic scan of all active agents
-  ai_governance_scan:
-    cron: '0 */6 * * *'  # Every 6 hours
-    class: AiGovernanceScanJob
-    queue: ai_orchestration
-    description: 'Scan active agents for policy violations, anomalies, and resource abuse'
+    # Collusion detection - weekly pairwise analysis of agent behavior
+    ai_collusion_detection:
+      cron: '0 3 * * 0'  # Weekly at 3:00 AM UTC on Sunday
+      class: AiCollusionDetectionJob
+      queue: ai_orchestration
+      description: 'Detect potential collusion patterns between agent pairs'
 
-  # Collusion detection - weekly pairwise analysis of agent behavior
-  ai_collusion_detection:
-    cron: '0 3 * * 0'  # Weekly at 3:00 AM UTC on Sunday
-    class: AiCollusionDetectionJob
-    queue: ai_orchestration
-    description: 'Detect potential collusion patterns between agent pairs'
+    # ── Trading Module ──
 
-  # ── Trading Module ──
+    trading_strategy_tick:
+      cron: '*/5 * * * *'
+      class: TradingStrategyExecutionJob
+      queue: trading
+      description: 'Execute due trading strategy ticks'
 
-  trading_strategy_tick:
-    cron: '*/5 * * * *'
-    class: TradingStrategyExecutionJob
-    queue: trading
-    description: 'Execute due trading strategy ticks'
+    trading_price_feed:
+      cron: '*/3 * * * *'
+      class: TradingPriceFeedJob
+      queue: trading
+      description: 'Fetch price data from feeds'
 
-  trading_price_feed:
-    cron: '*/3 * * * *'
-    class: TradingPriceFeedJob
-    queue: trading
-    description: 'Fetch price data from feeds'
+    trading_evolution_epoch:
+      cron: '0 0 * * *'
+      class: TradingEvolutionEpochJob
+      queue: trading
+      description: 'Run daily Darwinian evolution epoch'
 
-  trading_evolution_epoch:
-    cron: '0 0 * * *'
-    class: TradingEvolutionEpochJob
-    queue: trading
-    description: 'Run daily Darwinian evolution epoch'
+    trading_metrics_snapshot:
+      cron: '0 23 * * *'
+      class: TradingMetricsSnapshotJob
+      queue: trading
+      description: 'Calculate end-of-day performance metrics'
 
-  trading_metrics_snapshot:
-    cron: '0 23 * * *'
-    class: TradingMetricsSnapshotJob
-    queue: trading
-    description: 'Calculate end-of-day performance metrics'
+    trading_daily_learning:
+      cron: '30 23 * * *'
+      class: TradingDailyLearningJob
+      queue: trading
+      description: 'Extract trading learnings, update trust scores, detect degradation'
 
-  trading_sweep_check:
-    cron: '0 */4 * * *'
-    class: TradingSweepCheckJob
-    queue: trading
-    description: 'Check portfolios for sweep opportunities'
+    trading_sweep_check:
+      cron: '0 */4 * * *'
+      class: TradingSweepCheckJob
+      queue: trading
+      description: 'Check portfolios for sweep opportunities'
 
-  trading_risk_monitor:
-    cron: '*/15 * * * *'
-    class: TradingRiskMonitorJob
-    queue: trading
-    description: 'Portfolio circuit breaker risk checks'
+    trading_risk_monitor:
+      cron: '*/15 * * * *'
+      class: TradingRiskMonitorJob
+      queue: trading
+      description: 'Portfolio circuit breaker risk checks'
 
-  trading_venue_sync:
-    cron: '*/15 * * * *'
-    class: TradingVenueSyncJob
-    queue: trading
-    description: 'Sync balances and positions from venues'
+    trading_venue_sync:
+      cron: '*/15 * * * *'
+      class: TradingVenueSyncJob
+      queue: trading
+      description: 'Sync balances and positions from venues'
 
-  trading_order_fill_check:
-    cron: '*/1 * * * *'
-    class: TradingOrderFillCheckJob
-    queue: trading
-    description: 'Poll for order fill status'
+    trading_order_fill_check:
+      cron: '*/1 * * * *'
+      class: TradingOrderFillCheckJob
+      queue: trading
+      description: 'Poll for order fill status'
 
-  trading_phase_review:
-    cron: '0 6 * * *'
-    class: TradingPhaseReviewJob
-    queue: trading
-    description: 'Review strategy lifecycle phase graduation'
+    trading_phase_review:
+      cron: '0 6 * * *'
+      class: TradingPhaseReviewJob
+      queue: trading
+      description: 'Review strategy lifecycle phase graduation'
+
+    trading_training_session_runner:
+      cron: '* * * * *'
+      class: TradingTrainingSessionRunnerJob
+      queue: trading
+      description: 'Check for pending training sessions and dispatch execution'
