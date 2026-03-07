@@ -148,7 +148,9 @@ class JobsController
   end
 
   # POST /api/v1/llm/complete
-  # Synchronous LLM completion -- called by server's LLM proxy
+  # Synchronous LLM completion -- called by server's LLM proxy.
+  # Accepts either agent_id (worker fetches provider config from server) or
+  # credential_id + provider_type + provider_base_url (skips the callback).
   def llm_complete(request)
     unless authenticated?(request)
       return error_response(401, 'Unauthorized')
@@ -161,11 +163,12 @@ class JobsController
       return error_response(400, 'Invalid JSON')
     end
 
-    agent_id = data['agent_id']
     messages = data['messages']
+    agent_id = data['agent_id']
+    credential_id = data['credential_id']
 
-    unless agent_id.present? && messages.is_a?(Array) && messages.any?
-      return error_response(422, 'Missing agent_id or messages parameter')
+    unless (agent_id.present? || credential_id.present?) && messages.is_a?(Array) && messages.any?
+      return error_response(422, 'Missing agent_id/credential_id or messages parameter')
     end
 
     begin
@@ -175,7 +178,14 @@ class JobsController
       opts[:temperature] = data['temperature'] if data['temperature']
       opts[:system_prompt] = data['system_prompt'] if data['system_prompt']
 
-      result = client.complete(agent_id: agent_id, messages: messages, model: data['model'], **opts)
+      llm_opts = { messages: messages, model: data['model'], **opts }
+      if credential_id.present?
+        llm_opts[:provider_config] = build_inline_provider_config(data)
+      else
+        llm_opts[:agent_id] = agent_id
+      end
+
+      result = client.complete(**llm_opts)
       success_response(result)
     rescue StandardError => e
       PowernodeWorker.application.logger.error "LLM complete failed: #{e.message}"
@@ -184,7 +194,8 @@ class JobsController
   end
 
   # POST /api/v1/llm/complete_with_tools
-  # Synchronous LLM completion with tool-calling -- called by server's LLM proxy
+  # Synchronous LLM completion with tool-calling -- called by server's LLM proxy.
+  # Accepts either agent_id or credential_id + provider info (skips provider_config callback).
   def llm_complete_with_tools(request)
     unless authenticated?(request)
       return error_response(401, 'Unauthorized')
@@ -197,11 +208,12 @@ class JobsController
       return error_response(400, 'Invalid JSON')
     end
 
-    agent_id = data['agent_id']
     messages = data['messages']
+    agent_id = data['agent_id']
+    credential_id = data['credential_id']
 
-    unless agent_id.present? && messages.is_a?(Array) && messages.any?
-      return error_response(422, 'Missing agent_id or messages parameter')
+    unless (agent_id.present? || credential_id.present?) && messages.is_a?(Array) && messages.any?
+      return error_response(422, 'Missing agent_id/credential_id or messages parameter')
     end
 
     begin
@@ -211,13 +223,14 @@ class JobsController
       opts[:temperature] = data['temperature'] if data['temperature']
       opts[:tool_choice] = data['tool_choice'] if data['tool_choice']
 
-      result = client.complete_with_tools(
-        agent_id: agent_id,
-        messages: messages,
-        tools: data['tools'] || [],
-        model: data['model'],
-        **opts
-      )
+      llm_opts = { messages: messages, tools: data['tools'] || [], model: data['model'], **opts }
+      if credential_id.present?
+        llm_opts[:provider_config] = build_inline_provider_config(data)
+      else
+        llm_opts[:agent_id] = agent_id
+      end
+
+      result = client.complete_with_tools(**llm_opts)
       success_response(result)
     rescue StandardError => e
       PowernodeWorker.application.logger.error "LLM complete_with_tools failed: #{e.message}"
@@ -228,6 +241,7 @@ class JobsController
   # POST /api/v1/llm/stream
   # Synchronous streaming LLM completion -- collects full stream and returns final result as JSON.
   # The server-side caller handles streaming to clients via ActionCable.
+  # Accepts either agent_id or credential_id + provider info (skips provider_config callback).
   def llm_stream(request)
     unless authenticated?(request)
       return error_response(401, 'Unauthorized')
@@ -240,11 +254,12 @@ class JobsController
       return error_response(400, 'Invalid JSON')
     end
 
-    agent_id = data['agent_id']
     messages = data['messages']
+    agent_id = data['agent_id']
+    credential_id = data['credential_id']
 
-    unless agent_id.present? && messages.is_a?(Array) && messages.any?
-      return error_response(422, 'Missing agent_id or messages parameter')
+    unless (agent_id.present? || credential_id.present?) && messages.is_a?(Array) && messages.any?
+      return error_response(422, 'Missing agent_id/credential_id or messages parameter')
     end
 
     begin
@@ -256,7 +271,14 @@ class JobsController
 
       # Use standard complete -- the worker collects the full response.
       # Streaming to the end user is handled server-side via ActionCable.
-      result = client.complete(agent_id: agent_id, messages: messages, model: data['model'], **opts)
+      llm_opts = { messages: messages, model: data['model'], **opts }
+      if credential_id.present?
+        llm_opts[:provider_config] = build_inline_provider_config(data)
+      else
+        llm_opts[:agent_id] = agent_id
+      end
+
+      result = client.complete(**llm_opts)
       success_response(result)
     rescue StandardError => e
       PowernodeWorker.application.logger.error "LLM stream failed: #{e.message}"
@@ -265,7 +287,8 @@ class JobsController
   end
 
   # POST /api/v1/llm/complete_structured
-  # Synchronous structured JSON output completion -- called by server's LLM proxy
+  # Synchronous structured JSON output completion -- called by server's LLM proxy.
+  # Accepts either agent_id or credential_id + provider info (skips provider_config callback).
   def llm_complete_structured(request)
     unless authenticated?(request)
       return error_response(401, 'Unauthorized')
@@ -278,12 +301,13 @@ class JobsController
       return error_response(400, 'Invalid JSON')
     end
 
-    agent_id = data['agent_id']
     messages = data['messages']
     schema = data['schema']
+    agent_id = data['agent_id']
+    credential_id = data['credential_id']
 
-    unless agent_id.present? && messages.is_a?(Array) && messages.any? && schema.is_a?(Hash)
-      return error_response(422, 'Missing agent_id, messages, or schema parameter')
+    unless (agent_id.present? || credential_id.present?) && messages.is_a?(Array) && messages.any? && schema.is_a?(Hash)
+      return error_response(422, 'Missing agent_id/credential_id, messages, or schema parameter')
     end
 
     begin
@@ -291,12 +315,14 @@ class JobsController
       opts = {}
       opts[:max_tokens] = data['max_tokens'] if data['max_tokens']
 
-      result = client.complete_structured(
-        agent_id: agent_id,
-        messages: messages,
-        schema: schema,
-        model: data['model'],
-        **opts
+      llm_opts = { messages: messages, schema: schema, model: data['model'], **opts }
+      if credential_id.present?
+        llm_opts[:provider_config] = build_inline_provider_config(data)
+      else
+        llm_opts[:agent_id] = agent_id
+      end
+
+      result = client.complete_structured(**llm_opts
       )
       success_response(result)
     rescue StandardError => e
@@ -348,6 +374,18 @@ class JobsController
   # Uses BackendApiClient for server communication (credential resolution, tool dispatch).
   def build_llm_proxy_client
     @llm_proxy_client ||= LlmProxyClient.new(BackendApiClient.new.method(:post))
+  end
+
+  # Build provider config inline from request data, bypassing the provider_config
+  # server callback. Used when the server sends credential_id + provider info directly.
+  def build_inline_provider_config(data)
+    {
+      "provider_type" => data["provider_type"],
+      "provider_credential_id" => data["credential_id"],
+      "provider_base_url" => data["provider_base_url"],
+      "provider_name" => data["provider_name"],
+      "model" => data["model"]
+    }
   end
 
   # Build an embedding service for an account.

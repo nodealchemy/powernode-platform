@@ -95,7 +95,7 @@ module Ai
             s == 200 ? parse_openai_response(p, model) : openai_handle_error(s, p)
           when :anthropic
             body = build_anthropic_body(messages, model, **opts)
-            body[:output_config] = { format: { type: "json", schema: schema[:schema] || schema } }
+            body[:output_config] = { format: { type: "json_schema", schema: schema[:schema] || schema } }
             s, p, _ = http_post(anthropic_url, body)
             s == 200 ? parse_anthropic_response(p, model) : anthropic_handle_error(s, p)
           when :ollama

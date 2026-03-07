@@ -25,32 +25,35 @@ class LlmProxyClient
     @llm_clients = {} # Cache per credential_id
   end
 
-  # Standard LLM completion -- calls provider directly
-  def complete(agent_id:, messages:, model: nil, **opts)
-    provider_config = fetch_provider_config(agent_id)
-    client = build_llm_client(provider_config)
-    model ||= provider_config["model"]
+  # Standard LLM completion -- calls provider directly.
+  # Accepts either agent_id (triggers server callback) or provider_config (no callback).
+  def complete(agent_id: nil, provider_config: nil, messages:, model: nil, **opts)
+    config = provider_config || fetch_provider_config(agent_id)
+    client = build_llm_client(config)
+    model ||= config["model"]
 
     response = client.complete(messages: messages, model: model, **opts)
     format_response(response)
   end
 
-  # LLM completion with tool-calling -- calls provider directly
-  def complete_with_tools(agent_id:, messages:, tools: [], model: nil, **opts)
-    provider_config = fetch_provider_config(agent_id)
-    client = build_llm_client(provider_config)
-    model ||= provider_config["model"]
+  # LLM completion with tool-calling -- calls provider directly.
+  # Accepts either agent_id (triggers server callback) or provider_config (no callback).
+  def complete_with_tools(agent_id: nil, provider_config: nil, messages:, tools: [], model: nil, **opts)
+    config = provider_config || fetch_provider_config(agent_id)
+    client = build_llm_client(config)
+    model ||= config["model"]
 
     tools = symbolize_tools(tools)
     response = client.complete_with_tools(messages: messages, tools: tools, model: model, **opts)
     format_response(response)
   end
 
-  # Structured output (JSON schema enforced) -- calls provider directly
-  def complete_structured(agent_id:, messages:, schema:, model: nil, **opts)
-    provider_config = fetch_provider_config(agent_id)
-    client = build_llm_client(provider_config)
-    model ||= provider_config["model"]
+  # Structured output (JSON schema enforced) -- calls provider directly.
+  # Accepts either agent_id (triggers server callback) or provider_config (no callback).
+  def complete_structured(agent_id: nil, provider_config: nil, messages:, schema:, model: nil, **opts)
+    config = provider_config || fetch_provider_config(agent_id)
+    client = build_llm_client(config)
+    model ||= config["model"]
 
     schema = deep_symbolize(schema)
     response = client.complete_structured(messages: messages, schema: schema, model: model, **opts)
@@ -238,7 +241,7 @@ class LlmProxyClient
   end
 
   def format_response(response)
-    {
+    result = {
       "content" => response.content,
       "usage" => response.usage,
       "finish_reason" => response.finish_reason,
@@ -247,6 +250,14 @@ class LlmProxyClient
       "cost" => response.cost,
       "thinking_content" => response.thinking_content
     }.compact
+
+    # Propagate error details so callers can see provider failures
+    if response.finish_reason == "error" && response.respond_to?(:raw_response)
+      raw = response.raw_response
+      result["error"] = raw[:error] || raw["error"] if raw.is_a?(Hash)
+    end
+
+    result
   end
 
   def accumulate_usage(total, iteration_usage)
