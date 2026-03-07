@@ -318,6 +318,37 @@ class BackendApiClient
     make_request(:post, path, data)
   end
 
+  # POST with a named circuit breaker instead of the default backend_api one.
+  # Use for long-running requests that would exceed the default 120s timeout.
+  def post_with_circuit_breaker(path, data = {}, circuit_breaker: nil)
+    breaker_method = case circuit_breaker
+                     when :trading_training then :with_trading_training_circuit_breaker
+                     when :workflow_execution then :with_workflow_execution_circuit_breaker
+                     else :with_backend_api_circuit_breaker
+                     end
+
+    send(breaker_method) do
+      start_time = Time.current
+      response = @connection.post do |req|
+        req.url path
+        req.headers['Authorization'] = "Bearer #{WorkerJwt.token}"
+        req.headers['Content-Type'] = 'application/json'
+        req.headers['Accept'] = 'application/json'
+        req.headers['User-Agent'] = 'PowernodeWorker/1.0'
+        req.body = data if data.any?
+        # Override default Faraday timeout for long-running requests
+        req.options.timeout = 3600
+        req.options.read_timeout = 3600
+      end
+      duration = Time.current - start_time
+      @logger.debug "[BackendAPI] POST #{path} completed in #{duration.round(3)}s"
+      handle_response(response)
+    end
+  rescue CircuitBreaker::CircuitOpenError => e
+    @logger.warn "[BackendAPI] Circuit breaker OPEN: #{e.message}"
+    raise ApiError.new("Service temporarily unavailable: #{e.message}", 503)
+  end
+
   def put(path, data = {})
     make_request(:put, path, data)
   end

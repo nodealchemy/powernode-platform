@@ -117,8 +117,16 @@ module CircuitBreaker
         on_failure(e)
         raise
       rescue StandardError => e
-        @logger.error "[CircuitBreaker] Request failed for #{@service_name}: #{e.message}"
-        on_failure(e)
+        # Only count server/infrastructure failures against the circuit breaker.
+        # Client errors (4xx) mean the service IS healthy — it processed the
+        # request and returned a valid response. Counting 404s etc. as failures
+        # causes unrelated job errors to trip the breaker for all jobs.
+        if circuit_breaker_failure?(e)
+          @logger.error "[CircuitBreaker] Request failed for #{@service_name}: #{e.message}"
+          on_failure(e)
+        else
+          @logger.debug "[CircuitBreaker] Client error for #{@service_name} (not counted as failure): #{e.message}"
+        end
         raise
       ensure
         duration = Time.current - start_time
@@ -153,6 +161,22 @@ module CircuitBreaker
           @logger.error "[CircuitBreaker] #{@service_name} circuit breaker returned to OPEN state"
         end
       end
+    end
+
+    # Determines whether an exception represents a service health issue.
+    # Client errors (4xx) are NOT failures — the service is responding correctly.
+    # Only server errors, timeouts, and connection failures trip the breaker.
+    def circuit_breaker_failure?(exception)
+      return true if exception.is_a?(Timeout::Error)
+      return true if exception.is_a?(Faraday::ConnectionFailed)
+      return true if exception.is_a?(Faraday::TimeoutError)
+
+      if exception.respond_to?(:status) && exception.status.is_a?(Integer)
+        return exception.status >= 500
+      end
+
+      # Unknown errors default to being counted as failures
+      true
     end
 
     def ready_for_half_open?
@@ -257,6 +281,20 @@ module CircuitBreaker
       failure_threshold: 5,     # Allow more failures before opening (was 3)
       recovery_timeout: 120,    # Longer recovery for complex workflows (was 30)
       timeout: 600              # 10 minutes for complex workflows (was 300)
+    )
+
+    breaker.call(&block)
+  end
+
+  # Dedicated circuit breaker for long-running trading training sessions.
+  # Training runs 30 ticks × multiple strategies × multiple LLM calls per tick.
+  # Real-world sessions take 30-60 minutes depending on strategy count and LLM latency.
+  def with_trading_training_circuit_breaker(&block)
+    breaker = CircuitBreakerRegistry.instance.get_breaker(
+      'trading_training',
+      failure_threshold: 3,
+      recovery_timeout: 120,
+      timeout: 3600  # 60 minutes — training sessions with many strategies are very long-running
     )
 
     breaker.call(&block)
