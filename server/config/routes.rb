@@ -645,6 +645,7 @@ Rails.application.routes.draw do
         post :verify
         post :authenticate_user
         post :verify_session
+        post :verify_platform_token
       end
 
       # Worker file processing endpoints (for worker service)

@@ -105,6 +105,11 @@ class BackendApiClient
     })
   end
 
+  # Platform JWT verification for web interface access
+  def verify_platform_token(token)
+    post("/api/v1/worker_auth/verify_platform_token", { token: token })
+  end
+
   # Session verification for authenticated users
   def verify_session(session_token)
     post("/api/v1/worker_auth/verify_session", {
