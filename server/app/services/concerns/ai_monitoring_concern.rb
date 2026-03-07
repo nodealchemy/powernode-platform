@@ -315,7 +315,7 @@ module AiMonitoringConcern
   # =============================================================================
 
   def redis
-    @redis ||= Redis.new(url: Rails.application.credentials.redis_url || "redis://localhost:6379")
+    @redis ||= Powernode::Redis.client
   end
 
   def build_metric_key(metric_name, tags = {})

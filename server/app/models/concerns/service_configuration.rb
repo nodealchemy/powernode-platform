@@ -368,7 +368,92 @@ module ServiceConfiguration
       }
     end
 
+    # =============================================================================
+    # REDIS CONFIGURATION
+    # =============================================================================
+
+    # Get Redis configuration
+    def redis_config
+      setting = find_by(key: "redis_config")
+      return default_redis_config unless setting
+
+      parsed_value = setting.value.is_a?(String) ? JSON.parse(setting.value) : setting.value
+      default_redis_config.deep_merge(parsed_value)
+    rescue JSON::ParserError
+      default_redis_config
+    end
+
+    # Update Redis configuration
+    def update_redis_config(new_config)
+      setting = find_or_initialize_by(key: "redis_config")
+      current_config = redis_config
+      merged_config = current_config.deep_merge(new_config.with_indifferent_access)
+      setting.value = merged_config.to_json
+      setting.save!
+    end
+
+    # Build redis:// URL from config components
+    def redis_url_from_config(config = nil)
+      config ||= redis_config
+
+      # If explicit URL is set, use it directly
+      return config["url"] if config["url"].present?
+
+      # Build URL from components
+      host = config["host"] || "localhost"
+      port = config["port"] || 6379
+      database = config["database"] || 0
+      password = config["password"]
+      ssl = config["ssl"]
+
+      scheme = ssl ? "rediss" : "redis"
+      auth = password.present? ? ":#{password}@" : ""
+      "#{scheme}://#{auth}#{host}:#{port}/#{database}"
+    end
+
+    # Test Redis connection with optional config override
+    def test_redis_connection(config = nil)
+      config ||= redis_config
+      url = redis_url_from_config(config)
+
+      start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      redis = ::Redis.new(url: url, connect_timeout: 5, read_timeout: 5)
+      redis.ping
+      latency = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time) * 1000).round(2)
+
+      info = redis.info
+      {
+        status: "connected",
+        version: info["redis_version"],
+        memory: info["used_memory_human"],
+        latency_ms: latency,
+        connected_clients: info["connected_clients"]&.to_i || 0
+      }
+    rescue StandardError => e
+      {
+        status: "disconnected",
+        error: e.message
+      }
+    ensure
+      redis&.close rescue nil
+    end
+
     private
+
+    def default_redis_config
+      {
+        "host" => ENV.fetch("REDIS_HOST", "localhost"),
+        "port" => ENV.fetch("REDIS_PORT", 6379).to_i,
+        "database" => ENV.fetch("REDIS_DB", 0).to_i,
+        "password" => ENV.fetch("REDIS_PASSWORD", nil),
+        "ssl" => false,
+        "url" => ENV.fetch("REDIS_URL", nil),
+        "connect_timeout" => 5,
+        "read_timeout" => 5,
+        "write_timeout" => 5,
+        "pool_size" => 5
+      }
+    end
 
     def host_in_trusted_list?(host, trusted_hosts)
       trusted_hosts.any? do |pattern|

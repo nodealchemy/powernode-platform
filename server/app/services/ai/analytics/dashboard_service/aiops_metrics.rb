@@ -405,7 +405,7 @@ module Ai
           end
 
           begin
-            redis = Redis.new(url: Rails.application.credentials.redis_url || "redis://localhost:6379")
+            redis = Powernode::Redis.client
             redis.ping
           rescue StandardError
             score -= 30

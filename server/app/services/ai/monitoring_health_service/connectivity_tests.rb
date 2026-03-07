@@ -35,7 +35,7 @@ module Ai
       end
 
       def test_redis_connection
-        redis = Redis.new
+        redis = Powernode::Redis.new_client
         redis.ping
 
         {

@@ -76,7 +76,7 @@ module Api
         return { status: "skipped", message: "Redis not configured" } unless redis_configured?
 
         start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-        Redis.new(url: ENV["REDIS_URL"]).ping
+        Powernode::Redis.new_client.ping
         response_time = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time) * 1000).round(2)
 
         { status: "healthy", response_time_ms: response_time }
@@ -118,13 +118,13 @@ module Api
       def redis_healthy?
         return true unless redis_configured?
 
-        Redis.new(url: ENV["REDIS_URL"]).ping == "PONG"
+        Powernode::Redis.new_client.ping == "PONG"
       rescue StandardError
         false
       end
 
       def redis_configured?
-        ENV["REDIS_URL"].present?
+        Powernode::Redis.url.present?
       end
 
       def uptime_seconds

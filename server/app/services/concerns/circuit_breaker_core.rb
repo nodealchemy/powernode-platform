@@ -53,7 +53,7 @@ module CircuitBreakerCore
     config = config.symbolize_keys
     @storage_backend = config.delete(:storage) || :cache
     if @storage_backend == :redis
-      @redis = Redis.new(url: Rails.application.credentials.redis_url || "redis://localhost:6379")
+      @redis = Powernode::Redis.client
     end
 
     @resource_id = resource_id

@@ -91,11 +91,7 @@ module Security
 
       # Get Redis connection
       def redis
-        @redis ||= if defined?(Redis) && ENV["REDIS_URL"]
-                     Redis.new(url: ENV["REDIS_URL"])
-        else
-                     Rails.cache.redis
-        end
+        @redis ||= Powernode::Redis.client
       end
 
       # Calculate TTL in seconds

@@ -17,7 +17,7 @@ module Ai
 
       def initialize(account:)
         @account = account
-        @redis = Redis.new(url: redis_url)
+        @redis = Powernode::Redis.client
       end
 
       # Establish an encrypted session between two agents via X25519 ECDH.
@@ -196,9 +196,6 @@ module Ai
 
       private
 
-      def redis_url
-        Rails.application.credentials.redis_url || ENV.fetch("REDIS_URL", "redis://localhost:6379")
-      end
 
       def session_redis_key(session_id)
         "powernode:encrypted_session:#{session_id}"

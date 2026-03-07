@@ -178,7 +178,7 @@ module Api
       end
 
       def job_metrics
-        redis = Redis.new(url: ENV.fetch("WORKER_REDIS_URL", "redis://localhost:6379/1"))
+        redis = Powernode::Redis.new_worker_client
         stats = {
           processed: redis.get("stat:processed").to_i,
           failed: redis.get("stat:failed").to_i,

@@ -13,7 +13,7 @@ class Ai::DebuggingService
     @account = account
     @execution_context = execution_context
     @logger = Rails.logger
-    @redis = Redis.new(url: Rails.application.credentials.redis_url || "redis://localhost:6379")
+    @redis = Powernode::Redis.client
   end
 
   # Generate comprehensive debugging report for failed execution

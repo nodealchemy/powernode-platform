@@ -54,7 +54,7 @@ class Api::V1::JobsController < ApplicationController
     require "json"
     require "securerandom"
 
-    redis = Redis.new(url: ENV.fetch("REDIS_URL", "redis://localhost:6379/1"))
+    redis = Powernode::Redis.new_worker_client
 
     jid = SecureRandom.hex(12)
     queue_name = options[:queue] || "default"

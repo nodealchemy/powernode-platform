@@ -108,7 +108,7 @@ module Security
       end
 
       def redis
-        @redis ||= Redis.new(url: ENV.fetch("REDIS_URL", "redis://localhost:6379/0"))
+        @redis ||= Powernode::Redis.client
       end
     end
   end

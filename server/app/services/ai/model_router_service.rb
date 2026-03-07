@@ -59,7 +59,7 @@ module Ai
       @strategy = strategy
       @custom_weights = custom_weights || DEFAULT_WEIGHTS
       @logger = Rails.logger
-      @redis = Redis.new(url: Rails.application.credentials.redis_url || "redis://localhost:6379")
+      @redis = Powernode::Redis.client
 
       raise ArgumentError, "Invalid strategy: #{strategy}" unless STRATEGIES.include?(strategy)
     end

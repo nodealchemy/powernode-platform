@@ -60,7 +60,7 @@ module Ai
       end
 
       def check_redis_health
-        redis = Redis.new
+        redis = Powernode::Redis.new_client
         redis.ping
 
         info = redis.info
@@ -152,7 +152,7 @@ module Ai
       end
 
       def detailed_redis_health
-        redis = Redis.new
+        redis = Powernode::Redis.new_client
         info = redis.info
 
         {
