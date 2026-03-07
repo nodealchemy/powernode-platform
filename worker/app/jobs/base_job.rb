@@ -165,10 +165,11 @@ class BaseJob
         timestamp: Time.current.to_f
       }
 
-      redis = Sidekiq.redis_pool.with { |conn| conn }
-      redis.lpush("job_metrics:#{name}", metric_data.to_json)
-      redis.ltrim("job_metrics:#{name}", 0, 999) # Keep last 1000 entries
-      redis.expire("job_metrics:#{name}", 86400) # Expire after 24 hours
+      Sidekiq.redis do |conn|
+        conn.lpush("job_metrics:#{name}", metric_data.to_json)
+        conn.ltrim("job_metrics:#{name}", 0, 999) # Keep last 1000 entries
+        conn.expire("job_metrics:#{name}", 86400) # Expire after 24 hours
+      end
     rescue StandardError => e
       # Don't fail the job if metrics recording fails
       logger.debug "Failed to record metric #{name}: #{e.message}"
@@ -222,15 +223,22 @@ class BaseJob
   def check_runaway_loop(*args)
     job_key = generate_job_key(*args)
     execution_key = "job_executions:#{job_key}"
-
-    # Get recent execution timestamps
-    redis = Sidekiq.redis_pool.with { |conn| conn }
-    recent_executions = redis.lrange(execution_key, 0, -1).map(&:to_f)
-
-    # Check if we have too many executions in a short time window
     now = Time.current.to_f
     recent_window = 60 # 1 minute
     failure_window = 300 # 5 minutes
+
+    # All Redis operations must happen inside the block — the connection is
+    # only valid while checked out from the pool.
+    recent_executions, disabled_reason = Sidekiq.redis do |conn|
+      executions = conn.lrange(execution_key, 0, -1).map(&:to_f)
+      reason = conn.get("job_disabled:#{job_key}")
+      [executions, reason]
+    end
+
+    # Check if this job is currently disabled
+    if disabled_reason && !disabled_reason.empty?
+      raise StandardError, "Job execution disabled: #{disabled_reason}"
+    end
 
     # Count executions in the last minute
     recent_count = recent_executions.count { |timestamp| (now - timestamp) <= recent_window }
@@ -244,8 +252,7 @@ class BaseJob
       logger.error "Job args: #{args.inspect}"
       logger.error "Recent timestamps: #{recent_executions.last(10).inspect}"
 
-      # Disable this specific job combination for 5 minutes
-      redis.setex("job_disabled:#{job_key}", 300, "runaway_loop_detected")
+      Sidekiq.redis { |conn| conn.setex("job_disabled:#{job_key}", 300, "runaway_loop_detected") }
 
       raise StandardError, "Runaway loop detected: #{recent_count} executions in #{recent_window}s. Job disabled for 5 minutes."
     elsif total_count >= 15 # More than 15 executions in 5 minutes
@@ -256,25 +263,19 @@ class BaseJob
       sleep(5)
     end
 
-    # Check if this job is currently disabled
-    disabled_key = "job_disabled:#{job_key}"
-    reason = redis.get(disabled_key)
-    if reason && !reason.empty?
-      raise StandardError, "Job execution disabled: #{reason}"
-    end
-
     # Record this execution attempt
-    redis.lpush(execution_key, now)
-    redis.ltrim(execution_key, 0, 20) # Keep only last 20 executions
-    redis.expire(execution_key, failure_window + 60) # Auto-expire after 6 minutes
+    Sidekiq.redis do |conn|
+      conn.lpush(execution_key, now)
+      conn.ltrim(execution_key, 0, 20) # Keep only last 20 executions
+      conn.expire(execution_key, failure_window + 60) # Auto-expire after 6 minutes
+    end
   end
 
   def record_execution_success(*args)
     job_key = generate_job_key(*args)
     success_key = "job_success:#{job_key}"
 
-    redis = Sidekiq.redis_pool.with { |conn| conn }
-    redis.set(success_key, Time.current.to_f, ex: 300) # Record success for 5 minutes
+    Sidekiq.redis { |conn| conn.set(success_key, Time.current.to_f, ex: 300) }
   end
 
   def record_execution_failure(*args, exception)
@@ -288,10 +289,11 @@ class BaseJob
       job_class: self.class.name
     }
 
-    redis = Sidekiq.redis_pool.with { |conn| conn }
-    redis.lpush(failure_key, failure_data.to_json)
-    redis.ltrim(failure_key, 0, 9) # Keep only last 10 failures
-    redis.expire(failure_key, 3600) # Auto-expire after 1 hour
+    Sidekiq.redis do |conn|
+      conn.lpush(failure_key, failure_data.to_json)
+      conn.ltrim(failure_key, 0, 9) # Keep only last 10 failures
+      conn.expire(failure_key, 3600) # Auto-expire after 1 hour
+    end
   end
 
   def generate_job_key(*args)
