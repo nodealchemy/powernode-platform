@@ -24,8 +24,16 @@ class SidekiqWebAuth
       return @app.call(env)
     end
 
-    # Handle login form submission
-    if request.post? && (request.params['email'] || request.params['password'])
+    # Handle JWT token from query param (platform SSO)
+    if request.params['token'].present?
+      return handle_token_login(request, session, env)
+    end
+
+    # Handle login form submission (email/password or token field)
+    if request.post? && (request.params['email'] || request.params['password'] || request.params['platform_token'])
+      if request.params['platform_token'].present?
+        return handle_token_login(request, session, env, token: request.params['platform_token'])
+      end
       return handle_login(request, session, env)
     end
 
@@ -116,6 +124,35 @@ class SidekiqWebAuth
   # Check if the request is for a static asset (CSS, JS, images)
   def static_asset?(path)
     path.match?(%r{^/sidekiq/(stylesheets|javascripts|images)/})
+  end
+
+  def handle_token_login(request, session, env, token: nil)
+    token ||= request.params['token']
+
+    begin
+      response = @api_client.verify_platform_token(token)
+
+      if response['success'] && response['data'] && response['data']['valid']
+        session['session_token'] = response['data']['session_token']
+        session['user_email'] = response['data']['user_email']
+        session['expires_at'] = response['data']['expires_at']
+
+        @logger.info "User #{response['data']['user_email']} authenticated via platform token"
+
+        # Strip token from URL and redirect to clean path
+        clean_path = request.path
+        clean_path = '/sidekiq/' if clean_path.empty? || clean_path == '/sidekiq'
+        return [302, { 'location' => clean_path }, []]
+      else
+        return unauthorized_response(response['error'] || 'Token verification failed')
+      end
+    rescue BackendApiClient::ApiError => e
+      @logger.warn "Platform token verification failed: #{e.message}"
+      return unauthorized_response('Invalid or expired platform token')
+    rescue StandardError => e
+      @logger.error "Platform token auth error: #{e.message}"
+      return unauthorized_response('Authentication system unavailable')
+    end
   end
 
   def handle_login(request, session, env)
@@ -280,26 +317,41 @@ class SidekiqWebAuth
           
           #{error_message ? "<div class=\"error\">#{error_message}</div>" : ''}
           
-          <form action="" method="post">
+          <form action="" method="post" id="token-form">
+            <div class="form-group">
+              <label for="platform_token">Platform Access Token</label>
+              <input type="password" id="platform_token" name="platform_token" required
+                     placeholder="Paste your JWT access token" autocomplete="off"
+                     style="font-family: monospace; font-size: 0.85rem;">
+            </div>
+
+            <button type="submit">Sign In with Token</button>
+          </form>
+
+          <div class="divider" style="text-align: center; margin: 1.5rem 0; color: #9ca3af; font-size: 0.875rem;">
+            <span style="background: white; padding: 0 1rem;">or sign in with credentials</span>
+          </div>
+
+          <form action="" method="post" id="password-form">
             <div class="form-group">
               <label for="email">Email Address</label>
-              <input type="email" id="email" name="email" required 
+              <input type="email" id="email" name="email" required
                      placeholder="Enter your email address" autocomplete="username">
             </div>
-            
+
             <div class="form-group">
               <label for="password">Password</label>
-              <input type="password" id="password" name="password" required 
+              <input type="password" id="password" name="password" required
                      placeholder="Enter your password" autocomplete="current-password">
             </div>
-            
+
             <button type="submit">Sign In</button>
           </form>
-          
+
           <div class="info">
-            <strong>User Authentication Required</strong><br>
-            Access is restricted to users associated with this worker service's account. 
-            Use your Powernode account credentials to sign in.
+            <strong>Platform Authentication</strong><br>
+            Paste your platform access token from the browser console:
+            <code style="font-size: 0.75rem; background: #e5e7eb; padding: 2px 4px; border-radius: 2px;">localStorage.getItem('access_token')</code>
           </div>
         </div>
         
