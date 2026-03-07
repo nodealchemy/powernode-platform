@@ -2,6 +2,44 @@
 
 require_relative 'boot'
 
+# Sidekiq and sidekiq-scheduler MUST be required at the top level so that
+# sidekiq-scheduler's Sidekiq.configure_server block runs during boot and
+# registers its startup callback. If deferred into a method (e.g. inside
+# PowernodeWorker#initialize), the callback is never registered because
+# Sidekiq CLI never instantiates the class — it just requires this file.
+require 'sidekiq'
+require 'sidekiq/web'
+require 'sidekiq-scheduler'
+
+# Merge enterprise billing schedules into the Sidekiq config's :scheduler
+# section. sidekiq-scheduler reads config[:scheduler][:schedule] during its
+# startup callback and handles symbol→string key conversion internally via
+# Utils.stringify_keys, so we don't need to pre-stringify here.
+worker_root = File.expand_path('..', __dir__)
+enterprise_file = File.join(worker_root, '..', 'extensions', 'enterprise', 'worker', 'config', 'sidekiq_billing.yml')
+if File.exist?(enterprise_file)
+  Sidekiq.configure_server do |config|
+    billing_yaml = YAML.safe_load(ERB.new(File.read(enterprise_file)).result, permitted_classes: [Symbol])
+    if billing_yaml&.dig(:schedule)
+      scheduler_config = config[:scheduler] ||= {}
+      schedule = scheduler_config[:schedule] ||= {}
+      billing_yaml[:schedule].each { |k, v| schedule[k] = v }
+    end
+  end
+end
+
+Sidekiq.configure_server do |config|
+  concurrency = ENV.fetch('WORKER_CONCURRENCY', '25').to_i
+  config.redis = { url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'), size: concurrency + 5 }
+end
+
+Sidekiq.configure_client do |config|
+  config.redis = { url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'), size: 5 }
+end
+
+# Configure Sidekiq web interface with custom authentication
+Sidekiq::Web.use(SidekiqWebAuth)
+
 # Main application class for Powernode Worker Service
 class PowernodeWorker
   def self.application
@@ -16,7 +54,6 @@ class PowernodeWorker
   def initialize
     @root = File.expand_path('..', __dir__)
     load_environment
-    setup_sidekiq
     setup_logging
     setup_action_mailer
     setup_service_authentication
@@ -41,49 +78,6 @@ class PowernodeWorker
   def load_environment
     require 'dotenv'
     Dotenv.load(File.join(@root, '.env'), File.join(@root, ".env.#{env}"))
-  end
-
-  def setup_sidekiq
-    require 'sidekiq'
-    require 'sidekiq/web'
-    require 'sidekiq-scheduler'
-
-    Sidekiq.configure_server do |config|
-      config.redis = {
-        url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'),
-        size: 20
-      }
-
-      # Load scheduler configuration from sidekiq.yml
-      config.on(:startup) do
-        schedule_file = File.join(@root || File.expand_path('../..', __dir__), 'config', 'sidekiq.yml')
-        if File.exist?(schedule_file)
-          Sidekiq.schedule = YAML.safe_load(ERB.new(File.read(schedule_file)).result, permitted_classes: [Symbol], aliases: true).fetch(:schedule, {})
-        end
-
-        # Merge enterprise billing schedules when available
-        enterprise_schedule = File.join(@root || File.expand_path('../..', __dir__), '..', 'extensions', 'enterprise', 'worker', 'config', 'sidekiq_billing.yml')
-        if File.exist?(enterprise_schedule)
-          billing_config = YAML.safe_load(ERB.new(File.read(enterprise_schedule)).result, permitted_classes: [Symbol])
-          if billing_config && billing_config[:schedule]
-            existing = Sidekiq.schedule || {}
-            Sidekiq.schedule = existing.merge(billing_config[:schedule])
-          end
-        end
-
-        SidekiqScheduler::Scheduler.instance.reload_schedule!
-      end
-    end
-
-    Sidekiq.configure_client do |config|
-      config.redis = {
-        url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'),
-        size: 5
-      }
-    end
-
-    # Configure Sidekiq web interface with custom authentication
-    Sidekiq::Web.use(SidekiqWebAuth)
   end
 
   def setup_logging
