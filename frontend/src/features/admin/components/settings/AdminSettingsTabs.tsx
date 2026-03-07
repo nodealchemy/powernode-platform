@@ -3,7 +3,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import {
-  CreditCard, Mail, Gauge,
+  CreditCard, Mail, Server,
   LayoutDashboard, ShieldAlert,
   Network, Lock, Wrench, Puzzle
 } from 'lucide-react';
@@ -82,12 +82,12 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     requiredPermissions: ['admin.settings.security']
   },
   {
-    id: 'performance',
-    label: 'Performance',
-    href: '/app/admin/settings/performance',
-    icon: Gauge,
-    description: 'Monitor and optimize system performance',
-    requiredPermissions: ['admin.settings.read'] // Basic permission for now
+    id: 'infrastructure',
+    label: 'Infrastructure',
+    href: '/app/admin/settings/infrastructure',
+    icon: Server,
+    description: 'Redis connection and infrastructure configuration',
+    requiredPermissions: ['admin.settings.read']
   },
   {
     id: 'development',

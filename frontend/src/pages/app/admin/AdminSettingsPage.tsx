@@ -17,7 +17,7 @@ const AdminSettingsPaymentGatewaysTabPage = (typeof __EXTENSIONS__ !== 'undefine
 import { AdminSettingsEmailTabPage } from './AdminSettingsEmailTabPage';
 import { AdminSettingsSecurityTabPage } from './AdminSettingsSecurityTabPage';
 import AdminSettingsRateLimitingTabPage from './AdminSettingsRateLimitingTabPage';
-import { AdminSettingsPerformanceTabPage } from './AdminSettingsPerformanceTabPage';
+import { AdminSettingsInfrastructureTabPage } from './AdminSettingsInfrastructureTabPage';
 import { AdminSettingsProxyTabPage } from './AdminSettingsProxyTabPage';
 import { AdminSettingsDevelopmentTabPage } from './AdminSettingsDevelopmentTabPage';
 import { AdminSettingsExtensionsTabPage } from './AdminSettingsExtensionsTabPage';
@@ -31,7 +31,7 @@ const settingsTabs = [
   { id: 'proxy', label: 'Reverse Proxy', path: '/app/admin/settings/proxy', icon: '🌐' },
   { id: 'security', label: 'Security', path: '/app/admin/settings/security', icon: '🔒' },
   { id: 'rate-limiting', label: 'Rate Limiting', path: '/app/admin/settings/rate-limiting', icon: '🛡️' },
-  { id: 'performance', label: 'Performance', path: '/app/admin/settings/performance', icon: '⚡' },
+  { id: 'infrastructure', label: 'Infrastructure', path: '/app/admin/settings/infrastructure', icon: '🖥️' },
   { id: 'development', label: 'Development', path: '/app/admin/settings/development', icon: '🔧' }
 ];
 
@@ -102,7 +102,8 @@ export const AdminSettingsPage: React.FC = () => {
           <Route path="/proxy" element={<AdminSettingsProxyTabPage />} />
           <Route path="/security" element={<AdminSettingsSecurityTabPage />} />
           <Route path="/rate-limiting" element={<AdminSettingsRateLimitingTabPage />} />
-          <Route path="/performance" element={<AdminSettingsPerformanceTabPage />} />
+          <Route path="/infrastructure" element={<AdminSettingsInfrastructureTabPage />} />
+          <Route path="/performance" element={<Navigate to="/app/admin/settings/infrastructure" replace />} />
           <Route path="/development" element={<AdminSettingsDevelopmentTabPage />} />
 
           {/* Legacy redirects */}

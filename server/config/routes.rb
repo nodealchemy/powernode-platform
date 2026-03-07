@@ -817,6 +817,11 @@ Rails.application.routes.draw do
         delete "security/blacklisted_tokens", on: :member, action: :clear_blacklisted_tokens
         get "security/blacklist_stats", on: :member, action: :blacklist_statistics
         get "security/audit_summary", on: :member, action: :security_audit_summary
+
+        # Infrastructure configuration
+        get :infrastructure, on: :member, action: :infrastructure_config
+        put :infrastructure, on: :member, action: :update_infrastructure_config
+        post "infrastructure/test_redis", on: :member, action: :test_redis_connection
       end
 
       # Services Configuration (system-level)

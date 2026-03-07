@@ -41,8 +41,8 @@ jest.mock('./AdminSettingsRateLimitingTabPage', () => ({
   default: () => <div data-testid="rate-limiting-tab-page">Rate Limiting Content</div>
 }));
 
-jest.mock('./AdminSettingsPerformanceTabPage', () => ({
-  AdminSettingsPerformanceTabPage: () => <div data-testid="performance-tab-page">Performance Content</div>
+jest.mock('./AdminSettingsInfrastructureTabPage', () => ({
+  AdminSettingsInfrastructureTabPage: () => <div data-testid="infrastructure-tab-page">Infrastructure Content</div>
 }));
 
 jest.mock('./AdminSettingsProxyTabPage', () => ({

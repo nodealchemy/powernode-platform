@@ -334,6 +334,65 @@ class Api::V1::AdminSettingsController < ApplicationController
     render_success(security_service.security_audit_summary(days: days))
   end
 
+  # =============================================================================
+  # INFRASTRUCTURE CONFIGURATION
+  # =============================================================================
+
+  # GET /api/v1/admin_settings/infrastructure
+  def infrastructure_config
+    config = AdminSetting.redis_config
+    # Mask password
+    masked_config = config.dup
+    masked_config["password"] = "••••••••" if masked_config["password"].present?
+
+    # Get connection status
+    connection_status = AdminSetting.test_redis_connection
+
+    render_success(
+      redis: masked_config,
+      connection: connection_status
+    )
+  end
+
+  # PUT /api/v1/admin_settings/infrastructure
+  def update_infrastructure_config
+    redis_params = infrastructure_params
+
+    # Skip password update if masked value sent back
+    redis_params.delete("password") if redis_params["password"] == "••••••••"
+
+    AdminSetting.update_redis_config(redis_params)
+    Powernode::Redis.reconfigure!
+
+    log_audit_event("infrastructure_config_update", "SystemSettings",
+                    metadata: { updated_fields: redis_params.keys })
+
+    # Return updated config with masked password
+    config = AdminSetting.redis_config
+    config["password"] = "••••••••" if config["password"].present?
+
+    render_success(
+      redis: config,
+      message: "Infrastructure configuration updated successfully"
+    )
+  rescue StandardError => e
+    Rails.logger.error "Infrastructure config update failed: #{e.class.name}: #{e.message}"
+    render_error("Failed to update infrastructure configuration: #{e.message}", :unprocessable_content)
+  end
+
+  # POST /api/v1/admin_settings/infrastructure/test_redis
+  def test_redis_connection
+    # Test with provided config or saved config
+    test_config = if params[:redis].present?
+      infrastructure_params
+    else
+      nil
+    end
+
+    result = AdminSetting.test_redis_connection(test_config)
+    render_success(result)
+  end
+
   private
 
   # =============================================================================
@@ -386,6 +445,13 @@ class Api::V1::AdminSettingsController < ApplicationController
       ],
       feature_flags: {}
     )
+  end
+
+  def infrastructure_params
+    params.require(:redis).permit(
+      :host, :port, :database, :password, :ssl, :url,
+      :connect_timeout, :read_timeout, :write_timeout, :pool_size
+    ).to_h
   end
 
   def security_config_params

@@ -164,6 +164,30 @@ export interface AdminOverviewData {
   settings_summary: Partial<AdminSettings>;
 }
 
+export interface RedisConfig {
+  host: string;
+  port: number;
+  database: number;
+  password: string | null;
+  ssl: boolean;
+  url: string | null;
+  connect_timeout: number;
+  read_timeout: number;
+  write_timeout: number;
+  pool_size: number;
+}
+
+export interface RedisConnectionStatus {
+  status: 'connected' | 'error';
+  version?: string;
+  memory_used?: string;
+  memory_used_bytes?: number;
+  latency_ms?: number;
+  connected_clients?: number;
+  uptime_days?: number;
+  error?: string;
+}
+
 /**
  * @module AdminSettingsApi
  * @description Platform configuration and system settings service.
@@ -404,6 +428,61 @@ class AdminSettingsApi {
   async enableRateLimiting() {
     const response = await api.post('/admin/rate_limiting/enable');
     return response.data;
+  }
+
+  // Infrastructure Configuration
+  async getInfrastructureConfig(): Promise<{ success: boolean; data?: { redis: RedisConfig; connection: RedisConnectionStatus }; error?: string }> {
+    try {
+      const response = await api.get('/admin_settings/infrastructure');
+      const responseData = response.data;
+      if (responseData.success !== undefined) {
+        return responseData;
+      }
+      return { success: true, data: responseData };
+    } catch (error) {
+      const errorMessage =
+        error && typeof error === 'object' && 'response' in error
+          ? (error as { response?: { data?: { error?: string } } }).response?.data?.error ||
+            'Failed to fetch infrastructure config'
+          : 'Failed to fetch infrastructure config';
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  async updateInfrastructureConfig(config: Partial<RedisConfig>): Promise<{ success: boolean; data?: { redis: RedisConfig; message: string }; error?: string }> {
+    try {
+      const response = await api.put('/admin_settings/infrastructure', { redis: config });
+      const responseData = response.data;
+      if (responseData.success !== undefined) {
+        return responseData;
+      }
+      return { success: true, data: responseData };
+    } catch (error) {
+      const errorMessage =
+        error && typeof error === 'object' && 'response' in error
+          ? (error as { response?: { data?: { error?: string } } }).response?.data?.error ||
+            'Failed to update infrastructure config'
+          : 'Failed to update infrastructure config';
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  async testRedisConnection(config?: Partial<RedisConfig>): Promise<{ success: boolean; data?: RedisConnectionStatus; error?: string }> {
+    try {
+      const response = await api.post('/admin_settings/infrastructure/test_redis', config ? { redis: config } : {});
+      const responseData = response.data;
+      if (responseData.success !== undefined) {
+        return responseData;
+      }
+      return { success: true, data: responseData };
+    } catch (error) {
+      const errorMessage =
+        error && typeof error === 'object' && 'response' in error
+          ? (error as { response?: { data?: { error?: string } } }).response?.data?.error ||
+            'Failed to test Redis connection'
+          : 'Failed to test Redis connection';
+      return { success: false, error: errorMessage };
+    }
   }
 
   // Security Configuration Management

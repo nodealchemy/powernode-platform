@@ -7,7 +7,7 @@ export { AdminSettingsEmailTabPage } from './AdminSettingsEmailTabPage';
 // export { AdminSettingsMaintenanceTabPage } from './AdminSettingsMaintenanceTabPage'; // File doesn't exist
 export { AdminSettingsSecurityTabPage } from './AdminSettingsSecurityTabPage';
 export { default as AdminSettingsRateLimitingTabPage } from './AdminSettingsRateLimitingTabPage';
-export { AdminSettingsPerformanceTabPage } from './AdminSettingsPerformanceTabPage';
+export { AdminSettingsInfrastructureTabPage } from './AdminSettingsInfrastructureTabPage';
 
 // Admin User Management
 export { AdminUsersPage } from './AdminUsersPage';
