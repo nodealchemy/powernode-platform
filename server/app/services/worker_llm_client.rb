@@ -28,6 +28,22 @@ class WorkerLlmClient
   LLM_TIMEOUT = 120 # seconds -- LLM calls can be slow
   OPEN_TIMEOUT = 10  # seconds
 
+  # Per-million-token cost rates (USD) for cost estimation.
+  # More specific prefixes must come before less specific ones (prefix matching).
+  COST_RATES = {
+    "claude-opus" => { input: 15.00, output: 75.00 },
+    "claude-sonnet" => { input: 3.00, output: 15.00 },
+    "claude-haiku" => { input: 0.80, output: 4.00 },
+    "gpt-4.1-nano" => { input: 0.10, output: 0.40 },
+    "gpt-4.1-mini" => { input: 0.40, output: 1.60 },
+    "gpt-4.1" => { input: 2.00, output: 8.00 },
+    "gpt-4o-mini" => { input: 0.15, output: 0.60 },
+    "gpt-4o" => { input: 2.50, output: 10.00 },
+    "o3-mini" => { input: 1.10, output: 4.40 },
+    "o4-mini" => { input: 1.10, output: 4.40 },
+    "o3" => { input: 2.00, output: 8.00 }
+  }.freeze
+
   attr_reader :provider, :credential
 
   # Build a client for a specific provider + credential pair, or from an agent_id.
@@ -37,10 +53,11 @@ class WorkerLlmClient
   #
   # When only agent_id is given, the worker resolves provider config via
   # POST /api/v1/internal/ai/provider_config.
-  def initialize(provider: nil, credential: nil, agent_id: nil)
+  def initialize(provider: nil, credential: nil, agent_id: nil, budget: nil)
     @provider = provider
     @credential = credential
     @agent_id = agent_id
+    @budget = budget
     @worker_url = Rails.application.config.worker_url
   end
 
@@ -70,7 +87,9 @@ class WorkerLlmClient
       model: model,
       **opts.slice(:max_tokens, :temperature, :system_prompt, :top_p, :stop)
     ))
-    build_response(result)
+    response = build_response(result)
+    track_llm_usage!(response, model)
+    response
   end
 
   # Streaming completion -- worker collects full stream, returns final result.
@@ -83,6 +102,7 @@ class WorkerLlmClient
       **opts.slice(:max_tokens, :temperature, :system_prompt, :top_p, :stop)
     ))
     response = build_response(result)
+    track_llm_usage!(response, model)
 
     # Simulate stream events for callers that expect a block
     if block_given?
@@ -105,7 +125,9 @@ class WorkerLlmClient
       model: model,
       **opts.slice(:max_tokens, :temperature, :tool_choice, :system_prompt)
     ))
-    build_response(result)
+    response = build_response(result)
+    track_llm_usage!(response, model)
+    response
   end
 
   # Structured output (JSON schema enforced)
@@ -116,7 +138,9 @@ class WorkerLlmClient
       model: model,
       **opts.slice(:max_tokens, :temperature)
     ))
-    build_response(result)
+    response = build_response(result)
+    track_llm_usage!(response, model)
+    response
   end
 
   # Full agentic tool loop -- LLM calls happen on the worker,
@@ -231,5 +255,46 @@ class WorkerLlmClient
     return {} unless raw.is_a?(Hash)
 
     raw.deep_symbolize_keys
+  end
+
+  # Debit the agent's budget based on token usage from the response.
+  # Uses ceil rounding (minimum 1 cent) since spent_cents is an integer column.
+  def track_llm_usage!(response, model)
+    return unless @agent_id
+    return unless response.total_tokens > 0 && response.finish_reason != "error"
+
+    cost_cents = estimate_cost_cents(model, response.prompt_tokens, response.completion_tokens)
+    cost_cents = [cost_cents, 1].max
+
+    budget = resolve_agent_budget
+    return unless budget
+
+    budget.debit!(cost_cents, metadata: {
+      provider: response.provider,
+      model: model,
+      prompt_tokens: response.prompt_tokens,
+      completion_tokens: response.completion_tokens,
+      total_tokens: response.total_tokens,
+      estimated_cost_usd: (cost_cents / 100.0).round(4),
+      source: "worker_llm_client"
+    })
+  rescue StandardError => e
+    Rails.logger.warn("[WorkerLlmClient] Budget tracking failed: #{e.class}: #{e.message}")
+  end
+
+  def estimate_cost_cents(model, input_tokens, output_tokens)
+    rates = COST_RATES.find { |prefix, _| model.to_s.start_with?(prefix) }&.last
+    rates ||= { input: 1.00, output: 4.00 }
+
+    cost_usd = (input_tokens * rates[:input] / 1_000_000.0) +
+               (output_tokens * rates[:output] / 1_000_000.0)
+    (cost_usd * 100).ceil
+  end
+
+  def resolve_agent_budget
+    @_agent_budget ||= @budget || Ai::AgentBudget.active
+                                                   .where(agent_id: @agent_id)
+                                                   .order(created_at: :desc)
+                                                   .first
   end
 end
