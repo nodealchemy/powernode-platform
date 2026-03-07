@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_05_120001) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_05_120002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10207,6 +10207,30 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_05_120001) do
     t.index ["venue_trade_id"], name: "index_trading_trades_on_venue_trade_id"
   end
 
+  create_table "trading_training_sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "completed_at"
+    t.integer "completed_ticks", default: 0
+    t.jsonb "config", default: {}
+    t.datetime "created_at", null: false
+    t.text "error_message"
+    t.boolean "include_classic", default: false
+    t.integer "market_count", default: 3
+    t.jsonb "metrics", default: {}
+    t.string "name", null: false
+    t.jsonb "results", default: {}
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.jsonb "strategy_types", default: []
+    t.integer "tick_count", default: 30
+    t.integer "tick_interval", default: 10
+    t.jsonb "timeline", default: []
+    t.integer "total_ticks", default: 0
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "status"], name: "index_trading_training_sessions_on_account_id_and_status"
+    t.index ["account_id"], name: "index_trading_training_sessions_on_account_id"
+  end
+
   create_table "trading_venue_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.datetime "created_at", null: false
@@ -11547,6 +11571,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_05_120001) do
   add_foreign_key "trading_trades", "trading_orders"
   add_foreign_key "trading_trades", "trading_positions"
   add_foreign_key "trading_trades", "trading_venues"
+  add_foreign_key "trading_training_sessions", "accounts"
   add_foreign_key "trading_venue_credentials", "accounts"
   add_foreign_key "trading_venue_credentials", "trading_venues"
   add_foreign_key "trading_wallet_balances", "trading_chain_tokens"

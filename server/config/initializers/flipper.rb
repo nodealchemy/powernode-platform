@@ -27,6 +27,8 @@ Rails.application.config.after_initialize do
     skill_conflict_auto_resolve
     skill_self_learning
     skill_optimization
+    compound_learning_injection
+    compound_learning_promotion
   ]
 
   flags.each do |flag|
@@ -35,6 +37,10 @@ Rails.application.config.after_initialize do
 
   # Auto-enable skill self-learning (safe — SelfLearningService has per-method rescue guards)
   Flipper.enable(:skill_self_learning) unless Flipper.enabled?(:skill_self_learning)
+
+  # Auto-enable compound learning injection/promotion for AI learning feedback loop
+  Flipper.enable(:compound_learning_injection) unless Flipper.enabled?(:compound_learning_injection)
+  Flipper.enable(:compound_learning_promotion) unless Flipper.enabled?(:compound_learning_promotion)
 
   # Auto-enable enterprise flags when enterprise engine is loaded
   if Powernode::ExtensionRegistry.loaded?("enterprise")
