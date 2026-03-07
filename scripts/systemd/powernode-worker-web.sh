@@ -27,9 +27,11 @@ fi
 # Defaults
 SIDEKIQ_WEB_HOST="${SIDEKIQ_WEB_HOST:-127.0.0.1}"
 SIDEKIQ_WEB_PORT="${SIDEKIQ_WEB_PORT:-4567}"
+WORKER_WEB_THREADS="${WORKER_WEB_THREADS:-16}"
 
 exec bundle exec rackup \
     -s puma \
     -o "${SIDEKIQ_WEB_HOST}" \
     -p "${SIDEKIQ_WEB_PORT}" \
+    -O "Threads=0:${WORKER_WEB_THREADS}" \
     config.ru
