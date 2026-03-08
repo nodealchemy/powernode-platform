@@ -230,7 +230,66 @@ module Ai
         "docker_remove_network" => "Ai::Tools::DockerNetworkVolumeTool",
         "docker_list_volumes" => "Ai::Tools::DockerNetworkVolumeTool",
         "docker_create_volume" => "Ai::Tools::DockerNetworkVolumeTool",
-        "docker_remove_volume" => "Ai::Tools::DockerNetworkVolumeTool"
+        "docker_remove_volume" => "Ai::Tools::DockerNetworkVolumeTool",
+        # Trading — portfolio & wallets
+        "trading_get_portfolio" => "Ai::Tools::TradingPortfolioTool",
+        "trading_portfolio_summary" => "Ai::Tools::TradingPortfolioTool",
+        "trading_portfolio_performance" => "Ai::Tools::TradingPortfolioTool",
+        "trading_portfolio_allocations" => "Ai::Tools::TradingPortfolioTool",
+        "trading_create_portfolio" => "Ai::Tools::TradingPortfolioTool",
+        "trading_update_portfolio" => "Ai::Tools::TradingPortfolioTool",
+        "trading_list_wallets" => "Ai::Tools::TradingPortfolioTool",
+        # Trading — strategies
+        "trading_list_strategies" => "Ai::Tools::TradingStrategyTool",
+        "trading_get_strategy" => "Ai::Tools::TradingStrategyTool",
+        "trading_create_strategy" => "Ai::Tools::TradingStrategyTool",
+        "trading_update_strategy" => "Ai::Tools::TradingStrategyTool",
+        "trading_activate_strategy" => "Ai::Tools::TradingStrategyTool",
+        "trading_pause_strategy" => "Ai::Tools::TradingStrategyTool",
+        "trading_decommission_strategy" => "Ai::Tools::TradingStrategyTool",
+        "trading_advance_phase" => "Ai::Tools::TradingStrategyTool",
+        "trading_strategy_performance" => "Ai::Tools::TradingStrategyTool",
+        "trading_strategy_versions" => "Ai::Tools::TradingStrategyTool",
+        "trading_lifecycle_summary" => "Ai::Tools::TradingStrategyTool",
+        # Trading — orders, positions, trades
+        "trading_list_positions" => "Ai::Tools::TradingOrderPositionTool",
+        "trading_get_position" => "Ai::Tools::TradingOrderPositionTool",
+        "trading_open_positions" => "Ai::Tools::TradingOrderPositionTool",
+        "trading_closed_positions" => "Ai::Tools::TradingOrderPositionTool",
+        "trading_close_position" => "Ai::Tools::TradingOrderPositionTool",
+        "trading_list_orders" => "Ai::Tools::TradingOrderPositionTool",
+        "trading_cancel_order" => "Ai::Tools::TradingOrderPositionTool",
+        "trading_list_trades" => "Ai::Tools::TradingOrderPositionTool",
+        # Trading — market data & venues
+        "trading_list_venues" => "Ai::Tools::TradingMarketDataTool",
+        "trading_get_venue" => "Ai::Tools::TradingMarketDataTool",
+        "trading_test_venue_connection" => "Ai::Tools::TradingMarketDataTool",
+        "trading_list_price_feeds" => "Ai::Tools::TradingMarketDataTool",
+        "trading_market_regime" => "Ai::Tools::TradingMarketDataTool",
+        "trading_list_signals" => "Ai::Tools::TradingMarketDataTool",
+        # Trading — risk management
+        "trading_get_risk_profile" => "Ai::Tools::TradingRiskTool",
+        "trading_update_risk_profile" => "Ai::Tools::TradingRiskTool",
+        "trading_risk_events" => "Ai::Tools::TradingRiskTool",
+        "trading_reset_circuit_breaker" => "Ai::Tools::TradingRiskTool",
+        "trading_list_sweep_rules" => "Ai::Tools::TradingRiskTool",
+        "trading_list_sweep_proposals" => "Ai::Tools::TradingRiskTool",
+        # Trading — simulations & training
+        "trading_list_simulations" => "Ai::Tools::TradingSimulationTool",
+        "trading_get_simulation" => "Ai::Tools::TradingSimulationTool",
+        "trading_create_simulation" => "Ai::Tools::TradingSimulationTool",
+        "trading_run_simulation" => "Ai::Tools::TradingSimulationTool",
+        "trading_pause_simulation" => "Ai::Tools::TradingSimulationTool",
+        "trading_simulation_report" => "Ai::Tools::TradingSimulationTool",
+        "trading_list_training_sessions" => "Ai::Tools::TradingSimulationTool",
+        "trading_get_training_session" => "Ai::Tools::TradingSimulationTool",
+        "trading_create_training_session" => "Ai::Tools::TradingSimulationTool",
+        # Trading — evolution & audit
+        "trading_list_evolution_epochs" => "Ai::Tools::TradingEvolutionTool",
+        "trading_get_evolution_epoch" => "Ai::Tools::TradingEvolutionTool",
+        "trading_evolution_leaderboard" => "Ai::Tools::TradingEvolutionTool",
+        "trading_trigger_evolution" => "Ai::Tools::TradingEvolutionTool",
+        "trading_list_audit_logs" => "Ai::Tools::TradingEvolutionTool"
       }.freeze
 
       def self.available_tools(agent: nil)
