@@ -71,7 +71,10 @@ module AgentBackedService
   # Ai::AgentExecution records for every LLM call (complete, complete_structured,
   # complete_with_tools). Pass tracked: false for raw access.
   def build_agent_client(agent, tracked: true)
-    client = WorkerLlmClient.new(agent_id: agent.id)
+    # When tracked=true, budget tracking is handled by the AgentExecution
+    # callback (propagate_cost_to_budget), so skip it in the inner client
+    # to prevent double-debiting.
+    client = WorkerLlmClient.new(agent_id: agent.id, skip_budget_tracking: tracked)
     return client unless tracked
 
     TrackedWorkerLlmClient.new(

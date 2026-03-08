@@ -14,7 +14,7 @@ class Ai::StreamingService
     @buffer = []
     @stream_id = SecureRandom.uuid
     @start_time = Time.current
-    @token_count = { prompt: 0, completion: 0, total: 0 }
+    @token_count = { prompt: 0, completion: 0, cached: 0, total: 0 }
   end
 
   # Stream AI agent execution with real-time token delivery
@@ -126,6 +126,7 @@ class Ai::StreamingService
       @token_count = {
         prompt: usage[:prompt_tokens] || usage["prompt_tokens"] || 0,
         completion: usage[:completion_tokens] || usage["completion_tokens"] || 0,
+        cached: usage[:cached_tokens] || usage["cached_tokens"] || 0,
         total: usage[:total_tokens] || usage["total_tokens"] || 0
       }
     end
@@ -343,16 +344,12 @@ class Ai::StreamingService
   end
 
   def calculate_cost(token_count, provider)
-    return 0 unless provider
-
-    # Get pricing from provider configuration or use defaults
-    pricing = provider.configuration&.dig("pricing") || {}
-    prompt_price = pricing["prompt_per_1k"] || 0.001
-    completion_price = pricing["completion_per_1k"] || 0.002
-
-    prompt_cost = (token_count[:prompt] / 1000.0) * prompt_price
-    completion_cost = (token_count[:completion] / 1000.0) * completion_price
-
-    (prompt_cost + completion_cost).round(6)
+    model_id = @execution.agent&.model || @execution.output_data&.dig("model_used")
+    Ai::CostCalculationService.calculate(
+      model_id: model_id.to_s,
+      prompt_tokens: token_count[:prompt] || 0,
+      completion_tokens: token_count[:completion] || 0,
+      cached_tokens: token_count[:cached] || 0
+    )
   end
 end

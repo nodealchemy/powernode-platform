@@ -90,13 +90,27 @@ class TrackedWorkerLlmClient
 
     duration = duration_ms(started_at)
 
+    # Calculate accurate cost using the canonical service instead of
+    # relying on response.cost which may be 0.0 from the worker
+    cost = Ai::CostCalculationService.calculate(
+      model_id: response.model.to_s,
+      prompt_tokens: response.prompt_tokens,
+      completion_tokens: response.completion_tokens,
+      cached_tokens: response.cached_tokens
+    )
+
     execution.update!(
       status: "completed",
       completed_at: Time.current,
       duration_ms: duration,
-      output_data: { content: response.content&.truncate(OUTPUT_TRUNCATE_LENGTH) },
+      output_data: {
+        content: response.content&.truncate(OUTPUT_TRUNCATE_LENGTH),
+        prompt_tokens: response.prompt_tokens,
+        completion_tokens: response.completion_tokens,
+        cached_tokens: response.cached_tokens
+      },
       tokens_used: response.total_tokens,
-      cost_usd: response.cost || 0.0,
+      cost_usd: cost,
       performance_metrics: {
         prompt_tokens: response.prompt_tokens,
         completion_tokens: response.completion_tokens,

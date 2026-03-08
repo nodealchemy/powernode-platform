@@ -291,17 +291,16 @@ module Ai
 
     # GET pricing/lookup
     def pricing_lookup
-      pricing = Ai::ModelPricing.find_by(
-        provider_type: params[:provider_type],
-        model_id: params[:model_id]
-      )
+      pricing = Ai::Autonomy::PricingSyncService.pricing_for(params[:model_id])
 
       if pricing
         render_success(data: {
-          input_per_1k: pricing.input_per_1k,
-          output_per_1k: pricing.output_per_1k,
-          model_id: pricing.model_id,
-          provider_type: pricing.provider_type
+          input_per_1k: pricing["input"],
+          output_per_1k: pricing["output"],
+          cached_input_per_1k: pricing["cached_input"],
+          tier: pricing["tier"],
+          model_id: params[:model_id],
+          provider_type: params[:provider_type]
         })
       else
         render_success(data: nil)

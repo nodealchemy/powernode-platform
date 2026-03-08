@@ -205,18 +205,22 @@ module Ai
     end
 
     def calculate_cost(tokens)
-      pricing = provider.configuration&.dig("pricing") || {}
-      input_rate = pricing["input_per_token"]&.to_f
-      output_rate = pricing["output_per_token"]&.to_f
+      model_id = output_data&.dig("model_used") || agent&.model
 
-      if input_rate || output_rate
-        input_tokens = token_usage&.dig("input")&.to_i || tokens
-        output_tokens = token_usage&.dig("output")&.to_i || 0
-        (input_tokens * (input_rate || 0)) + (output_tokens * (output_rate || 0))
-      else
-        cost_per_1k = pricing["cost_per_1k_tokens"]&.to_f || 0
-        (tokens / 1000.0) * cost_per_1k
-      end
+      # Token breakdown stored in output_data (from worker) or performance_metrics (from tracked client)
+      input_tokens = output_data&.dig("prompt_tokens")&.to_i ||
+                     performance_metrics&.dig("prompt_tokens")&.to_i || tokens
+      output_tokens = output_data&.dig("completion_tokens")&.to_i ||
+                      performance_metrics&.dig("completion_tokens")&.to_i || 0
+      cached = output_data&.dig("cached_tokens")&.to_i ||
+               performance_metrics&.dig("cached_tokens")&.to_i || 0
+
+      Ai::CostCalculationService.calculate(
+        model_id: model_id.to_s,
+        prompt_tokens: input_tokens,
+        completion_tokens: output_tokens,
+        cached_tokens: cached
+      )
     end
 
     def trigger_webhook

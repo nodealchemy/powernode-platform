@@ -28,22 +28,6 @@ class WorkerLlmClient
   LLM_TIMEOUT = 120 # seconds -- LLM calls can be slow
   OPEN_TIMEOUT = 10  # seconds
 
-  # Per-million-token cost rates (USD) for cost estimation.
-  # More specific prefixes must come before less specific ones (prefix matching).
-  COST_RATES = {
-    "claude-opus" => { input: 15.00, output: 75.00 },
-    "claude-sonnet" => { input: 3.00, output: 15.00 },
-    "claude-haiku" => { input: 0.80, output: 4.00 },
-    "gpt-4.1-nano" => { input: 0.10, output: 0.40 },
-    "gpt-4.1-mini" => { input: 0.40, output: 1.60 },
-    "gpt-4.1" => { input: 2.00, output: 8.00 },
-    "gpt-4o-mini" => { input: 0.15, output: 0.60 },
-    "gpt-4o" => { input: 2.50, output: 10.00 },
-    "o3-mini" => { input: 1.10, output: 4.40 },
-    "o4-mini" => { input: 1.10, output: 4.40 },
-    "o3" => { input: 2.00, output: 8.00 }
-  }.freeze
-
   attr_reader :provider, :credential
 
   # Build a client for a specific provider + credential pair, or from an agent_id.
@@ -53,11 +37,12 @@ class WorkerLlmClient
   #
   # When only agent_id is given, the worker resolves provider config via
   # POST /api/v1/internal/ai/provider_config.
-  def initialize(provider: nil, credential: nil, agent_id: nil, budget: nil)
+  def initialize(provider: nil, credential: nil, agent_id: nil, budget: nil, skip_budget_tracking: false)
     @provider = provider
     @credential = credential
     @agent_id = agent_id
     @budget = budget
+    @skip_budget_tracking = skip_budget_tracking
     @worker_url = Rails.application.config.worker_url
   end
 
@@ -146,11 +131,28 @@ class WorkerLlmClient
   # Full agentic tool loop -- LLM calls happen on the worker,
   # tool definitions and dispatch go through the server internal API.
   def execute_tool_loop(messages:, model:, **opts)
-    call_worker("/api/v1/llm/execute_tool_loop", build_payload(
+    result = call_worker("/api/v1/llm/execute_tool_loop", build_payload(
       messages: messages,
       model: model,
       **opts.slice(:max_iterations, :max_tokens, :temperature)
     ))
+
+    # Build response from accumulated usage so budget tracking works
+    data = result.is_a?(Hash) && result.key?("data") ? result["data"] : result
+    data = {} unless data.is_a?(Hash)
+    usage = data["usage"] || {}
+
+    response = Ai::Llm::Response.new(
+      content: data["content"],
+      finish_reason: data["finish_reason"] || "stop",
+      model: model,
+      usage: symbolize_usage(usage),
+      cost: data["cost"],
+      provider: provider_name
+    )
+    track_llm_usage!(response, model)
+
+    result
   end
 
   # =========================================================================
@@ -258,13 +260,19 @@ class WorkerLlmClient
   end
 
   # Debit the agent's budget based on token usage from the response.
-  # Uses ceil rounding (minimum 1 cent) since spent_cents is an integer column.
+  # Uses CostCalculationService for accurate pricing with cached token discounting.
   def track_llm_usage!(response, model)
+    return if @skip_budget_tracking
     return unless @agent_id
     return unless response.total_tokens > 0 && response.finish_reason != "error"
 
-    cost_cents = estimate_cost_cents(model, response.prompt_tokens, response.completion_tokens)
-    cost_cents = [cost_cents, 1].max
+    cost_cents = Ai::CostCalculationService.calculate_cents(
+      model_id: model.to_s,
+      prompt_tokens: response.prompt_tokens,
+      completion_tokens: response.completion_tokens,
+      cached_tokens: response.cached_tokens
+    )
+    return if cost_cents <= 0
 
     budget = resolve_agent_budget
     return unless budget
@@ -274,21 +282,13 @@ class WorkerLlmClient
       model: model,
       prompt_tokens: response.prompt_tokens,
       completion_tokens: response.completion_tokens,
+      cached_tokens: response.cached_tokens,
       total_tokens: response.total_tokens,
-      estimated_cost_usd: (cost_cents / 100.0).round(4),
+      estimated_cost_usd: (cost_cents / 100.0).round(6),
       source: "worker_llm_client"
     })
   rescue StandardError => e
     Rails.logger.warn("[WorkerLlmClient] Budget tracking failed: #{e.class}: #{e.message}")
-  end
-
-  def estimate_cost_cents(model, input_tokens, output_tokens)
-    rates = COST_RATES.find { |prefix, _| model.to_s.start_with?(prefix) }&.last
-    rates ||= { input: 1.00, output: 4.00 }
-
-    cost_usd = (input_tokens * rates[:input] / 1_000_000.0) +
-               (output_tokens * rates[:output] / 1_000_000.0)
-    (cost_usd * 100).ceil
   end
 
   def resolve_agent_budget
