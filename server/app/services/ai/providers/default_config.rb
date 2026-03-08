@@ -3,7 +3,7 @@
 module Ai
   module Providers
     class DefaultConfig
-      PROVIDER_TYPES = %w[openai anthropic google azure_openai groq mistral cohere].freeze
+      PROVIDER_TYPES = %w[openai anthropic google azure_openai groq mistral cohere grok].freeze
 
       def self.types
         PROVIDER_TYPES
@@ -19,8 +19,8 @@ module Ai
             name: "OpenAI",
             configuration: {
               api_base_url: "https://api.openai.com/v1",
-              default_model: "gpt-4o",
-              supported_models: %w[gpt-4o gpt-4o-mini gpt-4-turbo gpt-3.5-turbo],
+              default_model: "gpt-4.1-mini",
+              supported_models: %w[gpt-4.1 gpt-4.1-mini gpt-4.1-nano o3 o4-mini gpt-4o gpt-4o-mini gpt-4-turbo gpt-3.5-turbo],
               capabilities: %w[chat completions embeddings images]
             }
           },
@@ -28,8 +28,8 @@ module Ai
             name: "Anthropic",
             configuration: {
               api_base_url: "https://api.anthropic.com/v1",
-              default_model: "claude-sonnet-4-20250514",
-              supported_models: %w[claude-sonnet-4-20250514 claude-3-5-sonnet-20241022 claude-3-5-haiku-20241022],
+              default_model: "claude-haiku-4-5-20251001",
+              supported_models: %w[claude-haiku-4-5-20251001 claude-sonnet-4-5-20250929 claude-opus-4-1-20250805 claude-3-5-sonnet-20241022],
               capabilities: %w[chat completions]
             }
           },
@@ -76,6 +76,15 @@ module Ai
               default_model: "command-r-plus",
               supported_models: %w[command-r-plus command-r command-light],
               capabilities: %w[chat completions embeddings]
+            }
+          },
+          "grok" => {
+            name: "Grok (X.AI)",
+            configuration: {
+              api_base_url: "https://api.x.ai/v1",
+              default_model: "grok-3-mini",
+              supported_models: %w[grok-3 grok-3-mini grok-3-fast grok-3-mini-fast grok-2],
+              capabilities: %w[chat completions function_calling]
             }
           }
         }

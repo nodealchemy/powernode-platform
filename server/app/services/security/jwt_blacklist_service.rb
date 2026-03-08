@@ -113,7 +113,7 @@ module Security
 
       def blacklisted_in_redis?(jti)
         key = "#{REDIS_KEY_PREFIX}#{jti}"
-        redis.exists?(key) > 0
+        redis.exists?(key)
       end
 
       def blacklist_user_tokens_redis(user_id, reason)

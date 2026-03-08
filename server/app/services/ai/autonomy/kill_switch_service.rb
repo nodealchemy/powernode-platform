@@ -243,7 +243,7 @@ module Ai
 
         count = tasks.count
         tasks.find_each do |task|
-          task.cancel!("Kill switch activated: #{reason}")
+          task.cancel!(reason: "Kill switch activated: #{reason}")
         rescue StandardError => e
           Rails.logger.error "[KillSwitch] Failed to cancel A2A task #{task.id}: #{e.message}"
         end

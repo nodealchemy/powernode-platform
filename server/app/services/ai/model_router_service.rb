@@ -31,9 +31,9 @@ module Ai
 
     # Model tier definitions for automatic routing
     MODEL_TIERS = {
-      "economy" => %w[gpt-4.1-nano haiku claude-3-5-haiku claude-haiku-4-5].freeze,
-      "standard" => %w[gpt-4.1-mini o4-mini claude-sonnet claude-sonnet-4 claude-sonnet-4-5].freeze,
-      "premium" => %w[gpt-4.1 o3 claude-opus claude-opus-4 claude-opus-4-5 claude-opus-4-6].freeze
+      "economy" => %w[gpt-4.1-nano haiku claude-3-5-haiku claude-haiku-4-5 grok-3-mini grok-3-mini-fast].freeze,
+      "standard" => %w[gpt-4.1-mini o4-mini claude-sonnet claude-sonnet-4 claude-sonnet-4-5 grok-2].freeze,
+      "premium" => %w[gpt-4.1 o3 claude-opus claude-opus-4 claude-opus-4-5 claude-opus-4-6 grok-3 grok-3-fast].freeze
     }.freeze
 
     # Task type -> default model tier mapping
