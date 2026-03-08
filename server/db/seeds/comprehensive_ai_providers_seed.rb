@@ -69,6 +69,71 @@ if admin_account && admin_user
     ],
     supported_models: [
       {
+        'name' => 'gpt-4.1',
+        'id' => 'gpt-4.1',
+        'display_name' => 'GPT-4.1',
+        'context_length' => 1047576,
+        'max_output_tokens' => 32768,
+        'cost_per_1k_tokens' => {
+          'input' => 0.002,
+          'output' => 0.008
+        },
+        'capabilities' => [ 'text', 'vision', 'function_calling', 'structured_output' ],
+        'recommended_for' => [ 'coding', 'instruction_following', 'long_context', 'agentic_tasks' ]
+      },
+      {
+        'name' => 'gpt-4.1-mini',
+        'id' => 'gpt-4.1-mini',
+        'display_name' => 'GPT-4.1 Mini',
+        'context_length' => 1047576,
+        'max_output_tokens' => 32768,
+        'cost_per_1k_tokens' => {
+          'input' => 0.0004,
+          'output' => 0.0016
+        },
+        'capabilities' => [ 'text', 'vision', 'function_calling', 'structured_output' ],
+        'recommended_for' => [ 'cost_effective', 'high_volume', 'general_purpose', 'agentic_tasks' ]
+      },
+      {
+        'name' => 'gpt-4.1-nano',
+        'id' => 'gpt-4.1-nano',
+        'display_name' => 'GPT-4.1 Nano',
+        'context_length' => 1047576,
+        'max_output_tokens' => 32768,
+        'cost_per_1k_tokens' => {
+          'input' => 0.0001,
+          'output' => 0.0004
+        },
+        'capabilities' => [ 'text', 'function_calling', 'structured_output' ],
+        'recommended_for' => [ 'classification', 'extraction', 'routing', 'ultra_low_cost' ]
+      },
+      {
+        'name' => 'o3',
+        'id' => 'o3',
+        'display_name' => 'o3',
+        'context_length' => 200000,
+        'max_output_tokens' => 100000,
+        'cost_per_1k_tokens' => {
+          'input' => 0.002,
+          'output' => 0.008
+        },
+        'capabilities' => [ 'advanced_reasoning', 'complex_problem_solving', 'function_calling' ],
+        'recommended_for' => [ 'math', 'coding', 'scientific_reasoning', 'complex_analysis' ]
+      },
+      {
+        'name' => 'o4-mini',
+        'id' => 'o4-mini',
+        'display_name' => 'o4 Mini',
+        'context_length' => 200000,
+        'max_output_tokens' => 100000,
+        'cost_per_1k_tokens' => {
+          'input' => 0.0011,
+          'output' => 0.0044
+        },
+        'capabilities' => [ 'reasoning', 'coding', 'function_calling' ],
+        'recommended_for' => [ 'coding_tasks', 'stem_reasoning', 'faster_reasoning' ]
+      },
+      {
         'name' => 'gpt-4o',
         'id' => 'gpt-4o',
         'display_name' => 'GPT-4o',
@@ -92,65 +157,13 @@ if admin_account && admin_user
           'output' => 0.0006
         },
         'capabilities' => [ 'text', 'vision', 'function_calling' ],
-        'recommended_for' => [ 'cost_effective', 'high_volume', 'simple_tasks' ]
-      },
-      {
-        'name' => 'gpt-4-turbo',
-        'id' => 'gpt-4-turbo-2024-04-09',
-        'display_name' => 'GPT-4 Turbo',
-        'context_length' => 128000,
-        'max_output_tokens' => 4096,
-        'cost_per_1k_tokens' => {
-          'input' => 0.01,
-          'output' => 0.03
-        },
-        'capabilities' => [ 'text', 'vision', 'function_calling', 'json_mode' ],
-        'recommended_for' => [ 'complex_reasoning', 'large_context', 'multi_step_tasks' ]
-      },
-      {
-        'name' => 'gpt-3.5-turbo',
-        'id' => 'gpt-3.5-turbo',
-        'display_name' => 'GPT-3.5 Turbo',
-        'context_length' => 16385,
-        'max_output_tokens' => 4096,
-        'cost_per_1k_tokens' => {
-          'input' => 0.0005,
-          'output' => 0.0015
-        },
-        'capabilities' => [ 'text', 'function_calling' ],
-        'recommended_for' => [ 'simple_chat', 'basic_automation', 'high_speed' ]
-      },
-      {
-        'name' => 'o1-preview',
-        'id' => 'o1-preview',
-        'display_name' => 'o1 Preview',
-        'context_length' => 128000,
-        'max_output_tokens' => 32768,
-        'cost_per_1k_tokens' => {
-          'input' => 0.015,
-          'output' => 0.06
-        },
-        'capabilities' => [ 'advanced_reasoning', 'complex_problem_solving' ],
-        'recommended_for' => [ 'math', 'coding', 'scientific_reasoning', 'complex_analysis' ]
-      },
-      {
-        'name' => 'o1-mini',
-        'id' => 'o1-mini',
-        'display_name' => 'o1 Mini',
-        'context_length' => 128000,
-        'max_output_tokens' => 65536,
-        'cost_per_1k_tokens' => {
-          'input' => 0.00110,
-          'output' => 0.00440
-        },
-        'capabilities' => [ 'reasoning', 'coding', 'stem' ],
-        'recommended_for' => [ 'coding_tasks', 'stem_reasoning', 'faster_reasoning' ]
+        'recommended_for' => [ 'legacy_cost_effective', 'high_volume' ]
       }
     ],
     configuration_schema: {
       'api_version' => 'v1',
       'auth_type' => 'bearer',
-      'default_model' => 'gpt-4o',
+      'default_model' => 'gpt-4.1-mini',
       'supports_streaming' => true,
       'supports_functions' => true,
       'max_retries' => 3,
@@ -190,7 +203,7 @@ if admin_account && admin_user
 
   grok_provider = create_or_find_ai_provider(admin_account, admin_user, {
     name: 'Grok (X.AI)',
-    provider_type: 'custom',
+    provider_type: 'grok',
     api_base_url: 'https://api.x.ai/v1',
     api_endpoint: 'https://api.x.ai/v1/chat/completions',
     capabilities: [
@@ -204,36 +217,75 @@ if admin_account && admin_user
     ],
     supported_models: [
       {
-        'name' => 'grok-beta',
-        'id' => 'grok-beta',
-        'display_name' => 'Grok Beta',
+        'name' => 'grok-3',
+        'id' => 'grok-3',
+        'display_name' => 'Grok 3',
         'context_length' => 131072,
-        'max_output_tokens' => 4096,
+        'max_output_tokens' => 16384,
         'cost_per_1k_tokens' => {
-          'input' => 0.005,
+          'input' => 0.003,
           'output' => 0.015
         },
-        'capabilities' => [ 'text', 'real_time_data', 'conversation', 'function_calling' ],
-        'recommended_for' => [ 'real_time_information', 'conversational_ai', 'up_to_date_data' ]
+        'capabilities' => [ 'text', 'reasoning', 'conversation', 'function_calling' ],
+        'recommended_for' => [ 'complex_reasoning', 'analysis', 'general_purpose' ]
       },
       {
-        'name' => 'grok-vision-beta',
-        'id' => 'grok-vision-beta',
-        'display_name' => 'Grok Vision Beta',
-        'context_length' => 8192,
-        'max_output_tokens' => 4096,
+        'name' => 'grok-3-mini',
+        'id' => 'grok-3-mini',
+        'display_name' => 'Grok 3 Mini',
+        'context_length' => 131072,
+        'max_output_tokens' => 16384,
+        'cost_per_1k_tokens' => {
+          'input' => 0.0003,
+          'output' => 0.0005
+        },
+        'capabilities' => [ 'text', 'reasoning', 'conversation', 'function_calling' ],
+        'recommended_for' => [ 'cost_effective', 'high_volume', 'quick_tasks' ]
+      },
+      {
+        'name' => 'grok-3-fast',
+        'id' => 'grok-3-fast',
+        'display_name' => 'Grok 3 Fast',
+        'context_length' => 131072,
+        'max_output_tokens' => 16384,
         'cost_per_1k_tokens' => {
           'input' => 0.005,
-          'output' => 0.015
+          'output' => 0.025
         },
-        'capabilities' => [ 'text', 'vision', 'image_analysis' ],
-        'recommended_for' => [ 'vision_tasks', 'image_understanding', 'multi_modal' ]
+        'capabilities' => [ 'text', 'reasoning', 'conversation', 'function_calling' ],
+        'recommended_for' => [ 'low_latency', 'real_time', 'fast_responses' ]
+      },
+      {
+        'name' => 'grok-3-mini-fast',
+        'id' => 'grok-3-mini-fast',
+        'display_name' => 'Grok 3 Mini Fast',
+        'context_length' => 131072,
+        'max_output_tokens' => 16384,
+        'cost_per_1k_tokens' => {
+          'input' => 0.0006,
+          'output' => 0.004
+        },
+        'capabilities' => [ 'text', 'reasoning', 'conversation', 'function_calling' ],
+        'recommended_for' => [ 'low_latency', 'cost_effective', 'simple_tasks' ]
+      },
+      {
+        'name' => 'grok-2',
+        'id' => 'grok-2',
+        'display_name' => 'Grok 2',
+        'context_length' => 131072,
+        'max_output_tokens' => 8192,
+        'cost_per_1k_tokens' => {
+          'input' => 0.002,
+          'output' => 0.01
+        },
+        'capabilities' => [ 'text', 'conversation', 'function_calling' ],
+        'recommended_for' => [ 'general_purpose', 'legacy_workflows' ]
       }
     ],
     configuration_schema: {
       'api_version' => 'v1',
       'auth_type' => 'bearer',
-      'default_model' => 'grok-beta',
+      'default_model' => 'grok-3-mini',
       'supports_streaming' => true,
       'supports_functions' => true,
       'max_retries' => 3,
@@ -254,15 +306,15 @@ if admin_account && admin_user
     requires_auth: true,
     supports_streaming: true,
     supports_functions: true,
-    supports_vision: true,
+    supports_vision: false,
     supports_code_execution: false,
-    priority_order: 3,
+    priority_order: 2,
     metadata: {
       'organization' => 'X.AI (xAI)',
       'api_key_env' => 'XAI_API_KEY',
-      'strengths' => [ 'real_time_data', 'conversational_ai', 'up_to_date_information' ],
-      'use_cases' => [ 'real_time_queries', 'current_events', 'conversational_agents', 'vision_analysis' ],
-      'notes' => 'Access to real-time data and X platform integration'
+      'strengths' => [ 'reasoning', 'cost_effective', 'function_calling', 'fast_responses' ],
+      'use_cases' => [ 'general_purpose', 'conversational_agents', 'cost_optimization', 'high_volume' ],
+      'notes' => 'OpenAI-compatible API with competitive pricing'
     }
   })
 
@@ -343,7 +395,7 @@ if admin_account && admin_user
     supports_functions: false,
     supports_vision: false,
     supports_code_execution: false,
-    priority_order: 2,
+    priority_order: 4,
     metadata: {
       'organization' => 'Ollama',
       'strengths' => %w[privacy zero_cost self_hosted offline_capable],
@@ -433,7 +485,7 @@ if admin_account && admin_user
     configuration_schema: {
       'api_version' => '2023-06-01',
       'auth_type' => 'x-api-key',
-      'default_model' => 'claude-sonnet-4-5-20250929',
+      'default_model' => 'claude-haiku-4-5-20251001',
       'supports_streaming' => true,
       'supports_functions' => true,
       'max_retries' => 3,
@@ -458,7 +510,7 @@ if admin_account && admin_user
     supports_functions: true,
     supports_vision: true,
     supports_code_execution: false,
-    priority_order: 1,
+    priority_order: 3,
     metadata: {
       'organization' => 'Anthropic',
       'api_key_env' => 'ANTHROPIC_API_KEY',
@@ -477,24 +529,22 @@ if admin_account && admin_user
   puts "\n" + "=" * 80
   puts "✅ AI PROVIDER ECOSYSTEM SUCCESSFULLY CREATED"
   puts "=" * 80
-  puts "\n📊 Provider Summary:"
-  puts "   1. OpenAI          - #{openai_provider.supported_models.length} models (GPT-4o, o1, GPT-3.5)"
-  puts "   2. Grok (X.AI)     - #{grok_provider.supported_models.length} models (Grok Beta, Grok Vision)"
-  puts "   3. Claude (Anthropic) - #{claude_provider.supported_models.length} models (Opus 4.1, Sonnet 4.5, Haiku 4.5, 3.5 Sonnet)"
+  puts "\n📊 Provider Summary (by priority):"
+  puts "   1. OpenAI          - #{openai_provider.supported_models.length} models (GPT-4.1, o3, o4-mini, GPT-4o)"
+  puts "   2. Grok (X.AI)     - #{grok_provider.supported_models.length} models (Grok 3, Grok 3 Mini, Grok 2)"
+  puts "   3. Claude (Anthropic) - #{claude_provider.supported_models.length} models (Opus 4.1, Sonnet 4.5, Haiku 4.5)"
   puts "   4. Ollama          - #{ollama_provider.supported_models&.length || 0} models (self-hosted, zero cost)"
 
   puts "\n🎯 Recommended Use Cases:"
-  puts "   • Best Coding:         Claude Sonnet 4.5 (world's best coding model)"
-  puts "   • Complex Agents:      Claude Sonnet 4.5, OpenAI o1-preview"
-  puts "   • General Purpose:     OpenAI GPT-4o, Claude Sonnet 4.5"
-  puts "   • Cost Optimization:   Ollama (free), GPT-4o Mini, Claude Haiku 4.5"
-  puts "   • Complex Reasoning:   Claude Opus 4.1, OpenAI o1-preview"
-  puts "   • Multi-Hour Tasks:    Claude Opus 4.1 (sustained 7+ hour workflows)"
-  puts "   • Parallel Execution:  Claude Haiku 4.5 (fast + powerful)"
-  puts "   • Vision Analysis:     OpenAI GPT-4o, Claude Sonnet 4.5, Grok Vision"
-  puts "   • Real-Time Data:      Grok Beta"
+  puts "   • Cost-First Default:  GPT-4.1 Mini → Grok 3 Mini → Haiku 4.5 → Ollama"
+  puts "   • Best Coding:         Claude Sonnet 4.5, GPT-4.1"
+  puts "   • Complex Agents:      Claude Sonnet 4.5, o3"
+  puts "   • General Purpose:     GPT-4.1 Mini, Grok 3 Mini"
+  puts "   • Cost Optimization:   GPT-4.1 Nano (cheapest), Ollama (free)"
+  puts "   • Complex Reasoning:   Claude Opus 4.1, o3"
+  puts "   • Low Latency:         Grok 3 Fast, Grok 3 Mini Fast"
   puts "   • Privacy/Offline:     Ollama (all models)"
-  puts "   • Long Context:        Claude models (200K tokens, up to 1M beta)"
+  puts "   • Long Context:        GPT-4.1 family (1M tokens), Claude models (200K)"
 
   puts "\n💡 Next Steps:"
   puts "   1. Configure API keys in environment variables or credentials"

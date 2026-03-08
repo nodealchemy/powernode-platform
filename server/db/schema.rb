@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_05_120002) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_09_010001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10111,6 +10111,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_05_120002) do
     t.string "strategy_type", null: false
     t.integer "tick_interval_seconds", default: 60, null: false
     t.uuid "trading_portfolio_id", null: false
+    t.uuid "trading_training_session_id"
     t.uuid "trading_venue_id", null: false
     t.datetime "updated_at", null: false
     t.index ["ai_agent_budget_id"], name: "index_trading_strategies_on_ai_agent_budget_id"
@@ -10125,6 +10126,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_05_120002) do
     t.index ["trading_portfolio_id", "pair"], name: "idx_trading_strategies_portfolio_pair"
     t.index ["trading_portfolio_id", "status"], name: "idx_trading_strats_portfolio_status"
     t.index ["trading_portfolio_id"], name: "index_trading_strategies_on_trading_portfolio_id"
+    t.index ["trading_training_session_id"], name: "index_trading_strategies_on_trading_training_session_id"
     t.index ["trading_venue_id"], name: "index_trading_strategies_on_trading_venue_id"
   end
 
@@ -11557,6 +11559,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_05_120002) do
   add_foreign_key "trading_strategies", "ai_missions"
   add_foreign_key "trading_strategies", "ai_ralph_loops"
   add_foreign_key "trading_strategies", "trading_portfolios"
+  add_foreign_key "trading_strategies", "trading_training_sessions"
   add_foreign_key "trading_strategies", "trading_venues"
   add_foreign_key "trading_strategy_versions", "trading_strategies"
   add_foreign_key "trading_strategy_versions", "trading_strategy_versions", column: "parent_version_id"
