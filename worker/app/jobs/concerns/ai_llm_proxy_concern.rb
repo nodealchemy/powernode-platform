@@ -12,7 +12,7 @@ module AiLlmProxyConcern
 
   # Memoized LLM proxy client backed by the worker's API client
   def llm_proxy
-    @llm_proxy ||= ::LlmProxyClient.new(method(:backend_api_post))
+    @llm_proxy ||= ::LlmProxyClient.new(method(:backend_api_post), method(:backend_api_get))
   end
 
   # Fetch a memory-enriched execution context from the server.

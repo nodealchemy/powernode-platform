@@ -139,6 +139,9 @@ class AiAgentExecutionJob < BaseJob
         'response' => cleaned_content,
         'model_used' => model,
         'tokens_used' => tokens_used,
+        'prompt_tokens' => usage['prompt_tokens'] || usage[:prompt_tokens] || 0,
+        'completion_tokens' => usage['completion_tokens'] || usage[:completion_tokens] || 0,
+        'cached_tokens' => usage['cached_tokens'] || usage[:cached_tokens] || 0,
         'cost_usd' => cost,
         'tool_calls' => proxy_result['tool_calls_log'] || proxy_result[:tool_calls_log]
       },

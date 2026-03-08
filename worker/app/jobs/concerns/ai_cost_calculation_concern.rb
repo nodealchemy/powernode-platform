@@ -6,29 +6,31 @@ module AiCostCalculationConcern
   private
 
   def calculate_generic_cost(provider, credentials, response)
-    tokens_used = response[:tokens_used] || 0
     prompt_tokens = response[:prompt_tokens] || 0
-    completion_tokens = tokens_used - prompt_tokens
-
-    # Try model-specific pricing first (from ai_model_pricings table via API)
+    completion_tokens = response[:completion_tokens] || response[:output_tokens] || 0
+    cached_tokens = response[:cached_tokens] || 0
     model_id = response[:model] || credentials.dig('configuration', 'model')
     provider_type = provider['provider_type']&.downcase
+
     if model_id && provider_type
       pricing_response = fetch_model_pricing(provider_type, model_id)
       if pricing_response
-        prompt_cost = (prompt_tokens / 1000.0) * (pricing_response['input_per_1k'] || 0)
-        completion_cost = (completion_tokens / 1000.0) * (pricing_response['output_per_1k'] || 0)
-        return prompt_cost + completion_cost
+        input_per_1k = (pricing_response['input_per_1k'] || 0).to_f
+        output_per_1k = (pricing_response['output_per_1k'] || 0).to_f
+        cached_per_1k = (pricing_response['cached_input_per_1k'] || 0).to_f
+
+        non_cached = [prompt_tokens - cached_tokens, 0].max
+        input_cost = if cached_per_1k > 0 && cached_tokens > 0
+                       (non_cached / 1000.0) * input_per_1k + (cached_tokens / 1000.0) * cached_per_1k
+                     else
+                       (prompt_tokens / 1000.0) * input_per_1k
+                     end
+
+        return input_cost + (completion_tokens / 1000.0) * output_per_1k
       end
     end
 
-    # Fallback to provider/credential config pricing
-    pricing = provider.dig('configuration', 'pricing') || credentials['pricing'] || {}
-    return 0.0 if pricing.empty?
-
-    prompt_cost = (prompt_tokens / 1000.0) * (pricing['prompt_cost_per_1k'] || 0)
-    completion_cost = (completion_tokens / 1000.0) * (pricing['completion_cost_per_1k'] || 0)
-    prompt_cost + completion_cost
+    0.0
   end
 
   def fetch_model_pricing(provider_type, model_id)
@@ -96,53 +98,49 @@ module AiCostCalculationConcern
   def calculate_anthropic_cost(response_data, model)
     input_tokens = response_data.dig('usage', 'input_tokens') || 0
     output_tokens = response_data.dig('usage', 'output_tokens') || 0
+    cached_tokens = response_data.dig('usage', 'cache_read_input_tokens') || 0
 
     pricing = resolve_pricing('anthropic', model)
-    (input_tokens / 1000.0) * pricing[:input] + (output_tokens / 1000.0) * pricing[:output]
+    non_cached = [input_tokens - cached_tokens, 0].max
+
+    input_cost = if pricing[:cached] > 0 && cached_tokens > 0
+                   (non_cached / 1000.0) * pricing[:input] + (cached_tokens / 1000.0) * pricing[:cached]
+                 else
+                   (input_tokens / 1000.0) * pricing[:input]
+                 end
+
+    input_cost + (output_tokens / 1000.0) * pricing[:output]
   end
 
   def calculate_openai_cost(response_data, model)
     prompt_tokens = response_data.dig('usage', 'prompt_tokens') || 0
     completion_tokens = response_data.dig('usage', 'completion_tokens') || 0
+    cached_tokens = response_data.dig('usage', 'cached_tokens') || 0
 
     pricing = resolve_pricing('openai', model)
-    (prompt_tokens / 1000.0) * pricing[:input] + (completion_tokens / 1000.0) * pricing[:output]
+    non_cached = [prompt_tokens - cached_tokens, 0].max
+
+    input_cost = if pricing[:cached] > 0 && cached_tokens > 0
+                   (non_cached / 1000.0) * pricing[:input] + (cached_tokens / 1000.0) * pricing[:cached]
+                 else
+                   (prompt_tokens / 1000.0) * pricing[:input]
+                 end
+
+    input_cost + (completion_tokens / 1000.0) * pricing[:output]
   end
 
-  # Resolves pricing from database first, falls back to hardcoded estimates
+  # Resolves pricing from database via the pricing lookup API
   def resolve_pricing(provider_type, model)
     db_pricing = fetch_model_pricing(provider_type, model)
     if db_pricing
       return {
         input: db_pricing['input_per_1k']&.to_f || 0,
-        output: db_pricing['output_per_1k']&.to_f || 0
+        output: db_pricing['output_per_1k']&.to_f || 0,
+        cached: db_pricing['cached_input_per_1k']&.to_f || 0
       }
     end
 
-    # Hardcoded fallback for when database is unavailable
-    fallback_pricing(provider_type, model)
-  end
-
-  def fallback_pricing(provider_type, model)
-    case provider_type
-    when 'anthropic'
-      case model.to_s
-      when /opus/   then { input: 0.015, output: 0.075 }
-      when /sonnet/ then { input: 0.003, output: 0.015 }
-      when /haiku/  then { input: 0.001, output: 0.005 }
-      else               { input: 0.003, output: 0.015 }
-      end
-    when 'openai'
-      case model.to_s
-      when /gpt-4o-mini/ then { input: 0.00015, output: 0.0006 }
-      when /gpt-4o/      then { input: 0.0025, output: 0.01 }
-      when /gpt-4/       then { input: 0.03, output: 0.06 }
-      when /gpt-3/       then { input: 0.0005, output: 0.0015 }
-      else                    { input: 0.0025, output: 0.01 }
-      end
-    else
-      { input: 0.0, output: 0.0 }
-    end
+    { input: 0.0, output: 0.0, cached: 0.0 }
   end
 
   def calculate_provider_cost(provider, credentials, response, model = nil)

@@ -19,8 +19,10 @@ class LlmProxyClient
   SERVER_TOOL_PATH = "/api/v1/internal/ai/llm"
 
   # @param api_post_method [Method] a bound method reference to backend_api_post
-  def initialize(api_post_method)
+  # @param api_get_method [Method, nil] optional bound method reference to backend_api_get
+  def initialize(api_post_method, api_get_method = nil)
     @api_post = api_post_method
+    @api_get = api_get_method
     @credential_resolver = CredentialResolver.new(api_post_method)
     @llm_clients = {} # Cache per credential_id
   end
@@ -91,6 +93,7 @@ class LlmProxyClient
     tool_calls_log = []
     current_messages = deep_copy_messages(messages)
     total_usage = { prompt_tokens: 0, completion_tokens: 0, cached_tokens: 0, total_tokens: 0 }
+    total_cost = 0.0
     last_response = nil
     max_iterations = opts.delete(:max_iterations) || TOOL_LOOP_MAX_ITERATIONS
 
@@ -102,6 +105,7 @@ class LlmProxyClient
       )
 
       accumulate_usage(total_usage, response.usage)
+      total_cost += calculate_response_cost(response, model)
       last_response = response
 
       # If no tool calls, we're done
@@ -110,7 +114,8 @@ class LlmProxyClient
           "content" => response.content,
           "usage" => total_usage,
           "tool_calls_log" => tool_calls_log,
-          "finish_reason" => response.finish_reason
+          "finish_reason" => response.finish_reason,
+          "cost" => total_cost
         }
       end
 
@@ -162,7 +167,8 @@ class LlmProxyClient
       "content" => last_response&.content,
       "usage" => total_usage,
       "tool_calls_log" => tool_calls_log,
-      "finish_reason" => "max_iterations"
+      "finish_reason" => "max_iterations",
+      "cost" => total_cost
     }
   end
 
@@ -241,13 +247,15 @@ class LlmProxyClient
   end
 
   def format_response(response)
+    cost = calculate_response_cost(response)
+
     result = {
       "content" => response.content,
       "usage" => response.usage,
       "finish_reason" => response.finish_reason,
       "model" => response.model,
       "tool_calls" => response.tool_calls.presence,
-      "cost" => response.cost,
+      "cost" => cost,
       "thinking_content" => response.thinking_content
     }.compact
 
@@ -258,6 +266,48 @@ class LlmProxyClient
     end
 
     result
+  end
+
+  # Resolve pricing for a model via the server's pricing lookup API.
+  # Caches results per model_id for the lifetime of this client instance.
+  def resolve_pricing(model_id)
+    @pricing_cache ||= {}
+    @pricing_cache[model_id] ||= begin
+      response = if @api_get
+                   @api_get.call("/api/v1/ai/autonomy/pricing/lookup", { model_id: model_id })
+                 else
+                   @api_post.call("/api/v1/ai/autonomy/pricing/lookup", { model_id: model_id })
+                 end
+      data = response.is_a?(Hash) && response["success"] ? response["data"] : nil
+      data || { "input_per_1k" => 0, "output_per_1k" => 0, "cached_input_per_1k" => 0 }
+    rescue StandardError
+      { "input_per_1k" => 0, "output_per_1k" => 0, "cached_input_per_1k" => 0 }
+    end
+  end
+
+  # Calculate cost for a single LLM response using the pricing API.
+  def calculate_response_cost(response, model_id = nil)
+    model = model_id || response.model
+    return 0.0 unless model
+
+    pricing = resolve_pricing(model.to_s)
+    input_per_1k = (pricing["input_per_1k"] || 0).to_f
+    output_per_1k = (pricing["output_per_1k"] || 0).to_f
+    cached_per_1k = (pricing["cached_input_per_1k"] || 0).to_f
+
+    prompt = response.prompt_tokens
+    completion = response.completion_tokens
+    cached = response.cached_tokens
+    non_cached = [prompt - cached, 0].max
+
+    input_cost = if cached_per_1k > 0 && cached > 0
+                   (non_cached / 1000.0) * input_per_1k + (cached / 1000.0) * cached_per_1k
+                 else
+                   (prompt / 1000.0) * input_per_1k
+                 end
+
+    output_cost = (completion / 1000.0) * output_per_1k
+    (input_cost + output_cost).round(6)
   end
 
   def accumulate_usage(total, iteration_usage)
