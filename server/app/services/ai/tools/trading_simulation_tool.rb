@@ -79,6 +79,30 @@ module Ai
               strategy_id: { type: "string", required: false, description: "Strategy ID or name (optional)" },
               config: { type: "object", required: false, description: "Training session configuration" }
             }
+          },
+          "trading_cancel_training_session" => {
+            description: "Cancel a running or pending training session",
+            parameters: {
+              session_id: { type: "string", required: true, description: "Training session ID" }
+            }
+          },
+          "trading_retry_training_session" => {
+            description: "Retry a failed or cancelled training session (resets to pending)",
+            parameters: {
+              session_id: { type: "string", required: true, description: "Training session ID" }
+            }
+          },
+          "trading_delete_training_session" => {
+            description: "Delete a non-running training session",
+            parameters: {
+              session_id: { type: "string", required: true, description: "Training session ID" }
+            }
+          },
+          "trading_training_session_report" => {
+            description: "Get full results report for a completed training session",
+            parameters: {
+              session_id: { type: "string", required: true, description: "Training session ID" }
+            }
           }
         }
       end
@@ -103,6 +127,10 @@ module Ai
         when "trading_list_training_sessions" then list_training_sessions(params)
         when "trading_get_training_session" then get_training_session(params)
         when "trading_create_training_session" then create_training_session(params)
+        when "trading_cancel_training_session" then cancel_training_session(params)
+        when "trading_retry_training_session" then retry_training_session(params)
+        when "trading_delete_training_session" then delete_training_session(params)
+        when "trading_training_session_report" then training_session_report(params)
         else error_result("Unknown action: #{params[:action]}")
         end
       rescue ActiveRecord::RecordNotFound => e
@@ -212,6 +240,10 @@ module Ai
 
       def create_training_session(params)
         config = params[:config] || {}
+        session_config = config.merge(
+          "initial_balance" => (config["initial_balance"] || 10_000).to_f,
+          "use_performance_sizing" => config["use_performance_sizing"] || false
+        )
 
         session = Trading::TrainingSession.create!(
           account_id: account.id,
@@ -222,11 +254,63 @@ module Ai
           tick_interval: config["tick_interval"] || 300,
           strategy_types: config["strategy_types"] || ["llm_probability"],
           include_classic: config["include_classic"] || false,
-          initial_balance: config["initial_balance"] || 10_000,
-          config: config
+          config: session_config
         )
 
         success_result(serialize_training_session(session))
+      end
+
+      def cancel_training_session(params)
+        session = resolve_training_session(params[:session_id])
+
+        unless session.status.in?(%w[pending running])
+          return error_result("Session is not cancellable in status: #{session.status}")
+        end
+
+        session.cancel!
+        success_result(serialize_training_session(session))
+      end
+
+      def retry_training_session(params)
+        session = resolve_training_session(params[:session_id])
+
+        unless session.status.in?(%w[failed cancelled])
+          return error_result("Only failed or cancelled sessions can be retried")
+        end
+
+        session.update!(
+          status: "pending",
+          error_message: nil,
+          completed_at: nil,
+          started_at: nil,
+          completed_ticks: 0,
+          total_ticks: 0,
+          metrics: {},
+          results: {},
+          timeline: []
+        )
+        success_result(serialize_training_session(session))
+      end
+
+      def delete_training_session(params)
+        session = resolve_training_session(params[:session_id])
+
+        unless session.status.in?(%w[pending completed failed cancelled])
+          return error_result("Cannot delete a running session. Cancel it first.")
+        end
+
+        session.destroy!
+        success_result({ deleted: true, id: params[:session_id] })
+      end
+
+      def training_session_report(params)
+        session = resolve_training_session(params[:session_id])
+
+        unless session.status == "completed" && session.results.present?
+          return error_result("Report not available yet")
+        end
+
+        success_result(session.results)
       end
 
       def serialize_simulation(simulation, detailed: false)
@@ -274,7 +358,7 @@ module Ai
           data[:results] = session.results
           data[:tick_interval] = session.tick_interval
           data[:include_classic] = session.include_classic
-          data[:initial_balance] = session.initial_balance&.to_f
+          data[:initial_balance] = session.config&.dig("initial_balance")&.to_f
         end
 
         data

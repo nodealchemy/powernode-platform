@@ -284,6 +284,10 @@ module Ai
         "trading_list_training_sessions" => "Ai::Tools::TradingSimulationTool",
         "trading_get_training_session" => "Ai::Tools::TradingSimulationTool",
         "trading_create_training_session" => "Ai::Tools::TradingSimulationTool",
+        "trading_cancel_training_session" => "Ai::Tools::TradingSimulationTool",
+        "trading_retry_training_session" => "Ai::Tools::TradingSimulationTool",
+        "trading_delete_training_session" => "Ai::Tools::TradingSimulationTool",
+        "trading_training_session_report" => "Ai::Tools::TradingSimulationTool",
         # Trading — evolution & audit
         "trading_list_evolution_epochs" => "Ai::Tools::TradingEvolutionTool",
         "trading_get_evolution_epoch" => "Ai::Tools::TradingEvolutionTool",
