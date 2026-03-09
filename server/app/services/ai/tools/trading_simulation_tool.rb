@@ -74,10 +74,22 @@ module Ai
             }
           },
           "trading_create_training_session" => {
-            description: "Create a new AI training session",
+            description: "Create a new AI training session. All params can be passed at top level or nested under 'config'.",
             parameters: {
               strategy_id: { type: "string", required: false, description: "Strategy ID or name (optional)" },
-              config: { type: "object", required: false, description: "Training session configuration" }
+              config: { type: "object", required: false, description: "Training session configuration (alternative: pass params at top level)" },
+              name: { type: "string", required: false, description: "Session name" },
+              strategy_types: { type: "array", required: false, description: "Strategy types to run" },
+              market_count: { type: "integer", required: false, description: "Number of markets to discover" },
+              tick_count: { type: "integer", required: false, description: "Number of ticks to run" },
+              tick_interval: { type: "integer", required: false, description: "Seconds between ticks" },
+              initial_balance: { type: "number", required: false, description: "Starting balance in USD" },
+              venue_slug: { type: "string", required: false, description: "Trading venue slug (e.g. 'kalshi')" },
+              risk_tier: { type: "string", required: false, description: "Risk tier (low/medium/high)" },
+              include_classic: { type: "boolean", required: false, description: "Include classic strategies" },
+              probability_min: { type: "number", required: false, description: "Min probability filter for market selection" },
+              probability_max: { type: "number", required: false, description: "Max probability filter for market selection" },
+              min_volume_24h: { type: "number", required: false, description: "Min 24h volume filter" }
             }
           },
           "trading_cancel_training_session" => {
@@ -239,7 +251,11 @@ module Ai
       end
 
       def create_training_session(params)
-        config = params[:config] || {}
+        # Support both nested config and top-level params (top-level takes precedence)
+        nested = (params[:config] || {}).stringify_keys
+        top_level = params.except(:config, :strategy_id, :action).stringify_keys
+        config = nested.merge(top_level.compact)
+
         session_config = config.merge(
           "initial_balance" => (config["initial_balance"] || 10_000).to_f,
           "use_performance_sizing" => config["use_performance_sizing"] || false
