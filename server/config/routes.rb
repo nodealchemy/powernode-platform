@@ -318,16 +318,13 @@ Rails.application.routes.draw do
           end
 
           # Docker Swarm internal endpoints (worker communication)
-          namespace :swarm do
-            resources :clusters, only: [:index] do
-              member do
-                get :connection
-                post :sync_results
-                post :health_results
-              end
-            end
-            resources :deployments, only: [:update]
-            resources :events, only: [:create]
+          scope :swarm, as: :swarm do
+            get "clusters", to: "swarm#index", as: :clusters
+            get "clusters/:id/connection", to: "swarm#connection", as: :cluster_connection
+            post "clusters/:id/sync_results", to: "swarm#sync_results", as: :cluster_sync_results
+            post "clusters/:id/health_results", to: "swarm#health_results", as: :cluster_health_results
+            patch "deployments/:id", to: "swarm#update_deployment", as: :deployment
+            post "events", to: "swarm#create_event", as: :events
           end
 
           # Docker Host internal endpoints (worker communication)
