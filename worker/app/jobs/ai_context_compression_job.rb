@@ -41,31 +41,22 @@ class AiContextCompressionJob < BaseJob
   end
 
   def compress_account_via_api(account_id)
-    with_backend_api_circuit_breaker do
-      response = backend_api_client.post(
-        "/api/v1/internal/ai/context/compress",
-        { account_id: account_id }
-      )
+    result = api_client.post(
+      "/api/v1/internal/ai/context/compress",
+      { account_id: account_id }
+    )
 
-      if response.success?
-        body = JSON.parse(response.body)
-        compressed = body["compressed"] || 0
-        log_info("Compressed #{compressed} entries for account #{account_id}")
-        compressed
-      else
-        log_error("Compression API failed for account #{account_id}: #{response.status}")
-        0
-      end
-    end
+    compressed = result.dig("data", "compressed") || result["compressed"] || 0
+    log_info("Compressed #{compressed} entries for account #{account_id}")
+    compressed
+  rescue StandardError => e
+    log_error("Compression API failed for account #{account_id}: #{e.message}")
+    0
   end
 
   def fetch_active_accounts
-    with_backend_api_circuit_breaker do
-      response = backend_api_client.get("/api/v1/internal/accounts/active")
-      return [] unless response.success?
-
-      JSON.parse(response.body)["accounts"] || []
-    end
+    result = api_client.get("/api/v1/internal/accounts/active")
+    result["accounts"] || result.dig("data", "accounts") || []
   rescue StandardError => e
     log_error("Failed to fetch active accounts: #{e.message}")
     []

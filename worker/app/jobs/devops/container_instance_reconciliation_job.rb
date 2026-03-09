@@ -7,8 +7,7 @@ module Devops
     def execute
       log_info "[ContainerReconciliation] Starting container instance reconciliation"
 
-      response = api_client.post("/api/v1/internal/devops/maintenance/reconcile_instances")
-      result = safe_parse_json(response.body)
+      result = api_client.post("/api/v1/internal/devops/maintenance/reconcile_instances")
 
       reconciled_count = result.dig("data", "reconciled_count") || 0
       timed_out_count = result.dig("data", "timed_out_count") || 0

@@ -7,8 +7,7 @@ module Devops
     def execute
       log_info "[PortCleanup] Starting expired port allocation cleanup"
 
-      response = api_client.post("/api/v1/internal/devops/maintenance/cleanup_expired_ports")
-      result = safe_parse_json(response.body)
+      result = api_client.post("/api/v1/internal/devops/maintenance/cleanup_expired_ports")
 
       released_count = result.dig("data", "released_count") || 0
 

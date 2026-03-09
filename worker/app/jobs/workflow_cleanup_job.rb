@@ -48,11 +48,8 @@ class WorkflowCleanupJob < BaseJob
       per_page: 100
     })
 
-    stuck_runs = []
-    if stuck_response.success?
-      runs = stuck_response.body.dig('data', 'workflow_runs') || []
-      stuck_runs = runs.select { |run| is_stuck?(run) }
-    end
+    runs = stuck_response.dig('data', 'workflow_runs') || []
+    stuck_runs = runs.select { |run| is_stuck?(run) }
 
     # Also check for "completed" workflows that actually have failures
     completed_response = api_client.get('/ai/workflow_runs', {
@@ -61,11 +58,9 @@ class WorkflowCleanupJob < BaseJob
       created_after: 1.day.ago.iso8601
     })
 
-    if completed_response.success?
-      completed_runs = completed_response.body.dig('data', 'workflow_runs') || []
-      mismarked_runs = completed_runs.select { |run| has_failed_nodes?(run) }
-      stuck_runs.concat(mismarked_runs)
-    end
+    completed_runs = completed_response.dig('data', 'workflow_runs') || []
+    mismarked_runs = completed_runs.select { |run| has_failed_nodes?(run) }
+    stuck_runs.concat(mismarked_runs)
 
     stuck_runs
   end
@@ -154,20 +149,13 @@ class WorkflowCleanupJob < BaseJob
       }
     })
 
-    if response.success?
-      # Broadcast completion event
-      broadcast_completion_event(run_data, final_status)
+    # api_client raises on error, so reaching here means success
+    broadcast_completion_event(run_data, final_status)
 
-      {
-        success: true,
-        message: "Completed orphaned workflow as #{final_status}"
-      }
-    else
-      {
-        success: false,
-        error: response.body['error'] || 'Failed to complete orphaned workflow'
-      }
-    end
+    {
+      success: true,
+      message: "Completed orphaned workflow as #{final_status}"
+    }
   end
 
   def fallback_cleanup(run_id, status)
@@ -183,17 +171,10 @@ class WorkflowCleanupJob < BaseJob
       }
     })
 
-    if response.success?
-      {
-        success: true,
-        message: "Marked stuck run as failed"
-      }
-    else
-      {
-        success: false,
-        error: response.body['error'] || 'Failed to update run status'
-      }
-    end
+    {
+      success: true,
+      message: "Marked stuck run as failed"
+    }
   end
 
   def broadcast_completion_event(run_data, final_status)
@@ -241,20 +222,13 @@ class WorkflowCleanupJob < BaseJob
       }
     })
 
-    if response.success?
-      # Broadcast status correction event
-      broadcast_status_correction_event(run_data)
+    # Broadcast status correction event
+    broadcast_status_correction_event(run_data)
 
-      {
-        success: true,
-        message: "Corrected mismarked completed workflow to failed status"
-      }
-    else
-      {
-        success: false,
-        error: response.body['error'] || 'Failed to correct workflow status'
-      }
-    end
+    {
+      success: true,
+      message: "Corrected mismarked completed workflow to failed status"
+    }
   end
 
   def broadcast_status_correction_event(run_data)

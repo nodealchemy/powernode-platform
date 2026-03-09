@@ -11,7 +11,7 @@ module Devops
     def execute
       log_info "[TemplateMaintenance] Starting weekly template maintenance"
 
-      response = api_client.post(
+      result = api_client.post(
         "/api/v1/internal/devops/maintenance/archive_stale_templates",
         {
           stale_days: STALE_TEMPLATE_DAYS,
@@ -19,7 +19,6 @@ module Devops
           builds_to_keep: BUILDS_TO_KEEP
         }
       )
-      result = safe_parse_json(response.body)
 
       archived_count = result.dig("data", "archived_count") || 0
       builds_cleaned = result.dig("data", "builds_cleaned") || 0
