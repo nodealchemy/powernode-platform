@@ -6,11 +6,11 @@ class TradingTrainingSessionRunnerJob < BaseJob
   def execute
     response = api_client.get("/api/v1/internal/trading/pending_training_sessions")
     sessions = response.dig("data", "items") || []
+    log_info("Runner found #{sessions.size} pending sessions")
 
-    dispatched = nil
+    dispatched = []
 
-    if sessions.any?
-      session = sessions.first
+    sessions.each do |session|
       lock_key = "training_session_lock:#{session["id"]}"
 
       # Check if this session is already being executed by another job
@@ -21,7 +21,7 @@ class TradingTrainingSessionRunnerJob < BaseJob
       else
         log_info("Dispatching training session", session_id: session["id"], name: session["name"])
         TradingTrainingSessionJob.perform_async(session["id"])
-        dispatched = session["id"]
+        dispatched << session["id"]
       end
     end
 
