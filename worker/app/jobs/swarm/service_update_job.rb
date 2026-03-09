@@ -62,18 +62,18 @@ module Swarm
     private
 
     def fetch_deployment(deployment_id)
-      response = api_client.get("/api/v1/internal/swarm/deployments/#{deployment_id}")
+      response = api_client.get("/api/v1/internal/devops/swarm/deployments/#{deployment_id}")
       response.dig("data", "deployment")
     end
 
     def update_deployment_status(deployment_id, status, extras = {})
-      api_client.patch("/api/v1/internal/swarm/deployments/#{deployment_id}", {
+      api_client.patch("/api/v1/internal/devops/swarm/deployments/#{deployment_id}", {
         status: status
       }.merge(extras))
     end
 
     def fetch_connection_details(cluster_id)
-      response = api_client.get("/api/v1/internal/swarm/clusters/#{cluster_id}/connection")
+      response = api_client.get("/api/v1/internal/devops/swarm/clusters/#{cluster_id}/connection")
       response.dig("data", "connection")
     end
 

@@ -44,7 +44,7 @@ module Swarm
     private
 
     def fetch_connected_clusters
-      response = api_client.get("/api/v1/internal/swarm/clusters", status: "connected")
+      response = api_client.get("/api/v1/internal/devops/swarm/clusters", status: "connected")
       response.dig("data", "clusters") || []
     end
 
@@ -92,7 +92,7 @@ module Swarm
     end
 
     def fetch_connection_details(cluster_id)
-      response = api_client.get("/api/v1/internal/swarm/clusters/#{cluster_id}/connection")
+      response = api_client.get("/api/v1/internal/devops/swarm/clusters/#{cluster_id}/connection")
       response.dig("data", "connection")
     end
 
@@ -187,7 +187,7 @@ module Swarm
     end
 
     def report_health_results(cluster_id, results)
-      api_client.post("/api/v1/internal/swarm/clusters/#{cluster_id}/health_results", results)
+      api_client.post("/api/v1/internal/devops/swarm/clusters/#{cluster_id}/health_results", results)
     end
   end
 end

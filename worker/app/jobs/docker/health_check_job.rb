@@ -31,7 +31,7 @@ module Docker
     private
 
     def fetch_syncable_hosts
-      response = api_client.get("/api/v1/internal/docker/hosts", auto_sync: true)
+      response = api_client.get("/api/v1/internal/devops/docker/hosts", auto_sync: true)
       response.dig("data", "hosts") || []
     end
 
@@ -63,7 +63,7 @@ module Docker
     end
 
     def fetch_connection_details(host_id)
-      response = api_client.get("/api/v1/internal/docker/hosts/#{host_id}/connection")
+      response = api_client.get("/api/v1/internal/devops/docker/hosts/#{host_id}/connection")
       response.dig("data", "connection")
     end
 
@@ -84,14 +84,14 @@ module Docker
     end
 
     def report_health_success(host, alerts = [])
-      api_client.post("/api/v1/internal/docker/hosts/#{host['id']}/health_results", {
+      api_client.post("/api/v1/internal/devops/docker/hosts/#{host['id']}/health_results", {
         status: "healthy",
         alerts: alerts
       })
     end
 
     def report_health_failure(host, error_message)
-      api_client.post("/api/v1/internal/docker/hosts/#{host['id']}/health_results", {
+      api_client.post("/api/v1/internal/devops/docker/hosts/#{host['id']}/health_results", {
         status: "unhealthy",
         alerts: [
           { type: "connectivity", severity: "error", source_type: "host", source_name: host["name"], message: "Health check failed: #{error_message}" }

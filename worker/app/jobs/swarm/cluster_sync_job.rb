@@ -36,7 +36,7 @@ module Swarm
     private
 
     def fetch_syncable_clusters
-      response = api_client.get("/api/v1/internal/swarm/clusters", auto_sync: true)
+      response = api_client.get("/api/v1/internal/devops/swarm/clusters", auto_sync: true)
       response.dig("data", "clusters") || []
     end
 
@@ -53,7 +53,7 @@ module Swarm
       services = fetch_docker_services(docker, running_counts)
 
       # Push results back to backend
-      api_client.post("/api/v1/internal/swarm/clusters/#{cluster['id']}/sync_results", {
+      api_client.post("/api/v1/internal/devops/swarm/clusters/#{cluster['id']}/sync_results", {
         nodes: nodes,
         services: services,
         synced_at: Time.current.iso8601
@@ -63,7 +63,7 @@ module Swarm
     end
 
     def fetch_connection_details(cluster_id)
-      response = api_client.get("/api/v1/internal/swarm/clusters/#{cluster_id}/connection")
+      response = api_client.get("/api/v1/internal/devops/swarm/clusters/#{cluster_id}/connection")
       response.dig("data", "connection")
     end
 

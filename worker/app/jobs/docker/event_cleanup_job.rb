@@ -10,7 +10,7 @@ module Docker
       log_info "Starting Docker event cleanup"
 
       days = DEFAULT_RETENTION_DAYS
-      response = api_client.post("/api/v1/internal/docker/events", {
+      response = api_client.post("/api/v1/internal/devops/docker/events", {
         action_type: "cleanup",
         older_than_days: days
       })

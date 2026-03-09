@@ -13,7 +13,7 @@ module Swarm
     def execute
       log_info "Starting Swarm event cleanup", retention_days: DEFAULT_RETENTION_DAYS
 
-      response = api_client.post("/api/v1/internal/swarm/events", {
+      response = api_client.post("/api/v1/internal/devops/swarm/events", {
         action: "cleanup",
         older_than_days: DEFAULT_RETENTION_DAYS
       })
