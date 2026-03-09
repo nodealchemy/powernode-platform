@@ -2659,7 +2659,7 @@ Rails.application.routes.draw do
           get "cost_thresholds", action: :cost_thresholds
           post "trust_scores/:agent_id/evaluate_from_execution", action: :evaluate_from_execution
           post "budgets/rollover_expired", action: :rollover_expired
-          get "pricing/lookup", action: :pricing_lookup
+          match "pricing/lookup", action: :pricing_lookup, via: [:get, :post]
           # Pricing
           post "pricing/sync", action: :sync_pricing
           get "pricing", action: :pricing_catalog
