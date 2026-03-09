@@ -15,7 +15,7 @@ module Ai
       def register_as_mcp_tool
         Rails.logger.info "[AI_AGENT_MCP] Registering agent #{id} as MCP tool"
 
-        mcp_registry = Mcp::RegistryService.new(account: account)
+        mcp_registry = ::Mcp::RegistryService.new(account: account)
         tool_manifest = generate_mcp_tool_manifest
 
         mcp_registry.register_tool(mcp_tool_id, tool_manifest)
@@ -34,7 +34,7 @@ module Ai
       def unregister_from_mcp
         Rails.logger.info "[AI_AGENT_MCP] Unregistering agent #{id} from MCP"
 
-        mcp_registry = Mcp::RegistryService.new(account: account)
+        mcp_registry = ::Mcp::RegistryService.new(account: account)
         mcp_registry.unregister_tool(mcp_tool_id)
 
         Rails.logger.info "[AI_AGENT_MCP] Agent unregistered from MCP"
@@ -46,7 +46,7 @@ module Ai
         return unless mcp_available?
 
         begin
-          registry = Mcp::RegistryService.new(account: account)
+          registry = ::Mcp::RegistryService.new(account: account)
           tool_id = mcp_tool_id
           manifest = mcp_tool_manifest
 
@@ -62,7 +62,7 @@ module Ai
         return unless mcp_available?
 
         begin
-          registry = Mcp::RegistryService.new(account: account)
+          registry = ::Mcp::RegistryService.new(account: account)
           tool_id = mcp_tool_id
           manifest = mcp_tool_manifest
 
@@ -75,7 +75,7 @@ module Ai
 
       def unregister_mcp_tool
         begin
-          registry = Mcp::RegistryService.new(account: account)
+          registry = ::Mcp::RegistryService.new(account: account)
           tool_id = mcp_tool_id
 
           registry.unregister_tool(tool_id)
