@@ -530,3 +530,9 @@
       class: TradingTrainingSessionRunnerJob
       queue: trading
       description: 'Check for pending training sessions and dispatch execution'
+
+    trading_position_cleanup:
+      cron: '0 4 * * *'
+      class: TradingPositionCleanupJob
+      queue: trading
+      description: 'Close stale/orphaned positions and archive old closed positions'
