@@ -640,7 +640,9 @@ class JobsController
       'AiConflictDetectionJob',
       'AiRunnerDispatchPollJob',
       # Supply chain jobs
-      'SupplyChain::QuestionnaireNotificationJob'
+      'SupplyChain::QuestionnaireNotificationJob',
+      # Trading jobs
+      'TradingTrainingSessionJob'
     ]
 
     allowed_jobs.include?(job_class)

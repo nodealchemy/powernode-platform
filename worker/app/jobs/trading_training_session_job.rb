@@ -1,7 +1,10 @@
 # frozen_string_literal: true
 
 class TradingTrainingSessionJob < BaseJob
-  sidekiq_options queue: 'trading', retry: 3
+  # No auto-retry: the cron runner handles crash recovery, and users can explicitly retry.
+  # Sidekiq retries cause duplicate executions because the retried job gets a new JID
+  # and competes with fresh dispatches for the session lock.
+  sidekiq_options queue: 'trading', retry: 0
 
   LOCK_TTL = 3600 # 1 hour — auto-expires stale locks from killed workers
   LOCK_RENEW_INTERVAL = 300 # Renew lock every 5 minutes during active execution
@@ -13,12 +16,28 @@ class TradingTrainingSessionJob < BaseJob
   def execute(session_id)
     lock_key = "training_session_lock:#{session_id}"
 
-    # Acquire exclusive lock to prevent concurrent runs of the same session.
+    # Atomic lock acquisition: SET NX prevents two jobs from both passing
+    # the guard when they start simultaneously (e.g., immediate dispatch
+    # from session creation + cron runner dispatch).
     acquired = Sidekiq.redis { |conn| conn.set(lock_key, jid, nx: true, ex: LOCK_TTL) }
 
     unless acquired
-      log_info("Training session already running, skipping duplicate", session_id: session_id)
-      return { skipped: true, reason: "already_running" }
+      current = Sidekiq.redis { |conn| conn.get(lock_key) }
+
+      if current == "dispatching"
+        # The cron runner set a short-lived dispatch sentinel — overwrite with our JID
+        Sidekiq.redis { |conn| conn.set(lock_key, jid, ex: LOCK_TTL) }
+      elsif current == jid
+        # Re-entrant: we already own the lock, just refresh TTL
+        Sidekiq.redis { |conn| conn.expire(lock_key, LOCK_TTL) }
+      elsif jid_active?(current)
+        log_info("Training session already running (JID: #{current}), skipping duplicate", session_id: session_id)
+        return { skipped: true, reason: "already_running" }
+      else
+        # Old JID is dead (worker restart, crash, etc.) — take over the lock
+        log_info("Taking over stale lock from dead JID #{current}", session_id: session_id)
+        Sidekiq.redis { |conn| conn.set(lock_key, jid, ex: LOCK_TTL) }
+      end
     end
 
     @lock_key = lock_key
@@ -27,7 +46,10 @@ class TradingTrainingSessionJob < BaseJob
     begin
       run_training_loop!(session_id)
     ensure
-      Sidekiq.redis { |conn| conn.del(lock_key) }
+      # Only release if we still own the lock (guard against stale-lock cleanup races)
+      Sidekiq.redis do |conn|
+        conn.del(lock_key) if conn.get(lock_key) == jid
+      end
     end
   end
 
@@ -225,6 +247,13 @@ class TradingTrainingSessionJob < BaseJob
     })
   rescue StandardError => e
     log_error("Failed to mark session as failed", e, session_id: session_id)
+  end
+
+  def jid_active?(check_jid)
+    busy_jids = Sidekiq::Workers.new.map { |_, _, work| work["payload"]["jid"] rescue nil }.compact
+    busy_jids.include?(check_jid)
+  rescue StandardError
+    true # Assume active if we can't check
   end
 
   def log_error_msg(msg, **context)
