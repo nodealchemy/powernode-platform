@@ -15,7 +15,8 @@ module Ai
         end
 
         def resolve_portfolio
-          account.trading_portfolio ||
+          account.trading_portfolios.live.first ||
+            account.trading_portfolios.first ||
             raise(ActiveRecord::RecordNotFound, "No trading portfolio found")
         end
 
