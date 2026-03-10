@@ -35,6 +35,13 @@ require_relative '../app/services/credential_resolver'
 require_relative '../app/services/firebase_service'
 require_relative '../app/services/twilio_service'
 
+# Trading services (data fetcher + evaluators)
+require_relative '../app/services/trading/data_fetcher'
+require_relative '../app/services/trading/evaluators/base'
+Dir[File.expand_path('../app/services/trading/evaluators/*.rb', __dir__)].sort.each do |f|
+  require f unless f.end_with?('base.rb')
+end
+
 # Require base job first
 require_relative '../app/jobs/base_job'
 

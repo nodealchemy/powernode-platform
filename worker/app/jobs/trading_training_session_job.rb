@@ -3,7 +3,8 @@
 class TradingTrainingSessionJob < BaseJob
   sidekiq_options queue: 'trading', retry: 3
 
-  LOCK_TTL = 7200 # 2 hours — training sessions with many strategies can be long-running
+  LOCK_TTL = 3600 # 1 hour — auto-expires stale locks from killed workers
+  LOCK_RENEW_INTERVAL = 300 # Renew lock every 5 minutes during active execution
   INTER_STRATEGY_DELAY = 2 # seconds between AI strategy ticks
   MAX_CONSECUTIVE_TIMEOUTS = 5
 
@@ -19,6 +20,9 @@ class TradingTrainingSessionJob < BaseJob
       log_info("Training session already running, skipping duplicate", session_id: session_id)
       return { skipped: true, reason: "already_running" }
     end
+
+    @lock_key = lock_key
+    @last_lock_renew = Time.now
 
     begin
       run_training_loop!(session_id)
@@ -110,6 +114,9 @@ class TradingTrainingSessionJob < BaseJob
       # Record tick progress on the backend
       record_tick(session_id, tick_num, tick_results)
 
+      # Renew lock periodically so it doesn't expire during long sessions
+      renew_lock_if_needed!
+
       # Wait for next tick
       sleep(tick_interval) if i < remaining - 1
     end
@@ -135,18 +142,53 @@ class TradingTrainingSessionJob < BaseJob
   end
 
   def tick_strategy(strategy_id)
-    response = api_client.post("/api/v1/internal/trading/execute_strategy_tick", {
-      strategy_id: strategy_id
-    })
+    fetcher = trading_data_fetcher
+    context = fetcher.strategy_evaluation_context(strategy_id)
 
-    if response["success"]
-      (response["data"] || {}).merge("timeout" => false)
-    else
-      { "timeout" => response["error"]&.include?("timed out"), "error" => response["error"] }
+    return context.merge("timeout" => false) if context["skipped"]
+
+    strategy_type = context.dig("strategy", "strategy_type")
+    evaluator_class = Trading::Evaluators::Base.for_type(strategy_type)
+
+    unless evaluator_class
+      log_warn("No evaluator for strategy type '#{strategy_type}', skipping", strategy_id: strategy_id)
+      return { "skipped" => true, "reason" => "unsupported_type", "timeout" => false }
     end
+
+    # Check risk/regime gates from context
+    risk = context["risk_check"] || {}
+    return { "skipped" => true, "reason" => risk["reason"], "timeout" => false } unless risk["allowed"] == true || risk[:allowed] == true
+
+    regime = context["regime_check"] || {}
+    return { "skipped" => true, "reason" => regime["reason"], "timeout" => false } unless regime["allowed"] == true || regime[:allowed] == true
+
+    evaluator = evaluator_class.new(context, llm_client: training_llm_client, data_fetcher: fetcher)
+    evaluator.trading_context = context["trading_context"]
+    signals = evaluator.evaluate
+    tick_cost = evaluator.respond_to?(:tick_cost_usd) ? evaluator.tick_cost_usd : 0.0
+
+    result = fetcher.record_evaluation_result(
+      strategy_id: strategy_id,
+      signals: signals,
+      tick_cost_usd: tick_cost,
+      market_data: context["market_data"] || {}
+    )
+
+    (result || {}).merge("timeout" => false)
   rescue StandardError => e
     log_warn("Strategy tick failed", strategy_id: strategy_id, error: e.message)
     { "timeout" => e.message.include?("timeout"), "error" => e.message }
+  end
+
+  def trading_data_fetcher
+    @trading_data_fetcher ||= Trading::DataFetcher.new(api_client)
+  end
+
+  def training_llm_client
+    @training_llm_client ||= LlmProxyClient.new(
+      api_client.method(:post),
+      api_client.method(:get)
+    )
   end
 
   def record_tick(session_id, tick_num, tick_results)
@@ -163,6 +205,17 @@ class TradingTrainingSessionJob < BaseJob
     api_client.get("/api/v1/internal/trading/training_status", { session_id: session_id })
   rescue StandardError
     nil
+  end
+
+  def renew_lock_if_needed!
+    return unless @lock_key && @last_lock_renew
+
+    if Time.now - @last_lock_renew > LOCK_RENEW_INTERVAL
+      Sidekiq.redis { |conn| conn.expire(@lock_key, LOCK_TTL) }
+      @last_lock_renew = Time.now
+    end
+  rescue StandardError => e
+    log_warn("Lock renewal failed: #{e.message}")
   end
 
   def fail_session!(session_id, message)

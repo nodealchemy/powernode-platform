@@ -35,7 +35,7 @@ class LlmProxyClient
     model ||= config["model"]
 
     response = client.complete(messages: messages, model: model, **opts)
-    format_response(response, skip_pricing: provider_config.present?)
+    format_response(response)
   end
 
   # LLM completion with tool-calling -- calls provider directly.
@@ -47,7 +47,7 @@ class LlmProxyClient
 
     tools = symbolize_tools(tools)
     response = client.complete_with_tools(messages: messages, tools: tools, model: model, **opts)
-    format_response(response, skip_pricing: provider_config.present?)
+    format_response(response)
   end
 
   # Structured output (JSON schema enforced) -- calls provider directly.
@@ -59,7 +59,7 @@ class LlmProxyClient
 
     schema = deep_symbolize(schema)
     response = client.complete_structured(messages: messages, schema: schema, model: model, **opts)
-    format_response(response, skip_pricing: provider_config.present?)
+    format_response(response)
   end
 
   # Get tool definitions available to an agent (server-side, no LLM call)
@@ -246,9 +246,9 @@ class LlmProxyClient
     end
   end
 
-  # When skip_pricing is true, the caller (e.g. WorkerLlmClient on the backend)
-  # handles cost tracking locally — no need to call back to the backend for pricing,
-  # which avoids a recursive HTTP call that can deadlock the Puma thread pool.
+  # On the worker side, we always resolve pricing via the server API.
+  # The skip_pricing flag is only used by execute_tool_loop's internal
+  # format_response call (which handles cost separately).
   def format_response(response, skip_pricing: false)
     cost = skip_pricing ? 0.0 : calculate_response_cost(response)
 
