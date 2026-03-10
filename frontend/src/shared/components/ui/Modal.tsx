@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 export interface ModalProps {
   isOpen: boolean;
@@ -146,7 +147,7 @@ export const Modal: React.FC<ModalProps> = ({
    
   const selectedModalStyles = modalStyles[variant] || modalStyles.default;
 
-  return (
+  return createPortal(
     <div
       className={`fixed inset-0 z-50 ${disableContentScroll ? 'overflow-y-auto' : 'overflow-y-auto'}`}
       aria-labelledby="modal-title"
@@ -266,7 +267,8 @@ export const Modal: React.FC<ModalProps> = ({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };
 
