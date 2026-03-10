@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_09_010001) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_09_020002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -9931,14 +9931,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_09_010001) do
     t.jsonb "config", default: {}
     t.datetime "created_at", null: false
     t.string "name", default: "Default Portfolio", null: false
+    t.string "portfolio_type", default: "live", null: false
     t.string "status", default: "active", null: false
     t.decimal "total_capital_usd", precision: 19, scale: 2, default: "0.0", null: false
     t.decimal "total_pnl_pct", precision: 8, scale: 4, default: "0.0", null: false
     t.decimal "total_pnl_usd", precision: 19, scale: 2, default: "0.0", null: false
+    t.uuid "trading_training_session_id"
     t.datetime "updated_at", null: false
-    t.index ["account_id"], name: "index_trading_portfolios_on_account_id", unique: true
+    t.index ["account_id", "portfolio_type"], name: "idx_trading_portfolios_account_type"
+    t.index ["account_id"], name: "index_trading_portfolios_on_account_id"
     t.index ["ai_agent_budget_id"], name: "index_trading_portfolios_on_ai_agent_budget_id"
     t.index ["ai_agent_team_id"], name: "index_trading_portfolios_on_ai_agent_team_id"
+    t.index ["trading_training_session_id"], name: "idx_trading_portfolios_unique_session", unique: true, where: "(trading_training_session_id IS NOT NULL)"
+    t.index ["trading_training_session_id"], name: "index_trading_portfolios_on_trading_training_session_id"
   end
 
   create_table "trading_positions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -10220,7 +10225,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_09_010001) do
     t.integer "market_count", default: 3
     t.jsonb "metrics", default: {}
     t.string "name", null: false
+    t.jsonb "recurrence_rule"
     t.jsonb "results", default: {}
+    t.datetime "scheduled_for"
     t.datetime "started_at"
     t.string "status", default: "pending", null: false
     t.jsonb "strategy_types", default: []
@@ -10231,6 +10238,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_09_010001) do
     t.datetime "updated_at", null: false
     t.index ["account_id", "status"], name: "index_trading_training_sessions_on_account_id_and_status"
     t.index ["account_id"], name: "index_trading_training_sessions_on_account_id"
+    t.index ["scheduled_for"], name: "idx_training_sessions_scheduled", where: "((scheduled_for IS NOT NULL) AND ((status)::text = 'scheduled'::text))"
   end
 
   create_table "trading_venue_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -11545,6 +11553,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_09_010001) do
   add_foreign_key "trading_portfolios", "accounts"
   add_foreign_key "trading_portfolios", "ai_agent_budgets"
   add_foreign_key "trading_portfolios", "ai_agent_teams"
+  add_foreign_key "trading_portfolios", "trading_training_sessions"
   add_foreign_key "trading_positions", "trading_strategies"
   add_foreign_key "trading_positions", "trading_venues"
   add_foreign_key "trading_price_snapshots", "trading_price_feeds"
