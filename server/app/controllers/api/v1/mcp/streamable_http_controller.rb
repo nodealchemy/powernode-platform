@@ -9,8 +9,9 @@ module Api
 
         MCP_PROTOCOL_VERSION = "2025-11-25"
         SESSION_TTL = 24.hours
-        SSE_KEEPALIVE_INTERVAL = 30 # seconds
-        SSE_CHANNEL_REFRESH_CYCLES = 4 # Re-check workspace channels every N keepalive cycles (~2 min)
+        SSE_KEEPALIVE_INTERVAL = 30 # seconds between SSE pings (keeps connection alive)
+        SSE_ACTIVITY_TOUCH_CYCLES = 10 # Touch DB every N keepalive cycles (~5 min) — not every ping
+        SSE_CHANNEL_REFRESH_CYCLES = 12 # Re-check workspace channels every N keepalive cycles (~6 min)
         ALLOWED_WORKSPACE_EVENTS = %w[message_created ai_response_complete agent_joined agent_left mention].freeze
 
         # Session-level dedup: prevents duplicate SSE events across multiple
@@ -137,22 +138,29 @@ module Api
           # and all normal HTTP requests block until ConnectionTimeoutError.
           ActiveRecord::Base.connection_handler.clear_active_connections!
 
-          # Keepalive loop — borrows a connection only for the brief touch_activity!
-          # query, then returns it immediately via with_connection.
+          # Keepalive loop — sends SSE pings every 30s to keep the connection alive,
+          # but only touches the DB periodically (every ~5 min) to avoid saturating
+          # the connection pool when many SSE sessions are active.
           keepalive_cycle = 0
           loop do
             sleep SSE_KEEPALIVE_INTERVAL
             sse.write({ type: "ping", timestamp: Time.current.iso8601 }, event: "ping")
             keepalive_cycle += 1
 
+            # DB operations: only on specific cycles to reduce connection pool pressure
+            needs_touch = (keepalive_cycle % SSE_ACTIVITY_TOUCH_CYCLES).zero?
+            needs_channel_refresh = agent && (keepalive_cycle % SSE_CHANNEL_REFRESH_CYCLES).zero?
+
+            next unless needs_touch || needs_channel_refresh
+
             ActiveRecord::Base.connection_pool.with_connection do
-              session.touch_activity!
+              session.touch_activity! if needs_touch
 
               # Periodically re-check workspace channels and subscribe to new ones.
               # Handles the race where an agent is added to a workspace AFTER the
               # SSE stream connects (e.g., MCP client agents that are invited
               # asynchronously after session initialization).
-              if agent && (keepalive_cycle % SSE_CHANNEL_REFRESH_CYCLES).zero?
+              if needs_channel_refresh
                 fresh_channels = workspace_channels_for_agent(agent)
                 new_channels = fresh_channels.reject { |ch| workspace_channel_set.include?(ch) }
                 new_channels.each do |channel|
