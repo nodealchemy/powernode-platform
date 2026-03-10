@@ -72,7 +72,7 @@ describe('Modal', () => {
   describe('backdrop click', () => {
     it('calls onClose when backdrop is clicked', () => {
       const handleClose = jest.fn();
-      const { container } = render(<Modal {...defaultProps} onClose={handleClose} />);
+      render(<Modal {...defaultProps} onClose={handleClose} />);
       const backdrop = document.querySelector('[class*="justify-center"]');
       if (backdrop) {
         fireEvent.click(backdrop);
@@ -82,7 +82,7 @@ describe('Modal', () => {
 
     it('does not call onClose when closeOnBackdrop is false', () => {
       const handleClose = jest.fn();
-      const { container } = render(
+      render(
         <Modal {...defaultProps} onClose={handleClose} closeOnBackdrop={false} />
       );
       const backdrop = document.querySelector('[class*="justify-center"]');
@@ -129,41 +129,41 @@ describe('Modal', () => {
       ['6xl', 'max-w-6xl'],
       ['7xl', 'max-w-7xl'],
     ])('applies %s maxWidth correctly', (maxWidth, expectedClass) => {
-      const { container } = render(
+      render(
         <Modal {...defaultProps} maxWidth={maxWidth as 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl'} />
       );
       expect(document.querySelector(`.${expectedClass}`)).toBeInTheDocument();
     });
 
     it('uses size prop as alias for maxWidth', () => {
-      const { container } = render(<Modal {...defaultProps} size="2xl" />);
+      render(<Modal {...defaultProps} size="2xl" />);
       expect(document.querySelector('.max-w-2xl')).toBeInTheDocument();
     });
 
     it('prefers size over maxWidth when both provided', () => {
-      const { container } = render(<Modal {...defaultProps} maxWidth="sm" size="xl" />);
+      render(<Modal {...defaultProps} maxWidth="sm" size="xl" />);
       expect(document.querySelector('.max-w-xl')).toBeInTheDocument();
     });
   });
 
   describe('variants', () => {
     it('renders default variant', () => {
-      const { container } = render(<Modal {...defaultProps} variant="default" />);
+      render(<Modal {...defaultProps} variant="default" />);
       expect(document.querySelector('.rounded-2xl')).toBeInTheDocument();
     });
 
     it('renders centered variant', () => {
-      const { container } = render(<Modal {...defaultProps} variant="centered" />);
+      render(<Modal {...defaultProps} variant="centered" />);
       expect(document.querySelector('.my-auto')).toBeInTheDocument();
     });
 
     it('renders fullscreen variant', () => {
-      const { container } = render(<Modal {...defaultProps} variant="fullscreen" />);
+      render(<Modal {...defaultProps} variant="fullscreen" />);
       expect(document.querySelector('.h-full.w-full')).toBeInTheDocument();
     });
 
     it('renders drawer variant', () => {
-      const { container } = render(<Modal {...defaultProps} variant="drawer" />);
+      render(<Modal {...defaultProps} variant="drawer" />);
       expect(document.querySelector('.ml-auto')).toBeInTheDocument();
     });
   });
@@ -196,7 +196,7 @@ describe('Modal', () => {
     });
 
     it('does not render footer section when footer is not provided', () => {
-      const { container } = render(<Modal {...defaultProps} />);
+      render(<Modal {...defaultProps} />);
       const footerElements = document.querySelectorAll('[class*="justify-end"]');
       // Footer section should not be present (only header actions area uses justify-between)
       expect(footerElements.length).toBeLessThanOrEqual(1);
@@ -205,22 +205,22 @@ describe('Modal', () => {
 
   describe('animation and blur', () => {
     it('applies animation classes by default', () => {
-      const { container } = render(<Modal {...defaultProps} />);
+      render(<Modal {...defaultProps} />);
       expect(document.querySelector('.animate-modal-slide-up')).toBeInTheDocument();
     });
 
     it('removes animation classes when animate is false', () => {
-      const { container } = render(<Modal {...defaultProps} animate={false} />);
+      render(<Modal {...defaultProps} animate={false} />);
       expect(document.querySelector('.animate-modal-slide-up')).not.toBeInTheDocument();
     });
 
     it('applies blur by default', () => {
-      const { container } = render(<Modal {...defaultProps} />);
+      render(<Modal {...defaultProps} />);
       expect(document.querySelector('.backdrop-blur-sm')).toBeInTheDocument();
     });
 
     it('removes blur when blur is false', () => {
-      const { container } = render(<Modal {...defaultProps} blur={false} />);
+      render(<Modal {...defaultProps} blur={false} />);
       expect(document.querySelector('.backdrop-blur-sm')).not.toBeInTheDocument();
     });
   });
@@ -254,19 +254,19 @@ describe('Modal', () => {
 
   describe('custom className', () => {
     it('applies custom className to modal', () => {
-      const { container } = render(<Modal {...defaultProps} className="custom-modal" />);
+      render(<Modal {...defaultProps} className="custom-modal" />);
       expect(document.querySelector('.custom-modal')).toBeInTheDocument();
     });
   });
 
   describe('content scroll', () => {
     it('allows content scroll by default', () => {
-      const { container } = render(<Modal {...defaultProps} />);
+      render(<Modal {...defaultProps} />);
       expect(document.querySelector('.max-h-\\[60vh\\]')).toBeInTheDocument();
     });
 
     it('disables content scroll when disableContentScroll is true', () => {
-      const { container } = render(<Modal {...defaultProps} disableContentScroll />);
+      render(<Modal {...defaultProps} disableContentScroll />);
       expect(document.querySelector('.max-h-\\[60vh\\]')).not.toBeInTheDocument();
     });
   });
