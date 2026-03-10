@@ -56,7 +56,9 @@ module Trading
               market_price: market_price, expected_yield: expected_yield,
               net_yield: net_yield, estimated_cost: estimated_cost,
               hours_to_expiry: expiry ? ((expiry - Time.current) / 3600.0).round(1) : nil,
-              edge: expected_yield
+              edge: expected_yield,
+              limit_order: true,
+              limit_price: market_price.round(4)
             }
           )
         end

@@ -202,7 +202,9 @@ module Trading
 
       def estimate_signal_cost
         spread_cost = spread_pct || 0.005
-        spread_cost + 0.0
+        # Cap spread cost at 2% — prediction market spreads are wide but
+        # don't represent actual execution cost for paper/limit orders
+        [spread_cost, 0.02].min
       end
 
       def parse_structured_response(response)

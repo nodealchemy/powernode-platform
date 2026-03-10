@@ -32,7 +32,13 @@ module Trading
             confidence: bid_confidence,
             strength: [current_spread / (spread_bps * 2.0), 1.0].min,
             reasoning: "Market making bid: #{bid_p.round(4)} (spread: #{current_spread}bps, inventory: #{(inventory_ratio * 100).round(1)}%)",
-            indicators: { bid_price: bid_p, mid_price: mid_price, spread_bps: current_spread, inventory_ratio: inventory_ratio, skew_factor: skew_factor }
+            indicators: {
+              bid_price: bid_p, mid_price: mid_price, spread_bps: current_spread,
+              inventory_ratio: inventory_ratio, skew_factor: skew_factor,
+              limit_order: true,
+              limit_price: bid_p.round(4),
+              edge: (mid_price - bid_p).abs
+            }
           )
         end
 
@@ -45,7 +51,13 @@ module Trading
               confidence: ask_confidence,
               strength: [current_spread / (spread_bps * 2.0), 1.0].min,
               reasoning: "Market making ask: #{ask_p.round(4)} (spread: #{current_spread}bps)",
-              indicators: { ask_price: ask_p, mid_price: mid_price, spread_bps: current_spread, inventory_ratio: inventory_ratio }
+              indicators: {
+                ask_price: ask_p, mid_price: mid_price, spread_bps: current_spread,
+                inventory_ratio: inventory_ratio,
+                limit_order: true,
+                limit_price: ask_p.round(4),
+                edge: (ask_p - mid_price).abs
+              }
             )
           end
         end

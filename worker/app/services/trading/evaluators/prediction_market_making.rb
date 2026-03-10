@@ -27,6 +27,32 @@ module Trading
           hours_left = nil
         end
 
+        # Profit-taking: close positions when unrealized P&L is positive
+        # Market makers should lock in gains rather than hold indefinitely
+        if has_open_position?
+          @positions.select { |p| p["status"] == "open" }.each do |pos|
+            entry = (pos["entry_price"] || 0).to_f
+            side = pos["side"]
+            pnl_pct = entry > 0 ? ((price - entry) / entry * 100 * (side == "short" ? -1 : 1)) : 0
+
+            if pnl_pct >= param("take_profit_pct", 2.0)
+              signals << build_signal(
+                type: "exit", direction: "close", confidence: 0.85, strength: 0.8,
+                reasoning: "PMM take-profit: #{pnl_pct.round(2)}% gain on #{side} position at #{entry}",
+                indicators: { edge: 0, market_price: price, pnl_pct: pnl_pct, exit_reason: "take_profit" }
+              )
+              return signals
+            elsif pnl_pct <= -param("stop_loss_pct", 5.0)
+              signals << build_signal(
+                type: "exit", direction: "close", confidence: 0.9, strength: 0.9,
+                reasoning: "PMM stop-loss: #{pnl_pct.round(2)}% loss on #{side} position at #{entry}",
+                indicators: { edge: 0, market_price: price, pnl_pct: pnl_pct, exit_reason: "stop_loss" }
+              )
+              return signals
+            end
+          end
+        end
+
         # Volatility halt — pause in extreme volatility
         if @price_history.length >= 5
           recent_returns = @price_history.last(5).each_cons(2).map do |a, b|
@@ -46,7 +72,9 @@ module Trading
         # Calculate Stoikov optimal spread
         sigma = calculate_binary_sigma(price)
         gamma = calculate_risk_aversion(hours_left)
-        t_remaining = hours_left ? [hours_left / 24.0, 0.01].max : 1.0
+        # Cap t_remaining at 30 days — Stoikov spread grows with T, and ultra-long-dated
+        # markets (2030+) produce absurdly wide quotes without this bound
+        t_remaining = hours_left ? [hours_left / 24.0, 0.01].max.clamp(0.01, 30.0) : 1.0
         kappa = estimate_arrival_rate
 
         # Stoikov reservation price and spread
@@ -235,10 +263,10 @@ module Trading
 
       def classify_spread_strength(spread)
         case spread
-        when (0.10..) then "very_strong"
-        when (0.06..0.10) then "strong"
-        when (0.03..0.06) then "moderate"
-        else "weak"
+        when (0.10..) then 1.0
+        when (0.06..0.10) then 0.8
+        when (0.03..0.06) then 0.5
+        else 0.3
         end
       end
 

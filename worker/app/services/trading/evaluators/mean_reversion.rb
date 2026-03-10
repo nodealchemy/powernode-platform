@@ -37,7 +37,8 @@ module Trading
               confidence: (base_conf * autocorr_boost).clamp(0.3, 0.9),
               strength: (z_score.abs / (std_devs * 2)).clamp(0.0, 1.0),
               reasoning: "Price #{z_score.round(2)} std devs below mean (mean: #{mean.round(4)}, price: #{current_price}, autocorr: #{autocorr.round(3)})",
-              indicators: { z_score: z_score, mean: mean, std_dev: std_dev, autocorrelation: autocorr, edge: (mean - current_price).abs }
+              indicators: { z_score: z_score, mean: mean, std_dev: std_dev, autocorrelation: autocorr, edge: (mean - current_price).abs,
+                            limit_order: true, limit_price: current_price.round(4) }
             )
           elsif z_score > std_devs
             base_conf = (z_score.abs / std_devs * 0.4 + 0.3).clamp(0.3, 0.9)
@@ -46,15 +47,32 @@ module Trading
               confidence: (base_conf * autocorr_boost).clamp(0.3, 0.9),
               strength: (z_score.abs / (std_devs * 2)).clamp(0.0, 1.0),
               reasoning: "Price #{z_score.round(2)} std devs above mean (mean: #{mean.round(4)}, price: #{current_price}, autocorr: #{autocorr.round(3)})",
-              indicators: { z_score: z_score, mean: mean, std_dev: std_dev, autocorrelation: autocorr, edge: (current_price - mean).abs }
+              indicators: { z_score: z_score, mean: mean, std_dev: std_dev, autocorrelation: autocorr, edge: (current_price - mean).abs,
+                            limit_order: true, limit_price: current_price.round(4) }
             )
           end
-        elsif has_open_position? && z_score.abs < exit_mean_distance
-          signals << build_signal(
-            type: "exit", direction: "close",
-            confidence: 0.7,
-            reasoning: "Price returned to within #{exit_mean_distance} std devs of mean (z-score: #{z_score.round(2)})"
-          )
+        elsif has_open_position?
+          position = current_position
+          entry_price = (position&.dig("entry_price") || 0).to_f
+          side = position&.dig("side") || "long"
+          pnl_pct = entry_price > 0 ? ((current_price - entry_price) / entry_price * 100 * (side == "short" ? -1 : 1)) : 0
+          stop_loss = param("stop_loss_pct", 5.0)
+
+          if z_score.abs < exit_mean_distance
+            signals << build_signal(
+              type: "exit", direction: side,
+              confidence: 0.7,
+              reasoning: "Price returned to within #{exit_mean_distance} std devs of mean (z-score: #{z_score.round(2)})",
+              indicators: { z_score: z_score, mean: mean, edge: (mean - current_price).abs }
+            )
+          elsif pnl_pct <= -stop_loss
+            signals << build_signal(
+              type: "exit", direction: side,
+              confidence: 0.9, strength: 0.9,
+              reasoning: "Stop-loss triggered: PnL #{pnl_pct.round(2)}% exceeds -#{stop_loss}% limit (z-score: #{z_score.round(2)})",
+              indicators: { z_score: z_score, pnl_pct: pnl_pct, edge: 0 }
+            )
+          end
         end
 
         signals

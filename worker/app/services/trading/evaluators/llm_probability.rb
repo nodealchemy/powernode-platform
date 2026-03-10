@@ -35,14 +35,29 @@ module Trading
           min_hold = param("min_hold_seconds", 60)
           position = current_position
           opened_at = position && position["opened_at"] ? Time.parse(position["opened_at"]) : nil
+          entry_price = (position&.dig("entry_price") || 0).to_f
+          side = position&.dig("side") || "long"
+          pnl_pct = entry_price > 0 ? ((market_price - entry_price) / entry_price * 100 * (side == "short" ? -1 : 1)) : 0
+          stop_loss = param("stop_loss_pct", 8.0)
+
           if position && opened_at && opened_at < (Time.current - min_hold) && edge.abs < edge_threshold * exit_edge_mult
             signals << build_signal(
               type: "exit",
-              direction: position["side"],
+              direction: side,
               confidence: 0.7,
               strength: 0.6,
               reasoning: "LLM edge collapsed to #{(edge * 100).round(2)}%, exiting position",
-              indicators: { edge: edge, edge_pct: (edge * 100).round(2) }
+              indicators: { edge: edge, edge_pct: (edge * 100).round(2),
+                            limit_order: true, limit_price: market_price.round(2) }
+            )
+          elsif pnl_pct <= -stop_loss
+            signals << build_signal(
+              type: "exit",
+              direction: side,
+              confidence: 0.9,
+              strength: 0.9,
+              reasoning: "LLM stop-loss: PnL #{pnl_pct.round(2)}% exceeds -#{stop_loss}% limit",
+              indicators: { pnl_pct: pnl_pct, edge: 0 }
             )
           end
         end
@@ -68,6 +83,11 @@ module Trading
            (spread_pct.nil? || spread_pct <= max_spread)
 
           direction = adjusted_edge > 0 ? "long" : "short"
+
+          # Use limit orders to avoid adverse spread costs.
+          # For long: buy at current price (mid); for short: sell at current price.
+          limit_price = market_price.round(2)
+
           signals << build_signal(
             type: "entry",
             direction: direction,
@@ -82,7 +102,9 @@ module Trading
               edge_pct: (adjusted_edge * 100).round(2),
               raw_edge: edge,
               longshot_adjusted: market_price < 0.15,
-              key_factors: llm_result[:key_factors]
+              key_factors: llm_result[:key_factors],
+              limit_order: true,
+              limit_price: limit_price
             }
           )
         end

@@ -95,7 +95,7 @@ module Trading
             type: "exit", direction: position["side"],
             confidence: 0.8, strength: 0.7,
             reasoning: "Parity arbitrage max hold time reached, closing position",
-            indicators: {}
+            indicators: { edge: 0.05, max_hold_exit: true }
           )
         end
         signals

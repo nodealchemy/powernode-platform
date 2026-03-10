@@ -38,15 +38,40 @@ module Trading
             confidence: (base_confidence + volume_boost).clamp(0.3, 0.95),
             strength: momentum.abs.clamp(0.0, 1.0),
             reasoning: "Momentum #{(momentum * 100).round(2)}% over #{lookback} periods exceeds threshold #{(entry_threshold * 100).round(2)}%",
-            indicators: { momentum: momentum, volume_ratio: volume_ratio, volume_boost: volume_boost, lookback: lookback }
+            indicators: { momentum: momentum, volume_ratio: volume_ratio, volume_boost: volume_boost, lookback: lookback,
+                          limit_order: true, limit_price: current_price.round(4), edge: momentum.abs }
           )
-        elsif has_open_position? && momentum < exit_threshold
-          signals << build_signal(
-            type: "exit", direction: current_position&.dig("side") || "long",
-            confidence: (exit_threshold.abs / [momentum.abs, 0.001].max).clamp(0.5, 0.95),
-            strength: momentum.abs.clamp(0.0, 1.0),
-            reasoning: "Momentum reversed to #{(momentum * 100).round(2)}%, below exit threshold #{(exit_threshold * 100).round(2)}%"
-          )
+        elsif has_open_position?
+          position = current_position
+          entry_price = (position&.dig("entry_price") || 0).to_f
+          pnl_pct = entry_price > 0 ? ((current_price - entry_price) / entry_price * 100) : 0
+
+          stop_loss = param("stop_loss_pct", 5.0)
+          take_profit = param("take_profit_pct", 5.0)
+
+          if momentum < exit_threshold
+            signals << build_signal(
+              type: "exit", direction: position&.dig("side") || "long",
+              confidence: (exit_threshold.abs / [momentum.abs, 0.001].max).clamp(0.5, 0.95),
+              strength: momentum.abs.clamp(0.0, 1.0),
+              reasoning: "Momentum reversed to #{(momentum * 100).round(2)}%, below exit threshold #{(exit_threshold * 100).round(2)}%",
+              indicators: { momentum: momentum, edge: momentum.abs }
+            )
+          elsif pnl_pct <= -stop_loss
+            signals << build_signal(
+              type: "exit", direction: position&.dig("side") || "long",
+              confidence: 0.9, strength: 0.9,
+              reasoning: "Stop-loss triggered: PnL #{pnl_pct.round(2)}% exceeds -#{stop_loss}% limit",
+              indicators: { pnl_pct: pnl_pct, edge: 0 }
+            )
+          elsif pnl_pct >= take_profit
+            signals << build_signal(
+              type: "exit", direction: position&.dig("side") || "long",
+              confidence: 0.85, strength: 0.8,
+              reasoning: "Take-profit triggered: PnL #{pnl_pct.round(2)}% exceeds +#{take_profit}% target",
+              indicators: { pnl_pct: pnl_pct, edge: 0 }
+            )
+          end
         end
 
         signals
