@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { store } from './index';
 import { refreshAccessToken, clearAuth, stopImpersonation } from './slices/authSlice';
 
@@ -225,6 +225,13 @@ class APIClient {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
     return this.client.delete(url, config);
+  }
+
+  addRequestInterceptor(
+    onFulfilled: (config: InternalAxiosRequestConfig) => InternalAxiosRequestConfig | Promise<InternalAxiosRequestConfig>,
+    onRejected?: (error: unknown) => unknown
+  ): number {
+    return this.client.interceptors.request.use(onFulfilled, onRejected);
   }
 }
 
