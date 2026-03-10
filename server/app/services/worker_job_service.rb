@@ -586,6 +586,19 @@ class WorkerJobService
       })
     end
 
+    # ==========================================
+    # Trading Jobs
+    # ==========================================
+
+    # Enqueue trading training session execution job (immediate dispatch)
+    def enqueue_trading_training_session(session_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "TradingTrainingSessionJob",
+        "args" => [session_id],
+        "queue" => "trading"
+      })
+    end
+
     # Legacy aliases for backwards compatibility
     alias_method :enqueue_ci_cd_step_execution, :enqueue_devops_step_execution
     alias_method :enqueue_ci_cd_pipeline_execution, :enqueue_devops_pipeline_execution

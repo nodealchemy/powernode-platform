@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_09_020002) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_10_010001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10242,7 +10242,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_09_020002) do
   end
 
   create_table "trading_venue_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
     t.datetime "created_at", null: false
     t.text "encrypted_api_key"
     t.text "encrypted_api_secret"
@@ -10251,10 +10250,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_09_020002) do
     t.string "label"
     t.datetime "last_verified_at"
     t.jsonb "permissions", default: {}
+    t.uuid "trading_portfolio_id", null: false
     t.uuid "trading_venue_id", null: false
     t.datetime "updated_at", null: false
-    t.index ["account_id", "trading_venue_id"], name: "idx_trading_venue_creds_account_venue"
-    t.index ["account_id"], name: "index_trading_venue_credentials_on_account_id"
+    t.index ["trading_portfolio_id", "trading_venue_id"], name: "idx_trading_venue_creds_portfolio_venue", unique: true
+    t.index ["trading_portfolio_id"], name: "index_trading_venue_credentials_on_trading_portfolio_id"
     t.index ["trading_venue_id"], name: "index_trading_venue_credentials_on_trading_venue_id"
   end
 
@@ -11584,7 +11584,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_09_020002) do
   add_foreign_key "trading_trades", "trading_positions"
   add_foreign_key "trading_trades", "trading_venues"
   add_foreign_key "trading_training_sessions", "accounts"
-  add_foreign_key "trading_venue_credentials", "accounts"
+  add_foreign_key "trading_venue_credentials", "trading_portfolios"
   add_foreign_key "trading_venue_credentials", "trading_venues"
   add_foreign_key "trading_wallet_balances", "trading_chain_tokens"
   add_foreign_key "trading_wallet_balances", "trading_wallets"
