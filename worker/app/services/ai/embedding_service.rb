@@ -57,7 +57,7 @@ module Ai
       embedding = generate_from_provider(normalized)
       return nil unless embedding
 
-      @redis.setex(cache_key, CACHE_TTL, embedding.to_json) if use_cache
+      @redis.set(cache_key, embedding.to_json, ex: CACHE_TTL) if use_cache
       embedding
     end
 
@@ -98,7 +98,7 @@ module Ai
           if use_cache && embedding
             normalized = normalize_text(texts[original_index])
             cache_key = build_cache_key(normalized)
-            @redis.setex(cache_key, CACHE_TTL, embedding.to_json)
+            @redis.set(cache_key, embedding.to_json, ex: CACHE_TTL)
           end
         end
       end

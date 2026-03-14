@@ -35,8 +35,12 @@ require_relative '../app/services/credential_resolver'
 require_relative '../app/services/firebase_service'
 require_relative '../app/services/twilio_service'
 
-# Trading services (data fetcher + evaluators)
+# Trading services (data fetcher + external data sources + evaluators)
+require_relative '../app/services/trading/market_affinity'
 require_relative '../app/services/trading/data_fetcher'
+Dir[File.expand_path('../app/services/trading/external_data/*.rb', __dir__)].sort.each { |f| require f }
+# Load evaluator concerns before base (Base includes DepthAware)
+Dir[File.expand_path('../app/services/trading/evaluators/concerns/*.rb', __dir__)].sort.each { |f| require f }
 require_relative '../app/services/trading/evaluators/base'
 Dir[File.expand_path('../app/services/trading/evaluators/*.rb', __dir__)].sort.each do |f|
   require f unless f.end_with?('base.rb')

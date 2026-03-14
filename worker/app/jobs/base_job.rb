@@ -252,7 +252,7 @@ class BaseJob
       logger.error "Job args: #{args.inspect}"
       logger.error "Recent timestamps: #{recent_executions.last(10).inspect}"
 
-      Sidekiq.redis { |conn| conn.setex("job_disabled:#{job_key}", 300, "runaway_loop_detected") }
+      Sidekiq.redis { |conn| conn.set("job_disabled:#{job_key}", "runaway_loop_detected", ex: 300) }
 
       raise StandardError, "Runaway loop detected: #{recent_count} executions in #{recent_window}s. Job disabled for 5 minutes."
     elsif total_count >= 15 # More than 15 executions in 5 minutes

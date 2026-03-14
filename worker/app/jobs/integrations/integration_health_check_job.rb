@@ -22,7 +22,7 @@ module Integrations
       log_info("Checking health for integration instance", instance_id: instance_id)
 
       # Fetch instance from backend
-      response = api_client.get("/api/v1/integrations/instances/#{instance_id}")
+      response = api_client.get("/api/v1/devops/integration_instances/#{instance_id}")
 
       unless response[:success]
         log_error("Failed to fetch instance", instance_id: instance_id, error: response[:error])
@@ -59,7 +59,7 @@ module Integrations
       total_unhealthy = 0
 
       loop do
-        response = api_client.get("/api/v1/integrations/instances", {
+        response = api_client.get("/api/v1/devops/integration_instances", {
           status: "active",
           page: page,
           per_page: 50
@@ -109,7 +109,7 @@ module Integrations
       template_type = instance.dig(:integration_template, :integration_type)
 
       # Call the test endpoint which performs connection test
-      response = api_client.post("/api/v1/integrations/instances/#{instance[:id]}/test")
+      response = api_client.post("/api/v1/devops/integration_instances/#{instance[:id]}/test")
 
       if response[:success] && response[:data][:result][:success]
         {
@@ -137,7 +137,7 @@ module Integrations
     end
 
     def update_instance_health(instance_id, health_result)
-      api_client.patch("/api/v1/integrations/instances/#{instance_id}", {
+      api_client.patch("/api/v1/devops/integration_instances/#{instance_id}", {
         instance: {
           health_metrics: {
             last_health_check: health_result[:checked_at],
@@ -153,7 +153,7 @@ module Integrations
 
     def handle_unhealthy_instance(instance_id, health_result)
       # Get instance details to check consecutive failures
-      response = api_client.get("/api/v1/integrations/instances/#{instance_id}")
+      response = api_client.get("/api/v1/devops/integration_instances/#{instance_id}")
       return unless response[:success]
 
       instance = response[:data][:instance]
@@ -161,7 +161,7 @@ module Integrations
       consecutive_failures = (health_metrics[:consecutive_failures] || 0) + 1
 
       # Update consecutive failure count
-      api_client.patch("/api/v1/integrations/instances/#{instance_id}", {
+      api_client.patch("/api/v1/devops/integration_instances/#{instance_id}", {
         instance: {
           health_metrics: health_metrics.merge(
             consecutive_failures: consecutive_failures,
@@ -176,7 +176,7 @@ module Integrations
                  instance_id: instance_id,
                  consecutive_failures: consecutive_failures)
 
-        api_client.post("/api/v1/integrations/instances/#{instance_id}/deactivate")
+        api_client.post("/api/v1/devops/integration_instances/#{instance_id}/deactivate")
 
         # Track metric
         increment_counter("integration_auto_paused", instance_id: instance_id)

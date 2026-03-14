@@ -341,7 +341,7 @@ class AnalyticsNotificationService < BaseWorkerService
 
   # Redis cache helpers since Rails.cache is not available
   def redis_get(key)
-    Redis.current.get(key)
+    Sidekiq.redis { |conn| conn.get(key) }
   rescue Redis::BaseError => e
     logger.error "Redis get error for key #{key}: #{e.message}"
     nil
@@ -354,9 +354,9 @@ class AnalyticsNotificationService < BaseWorkerService
                when /(\d+)/ then $1.to_i * 86400  # Assume days for simple integer
                else expires_in.to_i
                end
-      Redis.current.setex(key, expiry, value.to_s)
+      Sidekiq.redis { |conn| conn.set(key, value.to_s, ex: expiry) }
     else
-      Redis.current.set(key, value.to_s)
+      Sidekiq.redis { |conn| conn.set(key, value.to_s) }
     end
   rescue Redis::BaseError => e
     logger.error "Redis set error for key #{key}: #{e.message}"

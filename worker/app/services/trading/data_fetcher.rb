@@ -20,15 +20,47 @@ module Trading
       extract_data(response)
     end
 
+    # Fetch evaluation contexts for multiple strategies in one request.
+    # Returns Hash { strategy_id => context_hash }.
+    # Uses dedicated trading_training circuit breaker to isolate from other
+    # worker jobs (e.g. Docker sync) that share the default backend_api breaker.
+    def batch_strategy_evaluation_contexts(strategy_ids)
+      response = @api.post_with_circuit_breaker(
+        "#{BASE}/batch_strategy_contexts",
+        { strategy_ids: strategy_ids },
+        circuit_breaker: :trading_training
+      )
+      data = extract_data(response)
+      data["contexts"] || {}
+    end
+
     # Post evaluation results (signals) back to the server.
     # The server creates signal records, processes orders, and updates P&L.
     def record_evaluation_result(strategy_id:, signals:, tick_cost_usd: 0.0, market_data: {})
-      response = @api.post("#{BASE}/record_evaluation_result", {
-        strategy_id: strategy_id,
-        signals: signals,
-        tick_cost_usd: tick_cost_usd,
-        market_data: market_data
-      })
+      response = @api.post_with_circuit_breaker(
+        "#{BASE}/record_evaluation_result",
+        {
+          strategy_id: strategy_id,
+          signals: signals,
+          tick_cost_usd: tick_cost_usd,
+          market_data: market_data
+        },
+        circuit_breaker: :trading_training
+      )
+      extract_data(response)
+    end
+
+    # Post evaluation results for multiple strategies + optional tick progress in one request.
+    # Returns Hash { "outcomes" => { strategy_id => result }, "tick_metrics" => metrics }.
+    def batch_record_evaluation_results(results, session_id: nil, tick_num: nil)
+      payload = { results: results }
+      payload[:session_id] = session_id if session_id
+      payload[:tick_num] = tick_num if tick_num
+      response = @api.post_with_circuit_breaker(
+        "#{BASE}/batch_record_results",
+        payload,
+        circuit_breaker: :trading_training
+      )
       extract_data(response)
     end
 
@@ -53,6 +85,30 @@ module Trading
       extract_data(response)
     rescue StandardError
       nil
+    end
+
+    # Batch fetch ticker prices for multiple pairs from a single venue.
+    # Returns Hash { "pair" => { "last_price" => Float, "bid" => Float, "ask" => Float }, ... }
+    # Pairs that fail return nil values (callers should handle gracefully).
+    def batch_fetch_tickers(pairs:, venue_id:)
+      return {} if pairs.empty?
+
+      response = @api.post_with_circuit_breaker(
+        "#{BASE}/batch_fetch_tickers",
+        { venue_id: venue_id, pairs: pairs },
+        circuit_breaker: :trading_training
+      )
+      data = extract_data(response)
+      data["tickers"] || {}
+    rescue StandardError => e
+      log_error("batch_fetch_tickers failed: #{e.message}, falling back to individual")
+      results = {}
+      pairs.each do |pair|
+        results[pair] = fetch_ticker(pair: pair, venue_id: venue_id)
+      rescue StandardError
+        results[pair] = nil
+      end
+      results
     end
 
     # Query RAG knowledge base for document chunks.
@@ -98,6 +154,72 @@ module Trading
     rescue => e
       log_error("External data fetch failed: #{e.message}")
       {}
+    end
+
+    # =====================================================================
+    # Decomposed training setup endpoints
+    # =====================================================================
+
+    # Discover tradeable markets from a venue.
+    def discover_markets(session_id:, venue_slug:, market_count:, config: {})
+      response = @api.post_with_circuit_breaker(
+        "#{BASE}/discover_markets",
+        { session_id: session_id, venue_slug: venue_slug,
+          market_count: market_count, config: config },
+        circuit_breaker: :trading_training
+      )
+      extract_data(response)
+    end
+
+    # Create portfolio and risk profile for a training session.
+    def setup_training_portfolio(session_id:, initial_balance:)
+      response = @api.post_with_circuit_breaker(
+        "#{BASE}/setup_training_portfolio",
+        { session_id: session_id, initial_balance: initial_balance },
+        circuit_breaker: :trading_training
+      )
+      extract_data(response)
+    end
+
+    # Create strategies for a batch of pair/type assignments.
+    def create_training_strategies(session_id:, venue_slug:, assignments:, per_strategy_capital:)
+      response = @api.post_with_circuit_breaker(
+        "#{BASE}/create_training_strategies",
+        { session_id: session_id, venue_slug: venue_slug,
+          assignments: assignments, per_strategy_capital: per_strategy_capital },
+        circuit_breaker: :trading_training
+      )
+      extract_data(response)
+    end
+
+    # Prepare knowledge sources (news ingestion, market graph).
+    def prepare_training_knowledge(session_id:, strategy_types:)
+      response = @api.post_with_circuit_breaker(
+        "#{BASE}/prepare_training_knowledge",
+        { session_id: session_id, strategy_types: strategy_types },
+        circuit_breaker: :trading_training
+      )
+      extract_data(response)
+    end
+
+    # Seed synthetic price history for specific pairs.
+    def seed_training_prices(session_id:, pairs:)
+      response = @api.post_with_circuit_breaker(
+        "#{BASE}/seed_training_prices",
+        { session_id: session_id, pairs: pairs },
+        circuit_breaker: :trading_training
+      )
+      extract_data(response)
+    end
+
+    # Transition session to running and return strategy list + tick config.
+    def start_training_session(session_id:)
+      response = @api.post_with_circuit_breaker(
+        "#{BASE}/start_training_session",
+        { session_id: session_id },
+        circuit_breaker: :trading_training
+      )
+      extract_data(response)
     end
 
     private

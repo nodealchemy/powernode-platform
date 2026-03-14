@@ -3,6 +3,8 @@
 module Trading
   module Evaluators
     class PredictionMarketMaking < Base
+      include Concerns::ConvergenceExit
+
       register "prediction_market_making"
 
       def evaluate
@@ -49,6 +51,15 @@ module Trading
                 indicators: { edge: 0, market_price: price, pnl_pct: pnl_pct, exit_reason: "stop_loss" }
               )
               return signals
+            else
+              # Convergence exit: check if remaining edge has decayed below exit cost
+              if hours_left
+                conv_signal = convergence_exit_check(pos, hours_left)
+                if conv_signal
+                  signals << build_signal(**conv_signal)
+                  return signals
+                end
+              end
             end
           end
         end
@@ -72,9 +83,12 @@ module Trading
         # Calculate Stoikov optimal spread
         sigma = calculate_binary_sigma(price)
         gamma = calculate_risk_aversion(hours_left)
-        # Cap t_remaining at 30 days — Stoikov spread grows with T, and ultra-long-dated
-        # markets (2030+) produce absurdly wide quotes without this bound
-        t_remaining = hours_left ? [hours_left / 24.0, 0.01].max.clamp(0.01, 30.0) : 1.0
+        # Cap t_remaining at the evaluation horizon, NOT the market expiry.
+        # Stoikov spread grows with T, and even day-scale horizons produce
+        # spreads far wider than the 1-cent minimum tick on Kalshi.
+        # Use a short horizon (fraction of a day) matching the tick interval.
+        max_t_days = param("stoikov_t_days", 0.05) # ~1.2 hours default
+        t_remaining = hours_left ? [hours_left / 24.0, 0.01].max.clamp(0.01, max_t_days) : max_t_days
         kappa = estimate_arrival_rate
 
         # Stoikov reservation price and spread
@@ -96,15 +110,54 @@ module Trading
           optimal_spread *= widen_factor
         end
 
-        # Enforce minimum spread
-        min_spread = param("min_spread_cents", 3) / 100.0
-        optimal_spread = [optimal_spread, min_spread].max
+        # Enforce minimum and maximum spread — scale with price distance from 0.50.
+        # At p=0.50: tight (2-6c). At p=0.10 or p=0.90: wider (3-10c).
+        price_distance = (0.5 - fair_value).abs # 0 at mid, 0.5 at extremes
+        spread_scale = 1.0 + price_distance * 2.0 # 1.0x at mid, 2.0x at extremes
+        min_spread = (param("min_spread_cents", 2) / 100.0) * spread_scale
+        max_spread = (param("max_spread_cents", 8) / 100.0) * spread_scale
+        optimal_spread = optimal_spread.clamp(min_spread, max_spread)
 
-        # Calculate bid and ask prices
-        bid_price = [reservation_price - optimal_spread / 2.0, 0.01].max
-        ask_price_calc = [reservation_price + optimal_spread / 2.0, 0.99].min
+        # Fee-aware edge filter: Kalshi charges flat $0.01/contract per side.
+        # At low prices, this is a massive percentage of the trade value.
+        # Skip quoting entirely if net edge after fees is too small.
+        kalshi_fee = 0.01
+        half_spread = optimal_spread / 2.0
+        net_edge = half_spread - kalshi_fee
+        min_net_edge_pct = param("min_net_edge_pct", 3.0) / 100.0
+        if fair_value > 0 && (net_edge / fair_value) < min_net_edge_pct
+          return has_open_position? ? signals : signals # Skip quoting, but keep any exit signals
+        end
 
-        # Skip if inventory limit reached (only quote on reducing side)
+        # Calculate bid and ask prices — asymmetric at extreme probabilities
+        extreme_threshold = 0.20
+        if fair_value < extreme_threshold
+          # Low-prob (longshot YES): widen ask (less willing to sell YES cheap)
+          ask_widen = (extreme_threshold - fair_value) / extreme_threshold * optimal_spread * 0.5
+          bid_widen = 0.0
+        elsif fair_value > (1.0 - extreme_threshold)
+          # High-prob: widen bid (less willing to buy expensive YES)
+          ask_widen = 0.0
+          bid_widen = (fair_value - (1.0 - extreme_threshold)) / extreme_threshold * optimal_spread * 0.5
+        else
+          ask_widen = 0.0
+          bid_widen = 0.0
+        end
+
+        bid_price = [reservation_price - (optimal_spread / 2.0 + bid_widen), 0.01].max
+        ask_price_calc = [reservation_price + (optimal_spread / 2.0 + ask_widen), 0.99].min
+
+        # Active inventory unwinding: generate exit signals when inventory > 20% of capital
+        if inventory.abs > 0 && inventory_ratio > max_inventory_pct * 0.4
+          signals << build_signal(
+            type: "exit", direction: "close", confidence: 0.7, strength: 0.6,
+            reasoning: "Inventory risk: #{(inventory_ratio * 100).round(1)}% of capital deployed, reducing exposure",
+            indicators: { edge: 0, market_price: price, exit_reason: "inventory_accumulation",
+                          inventory_ratio: inventory_ratio }
+          )
+        end
+
+        # Skip new quotes if inventory limit reached (only quote on reducing side)
         skip_bid = inventory_ratio > max_inventory_pct && inventory > 0
         skip_ask = inventory_ratio > max_inventory_pct && inventory < 0
 
@@ -119,8 +172,8 @@ module Trading
             strength: classify_spread_strength(optimal_spread),
             reasoning: "Market making bid: fair=#{(fair_value * 100).round(1)}¢, bid=#{(bid_price * 100).round(1)}¢, spread=#{(optimal_spread * 100).round(1)}¢, inventory=#{inventory.round(2)}",
             indicators: {
-              edge: optimal_spread / 2.0,
-              edge_pct: (optimal_spread / 2.0 / fair_value * 100).round(2),
+              edge: net_edge,
+              edge_pct: (net_edge / fair_value * 100).round(2),
               market_price: price,
               fair_value: fair_value,
               reservation_price: reservation_price,
@@ -148,8 +201,8 @@ module Trading
             strength: classify_spread_strength(optimal_spread),
             reasoning: "Market making ask: fair=#{(fair_value * 100).round(1)}¢, ask=#{(ask_price_calc * 100).round(1)}¢, spread=#{(optimal_spread * 100).round(1)}¢, inventory=#{inventory.round(2)}",
             indicators: {
-              edge: optimal_spread / 2.0,
-              edge_pct: (optimal_spread / 2.0 / fair_value * 100).round(2),
+              edge: net_edge,
+              edge_pct: (net_edge / fair_value * 100).round(2),
               market_price: price,
               fair_value: fair_value,
               reservation_price: reservation_price,
@@ -229,12 +282,13 @@ module Trading
       end
 
       def estimate_arrival_rate
-        # From recent volume / time period
+        # From recent volume / time period, clamped to realistic PM range
         if @market_data && @market_data["volume_24h"]
           vol = @market_data["volume_24h"].to_f
-          vol / 24.0 / 60.0 # Orders per minute estimate
+          rate = vol / 24.0 / 60.0 # Orders per minute estimate
+          rate.clamp(0.05, 5.0) # PM range: 0.05-5 orders/min
         else
-          1.0 # Default: 1 order per minute
+          0.2 # Conservative default for unknown PM markets (not 1.0)
         end
       end
 

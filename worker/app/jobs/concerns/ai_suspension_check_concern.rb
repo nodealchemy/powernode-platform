@@ -31,7 +31,7 @@ module AiSuspensionCheckConcern
 
     # Cache the result locally
     Sidekiq.redis do |conn|
-      conn.setex(cache_key, AI_SUSPENSION_CACHE_TTL, suspended ? "1" : "0")
+      conn.set(cache_key, suspended ? "1" : "0", ex: AI_SUSPENSION_CACHE_TTL)
     end
 
     suspended

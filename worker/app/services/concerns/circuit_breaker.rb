@@ -241,7 +241,7 @@ module CircuitBreaker
   def with_backend_api_circuit_breaker(&block)
     breaker = CircuitBreakerRegistry.instance.get_breaker(
       'backend_api',
-      failure_threshold: 5,
+      failure_threshold: 15,
       recovery_timeout: 60,
       timeout: 120
     )
@@ -287,13 +287,14 @@ module CircuitBreaker
   end
 
   # Dedicated circuit breaker for long-running trading training sessions.
-  # Training runs 30 ticks × multiple strategies × multiple LLM calls per tick.
-  # Real-world sessions take 30-60 minutes depending on strategy count and LLM latency.
+  # Training runs 15-30 ticks × 60-150 strategies × external API calls per tick.
+  # A single tick can generate 100+ API calls — temporary 500s on one call
+  # should NOT trip the breaker and kill the entire session.
   def with_trading_training_circuit_breaker(&block)
     breaker = CircuitBreakerRegistry.instance.get_breaker(
       'trading_training',
-      failure_threshold: 3,
-      recovery_timeout: 120,
+      failure_threshold: 10,
+      recovery_timeout: 60,
       timeout: 3600  # 60 minutes — training sessions with many strategies are very long-running
     )
 

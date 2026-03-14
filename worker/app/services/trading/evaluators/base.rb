@@ -10,15 +10,17 @@ module Trading
     #
     # Subclasses implement #evaluate and return an Array of signal Hashes.
     class Base
+      include Concerns::DepthAware
+
       attr_reader :strategy_data, :market_data, :positions, :params,
                   :price_history, :allocated_capital, :parity_data, :spot_price_data, :last_entry_indicators,
-                  :last_llm_cost
+                  :last_llm_cost, :external_data_sources, :order_book_data, :performance_context
       attr_accessor :trading_context
 
       # @param context [Hash] the full evaluation context from DataFetcher#strategy_evaluation_context
       # @param llm_client [LlmProxyClient] direct LLM client (calls providers, not server)
       # @param data_fetcher [Trading::DataFetcher] for additional data lookups
-      def initialize(context, llm_client: nil, data_fetcher: nil)
+      def initialize(context, llm_client: nil, data_fetcher: nil, price_cache: nil, graph_cache: nil)
         @strategy_data = context["strategy"] || {}
         @market_data = context["market_data"] || {}
         @positions = context["positions"] || []
@@ -34,8 +36,18 @@ module Trading
         @parity_data = context["parity_data"] || {}
         @spot_price_data = context["spot_price"] || {}
         @last_entry_indicators = context["last_entry_indicators"] || {}
+        @order_book_data = context["order_book"] || {}
+        @performance_context = context["performance_context"] || {}
+        @is_training = context["is_training"] || false
         @llm_client = llm_client
         @data_fetcher = data_fetcher
+        @price_cache = price_cache
+        @graph_cache = graph_cache
+        @external_data_sources = []
+      end
+
+      def training?
+        @is_training
       end
 
       # Subclasses override this to generate trading signals.
@@ -64,6 +76,12 @@ module Trading
       end
 
       protected
+
+      # Track an external data source consulted during evaluation.
+      # Sources are persisted to strategy config for learning tag enrichment.
+      def record_external_data(source_name)
+        @external_data_sources << source_name unless @external_data_sources.include?(source_name)
+      end
 
       def param(key, default = nil)
         @params.fetch(key.to_s, default)
@@ -129,7 +147,7 @@ module Trading
       end
 
       def agent_model
-        @provider_config&.dig("model") || param("llm_model", "claude-haiku-4-5-20251001")
+        param("llm_model", nil) || @provider_config&.dig("model") || "claude-haiku-4-5-20251001"
       end
 
       # Make an LLM call with structured output (JSON schema enforced).
@@ -146,6 +164,12 @@ module Trading
           model: model || agent_model,
           temperature: temperature
         )
+
+        # Surface LLM errors (e.g., schema validation failures) instead of silently returning nil
+        if response.is_a?(Hash) && response["finish_reason"] == "error"
+          error_detail = response["error"] || response.dig("raw_response", "error") || "unknown"
+          log("LLM structured call error: #{error_detail}", level: :warn)
+        end
 
         @last_llm_cost = extract_cost(response)
         parse_structured_response(response)
@@ -200,12 +224,8 @@ module Trading
         end
       end
 
-      def estimate_signal_cost
-        spread_cost = spread_pct || 0.005
-        # Cap spread cost at 2% — prediction market spreads are wide but
-        # don't represent actual execution cost for paper/limit orders
-        [spread_cost, 0.02].min
-      end
+      # estimate_signal_cost is provided by Concerns::DepthAware (included above).
+      # Fallback chain: order book walk → LMSR model → spread proxy.
 
       def parse_structured_response(response)
         return nil unless response

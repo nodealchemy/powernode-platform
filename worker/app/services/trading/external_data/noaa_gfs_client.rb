@@ -120,6 +120,25 @@ module Trading
           return nil if probs.empty?
           probs.sum / probs.length / 100.0
 
+        when "wind_speed", "wind"
+          # Extract wind speeds from forecast (NWS returns "10 mph" or "15 to 25 mph")
+          speeds = target_periods.map do |p|
+            wind_str = p["windSpeed"].to_s
+            # Parse "15 to 25 mph" → take the higher value
+            nums = wind_str.scan(/\d+/).map(&:to_f)
+            nums.max
+          end.compact
+          return nil if speeds.empty?
+
+          threshold_val = threshold.to_f
+          # NWS always reports mph; convert if threshold is in other units
+          if unit&.downcase == "kph" || unit&.downcase == "km/h"
+            threshold_val = threshold_val / 1.60934
+          end
+
+          exceeding = speeds.count { |s| s >= threshold_val }
+          exceeding.to_f / speeds.length
+
         else
           nil  # Unknown metric
         end

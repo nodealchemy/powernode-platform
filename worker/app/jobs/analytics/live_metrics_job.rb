@@ -87,7 +87,7 @@ class Analytics::LiveMetricsJob < BaseJob
     redis_key = account_id ? "analytics:live:account:#{account_id}" : "analytics:live:global"
     
     begin
-      Redis.current.setex(redis_key, 300, metrics_data.to_json) # 5 minutes expiry
+      Sidekiq.redis { |conn| conn.set(redis_key, metrics_data.to_json, ex: 300) } # 5 minutes expiry
     rescue Redis::BaseError => e
       log_warn("Failed to cache live metrics in Redis: #{e.message}")
     end

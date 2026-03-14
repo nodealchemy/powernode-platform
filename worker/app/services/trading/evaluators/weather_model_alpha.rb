@@ -3,6 +3,8 @@
 module Trading
   module Evaluators
     class WeatherModelAlpha < Base
+      include Concerns::DynamicKelly
+
       register "weather_model_alpha"
 
       def evaluate
@@ -31,6 +33,8 @@ module Trading
         # Fetch forecast data
         forecast_data = noaa.fetch_for_market(@market_question, parsed)
         return signals unless forecast_data
+
+        record_external_data("noaa_gfs")
 
         # Check model freshness
         max_age = param("max_model_age_hours", 12)
@@ -61,8 +65,8 @@ module Trading
         # Confidence based on model agreement and edge size
         confidence = calculate_weather_confidence(edge, model_age, parsed)
 
-        # Kelly sizing
-        kelly_fraction = param("kelly_fraction", 0.25)
+        # Dynamic Kelly sizing from edge + historical performance
+        kelly = dynamic_kelly(estimated_prob: model_prob, market_price: price)
 
         signals << build_signal(
           type: "entry",
@@ -82,7 +86,10 @@ module Trading
             threshold: parsed[:threshold],
             unit: parsed[:unit],
             target_date: parsed[:date],
-            kelly_fraction: kelly_fraction,
+            kelly_fraction: kelly[:kelly_fraction],
+            kelly_full: kelly[:kelly_full],
+            edge_after_impact: kelly[:edge_after_impact],
+            kelly_blend_source: kelly[:blend_source],
             position_sizing_method: "kelly"
           }
         )

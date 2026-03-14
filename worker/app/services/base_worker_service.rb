@@ -184,7 +184,7 @@ class BaseWorkerService
     
     if result
       Sidekiq.redis do |r|
-        r.setex(cache_key, expires_in.to_i, result.to_json)
+        r.set(cache_key, result.to_json, ex: expires_in.to_i)
       end
     end
     

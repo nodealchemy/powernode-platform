@@ -25,34 +25,86 @@ module Trading
         return signals if has_open_position?
         return signals if parity_data.nil? || parity_data.empty?
 
-        min_gap = param("min_parity_gap", 0.05)
-        gap = (parity_data["parity_gap"] || parity_data[:parity_gap]).to_f
-        return signals unless gap > min_gap
-
+        min_gap = param("min_parity_gap", 0.005)
+        max_gap = param("max_parity_gap", 0.10)  # Sanity cap: >10% gap is likely data error
         yes_price = (parity_data["yes_price"] || parity_data[:yes_price]).to_f
         no_price = (parity_data["no_price"] || parity_data[:no_price]).to_f
-        total_cost = yes_price + no_price
-        profit_per_unit = 1.0 - total_cost
-        confidence = [(gap / (min_gap * 3)), 1.0].min.clamp(0.0, 1.0)
+        return signals if yes_price <= 0 || no_price <= 0
+
+        # Sanity check: YES + NO should be close to 1.0 for binary markets
+        parity_sum = yes_price + no_price
+        if parity_sum < 0.80 || parity_sum > 1.20
+          log("#{strategy_pair}: parity sanity failed — YES=#{yes_price.round(4)} + NO=#{no_price.round(4)} = #{parity_sum.round(4)}")
+          return signals
+        end
+
+        # Mode 1: Buy-both arb using ask prices (true execution cost)
+        buy_gap = (parity_data["buy_both_gap"] || 0).to_f
+        if buy_gap > min_gap && buy_gap <= max_gap
+          log("#{strategy_pair}: buy-both arb gap=#{(buy_gap * 100).round(2)}%")
+          generate_buy_both_signal(signals, buy_gap, yes_price, no_price)
+          return signals
+        elsif buy_gap > max_gap
+          log("#{strategy_pair}: buy-both gap #{(buy_gap * 100).round(1)}% exceeds max #{(max_gap * 100).round(1)}% — likely data error")
+        end
+
+        # Mode 2: Sell-both arb using bid prices (reverse parity)
+        sell_gap = (parity_data["sell_both_gap"] || 0).to_f
+        if sell_gap > min_gap && sell_gap <= max_gap
+          log("#{strategy_pair}: sell-both arb gap=#{(sell_gap * 100).round(2)}%")
+          generate_sell_both_signal(signals, sell_gap, yes_price, no_price)
+          return signals
+        elsif sell_gap > max_gap
+          log("#{strategy_pair}: sell-both gap #{(sell_gap * 100).round(1)}% exceeds max #{(max_gap * 100).round(1)}% — likely data error")
+        end
+
+        signals
+      end
+
+      def generate_buy_both_signal(signals, gap, yes_price, no_price)
+        # Pass ask prices for accurate execution cost (not midpoints)
+        yes_ask = (parity_data["yes_ask"] || parity_data[:yes_ask] || yes_price).to_f
+        no_ask = (parity_data["no_ask"] || parity_data[:no_ask] || no_price).to_f
 
         signals << build_signal(
           type: "entry", direction: "long",
-          confidence: confidence,
-          strength: (gap / 0.10).clamp(0.0, 1.0),
-          reasoning: "Parity arbitrage: YES=$#{yes_price.round(4)} + NO=$#{no_price.round(4)} = $#{total_cost.round(4)} (gap: #{(gap * 100).round(2)}%, profit/unit: $#{profit_per_unit.round(4)})",
+          confidence: [(gap / 0.03), 0.9].min.clamp(0.3, 0.9),
+          strength: (gap / 0.05).clamp(0.0, 1.0),
+          reasoning: "Buy-both parity arb: YES_ask=$#{yes_ask.round(4)} + NO_ask=$#{no_ask.round(4)} = $#{(yes_ask + no_ask).round(4)}, guaranteed $1 payout (gap: #{(gap * 100).round(2)}%)",
           indicators: {
-            edge: profit_per_unit, market_price: yes_price,
-            yes_price: yes_price, no_price: no_price,
-            parity_gap: gap, total_cost: total_cost, profit_per_unit: profit_per_unit,
+            edge: gap, yes_price: yes_ask, no_price: no_ask,
+            parity_gap: gap, arb_mode: "buy_both",
             complementary_pair: parity_data["complementary_pair"] || parity_data[:complementary_pair],
-            multi_leg: param("use_multi_leg", false),
+            multi_leg: true,
             legs: [
               { pair: strategy_pair, side: "buy" },
               { pair: parity_data["complementary_pair"] || parity_data[:complementary_pair], side: "buy" }
             ]
           }
         )
-        signals
+      end
+
+      def generate_sell_both_signal(signals, gap, yes_price, no_price)
+        # Pass bid prices for accurate execution proceeds (not midpoints)
+        yes_bid = (parity_data["yes_bid"] || parity_data[:yes_bid] || yes_price).to_f
+        no_bid = (parity_data["no_bid"] || parity_data[:no_bid] || no_price).to_f
+
+        signals << build_signal(
+          type: "entry", direction: "short",
+          confidence: [(gap / 0.03), 0.9].min.clamp(0.3, 0.9),
+          strength: (gap / 0.05).clamp(0.0, 1.0),
+          reasoning: "Sell-both parity arb: YES_bid=$#{yes_bid.round(4)} + NO_bid=$#{no_bid.round(4)} = $#{(yes_bid + no_bid).round(4)} > $1 (gap: #{(gap * 100).round(2)}%)",
+          indicators: {
+            edge: gap, yes_price: yes_bid, no_price: no_bid,
+            parity_gap: gap, arb_mode: "sell_both",
+            complementary_pair: parity_data["complementary_pair"] || parity_data[:complementary_pair],
+            multi_leg: true,
+            legs: [
+              { pair: strategy_pair, side: "sell" },
+              { pair: parity_data["complementary_pair"] || parity_data[:complementary_pair], side: "sell" }
+            ]
+          }
+        )
       end
 
       def cross_venue_arbitrage(signals)

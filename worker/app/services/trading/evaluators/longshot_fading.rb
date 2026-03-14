@@ -3,6 +3,8 @@
 module Trading
   module Evaluators
     class LongshotFading < Base
+      include Concerns::DynamicKelly
+
       register "longshot_fading"
 
       # Empirical mispricing data from 72.1M Kalshi trades (Becker, 2026)
@@ -50,13 +52,11 @@ module Trading
         current_exposure_pct = @allocated_capital > 0 ? (total_exposure / @allocated_capital * 100.0) : 0
         return signals if current_exposure_pct >= max_exposure_pct
 
-        # Position sizing via half-Kelly for binary outcomes
-        kelly_fraction = param("kelly_fraction", 0.5)
-        b = (1.0 / price) - 1.0    # Net payout odds for selling YES
-        p_win = 1.0 - empirical_rate # Probability of YES expiring worthless (we profit)
-        q_lose = empirical_rate      # Probability of YES settling (we lose)
-        kelly_full = (b * p_win - q_lose) / b
-        kelly_f = [kelly_full * kelly_fraction, param("max_position_pct", 3.0) / 100.0].min
+        # Dynamic Kelly sizing: uses empirical win rate as probability estimate
+        # For shorting YES: our "estimated probability of YES" is the empirical_rate
+        # (lower than market implies → edge in selling)
+        kelly = dynamic_kelly(estimated_prob: empirical_rate, market_price: price)
+        kelly_f = [kelly[:kelly_fraction], param("max_position_pct", 3.0) / 100.0].min
 
         confidence = calculate_confidence(edge_pct, hours_to_expiry, open_count)
         stop_loss_price = [price * param("stop_loss_multiplier", 2.0), 0.95].min
@@ -77,6 +77,9 @@ module Trading
             implied_probability: implied_prob,
             mispricing_pct: edge_pct,
             kelly_fraction: kelly_f,
+            kelly_full: kelly[:kelly_full],
+            edge_after_impact: kelly[:edge_after_impact],
+            kelly_blend_source: kelly[:blend_source],
             limit_order: true,
             limit_price: ask_price.positive? ? ask_price : price,
             stop_loss_price: stop_loss_price,

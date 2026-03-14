@@ -142,12 +142,13 @@ class Analytics::MetricsAggregationJob < BaseJob
     timestamp = Time.current.to_i
     
     begin
-      # Update Redis timestamp for cache invalidation
-      Redis.current.setex('analytics:last_update', 3600, timestamp)
-      
-      # Update cache timestamp via Redis (Rails.cache not available in worker service)
-      Redis.current.setex('analytics:last_aggregation', 3600, timestamp)
-      
+      Sidekiq.redis do |conn|
+        # Update Redis timestamp for cache invalidation
+        conn.set('analytics:last_update', timestamp, ex: 3600)
+
+        # Update cache timestamp via Redis (Rails.cache not available in worker service)
+        conn.set('analytics:last_aggregation', timestamp, ex: 3600)
+      end
     rescue Redis::BaseError => e
       log_warn("Failed to update cache timestamps: #{e.message}")
     end

@@ -15,6 +15,13 @@ module Trading
 
         # Fetch new documents since last tick
         new_docs = fetch_new_documents
+
+        # LLM fallback: generate synthetic news assessment when RAG returns nothing
+        if new_docs.empty? && @llm_client && @provider_config && !has_open_position?
+          synthetic = generate_news_via_llm
+          new_docs = [synthetic] if synthetic
+        end
+
         return check_exit_conditions(signals) if new_docs.empty?
 
         # Classify each document's impact
@@ -80,11 +87,12 @@ module Trading
         chunks = @data_fetcher.rag_query(
           account_id: account_id,
           query: question,
-          kb_name: "trading_news",
+          kb_name: "Trading Market Intelligence",
           top_k: param("rag_top_k", 10)
         )
 
         chunks.select do |c|
+          next true if training? # Skip timestamp filter in training — KB docs have historical timestamps
           created = c["created_at"] || c[:created_at]
           if created
             (Time.parse(created.to_s) > cutoff rescue true)
@@ -182,6 +190,47 @@ module Trading
         age_seconds = (Time.current - timestamp).abs
 
         age_seconds <= lag_window ? bonus_mult : 1.0
+      end
+
+      def generate_news_via_llm
+        question = @market_question || strategy_pair
+
+        price_context = if price_history&.size.to_i > 3
+          recent = price_history.last(5).map { |s| (s["close"] || s[:close]).to_f }
+          "Recent prices: #{recent.map { |p| "#{(p * 100).round(1)}¢" }.join(', ')}"
+        else
+          "Limited price history available."
+        end
+
+        response = llm_complete_structured(
+          messages: [
+            { role: "system", content: "You are a prediction market news analyst. Assess the latest developments relevant to this market. Consider recent events, policy changes, and public sentiment that could impact the outcome." },
+            { role: "user", content: "Market: #{question}\nCurrent price: #{(current_price * 100).round(1)}¢\n#{price_context}\n\nProvide your assessment of the latest relevant news and its likely market impact." }
+          ],
+          schema: {
+            type: "object",
+            properties: {
+              headline: { type: "string", description: "Key news headline or development" },
+              impact_summary: { type: "string", description: "How this impacts the market" },
+              direction: { type: "string", enum: %w[positive negative neutral] },
+              magnitude: { type: "number", description: "Impact strength 0-1" }
+            },
+            required: %w[headline impact_summary direction magnitude],
+            additionalProperties: false
+          },
+          temperature: 0.3
+        )
+        return nil unless response.is_a?(Hash) && response[:headline]
+
+        @total_cost += last_llm_cost
+        {
+          id: "llm_fallback_#{Time.current.to_i}",
+          content: "#{response[:headline]}\n\n#{response[:impact_summary]}",
+          timestamp: Time.current
+        }
+      rescue StandardError => e
+        log("LLM news fallback failed: #{e.message}", level: :warn)
+        nil
       end
 
       def check_exit_conditions(signals)

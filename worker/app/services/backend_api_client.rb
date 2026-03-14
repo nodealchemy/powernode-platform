@@ -288,7 +288,11 @@ class BackendApiClient
       # Request/response middleware
       conn.request :json
       conn.response :json, content_type: /\bjson$/
-      
+
+      # Gzip/deflate: let Net::HTTP handle Accept-Encoding automatically.
+      # Setting it manually disables auto-decompression, causing "invalid byte
+      # sequence in UTF-8" when Rack::Deflater compresses the response.
+
       # Retry middleware with exponential backoff
       conn.request :retry,
                    max: @config.max_retry_attempts,

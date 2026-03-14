@@ -45,6 +45,7 @@
   - [integrations, 2]            # Third-party integration processing
   - [mcp, 2]                     # MCP server operations
   - [trading, 2]                  # Trading strategy execution, price feeds, risk monitoring
+  - [trading_learning, 2]          # Async trading learning extraction (parallel with trading)
   - [notifications, 1]           # Notification delivery
   - [analytics, 1]               # Analytics cache warmup and processing
   - [schedules, 1]               # General scheduled task processing
@@ -500,6 +501,24 @@
       class: TradingSweepCheckJob
       queue: trading
       description: 'Check portfolios for sweep opportunities'
+
+    trading_venue_withdrawal_check:
+      cron: '30 */4 * * *'
+      class: TradingVenueWithdrawalCheckJob
+      queue: trading
+      description: 'Check portfolios for venue withdrawal rules and poll pending withdrawals'
+
+    trading_earnings_transfer:
+      cron: '0 */6 * * *'
+      class: TradingEarningsTransferJob
+      queue: trading
+      description: 'Transfer accumulated strategy earnings to hot wallets'
+
+    trading_compounding_check:
+      cron: '0 */4 * * *'
+      class: TradingCompoundingCheckJob
+      queue: trading
+      description: 'Check live strategies for compounding eligibility'
 
     trading_risk_monitor:
       cron: '*/15 * * * *'
