@@ -57,7 +57,7 @@ else
   end
 end
 
-# Plans are seeded by the enterprise extension (extensions/enterprise/server/db/seeds/saas_plans_seed.rb)
+# Plans are seeded by the business extension (extensions/business/server/db/seeds/saas_plans_seed.rb)
 # In core-only mode, no Plan model exists — all features are unlocked via FeatureGateService.
 
 # Create system worker (required for worker-backend communication)
