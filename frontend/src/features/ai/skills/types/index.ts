@@ -7,7 +7,7 @@ export type SkillCategory =
   | 'legal'
   | 'finance'
   | 'data'
-  | 'enterprise_search'
+  | 'business_search'
   | 'bio_research'
   | 'skill_management'
   | 'code_intelligence'

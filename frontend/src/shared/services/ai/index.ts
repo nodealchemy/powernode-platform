@@ -314,7 +314,7 @@ export type {
   DevopsAnalytics,
 } from '@/shared/services/ai/DevopsApiService';
 
-// Re-export Sandbox service (Phase 4 - Enterprise AI Agent Sandbox & Testing)
+// Re-export Sandbox service (Phase 4 - AI Agent Sandbox & Testing)
 export { sandboxApi };
 export type {
   Sandbox,

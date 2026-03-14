@@ -10,10 +10,10 @@ import { AdminSettingsTabs } from '@/features/admin/components/settings/AdminSet
 
 // Import all admin settings tab pages
 import { AdminSettingsOverviewTabPage } from './AdminSettingsOverviewTabPage';
-// Payment Gateways tab - enterprise only, lazy-loaded when available
-const AdminSettingsPaymentGatewaysTabPage = (typeof __EXTENSIONS__ !== 'undefined' && __EXTENSIONS__.includes('enterprise'))
-  ? React.lazy(() => import('@ext/enterprise/pages/admin/AdminSettingsPaymentGatewaysTabPage'))
-  : () => React.createElement('div', { className: 'p-8 text-center text-theme-secondary' }, 'Payment Gateways is available in Enterprise edition.');
+// Payment Gateways tab - business only, lazy-loaded when available
+const AdminSettingsPaymentGatewaysTabPage = (typeof __EXTENSIONS__ !== 'undefined' && __EXTENSIONS__.includes('business'))
+  ? React.lazy(() => import('@ext/business/pages/admin/AdminSettingsPaymentGatewaysTabPage'))
+  : () => React.createElement('div', { className: 'p-8 text-center text-theme-secondary' }, 'Payment Gateways is available in Business edition.');
 import { AdminSettingsEmailTabPage } from './AdminSettingsEmailTabPage';
 import { AdminSettingsSecurityTabPage } from './AdminSettingsSecurityTabPage';
 import AdminSettingsRateLimitingTabPage from './AdminSettingsRateLimitingTabPage';

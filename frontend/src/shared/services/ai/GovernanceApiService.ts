@@ -2,7 +2,7 @@
  * Governance API Service
  * Phase 4: AI Workflow Governance & Compliance
  *
- * Revenue Model: Enterprise licensing + compliance certifications
+ * Revenue Model: Business licensing + compliance certifications
  * - Compliance add-on: $299-999/mo based on tier
  * - SOC 2 certification support: $5,000 one-time
  * - Dedicated compliance officer support: $2,000/mo

@@ -15,7 +15,7 @@ const CATEGORY_OPTIONS: { value: SkillCategory; label: string }[] = [
   { value: 'legal', label: 'Legal' },
   { value: 'finance', label: 'Finance' },
   { value: 'data', label: 'Data' },
-  { value: 'enterprise_search', label: 'Enterprise Search' },
+  { value: 'business_search', label: 'Business Search' },
   { value: 'bio_research', label: 'Bio Research' },
   { value: 'skill_management', label: 'Skill Management' },
   { value: 'code_intelligence', label: 'Code Intelligence' },

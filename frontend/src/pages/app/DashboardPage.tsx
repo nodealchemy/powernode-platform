@@ -434,7 +434,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/content/kb/articles/:id/edit" element={<KnowledgeBaseArticleEditor />} />
         <Route path="/content/kb/admin" element={<KnowledgeBaseAdminPage />} />
         <Route path="/content/kb/manage" element={<KnowledgeBaseAdminPage />} />
-        {/* Business routes handled by featureRegistry (enterprise) */}
+        {/* Business routes handled by featureRegistry (business) */}
 
         {/* System Pages */}
         <Route path="/profile/*" element={<ProfilePage />} />
@@ -500,9 +500,9 @@ const DashboardPage: React.FC = () => {
 
         {/* Marketing routes handled by featureRegistry (marketing extension) */}
 
-        {/* Business analytics + metrics routes handled by featureRegistry (enterprise) */}
+        {/* Business analytics + metrics routes handled by featureRegistry (business) */}
 
-        {/* Marketplace routes handled by featureRegistry (enterprise) */}
+        {/* Marketplace routes handled by featureRegistry (business) */}
 
         {/* Admin routes - consistent with navigation */}
         <Route path="/users" element={<UsersPage />} />
@@ -515,7 +515,7 @@ const DashboardPage: React.FC = () => {
         <Route path="/admin/workers/*" element={<AdminWorkersPage />} />
         <Route path="/admin/storage" element={<AdminStoragePage />} />
 
-        {/* Enterprise routes (dynamically registered via featureRegistry) */}
+        {/* Extension routes (dynamically registered via featureRegistry) */}
         {featureRegistry.getRoutes().map((route) => (
           <Route
             key={route.path}

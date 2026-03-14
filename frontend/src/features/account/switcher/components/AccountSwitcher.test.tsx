@@ -58,7 +58,7 @@ describe('AccountSwitcher', () => {
       role: 'delegated',
       is_current: false,
       is_primary: false,
-      subscription: { plan_name: 'Enterprise' },
+      subscription: { plan_name: 'Business' },
       delegation: { expires_at: '2025-06-15T00:00:00Z' }
     }
   ];
@@ -190,7 +190,7 @@ describe('AccountSwitcher', () => {
       await waitFor(() => {
         expect(screen.getByText('Pro')).toBeInTheDocument();
       });
-      expect(screen.getByText('Enterprise')).toBeInTheDocument();
+      expect(screen.getByText('Business')).toBeInTheDocument();
     });
 
     it('shows check icon for current account', async () => {

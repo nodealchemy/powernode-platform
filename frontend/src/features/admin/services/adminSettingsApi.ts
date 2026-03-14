@@ -19,8 +19,8 @@ export interface DevelopmentFeatureFlag {
 }
 
 export interface DevelopmentInfo {
-  enterprise_installed: boolean;
-  enterprise_enabled: boolean;
+  business_installed: boolean;
+  business_enabled: boolean;
   engine_version?: string;
   license_valid?: boolean;
   license_edition?: string;
@@ -631,7 +631,7 @@ class AdminSettingsApi {
     }
   }
 
-  // Development / Enterprise Toggle
+  // Development / Business Toggle
   async getDevelopmentInfo(): Promise<{ success: boolean; data?: DevelopmentInfo; error?: string }> {
     try {
       const response = await api.get('/admin_settings/development');
@@ -650,8 +650,8 @@ class AdminSettingsApi {
     }
   }
 
-  async updateDevelopmentSettings(enterpriseEnabled: boolean): Promise<{ success: boolean; data: { enterprise_enabled: boolean; message: string } }> {
-    const response = await api.put('/admin_settings/development', { enterprise_enabled: enterpriseEnabled });
+  async updateDevelopmentSettings(businessEnabled: boolean): Promise<{ success: boolean; data: { business_enabled: boolean; message: string } }> {
+    const response = await api.put('/admin_settings/development', { business_enabled: businessEnabled });
     const responseData = response.data;
     if (responseData.success !== undefined) {
       return responseData;

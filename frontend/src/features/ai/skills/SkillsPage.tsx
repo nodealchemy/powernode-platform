@@ -29,7 +29,7 @@ const ALL_CATEGORIES: { value: SkillCategory | ''; label: string }[] = [
   { value: 'legal', label: 'Legal' },
   { value: 'finance', label: 'Finance' },
   { value: 'data', label: 'Data' },
-  { value: 'enterprise_search', label: 'Search' },
+  { value: 'business_search', label: 'Search' },
   { value: 'bio_research', label: 'Bio' },
   { value: 'skill_management', label: 'Management' },
   { value: 'code_intelligence', label: 'Code Intel' },

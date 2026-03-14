@@ -2,11 +2,11 @@
  * DevOps API Service
  * Phase 4: AI Pipeline Templates for DevOps
  *
- * Revenue Model: Template marketplace + enterprise customization
+ * Revenue Model: Template marketplace + business customization
  * - Community templates: free
  * - Premium templates: $29-99 one-time
  * - Custom template development: $2,000-10,000
- * - Enterprise template library: $199/mo
+ * - Business template library: $199/mo
  */
 
 import { BaseApiService, PaginatedResponse, QueryFilters } from '@/shared/services/ai/BaseApiService';

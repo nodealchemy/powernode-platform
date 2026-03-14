@@ -1,4 +1,4 @@
-// Sandbox Page - Enterprise AI Agent Testing Infrastructure
+// Sandbox Page - AI Agent Testing Infrastructure
 import React, { useState, useEffect } from 'react';
 import { TestTube, Play, Search, Filter, Beaker, FlaskConical, BarChart3 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';

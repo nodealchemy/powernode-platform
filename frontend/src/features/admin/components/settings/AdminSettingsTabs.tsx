@@ -47,7 +47,7 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     icon: CreditCard,
     description: 'Configure Stripe, PayPal, and other payment providers',
     requiredPermissions: ['admin.billing.manage_gateways'],
-    extensionSlug: 'enterprise'
+    extensionSlug: 'business'
   },
   {
     id: 'email',
@@ -94,7 +94,7 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     label: 'Development',
     href: '/app/admin/settings/development',
     icon: Wrench,
-    description: 'Development tools and enterprise mode toggle',
+    description: 'Development tools and business mode toggle',
     requiredPermissions: ['admin.settings.read']
   }
 ];
@@ -108,17 +108,17 @@ export const AdminSettingsTabs: React.FC<AdminSettingsTabsProps> = ({ className 
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);
   const { loadedExtensions, coreMode } = useSelector((state: RootState) => state.config);
-  const enterpriseBuild = typeof __EXTENSIONS__ !== 'undefined' && __EXTENSIONS__.includes('enterprise');
-  const enterpriseInstalled = enterpriseBuild && !coreMode;
+  const businessBuild = typeof __EXTENSIONS__ !== 'undefined' && __EXTENSIONS__.includes('business');
+  const businessInstalled = businessBuild && !coreMode;
 
-  // Filter tabs based on user permissions and enterprise availability
+  // Filter tabs based on user permissions and extension availability
   const availableTabs = adminSettingsTabs.filter(tab => {
     // Hide extension-specific tabs when the required extension is not available
     if (tab.extensionSlug && !loadedExtensions.includes(tab.extensionSlug)) {
       return false;
     }
     // Hide tabs requiring an extension to be installed (build-time)
-    if (tab.extensionInstalledOnly && !enterpriseInstalled) {
+    if (tab.extensionInstalledOnly && !businessInstalled) {
       return false;
     }
     if (!tab.requiredPermissions || tab.requiredPermissions.length === 0) {

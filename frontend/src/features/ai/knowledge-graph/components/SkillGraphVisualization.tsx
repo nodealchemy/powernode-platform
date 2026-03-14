@@ -55,7 +55,7 @@ const CATEGORY_ICONS: Record<string, string> = {
   legal: '⚖️',
   finance: '💰',
   data: '📊',
-  enterprise_search: '🔍',
+  business_search: '🔍',
   bio_research: '🧬',
   skill_management: '🛠️',
 };

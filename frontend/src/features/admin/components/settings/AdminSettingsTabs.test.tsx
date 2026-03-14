@@ -38,7 +38,7 @@ describe('AdminSettingsTabs', () => {
       expect(screen.getAllByText('Overview')).toHaveLength(2); // Desktop and mobile
       expect(screen.getAllByText('Email Settings')).toHaveLength(2); // Desktop and mobile
       expect(screen.getAllByText('Security')).toHaveLength(2); // Desktop and mobile
-      // Payment Gateways requires enterprise extension — not rendered without it
+      // Payment Gateways requires business extension — not rendered without it
     });
   });
 
@@ -240,7 +240,7 @@ describe('AdminSettingsTabs', () => {
       });
     });
 
-    it('shows Extensions tab even when enterprise is disabled', async () => {
+    it('shows Extensions tab even when business is disabled', async () => {
       renderWithProviders(
         <AdminSettingsTabs />,
         {
@@ -291,7 +291,7 @@ describe('AdminSettingsTabs', () => {
       });
     });
 
-    it('shows Development tab even in core mode (no enterprise)', async () => {
+    it('shows Development tab even in core mode (no business)', async () => {
       renderWithProviders(
         <AdminSettingsTabs />,
         {

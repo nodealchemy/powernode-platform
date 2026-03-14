@@ -49,7 +49,7 @@ function notifyListeners(): void {
 
 export const featureRegistry = {
   /**
-   * Register routes for a namespace (e.g., 'enterprise', 'ai')
+   * Register routes for a namespace (e.g., 'business', 'ai')
    */
   registerRoutes(namespace: string, routes: FeatureRoute[]): void {
     const existing = state.routes.get(namespace) || [];

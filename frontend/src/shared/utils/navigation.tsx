@@ -194,7 +194,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: CreditCard,
           description: 'Invoices and payment processing',
           permissions: ['admin.billing.read'],
-          extensionSlug: 'enterprise',
+          extensionSlug: 'business',
           order: 3
         }
       ],
@@ -299,7 +299,7 @@ export const defaultNavigationConfig: NavigationConfig = {
       href: '/app/account/billing',
       icon: CreditCard,
       description: 'Subscription and payment details',
-      extensionSlug: 'enterprise'
+      extensionSlug: 'business'
     },
     {
       id: 'help-support',
@@ -325,7 +325,7 @@ export const defaultNavigationConfig: NavigationConfig = {
       href: '/app/business/plans/new',
       icon: Package,
       description: 'Set up a new subscription plan',
-      extensionSlug: 'enterprise'
+      extensionSlug: 'business'
     },
     {
       id: 'invite-team',
@@ -340,7 +340,7 @@ export const defaultNavigationConfig: NavigationConfig = {
       href: '/app/business/analytics',
       icon: BarChart3,
       description: 'Check your latest metrics',
-      extensionSlug: 'enterprise'
+      extensionSlug: 'business'
     },
     {
       id: 'configure-payments',
@@ -349,7 +349,7 @@ export const defaultNavigationConfig: NavigationConfig = {
       icon: CreditCard,
       description: 'Set up payment processing',
       permissions: ['admin.billing.manage_gateways'],
-      extensionSlug: 'enterprise'
+      extensionSlug: 'business'
     },
     {
       id: 'create-ai-agent',

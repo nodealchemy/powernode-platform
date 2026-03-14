@@ -21,13 +21,13 @@ import { NotificationContainer } from '@/shared/components/ui/NotificationContai
 
 // Pages
 import { LoginPage } from '@/pages/public/LoginPage';
-// Registration and plan selection are enterprise features, lazy-loaded when available
-const RegisterPage = (typeof __EXTENSIONS__ !== 'undefined' && __EXTENSIONS__.includes('enterprise'))
-  ? React.lazy(() => import('@ext/enterprise/pages/public/RegisterPage'))
-  : () => React.createElement('div', { className: 'p-8 text-center text-theme-secondary' }, 'Registration is available in Enterprise edition.');
-const PlanSelectionPage = (typeof __EXTENSIONS__ !== 'undefined' && __EXTENSIONS__.includes('enterprise'))
-  ? React.lazy(() => import('@ext/enterprise/pages/public/PlanSelectionPage'))
-  : () => React.createElement('div', { className: 'p-8 text-center text-theme-secondary' }, 'Plan selection is available in Enterprise edition.');
+// Registration and plan selection are business features, lazy-loaded when available
+const RegisterPage = (typeof __EXTENSIONS__ !== 'undefined' && __EXTENSIONS__.includes('business'))
+  ? React.lazy(() => import('@ext/business/pages/public/RegisterPage'))
+  : () => React.createElement('div', { className: 'p-8 text-center text-theme-secondary' }, 'Registration is available in Business edition.');
+const PlanSelectionPage = (typeof __EXTENSIONS__ !== 'undefined' && __EXTENSIONS__.includes('business'))
+  ? React.lazy(() => import('@ext/business/pages/public/PlanSelectionPage'))
+  : () => React.createElement('div', { className: 'p-8 text-center text-theme-secondary' }, 'Plan selection is available in Business edition.');
 import { DashboardPage } from '@/pages/app/DashboardPage';
 import { ForgotPasswordPage } from '@/pages/public/ForgotPasswordPage';
 import { ResetPasswordPage } from '@/pages/public/ResetPasswordPage';

@@ -560,7 +560,7 @@ export const ProfilePage: React.FC = () => {
 
             <TabPanel tabId="subscription" activeTab={activeTab}>
               <div className="p-8 text-center text-theme-secondary">
-                Subscription management is available in Enterprise edition.
+                Subscription management is available in Business edition.
               </div>
             </TabPanel>
 

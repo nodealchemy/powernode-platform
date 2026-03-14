@@ -71,7 +71,7 @@ export interface MarketplaceItem {
 export interface MarketplaceSubscriptionInfo {
   id: string;
   status: 'active' | 'paused' | 'cancelled' | 'expired';
-  tier: 'free' | 'standard' | 'premium' | 'enterprise';
+  tier: 'free' | 'standard' | 'premium' | 'business';
   subscribed_at: string;
 }
 
@@ -83,7 +83,7 @@ export interface MarketplaceSubscription {
   item_slug: string;
   item_icon?: string;
   status: 'active' | 'paused' | 'cancelled' | 'expired';
-  tier: 'free' | 'standard' | 'premium' | 'enterprise';
+  tier: 'free' | 'standard' | 'premium' | 'business';
   subscribed_at: string;
   configuration: Record<string, unknown>;
   usage_metrics?: Record<string, unknown>;
@@ -165,7 +165,7 @@ export interface ReviewsMeta {
 
 // API Request Types
 export interface SubscribeRequest {
-  tier?: 'free' | 'standard' | 'premium' | 'enterprise';
+  tier?: 'free' | 'standard' | 'premium' | 'business';
   plan_id?: string;
   configuration?: Record<string, unknown>;
   create_workflow?: boolean;

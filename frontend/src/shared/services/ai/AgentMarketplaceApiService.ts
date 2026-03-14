@@ -5,7 +5,7 @@
  * Revenue Model: Commission (15-30%) + listing fees
  * - Free tier: 3 community agents
  * - Pro: Unlimited community + 5 premium ($149/mo)
- * - Enterprise: Private marketplace + custom agents ($999+/mo)
+ * - Business: Private marketplace + custom agents ($999+/mo)
  * - Publisher revenue share: 70-85% to creators
  */
 
@@ -53,7 +53,7 @@ export interface AgentInstallation {
   id: string;
   status: 'active' | 'paused' | 'expired' | 'cancelled' | 'pending_update';
   installed_version: string;
-  license_type: 'standard' | 'enterprise' | 'trial';
+  license_type: 'standard' | 'business' | 'trial';
   executions_count: number;
   total_cost_usd: number;
   last_used_at: string | null;

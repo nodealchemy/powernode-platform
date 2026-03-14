@@ -247,8 +247,8 @@ export const mockPlans: EnhancedPlan[] = [
     is_popular: true
   }),
   createMockPlan({
-    id: 'plan_enterprise',
-    name: 'Enterprise Plan',
+    id: 'plan_business',
+    name: 'Business Plan',
     description: 'For large organizations',
     price_cents: 9999,
     trial_days: 30,

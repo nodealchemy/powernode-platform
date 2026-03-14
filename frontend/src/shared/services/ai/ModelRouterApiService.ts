@@ -9,7 +9,7 @@ import { BaseApiService, QueryFilters, PaginatedResponse } from '@/shared/servic
  * Revenue Model: Usage-based + optimization savings share
  * - Base tier: Fixed routing rules (included in subscription)
  * - Pro tier: ML-optimized routing ($99-299/mo)
- * - Enterprise: Custom models + savings share (10-15% of savings)
+ * - Business: Custom models + savings share (10-15% of savings)
  *
  * Endpoint structure:
  * - GET/POST /api/v1/ai/model_router/rules - Routing rules management

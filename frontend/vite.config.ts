@@ -50,7 +50,7 @@ export default defineConfig(({ mode }: { mode: string }) => {
       const frontendSrc = path.resolve(extensionsDir, slug, 'frontend/src');
       if (fs.existsSync(manifestPath) && fs.existsSync(frontendSrc)) {
         extensionAliases[`@ext/${slug}`] = frontendSrc;
-        extensionAliases[`@${slug}`] = frontendSrc; // intra-extension imports (e.g. @enterprise/)
+        extensionAliases[`@${slug}`] = frontendSrc; // intra-extension imports (e.g. @business/)
         discoveredSlugs.push(slug);
       }
     }
@@ -82,7 +82,7 @@ export default defineConfig(({ mode }: { mode: string }) => {
     
     resolve: {
       // Resolve ALL packages from core node_modules when processing
-      // enterprise source files (enterprise dir has no own node_modules).
+      // extension source files (extension dirs have no own node_modules).
       // Derived from package.json so it stays in sync automatically.
       dedupe: Object.keys(packageJson.dependencies || {}),
       alias: {

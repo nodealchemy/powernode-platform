@@ -1,12 +1,12 @@
 /**
  * Sandbox API Service
- * Phase 4: Enterprise AI Agent Testing Infrastructure
+ * Phase 4: AI Agent Testing Infrastructure
  *
  * Revenue Model: Sandbox environments + testing infrastructure
  * - Basic sandbox: included
  * - Advanced testing: $99/mo (recording, playback)
  * - Performance profiling: $199/mo
- * - Enterprise (dedicated environments): $499/mo
+ * - Business (dedicated environments): $499/mo
  */
 
 import { BaseApiService, PaginatedResponse, QueryFilters } from '@/shared/services/ai/BaseApiService';
