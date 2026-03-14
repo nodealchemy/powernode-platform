@@ -1330,7 +1330,7 @@ trigger = Ai::WorkflowTrigger.create!(
   configuration: {
     event_types: ['subscription.created', 'subscription.upgraded'],
     filter: {
-      'subscription.plan_tier': ['professional', 'enterprise']
+      'subscription.plan_tier': ['professional', 'business']
     }
   }
 )

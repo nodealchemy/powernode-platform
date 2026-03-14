@@ -66,7 +66,7 @@ Powernode is a self-hosted platform that gives you full control over AI agents, 
 
 Extensions are loaded dynamically via `FeatureGateService`. When no extensions are present, Powernode runs in core mode — single-user self-hosted with all platform features unlocked.
 
-- **Enterprise** (`extensions/enterprise/`) - Billing engine (Stripe/PayPal), BaaS multi-tenancy, reseller system, AI publisher marketplace, predictive analytics
+- **Business** (`extensions/business/`) - Billing engine (Stripe/PayPal), BaaS multi-tenancy, reseller system, AI publisher marketplace, predictive analytics
 - **Trading** (`extensions/trading/`) - Algorithmic trading with strategies, portfolios, risk monitoring, and evolution
 - **Supply Chain** (`extensions/supply-chain/`) - Supply chain management and logistics
 - **Marketing** (`extensions/marketing/`) - Campaign management and marketing automation
@@ -83,7 +83,7 @@ powernode-platform/
 │   └── src/features/    - account, admin, ai, business, content, delegations,
 │                          developer, devops, missions, privacy
 ├── worker/              - Sidekiq 7.2 (220+ jobs, 45 services, 4 API clients)
-├── extensions/          - 4 extensions (enterprise, trading, supply-chain, marketing)
+├── extensions/          - 4 extensions (business, trading, supply-chain, marketing)
 ├── docs/                - 111 documentation files
 └── scripts/             - 48 automation scripts
 ```
@@ -209,8 +209,8 @@ Services:
 - **[Frontend Testing](docs/testing/FRONTEND_TEST_ENGINEER_SPECIALIST.md)** - Jest + React Testing Library
 - **[E2E Testing](docs/testing/PLAYWRIGHT_E2E_TESTING.md)** - Playwright patterns
 
-### Enterprise
-- **[Enterprise Overview](extensions/enterprise/README.md)** - Billing, BaaS, reseller, AI publisher
+### Business
+- **[Business Overview](extensions/business/README.md)** - Billing, BaaS, reseller, AI publisher
 
 ## Contributing
 

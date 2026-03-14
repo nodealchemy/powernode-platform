@@ -52,7 +52,7 @@ journalctl -u 'powernode-*' --since "5 min ago"
 | Backend API | Rails 8 (API-only) | `server/` |
 | Frontend | React + TypeScript + Tailwind | `frontend/` |
 | Worker | Sidekiq (standalone) | `worker/` |
-| Enterprise | Git submodule | `extensions/enterprise/` |
+| Business | Git submodule | `extensions/business/` |
 | Database | PostgreSQL (UUIDv7 PKs) | 396 tables |
 | Cache/Queues | Redis | DB 0 (cache), DB 1 (Sidekiq) |
 

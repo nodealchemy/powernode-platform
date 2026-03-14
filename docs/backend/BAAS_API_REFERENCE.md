@@ -255,7 +255,7 @@ POST /api/v1/baas/customers
   "tax_exempt": false,
   "currency": "USD",
   "metadata": {
-    "plan_type": "enterprise"
+    "plan_type": "business"
   }
 }
 ```
@@ -801,7 +801,7 @@ Or with multiple errors:
 |------|-----------------|-------|
 | Starter | 100 | 20 |
 | Growth | 1000 | 100 |
-| Enterprise | 10000 | 1000 |
+| Business | 10000 | 1000 |
 
 Rate limit headers:
 ```http
