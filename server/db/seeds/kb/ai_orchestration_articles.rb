@@ -1362,7 +1362,7 @@ trigger:
   conditions:
     - if: >
         {{sentiment.score}} < -0.5 AND
-        {{customer.tier}} == 'enterprise' AND
+        {{customer.tier}} == 'business' AND
         {{history.open_tickets}} > 2
       then: executive_escalation
     - if: "{{sentiment.score}} < -0.5"
@@ -4479,7 +4479,7 @@ Tool Test: customer_lookup
   Expected Output:
     customer_id: "cust_..."
     name: string
-    plan: enum(free, basic, professional, enterprise)
+    plan: enum(free, basic, professional, business)
 
   Test Result:
     Status: ✅ Pass

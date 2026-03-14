@@ -65,7 +65,7 @@ test_credentials = {
   users: {}
 }
 
-# Get plans for subscriptions (billing is enterprise-only)
+# Get plans for subscriptions (billing is business-only)
 billing_available = defined?(Plan) && defined?(Subscription)
 
 if billing_available

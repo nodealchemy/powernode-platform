@@ -74,7 +74,7 @@ agents_data = [
         - Backend: Rails 8 API (server/) with JWT auth and UUIDv7 primary keys
         - Frontend: React TypeScript (frontend/) with Tailwind CSS and theme-aware classes
         - Worker: Standalone Sidekiq process (worker/) communicating via HTTP API only
-        - Enterprise: Git submodule (enterprise/) for billing, BaaS, reseller, AI publisher
+        - Business: Git submodule (business/) for billing, BaaS, reseller, AI publisher
         - Database: PostgreSQL with native UUID schema and pgvector extensions
 
         RESPONSIBILITIES:
@@ -183,11 +183,11 @@ agents_data = [
         - Verify theme class usage — no hardcoded colors
         - Check import paths use @ aliases for cross-feature imports
 
-        ENTERPRISE AWARENESS:
-        - Enterprise features use @enterprise/ path alias
-        - Gate enterprise UI with __ENTERPRISE__ build flag
-        - Navigation items: enterpriseOnly: true for enterprise features
-        - Core mode: All features unlocked when enterprise submodule absent
+        BUSINESS AWARENESS:
+        - Business features use @business/ path alias
+        - Gate business UI with __BUSINESS__ build flag
+        - Navigation items: businessOnly: true for business features
+        - Core mode: All features unlocked when business submodule absent
 
         ## MCP Platform Tools Available
         You have access to 44 MCP platform tools for direct platform interaction:
@@ -601,7 +601,7 @@ agents_data = [
         - Backend: Rails 8 API with namespaced services (Ai::*, Shared::*, Devops::*)
         - Frontend: React TypeScript with @/shared/ and @/features/ imports
         - Worker: Standalone Sidekiq process communicating via HTTP API
-        - Enterprise: Git submodule at extensions/enterprise/
+        - Business: Git submodule at extensions/business/
 
         ## MCP Platform Tools Available
         - Knowledge Graph: search_knowledge_graph, extract_to_knowledge_graph, get_graph_node
@@ -963,7 +963,7 @@ memory_pool = Ai::MemoryPool.find_or_create_by!(
         'backend' => 'Rails 8 API, PostgreSQL, UUIDv7, JWT auth',
         'frontend' => 'React 18, TypeScript, Tailwind CSS, Lucide icons',
         'worker' => 'Standalone Sidekiq, HTTP API communication',
-        'enterprise' => 'Git submodule, billing, BaaS, reseller, AI publisher',
+        'business' => 'Git submodule, billing, BaaS, reseller, AI publisher',
         'infrastructure' => 'Systemd services, Docker Swarm, Redis'
       },
       'conventions' => {
@@ -985,7 +985,7 @@ memory_pool = Ai::MemoryPool.find_or_create_by!(
           'Permission-based access: permissions.includes() — never roles',
           'Actions in PageContainer headerActions — never in page body',
           'Global notifications only — no local success/error state',
-          'Path aliases: @/shared/, @/features/, @enterprise/',
+          'Path aliases: @/shared/, @/features/, @business/',
           'No console.log — use logger from @/shared/utils/logger',
           'No any types — proper TypeScript typing required',
           'Lucide-react for all icons',
@@ -1180,7 +1180,7 @@ platform_skill_assignments = {
   ],
   'Knowledge Graph Curator' => %w[
     knowledge-system-curator data skill-management
-    enterprise-search
+    business-search
   ],
   'Powernode Assistant' => %w[
     productivity knowledge-system-curator skill-management
@@ -1196,7 +1196,7 @@ platform_skill_assignments = {
   ],
   'Claude Research Analyst' => %w[
     technical-researcher data knowledge-system-curator
-    enterprise-search user-research
+    business-search user-research
   ],
   'Legal & Compliance Analyst' => %w[
     legal compliance-review security-audit
@@ -1208,7 +1208,7 @@ platform_skill_assignments = {
     finance data compliance-review
   ],
   'Sales Operations Specialist' => %w[
-    sales marketing enterprise-search
+    sales marketing business-search
   ],
   'Customer Success Agent' => %w[
     customer-support knowledge-system-curator productivity

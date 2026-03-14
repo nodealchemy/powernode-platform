@@ -258,7 +258,7 @@ onboarding_workflow = Ai::Workflow.find_or_create_by!(
       'customer_name' => { 'type' => 'string', 'description' => 'Name of the new customer' },
       'customer_email' => { 'type' => 'string', 'format' => 'email', 'description' => 'Customer email address' },
       'company' => { 'type' => 'string', 'description' => 'Company name' },
-      'plan' => { 'type' => 'string', 'enum' => %w[starter professional enterprise], 'description' => 'Selected subscription plan' }
+      'plan' => { 'type' => 'string', 'enum' => %w[starter professional business], 'description' => 'Selected subscription plan' }
     },
     'required' => %w[customer_name customer_email company plan]
   }
@@ -287,7 +287,7 @@ onboarding_nodes = [
   { id: 'validate', type: 'validator', name: 'Validate Customer Data', x: 400, y: 170,
     config: { 'rules' => [ { 'field' => 'email', 'rule' => 'required|email' }, { 'field' => 'company', 'rule' => 'required' } ] } },
   { id: 'check_tier', type: 'condition', name: 'Check Account Tier', x: 400, y: 290,
-    config: { 'conditions' => [ { 'field' => 'plan', 'operator' => '==', 'value' => 'enterprise' } ] } },
+    config: { 'conditions' => [ { 'field' => 'plan', 'operator' => '==', 'value' => 'business' } ] } },
   # Condition branches: False=left, True=right
   { id: 'auto_approve', type: 'transform', name: 'Auto-Approve Standard', x: 200, y: 410,
     config: { 'operation' => 'set', 'fields' => { 'approval_status' => 'approved', 'approved_by' => 'system' } } },
@@ -319,7 +319,7 @@ onboarding_nodes.each do |n|
 end
 
 # Create edges with proper handle IDs and edge_type
-# Condition: is_enterprise? True (right) -> approval, False (left) -> auto_approve
+# Condition: is_business? True (right) -> approval, False (left) -> auto_approve
 onboarding_edges = [
   { source: 'trigger', target: 'validate', source_handle: 'output', target_handle: 'input', edge_type: 'default' },
   { source: 'validate', target: 'check_tier', source_handle: 'output', target_handle: 'input', edge_type: 'default' },

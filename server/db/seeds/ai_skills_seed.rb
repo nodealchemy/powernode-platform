@@ -97,7 +97,7 @@ MCP_SERVER_DEFS.each do |name, defn|
   server.save!
   mcp_servers[name.downcase] = server
 
-  # Link to Mcp::HostedServer + ContainerTemplate if template exists (enterprise only)
+  # Link to Mcp::HostedServer + ContainerTemplate if template exists (business only)
   next unless defn[:tpl]
   next unless defined?(Mcp::HostedServer)
 
@@ -360,12 +360,12 @@ skills_data = [
     tags: ["sql", "analytics", "visualization", "dashboards"]
   },
   {
-    name: "Enterprise Search",
-    slug: "enterprise-search",
-    category: "enterprise_search",
+    name: "Business Search",
+    slug: "business-search",
+    category: "business_search",
     description: "Search across company knowledge, find domain experts, and summarize topics from multiple sources.",
     system_prompt: <<~PROMPT,
-      You are an enterprise search specialist. Help teams find information by:
+      You are a business search specialist. Help teams find information by:
       - Searching across all company knowledge bases and tools
       - Finding subject matter experts for specific topics
       - Summarizing information from multiple sources
@@ -437,7 +437,7 @@ skills_data = [
     name: "Powernode Development",
     slug: "powernode-dev",
     category: "code_intelligence",
-    description: "Powernode platform development patterns: Rails 8 API backend, React TypeScript frontend, Sidekiq worker, enterprise extensions. Covers coding conventions, architecture rules, and MCP-first workflow.",
+    description: "Powernode platform development patterns: Rails 8 API backend, React TypeScript frontend, Sidekiq worker, business extensions. Covers coding conventions, architecture rules, and MCP-first workflow.",
     system_prompt: <<~PROMPT,
       You are a Powernode platform development specialist. Follow these mandatory patterns:
 
@@ -445,7 +445,7 @@ skills_data = [
       - Backend: Rails 8 API (server/), JWT auth, UUIDv7 primary keys, PostgreSQL
       - Frontend: React TypeScript (frontend/), Tailwind CSS with theme classes
       - Worker: Sidekiq standalone (worker/), HTTP-only communication with server
-      - Enterprise: Git submodule (extensions/enterprise/), separate repo and commits
+      - Business: Git submodule (extensions/business/), separate repo and commits
 
       ## Backend Rules
       - Controllers: Api::V1 namespace, inherit ApplicationController, max 300 lines
@@ -516,16 +516,16 @@ skills_data = [
       - platform.trigger_pipeline / list_pipelines / get_pipeline_status
       - platform.create_gitea_repository / dispatch_to_runner
 
-      ## Enterprise Feature Gating
-      - Backend: Shared::FeatureGateService.enterprise_loaded?
-      - Frontend: __ENTERPRISE__ build flag, enterpriseOnly: true on nav items
-      - Core mode: Enterprise absent = single-account, multiple-users self-hosted, all features unlocked
+      ## Business Feature Gating
+      - Backend: Shared::FeatureGateService.business_loaded?
+      - Frontend: __BUSINESS__ build flag, businessOnly: true on nav items
+      - Core mode: Business absent = single-account, multiple-users self-hosted, all features unlocked
 
       ## Git & Commit Rules
       - Branch strategy: develop → feature/* → release/* → master
       - Tag naming: NO "v" prefix (use 0.2.0 not v0.2.0)
       - Staged commits: Group by concern (models, services, controllers, frontend, tests, config)
-      - Submodule: Commit inside extensions/enterprise/ first, then update pointer in parent
+      - Submodule: Commit inside extensions/business/ first, then update pointer in parent
     PROMPT
     commands: [
       { "name" => "check-patterns", "description" => "Verify code against Powernode conventions", "argument_hint" => "<file or directory>",
@@ -536,7 +536,7 @@ skills_data = [
         "workflow_steps" => ["Query MCP for known issues", "Scan files for violations", "Check sizes", "Report findings"] }
     ],
     connectors: ["powernode mcp"],
-    tags: ["rails", "react", "typescript", "sidekiq", "enterprise", "mcp", "powernode"]
+    tags: ["rails", "react", "typescript", "sidekiq", "business", "mcp", "powernode"]
   },
   {
     name: "SRE & Incident Response",

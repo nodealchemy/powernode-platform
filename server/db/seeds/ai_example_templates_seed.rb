@@ -1368,7 +1368,7 @@ skills_data = [
   {
     name: 'Security Audit',
     description: 'Perform security audits covering OWASP Top 10, dependency vulnerabilities, authentication flows, and data protection compliance.',
-    category: 'enterprise_search',
+    category: 'business_search',
     system_prompt: 'Conduct thorough security audits identifying vulnerabilities, misconfigurations, and compliance gaps.',
     commands: [
       { 'name' => 'audit_code', 'description' => 'Audit code for security vulnerabilities', 'parameters' => %w[code language framework] },

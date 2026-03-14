@@ -63,7 +63,7 @@ Search Options:
 
   Filters:
     Status: [active, trial, past_due, cancelled, churned]
-    Plan: [free, basic, professional, enterprise]
+    Plan: [free, basic, professional, business]
     MRR Range: Min - Max
     Joined: Date range
     Last Active: Date range
