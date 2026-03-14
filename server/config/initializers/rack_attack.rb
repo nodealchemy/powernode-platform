@@ -344,7 +344,7 @@ class Rack::Attack
       tier: tier.to_s,
       tier_name: tier_config[:name],
       retry_after: match_data[:period],
-      upgrade_available: tier != :enterprise && tier != :unlimited
+      upgrade_available: tier != :business && tier != :unlimited
     }.to_json
 
     [ 429, headers, [ body ] ]

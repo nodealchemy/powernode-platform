@@ -9,7 +9,7 @@ module Ai
     # ==========================================
     CATEGORIES = %w[
       productivity sales customer_support product_management marketing
-      legal finance data enterprise_search bio_research skill_management
+      legal finance data business_search bio_research skill_management
       code_intelligence testing_qa devops security sre_observability
       database_ops release_management research documentation
     ].freeze

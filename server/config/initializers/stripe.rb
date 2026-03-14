@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Stripe configuration — only when enterprise extension provides the gem
+# Stripe configuration — only when business extension provides the gem
 Rails.application.configure do
   # Set API keys from environment variables
   config.stripe = {

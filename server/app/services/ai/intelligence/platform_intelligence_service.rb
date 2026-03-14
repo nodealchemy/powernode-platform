@@ -9,7 +9,7 @@ module Ai
 
       # Detect anomalous BaaS usage patterns
       def usage_anomalies(tenant_id: nil)
-        return success_response(anomalies: [], analyzed_at: Time.current.iso8601, status: :enterprise_required) unless defined?(PowernodeEnterprise::Engine)
+        return success_response(anomalies: [], analyzed_at: Time.current.iso8601, status: :business_required) unless defined?(PowernodeBusiness::Engine)
 
         scope = BaaS::UsageRecord.joins(:baas_tenant).where(baas_tenants: { account_id: @account.id })
         scope = scope.where(baas_tenant_id: tenant_id) if tenant_id.present?
@@ -27,7 +27,7 @@ module Ai
 
       # Predict tenant churn from usage metrics
       def tenant_churn_prediction
-        return success_response(predictions: [], high_risk_count: 0, analyzed_at: Time.current.iso8601, status: :enterprise_required) unless defined?(PowernodeEnterprise::Engine)
+        return success_response(predictions: [], high_risk_count: 0, analyzed_at: Time.current.iso8601, status: :business_required) unless defined?(PowernodeBusiness::Engine)
 
         tenants = BaaS::Tenant.where(account_id: @account.id).active
         predictions = tenants.map { |t| predict_tenant_churn(t) }.compact
@@ -44,7 +44,7 @@ module Ai
 
       # Dynamic pricing recommendations
       def pricing_recommendations
-        return success_response(recommendations: [], analyzed_at: Time.current.iso8601, status: :enterprise_required) unless defined?(PowernodeEnterprise::Engine)
+        return success_response(recommendations: [], analyzed_at: Time.current.iso8601, status: :business_required) unless defined?(PowernodeBusiness::Engine)
 
         subscriptions = BaaS::Subscription.joins(:baas_tenant)
                                           .where(baas_tenants: { account_id: @account.id })
@@ -58,7 +58,7 @@ module Ai
 
       # Detect API key fraud patterns
       def api_fraud_detection
-        return success_response(suspicious_keys: [], total_analyzed: 0, analyzed_at: Time.current.iso8601, status: :enterprise_required) unless defined?(PowernodeEnterprise::Engine)
+        return success_response(suspicious_keys: [], total_analyzed: 0, analyzed_at: Time.current.iso8601, status: :business_required) unless defined?(PowernodeBusiness::Engine)
 
         keys = BaaS::ApiKey.joins(:baas_tenant)
                            .where(baas_tenants: { account_id: @account.id })
@@ -80,7 +80,7 @@ module Ai
 
       # Score resellers based on referral volume, commission earnings, payout history
       def performance_scores
-        return success_response(scores: [], total_resellers: 0, top_performers: [], analyzed_at: Time.current.iso8601, status: :enterprise_required) unless defined?(PowernodeEnterprise::Engine)
+        return success_response(scores: [], total_resellers: 0, top_performers: [], analyzed_at: Time.current.iso8601, status: :business_required) unless defined?(PowernodeBusiness::Engine)
 
         resellers = Reseller.where(account_id: @account.id).active
         scores = resellers.map { |r| score_reseller(r) }.sort_by { |s| -s[:score] }
@@ -97,7 +97,7 @@ module Ai
 
       # Analyze commission rates vs performance, recommend adjustments
       def commission_optimization
-        return success_response(recommendations: [], total_analyzed: 0, analyzed_at: Time.current.iso8601, status: :enterprise_required) unless defined?(PowernodeEnterprise::Engine)
+        return success_response(recommendations: [], total_analyzed: 0, analyzed_at: Time.current.iso8601, status: :business_required) unless defined?(PowernodeBusiness::Engine)
 
         resellers = Reseller.where(account_id: @account.id).active.includes(:commissions)
         recommendations = resellers.filter_map { |r| analyze_commission(r) }
@@ -113,7 +113,7 @@ module Ai
 
       # Check referred accounts for churn signals
       def referral_churn_risks
-        return success_response(risks: [], total_referrals: 0, high_risk_count: 0, analyzed_at: Time.current.iso8601, status: :enterprise_required) unless defined?(PowernodeEnterprise::Engine)
+        return success_response(risks: [], total_referrals: 0, high_risk_count: 0, analyzed_at: Time.current.iso8601, status: :business_required) unless defined?(PowernodeBusiness::Engine)
 
         referrals = ResellerReferral.joins(:reseller)
                                     .where(resellers: { account_id: @account.id })

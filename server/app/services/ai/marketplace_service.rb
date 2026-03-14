@@ -15,7 +15,7 @@ module Ai
 
     # Publisher Management
     def create_publisher(name:, user:, description: nil, website_url: nil, support_email: nil)
-      return { error: "Enterprise feature required" } unless defined?(PowernodeEnterprise::Engine)
+      return { error: "Business feature required" } unless defined?(PowernodeBusiness::Engine)
 
       Ai::PublisherAccount.create!(
         account: account,
@@ -30,7 +30,7 @@ module Ai
     end
 
     def get_publisher
-      return nil unless defined?(PowernodeEnterprise::Engine)
+      return nil unless defined?(PowernodeBusiness::Engine)
 
       Ai::PublisherAccount.find_by(account: account)
     end
@@ -141,7 +141,7 @@ module Ai
 
     # Categories (cached for 1 hour)
     def list_categories
-      return [] unless defined?(PowernodeEnterprise::Engine)
+      return [] unless defined?(PowernodeBusiness::Engine)
 
       cache_key = "ai:marketplace:categories"
 
@@ -171,7 +171,7 @@ module Ai
     PUBLISHER_ANALYTICS_CACHE_TTL = 1.hour
 
     def publisher_analytics(publisher, start_date: 30.days.ago, end_date: Time.current)
-      return {} unless defined?(PowernodeEnterprise::Engine)
+      return {} unless defined?(PowernodeBusiness::Engine)
 
       # Cache key includes date range for different queries
       cache_key = "ai:marketplace:publisher_analytics:#{publisher.id}:#{start_date.to_i}:#{end_date.to_i}"
@@ -199,7 +199,7 @@ module Ai
     private
 
     def process_template_payment(template)
-      return { success: false, error: "Enterprise feature required" } unless defined?(PowernodeEnterprise::Engine)
+      return { success: false, error: "Business feature required" } unless defined?(PowernodeBusiness::Engine)
 
       # Create transaction record
       publisher = template.publisher

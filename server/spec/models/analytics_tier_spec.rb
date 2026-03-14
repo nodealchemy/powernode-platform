@@ -9,7 +9,7 @@ RSpec.describe AnalyticsTier, type: :model do
     it { should validate_presence_of(:name) }
     it { should validate_length_of(:name).is_at_least(2).is_at_most(50) }
     it { should validate_presence_of(:slug) }
-    it { should validate_inclusion_of(:slug).in_array(%w[free starter pro enterprise]) }
+    it { should validate_inclusion_of(:slug).in_array(%w[free starter pro business]) }
     it { should validate_numericality_of(:monthly_price).is_greater_than_or_equal_to(0) }
     it { should validate_numericality_of(:retention_days).is_greater_than_or_equal_to(-1) }
     it { should validate_numericality_of(:cohort_months).is_greater_than_or_equal_to(-1) }
@@ -36,7 +36,7 @@ RSpec.describe AnalyticsTier, type: :model do
 
     describe '.ordered' do
       let!(:tier_high) { create(:analytics_tier, :pro, sort_order: 10) }
-      let!(:tier_low) { create(:analytics_tier, :enterprise, sort_order: 1) }
+      let!(:tier_low) { create(:analytics_tier, :business, sort_order: 1) }
 
       it 'returns tiers ordered by sort_order ascending' do
         ordered = AnalyticsTier.ordered
@@ -50,7 +50,7 @@ RSpec.describe AnalyticsTier, type: :model do
       create(:analytics_tier, :free)
       create(:analytics_tier, :starter)
       create(:analytics_tier, :pro)
-      create(:analytics_tier, :enterprise)
+      create(:analytics_tier, :business)
     end
 
     describe '.free' do
@@ -71,9 +71,9 @@ RSpec.describe AnalyticsTier, type: :model do
       end
     end
 
-    describe '.enterprise' do
+    describe '.business' do
       it 'returns the enterprise tier' do
-        expect(AnalyticsTier.enterprise.slug).to eq('enterprise')
+        expect(AnalyticsTier.business.slug).to eq('business')
       end
     end
 

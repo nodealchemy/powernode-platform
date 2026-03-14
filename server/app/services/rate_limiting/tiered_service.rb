@@ -44,8 +44,8 @@ module RateLimiting
         file_uploads_per_hour: 500,
         burst_allowance: 1.5
       },
-      enterprise: {
-        name: "Enterprise",
+      business: {
+        name: "Business",
         api_requests_per_minute: 1000,
         api_requests_per_hour: 50_000,
         authenticated_requests_per_minute: 2000,
@@ -423,7 +423,7 @@ module RateLimiting
         plan_name = plan.name.to_s.downcase
         case plan_name
         when /enterprise/, /business/
-          :enterprise
+          :business
         when /professional/, /pro/
           :professional
         when /starter/, /basic/
@@ -442,7 +442,7 @@ module RateLimiting
         max_api_keys = limits["max_api_keys"].to_i
 
         if max_users >= 100 || max_api_keys >= 50
-          :enterprise
+          :business
         elsif max_users >= 25 || max_api_keys >= 20
           :professional
         elsif max_users >= 5 || max_api_keys >= 10

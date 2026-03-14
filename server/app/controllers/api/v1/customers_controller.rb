@@ -56,7 +56,7 @@ class Api::V1::CustomersController < ApplicationController
       # Create account
       @account = Account.create!(account_data.merge(status: "active"))
 
-      # Create subscription if plan provided (enterprise billing only)
+      # Create subscription if plan provided (business billing only)
       if plan_id.present? && Shared::FeatureGateService.billing_enabled?
         plan = Billing::Plan.find(plan_id)
         @subscription = Billing::Subscription.create!(

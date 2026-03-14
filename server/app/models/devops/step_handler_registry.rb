@@ -4,7 +4,7 @@ module Devops
   # Registry for extension-provided pipeline step handlers.
   # Core step types are defined in PipelineStep::STEP_TYPES and resolved
   # by PipelineStep#handler_class directly. This registry allows extensions
-  # (e.g., enterprise) to register additional step types at boot time.
+  # (e.g., business) to register additional step types at boot time.
   class StepHandlerRegistry
     class << self
       def register(step_type, handler_class)

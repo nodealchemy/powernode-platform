@@ -36,7 +36,7 @@ Rails.application.routes.draw do
 
   # API Routes
   namespace :api do
-    # BaaS API routes are in enterprise/server/config/routes.rb (enterprise only)
+    # BaaS API routes are in business/server/config/routes.rb (business only)
 
     namespace :v1 do
       # A2A JSON-RPC 2.0 protocol endpoint
@@ -288,7 +288,7 @@ Rails.application.routes.draw do
           end
         end
 
-        # Internal subscriptions for worker dunning (enterprise only, see enterprise routes)
+        # Internal subscriptions for worker dunning (business only, see business routes)
 
         # Email sending for worker notifications
         namespace :emails do
@@ -354,7 +354,7 @@ Rails.application.routes.draw do
           end
         end
 
-        # Billing endpoints for worker service (enterprise only, see enterprise routes)
+        # Billing endpoints for worker service (business only, see business routes)
 
         # Internal AI endpoints (for worker service)
         namespace :ai do
@@ -771,7 +771,7 @@ Rails.application.routes.draw do
       end
       resources :permissions, only: [ :index, :show ]
 
-      # Plans management is in enterprise/server/config/routes.rb
+      # Plans management is in business/server/config/routes.rb
 
       # Site settings management (admin only)
       resources :site_settings do
@@ -802,7 +802,7 @@ Rails.application.routes.draw do
         get :extensions, on: :member
         put "extensions/:slug/toggle", on: :member, action: :toggle_extension
 
-        # Development / enterprise toggle
+        # Development / business toggle
         get :development, on: :member
         put :development, on: :member, action: :update_development
 
@@ -984,7 +984,7 @@ Rails.application.routes.draw do
         end
       end
 
-      # Billing routes are in enterprise/server/config/routes.rb (enterprise only)
+      # Billing routes are in business/server/config/routes.rb (business only)
 
       # Analytics endpoints
       namespace :analytics do
@@ -1002,7 +1002,7 @@ Rails.application.routes.draw do
         post :update_metrics
       end
 
-      # Analytics tiers are in enterprise/server/config/routes.rb
+      # Analytics tiers are in business/server/config/routes.rb
 
       # Usage tracking endpoints
       resources :usage, only: [] do
@@ -1025,11 +1025,11 @@ Rails.application.routes.draw do
       end
       post "usage_events", to: "usage#track_event"
 
-      # Predictive analytics, reseller routes are in enterprise/server/config/routes.rb
+      # Predictive analytics, reseller routes are in business/server/config/routes.rb
 
-      # Payment reconciliation is in enterprise/server/config/routes.rb
+      # Payment reconciliation is in business/server/config/routes.rb
 
-      # Webhook endpoints (billing webhooks are in enterprise routes)
+      # Webhook endpoints (billing webhooks are in business routes)
       namespace :webhooks do
         # Git webhook receiver (core)
         post "git/:provider_type", to: "git#handle"
@@ -1088,9 +1088,9 @@ Rails.application.routes.draw do
       # Pages management
       resources :pages, only: [ :index, :show ], param: :slug
 
-      # Impersonation routes are in enterprise/server/config/routes.rb
+      # Impersonation routes are in business/server/config/routes.rb
 
-      # Marketplace routes are in enterprise/server/config/routes.rb
+      # Marketplace routes are in business/server/config/routes.rb
 
       # System Management endpoints (admin only)
       resources :audit_logs, only: [ :index, :show, :create ] do
@@ -1837,9 +1837,9 @@ Rails.application.routes.draw do
           get :health_distribution
         end
 
-        # Marketplace routes (8) are in enterprise/server/config/routes.rb
+        # Marketplace routes (8) are in business/server/config/routes.rb
 
-        # Publisher routes are in enterprise/server/config/routes.rb
+        # Publisher routes are in business/server/config/routes.rb
 
         # ===================================================================
         # 9. PERSISTENT CONTEXT CONTROLLER - Cross-session AI memory
@@ -2016,7 +2016,7 @@ Rails.application.routes.draw do
         # Revenue: Tiered subscriptions + agent seat pricing
         # - Starter: 3 agents, 1 team ($49/mo)
         # - Pro: 10 agents, 5 teams, advanced patterns ($199/mo)
-        # - Enterprise: Unlimited + custom topologies ($999/mo)
+        # - Business: Unlimited + custom topologies ($999/mo)
         # ===================================================================
         # Team channel messages (chat integration)
         get "/channels", to: "team_channel_messages#my_channels"
@@ -2511,20 +2511,20 @@ Rails.application.routes.draw do
           get "optimization_score", action: :optimization_score
         end
 
-        # Credits and outcome billing routes are in enterprise/server/config/routes.rb
+        # Credits and outcome billing routes are in business/server/config/routes.rb
 
-        # Agent marketplace routes (17) are in enterprise/server/config/routes.rb
+        # Agent marketplace routes (17) are in business/server/config/routes.rb
 
-        # Governance routes are in enterprise/server/config/routes.rb
+        # Governance routes are in business/server/config/routes.rb
 
         # ===================================================================
         # 19. DEVOPS CONTROLLER - AI Pipeline Templates for DevOps
         # ===================================================================
-        # Revenue: Template marketplace + enterprise customization
+        # Revenue: Template marketplace + business customization
         # - Community templates: free
         # - Premium templates: $29-99 one-time
         # - Custom template development: $2,000-10,000
-        # - Enterprise template library: $199/mo
+        # - Business template library: $199/mo
         # ===================================================================
         scope :devops do
           # Templates & installations → DevopsController
@@ -2559,13 +2559,13 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
-        # 20. SANDBOXES CONTROLLER - Enterprise AI Agent Testing
+        # 20. SANDBOXES CONTROLLER - Business AI Agent Testing
         # ===================================================================
         # Revenue: Sandbox environments + testing infrastructure
         # - Basic sandbox: included
         # - Advanced testing: $99/mo (recording, playback)
         # - Performance profiling: $199/mo
-        # - Enterprise (dedicated environments): $499/mo
+        # - Business (dedicated environments): $499/mo
         # ===================================================================
         resources :sandboxes, controller: "sandboxes" do
           member do
@@ -2786,7 +2786,7 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
-        # 24. INTELLIGENCE - Moved to enterprise/server/config/routes.rb
+        # 24. INTELLIGENCE - Moved to business/server/config/routes.rb
         # ===================================================================
 
         # ===================================================================
@@ -2880,7 +2880,7 @@ Rails.application.routes.draw do
         end
       end
 
-      # MCP hosting routes are in enterprise/server/config/routes.rb
+      # MCP hosting routes are in business/server/config/routes.rb
       namespace :mcp do
         # MCP Streamable HTTP endpoint for external MCP clients (e.g., Claude Code)
         post "message", to: "streamable_http#message"

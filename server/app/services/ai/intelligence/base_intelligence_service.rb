@@ -55,7 +55,7 @@ module Ai
       end
 
       def audit_action(action, resource_type, resource_id = nil, context: {})
-        return unless defined?(PowernodeEnterprise::Engine)
+        return unless defined?(PowernodeBusiness::Engine)
 
         attrs = {
           account: @account,

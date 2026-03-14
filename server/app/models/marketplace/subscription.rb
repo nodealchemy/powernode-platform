@@ -13,7 +13,7 @@ module Marketplace
     # Validations
     validates :status, presence: true, inclusion: { in: %w[active paused cancelled expired] }
     validates :subscribed_at, presence: true
-    validates :tier, inclusion: { in: %w[free standard premium enterprise] }, allow_nil: true
+    validates :tier, inclusion: { in: %w[free standard premium business] }, allow_nil: true
     validate :validate_subscribable
 
     # JSON attributes
@@ -175,7 +175,7 @@ module Marketplace
 
     # Tier management
     def upgrade_tier!(new_tier)
-      return false unless %w[free standard premium enterprise].include?(new_tier)
+      return false unless %w[free standard premium business].include?(new_tier)
       return false unless active?
 
       old_tier = tier

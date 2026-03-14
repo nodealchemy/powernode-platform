@@ -258,8 +258,8 @@ RSpec.describe WebhookEndpoint, type: :model do
         expect(endpoint.tier_daily_limit).to eq(10_000)
       end
 
-      it 'returns infinity for enterprise tier' do
-        endpoint[:tier] = 'enterprise'
+      it 'returns infinity for business tier' do
+        endpoint[:tier] = 'business'
         expect(endpoint.tier_daily_limit).to eq(Float::INFINITY)
       end
     end

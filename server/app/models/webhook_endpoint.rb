@@ -242,7 +242,7 @@ class WebhookEndpoint < ApplicationRecord
   TIER_LIMITS = {
     "free" => 100,
     "pro" => 10_000,
-    "enterprise" => Float::INFINITY
+    "business" => Float::INFINITY
   }.freeze
 
   def tier
@@ -254,7 +254,7 @@ class WebhookEndpoint < ApplicationRecord
   end
 
   def rate_limited?
-    return false if tier == "enterprise"
+    return false if tier == "business"
 
     daily_count >= tier_daily_limit
   end
@@ -292,7 +292,7 @@ class WebhookEndpoint < ApplicationRecord
   end
 
   def remaining_daily_deliveries
-    return Float::INFINITY if tier == "enterprise"
+    return Float::INFINITY if tier == "business"
 
     [ tier_daily_limit - daily_count, 0 ].max
   end

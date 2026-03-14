@@ -11,8 +11,8 @@ module Ai
     has_many :reviews, class_name: "Ai::AgentReview", foreign_key: :agent_template_id, dependent: :destroy
     has_many :template_usage_metrics, class_name: "Ai::TemplateUsageMetric", foreign_key: "agent_template_id", dependent: :destroy
 
-    # Enterprise associations - marketplace monetization & publishing
-    if Powernode::ExtensionRegistry.loaded?("enterprise")
+    # Business associations - marketplace monetization & publishing
+    if Powernode::ExtensionRegistry.loaded?("business")
       belongs_to :publisher, class_name: "Ai::PublisherAccount", foreign_key: "publisher_id", optional: true
       has_many :marketplace_transactions, class_name: "Ai::MarketplaceTransaction", foreign_key: "agent_template_id"
     end
@@ -23,7 +23,7 @@ module Ai
               format: { with: /\A[a-z0-9-]+\z/, message: "only allows lowercase letters, numbers, and hyphens" }
     validates :version, presence: true
     validates :status, presence: true, inclusion: { in: %w[draft pending_review published rejected archived suspended] }
-    validates :visibility, presence: true, inclusion: { in: %w[private unlisted public enterprise] }
+    validates :visibility, presence: true, inclusion: { in: %w[private unlisted public business] }
     validates :pricing_type, presence: true, inclusion: { in: %w[free one_time subscription usage_based freemium] }
     validates :price_usd, numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
     validates :monthly_price_usd, numericality: { greater_than_or_equal_to: 0 }, allow_nil: true

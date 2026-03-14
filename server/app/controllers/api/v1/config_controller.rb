@@ -65,7 +65,7 @@ module Api
           features: {
             core_mode: Powernode::ExtensionRegistry.slugs.empty?,
             loaded_extensions: Shared::FeatureGateService.loaded_extensions,
-            registration_enabled: Powernode::ExtensionRegistry.loaded?("enterprise") && registration_enabled?,
+            registration_enabled: Powernode::ExtensionRegistry.loaded?("business") && registration_enabled?,
             email_verification_required: email_verification_required?,
             multi_tenancy_enabled: multi_tenancy_enabled?
           },

@@ -14,7 +14,7 @@ module Ai
 
     # Validations
     validates :status, presence: true, inclusion: { in: %w[active paused expired cancelled pending_update] }
-    validates :license_type, presence: true, inclusion: { in: %w[standard enterprise trial] }
+    validates :license_type, presence: true, inclusion: { in: %w[standard business trial] }
     validates :account_id, uniqueness: { scope: :agent_template_id, message: "already has this template installed" }
 
     # Scopes

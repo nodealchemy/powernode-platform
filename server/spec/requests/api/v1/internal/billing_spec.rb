@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Internal::Billing', type: :request do
   before do
-    skip 'Enterprise billing module not loaded' unless defined?(Billing::Subscription)
+    skip 'Business billing module not loaded' unless defined?(Billing::Subscription)
   end
 
   let(:account) { create(:account) }

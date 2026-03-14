@@ -8,7 +8,7 @@ module Ai
 
       # Analyze revenue data and generate actionable insights
       def generate_insights(period_days: 30)
-        return success_response(insights: [], status: :enterprise_required) unless defined?(PowernodeEnterprise::Engine)
+        return success_response(insights: [], status: :business_required) unless defined?(PowernodeBusiness::Engine)
 
         cutoff_date = period_days.days.ago.to_date
         snapshots = revenue_snapshots.where("snapshot_date >= ?", cutoff_date).order(:snapshot_date)
@@ -36,7 +36,7 @@ module Ai
 
       # Aggregate churn predictions into risk report with cohorts
       def churn_risk_report
-        return success_response(total_predictions: 0, risk_tier_distribution: {}, status: :enterprise_required) unless defined?(PowernodeEnterprise::Engine)
+        return success_response(total_predictions: 0, risk_tier_distribution: {}, status: :business_required) unless defined?(PowernodeBusiness::Engine)
 
         predictions = ChurnPrediction.where(account: @account).recent.limit(1000)
         return error_hash("No churn predictions available") if predictions.empty?
@@ -74,7 +74,7 @@ module Ai
 
       # Compare forecasts vs actuals and identify drift
       def forecast_accuracy_analysis
-        return success_response(total_evaluated: 0, historical_accuracy: [], status: :enterprise_required) unless defined?(PowernodeEnterprise::Engine)
+        return success_response(total_evaluated: 0, historical_accuracy: [], status: :business_required) unless defined?(PowernodeBusiness::Engine)
 
         forecasts = RevenueForecast.where(account: @account).where.not(actual_mrr: nil).order(forecast_date: :asc)
         return error_hash("No forecasts with actual data available for accuracy analysis") if forecasts.empty?
@@ -106,7 +106,7 @@ module Ai
 
       # Customer health score distribution with trend analysis
       def health_score_distribution
-        return success_response(total_accounts: 0, status_distribution: {}, status: :enterprise_required) unless defined?(PowernodeEnterprise::Engine)
+        return success_response(total_accounts: 0, status_distribution: {}, status: :business_required) unless defined?(PowernodeBusiness::Engine)
 
         scores = CustomerHealthScore.where(account: @account).recent
         return error_hash("No customer health scores available") if scores.empty?
@@ -138,7 +138,7 @@ module Ai
 
       # Recommend retention actions for a specific account
       def intervention_recommendations(account_id:)
-        return success_response(recommendations: [], status: :enterprise_required) unless defined?(PowernodeEnterprise::Engine)
+        return success_response(recommendations: [], status: :business_required) unless defined?(PowernodeBusiness::Engine)
 
         target = Account.find_by(id: account_id)
         return error_hash("Account not found: #{account_id}") unless target

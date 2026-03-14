@@ -20,14 +20,14 @@ class Api::V1::AnalyticsController < ApplicationController
       return
     end
 
-    unless Powernode::ExtensionRegistry.loaded?("enterprise")
+    unless Powernode::ExtensionRegistry.loaded?("business")
       data = {
         current_metrics: { mrr: 0, arr: 0, active_customers: 0, churn_rate: 0, arpu: 0, growth_rate: 0 },
         today_activity: { new_subscriptions: 0, cancelled_subscriptions: 0, payments_processed: 0, failed_payments: 0, revenue_today: 0 },
         weekly_trend: [],
         last_updated: Time.current.iso8601,
         account_id: @account_scope&.id,
-        status: :enterprise_required
+        status: :business_required
       }
       render_success(data)
       return
@@ -86,12 +86,12 @@ class Api::V1::AnalyticsController < ApplicationController
   # GET /api/v1/analytics/revenue
   # Returns MRR/ARR overview with historical data
   def revenue
-    unless Powernode::ExtensionRegistry.loaded?("enterprise")
+    unless Powernode::ExtensionRegistry.loaded?("business")
       return render_success({
         current_metrics: { mrr: 0, arr: 0, active_subscriptions: 0, total_customers: 0, arpu: 0, growth_rate: 0 },
         historical_data: [],
         period: { start_date: @start_date, end_date: @end_date },
-        status: :enterprise_required
+        status: :business_required
       })
     end
 
@@ -155,13 +155,13 @@ class Api::V1::AnalyticsController < ApplicationController
   # GET /api/v1/analytics/growth
   # Returns growth metrics and forecasting
   def growth
-    unless Powernode::ExtensionRegistry.loaded?("enterprise")
+    unless Powernode::ExtensionRegistry.loaded?("business")
       return render_success({
         compound_monthly_growth_rate: 0,
         monthly_growth_data: [],
         forecasting: { next_month_projection: 0, confidence_interval: "N/A" },
         period: { start_date: @start_date, end_date: @end_date },
-        status: :enterprise_required
+        status: :business_required
       })
     end
 
@@ -240,13 +240,13 @@ class Api::V1::AnalyticsController < ApplicationController
   # GET /api/v1/analytics/churn
   # Returns comprehensive churn analysis
   def churn
-    unless Powernode::ExtensionRegistry.loaded?("enterprise")
+    unless Powernode::ExtensionRegistry.loaded?("business")
       return render_success({
         current_metrics: { customer_churn_rate: 0, average_customer_churn_rate: 0, average_revenue_churn_rate: 0, customer_retention_rate: 100 },
         churn_trend: [],
         insights: { churn_risk_level: "low", recommended_actions: [] },
         period: { start_date: @start_date, end_date: @end_date },
-        status: :enterprise_required
+        status: :business_required
       })
     end
 
@@ -313,11 +313,11 @@ class Api::V1::AnalyticsController < ApplicationController
   # GET /api/v1/analytics/cohorts
   # Returns cohort retention analysis
   def cohorts
-    unless Powernode::ExtensionRegistry.loaded?("enterprise")
+    unless Powernode::ExtensionRegistry.loaded?("business")
       return render_success({
         cohorts: [],
         summary: { total_cohorts: 0, average_first_month_retention: 0, average_six_month_retention: 0 },
-        status: :enterprise_required
+        status: :business_required
       })
     end
 
@@ -408,13 +408,13 @@ class Api::V1::AnalyticsController < ApplicationController
   # GET /api/v1/analytics/customers
   # Returns customer metrics and segmentation
   def customers
-    unless Powernode::ExtensionRegistry.loaded?("enterprise")
+    unless Powernode::ExtensionRegistry.loaded?("business")
       return render_success({
         current_metrics: { total_customers: 0, arpu: 0, ltv: 0, ltv_to_cac_ratio: 0 },
         customer_growth_trend: [],
         segmentation: { by_plan: [], by_tenure: [] },
         period: { start_date: @start_date, end_date: @end_date },
-        status: :enterprise_required
+        status: :business_required
       })
     end
 
@@ -487,8 +487,8 @@ class Api::V1::AnalyticsController < ApplicationController
       return
     end
 
-    unless Powernode::ExtensionRegistry.loaded?("enterprise")
-      return render_error("Analytics export requires enterprise edition", :forbidden)
+    unless Powernode::ExtensionRegistry.loaded?("business")
+      return render_error("Analytics export requires business edition", :forbidden)
     end
 
     analytics_service = Billing::RevenueAnalyticsService.new(

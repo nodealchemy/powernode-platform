@@ -236,7 +236,7 @@ RSpec.describe 'Api::V1::Admin::RateLimiting::RateLimitingController', type: :re
         allow(AuditLog).to receive(:create!).and_return(true)
 
         post "/api/v1/admin/rate_limiting/accounts/#{target_account.id}/override_tier",
-             params: { tier: 'enterprise', duration_hours: 24 }.to_json,
+             params: { tier: 'business', duration_hours: 24 }.to_json,
              headers: headers
 
         expect_success_response
@@ -261,7 +261,7 @@ RSpec.describe 'Api::V1::Admin::RateLimiting::RateLimitingController', type: :re
 
         expect {
           post "/api/v1/admin/rate_limiting/accounts/#{target_account.id}/override_tier",
-               params: { tier: 'enterprise', duration_hours: 24 }.to_json,
+               params: { tier: 'business', duration_hours: 24 }.to_json,
                headers: headers
         }.to change { AuditLog.count }.by(1)
 

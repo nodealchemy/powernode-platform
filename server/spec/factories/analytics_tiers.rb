@@ -3,7 +3,7 @@
 FactoryBot.define do
   factory :analytics_tier do
     sequence(:name) { |n| "Analytics Tier #{n}" }
-    slug { %w[free starter pro enterprise].sample }
+    slug { %w[free starter pro business].sample }
     description { "Test analytics tier for specs" }
     monthly_price { 0.00 }
     retention_days { 30 }
@@ -51,9 +51,9 @@ FactoryBot.define do
       api_calls_per_day { 1000 }
     end
 
-    trait :enterprise do
-      name { "Enterprise" }
-      slug { "enterprise" }
+    trait :business do
+      name { "Business" }
+      slug { "business" }
       monthly_price { 299.00 }
       retention_days { -1 }
       cohort_months { -1 }

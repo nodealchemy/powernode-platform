@@ -124,7 +124,7 @@ RSpec.configure do |config|
             properties: {
               id: { type: :string, format: :uuid },
               name: { type: :string },
-              slug: { type: :string, enum: %w[free starter pro enterprise] },
+              slug: { type: :string, enum: %w[free starter pro business] },
               monthly_price: { type: :number },
               retention_days: { type: :integer },
               cohort_months: { type: :integer },
@@ -141,7 +141,7 @@ RSpec.configure do |config|
               id: { type: :string, format: :uuid },
               url: { type: :string, format: :uri },
               status: { type: :string, enum: %w[active inactive] },
-              tier: { type: :string, enum: %w[free pro enterprise] },
+              tier: { type: :string, enum: %w[free pro business] },
               event_types: { type: :array, items: { type: :string } },
               success_count: { type: :integer },
               failure_count: { type: :integer },

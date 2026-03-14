@@ -130,8 +130,8 @@ FactoryBot.define do
     end
 
     # Common policy configurations
-    trait :enterprise_standard do
-      name { "Enterprise Standard Policy" }
+    trait :business_standard do
+      name { "Business Standard Policy" }
       policy_type { "hybrid" }
       enforcement_level { "block" }
       priority { 5 }

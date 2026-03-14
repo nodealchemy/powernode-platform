@@ -36,8 +36,8 @@ FactoryBot.define do
       tier { "premium" }
     end
 
-    trait :enterprise_tier do
-      tier { "enterprise" }
+    trait :business_tier do
+      tier { "business" }
     end
   end
 end

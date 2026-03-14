@@ -54,7 +54,7 @@ FactoryBot.define do
     end
 
     trait :with_tags do
-      tags { %w[productivity collaboration enterprise] }
+      tags { %w[productivity collaboration business] }
     end
   end
 end

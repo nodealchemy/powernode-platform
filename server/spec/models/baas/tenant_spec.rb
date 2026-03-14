@@ -23,7 +23,7 @@ RSpec.describe BaaS::Tenant, type: :model do
     it { is_expected.to validate_presence_of(:tier) }
     it { is_expected.to validate_presence_of(:environment) }
     it { is_expected.to validate_inclusion_of(:status).in_array(%w[pending active suspended terminated]) }
-    it { is_expected.to validate_inclusion_of(:tier).in_array(%w[free starter pro enterprise]) }
+    it { is_expected.to validate_inclusion_of(:tier).in_array(%w[free starter pro business]) }
     it { is_expected.to validate_inclusion_of(:environment).in_array(%w[development staging production]) }
   end
 
@@ -60,8 +60,8 @@ RSpec.describe BaaS::Tenant, type: :model do
 
   describe "tier limits" do
     describe "#can_create_customer?" do
-      it "returns true for enterprise tier" do
-        tenant = build(:baas_tenant, tier: "enterprise")
+      it "returns true for business tier" do
+        tenant = build(:baas_tenant, tier: "business")
         expect(tenant.can_create_customer?).to be true
       end
 
@@ -77,8 +77,8 @@ RSpec.describe BaaS::Tenant, type: :model do
     end
 
     describe "#can_create_subscription?" do
-      it "returns true for enterprise tier" do
-        tenant = build(:baas_tenant, tier: "enterprise")
+      it "returns true for business tier" do
+        tenant = build(:baas_tenant, tier: "business")
         expect(tenant.can_create_subscription?).to be true
       end
 
@@ -104,8 +104,8 @@ RSpec.describe BaaS::Tenant, type: :model do
       expect(tenant.max_api_requests_per_day).to eq(10_000)
     end
 
-    it "applies nil limits for enterprise tier" do
-      tenant = create(:baas_tenant, account: account, tier: "enterprise")
+    it "applies nil limits for business tier" do
+      tenant = create(:baas_tenant, account: account, tier: "business")
       tenant.apply_tier_limits!
 
       expect(tenant.max_customers).to be_nil

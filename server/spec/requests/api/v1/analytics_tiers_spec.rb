@@ -21,7 +21,7 @@ RSpec.describe 'Api::V1::AnalyticsTiers', type: :request do
     [
       create(:analytics_tier, slug: 'free', name: 'Free', is_active: true),
       create(:analytics_tier, slug: 'pro', name: 'Pro', is_active: true),
-      create(:analytics_tier, slug: 'enterprise', name: 'Enterprise', is_active: true)
+      create(:analytics_tier, slug: 'business', name: 'Business', is_active: true)
     ]
   end
 

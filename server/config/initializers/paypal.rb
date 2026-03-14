@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# PayPal configuration — only when enterprise extension provides the gem
+# PayPal configuration — only when business extension provides the gem
 if defined?(PayPal::SDK)
   PayPal::SDK.configure(
     mode: Rails.env.production? ? "live" : "sandbox",

@@ -26,7 +26,7 @@ class OauthApplication < ApplicationRecord
   validates :name, presence: true, length: { maximum: 255 }
   validates :description, length: { maximum: 1000 }
   validates :status, presence: true, inclusion: { in: %w[active suspended revoked] }
-  validates :rate_limit_tier, inclusion: { in: %w[standard premium enterprise unlimited] }
+  validates :rate_limit_tier, inclusion: { in: %w[standard premium business unlimited] }
 
   # =========================================================================
   # SCOPES
@@ -121,7 +121,7 @@ class OauthApplication < ApplicationRecord
   def rate_limit
     case rate_limit_tier
     when "unlimited" then nil
-    when "enterprise" then 10_000
+    when "business" then 10_000
     when "premium" then 5_000
     else 1_000
     end

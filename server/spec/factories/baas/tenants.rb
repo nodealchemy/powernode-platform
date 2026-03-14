@@ -20,8 +20,8 @@ FactoryBot.define do
       tier { "pro" }
     end
 
-    trait :enterprise do
-      tier { "enterprise" }
+    trait :business do
+      tier { "business" }
     end
 
     trait :suspended do

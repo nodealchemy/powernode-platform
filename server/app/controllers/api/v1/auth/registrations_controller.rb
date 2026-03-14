@@ -44,7 +44,7 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
         raise ActiveRecord::RecordInvalid.new(@user)
       end
 
-      # Create subscription if plan is selected (enterprise billing only)
+      # Create subscription if plan is selected (business billing only)
       if Shared::FeatureGateService.billing_enabled?
         plan_id = params[:plan_id] || params.dig(:user, :plan_id)
         if plan_id.present?
@@ -118,7 +118,7 @@ class Api::V1::Auth::RegistrationsController < ApplicationController
   private
 
   def require_saas_mode
-    unless Shared::FeatureGateService.enterprise_loaded?
+    unless Shared::FeatureGateService.business_loaded?
       render_error("Registration is disabled in self-hosted mode", :forbidden)
     end
   end

@@ -42,7 +42,7 @@ module Devops
     scope :by_scope, ->(scope_type) { where(runner_scope: scope_type) }
     scope :repository_runners, -> { by_scope("repository") }
     scope :organization_runners, -> { by_scope("organization") }
-    scope :enterprise_runners, -> { by_scope("enterprise") }
+    scope :business_runners, -> { by_scope("enterprise") }
     scope :for_credential, ->(credential_id) { where(git_provider_credential_id: credential_id) }
     scope :for_repository, ->(repository_id) { where(git_repository_id: repository_id) }
     scope :recently_seen, -> { where("last_seen_at >= ?", 5.minutes.ago) }

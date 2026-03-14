@@ -36,7 +36,7 @@ RSpec.describe Ai::ProjectInitializationService, type: :service do
     let(:client) { double("ApiClient") }
 
     # Use a double for account since the service calls git_providers which
-    # is not defined on the Account model (likely an enterprise association)
+    # is not defined on the Account model (likely a business association)
     let(:mock_account) do
       double("Account",
         id: account.id,

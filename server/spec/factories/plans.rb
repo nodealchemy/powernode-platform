@@ -66,9 +66,9 @@ FactoryBot.define do
       end
     end
 
-    trait :enterprise_plan do
-      name { 'Enterprise Plan' }
-      slug { 'enterprise-plan' }
+    trait :business_plan do
+      name { 'Business Plan' }
+      slug { 'business-plan' }
       price_cents { 15000 }
       limits do
         {

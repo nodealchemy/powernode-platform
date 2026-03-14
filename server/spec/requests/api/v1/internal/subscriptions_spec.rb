@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Internal::Subscriptions', type: :request do
   before do
-    skip 'Enterprise billing module not loaded' unless defined?(Billing::Subscription)
+    skip 'Business billing module not loaded' unless defined?(Billing::Subscription)
 
     # Define methods on Subscription that the controller references but don't exist on the model
     unless Billing::Subscription.method_defined?(:cancel_at_period_end)

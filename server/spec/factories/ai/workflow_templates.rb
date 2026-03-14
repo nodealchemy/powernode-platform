@@ -448,8 +448,8 @@ FactoryBot.define do
           complexity: 'high',
           estimated_execution_time: 3600,
           node_count: 15,
-          use_cases: [ 'enterprise_automation', 'complex_workflows' ],
-          tags: [ 'advanced', 'enterprise', 'complex' ]
+          use_cases: [ 'business_automation', 'complex_workflows' ],
+          tags: [ 'advanced', 'business', 'complex' ]
         }
       end
     end

@@ -25,7 +25,7 @@ FactoryBot.define do
       max_containers_per_day { 500 }
     end
 
-    trait :enterprise do
+    trait :business do
       max_concurrent_containers { 50 }
       max_containers_per_hour { 500 }
       max_containers_per_day { 5000 }

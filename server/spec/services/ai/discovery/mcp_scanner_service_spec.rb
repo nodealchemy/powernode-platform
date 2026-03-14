@@ -8,7 +8,7 @@ RSpec.describe Ai::Discovery::McpScannerService, type: :service do
   subject(:service) { described_class.new(account: account) }
 
   # The service uses Mcp::HostedServer which resolves to Ai::Mcp::HostedServer
-  # inside the Ai module namespace. This model only exists in enterprise.
+  # inside the Ai module namespace. This model only exists in business.
   # We create a stub class with required class methods.
   # Defined as a module-level constant so stub_const can use it.
   FakeHostedServer = Class.new do
@@ -28,8 +28,8 @@ RSpec.describe Ai::Discovery::McpScannerService, type: :service do
   end
 
   describe '#scan' do
-    context 'without enterprise' do
-      it 'returns agents and empty tools/connections when no enterprise' do
+    context 'without business' do
+      it 'returns agents and empty tools/connections when no business' do
         agent = create(:ai_agent, account: account)
 
         result = service.scan
@@ -60,7 +60,7 @@ RSpec.describe Ai::Discovery::McpScannerService, type: :service do
         allow(server).to receive(:respond_to?).with(:tool_manifest).and_return(true)
         allow(servers_relation).to receive(:find_each).and_yield(server)
 
-        stub_const("PowernodeEnterprise::Engine", Class.new)
+        stub_const("PowernodeBusiness::Engine", Class.new)
         allow(FakeHostedServer).to receive(:where).with(account: account).and_return(servers_relation)
       end
 

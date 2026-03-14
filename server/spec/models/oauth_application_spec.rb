@@ -40,7 +40,7 @@ RSpec.describe OauthApplication, type: :model do
     end
 
     it 'allows valid rate_limit_tier values' do
-      %w[standard premium enterprise unlimited].each do |tier|
+      %w[standard premium business unlimited].each do |tier|
         app = build(:oauth_application, rate_limit_tier: tier)
         expect(app).to be_valid, "Expected #{tier} to be valid"
       end
@@ -164,8 +164,8 @@ RSpec.describe OauthApplication, type: :model do
         expect(oauth_app.rate_limit).to eq(5_000)
       end
 
-      it 'returns 10000 for enterprise tier' do
-        oauth_app.rate_limit_tier = 'enterprise'
+      it 'returns 10000 for business tier' do
+        oauth_app.rate_limit_tier = 'business'
         expect(oauth_app.rate_limit).to eq(10_000)
       end
 

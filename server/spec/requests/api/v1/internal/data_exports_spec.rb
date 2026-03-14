@@ -8,7 +8,7 @@ RSpec.describe 'Api::V1::Internal::DataExports', type: :request do
   let(:subscription) { create(:subscription, account: account) }
 
   before do
-    skip 'Enterprise billing module not loaded' unless defined?(Billing::Invoice) && defined?(Billing::Subscription)
+    skip 'Business billing module not loaded' unless defined?(Billing::Invoice) && defined?(Billing::Subscription)
 
     allow(Audit::LogIntegrityService).to receive(:apply_integrity).and_return(true)
     allow(AuditLog).to receive(:log_action).and_return(true)

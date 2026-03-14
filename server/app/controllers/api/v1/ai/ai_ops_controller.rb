@@ -9,7 +9,7 @@
 # - Basic monitoring: included in all plans
 # - Advanced analytics: $79/mo
 # - Custom dashboards + API: $199/mo
-# - Enterprise (white-label + embedding): $499/mo
+# - Business (white-label + embedding): $499/mo
 #
 module Api
   module V1

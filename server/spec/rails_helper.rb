@@ -54,10 +54,10 @@ RSpec.configure do |config|
   # You can uncomment this line to turn off ActiveRecord support entirely.
   # config.use_active_record = false
 
-  # FactoryBot configuration — include enterprise factories when the extension is present
-  enterprise_factories = Rails.root.join('..', 'extensions', 'enterprise', 'server', 'spec', 'factories')
-  FactoryBot.definition_file_paths << enterprise_factories.to_s if enterprise_factories.exist?
-  FactoryBot.reload if enterprise_factories.exist?
+  # FactoryBot configuration — include business factories when the extension is present
+  business_factories = Rails.root.join('..', 'extensions', 'business', 'server', 'spec', 'factories')
+  FactoryBot.definition_file_paths << business_factories.to_s if business_factories.exist?
+  FactoryBot.reload if business_factories.exist?
 
   config.include FactoryBot::Syntax::Methods
 

@@ -191,7 +191,7 @@ module Ai
         { name: "A2A Protocol", description: "Agent-to-Agent JSON-RPC 2.0 with federation" },
         { name: "MCP Tools", description: "Model Context Protocol tool registration and execution" },
         { name: "Compound Learning", description: "Pattern extraction from agent successes and failures" },
-        { name: "Enterprise Features", description: "Billing, BaaS, reseller, AI publisher via submodule" }
+        { name: "Business Features", description: "Billing, BaaS, reseller, AI publisher via submodule" }
       ].freeze
 
       def build_concept_nodes

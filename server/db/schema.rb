@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_12_020003) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_14_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -124,7 +124,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_12_020003) do
     t.index ["status"], name: "index_accounts_on_status"
     t.index ["stripe_customer_id"], name: "index_accounts_on_stripe_customer_id", unique: true, where: "(stripe_customer_id IS NOT NULL)"
     t.index ["subdomain"], name: "index_accounts_on_subdomain", unique: true, where: "((subdomain IS NOT NULL) AND ((subdomain)::text <> ''::text))"
-    t.check_constraint "analytics_tier::text = ANY (ARRAY['free'::character varying::text, 'starter'::character varying::text, 'pro'::character varying::text, 'enterprise'::character varying::text])", name: "check_analytics_tier"
+    t.check_constraint "analytics_tier::text = ANY (ARRAY['free'::text, 'starter'::text, 'pro'::text, 'business'::text])", name: "check_analytics_tier"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'cancelled'::character varying::text, 'suspended'::character varying::text])", name: "valid_account_status"
   end
 
@@ -788,7 +788,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_12_020003) do
     t.index ["vertical"], name: "index_ai_agent_templates_on_vertical"
     t.check_constraint "pricing_type::text = ANY (ARRAY['free'::character varying::text, 'one_time'::character varying::text, 'subscription'::character varying::text, 'usage_based'::character varying::text, 'freemium'::character varying::text])", name: "check_pricing_type"
     t.check_constraint "status::text = ANY (ARRAY['draft'::character varying::text, 'pending_review'::character varying::text, 'published'::character varying::text, 'rejected'::character varying::text, 'archived'::character varying::text, 'suspended'::character varying::text])", name: "check_template_status"
-    t.check_constraint "visibility::text = ANY (ARRAY['private'::character varying::text, 'unlisted'::character varying::text, 'public'::character varying::text, 'enterprise'::character varying::text])", name: "check_template_visibility"
+    t.check_constraint "visibility::text = ANY (ARRAY['private'::text, 'unlisted'::text, 'public'::text, 'business'::text])", name: "check_template_visibility"
   end
 
   create_table "ai_agent_trust_scores", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -1540,7 +1540,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_12_020003) do
     t.index ["is_active", "sort_order"], name: "index_ai_credit_packs_on_is_active_and_sort_order"
     t.index ["is_active"], name: "index_ai_credit_packs_on_is_active"
     t.index ["pack_type"], name: "index_ai_credit_packs_on_pack_type"
-    t.check_constraint "pack_type::text = ANY (ARRAY['standard'::character varying::text, 'bulk'::character varying::text, 'enterprise'::character varying::text, 'promotional'::character varying::text, 'reseller'::character varying::text])", name: "check_credit_pack_type"
+    t.check_constraint "pack_type::text = ANY (ARRAY['standard'::text, 'bulk'::text, 'business'::text, 'promotional'::text, 'reseller'::text])", name: "check_credit_pack_type"
   end
 
   create_table "ai_credit_purchases", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -5361,7 +5361,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_12_020003) do
     t.index ["tier"], name: "index_baas_tenants_on_tier"
     t.check_constraint "environment::text = ANY (ARRAY['development'::character varying::text, 'staging'::character varying::text, 'production'::character varying::text])", name: "baas_tenants_environment_check"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'active'::character varying::text, 'suspended'::character varying::text, 'terminated'::character varying::text])", name: "baas_tenants_status_check"
-    t.check_constraint "tier::text = ANY (ARRAY['free'::character varying::text, 'starter'::character varying::text, 'pro'::character varying::text, 'enterprise'::character varying::text])", name: "baas_tenants_tier_check"
+    t.check_constraint "tier::text = ANY (ARRAY['free'::text, 'starter'::text, 'pro'::text, 'business'::text])", name: "baas_tenants_tier_check"
   end
 
   create_table "baas_usage_records", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -10720,7 +10720,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_12_020003) do
     t.check_constraint "retry_limit >= 0 AND retry_limit <= 10", name: "valid_webhook_retry_limit"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text, 'suspended'::character varying::text])", name: "valid_webhook_status"
     t.check_constraint "success_count >= 0", name: "valid_webhook_success_count"
-    t.check_constraint "tier::text = ANY (ARRAY['free'::character varying::text, 'pro'::character varying::text, 'enterprise'::character varying::text])", name: "check_webhook_tier"
+    t.check_constraint "tier::text = ANY (ARRAY['free'::text, 'pro'::text, 'business'::text])", name: "check_webhook_tier"
     t.check_constraint "timeout_seconds > 0 AND timeout_seconds <= 300", name: "valid_webhook_timeout"
   end
 

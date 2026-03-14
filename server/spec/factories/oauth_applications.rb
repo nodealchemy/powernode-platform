@@ -44,8 +44,8 @@ FactoryBot.define do
       rate_limit_tier { "premium" }
     end
 
-    trait :enterprise_tier do
-      rate_limit_tier { "enterprise" }
+    trait :business_tier do
+      rate_limit_tier { "business" }
     end
 
     trait :unlimited_tier do
