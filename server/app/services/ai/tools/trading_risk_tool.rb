@@ -55,6 +55,19 @@ module Ai
             parameters: {
               status: { type: "string", required: false, description: "Filter by status: pending, approved, rejected, executed" }
             }
+          },
+          "trading_get_dynamic_stop_loss" => {
+            description: "Get a strategy's dynamic stop-loss configuration, HWM, and current applicable tier",
+            parameters: {
+              strategy_id: { type: "string", required: true, description: "Strategy UUID" }
+            }
+          },
+          "trading_list_compounding_events" => {
+            description: "List recent compounding and earnings transfer events for a strategy",
+            parameters: {
+              strategy_id: { type: "string", required: true, description: "Strategy UUID" },
+              limit: { type: "integer", required: false, description: "Max results (default: 20)" }
+            }
           }
         }
       end
@@ -76,6 +89,8 @@ module Ai
         when "trading_reset_circuit_breaker" then reset_circuit_breaker
         when "trading_list_sweep_rules" then list_sweep_rules
         when "trading_list_sweep_proposals" then list_sweep_proposals(params)
+        when "trading_get_dynamic_stop_loss" then get_dynamic_stop_loss(params)
+        when "trading_list_compounding_events" then list_compounding_events(params)
         else error_result("Unknown action: #{params[:action]}")
         end
       rescue ActiveRecord::RecordNotFound => e
@@ -199,6 +214,55 @@ module Ai
             }
           end,
           count: rules.size
+        })
+      end
+
+      def get_dynamic_stop_loss(params)
+        strategy = resolve_portfolio.strategies.find(params[:strategy_id])
+        config = strategy.dynamic_stop_loss_config
+        allocated = strategy.allocated_capital_usd.to_f
+        profit_pct = allocated.zero? ? 0.0 : ((strategy.strategy_value_usd - allocated) / allocated * 100).round(4)
+
+        # Find current applicable tier
+        tiers = config["dynamic_stop_loss_tiers"] || []
+        sorted = tiers.sort_by { |t| t["max_profit_pct"] || Float::INFINITY }
+        current_tier = sorted.find { |t| t["max_profit_pct"].nil? || profit_pct <= t["max_profit_pct"].to_f }
+
+        success_result({
+          strategy_id: strategy.id,
+          strategy_name: strategy.name,
+          enabled: config["dynamic_stop_loss_enabled"],
+          high_water_mark_usd: strategy.high_water_mark_usd.to_f,
+          high_water_mark_at: strategy.high_water_mark_at,
+          current_value_usd: strategy.strategy_value_usd.round(2),
+          profit_pct: profit_pct,
+          current_tier: current_tier,
+          tiers: tiers
+        })
+      end
+
+      def list_compounding_events(params)
+        strategy = resolve_portfolio.strategies.find(params[:strategy_id])
+        limit = (params[:limit] || 20).to_i.clamp(1, 100)
+
+        events = strategy.compounding_events.recent.limit(limit)
+
+        success_result({
+          events: events.map do |e|
+            {
+              id: e.id,
+              event_type: e.event_type,
+              amount_usd: e.amount_usd.to_f,
+              source_earnings_usd: e.source_earnings_usd&.to_f,
+              allocated_capital_before_usd: e.allocated_capital_before_usd&.to_f,
+              allocated_capital_after_usd: e.allocated_capital_after_usd&.to_f,
+              trigger: e.trigger,
+              created_at: e.created_at
+            }
+          end,
+          count: events.size,
+          total_compounded_usd: strategy.total_compounded_usd.to_f,
+          unreinvested_earnings_usd: strategy.unreinvested_earnings_usd.to_f
         })
       end
 

@@ -146,7 +146,7 @@ module Devops
           )
         end
 
-        instance.update!(attributes.slice(:name, :configuration, :status))
+        instance.update!(attributes.slice(:name, :configuration, :status, :health_metrics))
         instance
       rescue ActiveRecord::RecordInvalid => e
         raise ValidationError, e.message

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_10_010001) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_12_020003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -9827,6 +9827,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_10_010001) do
     t.index ["is_active"], name: "index_trading_chains_on_is_active"
   end
 
+  create_table "trading_compounding_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.decimal "allocated_capital_after_usd", precision: 19, scale: 2
+    t.decimal "allocated_capital_before_usd", precision: 19, scale: 2
+    t.decimal "amount_usd", precision: 19, scale: 2, null: false
+    t.datetime "created_at", null: false
+    t.string "event_type", null: false
+    t.jsonb "metadata", default: {}
+    t.decimal "source_earnings_usd", precision: 19, scale: 2
+    t.uuid "trading_strategy_id", null: false
+    t.string "trigger", null: false
+    t.datetime "updated_at", null: false
+    t.index ["trading_strategy_id", "created_at"], name: "idx_compounding_events_strategy_created"
+    t.index ["trading_strategy_id"], name: "index_trading_compounding_events_on_trading_strategy_id"
+  end
+
   create_table "trading_evolution_candidates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "action_taken"
     t.decimal "capital_after_usd", precision: 19, scale: 2
@@ -10106,6 +10121,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_10_010001) do
     t.decimal "current_pnl_pct", precision: 8, scale: 4, default: "0.0", null: false
     t.decimal "current_pnl_usd", precision: 19, scale: 2, default: "0.0", null: false
     t.datetime "decommissioned_at"
+    t.datetime "high_water_mark_at"
+    t.decimal "high_water_mark_usd", precision: 19, scale: 2, default: "0.0"
+    t.datetime "last_compounding_at"
     t.datetime "last_tick_at"
     t.string "lifecycle_phase", default: "conception", null: false
     t.string "name", null: false
@@ -10115,9 +10133,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_10_010001) do
     t.string "status", default: "draft", null: false
     t.string "strategy_type", null: false
     t.integer "tick_interval_seconds", default: 60, null: false
+    t.decimal "total_compounded_usd", precision: 19, scale: 2, default: "0.0"
     t.uuid "trading_portfolio_id", null: false
     t.uuid "trading_training_session_id"
     t.uuid "trading_venue_id", null: false
+    t.decimal "unreinvested_earnings_usd", precision: 19, scale: 2, default: "0.0"
     t.datetime "updated_at", null: false
     t.index ["ai_agent_budget_id"], name: "index_trading_strategies_on_ai_agent_budget_id"
     t.index ["ai_agent_team_id"], name: "index_trading_strategies_on_ai_agent_team_id"
@@ -10178,10 +10198,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_10_010001) do
   create_table "trading_sweep_rules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.boolean "auto_execute", default: false, null: false
     t.uuid "cold_wallet_id", null: false
+    t.jsonb "config", default: {}
     t.datetime "created_at", null: false
     t.boolean "is_active", default: true, null: false
     t.datetime "last_triggered_at"
     t.decimal "min_retain_amount", precision: 19, scale: 2, default: "0.0", null: false
+    t.datetime "next_scheduled_at"
+    t.string "schedule_type", default: "threshold"
     t.decimal "sweep_amount", precision: 19, scale: 2
     t.decimal "threshold_amount", precision: 19, scale: 2, null: false
     t.uuid "trading_chain_token_id", null: false
@@ -10256,6 +10279,66 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_10_010001) do
     t.index ["trading_portfolio_id", "trading_venue_id"], name: "idx_trading_venue_creds_portfolio_venue", unique: true
     t.index ["trading_portfolio_id"], name: "index_trading_venue_credentials_on_trading_portfolio_id"
     t.index ["trading_venue_id"], name: "index_trading_venue_credentials_on_trading_venue_id"
+  end
+
+  create_table "trading_venue_withdrawal_rules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.boolean "auto_execute", default: false
+    t.jsonb "config", default: {}
+    t.datetime "created_at", null: false
+    t.string "currency", default: "USD"
+    t.boolean "is_active", default: true
+    t.datetime "last_triggered_at"
+    t.decimal "min_retain_amount", precision: 19, scale: 2, default: "0.0"
+    t.datetime "next_scheduled_at"
+    t.string "schedule_type", default: "threshold"
+    t.decimal "threshold_amount", precision: 19, scale: 2, null: false
+    t.uuid "trading_portfolio_id", null: false
+    t.uuid "trading_venue_id", null: false
+    t.uuid "trading_wallet_id"
+    t.datetime "updated_at", null: false
+    t.decimal "withdraw_amount", precision: 19, scale: 2
+    t.index ["is_active"], name: "index_trading_venue_withdrawal_rules_on_is_active"
+    t.index ["next_scheduled_at"], name: "idx_venue_withdrawal_rules_next_scheduled", where: "((is_active = true) AND ((schedule_type)::text <> 'threshold'::text))"
+    t.index ["trading_portfolio_id", "trading_venue_id"], name: "idx_venue_withdrawal_rules_portfolio_venue"
+    t.index ["trading_portfolio_id"], name: "index_trading_venue_withdrawal_rules_on_trading_portfolio_id"
+    t.index ["trading_venue_id"], name: "index_trading_venue_withdrawal_rules_on_trading_venue_id"
+    t.index ["trading_wallet_id"], name: "index_trading_venue_withdrawal_rules_on_trading_wallet_id"
+  end
+
+  create_table "trading_venue_withdrawals", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "ai_agent_proposal_id"
+    t.decimal "amount", precision: 19, scale: 2, null: false
+    t.datetime "approved_at"
+    t.datetime "completed_at"
+    t.decimal "confidence", precision: 5, scale: 4, default: "0.5"
+    t.datetime "created_at", null: false
+    t.string "currency", default: "USD"
+    t.text "error_message"
+    t.datetime "failed_at"
+    t.jsonb "metadata", default: {}
+    t.boolean "paper_mode", default: false
+    t.text "reasoning"
+    t.string "status", default: "pending"
+    t.datetime "submitted_at"
+    t.uuid "trading_portfolio_id", null: false
+    t.uuid "trading_venue_credential_id"
+    t.uuid "trading_venue_id", null: false
+    t.uuid "trading_venue_withdrawal_rule_id"
+    t.uuid "trading_wallet_id"
+    t.string "trigger_type", default: "manual"
+    t.datetime "updated_at", null: false
+    t.decimal "venue_balance_after", precision: 19, scale: 2
+    t.decimal "venue_balance_before", precision: 19, scale: 2
+    t.string "venue_withdrawal_id"
+    t.index ["ai_agent_proposal_id"], name: "index_trading_venue_withdrawals_on_ai_agent_proposal_id"
+    t.index ["status"], name: "index_trading_venue_withdrawals_on_status"
+    t.index ["trading_portfolio_id", "status"], name: "idx_venue_withdrawals_portfolio_status"
+    t.index ["trading_portfolio_id"], name: "index_trading_venue_withdrawals_on_trading_portfolio_id"
+    t.index ["trading_venue_credential_id"], name: "index_trading_venue_withdrawals_on_trading_venue_credential_id"
+    t.index ["trading_venue_id"], name: "index_trading_venue_withdrawals_on_trading_venue_id"
+    t.index ["trading_venue_withdrawal_rule_id"], name: "idx_on_trading_venue_withdrawal_rule_id_0ceceb0d8c"
+    t.index ["trading_wallet_id"], name: "index_trading_venue_withdrawals_on_trading_wallet_id"
+    t.index ["venue_withdrawal_id"], name: "idx_venue_withdrawals_venue_id_unique", unique: true, where: "(venue_withdrawal_id IS NOT NULL)"
   end
 
   create_table "trading_venues", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -11542,25 +11625,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_10_010001) do
   add_foreign_key "terms_acceptances", "users"
   add_foreign_key "trading_audit_logs", "accounts"
   add_foreign_key "trading_chain_tokens", "trading_chains"
+  add_foreign_key "trading_compounding_events", "trading_strategies"
   add_foreign_key "trading_evolution_candidates", "trading_evolution_epochs"
   add_foreign_key "trading_evolution_candidates", "trading_strategies"
   add_foreign_key "trading_evolution_candidates", "trading_strategy_versions"
   add_foreign_key "trading_evolution_epochs", "trading_portfolios"
-  add_foreign_key "trading_orders", "trading_positions"
-  add_foreign_key "trading_orders", "trading_strategies"
+  add_foreign_key "trading_orders", "trading_positions", on_delete: :cascade
+  add_foreign_key "trading_orders", "trading_strategies", on_delete: :cascade
   add_foreign_key "trading_orders", "trading_venues"
   add_foreign_key "trading_performance_metrics", "trading_strategies"
   add_foreign_key "trading_portfolios", "accounts"
   add_foreign_key "trading_portfolios", "ai_agent_budgets"
   add_foreign_key "trading_portfolios", "ai_agent_teams"
   add_foreign_key "trading_portfolios", "trading_training_sessions"
-  add_foreign_key "trading_positions", "trading_strategies"
+  add_foreign_key "trading_positions", "trading_strategies", on_delete: :cascade
   add_foreign_key "trading_positions", "trading_venues"
   add_foreign_key "trading_price_snapshots", "trading_price_feeds"
   add_foreign_key "trading_risk_events", "trading_risk_profiles"
   add_foreign_key "trading_risk_events", "trading_strategies"
   add_foreign_key "trading_risk_profiles", "accounts"
-  add_foreign_key "trading_signals", "trading_strategies"
+  add_foreign_key "trading_signals", "trading_strategies", on_delete: :cascade
   add_foreign_key "trading_simulations", "accounts"
   add_foreign_key "trading_simulations", "trading_portfolios"
   add_foreign_key "trading_strategies", "ai_agent_budgets"
@@ -11568,7 +11652,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_10_010001) do
   add_foreign_key "trading_strategies", "ai_missions"
   add_foreign_key "trading_strategies", "ai_ralph_loops"
   add_foreign_key "trading_strategies", "trading_portfolios"
-  add_foreign_key "trading_strategies", "trading_training_sessions"
+  add_foreign_key "trading_strategies", "trading_training_sessions", on_delete: :cascade
   add_foreign_key "trading_strategies", "trading_venues"
   add_foreign_key "trading_strategy_versions", "trading_strategies"
   add_foreign_key "trading_strategy_versions", "trading_strategy_versions", column: "parent_version_id"
@@ -11580,12 +11664,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_10_010001) do
   add_foreign_key "trading_sweep_rules", "trading_chain_tokens"
   add_foreign_key "trading_sweep_rules", "trading_wallets"
   add_foreign_key "trading_sweep_rules", "trading_wallets", column: "cold_wallet_id"
-  add_foreign_key "trading_trades", "trading_orders"
-  add_foreign_key "trading_trades", "trading_positions"
+  add_foreign_key "trading_trades", "trading_orders", on_delete: :cascade
+  add_foreign_key "trading_trades", "trading_positions", on_delete: :cascade
   add_foreign_key "trading_trades", "trading_venues"
   add_foreign_key "trading_training_sessions", "accounts"
   add_foreign_key "trading_venue_credentials", "trading_portfolios"
   add_foreign_key "trading_venue_credentials", "trading_venues"
+  add_foreign_key "trading_venue_withdrawal_rules", "trading_portfolios"
+  add_foreign_key "trading_venue_withdrawal_rules", "trading_venues"
+  add_foreign_key "trading_venue_withdrawal_rules", "trading_wallets"
+  add_foreign_key "trading_venue_withdrawals", "ai_agent_proposals"
+  add_foreign_key "trading_venue_withdrawals", "trading_portfolios"
+  add_foreign_key "trading_venue_withdrawals", "trading_venue_credentials"
+  add_foreign_key "trading_venue_withdrawals", "trading_venue_withdrawal_rules"
+  add_foreign_key "trading_venue_withdrawals", "trading_venues"
+  add_foreign_key "trading_venue_withdrawals", "trading_wallets"
   add_foreign_key "trading_wallet_balances", "trading_chain_tokens"
   add_foreign_key "trading_wallet_balances", "trading_wallets"
   add_foreign_key "trading_wallet_transactions", "trading_chain_tokens"

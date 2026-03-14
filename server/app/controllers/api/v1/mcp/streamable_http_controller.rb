@@ -429,13 +429,11 @@ module Api
         end
 
         def handle_tools_list(_params)
-          # Combine agent tools from the MCP registry with platform tool definitions.
-          # RegistryService is in-memory per instance and only loads agents on init,
-          # so platform tools must be merged separately.
-          protocol_service = build_protocol_service
-          agent_tools = protocol_service.list_tools({}, user: current_user)
-
-          # Build platform tool list in MCP schema format
+          # Only expose platform and introspection tools in tools/list.
+          # Agent tools (one per AI agent) are excluded from listing to avoid
+          # flooding MCP clients with thousands of entries. Agents remain
+          # callable via tools/call and discoverable via platform.list_agents
+          # + platform.execute_agent.
           platform_tools = ::Ai::Tools::PlatformApiToolRegistry.tool_definitions.map do |defn|
             {
               "name" => "platform.#{defn[:name]}",
@@ -448,7 +446,7 @@ module Api
             { "name" => defn[:id], "description" => defn[:description], "inputSchema" => defn[:input_schema] }
           end
 
-          { "tools" => (agent_tools["tools"] || []) + platform_tools + introspection_tools }
+          { "tools" => platform_tools + introspection_tools }
         end
 
         def handle_tools_call(params)
@@ -561,15 +559,30 @@ module Api
         def build_input_schema(parameters)
           return { "type" => "object", "properties" => {}, "required" => [] } if parameters.blank?
 
+          # Already in JSON Schema format (has type + properties keys)
+          if parameters.is_a?(Hash) && (parameters[:type] == "object" || parameters["type"] == "object")
+            props = parameters[:properties] || parameters["properties"] || {}
+            return {
+              "type" => "object",
+              "properties" => props.transform_keys(&:to_s).transform_values { |v|
+                v.is_a?(Hash) ? v.transform_keys(&:to_s) : { "type" => v.to_s }
+              },
+              "required" => (parameters[:required] || parameters["required"] || []).map(&:to_s)
+            }
+          end
+
+          # Flat hash format: { name: { type:, description:, required: } }
           properties = {}
           required = []
 
           parameters.each do |name, defn|
+            next unless defn.is_a?(Hash)
+
             properties[name.to_s] = {
-              "type" => defn[:type] || "string",
-              "description" => defn[:description]
+              "type" => defn[:type]&.to_s || defn["type"]&.to_s || "string",
+              "description" => defn[:description] || defn["description"]
             }.compact
-            required << name.to_s if defn[:required]
+            required << name.to_s if defn[:required] || defn["required"]
           end
 
           { "type" => "object", "properties" => properties, "required" => required }

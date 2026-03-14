@@ -98,6 +98,11 @@ module Ai
       (importance_score * 0.3 + smoothed * 0.7).round(4)
     end
 
+    # Age based on created_at (immutable) — not updated_at (reset by decay runs)
+    def age_in_days
+      ((Time.current - created_at) / 1.day).to_f
+    end
+
     def boost_importance!(amount = 0.05)
       new_score = [importance_score + amount, 1.0].min
       update!(importance_score: new_score)

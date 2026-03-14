@@ -288,6 +288,10 @@ module Ai
         "trading_retry_training_session" => "Ai::Tools::TradingSimulationTool",
         "trading_delete_training_session" => "Ai::Tools::TradingSimulationTool",
         "trading_training_session_report" => "Ai::Tools::TradingSimulationTool",
+        # Trading — strategy parameters
+        "trading_get_strategy_params" => "Ai::Tools::TradingSimulationTool",
+        "trading_update_strategy_params" => "Ai::Tools::TradingSimulationTool",
+        "trading_seed_strategy_defaults" => "Ai::Tools::TradingSimulationTool",
         # Trading — evolution & audit
         "trading_list_evolution_epochs" => "Ai::Tools::TradingEvolutionTool",
         "trading_get_evolution_epoch" => "Ai::Tools::TradingEvolutionTool",

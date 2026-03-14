@@ -115,6 +115,34 @@ module Ai
             parameters: {
               session_id: { type: "string", required: true, description: "Training session ID" }
             }
+          },
+          "trading_get_strategy_params" => {
+            description: "Get current effective parameters for a strategy type (all layers merged: hardcoded → global defaults → venue overrides)",
+            parameters: {
+              strategy_type: { type: "string", required: true, description: "Strategy type (e.g. 'momentum', 'prediction_market_making')" },
+              venue_slug: { type: "string", required: false, description: "Venue slug to include venue-specific overrides" }
+            }
+          },
+          "trading_update_strategy_params" => {
+            description: "Update a single training parameter for a strategy type. Updates global defaults or venue-specific overrides.",
+            parameters: {
+              strategy_type: { type: "string", required: true, description: "Strategy type (e.g. 'momentum', 'prediction_market_making')" },
+              key: { type: "string", required: true, description: "Parameter key to update (e.g. 'entry_threshold', 'stop_loss_pct')" },
+              value: { required: true, description: "New value for the parameter" },
+              venue_slug: { type: "string", required: false, description: "If set, updates venue-specific override instead of global default" }
+            }
+          },
+          "trading_create_dry_run_session" => {
+            description: "Create a lightweight dry-run session testing ALL strategy types (~3-5 min). " \
+                         "Produces pnl_by_strategy_type_and_category for the learning pipeline.",
+            parameters: {
+              venue_slug: { type: "string", required: false, description: "Venue (default: kalshi)" },
+              tick_count: { type: "integer", required: false, description: "Ticks (default: 5, max: 15)" }
+            }
+          },
+          "trading_seed_strategy_defaults" => {
+            description: "Seed all hardcoded training parameters into shared memory as dynamic defaults. Idempotent — preserves existing modifications.",
+            parameters: {}
           }
         }
       end
@@ -143,6 +171,10 @@ module Ai
         when "trading_retry_training_session" then retry_training_session(params)
         when "trading_delete_training_session" then delete_training_session(params)
         when "trading_training_session_report" then training_session_report(params)
+        when "trading_get_strategy_params" then get_strategy_params(params)
+        when "trading_update_strategy_params" then update_strategy_params(params)
+        when "trading_create_dry_run_session" then create_dry_run_session(params)
+        when "trading_seed_strategy_defaults" then seed_strategy_defaults(params)
         else error_result("Unknown action: #{params[:action]}")
         end
       rescue ActiveRecord::RecordNotFound => e
@@ -273,13 +305,16 @@ module Ai
           config: session_config
         )
 
+        # Dispatch immediately to worker — don't wait for the periodic runner poll
+        WorkerJobService.enqueue_trading_training_session(session.id)
+
         success_result(serialize_training_session(session))
       end
 
       def cancel_training_session(params)
         session = resolve_training_session(params[:session_id])
 
-        unless session.status.in?(%w[pending running])
+        unless session.status.in?(%w[scheduled pending running paused])
           return error_result("Session is not cancellable in status: #{session.status}")
         end
 
@@ -294,17 +329,39 @@ module Ai
           return error_result("Only failed or cancelled sessions can be retried")
         end
 
-        session.update!(
-          status: "pending",
-          error_message: nil,
-          completed_at: nil,
-          started_at: nil,
-          completed_ticks: 0,
-          total_ticks: 0,
-          metrics: {},
-          results: {},
-          timeline: []
+        has_strategies = session.strategies.any?
+        completed = session.completed_ticks || 0
+
+        if has_strategies && completed > 0
+          # Resume mode: keep existing strategies, ticks, metrics — pick up where we left off
+          session.update!(
+            status: "pending",
+            error_message: nil,
+            completed_at: nil
+          )
+        else
+          # Fresh start: no progress to preserve
+          session.update!(
+            status: "pending",
+            error_message: nil,
+            completed_at: nil,
+            started_at: nil,
+            completed_ticks: 0,
+            total_ticks: 0,
+            metrics: {},
+            results: {},
+            timeline: []
+          )
+        end
+
+        # Reactivate strategies that were decommissioned by cancel/fail
+        session.strategies.where(status: "decommissioned").update_all(
+          status: "active", lifecycle_phase: "paper_trade"
         )
+
+        # Dispatch immediately to worker — don't wait for the periodic runner poll
+        WorkerJobService.enqueue_trading_training_session(session.id)
+
         success_result(serialize_training_session(session))
       end
 
@@ -327,6 +384,118 @@ module Ai
         end
 
         success_result(session.results)
+      end
+
+      def get_strategy_params(params)
+        strategy_type = params[:strategy_type]
+        return error_result("strategy_type is required") unless strategy_type.present?
+
+        effective = Trading::StrategyParameterService.params_for(
+          strategy_type,
+          venue_slug: params[:venue_slug].presence,
+          account: account
+        )
+
+        # Also show individual layers for transparency
+        hardcoded = Trading::LiveTrainingRunner::TRAINING_PARAMETERS.fetch(strategy_type, {})
+        global = Trading::StrategyParameterService.read_global_params(account, strategy_type) || {}
+        venue = if params[:venue_slug].present?
+                  Trading::StrategyParameterService.read_venue_params(account, params[:venue_slug], strategy_type) || {}
+                else
+                  {}
+                end
+
+        success_result({
+          strategy_type: strategy_type,
+          venue_slug: params[:venue_slug],
+          effective: effective,
+          layers: {
+            hardcoded: hardcoded,
+            global_defaults: global,
+            venue_overrides: venue
+          }
+        })
+      end
+
+      def update_strategy_params(params)
+        strategy_type = params[:strategy_type]
+        key = params[:key]
+        value = params[:value]
+        return error_result("strategy_type and key are required") unless strategy_type.present? && key.present?
+
+        # Validate strategy type exists
+        unless Trading::LiveTrainingRunner::TRAINING_PARAMETERS.key?(strategy_type)
+          return error_result("Unknown strategy type: #{strategy_type}. Valid types: #{Trading::LiveTrainingRunner::TRAINING_PARAMETERS.keys.join(', ')}")
+        end
+
+        Trading::StrategyParameterService.update_param!(
+          account: account,
+          strategy_type: strategy_type,
+          key: key,
+          value: value,
+          venue_slug: params[:venue_slug].presence
+        )
+
+        # Return the updated effective params
+        effective = Trading::StrategyParameterService.params_for(
+          strategy_type,
+          venue_slug: params[:venue_slug].presence,
+          account: account
+        )
+
+        success_result({
+          updated: true,
+          strategy_type: strategy_type,
+          key: key,
+          value: value,
+          venue_slug: params[:venue_slug],
+          effective: effective
+        })
+      end
+
+      def create_dry_run_session(params)
+        all_types = Trading::LiveTrainingRunner::TRAINING_PARAMETERS.keys
+        venue_slug = params[:venue_slug].presence || "kalshi"
+        tick_count = (params[:tick_count] || 5).to_i.clamp(3, 15)
+
+        session = Trading::TrainingSession.create!(
+          account_id: account.id,
+          name: "Dry Run #{Time.current.strftime('%Y-%m-%d %H:%M')}",
+          status: "pending",
+          market_count: 2,
+          tick_count: tick_count,
+          tick_interval: 8,
+          strategy_types: all_types,
+          include_classic: false,
+          config: {
+            "venue_slug" => venue_slug,
+            "initial_balance" => 10_000.0,
+            "mode" => "dry_run",
+            "max_markets" => 2,
+            "strategy_overrides" => {
+              "agent_ensemble" => { "agent_roles" => %w[fundamentals risk_manager], "debate_rounds" => 0, "max_llm_calls_per_tick" => 3 },
+              "sentiment_analysis" => { "warm_up_ticks" => 0 }
+            }
+          }
+        )
+        WorkerJobService.enqueue_trading_training_session(session.id)
+        success_result(serialize_training_session(session))
+      end
+
+      def seed_strategy_defaults(_params)
+        Trading::StrategyParameterService.seed_defaults!(account: account)
+
+        # Count what was seeded
+        strategy_count = Trading::LiveTrainingRunner::TRAINING_PARAMETERS.size
+        venue_count = Trading::LiveTrainingRunner::VENUE_CATEGORY_EXCLUSIONS.size +
+                      Trading::LiveTrainingRunner::VENUE_STRATEGY_BOOSTS.size
+
+        success_result({
+          seeded: true,
+          strategy_types: strategy_count,
+          venue_configs: venue_count,
+          message: "Seeded #{strategy_count} strategy parameter defaults and #{venue_count} venue configs into shared memory"
+        })
       end
 
       def serialize_simulation(simulation, detailed: false)

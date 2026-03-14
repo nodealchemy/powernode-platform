@@ -59,6 +59,10 @@ module Ai
           "trading_list_wallets" => {
             description: "List wallets with their balances",
             parameters: {}
+          },
+          "trading_compounding_summary" => {
+            description: "Per-strategy compounding state: earnings pool, total compounded, configuration",
+            parameters: {}
           }
         }
       end
@@ -81,6 +85,7 @@ module Ai
         when "trading_create_portfolio" then create_portfolio(params)
         when "trading_update_portfolio" then update_portfolio(params)
         when "trading_list_wallets" then list_wallets
+        when "trading_compounding_summary" then compounding_summary
         else error_result("Unknown action: #{params[:action]}")
         end
       rescue ActiveRecord::RecordNotFound => e
@@ -209,6 +214,41 @@ module Ai
         success_result({
           wallets: wallets.map { |w| serialize_wallet(w) },
           count: wallets.size
+        })
+      end
+
+      def compounding_summary
+        portfolio = resolve_portfolio
+        strategies = portfolio.strategies.where.not(status: "decommissioned")
+
+        summary = strategies.map do |s|
+          config = s.compounding_config
+          {
+            strategy_id: s.id,
+            name: s.name,
+            status: s.status,
+            compounding_enabled: s.compounding_enabled?,
+            allocated_capital_usd: s.allocated_capital_usd.to_f,
+            unreinvested_earnings_usd: s.unreinvested_earnings_usd.to_f,
+            total_compounded_usd: s.total_compounded_usd.to_f,
+            high_water_mark_usd: s.high_water_mark_usd.to_f,
+            last_compounding_at: s.last_compounding_at,
+            config: {
+              threshold_pct: config["compounding_threshold_pct"],
+              reinvest_pct: config["compounding_reinvest_pct"],
+              transfer_pct: config["earnings_transfer_pct"],
+              retain_pct: config["earnings_retain_pct"]
+            }
+          }
+        end
+
+        success_result({
+          strategies: summary,
+          totals: {
+            total_unreinvested_usd: strategies.sum(:unreinvested_earnings_usd).to_f,
+            total_compounded_usd: strategies.sum(:total_compounded_usd).to_f,
+            strategies_with_compounding: strategies.count { |s| s.compounding_enabled? }
+          }
         })
       end
 

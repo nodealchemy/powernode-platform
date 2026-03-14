@@ -167,7 +167,8 @@ module Api
         def instance_params
           params.require(:instance).permit(
             :name, :slug, :credential_id,
-            configuration: {}
+            configuration: {},
+            health_metrics: {}
           )
         end
 
@@ -185,7 +186,7 @@ module Api
         end
 
         def authorize_action!(permission)
-          unless current_user.has_permission?(permission)
+          unless has_permission?(permission)
             render_forbidden("You don't have permission to perform this action")
           end
         end

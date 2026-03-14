@@ -66,6 +66,9 @@ module Server
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
 
+    # Enable gzip compression for API responses (benefits batch trading endpoints)
+    config.middleware.use Rack::Deflater
+
     # Add cookie middleware for HttpOnly refresh token cookies (WP8 security hardening)
     config.middleware.use ActionDispatch::Cookies
 
