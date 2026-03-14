@@ -9,6 +9,9 @@ module Trading
     # - Calls the AI provider directly via LlmProxyClient (no server round-trip)
     # - Returns signal hashes for the server to process into orders
     class LlmProbability < Base
+      include Concerns::DynamicKelly
+      include Concerns::ConvergenceExit
+
       register "llm_probability"
 
       def evaluate
@@ -24,11 +27,15 @@ module Trading
         return signals unless question
 
         llm_result = estimate_probability(question, market_price)
-        return signals unless llm_result
+        unless llm_result
+          log("#{strategy_pair}: LLM estimate returned nil (price: #{market_price})")
+          return signals
+        end
 
         edge = llm_result[:probability] - market_price
         edge_threshold = param("edge_threshold_pct", 5.0) / 100.0
         exit_edge_mult = param("exit_edge_multiplier", 0.5)
+        log("#{strategy_pair}: LLM=#{(llm_result[:probability] * 100).round(1)}% mkt=#{(market_price * 100).round(1)}% edge=#{(edge * 100).round(1)}% conf=#{llm_result[:confidence].round(2)} thresh=#{(edge_threshold * 100).round(1)}%")
 
         # Exit check (always runs, never gated by cooldown)
         if has_open_position?
@@ -59,12 +66,23 @@ module Trading
               reasoning: "LLM stop-loss: PnL #{pnl_pct.round(2)}% exceeds -#{stop_loss}% limit",
               indicators: { pnl_pct: pnl_pct, edge: 0 }
             )
+          else
+            # Convergence exit: check if remaining edge has decayed below exit cost
+            if market_expiry && position
+              hours_left = (market_expiry - Time.now) / 3600.0
+              conv_signal = convergence_exit_check(position, hours_left)
+              signals << build_signal(**conv_signal) if conv_signal
+            end
           end
         end
 
-        # Cooldown gates entry signals
-        if last_tick_at && last_tick_at > (Time.current - param("cooldown_seconds", 300).to_i)
-          return signals
+        # Cooldown gates entry signals (bypassed in training — tick intervals are too fast)
+        unless training?
+          cooldown = param("cooldown_seconds", 300).to_i
+          if last_tick_at && last_tick_at > (Time.current - cooldown)
+            log("#{strategy_pair}: cooldown active (#{cooldown}s, last_tick: #{last_tick_at})")
+            return signals
+          end
         end
 
         # Longshot bias correction for low-probability events
@@ -77,16 +95,29 @@ module Trading
         max_spread = param("max_spread_pct", 5.0) / 100.0
         min_confidence = param("confidence_threshold", 0.6)
 
-        if adjusted_edge.abs > edge_threshold &&
-           llm_result[:confidence] >= min_confidence &&
-           !has_open_position? &&
-           (spread_pct.nil? || spread_pct <= max_spread)
+        entry_ok = adjusted_edge.abs > edge_threshold &&
+                   llm_result[:confidence] >= min_confidence &&
+                   !has_open_position? &&
+                   (spread_pct.nil? || spread_pct <= max_spread)
 
+        unless entry_ok
+          reasons = []
+          reasons << "edge #{(adjusted_edge.abs * 100).round(1)}% < #{(edge_threshold * 100).round(1)}%" unless adjusted_edge.abs > edge_threshold
+          reasons << "conf #{llm_result[:confidence].round(2)} < #{min_confidence}" unless llm_result[:confidence] >= min_confidence
+          reasons << "has_position" if has_open_position?
+          reasons << "spread #{(spread_pct.to_f * 100).round(1)}% > #{(max_spread * 100).round(1)}%" if spread_pct && spread_pct > max_spread
+          log("#{strategy_pair}: entry rejected — #{reasons.join(', ')}")
+        end
+
+        if entry_ok
           direction = adjusted_edge > 0 ? "long" : "short"
 
           # Use limit orders to avoid adverse spread costs.
           # For long: buy at current price (mid); for short: sell at current price.
           limit_price = market_price.round(2)
+
+          # Dynamic Kelly sizing based on edge + historical performance
+          kelly = dynamic_kelly(estimated_prob: llm_result[:probability], market_price: market_price)
 
           signals << build_signal(
             type: "entry",
@@ -103,6 +134,11 @@ module Trading
               raw_edge: edge,
               longshot_adjusted: market_price < 0.15,
               key_factors: llm_result[:key_factors],
+              kelly_fraction: kelly[:kelly_fraction],
+              kelly_full: kelly[:kelly_full],
+              edge_after_impact: kelly[:edge_after_impact],
+              kelly_blend_source: kelly[:blend_source],
+              position_sizing_method: "kelly",
               limit_order: true,
               limit_price: limit_price
             }
@@ -143,10 +179,18 @@ module Trading
       def build_messages(question, market_price)
         system_prompt = <<~PROMPT
           You are an expert superforecaster. Estimate the probability of the following prediction market question resolving YES.
-          Be calibrated: use base rates, reference classes, and update on specific evidence.
+          Be calibrated but do NOT anchor on the current market price. The market may be inefficient.
+          Use base rates, reference classes, and update on specific evidence.
           Consider multiple perspectives and potential failure modes.
           Current market price (implied probability): #{(market_price * 100).round(1)}%
         PROMPT
+
+        # Add price trend context if available
+        if price_history.size >= 3
+          recent = price_history.last(5).map { |s| (s["close"] || s[:close]).to_f }
+          trend = recent.last - recent.first
+          system_prompt += "\nRecent price trend: #{trend > 0 ? '+' : ''}#{(trend * 100).round(2)}% over last #{recent.size} ticks"
+        end
 
         if @trading_context
           tc = @trading_context.is_a?(Hash) ? @trading_context : {}
@@ -164,13 +208,21 @@ module Trading
       def longshot_bias_adjustment(market_price)
         return 0.0 unless market_price > 0 && market_price < 0.15
 
-        if market_price < 0.05
-          0.01
-        elsif market_price < 0.10
-          0.0075
-        else
-          0.005
-        end
+        # Configurable bias factor: 1.0 = full correction (original R2 levels),
+        # 0.5 = half correction (better for venues where LLM calibration is accurate),
+        # 0.0 = no correction. Defaults to 0.5 per training analysis showing
+        # full correction removes genuine edge on Polymarket.
+        factor = param("longshot_bias_factor", 0.5)
+
+        raw = if market_price < 0.05
+                0.015
+              elsif market_price < 0.10
+                0.010
+              else
+                0.007
+              end
+
+        raw * factor
       end
 
       def llm_schema

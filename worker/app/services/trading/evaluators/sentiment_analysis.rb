@@ -15,9 +15,28 @@ module Trading
 
         @total_cost = 0.0
 
+        # Cooldown: prevent consecutive trades after recent entry evaluation (bypassed in training)
+        unless training?
+          cooldown = param("cooldown_seconds", 60)
+          if !has_open_position? && last_tick_at && last_tick_at > (Time.current - cooldown)
+            return signals
+          end
+        end
+
+        # Warm-up gate: don't trade on first ticks with zero price history
+        tick_count = price_history&.size || 0
+        warm_up = param("warm_up_ticks", 3)
+        return signals if tick_count < warm_up && !has_open_position?
+
         # Fetch and score RAG chunks via server
         scored_chunks = fetch_and_score_chunks
-        return signals if scored_chunks.size < param("min_sources", 3)
+
+        # LLM fallback when RAG returns insufficient data
+        if scored_chunks.size < param("min_sources", 1) && @llm_client && @provider_config
+          llm_sentiment = estimate_sentiment_via_llm
+          scored_chunks = [llm_sentiment] if llm_sentiment
+        end
+        return signals if scored_chunks.empty?
 
         # Aggregate with temporal decay
         decay = param("decay_factor", 0.9)
@@ -30,8 +49,9 @@ module Trading
         # Store current sentiment for future rolling average
         store_sentiment(current_sentiment)
 
-        # Generate signal on significant shift
+        # Generate signal on significant sentiment shift (warm-up gate prevents first-tick noise)
         threshold = param("sentiment_shift_threshold", 0.3)
+
         if shift && shift[:shift_magnitude] > threshold
           direction = shift[:shift_direction] == "bullish" ? "long" : "short"
 
@@ -39,7 +59,7 @@ module Trading
             signals << build_signal(
               type: "entry",
               direction: direction,
-              confidence: (shift[:shift_magnitude] / 0.5).clamp(0.3, 0.95),
+              confidence: ([shift[:shift_magnitude] * 1.5, 0.3].max * current_sentiment[:magnitude]).clamp(0.3, 0.90),
               strength: current_sentiment[:magnitude],
               reasoning: "Sentiment shift detected: #{shift[:shift_direction]} (#{shift[:shift_magnitude].round(3)}). Current: #{current_sentiment[:score].round(3)}, Rolling: #{(rolling&.dig(:score) || 0).round(3)}",
               indicators: {
@@ -53,10 +73,34 @@ module Trading
           end
         end
 
-        # Exit on high-confidence reversal
+        # Exit on TP/SL or high-confidence reversal
         if has_open_position?
           position = current_position
           if position
+            entry_price = (position["entry_price"] || 0).to_f
+            side = position["side"] || "long"
+            pnl_pct = entry_price > 0 ? ((current_price - entry_price) / entry_price * 100 * (side == "short" ? -1 : 1)) : 0
+            stop_loss = param("stop_loss_pct", 5.0)
+            take_profit = param("take_profit_pct", 3.0)
+
+            if pnl_pct <= -stop_loss
+              signals << build_signal(
+                type: "exit", direction: side,
+                confidence: 0.9, strength: 0.9,
+                reasoning: "Sentiment stop-loss: PnL #{pnl_pct.round(2)}% exceeds -#{stop_loss}% limit",
+                indicators: { pnl_pct: pnl_pct, sentiment_score: current_sentiment[:score], edge: 0 }
+              )
+              return signals
+            elsif pnl_pct >= take_profit
+              signals << build_signal(
+                type: "exit", direction: side,
+                confidence: 0.85, strength: 0.8,
+                reasoning: "Sentiment take-profit: PnL #{pnl_pct.round(2)}% exceeds +#{take_profit}% target",
+                indicators: { pnl_pct: pnl_pct, sentiment_score: current_sentiment[:score], edge: 0 }
+              )
+              return signals
+            end
+
             position_direction = position["side"] == "long" ? "bullish" : "bearish"
             sentiment_reversed = current_sentiment[:direction] != "neutral" && current_sentiment[:direction] != position_direction
             high_confidence_reversal = sentiment_reversed && current_sentiment[:magnitude].to_f > 0.5
@@ -93,6 +137,44 @@ module Trading
 
       private
 
+      def estimate_sentiment_via_llm
+        question = @market_question || strategy_pair
+
+        price_context = if price_history&.size.to_i > 3
+          recent = price_history.last(5).map { |s| (s["close"] || s[:close]).to_f }
+          "Recent prices: #{recent.map { |p| "#{(p * 100).round(1)}%" }.join(', ')}"
+        else
+          "Insufficient price history for trend analysis."
+        end
+
+        response = llm_complete_structured(
+          messages: [
+            { role: "system", content: "You are a sentiment analyst. Assess the current market sentiment for the given prediction market question. Consider public opinion, news, and social signals. Use the price context to inform your assessment." },
+            { role: "user", content: "What is the current sentiment around: #{question}\nCurrent price: #{(current_price * 100).round(1)}%\n#{price_context}" }
+          ],
+          schema: {
+            type: "object",
+            properties: {
+              sentiment: { type: "number", description: "Sentiment score -1 (bearish) to 1 (bullish)" },
+              magnitude: { type: "number", description: "Confidence/strength 0 to 1" },
+              reasoning: { type: "string", description: "Brief reasoning" }
+            },
+            required: %w[sentiment magnitude reasoning],
+            additionalProperties: false
+          },
+          temperature: 0.3
+        )
+        return nil unless response.is_a?(Hash) && response[:sentiment]
+
+        @total_cost += last_llm_cost
+        { sentiment: response[:sentiment].to_f.clamp(-1.0, 1.0),
+          magnitude: response[:magnitude].to_f.clamp(0.0, 1.0),
+          timestamp: Time.current }
+      rescue StandardError => e
+        log("LLM sentiment fallback failed: #{e.message}", level: :warn)
+        nil
+      end
+
       def fetch_and_score_chunks
         return [] unless @data_fetcher
 
@@ -100,7 +182,7 @@ module Trading
         chunks = @data_fetcher.rag_query(
           account_id: account_id,
           query: question,
-          kb_name: "trading_news",
+          kb_name: "Trading Market Intelligence",
           top_k: param("rag_top_k", 10)
         )
         return [] if chunks.empty?

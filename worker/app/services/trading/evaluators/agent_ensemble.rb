@@ -3,6 +3,9 @@
 module Trading
   module Evaluators
     class AgentEnsemble < Base
+      include Concerns::DynamicKelly
+      include Concerns::ConvergenceExit
+
       register "agent_ensemble"
 
       ANALYST_ROLES = %w[technical sentiment fundamentals news risk_manager].freeze
@@ -12,6 +15,19 @@ module Trading
         market_price = current_price
         return signals unless market_price
         return signals unless @llm_client && @provider_config
+
+        # Cooldown: prevent over-trading by spacing out entry evaluations (bypassed in training)
+        unless training?
+          cooldown = param("cooldown_seconds", 120)
+          if !has_open_position? && last_tick_at && last_tick_at > (Time.current - cooldown)
+            return signals
+          end
+        end
+
+        # Max open positions guard
+        open_count = @positions.count { |p| p["status"] == "open" }
+        max_open = param("max_open_positions", 1)
+        return signals if open_count >= max_open && !has_open_position?
 
         @llm_call_count = 0
         @max_llm_calls = param("max_llm_calls_per_tick", 8)
@@ -24,6 +40,10 @@ module Trading
           analyses = run_debate(analyses, market_price)
         end
 
+        # Pre-compute consensus probability for the synthesizer prompt
+        pre_consensus = calculate_consensus(analyses)
+        @pre_consensus_prob = pre_consensus[:probability]
+
         decision = can_make_llm_call? ? synthesize_decision(analyses, market_price) : fallback_decision(analyses)
         return signals unless decision
 
@@ -31,6 +51,12 @@ module Trading
         consensus_threshold = param("consensus_threshold", 0.6)
 
         if decision[:direction] != "hold" && decision[:confidence] >= min_confidence && decision[:consensus] >= consensus_threshold
+          # Dynamic Kelly sizing replaces LLM-generated position_size_modifier
+          kelly = dynamic_kelly(
+            estimated_prob: decision[:probability] || market_price,
+            market_price: market_price
+          )
+
           signals << build_signal(
             type: "entry", direction: decision[:direction],
             confidence: decision[:confidence].clamp(0.0, 1.0),
@@ -38,18 +64,59 @@ module Trading
             reasoning: "Ensemble decision: #{decision[:reasoning]} (#{analyses.size} analysts, consensus: #{(decision[:consensus] * 100).round(0)}%)",
             indicators: {
               analyst_count: analyses.size, consensus: decision[:consensus],
-              individual_views: analyses.map { |a| { role: a[:role], direction: a[:direction], confidence: a[:confidence] } },
-              position_size_modifier: decision[:position_size_modifier]
+              edge: decision[:edge] || 0, probability: decision[:probability],
+              individual_views: analyses.map { |a| { role: a[:role], direction: a[:direction], confidence: a[:confidence], probability_estimate: a[:probability_estimate] } },
+              kelly_fraction: kelly[:kelly_fraction],
+              kelly_full: kelly[:kelly_full],
+              edge_after_impact: kelly[:edge_after_impact],
+              kelly_blend_source: kelly[:blend_source],
+              position_sizing_method: "kelly"
             }
           )
         end
 
-        if has_open_position? && decision[:direction] == "close"
-          signals << build_signal(
-            type: "exit", direction: current_position&.dig("side") || "long",
-            confidence: decision[:confidence].clamp(0.0, 1.0), strength: 0.7,
-            reasoning: "Ensemble consensus to exit: #{decision[:reasoning]}"
-          )
+        if has_open_position?
+          if decision[:direction] == "close"
+            signals << build_signal(
+              type: "exit", direction: current_position&.dig("side") || "long",
+              confidence: decision[:confidence].clamp(0.0, 1.0), strength: 0.7,
+              reasoning: "Ensemble consensus to exit: #{decision[:reasoning]}",
+              indicators: { edge: 0 }
+            )
+          else
+            # TP/SL exit check
+            position = current_position
+            if position
+              entry_price = (position["entry_price"] || 0).to_f
+              side = position["side"] || "long"
+              pnl_pct = entry_price > 0 ? ((current_price - entry_price) / entry_price * 100 * (side == "short" ? -1 : 1)) : 0
+              stop_loss = param("stop_loss_pct", 5.0)
+              take_profit = param("take_profit_pct", 3.0)
+
+              if pnl_pct <= -stop_loss
+                signals << build_signal(
+                  type: "exit", direction: side,
+                  confidence: 0.9, strength: 0.9,
+                  reasoning: "Ensemble stop-loss: PnL #{pnl_pct.round(2)}% exceeds -#{stop_loss}% limit",
+                  indicators: { pnl_pct: pnl_pct, edge: 0 }
+                )
+              elsif pnl_pct >= take_profit
+                signals << build_signal(
+                  type: "exit", direction: side,
+                  confidence: 0.85, strength: 0.8,
+                  reasoning: "Ensemble take-profit: PnL #{pnl_pct.round(2)}% exceeds +#{take_profit}% target",
+                  indicators: { pnl_pct: pnl_pct, edge: 0 }
+                )
+              else
+                # Convergence exit: check if remaining edge has decayed below exit cost
+                if market_expiry
+                  hours_left = (market_expiry - Time.now) / 3600.0
+                  conv_signal = convergence_exit_check(position, hours_left)
+                  signals << build_signal(**conv_signal) if conv_signal
+                end
+              end
+            end
+          end
         end
 
         signals
@@ -107,10 +174,11 @@ module Trading
         end
 
         question = @market_question || strategy_pair
+        price_context = build_price_context(market_price)
         response = llm_complete_structured(
           messages: [
             { role: "system", content: system_prompt },
-            { role: "user", content: "Analyze #{strategy_pair} at current price #{market_price}. Market question: #{question}" }
+            { role: "user", content: "Analyze #{strategy_pair} at current price #{market_price}. Market question: #{question}\n\n#{price_context}" }
           ],
           schema: analyst_schema,
           temperature: temperature
@@ -119,6 +187,7 @@ module Trading
 
         @total_cost += last_llm_cost
         { direction: response[:direction], confidence: response[:confidence].to_f.clamp(0.0, 1.0),
+          probability_estimate: response[:probability_estimate]&.to_f&.clamp(0.0, 1.0),
           reasoning: response[:reasoning].to_s, key_points: Array(response[:key_points]) }
       rescue StandardError => e
         log("Analyst #{role} failed: #{e.message}", level: :warn)
@@ -197,7 +266,7 @@ module Trading
         response = llm_complete_structured(
           messages: [
             { role: "system", content: "You are the Lead Trader. Synthesize analyst opinions into a final trading decision. Consider risk, consensus, and confidence levels." },
-            { role: "user", content: "Market: #{strategy_pair} at #{market_price}\nHas open position: #{has_open_position?}\n\nAnalyst opinions:\n#{summary}" }
+            { role: "user", content: "Market: #{strategy_pair} at #{market_price}\nHas open position: #{has_open_position?}\nConsensus probability: #{@pre_consensus_prob&.round(3)}\nEdge vs market: #{((@pre_consensus_prob || market_price) - market_price).round(3)}\n\nAnalyst opinions:\n#{summary}" }
           ],
           schema: trader_schema,
           temperature: param("trader_temperature", 0.2)
@@ -212,7 +281,9 @@ module Trading
           confidence: response[:confidence].to_f,
           reasoning: response[:reasoning].to_s,
           position_size_modifier: response[:position_size_modifier].to_f.clamp(0.1, 2.0),
-          consensus: consensus[:score]
+          consensus: consensus[:score],
+          probability: consensus[:probability],
+          edge: consensus[:edge]
         }
       rescue StandardError => e
         log("Synthesis failed: #{e.message}", level: :warn)
@@ -225,34 +296,95 @@ module Trading
         avg_confidence = analyses.sum { |a| a[:confidence].to_f } / analyses.size
         { direction: consensus[:majority_direction], confidence: avg_confidence,
           reasoning: "Fallback consensus from #{analyses.size} analysts",
-          position_size_modifier: 0.5, consensus: consensus[:score] }
+          position_size_modifier: 0.5, consensus: consensus[:score],
+          probability: consensus[:probability], edge: consensus[:edge] }
       end
 
       def calculate_consensus(analyses)
         role_weights = param("role_weights", { "fundamentals" => 1.5, "risk_manager" => 1.3, "technical" => 1.2, "sentiment" => 1.0, "news" => 0.8 })
-        weighted_votes = Hash.new(0.0)
-        total_weight = 0.0
+
+        # Probability-weighted averaging instead of vote-counting.
+        # Each analyst's probability_estimate is weighted by their confidence and role weight.
+        weighted_sum = 0.0
+        weight_total = 0.0
 
         analyses.each do |a|
-          weight = (role_weights[a[:role]] || 1.0).to_f
-          weighted_votes[a[:direction]] += weight
-          total_weight += weight
+          role_weight = (role_weights[a[:role]] || 1.0).to_f
+          prob = a[:probability_estimate] || (a[:direction] == "long" ? 0.6 : 0.4)
+          confidence = (a[:confidence] || 0.5).to_f
+          weight = confidence * role_weight
+          weighted_sum += prob * weight
+          weight_total += weight
         end
 
-        majority_direction = weighted_votes.max_by { |_, v| v }&.first || "hold"
-        score = total_weight > 0 ? weighted_votes[majority_direction] / total_weight : 0.0
-        { majority_direction: majority_direction, score: score }
+        return { majority_direction: "hold", score: 0.0, probability: nil, edge: 0.0 } if weight_total.zero?
+
+        consensus_prob = weighted_sum / weight_total
+        edge = (consensus_prob - current_price).abs
+        min_edge = param("min_edge", 0.08)
+
+        # E5: Echo chamber detection — penalize consensus when analyst probability
+        # estimates have low variance. Data: 28/28 losses with unanimous consensus
+        # = $1,165 lost to groupthink. When all analysts agree but are wrong,
+        # variance is near zero. Require minimum disagreement for conviction.
+        prob_estimates = analyses.map { |a| a[:probability_estimate] || (a[:direction] == "long" ? 0.6 : 0.4) }
+        if prob_estimates.size >= 2
+          mean_prob = prob_estimates.sum / prob_estimates.size
+          variance = prob_estimates.sum { |p| (p - mean_prob)**2 } / prob_estimates.size
+          std_dev = Math.sqrt(variance)
+          disagreement_threshold = param("disagreement_threshold", 0.05)
+
+          if std_dev < disagreement_threshold
+            # Analysts suspiciously unanimous — discount the consensus score
+            echo_penalty = param("echo_chamber_penalty", 0.5)
+            return { majority_direction: "hold", score: 0.0, probability: consensus_prob,
+                     edge: edge, echo_chamber: true, analyst_std_dev: std_dev } if echo_penalty >= 1.0
+          end
+        end
+
+        if edge < min_edge
+          { majority_direction: "hold", score: 0.0, probability: consensus_prob, edge: edge }
+        else
+          direction = consensus_prob > current_price ? "long" : "short"
+          score = (edge * 2).clamp(0.3, 0.9)
+          { majority_direction: direction, score: score, probability: consensus_prob, edge: edge }
+        end
+      end
+
+      def build_price_context(market_price)
+        parts = []
+        parts << "Current implied probability: #{(market_price * 100).round(1)}%"
+        parts << "Bid: #{bid_price.round(4)}, Ask: #{ask_price.round(4)}" if bid_price > 0 && ask_price > 0
+
+        if price_history.size >= 3
+          recent = price_history.last(5).map { |s| (s["close"] || s[:close]).to_f }
+          trend = recent.last - recent.first
+          parts << "Recent trend: #{trend > 0 ? '+' : ''}#{(trend * 100).round(2)}% over last #{recent.size} ticks"
+        end
+
+        if has_open_position?
+          pos = current_position
+          entry = (pos&.dig("entry_price") || 0).to_f
+          side = pos&.dig("side") || "long"
+          pnl = entry > 0 ? ((market_price - entry) / entry * 100 * (side == "short" ? -1 : 1)).round(2) : 0
+          parts << "Open #{side} position from #{entry.round(4)}, P&L: #{pnl}%"
+        end
+
+        parts.join("\n")
       end
 
       def analyst_system_prompt(role)
-        prompts = {
-          "technical" => "You are a Technical Analyst. Analyze price action, momentum, volume patterns, and support/resistance levels for prediction markets.",
-          "sentiment" => "You are a Sentiment Analyst. Assess market sentiment, social signals, and crowd psychology around this market.",
-          "fundamentals" => "You are a Fundamentals Analyst. Evaluate the underlying event probability based on real-world evidence, news, and expert opinions.",
-          "news" => "You are a News Analyst. Assess recent news events and their impact on this market's outcome probability.",
-          "risk_manager" => "You are a Risk Manager. Evaluate position sizing, downside risk, correlation risk, and whether the risk/reward is favorable."
+        base = {
+          "technical" => "You are a Technical Analyst for prediction markets. Analyze price action, momentum, and support/resistance levels.",
+          "sentiment" => "You are a Sentiment Analyst for prediction markets. Assess market sentiment, social signals, and crowd psychology.",
+          "fundamentals" => "You are a Fundamentals Analyst for prediction markets. Evaluate the underlying event probability based on real-world evidence and expert opinions.",
+          "news" => "You are a News Analyst for prediction markets. Assess recent news events and their impact on outcome probability.",
+          "risk_manager" => "You are a Risk Manager for prediction markets. Evaluate downside risk, correlation risk, and risk/reward."
         }
-        prompts[role] || "You are a Market Analyst. Provide your assessment of this market."
+        prompt = base[role] || "You are a Market Analyst for prediction markets."
+        prompt + "\n\nEstimate the TRUE probability that this event will resolve YES. " \
+                 "Ignore the current market price — form your own independent estimate. " \
+                 "Return your probability_estimate as a number between 0.0 and 1.0."
       end
 
       def analyst_schema
@@ -260,11 +392,12 @@ module Trading
         { type: "object",
           properties: {
             direction: { type: "string", enum: directions, description: "Recommended direction" },
-            confidence: { type: "number", description: "Confidence 0-1" },
+            probability_estimate: { type: "number", description: "Estimated true probability of YES outcome (0.0-1.0)" },
+            confidence: { type: "number", description: "Confidence in your estimate 0-1" },
             reasoning: { type: "string", description: "Key reasoning" },
             key_points: { type: "array", items: { type: "string" }, description: "Key analysis points" }
           },
-          required: %w[direction confidence reasoning key_points], additionalProperties: false }
+          required: %w[direction probability_estimate confidence reasoning key_points], additionalProperties: false }
       end
 
       def trader_schema
