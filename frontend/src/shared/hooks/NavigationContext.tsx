@@ -62,14 +62,20 @@ interface NavigationProviderProps {
   theme?: NavigationTheme;
 }
 
-export const NavigationProvider: React.FC<NavigationProviderProps> = ({ 
-  children, 
-  theme = 'default' 
+export const NavigationProvider: React.FC<NavigationProviderProps> = ({
+  children,
+  theme = 'default'
 }) => {
   const location = useLocation();
   const { user } = useSelector((state: RootState) => state.auth);
   const { loadedExtensions } = useSelector((state: RootState) => state.config);
   const [menuState, dispatch] = useReducer(menuReducer, initialMenuState);
+  const [registryVersion, setRegistryVersion] = React.useState(() => featureRegistry.getVersion());
+
+  // Re-render when featureRegistry is mutated (extensions registering nav items)
+  useEffect(() => {
+    return featureRegistry.subscribe(() => setRegistryVersion(featureRegistry.getVersion()));
+  }, []);
 
   // Check if user has admin access (permission-based)
   const hasAdminPermissions = hasAccess(user, ['admin.access']) ||
@@ -168,7 +174,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
     }
 
     return config;
-  }, [hasAdminPermissions, filterExtensionItems, filterExtensionSections]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasAdminPermissions, filterExtensionItems, filterExtensionSections, registryVersion]);
 
   // Permission checker - ONLY use permissions, ignore roles
   const hasPermission = useCallback((permissions?: string[]): boolean => {

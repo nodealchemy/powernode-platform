@@ -149,7 +149,7 @@ export const Modal: React.FC<ModalProps> = ({
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-50 ${disableContentScroll ? 'overflow-y-auto' : 'overflow-y-auto'}`}
+      className={`fixed inset-0 z-[70] overflow-x-hidden ${disableContentScroll ? 'overflow-y-auto' : 'overflow-y-auto'}`}
       aria-labelledby="modal-title"
       role="dialog"
       aria-modal="true"
@@ -197,18 +197,18 @@ export const Modal: React.FC<ModalProps> = ({
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-theme-interactive-primary via-theme-interactive-secondary to-theme-interactive-primary" />
             
             <div className="flex items-start justify-between">
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-3 min-w-0">
                 {icon && (
                   <div className="flex-shrink-0 w-12 h-12 bg-theme-interactive-primary/10 rounded-xl flex items-center justify-center text-theme-interactive-primary text-xl">
                     {icon}
                   </div>
                 )}
-                <div>
-                  <h3 className="text-xl font-bold text-theme-primary" id="modal-title">
+                <div className="min-w-0">
+                  <h3 className="text-xl font-bold text-theme-primary break-words" id="modal-title">
                     {title}
                   </h3>
                   {subtitle && (
-                    <div className="text-sm text-theme-secondary mt-1">
+                    <div className="text-sm text-theme-secondary mt-1 break-words">
                       {subtitle}
                     </div>
                   )}

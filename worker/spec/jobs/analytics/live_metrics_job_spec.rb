@@ -48,19 +48,8 @@ RSpec.describe Analytics::LiveMetricsJob, type: :job do
 
     before do
       allow(BackendApiClient).to receive(:new).and_return(mock_api_client)
-      # Stub Redis.current dynamically since Redis may not be loaded
-      # Create a Redis class with a current class method
-      redis_class = Class.new do
-        class << self
-          attr_accessor :current_instance
-          def current
-            @current_instance
-          end
-        end
-      end
-      stub_const('Redis', redis_class)
-      Redis.current_instance = mock_redis
-      allow(mock_redis).to receive(:setex)
+      allow(Sidekiq).to receive(:redis).and_yield(mock_redis)
+      allow(mock_redis).to receive(:set)
     end
 
     context 'when processing live metrics for specific account' do

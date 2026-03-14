@@ -30,13 +30,22 @@ interface FeatureRegistryState {
   routes: Map<string, FeatureRoute[]>;
   navItems: Map<string, FeatureNavItem[]>;
   navSections: Map<string, FeatureNavSection[]>;
+  version: number;
+  listeners: Set<() => void>;
 }
 
 const state: FeatureRegistryState = {
   routes: new Map(),
   navItems: new Map(),
   navSections: new Map(),
+  version: 0,
+  listeners: new Set(),
 };
+
+function notifyListeners(): void {
+  state.version++;
+  state.listeners.forEach(fn => fn());
+}
 
 export const featureRegistry = {
   /**
@@ -45,6 +54,7 @@ export const featureRegistry = {
   registerRoutes(namespace: string, routes: FeatureRoute[]): void {
     const existing = state.routes.get(namespace) || [];
     state.routes.set(namespace, [...existing, ...routes]);
+    notifyListeners();
   },
 
   /**
@@ -63,6 +73,7 @@ export const featureRegistry = {
   registerNavItems(namespace: string, items: FeatureNavItem[]): void {
     const existing = state.navItems.get(namespace) || [];
     state.navItems.set(namespace, [...existing, ...items]);
+    notifyListeners();
   },
 
   /**
@@ -81,6 +92,7 @@ export const featureRegistry = {
   registerNavSections(namespace: string, sections: FeatureNavSection[]): void {
     const existing = state.navSections.get(namespace) || [];
     state.navSections.set(namespace, [...existing, ...sections]);
+    notifyListeners();
   },
 
   /**
@@ -106,6 +118,21 @@ export const featureRegistry = {
   hasRoutes(namespace: string): boolean {
     const routes = state.routes.get(namespace);
     return !!routes && routes.length > 0;
+  },
+
+  /**
+   * Current registry version — increments on every registration.
+   */
+  getVersion(): number {
+    return state.version;
+  },
+
+  /**
+   * Subscribe to registry changes. Returns an unsubscribe function.
+   */
+  subscribe(listener: () => void): () => void {
+    state.listeners.add(listener);
+    return () => { state.listeners.delete(listener); };
   },
 
   /**
