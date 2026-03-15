@@ -121,7 +121,7 @@ module Api
 
           # POST /api/v1/internal/devops/swarm/events
           def create_event
-            if params[:action_type] == "cleanup"
+            if params[:action_type] == "cleanup" || params[:action] == "cleanup"
               days = (params[:older_than_days] || 30).to_i
               count = ::Devops::SwarmEvent
                 .where(acknowledged: true)

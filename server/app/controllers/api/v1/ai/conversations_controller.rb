@@ -288,7 +288,7 @@ module Api
               assistant_response[:content], message_type: "text",
               token_count: assistant_response[:usage]&.dig(:total_tokens) || 0,
               cost_usd: calculate_cost(assistant_response[:usage], agent.provider),
-              processing_metadata: { model: assistant_response[:model], finish_reason: assistant_response[:finish_reason], usage: assistant_response[:usage] }
+              processing_metadata: { model: assistant_response[:model], finish_reason: assistant_response[:finish_reason], usage: assistant_response[:usage], tool_calls_log: assistant_response[:tool_calls_log] }.compact
             )
 
             render_success({

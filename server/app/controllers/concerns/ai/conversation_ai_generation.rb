@@ -105,14 +105,56 @@ module Ai
       # Build LLM client
       client = ::WorkerLlmClient.new(agent_id: agent.id)
 
-      # Send messages to provider
-      response = client.complete(
-        messages: messages,
-        model: model,
-        temperature: agent.temperature || 0.7,
-        max_tokens: agent.max_tokens || 2048
-      )
+      if agent_tools_enabled?(agent)
+        # Agentic path: LLM can call platform tools in an iterative loop
+        max_iterations = agent.mcp_metadata.dig("tool_access", "max_iterations") || 10
+        result = client.execute_tool_loop(
+          messages: messages,
+          model: model,
+          max_iterations: max_iterations,
+          temperature: agent.temperature || 0.7,
+          max_tokens: agent.max_tokens || 4096
+        )
+        format_tool_loop_response(result, model)
+      else
+        # Standard text-only completion
+        response = client.complete(
+          messages: messages,
+          model: model,
+          temperature: agent.temperature || 0.7,
+          max_tokens: agent.max_tokens || 2048
+        )
+        format_completion_response(response, model)
+      end
+    rescue StandardError => e
+      Rails.logger.error "[CONVERSATIONS] AI response generation error: #{e.message}"
+      { success: false, error: "AI service error: #{e.message}" }
+    end
 
+    # Check if agent has MCP tool access enabled
+    def agent_tools_enabled?(agent)
+      agent.mcp_metadata&.dig("tool_access", "enabled") == true
+    end
+
+    # Format the raw hash returned by WorkerLlmClient#execute_tool_loop
+    def format_tool_loop_response(result, model)
+      data = result.is_a?(Hash) && result.key?("data") ? result["data"] : result
+      data = {} unless data.is_a?(Hash)
+      content = data["content"]
+      return { success: false, error: "No response from tool loop" } if content.blank?
+
+      {
+        success: true,
+        content: content,
+        model: model,
+        usage: data["usage"] || {},
+        finish_reason: data["finish_reason"] || "stop",
+        tool_calls_log: data["tool_calls_log"] || []
+      }
+    end
+
+    # Format an Ai::Llm::Response from the standard completion path
+    def format_completion_response(response, model)
       if response.success?
         {
           success: true,
@@ -127,9 +169,6 @@ module Ai
           error: response.raw_response&.dig(:error) || "Failed to generate AI response"
         }
       end
-    rescue StandardError => e
-      Rails.logger.error "[CONVERSATIONS] AI response generation error: #{e.message}"
-      { success: false, error: "AI service error: #{e.message}" }
     end
 
     # Extract text content from various provider response formats
