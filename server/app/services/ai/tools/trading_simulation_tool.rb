@@ -87,9 +87,14 @@ module Ai
               venue_slug: { type: "string", required: false, description: "Trading venue slug (e.g. 'kalshi')" },
               risk_tier: { type: "string", required: false, description: "Risk tier (low/medium/high)" },
               include_classic: { type: "boolean", required: false, description: "Include classic strategies" },
+              use_performance_sizing: { type: "boolean", required: false, description: "Enable performance-based position sizing (scales size by win rate)" },
               probability_min: { type: "number", required: false, description: "Min probability filter for market selection" },
               probability_max: { type: "number", required: false, description: "Max probability filter for market selection" },
-              min_volume_24h: { type: "number", required: false, description: "Min 24h volume filter" }
+              min_volume_24h: { type: "number", required: false, description: "Min 24h volume filter" },
+              compounding_enabled: { type: "boolean", required: false, description: "Enable profit compounding" },
+              compounding_threshold_pct: { type: "number", required: false, description: "P&L threshold % to trigger compounding" },
+              compounding_reinvest_pct: { type: "integer", required: false, description: "Percentage of profits to reinvest (0-100)" },
+              confidence_threshold: { type: "number", required: false, description: "Minimum confidence score to enter positions" }
             }
           },
           "trading_cancel_training_session" => {
@@ -283,6 +288,8 @@ module Ai
       end
 
       def create_training_session(params)
+        enforce_concurrent_session_limit!
+
         # Support both nested config and top-level params (top-level takes precedence)
         nested = (params[:config] || {}).stringify_keys
         top_level = params.except(:config, :strategy_id, :action).stringify_keys
@@ -454,6 +461,8 @@ module Ai
       end
 
       def create_dry_run_session(params)
+        enforce_concurrent_session_limit!
+
         all_types = Trading::LiveTrainingRunner::TRAINING_PARAMETERS.keys
         venue_slug = params[:venue_slug].presence || "kalshi"
         tick_count = (params[:tick_count] || 5).to_i.clamp(3, 15)
@@ -496,6 +505,18 @@ module Ai
           venue_configs: venue_count,
           message: "Seeded #{strategy_count} strategy parameter defaults and #{venue_count} venue configs into shared memory"
         })
+      end
+
+      def enforce_concurrent_session_limit!
+        max = Api::V1::Trading::TrainingSessionsController::MAX_CONCURRENT_SESSIONS
+        active_count = Trading::TrainingSession
+          .where(account_id: account.id, status: %w[pending running paused])
+          .count
+        return if active_count < max
+
+        raise ArgumentError,
+          "Maximum #{max} concurrent training sessions allowed (#{active_count} active). " \
+          "Wait for existing sessions to complete, or cancel one before creating another."
       end
 
       def serialize_simulation(simulation, detailed: false)
