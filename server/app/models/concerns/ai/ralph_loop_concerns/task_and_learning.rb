@@ -16,6 +16,8 @@ module Ai
       end
 
       def all_tasks_completed?
+        return false if ralph_tasks.where(repeating: true).exists?
+
         ralph_tasks.where.not(status: %w[passed skipped]).empty?
       end
 

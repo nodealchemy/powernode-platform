@@ -111,6 +111,9 @@ module Ai
 
     # ==================== Token & Cost Management ====================
 
+    # Alias for consistency with other models (AgentExecution, Message) that use cost_usd
+    alias_attribute :cost_usd, :cost
+
     def total_tokens
       (tokens_input || 0) + (tokens_output || 0)
     end

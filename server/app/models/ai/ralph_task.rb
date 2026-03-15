@@ -142,6 +142,10 @@ module Ai
       TERMINAL_STATUSES.include?(status)
     end
 
+    def repeating?
+      repeating == true
+    end
+
     def in_progress?
       status == "in_progress"
     end

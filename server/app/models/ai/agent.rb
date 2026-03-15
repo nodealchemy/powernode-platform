@@ -43,6 +43,7 @@ module Ai
     has_many :agent_team_members, class_name: "Ai::AgentTeamMember", foreign_key: "ai_agent_id"
     has_many :teams, class_name: "Ai::AgentTeam", through: :agent_team_members, source: :team
     has_one :agent_card, class_name: "Ai::AgentCard", foreign_key: "ai_agent_id", dependent: :nullify
+    has_many :ralph_loops, class_name: "Ai::RalphLoop", foreign_key: "default_agent_id"
 
     # Validations
     validates :name, presence: true, length: { maximum: 255 }, uniqueness: { scope: :account_id }
@@ -56,6 +57,7 @@ module Ai
     validates :status, inclusion: { in: %w[active inactive paused error archived] }
     validates :version, format: { with: /\A\d+\.\d+\.\d+\z/, message: "must be in semantic version format (x.y.z)" }
     validate :model_matches_provider, if: -> { provider.present? && mcp_metadata&.dig("model_config", "model").present? }
+    validate :model_suitable_for_agent_type, if: -> { provider.present? && mcp_metadata&.dig("model_config", "model").present? }
 
     # JSON attributes for MCP data
     attribute :mcp_tool_manifest, :json, default: -> { {} }
@@ -173,18 +175,52 @@ module Ai
       ptype = provider.provider_type
       valid = case ptype
               when "anthropic" then model.start_with?("claude")
-              when "openai"
-                # OpenAI-compatible providers may host non-OpenAI models (e.g. Grok via X.AI)
-                # Only block models that are clearly from a different provider family
-                !model.start_with?("claude")
+              when "openai" then !model.start_with?("claude", "grok")
+              when "grok" then model.start_with?("grok")
               when "ollama" then true
               else true
               end
 
       unless valid
-        supported = provider.supported_models.map { |m| m["id"] }.first(5).join(", ")
+        supported = provider.supported_models.map { |m| m["id"] || m["name"] }.compact.first(5).join(", ")
         errors.add(:base, "Model '#{model}' is incompatible with #{ptype} provider. Supported: #{supported}")
       end
+    end
+
+    # Warn when model capability doesn't match agent type requirements.
+    # Lightweight models (mini/haiku/small) are fine for assistants and workers,
+    # but monitor and data_analyst roles benefit from stronger reasoning models.
+    MODEL_CAPABILITY_TIERS = {
+      # Tier 1: Full-power reasoning models
+      reasoning: %w[claude-opus claude-sonnet o3 o3-pro gpt-4o grok-3 grok-4],
+      # Tier 2: Cost-effective models adequate for most tasks
+      standard: %w[gpt-4.1-mini gpt-4.1 claude-haiku grok-3-mini o3-mini],
+      # Tier 3: Lightweight / local models
+      light: %w[gpt-4o-mini llama qwen codellama]
+    }.freeze
+
+    # Agent types that benefit from stronger models
+    REASONING_PREFERRED_TYPES = %w[monitor data_analyst workflow_optimizer].freeze
+
+    def model_suitable_for_agent_type
+      model = mcp_metadata.dig("model_config", "model")
+      return if model.blank? || agent_type.blank?
+      return unless REASONING_PREFERRED_TYPES.include?(agent_type)
+
+      tier = model_capability_tier(model)
+      return unless tier == :light
+
+      Rails.logger.warn(
+        "[Ai::Agent] Agent '#{name}' (#{agent_type}) uses lightweight model '#{model}'. " \
+        "Consider a standard or reasoning-tier model for better #{agent_type} performance."
+      )
+    end
+
+    def model_capability_tier(model_name)
+      MODEL_CAPABILITY_TIERS.each do |tier, prefixes|
+        return tier if prefixes.any? { |p| model_name.start_with?(p) }
+      end
+      :standard # Unknown models default to standard
     end
 
     def sync_to_knowledge_graph

@@ -33,6 +33,11 @@ module Ai
       def complete!(result: {})
         raise InvalidTransitionError, "Cannot complete loop in #{status} status" unless can_complete?
 
+        if ralph_tasks.where(repeating: true).exists?
+          Rails.logger.warn("[RalphLoop] Blocked completion of loop #{id} — has repeating tasks")
+          return
+        end
+
         update!(
           status: "completed",
           completed_at: Time.current,
