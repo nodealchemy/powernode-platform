@@ -33,6 +33,8 @@ class TradingTrainingSessionRunnerJob < BaseJob
   PAUSED_COOLDOWN = 300 # 5 minutes — matches STALE_RUNNING_THRESHOLD on the backend
 
   def execute
+    clear_stale_locks_from_dead_workers!
+
     response = api_client.get("/api/v1/internal/trading/pending_training_sessions")
     sessions = response.dig("data", "items") || []
     log_info("Runner found #{sessions.size} resumable sessions")
@@ -53,14 +55,21 @@ class TradingTrainingSessionRunnerJob < BaseJob
       end
 
       # Skip recently-paused sessions to prevent bounce cycle:
-      # orphan recovery pauses → runner re-dispatches → start! → crash → paused again
+      # orphan recovery pauses → runner re-dispatches → start! → crash → paused again.
+      # Exception: clean shutdowns ("Worker shutting down") skip cooldown entirely —
+      # these are safe to resume immediately since positions were closed gracefully.
       if session["status"] == "paused"
-        updated_at = session["updated_at"]
-        if updated_at
-          pause_age = Time.current - (Time.parse(updated_at) rescue Time.current)
-          if pause_age < PAUSED_COOLDOWN
-            log_info("Paused session cooling down (#{pause_age.round}s/#{PAUSED_COOLDOWN}s)", session_id: session["id"])
-            next
+        error_msg = session["error_message"].to_s
+        clean_shutdown = error_msg.include?("Worker shutting down")
+
+        unless clean_shutdown
+          updated_at = session["updated_at"]
+          if updated_at
+            pause_age = Time.current - (Time.parse(updated_at) rescue Time.current)
+            if pause_age < PAUSED_COOLDOWN
+              log_info("Paused session cooling down (#{pause_age.round}s/#{PAUSED_COOLDOWN}s)", session_id: session["id"])
+              next
+            end
           end
         end
       end
@@ -133,5 +142,33 @@ class TradingTrainingSessionRunnerJob < BaseJob
     false
   rescue StandardError
     true # Assume active if we can't check — safer to skip than double-dispatch
+  end
+
+  # Proactive stale lock scan: after a worker restart, the old worker's JIDs
+  # no longer exist. Scan all training_session_lock:* keys and clear any held
+  # by JIDs that aren't in the current worker process. Only clears locks older
+  # than 30s to avoid racing with jobs that are still starting up.
+  def clear_stale_locks_from_dead_workers!
+    cleared = 0
+    Sidekiq.redis do |conn|
+      # keys is safe here — at most ~20 training session locks exist at any time
+      lock_keys = conn.keys("training_session_lock:*")
+      lock_keys.each do |key|
+        holder = conn.get(key)
+        next if holder.nil? || holder == "dispatching"
+        next if jid_active?(holder)
+
+        lock_ttl = conn.ttl(key)
+        lock_age = TradingTrainingSessionJob::LOCK_TTL - [lock_ttl, 0].max
+        next if lock_age < 30 # Too fresh — could be a startup race
+
+        conn.del(key)
+        cleared += 1
+        log_info("Cleared stale lock from dead JID #{holder}", lock_key: key, age: lock_age)
+      end
+    end
+    log_info("Stale lock scan complete: #{cleared} locks cleared") if cleared > 0
+  rescue StandardError => e
+    log_warn("Stale lock scan failed (non-fatal): #{e.message}")
   end
 end

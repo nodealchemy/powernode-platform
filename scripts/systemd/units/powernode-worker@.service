@@ -19,7 +19,7 @@ ExecReload=/bin/kill -SIGTSTP $MAINPID
 Restart=on-failure
 RestartSec=10s
 TimeoutStartSec=60s
-TimeoutStopSec=60s
+TimeoutStopSec=310s
 
 SyslogIdentifier=powernode-worker-%i
 

@@ -6,6 +6,24 @@ class TradingTrainingSessionJob < BaseJob
   # and competes with fresh dispatches for the session lock.
   sidekiq_options queue: 'trading', retry: 0
 
+  # Class-level shutdown flag — set by Sidekiq's :quiet callback (fires on SIGTERM).
+  # Checked by the tick loop so training sessions exit gracefully within seconds,
+  # instead of waiting for Sidekiq's 300s timeout to expire.
+  @shutdown_flag = false
+  class << self
+    def shutdown_requested!
+      @shutdown_flag = true
+    end
+
+    def shutdown_requested?
+      @shutdown_flag
+    end
+
+    def reset_shutdown_flag!
+      @shutdown_flag = false
+    end
+  end
+
   # Tick-scoped price cache. Pre-warmed with batch fetch at tick start,
   # used by evaluators to avoid individual venue_fetch_ticker calls.
   # Lives for one tick only — prices are stale after tick completes.
@@ -134,26 +152,43 @@ class TradingTrainingSessionJob < BaseJob
     @data_fetcher = trading_data_fetcher
 
     @training_completed = false
+    @shutdown_requested = false
 
     begin
       run_training_loop!(session_id)
-      @training_completed = true
+      @training_completed = !self.class.shutdown_requested?
     ensure
-      # Only release if we still own the lock (guard against stale-lock cleanup races)
+      # Clean shutdown: close positions and pause session so it can resume.
+      # This runs on SIGTERM (worker restart), SIGKILL won't reach here but
+      # the orphan recovery mechanism handles that case.
+      unless @training_completed
+        begin
+          if self.class.shutdown_requested?
+            # Clean shutdown (SIGTERM → :quiet): pause immediately WITHOUT closing
+            # positions. The session will resume in seconds on the new worker with
+            # positions intact. Calling training_finalize here would mark it "completed".
+            log_info("Graceful shutdown: pausing session for fast recovery", session_id: session_id)
+            pause_session!(session_id, "Worker shutting down — session paused for recovery")
+          else
+            # Crash/error path: close positions first, then pause.
+            # Recovery is uncertain so we want positions safely closed.
+            log_info("Unexpected exit: closing positions and pausing session", session_id: session_id)
+            close_session_positions!(session_id)
+            pause_session!(session_id, "Worker terminated — positions closed, session paused for recovery")
+          end
+          log_info("Session paused for recovery after shutdown", session_id: session_id)
+        rescue StandardError => e
+          # If pause fails (e.g., backend unreachable during restart), fall back to fail
+          log_warn("Graceful pause failed, marking as failed: #{e.message}", session_id: session_id)
+          fail_session!(session_id, "Worker terminated: #{e.message}")
+        end
+      end
+
+      # Release lock and WebSocket
       Sidekiq.redis do |conn|
         conn.del(lock_key) if conn.get(lock_key) == jid
       end
-
-      # Clean up WebSocket connection
       disconnect_data_ws
-
-      # If the job was killed (SIGTERM from worker restart, OOM, etc.) without
-      # completing or explicitly failing, mark the session as failed so it doesn't
-      # sit in "running" state with no worker processing it.
-      unless @training_completed
-        fail_session!(session_id, "Worker job terminated unexpectedly (worker restart or signal)")
-        log_info("Marked session as failed after unexpected termination", session_id: session_id)
-      end
     end
   end
 
@@ -227,6 +262,13 @@ class TradingTrainingSessionJob < BaseJob
     # Phase 2: Tick loop
     remaining.times do |i|
       tick_num = start_tick + i + 1
+
+      # Fast exit on Sidekiq shutdown (SIGTERM) — don't start a new tick,
+      # let the ensure block close positions and pause the session.
+      if self.class.shutdown_requested?
+        log_info("Sidekiq shutting down, exiting tick loop after tick #{tick_num - 1}", session_id: session_id)
+        break
+      end
 
       # Check session status: existence, cancellation, failure
       status = check_status(session_id)
@@ -335,8 +377,10 @@ class TradingTrainingSessionJob < BaseJob
         first_agent_id = sample_context["agent_id"]
         similarity_threshold = 0.55 # default; evaluators may override per-strategy
 
-        # Graph pre-warm: skip in dry_run/backtest mode to save 50+ API calls/tick
-        unless dry_run || backtest
+        # Graph pre-warm: skip for classic-only sessions, dry_run, and backtest.
+        # Graph is only useful for combinatorial_arbitrage and LLM strategies.
+        has_graph_strategies = ai_ids.any?
+        unless dry_run || backtest || !has_graph_strategies
           due_pairs = contexts_by_id.values
             .select { |c| c.is_a?(Hash) && !c["skipped"] }
             .filter_map { |c| c.dig("strategy", "pair") }
@@ -418,8 +462,23 @@ class TradingTrainingSessionJob < BaseJob
           tick_count: tick_count
         )
         log_info("Tick sleep #{effective_sleep.round(1)}s (base #{tick_interval}s, elapsed #{(Time.now - tick_started_at).round(1)}s)", session_id: session_id)
-        sleep(effective_sleep) if effective_sleep > 0
+        if effective_sleep > 0
+          # Interruptible sleep: check shutdown flag every second so we exit
+          # within ~1s of SIGTERM instead of blocking for the full interval.
+          deadline = Time.now + effective_sleep
+          while Time.now < deadline
+            break if self.class.shutdown_requested?
+            sleep([1.0, deadline - Time.now].min)
+          end
+        end
       end
+    end
+
+    # Shutdown exit: skip finalize, let the ensure block pause the session
+    # so it can be resumed by the next worker instead of being marked completed.
+    if self.class.shutdown_requested?
+      log_info("Shutdown requested, skipping finalize for recovery", session_id: session_id)
+      return { shutdown: true, session_id: session_id }
     end
 
     # Phase 3: Finalize
@@ -675,13 +734,23 @@ class TradingTrainingSessionJob < BaseJob
     log_info(message, session_id: session_id)
   end
 
-  # Batch-fetch contexts for all strategies in one HTTP request.
-  # Falls back to individual fetches if batch endpoint fails.
+  # Batch-fetch contexts for all strategies in one request.
+  # Tries WS → HTTP batch → individual fetches (three-tier fallback).
   def fetch_batch_contexts(strategy_ids)
     fetcher = trading_data_fetcher
     fetcher.batch_strategy_evaluation_contexts(strategy_ids)
   rescue StandardError => e
-    log_warn("Batch context fetch failed, falling back to individual", error: e.message)
+    # WS likely timed out — try HTTP batch before falling back to individual
+    if e.message.include?("timeout") || e.message.include?("WebSocket")
+      begin
+        log_info("WS batch failed, trying HTTP batch", error: e.message)
+        return fetcher.batch_strategy_evaluation_contexts_http(strategy_ids)
+      rescue StandardError => http_err
+        log_warn("HTTP batch also failed, falling back to individual", error: http_err.message)
+      end
+    else
+      log_warn("Batch context fetch failed, falling back to individual", error: e.message)
+    end
     result = {}
     strategy_ids.each do |sid|
       result[sid.to_s] = fetcher.strategy_evaluation_context(sid)
@@ -920,6 +989,34 @@ class TradingTrainingSessionJob < BaseJob
     })
   rescue StandardError => e
     log_error("Failed to mark session as failed", e, session_id: session_id)
+  end
+
+  # Pause session so it can be auto-resumed by the training runner.
+  # Used during graceful shutdown instead of fail_session! so work isn't lost.
+  # Uses a dedicated short-timeout connection to avoid being blocked by the
+  # circuit breaker or connection pool during Sidekiq shutdown.
+  def pause_session!(session_id, message)
+    base_url = ENV.fetch('BACKEND_API_URL', 'http://localhost:3000')
+    conn = Faraday.new(url: base_url) do |f|
+      f.options.timeout = 10
+      f.options.open_timeout = 5
+      f.request :json
+      f.response :json
+      f.adapter Faraday.default_adapter
+    end
+
+    response = conn.post("/api/v1/internal/trading/pause_training_session") do |req|
+      req.headers['Authorization'] = "Bearer #{WorkerJwt.token}"
+      req.body = { session_id: session_id, error_message: message }
+    end
+
+    unless response.success?
+      raise "Pause request failed: HTTP #{response.status}"
+    end
+  rescue StandardError => e
+    log_warn("Failed to pause session", session_id: session_id, error: e.message)
+    # Re-raise so the caller can fall back to fail_session!
+    raise
   end
 
   # Compute adaptive sleep duration based on tick activity and processing time.

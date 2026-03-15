@@ -31,6 +31,28 @@ end
 Sidekiq.configure_server do |config|
   concurrency = ENV.fetch('WORKER_CONCURRENCY', '25').to_i
   config.redis = { url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'), size: concurrency + 5 }
+
+  # Fast shutdown: on SIGTERM, signal training sessions to exit their tick loop
+  # immediately instead of waiting for Sidekiq's 300s timeout.
+  # Also stop venue WS managers to prevent reconnect loops during shutdown.
+  config.on(:quiet) do
+    TradingTrainingSessionJob.shutdown_requested!
+    Trading::KalshiWsManager.instance.force_stop! rescue nil
+    Trading::PolymarketWsManager.instance.force_stop! rescue nil
+  end
+
+  # Fast recovery: on startup, immediately dispatch paused training sessions
+  # instead of waiting for the next cron tick (up to 60s delay).
+  # The 3s sleep lets Redis and HTTP connections establish first.
+  config.on(:startup) do
+    TradingTrainingSessionJob.reset_shutdown_flag!
+    Thread.new do
+      sleep 3
+      TradingTrainingSessionRunnerJob.perform_async
+    rescue StandardError => e
+      PowernodeWorker.logger.warn("[StartupHook] Training session recovery dispatch failed: #{e.message}")
+    end
+  end
 end
 
 Sidekiq.configure_client do |config|
