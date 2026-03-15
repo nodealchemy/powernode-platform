@@ -35,6 +35,7 @@ const schedulingModeLabels: Record<RalphSchedulingMode, string> = {
   scheduled: 'Scheduled',
   continuous: 'Continuous',
   event_triggered: 'Event Triggered',
+  autonomous: 'Autonomous',
 };
 
 const schedulingModeIcons: Record<RalphSchedulingMode, React.FC<{ className?: string }>> = {
@@ -42,6 +43,7 @@ const schedulingModeIcons: Record<RalphSchedulingMode, React.FC<{ className?: st
   scheduled: Calendar,
   continuous: RefreshCw,
   event_triggered: Webhook,
+  autonomous: RefreshCw,
 };
 
 const formatRelativeTime = (dateString?: string): string => {
@@ -237,6 +239,11 @@ export const RalphLoopScheduleStatus: React.FC<RalphLoopScheduleStatusProps> = (
                 ? formatRelativeTime(loop.next_scheduled_at)
                 : 'Not scheduled'}
             </p>
+            {loop.next_scheduled_at && (
+              <p className="text-xs text-theme-text-secondary">
+                {new Date(loop.next_scheduled_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+              </p>
+            )}
           </div>
           <div className="space-y-1">
             <p className="text-xs text-theme-text-secondary">Last Execution</p>
@@ -245,6 +252,11 @@ export const RalphLoopScheduleStatus: React.FC<RalphLoopScheduleStatusProps> = (
                 ? formatRelativeTime(loop.last_scheduled_at)
                 : 'Never'}
             </p>
+            {loop.last_scheduled_at && (
+              <p className="text-xs text-theme-text-secondary">
+                {new Date(loop.last_scheduled_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+              </p>
+            )}
           </div>
           <div className="space-y-1">
             <p className="text-xs text-theme-text-secondary">Daily Iterations</p>
@@ -258,6 +270,11 @@ export const RalphLoopScheduleStatus: React.FC<RalphLoopScheduleStatusProps> = (
             <p className="text-sm font-medium text-theme-text-primary">
               {loop.schedule_config?.timezone || 'UTC'}
             </p>
+            {(loop.schedule_config?.timezone || 'UTC') !== Intl.DateTimeFormat().resolvedOptions().timeZone && (
+              <p className="text-xs text-theme-text-secondary">
+                You: {Intl.DateTimeFormat().resolvedOptions().timeZone}
+              </p>
+            )}
           </div>
         </div>
 
@@ -345,12 +362,12 @@ export const RalphLoopScheduleStatus: React.FC<RalphLoopScheduleStatusProps> = (
             )}
             {loop.schedule_config.start_at && (
               <Badge variant="outline" size="sm">
-                Starts: {new Date(loop.schedule_config.start_at).toLocaleDateString()}
+                Starts: {new Date(loop.schedule_config.start_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
               </Badge>
             )}
             {loop.schedule_config.end_at && (
               <Badge variant="outline" size="sm">
-                Ends: {new Date(loop.schedule_config.end_at).toLocaleDateString()}
+                Ends: {new Date(loop.schedule_config.end_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
               </Badge>
             )}
           </div>

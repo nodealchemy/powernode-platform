@@ -22,10 +22,16 @@ const createMockTab = (overrides: Partial<ChatTab> = {}): ChatTab => ({
 
 const createMockState = (overrides: Partial<ChatWindowState> = {}): ChatWindowState => ({
   mode: 'floating',
+  preferredOpenMode: 'floating',
   tabs: [createMockTab()],
   activeTabId: 'tab-1',
   floatingPosition: { x: 100, y: 100 },
   floatingSize: { width: 420, height: 520 },
+  detachedSize: { width: 800, height: 600 },
+  showSidebar: false,
+  panels: [],
+  activePanelId: 'main',
+  panelSizes: [100],
   ...overrides,
 });
 

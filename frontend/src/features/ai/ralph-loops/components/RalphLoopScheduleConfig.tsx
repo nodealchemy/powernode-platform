@@ -53,6 +53,11 @@ const schedulingModeConfig: Record<RalphSchedulingMode, {
     description: 'Trigger via webhook',
     icon: Webhook,
   },
+  autonomous: {
+    label: 'Autonomous',
+    description: 'Self-directed duty cycle with configurable frequency',
+    icon: RefreshCw,
+  },
 };
 
 const timezoneOptions = [

@@ -12,7 +12,7 @@ export type RalphTaskStatus = 'pending' | 'in_progress' | 'passed' | 'failed' | 
 export type RalphIterationStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
 
 // Scheduling mode types
-export type RalphSchedulingMode = 'manual' | 'scheduled' | 'continuous' | 'event_triggered';
+export type RalphSchedulingMode = 'manual' | 'scheduled' | 'continuous' | 'event_triggered' | 'autonomous';
 
 // Execution types for tasks
 export type RalphExecutionType = 'agent' | 'workflow' | 'pipeline' | 'a2a_task' | 'container' | 'human' | 'community';

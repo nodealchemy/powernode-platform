@@ -18,7 +18,7 @@ export const initialChatWindowState: ChatWindowState = {
   tabs: [],
   activeTabId: null,
   floatingPosition: { x: -1, y: -1 },
-  floatingSize: { width: 420, height: 520 },
+  floatingSize: { width: 480, height: 640 },
   detachedSize: { width: 800, height: 600 },
   showSidebar: true,
   panels: [{ ...defaultPanel }],
