@@ -54,10 +54,22 @@ RSpec.configure do |config|
   # You can uncomment this line to turn off ActiveRecord support entirely.
   # config.use_active_record = false
 
-  # FactoryBot configuration — include business factories when the extension is present
+  # FactoryBot configuration — include business factories when the extension is present.
+  # Business factories are loaded individually to allow them to override core factories
+  # with the same name (e.g. :invoice_line_item exists in both core and business).
   business_factories = Rails.root.join('..', 'extensions', 'business', 'server', 'spec', 'factories')
-  FactoryBot.definition_file_paths << business_factories.to_s if business_factories.exist?
-  FactoryBot.reload if business_factories.exist?
+  if business_factories.exist?
+    Dir[business_factories.join('**/*.rb')].sort.each do |factory_file|
+      begin
+        load factory_file
+      rescue FactoryBot::DuplicateDefinitionError => e
+        # Business factory overrides core — unregister core version and retry
+        factory_name = e.message.sub("Factory already registered: ", "")
+        FactoryBot::Internal.factories.instance_variable_get(:@items).delete(factory_name)
+        load factory_file
+      end
+    end
+  end
 
   config.include FactoryBot::Syntax::Methods
 

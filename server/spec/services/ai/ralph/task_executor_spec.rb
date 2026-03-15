@@ -54,6 +54,7 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
 
     context 'with fallback configured' do
       let(:fallback_agent) { create(:ai_agent, account: account, provider: provider, creator: user) }
+      let(:tool_bridge) { instance_double(Ai::AgentToolBridgeService, tools_enabled?: false) }
 
       before do
         allow(task).to receive(:executor).and_return(nil)
@@ -66,6 +67,7 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
         })
         allow(task).to receive(:update!)
         allow(task).to receive(:record_execution_attempt!)
+        allow(Ai::AgentToolBridgeService).to receive(:new).and_return(tool_bridge)
       end
 
       it 'falls back to configured executor' do
@@ -95,6 +97,7 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
       let(:credential) { instance_double(Ai::ProviderCredential) }
       let(:client) { instance_double(WorkerLlmClient) }
       let(:cred_relation) { double("credentials") }
+      let(:tool_bridge) { instance_double(Ai::AgentToolBridgeService, tools_enabled?: false) }
 
       before do
         allow(task).to receive(:executor).and_return(nil)
@@ -110,6 +113,7 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
 
         allow(WorkerLlmClient).to receive(:new).and_return(client)
         allow(ralph_loop).to receive(:available_mcp_tools).and_return([])
+        allow(Ai::AgentToolBridgeService).to receive(:new).and_return(tool_bridge)
       end
 
       it 'sends messages to the AI provider via agentic loop' do
@@ -213,6 +217,7 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
       let(:client) { instance_double(WorkerLlmClient) }
       let(:cred_relation) { double("credentials") }
       let(:mcp_server) { instance_double(McpServer) }
+      let(:tool_bridge) { instance_double(Ai::AgentToolBridgeService, tools_enabled?: false) }
       let(:mcp_tool) do
         double("McpTool",
           name: "file_read",
@@ -236,6 +241,7 @@ RSpec.describe Ai::Ralph::TaskExecutor, type: :service do
 
         allow(WorkerLlmClient).to receive(:new).and_return(client)
         allow(ralph_loop).to receive(:available_mcp_tools).and_return([mcp_tool])
+        allow(Ai::AgentToolBridgeService).to receive(:new).and_return(tool_bridge)
       end
 
       it 'handles tool calls in the response via agentic loop' do

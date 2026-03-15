@@ -77,6 +77,9 @@ gem "sys-filesystem", "~> 1.5"
 # HashiCorp Vault client for secret management
 gem "vault", "~> 0.18"
 
+# Ethereum key generation, address derivation, transaction signing
+gem "eth", "~> 0.5"
+
 # ===================================================================
 # FEATURE FLAGS
 # ===================================================================

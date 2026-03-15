@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_14_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_14_130004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -3371,7 +3371,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_14_000001) do
     t.index ["status"], name: "index_ai_ralph_loops_on_status"
     t.index ["webhook_token"], name: "index_ai_ralph_loops_on_webhook_token", unique: true, where: "(webhook_token IS NOT NULL)"
     t.check_constraint "ai_tool::text = ANY (ARRAY['amp'::character varying, 'claude_code'::character varying, 'ollama'::character varying]::text[])", name: "ai_ralph_loops_ai_tool_check"
-    t.check_constraint "scheduling_mode::text = ANY (ARRAY['manual'::character varying, 'scheduled'::character varying, 'continuous'::character varying, 'event_triggered'::character varying]::text[])", name: "ai_ralph_loops_scheduling_mode_check"
+    t.check_constraint "scheduling_mode::text = ANY (ARRAY['manual'::character varying, 'scheduled'::character varying, 'continuous'::character varying, 'event_triggered'::character varying, 'autonomous'::character varying]::text[])", name: "ai_ralph_loops_scheduling_mode_check"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'running'::character varying, 'paused'::character varying, 'completed'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])", name: "ai_ralph_loops_status_check"
   end
 
@@ -3396,6 +3396,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_14_000001) do
     t.integer "position"
     t.integer "priority", default: 0
     t.uuid "ralph_loop_id", null: false
+    t.boolean "repeating", default: false, null: false
     t.jsonb "required_capabilities", default: []
     t.string "status", default: "pending", null: false
     t.string "task_key", null: false
@@ -10197,6 +10198,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_14_000001) do
 
   create_table "trading_sweep_rules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.boolean "auto_execute", default: false, null: false
+    t.decimal "auto_execute_max_usd", precision: 18, scale: 2
     t.uuid "cold_wallet_id", null: false
     t.jsonb "config", default: {}
     t.datetime "created_at", null: false
@@ -10204,6 +10206,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_14_000001) do
     t.datetime "last_triggered_at"
     t.decimal "min_retain_amount", precision: 19, scale: 2, default: "0.0", null: false
     t.datetime "next_scheduled_at"
+    t.boolean "require_ai_review", default: true
     t.string "schedule_type", default: "threshold"
     t.decimal "sweep_amount", precision: 19, scale: 2
     t.decimal "threshold_amount", precision: 19, scale: 2, null: false
@@ -10373,13 +10376,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_14_000001) do
   create_table "trading_wallet_transactions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.decimal "amount", precision: 19, scale: 8, null: false
     t.integer "block_number"
+    t.string "chain_status"
     t.integer "confirmations", default: 0
     t.datetime "confirmed_at"
     t.datetime "created_at", null: false
+    t.string "error_message"
     t.string "from_address"
+    t.decimal "gas_cost_usd", precision: 12, scale: 4
     t.decimal "gas_fee", precision: 19, scale: 8, default: "0.0"
+    t.decimal "gas_price_gwei", precision: 12, scale: 4
+    t.decimal "gas_used", precision: 18, scale: 8
     t.jsonb "metadata", default: {}
+    t.integer "nonce"
     t.string "status", default: "pending", null: false
+    t.datetime "submitted_at"
     t.string "to_address"
     t.uuid "trading_chain_token_id", null: false
     t.uuid "trading_wallet_id", null: false
@@ -10394,17 +10404,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_14_000001) do
   end
 
   create_table "trading_wallets", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
     t.string "address", null: false
     t.jsonb "config", default: {}
     t.datetime "created_at", null: false
     t.boolean "is_active", default: true, null: false
+    t.datetime "key_imported_at"
+    t.string "key_status", default: "none"
     t.string "label"
     t.string "provider"
     t.string "provider_wallet_id"
     t.uuid "trading_chain_id", null: false
-    t.uuid "trading_portfolio_id", null: false
+    t.uuid "trading_portfolio_id"
     t.datetime "updated_at", null: false
+    t.string "vault_path"
     t.string "wallet_type", null: false
+    t.index ["account_id", "wallet_type"], name: "idx_trading_wallets_account_type"
+    t.index ["account_id"], name: "index_trading_wallets_on_account_id"
     t.index ["address"], name: "index_trading_wallets_on_address", unique: true
     t.index ["trading_chain_id"], name: "index_trading_wallets_on_trading_chain_id"
     t.index ["trading_portfolio_id", "wallet_type"], name: "idx_trading_wallets_portfolio_type"
@@ -11683,6 +11699,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_14_000001) do
   add_foreign_key "trading_wallet_balances", "trading_wallets"
   add_foreign_key "trading_wallet_transactions", "trading_chain_tokens"
   add_foreign_key "trading_wallet_transactions", "trading_wallets"
+  add_foreign_key "trading_wallets", "accounts"
   add_foreign_key "trading_wallets", "trading_chains"
   add_foreign_key "trading_wallets", "trading_portfolios"
   add_foreign_key "usage_events", "accounts"
