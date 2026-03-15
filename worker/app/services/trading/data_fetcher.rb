@@ -185,12 +185,27 @@ module Trading
     # Decomposed training setup endpoints
     # =====================================================================
 
-    # Discover tradeable markets from a venue.
-    def discover_markets(session_id:, venue_slug:, market_count:, config: {})
+    # Get discovery config from backend (fast DB reads, no venue API calls).
+    # Returns series list, venue URL, session config, and learning context.
+    # For backtest mode, returns full discovery result with mode: "backtest".
+    def venue_discovery_config(session_id:, venue_slug:, market_count: 5, config: {})
       response = @api.post_with_circuit_breaker(
-        "#{BASE}/discover_markets",
+        "#{BASE}/venue_discovery_config",
         { session_id: session_id, venue_slug: venue_slug,
           market_count: market_count, config: config },
+        circuit_breaker: :trading_training
+      )
+      extract_data(response)
+    end
+
+    # Send worker-fetched raw markets to backend for filtering, scoring, and registration.
+    # No advisory lock — all operations are fast DB reads/writes.
+    def process_raw_markets(session_id:, venue_slug:, raw_markets:, market_count: 5, config: {})
+      response = @api.post_with_circuit_breaker(
+        "#{BASE}/process_raw_markets",
+        { session_id: session_id, venue_slug: venue_slug,
+          raw_markets: raw_markets, market_count: market_count,
+          config: config },
         circuit_breaker: :trading_training
       )
       extract_data(response)

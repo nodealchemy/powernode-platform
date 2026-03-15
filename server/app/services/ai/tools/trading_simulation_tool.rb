@@ -94,7 +94,9 @@ module Ai
               compounding_enabled: { type: "boolean", required: false, description: "Enable profit compounding" },
               compounding_threshold_pct: { type: "number", required: false, description: "P&L threshold % to trigger compounding" },
               compounding_reinvest_pct: { type: "integer", required: false, description: "Percentage of profits to reinvest (0-100)" },
-              confidence_threshold: { type: "number", required: false, description: "Minimum confidence score to enter positions" }
+              confidence_threshold: { type: "number", required: false, description: "Minimum confidence score to enter positions" },
+              include_series: { type: "array", items: { type: "string" }, required: false, description: "Series ticker prefixes to scope discovery (e.g. ['KXFED', 'KXBTC']). Drastically speeds up discovery by skipping irrelevant series." },
+              exclude_series: { type: "array", items: { type: "string" }, required: false, description: "Series ticker prefixes to exclude from discovery" }
             }
           },
           "trading_cancel_training_session" => {

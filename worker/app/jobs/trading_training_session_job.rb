@@ -477,23 +477,55 @@ class TradingTrainingSessionJob < BaseJob
     # and doesn't mistake a long-running setup for a dead job.
     force_renew_lock!
 
-    # Phase 1: Discover markets
+    # Phase 1: Discover markets (3-step: config → worker fetch → backend process)
     update_timeline(session_id, "Discovering markets from #{venue_slug}...")
-    discovery = @data_fetcher.discover_markets(
+    market_count_target = config["market_count"] || 5
+
+    # Phase 1a: Get discovery config from backend (fast DB reads, no venue API calls)
+    discovery_config = @data_fetcher.venue_discovery_config(
       session_id: session_id,
       venue_slug: venue_slug,
-      market_count: config["market_count"] || 5,
+      market_count: market_count_target,
       config: session_config
     )
-    markets = discovery["markets"] || []
-    learning_context = discovery["learning_context"]
+
+    if discovery_config["mode"] == "backtest"
+      # Backtest: backend already ran discovery (DB-only, fast)
+      markets = discovery_config["markets"] || []
+      learning_context = discovery_config["learning_context"]
+    else
+      # Phase 1b: Fetch raw markets from venue API (worker-side I/O — the slow part)
+      update_timeline(session_id, "Fetching markets from #{venue_slug} API...")
+      fetcher = Trading::VenueMarketFetcher.new(discovery_config)
+      raw_markets = fetcher.fetch_kalshi_markets(
+        discovery_config["series_list"] || [],
+        limit: discovery_config["fetch_limit"] || 100,
+        min_volume: discovery_config["fetch_min_volume"] || 0,
+        event_tickers: discovery_config["event_tickers"] || []
+      )
+      log_info("Fetched #{raw_markets.size} raw markets from venue API", session_id: session_id)
+
+      # Phase 1c: Send raw markets to backend for filtering/scoring/registration (fast)
+      force_renew_lock!
+      update_timeline(session_id, "Processing #{raw_markets.size} markets...")
+      discovery = @data_fetcher.process_raw_markets(
+        session_id: session_id,
+        venue_slug: venue_slug,
+        raw_markets: raw_markets,
+        market_count: market_count_target,
+        config: session_config
+      )
+      markets = discovery["markets"] || []
+      learning_context = discovery["learning_context"]
+    end
 
     # Post-discovery cap: venue APIs return more contracts than market_count
     # (e.g., 2 event groups → 6 contracts). max_markets trims to exact count.
     max_markets = session_config["max_markets"]&.to_i
     if max_markets && markets.size > max_markets
+      total_before_cap = markets.size
       markets = markets.first(max_markets)
-      log_info("Capped markets to #{max_markets} (from #{discovery['markets'].size})", session_id: session_id)
+      log_info("Capped markets to #{max_markets} (from #{total_before_cap})", session_id: session_id)
     end
 
     log_info("Discovered #{markets.size} markets (learning_context: #{learning_context ? 'present' : 'absent'})", session_id: session_id)
