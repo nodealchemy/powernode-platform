@@ -106,6 +106,12 @@ module Ai
         messages = build_agent_messages(agent)
         options = build_agent_options(agent, provider)
 
+        # Use AgentToolBridgeService when agent has platform tool access configured
+        tool_bridge = Ai::AgentToolBridgeService.new(agent: agent, account: account)
+        if tool_bridge.tools_enabled? && tool_bridge.tool_definitions_for_llm.any?
+          return execute_via_agent_bridge(agent, client, messages, options, tool_bridge)
+        end
+
         # Initialize git tool executor if repository is available
         git_executor = nil
         if GitToolExecutor.available?(ralph_loop)
@@ -114,7 +120,7 @@ module Ai
           options[:tools] = (options[:tools] || []) + git_tools
         end
 
-        # Add MCP tools
+        # Add MCP tools from ralph_loop (server-attached tools)
         mcp_tools = ralph_loop.available_mcp_tools
         if mcp_tools.any?
           mcp_defs = mcp_tools.map { |t| mcp_tool_definition_for_provider(t, provider_type) }
@@ -134,6 +140,40 @@ module Ai
         normalize_result(result, agent)
       rescue StandardError => e
         Rails.logger.error("Agent execution failed: #{e.message}\n#{e.backtrace.first(5).join("\n")}")
+        { success: false, error: e.message, executor_type: "agent", executor_id: agent.id }
+      end
+
+      # Execute via AgentToolBridgeService — used when agent has platform tool access configured.
+      # This routes through the same path as execute_agent MCP tool and concierge.
+      def execute_via_agent_bridge(agent, client, messages, options, tool_bridge)
+        model = options[:model]
+        system_prompt = messages.find { |m| m[:role] == "system" }&.dig(:content)
+        user_messages = messages.reject { |m| m[:role] == "system" }
+
+        result = tool_bridge.execute_tool_loop(
+          llm_client: client,
+          messages: user_messages,
+          model: model,
+          max_tokens: options[:max_tokens] || 4096,
+          temperature: options[:temperature] || 0.7,
+          system_prompt: system_prompt
+        )
+
+        tool_calls_summary = result[:tool_calls_log]&.map { |tc| tc[:tool] }&.tally || {}
+        Rails.logger.info("[TaskExecutor] Agent bridge completed: tools_called=#{tool_calls_summary}")
+
+        {
+          success: true,
+          output: result[:content] || "",
+          checks_passed: true,
+          tokens: { input: result.dig(:usage, :prompt_tokens) || 0, output: result.dig(:usage, :completion_tokens) || 0 },
+          cost: nil,
+          executor_type: "agent",
+          executor_id: agent.id,
+          tool_calls_log: result[:tool_calls_log]
+        }
+      rescue StandardError => e
+        Rails.logger.error("Agent bridge execution failed: #{e.message}\n#{e.backtrace.first(5).join("\n")}")
         { success: false, error: e.message, executor_type: "agent", executor_id: agent.id }
       end
 

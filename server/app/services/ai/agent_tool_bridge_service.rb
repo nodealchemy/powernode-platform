@@ -313,10 +313,14 @@ module Ai
     end
 
     def build_tool_definitions
-      definitions = Ai::Tools::PlatformApiToolRegistry.tool_definitions(agent: agent)
-
+      # When allowed_tools is explicitly configured, use the full registry (agent: nil)
+      # to skip per-tool permitted? checks — the whitelist IS the authorization gate.
+      # Without an explicit whitelist, use agent-scoped definitions for permission filtering.
       if (allowed = allowed_tool_names)
+        definitions = Ai::Tools::PlatformApiToolRegistry.tool_definitions(agent: nil)
         definitions = definitions.select { |d| allowed.include?(d[:name].to_s) }
+      else
+        definitions = Ai::Tools::PlatformApiToolRegistry.tool_definitions(agent: agent)
       end
 
       definitions.map { |defn| convert_to_llm_tool(defn) }

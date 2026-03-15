@@ -10,10 +10,14 @@ module Ai
       def self.definition
         {
           name: "trading_portfolio_management",
-          description: "Manage trading portfolio: get details, summary, performance, allocations, wallets",
+          description: "Manage trading portfolios: list, get details, create, update, performance, allocations, wallets, compounding",
           parameters: {
             action: { type: "string", required: true, description: "Action to perform" },
+            portfolio_id: { type: "string", required: false, description: "Target portfolio ID (defaults to primary live portfolio)" },
             name: { type: "string", required: false, description: "Portfolio name (for create/update)" },
+            portfolio_type: { type: "string", required: false, description: "Portfolio type: training or live (for create)" },
+            trading_mode: { type: "string", required: false, description: "Trading mode: simulation, hybrid, or live" },
+            status: { type: "string", required: false, description: "Portfolio status: active, paused, or closed" },
             total_capital_usd: { type: "number", required: false, description: "Total capital in USD" },
             config: { type: "object", required: false, description: "Portfolio configuration" },
             days: { type: "integer", required: false, description: "Lookback period in days (for performance)" }
@@ -23,46 +27,67 @@ module Ai
 
       def self.action_definitions
         {
+          "trading_list_portfolios" => {
+            description: "List all trading portfolios for the current account",
+            parameters: {}
+          },
           "trading_get_portfolio" => {
             description: "Get the trading portfolio details for the current account",
-            parameters: {}
+            parameters: {
+              portfolio_id: { type: "string", required: false, description: "Portfolio ID (defaults to primary live portfolio)" }
+            }
           },
           "trading_portfolio_summary" => {
             description: "Get portfolio summary: capital breakdown, PnL, utilization, strategy counts, wallet balances",
-            parameters: {}
+            parameters: {
+              portfolio_id: { type: "string", required: false, description: "Portfolio ID (defaults to primary live portfolio)" }
+            }
           },
           "trading_portfolio_performance" => {
             description: "Get portfolio daily PnL performance over N days",
             parameters: {
+              portfolio_id: { type: "string", required: false, description: "Portfolio ID (defaults to primary live portfolio)" },
               days: { type: "integer", required: false, description: "Lookback period in days (default: 30)" }
             }
           },
           "trading_portfolio_allocations" => {
             description: "Get per-strategy capital allocation breakdown",
-            parameters: {}
+            parameters: {
+              portfolio_id: { type: "string", required: false, description: "Portfolio ID (defaults to primary live portfolio)" }
+            }
           },
           "trading_create_portfolio" => {
             description: "Create a trading portfolio for the current account",
             parameters: {
               name: { type: "string", required: true, description: "Portfolio name" },
-              total_capital_usd: { type: "number", required: true, description: "Total capital in USD" }
+              total_capital_usd: { type: "number", required: true, description: "Total capital in USD" },
+              portfolio_type: { type: "string", required: false, description: "Portfolio type: training or live (default: live)" },
+              trading_mode: { type: "string", required: false, description: "Trading mode: simulation, hybrid, or live (default: simulation)" },
+              config: { type: "object", required: false, description: "Additional portfolio configuration" }
             }
           },
           "trading_update_portfolio" => {
-            description: "Update the trading portfolio name, capital, or config",
+            description: "Update the trading portfolio name, capital, mode, status, or config",
             parameters: {
+              portfolio_id: { type: "string", required: false, description: "Portfolio ID (defaults to primary live portfolio)" },
               name: { type: "string", required: false, description: "New portfolio name" },
               total_capital_usd: { type: "number", required: false, description: "New total capital in USD" },
-              config: { type: "object", required: false, description: "Portfolio configuration" }
+              trading_mode: { type: "string", required: false, description: "Trading mode: simulation, hybrid, or live" },
+              status: { type: "string", required: false, description: "Portfolio status: active, paused, or closed" },
+              config: { type: "object", required: false, description: "Portfolio configuration (merged with existing)" }
             }
           },
           "trading_list_wallets" => {
             description: "List wallets with their balances",
-            parameters: {}
+            parameters: {
+              portfolio_id: { type: "string", required: false, description: "Portfolio ID (defaults to primary live portfolio)" }
+            }
           },
           "trading_compounding_summary" => {
             description: "Per-strategy compounding state: earnings pool, total compounded, configuration",
-            parameters: {}
+            parameters: {
+              portfolio_id: { type: "string", required: false, description: "Portfolio ID (defaults to primary live portfolio)" }
+            }
           }
         }
       end
@@ -78,14 +103,15 @@ module Ai
         require_trading!
 
         case params[:action]
-        when "trading_get_portfolio" then get_portfolio
-        when "trading_portfolio_summary" then portfolio_summary
+        when "trading_list_portfolios" then list_portfolios
+        when "trading_get_portfolio" then get_portfolio(params)
+        when "trading_portfolio_summary" then portfolio_summary(params)
         when "trading_portfolio_performance" then portfolio_performance(params)
-        when "trading_portfolio_allocations" then portfolio_allocations
+        when "trading_portfolio_allocations" then portfolio_allocations(params)
         when "trading_create_portfolio" then create_portfolio(params)
         when "trading_update_portfolio" then update_portfolio(params)
-        when "trading_list_wallets" then list_wallets
-        when "trading_compounding_summary" then compounding_summary
+        when "trading_list_wallets" then list_wallets(params)
+        when "trading_compounding_summary" then compounding_summary(params)
         else error_result("Unknown action: #{params[:action]}")
         end
       rescue ActiveRecord::RecordNotFound => e
@@ -96,13 +122,22 @@ module Ai
 
       private
 
-      def get_portfolio
-        portfolio = resolve_portfolio
+      def list_portfolios
+        portfolios = account.trading_portfolios.order(portfolio_type: :asc, created_at: :asc)
+
+        success_result({
+          portfolios: portfolios.map { |p| serialize_portfolio(p) },
+          count: portfolios.size
+        })
+      end
+
+      def get_portfolio(params)
+        portfolio = resolve_portfolio(params[:portfolio_id])
         success_result(serialize_portfolio(portfolio))
       end
 
-      def portfolio_summary
-        portfolio = resolve_portfolio
+      def portfolio_summary(params)
+        portfolio = resolve_portfolio(params[:portfolio_id])
         portfolio.recalculate_capital!
 
         strategies = portfolio.strategies
@@ -136,7 +171,7 @@ module Ai
       end
 
       def portfolio_performance(params)
-        portfolio = resolve_portfolio
+        portfolio = resolve_portfolio(params[:portfolio_id])
         days = (params[:days] || 30).to_i.clamp(1, 365)
 
         metrics = Trading::PerformanceMetric
@@ -156,8 +191,8 @@ module Ai
         })
       end
 
-      def portfolio_allocations
-        portfolio = resolve_portfolio
+      def portfolio_allocations(params)
+        portfolio = resolve_portfolio(params[:portfolio_id])
         strategies = portfolio.strategies.where.not(status: "decommissioned")
 
         allocations = strategies.map do |s|
@@ -180,14 +215,25 @@ module Ai
       end
 
       def create_portfolio(params)
-        if account.trading_portfolio
-          return error_result("Account already has a trading portfolio")
+        portfolio_type = params[:portfolio_type] || "live"
+        trading_mode = params[:trading_mode] || "simulation"
+
+        unless Trading::Portfolio::PORTFOLIO_TYPES.include?(portfolio_type)
+          return error_result("Invalid portfolio_type: #{portfolio_type}. Must be one of: #{Trading::Portfolio::PORTFOLIO_TYPES.join(", ")}")
         end
+
+        unless Trading::Portfolio::TRADING_MODES.include?(trading_mode)
+          return error_result("Invalid trading_mode: #{trading_mode}. Must be one of: #{Trading::Portfolio::TRADING_MODES.join(", ")}")
+        end
+
+        config = (params[:config] || {}).merge("trading_mode" => trading_mode)
 
         portfolio = Trading::Portfolio.create!(
           account: account,
           name: params[:name],
           total_capital_usd: params[:total_capital_usd],
+          portfolio_type: portfolio_type,
+          config: config,
           status: "active"
         )
 
@@ -195,11 +241,29 @@ module Ai
       end
 
       def update_portfolio(params)
-        portfolio = resolve_portfolio
+        portfolio = resolve_portfolio(params[:portfolio_id])
         attrs = {}
+        config_updates = {}
+
         attrs[:name] = params[:name] if params[:name].present?
         attrs[:total_capital_usd] = params[:total_capital_usd] if params[:total_capital_usd]
-        attrs[:config] = portfolio.config.merge(params[:config]) if params[:config].is_a?(Hash)
+
+        if params[:status].present?
+          unless Trading::Portfolio::STATUSES.include?(params[:status])
+            return error_result("Invalid status: #{params[:status]}. Must be one of: #{Trading::Portfolio::STATUSES.join(", ")}")
+          end
+          attrs[:status] = params[:status]
+        end
+
+        if params[:trading_mode].present?
+          unless Trading::Portfolio::TRADING_MODES.include?(params[:trading_mode])
+            return error_result("Invalid trading_mode: #{params[:trading_mode]}. Must be one of: #{Trading::Portfolio::TRADING_MODES.join(", ")}")
+          end
+          config_updates["trading_mode"] = params[:trading_mode]
+        end
+
+        config_updates.merge!(params[:config]) if params[:config].is_a?(Hash)
+        attrs[:config] = portfolio.config.merge(config_updates) if config_updates.any?
 
         portfolio.update!(attrs) if attrs.any?
         portfolio.recalculate_capital!
@@ -207,8 +271,8 @@ module Ai
         success_result(serialize_portfolio(portfolio.reload))
       end
 
-      def list_wallets
-        portfolio = resolve_portfolio
+      def list_wallets(params)
+        portfolio = resolve_portfolio(params[:portfolio_id])
         wallets = portfolio.wallets.includes(:balances, :chain).order(wallet_type: :asc)
 
         success_result({
@@ -217,8 +281,8 @@ module Ai
         })
       end
 
-      def compounding_summary
-        portfolio = resolve_portfolio
+      def compounding_summary(params)
+        portfolio = resolve_portfolio(params[:portfolio_id])
         strategies = portfolio.strategies.where.not(status: "decommissioned")
 
         summary = strategies.map do |s|
@@ -257,11 +321,14 @@ module Ai
           id: portfolio.id,
           name: portfolio.name,
           status: portfolio.status,
+          portfolio_type: portfolio.portfolio_type,
+          trading_mode: portfolio.trading_mode,
           total_capital_usd: portfolio.total_capital_usd.to_f,
           allocated_capital_usd: portfolio.allocated_capital_usd.to_f,
           available_capital_usd: portfolio.available_capital_usd.to_f,
           total_pnl_usd: portfolio.total_pnl_usd.to_f,
           total_pnl_pct: portfolio.total_pnl_pct.to_f,
+          config: portfolio.config,
           created_at: portfolio.created_at,
           updated_at: portfolio.updated_at
         }

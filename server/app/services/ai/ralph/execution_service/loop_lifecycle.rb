@@ -204,7 +204,14 @@ module Ai
           if blocked_count.positive?
             error_result("All remaining tasks are blocked (#{blocked_count} tasks)")
           else
-            complete_loop_result
+            # Safety: reset failed repeating tasks instead of completing the loop
+            failed_repeating = ralph_loop.ralph_tasks.where(status: "failed", repeating: true)
+            if failed_repeating.exists?
+              failed_repeating.find_each(&:reset!)
+              error_result("Reset #{failed_repeating.count} failed repeating task(s) — will retry next iteration")
+            else
+              complete_loop_result
+            end
           end
         end
       end

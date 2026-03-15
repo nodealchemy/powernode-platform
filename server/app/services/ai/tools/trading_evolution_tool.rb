@@ -142,7 +142,7 @@ module Ai
           epoch_number: next_number,
           status: "pending",
           strategies_evaluated: 0,
-          fitness_weights: config["fitness_weights"] || Trading::EvolutionEpoch::DEFAULT_FITNESS_WEIGHTS
+          fitness_weights: config["fitness_weights"] || { sharpe: 0.25, drawdown: 0.2, win_rate: 0.2, profit_factor: 0.15, risk_adjusted_return: 0.1, cost_efficiency: 0.1 }
         )
 
         success_result({

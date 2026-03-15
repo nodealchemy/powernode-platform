@@ -82,8 +82,45 @@ module Ai
             agent_id: ralph_loop.default_agent&.id
           )
           Rails.logger.info("[Ralph] Stored #{count} learnings from iteration") if count.positive?
+
+          promote_to_compound_learnings(output)
         rescue StandardError => e
           Rails.logger.warn("[Ralph] Learning storage failed: #{e.message}")
+        end
+
+        def promote_to_compound_learnings(output)
+          return if output.blank?
+
+          markers = { "Discovery:" => "discovery", "Pattern:" => "pattern",
+                      "Anti-pattern:" => "failure_mode", "Best practice:" => "best_practice" }
+
+          learnings_found = []
+          markers.each do |marker, category|
+            output.scan(/#{Regexp.escape(marker)}\s*(.+?)(?:\n\n|\z)/mi).flatten.each do |content|
+              learnings_found << { content: content.strip, category: category }
+            end
+          end
+
+          return if learnings_found.empty?
+
+          service = Ai::Learning::CompoundLearningService.new(account: account)
+          learnings_found.each do |learning|
+            service.store_learning(
+              {
+                title: learning[:content].truncate(100),
+                content: learning[:content],
+                category: learning[:category],
+                extraction_method: "ralph_iteration",
+                source_agent_id: ralph_loop.default_agent&.id,
+                source_execution_successful: true,
+                importance: 0.5,
+                confidence: 0.4
+              }
+            )
+          end
+          Rails.logger.info("[Ralph] Promoted #{learnings_found.size} learnings to CompoundLearning")
+        rescue StandardError => e
+          Rails.logger.warn("[Ralph] CompoundLearning promotion failed: #{e.message}")
         end
 
         def ensure_ralph_learning_pool

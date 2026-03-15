@@ -138,6 +138,7 @@ module Ai
 
           if result[:checks_passed]
             task.pass!(iteration_number: iteration.iteration_number)
+            task.reset! if task.repeating?
           else
             # Checks failed, task needs retry
             update_progress("Task #{task.task_key}: Checks failed, will retry")
@@ -167,6 +168,7 @@ module Ai
           )
 
           ralph_loop.increment_iteration!
+          task.reset! if task.repeating?
 
           # Broadcast real-time updates
           broadcast_iteration_completed(iteration)

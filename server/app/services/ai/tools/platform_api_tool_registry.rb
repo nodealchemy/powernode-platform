@@ -232,6 +232,7 @@ module Ai
         "docker_create_volume" => "Ai::Tools::DockerNetworkVolumeTool",
         "docker_remove_volume" => "Ai::Tools::DockerNetworkVolumeTool",
         # Trading — portfolio & wallets
+        "trading_list_portfolios" => "Ai::Tools::TradingPortfolioTool",
         "trading_get_portfolio" => "Ai::Tools::TradingPortfolioTool",
         "trading_portfolio_summary" => "Ai::Tools::TradingPortfolioTool",
         "trading_portfolio_performance" => "Ai::Tools::TradingPortfolioTool",
@@ -239,6 +240,7 @@ module Ai
         "trading_create_portfolio" => "Ai::Tools::TradingPortfolioTool",
         "trading_update_portfolio" => "Ai::Tools::TradingPortfolioTool",
         "trading_list_wallets" => "Ai::Tools::TradingPortfolioTool",
+        "trading_compounding_summary" => "Ai::Tools::TradingPortfolioTool",
         # Trading — strategies
         "trading_list_strategies" => "Ai::Tools::TradingStrategyTool",
         "trading_get_strategy" => "Ai::Tools::TradingStrategyTool",

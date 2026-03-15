@@ -14,10 +14,15 @@ module Ai
           end
         end
 
-        def resolve_portfolio
-          account.trading_portfolios.live.first ||
-            account.trading_portfolios.first ||
-            raise(ActiveRecord::RecordNotFound, "No trading portfolio found")
+        def resolve_portfolio(portfolio_id = nil)
+          if portfolio_id.present?
+            account.trading_portfolios.find_by(id: portfolio_id) ||
+              raise(ActiveRecord::RecordNotFound, "Portfolio not found: #{portfolio_id}")
+          else
+            account.trading_portfolios.live.first ||
+              account.trading_portfolios.first ||
+              raise(ActiveRecord::RecordNotFound, "No trading portfolio found")
+          end
         end
 
         def resolve_strategy(identifier)
