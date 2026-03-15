@@ -40,7 +40,6 @@ export default tseslint.config(
       'docs/examples/',
       'docs/snippets/',
       'public/',
-      'craco.config.js',
       '**/*.d.ts',
       '!src/**/*.d.ts',
     ],

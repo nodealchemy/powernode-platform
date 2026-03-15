@@ -107,10 +107,7 @@ export default defineConfig(({ mode }: { mode: string }) => {
         '.host.docker.internal',
       ],
 
-      hmr: {
-        timeout: 30000,
-        overlay: true,
-      },
+      hmr: false,
 
       cors: true,
 
