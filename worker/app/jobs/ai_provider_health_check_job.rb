@@ -203,7 +203,7 @@ class AiProviderHealthCheckJob < BaseJob
 
   def store_health_metrics(health_report)
     with_api_retry do
-      api_client.post('admin/ai_provider_health_metrics', {
+      api_client.post('/api/v1/internal/ai/provider_health_metrics', {
         timestamp: health_report[:timestamp],
         overall_status: health_report[:overall_status],
         summary: health_report[:summary],
@@ -211,7 +211,7 @@ class AiProviderHealthCheckJob < BaseJob
       })
     end
   rescue StandardError => e
-    log_error("Failed to store health metrics", e)
+    log_warn("Failed to store health metrics: #{e.message}")
   end
 
   def process_provider_alerts(health_report)

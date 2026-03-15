@@ -20,9 +20,10 @@ class LlmProxyClient
 
   # @param api_post_method [Method] a bound method reference to backend_api_post
   # @param api_get_method [Method, nil] optional bound method reference to backend_api_get
-  def initialize(api_post_method, api_get_method = nil)
+  def initialize(api_post_method, api_get_method = nil, ws_client: nil)
     @api_post = api_post_method
     @api_get = api_get_method
+    @ws_client = ws_client
     @credential_resolver = CredentialResolver.new(api_post_method)
     @llm_clients = {} # Cache per credential_id
   end
@@ -233,8 +234,29 @@ class LlmProxyClient
     client
   end
 
-  # Call a server-side action (tool definitions, dispatch, reasoning)
+  # Actions that benefit from WebSocket transport (high-frequency during tool loops)
+  WS_SUPPORTED_ACTIONS = %w[tool_definitions dispatch_tool].freeze
+
+  # Call a server-side action (tool definitions, dispatch, reasoning).
+  # Tries WebSocket for supported high-frequency actions, falls back to HTTP.
   def call_server(action, **payload)
+    action_str = action.to_s
+
+    # Try WebSocket for supported high-frequency actions
+    if @ws_client&.connected? && WS_SUPPORTED_ACTIONS.include?(action_str)
+      begin
+        response = @ws_client.send_request(action_str, payload)
+        if response["success"]
+          return response["data"]
+        else
+          raise "LLM server error (#{action}): #{response['error']}"
+        end
+      rescue StandardError => e
+        warn "[LlmProxy] WebSocket failed (#{e.message}), falling back to HTTP"
+      end
+    end
+
+    # HTTP fallback (or primary path for non-WS actions)
     response = @api_post.call("#{SERVER_TOOL_PATH}/#{action}", payload)
 
     if response.is_a?(Hash) && response["success"]

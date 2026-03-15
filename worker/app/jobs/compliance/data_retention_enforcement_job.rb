@@ -12,11 +12,11 @@ module Compliance
       # Fetch active retention policies
       response = api_client.get('/api/v1/internal/data_retention_policies', { active: true })
 
-      unless response[:success]
-        raise "Failed to fetch retention policies: #{response[:error]}"
+      unless response["success"]
+        raise "Failed to fetch retention policies: #{response["error"]}"
       end
 
-      policies = response[:data] || []
+      policies = response["data"] || []
       results = {
         policies_processed: 0,
         records_processed: 0,
@@ -115,13 +115,13 @@ module Compliance
           '/api/v1/internal/retention/activity/anonymize',
           { cutoff_date: cutoff_date, account_id: account_id }
         )
-        { records_processed: response[:data]&.dig('count') || 0 }
+        { records_processed: response["data"]&.dig('count') || 0 }
       when 'delete'
         response = api_client.delete(
           '/api/v1/internal/retention/activity',
           { cutoff_date: cutoff_date, account_id: account_id }
         )
-        { records_processed: response[:data]&.dig('count') || 0 }
+        { records_processed: response["data"]&.dig('count') || 0 }
       else
         { records_processed: 0 }
       end
@@ -132,7 +132,7 @@ module Compliance
         '/api/v1/internal/retention/sessions',
         { cutoff_date: cutoff_date, account_id: account_id }
       )
-      { records_processed: response[:data]&.dig('count') || 0 }
+      { records_processed: response["data"]&.dig('count') || 0 }
     end
 
     def enforce_email_log_retention(cutoff_date, account_id)
@@ -140,7 +140,7 @@ module Compliance
         '/api/v1/internal/retention/email_logs',
         { cutoff_date: cutoff_date, account_id: account_id }
       )
-      { records_processed: response[:data]&.dig('count') || 0 }
+      { records_processed: response["data"]&.dig('count') || 0 }
     end
 
     def enforce_webhook_retention(cutoff_date, account_id)
@@ -148,7 +148,7 @@ module Compliance
         '/api/v1/internal/retention/webhook_logs',
         { cutoff_date: cutoff_date, account_id: account_id }
       )
-      { records_processed: response[:data]&.dig('count') || 0 }
+      { records_processed: response["data"]&.dig('count') || 0 }
     end
 
     def enforce_api_log_retention(cutoff_date, account_id)
@@ -156,7 +156,7 @@ module Compliance
         '/api/v1/internal/retention/api_logs',
         { cutoff_date: cutoff_date, account_id: account_id }
       )
-      { records_processed: response[:data]&.dig('count') || 0 }
+      { records_processed: response["data"]&.dig('count') || 0 }
     end
 
     def enforce_analytics_retention(cutoff_date, action, account_id)
@@ -166,13 +166,13 @@ module Compliance
           '/api/v1/internal/retention/analytics/anonymize',
           { cutoff_date: cutoff_date, account_id: account_id }
         )
-        { records_processed: response[:data]&.dig('count') || 0 }
+        { records_processed: response["data"]&.dig('count') || 0 }
       when 'delete'
         response = api_client.delete(
           '/api/v1/internal/retention/analytics',
           { cutoff_date: cutoff_date, account_id: account_id }
         )
-        { records_processed: response[:data]&.dig('count') || 0 }
+        { records_processed: response["data"]&.dig('count') || 0 }
       else
         { records_processed: 0 }
       end
@@ -183,7 +183,7 @@ module Compliance
         '/api/v1/internal/retention/files',
         { cutoff_date: cutoff_date, account_id: account_id }
       )
-      { records_processed: response[:data]&.dig('count') || 0 }
+      { records_processed: response["data"]&.dig('count') || 0 }
     end
 
     def archive_audit_logs(cutoff_date, account_id)
@@ -191,7 +191,7 @@ module Compliance
         '/api/v1/internal/retention/audit_logs/archive',
         { cutoff_date: cutoff_date, account_id: account_id }
       )
-      { records_processed: response[:data]&.dig('count') || 0 }
+      { records_processed: response["data"]&.dig('count') || 0 }
     end
 
     def anonymize_audit_logs(cutoff_date, account_id)
@@ -199,7 +199,7 @@ module Compliance
         '/api/v1/internal/retention/audit_logs/anonymize',
         { cutoff_date: cutoff_date, account_id: account_id }
       )
-      { records_processed: response[:data]&.dig('count') || 0 }
+      { records_processed: response["data"]&.dig('count') || 0 }
     end
   end
 end

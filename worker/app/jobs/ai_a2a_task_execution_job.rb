@@ -153,6 +153,8 @@ class AiA2aTaskExecutionJob < BaseJob
         duration_ms: duration_ms
       }
     end
+  ensure
+    disconnect_tool_dispatch_ws
   end
 
   def fetch_target_agent
@@ -240,7 +242,9 @@ class AiA2aTaskExecutionJob < BaseJob
     messages = context.map { |c| { role: c['role'] || c[:role], content: c['content'] || c[:content] } }
     messages << { role: "user", content: prompt }
 
-    result = llm_proxy.execute_tool_loop(
+    proxy = llm_proxy_with_websocket || llm_proxy
+
+    result = proxy.execute_tool_loop(
       agent_id: agent_id,
       messages: messages
     )

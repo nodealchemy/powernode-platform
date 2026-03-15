@@ -31,6 +31,8 @@ module Swarm
       end
 
       log_info "Swarm cluster sync completed", synced: synced, failed: failed
+    rescue BackendApiClient::ApiError => e
+      log_warn "Backend unavailable, skipping cluster sync: #{e.message}"
     end
 
     private

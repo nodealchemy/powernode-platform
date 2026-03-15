@@ -27,16 +27,18 @@ module Trading
         prices = price_history.last(lookback).map { |s| (s["close"] || s[:close]).to_f }
         return signals if prices.any?(&:zero?)
 
-        # Use EMA for faster adaptation to regime changes
+        # Use EMA for faster adaptation — seed from SMA of first N for stability
         alpha = 2.0 / (prices.size + 1)
-        ema = prices.first
-        prices[1..].each { |p| ema = alpha * p + (1 - alpha) * ema }
+        seed_count = [5, prices.size].min
+        ema = prices.first(seed_count).sum / seed_count.to_f
+        prices[seed_count..].each { |p| ema = alpha * p + (1 - alpha) * ema } if prices.size > seed_count
         variance = prices.sum { |p| (p - ema)**2 } / prices.size
         std_dev = Math.sqrt(variance)
         z_score = std_dev.zero? ? 0 : (current_price - ema) / std_dev
 
         # Autocorrelation check: negative = mean-reverting, positive = trending
-        returns = prices.each_cons(2).map { |a, b| b - a }
+        # Use log returns (not simple diffs) for scale-invariant regime detection
+        returns = prices.each_cons(2).map { |a, b| a > 0 ? Math.log(b / a) : 0.0 }
         autocorr = compute_autocorrelation(returns)
 
         # Hard-block in trending regimes — mean reversion fails when prices trend
@@ -138,13 +140,10 @@ module Trading
 
       def compute_autocorrelation(returns)
         return 0.0 if returns.size < 5
-        # Median-filter to reduce outlier sensitivity in short PM time series
-        filtered = returns.each_cons(3).map { |window| window.sort[1] }
-        return 0.0 if filtered.size < 3
-        mean = filtered.sum / filtered.size
-        n = filtered.size
-        numerator = (0...(n - 1)).sum { |i| (filtered[i] - mean) * (filtered[i + 1] - mean) }
-        denominator = filtered.sum { |r| (r - mean)**2 }
+        mean = returns.sum / returns.size
+        n = returns.size
+        numerator = (0...(n - 1)).sum { |i| (returns[i] - mean) * (returns[i + 1] - mean) }
+        denominator = returns.sum { |r| (r - mean)**2 }
         return 0.0 if denominator.zero?
         (numerator / denominator).clamp(-1.0, 1.0)
       end

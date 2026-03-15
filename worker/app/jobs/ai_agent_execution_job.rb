@@ -100,9 +100,11 @@ class AiAgentExecutionJob < BaseJob
     reasoning_mode = reasoning_config['mode']
     reflection_enabled = reasoning_config['reflection_enabled'] == true
 
-    # 4. Execute via server proxy
+    # 4. Execute via server proxy (WebSocket with HTTP fallback)
+    proxy = llm_proxy_with_websocket || llm_proxy
+
     proxy_result = if reasoning_mode.present?
-      llm_proxy.execute_with_reasoning(
+      proxy.execute_with_reasoning(
         agent_id: agent_id,
         messages: messages,
         model: model,
@@ -113,7 +115,7 @@ class AiAgentExecutionJob < BaseJob
         reflection_enabled: reflection_enabled
       )
     else
-      llm_proxy.execute_tool_loop(
+      proxy.execute_tool_loop(
         agent_id: agent_id,
         messages: messages,
         model: model,
@@ -153,6 +155,8 @@ class AiAgentExecutionJob < BaseJob
   rescue StandardError => e
     log_error("LLM proxy execution failed", error: e.message)
     { success: false, error: "Proxy execution failed: #{e.message}" }
+  ensure
+    disconnect_tool_dispatch_ws
   end
 
   def fetch_agent_execution(agent_execution_id)

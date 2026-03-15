@@ -7,7 +7,7 @@ module Trading
 
       def evaluate
         signals = []
-        lookback = param("lookback_periods", 20)
+        lookback = param("lookback_periods", 10)
         entry_threshold = param("entry_threshold", 0.02)
         exit_threshold = param("exit_threshold", -0.01)
 
@@ -38,7 +38,7 @@ module Trading
         # inherently small absolute volatility.
         mean_price = prices.sum / prices.size
         price_std = Math.sqrt(prices.map { |p| (p - mean_price)**2 }.sum / prices.size)
-        min_vol = param("min_volatility", 0.005)
+        min_vol = param("min_volatility", 0.001)
         is_pm_price = mean_price.between?(0.01, 0.99)
         effective_vol = if is_pm_price && mean_price > 0
                           price_std / mean_price # coefficient of variation
@@ -63,7 +63,7 @@ module Trading
         log_returns = prices.each_cons(2).map { |a, b| Math.log(b / a) }
         sorted_returns = log_returns.sort
         median_return = sorted_returns[sorted_returns.size / 2] || 0
-        filter_width = current_price.between?(0.01, 0.99) ? 0.05 : (median_return.abs * 3 + 0.01)
+        filter_width = [median_return.abs * 3 + 0.01, 0.03].max # Minimum 3% filter floor
         momentum = log_returns.select { |r| (r - median_return).abs < filter_width }.sum
 
         volumes = price_history.last(lookback).map { |s| (s["volume"] || s[:volume] || 0).to_f }

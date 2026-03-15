@@ -33,7 +33,7 @@ module Trading
 
         # Sanity check: YES + NO should be close to 1.0 for binary markets
         parity_sum = yes_price + no_price
-        if parity_sum < 0.80 || parity_sum > 1.20
+        if parity_sum < 0.50 || parity_sum > 1.50
           log("#{strategy_pair}: parity sanity failed — YES=#{yes_price.round(4)} + NO=#{no_price.round(4)} = #{parity_sum.round(4)}")
           return signals
         end

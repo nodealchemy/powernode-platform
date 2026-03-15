@@ -128,6 +128,9 @@ class TradingTrainingSessionJob < BaseJob
     @lock_key = lock_key
     @last_lock_renew = Time.now
     @session_id = session_id
+
+    # Establish WebSocket connection for high-frequency data calls
+    @data_ws_client = connect_data_ws
     @data_fetcher = trading_data_fetcher
 
     @training_completed = false
@@ -140,6 +143,9 @@ class TradingTrainingSessionJob < BaseJob
       Sidekiq.redis do |conn|
         conn.del(lock_key) if conn.get(lock_key) == jid
       end
+
+      # Clean up WebSocket connection
+      disconnect_data_ws
 
       # If the job was killed (SIGTERM from worker restart, OOM, etc.) without
       # completing or explicitly failing, mark the session as failed so it doesn't
@@ -204,6 +210,13 @@ class TradingTrainingSessionJob < BaseJob
       end
     end
 
+    # Local tick interval tracking: avoids fetching contexts for non-due strategies.
+    # On tick 1, all strategies are due (no local timestamps). After each tick, we
+    # record when each strategy was evaluated and its interval, enabling pre-filtering
+    # before the expensive batch context fetch on subsequent ticks.
+    @strategy_intervals = {}   # strategy_id => tick_interval_seconds
+    @last_evaluated_at = {}    # strategy_id => Time
+
     log_info("Training loop starting",
       session_id: session_id,
       strategies: strategies.size,
@@ -256,15 +269,43 @@ class TradingTrainingSessionJob < BaseJob
       tick_started_at = Time.now
       log_info("Training tick #{tick_num}/#{tick_count}", session_id: session_id)
 
-      # Partition strategies: classic (no LLM) first, then AI
-      classic_ids = strategies.select { |s| classic_types.include?(s["type"]) }.map { |s| s["id"] }
-      ai_ids = strategies.reject { |s| classic_types.include?(s["type"]) }.map { |s| s["id"] }
+      all_strategy_ids = strategies.map { |s| s["id"] }
 
       tick_results = []
-      all_strategy_ids = classic_ids + ai_ids
 
-      # Phase A: Batch-fetch all strategy contexts in one request
-      contexts_by_id = fetch_batch_contexts(all_strategy_ids)
+      # Pre-filter: determine which strategies are due BEFORE the expensive context fetch.
+      # On tick 1, @strategy_intervals is empty so all strategies are due.
+      # On tick 2+, we use locally-tracked intervals and timestamps.
+      now = Time.now
+      if @strategy_intervals.empty?
+        due_strategy_ids = all_strategy_ids
+      else
+        due_strategy_ids = all_strategy_ids.select do |sid|
+          interval = @strategy_intervals[sid] || tick_interval
+          last_eval = @last_evaluated_at[sid]
+          last_eval.nil? || (now - last_eval) >= interval
+        end
+
+        skipped = all_strategy_ids.size - due_strategy_ids.size
+        if skipped > 0
+          log_info("Tick #{tick_num}: #{due_strategy_ids.size}/#{all_strategy_ids.size} strategies due (#{skipped} skipped)",
+            session_id: session_id)
+        end
+      end
+
+      # Partition due strategies: classic (no LLM) first, then AI
+      classic_ids = strategies.select { |s| classic_types.include?(s["type"]) && due_strategy_ids.include?(s["id"]) }.map { |s| s["id"] }
+      ai_ids = strategies.reject { |s| classic_types.include?(s["type"]) || !due_strategy_ids.include?(s["id"]) }.map { |s| s["id"] }
+
+      # Phase A: Batch-fetch contexts only for due strategies (not all)
+      contexts_by_id = fetch_batch_contexts(due_strategy_ids)
+
+      # Learn tick_interval_seconds from contexts (populates on tick 1, updates thereafter)
+      contexts_by_id.each do |sid, ctx|
+        next unless ctx.is_a?(Hash) && !ctx["skipped"]
+        interval = ctx.dig("strategy", "tick_interval_seconds")
+        @strategy_intervals[sid.to_s] = interval.to_i if interval
+      end
 
       # Mid-tick heartbeat: batch context fetch can take 70s+ for large Polymarket
       # sessions. Without this, orphan recovery may consider the session stale.
@@ -274,8 +315,8 @@ class TradingTrainingSessionJob < BaseJob
       # Phase B: Evaluate all strategies locally using pre-fetched contexts
       pending_results = []
 
-      # Pre-warm tick price cache with all pair_registry pairs.
-      # This turns 50-400 individual venue_fetch_ticker calls into 1-2 batch requests.
+      # Pre-warm tick price cache with all pair_registry pairs (ALL pairs, not just due).
+      # Skipped strategies need cached prices for when they become due.
       @tick_price_cache = TickPriceCache.new
       @graph_cache = {}
       sample_context = contexts_by_id.values.find { |c| c.is_a?(Hash) && !c["skipped"] }
@@ -288,18 +329,18 @@ class TradingTrainingSessionJob < BaseJob
           log_info("Price cache warmed: #{@tick_price_cache.size} pairs", session_id: session_id)
         end
 
-        # Pre-warm graph cache: deduplicate market_graph_related calls by base ticker.
-        # YES/NO variants of the same ticker return identical results — fetch once per base.
+        # Pre-warm graph cache only for DUE strategies' pairs (not all).
+        # Graph warming is the most expensive per-ticker operation (~1s each).
         account_id = sample_context.dig("strategy", "account_id")
         first_agent_id = sample_context["agent_id"]
         similarity_threshold = 0.55 # default; evaluators may override per-strategy
 
         # Graph pre-warm: skip in dry_run/backtest mode to save 50+ API calls/tick
         unless dry_run || backtest
-          base_tickers = contexts_by_id.values
+          due_pairs = contexts_by_id.values
             .select { |c| c.is_a?(Hash) && !c["skipped"] }
             .filter_map { |c| c.dig("strategy", "pair") }
-            .map { |p| p.sub(%r{/(YES|NO)\z}, "") }.uniq
+          base_tickers = due_pairs.map { |p| p.sub(%r{/(YES|NO)\z}, "") }.uniq
 
           base_tickers.each do |bt|
             pair_key = "#{bt}/YES"
@@ -332,6 +373,7 @@ class TradingTrainingSessionJob < BaseJob
         result = evaluate_strategy(sid, context)
         tick_results << result
         pending_results << result if result["_submission"]
+        @last_evaluated_at[sid.to_s] = tick_started_at
       end
 
       # AI strategies — need inter-strategy delay
@@ -340,6 +382,7 @@ class TradingTrainingSessionJob < BaseJob
         result = evaluate_strategy(sid, context)
         tick_results << result
         pending_results << result if result["_submission"]
+        @last_evaluated_at[sid.to_s] = tick_started_at
 
         if result["timeout"]
           consecutive_timeouts += 1
@@ -692,6 +735,34 @@ class TradingTrainingSessionJob < BaseJob
     log_warn("Failed to dispatch learning extraction", error: e.message)
   end
 
+  # Establish a WebSocket connection to the server's WorkerDataChannel
+  # for high-frequency training data calls (contexts, tickers, results, status).
+  # Returns an ActionCableClient or nil on failure.
+  def connect_data_ws
+    base_url = ENV.fetch('BACKEND_API_URL', 'http://localhost:3000')
+    ws_url = base_url.sub(/^http/, 'ws') + '/cable'
+    token = WorkerJwt.token
+
+    client = ::ActionCableClient.new(ws_url, token, channel: "WorkerDataChannel")
+    client.connect
+    log_info("Data WS connected to #{ws_url}")
+    client
+  rescue StandardError => e
+    log_info("Data WS unavailable, using HTTP fallback: #{e.message}")
+    nil
+  end
+
+  # Clean up WebSocket connection.
+  def disconnect_data_ws
+    @data_ws_client&.disconnect
+  rescue StandardError => e
+    log_warn("Data WS disconnect error (non-fatal): #{e.message}")
+  ensure
+    @data_ws_client = nil
+    # Reset the memoized data fetcher so a new one can be created without the stale WS ref
+    @trading_data_fetcher = nil
+  end
+
   # Venue-generic WS acquisition — dispatches to the appropriate manager singleton.
   def acquire_venue_ws(slug, ws_config, pairs)
     case slug
@@ -750,7 +821,7 @@ class TradingTrainingSessionJob < BaseJob
   end
 
   def trading_data_fetcher
-    @trading_data_fetcher ||= Trading::DataFetcher.new(api_client)
+    @trading_data_fetcher ||= Trading::DataFetcher.new(api_client, ws_client: @data_ws_client)
   end
 
   def training_llm_client
@@ -761,21 +832,15 @@ class TradingTrainingSessionJob < BaseJob
   end
 
   def record_tick(session_id, tick_num, tick_results)
-    api_client.post_with_circuit_breaker(
-      "/api/v1/internal/trading/training_tick_complete",
-      { session_id: session_id, tick_num: tick_num, tick_results: tick_results },
-      circuit_breaker: :trading_training
+    trading_data_fetcher.training_tick_complete(
+      session_id: session_id, tick_num: tick_num, tick_results: tick_results
     )
   rescue StandardError => e
     log_warn("Failed to record tick progress", session_id: session_id, tick: tick_num, error: e.message)
   end
 
   def check_status(session_id)
-    api_client.post_with_circuit_breaker(
-      "/api/v1/internal/trading/training_status",
-      { session_id: session_id },
-      circuit_breaker: :trading_training
-    )
+    trading_data_fetcher.training_status(session_id)
   rescue BackendApiClient::ApiError => e
     # 404 = session was deleted — return sentinel so callers can detect and abort
     return { "session_gone" => true, "error" => e.message } if e.status == 404

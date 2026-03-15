@@ -88,7 +88,8 @@ module Trading
         # spreads far wider than the 1-cent minimum tick on Kalshi.
         # Use a short horizon (fraction of a day) matching the tick interval.
         max_t_days = param("stoikov_t_days", 0.05) # ~1.2 hours default
-        t_remaining = hours_left ? [hours_left / 24.0, 0.01].max.clamp(0.01, max_t_days) : max_t_days
+        t_floor = [0.001, max_t_days * 0.1].max
+        t_remaining = hours_left ? [[hours_left / 24.0, t_floor].max, max_t_days].min : max_t_days
         kappa = estimate_arrival_rate
 
         # Stoikov reservation price and spread
@@ -121,7 +122,7 @@ module Trading
         # Fee-aware edge filter: Kalshi charges flat $0.01/contract per side.
         # At low prices, this is a massive percentage of the trade value.
         # Skip quoting entirely if net edge after fees is too small.
-        kalshi_fee = 0.01
+        kalshi_fee = venue_flat_fee
         half_spread = optimal_spread / 2.0
         net_edge = half_spread - kalshi_fee
         min_net_edge_pct = param("min_net_edge_pct", 3.0) / 100.0

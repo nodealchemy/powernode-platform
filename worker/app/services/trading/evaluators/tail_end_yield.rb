@@ -32,7 +32,7 @@ module Trading
         min_yield = param("min_yield_pct", 0.5) / 100.0
         return check_exit_conditions(signals) if expected_yield < min_yield
 
-        estimated_cost = spread_pct || 0.005
+        estimated_cost = spread_pct || 0.02 # Conservative 2% fallback when spread unknown
         net_yield = expected_yield - estimated_cost
         return check_exit_conditions(signals) if net_yield <= 0
 

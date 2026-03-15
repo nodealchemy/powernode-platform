@@ -7,8 +7,16 @@ module Trading
   class DataFetcher
     BASE = "/api/v1/internal/trading"
 
-    def initialize(api_client)
+    # @param api_client [BackendApiClient] HTTP client for server API calls
+    # @param ws_client [ActionCableClient, nil] optional WebSocket client for high-frequency calls
+    def initialize(api_client, ws_client: nil)
       @api = api_client
+      @ws = ws_client
+    end
+
+    # Whether the WebSocket transport is available.
+    def ws_connected?
+      @ws&.connected?
     end
 
     # Fetch everything needed to evaluate a strategy in one call.
@@ -22,9 +30,14 @@ module Trading
 
     # Fetch evaluation contexts for multiple strategies in one request.
     # Returns Hash { strategy_id => context_hash }.
-    # Uses dedicated trading_training circuit breaker to isolate from other
-    # worker jobs (e.g. Docker sync) that share the default backend_api breaker.
+    # Uses WebSocket when available (eliminates HTTP overhead on the heaviest call).
     def batch_strategy_evaluation_contexts(strategy_ids)
+      if ws_connected?
+        response = @ws.send_request("batch_strategy_contexts", { strategy_ids: strategy_ids })
+        data = extract_ws_data(response)
+        return data["contexts"] || {}
+      end
+
       response = @api.post_with_circuit_breaker(
         "#{BASE}/batch_strategy_contexts",
         { strategy_ids: strategy_ids },
@@ -56,6 +69,12 @@ module Trading
       payload = { results: results }
       payload[:session_id] = session_id if session_id
       payload[:tick_num] = tick_num if tick_num
+
+      if ws_connected?
+        response = @ws.send_request("batch_record_results", payload)
+        return extract_ws_data(response)
+      end
+
       response = @api.post_with_circuit_breaker(
         "#{BASE}/batch_record_results",
         payload,
@@ -92,6 +111,12 @@ module Trading
     # Pairs that fail return nil values (callers should handle gracefully).
     def batch_fetch_tickers(pairs:, venue_id:)
       return {} if pairs.empty?
+
+      if ws_connected?
+        response = @ws.send_request("batch_fetch_tickers", { venue_id: venue_id, pairs: pairs })
+        data = extract_ws_data(response)
+        return data["tickers"] || {}
+      end
 
       response = @api.post_with_circuit_breaker(
         "#{BASE}/batch_fetch_tickers",
@@ -222,7 +247,61 @@ module Trading
       extract_data(response)
     end
 
+    # Check training session status. Returns the status hash or nil on failure.
+    # Used by the training job for session heartbeating and cancellation checks.
+    # Returns { "success" => true, "data" => {...} } or { "session_gone" => true } on 404.
+    def training_status(session_id)
+      if ws_connected?
+        begin
+          response = @ws.send_request("training_status", { session_id: session_id })
+          if response["success"]
+            return { "success" => true, "data" => response["data"] || {} }
+          elsif response["error"]&.include?("not found")
+            return { "session_gone" => true, "error" => response["error"] }
+          else
+            return nil
+          end
+        rescue StandardError
+          # WS failed — fall through to HTTP
+        end
+      end
+
+      @api.post_with_circuit_breaker(
+        "#{BASE}/training_status",
+        { session_id: session_id },
+        circuit_breaker: :trading_training
+      )
+    end
+
+    # Record tick completion for a training session.
+    def training_tick_complete(session_id:, tick_num:, tick_results:)
+      if ws_connected?
+        response = @ws.send_request("training_tick_complete", {
+          session_id: session_id, tick_num: tick_num, tick_results: tick_results })
+        return extract_ws_data(response)
+      end
+
+      @api.post_with_circuit_breaker(
+        "#{BASE}/training_tick_complete",
+        { session_id: session_id, tick_num: tick_num, tick_results: tick_results },
+        circuit_breaker: :trading_training
+      )
+    end
+
     private
+
+    # Extract data from a WebSocket response (already parsed, no HTTP wrapper).
+    def extract_ws_data(response)
+      return {} unless response.is_a?(Hash)
+
+      if response["success"]
+        response["data"] || {}
+      elsif response["error"]
+        raise StandardError, response["error"]
+      else
+        response
+      end
+    end
 
     def log_error(message)
       logger = if defined?(PowernodeWorker) && PowernodeWorker.application.respond_to?(:logger)

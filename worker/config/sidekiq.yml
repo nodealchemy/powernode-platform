@@ -167,9 +167,9 @@
       queue: maintenance
       description: 'Clean up old acknowledged swarm events'
 
-    # Docker Host sync - every minute
+    # Docker Host sync - every 5 minutes (was every minute; caused runaway loop detection)
     docker_host_sync:
-      cron: '* * * * *'
+      cron: '*/5 * * * *'
       class: Docker::HostSyncJob
       queue: devops_default
       description: 'Sync Docker host container and image state'

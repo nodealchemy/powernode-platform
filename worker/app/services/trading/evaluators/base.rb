@@ -87,6 +87,28 @@ module Trading
         @params.fetch(key.to_s, default)
       end
 
+      # Venue-aware fee rate: Polymarket charges zero fees, Kalshi ~4% round-trip.
+      # Derives venue from pair prefix (e.g., "PM_..." = Polymarket).
+      def venue_fee_rate
+        pair = strategy_pair || ""
+        if pair.start_with?("PM")
+          0.0
+        else
+          param("fee_deduction_rate", 0.04)
+        end
+      end
+
+      # Venue-aware flat fee per contract side.
+      # Polymarket: $0, Kalshi: $0.01/side.
+      def venue_flat_fee
+        pair = strategy_pair || ""
+        if pair.start_with?("PM")
+          0.0
+        else
+          0.01
+        end
+      end
+
       def current_price
         (@market_data["last_price"] || @market_data[:last_price]).to_f
       end

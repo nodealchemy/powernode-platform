@@ -23,6 +23,8 @@ module Swarm
       log_info "Swarm event cleanup completed", deleted: deleted_count
 
       increment_counter("swarm.events.cleaned", count: deleted_count)
+    rescue BackendApiClient::ApiError => e
+      log_warn "Swarm event cleanup skipped: #{e.message}"
     end
   end
 end
