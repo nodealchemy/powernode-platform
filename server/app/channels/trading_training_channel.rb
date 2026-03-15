@@ -31,6 +31,18 @@ class TradingTrainingChannel < ApplicationCable::Channel
   end
 
   class << self
+    def broadcast_session_created(session)
+      data = {
+        type: "session_created",
+        session_id: session.id,
+        name: session.name,
+        status: session.status,
+        timestamp: Time.current.iso8601
+      }
+
+      broadcast_to_account(session.account_id, data)
+    end
+
     def broadcast_tick_update(session)
       data = {
         type: "tick_update",
