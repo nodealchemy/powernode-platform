@@ -151,12 +151,47 @@ module Ai
       end
 
       def market_regime
-        if defined?(Trading::MarketRegimeService)
-          regime = Trading::MarketRegimeService.classify
-          success_result(regime)
-        else
-          error_result("Market regime service is not available")
+        unless defined?(Trading::MarketRegimeService)
+          return error_result("Market regime service is not available")
         end
+
+        service = Trading::MarketRegimeService.new(account)
+
+        # Aggregate regime from recent training activity and active price feeds
+        venue_regimes = {}
+        Trading::Venue.where(is_active: true).each do |venue|
+          pairs = Trading::Strategy.joins(:portfolio)
+            .where(trading_portfolios: { account_id: account.id })
+            .where(trading_venue_id: venue.id)
+            .where("trading_strategies.updated_at > ?", 7.days.ago)
+            .distinct.pluck(:pair).first(5)
+
+          next if pairs.empty?
+
+          pair_regimes = pairs.filter_map do |pair|
+            regime = service.classify(pair)
+            regime unless regime[:trend] == "sideways" && regime[:volatility] == "normal" # skip pure defaults
+          rescue StandardError
+            nil
+          end
+
+          venue_regimes[venue.slug] = pair_regimes.first || service.send(:default_regime) if pairs.any?
+        end
+
+        # Build strategy suitability from the dominant regime
+        dominant = venue_regimes.values.first || service.send(:default_regime)
+        suitability = Trading::MarketRegimeService::REGIME_SUITABILITY.map do |strategy_type, scores|
+          trend_score = scores[dominant[:trend]&.to_sym] || 0.7
+          vol_score = scores[dominant[:volatility]&.to_sym] || 0.7
+          { strategy_type: strategy_type, suitability: ((trend_score + vol_score) / 2.0).round(3) }
+        end.sort_by { |s| -s[:suitability] }
+
+        success_result({
+          dominant_regime: dominant,
+          venue_regimes: venue_regimes,
+          strategy_suitability: suitability,
+          assessment_note: venue_regimes.empty? ? "No active venues with recent trading data — using default regime" : nil
+        }.compact)
       rescue StandardError => e
         error_result("Market regime assessment failed: #{e.message}")
       end
