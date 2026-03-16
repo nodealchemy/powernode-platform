@@ -64,7 +64,7 @@ class TradingStrategyExecutionJob < BaseJob
     evaluator.trading_context = context["trading_context"]
 
     # Evaluate locally — LLM calls go directly to providers, no Puma thread held
-    signals = evaluator.evaluate
+    signals = Array(evaluator.evaluate).compact
     tick_cost = evaluator.respond_to?(:tick_cost_usd) ? evaluator.tick_cost_usd : 0.0
 
     # Post results back to server (creates signals, processes orders, updates P&L)

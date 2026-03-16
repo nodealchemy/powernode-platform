@@ -50,6 +50,30 @@ module Trading
         @is_training
       end
 
+      # Update context for a new tick without losing instance state (e.g., trackers).
+      # Used by training jobs that cache evaluator instances across ticks.
+      def update_context(context)
+        @strategy_data = context["strategy"] || {}
+        @market_data = context["market_data"] || {}
+        @positions = context["positions"] || []
+        @params = @strategy_data["parameters"] || {}
+        @provider_config = context["provider_config"]
+        @agent_id = context["agent_id"]
+        @trading_context = context["trading_context"]
+        @market_question = context["market_question"]
+        @pair_registry = context["pair_registry"] || {}
+        @price_history = context["price_history"] || []
+        @allocated_capital = (context["allocated_capital"] || 0.0).to_f
+        @market_expiry_raw = context["market_expiry"]
+        @parity_data = context["parity_data"] || {}
+        @spot_price_data = context["spot_price"] || {}
+        @last_entry_indicators = context["last_entry_indicators"] || {}
+        @order_book_data = context["order_book"] || {}
+        @performance_context = context["performance_context"] || {}
+        @is_training = context["is_training"] || false
+        @external_data_sources = []
+      end
+
       # Subclasses override this to generate trading signals.
       # Returns Array of signal Hashes.
       def evaluate
@@ -217,8 +241,22 @@ module Trading
 
       def build_signal(type:, direction:, confidence:, strength: nil, reasoning: nil, indicators: {})
         edge = indicators[:edge]&.abs || indicators[:edge_pct]&.abs&./(100.0)
-        estimated_cost = estimate_signal_cost
-        net_edge = edge ? edge - estimated_cost : nil
+        is_limit = indicators[:limit_order] == true
+
+        # Cost gate: reject entry signals where edge doesn't cover execution costs.
+        # Limit orders only pay flat fees (no spread/slippage); market orders pay full round-trip.
+        if type == "entry" && edge
+          effective_cost = is_limit ? min_limit_order_cost : estimate_signal_cost
+          # When spread is synthetic (fabricated by StrategyContextBuilder), double the
+          # cost threshold to be conservative about entering with unreliable data.
+          effective_cost *= 2.0 if synthetic_spread?
+          net_edge = edge - effective_cost
+          return nil if net_edge <= 0
+        else
+          estimated_cost = estimate_signal_cost
+          net_edge = edge ? edge - estimated_cost : nil
+        end
+
         urgency = classify_urgency(net_edge)
 
         {
@@ -227,9 +265,22 @@ module Trading
           confidence: confidence.clamp(0.0, 1.0),
           strength: strength&.clamp(0.0, 1.0),
           reasoning: reasoning,
-          indicators: indicators,
+          indicators: indicators.merge(net_edge: net_edge, execution_cost: effective_cost || estimated_cost),
           urgency: urgency
         }
+      end
+
+      # Minimum execution cost for limit orders (flat fee only, no spread/slippage).
+      # Returns cost as a fraction of contract price.
+      def min_limit_order_cost
+        price = [current_price, 0.01].max
+        (venue_flat_fee * 2.0) / price
+      end
+
+      # Whether market data has a synthetic (fabricated) spread rather than real bid/ask.
+      # When true, evaluators should be more conservative about edge estimates.
+      def synthetic_spread?
+        @market_data["synthetic_spread"] == true || @market_data[:synthetic_spread] == true
       end
 
       def classify_urgency(net_edge)

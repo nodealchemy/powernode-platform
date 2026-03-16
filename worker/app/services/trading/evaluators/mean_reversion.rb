@@ -25,7 +25,8 @@ module Trading
         return signals if price_history.size < lookback
 
         prices = price_history.last(lookback).map { |s| (s["close"] || s[:close]).to_f }
-        return signals if prices.any?(&:zero?)
+        prices.reject!(&:zero?) # Skip zero prices instead of aborting entire evaluation
+        return signals if prices.size < [lookback / 2, 5].max
 
         # Use EMA for faster adaptation — seed from SMA of first N for stability
         alpha = 2.0 / (prices.size + 1)
@@ -70,24 +71,28 @@ module Trading
         end
 
         if !has_open_position?
-          if z_score < -std_devs
+          # Spread gate: ensure edge exceeds execution cost before entering
+          price_edge = (current_price - ema).abs
+          min_edge = min_limit_order_cost
+
+          if z_score < -std_devs && price_edge > min_edge
             base_conf = (z_score.abs / std_devs * 0.4 + 0.3).clamp(0.3, 0.9)
             signals << build_signal(
               type: "entry", direction: "long",
               confidence: (base_conf * autocorr_boost).clamp(0.3, 0.9),
               strength: (z_score.abs / (std_devs * 2)).clamp(0.0, 1.0),
               reasoning: "Price #{z_score.round(2)} std devs below EMA (ema: #{ema.round(4)}, price: #{current_price}, autocorr: #{autocorr.round(3)})",
-              indicators: { z_score: z_score, mean: ema, std_dev: std_dev, autocorrelation: autocorr, edge: (ema - current_price).abs,
+              indicators: { z_score: z_score, mean: ema, std_dev: std_dev, autocorrelation: autocorr, edge: price_edge,
                             limit_order: true, limit_price: current_price.round(4) }
             )
-          elsif z_score > std_devs
+          elsif z_score > std_devs && price_edge > min_edge
             base_conf = (z_score.abs / std_devs * 0.4 + 0.3).clamp(0.3, 0.9)
             signals << build_signal(
               type: "entry", direction: "short",
               confidence: (base_conf * autocorr_boost).clamp(0.3, 0.9),
               strength: (z_score.abs / (std_devs * 2)).clamp(0.0, 1.0),
               reasoning: "Price #{z_score.round(2)} std devs above EMA (ema: #{ema.round(4)}, price: #{current_price}, autocorr: #{autocorr.round(3)})",
-              indicators: { z_score: z_score, mean: ema, std_dev: std_dev, autocorrelation: autocorr, edge: (current_price - ema).abs,
+              indicators: { z_score: z_score, mean: ema, std_dev: std_dev, autocorrelation: autocorr, edge: price_edge,
                             limit_order: true, limit_price: current_price.round(4) }
             )
           end

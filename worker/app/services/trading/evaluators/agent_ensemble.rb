@@ -70,7 +70,9 @@ module Trading
               kelly_full: kelly[:kelly_full],
               edge_after_impact: kelly[:edge_after_impact],
               kelly_blend_source: kelly[:blend_source],
-              position_sizing_method: "kelly"
+              position_sizing_method: "kelly",
+              limit_order: true,
+              limit_price: market_price.round(4)
             }
           )
         end
@@ -249,6 +251,15 @@ module Trading
           bull_args += "\nRebuttal #{round + 1}: #{bull_rebuttal[:rebuttal]}" if bull_rebuttal.is_a?(Hash)
           bear_args += "\nRebuttal #{round + 1}: #{bear_rebuttal[:rebuttal]}" if bear_rebuttal.is_a?(Hash)
 
+          # Wire debate updated_confidence back into analyst analyses.
+          # Without this, debate rounds waste LLM calls without affecting decisions.
+          if bull_rebuttal.is_a?(Hash) && bull_rebuttal[:updated_confidence]
+            bulls.each { |b| b[:confidence] = bull_rebuttal[:updated_confidence].to_f.clamp(0.0, 1.0) }
+          end
+          if bear_rebuttal.is_a?(Hash) && bear_rebuttal[:updated_confidence]
+            bears.each { |b| b[:confidence] = bear_rebuttal[:updated_confidence].to_f.clamp(0.0, 1.0) }
+          end
+
           break if bull_rebuttal.is_a?(Hash) && bull_rebuttal[:updated_confidence].to_f < 0.3 &&
                    bear_rebuttal.is_a?(Hash) && bear_rebuttal[:updated_confidence].to_f < 0.3
         end
@@ -336,7 +347,7 @@ module Trading
 
           if std_dev < disagreement_threshold
             # Analysts suspiciously unanimous — discount the consensus score
-            echo_penalty = param("echo_chamber_penalty", 0.5)
+            echo_penalty = param("echo_chamber_penalty", 1.0)
             return { majority_direction: "hold", score: 0.0, probability: consensus_prob,
                      edge: edge, echo_chamber: true, analyst_std_dev: std_dev } if echo_penalty >= 1.0
           end

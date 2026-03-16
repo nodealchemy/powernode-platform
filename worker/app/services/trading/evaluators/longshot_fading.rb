@@ -40,7 +40,7 @@ module Trading
         # Calculate mispricing edge
         empirical_rate = lookup_empirical_rate(price)
         implied_prob = price # In prediction markets, price ≈ implied probability
-        edge_pct = ((implied_prob - empirical_rate) / implied_prob * 100.0)
+        edge_pct = ((implied_prob - empirical_rate) / empirical_rate * 100.0)
 
         min_edge = param("min_edge_pct", 1.0)
         return signals unless edge_pct >= min_edge

@@ -50,13 +50,32 @@ module Trading
       "momentum" => {
         filter: ->(market, _pp, _opts) {
           p = market[:yes_price] || 0.5
-          market[:volume_24h].to_f >= 5_000 && p.between?(0.10, 0.90)
+          vol = market[:volume_24h].to_f
+          cat = market[:category].to_s
+          # Momentum needs mid-range prices with room to move directionally.
+          # Prefer categories with natural price movement (crypto, macro, financials).
+          # Relax volume threshold for high-activity categories.
+          momentum_cats = %w[Crypto Financials Economics]
+          if momentum_cats.include?(cat)
+            vol >= 1_000 && p.between?(0.15, 0.85)
+          else
+            vol >= 3_000 && p.between?(0.20, 0.80)
+          end
         }
       },
       "mean_reversion" => {
         filter: ->(market, _pp, _opts) {
           p = market[:yes_price] || 0.5
-          p.between?(0.10, 0.90) && market[:volume_24h].to_f >= 1_000
+          vol = market[:volume_24h].to_f
+          cat = market[:category].to_s
+          # Mean reversion needs prices away from extremes (room to revert to mean).
+          # Lower volume OK since we're looking for overreaction, not trend.
+          momentum_cats = %w[Crypto Financials Economics]
+          if momentum_cats.include?(cat)
+            vol >= 500 && p.between?(0.15, 0.85)
+          else
+            vol >= 1_000 && p.between?(0.10, 0.90)
+          end
         }
       },
 

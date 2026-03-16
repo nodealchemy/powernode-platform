@@ -27,11 +27,23 @@ class AiConversationResponseJob < BaseJob
     end
 
     conversation = conv_response['data']['conversation'] || conv_response['data']
-    agent_id = conversation['ai_agent_id'] || conversation['agent_id']
-    account_id = conversation['account_id']
+    agent_id = conversation['ai_agent_id'] || conversation['agent_id'] ||
+               conversation.dig('ai_agent', 'id')
+    account_id = conversation['account_id'] || conversation.dig('user', 'account_id')
+
+    # Resolve account_id from the user if not in conversation data
+    if account_id.nil? && user_id.present?
+      user_response = api_client.get("/api/v1/users/#{user_id}") rescue nil
+      account_id = user_response&.dig('data', 'account_id') || user_response&.dig('data', 'user', 'account_id')
+    end
 
     unless agent_id
-      broadcast_error(conversation_id, "Conversation has no agent assigned")
+      log_warn("Conversation has no agent assigned", conversation_id: conversation_id)
+      return
+    end
+
+    unless account_id
+      log_warn("Could not resolve account_id", conversation_id: conversation_id)
       return
     end
 

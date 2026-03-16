@@ -13,7 +13,9 @@ module Trading
         spot = (spot_price_data["price"] || spot_price_data[:price]).to_f
         return signals unless spot > 0
 
-        strike = param("strike_price", 70000.0).to_f
+        # Extract strike from market question when available, fall back to parameter.
+        # Default of $70K was BTC-specific; market_question parsing handles other assets.
+        strike = extract_strike_from_question || param("strike_price", 70000.0).to_f
         return signals unless strike > 0
 
         implied_prob = if param("use_black_scholes", true)
@@ -36,7 +38,8 @@ module Trading
             confidence: (edge.abs / 0.15).clamp(0.3, 0.95),
             strength: (edge.abs / 0.10).clamp(0.0, 1.0),
             reasoning: "Spot-lag arbitrage: spot $#{spot.round(2)} implies #{(implied_prob * 100).round(1)}% vs market #{(market_price * 100).round(1)}% (edge: #{(edge * 100).round(1)}%)",
-            indicators: { spot_price: spot, strike_price: strike, implied_probability: implied_prob, market_price: market_price, edge: edge, edge_pct: (edge * 100).round(2) }
+            indicators: { spot_price: spot, strike_price: strike, implied_probability: implied_prob, market_price: market_price, edge: edge, edge_pct: (edge * 100).round(2),
+                          limit_order: true, limit_price: market_price.round(4) }
           )
         elsif has_open_position? && edge.abs < exit_edge
           signals << build_signal(
@@ -59,8 +62,10 @@ module Trading
         time_remaining = time_to_expiry
         return simple_implied_probability(spot, strike) if time_remaining.nil? || time_remaining <= 0
 
-        d = Math.log(spot / strike) / (vol * Math.sqrt(time_remaining))
-        normal_cdf(d)
+        # Correct Black-Scholes d1: includes risk-free rate and variance terms
+        r = param("risk_free_rate", 0.05).to_f
+        d1 = (Math.log(spot / strike) + (r + 0.5 * vol**2) * time_remaining) / (vol * Math.sqrt(time_remaining))
+        normal_cdf(d1)
       rescue StandardError
         simple_implied_probability(spot, strike)
       end
@@ -93,6 +98,20 @@ module Trading
         expiry = Time.parse(expiry_str.to_s)
         remaining = (expiry - Time.current) / (365.25 * 24 * 3600)
         remaining > 0 ? remaining : nil
+      rescue StandardError
+        nil
+      end
+
+      # Try to extract a numeric strike/threshold from the market question.
+      # E.g. "Will BTC be above $80,000?" → 80000.0
+      def extract_strike_from_question
+        return nil unless @market_question
+
+        match = @market_question.match(/\$?([\d,]+(?:\.\d+)?)/)
+        return nil unless match
+
+        value = match[1].delete(",").to_f
+        value > 0 ? value : nil
       rescue StandardError
         nil
       end

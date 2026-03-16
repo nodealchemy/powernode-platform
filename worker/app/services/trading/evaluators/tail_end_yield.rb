@@ -32,7 +32,10 @@ module Trading
         min_yield = param("min_yield_pct", 0.5) / 100.0
         return check_exit_conditions(signals) if expected_yield < min_yield
 
-        estimated_cost = spread_pct || 0.02 # Conservative 2% fallback when spread unknown
+        # For high-probability contracts (>95%), spread fallback of 2% would block
+        # nearly all trades since yield is only 1-5%. Use venue-aware minimum.
+        raw_spread = spread_pct || 0.02
+        estimated_cost = market_price > 0.95 ? [raw_spread, 0.005].min : raw_spread
         net_yield = expected_yield - estimated_cost
         return check_exit_conditions(signals) if net_yield <= 0
 
