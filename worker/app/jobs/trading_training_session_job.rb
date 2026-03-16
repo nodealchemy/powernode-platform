@@ -92,6 +92,7 @@ class TradingTrainingSessionJob < BaseJob
       @session_id = session_id
       @cancelled = false
       @paused = false
+      @completion_requested = false
       @config_changed = false
       @config_changes = {}
       @events = []
@@ -112,6 +113,8 @@ class TradingTrainingSessionJob < BaseJob
               case data["event"]
               when "cancelled", "emergency_halt", "failed"
                 @cancelled = true
+              when "completion_requested"
+                @completion_requested = true
               when "paused"
                 @paused = true
               when "config_updated"
@@ -133,6 +136,10 @@ class TradingTrainingSessionJob < BaseJob
 
     def cancelled?
       @mutex.synchronize { @cancelled }
+    end
+
+    def completion_requested?
+      @mutex.synchronize { @completion_requested }
     end
 
     def paused?
@@ -392,6 +399,14 @@ class TradingTrainingSessionJob < BaseJob
         break
       end
 
+      # Early completion: break cleanly to finalize (positions closed by finalize, report generated)
+      # Check top-level field (new backend), config field (existing backend), and pub/sub listener
+      if status&.dig("data", "completion_requested") || status&.dig("data", "config", "completion_requested") || completion_requested?(session_id)
+        log_info("Early completion requested — proceeding to finalize",
+          session_id: session_id, tick: tick_num)
+        break
+      end
+
       # Circuit breaker
       if consecutive_timeouts >= MAX_CONSECUTIVE_TIMEOUTS
         msg = "Circuit breaker: #{consecutive_timeouts} consecutive strategy tick timeouts"
@@ -547,6 +562,13 @@ class TradingTrainingSessionJob < BaseJob
       # Phase C: Batch-submit all results + tick progress in one request
       submit_batch_results(session_id, tick_num, pending_results, tick_results)
 
+      # Early completion: allow current tick to finish submitting, then break to finalize
+      if completion_requested?(session_id)
+        log_info("Early completion requested — finishing current tick and proceeding to finalize",
+          session_id: session_id, tick: tick_num)
+        break
+      end
+
       # Phase D: Mid-session capital rebalance (if configured)
       if session_config.dig("rebalance_enabled") &&
          tick_num >= (session_config["rebalance_min_ticks"] || 3).to_i &&
@@ -593,7 +615,7 @@ class TradingTrainingSessionJob < BaseJob
           # so we exit within ~1s instead of blocking for the full interval.
           deadline = Time.now + effective_sleep
           while Time.now < deadline
-            break if self.class.shutdown_requested? || cancel_requested?(session_id)
+            break if self.class.shutdown_requested? || cancel_requested?(session_id) || completion_requested?(session_id)
             sleep([1.0, deadline - Time.now].min)
           end
         end
@@ -848,6 +870,11 @@ class TradingTrainingSessionJob < BaseJob
   # falls back to HTTP status check if listener isn't available.
   def cancel_requested?(session_id)
     return true if @session_event_listener&.cancelled?
+    false
+  end
+
+  def completion_requested?(session_id)
+    return true if @session_event_listener&.completion_requested?
     false
   end
 
