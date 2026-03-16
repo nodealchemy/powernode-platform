@@ -246,12 +246,27 @@ module Trading
         # Cost gate: reject entry signals where edge doesn't cover execution costs.
         # Limit orders only pay flat fees (no spread/slippage); market orders pay full round-trip.
         if type == "entry" && edge
-          effective_cost = is_limit ? min_limit_order_cost : estimate_signal_cost
-          # When spread is synthetic (fabricated by StrategyContextBuilder), double the
-          # cost threshold to be conservative about entering with unreliable data.
-          effective_cost *= 2.0 if synthetic_spread?
+          if indicators[:execution_cost_override]
+            # Evaluator computed exact combined cost (e.g., cross-venue arb with asymmetric fees)
+            effective_cost = indicators[:execution_cost_override]
+          else
+            effective_cost = is_limit ? min_limit_order_cost : estimate_signal_cost
+            # When spread is synthetic (fabricated by StrategyContextBuilder), double the
+            # cost threshold to be conservative about entering with unreliable data.
+            effective_cost *= 2.0 if synthetic_spread?
+
+            # Multi-leg trades (arbitrage) incur costs on each leg
+            leg_count = indicators[:legs]&.size || (indicators[:multi_leg] ? 2 : 1)
+            effective_cost *= leg_count if leg_count > 1
+          end
+
           net_edge = edge - effective_cost
           return nil if net_edge <= 0
+          # Venue-aware minimum net edge: fee-bearing venues (Kalshi) need meaningful
+          # edge to overcome costs not fully captured by the model (settlement delay,
+          # adverse selection). PM's zero fees allow any positive net edge.
+          pair = strategy_pair || ""
+          return nil if net_edge < 0.02 && !pair.start_with?("PM")
         else
           estimated_cost = estimate_signal_cost
           net_edge = edge ? edge - estimated_cost : nil

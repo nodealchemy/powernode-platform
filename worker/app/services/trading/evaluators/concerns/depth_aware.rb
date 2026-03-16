@@ -126,6 +126,10 @@ module Trading
           size = size_usd || @allocated_capital * 0.05
           size = [size, 1.0].max # minimum $1 to avoid zero-division
 
+          # Flat fee cost as fraction of price (per-side × 2 for round-trip)
+          price = [current_price, 0.01].max
+          flat_fee_cost = (venue_flat_fee * 2.0) / price
+
           book = @order_book_data
           has_book = book.is_a?(Hash) && ((book["asks"] || book[:asks] || []).any? || (book["bids"] || book[:bids] || []).any?)
 
@@ -134,7 +138,7 @@ module Trading
             buy_impact = estimate_price_impact(side: "buy", size_usd: size, book: book)
             sell_impact = estimate_price_impact(side: "sell", size_usd: size, book: book)
             round_trip = buy_impact[:slippage_pct] + sell_impact[:slippage_pct]
-            return round_trip.clamp(0.0, 0.08)
+            return (round_trip + flat_fee_cost).clamp(0.0, 0.50)
           end
 
           # LMSR fallback
@@ -144,13 +148,13 @@ module Trading
             b = lmsr_effective_b(spread: sp, volume_24h: vol)
             impact = lmsr_price_impact(size_usd: size, current_price: current_price, b: b)
             round_trip = impact * 2.0
-            return round_trip.clamp(0.0, 0.08)
+            return (round_trip + flat_fee_cost).clamp(0.0, 0.50)
           end
 
           # Original spread-based fallback
           spread_cost = spread_pct || 0.005
           round_trip = spread_cost * 2.0
-          [round_trip, 0.08].min
+          (round_trip + flat_fee_cost).clamp(0.0, 0.50)
         end
 
         private
