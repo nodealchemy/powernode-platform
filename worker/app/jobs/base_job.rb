@@ -29,21 +29,25 @@ class BaseJob
   def perform(*args)
     @started_at = Time.current
 
-    # Check for runaway loops before executing
-    check_runaway_loop(*args)
+    # Check for runaway loops before executing.
+    # catch(:skip_job) allows disabled jobs to exit cleanly without triggering
+    # Sidekiq retries or dead queue — the disable is temporary (5min TTL).
+    catch(:skip_job) do
+      check_runaway_loop(*args)
 
-    logger.info "Starting #{self.class.name} with args: #{args.inspect}"
+      logger.info "Starting #{self.class.name} with args: #{args.inspect}"
 
-    result = execute(*args)
+      result = execute(*args)
 
-    @finished_at = Time.current
-    duration = @finished_at - @started_at
-    logger.info "Completed #{self.class.name} in #{duration.round(2)}s"
+      @finished_at = Time.current
+      duration = @finished_at - @started_at
+      logger.info "Completed #{self.class.name} in #{duration.round(2)}s"
 
-    # Record successful execution
-    record_execution_success(*args)
+      # Record successful execution
+      record_execution_success(*args)
 
-    result
+      return result
+    end
   rescue StandardError => e
     @finished_at = Time.current
     duration = @finished_at - @started_at
@@ -235,9 +239,11 @@ class BaseJob
       [executions, reason]
     end
 
-    # Check if this job is currently disabled
+    # Check if this job is currently disabled — skip silently instead of raising,
+    # because retries just hit the same disabled check and waste cycles.
     if disabled_reason && !disabled_reason.empty?
-      raise StandardError, "Job execution disabled: #{disabled_reason}"
+      logger.info "#{self.class.name} skipped: disabled (#{disabled_reason}), will auto-resume in ≤5min"
+      throw :skip_job
     end
 
     # Count executions in the last minute
