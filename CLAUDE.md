@@ -83,7 +83,6 @@ user.role === 'manager'
 | Migrations | `t.references` automatically creates an index — **NEVER** use `add_index` for reference columns. Customize via the declaration itself: `t.references :account, index: { unique: true }` |
 | Namespaces | ALL namespaced models MUST use `::` separator in `class_name:` — e.g., `Ai::AgentTeam` not `AiAgentTeam`, `Devops::Pipeline` not `DevopsPipeline`, `BaaS::Tenant` not `BaaSTenant` |
 | Seeds | After modifying seeds, run `cd server && rails db:seed` and verify completion |
-| Service Restart | After API endpoint changes, restart: `sudo systemctl restart powernode-backend@default` |
 | Associations | Always pair `class_name:` with `foreign_key:` — e.g. `belongs_to :provider, class_name: "Ai::Provider", foreign_key: "ai_provider_id"` |
 | Foreign Keys | Namespaced FK prefixes: `Ai::` → `ai_` (`ai_agent_id`), `Devops::` → `devops_` (`devops_pipeline_id`), `BaaS::` → `baas_` (`baas_customer_id`). Others: use explicit FK or omit if unambiguous |
 | JSON Columns | Always use lambda defaults: `attribute :config, :json, default: -> { {} }` — never `default: {}` |
