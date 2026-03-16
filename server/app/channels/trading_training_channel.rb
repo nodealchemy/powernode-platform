@@ -152,6 +152,23 @@ class TradingTrainingChannel < ApplicationCable::Channel
       broadcast_to_account(session.account_id, data)
     end
 
+    def broadcast_rebalance(session, epoch_data)
+      data = {
+        type: "rebalance",
+        session_id: session.id,
+        epoch_id: epoch_data[:epoch_id],
+        strategies_promoted: epoch_data[:promoted],
+        strategies_demoted: epoch_data[:demoted],
+        strategies_decommissioned: epoch_data[:decommissioned],
+        capital_movements: epoch_data[:capital_movements],
+        smoothing_factor: epoch_data[:smoothing_factor],
+        timestamp: Time.current.iso8601
+      }
+
+      broadcast_to_session(session, data)
+      broadcast_to_account(session.account_id, data)
+    end
+
     private
 
     # Push lifecycle events to the worker via Redis pub/sub.

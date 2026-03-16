@@ -95,6 +95,11 @@ module Ai
               compounding_threshold_pct: { type: "number", required: false, description: "P&L threshold % to trigger compounding" },
               compounding_reinvest_pct: { type: "integer", required: false, description: "Percentage of profits to reinvest (0-100)" },
               confidence_threshold: { type: "number", required: false, description: "Minimum confidence score to enter positions" },
+              rebalance_enabled: { type: "boolean", required: false, description: "Enable mid-session capital rebalancing (shifts capital from losers to winners)" },
+              rebalance_interval_ticks: { type: "integer", required: false, description: "Rebalance every N ticks (default: 5)" },
+              rebalance_smoothing_factor: { type: "number", required: false, description: "0.0=no change, 1.0=full redistribution (default: 0.5)" },
+              rebalance_min_ticks: { type: "integer", required: false, description: "Minimum ticks before first rebalance (default: 3)" },
+              rebalance_decommission_enabled: { type: "boolean", required: false, description: "Allow mid-session strategy decommission for severe underperformers (default: true)" },
               include_series: { type: "array", items: { type: "string" }, required: false, description: "Series ticker prefixes to scope discovery (e.g. ['KXFED', 'KXBTC']). Drastically speeds up discovery by skipping irrelevant series." },
               exclude_series: { type: "array", items: { type: "string" }, required: false, description: "Series ticker prefixes to exclude from discovery" }
             }
