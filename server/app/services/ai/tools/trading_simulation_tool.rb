@@ -135,7 +135,7 @@ module Ai
             parameters: {
               strategy_type: { type: "string", required: true, description: "Strategy type (e.g. 'momentum', 'prediction_market_making')" },
               key: { type: "string", required: true, description: "Parameter key to update (e.g. 'entry_threshold', 'stop_loss_pct')" },
-              value: { required: true, description: "New value for the parameter" },
+              value: { type: "string", required: true, description: "New value for the parameter" },
               venue_slug: { type: "string", required: false, description: "If set, updates venue-specific override instead of global default" }
             }
           },
@@ -328,6 +328,7 @@ module Ai
         end
 
         session.cancel!
+        TradingTrainingChannel.broadcast_cancelled(session)
         success_result(serialize_training_session(session))
       end
 

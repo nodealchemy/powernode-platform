@@ -85,9 +85,85 @@ class TradingTrainingChannel < ApplicationCable::Channel
 
       broadcast_to_session(session, data)
       broadcast_to_account(session.account_id, data)
+      publish_worker_event(session, "failed")
+    end
+
+    def broadcast_cancelled(session)
+      data = {
+        type: "cancelled",
+        session_id: session.id,
+        status: session.status,
+        timestamp: Time.current.iso8601
+      }
+
+      broadcast_to_session(session, data)
+      broadcast_to_account(session.account_id, data)
+      publish_worker_event(session, "cancelled")
+    end
+
+    def broadcast_paused(session)
+      data = {
+        type: "paused",
+        session_id: session.id,
+        status: session.status,
+        timestamp: Time.current.iso8601
+      }
+
+      broadcast_to_session(session, data)
+      broadcast_to_account(session.account_id, data)
+      publish_worker_event(session, "paused")
+    end
+
+    def broadcast_config_updated(session, changes: {})
+      data = {
+        type: "config_updated",
+        session_id: session.id,
+        changes: changes,
+        timestamp: Time.current.iso8601
+      }
+
+      broadcast_to_session(session, data)
+      broadcast_to_account(session.account_id, data)
+      publish_worker_event(session, "config_updated", changes: changes)
+    end
+
+    def broadcast_emergency_halt(session)
+      data = {
+        type: "emergency_halt",
+        session_id: session.id,
+        status: session.status,
+        timestamp: Time.current.iso8601
+      }
+
+      broadcast_to_session(session, data)
+      broadcast_to_account(session.account_id, data)
+      publish_worker_event(session, "emergency_halt")
+    end
+
+    def broadcast_resumed(session)
+      data = {
+        type: "resumed",
+        session_id: session.id,
+        status: session.status,
+        timestamp: Time.current.iso8601
+      }
+
+      broadcast_to_session(session, data)
+      broadcast_to_account(session.account_id, data)
     end
 
     private
+
+    # Push lifecycle events to the worker via Redis pub/sub.
+    # The worker's SessionEventListener subscribes to this channel at
+    # session start. Pub/sub is cross-database so this reaches workers on DB 1.
+    def publish_worker_event(session, event, **extra)
+      payload = { session_id: session.id, event: event, timestamp: Time.current.iso8601 }
+      payload.merge!(extra) if extra.any?
+      Powernode::Redis.client.publish("training_session_events", payload.to_json)
+    rescue StandardError => e
+      Rails.logger.warn("[TradingTrainingChannel] Failed to publish #{event} event: #{e.message}")
+    end
 
     def broadcast_to_session(session, data)
       ActionCable.server.broadcast("trading_training_#{session.id}", data)
