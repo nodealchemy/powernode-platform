@@ -19,6 +19,9 @@ module Devops
         reconciled_instances: reconciled_count,
         timed_out_instances: timed_out_count
       )
+    rescue BackendApiClient::ApiError => e
+      # Route may not exist yet — skip silently until endpoint is wired
+      log_info "[ContainerReconciliation] Endpoint unavailable (#{e.message}), skipping"
     end
   end
 end

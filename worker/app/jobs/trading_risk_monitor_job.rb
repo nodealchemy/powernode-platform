@@ -3,7 +3,7 @@
 class TradingRiskMonitorJob < BaseJob
   sidekiq_options queue: 'trading', retry: 2
 
-  PER_PORTFOLIO_TIMEOUT = 20 # seconds per risk check call
+  BATCH_SIZE = 50
   FETCH_TIMEOUT = 15 # seconds for portfolio list fetch
 
   def execute
@@ -12,22 +12,26 @@ class TradingRiskMonitorJob < BaseJob
     end
     portfolios = response.dig("data", "items") || []
 
-    log_info("Running risk monitor for #{portfolios.size} portfolios")
+    return if portfolios.empty?
 
-    portfolios.each do |portfolio|
-      result = Timeout.timeout(PER_PORTFOLIO_TIMEOUT) do
-        api_client.post("/api/v1/internal/trading/check_risk", {
-          portfolio_id: portfolio["id"]
-        })
-      end
+    log_info("Running risk monitor for #{portfolios.size} portfolios (batched)")
 
-      if result.dig("data", "circuit_breaker_active")
-        log_warn("Circuit breaker ACTIVE", portfolio_id: portfolio["id"])
+    portfolio_ids = portfolios.map { |p| p["id"] }
+    portfolio_ids.each_slice(BATCH_SIZE) do |batch|
+      result = api_client.post("/api/v1/internal/trading/batch_check_risk", {
+        portfolio_ids: batch
+      })
+      (result.dig("data", "results") || []).each do |r|
+        if r["circuit_breaker_active"]
+          log_warn("Circuit breaker ACTIVE", portfolio_id: r["portfolio_id"])
+        elsif r["error"]
+          log_warn("Risk check failed", portfolio_id: r["portfolio_id"], error: r["error"])
+        end
       end
-    rescue Timeout::Error
-      log_error("Risk check timed out after #{PER_PORTFOLIO_TIMEOUT}s", nil, portfolio_id: portfolio["id"])
-    rescue StandardError => e
-      log_error("Risk check failed", e, portfolio_id: portfolio["id"])
     end
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    log_info("Backend unavailable, skipping risk check (will retry next cycle)")
+  rescue BackendApiClient::ApiError => e
+    log_info("Risk monitor skipped: #{e.message}")
   end
 end
