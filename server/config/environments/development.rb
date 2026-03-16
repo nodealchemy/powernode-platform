@@ -5,10 +5,18 @@ require "active_support/core_ext/integer/time"
 Rails.application.configure do
   # Settings specified here will take precedence over those in config/application.rb.
 
-  # Make code changes take effect immediately without server restart.
-  config.enable_reloading = true
+  # Disable in-process code reloading to prevent deadlocks with long-lived
+  # ActionController::Live SSE streams (MCP, A2A). The Reloader's interlock
+  # deadlocks when it acquires an exclusive lock while SSE BodyProxy instances
+  # hold the executor state open indefinitely.
+  #
+  # Code changes are picked up via Puma's `plugin :tmp_restart` instead —
+  # a file watcher in config/initializers/dev_reloader.rb touches
+  # tmp/restart.txt when .rb files change, triggering a graceful Puma restart.
+  # Autoloading still works (classes load lazily on first use).
+  config.enable_reloading = false
 
-  # Do not eager load code on boot.
+  # Do not eager load code on boot (classes autoload lazily as needed).
   config.eager_load = false
 
   # Show full error reports.
