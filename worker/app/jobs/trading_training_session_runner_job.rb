@@ -51,7 +51,7 @@ class TradingTrainingSessionRunnerJob < BaseJob
           age_seconds = Time.current - (Time.parse(created_at) rescue Time.current)
           if age_seconds < DISPATCH_LOCK_TTL
             lock_key = "training_session_lock:#{session['id']}"
-            has_lock = Sidekiq.redis { |conn| conn.exists?(lock_key) }
+            has_lock = Sidekiq.redis { |conn| conn.call("EXISTS", lock_key) > 0 }
             if has_lock
               log_info("Session too recent (#{age_seconds.round}s) with active lock, skipping", session_id: session["id"])
               next

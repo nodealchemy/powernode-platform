@@ -62,8 +62,10 @@ module Ai
         end
 
         def resolve_training_session(identifier)
-          Trading::TrainingSession.where(account_id: account.id)
-            .find_by(id: identifier) ||
+          scope = Trading::TrainingSession.where(account_id: account.id)
+          scope.find_by(id: identifier) ||
+            scope.where("name ILIKE ?", identifier).order(created_at: :desc).first ||
+            scope.where("name ILIKE ?", "%#{identifier}%").order(created_at: :desc).first ||
             raise(ActiveRecord::RecordNotFound, "Training session not found: #{identifier}")
         end
 
