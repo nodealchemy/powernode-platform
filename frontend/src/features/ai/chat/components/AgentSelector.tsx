@@ -40,7 +40,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({ selectedAgentId, o
   useEffect(() => {
     const fetchAgents = async () => {
       try {
-        const response = await apiClient.get('/ai/agents', { params: { status: 'active' } });
+        const response = await apiClient.get('/ai/agents', { params: { status: 'active', include_types: 'assistant,monitor,code_assistant,content_generator,workflow_optimizer,workflow_operations,image_generator,mcp_client' } });
         const items = response.data?.data?.items || response.data?.data || [];
         setAgents(Array.isArray(items) ? items : []);
       } catch {

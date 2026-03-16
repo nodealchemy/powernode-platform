@@ -184,6 +184,7 @@ module Ai
     def apply_agent_filters(agents, options = {})
       agents = agents.where(status: params[:status]) if params[:status].present?
       agents = agents.where(agent_type: params[:agent_type]) if params[:agent_type].present?
+      agents = agents.where(agent_type: params[:include_types].split(",")) if params[:include_types].present?
 
       if params[:is_active].present?
         is_active_value = ActiveModel::Type::Boolean.new.cast(params[:is_active])
