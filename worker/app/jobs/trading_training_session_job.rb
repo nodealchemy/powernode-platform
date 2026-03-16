@@ -547,7 +547,32 @@ class TradingTrainingSessionJob < BaseJob
       # Phase C: Batch-submit all results + tick progress in one request
       submit_batch_results(session_id, tick_num, pending_results, tick_results)
 
-      # Phase D: Dispatch async learning extraction for positions closed this tick
+      # Phase D: Mid-session capital rebalance (if configured)
+      if session_config.dig("rebalance_enabled") &&
+         tick_num >= (session_config["rebalance_min_ticks"] || 3).to_i &&
+         (session_config["rebalance_interval_ticks"] || 5).to_i > 0 &&
+         (tick_num % (session_config["rebalance_interval_ticks"] || 5).to_i).zero?
+        begin
+          rebalance_result = api_client.post_with_circuit_breaker(
+            "/api/v1/internal/trading/training_rebalance",
+            { session_id: session_id, tick_num: tick_num },
+            circuit_breaker: :trading_training
+          )
+          if rebalance_result["success"] && !rebalance_result.dig("data", "skipped")
+            decommissioned_ids = rebalance_result.dig("data", "decommissioned") || []
+            if decommissioned_ids.any?
+              all_strategy_ids -= decommissioned_ids
+              log_info("Rebalance decommissioned #{decommissioned_ids.size} strategies", session_id: session_id)
+            end
+            log_info("Rebalance complete: promoted=#{rebalance_result.dig('data', 'promoted')&.size || 0}, " \
+              "demoted=#{rebalance_result.dig('data', 'demoted')&.size || 0}", session_id: session_id)
+          end
+        rescue StandardError => e
+          log_warn("Rebalance failed (non-fatal): #{e.message}", session_id: session_id)
+        end
+      end
+
+      # Phase E: Dispatch async learning extraction for positions closed this tick
       dispatch_learning_extraction!(all_strategy_ids, since: tick_started_at)
 
       # Renew lock periodically so it doesn't expire during long sessions

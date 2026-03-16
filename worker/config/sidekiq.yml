@@ -484,6 +484,12 @@
       queue: trading
       description: 'Run daily Darwinian evolution epoch'
 
+    trading_evolution_epoch_6h:
+      cron: '0 6,12,18 * * *'
+      class: TradingEvolutionEpochJob
+      queue: trading
+      description: 'Run 6-hourly evolution epoch for live portfolio rebalancing (skips midnight — covered by daily)'
+
     trading_metrics_snapshot:
       cron: '0 23 * * *'
       class: TradingMetricsSnapshotJob
