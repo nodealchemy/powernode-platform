@@ -110,6 +110,12 @@ module Ai
               session_id: { type: "string", required: true, description: "Training session ID" }
             }
           },
+          "trading_complete_training_session" => {
+            description: "Gracefully complete a running training session early — closes positions, generates full report, marks as completed",
+            parameters: {
+              session_id: { type: "string", required: true, description: "Training session ID or name" }
+            }
+          },
           "trading_retry_training_session" => {
             description: "Retry a failed or cancelled training session (resets to pending)",
             parameters: {
@@ -180,6 +186,7 @@ module Ai
         when "trading_get_training_session" then get_training_session(params)
         when "trading_create_training_session" then create_training_session(params)
         when "trading_cancel_training_session" then cancel_training_session(params)
+        when "trading_complete_training_session" then complete_training_session(params)
         when "trading_retry_training_session" then retry_training_session(params)
         when "trading_delete_training_session" then delete_training_session(params)
         when "trading_training_session_report" then training_session_report(params)
@@ -335,6 +342,18 @@ module Ai
         session.cancel!
         TradingTrainingChannel.broadcast_cancelled(session)
         success_result(serialize_training_session(session))
+      end
+
+      def complete_training_session(params)
+        session = resolve_training_session(params[:session_id])
+
+        unless session.running?
+          return error_result("Session can only be completed early when running (current: #{session.status})")
+        end
+
+        session.request_completion!
+        TradingTrainingChannel.broadcast_completion_requested(session)
+        success_result(serialize_training_session(session).merge(completion_requested: true))
       end
 
       def retry_training_session(params)

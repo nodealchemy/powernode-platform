@@ -286,6 +286,7 @@ module Ai
         "trading_get_training_session" => "Ai::Tools::TradingSimulationTool",
         "trading_create_training_session" => "Ai::Tools::TradingSimulationTool",
         "trading_cancel_training_session" => "Ai::Tools::TradingSimulationTool",
+        "trading_complete_training_session" => "Ai::Tools::TradingSimulationTool",
         "trading_retry_training_session" => "Ai::Tools::TradingSimulationTool",
         "trading_delete_training_session" => "Ai::Tools::TradingSimulationTool",
         "trading_training_session_report" => "Ai::Tools::TradingSimulationTool",

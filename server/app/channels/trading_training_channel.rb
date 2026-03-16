@@ -101,6 +101,19 @@ class TradingTrainingChannel < ApplicationCable::Channel
       publish_worker_event(session, "cancelled")
     end
 
+    def broadcast_completion_requested(session)
+      data = {
+        type: "completion_requested",
+        session_id: session.id,
+        status: session.status,
+        timestamp: Time.current.iso8601
+      }
+
+      broadcast_to_session(session, data)
+      broadcast_to_account(session.account_id, data)
+      publish_worker_event(session, "completion_requested")
+    end
+
     def broadcast_paused(session)
       data = {
         type: "paused",
