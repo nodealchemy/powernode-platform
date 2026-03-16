@@ -183,6 +183,13 @@ module Trading
         result[:weather] = weather_data if weather_data
       end
 
+      # Try whale activity data
+      whale_client = Trading::ExternalData::WhaleAlertClient.new
+      if whale_client.applicable?(market_question)
+        whale_data = whale_client.fetch_for_market(market_question, metadata)
+        result[:whale_activity] = whale_data if whale_data
+      end
+
       result
     rescue => e
       log_error("External data fetch failed: #{e.message}")
