@@ -72,6 +72,92 @@ class TradingTrainingSessionJob < BaseJob
     end
   end
 
+  # Redis pub/sub listener for real-time lifecycle events from the server.
+  # Runs in a background thread. The tick loop checks flags between strategy
+  # evaluations so events take effect within seconds, not at the next tick boundary.
+  #
+  # Supported events:
+  #   cancelled       — immediate abort of the tick loop
+  #   paused          — graceful pause at next checkpoint
+  #   failed          — session failed externally, abort
+  #   emergency_halt  — kill switch activated, immediate abort
+  #   config_updated  — session config changed (e.g. tick interval, strategies)
+  #
+  # The channel carries events for ALL sessions; the listener filters by session_id.
+  class SessionEventListener
+    CHANNEL = "training_session_events"
+    TERMINAL_EVENTS = %w[cancelled failed emergency_halt].freeze
+
+    def initialize(session_id)
+      @session_id = session_id
+      @cancelled = false
+      @paused = false
+      @config_changed = false
+      @config_changes = {}
+      @events = []
+      @mutex = Mutex.new
+      @thread = nil
+    end
+
+    def start!
+      @thread = Thread.new do
+        redis = ::Redis.new(url: ENV.fetch("REDIS_URL", "redis://localhost:6379/1"))
+        redis.subscribe(CHANNEL) do |on|
+          on.message do |_channel, message|
+            data = JSON.parse(message)
+            next unless data["session_id"] == @session_id
+
+            @mutex.synchronize do
+              @events << data
+              case data["event"]
+              when "cancelled", "emergency_halt", "failed"
+                @cancelled = true
+              when "paused"
+                @paused = true
+              when "config_updated"
+                @config_changed = true
+                @config_changes = data["changes"] || {}
+              end
+            end
+
+            # Unsubscribe on terminal events — no further messages expected
+            redis.unsubscribe if TERMINAL_EVENTS.include?(data["event"])
+          end
+        end
+      rescue StandardError
+        # Subscription failed — fall back to HTTP polling (existing behavior)
+      ensure
+        redis&.close rescue nil
+      end
+    end
+
+    def cancelled?
+      @mutex.synchronize { @cancelled }
+    end
+
+    def paused?
+      @mutex.synchronize { @paused }
+    end
+
+    def config_changed?
+      @mutex.synchronize { @config_changed }
+    end
+
+    def take_config_changes!
+      @mutex.synchronize do
+        changes = @config_changes
+        @config_changed = false
+        @config_changes = {}
+        changes
+      end
+    end
+
+    def stop!
+      @thread&.kill rescue nil
+      @thread = nil
+    end
+  end
+
   LOCK_TTL = 900 # 15 min — auto-expires stale locks from killed workers
 
   # Atomic CAS: replace lock value only if it still holds expected_value.
@@ -154,10 +240,16 @@ class TradingTrainingSessionJob < BaseJob
     @training_completed = false
     @shutdown_requested = false
 
+    # Start Redis pub/sub listener for immediate cancellation signals.
+    # Falls back to HTTP polling if subscription fails.
+    @session_event_listener = SessionEventListener.new(session_id)
+    @session_event_listener.start!
+
     begin
       run_training_loop!(session_id)
       @training_completed = !self.class.shutdown_requested?
     ensure
+      @session_event_listener&.stop!
       # Clean shutdown: close positions and pause session so it can resume.
       # This runs on SIGTERM (worker restart), SIGKILL won't reach here but
       # the orphan recovery mechanism handles that case.
@@ -413,6 +505,7 @@ class TradingTrainingSessionJob < BaseJob
 
       # Classic strategies — fast, no delay needed
       classic_ids.each do |sid|
+        break if cancel_requested?(session_id)
         context = contexts_by_id[sid] || contexts_by_id[sid.to_s]
         result = evaluate_strategy(sid, context)
         tick_results << result
@@ -422,6 +515,7 @@ class TradingTrainingSessionJob < BaseJob
 
       # AI strategies — need inter-strategy delay
       ai_ids.each_with_index do |sid, idx|
+        break if cancel_requested?(session_id)
         context = contexts_by_id[sid] || contexts_by_id[sid.to_s]
         result = evaluate_strategy(sid, context)
         tick_results << result
@@ -435,6 +529,13 @@ class TradingTrainingSessionJob < BaseJob
         end
 
         sleep(dry_run ? 0.5 : INTER_STRATEGY_DELAY) if idx < ai_ids.size - 1
+      end
+
+      # Mid-tick cancellation: break from outer loop if cancel arrived during evaluation
+      if cancel_requested?(session_id)
+        log_info("Cancel received mid-tick #{tick_num}, aborting", session_id: session_id)
+        close_session_positions!(session_id)
+        break
       end
 
       # Log cache stats for observability
@@ -463,11 +564,11 @@ class TradingTrainingSessionJob < BaseJob
         )
         log_info("Tick sleep #{effective_sleep.round(1)}s (base #{tick_interval}s, elapsed #{(Time.now - tick_started_at).round(1)}s)", session_id: session_id)
         if effective_sleep > 0
-          # Interruptible sleep: check shutdown flag every second so we exit
-          # within ~1s of SIGTERM instead of blocking for the full interval.
+          # Interruptible sleep: check shutdown and cancel flags every second
+          # so we exit within ~1s instead of blocking for the full interval.
           deadline = Time.now + effective_sleep
           while Time.now < deadline
-            break if self.class.shutdown_requested?
+            break if self.class.shutdown_requested? || cancel_requested?(session_id)
             sleep([1.0, deadline - Time.now].min)
           end
         end
@@ -556,8 +657,9 @@ class TradingTrainingSessionJob < BaseJob
       # Phase 1b: Fetch raw markets from venue API (worker-side I/O — the slow part)
       update_timeline(session_id, "Fetching markets from #{venue_slug} API...")
       fetcher = Trading::VenueMarketFetcher.new(discovery_config)
-      raw_markets = fetcher.fetch_kalshi_markets(
-        discovery_config["series_list"] || [],
+      raw_markets = fetcher.fetch_markets(
+        venue_slug,
+        series_list: discovery_config["series_list"] || [],
         limit: discovery_config["fetch_limit"] || 100,
         min_volume: discovery_config["fetch_min_volume"] || 0,
         event_tickers: discovery_config["event_tickers"] || []
@@ -717,7 +819,16 @@ class TradingTrainingSessionJob < BaseJob
     nil
   end
 
+  # Fast cancel check: uses Redis pub/sub listener first (instant),
+  # falls back to HTTP status check if listener isn't available.
+  def cancel_requested?(session_id)
+    return true if @session_event_listener&.cancelled?
+    false
+  end
+
   def cancelled?(session_id)
+    return true if cancel_requested?(session_id)
+
     status = check_status(session_id)
     if status&.dig("session_gone")
       log_warn("Session #{session_id} deleted during setup — aborting", session_id: session_id)
@@ -735,22 +846,12 @@ class TradingTrainingSessionJob < BaseJob
   end
 
   # Batch-fetch contexts for all strategies in one request.
-  # Tries WS → HTTP batch → individual fetches (three-tier fallback).
+  # Uses HTTP batch (with ticker cache + eager loading) → individual fetches fallback.
   def fetch_batch_contexts(strategy_ids)
     fetcher = trading_data_fetcher
     fetcher.batch_strategy_evaluation_contexts(strategy_ids)
   rescue StandardError => e
-    # WS likely timed out — try HTTP batch before falling back to individual
-    if e.message.include?("timeout") || e.message.include?("WebSocket")
-      begin
-        log_info("WS batch failed, trying HTTP batch", error: e.message)
-        return fetcher.batch_strategy_evaluation_contexts_http(strategy_ids)
-      rescue StandardError => http_err
-        log_warn("HTTP batch also failed, falling back to individual", error: http_err.message)
-      end
-    else
-      log_warn("Batch context fetch failed, falling back to individual", error: e.message)
-    end
+    log_warn("Batch context fetch failed, falling back to individual", error: e.message)
     result = {}
     strategy_ids.each do |sid|
       result[sid.to_s] = fetcher.strategy_evaluation_context(sid)
@@ -780,9 +881,19 @@ class TradingTrainingSessionJob < BaseJob
     regime = context["regime_check"] || {}
     return { "skipped" => true, "reason" => regime["reason"], "timeout" => false } unless regime["allowed"] == true || regime[:allowed] == true
 
-    evaluator = evaluator_class.new(context, llm_client: training_llm_client, data_fetcher: trading_data_fetcher, price_cache: @tick_price_cache, graph_cache: @graph_cache)
+    # Cache evaluator instances across ticks so stateful trackers (adverse selection,
+    # whipsaw) survive between evaluations instead of resetting every tick.
+    @evaluator_cache ||= {}
+    cache_key = "#{strategy_id}_#{strategy_type}"
+    evaluator = @evaluator_cache[cache_key]
+    if evaluator
+      evaluator.update_context(context)
+    else
+      evaluator = evaluator_class.new(context, llm_client: training_llm_client, data_fetcher: trading_data_fetcher, price_cache: @tick_price_cache, graph_cache: @graph_cache)
+      @evaluator_cache[cache_key] = evaluator
+    end
     evaluator.trading_context = context["trading_context"]
-    signals = evaluator.evaluate
+    signals = Array(evaluator.evaluate).compact # compact removes cost-rejected nil signals
     tick_cost = evaluator.respond_to?(:tick_cost_usd) ? evaluator.tick_cost_usd : 0.0
 
     submission = {

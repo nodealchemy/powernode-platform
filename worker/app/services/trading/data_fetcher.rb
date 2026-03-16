@@ -30,14 +30,22 @@ module Trading
 
     # Fetch evaluation contexts for multiple strategies in one request.
     # Returns Hash { strategy_id => context_hash }.
-    # Uses WebSocket when available (eliminates HTTP overhead on the heaviest call).
+    # Always uses HTTP — the controller batch path has ticker cache + eager loading
+    # optimizations that the WS channel lacks. WS was consistently timing out
+    # because it builds contexts sequentially with per-strategy venue API calls.
     def batch_strategy_evaluation_contexts(strategy_ids)
-      if ws_connected?
-        response = @ws.send_request("batch_strategy_contexts", { strategy_ids: strategy_ids })
-        data = extract_ws_data(response)
-        return data["contexts"] || {}
-      end
+      response = @api.post_with_circuit_breaker(
+        "#{BASE}/batch_strategy_contexts",
+        { strategy_ids: strategy_ids },
+        circuit_breaker: :trading_training
+      )
+      data = extract_data(response)
+      data["contexts"] || {}
+    end
 
+    # HTTP-only batch context fetch (skips WebSocket).
+    # Used as fallback when WS times out but HTTP batch works fine.
+    def batch_strategy_evaluation_contexts_http(strategy_ids)
       response = @api.post_with_circuit_breaker(
         "#{BASE}/batch_strategy_contexts",
         { strategy_ids: strategy_ids },

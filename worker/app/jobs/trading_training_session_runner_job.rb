@@ -42,14 +42,21 @@ class TradingTrainingSessionRunnerJob < BaseJob
     dispatched = []
 
     sessions.each do |session|
-      # Skip recently-created pending sessions — the controller dispatches immediately.
+      # Skip recently-created pending sessions only if a dispatch lock exists,
+      # confirming the controller's immediate dispatch is active. If the lock is
+      # missing (e.g., worker restarted after creation), dispatch immediately.
       if session["status"] == "pending"
         created_at = session["created_at"]
         if created_at
           age_seconds = Time.current - (Time.parse(created_at) rescue Time.current)
           if age_seconds < DISPATCH_LOCK_TTL
-            log_info("Session too recent (#{age_seconds.round}s), immediate dispatch should handle it", session_id: session["id"])
-            next
+            lock_key = "training_session_lock:#{session['id']}"
+            has_lock = Sidekiq.redis { |conn| conn.exists?(lock_key) }
+            if has_lock
+              log_info("Session too recent (#{age_seconds.round}s) with active lock, skipping", session_id: session["id"])
+              next
+            end
+            log_info("Session too recent but no lock found — dispatching (worker restart recovery)", session_id: session["id"])
           end
         end
       end
@@ -146,8 +153,9 @@ class TradingTrainingSessionRunnerJob < BaseJob
 
   # Proactive stale lock scan: after a worker restart, the old worker's JIDs
   # no longer exist. Scan all training_session_lock:* keys and clear any held
-  # by JIDs that aren't in the current worker process. Only clears locks older
-  # than 30s to avoid racing with jobs that are still starting up.
+  # by JIDs that aren't in the current worker process. Uses a 5-minute threshold
+  # because jid_active? is unreliable for I/O-blocked threads (batch context
+  # fetch can block 60-120s while appearing idle to Sidekiq::Workers).
   def clear_stale_locks_from_dead_workers!
     cleared = 0
     Sidekiq.redis do |conn|
@@ -160,7 +168,7 @@ class TradingTrainingSessionRunnerJob < BaseJob
 
         lock_ttl = conn.ttl(key)
         lock_age = TradingTrainingSessionJob::LOCK_TTL - [lock_ttl, 0].max
-        next if lock_age < 30 # Too fresh — could be a startup race
+        next if lock_age < 300 # 5 min — batch context fetch for large sessions takes 60-120s
 
         conn.del(key)
         cleared += 1
