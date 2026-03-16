@@ -89,6 +89,11 @@ module Trading
           next unless divergence >= min_divergence
           next if has_arb_position  # Already in this arb
 
+          # Reject if divergence doesn't cover combined round-trip fees on both venues
+          combined_fee = combined_arb_fee_rate
+          net_div = divergence - combined_fee
+          next if net_div <= 0
+
           # Determine direction: buy cheap, sell expensive
           if kalshi_price < pm_price
             direction = "long"  # Buy on Kalshi (cheap), sell on Polymarket (expensive)
@@ -98,7 +103,10 @@ module Trading
             entry_price = kalshi_price
           end
 
-          confidence = calculate_arb_confidence(divergence, settlement_match, mapping)
+          confidence = calculate_arb_confidence(divergence, settlement_match, mapping, fee_rate: combined_fee)
+
+          # Combined execution cost across both venues (flat fees + slippage per leg)
+          exec_cost = combined_execution_cost(kalshi_price, pm_price)
 
           signals << build_signal(
             type: "entry",
@@ -115,6 +123,7 @@ module Trading
               divergence_pct: (divergence * 100).round(2),
               limit_order: true,
               limit_price: entry_price,
+              execution_cost_override: exec_cost,
               arb_pair: "#{kalshi_pair}:#{pm_pair}",
               kalshi_pair: kalshi_pair,
               polymarket_pair: pm_pair,
@@ -133,11 +142,16 @@ module Trading
 
       private
 
-      def calculate_arb_confidence(divergence, settlement_match, mapping)
+      def calculate_arb_confidence(divergence, settlement_match, mapping, fee_rate: nil)
         base = 0.4
 
-        # Larger divergence -> higher confidence
-        div_bonus = [divergence * 5, 0.3].min
+        # Deduct combined round-trip fees before scoring — a divergence that doesn't
+        # exceed fees should never produce a confident signal.
+        net_divergence = divergence - (fee_rate || combined_arb_fee_rate)
+        return 0.0 if net_divergence <= 0
+
+        # Scale confidence by fee-adjusted divergence
+        div_bonus = [net_divergence * 5, 0.3].min
 
         # Manual mapping -> higher confidence than fuzzy
         source_bonus = mapping["match_source"] == "manual" ? 0.15 : 0.05
@@ -146,6 +160,23 @@ module Trading
         settlement_bonus = settlement_match ? 0.1 : 0.0
 
         [base + div_bonus + source_bonus + settlement_bonus, 0.95].min.clamp(0.2, 0.95)
+      end
+
+      # Combined fee rate for cross-venue arb (Kalshi + Polymarket).
+      # Always sums both venues regardless of which side the strategy is on.
+      def combined_arb_fee_rate
+        kalshi_fee = param("fee_deduction_rate", 0.04) # Kalshi ~4% round-trip
+        pm_fee = 0.0                                    # Polymarket zero fees
+        kalshi_fee + pm_fee
+      end
+
+      # Combined execution cost (flat fees) across both venues as fraction of price.
+      # Used as execution_cost_override in build_signal to bypass the naive
+      # single-venue × leg_count multiplier.
+      def combined_execution_cost(kalshi_price, pm_price)
+        kalshi_flat = (0.01 * 2.0) / [kalshi_price, 0.01].max  # $0.01/side round-trip
+        pm_flat = 0.0                                            # Polymarket: no flat fee
+        kalshi_flat + pm_flat
       end
 
       def classify_arb_strength(divergence)

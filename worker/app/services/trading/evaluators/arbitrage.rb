@@ -26,6 +26,11 @@ module Trading
         return signals if parity_data.nil? || parity_data.empty?
 
         min_gap = param("min_parity_gap", 0.005)
+        # On zero-fee venues (Polymarket), the configured min may be calibrated for
+        # fee-heavy venues (Kalshi needs 5%+). Lower the pre-filter for PM since
+        # viable parity arbs have gaps of 0.5-2%. The cost gate in build_signal
+        # handles actual profitability — this is just a noise filter.
+        min_gap = [min_gap, 0.003].min if venue_fee_rate == 0.0
         max_gap = param("max_parity_gap", 0.10)  # Sanity cap: >10% gap is likely data error
         yes_price = (parity_data["yes_price"] || parity_data[:yes_price]).to_f
         no_price = (parity_data["no_price"] || parity_data[:no_price]).to_f

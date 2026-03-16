@@ -101,7 +101,7 @@ module Trading
 
         return check_exit_conditions(signals) if related.empty?
 
-        min_spread = param("min_arb_spread_pct", 3.0) / 100.0
+        min_spread = param("min_arb_spread_pct", 1.5) / 100.0
         scan_limit = param("max_markets_to_scan", param("use_llm_validation", true) ? 5 : 50).to_i
 
         # Filter invalid comparisons
@@ -208,24 +208,27 @@ module Trading
 
           if mutually_exclusive
             math_spread = market_price + rel_price - 1.0
-            slippage = param("slippage_pct", 2.0) / 100.0
-            net_spread = math_spread - slippage
+            # Venue-aware cost estimate (replaces hardcoded slippage_pct).
+            # build_signal's cost gate multiplies by leg_count — match that here.
+            est_cost = estimate_signal_cost
+            net_spread = math_spread - est_cost * 2
             if net_spread > min_spread
-              direction = market_price < rel_price ? "short" : "long"
-              counter_side = direction == "long" ? "sell" : "buy"
+              # Dutch book: sell BOTH overpriced contracts for guaranteed profit
+              direction = "short"
+              counter_side = "sell"
               signals << build_signal(
                 type: "entry", direction: direction,
                 confidence: [net_spread / 0.10 + 0.4, 0.95].min,
                 strength: (net_spread / 0.10).clamp(0.0, 1.0),
-                reasoning: "Math arbitrage: #{strategy_pair} (#{(market_price * 100).round(1)}%) + #{rel_pair} (#{(rel_price * 100).round(1)}%) = #{((market_price + rel_price) * 100).round(1)}% > 100% (net after #{(slippage * 100).round(1)}% slippage: #{(net_spread * 100).round(1)}%)",
+                reasoning: "Math arbitrage: #{strategy_pair} (#{(market_price * 100).round(1)}%) + #{rel_pair} (#{(rel_price * 100).round(1)}%) = #{((market_price + rel_price) * 100).round(1)}% > 100% (net after #{(est_cost * 2 * 100).round(1)}% cost: #{(net_spread * 100).round(1)}%)",
                 indicators: {
-                  related_pair: rel_pair, spread: math_spread, edge: net_spread, slippage: slippage,
+                  related_pair: rel_pair, spread: math_spread, edge: math_spread, slippage: est_cost,
                   market_price: market_price, related_price: rel_price,
                   counter_leg: { pair: rel_pair, side: counter_side, price: rel_price },
                   math_arb: true,
                   legs: [
-                    { pair: strategy_pair, side: direction == "long" ? "buy" : "sell" },
-                    { pair: rel_pair, side: counter_side }
+                    { pair: strategy_pair, side: "sell" },
+                    { pair: rel_pair, side: "sell" }
                   ]
                 }
               )
@@ -410,7 +413,10 @@ module Trading
           return signals
         end
 
-        slippage = param("slippage_pct", 2.0) / 100.0
+        # Venue-aware cost estimate (replaces hardcoded slippage_pct).
+        # Dutch book signals are single-leg — build_signal's cost gate does
+        # the final profitability check, so pass raw edge and let it deduct once.
+        est_cost = estimate_signal_cost
         min_edge = param("min_completeness_edge_pct", 2.0) / 100.0
         my_implied_yes = implied_yes[my_ticker]
         return signals unless my_implied_yes
@@ -423,7 +429,7 @@ module Trading
         if excess > 0
           # Per-leg edge: this contract's share of the total overpricing
           per_leg_edge = my_implied_yes * excess / total_sum
-          net_edge = per_leg_edge - slippage
+          net_edge = per_leg_edge - est_cost
 
           if net_edge > min_edge
             direction = my_is_no ? "long" : "short"
@@ -433,20 +439,20 @@ module Trading
               strength: (net_edge / 0.05).clamp(0.0, 1.0),
               reasoning: "Dutch book: #{implied_yes.size} exclusive outcomes sum to " \
                          "#{(total_sum * 100).round(1)}% (>100%). Per-leg edge: #{(per_leg_edge * 100).round(1)}%, " \
-                         "net after slippage: #{(net_edge * 100).round(1)}%",
+                         "net after cost: #{(net_edge * 100).round(1)}%",
               indicators: {
                 completeness_sum: total_sum, excess: excess, per_leg_edge: per_leg_edge,
-                n_outcomes: implied_yes.size, edge: net_edge,
+                n_outcomes: implied_yes.size, edge: per_leg_edge,
                 market_price: market_price, my_implied_yes: my_implied_yes,
                 dutch_book: true,
                 outcome_prices: implied_yes.transform_values { |v| v.round(4) }
               }
             )
           elsif excess > min_edge
-            # Total excess is meaningful but per-leg edge is thin after slippage.
+            # Total excess is meaningful but per-leg edge is thin after cost.
             # Log for diagnostics but don't signal (not profitable for one leg).
             log("#{strategy_pair}: Dutch book excess #{(excess * 100).round(1)}% but per-leg net " \
-                "#{(net_edge * 100).round(1)}% below threshold (slippage #{(slippage * 100).round(1)}%)")
+                "#{(net_edge * 100).round(1)}% below threshold (cost #{(est_cost * 100).round(1)}%)")
           end
         end
 
@@ -454,7 +460,7 @@ module Trading
         if excess < 0 && param("complete_outcome_set", false)
           deficit = -excess
           per_leg_edge = my_implied_yes * deficit / (1.0 - deficit)
-          net_edge = per_leg_edge - slippage
+          net_edge = per_leg_edge - est_cost
 
           if net_edge > min_edge
             direction = my_is_no ? "short" : "long"
@@ -466,7 +472,7 @@ module Trading
                          "#{(total_sum * 100).round(1)}% (<100%). Net edge: #{(net_edge * 100).round(1)}%",
               indicators: {
                 completeness_sum: total_sum, deficit: deficit, per_leg_edge: per_leg_edge,
-                n_outcomes: implied_yes.size, edge: net_edge,
+                n_outcomes: implied_yes.size, edge: per_leg_edge,
                 market_price: market_price, my_implied_yes: my_implied_yes,
                 dutch_book: true, reverse: true,
                 outcome_prices: implied_yes.transform_values { |v| v.round(4) }
@@ -482,7 +488,7 @@ module Trading
           deviation = (my_implied_yes - avg_price).abs
           multiplier = param("relative_value_multiplier", 2.0)
 
-          if deviation > avg_price * multiplier && deviation > slippage
+          if deviation > avg_price * multiplier && deviation > estimate_signal_cost
             direction = if my_implied_yes > avg_price
                          my_is_no ? "long" : "short"
                         else
@@ -767,11 +773,12 @@ module Trading
           return true # Same event, different outcome contracts = mutually exclusive
         end
 
-        # Polymarket: use condition_id from pair registry for mutual exclusivity
+        # Polymarket: use slug from pair registry for mutual exclusivity
+        # (condition_ids differ across outcomes; slug groups markets from the same event)
         if ticker_a.start_with?("PM") && ticker_b.start_with?("PM")
-          cond_a = @pair_registry.dig(pair_a, "condition_id") || @pair_registry.dig(pair_a, :condition_id)
-          cond_b = @pair_registry.dig(pair_b, "condition_id") || @pair_registry.dig(pair_b, :condition_id)
-          return cond_a.present? && cond_b.present? && cond_a == cond_b
+          slug_a = @pair_registry.dig(pair_a, "slug") || @pair_registry.dig(pair_a, :slug)
+          slug_b = @pair_registry.dig(pair_b, "slug") || @pair_registry.dig(pair_b, :slug)
+          return slug_a.present? && slug_b.present? && slug_a == slug_b
         end
 
         # Kalshi: letter-suffix convention for outcome slots
@@ -796,7 +803,10 @@ module Trading
         position = current_position
         return signals unless position
 
-        original_spread = (last_entry_indicators["violation_spread"] || last_entry_indicators["spread"] || 0).to_f
+        original_spread = (last_entry_indicators["violation_spread"] ||
+                           last_entry_indicators["spread"] ||
+                           last_entry_indicators["per_leg_edge"] ||
+                           last_entry_indicators["edge"] || 0).to_f
         opened_at = position["opened_at"] ? Time.parse(position["opened_at"]) : nil
 
         if original_spread > 0 && opened_at && opened_at < (Time.current - 60)
