@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_14_130004) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_15_120001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -9876,10 +9876,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_14_130004) do
     t.integer "strategies_evaluated", default: 0
     t.integer "strategies_promoted", default: 0
     t.uuid "trading_portfolio_id", null: false
+    t.string "trigger_type", default: "manual", null: false
     t.datetime "updated_at", null: false
     t.index ["status"], name: "index_trading_evolution_epochs_on_status"
     t.index ["trading_portfolio_id", "epoch_number"], name: "idx_trading_evolution_portfolio_epoch", unique: true
     t.index ["trading_portfolio_id"], name: "index_trading_evolution_epochs_on_trading_portfolio_id"
+    t.index ["trigger_type"], name: "index_trading_evolution_epochs_on_trigger_type"
   end
 
   create_table "trading_orders", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
