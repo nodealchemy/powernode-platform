@@ -117,6 +117,26 @@ module Ai
               severity: { type: "string", description: "info, warning, critical", required: false },
               evidence: { type: "object", description: "Supporting data", required: false }
             }
+          },
+          "decompose_goal" => {
+            description: "Decompose a goal into sub-goals using autonomous planning",
+            parameters: {
+              goal_id: { type: "string", description: "Goal ID to decompose", required: true },
+              max_sub_goals: { type: "integer", description: "Maximum sub-goals to create (default 5)", required: false }
+            }
+          },
+          "validate_plan" => {
+            description: "Validate a proposed plan for feasibility and safety",
+            parameters: {
+              goal_id: { type: "string", description: "Goal ID with the plan to validate", required: true }
+            }
+          },
+          "approve_plan" => {
+            description: "Approve a validated plan for execution",
+            parameters: {
+              goal_id: { type: "string", description: "Goal ID with the plan to approve", required: true },
+              notes: { type: "string", description: "Approval notes", required: false }
+            }
           }
         }
       end
@@ -135,6 +155,9 @@ module Ai
         when "escalate" then escalate(params)
         when "request_feedback" then request_feedback(params)
         when "report_issue" then report_issue(params)
+        when "decompose_goal" then decompose_goal(params)
+        when "validate_plan" then validate_plan(params)
+        when "approve_plan" then approve_plan(params)
         else
           error_result("Unknown action: #{params[:action]}")
         end
@@ -401,6 +424,46 @@ module Ai
         end
 
         success_result(observation_id: observation.id, title: params["title"])
+      end
+
+      def decompose_goal(params)
+        goal = account.ai_agent_goals.find_by(id: params["goal_id"])
+        return error_result("Goal not found") unless goal
+
+        max_sub = (params["max_sub_goals"] || 5).to_i
+        service = Ai::Autonomy::GoalDecompositionService.new(account: account, agent: agent)
+        result = service.decompose(goal: goal, max_sub_goals: max_sub)
+        success_result(result)
+      rescue NameError
+        error_result("Goal decomposition service not available")
+      rescue StandardError => e
+        error_result("Failed to decompose goal: #{e.message}")
+      end
+
+      def validate_plan(params)
+        goal = account.ai_agent_goals.find_by(id: params["goal_id"])
+        return error_result("Goal not found") unless goal
+
+        service = Ai::Autonomy::PlanValidationService.new(account: account, agent: agent)
+        result = service.validate(goal: goal)
+        success_result(result)
+      rescue NameError
+        error_result("Plan validation service not available")
+      rescue StandardError => e
+        error_result("Failed to validate plan: #{e.message}")
+      end
+
+      def approve_plan(params)
+        goal = account.ai_agent_goals.find_by(id: params["goal_id"])
+        return error_result("Goal not found") unless goal
+
+        service = Ai::Autonomy::PlanApprovalService.new(account: account, agent: agent)
+        result = service.approve(goal: goal, notes: params["notes"])
+        success_result(result)
+      rescue NameError
+        error_result("Plan approval service not available")
+      rescue StandardError => e
+        error_result("Failed to approve plan: #{e.message}")
       end
 
       def resolve_agent(agent_id)

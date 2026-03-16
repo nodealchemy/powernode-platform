@@ -32,8 +32,9 @@ module Ai
         {
           # --- Messaging (works for any conversation type) ---
           "send_message" => {
-            description: "Send a message to any conversation (workspace or agent) attributed to this MCP client agent. " \
-                         "Include @mentions to notify specific agents.",
+            description: "Send a message to any conversation (workspace or agent). " \
+                         "The conversation's agent will auto-respond (async for regular agents, sync for concierge). " \
+                         "Include @mentions to notify specific agents in workspaces.",
             parameters: {
               conversation_id: { type: "string", required: true, description: "Conversation ID (workspace or agent)" },
               message: { type: "string", required: true, description: "Message content (include @AgentName to mention)" },
@@ -96,6 +97,13 @@ module Ai
           "active_sessions" => {
             description: "List active MCP client sessions that can be invited to workspaces",
             parameters: {}
+          },
+          "list_workspaces" => {
+            description: "List workspace conversations (alias for list_conversations filtered to workspaces)",
+            parameters: {
+              status: { type: "string", required: false, description: "Filter by status: active, paused, completed, archived (default: all)" },
+              limit: { type: "integer", required: false, description: "Max results (default 10, max 50)" }
+            }
           }
         }
       end
@@ -138,24 +146,44 @@ module Ai
 
         metadata = build_mention_metadata(params, conversation)
 
-        # Send message attributed to this MCP client agent (not the user)
-        sending_agent = agent&.agent_type == "mcp_client" ? agent : nil
-        message = conversation.add_message(
-          "assistant",
+        # Send as user message so the conversation's agent will respond
+        # (mirrors conversations_controller#send_message behavior)
+        message = conversation.add_user_message(
           params[:message],
-          agent: sending_agent,
+          user: user,
           content_metadata: metadata.presence
         )
 
-        dispatched_agents = dispatch_mentioned_responses(conversation, message, metadata)
+        # Dispatch agent response based on conversation type
+        dispatched_agents = []
+        response_message = nil
 
-        {
+        if conversation.workspace_conversation?
+          # Workspace: dispatch @mentioned agents (including concierge if present)
+          dispatched_agents = dispatch_mentioned_responses(conversation, message, metadata)
+        elsif conversation.agent&.respond_to?(:is_concierge?) && conversation.agent.is_concierge?
+          # Concierge: process synchronously via ConciergeService
+          concierge = Ai::ConciergeService.new(conversation: conversation, user: user)
+          concierge.process_message(params[:message])
+          response_message = conversation.messages.not_deleted.where(role: "assistant").order(created_at: :desc).first
+          dispatched_agents = [{ id: conversation.agent.id, name: conversation.agent.name, type: "concierge" }]
+        elsif conversation.agent&.provider&.is_active?
+          # Regular agent conversation: dispatch async response via worker
+          WorkerJobService.enqueue_ai_conversation_response(
+            conversation.id, message.message_id, user.id
+          )
+          dispatched_agents = [{ id: conversation.agent.id, name: conversation.agent.name, type: conversation.agent.agent_type }]
+        end
+
+        result = {
           success: true,
           conversation_id: conversation.conversation_id,
           message_id: message.message_id,
-          sender: sending_agent&.name || "Unknown",
+          sender: user.name || user.email,
           dispatched_to: dispatched_agents
         }
+        result[:response] = response_message.content if response_message
+        result
       rescue StandardError => e
         Rails.logger.error("[ConversationTool] send_message error: #{e.message}")
         { success: false, error: "Failed to send message: #{e.message}" }

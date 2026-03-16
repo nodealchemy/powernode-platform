@@ -2,6 +2,7 @@
 
 FactoryBot.define do
   factory :git_provider, class: 'Devops::GitProvider' do
+    association :account
     sequence(:name) { |n| "Git Provider #{n}" }
     sequence(:slug) { |n| "git-provider-#{n}" }
     provider_type { 'github' }

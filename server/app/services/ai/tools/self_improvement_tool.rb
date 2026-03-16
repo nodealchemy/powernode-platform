@@ -11,44 +11,44 @@ module Ai
         {
           "generate_self_challenge" => {
             description: "Generate a self-challenge for an agent to practice and improve",
-            parameters: { type: "object", properties: {
-              skill_id: { type: "string", description: "Skill to challenge (optional)" },
-              difficulty: { type: "string", enum: %w[easy medium hard expert], description: "Difficulty level" }
-            } }
+            parameters: {
+              skill_id: { type: "string", required: false, description: "Skill to challenge (optional)" },
+              difficulty: { type: "string", required: false, description: "Difficulty level: easy, medium, hard, expert" }
+            }
           },
           "list_challenges" => {
             description: "List self-challenges for the current agent",
-            parameters: { type: "object", properties: {
-              status: { type: "string", description: "Filter by status" },
-              limit: { type: "integer", description: "Max results (default 20)" }
-            } }
+            parameters: {
+              status: { type: "string", required: false, description: "Filter by status" },
+              limit: { type: "integer", required: false, description: "Max results (default 20)" }
+            }
           },
           "get_challenge_result" => {
             description: "Get detailed result for a specific self-challenge",
-            parameters: { type: "object", required: ["challenge_id"], properties: {
-              challenge_id: { type: "string" }
-            } }
+            parameters: {
+              challenge_id: { type: "string", required: true, description: "Challenge ID" }
+            }
           },
           "mutate_skill" => {
             description: "Mutate a skill using a specified strategy to improve it",
-            parameters: { type: "object", required: ["skill_id", "strategy"], properties: {
-              skill_id: { type: "string" },
-              strategy: { type: "string", enum: %w[learning_driven failure_analysis challenge_derived peer_comparison] }
-            } }
+            parameters: {
+              skill_id: { type: "string", required: true, description: "Skill ID to mutate" },
+              strategy: { type: "string", required: true, description: "Mutation strategy: learning_driven, failure_analysis, challenge_derived, peer_comparison" }
+            }
           },
           "compose_skills" => {
             description: "Create a composite skill from multiple component skills",
-            parameters: { type: "object", required: ["component_skill_ids", "name"], properties: {
-              component_skill_ids: { type: "array", items: { type: "string" } },
-              name: { type: "string" },
-              strategy: { type: "string", enum: %w[sequential parallel conditional] }
-            } }
+            parameters: {
+              component_skill_ids: { type: "array", required: true, description: "Array of skill IDs to compose" },
+              name: { type: "string", required: true, description: "Name for the composite skill" },
+              strategy: { type: "string", required: false, description: "Composition strategy: sequential, parallel, conditional" }
+            }
           },
           "auto_evolve_skill" => {
             description: "Automatically find and mutate underperforming skills",
-            parameters: { type: "object", properties: {
-              threshold: { type: "number", description: "Effectiveness threshold (default 0.4)" }
-            } }
+            parameters: {
+              threshold: { type: "number", required: false, description: "Effectiveness threshold (default 0.4)" }
+            }
           }
         }
       end

@@ -16,45 +16,30 @@ module Ai
           "agent_remember" => {
             description: "Store a key-value pair in the agent's private memory pool with optional TTL, importance, and tags",
             parameters: {
-              type: "object",
-              required: ["key", "value"],
-              properties: {
-                key: { type: "string", description: "Memory key (dot-notation supported)" },
-                value: { description: "Value to store (string, number, object, or array)" },
-                ttl_seconds: { type: "integer", description: "Time-to-live in seconds (optional)" },
-                importance: { type: "number", description: "Importance score 0-1 (default 0.5)" },
-                tags: { type: "array", items: { type: "string" }, description: "Tags for categorization" }
-              }
+              key: { type: "string", required: true, description: "Memory key (dot-notation supported)" },
+              value: { type: "string", required: true, description: "Value to store (string, number, object, or array)" },
+              ttl_seconds: { type: "integer", required: false, description: "Time-to-live in seconds (optional)" },
+              importance: { type: "number", required: false, description: "Importance score 0-1 (default 0.5)" },
+              tags: { type: "array", required: false, description: "Tags for categorization" }
             }
           },
           "agent_forget" => {
             description: "Remove or soft-decay a memory key from the agent's private pool",
             parameters: {
-              type: "object",
-              required: ["key"],
-              properties: {
-                key: { type: "string", description: "Memory key to forget" },
-                soft: { type: "boolean", description: "If true, decay importance instead of deleting (default false)" }
-              }
+              key: { type: "string", required: true, description: "Memory key to forget" },
+              soft: { type: "boolean", required: false, description: "If true, decay importance instead of deleting (default false)" }
             }
           },
           "agent_reflect" => {
             description: "Trigger on-demand STM consolidation and summary generation (rate-limited: 1 per 15 minutes)",
-            parameters: {
-              type: "object",
-              properties: {}
-            }
+            parameters: {}
           },
           "agent_recall" => {
             description: "Semantic search across agent's private memory pool and optionally team_shared pools",
             parameters: {
-              type: "object",
-              required: ["query"],
-              properties: {
-                query: { type: "string", description: "Natural language search query" },
-                include_team: { type: "boolean", description: "Also search team_shared pools (default false)" },
-                limit: { type: "integer", description: "Maximum results to return (default 10)" }
-              }
+              query: { type: "string", required: true, description: "Natural language search query" },
+              include_team: { type: "boolean", required: false, description: "Also search team_shared pools (default false)" },
+              limit: { type: "integer", required: false, description: "Maximum results to return (default 10)" }
             }
           }
         }

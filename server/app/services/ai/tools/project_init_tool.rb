@@ -18,6 +18,20 @@ module Ai
         }
       end
 
+      def self.action_definitions
+        {
+          "create_gitea_repository" => {
+            description: "Create a new Gitea repository with project scaffold",
+            parameters: {
+              repo_name: { type: "string", required: true, description: "Repository name" },
+              description: { type: "string", required: false, description: "Repository description" },
+              organization: { type: "string", required: false, description: "Organization name to create the repository under (omit for personal namespace)" },
+              private: { type: "boolean", required: false, description: "Whether the repository should be private (default: true)" }
+            }
+          }
+        }
+      end
+
       protected
 
       def call(params)

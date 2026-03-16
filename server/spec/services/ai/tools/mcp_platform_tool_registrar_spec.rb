@@ -111,10 +111,13 @@ RSpec.describe Ai::Tools::McpPlatformToolRegistrar do
       expect(result).to eq(expected_result)
     end
 
-    it "symbolizes string param keys before calling execute" do
+    it "allows indifferent access to param keys before calling execute" do
       allow(user).to receive(:has_permission?).with("ai.agents.execute").and_return(true)
       allow(tool_instance).to receive(:execute) do |args|
-        expect(args[:params].keys).to all(be_a(Symbol))
+        params = args[:params]
+        expect(params).to respond_to(:with_indifferent_access)
+        expect(params[:action]).to eq("list_agents")
+        expect(params["action"]).to eq("list_agents")
         { success: true }
       end
 

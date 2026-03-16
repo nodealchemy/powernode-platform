@@ -20,7 +20,7 @@ module Ai
             status: { type: "string", required: false, description: "Filter by status: active/inactive/draft (for list_skills)" },
             category: { type: "string", required: false, description: "Filter by category (for list_skills, create_skill)" },
             search: { type: "string", required: false, description: "Search query for skill name/description (for list_skills)" },
-            enabled: { type: "string", required: false, description: "Filter by enabled: true/false (for list_skills); or boolean to set (for toggle_skill)" },
+            enabled: { type: "boolean", required: false, description: "Filter by enabled: true/false (for list_skills); or boolean to set (for toggle_skill)" },
             page: { type: "integer", required: false, description: "Page number (for list_skills, default 1)" },
             per_page: { type: "integer", required: false, description: "Results per page (for list_skills, default 20)" },
             task_context: { type: "string", required: false, description: "Task description to discover relevant skills (for discover_skills)" },
@@ -39,7 +39,7 @@ module Ai
             parameters: {
               category: { type: "string", required: false, description: "Filter by category" },
               status: { type: "string", required: false, description: "Filter by status: active/inactive/draft" },
-              enabled: { type: "string", required: false, description: "Filter by enabled: true/false" },
+              enabled: { type: "boolean", required: false, description: "Filter by enabled: true/false" },
               search: { type: "string", required: false, description: "Search query for name/description" },
               page: { type: "integer", required: false, description: "Page number (default 1)" },
               per_page: { type: "integer", required: false, description: "Results per page (default 20)" }
@@ -109,7 +109,7 @@ module Ai
             description: "Enable or disable an AI skill",
             parameters: {
               skill_id: { type: "string", required: true, description: "Skill ID" },
-              enabled: { type: "string", required: true, description: "Set to true or false" }
+              enabled: { type: "boolean", required: true, description: "Set to true or false" }
             }
           }
         }

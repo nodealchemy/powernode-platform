@@ -19,11 +19,17 @@ threads min_threads_count, max_threads_count
 
 # Worker processes multiply throughput by bypassing the GVL.
 # Each worker forks the app and gets its own thread pool + DB pool.
-# Default: 2 workers (3 total processes including master) for dev.
-workers ENV.fetch("WEB_CONCURRENCY", 2).to_i
-
-# Preload app for faster worker boot and copy-on-write memory savings.
-preload_app!
+# In development, run single-process (workers 0) to avoid deadlocks
+# between forked workers and Zeitwerk code reloading.
+if ENV.fetch("RAILS_ENV", "development") == "development"
+  workers 0
+  # Force-kill threads after 5s during restart. SSE streams (MCP, A2A) hold
+  # threads indefinitely; without this, Puma waits forever during restart.
+  force_shutdown_after 5
+else
+  workers ENV.fetch("WEB_CONCURRENCY", 2).to_i
+  preload_app!
+end
 
 # Specifies the `port` that Puma will listen on to receive requests; default is 3000.
 port ENV.fetch("PORT", 3000)
@@ -39,6 +45,8 @@ plugin :solid_queue if ENV["SOLID_QUEUE_IN_PUMA"]
 pidfile ENV["PIDFILE"] if ENV["PIDFILE"]
 
 # Re-establish DB connections after fork (required with preload_app!)
-on_worker_boot do
-  ActiveRecord::Base.establish_connection if defined?(ActiveRecord)
+if ENV.fetch("RAILS_ENV", "development") != "development"
+  on_worker_boot do
+    ActiveRecord::Base.establish_connection if defined?(ActiveRecord)
+  end
 end

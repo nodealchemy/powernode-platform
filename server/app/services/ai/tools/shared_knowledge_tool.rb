@@ -15,7 +15,7 @@ module Ai
             query: { type: "string", required: false, description: "Search query" },
             title: { type: "string", required: false, description: "Entry title (for create/update)" },
             content: { type: "string", required: false, description: "Entry content (for create/update)" },
-            content_type: { type: "string", required: false, description: "Content type: text/markdown/code/snippet/procedure/fact/definition" },
+            content_type: { type: "string", required: false, description: "Content type: text/markdown/code/snippet/procedure/reference/fact/definition/guide (default: text)" },
             access_level: { type: "string", required: false, description: "Access level: private/team/account/global (for create/promote)" },
             tags: { type: "array", required: false, description: "Tags array (for create/update)" },
             limit: { type: "integer", required: false, description: "Max results (default 10)" }
@@ -39,7 +39,7 @@ module Ai
             parameters: {
               title: { type: "string", required: true, description: "Entry title" },
               content: { type: "string", required: true, description: "Entry content" },
-              content_type: { type: "string", required: false, description: "Content type (default: text)" },
+              content_type: { type: "string", required: false, description: "Content type: text/markdown/code/snippet/procedure/reference/fact/definition/guide (default: text)" },
               access_level: { type: "string", required: false, description: "Access level (default: team)" },
               tags: { type: "array", required: false, description: "Tags array" }
             }

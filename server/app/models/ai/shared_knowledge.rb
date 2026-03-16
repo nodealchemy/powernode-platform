@@ -9,7 +9,7 @@ module Ai
     # ==========================================
     # Constants
     # ==========================================
-    CONTENT_TYPES = %w[text markdown code snippet procedure fact definition].freeze
+    CONTENT_TYPES = %w[text markdown code snippet procedure reference fact definition guide].freeze
     ACCESS_LEVELS = %w[private team account global].freeze
     SOURCE_TYPES = %w[agent workflow extraction manual import].freeze
 

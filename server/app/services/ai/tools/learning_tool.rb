@@ -15,6 +15,9 @@ module Ai
             title: { type: "string", required: false, description: "Learning title (for create_learning)" },
             content: { type: "string", required: false, description: "Learning content (for create_learning)" },
             category: { type: "string", required: false, description: "Filter by category (pattern/anti_pattern/best_practice/discovery/fact/failure_mode/review_finding/performance_insight)" },
+            importance_score: { type: "number", required: false, description: "Importance score 0.0-1.0 (for create_learning, default: 0.5)" },
+            confidence_score: { type: "number", required: false, description: "Confidence score 0.0-1.0 (for create_learning, default: 0.5)" },
+            tags: { type: "array", required: false, description: "Tags array for categorization (for create_learning)" },
             scope: { type: "string", required: false, description: "Filter by scope (team/global)" },
             status: { type: "string", required: false, description: "Filter by status (active/superseded/archived)" },
             query: { type: "string", required: false, description: "Search query for learnings" },
@@ -50,7 +53,10 @@ module Ai
             parameters: {
               content: { type: "string", required: true, description: "Learning content" },
               title: { type: "string", required: false, description: "Learning title" },
-              category: { type: "string", required: false, description: "Category (default: discovery)" }
+              category: { type: "string", required: false, description: "Category (default: discovery)" },
+              importance_score: { type: "number", required: false, description: "Importance score 0.0-1.0 (default: 0.5)" },
+              confidence_score: { type: "number", required: false, description: "Confidence score 0.0-1.0 (default: 0.5)" },
+              tags: { type: "array", required: false, description: "Tags array for categorization and dedup" }
             }
           }
         }
@@ -135,8 +141,9 @@ module Ai
             category: category,
             extraction_method: "manual",
             source_execution_successful: true,
-            importance: 0.5,
-            confidence: 0.5
+            importance: (params[:importance_score] || 0.5).to_f.clamp(0.0, 1.0),
+            confidence: (params[:confidence_score] || 0.5).to_f.clamp(0.0, 1.0),
+            tags: Array(params[:tags])
           }
         )
 

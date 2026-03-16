@@ -150,7 +150,10 @@ module Ai
         entry = Ai::SharedKnowledge.find_by(id: params[:entry_id], account: account)
         return { success: false, error: "Knowledge entry not found" } unless entry
 
-        entry.record_rating!(params[:rating].to_i)
+        rating = params[:rating].to_i
+        return { success: false, error: "Rating must be between 1 and 5" } unless rating.between?(1, 5)
+
+        entry.record_rating!(rating)
 
         {
           success: true,

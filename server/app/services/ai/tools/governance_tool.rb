@@ -11,37 +11,41 @@ module Ai
         {
           "governance_scan" => {
             description: "Run a governance scan on a specific agent or team",
-            parameters: { type: "object", properties: {
-              agent_id: { type: "string", description: "Agent to scan" },
-              team_id: { type: "string", description: "Team to scan" }
-            } }
+            parameters: {
+              agent_id: { type: "string", required: false, description: "Agent to scan" },
+              team_id: { type: "string", required: false, description: "Team to scan" }
+            }
           },
           "list_governance_reports" => {
             description: "List governance reports with optional filters",
-            parameters: { type: "object", properties: {
-              status: { type: "string" }, severity: { type: "string" },
-              agent_id: { type: "string" }, limit: { type: "integer" }
-            } }
+            parameters: {
+              status: { type: "string", required: false, description: "Filter by status" },
+              severity: { type: "string", required: false, description: "Filter by severity" },
+              agent_id: { type: "string", required: false, description: "Filter by agent" },
+              limit: { type: "integer", required: false, description: "Max results" }
+            }
           },
           "get_governance_report" => {
             description: "Get detailed governance report",
-            parameters: { type: "object", required: ["report_id"], properties: { report_id: { type: "string" } } }
+            parameters: {
+              report_id: { type: "string", required: true, description: "Report ID" }
+            }
           },
           "resolve_governance_report" => {
             description: "Resolve a governance report with a status and notes",
-            parameters: { type: "object", required: ["report_id", "resolution_status"], properties: {
-              report_id: { type: "string" },
-              resolution_status: { type: "string", enum: %w[confirmed dismissed remediated] },
-              notes: { type: "string" }
-            } }
+            parameters: {
+              report_id: { type: "string", required: true, description: "Report ID" },
+              resolution_status: { type: "string", required: true, description: "Resolution: confirmed, dismissed, remediated" },
+              notes: { type: "string", required: false, description: "Resolution notes" }
+            }
           },
           "detect_collusion" => {
             description: "Run collusion detection across active agents",
-            parameters: { type: "object", properties: {} }
+            parameters: {}
           },
           "governance_dashboard" => {
             description: "Get governance dashboard with summary metrics",
-            parameters: { type: "object", properties: {} }
+            parameters: {}
           }
         }
       end

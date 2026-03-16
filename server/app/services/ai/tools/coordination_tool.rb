@@ -16,73 +16,54 @@ module Ai
           "emit_signal" => {
             description: "Emit a stigmergic signal (pheromone, pressure, beacon, warning, discovery) for decentralized coordination",
             parameters: {
-              type: "object", required: ["signal_type", "signal_key"],
-              properties: {
-                signal_type: { type: "string", enum: %w[pheromone pressure beacon warning discovery] },
-                signal_key: { type: "string", description: "Namespaced signal key" },
-                strength: { type: "number", description: "Signal strength 0-1 (default 1.0)" },
-                decay_rate: { type: "number", description: "Decay rate per cycle (default 0.05)" },
-                payload: { type: "object", description: "Signal payload data" },
-                ttl_seconds: { type: "integer", description: "Time-to-live in seconds" }
-              }
+              signal_type: { type: "string", required: true, description: "Signal type: pheromone, pressure, beacon, warning, discovery" },
+              signal_key: { type: "string", required: true, description: "Namespaced signal key" },
+              strength: { type: "number", required: false, description: "Signal strength 0-1 (default 1.0)" },
+              decay_rate: { type: "number", required: false, description: "Decay rate per cycle (default 0.05)" },
+              payload: { type: "object", required: false, description: "Signal payload data" },
+              ttl_seconds: { type: "integer", required: false, description: "Time-to-live in seconds" }
             }
           },
           "perceive_signals" => {
             description: "Perceive active stigmergic signals, optionally filtered by type",
             parameters: {
-              type: "object", properties: {
-                signal_types: { type: "array", items: { type: "string" }, description: "Filter by signal types" },
-                limit: { type: "integer", description: "Max signals to return (default 20)" }
-              }
+              signal_types: { type: "array", required: false, description: "Filter by signal types" },
+              limit: { type: "integer", required: false, description: "Max signals to return (default 20)" }
             }
           },
           "reinforce_signal" => {
             description: "Reinforce an existing stigmergic signal (ant-trail reinforcement pattern)",
             parameters: {
-              type: "object", required: ["signal_id"],
-              properties: {
-                signal_id: { type: "string", description: "Signal ID to reinforce" },
-                strength_delta: { type: "number", description: "Reinforcement amount (default 0.1)" }
-              }
+              signal_id: { type: "string", required: true, description: "Signal ID to reinforce" },
+              strength_delta: { type: "number", required: false, description: "Reinforcement amount (default 0.1)" }
             }
           },
           "measure_pressure" => {
             description: "Measure a pressure field on an artifact (code_quality, test_coverage, etc.)",
             parameters: {
-              type: "object", required: ["artifact_ref", "field_type"],
-              properties: {
-                artifact_ref: { type: "string", description: "Artifact reference (e.g., file path, module name)" },
-                artifact_type: { type: "string", description: "Artifact type (e.g., file, module, service)" },
-                field_type: { type: "string", enum: %w[code_quality test_coverage doc_readability security_posture performance dependency_health] }
-              }
+              artifact_ref: { type: "string", required: true, description: "Artifact reference (e.g., file path, module name)" },
+              artifact_type: { type: "string", required: false, description: "Artifact type (e.g., file, module, service)" },
+              field_type: { type: "string", required: true, description: "Field type: code_quality, test_coverage, doc_readability, security_posture, performance, dependency_health" }
             }
           },
           "perceive_pressure" => {
             description: "Perceive actionable pressure fields sorted by highest pressure",
             parameters: {
-              type: "object", properties: {
-                team_id: { type: "string", description: "Filter by team context" },
-                limit: { type: "integer", description: "Max fields to return (default 10)" }
-              }
+              team_id: { type: "string", required: false, description: "Filter by team context" },
+              limit: { type: "integer", required: false, description: "Max fields to return (default 10)" }
             }
           },
           "optimize_team" => {
             description: "Run full team composition optimization (gap detection, leader emergence, member rebalancing)",
             parameters: {
-              type: "object", required: ["team_id"],
-              properties: {
-                team_id: { type: "string", description: "Team ID to optimize" }
-              }
+              team_id: { type: "string", required: true, description: "Team ID to optimize" }
             }
           },
           "recruit_agent" => {
             description: "Recruit an agent into a team to fill a capability gap",
             parameters: {
-              type: "object", required: ["team_id", "capability"],
-              properties: {
-                team_id: { type: "string", description: "Team ID to recruit into" },
-                capability: { type: "string", description: "Required capability" }
-              }
+              team_id: { type: "string", required: true, description: "Team ID to recruit into" },
+              capability: { type: "string", required: true, description: "Required capability" }
             }
           }
         }

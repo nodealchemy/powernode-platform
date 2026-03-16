@@ -45,7 +45,9 @@ RSpec.describe Ai::Tools::ProjectInitTool do
       expect(Ai::ProjectInitializationService).to have_received(:new).with(
         account: account,
         repo_name: "test-repo",
-        description: "A test repo"
+        description: "A test repo",
+        organization: nil,
+        private: true
       )
     end
 
@@ -56,7 +58,9 @@ RSpec.describe Ai::Tools::ProjectInitTool do
       expect(Ai::ProjectInitializationService).to have_received(:new).with(
         account: account,
         repo_name: "my-repo",
-        description: nil
+        description: nil,
+        organization: nil,
+        private: true
       )
     end
 

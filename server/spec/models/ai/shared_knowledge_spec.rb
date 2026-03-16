@@ -14,7 +14,7 @@ RSpec.describe Ai::SharedKnowledge, type: :model do
     it { should validate_presence_of(:title) }
     it { should validate_presence_of(:content) }
     it { should validate_length_of(:title).is_at_most(500) }
-    it { should validate_inclusion_of(:content_type).in_array(%w[text markdown code snippet procedure fact definition]) }
+    it { should validate_inclusion_of(:content_type).in_array(described_class::CONTENT_TYPES) }
     it { should validate_inclusion_of(:access_level).in_array(%w[private team account global]) }
     it { should validate_numericality_of(:quality_score).is_greater_than_or_equal_to(0).is_less_than_or_equal_to(1).allow_nil }
   end

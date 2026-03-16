@@ -11,7 +11,7 @@ module Ai
       productivity sales customer_support product_management marketing
       legal finance data business_search bio_research skill_management
       code_intelligence testing_qa devops security sre_observability
-      database_ops release_management research documentation
+      database_ops release_management research documentation trading
     ].freeze
 
     STATUSES = %w[active inactive draft].freeze

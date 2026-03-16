@@ -158,7 +158,8 @@ module Ai
         []
       end
 
-      # Graph search: find seed nodes from query, expand, collect associated document chunks
+      # Graph search: find seed nodes from query, return matching graph nodes
+      # and optionally expand to associated document chunks
       def graph_search(query, top_k:)
         query_embedding = @embedding_service.generate(query)
         return [] unless query_embedding
@@ -174,10 +175,27 @@ module Ai
 
         return [] if seed_nodes.empty?
 
-        # Collect associated document chunks from seed nodes and their neighbors
+        # Always include matched graph nodes as results
+        results = seed_nodes.map do |node|
+          {
+            id: node.id,
+            type: "graph_node",
+            content: [node.name, node.description].compact.join(": "),
+            score: (1.0 - node.neighbor_distance).round(4),
+            source: "graph",
+            metadata: {
+              node_type: node.node_type,
+              entity_type: node.entity_type,
+              properties: node.properties,
+              confidence: node.confidence,
+              mention_count: node.mention_count
+            }
+          }
+        end
+
+        # Also collect associated document chunks from seed nodes and their neighbors
         document_ids = seed_nodes.filter_map(&:source_document_id).uniq
 
-        # Also expand to get neighbor nodes' documents
         graph_service = Ai::KnowledgeGraph::GraphService.new(@account)
         seed_nodes.each do |node|
           neighbors = graph_service.find_neighbors(node: node, depth: 2)
@@ -189,45 +207,33 @@ module Ai
         end
 
         document_ids = document_ids.uniq.first(20)
-        return [] if document_ids.empty?
 
-        chunks = Ai::DocumentChunk
-          .where(document_id: document_ids)
-          .with_embeddings
-          .limit(top_k * 2)
+        if document_ids.any?
+          chunks = Ai::DocumentChunk
+            .where(document_id: document_ids)
+            .with_embeddings
+            .limit(top_k * 2)
 
-        # Score chunks by their embedding similarity to query
-        if query_embedding && chunks.any?
-          scored = chunks.map do |chunk|
-            sim = chunk.similarity_with(query_embedding)
-            {
-              id: chunk.id,
-              type: "document_chunk",
-              document_id: chunk.document_id,
-              content: chunk.content,
-              score: sim.round(4),
-              source: "graph",
-              metadata: {
-                sequence_number: chunk.sequence_number,
-                graph_seed_nodes: seed_nodes.map { |n| { id: n.id, name: n.name } }
+          if chunks.any?
+            chunks.each do |chunk|
+              sim = chunk.similarity_with(query_embedding)
+              results << {
+                id: chunk.id,
+                type: "document_chunk",
+                document_id: chunk.document_id,
+                content: chunk.content,
+                score: sim.round(4),
+                source: "graph",
+                metadata: {
+                  sequence_number: chunk.sequence_number,
+                  graph_seed_nodes: seed_nodes.map { |n| { id: n.id, name: n.name } }
+                }
               }
-            }
-          end
-
-          scored.sort_by { |r| -r[:score] }.first(top_k)
-        else
-          chunks.first(top_k).map do |chunk|
-            {
-              id: chunk.id,
-              type: "document_chunk",
-              document_id: chunk.document_id,
-              content: chunk.content,
-              score: 0.3,
-              source: "graph",
-              metadata: { sequence_number: chunk.sequence_number }
-            }
+            end
           end
         end
+
+        results.sort_by { |r| -r[:score] }.first(top_k)
       rescue StandardError => e
         Rails.logger.warn "[HybridSearchService] Graph search failed: #{e.message}"
         []

@@ -189,10 +189,17 @@ module Ai
         def convert_to_json_schema(parameters)
           return { "type" => "object", "properties" => {}, "required" => [] } if parameters.blank?
 
+          # If parameters already looks like a JSON Schema object (has "type" key), pass through
+          if parameters.key?(:type) || parameters.key?("type")
+            return parameters.deep_stringify_keys
+          end
+
           properties = {}
           required = []
 
           parameters.each do |param_name, param_def|
+            next unless param_def.is_a?(Hash)
+
             properties[param_name.to_s] = {
               "type" => param_def[:type] || "string",
               "description" => param_def[:description]
