@@ -33,8 +33,10 @@ module Trading
         filter: ->(market, _pp, _opts) {
           next false unless market[:yes_price]&.between?(0.15, 0.85)
           next false if market[:volume_24h].to_f < 100
-          low_efficiency = %w[Entertainment Sports]
-          next false if low_efficiency.include?(market[:category])
+          # Entertainment markets have low efficiency for pairwise constraint arb,
+          # but Sports events (NBA Champion, World Cup) are prime Dutch Book targets
+          # with many mutually exclusive outcomes and predictable overpricing.
+          next false if market[:category] == "Entertainment"
           true
         }
       },
@@ -127,6 +129,14 @@ module Trading
         }
       },
 
+      # --- Multi-evaluator ensemble ---
+      "multi_strategy_ensemble" => {
+        filter: ->(market, _pp, _opts) {
+          p = market[:yes_price] || 0.5
+          p.between?(0.10, 0.90) && market[:volume_24h].to_f >= 500
+        }
+      },
+
       # --- Pass-through ---
       "cross_platform_arbitrage" => { filter: ->(_m, _pp, _opts) { true } },
       "prediction_market" => {
@@ -160,9 +170,13 @@ module Trading
       markets.each do |m|
         yes_pair = m[:pairs]&.find { |p| p.end_with?("/YES") }
         no_pair = m[:pairs]&.find { |p| p.end_with?("/NO") }
-        next unless yes_pair && m[:yes_price]
-        pair_prices[yes_pair] = m[:yes_price]
-        pair_prices[no_pair] = (1.0 - m[:yes_price]).round(4) if no_pair
+        if yes_pair && m[:yes_price]
+          pair_prices[yes_pair] = m[:yes_price]
+          pair_prices[no_pair] = (1.0 - m[:yes_price]).round(4) if no_pair
+        else
+          # Non-binary markets (CEX spot): use yes_price for all pairs
+          m[:pairs]&.each { |p| pair_prices[p] = m[:yes_price] || 0.5 }
+        end
       end
 
       compatible = []
@@ -194,12 +208,18 @@ module Trading
         stats[strategy_type][:matched] = matched_markets.size
 
         use_markets.each do |market|
-          # Determine which pairs from this market to use
+          # Determine which pairs from this market to use.
+          # Binary markets (prediction): prefer /YES pairs.
+          # Non-binary markets (CEX spot): use all pairs directly.
+          has_binary_pairs = market[:pairs]&.any? { |p| p.end_with?("/YES") }
           if affinity&.dig(:price_range)
             candidates = market[:pairs].select { |p| pair_prices[p]&.then { |px| affinity[:price_range].cover?(px) } }
-            candidates = market[:pairs].select { |p| p.end_with?("/YES") } if candidates.empty?
-          else
+            candidates = market[:pairs].select { |p| p.end_with?("/YES") } if candidates.empty? && has_binary_pairs
+            candidates = market[:pairs] if candidates.empty?
+          elsif has_binary_pairs
             candidates = market[:pairs].select { |p| p.end_with?("/YES") }
+          else
+            candidates = market[:pairs]
           end
 
           candidates.each { |pair| compatible << { pair: pair, strategy_type: strategy_type, category: market[:category] } }
@@ -244,6 +264,24 @@ module Trading
       end
 
       { assignments: compatible, stats: stats }
+    end
+
+    # Group markets into clusters by event_ticker for distributional analysis.
+    # Only returns clusters with enough markets for meaningful KL-divergence analysis.
+    #
+    # @param markets [Array<Hash>] markets with symbol keys from discover_markets API
+    # @param min_size [Integer] minimum cluster size (default: 3)
+    # @return [Hash] { event_ticker => [market_hash, ...] }
+    def self.cluster_by_event(markets, min_size: 3)
+      clusters = {}
+      markets.each do |market|
+        event = market[:event_ticker].presence || market[:slug]
+        next unless event.present?
+
+        clusters[event] ||= []
+        clusters[event] << market
+      end
+      clusters.select { |_, group| group.size >= min_size }
     end
   end
 end
