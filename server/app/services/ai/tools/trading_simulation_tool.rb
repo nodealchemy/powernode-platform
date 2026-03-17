@@ -161,6 +161,44 @@ module Ai
           "trading_seed_strategy_defaults" => {
             description: "Seed all hardcoded training parameters into shared memory as dynamic defaults. Idempotent — preserves existing modifications.",
             parameters: {}
+          },
+          "trading_seed_profit_formula" => {
+            description: "Seed the Profit Formula portfolio — tuned parameters for 9 zero-LLM-cost strategies (arbitrage, tail_end_yield, combinatorial_arbitrage, longshot_fading, prediction_market_making, mean_reversion, momentum, cross_platform_arbitrage, spot_lag_arbitrage). Overwrites global defaults with empirically-optimized values from 136 training runs. Also sets venue-specific overrides for Polymarket (zero fees) and Kalshi.",
+            parameters: {}
+          },
+          "trading_import_historical_data" => {
+            description: "Import historical price data for a venue+ticker into PriceSnapshots for backtesting. Supports Kalshi (candlestick API) and Polymarket (Gamma API).",
+            parameters: {
+              venue_slug: { type: "string", required: true, description: "Venue slug: 'kalshi' or 'polymarket'" },
+              ticker: { type: "string", required: false, description: "Ticker or condition_id to import (e.g. 'KXFED' for Kalshi event, condition_id for PM)" },
+              slug: { type: "string", required: false, description: "Polymarket event slug (alternative to ticker for PM)" },
+              interval: { type: "string", required: false, description: "Candle interval (default: '1h')" },
+              limit: { type: "integer", required: false, description: "Max pairs to import from registry (default: 50)" }
+            }
+          },
+          "trading_run_backtest" => {
+            description: "Create a training session against the Simulator venue with historical_replay mode. Requires historical data to be imported first via trading_import_historical_data.",
+            parameters: {
+              strategy_types: { type: "array", required: false, description: "Strategy types to backtest (default: profit formula strategies)" },
+              tick_count: { type: "integer", required: false, description: "Number of ticks (default: 50)" },
+              tick_interval: { type: "integer", required: false, description: "Seconds between ticks (default: 5)" },
+              initial_balance: { type: "number", required: false, description: "Starting balance (default: 10000)" },
+              name: { type: "string", required: false, description: "Session name" },
+              strategy_overrides: { type: "object", required: false, description: "Per-strategy parameter overrides" }
+            }
+          },
+          "trading_parameter_sweep" => {
+            description: "Run N backtests with varying parameter combinations for a strategy type. Creates batch sessions against Simulator with historical_replay, returns ranked results.",
+            parameters: {
+              strategy_type: { type: "string", required: true, description: "Strategy type to sweep (e.g. 'prediction_market_making')" },
+              param_ranges: { type: "object", required: true, description: "Parameter ranges: { 'kelly_fraction': [0.15, 0.20, 0.25], 'stop_loss_pct': [2.0, 3.0] }" },
+              sweep_id: { type: "string", required: false, description: "Existing sweep ID to collect results (skip creation)" },
+              method: { type: "string", required: false, description: "Combination method: 'grid' (default) or 'lhs'" },
+              max_combos: { type: "integer", required: false, description: "Max parameter combinations (default: 64)" },
+              tick_count: { type: "integer", required: false, description: "Ticks per backtest (default: 50)" },
+              initial_balance: { type: "number", required: false, description: "Starting balance (default: 10000)" },
+              promote_best: { type: "boolean", required: false, description: "Auto-promote best params to global defaults if profitable" }
+            }
           }
         }
       end
@@ -194,6 +232,10 @@ module Ai
         when "trading_update_strategy_params" then update_strategy_params(params)
         when "trading_create_dry_run_session" then create_dry_run_session(params)
         when "trading_seed_strategy_defaults" then seed_strategy_defaults(params)
+        when "trading_seed_profit_formula" then seed_profit_formula(params)
+        when "trading_import_historical_data" then import_historical_data(params)
+        when "trading_run_backtest" then run_backtest(params)
+        when "trading_parameter_sweep" then parameter_sweep(params)
         else error_result("Unknown action: #{params[:action]}")
         end
       rescue ActiveRecord::RecordNotFound => e
@@ -532,6 +574,158 @@ module Ai
           venue_configs: venue_count,
           message: "Seeded #{strategy_count} strategy parameter defaults and #{venue_count} venue configs into shared memory"
         })
+      end
+
+      def seed_profit_formula(_params)
+        Trading::StrategyParameterService.seed_profit_formula!(account: account)
+
+        formula_strategies = %w[
+          arbitrage tail_end_yield combinatorial_arbitrage
+          longshot_fading prediction_market_making mean_reversion
+          momentum cross_platform_arbitrage spot_lag_arbitrage
+        ]
+
+        success_result({
+          seeded: true,
+          strategy_types: formula_strategies,
+          layers: {
+            "risk_free" => { weight: "40%", strategies: %w[arbitrage tail_end_yield combinatorial_arbitrage] },
+            "statistical_edge" => { weight: "40%", strategies: %w[longshot_fading prediction_market_making mean_reversion] },
+            "alpha_generation" => { weight: "20%", strategies: %w[momentum cross_platform_arbitrage spot_lag_arbitrage] }
+          },
+          venue_overrides: %w[kalshi polymarket],
+          llm_cost_per_tick: "$0.00",
+          message: "Seeded Profit Formula: 9 zero-LLM-cost strategies with venue-specific overrides for Kalshi and Polymarket"
+        })
+      end
+
+      def import_historical_data(params)
+        venue_slug = params[:venue_slug]
+        return error_result("venue_slug is required") unless venue_slug.present?
+
+        venue = Trading::Venue.find_by(slug: venue_slug)
+        return error_result("Venue '#{venue_slug}' not found") unless venue
+
+        interval = params[:interval].presence || "1h"
+
+        case venue_slug
+        when "kalshi"
+          importer = Trading::KalshiHistoricalImporter.new(venue)
+          ticker = params[:ticker]
+          return error_result("ticker is required for Kalshi imports") unless ticker.present?
+
+          # If ticker looks like an event prefix (e.g., "KXFED"), import the event
+          if ticker.length <= 10 && !ticker.include?("/")
+            result = importer.import_event(ticker, interval: interval)
+            success_result({ venue: venue_slug, event_ticker: ticker, results: result, total_imported: result.sum { |r| r[:imported] || 0 } })
+          else
+            result = importer.import_ticker(ticker, interval: interval)
+            success_result({ venue: venue_slug, ticker: ticker, **result })
+          end
+
+        when "polymarket"
+          importer = Trading::PolymarketHistoricalImporter.new(venue)
+          if params[:slug].present?
+            results = importer.import_event(params[:slug], interval: interval)
+            success_result({ venue: venue_slug, slug: params[:slug], results: results, total_imported: results.sum { |r| r[:imported] || 0 } })
+          elsif params[:ticker].present?
+            result = importer.import_condition(params[:ticker], interval: interval)
+            success_result({ venue: venue_slug, condition_id: params[:ticker], **result })
+          else
+            limit = (params[:limit] || 50).to_i
+            results = importer.import_from_registry(limit: limit, interval: interval)
+            success_result({ venue: venue_slug, source: "registry", results: results, total_imported: results.sum { |r| r[:imported] || 0 } })
+          end
+        else
+          error_result("Historical import not supported for venue '#{venue_slug}'. Supported: kalshi, polymarket")
+        end
+      end
+
+      def run_backtest(params)
+        enforce_concurrent_session_limit!
+
+        profit_formula_types = %w[
+          arbitrage tail_end_yield combinatorial_arbitrage
+          longshot_fading prediction_market_making mean_reversion
+          momentum cross_platform_arbitrage spot_lag_arbitrage
+        ]
+
+        strategy_types = params[:strategy_types] || profit_formula_types
+        tick_count = (params[:tick_count] || 50).to_i.clamp(5, 500)
+        tick_interval = (params[:tick_interval] || 5).to_i.clamp(1, 60)
+        initial_balance = (params[:initial_balance] || 10_000).to_f
+
+        session_config = {
+          "venue_slug" => "simulator",
+          "initial_balance" => initial_balance,
+          "price_mode" => "historical_replay",
+          "mode" => "backtest"
+        }
+        session_config["strategy_overrides"] = params[:strategy_overrides] if params[:strategy_overrides].present?
+
+        session = Trading::TrainingSession.create!(
+          account_id: account.id,
+          name: params[:name] || "Backtest #{Time.current.strftime('%Y%m%d_%H%M')}",
+          status: "pending",
+          market_count: 5,
+          tick_count: tick_count,
+          tick_interval: tick_interval,
+          strategy_types: strategy_types,
+          include_classic: false,
+          config: session_config
+        )
+
+        WorkerJobService.enqueue_trading_training_session(session.id)
+        success_result(serialize_training_session(session))
+      end
+
+      def parameter_sweep(params)
+        strategy_type = params[:strategy_type]
+        return error_result("strategy_type is required") unless strategy_type.present?
+
+        # If sweep_id provided, collect existing results
+        if params[:sweep_id].present?
+          service = Trading::ParameterSweepService.new(
+            account: account, strategy_type: strategy_type
+          )
+          results = service.collect_results(params[:sweep_id])
+
+          if params[:promote_best]
+            promoted = service.promote_best!(params[:sweep_id])
+            results[:promoted] = promoted
+          end
+
+          return success_result(results)
+        end
+
+        # Create new sweep
+        param_ranges = params[:param_ranges]
+        return error_result("param_ranges is required") unless param_ranges.is_a?(Hash) && param_ranges.any?
+
+        max_combos = (params[:max_combos] || 64).to_i.clamp(1, 256)
+        method = params[:method].presence || "grid"
+
+        base_config = {
+          "venue_slug" => "simulator",
+          "initial_balance" => (params[:initial_balance] || 10_000).to_f,
+          "tick_count" => (params[:tick_count] || 50).to_i,
+          "tick_interval" => 5,
+          "price_mode" => "historical_replay"
+        }
+
+        service = Trading::ParameterSweepService.new(
+          account: account, strategy_type: strategy_type, base_config: base_config
+        )
+
+        combinations = service.generate_combinations(param_ranges, method: method, max_combos: max_combos)
+        result = service.create_sweep(combinations)
+
+        success_result(result.merge(
+          strategy_type: strategy_type,
+          method: method,
+          combinations_generated: combinations.size,
+          message: "Created #{combinations.size} backtest sessions. Use trading_parameter_sweep with sweep_id='#{result[:sweep_id]}' to check results."
+        ))
       end
 
       def enforce_concurrent_session_limit!

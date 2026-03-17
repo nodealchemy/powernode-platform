@@ -102,6 +102,7 @@ module Ai
     # Callbacks
     before_validation :generate_slug, if: -> { name.present? && (slug.blank? || name_changed?) }
     before_validation :normalize_agent_type
+    before_validation :auto_resolve_provider_from_model, if: -> { mcp_metadata_changed? && mcp_metadata&.dig("model_config", "model").present? }
     before_save :update_version_if_mcp_changed
     before_save :ensure_mcp_tool_manifest
     after_commit :sync_to_knowledge_graph, on: [:create, :update]
@@ -165,6 +166,35 @@ module Ai
       end
 
       skill_data.map(&:last).reject(&:blank?).join("\n\n")
+    end
+
+    # Auto-resolve provider when model name changes to a different provider family
+    def auto_resolve_provider_from_model
+      model_name = mcp_metadata.dig("model_config", "model")
+      return if model_name.blank?
+
+      target_type = provider_type_for_model(model_name)
+      return if target_type.nil? || (provider.present? && provider.provider_type == target_type)
+
+      resolved = account.ai_providers.active.by_type(target_type).ordered_by_priority.first
+      if resolved
+        self.provider = resolved
+        Rails.logger.info("[Ai::Agent] Auto-resolved provider for model '#{model_name}': #{resolved.name} (#{target_type})")
+      else
+        errors.add(:base, "No active #{target_type} provider found in account for model '#{model_name}'")
+      end
+    end
+
+    # Map model name prefix to provider_type
+    def provider_type_for_model(model_name)
+      case model_name
+      when /\Aclaude/   then "anthropic"
+      when /\Agrok/     then "grok"
+      when /\Agpt-|\Ao[134]/ then "openai"
+      when /\Agemini/   then "google"
+      when /\Amistral/  then "mistral"
+      else nil # Unknown models: leave provider unchanged (ollama/custom stay as-is)
+      end
     end
 
     # Prevent model/provider mismatches (e.g. grok-3 on Anthropic provider)

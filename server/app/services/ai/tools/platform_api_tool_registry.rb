@@ -294,6 +294,11 @@ module Ai
         "trading_get_strategy_params" => "Ai::Tools::TradingSimulationTool",
         "trading_update_strategy_params" => "Ai::Tools::TradingSimulationTool",
         "trading_seed_strategy_defaults" => "Ai::Tools::TradingSimulationTool",
+        "trading_seed_profit_formula" => "Ai::Tools::TradingSimulationTool",
+        # Trading — backtesting & parameter sweep
+        "trading_import_historical_data" => "Ai::Tools::TradingSimulationTool",
+        "trading_run_backtest" => "Ai::Tools::TradingSimulationTool",
+        "trading_parameter_sweep" => "Ai::Tools::TradingSimulationTool",
         # Trading — evolution & audit
         "trading_list_evolution_epochs" => "Ai::Tools::TradingEvolutionTool",
         "trading_get_evolution_epoch" => "Ai::Tools::TradingEvolutionTool",
