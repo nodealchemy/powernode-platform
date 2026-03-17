@@ -4,6 +4,7 @@ module Trading
   module Evaluators
     class WeatherModelAlpha < Base
       include Concerns::DynamicKelly
+      include Concerns::BayesianBelief
 
       register "weather_model_alpha"
 
@@ -54,31 +55,46 @@ module Trading
         )
         return signals unless model_prob
 
-        # Calculate edge
-        edge = (model_prob - price).abs
+        # Update Bayesian belief with model evidence and market price movements
+        if @price_history.length >= 2
+          prev = (@price_history[-2]["close"] || @price_history[-2][:close]).to_f
+          update_belief_from_price(previous_price: prev, current_price: price) if prev > 0
+        end
+        update_belief(
+          evidence_up: model_prob,
+          evidence_down: 1.0 - model_prob,
+          weight: model_age && model_age < max_age ? (1.0 - model_age.to_f / max_age) : 0.5
+        )
+
+        # Blend model probability with Bayesian posterior (incorporates market information)
+        blended_prob = bayesian_blend(model_prob)
+
+        # Calculate edge using blended probability
+        edge = (blended_prob - price).abs
         min_edge = param("min_edge_pct", 8.0) / 100.0
         return signals unless edge >= min_edge
 
-        # Determine direction
-        direction = model_prob > price ? "long" : "short"
+        # Determine direction from blended estimate
+        direction = blended_prob > price ? "long" : "short"
 
         # Confidence based on model agreement and edge size
         confidence = calculate_weather_confidence(edge, model_age, parsed)
 
-        # Dynamic Kelly sizing from edge + historical performance
-        kelly = dynamic_kelly(estimated_prob: model_prob, market_price: price)
+        # Dynamic Kelly sizing from blended probability + historical performance
+        kelly = dynamic_kelly(estimated_prob: blended_prob, market_price: price)
 
         signals << build_signal(
           type: "entry",
           direction: direction,
           confidence: confidence,
           strength: classify_weather_strength(edge),
-          reasoning: "Weather model alpha: GFS model probability #{(model_prob * 100).round(1)}% vs market #{(price * 100).round(1)}¢. Edge: #{(edge * 100).round(1)}%. #{parsed[:metric]} #{parsed[:threshold]}#{parsed[:unit]} in #{parsed[:location]} on #{parsed[:date]}.",
+          reasoning: "Weather model alpha: GFS model probability #{(model_prob * 100).round(1)}% (blended: #{(blended_prob * 100).round(1)}%) vs market #{(price * 100).round(1)}¢. Edge: #{(edge * 100).round(1)}%. #{parsed[:metric]} #{parsed[:threshold]}#{parsed[:unit]} in #{parsed[:location]} on #{parsed[:date]}.",
           indicators: {
             edge: edge,
             edge_pct: (edge * 100).round(2),
             market_price: price,
             model_probability: model_prob,
+            blended_probability: blended_prob,
             model_source: "NOAA GFS",
             model_age_hours: model_age,
             location: parsed[:location],
@@ -95,10 +111,10 @@ module Trading
         )
 
         # Exit signals for existing positions if model flipped
-        @positions.select { |p| p["status"] == "open" }.each do |pos|
+        @positions.each do |pos|
           pos_direction = pos["side"]
           # If model now disagrees with position direction
-          model_direction = model_prob > price ? "long" : "short"
+          model_direction = blended_prob > price ? "long" : "short"
           if pos_direction != model_direction && edge >= min_edge
             signals << build_signal(
               type: "exit",

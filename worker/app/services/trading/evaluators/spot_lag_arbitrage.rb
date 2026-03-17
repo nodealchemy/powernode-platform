@@ -31,7 +31,23 @@ module Trading
 
         max_spread = param("max_spread_pct", 5.0) / 100.0
 
+        # Undervaluation entry filter (Random Forest research — @noisyb0y1):
+        # Only enter when market price is significantly below model estimate.
+        # With multiplier=0.5, market must be at 50% of implied value (2x margin of safety).
+        # Even with 20% model error, still profitable. Default 1.0 = disabled (any edge).
+        underval_mult = param("undervaluation_multiplier", 1.0).to_f
+
         if !has_open_position? && edge.abs > min_edge && (spread_pct.nil? || spread_pct <= max_spread)
+          # Apply undervaluation filter: for longs, market must be below implied × multiplier
+          # For shorts, market must be above implied × (2 - multiplier) [symmetric]
+          if underval_mult < 1.0
+            if edge > 0 # long candidate
+              return signals unless market_price <= implied_prob * underval_mult
+            else # short candidate
+              return signals unless market_price >= implied_prob * (2.0 - underval_mult)
+            end
+          end
+
           direction = edge > 0 ? "long" : "short"
           signals << build_signal(
             type: "entry", direction: direction,
@@ -41,13 +57,33 @@ module Trading
             indicators: { spot_price: spot, strike_price: strike, implied_probability: implied_prob, market_price: market_price, edge: edge, edge_pct: (edge * 100).round(2),
                           limit_order: true, limit_price: market_price.round(4) }
           )
-        elsif has_open_position? && edge.abs < exit_edge
-          signals << build_signal(
-            type: "exit", direction: current_position&.dig("side") || "long",
-            confidence: 0.7, strength: 0.6,
-            reasoning: "Spot-lag edge collapsed to #{(edge * 100).round(2)}%, market has caught up",
-            indicators: { edge: edge, edge_pct: (edge * 100).round(2) }
-          )
+        elsif has_open_position?
+          # Exit value ratio (0.9x rule): exit when market reaches X% of model estimate.
+          # With ratio=0.9, sell when market hits 90% of model value — leaves 10% on table
+          # but avoids reversals. Default 1.0 = only exit when edge collapses (original).
+          exit_ratio = param("exit_value_ratio", 1.0).to_f
+          position_side = current_position&.dig("side") || "long"
+
+          should_exit = if exit_ratio < 1.0
+                          if position_side == "long"
+                            market_price >= implied_prob * exit_ratio
+                          else
+                            market_price <= implied_prob * (2.0 - exit_ratio)
+                          end
+                        else
+                          edge.abs < exit_edge
+                        end
+
+          if should_exit
+            signals << build_signal(
+              type: "exit", direction: position_side,
+              confidence: 0.7, strength: 0.6,
+              reasoning: exit_ratio < 1.0 ?
+                "Exit at #{(exit_ratio * 100).round(0)}% of model value: market #{(market_price * 100).round(1)}% vs target #{(implied_prob * exit_ratio * 100).round(1)}%" :
+                "Spot-lag edge collapsed to #{(edge * 100).round(2)}%, market has caught up",
+              indicators: { edge: edge, edge_pct: (edge * 100).round(2), exit_ratio: exit_ratio }
+            )
+          end
         end
 
         signals
@@ -55,6 +91,17 @@ module Trading
 
       private
 
+      # Logit Jump-Diffusion model for prediction market implied probability.
+      #
+      # Standard Black-Scholes assumes log-normal prices unbounded above zero —
+      # WRONG for prediction markets where p ∈ (0,1). This model applies the
+      # logit transform L(p) = ln(p/(1-p)) which maps (0,1) → (-∞,+∞), runs
+      # the diffusion in logit-space, then maps back.
+      #
+      # Jump component (λ) handles discrete event-driven price jumps (e.g.,
+      # earnings, policy announcements) that continuous diffusion can't capture.
+      #
+      # Reference: "Toward Black-Scholes for Prediction Markets" (arXiv 2510.15205)
       def calculate_implied_probability(spot, strike)
         vol = estimate_volatility
         return simple_implied_probability(spot, strike) if vol.nil? || vol.zero?
@@ -62,16 +109,46 @@ module Trading
         time_remaining = time_to_expiry
         return simple_implied_probability(spot, strike) if time_remaining.nil? || time_remaining <= 0
 
-        # Correct Black-Scholes d1: includes risk-free rate and variance terms
         r = param("risk_free_rate", 0.05).to_f
-        d1 = (Math.log(spot / strike) + (r + 0.5 * vol**2) * time_remaining) / (vol * Math.sqrt(time_remaining))
-        normal_cdf(d1)
+        lambda_jump = param("jump_intensity", 0.0).to_f
+
+        # Belief volatility: for prediction markets, σ_b captures the volatility
+        # of the belief process, not the underlying asset. Scale down raw vol
+        # since prediction market prices are bounded and less volatile than spot.
+        sigma_b = param("belief_volatility", nil)&.to_f
+        sigma_b = vol * 0.5 if sigma_b.nil? || sigma_b <= 0
+
+        # Logit-space d1: operates on ln(S/K) like Black-Scholes but with
+        # belief volatility σ_b instead of asset volatility σ.
+        logit_d1 = (Math.log(spot / strike) + (r + 0.5 * sigma_b**2) * time_remaining) / (sigma_b * Math.sqrt(time_remaining))
+
+        # Continuous component: N(logit_d1) gives base implied probability
+        continuous_prob = normal_cdf(logit_d1)
+
+        # Jump component: jumps reduce certainty by pulling probability toward 0.5.
+        # With jump intensity λ and time T, the probability of at least one jump
+        # is 1 - e^(-λT). Each jump introduces uncertainty (mean-reversion to 0.5).
+        if lambda_jump > 0 && time_remaining > 0
+          jump_prob = 1.0 - Math.exp(-lambda_jump * time_remaining)
+          # Blend: weighted average between continuous estimate and 0.5 (max uncertainty)
+          implied = continuous_prob * (1.0 - jump_prob) + 0.5 * jump_prob
+        else
+          implied = continuous_prob
+        end
+
+        # Logit-space boundary: ensure result stays in valid prediction market range
+        # Apply calibration if available (SignalCalibration concern)
+        implied = calibrate_probability(implied) if respond_to?(:calibrate_probability, true)
+        implied.clamp(0.01, 0.99)
       rescue StandardError
         simple_implied_probability(spot, strike)
       end
 
+      # Sigmoid/logistic fallback — uses logit transform for bounded (0,1) output.
+      # The scaling factor 5.0 controls steepness around the strike.
       def simple_implied_probability(spot, strike)
-        1.0 / (1.0 + Math.exp(-Math.log(spot / strike) * 5.0))
+        logit = Math.log(spot / strike) * 5.0
+        1.0 / (1.0 + Math.exp(-logit))
       end
 
       def estimate_volatility

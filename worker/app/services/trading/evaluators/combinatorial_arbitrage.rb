@@ -3,6 +3,8 @@
 module Trading
   module Evaluators
     class CombinatorialArbitrage < Base
+      include Concerns::DistributionalDivergence
+
       register "combinatorial_arbitrage"
 
       def evaluate
@@ -25,7 +27,7 @@ module Trading
                    when "b_implies_a" then rel_price - market_price
                    else 0
                    end
-          min_spread = param("min_arb_spread_pct", 1.5) / 100.0
+          min_spread = param("min_arb_spread_pct", 1.5).to_f / 100.0
           next if spread <= 0
           next if spread < min_spread
 
@@ -66,6 +68,25 @@ module Trading
           signals.concat(completeness_signals)
         end
 
+        # KL-divergence: detect distributional mispricings across market clusters
+        divergence_signals = check_distributional_divergence(market_price)
+        signals.concat(divergence_signals)
+
+        # Early exit: when LLM validation is off, only math-arb (mutually exclusive
+        # events) and completeness checks produce signals. Both require event-ticker
+        # siblings in the pair_registry. Skip the expensive graph fetch + price
+        # lookups if no siblings exist and no cached constraints are pending.
+        unless param("use_llm_validation", true)
+          if cached_constraints.empty? && signals.empty?
+            has_event_siblings = my_event && @pair_registry.any? do |pair, info|
+              next false if pair == strategy_pair
+              rel_event = info["event_ticker"] || info[:event_ticker]
+              rel_event.present? && rel_event == my_event
+            end
+            return check_exit_conditions(signals) unless has_event_siblings
+          end
+        end
+
         # Respect scan interval cooldown (for the expensive pairwise LLM scan only)
         scan_interval = param("scan_interval_seconds", 180)
         last_scan = strategy_config["last_arb_scan_at"]
@@ -101,7 +122,7 @@ module Trading
 
         return check_exit_conditions(signals) if related.empty?
 
-        min_spread = param("min_arb_spread_pct", 1.5) / 100.0
+        min_spread = param("min_arb_spread_pct", 1.5).to_f / 100.0
         scan_limit = param("max_markets_to_scan", param("use_llm_validation", true) ? 5 : 50).to_i
 
         # Filter invalid comparisons
@@ -270,7 +291,7 @@ module Trading
 
             next unless constraint[:violation]
 
-            max_spread_pct = param("max_violation_spread_pct", 15.0) / 100.0
+            max_spread_pct = param("max_violation_spread_pct", 15.0).to_f / 100.0
             spread = case constraint[:direction]
                      when "a_implies_b" then market_price - rel_price
                      when "b_implies_a" then rel_price - market_price
@@ -378,6 +399,17 @@ module Trading
           end
         end
 
+        # Event-level completeness prefetch: the session pair_registry may only contain
+        # a filtered subset of outcomes (e.g., 4/30 NBA teams). The venue-level registry
+        # on the server has ALL outcomes from expand_event_siblings!. Query it to get the
+        # full picture before computing the sum.
+        prefetched = prefetch_full_event_outcomes(my_event, contracts)
+        if prefetched && prefetched.any?
+          prefetched.each do |ticker, entry|
+            contracts[ticker] = entry unless contracts.key?(ticker)
+          end
+        end
+
         return signals if contracts.size < 3
 
         # Fetch implied YES price for each contract
@@ -385,14 +417,20 @@ module Trading
         implied_yes = {}
 
         contracts.each do |ticker, entry|
-          price = if ticker == my_ticker
-                    market_price
-                  else
-                    fetch_pair_price(entry[:pair])
-                  end
-          next unless price
-
-          implied_yes[ticker] = entry[:outcome] == "NO" ? 1.0 - price : price
+          # Prefer Gamma mid-price (accurate probability) over CLOB execution price
+          # (inflated for illiquid markets — ask=$0.999 for 0.1% probability teams).
+          gamma_price = entry.dig(:info, "gamma_price")&.to_f
+          if gamma_price && gamma_price > 0
+            implied_yes[ticker] = gamma_price
+          else
+            price = if ticker == my_ticker
+                      market_price
+                    else
+                      fetch_pair_price(entry[:pair])
+                    end
+            next unless price
+            implied_yes[ticker] = entry[:outcome] == "NO" ? 1.0 - price : price
+          end
         end
 
         return signals if implied_yes.size < 3
@@ -413,11 +451,24 @@ module Trading
           return signals
         end
 
-        # Venue-aware cost estimate (replaces hardcoded slippage_pct).
-        # Dutch book signals are single-leg — build_signal's cost gate does
-        # the final profitability check, so pass raw edge and let it deduct once.
-        est_cost = estimate_signal_cost
-        min_edge = param("min_completeness_edge_pct", 2.0) / 100.0
+        # Use limit order cost for completeness checks — Dutch book signals are
+        # limit orders, not market orders. estimate_signal_cost assumes market
+        # execution and returns up to 50% on illiquid PM markets, which
+        # incorrectly kills Dutch book signals on zero-fee venues.
+        est_cost = min_limit_order_cost
+        # Venue-aware minimum edge: the seeded default (1.5%) is calibrated for
+        # fee-bearing venues. On zero-fee venues (PM), limit orders cost $0 and
+        # any positive per-leg edge is pure profit. Dutch book on PM with 26
+        # outcomes and 2.4% excess yields ~0.88% per-leg edge for favorites.
+        configured_min_edge = param("min_completeness_edge_pct", 2.0).to_f / 100.0
+        min_edge = if venue_flat_fee > 0
+                     configured_min_edge
+                   else
+                     # PM: lower floor — the cost gate in build_signal handles profitability,
+                     # this is just a noise filter. 0.05% filters jitter without killing
+                     # legitimate Dutch book legs on low-probability outcomes.
+                     [configured_min_edge, 0.0005].min
+                   end
         my_implied_yes = implied_yes[my_ticker]
         return signals unless my_implied_yes
 
@@ -433,9 +484,13 @@ module Trading
 
           if net_edge > min_edge
             direction = my_is_no ? "long" : "short"
+            # Dutch book confidence: the mathematical structure (sum > 100%) is certain,
+            # so base confidence starts at 0.65 (above the 0.6 order threshold).
+            # Scale with total excess (not per-leg edge, which is small for many outcomes).
+            dutch_book_confidence = [0.65 + (excess * 3.0), 0.90].min
             signals << build_signal(
               type: "entry", direction: direction,
-              confidence: [(net_edge / 0.10 + 0.4), 0.90].min,
+              confidence: dutch_book_confidence,
               strength: (net_edge / 0.05).clamp(0.0, 1.0),
               reasoning: "Dutch book: #{implied_yes.size} exclusive outcomes sum to " \
                          "#{(total_sum * 100).round(1)}% (>100%). Per-leg edge: #{(per_leg_edge * 100).round(1)}%, " \
@@ -444,7 +499,8 @@ module Trading
                 completeness_sum: total_sum, excess: excess, per_leg_edge: per_leg_edge,
                 n_outcomes: implied_yes.size, edge: per_leg_edge,
                 market_price: market_price, my_implied_yes: my_implied_yes,
-                dutch_book: true,
+                dutch_book: true, prefetched_outcomes: prefetched&.any? || false,
+                limit_order: true, limit_price: market_price.round(4),
                 outcome_prices: implied_yes.transform_values { |v| v.round(4) }
               }
             )
@@ -456,17 +512,23 @@ module Trading
           end
         end
 
-        # Underpricing: only valid if we know we have ALL outcomes for this event
-        if excess < 0 && param("complete_outcome_set", false)
+        # Underpricing: only valid if we know we have ALL outcomes for this event.
+        # complete_outcome_set can be set via param OR inferred from a successful prefetch.
+        have_complete_set = param("complete_outcome_set", false) ||
+                            (prefetched && prefetched.any?)
+        if excess < 0 && have_complete_set
           deficit = -excess
           per_leg_edge = my_implied_yes * deficit / (1.0 - deficit)
           net_edge = per_leg_edge - est_cost
 
           if net_edge > min_edge
             direction = my_is_no ? "short" : "long"
+            # Reverse Dutch book: less certain than forward (requires complete outcome set),
+            # so base confidence is lower (0.60) but still above order threshold.
+            reverse_confidence = [0.60 + (deficit * 3.0), 0.85].min
             signals << build_signal(
               type: "entry", direction: direction,
-              confidence: [(net_edge / 0.10 + 0.3), 0.85].min,
+              confidence: reverse_confidence,
               strength: (net_edge / 0.05).clamp(0.0, 1.0),
               reasoning: "Reverse Dutch book: #{implied_yes.size} outcomes sum to " \
                          "#{(total_sum * 100).round(1)}% (<100%). Net edge: #{(net_edge * 100).round(1)}%",
@@ -474,7 +536,8 @@ module Trading
                 completeness_sum: total_sum, deficit: deficit, per_leg_edge: per_leg_edge,
                 n_outcomes: implied_yes.size, edge: per_leg_edge,
                 market_price: market_price, my_implied_yes: my_implied_yes,
-                dutch_book: true, reverse: true,
+                dutch_book: true, reverse: true, prefetched_outcomes: prefetched&.any? || false,
+                limit_order: true, limit_price: market_price.round(4),
                 outcome_prices: implied_yes.transform_values { |v| v.round(4) }
               }
             )
@@ -517,13 +580,113 @@ module Trading
       def group_by_event
         groups = {}
         @pair_registry.each do |pair, info|
-          event = info["event_ticker"] || info[:event_ticker]
+          event = info["event_ticker"] || info[:event_ticker] ||
+                  info["slug"] || info[:slug]
           next unless event
 
           groups[event] ||= {}
           groups[event][pair] = info
         end
         groups
+      end
+
+      # Prefetch all outcomes for an event from the server's full venue-level pair_registry.
+      #
+      # The session-level @pair_registry only contains filtered markets (e.g., 4/30 NBA
+      # Champion teams). The venue-level registry has ALL outcomes registered by
+      # expand_event_siblings! during discovery. Without this prefetch, completeness
+      # sums are artificially low (68% instead of 101.8%), missing Dutch book opportunities.
+      #
+      # Uses market_graph_related (which searches the full venue registry) to discover
+      # siblings, then batch-fetches their prices. Results are cached in @graph_cache
+      # so sibling strategies reuse them within the same tick.
+      #
+      # @param event_ticker [String] the event_ticker to find all outcomes for
+      # @param known_contracts [Hash] already-known contracts from the local pair_registry
+      # @return [Hash, nil] additional contracts { ticker => { pair:, outcome:, info: } } or nil
+      def prefetch_full_event_outcomes(event_ticker, known_contracts)
+        return nil unless @data_fetcher
+        return nil unless event_ticker.present?
+
+        # Check graph_cache for previously prefetched event outcomes
+        cache_key = "event_outcomes:#{event_ticker}"
+        if @graph_cache&.key?(cache_key)
+          cached = @graph_cache[cache_key]
+          return cached == :no_additional ? nil : cached
+        end
+
+        # Use market_graph_related to find ALL event siblings from the full venue registry.
+        # Also store under the graph_cache_key used by evaluate() so the later call is a hit.
+        graph_cache_key = strategy_pair.sub(%r{/(YES|NO)\z}, "")
+        related = if @graph_cache&.key?(graph_cache_key)
+                    @graph_cache[graph_cache_key]
+                  else
+                    result = @data_fetcher.market_graph_related(
+                      pair: strategy_pair,
+                      account_id: @strategy_data["account_id"],
+                      agent_id: @agent_id,
+                      similarity_threshold: param("similarity_threshold", 0.55)
+                    )
+                    @graph_cache[graph_cache_key] = result if @graph_cache
+                    result
+                  end
+
+        # Only keep event_ticker siblings (exact event match, not embedding-based)
+        event_siblings = related.select { |r| r["source"] == "event_ticker" }
+
+        if event_siblings.empty?
+          @graph_cache[cache_key] = :no_additional if @graph_cache
+          return nil
+        end
+
+        # Build additional contracts from siblings not already in known_contracts
+        venue_prefix = strategy_pair[/\A(KL_|PM)/]
+        additional = {}
+        event_siblings.each do |sibling|
+          sib_pair = sibling["pair"] || sibling[:pair]
+          next unless sib_pair
+
+          # Skip cross-venue pairs
+          next if venue_prefix && !sib_pair.start_with?(venue_prefix)
+
+          sib_ticker = sib_pair.sub(%r{/(YES|NO)\z}, "")
+          next if known_contracts.key?(sib_ticker)
+
+          sib_outcome = sib_pair[%r{(YES|NO)\z}]
+          existing = additional[sib_ticker]
+          if existing.nil? || sib_outcome == "YES"
+            additional[sib_ticker] = {
+              pair: sib_pair, outcome: sib_outcome,
+              info: { "question" => sibling["question"], "event_ticker" => event_ticker, "source" => "prefetch",
+                      "gamma_price" => sibling["gamma_price"] || sibling[:gamma_price] }
+            }
+          end
+        end
+
+        if additional.empty?
+          @graph_cache[cache_key] = :no_additional if @graph_cache
+          return nil
+        end
+
+        log("#{strategy_pair}: prefetched #{additional.size} additional outcomes for event #{event_ticker} " \
+            "(local: #{known_contracts.size}, total: #{known_contracts.size + additional.size})")
+
+        # Batch-fetch prices for the additional pairs to pre-warm the price cache
+        pairs_to_fetch = additional.values.map { |e| e[:pair] }.compact
+        venue_id = @strategy_data["venue_id"]
+        if pairs_to_fetch.any? && venue_id && @data_fetcher.respond_to?(:batch_fetch_tickers)
+          begin
+            batch_prices = @data_fetcher.batch_fetch_tickers(pairs: pairs_to_fetch, venue_id: venue_id)
+            batch_prices.each do |pair, data|
+              @price_cache&.set(pair, data) if data
+            end
+          rescue StandardError => e
+            log("#{strategy_pair}: batch price fetch for prefetched outcomes failed: #{e.message}", level: :warn)
+          end
+        end
+
+        @graph_cache[cache_key] = additional if @graph_cache
+        additional
       end
 
       def find_related_from_pair_registry

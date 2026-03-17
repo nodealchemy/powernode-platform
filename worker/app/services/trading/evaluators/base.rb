@@ -11,6 +11,7 @@ module Trading
     # Subclasses implement #evaluate and return an Array of signal Hashes.
     class Base
       include Concerns::DepthAware
+      include Concerns::SignalCalibration
 
       attr_reader :strategy_data, :market_data, :positions, :params,
                   :price_history, :allocated_capital, :parity_data, :spot_price_data, :last_entry_indicators,
@@ -72,6 +73,9 @@ module Trading
         @performance_context = context["performance_context"] || {}
         @is_training = context["is_training"] || false
         @external_data_sources = []
+        # Clear memoized venue costs — params may change between ticks
+        @_venue_fee_rate = nil
+        @_venue_flat_fee = nil
       end
 
       # Subclasses override this to generate trading signals.
@@ -111,30 +115,57 @@ module Trading
         @params.fetch(key.to_s, default)
       end
 
-      # Venue-aware fee rate: Polymarket charges zero fees, Kalshi ~4% round-trip.
-      # Derives venue from pair prefix (e.g., "PM_..." = Polymarket).
+      # Venue-aware proportional fee rate (round-trip): PM=0%, Binance=0.2%, Kalshi=4%.
+      # Derives venue from pair prefix (e.g., "PM_..." = Polymarket, "BN_..." = Binance).
       def venue_fee_rate
-        pair = strategy_pair || ""
-        if pair.start_with?("PM")
-          0.0
-        else
-          param("fee_deduction_rate", 0.04)
+        @_venue_fee_rate ||= begin
+          pair = strategy_pair || ""
+          if pair.start_with?("PM")
+            0.0
+          elsif pair.start_with?("BN")
+            param("fee_deduction_rate", 0.002).to_f  # Binance: 0.1% maker+taker = 0.2% RT
+          else
+            param("fee_deduction_rate", 0.04).to_f   # Kalshi: ~4% round-trip
+          end
         end
       end
 
       # Venue-aware flat fee per contract side.
-      # Polymarket: $0, Kalshi: $0.01/side.
+      # Polymarket: $0, Kalshi: $0.01/side, Binance: $0.
+      # Memoized — called multiple times per tick in cost estimation hot path.
       def venue_flat_fee
-        pair = strategy_pair || ""
-        if pair.start_with?("PM")
-          0.0
-        else
-          0.01
+        @_venue_flat_fee ||= begin
+          pair = strategy_pair || ""
+          if pair.start_with?("PM") || pair.start_with?("BN")
+            0.0
+          else
+            0.01
+          end
         end
       end
 
       def current_price
         (@market_data["last_price"] || @market_data[:last_price]).to_f
+      end
+
+      # Mid-price from live order book (bid/ask midpoint).
+      # Preferred over last_price on venues where last trade can be stale.
+      # Falls back to most recent price_history entry, then to last_price.
+      def mid_price
+        b = bid_price
+        a = ask_price
+        if b > 0 && a > 0 && (a - b).abs < 0.5
+          return (b + a) / 2.0
+        end
+
+        # Fallback: most recent price_history snapshot (seeded from real CLOB data)
+        if @price_history.is_a?(Array) && @price_history.any?
+          last_snap = @price_history.last
+          snap_price = (last_snap["price"] || last_snap[:price] || last_snap["last_price"] || last_snap[:last_price]).to_f
+          return snap_price if snap_price > 0
+        end
+
+        current_price
       end
 
       def bid_price
@@ -253,7 +284,10 @@ module Trading
             effective_cost = is_limit ? min_limit_order_cost : estimate_signal_cost
             # When spread is synthetic (fabricated by StrategyContextBuilder), double the
             # cost threshold to be conservative about entering with unreliable data.
-            effective_cost *= 2.0 if synthetic_spread?
+            # When spread is synthetic (fabricated by StrategyContextBuilder), double the
+            # cost threshold — but only on fee-bearing venues. On zero-fee venues (PM),
+            # limit orders cost nothing and the synthetic spread is irrelevant.
+            effective_cost *= 2.0 if synthetic_spread? && venue_flat_fee > 0
 
             # Multi-leg trades (arbitrage) incur costs on each leg
             leg_count = indicators[:legs]&.size || (indicators[:multi_leg] ? 2 : 1)
@@ -273,14 +307,15 @@ module Trading
         end
 
         urgency = classify_urgency(net_edge)
+        calibrated_conf = calibrate_confidence(confidence, type: type)
 
         {
           type: type,
           direction: direction,
-          confidence: confidence.clamp(0.0, 1.0),
+          confidence: calibrated_conf,
           strength: strength&.clamp(0.0, 1.0),
           reasoning: reasoning,
-          indicators: indicators.merge(net_edge: net_edge, execution_cost: effective_cost || estimated_cost),
+          indicators: indicators.merge(net_edge: net_edge, execution_cost: effective_cost || estimated_cost, raw_confidence: confidence),
           urgency: urgency
         }
       end
@@ -301,11 +336,17 @@ module Trading
       def classify_urgency(net_edge)
         return "medium" unless net_edge
 
-        if net_edge > 0.10
+        # Zero-fee venues profit from smaller edges — a 1% net edge on PM is
+        # 100% profit (no fees to overcome). Fee-bearing venues need wider margins.
+        low_threshold  = venue_flat_fee > 0 ? 0.02 : 0.005
+        med_threshold  = venue_flat_fee > 0 ? 0.05 : 0.02
+        high_threshold = venue_flat_fee > 0 ? 0.10 : 0.05
+
+        if net_edge > high_threshold
           "high"
-        elsif net_edge > 0.05
+        elsif net_edge > med_threshold
           "medium"
-        elsif net_edge > 0.02
+        elsif net_edge > low_threshold
           "low"
         else
           "skip"

@@ -212,7 +212,12 @@ class LlmProxyClient
 
   # Build or retrieve a cached LLM client for a provider configuration
   def build_llm_client(provider_config)
-    credential_id = provider_config["provider_credential_id"]
+    # Support both string and symbol keys (context builder uses symbols, JSON uses strings)
+    credential_id = provider_config["provider_credential_id"] || provider_config[:provider_credential_id]
+    provider_type = provider_config["provider_type"] || provider_config[:provider_type]
+    base_url = provider_config["provider_base_url"] || provider_config[:provider_base_url]
+    provider_name = provider_config["provider_name"] || provider_config[:provider_name]
+
     cache_key = credential_id
 
     cached_client = @llm_clients[cache_key]
@@ -220,14 +225,16 @@ class LlmProxyClient
 
     # Resolve credentials (decrypted API key)
     credentials = @credential_resolver.resolve(credential_id)
-    api_key = credentials["api_key"]
+    api_key = credentials&.dig("api_key") || credentials&.dig(:api_key)
     raise "No API key found for credential #{credential_id}" unless api_key
 
+    PowernodeWorker.application.logger.info("[LlmProxyClient] Building client: provider=#{provider_type} base_url=#{base_url} credential=#{credential_id&.slice(0, 12)}... key=#{api_key.slice(0, 8)}...")
+
     client = Ai::Llm::Client.for_credentials(
-      provider_type: provider_config["provider_type"],
+      provider_type: provider_type,
       api_key: api_key,
-      base_url: provider_config["provider_base_url"],
-      provider_name: provider_config["provider_name"]
+      base_url: base_url,
+      provider_name: provider_name
     )
 
     @llm_clients[cache_key] = client

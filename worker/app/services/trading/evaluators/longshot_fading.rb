@@ -18,24 +18,36 @@ module Trading
 
       def evaluate
         signals = []
-        price = current_price
+        price = mid_price # Use live bid/ask midpoint — last_price can be stale on PM
         min_price = param("min_price", 0.03)
         max_price = param("max_price", 0.15)
 
         # Check if market is in longshot range
-        return signals unless price.between?(min_price, max_price)
+        pair_name = @strategy_data["pair"] || @strategy_data["trading_pair"] || @market_data["pair"] || "unknown"
+        unless price.between?(min_price, max_price)
+          snap = @price_history.is_a?(Array) && @price_history.any? ? @price_history.last.to_s[0..60] : "none"
+          log("SKIP price_range: mid=#{price} last=#{current_price} not in #{min_price}..#{max_price} | pair=#{pair_name} | bid=#{bid_price} ask=#{ask_price} | snap=#{snap}")
+          return signals
+        end
+        log("PASS price_range: mid=#{price} in #{min_price}..#{max_price} | pair=#{pair_name} | edge calc starting")
 
         # Check time to expiry
         min_hours = param("min_hours_to_expiry", 2)
         if market_expiry
           hours_remaining = (market_expiry - Time.now) / 3600.0
-          return signals if hours_remaining < min_hours
+          if hours_remaining < min_hours
+            log("SKIP expiry: #{hours_remaining.round(1)}h < #{min_hours}h min | pair=#{@pair}")
+            return signals
+          end
         end
 
         # Check concurrent position limits
         max_concurrent = param("max_concurrent_positions", 5)
         open_count = @positions.count { |p| p["status"] == "open" }
-        return signals if open_count >= max_concurrent
+        if open_count >= max_concurrent
+          log("SKIP max_positions: #{open_count}/#{max_concurrent} | pair=#{@pair}")
+          return signals
+        end
 
         # Calculate mispricing edge
         empirical_rate = lookup_empirical_rate(price)
@@ -43,11 +55,14 @@ module Trading
         edge_pct = ((implied_prob - empirical_rate) / empirical_rate * 100.0)
 
         min_edge = param("min_edge_pct", 1.0)
-        return signals unless edge_pct >= min_edge
+        unless edge_pct >= min_edge
+          log("SKIP edge: #{edge_pct.round(2)}% < #{min_edge}% min | pair=#{@pair}")
+          return signals
+        end
 
         # Check total exposure limit
         max_exposure_pct = param("max_total_exposure_pct", 15.0)
-        total_exposure = @positions.select { |p| p["status"] == "open" }
+        total_exposure = @positions
                                    .sum { |p| (p["entry_price"] || 0).to_f * (p["quantity"] || 0).to_f }
         current_exposure_pct = @allocated_capital > 0 ? (total_exposure / @allocated_capital * 100.0) : 0
         return signals if current_exposure_pct >= max_exposure_pct
@@ -147,7 +162,7 @@ module Trading
       end
 
       def check_exit_conditions(signals, price)
-        @positions.select { |p| p["status"] == "open" }.each do |pos|
+        @positions.each do |pos|
           entry_price = (pos["entry_price"] || pos["avg_entry_price"] || 0).to_f
           stop_loss = [entry_price * param("stop_loss_multiplier", 2.0), 0.95].min
 

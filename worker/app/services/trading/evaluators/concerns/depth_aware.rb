@@ -8,7 +8,7 @@ module Trading
       # Included in Base so all evaluators benefit from depth-aware cost
       # estimation via the standard `estimate_signal_cost` interface.
       #
-      # Fallback chain: order book walk → LMSR model → spread proxy.
+      # Fallback chain: order book walk → square-root impact model → spread proxy.
       module DepthAware
         # Walk the order book to calculate effective fill price and slippage.
         #
@@ -20,7 +20,7 @@ module Trading
           book ||= @order_book_data
           levels = side == "buy" ? (book["asks"] || book[:asks] || []) : (book["bids"] || book[:bids] || [])
 
-          return lmsr_fallback_impact(side, size_usd) if levels.empty?
+          return sqrt_fallback_impact(side, size_usd) if levels.empty?
 
           remaining = size_usd
           total_cost = 0.0
@@ -44,7 +44,7 @@ module Trading
             break if remaining <= 0
           end
 
-          return lmsr_fallback_impact(side, size_usd) if total_qty <= 0
+          return sqrt_fallback_impact(side, size_usd) if total_qty <= 0
 
           effective_price = total_cost / total_qty
           mid = current_price
@@ -58,58 +58,31 @@ module Trading
           }
         end
 
-        # Fit an effective LMSR `b` parameter from observed spread and volume.
+        # Square-root impact model for CLOB venues (Kyle 1985, Almgren-Chriss 2001).
         #
-        # In LMSR, spread ≈ 1/(2b) for equal-weight binary markets.
-        # Volume scales b (higher volume → deeper book → higher b).
-        #
-        # @param spread [Float] current bid-ask spread (absolute, not %)
-        # @param volume_24h [Float] 24-hour volume in USD
-        # @return [Float] estimated LMSR b parameter
-        def lmsr_effective_b(spread:, volume_24h:)
-          # From LMSR theory: spread ≈ 1/(2b) → b ≈ 1/(2*spread)
-          b_from_spread = spread > 0.001 ? (1.0 / (2.0 * spread)) : 100.0
-
-          # Volume-based: CLOB markets replenish depth continuously.
-          # Use sqrt(volume) to capture that a 100x volume market is ~10x deeper,
-          # not 100x deeper (liquidity scales sub-linearly with volume).
-          b_from_volume = volume_24h > 0 ? Math.sqrt(volume_24h) : 50.0
-
-          # Blend: weight volume more heavily since it captures real-world
-          # depth better than spread-inferred static LMSR depth.
-          ((b_from_spread * 0.3) + (b_from_volume * 0.7)).clamp(1.0, 10_000.0)
-        end
-
-        # LMSR-based slippage estimate (analytical fallback when no book data).
-        #
-        # LMSR-based slippage estimate for binary markets.
-        #
-        # Uses exact LMSR cost formula: C(Δq) = b * ln(p * e^(Δq/b) + (1-p))
-        # rather than the quadratic approximation (which diverges for large Δq/b).
+        # Impact ∝ σ × √(Q / ADV) where:
+        #   σ = realized volatility (approximated from spread)
+        #   Q = order size in USD
+        #   ADV = average daily volume
         #
         # @param size_usd [Float] order size in USD
         # @param current_price [Float] current market price (0-1 for prediction markets)
-        # @param b [Float] LMSR b parameter
-        # @return [Float] estimated slippage as a fraction (0.0-1.0)
-        def lmsr_price_impact(size_usd:, current_price:, b:)
-          return 0.0 if b <= 0 || current_price <= 0 || current_price >= 1.0
+        # @param volume_24h [Float] 24-hour volume in USD
+        # @param spread [Float] current bid-ask spread (absolute)
+        # @return [Float] estimated slippage as a fraction (0.0-0.5)
+        def sqrt_price_impact(size_usd:, current_price:, volume_24h:, spread: nil)
+          return 0.0 if current_price <= 0 || size_usd <= 0
 
-          # Convert USD size to contract quantity
-          contracts = size_usd / current_price
-          return 0.0 if contracts <= 0
+          # σ approximation: for prediction markets, sqrt(p*(1-p)) captures
+          # the binary outcome variance. For non-PM prices, use spread as proxy.
+          sigma = if current_price > 0 && current_price < 1.0
+                    Math.sqrt([current_price * (1 - current_price), 0.001].max)
+                  else
+                    spread && spread > 0 ? spread * 0.5 : 0.01
+                  end
 
-          p = current_price
-          ratio = contracts / b
-
-          if ratio > 20.0
-            # Very large order: slippage saturates at (1-p)/p
-            return [((1.0 - p) / p) * 0.5, 0.5].min
-          end
-
-          # Exact LMSR: cost = b * ln(p * e^(dq/b) + (1-p))
-          cost = b * Math.log(p * Math.exp(ratio) + (1.0 - p))
-          effective_price = cost / contracts
-          slippage = ((effective_price - p) / p).abs
+          volume_ratio = size_usd / [volume_24h, 1.0].max
+          slippage = sigma * Math.sqrt(volume_ratio)
           slippage.clamp(0.0, 0.5)
         end
 
@@ -117,7 +90,7 @@ module Trading
         #
         # Fallback chain:
         # 1. Order book walk (most accurate — uses real liquidity data)
-        # 2. LMSR model (analytical — uses spread + volume to fit b parameter)
+        # 2. Square-root impact model (Kyle 1985 — uses spread + volume)
         # 3. Spread proxy (original Base behavior)
         #
         # @param size_usd [Float, nil] estimated trade size (uses allocated_capital * 5% if nil)
@@ -141,33 +114,33 @@ module Trading
             return (round_trip + flat_fee_cost).clamp(0.0, 0.50)
           end
 
-          # LMSR fallback
-          sp = spread
+          # Square-root impact fallback (CLOB-appropriate)
           vol = (@market_data["volume_24h"] || @market_data[:volume_24h] || 0).to_f
-          if sp && sp > 0.001 && vol > 0
-            b = lmsr_effective_b(spread: sp, volume_24h: vol)
-            impact = lmsr_price_impact(size_usd: size, current_price: current_price, b: b)
+          if vol > 0
+            impact = sqrt_price_impact(size_usd: size, current_price: current_price,
+                                       volume_24h: vol, spread: spread)
             round_trip = impact * 2.0
             return (round_trip + flat_fee_cost).clamp(0.0, 0.50)
           end
 
-          # Original spread-based fallback
-          spread_cost = spread_pct || 0.005
+          # Original spread-based fallback.
+          # On zero-fee venues with limit orders, actual spread cost is determined by
+          # the evaluator's price placement, not market conditions. Use a lower default.
+          spread_cost = spread_pct || (venue_flat_fee > 0 ? 0.005 : 0.001)
           round_trip = spread_cost * 2.0
           (round_trip + flat_fee_cost).clamp(0.0, 0.50)
         end
 
         private
 
-        def lmsr_fallback_impact(side, size_usd)
-          sp = spread
+        def sqrt_fallback_impact(side, size_usd)
           vol = (@market_data["volume_24h"] || @market_data[:volume_24h] || 0).to_f
-          if sp && sp > 0.001 && vol > 0
-            b = lmsr_effective_b(spread: sp, volume_24h: vol)
-            slippage = lmsr_price_impact(size_usd: size_usd, current_price: current_price, b: b)
-          else
-            slippage = (spread_pct || 0.005)
-          end
+          slippage = if vol > 0
+                       sqrt_price_impact(size_usd: size_usd, current_price: current_price,
+                                         volume_24h: vol, spread: spread)
+                     else
+                       (spread_pct || (venue_flat_fee > 0 ? 0.005 : 0.001))
+                     end
 
           {
             effective_price: current_price * (1.0 + (side == "buy" ? slippage : -slippage)),

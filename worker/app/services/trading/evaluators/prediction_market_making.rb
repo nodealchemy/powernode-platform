@@ -4,6 +4,7 @@ module Trading
   module Evaluators
     class PredictionMarketMaking < Base
       include Concerns::ConvergenceExit
+      include Concerns::BayesianBelief
 
       register "prediction_market_making"
 
@@ -11,6 +12,23 @@ module Trading
         signals = []
         price = current_price
         return signals unless price && price > 0 && price < 1
+
+        # Price bounds: skip extreme-probability markets where the Stoikov model breaks
+        # down. At p=0.05, a 1-cent tick = 20% price change — any stop-loss triggers
+        # immediately. At p=0.95, the same problem in reverse.
+        pmm_min = param("price_bound_min", 0.15)
+        pmm_max = param("price_bound_max", 0.85)
+        return signals unless price.between?(pmm_min, pmm_max)
+
+        # Volume filter: skip truly dead markets where spread capture is impossible.
+        # Only block when volume data is present, non-zero, and below threshold.
+        # Missing or zero volume is common on PM (CLOB markets report volume
+        # separately from orderbook activity) and shouldn't prevent quoting.
+        vol_24h = (@market_data["volume_24h"] || @market_data[:volume_24h])&.to_f
+        min_vol = param("min_volume_24h", 50.0)
+        if vol_24h && vol_24h > 0 && vol_24h < min_vol && !has_open_position?
+          return signals
+        end
 
         # Settlement proximity check — stop quoting near settlement
         halt_hours = param("settlement_halt_hours", 6)
@@ -32,7 +50,7 @@ module Trading
         # Profit-taking: close positions when unrealized P&L is positive
         # Market makers should lock in gains rather than hold indefinitely
         if has_open_position?
-          @positions.select { |p| p["status"] == "open" }.each do |pos|
+          @positions.each do |pos|
             entry = (pos["entry_price"] || 0).to_f
             side = pos["side"]
             pnl_pct = entry > 0 ? ((price - entry) / entry * 100 * (side == "short" ? -1 : 1)) : 0
@@ -60,6 +78,24 @@ module Trading
                   return signals
                 end
               end
+
+              # Stale position exit: if held too long without hitting TP/SL and
+              # P&L is non-positive, the quote is stale — exit and re-quote.
+              # If P&L is positive, let TP handle it (spread capture is working).
+              opened_at = pos["opened_at"] ? Time.parse(pos["opened_at"]) : nil
+              if opened_at
+                max_hold = param("max_hold_seconds", 900)
+                held_seconds = Time.current - opened_at
+                if held_seconds > max_hold && pnl_pct <= 0
+                  signals << build_signal(
+                    type: "exit", direction: "close", confidence: 0.7, strength: 0.5,
+                    reasoning: "PMM stale position: held #{(held_seconds / 60).round(1)}m with #{pnl_pct.round(2)}% P&L, re-quoting",
+                    indicators: { edge: 0, market_price: price, pnl_pct: pnl_pct,
+                                  held_seconds: held_seconds.round(0), exit_reason: "stale_quote" }
+                  )
+                  return signals
+                end
+              end
             end
           end
         end
@@ -77,6 +113,12 @@ module Trading
           end
         end
 
+        # Update Bayesian belief from price movements
+        if @price_history.length >= 2
+          prev = (@price_history[-2]["close"] || @price_history[-2][:close]).to_f
+          update_belief_from_price(previous_price: prev, current_price: price) if prev > 0
+        end
+
         # Estimate fair value
         fair_value = estimate_fair_value(price)
 
@@ -87,7 +129,7 @@ module Trading
         # Stoikov spread grows with T, and even day-scale horizons produce
         # spreads far wider than the 1-cent minimum tick on Kalshi.
         # Use a short horizon (fraction of a day) matching the tick interval.
-        max_t_days = param("stoikov_t_days", 0.05) # ~1.2 hours default
+        max_t_days = param("stoikov_t_days", 0.015) # ~22 min default
         t_floor = [0.001, max_t_days * 0.1].max
         t_remaining = hours_left ? [[hours_left / 24.0, t_floor].max, max_t_days].min : max_t_days
         kappa = estimate_arrival_rate
@@ -125,7 +167,10 @@ module Trading
         kalshi_fee = venue_flat_fee
         half_spread = optimal_spread / 2.0
         net_edge = half_spread - kalshi_fee
-        min_net_edge_pct = param("min_net_edge_pct", 3.0) / 100.0
+        # Zero-fee venues profit from tighter spreads — 1% edge per quote side is
+        # already profitable when there are no fees to overcome.
+        default_min_pct = venue_flat_fee > 0 ? 3.0 : 1.0
+        min_net_edge_pct = param("min_net_edge_pct", default_min_pct) / 100.0
         if fair_value > 0 && (net_edge / fair_value) < min_net_edge_pct
           return has_open_position? ? signals : signals # Skip quoting, but keep any exit signals
         end
@@ -186,6 +231,8 @@ module Trading
               inventory_ratio: inventory_ratio,
               sigma: sigma,
               gamma: gamma,
+              bayesian_posterior: bayesian_posterior,
+              bayesian_observations: bayesian_observations,
               quote_side: "bid",
               hours_to_expiry: hours_left,
               position_sizing_method: "percent_equity"
@@ -215,6 +262,8 @@ module Trading
               inventory_ratio: inventory_ratio,
               sigma: sigma,
               gamma: gamma,
+              bayesian_posterior: bayesian_posterior,
+              bayesian_observations: bayesian_observations,
               quote_side: "ask",
               hours_to_expiry: hours_left,
               position_sizing_method: "percent_equity"
@@ -249,7 +298,10 @@ module Trading
 
         mid = bid_price && ask_price ? (bid_price + ask_price) / 2.0 : price
 
-        values = [parity_fair, history_fair, mid].compact
+        # Bayesian posterior: running probability estimate from price evidence
+        bayesian_fair = bayesian_posterior if bayesian_observations >= param("bayesian_min_observations", 3)
+
+        values = [parity_fair, history_fair, mid, bayesian_fair].compact
         values.empty? ? price : values.sum / values.length
       end
 
@@ -294,7 +346,7 @@ module Trading
       end
 
       def calculate_net_inventory
-        @positions.select { |p| p["status"] == "open" }.sum do |pos|
+        @positions.sum do |pos|
           qty = (pos["quantity"] || pos["current_quantity"] || 0).to_f
           side = pos["side"]
           side == "long" ? qty : -qty

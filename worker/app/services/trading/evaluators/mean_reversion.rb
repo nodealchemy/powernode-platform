@@ -3,6 +3,8 @@
 module Trading
   module Evaluators
     class MeanReversion < Base
+      include Concerns::BayesianBelief
+
       register "mean_reversion"
 
       def evaluate
@@ -22,7 +24,10 @@ module Trading
           end
         end
 
-        return signals if price_history.size < lookback
+        if price_history.size < lookback
+          log("Skipped: #{price_history.size}/#{lookback} history entries")
+          return signals
+        end
 
         prices = price_history.last(lookback).map { |s| (s["close"] || s[:close]).to_f }
         prices.reject!(&:zero?) # Skip zero prices instead of aborting entire evaluation
@@ -37,6 +42,12 @@ module Trading
         std_dev = Math.sqrt(variance)
         z_score = std_dev.zero? ? 0 : (current_price - ema) / std_dev
 
+        # Bayesian belief update from price movements
+        if price_history.size >= 2
+          prev = (price_history[-2]["close"] || price_history[-2][:close]).to_f
+          update_belief_from_price(previous_price: prev, current_price: current_price) if prev > 0
+        end
+
         # Autocorrelation check: negative = mean-reverting, positive = trending
         # Use log returns (not simple diffs) for scale-invariant regime detection
         returns = prices.each_cons(2).map { |a, b| a > 0 ? Math.log(b / a) : 0.0 }
@@ -47,17 +58,30 @@ module Trading
         if autocorr > autocorr_limit
           return has_open_position? ? check_exits(signals, z_score, std_dev, ema) : signals
         end
-        # Block near-certain outcomes where prices don't revert
-        price_lo = param("price_bound_min", 0.10)
-        price_hi = param("price_bound_max", 0.90)
-        if current_price < price_lo || current_price > price_hi
-          return has_open_position? ? check_exits(signals, z_score, std_dev, ema) : signals
+        # Block near-certain outcomes where prices don't revert.
+        # Only applies to prediction market prices (0-1 probability range).
+        # Crypto spot prices (e.g., BTC at $74,000) are unbounded and should skip this gate.
+        is_pm_price = ema.between?(0.01, 0.99)
+        if is_pm_price
+          price_lo = param("price_bound_min", 0.10)
+          price_hi = param("price_bound_max", 0.90)
+          if current_price < price_lo || current_price > price_hi
+            return has_open_position? ? check_exits(signals, z_score, std_dev, ema) : signals
+          end
         end
 
         autocorr_boost = if autocorr < -0.2 then 1.15
                          elsif autocorr > 0.2 then 0.75
                          else 1.0
                          end
+
+        # Bayesian regime detection: if posterior has drifted toward current price
+        # (away from EMA), the move may be justified — reduce MR confidence
+        posterior = bayesian_posterior
+        if posterior && std_dev > 0 && is_pm_price
+          posterior_drift = (posterior - ema) / std_dev
+          autocorr_boost *= 0.7 if posterior_drift.abs > 1.0
+        end
 
         # Volume gate: skip entries in illiquid conditions
         if !has_open_position? && @market_data
@@ -83,6 +107,7 @@ module Trading
               strength: (z_score.abs / (std_devs * 2)).clamp(0.0, 1.0),
               reasoning: "Price #{z_score.round(2)} std devs below EMA (ema: #{ema.round(4)}, price: #{current_price}, autocorr: #{autocorr.round(3)})",
               indicators: { z_score: z_score, mean: ema, std_dev: std_dev, autocorrelation: autocorr, edge: price_edge,
+                            bayesian_posterior: bayesian_posterior, bayesian_observations: bayesian_observations,
                             limit_order: true, limit_price: current_price.round(4) }
             )
           elsif z_score > std_devs && price_edge > min_edge
@@ -93,6 +118,7 @@ module Trading
               strength: (z_score.abs / (std_devs * 2)).clamp(0.0, 1.0),
               reasoning: "Price #{z_score.round(2)} std devs above EMA (ema: #{ema.round(4)}, price: #{current_price}, autocorr: #{autocorr.round(3)})",
               indicators: { z_score: z_score, mean: ema, std_dev: std_dev, autocorrelation: autocorr, edge: price_edge,
+                            bayesian_posterior: bayesian_posterior, bayesian_observations: bayesian_observations,
                             limit_order: true, limit_price: current_price.round(4) }
             )
           end
