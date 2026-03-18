@@ -239,6 +239,7 @@ class WorkerDataChannel < ApplicationCable::Channel
       id: session.id,
       status: session.status,
       cancelled: session.status == "cancelled",
+      completion_requested: session.completion_requested?,
       completed_ticks: session.completed_ticks,
       total_ticks: session.total_ticks,
       config: session.config,
@@ -248,7 +249,10 @@ class WorkerDataChannel < ApplicationCable::Channel
       tick_interval: session.tick_interval,
       include_classic: session.include_classic,
       portfolio_id: session.portfolio&.id,
-      venue_id: session.strategies.first&.trading_venue_id
+      venue_id: session.strategies.first&.trading_venue_id,
+      mode: session.session_mode,
+      ends_at: session.ends_at&.iso8601,
+      active_strategy_count: session.strategies.where(status: "active").count
     })
   rescue ActiveRecord::RecordNotFound
     transmit_error(data["request_id"], "Training session not found")

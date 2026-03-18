@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_15_120001) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_17_235001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -9913,6 +9913,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_15_120001) do
     t.index ["venue_order_id"], name: "index_trading_orders_on_venue_order_id"
   end
 
+  create_table "trading_overseer_decisions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "action_category", null: false
+    t.datetime "created_at", null: false
+    t.datetime "expires_at"
+    t.jsonb "payload", default: "{}"
+    t.jsonb "reasoning", default: "{}"
+    t.datetime "resolved_at"
+    t.string "resolved_by"
+    t.string "status", default: "pending", null: false
+    t.jsonb "temporal_context", default: "{}"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "status"], name: "index_trading_overseer_decisions_on_account_id_and_status"
+    t.index ["account_id"], name: "index_trading_overseer_decisions_on_account_id"
+    t.index ["expires_at"], name: "index_trading_overseer_decisions_on_expires_at", where: "((status)::text = 'pending'::text)"
+    t.index ["status"], name: "index_trading_overseer_decisions_on_status"
+  end
+
   create_table "trading_performance_metrics", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.decimal "avg_loss_usd", precision: 19, scale: 2
     t.decimal "avg_win_usd", precision: 19, scale: 2
@@ -9932,6 +9950,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_15_120001) do
     t.decimal "sortino_ratio", precision: 10, scale: 6
     t.integer "total_trades", default: 0
     t.uuid "trading_strategy_id", null: false
+    t.decimal "unrealized_snapshot_usd", precision: 19, scale: 2
     t.datetime "updated_at", null: false
     t.decimal "win_rate", precision: 5, scale: 4
     t.integer "winning_trades", default: 0
@@ -10119,11 +10138,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_15_120001) do
     t.uuid "ai_mission_id"
     t.uuid "ai_ralph_loop_id"
     t.decimal "allocated_capital_usd", precision: 19, scale: 2, default: "0.0", null: false
+    t.datetime "begins_at"
     t.jsonb "config", default: {}
     t.datetime "created_at", null: false
     t.decimal "current_pnl_pct", precision: 8, scale: 4, default: "0.0", null: false
     t.decimal "current_pnl_usd", precision: 19, scale: 2, default: "0.0", null: false
     t.datetime "decommissioned_at"
+    t.datetime "ends_at"
     t.datetime "high_water_mark_at"
     t.decimal "high_water_mark_usd", precision: 19, scale: 2, default: "0.0"
     t.datetime "last_compounding_at"
@@ -10146,6 +10167,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_15_120001) do
     t.index ["ai_agent_team_id"], name: "index_trading_strategies_on_ai_agent_team_id"
     t.index ["ai_mission_id"], name: "index_trading_strategies_on_ai_mission_id"
     t.index ["ai_ralph_loop_id"], name: "index_trading_strategies_on_ai_ralph_loop_id"
+    t.index ["begins_at"], name: "index_trading_strategies_on_begins_at", where: "(begins_at IS NOT NULL)"
+    t.index ["ends_at"], name: "index_trading_strategies_on_ends_at", where: "(ends_at IS NOT NULL)"
     t.index ["lifecycle_phase"], name: "index_trading_strategies_on_lifecycle_phase"
     t.index ["risk_tier"], name: "index_trading_strategies_on_risk_tier"
     t.index ["status", "lifecycle_phase"], name: "idx_trading_strategies_status_phase"
@@ -10156,6 +10179,29 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_15_120001) do
     t.index ["trading_portfolio_id"], name: "index_trading_strategies_on_trading_portfolio_id"
     t.index ["trading_training_session_id"], name: "index_trading_strategies_on_trading_training_session_id"
     t.index ["trading_venue_id"], name: "index_trading_strategies_on_trading_venue_id"
+  end
+
+  create_table "trading_strategy_promotions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.decimal "confidence_score", precision: 5, scale: 4
+    t.datetime "created_at", null: false
+    t.text "dismiss_reason"
+    t.datetime "dismissed_at"
+    t.jsonb "metrics", default: {}, null: false
+    t.string "pair", null: false
+    t.jsonb "parameters", default: {}, null: false
+    t.datetime "promoted_at"
+    t.uuid "promoted_strategy_id"
+    t.uuid "source_strategy_id", null: false
+    t.string "status", default: "candidate", null: false
+    t.string "strategy_type", null: false
+    t.uuid "training_session_id", null: false
+    t.datetime "updated_at", null: false
+    t.string "venue_slug", null: false
+    t.index ["promoted_strategy_id"], name: "index_trading_strategy_promotions_on_promoted_strategy_id"
+    t.index ["source_strategy_id"], name: "index_trading_strategy_promotions_on_source_strategy_id"
+    t.index ["status"], name: "index_trading_strategy_promotions_on_status"
+    t.index ["training_session_id", "source_strategy_id"], name: "idx_promotions_session_strategy", unique: true
+    t.index ["training_session_id"], name: "index_trading_strategy_promotions_on_training_session_id"
   end
 
   create_table "trading_strategy_versions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -10248,10 +10294,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_15_120001) do
     t.integer "completed_ticks", default: 0
     t.jsonb "config", default: {}
     t.datetime "created_at", null: false
+    t.datetime "ends_at"
     t.text "error_message"
     t.boolean "include_classic", default: false
     t.integer "market_count", default: 3
     t.jsonb "metrics", default: {}
+    t.string "mode", default: "fixed_ticks", null: false
     t.string "name", null: false
     t.jsonb "recurrence_rule"
     t.jsonb "results", default: {}
@@ -11651,6 +11699,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_15_120001) do
   add_foreign_key "trading_orders", "trading_positions", on_delete: :cascade
   add_foreign_key "trading_orders", "trading_strategies", on_delete: :cascade
   add_foreign_key "trading_orders", "trading_venues"
+  add_foreign_key "trading_overseer_decisions", "accounts"
   add_foreign_key "trading_performance_metrics", "trading_strategies"
   add_foreign_key "trading_portfolios", "accounts"
   add_foreign_key "trading_portfolios", "ai_agent_budgets"
@@ -11672,6 +11721,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_15_120001) do
   add_foreign_key "trading_strategies", "trading_portfolios"
   add_foreign_key "trading_strategies", "trading_training_sessions", on_delete: :cascade
   add_foreign_key "trading_strategies", "trading_venues"
+  add_foreign_key "trading_strategy_promotions", "trading_strategies", column: "promoted_strategy_id", on_delete: :nullify
+  add_foreign_key "trading_strategy_promotions", "trading_strategies", column: "source_strategy_id", on_delete: :cascade
+  add_foreign_key "trading_strategy_promotions", "trading_training_sessions", column: "training_session_id", on_delete: :cascade
   add_foreign_key "trading_strategy_versions", "trading_strategies"
   add_foreign_key "trading_strategy_versions", "trading_strategy_versions", column: "parent_version_id"
   add_foreign_key "trading_sweep_proposals", "ai_agent_proposals"

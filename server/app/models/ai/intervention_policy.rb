@@ -9,7 +9,13 @@ module Ai
 
     ACTION_CATEGORIES = %w[
       approval proposal escalation status_update issue_alert
-      feedback *
+      feedback
+      trading.create_session trading.prune_strategy trading.spawn_strategy
+      trading.cancel_session trading.extend_session trading.complete_session
+      trading.modify_params trading.promote_strategy
+      trading.advance_phase trading.pause_strategy trading.resume_strategy
+      trading.decommission_strategy trading.rebalance_capital
+      *
     ].freeze
 
     # Associations

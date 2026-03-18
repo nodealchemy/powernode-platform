@@ -301,9 +301,11 @@ class AiConversationChannel < ApplicationCable::Channel
       current_user.id
     )
 
-    transmit({
-      type: "ai_response_queued",
-      status: "queued",
+    # Broadcast thinking indicator to all subscribers (not just sender)
+    broadcast_to_conversation({
+      type: "ai_thinking",
+      agent_name: @conversation.agent&.name || "AI Assistant",
+      conversation_id: @conversation.conversation_id || @conversation.id,
       timestamp: Time.current.iso8601
     })
   rescue StandardError => e

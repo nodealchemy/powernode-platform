@@ -74,14 +74,15 @@ module Ai
             }
           },
           "trading_create_training_session" => {
-            description: "Create a new AI training session. All params can be passed at top level or nested under 'config'.",
+            description: "Create a new AI training session. Defaults to continuous mode. All params can be passed at top level or nested under 'config'.",
             parameters: {
               strategy_id: { type: "string", required: false, description: "Strategy ID or name (optional)" },
               config: { type: "object", required: false, description: "Training session configuration (alternative: pass params at top level)" },
               name: { type: "string", required: false, description: "Session name" },
+              mode: { type: "string", required: false, description: "Session mode: 'continuous' (default) or 'fixed_ticks'" },
               strategy_types: { type: "array", required: false, description: "Strategy types to run" },
               market_count: { type: "integer", required: false, description: "Number of markets to discover" },
-              tick_count: { type: "integer", required: false, description: "Number of ticks to run" },
+              tick_count: { type: "integer", required: false, description: "Number of ticks to run (only for fixed_ticks mode)" },
               tick_interval: { type: "integer", required: false, description: "Seconds between ticks" },
               initial_balance: { type: "number", required: false, description: "Starting balance in USD" },
               venue_slug: { type: "string", required: false, description: "Trading venue slug (e.g. 'kalshi')" },
@@ -351,18 +352,21 @@ module Ai
         top_level = params.except(:config, :strategy_id, :action).stringify_keys
         config = nested.merge(top_level.compact)
 
+        session_mode = config["mode"] || "continuous"
         session_config = config.merge(
           "initial_balance" => (config["initial_balance"] || 10_000).to_f,
-          "use_performance_sizing" => config["use_performance_sizing"] || false
+          "use_performance_sizing" => config["use_performance_sizing"] || false,
+          "mode" => session_mode
         )
 
         session = Trading::TrainingSession.create!(
           account_id: account.id,
           name: config["name"] || "Training #{Time.current.strftime('%Y%m%d_%H%M')}",
           status: "pending",
+          mode: session_mode,
           market_count: config["market_count"] || 10,
-          tick_count: config["tick_count"] || 100,
-          tick_interval: config["tick_interval"] || 300,
+          tick_count: session_mode == "continuous" ? 0 : (config["tick_count"] || 100),
+          tick_interval: config["tick_interval"] || (session_mode == "continuous" ? 15 : 300),
           strategy_types: config["strategy_types"] || ["llm_probability"],
           include_classic: config["include_classic"] || false,
           config: session_config
