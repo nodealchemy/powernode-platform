@@ -319,6 +319,13 @@ class TradingTrainingSessionJob < BaseJob
       return { cancelled: true, session_id: session_id }
     end
 
+    # Route to continuous orchestrator or legacy batch tick loop
+    session_mode = post_setup_status&.dig("data", "mode") || "fixed_ticks"
+    log_info("Session mode: #{session_mode}", session_id: session_id)
+    if session_mode == "continuous"
+      return run_continuous_orchestrator!(session_id, strategies, tick_interval)
+    end
+
     remaining = tick_count - start_tick
     consecutive_timeouts = 0
     consecutive_status_failures = 0
@@ -651,6 +658,209 @@ class TradingTrainingSessionJob < BaseJob
     release_venue_ws(venue_slug, ws_pairs) if ws_acquired
   end
 
+  # Continuous mode orchestrator. Instead of a batch tick loop, this:
+  #   1. Launches independent TradingStrategyRunnerJob per strategy
+  #   2. Enters a supervision loop that monitors health + runs periodic tasks
+  #   3. Finalizes when session ends (time-based, user-requested, or all strategies pruned)
+  #
+  # The orchestrator is lightweight — strategies run themselves. It handles:
+  #   - Health monitoring (detect dead runners, restart them)
+  #   - Periodic parameter evolution (every 30 min)
+  #   - Market scanning & rotation (every 15-30 min)
+  #   - Promotion candidate detection
+  #   - Capital rebalancing
+  ORCHESTRATOR_POLL_INTERVAL = 60 # seconds between supervision checks
+  EVOLUTION_INTERVAL = 1800 # 30 minutes between parameter evolution cycles
+  MARKET_SCAN_INTERVAL = 900 # 15 minutes between market scans
+  PROMOTION_CHECK_INTERVAL = 1800 # 30 minutes between promotion checks
+  TEMPORAL_PRUNING_INTERVAL = 600 # 10 minutes between temporal pruning cycles
+
+  def run_continuous_orchestrator!(session_id, strategies, tick_interval)
+    log_info("Starting continuous orchestrator", session_id: session_id, strategies: strategies.size)
+
+    # Launch independent runners for each strategy
+    strategies.each do |strategy|
+      opts = { "tick_interval" => strategy["tick_interval_seconds"] || tick_interval }
+      opts["begins_at"] = strategy["begins_at"] if strategy["begins_at"]
+      opts["ends_at"] = strategy["ends_at"] if strategy["ends_at"]
+      TradingStrategyRunnerJob.perform_async(strategy["id"], session_id, opts)
+    end
+    log_info("Launched #{strategies.size} independent strategy runners", session_id: session_id)
+
+    last_evolution_at = Time.now
+    last_scan_at = Time.now
+    last_promotion_check_at = Time.now
+    last_temporal_pruning_at = Time.now
+
+    # Supervision loop
+    loop do
+      break if self.class.shutdown_requested?
+      break if cancel_requested?(session_id)
+      break if completion_requested?(session_id)
+
+      # Check session status
+      status = check_status(session_id)
+      break if status.nil? || status.dig("data", "status").in?(%w[cancelled failed completed])
+
+      # Check time-based expiry
+      ends_at = status.dig("data", "ends_at")
+      if ends_at && Time.parse(ends_at) <= Time.current
+        log_info("Session time limit reached", session_id: session_id)
+        break
+      end
+
+      # Check if all strategies are decommissioned
+      active_count = (status.dig("data", "active_strategy_count") || strategies.size).to_i
+      if active_count == 0
+        log_info("All strategies decommissioned — ending session", session_id: session_id)
+        break
+      end
+
+      # Periodic: mid-session parameter evolution
+      if Time.now - last_evolution_at >= EVOLUTION_INTERVAL
+        run_evolution_cycle!(session_id)
+        last_evolution_at = Time.now
+      end
+
+      # Periodic: market scanning & rotation
+      if Time.now - last_scan_at >= MARKET_SCAN_INTERVAL
+        run_market_scan_cycle!(session_id)
+        last_scan_at = Time.now
+      end
+
+      # Periodic: promotion candidate detection
+      if Time.now - last_promotion_check_at >= PROMOTION_CHECK_INTERVAL
+        run_promotion_check!(session_id)
+        last_promotion_check_at = Time.now
+      end
+
+      # Periodic: temporal pruning of underperforming strategies
+      if Time.now - last_temporal_pruning_at >= TEMPORAL_PRUNING_INTERVAL
+        run_temporal_pruning_cycle!(session_id)
+        last_temporal_pruning_at = Time.now
+      end
+
+      # Aggregate session metrics from all strategy runners
+      aggregate_session_metrics!(session_id, strategies)
+
+      # Periodic: dispatch learning extraction
+      dispatch_learning_extraction!(strategies.map { |s| s["id"] })
+
+      # Renew lock
+      renew_lock_if_needed!
+
+      # Interruptible sleep for supervision interval
+      deadline = Time.now + ORCHESTRATOR_POLL_INTERVAL
+      while Time.now < deadline
+        break if self.class.shutdown_requested? || cancel_requested?(session_id) || completion_requested?(session_id)
+        sleep([1.0, deadline - Time.now].min)
+      end
+    end
+
+    # Shutdown exit: skip finalize for recovery
+    if self.class.shutdown_requested?
+      log_info("Shutdown requested, skipping finalize for recovery", session_id: session_id)
+      return { shutdown: true, session_id: session_id }
+    end
+
+    # Finalize
+    log_info("Finalizing continuous training session", session_id: session_id)
+    finalize = api_client.post_with_circuit_breaker("/api/v1/internal/trading/training_finalize", {
+      session_id: session_id
+    }, circuit_breaker: :trading_training)
+
+    if finalize["success"]
+      log_info("Continuous training session completed", session_id: session_id)
+    else
+      log_warn("Finalize returned error", error: finalize["error"])
+    end
+
+    { completed: true, session_id: session_id, mode: "continuous" }
+  rescue StandardError => e
+    log_error("Continuous orchestrator failed", e, session_id: session_id)
+    fail_session!(session_id, e.message)
+    raise
+  end
+
+  # Aggregate session-level metrics from individual strategy runners.
+  # Called every supervision cycle (60s) to keep session metrics current.
+  # Uses the training_tick_complete endpoint with a synthetic tick result.
+  def aggregate_session_metrics!(session_id, strategies)
+    @aggregate_tick_counter = (@aggregate_tick_counter || 0) + 1
+    # Synthesize tick results from strategy states (the server calculates
+    # actual metrics from strategy/position records)
+    tick_results = strategies.map do |s|
+      { "signals_generated" => 0, "tick_cost_usd" => 0 }
+    end
+
+    trading_data_fetcher.training_tick_complete(
+      session_id: session_id,
+      tick_num: @aggregate_tick_counter,
+      tick_results: tick_results
+    )
+  rescue StandardError => e
+    log_warn("Metrics aggregation failed (non-fatal): #{e.message}", session_id: session_id)
+  end
+
+  # Mid-session parameter evolution cycle
+  def run_evolution_cycle!(session_id)
+    log_info("Running mid-session evolution cycle", session_id: session_id)
+    api_client.post_with_circuit_breaker(
+      "/api/v1/internal/trading/training_rebalance",
+      { session_id: session_id, mid_session_evolution: true },
+      circuit_breaker: :trading_training
+    )
+  rescue StandardError => e
+    log_warn("Evolution cycle failed (non-fatal): #{e.message}", session_id: session_id)
+  end
+
+  # Market scanning & rotation cycle
+  def run_market_scan_cycle!(session_id)
+    log_info("Running market scan cycle", session_id: session_id)
+    # Market scanning is handled server-side via the existing market discovery pipeline.
+    # The orchestrator triggers it by posting to the internal endpoint.
+    api_client.post_with_circuit_breaker(
+      "/api/v1/internal/trading/training_rebalance",
+      { session_id: session_id, market_rotation: true },
+      circuit_breaker: :trading_training
+    )
+  rescue StandardError => e
+    log_warn("Market scan cycle failed (non-fatal): #{e.message}", session_id: session_id)
+  end
+
+  # Promotion candidate check
+  def run_promotion_check!(session_id)
+    log_info("Checking for promotion candidates", session_id: session_id)
+    api_client.post_with_circuit_breaker(
+      "/api/v1/internal/trading/training_rebalance",
+      { session_id: session_id, check_promotions: true },
+      circuit_breaker: :trading_training
+    )
+  rescue StandardError => e
+    log_warn("Promotion check failed (non-fatal): #{e.message}", session_id: session_id)
+  end
+
+  # Temporal pruning cycle — decommissions strategies that are underperforming
+  # based on time-of-day/day-of-week temporal intelligence patterns.
+  def run_temporal_pruning_cycle!(session_id)
+    log_info("Running temporal pruning cycle", session_id: session_id)
+    response = api_client.post_with_circuit_breaker(
+      "/api/v1/internal/trading/temporal_prune",
+      { session_id: session_id },
+      circuit_breaker: :trading_training
+    )
+
+    if response && response["data"]
+      pruned = response.dig("data", "pruned") || []
+      if pruned.any?
+        log_info("Temporal pruning removed #{pruned.size} strategies: #{pruned.map { |p| p['type'] }.join(', ')}",
+                 session_id: session_id)
+      end
+    end
+  rescue StandardError => e
+    log_warn("Temporal pruning cycle failed (non-fatal): #{e.message}", session_id: session_id)
+  end
+
   # Worker-orchestrated multi-phase setup.
   # Each phase is a short-lived backend request (~5-60s), instead of one
   # monolithic 300s+ request that blocks a Puma thread.
@@ -914,61 +1124,22 @@ class TradingTrainingSessionJob < BaseJob
   end
 
   # Evaluate a strategy locally using a pre-fetched context.
-  # Returns result hash with "_submission" key if results need to be sent to server.
+  # Delegates to the shared StrategyEvaluator service (extracted for reuse
+  # by both batch loop and independent TradingStrategyRunnerJob).
   def evaluate_strategy(strategy_id, context)
-    context ||= { "skipped" => true, "reason" => "no_context" }
-    return context.merge("timeout" => false) if context["skipped"] || context["error"]
-
-    strategy_type = context.dig("strategy", "strategy_type")
-    evaluator_class = Trading::Evaluators::Base.for_type(strategy_type)
-
-    unless evaluator_class
-      log_warn("No evaluator for strategy type '#{strategy_type}', skipping", strategy_id: strategy_id)
-      return { "skipped" => true, "reason" => "unsupported_type", "timeout" => false }
+    @strategy_evaluator ||= Trading::StrategyEvaluator.new(
+      llm_client: training_llm_client,
+      data_fetcher: trading_data_fetcher
+    )
+    result = @strategy_evaluator.evaluate(
+      strategy_id, context,
+      price_cache: @tick_price_cache,
+      graph_cache: @graph_cache
+    )
+    if result["error"]
+      log_warn("Strategy tick failed", strategy_id: strategy_id, error: result["error"])
     end
-
-    risk = context["risk_check"] || {}
-    return { "skipped" => true, "reason" => risk["reason"], "timeout" => false } unless risk["allowed"] == true || risk[:allowed] == true
-
-    regime = context["regime_check"] || {}
-    return { "skipped" => true, "reason" => regime["reason"], "timeout" => false } unless regime["allowed"] == true || regime[:allowed] == true
-
-    # Cache evaluator instances across ticks so stateful trackers (adverse selection,
-    # whipsaw) survive between evaluations instead of resetting every tick.
-    @evaluator_cache ||= {}
-    cache_key = "#{strategy_id}_#{strategy_type}"
-    evaluator = @evaluator_cache[cache_key]
-    if evaluator
-      evaluator.update_context(context)
-    else
-      evaluator = evaluator_class.new(context, llm_client: training_llm_client, data_fetcher: trading_data_fetcher, price_cache: @tick_price_cache, graph_cache: @graph_cache)
-      @evaluator_cache[cache_key] = evaluator
-    end
-    evaluator.trading_context = context["trading_context"]
-    signals = Array(evaluator.evaluate).compact # compact removes cost-rejected nil signals
-    tick_cost = evaluator.respond_to?(:tick_cost_usd) ? evaluator.tick_cost_usd : 0.0
-
-    submission = {
-      strategy_id: strategy_id,
-      signals: signals,
-      tick_cost_usd: tick_cost,
-      market_data: context["market_data"] || {}
-    }
-
-    # Pass external data sources for learning tag enrichment
-    if evaluator.respond_to?(:external_data_sources) && evaluator.external_data_sources.any?
-      submission[:external_data_sources] = evaluator.external_data_sources
-    end
-
-    {
-      "timeout" => false,
-      "signals_generated" => signals.size,
-      "tick_cost_usd" => tick_cost,
-      "_submission" => submission
-    }
-  rescue StandardError => e
-    log_warn("Strategy tick failed", strategy_id: strategy_id, error: e.message)
-    { "timeout" => e.message.include?("timeout"), "error" => e.message }
+    result
   end
 
   # Batch-submit all evaluation results + tick progress in one HTTP request.

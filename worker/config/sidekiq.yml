@@ -556,6 +556,18 @@
       queue: trading
       description: 'Check for pending training sessions and dispatch execution'
 
+    trading_overseer_cycle:
+      cron: '*/10 * * * *'
+      class: TradingOverseerCycleJob
+      queue: trading
+      description: 'Run overseer decision engine for autonomous trading management'
+
+    trading_decision_expiry:
+      cron: '*/15 * * * *'
+      class: TradingDecisionExpiryJob
+      queue: trading
+      description: 'Expire stale pending overseer decisions'
+
     trading_position_cleanup:
       cron: '0 4 * * *'
       class: TradingPositionCleanupJob

@@ -89,7 +89,7 @@ module Trading
             strength: momentum.abs.clamp(0.0, 1.0),
             reasoning: "Bullish momentum #{(momentum * 100).round(2)}% over #{lookback} periods exceeds threshold #{(entry_threshold * 100).round(2)}%",
             indicators: { momentum: momentum, volume_ratio: volume_ratio, volume_boost: volume_boost, lookback: lookback,
-                          limit_order: true, limit_price: current_price.round(4), edge: momentum.abs }
+                          limit_order: true, limit_price: mid_price.round(4), edge: momentum.abs }
           )
         elsif !has_open_position? && momentum < -fee_adjusted_threshold
           base_confidence = (momentum.abs / fee_adjusted_threshold * 0.5).clamp(0.3, 0.85)
@@ -99,12 +99,12 @@ module Trading
             strength: momentum.abs.clamp(0.0, 1.0),
             reasoning: "Bearish momentum #{(momentum * 100).round(2)}% over #{lookback} periods",
             indicators: { momentum: momentum, volume_ratio: volume_ratio, lookback: lookback,
-                          limit_order: true, limit_price: current_price.round(4), edge: momentum.abs }
+                          limit_order: true, limit_price: mid_price.round(4), edge: momentum.abs }
           )
         elsif has_open_position?
           position = current_position
           entry_price = (position&.dig("entry_price") || 0).to_f
-          pnl_pct = entry_price > 0 ? ((current_price - entry_price) / entry_price * 100) : 0
+          pnl_pct = entry_price > 0 ? ((mid_price - entry_price) / entry_price * 100) : 0
 
           stop_loss = param("stop_loss_pct", 5.0)
           take_profit = param("take_profit_pct", 5.0)
@@ -151,7 +151,7 @@ module Trading
         return signals unless position
 
         entry_price = (position.dig("entry_price") || 0).to_f
-        pnl_pct = entry_price > 0 ? ((current_price - entry_price) / entry_price * 100) : 0
+        pnl_pct = entry_price > 0 ? ((mid_price - entry_price) / entry_price * 100) : 0
         stop_loss = param("stop_loss_pct", 5.0)
 
         if pnl_pct <= -stop_loss || pnl_pct >= param("take_profit_pct", 5.0)

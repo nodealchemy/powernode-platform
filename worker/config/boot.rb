@@ -38,6 +38,10 @@ require_relative '../app/services/twilio_service'
 # Trading services (data fetcher + external data sources + evaluators)
 require_relative '../app/services/trading/market_affinity'
 require_relative '../app/services/trading/data_fetcher'
+require_relative '../app/services/trading/strategy_evaluator'
+require_relative '../app/services/trading/price_change_detector'
+require_relative '../app/services/trading/regime_adaptive_params'
+require_relative '../app/services/trading/strategy_context_cache'
 Dir[File.expand_path('../app/services/trading/external_data/*.rb', __dir__)].sort.each { |f| require f }
 # Load evaluator concerns before base (Base includes DepthAware)
 Dir[File.expand_path('../app/services/trading/evaluators/concerns/*.rb', __dir__)].sort.each { |f| require f }

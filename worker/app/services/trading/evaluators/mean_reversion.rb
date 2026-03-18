@@ -19,7 +19,7 @@ module Trading
           if market_expiry
             hours_left = (market_expiry - Time.now) / 3600.0
             if hours_left < halt_hours
-              return has_open_position? ? check_exits(signals, 0, 0, current_price) : signals
+              return has_open_position? ? check_exits(signals, 0, 0, mid_price) : signals
             end
           end
         end
@@ -40,12 +40,12 @@ module Trading
         prices[seed_count..].each { |p| ema = alpha * p + (1 - alpha) * ema } if prices.size > seed_count
         variance = prices.sum { |p| (p - ema)**2 } / prices.size
         std_dev = Math.sqrt(variance)
-        z_score = std_dev.zero? ? 0 : (current_price - ema) / std_dev
+        z_score = std_dev.zero? ? 0 : (mid_price - ema) / std_dev
 
         # Bayesian belief update from price movements
         if price_history.size >= 2
           prev = (price_history[-2]["close"] || price_history[-2][:close]).to_f
-          update_belief_from_price(previous_price: prev, current_price: current_price) if prev > 0
+          update_belief_from_price(previous_price: prev, mid_price: mid_price) if prev > 0
         end
 
         # Autocorrelation check: negative = mean-reverting, positive = trending
@@ -65,7 +65,7 @@ module Trading
         if is_pm_price
           price_lo = param("price_bound_min", 0.10)
           price_hi = param("price_bound_max", 0.90)
-          if current_price < price_lo || current_price > price_hi
+          if mid_price < price_lo || mid_price > price_hi
             return has_open_position? ? check_exits(signals, z_score, std_dev, ema) : signals
           end
         end
@@ -96,7 +96,7 @@ module Trading
 
         if !has_open_position?
           # Spread gate: ensure edge exceeds execution cost before entering
-          price_edge = (current_price - ema).abs
+          price_edge = (mid_price - ema).abs
           min_edge = min_limit_order_cost
 
           if z_score < -std_devs && price_edge > min_edge
@@ -105,10 +105,10 @@ module Trading
               type: "entry", direction: "long",
               confidence: (base_conf * autocorr_boost).clamp(0.3, 0.9),
               strength: (z_score.abs / (std_devs * 2)).clamp(0.0, 1.0),
-              reasoning: "Price #{z_score.round(2)} std devs below EMA (ema: #{ema.round(4)}, price: #{current_price}, autocorr: #{autocorr.round(3)})",
+              reasoning: "Price #{z_score.round(2)} std devs below EMA (ema: #{ema.round(4)}, price: #{mid_price}, autocorr: #{autocorr.round(3)})",
               indicators: { z_score: z_score, mean: ema, std_dev: std_dev, autocorrelation: autocorr, edge: price_edge,
                             bayesian_posterior: bayesian_posterior, bayesian_observations: bayesian_observations,
-                            limit_order: true, limit_price: current_price.round(4) }
+                            limit_order: true, limit_price: mid_price.round(4) }
             )
           elsif z_score > std_devs && price_edge > min_edge
             base_conf = (z_score.abs / std_devs * 0.4 + 0.3).clamp(0.3, 0.9)
@@ -116,10 +116,10 @@ module Trading
               type: "entry", direction: "short",
               confidence: (base_conf * autocorr_boost).clamp(0.3, 0.9),
               strength: (z_score.abs / (std_devs * 2)).clamp(0.0, 1.0),
-              reasoning: "Price #{z_score.round(2)} std devs above EMA (ema: #{ema.round(4)}, price: #{current_price}, autocorr: #{autocorr.round(3)})",
+              reasoning: "Price #{z_score.round(2)} std devs above EMA (ema: #{ema.round(4)}, price: #{mid_price}, autocorr: #{autocorr.round(3)})",
               indicators: { z_score: z_score, mean: ema, std_dev: std_dev, autocorrelation: autocorr, edge: price_edge,
                             bayesian_posterior: bayesian_posterior, bayesian_observations: bayesian_observations,
-                            limit_order: true, limit_price: current_price.round(4) }
+                            limit_order: true, limit_price: mid_price.round(4) }
             )
           end
         elsif has_open_position?
@@ -136,7 +136,7 @@ module Trading
         position = current_position
         entry_price = (position&.dig("entry_price") || 0).to_f
         side = position&.dig("side") || "long"
-        pnl_pct = entry_price > 0 ? ((current_price - entry_price) / entry_price * 100 * (side == "short" ? -1 : 1)) : 0
+        pnl_pct = entry_price > 0 ? ((mid_price - entry_price) / entry_price * 100 * (side == "short" ? -1 : 1)) : 0
         stop_loss = param("stop_loss_pct", 5.0)
         take_profit = param("take_profit_pct", 3.0)
 
@@ -156,7 +156,7 @@ module Trading
             type: "exit", direction: side,
             confidence: 0.7,
             reasoning: "Price returned to within #{exit_mean_distance} std devs of EMA (z-score: #{z_score.round(2)})",
-            indicators: { z_score: z_score, mean: ema, edge: (ema - current_price).abs }
+            indicators: { z_score: z_score, mean: ema, edge: (ema - mid_price).abs }
           )
         elsif pnl_pct <= -stop_loss
           signals << build_signal(
