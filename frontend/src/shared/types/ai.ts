@@ -392,10 +392,11 @@ export interface AccountMetrics {
 
 // WebSocket Message Types
 export interface ConversationChannelMessage {
-  type: 'subscription_confirmed' | 'message_created' | 'message_updated' | 'ai_response_streaming' | 'ai_response_complete' | 'processing_status' | 'typing_indicator' | 'message_read' | 'conversation_status' | 'error';
+  type: 'subscription_confirmed' | 'message_created' | 'message_updated' | 'ai_response_streaming' | 'ai_response_complete' | 'ai_thinking' | 'processing_status' | 'typing_indicator' | 'message_read' | 'conversation_status' | 'error';
   conversation_id?: string;
   status?: string;
   message?: AiMessage;
+  agent_name?: string;
   streaming?: boolean;
   metadata?: Record<string, unknown>;
   user_id?: string;

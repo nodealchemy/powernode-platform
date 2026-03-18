@@ -36,6 +36,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
   const [inputValue, setInputValue] = useState('');
   const inputValueRef = useRef('');
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+  const [aiThinking, setAiThinking] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editSaving, setEditSaving] = useState(false);
@@ -86,7 +87,8 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     currentUserId: currentUser?.id,
     onNewMessage,
     setMessages,
-    setTypingUsers
+    setTypingUsers,
+    setAiThinking
   });
 
   // Message action handlers
@@ -501,6 +503,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
           onLoadOlder={loadOlderMessages}
           onClearChat={handleClearChat}
           onMentionClick={handleMentionClick}
+          aiThinking={aiThinking}
         />
 
         {/* Input Area */}

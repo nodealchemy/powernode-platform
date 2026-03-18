@@ -10,6 +10,7 @@ interface UseConversationSocketOptions {
   onNewMessage?: (message: AiMessage) => void;
   setMessages: React.Dispatch<React.SetStateAction<AiMessage[]>>;
   setTypingUsers: React.Dispatch<React.SetStateAction<Set<string>>>;
+  setAiThinking: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 export function useConversationSocket({
@@ -17,7 +18,8 @@ export function useConversationSocket({
   currentUserId,
   onNewMessage,
   setMessages,
-  setTypingUsers
+  setTypingUsers,
+  setAiThinking
 }: UseConversationSocketOptions) {
   const { addNotification } = useNotifications();
   const webSocket = useWebSocket();
@@ -65,8 +67,15 @@ export function useConversationSocket({
         }
         break;
 
+      case 'ai_thinking':
+        if (data.agent_name) {
+          setAiThinking(data.agent_name);
+        }
+        break;
+
       case 'ai_response_streaming':
       case 'ai_response_complete':
+        setAiThinking(null);
         if (data.message) {
           const cleanedMessage = {
             ...data.message,

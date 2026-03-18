@@ -71,6 +71,7 @@ interface MessageListProps {
   onLoadOlder?: () => void;
   onClearChat?: () => void;
   onMentionClick?: (name: string) => void;
+  aiThinking?: string | null;
 }
 
 export const MessageList = React.memo<MessageListProps>(({
@@ -97,6 +98,7 @@ export const MessageList = React.memo<MessageListProps>(({
   onLoadOlder,
   onClearChat: _onClearChat,
   onMentionClick,
+  aiThinking,
 }) => {
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
   const previousScrollHeightRef = React.useRef<number>(0);
@@ -549,6 +551,20 @@ export const MessageList = React.memo<MessageListProps>(({
           />
         ) : (
           messages.map((message) => renderMessage(message))
+        )}
+
+        {/* AI thinking indicator */}
+        {aiThinking && (
+          <div className="flex items-center gap-3 p-3 bg-theme-surface/70 backdrop-blur-md rounded-xl border border-theme/20 shadow-lg">
+            <div className="flex gap-1">
+              <div className="w-2 h-2 bg-theme-accent/80 rounded-full animate-bounce" />
+              <div className="w-2 h-2 bg-theme-accent/80 rounded-full animate-bounce [animation-delay:100ms]" />
+              <div className="w-2 h-2 bg-theme-accent/80 rounded-full animate-bounce [animation-delay:200ms]" />
+            </div>
+            <span className="text-sm font-medium text-theme-secondary">
+              {aiThinking} is thinking...
+            </span>
+          </div>
         )}
 
         {/* Typing indicators */}
