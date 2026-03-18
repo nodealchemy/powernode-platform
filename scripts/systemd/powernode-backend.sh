@@ -31,4 +31,13 @@ RAILS_ENV="${RAILS_ENV:-development}"
 
 export PORT HOST RAILS_ENV
 
+# Clear bootsnap instruction sequence cache before starting.
+# Extension code changes (submodules) are not always detected by bootsnap's
+# compile-cache-iseq, causing stale bytecode to be served. Removing the cache
+# forces a clean recompile on boot.
+ISEQ_CACHE="${POWERNODE_BASE:-/opt/powernode}/server/tmp/cache/bootsnap/compile-cache-iseq"
+if [[ -d "${ISEQ_CACHE}" ]]; then
+    rm -rf "${ISEQ_CACHE}"
+fi
+
 exec bundle exec rails server -p "${PORT}" -b "${HOST}"
