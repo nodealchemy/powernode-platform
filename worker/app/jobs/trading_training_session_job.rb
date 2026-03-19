@@ -323,7 +323,7 @@ class TradingTrainingSessionJob < BaseJob
     session_mode = post_setup_status&.dig("data", "mode") || "fixed_ticks"
     log_info("Session mode: #{session_mode}", session_id: session_id)
     if session_mode == "continuous"
-      return run_continuous_orchestrator!(session_id, strategies, tick_interval)
+      return run_continuous_orchestrator!(session_id, strategies, tick_interval, start_tick: start_tick)
     end
 
     remaining = tick_count - start_tick
@@ -675,8 +675,9 @@ class TradingTrainingSessionJob < BaseJob
   PROMOTION_CHECK_INTERVAL = 1800 # 30 minutes between promotion checks
   TEMPORAL_PRUNING_INTERVAL = 600 # 10 minutes between temporal pruning cycles
 
-  def run_continuous_orchestrator!(session_id, strategies, tick_interval)
-    log_info("Starting continuous orchestrator", session_id: session_id, strategies: strategies.size)
+  def run_continuous_orchestrator!(session_id, strategies, tick_interval, start_tick: 0)
+    @aggregate_tick_counter = start_tick
+    log_info("Starting continuous orchestrator", session_id: session_id, strategies: strategies.size, start_tick: start_tick)
 
     # Launch independent runners for each strategy
     strategies.each do |strategy|
