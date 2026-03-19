@@ -37,6 +37,7 @@ class TradingTrainingChannel < ApplicationCable::Channel
         session_id: session.id,
         name: session.name,
         status: session.status,
+        held: session.held?,
         timestamp: Time.current.iso8601
       }
 
@@ -53,6 +54,7 @@ class TradingTrainingChannel < ApplicationCable::Channel
         metrics: session.metrics,
         timeline: session.timeline,
         status: session.status,
+        held: session.held?,
         timestamp: Time.current.iso8601
       }
 
@@ -158,6 +160,33 @@ class TradingTrainingChannel < ApplicationCable::Channel
         type: "resumed",
         session_id: session.id,
         status: session.status,
+        timestamp: Time.current.iso8601
+      }
+
+      broadcast_to_session(session, data)
+      broadcast_to_account(session.account_id, data)
+    end
+
+    def broadcast_held(session)
+      data = {
+        type: "session_held",
+        session_id: session.id,
+        status: session.status,
+        held: true,
+        error_message: session.error_message,
+        timestamp: Time.current.iso8601
+      }
+
+      broadcast_to_session(session, data)
+      broadcast_to_account(session.account_id, data)
+    end
+
+    def broadcast_released(session)
+      data = {
+        type: "session_released",
+        session_id: session.id,
+        status: session.status,
+        held: false,
         timestamp: Time.current.iso8601
       }
 

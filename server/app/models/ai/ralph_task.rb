@@ -106,6 +106,12 @@ module Ai
       unblock_dependent_tasks
     end
 
+    def resume!
+      raise InvalidTransitionError, "Cannot resume task in #{status} status" unless can_resume?
+
+      record_execution_attempt!
+    end
+
     def reset!
       update!(
         status: "pending",
@@ -120,6 +126,10 @@ module Ai
 
     def can_start?
       status == "pending" && dependencies_satisfied?
+    end
+
+    def can_resume?
+      status == "in_progress"
     end
 
     def can_pass?

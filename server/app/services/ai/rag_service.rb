@@ -399,24 +399,25 @@ module Ai
     end
 
     def retrieve_chunks(knowledge_base, query_embedding, top_k:, threshold:, filters:)
-      chunks = knowledge_base.document_chunks.with_embeddings
+      # Single vector similarity query using pgvector HNSW index — returns only top_k rows.
+      # Oversample to account for threshold filtering, then trim.
+      candidates = knowledge_base.document_chunks
+        .with_embeddings
+        .nearest_neighbors(:embedding, query_embedding, distance: "cosine")
+        .first(top_k * 2)
 
-      # Calculate similarities (in production, use vector DB)
-      results = chunks.map do |chunk|
-        score = chunk.similarity_with(query_embedding)
-        next if score < threshold
+      candidates.filter_map do |chunk|
+        similarity = 1.0 - (chunk.neighbor_distance || 1.0)
+        next if similarity < threshold
 
         {
           chunk_id: chunk.id,
           document_id: chunk.document_id,
           content: chunk.content,
-          score: score.round(4),
+          score: similarity.round(4),
           metadata: chunk.metadata
         }
-      end.compact
-
-      # Sort by score and limit
-      results.sort_by { |r| -r[:score] }.first(top_k)
+      end.first(top_k)
     end
 
     def perform_sync(connector)

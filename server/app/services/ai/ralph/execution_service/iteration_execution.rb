@@ -15,7 +15,12 @@ module Ai
           task = select_next_task
           return no_task_result unless task
 
-          iteration = execute_iteration(task)
+          iteration = if task.in_progress?
+                        resume_task_iteration(task)
+                      else
+                        start_fresh_iteration(task)
+                      end
+
           success_result(
             iteration: iteration.iteration_summary,
             loop: ralph_loop.reload.loop_summary,
@@ -28,7 +33,7 @@ module Ai
 
         # Select the next task to work on
         def select_next_task
-          # First, check for any in-progress tasks
+          # First, check for any in-progress tasks (resume after crash/restart)
           in_progress = ralph_loop.ralph_tasks.in_progress.first
           return in_progress if in_progress
 
@@ -50,9 +55,23 @@ module Ai
 
         private
 
-        def execute_iteration(task)
+        # Start a brand-new iteration for a pending task.
+        def start_fresh_iteration(task)
           task.start!
+          run_task_iteration(task)
+        end
 
+        # Resume an in-progress task that was interrupted (crash, timeout, restart).
+        # Cleans up any orphaned running iterations before retrying.
+        def resume_task_iteration(task)
+          task.resume!
+          fail_orphaned_iterations!(task)
+          update_progress("Resuming task #{task.task_key} (attempt #{task.execution_attempts})")
+          run_task_iteration(task)
+        end
+
+        # Shared execution logic for both fresh and resumed tasks.
+        def run_task_iteration(task)
           iteration = ralph_loop.create_iteration(task: task)
           iteration.start!
 
@@ -69,6 +88,17 @@ module Ai
           end
 
           iteration
+        end
+
+        # Fail any iterations left in "running" state from a previous crash.
+        # Without this, orphaned iterations accumulate and skew metrics.
+        def fail_orphaned_iterations!(task)
+          task.ralph_iterations.running.find_each do |orphan|
+            orphan.fail!(
+              error_message: "Orphaned iteration — task resumed after interruption",
+              error_code: "ORPHANED"
+            )
+          end
         end
 
         def build_task_prompt(task)
