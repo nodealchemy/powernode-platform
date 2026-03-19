@@ -15,7 +15,11 @@ import {
   ExclamationTriangleIcon,
   ExclamationCircleIcon,
   FunnelIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  ArrowTopRightOnSquareIcon,
 } from '@heroicons/react/24/outline';
+import { MarkdownRenderer } from '@/shared/components/ui/MarkdownRenderer';
 
 const SEVERITY_ICONS: Record<string, React.ElementType> = {
   info: InformationCircleIcon,
@@ -38,6 +42,7 @@ export const NotificationsPage: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -72,8 +77,21 @@ export const NotificationsPage: React.FC = () => {
     setUnreadCount(prev => Math.max(0, prev - 1));
   }, []);
 
-  // Handle notification click — open chat for AI types, navigate for others
-  const handleNotificationClick = useCallback((notification: Notification) => {
+  // Toggle expand/collapse for a notification
+  const toggleExpanded = useCallback((id: string) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  // Handle notification action — open chat for AI types, navigate for others
+  const handleNotificationAction = useCallback((notification: Notification) => {
     if (notification.type === 'ai_concierge_message' && notification.metadata) {
       const agentId = notification.metadata.agent_id as string | undefined;
       const conversationId = notification.metadata.conversation_id as string | undefined;
@@ -257,14 +275,15 @@ export const NotificationsPage: React.FC = () => {
               {notifications.map((notification) => {
                 const Icon = SEVERITY_ICONS[notification.severity] || InformationCircleIcon;
                 const colorClass = SEVERITY_COLORS[notification.severity] || SEVERITY_COLORS.info;
+                const isExpanded = expandedIds.has(notification.id);
+                const hasMessage = !!notification.message?.trim();
 
                 return (
                   <div
                     key={notification.id}
-                    className={`px-6 py-4 hover:bg-theme-surface-hover transition-colors cursor-pointer ${
+                    className={`px-6 py-4 transition-colors ${
                       !notification.read ? 'bg-theme-info/5' : ''
                     }`}
-                    onClick={() => handleNotificationClick(notification)}
                   >
                     <div className="flex items-start gap-4">
                       <div className={`p-2 rounded-lg flex-shrink-0 ${colorClass}`}>
@@ -272,36 +291,46 @@ export const NotificationsPage: React.FC = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <p className={`text-sm ${!notification.read ? 'font-semibold' : 'font-medium'} text-theme-primary`}>
-                              {notification.title}
-                            </p>
-                            <p className="text-sm text-theme-secondary mt-1">
-                              {notification.message}
-                            </p>
-                            <div className="flex items-center gap-4 mt-2">
-                              <span className="text-xs text-theme-tertiary">
-                                {formatTime(notification.created_at)}
-                              </span>
-                              {notification.category && (
-                                <span className="text-xs px-2.5 py-1 rounded-md bg-theme-primary/10 text-theme-primary font-medium border border-theme-primary/20">
-                                  {notification.category}
-                                </span>
-                              )}
-                              {notification.action_url && notification.action_label && (
-                                <span
-                                  className="text-xs text-theme-primary font-medium hover:underline cursor-pointer"
-                                  onClick={(e) => { e.stopPropagation(); handleNotificationClick(notification); }}
-                                >
-                                  {notification.action_label} →
-                                </span>
+                          <div
+                            className="flex-1 cursor-pointer"
+                            onClick={() => {
+                              if (hasMessage) {
+                                toggleExpanded(notification.id);
+                                if (!notification.read) handleMarkAsRead(notification.id);
+                              } else {
+                                handleNotificationAction(notification);
+                              }
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <p className={`text-sm ${!notification.read ? 'font-semibold' : 'font-medium'} text-theme-primary`}>
+                                {notification.title}
+                              </p>
+                              {hasMessage && (
+                                isExpanded
+                                  ? <ChevronUpIcon className="h-4 w-4 text-theme-tertiary flex-shrink-0" />
+                                  : <ChevronDownIcon className="h-4 w-4 text-theme-tertiary flex-shrink-0" />
                               )}
                             </div>
+                            {!isExpanded && hasMessage && (
+                              <p className="text-sm text-theme-secondary mt-1 truncate">
+                                {notification.message.replace(/\*\*/g, '').replace(/[•\n]/g, ' ').slice(0, 120)}
+                              </p>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
+                            {notification.action_url && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleNotificationAction(notification); }}
+                                className="p-1.5 text-theme-tertiary hover:text-theme-primary hover:bg-theme-surface rounded transition-colors"
+                                title={notification.action_label || 'View'}
+                              >
+                                <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+                              </button>
+                            )}
                             {!notification.read && (
                               <button
-                                onClick={() => handleMarkAsRead(notification.id)}
+                                onClick={(e) => { e.stopPropagation(); handleMarkAsRead(notification.id); }}
                                 className="p-1.5 text-theme-tertiary hover:text-theme-primary hover:bg-theme-surface rounded transition-colors"
                                 title="Mark as read"
                               >
@@ -309,13 +338,41 @@ export const NotificationsPage: React.FC = () => {
                               </button>
                             )}
                             <button
-                              onClick={() => handleDismiss(notification.id)}
+                              onClick={(e) => { e.stopPropagation(); handleDismiss(notification.id); }}
                               className="p-1.5 text-theme-tertiary hover:text-theme-error hover:bg-theme-surface rounded transition-colors"
                               title="Dismiss"
                             >
                               <XMarkIcon className="h-4 w-4" />
                             </button>
                           </div>
+                        </div>
+                        {isExpanded && hasMessage && (
+                          <div className="mt-3 pt-3 border-t border-theme text-sm text-theme-secondary">
+                            <MarkdownRenderer
+                              content={notification.message}
+                              variant="admin"
+                              enableAdvancedFeatures={false}
+                              fontSize="sm"
+                              lineHeight="tight"
+                              maxWidth="none"
+                              customComponents={{
+                                p: ({ children }) => <p className="text-sm text-theme-secondary my-1">{children}</p>,
+                                strong: ({ children }) => <strong className="text-theme-primary font-semibold">{children}</strong>,
+                                ul: ({ children }) => <ul className="list-disc pl-4 my-1 space-y-0.5">{children}</ul>,
+                                li: ({ children }) => <li className="text-sm text-theme-secondary">{children}</li>,
+                              }}
+                            />
+                          </div>
+                        )}
+                        <div className="flex items-center gap-4 mt-2">
+                          <span className="text-xs text-theme-tertiary">
+                            {formatTime(notification.created_at)}
+                          </span>
+                          {notification.category && (
+                            <span className="text-xs px-2.5 py-1 rounded-md bg-theme-primary/10 text-theme-primary font-medium border border-theme-primary/20">
+                              {notification.category}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>

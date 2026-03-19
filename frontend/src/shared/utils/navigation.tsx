@@ -2,7 +2,7 @@
 import {
   Home, BarChart3, Users, User, Settings, CreditCard,
   FileText, Package, UserCheck,
-  HelpCircle, LogOut, Bot, Brain,
+  HelpCircle, LogOut, Bot, Brain, Bell,
   HardDrive, Workflow, Server, GitBranch,
   Puzzle, BookOpen, UserCog, Activity, ShieldCheck,
   Container,
@@ -179,13 +179,22 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 1
         },
         {
+          id: 'notifications',
+          name: 'Notifications',
+          href: '/app/notifications',
+          icon: Bell,
+          description: 'View and manage your notifications',
+          permissions: [],
+          order: 2
+        },
+        {
           id: 'profile',
           name: 'My Profile',
           href: '/app/profile',
           icon: User,
           description: 'Personal information and preferences',
           permissions: [],
-          order: 2
+          order: 3
         },
         {
           id: 'billing',
@@ -195,7 +204,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           description: 'Invoices and payment processing',
           permissions: ['admin.billing.read'],
           extensionSlug: 'business',
-          order: 3
+          order: 4
         }
       ],
       collapsible: true,

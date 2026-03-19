@@ -135,7 +135,7 @@ export const Modal: React.FC<ModalProps> = ({
       ${animate ? 'animate-modal-fade-in' : ''}
     `,
     drawer: `
-      bg-theme-surface h-full text-left overflow-hidden shadow-2xl
+      bg-theme-surface h-full text-left overflow-hidden shadow-2xl flex flex-col
       ${animate ? 'animate-modal-slide-left' : ''}
     `
   };
@@ -248,7 +248,7 @@ export const Modal: React.FC<ModalProps> = ({
           {/* Enhanced Content with conditional scroll */}
           <div className={`
             text-theme-secondary
-            ${variant === 'fullscreen' ? 'flex-1 min-h-0' :
+            ${variant === 'fullscreen' || variant === 'drawer' ? 'flex-1 min-h-0 px-6 py-4 overflow-y-auto custom-scrollbar' :
               disableContentScroll ? 'px-6 py-4' : 'px-6 py-4 max-h-[60vh] overflow-y-auto custom-scrollbar'}
           `}>
             {children}
