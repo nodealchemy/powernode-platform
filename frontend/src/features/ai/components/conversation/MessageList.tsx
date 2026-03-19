@@ -121,6 +121,13 @@ export const MessageList = React.memo<MessageListProps>(({
       onLoadOlder?.();
     }
   }, [hasOlder, loadingOlder, onLoadOlder]);
+  const lastAiMessageId = React.useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].sender_type === 'ai') return messages[i].id;
+    }
+    return null;
+  }, [messages]);
+
   const renderMessage = (message: AiMessage) => {
     const isUser = message.sender_type === 'user';
     const isAI = message.sender_type === 'ai';
@@ -131,7 +138,7 @@ export const MessageList = React.memo<MessageListProps>(({
     const isEditing = editingMessageId === message.id;
     const canEdit = isUser && currentUser?.id === message.user_id;
     const canDelete = isUser && currentUser?.id === message.user_id;
-    const isClickableSuggestion = isConcierge && isAI && !!onSuggestedMessage;
+    const isClickableSuggestion = isAI && message.id === lastAiMessageId && !!onSuggestedMessage;
 
     // Extract mention names for highlighting
     const mentionNames = (message.metadata?.mentions as Array<{ id: string; name: string }> | undefined)?.map(m => m.name);
