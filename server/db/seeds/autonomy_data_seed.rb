@@ -81,7 +81,9 @@ KEEP_AGENT_NAMES = [
   "RAG Reranker",
   "RAG Query Engine",
   "Intent Classifier",
-  "Semantic Tool Scorer"
+  "Semantic Tool Scorer",
+  # Trading extension agents (dynamically created, must survive seeds)
+  "Trading Overseer"
 ].freeze
 
 # Ensure the 4 extra agents exist (they may not have been created by earlier seeds)
@@ -261,7 +263,8 @@ TRUST_PROFILES = {
   "Life Sciences Research Analyst"   => { tier: "supervised", rel: 0.25, cost: 0.80, safety: 0.35, qual: 0.25, speed: 0.40, evals: 3  },
   "Finance Operations Analyst"       => { tier: "supervised", rel: 0.30, cost: 0.80, safety: 0.45, qual: 0.30, speed: 0.40, evals: 3  },
   "Sales Operations Specialist"      => { tier: "supervised", rel: 0.25, cost: 0.50, safety: 0.30, qual: 0.25, speed: 0.35, evals: 3  },
-  "Customer Success Agent"           => { tier: "supervised", rel: 0.30, cost: 0.50, safety: 0.35, qual: 0.30, speed: 0.40, evals: 3  }
+  "Customer Success Agent"           => { tier: "supervised", rel: 0.30, cost: 0.50, safety: 0.35, qual: 0.30, speed: 0.40, evals: 3  },
+  "Trading Overseer"                 => { tier: "trusted",    rel: 0.88, cost: 0.75, safety: 0.90, qual: 0.80, speed: 0.80, evals: 30 }
 }.freeze
 
 trust_created = 0
@@ -324,7 +327,8 @@ BUDGET_PROFILES = {
   "Life Sciences Research Analyst"   => { total: 1000,  spent: 0 },
   "Finance Operations Analyst"       => { total: 1000,  spent: 0 },
   "Sales Operations Specialist"      => { total: 1000,  spent: 0 },
-  "Customer Success Agent"           => { total: 1500,  spent: 0 }
+  "Customer Success Agent"           => { total: 1500,  spent: 0 },
+  "Trading Overseer"                 => { total: 5000,  spent: 0 }
 }.freeze
 
 period_start = Time.current.beginning_of_month
@@ -354,6 +358,45 @@ BUDGET_PROFILES.each do |agent_name, profile|
 end
 
 Rails.logger.info "[AutonomySeed] Created/updated #{budgets_created} budgets"
+
+# ---------------------------------------------------------------------------
+# Intervention Policies (default notification policies)
+# ---------------------------------------------------------------------------
+# Without these, InterventionPolicyService falls back to "require_approval"
+# for all categories — which is wrong for informational categories like
+# status_update, issue_alert, and feedback. The LLM sees the policy in
+# the tool response and misinterprets it as a permission failure.
+
+INTERVENTION_POLICIES = [
+  { action_category: "status_update",  policy: "notify_and_proceed", channels: %w[notification], priority: 0 },
+  { action_category: "issue_alert",    policy: "notify_and_proceed", channels: %w[notification], priority: 0 },
+  { action_category: "feedback",       policy: "notify_and_proceed", channels: %w[notification], priority: 0 },
+  { action_category: "escalation",     policy: "notify_and_proceed", channels: %w[notification], priority: 0 },
+  { action_category: "proposal",       policy: "require_approval",   channels: %w[notification], priority: 0 },
+  { action_category: "approval",       policy: "require_approval",   channels: %w[notification], priority: 0 },
+].freeze
+
+policies_created = 0
+
+INTERVENTION_POLICIES.each do |pd|
+  policy = Ai::InterventionPolicy.find_or_initialize_by(
+    account: admin_account,
+    scope: "global",
+    action_category: pd[:action_category],
+    user_id: nil,
+    ai_agent_id: nil
+  )
+  policy.assign_attributes(
+    policy: pd[:policy],
+    preferred_channels: pd[:channels],
+    priority: pd[:priority],
+    is_active: true
+  )
+  policy.save!
+  policies_created += 1
+end
+
+Rails.logger.info "[AutonomySeed] Created/updated #{policies_created} intervention policies"
 
 # ---------------------------------------------------------------------------
 # Summary
