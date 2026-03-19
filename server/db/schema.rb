@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_17_235001) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_18_225124) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10296,6 +10296,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_17_235001) do
     t.datetime "created_at", null: false
     t.datetime "ends_at"
     t.text "error_message"
+    t.boolean "held", default: false, null: false
     t.boolean "include_classic", default: false
     t.integer "market_count", default: 3
     t.jsonb "metrics", default: {}
@@ -10312,9 +10313,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_17_235001) do
     t.jsonb "timeline", default: []
     t.integer "total_ticks", default: 0
     t.datetime "updated_at", null: false
+    t.string "venue_slug"
     t.index ["account_id", "status"], name: "index_trading_training_sessions_on_account_id_and_status"
     t.index ["account_id"], name: "index_trading_training_sessions_on_account_id"
     t.index ["scheduled_for"], name: "idx_training_sessions_scheduled", where: "((scheduled_for IS NOT NULL) AND ((status)::text = 'scheduled'::text))"
+    t.index ["status", "held"], name: "index_trading_training_sessions_on_status_and_held"
+    t.index ["venue_slug"], name: "index_trading_training_sessions_on_venue_slug"
   end
 
   create_table "trading_venue_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
