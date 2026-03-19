@@ -104,10 +104,9 @@ module Ai
         title: title,
         message: message,
         severity: severity,
-        priority: priority,
         category: "ai",
         action_url: action_url,
-        metadata: { agent_id: agent.id, agent_name: agent.name }
+        metadata: { agent_id: agent.id, agent_name: agent.name, priority: priority }
       )
     end
 
