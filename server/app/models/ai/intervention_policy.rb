@@ -83,8 +83,9 @@ module Ai
       if conditions["trust_tier_minimum"].present? && agent_record
         tier_order = %w[supervised monitored trusted autonomous]
         trust_score = Ai::AgentTrustScore.find_by(agent_id: agent_record.id)
-        return false unless trust_score
-        return false if tier_order.index(trust_score.tier).to_i < tier_order.index(conditions["trust_tier_minimum"]).to_i
+        agent_tier = trust_score&.tier || "supervised"
+        min_tier = conditions["trust_tier_minimum"]
+        return false if tier_order.index(agent_tier).to_i < tier_order.index(min_tier).to_i
       end
 
       # Check severity minimum

@@ -27,6 +27,13 @@ module Ai
 
       return default_policy if matching.empty?
 
+      # Prefer agent-scoped policies when resolving for a specific agent.
+      # Agent-specific overrides should always win over global/account defaults.
+      if agent
+        agent_scoped = matching.select { |p| p.ai_agent_id == agent.id }
+        matching = agent_scoped if agent_scoped.any?
+      end
+
       # Sort by specificity (most specific wins)
       best = matching.max_by(&:specificity_score)
 
