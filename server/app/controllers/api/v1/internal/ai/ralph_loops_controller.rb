@@ -12,12 +12,15 @@ module Api
             processed = 0
             skipped = 0
 
-            ::Ai::RalphLoop.due_for_execution.includes(:account).find_each do |loop|
+            ::Ai::RalphLoop.due_for_execution.includes(:account, :default_agent).find_each do |loop|
               begin
                 if loop.account&.ai_suspended?
                   skipped += 1
                   next
                 end
+
+                trading_overseer = trading_overseer_loop?(loop)
+                broadcast_trading_cycle(loop, "overseer_cycle_started") if trading_overseer
 
                 service = ::Ai::Ralph::ExecutionService.new(ralph_loop: loop)
                 result = service.run_iteration
@@ -30,6 +33,7 @@ module Api
                   loop.schedule_next_iteration! if loop.scheduling_mode.in?(%w[autonomous continuous])
                 end
 
+                broadcast_trading_cycle(loop, "overseer_cycle_completed", result) if trading_overseer
                 processed += 1
               rescue StandardError => e
                 Rails.logger.error "[RalphLoopScheduler] Failed to process loop #{loop.id}: #{e.message}"
@@ -42,7 +46,7 @@ module Api
 
           # POST /api/v1/internal/ai/ralph_loops/:id/run_iteration
           def run_iteration
-            ralph_loop = ::Ai::RalphLoop.includes(:account).find(params[:id])
+            ralph_loop = ::Ai::RalphLoop.includes(:account, :default_agent).find(params[:id])
 
             # Kill switch check
             if ralph_loop.account&.ai_suspended?
@@ -59,8 +63,13 @@ module Api
               return render_success(completed: true, message: "All iterations completed")
             end
 
+            trading_overseer = trading_overseer_loop?(ralph_loop)
+            broadcast_trading_cycle(ralph_loop, "overseer_cycle_started") if trading_overseer
+
             service = ::Ai::Ralph::ExecutionService.new(ralph_loop: ralph_loop)
             result = service.run_iteration
+
+            broadcast_trading_cycle(ralph_loop, "overseer_cycle_completed", result) if trading_overseer
 
             if result[:success]
               render_success(
@@ -75,6 +84,22 @@ module Api
           end
 
           private
+
+          def trading_overseer_loop?(loop)
+            agent = loop.default_agent
+            agent&.agent_type == "monitor" && agent&.name == "Trading Overseer"
+          end
+
+          def broadcast_trading_cycle(loop, event_type, result = nil)
+            payload = { iteration: loop.current_iteration }
+            if event_type == "overseer_cycle_completed"
+              payload[:next_scheduled_at] = loop.reload.next_scheduled_at&.iso8601
+              payload[:pending] = loop.account.trading_overseer_decisions.where(status: "pending").count if loop.account.respond_to?(:trading_overseer_decisions)
+            end
+            TradingChannel.broadcast_to_account(loop.account_id, event_type, payload) if defined?(TradingChannel)
+          rescue StandardError => e
+            Rails.logger.warn("[RalphLoopScheduler] Trading broadcast failed: #{e.message}")
+          end
 
           def heal_stuck_autonomous_loops
             ::Ai::RalphLoop

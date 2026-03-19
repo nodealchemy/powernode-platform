@@ -24,7 +24,14 @@ module Ai
       def schedule_next_iteration!
         return unless scheduling_mode.in?(%w[scheduled continuous autonomous])
         return if schedule_paused?
-        return if exceeded_daily_limit?
+
+        if exceeded_daily_limit?
+          # Still advance next_scheduled_at to tomorrow's reset so the loop
+          # doesn't keep firing every minute via due_for_execution.
+          tomorrow_midnight = Time.current.tomorrow.beginning_of_day
+          update!(next_scheduled_at: tomorrow_midnight) if next_scheduled_at.nil? || next_scheduled_at < tomorrow_midnight
+          return
+        end
 
         update!(
           next_scheduled_at: calculate_next_scheduled_at,
