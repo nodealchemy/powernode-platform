@@ -352,6 +352,26 @@ module Ai
         top_level = params.except(:config, :strategy_id, :action).stringify_keys
         config = nested.merge(top_level.compact)
 
+        # Duplicate detection: resume a paused session with matching config instead
+        # of creating a duplicate. Prevents H271→H275-style duplication where crash
+        # recovery creates a replacement while the original is still resumable.
+        incoming_venue = config["venue_slug"]
+        incoming_types = config["strategy_types"] || ["llm_probability"]
+        if incoming_venue.present?
+          resumable = account.trading_training_sessions
+            .where(status: "paused")
+            .where("config->>'venue_slug' = ?", incoming_venue)
+            .where(strategy_types: incoming_types)
+            .order(created_at: :desc)
+            .first
+
+          if resumable
+            resumable.update!(status: "pending", error_message: "Resumed (duplicate creation prevented)")
+            WorkerJobService.enqueue_trading_training_session(resumable.id)
+            return success_result(serialize_training_session(resumable).merge("resumed" => true))
+          end
+        end
+
         session_mode = config["mode"] || "continuous"
         session_config = config.merge(
           "initial_balance" => (config["initial_balance"] || 10_000).to_f,
