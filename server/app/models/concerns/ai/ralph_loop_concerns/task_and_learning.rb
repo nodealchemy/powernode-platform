@@ -48,15 +48,18 @@ module Ai
       # Iteration management
 
       def increment_iteration!
-        update!(current_iteration: current_iteration + 1)
+        # Sync with actual max iteration from DB to recover from any counter drift
+        max_completed = ralph_iterations.maximum(:iteration_number) || current_iteration
+        new_iteration = [current_iteration + 1, max_completed].max
+        update!(current_iteration: new_iteration)
       end
 
       def create_iteration(task: nil)
-        ralph_iterations.create!(
-          ralph_task: task,
-          iteration_number: current_iteration + 1,
-          status: "pending"
-        )
+        next_number = current_iteration + 1
+        ralph_iterations.find_or_create_by!(iteration_number: next_number) do |iter|
+          iter.ralph_task = task
+          iter.status = "pending"
+        end
       end
 
       # Summary methods
