@@ -688,10 +688,12 @@ class TradingTrainingSessionJob < BaseJob
     end
     log_info("Launched #{strategies.size} independent strategy runners", session_id: session_id)
 
-    last_evolution_at = Time.now
-    last_scan_at = Time.now
+    @last_evolution_at = Time.now
+    @last_scan_at = Time.now
     last_promotion_check_at = Time.now
     last_temporal_pruning_at = Time.now
+
+    consecutive_status_failures = 0
 
     # Supervision loop
     loop do
@@ -699,9 +701,28 @@ class TradingTrainingSessionJob < BaseJob
       break if cancel_requested?(session_id)
       break if completion_requested?(session_id)
 
-      # Check session status
+      # Write adaptive heartbeat BEFORE periodic tasks so orphan recovery
+      # knows the orchestrator is alive even during expensive operations.
+      write_orchestrator_heartbeat!(session_id, lease_seconds: next_operation_lease)
+
+      # Check session status — tolerate transient failures (backend restart,
+      # circuit breaker) by waiting for consecutive failures before exiting.
       status = check_status(session_id)
-      break if status.nil? || status.dig("data", "status").in?(%w[cancelled failed completed])
+      if status.nil?
+        consecutive_status_failures += 1
+        if consecutive_status_failures >= 5
+          log_warn("#{consecutive_status_failures} consecutive status failures — pausing for recovery",
+            session_id: session_id)
+          break
+        end
+        log_info("Status check failed (#{consecutive_status_failures}/5), retrying next cycle",
+          session_id: session_id)
+        sleep(ORCHESTRATOR_POLL_INTERVAL)
+        next
+      else
+        consecutive_status_failures = 0
+      end
+      break if status.dig("data", "status").in?(%w[cancelled failed completed])
 
       # Check time-based expiry
       ends_at = status.dig("data", "ends_at")
@@ -718,15 +739,15 @@ class TradingTrainingSessionJob < BaseJob
       end
 
       # Periodic: mid-session parameter evolution
-      if Time.now - last_evolution_at >= EVOLUTION_INTERVAL
+      if Time.now - @last_evolution_at >= EVOLUTION_INTERVAL
         run_evolution_cycle!(session_id)
-        last_evolution_at = Time.now
+        @last_evolution_at = Time.now
       end
 
       # Periodic: market scanning & rotation
-      if Time.now - last_scan_at >= MARKET_SCAN_INTERVAL
+      if Time.now - @last_scan_at >= MARKET_SCAN_INTERVAL
         run_market_scan_cycle!(session_id)
-        last_scan_at = Time.now
+        @last_scan_at = Time.now
       end
 
       # Periodic: promotion candidate detection
@@ -779,25 +800,28 @@ class TradingTrainingSessionJob < BaseJob
     { completed: true, session_id: session_id, mode: "continuous" }
   rescue StandardError => e
     log_error("Continuous orchestrator failed", e, session_id: session_id)
-    fail_session!(session_id, e.message)
+    # Pause instead of fail — transient errors (circuit breaker, backend restart)
+    # should not permanently kill the session. Orphan recovery or the overseer
+    # will handle resume/cancel/complete decisions.
+    begin
+      pause_session!(session_id, "Orchestrator error: #{e.message}")
+    rescue StandardError
+      fail_session!(session_id, e.message)
+    end
     raise
   end
 
   # Aggregate session-level metrics from individual strategy runners.
   # Called every supervision cycle (60s) to keep session metrics current.
-  # Uses the training_tick_complete endpoint with a synthetic tick result.
+  # Uses the training_tick_complete endpoint which derives all metrics
+  # (signals, orders, positions, P&L, LLM cost) from DB records.
   def aggregate_session_metrics!(session_id, strategies)
     @aggregate_tick_counter = (@aggregate_tick_counter || 0) + 1
-    # Synthesize tick results from strategy states (the server calculates
-    # actual metrics from strategy/position records)
-    tick_results = strategies.map do |s|
-      { "signals_generated" => 0, "tick_cost_usd" => 0 }
-    end
 
     trading_data_fetcher.training_tick_complete(
       session_id: session_id,
       tick_num: @aggregate_tick_counter,
-      tick_results: tick_results
+      tick_results: []
     )
   rescue StandardError => e
     log_warn("Metrics aggregation failed (non-fatal): #{e.message}", session_id: session_id)
@@ -862,6 +886,40 @@ class TradingTrainingSessionJob < BaseJob
     log_warn("Temporal pruning cycle failed (non-fatal): #{e.message}", session_id: session_id)
   end
 
+  # Write an adaptive orchestrator heartbeat via direct API call (not DataFetcher)
+  # so lease_seconds reaches the server. The lease tells orphan recovery how long
+  # to wait before declaring the orchestrator dead.
+  def write_orchestrator_heartbeat!(session_id, lease_seconds: 180)
+    api_client.post_with_circuit_breaker(
+      "/api/v1/internal/trading/training_tick_complete",
+      {
+        session_id: session_id,
+        tick_num: @aggregate_tick_counter || 0,
+        tick_results: [],
+        lease_seconds: lease_seconds
+      },
+      circuit_breaker: :trading_training
+    )
+  rescue StandardError => e
+    log_warn("Orchestrator heartbeat failed (non-fatal): #{e.message}", session_id: session_id)
+  end
+
+  # Calculate lease duration based on the next scheduled operation.
+  # Expensive operations (evolution, market scan) get longer leases so orphan
+  # recovery doesn't false-trigger during a 5-minute venue API call.
+  def next_operation_lease
+    base = ORCHESTRATOR_POLL_INTERVAL * 2 # 120s — generous margin for normal cycles
+    now = Time.now
+
+    if now - (@last_evolution_at || now) >= EVOLUTION_INTERVAL
+      300 # Evolution cycle can take up to 5 min
+    elsif now - (@last_scan_at || now) >= MARKET_SCAN_INTERVAL
+      300 # Market scan involves venue API calls
+    else
+      base
+    end
+  end
+
   # Worker-orchestrated multi-phase setup.
   # Each phase is a short-lived backend request (~5-60s), instead of one
   # monolithic 300s+ request that blocks a Puma thread.
@@ -875,8 +933,10 @@ class TradingTrainingSessionJob < BaseJob
 
     config = status["data"]
 
-    # Resume path: if strategies already exist, skip setup and go to tick loop
-    if config["completed_ticks"].to_i > 0 || config["status"] == "running"
+    # Resume path: if strategies already exist, skip setup and go to tick loop.
+    # Check started_at and strategy_count to catch sessions that set up strategies
+    # but crashed before the first tick completed (completed_ticks still 0).
+    if config["completed_ticks"].to_i > 0 || config["started_at"].present? || config["strategy_count"].to_i > 0 || config["status"] == "running"
       log_info("Resuming session at tick #{config['completed_ticks']}", session_id: session_id)
       return resume_from_existing!(session_id, config)
     end
