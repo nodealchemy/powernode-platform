@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useEffect } from 'react';
-import { ArrowUp, Loader2 } from 'lucide-react';
+import { ArrowUp } from 'lucide-react';
 import { useMentionAutocomplete, MentionDropdown } from './MentionAutocomplete';
 import type { MentionMember } from './MentionAutocomplete';
 import { parseMentions } from './utils';
@@ -9,7 +9,7 @@ interface MessageComposerProps {
   onChange: (value: string) => void;
   onSend: () => void;
   onTyping: () => void;
-  sending: boolean;
+  sending?: boolean;
   members?: MentionMember[];
   onMentionsChange?: (mentions: Array<{ id: string; name: string }>) => void;
 }
@@ -32,7 +32,7 @@ export const MessageComposer = React.memo<MessageComposerProps>(({
   onChange,
   onSend,
   onTyping,
-  sending,
+  sending: _sending,
   members,
   onMentionsChange
 }) => {
@@ -71,7 +71,7 @@ export const MessageComposer = React.memo<MessageComposerProps>(({
 
   const mentionNames = mention.pendingMentions.map(m => m.name);
   const hasMentionHighlights = mentionNames.length > 0 && mentionNames.some(n => value.includes(`@${n}`));
-  const canSend = value.trim().length > 0 && !sending;
+  const canSend = value.trim().length > 0;
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     onChange(e.target.value);
@@ -169,9 +169,8 @@ export const MessageComposer = React.memo<MessageComposerProps>(({
             : "Message... (Ctrl+Enter for new line)"
           }
           rows={1}
-          className="relative z-10 w-full min-h-[44px] max-h-[120px] px-4 py-2.5 pr-14 rounded-2xl border-none resize-none bg-transparent text-theme-primary placeholder-theme-muted focus:outline-none disabled:text-theme-muted"
+          className="relative z-10 w-full min-h-[44px] max-h-[120px] px-4 py-2.5 pr-14 rounded-2xl border-none resize-none bg-transparent text-theme-primary placeholder-theme-muted focus:outline-none"
           style={mirrorStyle}
-          disabled={sending}
           data-testid="message-input"
           aria-label="Message input"
           aria-describedby="message-input-instructions"
@@ -188,13 +187,9 @@ export const MessageComposer = React.memo<MessageComposerProps>(({
               : 'bg-theme-muted/20 text-theme-muted cursor-not-allowed'
           }`}
           data-testid="send-button"
-          aria-label={sending ? "Sending message" : "Send message"}
+          aria-label="Send message"
         >
-          {sending ? (
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          ) : (
-            <ArrowUp className="h-4 w-4" aria-hidden="true" />
-          )}
+          <ArrowUp className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
     </div>

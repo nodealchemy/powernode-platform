@@ -225,7 +225,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
 
   const handleSendMessage = useCallback(async (overrideText?: string) => {
     const messageContent = (typeof overrideText === 'string' ? overrideText : inputValueRef.current).trim();
-    if (!messageContent || sending || !currentUser) return;
+    if (!messageContent || !currentUser) return;
 
     setInputValue('');
     inputValueRef.current = '';
@@ -313,7 +313,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     } finally {
       setSending(false);
     }
-  }, [sending, currentUser, conversation.id, agentId]);
+  }, [currentUser, conversation.id, agentId]);
 
   const handleTyping = useCallback(() => {
     if (!isTyping) {
