@@ -375,7 +375,7 @@ module Ai
           account,
           type: "security_alert",
           title: "AI Emergency Stop Activated",
-          message: "All AI agent activity has been halted. Reason: #{reason}",
+          message: "**All AI agent activity has been halted.**\n\n**Reason:** #{reason}",
           severity: "error",
           category: "ai"
         )

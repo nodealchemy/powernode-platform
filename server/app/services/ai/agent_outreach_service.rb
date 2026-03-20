@@ -72,7 +72,9 @@ module Ai
         user: target_user,
         type: "agent_escalation",
         title: "Escalation: #{escalation.title}",
-        message: "Agent #{agent.name} needs help: #{escalation.title} (#{escalation.severity})",
+        message: "**#{agent.name}** needs help with an escalation.\n\n" \
+                 "**Severity:** #{escalation.severity}\n\n" \
+                 "#{escalation.title}",
         severity: escalation.severity == "critical" ? "error" : "warning",
         priority: escalation.severity == "critical" ? 3 : 1,
         action_url: "/ai/escalations/#{escalation.id}"
@@ -88,7 +90,9 @@ module Ai
         user: target_user,
         type: "agent_proposal",
         title: "Proposal: #{proposal.title}",
-        message: "Agent #{agent.name} proposes: #{proposal.title} (#{proposal.priority} priority)",
+        message: "**#{agent.name}** has submitted a proposal.\n\n" \
+                 "**Priority:** #{proposal.priority}\n" \
+                 "**Type:** #{proposal.proposal_type.titleize}",
         severity: proposal.priority == "critical" ? "warning" : "info",
         priority: proposal.priority == "critical" ? 2 : 0,
         action_url: "/ai/proposals/#{proposal.id}"

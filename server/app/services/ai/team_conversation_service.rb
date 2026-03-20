@@ -399,7 +399,8 @@ module Ai
         user,
         type: "ai_plan_review",
         title: "Plan Ready for Review",
-        message: "#{execution.agent_team.name} has produced a plan for \"#{execution.objective&.truncate(80)}\". Review and approve to proceed.",
+        message: "**#{execution.agent_team.name}** has produced a plan for **\"#{execution.objective&.truncate(80)}\"**.\n\n" \
+                 "Review and approve to proceed.",
         severity: "info",
         action_label: "Review Plan",
         category: "ai",

@@ -261,7 +261,8 @@ module Ai
         created_by,
         type: "ai_plan_review",
         title: "Mission awaiting #{gate_label}",
-        message: "\"#{name}\" requires #{gate_label} before it can continue.",
+        message: "**\"#{name}\"** requires **#{gate_label}** before it can continue.\n\n" \
+                 "Review and approve to allow the mission to proceed to the next phase.",
         severity: "warning",
         category: "ai",
         action_url: "/app/ai/missions/#{id}",

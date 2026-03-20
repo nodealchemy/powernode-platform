@@ -313,7 +313,7 @@ module Ai
           user: user,
           notification_type: "ralph_task_review",
           title: "Task Review Required: #{task.task_key}",
-          body: "Please review and complete task: #{task.description&.truncate(200)}",
+          body: "Please review and complete task **#{task.task_key}**.\n\n#{task.description&.truncate(200)}",
           data: {
             ralph_task_id: task.id,
             ralph_loop_id: ralph_loop.id,

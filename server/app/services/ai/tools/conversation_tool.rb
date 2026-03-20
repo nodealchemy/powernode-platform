@@ -575,7 +575,7 @@ module Ai
           user,
           type: "ai_concierge_message",
           title: "Message from #{concierge_agent.name}",
-          message: last_message.content.to_s.truncate(120),
+          message: "**#{concierge_agent.name}:** #{last_message.content.to_s.truncate(120)}",
           severity: "info",
           category: "ai",
           action_url: "/app/ai/chat",
