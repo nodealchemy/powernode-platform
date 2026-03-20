@@ -20,5 +20,9 @@ class AiWorktreeTimeoutJob < BaseJob
     else
       log_error("[WorktreeTimeout] Timeout check failed: #{response['error']}")
     end
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    log_info("[WorktreeTimeout] Backend unavailable, skipping (will retry next cron)")
+  rescue BackendApiClient::ApiError => e
+    log_info("[WorktreeTimeout] Skipped: #{e.message}")
   end
 end

@@ -14,5 +14,9 @@ class AiObservationCleanupJob < BaseJob
       log_warn "[AiObservationCleanupJob] API returned error: #{response['error']}"
       { expired_deleted: 0, processed_deleted: 0 }
     end
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    log_info("[AiObservationCleanupJob] Backend unavailable, skipping (will retry next cron)")
+  rescue BackendApiClient::ApiError => e
+    log_info("[AiObservationCleanupJob] Skipped: #{e.message}")
   end
 end

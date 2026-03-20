@@ -22,5 +22,9 @@ class TradingPositionCleanupJob < BaseJob
     end
 
     errors.each { |err| log_warn("Cleanup error: #{err}") } if errors.any?
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    log_info("Backend unavailable, skipping position cleanup (will retry next cron)")
+  rescue BackendApiClient::ApiError => e
+    log_info("Position cleanup skipped: #{e.message}")
   end
 end

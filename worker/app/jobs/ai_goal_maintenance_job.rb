@@ -14,5 +14,9 @@ class AiGoalMaintenanceJob < BaseJob
       log_warn "[AiGoalMaintenanceJob] API returned error: #{response['error']}"
       { goals_abandoned: 0 }
     end
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    log_info("[AiGoalMaintenanceJob] Backend unavailable, skipping (will retry next cron)")
+  rescue BackendApiClient::ApiError => e
+    log_info("[AiGoalMaintenanceJob] Skipped: #{e.message}")
   end
 end

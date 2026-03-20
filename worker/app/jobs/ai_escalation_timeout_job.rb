@@ -15,5 +15,9 @@ class AiEscalationTimeoutJob < BaseJob
       log_warn "[AiEscalationTimeoutJob] API returned error: #{response['error']}"
       { escalated_count: 0 }
     end
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    log_info("[AiEscalationTimeoutJob] Backend unavailable, skipping (will retry next cron)")
+  rescue BackendApiClient::ApiError => e
+    log_info("[AiEscalationTimeoutJob] Skipped: #{e.message}")
   end
 end

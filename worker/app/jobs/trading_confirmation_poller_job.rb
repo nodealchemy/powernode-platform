@@ -27,6 +27,10 @@ class TradingConfirmationPollerJob < BaseJob
         log_warn("Failed to check transaction #{tx_data['id']}", error: e.message)
       end
     end
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    log_info("Backend unavailable, skipping confirmation poller (will retry next cron)")
+  rescue BackendApiClient::ApiError => e
+    log_info("Confirmation poller skipped: #{e.message}")
   end
 
   private

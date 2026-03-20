@@ -44,5 +44,9 @@ class AiWorktreePushAndPrJob < BaseJob
     log_info("[WorktreePushAndPr] Push and PR completed",
       session_id: session_id,
       pr_urls: pr_response.dig('data', 'pr_urls'))
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    log_info("[WorktreePushAndPr] Backend unavailable, skipping", session_id: session_id)
+  rescue BackendApiClient::ApiError => e
+    log_info("[WorktreePushAndPr] Skipped: #{e.message}", session_id: session_id)
   end
 end

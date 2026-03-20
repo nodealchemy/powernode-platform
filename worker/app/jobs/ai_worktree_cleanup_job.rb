@@ -33,5 +33,9 @@ class AiWorktreeCleanupJob < BaseJob
     log_info("[WorktreeCleanup] Cleanup completed",
       session_id: session_id,
       worktrees_cleaned: cleanup_response.dig('data', 'worktrees_cleaned'))
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    log_info("[WorktreeCleanup] Backend unavailable, skipping", session_id: session_id)
+  rescue BackendApiClient::ApiError => e
+    log_info("[WorktreeCleanup] Skipped: #{e.message}", session_id: session_id)
   end
 end

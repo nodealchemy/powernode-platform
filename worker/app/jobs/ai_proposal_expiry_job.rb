@@ -15,5 +15,9 @@ class AiProposalExpiryJob < BaseJob
       log_warn "[AiProposalExpiryJob] API returned error: #{response['error']}"
       { expired_count: 0 }
     end
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    log_info("[AiProposalExpiryJob] Backend unavailable, skipping (will retry next cron)")
+  rescue BackendApiClient::ApiError => e
+    log_info("[AiProposalExpiryJob] Skipped: #{e.message}")
   end
 end

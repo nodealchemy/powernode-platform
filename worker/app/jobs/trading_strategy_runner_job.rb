@@ -105,6 +105,12 @@ class TradingStrategyRunnerJob < BaseJob
       submit_result!(result["_submission"])
     end
 
+    # Stop immediately if circuit breaker was tripped by reactive risk check
+    if @circuit_breaker_halt
+      log_info("Halting runner — circuit breaker tripped after result submission", strategy_id: @strategy_id)
+      return { stopped: true, reason: "circuit_breaker" }
+    end
+
     # Record to rolling performance window
     record_performance_window!(result, context)
 
@@ -112,6 +118,20 @@ class TradingStrategyRunnerJob < BaseJob
     schedule_next!(context, tick_interval: tick_interval)
 
     result
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED => e
+    log_info("Backend unavailable, retrying in 30s", strategy_id: @strategy_id)
+    schedule_next!(nil, tick_interval: 30)
+    { error: e.message, backend_down: true }
+  rescue BackendApiClient::ApiError => e
+    if e.message.include?("Circuit breaker")
+      log_info("Circuit breaker open, retrying in 30s", strategy_id: @strategy_id)
+      schedule_next!(nil, tick_interval: 30)
+      { error: e.message, circuit_breaker: true }
+    else
+      log_error("Strategy runner tick failed", e, strategy_id: @strategy_id)
+      schedule_next!(nil, tick_interval: @options["tick_interval"]&.to_i || 30)
+      { error: e.message }
+    end
   rescue StandardError => e
     log_error("Strategy runner tick failed", e, strategy_id: @strategy_id)
     # Still schedule next tick on error — don't let a single failure kill the runner
@@ -121,6 +141,8 @@ class TradingStrategyRunnerJob < BaseJob
 
   def check_session_status
     trading_data_fetcher.training_status(@session_id)
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    raise # Let backend-down errors propagate to run_tick! for backoff handling
   rescue StandardError => e
     log_warn("Session status check failed: #{e.message}", strategy_id: @strategy_id)
     nil
@@ -128,6 +150,8 @@ class TradingStrategyRunnerJob < BaseJob
 
   def fetch_context
     trading_data_fetcher.strategy_evaluation_context(@strategy_id)
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    raise # Let backend-down errors propagate to run_tick! for backoff handling
   rescue StandardError => e
     log_warn("Context fetch failed: #{e.message}", strategy_id: @strategy_id)
     { "error" => e.message, "skipped" => true }
@@ -141,7 +165,11 @@ class TradingStrategyRunnerJob < BaseJob
   end
 
   def submit_result!(submission)
-    trading_data_fetcher.record_evaluation_result(**submission)
+    result = trading_data_fetcher.record_evaluation_result(**submission)
+    if result&.dig("circuit_breaker_tripped")
+      log_warn("Circuit breaker tripped — stopping runner", strategy_id: @strategy_id)
+      @circuit_breaker_halt = true
+    end
   rescue StandardError => e
     log_warn("Result submission failed: #{e.message}", strategy_id: @strategy_id)
   end

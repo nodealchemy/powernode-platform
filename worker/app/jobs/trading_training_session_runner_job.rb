@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-# Safety-net cron job: picks up orphaned pending/paused sessions that weren't dispatched
+# Safety-net cron job: picks up orphaned pending sessions that weren't dispatched
 # immediately (e.g., after a worker crash). Primary dispatch happens at session
 # creation time via Redis queue push — see TrainingSessionsController#create.
-# Also resumes paused sessions that were auto-paused by orphan recovery.
+# Paused session recovery is handled by the overseer decision engine.
 class TradingTrainingSessionRunnerJob < BaseJob
   sidekiq_options queue: 'trading', retry: 0
 
@@ -27,10 +27,6 @@ class TradingTrainingSessionRunnerJob < BaseJob
       return 0
     end
   LUA
-
-  # Cooldown after orphan recovery pauses a session — prevents immediate re-dispatch
-  # that causes a pause→start→crash→pause bounce cycle.
-  PAUSED_COOLDOWN = 300 # 5 minutes — matches STALE_RUNNING_THRESHOLD on the backend
 
   def execute
     clear_stale_locks_from_dead_workers!
@@ -57,26 +53,6 @@ class TradingTrainingSessionRunnerJob < BaseJob
               next
             end
             log_info("Session too recent but no lock found — dispatching (worker restart recovery)", session_id: session["id"])
-          end
-        end
-      end
-
-      # Skip recently-paused sessions to prevent bounce cycle:
-      # orphan recovery pauses → runner re-dispatches → start! → crash → paused again.
-      # Exception: clean shutdowns ("Worker shutting down") skip cooldown entirely —
-      # these are safe to resume immediately since positions were closed gracefully.
-      if session["status"] == "paused"
-        error_msg = session["error_message"].to_s
-        clean_shutdown = error_msg.include?("Worker shutting down")
-
-        unless clean_shutdown
-          updated_at = session["updated_at"]
-          if updated_at
-            pause_age = Time.current - (Time.parse(updated_at) rescue Time.current)
-            if pause_age < PAUSED_COOLDOWN
-              log_info("Paused session cooling down (#{pause_age.round}s/#{PAUSED_COOLDOWN}s)", session_id: session["id"])
-              next
-            end
           end
         end
       end
@@ -127,14 +103,17 @@ class TradingTrainingSessionRunnerJob < BaseJob
         next
       end
 
-      action = session["status"] == "paused" ? "Resuming paused" : "Dispatching"
-      log_info("#{action} training session", session_id: session["id"], name: session["name"],
+      log_info("Dispatching training session", session_id: session["id"], name: session["name"],
                completed_ticks: session["completed_ticks"])
       TradingTrainingSessionJob.perform_async(session["id"])
       dispatched << session["id"]
     end
 
     { pending_count: sessions.size, dispatched: dispatched }
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    log_info("Backend unavailable, skipping session runner (will retry next cron)")
+  rescue BackendApiClient::ApiError => e
+    log_info("Session runner skipped: #{e.message}")
   end
 
   private

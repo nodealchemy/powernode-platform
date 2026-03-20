@@ -54,5 +54,10 @@ class AiRalphLoopRunAllJob < BaseJob
 
     log_info("[RalphLoopRunAll] Completed", iterations: iteration,
       duration_seconds: (Time.current - start_time).round)
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    log_info("[RalphLoopRunAll] Backend unavailable, stopping after #{iteration} iterations",
+      ralph_loop_id: ralph_loop_id)
+  rescue BackendApiClient::ApiError => e
+    log_info("[RalphLoopRunAll] Stopped: #{e.message}", ralph_loop_id: ralph_loop_id)
   end
 end

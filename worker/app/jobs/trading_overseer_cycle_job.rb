@@ -30,6 +30,12 @@ class TradingOverseerCycleJob < BaseJob
       account_id: account_id
     })
 
+    if response&.dig("data", "skipped")
+      log_info("[OverseerCycle] Account #{account_id[0..7]}: skipped " \
+               "(#{response.dig('data', 'reason')}) — next: #{response.dig('data', 'next_scheduled_at')}")
+      return
+    end
+
     if response&.dig("data", "decisions_made").to_i > 0
       decisions = response.dig("data", "decisions") || []
       log_info("[OverseerCycle] Account #{account_id[0..7]}: #{decisions.size} decisions — #{decisions.map { |d| "#{d['action']}:#{d['decision']}" }.join(', ')}")

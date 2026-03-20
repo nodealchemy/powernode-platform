@@ -15,5 +15,9 @@ class AiInterventionPolicyTuningJob < BaseJob
       log_warn "[AiInterventionPolicyTuningJob] API returned error: #{response['error']}"
       { suggestions_count: 0 }
     end
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    log_info("[AiInterventionPolicyTuningJob] Backend unavailable, skipping (will retry next cron)")
+  rescue BackendApiClient::ApiError => e
+    log_info("[AiInterventionPolicyTuningJob] Skipped: #{e.message}")
   end
 end

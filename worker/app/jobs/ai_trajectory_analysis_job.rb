@@ -16,5 +16,9 @@ class AiTrajectoryAnalysisJob < BaseJob
     else
       log_error("[TrajectoryAnalysis] Analysis failed: #{response['error']}")
     end
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    log_info("[TrajectoryAnalysis] Backend unavailable, skipping (will retry next cron)")
+  rescue BackendApiClient::ApiError => e
+    log_info("[TrajectoryAnalysis] Skipped: #{e.message}")
   end
 end

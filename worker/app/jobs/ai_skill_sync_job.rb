@@ -18,6 +18,10 @@ class AiSkillSyncJob < BaseJob
     else
       raise ArgumentError, "Unknown action: #{@action}"
     end
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    log_info("[AiSkillSyncJob] Backend unavailable, skipping #{@action}")
+  rescue BackendApiClient::ApiError => e
+    log_info("[AiSkillSyncJob] Skipped: #{e.message}")
   end
 
   private

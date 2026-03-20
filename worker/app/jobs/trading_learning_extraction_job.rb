@@ -24,5 +24,9 @@ class TradingLearningExtractionJob < BaseJob
     end
 
     response
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    log_info("Backend unavailable, skipping learning extraction")
+  rescue BackendApiClient::ApiError => e
+    log_info("Learning extraction skipped: #{e.message}")
   end
 end

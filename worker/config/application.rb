@@ -41,16 +41,17 @@ Sidekiq.configure_server do |config|
     Trading::PolymarketWsManager.instance.force_stop! rescue nil
   end
 
-  # Fast recovery: on startup, immediately dispatch paused training sessions
-  # instead of waiting for the next cron tick (up to 60s delay).
+  # Fast recovery: on startup, dispatch pending sessions via the runner and
+  # evaluate paused sessions via the overseer — no wait for the next cron tick.
   # The 3s sleep lets Redis and HTTP connections establish first.
   config.on(:startup) do
     TradingTrainingSessionJob.reset_shutdown_flag!
     Thread.new do
       sleep 3
       TradingTrainingSessionRunnerJob.perform_async
+      TradingOverseerCycleJob.perform_async
     rescue StandardError => e
-      PowernodeWorker.logger.warn("[StartupHook] Training session recovery dispatch failed: #{e.message}")
+      PowernodeWorker.logger.warn("[StartupHook] Startup recovery dispatch failed: #{e.message}")
     end
   end
 end

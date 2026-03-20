@@ -18,5 +18,9 @@ class AiRalphLoopSchedulerJob < BaseJob
     else
       log_error("[RalphLoopScheduler] Scheduled processing failed: #{response['error']}")
     end
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    log_info("[RalphLoopScheduler] Backend unavailable, skipping (will retry next cron)")
+  rescue BackendApiClient::ApiError => e
+    log_info("[RalphLoopScheduler] Skipped: #{e.message}")
   end
 end

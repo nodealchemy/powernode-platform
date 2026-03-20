@@ -28,6 +28,10 @@ class TradingPhaseReviewJob < BaseJob
 
     log_info("Phase review complete: #{reviewed}/#{strategies.size} reviewed")
     { reviewed: reviewed, total: strategies.size }
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    log_info("Backend unavailable, skipping phase review (will retry next cron)")
+  rescue BackendApiClient::ApiError => e
+    log_info("Phase review skipped: #{e.message}")
   end
 
   private

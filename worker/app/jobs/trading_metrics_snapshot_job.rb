@@ -26,6 +26,10 @@ class TradingMetricsSnapshotJob < BaseJob
     end
 
     { strategies_processed: strategies.size }
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    log_info("Backend unavailable, skipping metrics snapshot (will retry next cron)")
+  rescue BackendApiClient::ApiError => e
+    log_info("Metrics snapshot skipped: #{e.message}")
   end
 
   def calculate_for_strategy(strategy_id, date)

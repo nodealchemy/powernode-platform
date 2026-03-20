@@ -24,5 +24,9 @@ class TradingPriceFeedJob < BaseJob
     end
 
     response
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    log_info("Backend unavailable, skipping price feed (will retry next cron)")
+  rescue BackendApiClient::ApiError => e
+    log_info("Price feed skipped: #{e.message}")
   end
 end

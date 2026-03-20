@@ -146,16 +146,16 @@
       queue: compliance
       description: 'Enforce data retention policies and cleanup expired data'
 
-    # Docker Swarm cluster sync - every minute
+    # Docker Swarm cluster sync - every 5 minutes
     swarm_cluster_sync:
-      cron: '* * * * *'
+      cron: '*/5 * * * *'
       class: Swarm::ClusterSyncJob
       queue: devops_default
       description: 'Sync Docker Swarm cluster state'
 
-    # Docker Swarm health check - every 5 minutes
+    # Docker Swarm health check - every 10 minutes
     swarm_health_check:
-      every: '5m'
+      every: '10m'
       class: Swarm::HealthCheckJob
       queue: devops_default
       description: 'Check Docker Swarm cluster health'
@@ -167,23 +167,23 @@
       queue: maintenance
       description: 'Clean up old acknowledged swarm events'
 
-    # Docker Host sync - every 5 minutes (was every minute; caused runaway loop detection)
+    # Docker Host sync - every 10 minutes
     docker_host_sync:
-      cron: '*/5 * * * *'
+      cron: '*/10 * * * *'
       class: Docker::HostSyncJob
       queue: devops_default
       description: 'Sync Docker host container and image state'
 
-    # Git Runner health check - every 5 minutes
+    # Git Runner health check - every 10 minutes
     git_runner_health_check:
-      every: '5m'
+      every: '10m'
       class: Git::RunnerHealthCheckJob
       queue: devops_default
       description: 'Check Git runner health and mark stale runners offline'
 
-    # Docker Host health check - every 5 minutes
+    # Docker Host health check - every 10 minutes
     docker_health_check:
-      every: '5m'
+      every: '10m'
       class: Docker::HealthCheckJob
       queue: devops_default
       description: 'Check Docker host connectivity and health'
@@ -326,7 +326,7 @@
 
     # Self-healing monitor - checks stuck workflows, degraded providers, orphaned executions
     ai_self_healing_monitor:
-      every: '5m'
+      every: '10m'
       class: AiSelfHealingMonitorJob
       queue: ai_orchestration
       description: 'AI system self-healing: detect and remediate stuck/degraded/orphaned resources'
@@ -340,7 +340,7 @@
 
     # Observation pipeline - collect sensor data for autonomous agents
     ai_observation_pipeline:
-      every: '10m'
+      every: '15m'
       class: AiObservationPipelineJob
       queue: ai_orchestration
       description: 'Run observation sensors for autonomous agents and create observations'
@@ -382,14 +382,14 @@
 
     # Container instance reconciliation - detect stale/crashed containers
     container_instance_reconciliation:
-      cron: '*/5 * * * *'
+      cron: '*/10 * * * *'
       class: Devops::ContainerInstanceReconciliationJob
       queue: devops_default
       description: 'Reconcile container instance statuses with Docker reality'
 
     # Port allocation cleanup - release expired port allocations
     port_allocation_cleanup:
-      cron: '*/10 * * * *'
+      cron: '*/30 * * * *'
       class: Devops::PortAllocationCleanupJob
       queue: devops_default
       description: 'Release expired port allocations to prevent port exhaustion'
@@ -424,7 +424,7 @@
 
     # Pressure field measurement - measure quality pressure on tracked artifacts
     ai_pressure_field_measurement:
-      cron: '*/15 * * * *'  # Every 15 minutes
+      cron: '*/30 * * * *'  # Every 30 minutes
       class: AiPressureFieldMeasurementJob
       queue: ai_orchestration
       description: 'Re-measure pressure fields and broadcast changes'
@@ -527,22 +527,16 @@
       description: 'Check live strategies for compounding eligibility'
 
     trading_risk_monitor:
-      cron: '*/15 * * * *'
+      cron: '*/30 * * * *'
       class: TradingRiskMonitorJob
       queue: trading
       description: 'Portfolio circuit breaker risk checks'
 
     trading_venue_sync:
-      cron: '*/15 * * * *'
+      cron: '*/30 * * * *'
       class: TradingVenueSyncJob
       queue: trading
       description: 'Sync balances and positions from venues'
-
-    trading_order_fill_check:
-      cron: '*/1 * * * *'
-      class: TradingOrderFillCheckJob
-      queue: trading
-      description: 'Poll for order fill status'
 
     trading_phase_review:
       cron: '0 6 * * *'
@@ -551,7 +545,7 @@
       description: 'Review strategy lifecycle phase graduation'
 
     trading_training_session_runner:
-      cron: '* * * * *'
+      cron: '*/5 * * * *'
       class: TradingTrainingSessionRunnerJob
       queue: trading
       description: 'Check for pending training sessions and dispatch execution'

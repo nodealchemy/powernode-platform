@@ -26,5 +26,9 @@ class AiConflictDetectionJob < BaseJob
       log_error("[ConflictDetection] Detection failed", nil,
         session_id: session_id, error: response['error'])
     end
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    log_info("[ConflictDetection] Backend unavailable, skipping", session_id: session_id)
+  rescue BackendApiClient::ApiError => e
+    log_info("[ConflictDetection] Skipped: #{e.message}", session_id: session_id)
   end
 end

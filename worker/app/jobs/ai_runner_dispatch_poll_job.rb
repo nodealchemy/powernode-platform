@@ -56,5 +56,11 @@ class AiRunnerDispatchPollJob < BaseJob
         session_id: session_id)
       AiMergeExecutionJob.perform_async(session_id)
     end
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    log_info("[RunnerDispatchPoll] Backend unavailable, re-enqueueing", session_id: session_id)
+    self.class.perform_in(30, session_id, { 'poll_count' => (options['poll_count'] || poll_count) + 1 })
+  rescue BackendApiClient::ApiError => e
+    log_info("[RunnerDispatchPoll] Skipped: #{e.message}", session_id: session_id)
+    self.class.perform_in(30, session_id, { 'poll_count' => (options['poll_count'] || poll_count) + 1 })
   end
 end

@@ -24,6 +24,10 @@ class TradingEvolutionEpochJob < BaseJob
     end
 
     { portfolios_processed: portfolios.size }
+  rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
+    log_info("Backend unavailable, skipping evolution epochs (will retry next cron)")
+  rescue BackendApiClient::ApiError => e
+    log_info("Evolution epochs skipped: #{e.message}")
   end
 
   def run_epoch(portfolio_id)
