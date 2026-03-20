@@ -993,6 +993,9 @@ class TradingTrainingSessionJob < BaseJob
       strategy_types = (strategy_types + CLASSIC_TYPES).uniq
     end
 
+    # Transition to initializing — makes setup phase visible to users
+    initialize_training_setup!(session_id)
+
     # Force-renew lock before each expensive phase so the runner sees a fresh TTL
     # and doesn't mistake a long-running setup for a dead job.
     force_renew_lock!
@@ -1426,6 +1429,14 @@ class TradingTrainingSessionJob < BaseJob
     })
   rescue StandardError => e
     log_error("Failed to mark session as failed", e, session_id: session_id)
+  end
+
+  def initialize_training_setup!(session_id)
+    api_client.post("/api/v1/internal/trading/initialize_training_setup", {
+      session_id: session_id
+    })
+  rescue StandardError => e
+    log_warn("Failed to transition to initializing", session_id: session_id, error: e.message)
   end
 
   # Pause session so it can be auto-resumed by the training runner.
