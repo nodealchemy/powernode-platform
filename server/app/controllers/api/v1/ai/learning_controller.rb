@@ -282,7 +282,7 @@ module Api
             learning.embedding,
             account_id: current_account.id,
             threshold: 0.92
-          ).where.not(id: learning.id)
+          ).reject { |l| l.id == learning.id }
 
           if duplicates.any?
             existing = duplicates.first
