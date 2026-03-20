@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "zlib"
+
 module Ai
   module Tools
     class TradingSimulationTool < BaseTool
@@ -64,7 +66,7 @@ module Ai
           "trading_list_training_sessions" => {
             description: "List AI training sessions with optional status filter",
             parameters: {
-              status: { type: "string", required: false, description: "Filter by status: pending, running, completed, failed, cancelled" }
+              status: { type: "string", required: false, description: "Filter by status: scheduled, pending, running, paused, completed, failed, cancelled" }
             }
           },
           "trading_get_training_session" => {
@@ -102,7 +104,9 @@ module Ai
               rebalance_min_ticks: { type: "integer", required: false, description: "Minimum ticks before first rebalance (default: 3)" },
               rebalance_decommission_enabled: { type: "boolean", required: false, description: "Allow mid-session strategy decommission for severe underperformers (default: true)" },
               include_series: { type: "array", items: { type: "string" }, required: false, description: "Series ticker prefixes to scope discovery (e.g. ['KXFED', 'KXBTC']). Drastically speeds up discovery by skipping irrelevant series." },
-              exclude_series: { type: "array", items: { type: "string" }, required: false, description: "Series ticker prefixes to exclude from discovery" }
+              exclude_series: { type: "array", items: { type: "string" }, required: false, description: "Series ticker prefixes to exclude from discovery" },
+              scheduled_for: { type: "string", required: false, description: "ISO8601 datetime to schedule session for future start (sets status to 'scheduled'). Overseer auto-starts when time arrives." },
+              duration_minutes: { type: "integer", required: false, description: "Session duration in minutes for continuous mode. Sets ends_at relative to start time (or scheduled_for). Overseer auto-completes when expired. Omit for indefinite." }
             }
           },
           "trading_cancel_training_session" => {
@@ -352,50 +356,41 @@ module Ai
         top_level = params.except(:config, :strategy_id, :action).stringify_keys
         config = nested.merge(top_level.compact)
 
-        # Duplicate detection: resume a paused session with matching config instead
-        # of creating a duplicate. Prevents H271→H275-style duplication where crash
-        # recovery creates a replacement while the original is still resumable.
         incoming_venue = config["venue_slug"]
         incoming_types = config["strategy_types"] || ["llm_probability"]
-        if incoming_venue.present?
-          resumable = account.trading_training_sessions
-            .where(status: "paused")
-            .where("config->>'venue_slug' = ?", incoming_venue)
-            .where(strategy_types: incoming_types)
-            .order(created_at: :desc)
-            .first
 
-          if resumable
-            resumable.update!(status: "pending", error_message: "Resumed (duplicate creation prevented)")
-            WorkerJobService.enqueue_trading_training_session(resumable.id)
-            return success_result(serialize_training_session(resumable).merge("resumed" => true))
+        # Duplicate detection: check ALL non-terminal sessions with matching venue+types.
+        # Uses advisory lock to prevent TOCTOU race where two parallel requests both
+        # pass the check before either creates — the H309/H310 duplication pattern.
+        #
+        # IMPORTANT: Job dispatch must happen AFTER the transaction commits.
+        # If we enqueue inside the transaction, the worker picks up the job before
+        # the INSERT is visible to other connections → "Training session not found"
+        # on the first check_status call (H315/H320/H321 failure pattern).
+        if incoming_venue.present?
+          lock_key = Zlib.crc32("training_session:#{account.id}:#{incoming_venue}")
+          session_to_dispatch = nil
+          is_scheduled = config["scheduled_for"].present?
+          result = ActiveRecord::Base.transaction do
+            ActiveRecord::Base.connection.execute("SELECT pg_advisory_xact_lock(#{lock_key})")
+            # Scheduled sessions bypass duplicate detection — they coexist since they run at different times
+            existing = is_scheduled ? nil : find_existing_training_session(config, incoming_venue, incoming_types)
+            if existing
+              existing
+            else
+              session_to_dispatch = create_training_session_record(config)
+              success_result(serialize_training_session(session_to_dispatch))
+            end
           end
+          # Dispatch after transaction commits so the row is visible to the worker.
+          # Scheduled sessions are not dispatched — the overseer starts them when scheduled_for arrives.
+          if session_to_dispatch && session_to_dispatch.status != "scheduled"
+            WorkerJobService.enqueue_trading_training_session(session_to_dispatch.id)
+          end
+          return result
         end
 
-        session_mode = config["mode"] || "continuous"
-        session_config = config.merge(
-          "initial_balance" => (config["initial_balance"] || 10_000).to_f,
-          "use_performance_sizing" => config["use_performance_sizing"] || false,
-          "mode" => session_mode
-        )
-
-        session = Trading::TrainingSession.create!(
-          account_id: account.id,
-          name: config["name"] || "Training #{Time.current.strftime('%Y%m%d_%H%M')}",
-          status: "pending",
-          mode: session_mode,
-          market_count: config["market_count"] || 10,
-          tick_count: session_mode == "continuous" ? 0 : (config["tick_count"] || 100),
-          tick_interval: config["tick_interval"] || (session_mode == "continuous" ? 15 : 300),
-          strategy_types: config["strategy_types"] || ["llm_probability"],
-          include_classic: config["include_classic"] || false,
-          config: session_config
-        )
-
-        # Dispatch immediately to worker — don't wait for the periodic runner poll
-        WorkerJobService.enqueue_trading_training_session(session.id)
-
-        success_result(serialize_training_session(session))
+        create_and_dispatch_training_session(config)
       end
 
       def cancel_training_session(params)
@@ -764,6 +759,74 @@ module Ai
           "Wait for existing sessions to complete, or cancel one before creating another."
       end
 
+      # Check for an existing non-terminal session with matching venue+types.
+      # Returns a success_result if found (resuming paused sessions), nil otherwise.
+      # Called inside advisory lock transaction.
+      def find_existing_training_session(config, venue, types)
+        existing = account.trading_training_sessions
+          .where(status: %w[pending running paused])
+          .where("config->>'venue_slug' = ?", venue)
+          .where("strategy_types::jsonb = ?::jsonb", types.to_json)
+          .order(created_at: :desc)
+          .first
+
+        return nil unless existing
+
+        if existing.status == "paused"
+          existing.update!(status: "pending", error_message: "Resumed (duplicate creation prevented)")
+          # Safe to enqueue here — the paused session's row already exists and is committed
+          WorkerJobService.enqueue_trading_training_session(existing.id)
+          return success_result(serialize_training_session(existing).merge("resumed" => true))
+        end
+
+        # Pending or running — return it as-is without creating a duplicate
+        success_result(serialize_training_session(existing).merge("already_active" => true))
+      end
+
+      # Create the session record without dispatching. Caller is responsible
+      # for enqueuing the worker job AFTER the transaction commits.
+      def create_training_session_record(config)
+        session_mode = config["mode"] || "continuous"
+        session_config = config.merge(
+          "initial_balance" => (config["initial_balance"] || 10_000).to_f,
+          "use_performance_sizing" => config["use_performance_sizing"] || false,
+          "mode" => session_mode
+        )
+
+        scheduled_for = config["scheduled_for"].present? ? Time.parse(config["scheduled_for"]) : nil
+        if scheduled_for && scheduled_for < Time.current
+          raise ArgumentError, "scheduled_for must be in the future (got #{scheduled_for.iso8601}, current time is #{Time.current.iso8601})"
+        end
+        session_status = scheduled_for ? "scheduled" : "pending"
+
+        # Compute ends_at from duration_minutes (relative to scheduled_for or now)
+        duration = config["duration_minutes"].present? ? config["duration_minutes"].to_i.minutes : nil
+        base_time = scheduled_for || Time.current
+        ends_at = duration ? base_time + duration : nil
+
+        Trading::TrainingSession.create!(
+          account_id: account.id,
+          name: config["name"] || "Training #{Time.current.strftime('%Y%m%d_%H%M')}",
+          status: session_status,
+          mode: session_mode,
+          market_count: config["market_count"] || 10,
+          tick_count: session_mode == "continuous" ? 0 : (config["tick_count"] || 100),
+          tick_interval: config["tick_interval"] || (session_mode == "continuous" ? 15 : 300),
+          strategy_types: config["strategy_types"] || ["llm_probability"],
+          include_classic: config["include_classic"] || false,
+          scheduled_for: scheduled_for,
+          ends_at: ends_at,
+          config: session_config
+        )
+      end
+
+      # Create + dispatch for the non-locked path (no venue_slug specified).
+      def create_and_dispatch_training_session(config)
+        session = create_training_session_record(config)
+        WorkerJobService.enqueue_trading_training_session(session.id) unless session.scheduled?
+        success_result(serialize_training_session(session))
+      end
+
       def serialize_simulation(simulation, detailed: false)
         data = {
           id: simulation.id,
@@ -799,6 +862,8 @@ module Ai
             (session.completed_ticks.to_f / session.total_ticks * 100).round(1) : 0,
           metrics: session.metrics,
           error_message: session.error_message,
+          scheduled_for: session.scheduled_for,
+          ends_at: session.ends_at,
           started_at: session.started_at,
           completed_at: session.completed_at,
           created_at: session.created_at
