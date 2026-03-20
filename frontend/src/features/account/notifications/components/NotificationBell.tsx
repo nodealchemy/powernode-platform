@@ -14,6 +14,7 @@ import {
 import { BellIcon as BellIconSolid } from '@heroicons/react/24/solid';
 import { notificationApi, Notification } from '../services/notificationApi';
 import { MarkdownRenderer } from '@/shared/components/ui/MarkdownRenderer';
+import { NotificationDetailModal } from './NotificationDetailModal';
 import { logger } from '@/shared/utils/logger';
 import { RootState } from '@/shared/services';
 import { useNotificationWebSocket, WebSocketNotification } from '@/shared/hooks/useNotificationWebSocket';
@@ -46,6 +47,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [modalNotification, setModalNotification] = useState<Notification | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Transform WebSocket notification to local Notification type
@@ -64,37 +66,45 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     created_at: wsNotif.created_at,
   }), []);
 
-  // Handle notification click — open chat for AI types, navigate for others
+  // Handle notification click — open detail modal and auto-mark as read
   const handleNotificationClick = useCallback((notification: Notification) => {
-    if (notification.type === 'ai_concierge_message' && notification.metadata) {
-      const agentId = notification.metadata.agent_id as string | undefined;
-      const conversationId = notification.metadata.conversation_id as string | undefined;
-      if (agentId || conversationId) {
-        setIsOpen(false);
-        openConversationMaximized(agentId || '', '', conversationId);
-        return;
-      }
+    setIsOpen(false);
+    setModalNotification(notification);
+    if (!notification.read) {
+      notificationApi.markAsRead(notification.id).then(() => {
+        setNotifications(prev =>
+          prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
+        );
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }).catch(() => { /* silently fail */ });
     }
-    if (notification.type === 'ai_plan_review' && notification.metadata) {
-      const agentId = notification.metadata.agent_id as string | undefined;
-      const conversationId = notification.metadata.conversation_id as string | undefined;
-      if (agentId) {
-        setIsOpen(false);
-        openConversationMaximized(agentId, '', conversationId);
-        return;
-      }
-      // Mission approval notifications — navigate to mission with review flag
-      if (notification.action_url) {
-        setIsOpen(false);
-        navigate(notification.action_url, { state: { openApproval: true } });
-        return;
-      }
-    }
-    if (notification.action_url) {
-      setIsOpen(false);
-      navigate(notification.action_url);
-    }
-  }, [navigate, openConversationMaximized]);
+  }, []);
+
+  // Modal action handlers
+  const handleModalNavigate = useCallback((url: string, state?: Record<string, unknown>) => {
+    navigate(url, state ? { state } : undefined);
+  }, [navigate]);
+
+  const handleModalOpenConversation = useCallback((agentId: string, prompt: string, conversationId?: string) => {
+    openConversationMaximized(agentId, prompt, conversationId);
+  }, [openConversationMaximized]);
+
+  const handleModalMarkAsRead = useCallback((id: string) => {
+    notificationApi.markAsRead(id).then(() => {
+      setNotifications(prev =>
+        prev.map(n => n.id === id ? { ...n, read: true } : n)
+      );
+      setModalNotification(prev => prev && prev.id === id ? { ...prev, read: true } : prev);
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    }).catch(() => { /* silently fail */ });
+  }, []);
+
+  const handleModalDismiss = useCallback((id: string) => {
+    notificationApi.dismiss(id).then(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      notificationApi.getUnreadCount().then(count => setUnreadCount(count)).catch(() => {});
+    }).catch(() => { /* silently fail */ });
+  }, []);
 
   // WebSocket hook for real-time notification updates
   useNotificationWebSocket({
@@ -369,6 +379,16 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
           </div>
         </div>
       )}
+
+      {/* Detail Modal */}
+      <NotificationDetailModal
+        notification={modalNotification}
+        onClose={() => setModalNotification(null)}
+        onMarkAsRead={handleModalMarkAsRead}
+        onDismiss={handleModalDismiss}
+        onNavigate={handleModalNavigate}
+        onOpenConversation={handleModalOpenConversation}
+      />
     </div>
   );
 };
