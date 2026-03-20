@@ -271,7 +271,7 @@ export const ChatWindowHeader: React.FC<ChatWindowHeaderProps> = ({ onPointerDow
         {isDetachedMode ? (
           <button
             type="button"
-            onClick={() => setMode('floating')}
+            onClick={() => setMode(state.preDetachMode || 'floating')}
             className="p-1.5 rounded-md hover:bg-theme-surface-hover text-theme-secondary transition-colors"
             title="Dock to main window"
           >

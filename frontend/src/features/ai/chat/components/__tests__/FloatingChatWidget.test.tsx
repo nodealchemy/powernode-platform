@@ -25,6 +25,7 @@ const createMockStore = (user: MockUser = { permissions: ['ai.conversations.crea
 const createMockState = (overrides: Partial<ChatWindowState> = {}): ChatWindowState => ({
   mode: 'closed',
   preferredOpenMode: 'floating',
+  preDetachMode: 'floating',
   tabs: [],
   activeTabId: null,
   floatingPosition: { x: -1, y: -1 },

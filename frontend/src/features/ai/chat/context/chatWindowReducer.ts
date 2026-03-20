@@ -15,6 +15,7 @@ const defaultPanel: SplitPanel = {
 export const initialChatWindowState: ChatWindowState = {
   mode: 'closed',
   preferredOpenMode: 'floating',
+  preDetachMode: 'floating',
   tabs: [],
   activeTabId: null,
   floatingPosition: { x: -1, y: -1 },
@@ -42,7 +43,11 @@ export function chatWindowReducer(state: ChatWindowState, action: ChatWindowActi
       const preferredOpenMode = (newMode === 'floating' || newMode === 'maximized' || newMode === 'detached')
         ? newMode
         : state.preferredOpenMode;
-      return { ...state, mode: newMode, preferredOpenMode };
+      // Capture current mode before switching to detached so we can restore it on dock-back
+      const preDetachMode = newMode === 'detached' && (state.mode === 'floating' || state.mode === 'maximized')
+        ? state.mode
+        : state.preDetachMode;
+      return { ...state, mode: newMode, preferredOpenMode, preDetachMode };
     }
 
     case 'OPEN_TAB': {

@@ -283,11 +283,18 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
 
   const setMode = useCallback((mode: ChatWindowMode) => {
     if (mode === 'detached') {
-      const windowName = `powernode_chat_${Date.now()}`;
+      // Prune closed windows
+      detachedWindowsRef.current.forEach(w => { if (w.closed) detachedWindowsRef.current.delete(w); });
+      // Focus existing popup if one is already open
+      const existing = [...detachedWindowsRef.current].find(w => !w.closed);
+      if (existing) {
+        existing.focus();
+        return;
+      }
       const { width, height } = stateRef.current.detachedSize;
       const popup = window.open(
         '/chat/detached',
-        windowName,
+        'powernode_chat',
         `width=${width},height=${height},menubar=no,toolbar=no,location=no,status=no`
       );
       if (!popup) {
@@ -305,15 +312,16 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
     }
     dispatch({ type: 'SET_MODE', payload: mode });
 
-    // If docking back from detached
-    if (mode === 'floating') {
+    // If docking back from detached — restore pre-detach mode
+    if (mode === 'floating' || mode === 'maximized') {
       if (isDetachedMode) {
-        // Detached window docking: tell parent to switch to floating, then close self
-        broadcastRef.current?.send({ type: 'mode_change', payload: 'floating' });
+        // Detached window docking: tell parent to restore pre-detach mode, then close self
+        const restoreMode = stateRef.current.preDetachMode || 'floating';
+        broadcastRef.current?.send({ type: 'mode_change', payload: restoreMode });
         window.close();
       } else if (detachedWindowsRef.current.size > 0) {
         // Parent docking: tell detached windows to close
-        broadcastRef.current?.send({ type: 'mode_change', payload: 'floating' });
+        broadcastRef.current?.send({ type: 'mode_change', payload: mode });
         detachedWindowsRef.current.clear();
       }
     }
@@ -344,7 +352,14 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
   }, []);
 
   const openInNewTab = useCallback(() => {
-    const tab = window.open('/chat/detached', '_blank');
+    // Prune closed windows and reuse existing popup
+    detachedWindowsRef.current.forEach(w => { if (w.closed) detachedWindowsRef.current.delete(w); });
+    const existing = [...detachedWindowsRef.current].find(w => !w.closed);
+    if (existing) {
+      existing.focus();
+      return;
+    }
+    const tab = window.open('/chat/detached', 'powernode_chat');
     if (!tab) {
       addNotification({
         type: 'warning',

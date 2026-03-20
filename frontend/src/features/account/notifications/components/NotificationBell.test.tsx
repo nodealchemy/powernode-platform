@@ -5,6 +5,11 @@ import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
 import { NotificationBell } from './NotificationBell';
 
+// Mock MarkdownRenderer — remark-gfm is ESM-only
+jest.mock('@/shared/components/ui/MarkdownRenderer', () => ({
+  MarkdownRenderer: ({ content }: { content: string }) => <span>{content}</span>,
+}));
+
 // Mock notification API
 const mockGetNotifications = jest.fn();
 const mockGetUnreadCount = jest.fn();

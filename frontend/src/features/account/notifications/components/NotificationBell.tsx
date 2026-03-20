@@ -13,6 +13,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { BellIcon as BellIconSolid } from '@heroicons/react/24/solid';
 import { notificationApi, Notification } from '../services/notificationApi';
+import { MarkdownRenderer } from '@/shared/components/ui/MarkdownRenderer';
 import { logger } from '@/shared/utils/logger';
 import { RootState } from '@/shared/services';
 import { useNotificationWebSocket, WebSocketNotification } from '@/shared/hooks/useNotificationWebSocket';
@@ -318,9 +319,25 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                               </button>
                             </div>
                           </div>
-                          <p className="text-xs text-theme-secondary mt-0.5 line-clamp-2">
-                            {notification.message}
-                          </p>
+                          <div className="text-xs text-theme-secondary mt-0.5 line-clamp-2 overflow-hidden">
+                            <MarkdownRenderer
+                              content={notification.message || ''}
+                              variant="admin"
+                              enableAdvancedFeatures={false}
+                              fontSize="sm"
+                              lineHeight="tight"
+                              maxWidth="none"
+                              customComponents={{
+                                p: ({ children }) => <span className="text-xs text-theme-secondary">{children} </span>,
+                                strong: ({ children }) => <strong className="text-theme-primary font-semibold">{children}</strong>,
+                                ul: ({ children }) => <span className="text-xs text-theme-secondary">{children}</span>,
+                                ol: ({ children }) => <span className="text-xs text-theme-secondary">{children}</span>,
+                                li: ({ children }) => <span className="text-xs text-theme-secondary">• {children} </span>,
+                                a: ({ children, href }) => <a href={href} className="text-theme-primary underline" onClick={e => e.stopPropagation()}>{children}</a>,
+                                code: ({ children }) => <code className="px-1 bg-theme-surface-hover rounded text-xs">{children}</code>,
+                              }}
+                            />
+                          </div>
                           <div className="flex items-center justify-between mt-1">
                             <span className="text-xs text-theme-tertiary">
                               {formatTime(notification.created_at)}

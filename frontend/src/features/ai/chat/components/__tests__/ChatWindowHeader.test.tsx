@@ -36,6 +36,7 @@ const createMockTab = (overrides: Partial<{ id: string; conversationId: string; 
 const createMockState = (overrides: Partial<ChatWindowState> = {}): ChatWindowState => ({
   mode: 'floating',
   preferredOpenMode: 'floating',
+  preDetachMode: 'floating',
   tabs: [createMockTab()],
   activeTabId: 'tab-1',
   floatingPosition: { x: 100, y: 100 },

@@ -71,6 +71,7 @@ export function loadChatState(): ChatWindowState {
       detachedSize: (parsed.detachedSize as ChatWindowState['detachedSize']) ?? initialChatWindowState.detachedSize,
       mode: 'closed',
       preferredOpenMode,
+      preDetachMode: parsed.preDetachMode === 'maximized' ? 'maximized' : 'floating',
       showSidebar: migrated.showSidebar ?? true,
       panels: migrated.panels ?? initialChatWindowState.panels,
       activePanelId: migrated.activePanelId ?? initialChatWindowState.activePanelId,

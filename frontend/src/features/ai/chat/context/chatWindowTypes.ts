@@ -37,6 +37,7 @@ export type PreferredOpenMode = 'floating' | 'maximized' | 'detached';
 export interface ChatWindowState {
   mode: ChatWindowMode;
   preferredOpenMode: PreferredOpenMode;
+  preDetachMode: 'floating' | 'maximized';
   tabs: ChatTab[];
   activeTabId: string | null;
   floatingPosition: FloatingPosition;
