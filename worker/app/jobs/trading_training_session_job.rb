@@ -674,10 +674,21 @@ class TradingTrainingSessionJob < BaseJob
   MARKET_SCAN_INTERVAL = 900 # 15 minutes between market scans
   PROMOTION_CHECK_INTERVAL = 1800 # 30 minutes between promotion checks
   TEMPORAL_PRUNING_INTERVAL = 600 # 10 minutes between temporal pruning cycles
+  REBALANCE_INTERVAL_DEFAULT = 600 # 10 minutes default capital rebalance interval
 
   def run_continuous_orchestrator!(session_id, strategies, tick_interval, start_tick: 0)
     @aggregate_tick_counter = start_tick
     log_info("Starting continuous orchestrator", session_id: session_id, strategies: strategies.size, start_tick: start_tick)
+
+    # Read session config for capital rebalance settings
+    orchestrator_status = check_status(session_id)
+    orchestrator_config = orchestrator_status&.dig("data", "config") || {}
+    @rebalance_enabled = orchestrator_config["rebalance_enabled"] == true
+    if @rebalance_enabled
+      rebalance_ticks = (orchestrator_config["rebalance_interval_ticks"] || 10).to_i
+      tick_interval_s = (orchestrator_config["tick_interval"] || tick_interval || 15).to_i
+      @rebalance_interval = [rebalance_ticks * tick_interval_s, 300].max # floor: 5 minutes
+    end
 
     # Launch independent runners for each strategy
     strategies.each do |strategy|
@@ -690,6 +701,7 @@ class TradingTrainingSessionJob < BaseJob
 
     @last_evolution_at = Time.now
     @last_scan_at = Time.now
+    @last_rebalance_at = Time.now
     last_promotion_check_at = Time.now
     last_temporal_pruning_at = Time.now
 
@@ -760,6 +772,12 @@ class TradingTrainingSessionJob < BaseJob
       if Time.now - last_temporal_pruning_at >= TEMPORAL_PRUNING_INTERVAL
         run_temporal_pruning_cycle!(session_id)
         last_temporal_pruning_at = Time.now
+      end
+
+      # Periodic: capital rebalancing
+      if @rebalance_enabled && Time.now - @last_rebalance_at >= (@rebalance_interval || REBALANCE_INTERVAL_DEFAULT)
+        run_capital_rebalance_cycle!(session_id)
+        @last_rebalance_at = Time.now
       end
 
       # Aggregate session metrics from all strategy runners
@@ -886,6 +904,28 @@ class TradingTrainingSessionJob < BaseJob
     log_warn("Temporal pruning cycle failed (non-fatal): #{e.message}", session_id: session_id)
   end
 
+  # Capital rebalance cycle — reallocates capital from underperformers to top performers.
+  # Uses the same internal endpoint as the batch mode rebalance.
+  def run_capital_rebalance_cycle!(session_id)
+    log_info("Running capital rebalance cycle", session_id: session_id)
+    result = api_client.post_with_circuit_breaker(
+      "/api/v1/internal/trading/training_rebalance",
+      { session_id: session_id, tick_num: @aggregate_tick_counter || 0 },
+      circuit_breaker: :trading_training
+    )
+
+    if result["success"] && !result.dig("data", "skipped")
+      decommissioned_ids = result.dig("data", "decommissioned") || []
+      if decommissioned_ids.any?
+        log_info("Rebalance decommissioned #{decommissioned_ids.size} strategies", session_id: session_id)
+      end
+      log_info("Rebalance complete: promoted=#{result.dig('data', 'promoted')&.size || 0}, " \
+        "demoted=#{result.dig('data', 'demoted')&.size || 0}", session_id: session_id)
+    end
+  rescue StandardError => e
+    log_warn("Capital rebalance failed (non-fatal): #{e.message}", session_id: session_id)
+  end
+
   # Write an adaptive orchestrator heartbeat via direct API call (not DataFetcher)
   # so lease_seconds reaches the server. The lease tells orphan recovery how long
   # to wait before declaring the orchestrator dead.
@@ -915,6 +955,8 @@ class TradingTrainingSessionJob < BaseJob
       300 # Evolution cycle can take up to 5 min
     elsif now - (@last_scan_at || now) >= MARKET_SCAN_INTERVAL
       300 # Market scan involves venue API calls
+    elsif @rebalance_enabled && now - (@last_rebalance_at || now) >= (@rebalance_interval || REBALANCE_INTERVAL_DEFAULT)
+      180 # Capital rebalance
     else
       base
     end
