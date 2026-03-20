@@ -66,7 +66,7 @@ module Ai
           "trading_list_training_sessions" => {
             description: "List AI training sessions with optional status filter",
             parameters: {
-              status: { type: "string", required: false, description: "Filter by status: scheduled, pending, running, paused, completed, failed, cancelled" }
+              status: { type: "string", required: false, description: "Filter by status: scheduled, pending, initializing, running, paused, completed, failed, cancelled" }
             }
           },
           "trading_get_training_session" => {
@@ -396,7 +396,7 @@ module Ai
       def cancel_training_session(params)
         session = resolve_training_session(params[:session_id])
 
-        unless session.status.in?(%w[scheduled pending running paused])
+        unless session.status.in?(%w[scheduled pending initializing running paused])
           return error_result("Session is not cancellable in status: #{session.status}")
         end
 
@@ -750,7 +750,7 @@ module Ai
       def enforce_concurrent_session_limit!
         max = Api::V1::Trading::TrainingSessionsController::MAX_CONCURRENT_SESSIONS
         active_count = Trading::TrainingSession
-          .where(account_id: account.id, status: %w[pending running paused])
+          .where(account_id: account.id, status: %w[pending initializing running paused])
           .count
         return if active_count < max
 
