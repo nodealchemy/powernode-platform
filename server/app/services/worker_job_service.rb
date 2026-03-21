@@ -599,6 +599,15 @@ class WorkerJobService
       })
     end
 
+    # Enqueue trading evolution epoch (async computation in worker)
+    def enqueue_trading_evolution_epoch(portfolio_id, trigger_type: "scheduled")
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "TradingEvolutionEpochJob",
+        "args" => [portfolio_id, { "trigger_type" => trigger_type }],
+        "queue" => "trading_batch"
+      })
+    end
+
     # Legacy aliases for backwards compatibility
     alias_method :enqueue_ci_cd_step_execution, :enqueue_devops_step_execution
     alias_method :enqueue_ci_cd_pipeline_execution, :enqueue_devops_pipeline_execution

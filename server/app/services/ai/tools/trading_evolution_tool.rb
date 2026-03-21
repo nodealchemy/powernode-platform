@@ -133,23 +133,13 @@ module Ai
 
       def trigger_evolution(params)
         portfolio = resolve_portfolio
-        config = params[:config] || {}
 
-        last_epoch = portfolio.evolution_epochs.order(epoch_number: :desc).first
-        next_number = (last_epoch&.epoch_number || 0) + 1
-
-        epoch = portfolio.evolution_epochs.create!(
-          epoch_number: next_number,
-          status: "pending",
-          strategies_evaluated: 0,
-          fitness_weights: config["fitness_weights"] || { sharpe: 0.25, drawdown: 0.2, win_rate: 0.2, profit_factor: 0.15, risk_adjusted_return: 0.1, cost_efficiency: 0.1 }
-        )
+        WorkerJobService.enqueue_trading_evolution_epoch(portfolio.id, trigger_type: "manual")
 
         success_result({
-          epoch_id: epoch.id,
-          epoch_number: epoch.epoch_number,
-          status: "pending",
-          message: "Evolution epoch #{next_number} created"
+          portfolio_id: portfolio.id,
+          status: "enqueued",
+          message: "Evolution epoch enqueued for async processing"
         })
       end
 
