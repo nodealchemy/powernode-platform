@@ -550,11 +550,21 @@
       queue: trading_critical
       description: 'Check for pending training sessions and dispatch execution'
 
-    trading_overseer_cycle:
-      cron: '*/10 * * * *'
+    trading_overseer_training_cycle:
+      cron: '*/5 * * * *'
       class: TradingOverseerCycleJob
       queue: trading_critical
-      description: 'Run overseer decision engine for autonomous trading management'
+      args:
+        engine_type: training
+      description: 'Training agent: session discovery, pruning, promotion, fast-track'
+
+    trading_overseer_live_cycle:
+      cron: '*/15 * * * *'
+      class: TradingOverseerCycleJob
+      queue: trading_critical
+      args:
+        engine_type: live
+      description: 'Live agent: strategy health, positions, capital, phase advancement'
 
     trading_decision_expiry:
       cron: '*/15 * * * *'
