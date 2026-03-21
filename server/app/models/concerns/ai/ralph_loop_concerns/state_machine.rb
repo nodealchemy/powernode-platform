@@ -140,6 +140,8 @@ module Ai
       end
 
       def max_iterations_reached?
+        return false if max_iterations.nil? || max_iterations.zero?
+
         current_iteration >= max_iterations
       end
     end

@@ -35,7 +35,7 @@ module Ai
     validates :scheduling_mode, inclusion: { in: SCHEDULING_MODES }
     validate :default_agent_belongs_to_account, if: :default_agent_id_changed?
     validates :current_iteration, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
-    validates :max_iterations, numericality: { only_integer: true, greater_than: 0 }
+    validates :max_iterations, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
     validates :repository_url, format: { with: URI::DEFAULT_PARSER.make_regexp(%w[http https git ssh]),
                                          allow_blank: true }
     validates :webhook_token, uniqueness: true, allow_nil: true
