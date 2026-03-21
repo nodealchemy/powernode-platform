@@ -36,7 +36,8 @@ const AGENT_TYPES = [
   { value: 'content_generator', label: 'Content Generator' },
   { value: 'image_generator', label: 'Image Generator' },
   { value: 'workflow_optimizer', label: 'Workflow Optimizer' },
-  { value: 'workflow_operations', label: 'Workflow Operations' }
+  { value: 'workflow_operations', label: 'Workflow Operations' },
+  { value: 'monitor', label: 'Monitor' }
 ];
 
 export const CreateAgentModal: React.FC<CreateAgentModalProps> = ({
