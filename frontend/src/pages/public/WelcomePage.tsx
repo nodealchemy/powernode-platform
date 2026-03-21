@@ -72,7 +72,7 @@ export const WelcomePage: React.FC = () => {
               {/* CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
                 {registrationEnabled && (
-                  <Link to="/plans" className="inline-flex items-center justify-center px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg shadow-blue-600/30 hover:shadow-xl hover:shadow-blue-600/40 text-lg">
+                  <Link to="/plans" className="inline-flex items-center justify-center px-8 py-4 bg-theme-info hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg shadow-blue-600/30 hover:shadow-xl hover:shadow-blue-600/40 text-lg">
                     Get Started Free
                     <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
@@ -118,7 +118,7 @@ export const WelcomePage: React.FC = () => {
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
               {/* AI Agents */}
-              <div className="group bg-white/5 backdrop-blur-sm p-8 rounded-2xl border border-white/10 hover:border-blue-500/30 transition-all duration-300 hover:bg-white/[0.08]">
+              <div className="group bg-white/5 backdrop-blur-sm p-8 rounded-2xl border border-white/10 hover:border-theme-info/30 transition-all duration-300 hover:bg-white/[0.08]">
                 <div className="w-14 h-14 bg-gradient-to-br from-blue-500/20 to-blue-600/20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
                   <svg className="w-7 h-7 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
@@ -127,9 +127,9 @@ export const WelcomePage: React.FC = () => {
                 <h3 className="text-xl font-semibold text-white mb-3">AI Agent Orchestration</h3>
                 <p className="text-white/60 leading-relaxed mb-4">Deploy autonomous agents with configurable trust tiers, memory systems, and goal-driven execution. Agents collaborate through teams, share knowledge, and learn from outcomes.</p>
                 <div className="flex flex-wrap gap-2">
-                  <span className="text-xs px-2.5 py-1 bg-blue-500/10 text-blue-300 rounded-full">Multi-Provider</span>
-                  <span className="text-xs px-2.5 py-1 bg-blue-500/10 text-blue-300 rounded-full">Trust Tiers</span>
-                  <span className="text-xs px-2.5 py-1 bg-blue-500/10 text-blue-300 rounded-full">Goal System</span>
+                  <span className="text-xs px-2.5 py-1 bg-theme-info/10 text-blue-300 rounded-full">Multi-Provider</span>
+                  <span className="text-xs px-2.5 py-1 bg-theme-info/10 text-blue-300 rounded-full">Trust Tiers</span>
+                  <span className="text-xs px-2.5 py-1 bg-theme-info/10 text-blue-300 rounded-full">Goal System</span>
                 </div>
               </div>
 
@@ -228,7 +228,7 @@ export const WelcomePage: React.FC = () => {
             <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
               <div className="bg-gradient-to-br from-white/5 to-white/[0.02] p-8 rounded-2xl border border-white/10">
                 <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-3">
-                  <span className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                  <span className="w-8 h-8 bg-theme-info/20 rounded-lg flex items-center justify-center">
                     <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" /></svg>
                   </span>
                   Technical Stack
@@ -297,7 +297,7 @@ export const WelcomePage: React.FC = () => {
 
             <div className="grid md:grid-cols-4 gap-8 max-w-5xl mx-auto">
               <div className="text-center">
-                <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-blue-500/20 flex items-center justify-center">
+                <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-theme-info/20 flex items-center justify-center">
                   <span className="text-2xl font-bold text-blue-400">1</span>
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">Deploy</h3>
@@ -339,7 +339,7 @@ export const WelcomePage: React.FC = () => {
               <p className="text-lg text-white/70 mb-10 max-w-2xl mx-auto">Join the next generation of AI-native platforms. Full control, full transparency, infinite possibilities.</p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 {registrationEnabled && (
-                  <Link to="/plans" className="inline-flex items-center justify-center px-10 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg shadow-blue-600/30 text-lg">
+                  <Link to="/plans" className="inline-flex items-center justify-center px-10 py-4 bg-theme-info hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg shadow-blue-600/30 text-lg">
                     Start Building
                     <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
