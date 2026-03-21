@@ -183,6 +183,37 @@ module Trading
         result[:weather] = weather_data if weather_data
       end
 
+      # Try additional weather sources (each isolated — failures don't cascade)
+      begin
+        obs_client = Trading::ExternalData::NoaaObservationsClient.new
+        if obs_client.applicable?(market_question)
+          obs_data = obs_client.fetch_for_market(market_question, metadata)
+          result[:weather_observations] = obs_data if obs_data
+        end
+      rescue => e
+        log_error("Weather observations fetch failed: #{e.message}")
+      end
+
+      begin
+        cpc_client = Trading::ExternalData::NoaaCpcOutlookClient.new
+        if cpc_client.applicable?(market_question)
+          cpc_data = cpc_client.fetch_for_market(market_question, metadata)
+          result[:weather_cpc] = cpc_data if cpc_data
+        end
+      rescue => e
+        log_error("CPC outlook fetch failed: #{e.message}")
+      end
+
+      begin
+        climate_client = Trading::ExternalData::NoaaClimateClient.new
+        if climate_client.applicable?(market_question)
+          climate_data = climate_client.fetch_for_market(market_question, metadata)
+          result[:weather_climate] = climate_data if climate_data
+        end
+      rescue => e
+        log_error("Climate normals fetch failed: #{e.message}")
+      end
+
       # Try whale activity data
       whale_client = Trading::ExternalData::WhaleAlertClient.new
       if whale_client.applicable?(market_question)
