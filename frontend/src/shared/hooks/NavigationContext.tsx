@@ -120,6 +120,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
           description: '',
           permissions: item.permission ? [item.permission] : [],
           order: item.order,
+          activeMatch: item.activeMatch,
         })),
         permissions: section.permissions,
         collapsible: section.collapsible,
@@ -141,6 +142,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
           description: '',
           permissions: item.permission ? [item.permission] : [],
           order: item.order,
+          activeMatch: item.activeMatch,
         };
 
         // Items with a section property get injected into matching sections

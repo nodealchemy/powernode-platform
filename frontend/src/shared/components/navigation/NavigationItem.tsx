@@ -1,5 +1,5 @@
 // Navigation Item Component
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ExternalLink, icons } from 'lucide-react';
 import { NavigationItem as NavItem } from '@/shared/types/navigation';
@@ -20,13 +20,21 @@ export const NavigationItem: React.FC<NavigationItemProps> = ({
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { hasPermission } = useNavigation();
+  const { hasPermission, config } = useNavigation();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
   // Check permissions - ONLY use permissions, ignore roles
   if (!hasPermission(item.permissions)) {
     return null;
   }
+
+  // Collect all sibling nav hrefs for "more specific match" checks
+  const allNavHrefs = useMemo(() => {
+    const hrefs = new Set<string>();
+    config.items.forEach(i => hrefs.add(i.href));
+    config.sections?.forEach(s => s.items.forEach(i => hrefs.add(i.href)));
+    return hrefs;
+  }, [config]);
 
   // Check if item is active - exact match or most specific prefix match
   const isActive = (() => {
@@ -43,29 +51,39 @@ export const NavigationItem: React.FC<NavigationItemProps> = ({
     }
 
     // Section overview pages (like /app/ai, /app/business) - exact match only
+    // unless activeMatch is explicitly set to 'prefix' (e.g., Trading hub)
     const hrefSegments = item.href.split('/').filter(Boolean);
-    if (hrefSegments.length === 2 && hrefSegments[0] === 'app') {
+    if (hrefSegments.length === 2 && hrefSegments[0] === 'app' && item.activeMatch !== 'prefix') {
       return false;
     }
 
     // For deeper paths, check if this is a prefix match
     // Only match if pathname starts with href followed by '/' or end
-    // This prevents /app/ai/workflows from matching when on /app/ai/workflows/templates
-    // if templates is its own nav item
     if (pathname.startsWith(item.href)) {
       const nextChar = pathname.charAt(item.href.length);
-      // Only match if this is a parent path (next char is /) but NOT if
-      // the next segment is also a named route in navigation
-      // Check if it's a direct child route (like /123, /edit) vs another nav item (/templates)
-      if (nextChar === '/') {
-        const remainingPath = pathname.slice(item.href.length);
-        // Don't match if the remaining path matches another known nav route
-        // Common nav sub-routes to exclude
-        const knownSubRoutes = ['/templates', '/monitoring', '/import'];
-        const hasKnownSubRoute = knownSubRoutes.some(route =>
-          remainingPath === route || remainingPath.startsWith(route + '/')
+      if (nextChar === '/' || nextChar === '') {
+        // Yield to a more specific sibling nav item that also matches this path.
+        // E.g., /app/trading (prefix) should NOT stay active when on /app/trading/portfolio
+        // because /app/trading/portfolio is its own nav item.
+        const hasMoreSpecificMatch = Array.from(allNavHrefs).some(href =>
+          href !== item.href
+          && href.length > item.href.length
+          && href.startsWith(item.href)
+          && (pathname === href || pathname.startsWith(href + '/'))
         );
-        return !hasKnownSubRoute;
+        if (hasMoreSpecificMatch) {
+          return false;
+        }
+
+        if (nextChar === '/') {
+          const remainingPath = pathname.slice(item.href.length);
+          const knownSubRoutes = ['/templates', '/monitoring', '/import'];
+          const hasKnownSubRoute = knownSubRoutes.some(route =>
+            remainingPath === route || remainingPath.startsWith(route + '/')
+          );
+          return !hasKnownSubRoute;
+        }
+        return true;
       }
     }
 

@@ -16,6 +16,7 @@ export interface NavigationItem {
   order?: number;
   extensionSlug?: string;
   action?: string;
+  activeMatch?: 'exact' | 'prefix';
 }
 
 export interface NavigationSection {

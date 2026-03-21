@@ -13,6 +13,7 @@ export interface FeatureNavItem {
   permission?: string;
   section?: string;
   order?: number;
+  activeMatch?: 'exact' | 'prefix';
 }
 
 export interface FeatureNavSection {
