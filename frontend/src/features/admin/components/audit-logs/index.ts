@@ -9,4 +9,3 @@ export { AuditLogTable } from './AuditLogTable';
 export { ComplianceMetrics } from './ComplianceMetrics';
 export { RiskAssessment } from './RiskAssessment';
 export { SecurityOverview } from './SecurityOverview';
-export { TopThreats } from './TopThreats';
