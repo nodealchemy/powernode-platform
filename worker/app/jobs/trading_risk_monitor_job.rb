@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class TradingRiskMonitorJob < BaseJob
-  sidekiq_options queue: 'trading', retry: 2
+  sidekiq_options queue: 'trading_critical', retry: 2
 
   BATCH_SIZE = 50
   FETCH_TIMEOUT = 15 # seconds for portfolio list fetch

@@ -10,7 +10,7 @@ class AiProviderModelSyncJob < BaseJob
 
     begin
       response = with_api_retry do
-        api_client.post("ai/providers/sync_all", { force_refresh: true })
+        api_client.post("/api/v1/internal/ai/providers/sync_all", { force_refresh: true })
       end
 
       results = response["results"] || {}

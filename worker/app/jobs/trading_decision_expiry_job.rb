@@ -3,7 +3,7 @@
 # Expires stale pending overseer decisions that have passed their TTL.
 # Runs every 15 minutes to prevent decision queue buildup.
 class TradingDecisionExpiryJob < BaseJob
-  sidekiq_options queue: 'trading', retry: 1
+  sidekiq_options queue: 'trading_critical', retry: 1
 
   def execute
     response = api_client.post("/api/v1/internal/trading/expire_decisions")

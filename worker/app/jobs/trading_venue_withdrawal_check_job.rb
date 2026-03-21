@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class TradingVenueWithdrawalCheckJob < BaseJob
-  sidekiq_options queue: 'trading', retry: 1
+  sidekiq_options queue: 'trading_batch', retry: 1
 
   def execute
     response = api_client.get("/api/v1/internal/trading/active_portfolios")

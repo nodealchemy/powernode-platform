@@ -44,8 +44,8 @@
   - [reports, 2]                 # Report generation
   - [integrations, 2]            # Third-party integration processing
   - [mcp, 2]                     # MCP server operations
-  - [trading, 2]                  # Trading strategy execution, price feeds, risk monitoring
-  - [trading_learning, 2]          # Async trading learning extraction (parallel with trading)
+  - [trading_critical, 3]         # Time-sensitive: strategy ticks, price feeds, risk, training
+  - [trading_batch, 1]            # Batch operations: evolution, metrics, sweeps, learning
   - [notifications, 1]           # Notification delivery
   - [analytics, 1]               # Analytics cache warmup and processing
   - [schedules, 1]               # General scheduled task processing
@@ -469,101 +469,101 @@
     trading_strategy_tick:
       cron: '*/5 * * * *'
       class: TradingStrategyExecutionJob
-      queue: trading
+      queue: trading_critical
       description: 'Execute due trading strategy ticks'
 
     trading_price_feed:
       cron: '*/3 * * * *'
       class: TradingPriceFeedJob
-      queue: trading
+      queue: trading_critical
       description: 'Fetch price data from feeds'
 
     trading_evolution_epoch:
       cron: '0 0 * * *'
       class: TradingEvolutionEpochJob
-      queue: trading
+      queue: trading_batch
       description: 'Run daily Darwinian evolution epoch'
 
     trading_evolution_epoch_6h:
       cron: '0 6,12,18 * * *'
       class: TradingEvolutionEpochJob
-      queue: trading
+      queue: trading_batch
       description: 'Run 6-hourly evolution epoch for live portfolio rebalancing (skips midnight — covered by daily)'
 
     trading_metrics_snapshot:
       cron: '0 23 * * *'
       class: TradingMetricsSnapshotJob
-      queue: trading
+      queue: trading_batch
       description: 'Calculate end-of-day performance metrics'
 
     trading_daily_learning:
       cron: '30 23 * * *'
       class: TradingDailyLearningJob
-      queue: trading
+      queue: trading_batch
       description: 'Extract trading learnings, update trust scores, detect degradation'
 
     trading_sweep_check:
       cron: '0 */4 * * *'
       class: TradingSweepCheckJob
-      queue: trading
+      queue: trading_batch
       description: 'Check portfolios for sweep opportunities'
 
     trading_venue_withdrawal_check:
       cron: '30 */4 * * *'
       class: TradingVenueWithdrawalCheckJob
-      queue: trading
+      queue: trading_batch
       description: 'Check portfolios for venue withdrawal rules and poll pending withdrawals'
 
     trading_earnings_transfer:
       cron: '0 */6 * * *'
       class: TradingEarningsTransferJob
-      queue: trading
+      queue: trading_batch
       description: 'Transfer accumulated strategy earnings to hot wallets'
 
     trading_compounding_check:
       cron: '0 */4 * * *'
       class: TradingCompoundingCheckJob
-      queue: trading
+      queue: trading_batch
       description: 'Check live strategies for compounding eligibility'
 
     trading_risk_monitor:
       cron: '*/30 * * * *'
       class: TradingRiskMonitorJob
-      queue: trading
+      queue: trading_critical
       description: 'Portfolio circuit breaker risk checks'
 
     trading_venue_sync:
       cron: '*/30 * * * *'
       class: TradingVenueSyncJob
-      queue: trading
+      queue: trading_critical
       description: 'Sync balances and positions from venues'
 
     trading_phase_review:
       cron: '0 6 * * *'
       class: TradingPhaseReviewJob
-      queue: trading
+      queue: trading_batch
       description: 'Review strategy lifecycle phase graduation'
 
     trading_training_session_runner:
       cron: '*/5 * * * *'
       class: TradingTrainingSessionRunnerJob
-      queue: trading
+      queue: trading_critical
       description: 'Check for pending training sessions and dispatch execution'
 
     trading_overseer_cycle:
       cron: '*/10 * * * *'
       class: TradingOverseerCycleJob
-      queue: trading
+      queue: trading_critical
       description: 'Run overseer decision engine for autonomous trading management'
 
     trading_decision_expiry:
       cron: '*/15 * * * *'
       class: TradingDecisionExpiryJob
-      queue: trading
+      queue: trading_critical
       description: 'Expire stale pending overseer decisions'
 
     trading_position_cleanup:
       cron: '0 4 * * *'
       class: TradingPositionCleanupJob
-      queue: trading
+      queue: trading_batch
       description: 'Close stale/orphaned positions and archive old closed positions'

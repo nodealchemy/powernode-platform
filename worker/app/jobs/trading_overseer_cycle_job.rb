@@ -5,18 +5,27 @@
 # engine evaluation — rule-based autonomous actions like temporal pruning,
 # capital rebalancing triggers, and strategy lifecycle transitions.
 class TradingOverseerCycleJob < BaseJob
-  sidekiq_options queue: 'trading', retry: 1
+  sidekiq_options queue: 'trading_batch', retry: 1
 
-  def execute
+  def execute(args = {})
+    # Fan-out: if account_id given, process single account
+    if args.is_a?(Hash) && args["account_id"]
+      run_decision_cycle(args["account_id"])
+      return { account_id: args["account_id"] }
+    end
+
     # Find all accounts with an active trading portfolio
     response = api_client.get("/api/v1/internal/trading/active_portfolios")
     return unless response&.dig("data", "items")
 
     account_ids = response["data"]["items"].map { |p| p["account_id"] }.uniq
 
+    log_info("Dispatching overseer cycle for #{account_ids.size} accounts")
     account_ids.each do |account_id|
-      run_decision_cycle(account_id)
+      TradingOverseerCycleJob.perform_async({ "account_id" => account_id })
     end
+
+    { dispatched: account_ids.size }
   rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
     log_info("Backend unavailable, skipping overseer cycle (will retry next cron)")
   rescue BackendApiClient::ApiError => e

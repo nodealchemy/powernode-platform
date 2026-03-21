@@ -14,7 +14,7 @@
 #   - Self-scheduling: enqueues the next tick via perform_in
 #   - Rolling performance window in Redis for mid-session optimization
 class TradingStrategyRunnerJob < BaseJob
-  sidekiq_options queue: 'trading', retry: 0
+  sidekiq_options queue: 'trading_critical', retry: 0
 
   LOCK_TTL = 120 # seconds — short since each tick is independent
   PERF_WINDOW_SIZE = 100 # rolling window entries
@@ -88,6 +88,13 @@ class TradingStrategyRunnerJob < BaseJob
     # Fetch context for this single strategy
     context = fetch_context
     return schedule_next!(context) if context["skipped"] || context["error"]
+
+    # Store market data in shared cache for concurrent runners [H2, M3]
+    pair = context.dig("strategy", "pair")
+    venue_id = context.dig("strategy", "trading_venue_id")
+    if pair && venue_id && context.dig("market_data")
+      Trading::SharedPriceCache.store(venue_id, pair, context["market_data"])
+    end
 
     # Extract tick interval for scheduling
     tick_interval = context.dig("strategy", "tick_interval_seconds")&.to_i || 30

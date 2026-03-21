@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class TradingVenueSyncJob < BaseJob
-  sidekiq_options queue: 'trading', retry: 2
+  sidekiq_options queue: 'trading_critical', retry: 2
 
   BATCH_SIZE = 50
 

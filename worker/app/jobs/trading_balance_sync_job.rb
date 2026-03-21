@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class TradingBalanceSyncJob < BaseJob
-  sidekiq_options queue: "trading", retry: 1
+  sidekiq_options queue: "trading_batch", retry: 1
 
   def execute(wallet_id = nil)
     if wallet_id

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class TradingConfirmationPollerJob < BaseJob
-  sidekiq_options queue: "trading", retry: 1
+  sidekiq_options queue: "trading_critical", retry: 1
 
   def execute
     log_info("Polling for pending transfer confirmations")

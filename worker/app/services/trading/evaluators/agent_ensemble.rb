@@ -9,12 +9,16 @@ module Trading
       register "agent_ensemble"
 
       ANALYST_ROLES = %w[technical sentiment fundamentals news risk_manager].freeze
+      TICK_BUDGET_SECONDS = 45       # Max wall-clock time for entire evaluate call [C2, #11]
+      MIN_SYNTHESIS_TIMEOUT = 10     # Reserve at least this much time for synthesis
 
       def evaluate
         signals = []
         market_price = current_price
         return signals unless market_price
         return signals unless @llm_client && @provider_config
+
+        @budget_deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + TICK_BUDGET_SECONDS
 
         # Cooldown: prevent over-trading by spacing out entry evaluations (bypassed in training)
         unless training?
@@ -152,7 +156,9 @@ module Trading
 
         analyses = []
         threads.each do |t|
-          t.join(param("analyst_timeout_seconds", 30))
+          configured_timeout = param("analyst_timeout_seconds", 30)
+          effective_timeout = [configured_timeout, budget_remaining].min
+          t.join(effective_timeout)
           if t.alive?
             t.kill
             t.join(1)
@@ -213,6 +219,7 @@ module Trading
 
         rounds.times do |round|
           break unless @llm_call_count + 1 < @max_llm_calls
+          break if budget_remaining < MIN_SYNTHESIS_TIMEOUT + 5  # Reserve time for synthesis [C2]
 
           bull_thread = Thread.new do
             Thread.current[:result] = llm_complete_structured(
@@ -238,8 +245,9 @@ module Trading
             log("Bear rebuttal failed: #{e.message}", level: :warn)
           end
 
-          bull_thread.join(timeout)
-          bear_thread.join(timeout)
+          debate_timeout = [timeout, [budget_remaining - MIN_SYNTHESIS_TIMEOUT, 0].max].min
+          bull_thread.join(debate_timeout)
+          bear_thread.join(debate_timeout)
           [bull_thread, bear_thread].each { |t| t.kill if t.alive? }
 
           bull_rebuttal = bull_thread[:result]
@@ -421,6 +429,12 @@ module Trading
             position_size_modifier: { type: "number", description: "Multiplier for default position size (0.1-2.0)" }
           },
           required: %w[direction confidence reasoning position_size_modifier], additionalProperties: false }
+      end
+
+      # Seconds remaining in the tick budget. Returns Float::INFINITY if no deadline set.
+      def budget_remaining
+        return Float::INFINITY unless @budget_deadline
+        [@budget_deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC), 0].max
       end
     end
   end

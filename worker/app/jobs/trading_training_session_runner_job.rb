@@ -5,7 +5,7 @@
 # creation time via Redis queue push — see TrainingSessionsController#create.
 # Paused session recovery is handled by the overseer decision engine.
 class TradingTrainingSessionRunnerJob < BaseJob
-  sidekiq_options queue: 'trading', retry: 0
+  sidekiq_options queue: 'trading_critical', retry: 0
 
   # Short TTL for dispatch lock — the execution job overwrites with a longer TTL.
   # This just prevents the next cron tick from re-dispatching during setup.
@@ -15,7 +15,7 @@ class TradingTrainingSessionRunnerJob < BaseJob
   # Set to match LOCK_TTL: jid_active? is unreliable (misses I/O-blocked
   # threads), so we trust the TTL mechanism for dead-job recovery instead.
   # Dead jobs are recovered within 15 min via natural lock expiry.
-  STALE_LOCK_AGE_THRESHOLD = 900
+  STALE_LOCK_AGE_THRESHOLD = 300
 
   # Atomic CAS: replace lock value only if it still holds expected_value.
   # Prevents TOCTOU races where del+set NX allows another job to slip in between.

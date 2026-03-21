@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class TradingPositionCleanupJob < BaseJob
-  sidekiq_options queue: 'trading', retry: 1
+  sidekiq_options queue: 'trading_batch', retry: 1
 
   def execute
     response = api_client.post("/api/v1/internal/trading/cleanup_stale_positions")

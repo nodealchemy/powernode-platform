@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class TradingMetricsSnapshotJob < BaseJob
-  sidekiq_options queue: 'trading', retry: 2
+  sidekiq_options queue: 'trading_batch', retry: 2
 
   def execute(strategy_id = nil, date = nil)
     date ||= Date.current.to_s

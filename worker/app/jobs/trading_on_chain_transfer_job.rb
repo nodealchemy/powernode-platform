@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class TradingOnChainTransferJob < BaseJob
-  sidekiq_options queue: "trading", retry: 2
+  sidekiq_options queue: "trading_batch", retry: 2
 
   CONFIRMATION_TIMEOUT = 300 # 5 minutes
   POLL_INTERVAL = 3 # seconds

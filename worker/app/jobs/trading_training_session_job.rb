@@ -4,7 +4,7 @@ class TradingTrainingSessionJob < BaseJob
   # No auto-retry: the cron runner handles crash recovery, and users can explicitly retry.
   # Sidekiq retries cause duplicate executions because the retried job gets a new JID
   # and competes with fresh dispatches for the session lock.
-  sidekiq_options queue: 'trading', retry: 0
+  sidekiq_options queue: 'trading_critical', retry: 0
 
   # Class-level shutdown flag — set by Sidekiq's :quiet callback (fires on SIGTERM).
   # Checked by the tick loop so training sessions exit gracefully within seconds,
@@ -178,7 +178,7 @@ class TradingTrainingSessionJob < BaseJob
     end
   LUA
   LOCK_RENEW_INTERVAL = 120 # Renew lock every 2 minutes during active execution
-  INTER_STRATEGY_DELAY = 2 # seconds between AI strategy ticks
+  MAX_CONCURRENT_AI_STRATEGIES = 3  # Concurrent AI evaluations per batch [C3]
   MAX_CONSECUTIVE_TIMEOUTS = 5
 
   # Adaptive tick interval bounds (seconds)
@@ -535,22 +535,40 @@ class TradingTrainingSessionJob < BaseJob
         @last_evaluated_at[sid.to_s] = tick_started_at
       end
 
-      # AI strategies — need inter-strategy delay
-      ai_ids.each_with_index do |sid, idx|
+      # AI strategies — concurrent evaluation in batches of MAX_CONCURRENT_AI_STRATEGIES [C3]
+      ai_ids.each_slice(MAX_CONCURRENT_AI_STRATEGIES) do |batch_ids|
         break if cancel_requested?(session_id)
-        context = contexts_by_id[sid] || contexts_by_id[sid.to_s]
-        result = evaluate_strategy(sid, context)
-        tick_results << result
-        pending_results << result if result["_submission"]
-        @last_evaluated_at[sid.to_s] = tick_started_at
 
-        if result["timeout"]
-          consecutive_timeouts += 1
-        else
-          consecutive_timeouts = 0
+        mutex = Mutex.new
+        threads = batch_ids.map do |sid|
+          Thread.new do
+            ctx = contexts_by_id[sid] || contexts_by_id[sid.to_s]
+            Thread.current[:result] = evaluate_strategy(sid, ctx)
+            Thread.current[:sid] = sid
+          end
         end
 
-        sleep(dry_run ? 0.5 : INTER_STRATEGY_DELAY) if idx < ai_ids.size - 1
+        threads.each do |t|
+          t.join(120) # per-strategy timeout
+          if t.alive?
+            t.kill
+            t.join(1)
+          end
+
+          next unless t[:result]
+
+          mutex.synchronize do
+            tick_results << t[:result]
+            pending_results << t[:result] if t[:result]["_submission"]
+            @last_evaluated_at[t[:sid].to_s] = tick_started_at
+
+            if t[:result]["timeout"]
+              consecutive_timeouts += 1
+            else
+              consecutive_timeouts = 0
+            end
+          end
+        end
       end
 
       # Mid-tick cancellation: break from outer loop if cancel arrived during evaluation

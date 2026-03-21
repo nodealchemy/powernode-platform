@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class TradingStrategyExecutionJob < BaseJob
-  sidekiq_options queue: 'trading', retry: 2
+  sidekiq_options queue: 'trading_critical', retry: 2
 
   def execute(strategy_id = nil)
     if strategy_id
