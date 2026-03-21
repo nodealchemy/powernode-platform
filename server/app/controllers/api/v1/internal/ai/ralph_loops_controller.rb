@@ -87,7 +87,7 @@ module Api
 
           def trading_overseer_loop?(loop)
             agent = loop.default_agent
-            agent&.agent_type == "monitor" && agent&.name == "Trading Overseer"
+            agent&.agent_type == "monitor" && agent&.name&.in?(["Trading Overseer", "Trading Session Manager", "Trading Portfolio Manager"])
           end
 
           def broadcast_trading_cycle(loop, event_type, result = nil)

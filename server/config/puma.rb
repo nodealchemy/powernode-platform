@@ -34,8 +34,10 @@ end
 # Specifies the `port` that Puma will listen on to receive requests; default is 3000.
 port ENV.fetch("PORT", 3000)
 
-# Allow puma to be restarted by `bin/rails restart` command.
-plugin :tmp_restart
+# Dev restarts are handled by SIGUSR2 from config/initializers/dev_reloader.rb.
+# The tmp_restart plugin is intentionally NOT used — its one-shot polling loop
+# exits after the first restart attempt, making it unreliable for automated
+# file watchers that may trigger multiple times during a process lifetime.
 
 # Run the Solid Queue supervisor inside of Puma for single-server deployments
 plugin :solid_queue if ENV["SOLID_QUEUE_IN_PUMA"]
