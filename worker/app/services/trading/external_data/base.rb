@@ -22,6 +22,31 @@ module Trading
         3600  # 1 hour default
       end
 
+      protected
+
+      # Shared HTTP GET → JSON helper for all external data clients.
+      # Handles SSL, timeouts, User-Agent, JSON parsing, and error logging.
+      def http_get_json(url, headers: {})
+        uri = URI(url)
+        http = Net::HTTP.new(uri.host, uri.port)
+        http.use_ssl = (uri.scheme == "https")
+        http.open_timeout = 10
+        http.read_timeout = 15
+
+        request = Net::HTTP::Get.new(uri)
+        request["User-Agent"] = ENV.fetch("NOAA_USER_AGENT", "PowernodeWorker")
+        request["Accept"] = "application/json"
+        headers.each { |k, v| request[k] = v }
+
+        response = http.request(request)
+        return nil unless response.code.to_i == 200
+
+        JSON.parse(response.body)
+      rescue => e
+        log("HTTP GET failed for #{uri.host}#{uri.path}: #{e.message}", level: :error)
+        nil
+      end
+
       private
 
       def cached_fetch(cache_key, &block)
