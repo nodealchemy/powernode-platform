@@ -57,7 +57,7 @@ class TradingStrategyRunnerJob < BaseJob
     end
 
     session_status = status.dig("data", "status")
-    if session_status.in?(%w[cancelled failed completed])
+    if session_status.in?(%w[paused cancelled failed completed])
       log_info("Session #{session_status} — stopping strategy runner", strategy_id: @strategy_id)
       return { stopped: true, reason: "session_#{session_status}" }
     end
