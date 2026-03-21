@@ -357,6 +357,12 @@ module Ai
         config = nested.merge(top_level.compact)
 
         incoming_venue = config["venue_slug"]
+
+        # Reject sessions for user-deactivated venues
+        if incoming_venue.present?
+          venue = Trading::Venue.find_by(slug: incoming_venue)
+          return error_result("Venue '#{incoming_venue}' is deactivated") if venue&.config&.dig("user_deactivated")
+        end
         incoming_types = config["strategy_types"] || ["llm_probability"]
 
         # Duplicate detection: check ALL non-terminal sessions with matching venue+types.

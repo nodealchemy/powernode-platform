@@ -17,8 +17,11 @@ if Rails.env.development?
     restart_file = Rails.root.join("tmp", "restart.txt")
 
     watch_dirs = %w[app config lib].map { |d| Rails.root.join(d).to_s }
-    Dir.glob(Rails.root.join("..", "extensions", "*", "server", "app").to_s).each do |ext_app|
-      watch_dirs << ext_app if File.directory?(ext_app)
+    # Watch both app/ and config/ in extensions (routes.rb changes need restart too)
+    %w[app config].each do |subdir|
+      Dir.glob(Rails.root.join("..", "extensions", "*", "server", subdir).to_s).each do |ext_dir|
+        watch_dirs << ext_dir if File.directory?(ext_dir)
+      end
     end
 
     last_change_at = nil
@@ -53,7 +56,14 @@ if Rails.env.development?
       next unless last_change_at && (Time.now - last_change_at) >= 5
 
       last_change_at = nil
-      Rails.logger.info "[DevReloader] Source files changed — triggering Puma restart"
+
+      # Clear bootsnap iseq cache before restart — Puma re-execs the Ruby
+      # process directly (bypassing the shell wrapper), so extension bytecode
+      # would otherwise be served from stale cache.
+      iseq_cache = Rails.root.join("tmp", "cache", "bootsnap", "compile-cache-iseq")
+      FileUtils.rm_rf(iseq_cache) if iseq_cache.exist?
+
+      Rails.logger.info "[DevReloader] Source files changed — triggering Puma restart (bootsnap cache cleared)"
       FileUtils.touch(restart_file)
     rescue StandardError => e
       Rails.logger.warn "[DevReloader] File watcher error: #{e.message}"

@@ -40,9 +40,6 @@ module Audit
     # Trigger real-time monitoring
     monitor_event(audit_log) if should_monitor?(audit_log)
 
-    # Queue background analysis
-    queue_analysis(audit_log) if requires_analysis?(audit_log)
-
     audit_log
   rescue StandardError => e
     Rails.logger.error "Audit logging failed: #{e.message}"
@@ -305,11 +302,6 @@ module Audit
     audit_log.is_security_related?
   end
 
-  def requires_analysis?(audit_log)
-    audit_log.is_suspicious? ||
-    audit_log.action.in?(AuditLog.admin_actions)
-  end
-
   def monitor_event(audit_log)
     # Broadcast to real-time monitoring systems
     ActionCable.server.broadcast("audit_monitoring", {
@@ -326,12 +318,6 @@ module Audit
 
     # Check for alert conditions
     check_alert_conditions(audit_log)
-  end
-
-  def queue_analysis(audit_log)
-    # Queue background job for detailed analysis
-    # Note: AuditLogAnalysisJob should be moved to worker service if needed
-    # WorkerJobService.enqueue_audit_analysis(audit_log.id)
   end
 
   def check_alert_conditions(audit_log)

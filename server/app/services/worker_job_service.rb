@@ -595,7 +595,7 @@ class WorkerJobService
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "TradingTrainingSessionJob",
         "args" => [session_id],
-        "queue" => "trading"
+        "queue" => "trading_critical"
       })
     end
 
