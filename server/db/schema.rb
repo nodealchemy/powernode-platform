@@ -9742,6 +9742,718 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_18_225124) do
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "check_vuln_scans_status"
   end
 
+  create_table "system_instance_mount_points", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.boolean "enabled", default: true, null: false
+    t.uuid "mount_point_id", null: false
+    t.uuid "node_instance_id", null: false
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["config"], name: "index_system_instance_mount_points_on_config", using: :gin
+    t.index ["enabled"], name: "index_system_instance_mount_points_on_enabled"
+    t.index ["mount_point_id"], name: "index_system_instance_mount_points_on_mount_point_id"
+    t.index ["node_instance_id", "mount_point_id"], name: "idx_instance_mount_points_unique", unique: true
+    t.index ["node_instance_id"], name: "index_system_instance_mount_points_on_node_instance_id"
+    t.index ["status"], name: "index_system_instance_mount_points_on_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'mounted'::character varying, 'unmounted'::character varying, 'error'::character varying]::text[])", name: "system_instance_mount_points_status_check"
+  end
+
+  create_table "system_module_dependencies", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.uuid "dependency_id", null: false
+    t.string "dependency_type", default: "requires", null: false
+    t.uuid "node_module_id", null: false
+    t.boolean "required", default: true, null: false
+    t.datetime "updated_at", null: false
+    t.string "version_constraint"
+    t.index ["dependency_id"], name: "index_system_module_dependencies_on_dependency_id"
+    t.index ["dependency_type"], name: "index_system_module_dependencies_on_dependency_type"
+    t.index ["node_module_id", "dependency_id"], name: "idx_module_dependencies_unique", unique: true
+    t.index ["node_module_id"], name: "index_system_module_dependencies_on_node_module_id"
+    t.check_constraint "dependency_type::text = ANY (ARRAY['requires'::character varying, 'recommends'::character varying, 'conflicts'::character varying, 'provides'::character varying]::text[])", name: "system_module_dependencies_type_check"
+  end
+
+  create_table "system_module_puppet_assignments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.boolean "enabled", default: true, null: false
+    t.uuid "node_module_id", null: false
+    t.jsonb "parameters", default: {}, null: false
+    t.integer "priority", default: 0, null: false
+    t.uuid "puppet_module_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["config"], name: "index_system_module_puppet_assignments_on_config", using: :gin
+    t.index ["enabled"], name: "index_system_module_puppet_assignments_on_enabled"
+    t.index ["node_module_id", "puppet_module_id"], name: "idx_module_puppet_assignments_unique", unique: true
+    t.index ["node_module_id"], name: "index_system_module_puppet_assignments_on_node_module_id"
+    t.index ["parameters"], name: "index_system_module_puppet_assignments_on_parameters", using: :gin
+    t.index ["priority"], name: "index_system_module_puppet_assignments_on_priority"
+    t.index ["puppet_module_id"], name: "index_system_module_puppet_assignments_on_puppet_module_id"
+  end
+
+  create_table "system_node_architectures", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.boolean "enabled", default: true, null: false
+    t.string "image_checksum", comment: "SHA256 checksum of boot image file"
+    t.uuid "image_file_object_id"
+    t.string "image_format", comment: "Image format (raw, qcow2, vmdk, etc.)"
+    t.string "kernel_checksum", comment: "SHA256 checksum of kernel file"
+    t.uuid "kernel_file_object_id"
+    t.text "kernel_options"
+    t.string "kernel_version", comment: "Kernel version string"
+    t.string "name", null: false
+    t.boolean "public", default: false, null: false
+    t.string "ramdisk_checksum", comment: "SHA256 checksum of ramdisk file"
+    t.uuid "ramdisk_file_object_id"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "enabled"], name: "index_system_node_architectures_on_account_id_and_enabled"
+    t.index ["account_id", "name"], name: "index_system_node_architectures_on_account_id_and_name", unique: true
+    t.index ["account_id", "public"], name: "index_system_node_architectures_on_account_id_and_public"
+    t.index ["account_id"], name: "index_system_node_architectures_on_account_id"
+    t.index ["image_file_object_id"], name: "index_system_node_architectures_on_image_file_object_id"
+    t.index ["kernel_file_object_id"], name: "index_system_node_architectures_on_kernel_file_object_id"
+    t.index ["ramdisk_file_object_id"], name: "index_system_node_architectures_on_ramdisk_file_object_id"
+  end
+
+  create_table "system_node_instances", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.text "key_ciphertext"
+    t.decimal "latitude", precision: 10, scale: 7, comment: "Latitude coordinate"
+    t.decimal "longitude", precision: 10, scale: 7, comment: "Longitude coordinate"
+    t.string "mac_address", comment: "Primary MAC address"
+    t.string "name", null: false
+    t.uuid "node_id", null: false
+    t.string "private_ip_address"
+    t.boolean "private_netboot", default: false, comment: "Enable private netboot"
+    t.uuid "provider_instance_type_id"
+    t.uuid "provider_region_id"
+    t.string "public_ip_address"
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.string "variety", default: "cloud", null: false
+    t.string "vpn_ip_address"
+    t.index ["config"], name: "index_system_node_instances_on_config", using: :gin
+    t.index ["mac_address"], name: "index_system_node_instances_on_mac_address", unique: true, where: "(mac_address IS NOT NULL)"
+    t.index ["node_id", "name"], name: "index_system_node_instances_on_node_id_and_name", unique: true
+    t.index ["node_id", "status"], name: "index_system_node_instances_on_node_id_and_status"
+    t.index ["node_id", "variety"], name: "index_system_node_instances_on_node_id_and_variety"
+    t.index ["node_id"], name: "index_system_node_instances_on_node_id"
+    t.index ["provider_instance_type_id"], name: "index_system_node_instances_on_provider_instance_type_id"
+    t.index ["provider_region_id", "status"], name: "index_system_node_instances_on_provider_region_id_and_status"
+    t.index ["provider_region_id"], name: "index_system_node_instances_on_provider_region_id"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'provisioning'::character varying, 'running'::character varying, 'stopped'::character varying, 'terminated'::character varying, 'error'::character varying]::text[])", name: "system_node_instances_status_check"
+    t.check_constraint "variety::text = ANY (ARRAY['cloud'::character varying, 'physical'::character varying, 'dynamic'::character varying]::text[])", name: "system_node_instances_variety_check"
+  end
+
+  create_table "system_node_module_assignments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.boolean "enabled", default: true, null: false
+    t.uuid "node_id", null: false
+    t.uuid "node_module_id", null: false
+    t.integer "priority", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["config"], name: "index_system_node_module_assignments_on_config", using: :gin
+    t.index ["enabled"], name: "index_system_node_module_assignments_on_enabled"
+    t.index ["node_id", "node_module_id"], name: "idx_node_module_assignments_unique", unique: true
+    t.index ["node_id"], name: "index_system_node_module_assignments_on_node_id"
+    t.index ["node_module_id"], name: "index_system_node_module_assignments_on_node_module_id"
+    t.index ["priority"], name: "index_system_node_module_assignments_on_priority"
+  end
+
+  create_table "system_node_module_categories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "color"
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.boolean "enabled", default: true, null: false
+    t.string "icon"
+    t.string "name", null: false
+    t.uuid "parent_id"
+    t.integer "position", default: 0, null: false
+    t.boolean "public", default: false, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "name"], name: "index_system_node_module_categories_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_system_node_module_categories_on_account_id"
+    t.index ["enabled"], name: "index_system_node_module_categories_on_enabled"
+    t.index ["parent_id"], name: "index_system_node_module_categories_on_parent_id"
+    t.index ["position"], name: "index_system_node_module_categories_on_position"
+    t.index ["public"], name: "index_system_node_module_categories_on_public"
+  end
+
+  create_table "system_node_module_copy_paths", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.string "destination_path", null: false
+    t.boolean "enabled", default: true, null: false
+    t.string "name", null: false
+    t.boolean "preserve_permissions", default: true, null: false
+    t.boolean "recursive", default: false, null: false
+    t.string "source_path", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "name"], name: "index_system_node_module_copy_paths_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_system_node_module_copy_paths_on_account_id"
+    t.index ["enabled"], name: "index_system_node_module_copy_paths_on_enabled"
+  end
+
+  create_table "system_node_module_versions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.text "changelog"
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.string "data_checksum"
+    t.string "data_file_name"
+    t.integer "data_file_size"
+    t.jsonb "file_spec", default: {}, null: false
+    t.jsonb "mask", default: {}, null: false
+    t.uuid "node_module_id", null: false
+    t.jsonb "package_spec", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.integer "version_number", null: false
+    t.index ["created_by_id"], name: "index_system_node_module_versions_on_created_by_id"
+    t.index ["data_checksum"], name: "index_system_node_module_versions_on_data_checksum"
+    t.index ["node_module_id", "version_number"], name: "idx_module_versions_unique", unique: true
+    t.index ["node_module_id"], name: "index_system_node_module_versions_on_node_module_id"
+    t.index ["version_number"], name: "index_system_node_module_versions_on_version_number"
+  end
+
+  create_table "system_node_modules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "category_id"
+    t.jsonb "config", default: {}, null: false
+    t.uuid "copy_path_id"
+    t.datetime "created_at", null: false
+    t.uuid "current_version_id"
+    t.integer "current_version_number", default: 0, null: false
+    t.string "data_checksum"
+    t.string "data_file_name"
+    t.integer "data_file_size"
+    t.text "description"
+    t.boolean "enabled", default: true, null: false
+    t.jsonb "file_spec", default: {}, null: false
+    t.boolean "lock_spec", default: false, null: false
+    t.jsonb "mask", default: {}, null: false
+    t.string "name", null: false
+    t.uuid "node_platform_id"
+    t.jsonb "package_spec", default: {}, null: false
+    t.integer "priority", default: 0, null: false
+    t.boolean "public", default: false, null: false
+    t.datetime "updated_at", null: false
+    t.string "variety", default: "config", null: false
+    t.index ["account_id", "name"], name: "index_system_node_modules_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_system_node_modules_on_account_id"
+    t.index ["category_id"], name: "index_system_node_modules_on_category_id"
+    t.index ["config"], name: "index_system_node_modules_on_config", using: :gin
+    t.index ["copy_path_id"], name: "index_system_node_modules_on_copy_path_id"
+    t.index ["current_version_id"], name: "index_system_node_modules_on_current_version_id"
+    t.index ["current_version_number"], name: "index_system_node_modules_on_current_version_number"
+    t.index ["data_checksum"], name: "index_system_node_modules_on_data_checksum"
+    t.index ["enabled"], name: "index_system_node_modules_on_enabled"
+    t.index ["file_spec"], name: "index_system_node_modules_on_file_spec", using: :gin
+    t.index ["lock_spec"], name: "index_system_node_modules_on_lock_spec"
+    t.index ["mask"], name: "index_system_node_modules_on_mask", using: :gin
+    t.index ["node_platform_id"], name: "index_system_node_modules_on_node_platform_id"
+    t.index ["package_spec"], name: "index_system_node_modules_on_package_spec", using: :gin
+    t.index ["priority"], name: "index_system_node_modules_on_priority"
+    t.index ["public"], name: "index_system_node_modules_on_public"
+    t.index ["variety"], name: "index_system_node_modules_on_variety"
+    t.check_constraint "variety::text = ANY (ARRAY['config'::character varying, 'instance'::character varying, 'subscription'::character varying]::text[])", name: "system_node_modules_variety_check"
+  end
+
+  create_table "system_node_mount_points", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.boolean "auto_mount", default: true, null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.boolean "enabled", default: true, null: false
+    t.string "mount_path", null: false
+    t.string "mount_type", default: "nfs", null: false
+    t.string "name", null: false
+    t.jsonb "options", default: {}, null: false
+    t.string "source"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "name"], name: "index_system_node_mount_points_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_system_node_mount_points_on_account_id"
+    t.index ["enabled"], name: "index_system_node_mount_points_on_enabled"
+    t.index ["mount_type"], name: "index_system_node_mount_points_on_mount_type"
+    t.index ["options"], name: "index_system_node_mount_points_on_options", using: :gin
+    t.check_constraint "mount_type::text = ANY (ARRAY['nfs'::character varying, 'cifs'::character varying, 'tmpfs'::character varying, 'bind'::character varying, 'efs'::character varying, 'ebs'::character varying, 'custom'::character varying]::text[])", name: "system_node_mount_points_type_check"
+  end
+
+  create_table "system_node_platforms", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.text "build_script"
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.boolean "enabled", default: true, null: false
+    t.text "init_script"
+    t.string "name", null: false
+    t.uuid "node_architecture_id", null: false
+    t.boolean "public", default: false, null: false
+    t.text "sync_script"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "enabled"], name: "index_system_node_platforms_on_account_id_and_enabled"
+    t.index ["account_id", "name"], name: "index_system_node_platforms_on_account_id_and_name", unique: true
+    t.index ["account_id", "public"], name: "index_system_node_platforms_on_account_id_and_public"
+    t.index ["account_id"], name: "index_system_node_platforms_on_account_id"
+    t.index ["node_architecture_id"], name: "index_system_node_platforms_on_node_architecture_id"
+  end
+
+  create_table "system_node_scripts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.text "data"
+    t.text "description"
+    t.boolean "enabled", default: true, null: false
+    t.string "name", null: false
+    t.boolean "public", default: false, null: false
+    t.datetime "updated_at", null: false
+    t.string "variety", default: "custom", null: false
+    t.index ["account_id", "enabled"], name: "index_system_node_scripts_on_account_id_and_enabled"
+    t.index ["account_id", "name"], name: "index_system_node_scripts_on_account_id_and_name", unique: true
+    t.index ["account_id", "public"], name: "index_system_node_scripts_on_account_id_and_public"
+    t.index ["account_id", "variety"], name: "index_system_node_scripts_on_account_id_and_variety"
+    t.index ["account_id"], name: "index_system_node_scripts_on_account_id"
+    t.check_constraint "variety::text = ANY (ARRAY['build'::character varying, 'init'::character varying, 'sync'::character varying, 'custom'::character varying]::text[])", name: "system_node_scripts_variety_check"
+  end
+
+  create_table "system_node_templates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "admin_user"
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.boolean "enabled", default: true, null: false
+    t.string "name", null: false
+    t.uuid "node_platform_id", null: false
+    t.boolean "public", default: false, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "enabled"], name: "index_system_node_templates_on_account_id_and_enabled"
+    t.index ["account_id", "name"], name: "index_system_node_templates_on_account_id_and_name", unique: true
+    t.index ["account_id", "public"], name: "index_system_node_templates_on_account_id_and_public"
+    t.index ["account_id"], name: "index_system_node_templates_on_account_id"
+    t.index ["config"], name: "index_system_node_templates_on_config", using: :gin
+    t.index ["node_platform_id"], name: "index_system_node_templates_on_node_platform_id"
+  end
+
+  create_table "system_nodes", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.boolean "allocate_public_ip", default: false, null: false
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.boolean "enabled", default: true, null: false
+    t.string "name", null: false
+    t.uuid "node_template_id", null: false
+    t.string "public_address"
+    t.integer "runtime_amount", default: 0, comment: "Runtime tracking in minutes"
+    t.text "ssh_host_key_ciphertext"
+    t.text "ssh_key_ciphertext"
+    t.boolean "tmpfs_store", default: false, comment: "Use tmpfs for storage"
+    t.datetime "updated_at", null: false
+    t.uuid "worker_id"
+    t.index ["account_id", "enabled"], name: "index_system_nodes_on_account_id_and_enabled"
+    t.index ["account_id", "name"], name: "index_system_nodes_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_system_nodes_on_account_id"
+    t.index ["config"], name: "index_system_nodes_on_config", using: :gin
+    t.index ["node_template_id"], name: "index_system_nodes_on_node_template_id"
+    t.index ["worker_id"], name: "index_system_nodes_on_worker_id"
+  end
+
+  create_table "system_operations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "command", null: false
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.text "error_message"
+    t.jsonb "events", default: [], null: false
+    t.boolean "exclusive", default: false, null: false
+    t.uuid "initiated_by_id"
+    t.uuid "operable_id"
+    t.string "operable_type"
+    t.jsonb "options", default: {}, null: false
+    t.integer "progress", default: 0, null: false
+    t.datetime "scheduled_at"
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_system_operations_on_account_id"
+    t.index ["command"], name: "index_system_operations_on_command"
+    t.index ["completed_at"], name: "index_system_operations_on_completed_at"
+    t.index ["events"], name: "index_system_operations_on_events", using: :gin
+    t.index ["exclusive"], name: "index_system_operations_on_exclusive"
+    t.index ["initiated_by_id"], name: "index_system_operations_on_initiated_by_id"
+    t.index ["operable_type", "operable_id"], name: "index_system_operations_on_operable"
+    t.index ["operable_type", "operable_id"], name: "index_system_operations_on_operable_type_and_operable_id"
+    t.index ["options"], name: "index_system_operations_on_options", using: :gin
+    t.index ["scheduled_at"], name: "index_system_operations_on_scheduled_at"
+    t.index ["started_at"], name: "index_system_operations_on_started_at"
+    t.index ["status"], name: "index_system_operations_on_status"
+    t.check_constraint "progress >= 0 AND progress <= 100", name: "system_operations_progress_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'scheduled'::character varying, 'running'::character varying, 'complete'::character varying, 'failed'::character varying, 'aborted'::character varying, 'cancelled'::character varying]::text[])", name: "system_operations_status_check"
+  end
+
+  create_table "system_provider_availability_zones", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "capabilities", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.boolean "enabled", default: true, null: false
+    t.string "name", null: false
+    t.uuid "provider_region_id", null: false
+    t.string "status", default: "available", null: false
+    t.datetime "updated_at", null: false
+    t.string "zone_code", null: false
+    t.index ["capabilities"], name: "index_system_provider_availability_zones_on_capabilities", using: :gin
+    t.index ["provider_region_id", "enabled"], name: "idx_on_provider_region_id_enabled_5fd74dd1c4"
+    t.index ["provider_region_id", "zone_code"], name: "idx_on_provider_region_id_zone_code_83ae317fad", unique: true
+    t.index ["provider_region_id"], name: "index_system_provider_availability_zones_on_provider_region_id"
+    t.index ["status"], name: "index_system_provider_availability_zones_on_status"
+    t.check_constraint "status::text = ANY (ARRAY['available'::character varying, 'impaired'::character varying, 'unavailable'::character varying]::text[])", name: "system_provider_availability_zones_status_check"
+  end
+
+  create_table "system_provider_connections", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.text "access_key_ciphertext"
+    t.uuid "account_id", null: false
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.boolean "enabled", default: true, null: false
+    t.string "endpoint_url"
+    t.text "last_test_message"
+    t.string "last_test_status"
+    t.datetime "last_tested_at"
+    t.string "name", null: false
+    t.uuid "provider_id", null: false
+    t.text "secret_key_ciphertext"
+    t.string "status", default: "pending", null: false
+    t.string "tenant"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "name"], name: "index_system_provider_connections_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_system_provider_connections_on_account_id"
+    t.index ["config"], name: "index_system_provider_connections_on_config", using: :gin
+    t.index ["provider_id", "enabled"], name: "index_system_provider_connections_on_provider_id_and_enabled"
+    t.index ["provider_id"], name: "index_system_provider_connections_on_provider_id"
+    t.index ["status"], name: "index_system_provider_connections_on_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'connected'::character varying, 'error'::character varying]::text[])", name: "system_provider_connections_status_check"
+  end
+
+  create_table "system_provider_instance_types", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.string "currency", default: "USD"
+    t.text "description"
+    t.boolean "enabled", default: true, null: false
+    t.decimal "hourly_price", precision: 10, scale: 4
+    t.string "instance_type_code", null: false
+    t.integer "memory_mb"
+    t.string "name", null: false
+    t.string "network_performance"
+    t.string "processor_type"
+    t.uuid "provider_id", null: false
+    t.boolean "public", default: false, null: false
+    t.jsonb "specs", default: {}, null: false
+    t.integer "storage_gb"
+    t.datetime "updated_at", null: false
+    t.integer "vcpus"
+    t.index ["account_id", "enabled"], name: "index_system_provider_instance_types_on_account_id_and_enabled"
+    t.index ["account_id"], name: "index_system_provider_instance_types_on_account_id"
+    t.index ["provider_id", "instance_type_code"], name: "idx_on_provider_id_instance_type_code_ced29cad6e", unique: true
+    t.index ["provider_id"], name: "index_system_provider_instance_types_on_provider_id"
+    t.index ["specs"], name: "index_system_provider_instance_types_on_specs", using: :gin
+  end
+
+  create_table "system_provider_network_subnets", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "availability_zone_id"
+    t.integer "available_ip_count"
+    t.string "cidr_block", null: false
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.string "external_id"
+    t.boolean "is_public", default: false, null: false
+    t.boolean "map_public_ip_on_launch", default: false, null: false
+    t.string "name", null: false
+    t.uuid "network_id", null: false
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["availability_zone_id"], name: "index_system_provider_network_subnets_on_availability_zone_id"
+    t.index ["cidr_block"], name: "index_system_provider_network_subnets_on_cidr_block"
+    t.index ["config"], name: "index_system_provider_network_subnets_on_config", using: :gin
+    t.index ["external_id"], name: "index_system_provider_network_subnets_on_external_id"
+    t.index ["is_public"], name: "index_system_provider_network_subnets_on_is_public"
+    t.index ["network_id", "name"], name: "index_system_provider_network_subnets_on_network_id_and_name", unique: true
+    t.index ["network_id"], name: "index_system_provider_network_subnets_on_network_id"
+    t.index ["status"], name: "index_system_provider_network_subnets_on_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'available'::character varying, 'deleting'::character varying, 'deleted'::character varying, 'error'::character varying]::text[])", name: "system_provider_network_subnets_status_check"
+  end
+
+  create_table "system_provider_networks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "cidr_block", null: false
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.boolean "enable_dns_hostnames", default: false, null: false
+    t.boolean "enable_dns_support", default: true, null: false
+    t.string "external_id"
+    t.boolean "is_default", default: false, null: false
+    t.string "name", null: false
+    t.uuid "provider_id", null: false
+    t.uuid "provider_region_id"
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "name"], name: "index_system_provider_networks_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_system_provider_networks_on_account_id"
+    t.index ["cidr_block"], name: "index_system_provider_networks_on_cidr_block"
+    t.index ["config"], name: "index_system_provider_networks_on_config", using: :gin
+    t.index ["external_id"], name: "index_system_provider_networks_on_external_id"
+    t.index ["is_default"], name: "index_system_provider_networks_on_is_default"
+    t.index ["provider_id"], name: "index_system_provider_networks_on_provider_id"
+    t.index ["provider_region_id"], name: "index_system_provider_networks_on_provider_region_id"
+    t.index ["status"], name: "index_system_provider_networks_on_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'available'::character varying, 'deleting'::character varying, 'deleted'::character varying, 'error'::character varying]::text[])", name: "system_provider_networks_status_check"
+  end
+
+  create_table "system_provider_regions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "capabilities", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.boolean "enabled", default: true, null: false
+    t.string "endpoint_url"
+    t.string "kernel_image"
+    t.string "machine_image"
+    t.string "name", null: false
+    t.uuid "provider_id", null: false
+    t.string "ramdisk_image"
+    t.string "region_code", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "enabled"], name: "index_system_provider_regions_on_account_id_and_enabled"
+    t.index ["account_id"], name: "index_system_provider_regions_on_account_id"
+    t.index ["capabilities"], name: "index_system_provider_regions_on_capabilities", using: :gin
+    t.index ["provider_id", "region_code"], name: "index_system_provider_regions_on_provider_id_and_region_code", unique: true
+    t.index ["provider_id"], name: "index_system_provider_regions_on_provider_id"
+  end
+
+  create_table "system_provider_volume_members", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "cloud_volume_id", comment: "Cloud provider volume ID for this member"
+    t.jsonb "config", default: {}
+    t.datetime "created_at", null: false
+    t.string "device_name", comment: "Device name (e.g., /dev/sdb)"
+    t.integer "member_index", default: 0, comment: "Order in RAID array"
+    t.uuid "provider_volume_id", null: false
+    t.integer "size_gb", null: false
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["cloud_volume_id"], name: "index_system_provider_volume_members_on_cloud_volume_id"
+    t.index ["provider_volume_id", "member_index"], name: "idx_volume_members_volume_index", unique: true
+    t.index ["provider_volume_id"], name: "index_system_provider_volume_members_on_provider_volume_id"
+  end
+
+  create_table "system_provider_volume_snapshots", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.boolean "encrypted", default: false, null: false
+    t.string "external_id"
+    t.string "name", null: false
+    t.integer "progress", default: 0, null: false
+    t.integer "size_gb", null: false
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "volume_id"
+    t.index ["account_id", "name"], name: "index_system_provider_volume_snapshots_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_system_provider_volume_snapshots_on_account_id"
+    t.index ["config"], name: "index_system_provider_volume_snapshots_on_config", using: :gin
+    t.index ["encrypted"], name: "index_system_provider_volume_snapshots_on_encrypted"
+    t.index ["external_id"], name: "index_system_provider_volume_snapshots_on_external_id"
+    t.index ["status"], name: "index_system_provider_volume_snapshots_on_status"
+    t.index ["volume_id"], name: "index_system_provider_volume_snapshots_on_volume_id"
+    t.check_constraint "progress >= 0 AND progress <= 100", name: "system_provider_volume_snapshots_progress_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'creating'::character varying, 'completed'::character varying, 'error'::character varying, 'deleting'::character varying, 'deleted'::character varying]::text[])", name: "system_provider_volume_snapshots_status_check"
+  end
+
+  create_table "system_provider_volume_types", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.boolean "enabled", default: true, null: false
+    t.integer "max_iops"
+    t.integer "max_size_gb", default: 16384, null: false
+    t.integer "max_throughput"
+    t.integer "min_iops"
+    t.integer "min_size_gb", default: 1, null: false
+    t.integer "min_throughput"
+    t.string "name", null: false
+    t.uuid "provider_id", null: false
+    t.jsonb "specs", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.string "volume_type", null: false
+    t.index ["account_id", "name"], name: "index_system_provider_volume_types_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_system_provider_volume_types_on_account_id"
+    t.index ["enabled"], name: "index_system_provider_volume_types_on_enabled"
+    t.index ["provider_id"], name: "index_system_provider_volume_types_on_provider_id"
+    t.index ["specs"], name: "index_system_provider_volume_types_on_specs", using: :gin
+    t.index ["volume_type"], name: "index_system_provider_volume_types_on_volume_type"
+    t.check_constraint "volume_type::text = ANY (ARRAY['gp2'::character varying, 'gp3'::character varying, 'io1'::character varying, 'io2'::character varying, 'st1'::character varying, 'sc1'::character varying, 'standard'::character varying, 'ssd'::character varying, 'hdd'::character varying, 'custom'::character varying]::text[])", name: "system_provider_volume_types_type_check"
+  end
+
+  create_table "system_provider_volumes", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "availability_zone_id"
+    t.bigint "capacity_bytes", comment: "Total capacity in bytes"
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.boolean "delete_on_termination", default: false, null: false
+    t.text "description"
+    t.string "device_name"
+    t.boolean "encrypted", default: false, null: false
+    t.string "external_id"
+    t.integer "iops"
+    t.string "name", null: false
+    t.uuid "node_instance_id"
+    t.uuid "provider_region_id"
+    t.integer "raid_level", comment: "RAID level (0 for striping, 1 for mirroring)"
+    t.integer "size_gb", null: false
+    t.string "status", default: "creating", null: false
+    t.integer "throughput"
+    t.datetime "updated_at", null: false
+    t.bigint "used_bytes", default: 0, comment: "Used space in bytes"
+    t.uuid "volume_type_id"
+    t.index ["account_id", "name"], name: "index_system_provider_volumes_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_system_provider_volumes_on_account_id"
+    t.index ["availability_zone_id"], name: "index_system_provider_volumes_on_availability_zone_id"
+    t.index ["config"], name: "index_system_provider_volumes_on_config", using: :gin
+    t.index ["encrypted"], name: "index_system_provider_volumes_on_encrypted"
+    t.index ["external_id"], name: "index_system_provider_volumes_on_external_id"
+    t.index ["node_instance_id"], name: "index_system_provider_volumes_on_node_instance_id"
+    t.index ["provider_region_id"], name: "index_system_provider_volumes_on_provider_region_id"
+    t.index ["status"], name: "index_system_provider_volumes_on_status"
+    t.index ["volume_type_id"], name: "index_system_provider_volumes_on_volume_type_id"
+    t.check_constraint "status::text = ANY (ARRAY['creating'::character varying, 'available'::character varying, 'in-use'::character varying, 'deleting'::character varying, 'deleted'::character varying, 'error'::character varying]::text[])", name: "system_provider_volumes_status_check"
+  end
+
+  create_table "system_providers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.jsonb "capabilities", default: {}, null: false
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.boolean "enabled", default: true, null: false
+    t.string "name", null: false
+    t.string "provider_type", null: false
+    t.boolean "public", default: false, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "enabled"], name: "index_system_providers_on_account_id_and_enabled"
+    t.index ["account_id", "name"], name: "index_system_providers_on_account_id_and_name", unique: true
+    t.index ["account_id", "provider_type"], name: "index_system_providers_on_account_id_and_provider_type"
+    t.index ["account_id"], name: "index_system_providers_on_account_id"
+    t.index ["capabilities"], name: "index_system_providers_on_capabilities", using: :gin
+    t.index ["config"], name: "index_system_providers_on_config", using: :gin
+  end
+
+  create_table "system_puppet_modules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "author"
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.jsonb "dependencies", default: [], null: false
+    t.text "description"
+    t.boolean "enabled", default: true, null: false
+    t.string "forge_name"
+    t.string "license"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", null: false
+    t.string "project_url"
+    t.boolean "public", default: false, null: false
+    t.string "source_url"
+    t.datetime "updated_at", null: false
+    t.string "version"
+    t.index ["account_id", "name"], name: "index_system_puppet_modules_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_system_puppet_modules_on_account_id"
+    t.index ["config"], name: "index_system_puppet_modules_on_config", using: :gin
+    t.index ["dependencies"], name: "index_system_puppet_modules_on_dependencies", using: :gin
+    t.index ["enabled"], name: "index_system_puppet_modules_on_enabled"
+    t.index ["forge_name"], name: "index_system_puppet_modules_on_forge_name"
+    t.index ["metadata"], name: "index_system_puppet_modules_on_metadata", using: :gin
+    t.index ["public"], name: "index_system_puppet_modules_on_public"
+  end
+
+  create_table "system_puppet_resources", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.text "data"
+    t.text "description"
+    t.boolean "enabled", default: true, null: false
+    t.boolean "exported", default: false, null: false
+    t.string "name", null: false
+    t.jsonb "parameters", default: {}, null: false
+    t.string "path"
+    t.uuid "puppet_module_id", null: false
+    t.string "resource_type", null: false
+    t.string "title"
+    t.datetime "updated_at", null: false
+    t.index ["config"], name: "index_system_puppet_resources_on_config", using: :gin
+    t.index ["enabled"], name: "index_system_puppet_resources_on_enabled"
+    t.index ["exported"], name: "index_system_puppet_resources_on_exported"
+    t.index ["parameters"], name: "index_system_puppet_resources_on_parameters", using: :gin
+    t.index ["puppet_module_id", "name"], name: "index_system_puppet_resources_on_puppet_module_id_and_name", unique: true
+    t.index ["puppet_module_id"], name: "index_system_puppet_resources_on_puppet_module_id"
+    t.index ["resource_type"], name: "index_system_puppet_resources_on_resource_type"
+    t.check_constraint "resource_type::text = ANY (ARRAY['file'::character varying, 'package'::character varying, 'service'::character varying, 'exec'::character varying, 'user'::character varying, 'group'::character varying, 'cron'::character varying, 'mount'::character varying, 'host'::character varying, 'notify'::character varying, 'class'::character varying, 'define'::character varying, 'custom'::character varying]::text[])", name: "system_puppet_resources_type_check"
+  end
+
+  create_table "system_region_instance_types", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.boolean "available", default: true, null: false
+    t.datetime "created_at", null: false
+    t.string "currency", default: "USD"
+    t.decimal "hourly_price", precision: 10, scale: 4
+    t.uuid "provider_instance_type_id", null: false
+    t.uuid "provider_region_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["provider_instance_type_id"], name: "idx_on_provider_instance_type_id_72b7029b53"
+    t.index ["provider_region_id", "available"], name: "idx_on_provider_region_id_available_bf1e064fb9"
+    t.index ["provider_region_id", "provider_instance_type_id"], name: "idx_region_instance_types_unique", unique: true
+    t.index ["provider_region_id"], name: "index_system_region_instance_types_on_provider_region_id"
+  end
+
+  create_table "system_region_volume_types", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.boolean "enabled", default: true, null: false
+    t.uuid "provider_region_id", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "volume_type_id", null: false
+    t.index ["enabled"], name: "index_system_region_volume_types_on_enabled"
+    t.index ["provider_region_id", "volume_type_id"], name: "idx_region_volume_types_unique", unique: true
+    t.index ["provider_region_id"], name: "index_system_region_volume_types_on_provider_region_id"
+    t.index ["volume_type_id"], name: "index_system_region_volume_types_on_volume_type_id"
+  end
+
+  create_table "system_template_modules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.boolean "enabled", default: true, null: false
+    t.uuid "node_module_id", null: false
+    t.uuid "node_template_id", null: false
+    t.integer "priority", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["config"], name: "index_system_template_modules_on_config", using: :gin
+    t.index ["enabled"], name: "index_system_template_modules_on_enabled"
+    t.index ["node_module_id"], name: "index_system_template_modules_on_node_module_id"
+    t.index ["node_template_id", "node_module_id"], name: "idx_template_modules_unique", unique: true
+    t.index ["node_template_id"], name: "index_system_template_modules_on_node_template_id"
+    t.index ["priority"], name: "index_system_template_modules_on_priority"
+  end
+
   create_table "task_executions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "completed_at"
     t.datetime "created_at", null: false
@@ -10850,6 +11562,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_18_225124) do
 
   create_table "workers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id"
+    t.jsonb "capabilities", default: {}, null: false
     t.jsonb "config", default: {}, null: false
     t.datetime "created_at", null: false
     t.text "description"
@@ -10860,11 +11573,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_18_225124) do
     t.string "status", default: "active"
     t.string "token_digest"
     t.datetime "updated_at", null: false
+    t.string "worker_type", default: "background", null: false
     t.index ["account_id"], name: "index_workers_on_account_id"
+    t.index ["capabilities"], name: "index_workers_on_capabilities", using: :gin
     t.index ["is_system"], name: "index_workers_on_is_system_unique", unique: true, where: "(is_system = true)"
     t.index ["name"], name: "index_workers_on_name", unique: true
     t.index ["permissions"], name: "index_workers_on_permissions", using: :gin
     t.index ["status"], name: "index_workers_on_status"
+    t.index ["worker_type"], name: "index_workers_on_worker_type"
+    t.check_constraint "worker_type::text = ANY (ARRAY['background'::character varying, 'infrastructure'::character varying]::text[])", name: "workers_worker_type_check"
   end
 
   create_table "workflow_validations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -11690,6 +12407,73 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_18_225124) do
   add_foreign_key "supply_chain_vulnerability_scans", "accounts"
   add_foreign_key "supply_chain_vulnerability_scans", "supply_chain_container_images", column: "container_image_id", on_delete: :cascade
   add_foreign_key "supply_chain_vulnerability_scans", "users", column: "triggered_by_id"
+  add_foreign_key "system_instance_mount_points", "system_node_instances", column: "node_instance_id"
+  add_foreign_key "system_instance_mount_points", "system_node_mount_points", column: "mount_point_id"
+  add_foreign_key "system_module_dependencies", "system_node_modules", column: "dependency_id"
+  add_foreign_key "system_module_dependencies", "system_node_modules", column: "node_module_id"
+  add_foreign_key "system_module_puppet_assignments", "system_node_modules", column: "node_module_id"
+  add_foreign_key "system_module_puppet_assignments", "system_puppet_modules", column: "puppet_module_id"
+  add_foreign_key "system_node_architectures", "accounts"
+  add_foreign_key "system_node_architectures", "file_objects", column: "image_file_object_id"
+  add_foreign_key "system_node_architectures", "file_objects", column: "kernel_file_object_id"
+  add_foreign_key "system_node_architectures", "file_objects", column: "ramdisk_file_object_id"
+  add_foreign_key "system_node_instances", "system_nodes", column: "node_id"
+  add_foreign_key "system_node_instances", "system_provider_instance_types", column: "provider_instance_type_id"
+  add_foreign_key "system_node_instances", "system_provider_regions", column: "provider_region_id"
+  add_foreign_key "system_node_module_assignments", "system_node_modules", column: "node_module_id"
+  add_foreign_key "system_node_module_assignments", "system_nodes", column: "node_id"
+  add_foreign_key "system_node_module_categories", "accounts"
+  add_foreign_key "system_node_module_categories", "system_node_module_categories", column: "parent_id"
+  add_foreign_key "system_node_module_copy_paths", "accounts"
+  add_foreign_key "system_node_module_versions", "system_node_modules", column: "node_module_id"
+  add_foreign_key "system_node_module_versions", "users", column: "created_by_id"
+  add_foreign_key "system_node_modules", "accounts"
+  add_foreign_key "system_node_modules", "system_node_module_categories", column: "category_id"
+  add_foreign_key "system_node_modules", "system_node_module_copy_paths", column: "copy_path_id"
+  add_foreign_key "system_node_modules", "system_node_module_versions", column: "current_version_id"
+  add_foreign_key "system_node_modules", "system_node_platforms", column: "node_platform_id"
+  add_foreign_key "system_node_mount_points", "accounts"
+  add_foreign_key "system_node_platforms", "accounts"
+  add_foreign_key "system_node_platforms", "system_node_architectures", column: "node_architecture_id"
+  add_foreign_key "system_node_scripts", "accounts"
+  add_foreign_key "system_node_templates", "accounts"
+  add_foreign_key "system_node_templates", "system_node_platforms", column: "node_platform_id"
+  add_foreign_key "system_nodes", "accounts"
+  add_foreign_key "system_nodes", "system_node_templates", column: "node_template_id"
+  add_foreign_key "system_nodes", "workers"
+  add_foreign_key "system_operations", "accounts"
+  add_foreign_key "system_operations", "users", column: "initiated_by_id"
+  add_foreign_key "system_provider_availability_zones", "system_provider_regions", column: "provider_region_id"
+  add_foreign_key "system_provider_connections", "accounts"
+  add_foreign_key "system_provider_connections", "system_providers", column: "provider_id"
+  add_foreign_key "system_provider_instance_types", "accounts"
+  add_foreign_key "system_provider_instance_types", "system_providers", column: "provider_id"
+  add_foreign_key "system_provider_network_subnets", "system_provider_availability_zones", column: "availability_zone_id"
+  add_foreign_key "system_provider_network_subnets", "system_provider_networks", column: "network_id"
+  add_foreign_key "system_provider_networks", "accounts"
+  add_foreign_key "system_provider_networks", "system_provider_regions", column: "provider_region_id"
+  add_foreign_key "system_provider_networks", "system_providers", column: "provider_id"
+  add_foreign_key "system_provider_regions", "accounts"
+  add_foreign_key "system_provider_regions", "system_providers", column: "provider_id"
+  add_foreign_key "system_provider_volume_members", "system_provider_volumes", column: "provider_volume_id"
+  add_foreign_key "system_provider_volume_snapshots", "accounts"
+  add_foreign_key "system_provider_volume_snapshots", "system_provider_volumes", column: "volume_id"
+  add_foreign_key "system_provider_volume_types", "accounts"
+  add_foreign_key "system_provider_volume_types", "system_providers", column: "provider_id"
+  add_foreign_key "system_provider_volumes", "accounts"
+  add_foreign_key "system_provider_volumes", "system_node_instances", column: "node_instance_id"
+  add_foreign_key "system_provider_volumes", "system_provider_availability_zones", column: "availability_zone_id"
+  add_foreign_key "system_provider_volumes", "system_provider_regions", column: "provider_region_id"
+  add_foreign_key "system_provider_volumes", "system_provider_volume_types", column: "volume_type_id"
+  add_foreign_key "system_providers", "accounts"
+  add_foreign_key "system_puppet_modules", "accounts"
+  add_foreign_key "system_puppet_resources", "system_puppet_modules", column: "puppet_module_id"
+  add_foreign_key "system_region_instance_types", "system_provider_instance_types", column: "provider_instance_type_id"
+  add_foreign_key "system_region_instance_types", "system_provider_regions", column: "provider_region_id"
+  add_foreign_key "system_region_volume_types", "system_provider_regions", column: "provider_region_id"
+  add_foreign_key "system_region_volume_types", "system_provider_volume_types", column: "volume_type_id"
+  add_foreign_key "system_template_modules", "system_node_modules", column: "node_module_id"
+  add_foreign_key "system_template_modules", "system_node_templates", column: "node_template_id"
   add_foreign_key "task_executions", "scheduled_tasks"
   add_foreign_key "terms_acceptances", "accounts"
   add_foreign_key "terms_acceptances", "users"
