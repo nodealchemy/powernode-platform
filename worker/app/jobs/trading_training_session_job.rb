@@ -609,6 +609,7 @@ class TradingTrainingSessionJob < BaseJob
             decommissioned_ids = rebalance_result.dig("data", "decommissioned") || []
             if decommissioned_ids.any?
               all_strategy_ids -= decommissioned_ids
+              decommissioned_ids.each { |sid| @strategy_evaluator&.evict(sid) }
               log_info("Rebalance decommissioned #{decommissioned_ids.size} strategies", session_id: session_id)
             end
             log_info("Rebalance complete: promoted=#{rebalance_result.dig('data', 'promoted')&.size || 0}, " \

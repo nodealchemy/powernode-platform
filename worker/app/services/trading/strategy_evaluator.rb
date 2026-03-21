@@ -83,5 +83,16 @@ module Trading
     rescue StandardError => e
       { "timeout" => e.message.include?("timeout"), "error" => e.message }
     end
+
+    # Remove cached evaluator for a decommissioned strategy [Fix E].
+    def evict(strategy_id)
+      @evaluator_cache.delete_if { |key, _| key.start_with?("#{strategy_id}_") }
+    end
+
+    # Remove all cached evaluators not in the active set [Fix E].
+    def prune_cache!(active_strategy_ids)
+      active_set = active_strategy_ids.map(&:to_s).to_set
+      @evaluator_cache.delete_if { |key, _| !active_set.include?(key.split("_").first) }
+    end
   end
 end

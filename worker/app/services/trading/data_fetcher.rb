@@ -349,6 +349,39 @@ module Trading
       )
     end
 
+    # =====================================================================
+    # Evolution endpoints
+    # =====================================================================
+
+    # Create evolution epoch and fetch strategy fitness data.
+    # Returns strategies, regimes, and portfolio config for worker-side scoring.
+    def evolution_create_epoch(portfolio_id:, trigger_type: "scheduled")
+      response = @api.post_with_circuit_breaker(
+        "#{BASE}/evolution_create_epoch",
+        { portfolio_id: portfolio_id, trigger_type: trigger_type },
+        circuit_breaker: :trading_training
+      )
+      extract_data(response)
+    end
+
+    # Apply evolution actions (candidates + breeding) computed by the worker.
+    def evolution_apply_actions(epoch_id:, candidates:, breed_request: nil)
+      response = @api.post_with_circuit_breaker(
+        "#{BASE}/evolution_apply_actions",
+        { epoch_id: epoch_id, candidates: candidates, breed_request: breed_request }.compact,
+        circuit_breaker: :trading_training
+      )
+      extract_data(response)
+    end
+
+    # Complete or fail an evolution epoch.
+    def evolution_complete_epoch(epoch_id:, results: nil, counters: nil, error: nil)
+      response = @api.post("#{BASE}/evolution_complete_epoch", {
+        epoch_id: epoch_id, results: results, counters: counters, error: error
+      }.compact)
+      extract_data(response)
+    end
+
     private
 
     # Extract data from a WebSocket response (already parsed, no HTTP wrapper).

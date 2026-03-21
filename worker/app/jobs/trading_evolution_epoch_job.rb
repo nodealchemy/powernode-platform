@@ -3,51 +3,47 @@
 class TradingEvolutionEpochJob < BaseJob
   sidekiq_options queue: 'trading_batch', retry: 1
 
-  def execute(portfolio_id = nil)
+  def execute(portfolio_id = nil, options = {})
+    options = options.is_a?(Hash) ? options : {}
+    trigger_type = options["trigger_type"] || options[:trigger_type] || "scheduled"
+    engine = Trading::EvolutionEngine.new(trading_data_fetcher)
+
     if portfolio_id
-      run_epoch(portfolio_id)
+      result = engine.run_epoch!(portfolio_id, trigger_type: trigger_type)
+      log_info("Evolution epoch complete",
+               portfolio_id: portfolio_id,
+               epoch_id: result[:epoch_id],
+               strategies: result[:strategies_evaluated],
+               skipped: result[:skipped])
+      result
     else
-      run_all_epochs
+      run_all_epochs(engine, trigger_type: trigger_type)
     end
   end
 
   private
 
-  def run_all_epochs
+  def run_all_epochs(engine, trigger_type:)
     response = api_client.get("/api/v1/internal/trading/active_portfolios")
     portfolios = response.dig("data", "items") || []
 
     log_info("Running evolution epochs for #{portfolios.size} portfolios")
 
-    portfolios.each do |portfolio|
-      run_epoch(portfolio["id"])
+    results = portfolios.map do |portfolio|
+      engine.run_epoch!(portfolio["id"], trigger_type: trigger_type)
+    rescue StandardError => e
+      log_error("Evolution failed for #{portfolio['id']}", e)
+      nil
     end
 
-    { portfolios_processed: portfolios.size }
+    { portfolios_processed: results.compact.size }
   rescue Faraday::ConnectionFailed, Errno::ECONNREFUSED
     log_info("Backend unavailable, skipping evolution epochs (will retry next cron)")
   rescue BackendApiClient::ApiError => e
     log_info("Evolution epochs skipped: #{e.message}")
   end
 
-  def run_epoch(portfolio_id)
-    log_info("Running evolution epoch", portfolio_id: portfolio_id)
-
-    response = api_client.post("/api/v1/internal/trading/run_evolution_epoch", {
-      portfolio_id: portfolio_id
-    })
-
-    if response["success"]
-      log_info("Evolution epoch complete", portfolio_id: portfolio_id,
-        epoch: response.dig("data", "epoch_number"))
-    else
-      log_warn("Evolution epoch failed", portfolio_id: portfolio_id,
-        error: response["error"])
-    end
-
-    response
-  rescue StandardError => e
-    log_error("Evolution epoch failed", e, portfolio_id: portfolio_id)
-    nil
+  def trading_data_fetcher
+    @trading_data_fetcher ||= Trading::DataFetcher.new(api_client)
   end
 end

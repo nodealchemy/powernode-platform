@@ -642,7 +642,8 @@ class JobsController
       # Supply chain jobs
       'SupplyChain::QuestionnaireNotificationJob',
       # Trading jobs
-      'TradingTrainingSessionJob'
+      'TradingTrainingSessionJob',
+      'TradingEvolutionEpochJob'
     ]
 
     allowed_jobs.include?(job_class)
