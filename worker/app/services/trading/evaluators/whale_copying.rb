@@ -153,8 +153,14 @@ module Trading
         end
 
         system_prompt = "You are an on-chain intelligence analyst specializing in whale wallet tracking " \
-                        "for prediction markets. Assess whether large bettors (whales) are likely active " \
-                        "on this market based on the question topic, current price levels, and market dynamics."
+                        "for prediction markets, particularly Polymarket on Polygon. Assess whether large bettors " \
+                        "(whales) are likely active on this market. On Polymarket, genuine bets involve USDC " \
+                        "transfers to Conditional Token Framework (CTF) exchange contracts — distinguish these from " \
+                        "non-trade transfers (bridges, LP deposits, personal wallet movements). Classify wallet " \
+                        "reputation: smart_money (historically profitable, early movers), institutional (large " \
+                        "consistent positions), degen (high-frequency mixed track record), unknown. Score conviction " \
+                        "based on transaction size relative to market liquidity, timing patterns, and repetition. " \
+                        "A $500K bet on a $2M market signals stronger conviction than on a $50M market."
 
         # Inject learning context
         system_prompt += build_learning_prompt_context
@@ -216,10 +222,15 @@ module Trading
       def classify_activities(activities)
         return [] if activities.empty?
 
-        system_prompt = "Classify each whale wallet transaction. Determine if it is a genuine trade " \
-                        "(swap, prediction market bet) or a non-trade action (transfer, staking, LP, bridge). " \
-                        "For prediction markets on Polymarket (Polygon), USDC transfers to CTF exchange " \
-                        "contracts are bets. Assess direction and confidence."
+        system_prompt = "Classify each whale wallet transaction as a genuine trade or non-trade action. " \
+                        "Transaction taxonomy: prediction_bet (USDC to CTF contracts on Polymarket/Polygon — " \
+                        "the primary signal), swap (DEX trade), transfer (wallet-to-wallet, NOT a bet), staking, " \
+                        "lp (liquidity provision), bridge (cross-chain movement). On Polymarket, genuine bets " \
+                        "involve USDC flowing to CTF exchange contracts on Polygon — large USDC movements to " \
+                        "other contract types are likely NOT bets. Assess direction (buy/sell) and confidence " \
+                        "(0-1). False positive guidance: exchange deposits/withdrawals, bridge transactions, and " \
+                        "inter-wallet consolidation are common false positives. Require strong evidence of " \
+                        "prediction market interaction before classifying as a trade."
 
         # Inject learning context
         system_prompt += build_learning_prompt_context
@@ -285,9 +296,16 @@ module Trading
 
       # LLM Call 2: Score whale conviction strength
       def score_conviction(best_trade)
-        system_prompt = "Score the conviction strength of this whale trade. Consider: " \
-                        "transaction size relative to market, timing patterns, wallet reputation " \
-                        "(smart money vs degen), and whether the trade signals strong directional conviction."
+        system_prompt = "Score the conviction strength of this whale trade on a 0-1 scale. " \
+                        "Conviction factors: (1) SIZE — transaction amount relative to total market liquidity; " \
+                        "a $500K bet on a $2M market is high conviction, the same on a $50M market is moderate. " \
+                        "(2) TIMING — rapid accumulation suggests urgency and possible information advantage; " \
+                        "slow averaging-in suggests position building without urgency. (3) WALLET REPUTATION — " \
+                        "classify as smart_money (historically profitable, early movers on correct outcomes), " \
+                        "institutional (large consistent positions, risk-managed), degen (high-frequency, mixed " \
+                        "track record), or unknown. Smart money signals carry 2-3x the weight of degen signals. " \
+                        "(4) REPETITION — multiple trades in the same direction from the same wallet cluster " \
+                        "strengthens conviction. Counter-directional trades from different whales reduce net signal."
 
         # Inject experience replay context
         if @trading_context.is_a?(Hash)

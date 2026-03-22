@@ -113,7 +113,7 @@ module Trading
       end
 
       def classify_event(doc)
-        system_prompt = "Classify this news/document for its impact on prediction markets. Determine the event type, which markets it affects, the direction and magnitude of impact."
+        system_prompt = "Classify this news/document for its impact on prediction markets. Determine event_type (breaking_news = unexpected developments with high initial impact but fast decay; policy_change = regulatory/government action with sustained but slower-building impact; economic_data = statistical releases, often pre-priced; market_event = exchange/market structure changes; other). Score impact_magnitude on 0-1: 0.3 = minor relevance, 0.5 = moderate direct impact, 0.7 = significant market-moving event, 0.9 = paradigm-shifting. Assess whether this information is ALREADY priced in — events reported 30+ minutes ago on major outlets are likely substantially reflected. Use multi-hop reasoning for indirect effects (a policy change in sector A may affect a prediction market about sector B). Only assign high impact to genuinely novel, credible information — not opinion pieces or speculative reporting."
 
         if @trading_context
           tc = @trading_context.is_a?(Hash) ? @trading_context : {}
@@ -204,7 +204,7 @@ module Trading
 
         response = llm_complete_structured(
           messages: [
-            { role: "system", content: "You are a prediction market news analyst. Assess the latest developments relevant to this market. Consider recent events, policy changes, and public sentiment that could impact the outcome." },
+            { role: "system", content: "You are a prediction market news analyst assessing the latest developments relevant to this market. Identify the most impactful recent events — policy changes, breaking news, economic data releases, or market structure events. For each development, assess: (1) Is this genuinely NEW information or already priced in? (2) What is the DIRECTION of impact on the YES outcome probability? (3) What is the MAGNITUDE — how much should this shift the probability? (4) Consider indirect effects through related systems. Provide your assessment as a concise headline and impact summary. Only flag high-magnitude impacts for developments that are novel, credible, and directly relevant." },
             { role: "user", content: "Market: #{question}\nCurrent price: #{(current_price * 100).round(1)}¢\n#{price_context}\n\nProvide your assessment of the latest relevant news and its likely market impact." }
           ],
           schema: {

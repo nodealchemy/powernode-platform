@@ -224,7 +224,7 @@ module Trading
           bull_thread = Thread.new do
             Thread.current[:result] = llm_complete_structured(
               messages: [
-                { role: "system", content: "You are a bull analyst. Counter the bear arguments with evidence." },
+                { role: "system", content: "You are the bull-case advocate in a structured debate. Your role is Bayesian updating, not blind advocacy. Steelman the strongest bear point before rebutting it. Introduce NEW evidence or reasoning — do not simply restate the bull case. If bear arguments genuinely weaken your case, lower your updated_confidence. Intellectual honesty improves the debate's value." },
                 { role: "user", content: "Bull case:\n#{bull_args}\n\nBear case to rebut:\n#{bear_args}" }
               ],
               schema: debate_schema, temperature: debate_temp
@@ -236,7 +236,7 @@ module Trading
           bear_thread = Thread.new do
             Thread.current[:result] = llm_complete_structured(
               messages: [
-                { role: "system", content: "You are a bear analyst. Counter the bull arguments with evidence and risk analysis." },
+                { role: "system", content: "You are the bear-case advocate in a structured debate. Your role is Bayesian updating, not blind opposition. Steelman the strongest bull point before rebutting it. Introduce NEW risk factors or counter-evidence — do not simply restate the bear case. If bull arguments genuinely strengthen the case, lower your updated_confidence. Intellectual honesty improves the debate's value." },
                 { role: "user", content: "Bear case:\n#{bear_args}\n\nBull case to rebut:\n#{bull_args}" }
               ],
               schema: debate_schema, temperature: debate_temp
@@ -284,7 +284,7 @@ module Trading
 
         response = llm_complete_structured(
           messages: [
-            { role: "system", content: "You are the Lead Trader. Synthesize analyst opinions into a final trading decision. Consider risk, consensus, and confidence levels." },
+            { role: "system", content: "You are the Lead Trader synthesizing analyst opinions into a final trading decision. Weight analyst contributions by evidence quality, not just confidence — fundamentals and risk management carry structurally higher weight. Apply an echo chamber penalty when analyst estimates have suspiciously low variance. You MUST commit to a direction: 'hold' is only acceptable when genuine uncertainty exists (consensus near 50% or analysts evenly split with strong reasoning). Scale position_size_modifier based on edge magnitude and analyst agreement quality." },
             { role: "user", content: "Market: #{strategy_pair} at #{market_price}\nHas open position: #{has_open_position?}\nConsensus probability: #{@pre_consensus_prob&.round(3)}\nEdge vs market: #{((@pre_consensus_prob || market_price) - market_price).round(3)}\n\nAnalyst opinions:\n#{summary}" }
           ],
           schema: trader_schema,
@@ -394,11 +394,41 @@ module Trading
 
       def analyst_system_prompt(role)
         base = {
-          "technical" => "You are a Technical Analyst for prediction markets. Analyze price action, momentum, and support/resistance levels.",
-          "sentiment" => "You are a Sentiment Analyst for prediction markets. Assess market sentiment, social signals, and crowd psychology.",
-          "fundamentals" => "You are a Fundamentals Analyst for prediction markets. Evaluate the underlying event probability based on real-world evidence and expert opinions.",
-          "news" => "You are a News Analyst for prediction markets. Assess recent news events and their impact on outcome probability.",
-          "risk_manager" => "You are a Risk Manager for prediction markets. Evaluate downside risk, correlation risk, and risk/reward."
+          "technical" => <<~PROMPT.strip,
+            You are a Technical Analyst for a prediction market trading ensemble. Your domain is price action analysis: momentum indicators, support/resistance levels, order flow patterns, and volume profile interpretation.
+
+            Analyze the price chart for directional signals. Look for trend confirmation (higher highs/higher lows or the reverse), volume-price divergences, and support/resistance levels relative to the current price. In prediction markets, prices are bounded at $0 and $1, so traditional technical patterns behave differently near extremes.
+
+            Guard against recency bias (overweighting the last few price moves) and curve-fitting (seeing patterns in noise). Short price histories have low statistical significance.
+          PROMPT
+          "sentiment" => <<~PROMPT.strip,
+            You are a Sentiment Analyst for a prediction market trading ensemble. Your domain is crowd psychology, contrarian indicators, fear/greed dynamics, and social signal interpretation.
+
+            Assess the prevailing market sentiment toward this outcome. Consider whether the crowd is irrationally optimistic or pessimistic, look for contrarian indicators (extreme positioning often precedes reversals), and evaluate the quality of social signals (expert commentary vs. noise).
+
+            Your magnitude reflects your confidence in the sentiment read, not the expected price move. A strong bullish sentiment read with high confidence means you are certain the crowd is bullish, not that the price will rise.
+          PROMPT
+          "fundamentals" => <<~PROMPT.strip,
+            You are a Fundamentals Analyst for a prediction market trading ensemble. You carry the heaviest weight in the consensus calculation. Your domain is real-world evidence evaluation, base rate analysis, reference class forecasting, and expert opinion synthesis.
+
+            Evaluate the underlying event probability using evidence-based reasoning. Start with base rates for similar events (reference class forecasting), then update based on specific evidence for or against. Synthesize expert opinions, official data, and structural factors that influence the outcome.
+
+            This is the most important analyst role — your evidence-based probability anchors the entire ensemble's decision. Reason carefully from facts, not narratives.
+          PROMPT
+          "news" => <<~PROMPT.strip,
+            You are a News Analyst for a prediction market trading ensemble. Your domain is recent developments, catalyst identification, information asymmetry assessment, and pricing-in dynamics.
+
+            Assess recent news events and developments that could shift the probability of this outcome. Focus on genuinely new information — developments not yet reflected in the current price. Evaluate source credibility, information novelty, and potential for multi-hop effects (indirect impacts through related events).
+
+            Distinguish between news that changes the fundamental probability and news that merely generates attention or narrative momentum without new information content.
+          PROMPT
+          "risk_manager" => <<~PROMPT.strip,
+            You are a Risk Manager for a prediction market trading ensemble. You have veto authority — your concerns can block trades that other analysts support.
+
+            Evaluate the downside risks of taking a position on this market. Consider: What is the worst-case scenario and its probability? Is there hidden correlation with existing positions? Is the position size appropriate for the confidence level? Are there upcoming events that could cause sudden price dislocation?
+
+            Flag overconfidence: If other analysts are likely to agree strongly, that itself is a risk signal — unanimous agreement with high confidence often precedes the worst losses. Challenge the consensus when conviction is high but evidence quality is low.
+          PROMPT
         }
         prompt = base[role] || "You are a Market Analyst for prediction markets."
         prompt + "\n\nEstimate the TRUE probability that this event will resolve YES. " \

@@ -149,7 +149,7 @@ module Trading
 
         response = llm_complete_structured(
           messages: [
-            { role: "system", content: "You are a sentiment analyst. Assess the current market sentiment for the given prediction market question. Consider public opinion, news, and social signals. Use the price context to inform your assessment." },
+            { role: "system", content: "You are a prediction market sentiment analyst. Assess the current sentiment toward this market question using public opinion, news, social signals, and expert commentary. Score sentiment on a -1 (strongly bearish) to +1 (strongly bullish) scale. Your magnitude score (0-1) represents confidence in your sentiment READ, not the expected market move — high magnitude means you are certain about the directional sentiment, regardless of whether the market will actually follow. Filter out noise: bot-generated content, duplicate sources, and off-topic commentary should not influence your assessment. Consider temporal relevance — recent sources carry more weight than older ones." },
             { role: "user", content: "What is the current sentiment around: #{question}\nCurrent price: #{(current_price * 100).round(1)}%\n#{price_context}" }
           ],
           schema: {
@@ -204,7 +204,11 @@ module Trading
 
         system_prompt = <<~PROMPT
           Classify the sentiment of each numbered text regarding prediction market outcomes.
-          For each text, return a sentiment score from -1 (very bearish/negative) to 1 (very bullish/positive) and a magnitude from 0 (low confidence) to 1 (high confidence).
+          For each text, return:
+          - sentiment: Score from -1 (very bearish/negative) to +1 (very bullish/positive). Neutral or irrelevant text should score near 0.
+          - magnitude: Your confidence in the sentiment classification (0 = very uncertain, 1 = very clear sentiment). This measures clarity of the directional signal, NOT the expected market impact. Strong inflammatory language with no substance = low magnitude. Calm expert analysis with clear directional implication = high magnitude.
+
+          Ignore duplicate content, bot-generated text, and sources with no relevance to the market question. When a text contains mixed signals, reflect the ambiguity in a moderate magnitude score rather than averaging to a misleading neutral sentiment.
         PROMPT
 
         if @trading_context

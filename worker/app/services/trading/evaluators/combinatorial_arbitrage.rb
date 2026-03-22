@@ -762,14 +762,14 @@ module Trading
         question_b = @pair_registry.dig(pair_b, "question") || @pair_registry.dig(pair_b, :question) || pair_b
 
         system_prompt = <<~PROMPT.strip
-          Analyze logical relationships between prediction market questions.
-          Types of relationships to check:
-          1. IMPLICATION: A⊂B means if A is true then B must be true, so P(B)≥P(A). Example: "S&P above 5100" implies "S&P above 5000".
-          2. MUTUAL EXCLUSIVITY: A and B cannot both be true. Example: two candidates for the same position. For mutually exclusive events, there is NO implication — set has_implication=false, direction=none, violation=false.
-          3. INDEPENDENCE: No logical connection. Set has_implication=false, violation=false.
+          Analyze logical relationships between two prediction market questions to identify pricing constraint violations.
 
-          CRITICAL: Mutually exclusive outcomes (e.g., different candidates for the same election) do NOT imply each other. "Candidate A wins" does NOT imply "Candidate B wins". Set violation=false for these.
-          Only set violation=true when there is a genuine logical implication and prices violate it.
+          Relationship taxonomy:
+          1. IMPLICATION (A⊂B): If A is true, then B MUST be true, so P(B) >= P(A). Example: "S&P above 5100" implies "S&P above 5000" — if the index exceeds 5100 it necessarily exceeds 5000. Set has_implication=true, direction=a_implies_b (or b_implies_a). Set violation=true ONLY if prices violate the constraint (e.g., P(A) > P(B) when A implies B).
+          2. MUTUAL EXCLUSIVITY: A and B cannot both be true. Example: two candidates for the same single-winner position. CRITICAL: mutual exclusivity does NOT create an implication — "Candidate A wins" does NOT imply "Candidate B wins." Set has_implication=false, direction=none, violation=false. Their prices can independently be anything from 0 to 1 as long as the sum doesn't exceed 1.
+          3. INDEPENDENCE: No logical connection between the two questions. Set has_implication=false, direction=none, violation=false.
+
+          Common mistakes to avoid: (a) Confusing mutual exclusivity with implication — these are fundamentally different. (b) Treating correlated events as logically dependent — correlation is not implication. (c) Flagging violations when price differences are within normal spread/liquidity noise. Only flag violations with violation_spread > 2%.
         PROMPT
 
         if @trading_context
@@ -838,14 +838,13 @@ module Trading
         end.join("\n\n")
 
         system_prompt = <<~PROMPT.strip
-          Analyze logical relationships between prediction market questions.
-          You will receive multiple comparisons. For EACH, determine:
-          1. IMPLICATION: A⊂B means if A is true then B must be true, so P(B)≥P(A).
-          2. MUTUAL EXCLUSIVITY: A and B cannot both be true. Set has_implication=false.
-          3. INDEPENDENCE: No logical connection. Set has_implication=false.
+          Analyze logical relationships between prediction market questions in batch. For EACH comparison, determine:
 
-          CRITICAL: Mutually exclusive outcomes do NOT imply each other.
-          Only set violation=true when there is a genuine logical implication and prices violate it.
+          1. IMPLICATION (A⊂B): If A true then B MUST be true, so P(B) >= P(A). Set has_implication=true, violation=true only if prices violate the constraint.
+          2. MUTUAL EXCLUSIVITY: A and B cannot both be true (e.g., competing candidates). Does NOT create implication. Set has_implication=false, violation=false.
+          3. INDEPENDENCE: No logical connection. Set has_implication=false, violation=false.
+
+          CRITICAL: Mutually exclusive outcomes do NOT imply each other — "A wins" does NOT imply "B wins." Correlated events are not logically dependent. Only flag violations with violation_spread > 2% to filter spread noise.
         PROMPT
 
         if @trading_context.is_a?(Hash)

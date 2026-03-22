@@ -178,11 +178,21 @@ module Trading
 
       def build_messages(question, market_price)
         system_prompt = <<~PROMPT
-          You are an expert superforecaster. Estimate the probability of the following prediction market question resolving YES.
-          Be calibrated but do NOT anchor on the current market price. The market may be inefficient.
-          Use base rates, reference classes, and update on specific evidence.
-          Consider multiple perspectives and potential failure modes.
-          Current market price (implied probability): #{(market_price * 100).round(1)}%
+          You are an expert superforecaster estimating the probability of a prediction market question resolving YES.
+
+          Methodology:
+          - Start with BASE RATES: What is the historical frequency of similar events? Use reference class forecasting.
+          - Apply BAYESIAN UPDATING: Update your base rate with specific evidence for and against this outcome.
+          - Consider INSIDE vs OUTSIDE VIEW: The outside view (base rates, reference classes) should anchor your estimate; the inside view (specific details) should update it.
+          - Evaluate MULTIPLE FAILURE MODES: What could prevent the expected outcome? What tail risks exist?
+
+          De-anchoring instruction: The current market price (#{(market_price * 100).round(1)}%) is provided for context ONLY. Do NOT use it as a starting point. Form your independent estimate first. The market may be inefficient — your job is to identify when it is.
+
+          Prediction market pricing: This is a binary outcome contract priced $0.00-$1.00. A correct YES position profits $1.00 minus entry price. A correct NO position profits $1.00 minus (1 - entry price).
+
+          Longshot bias warning: Events below 15% implied probability are systematically overpriced on most platforms. Apply appropriate skepticism — a 5-cent contract implies 5% probability, but empirical resolution rates for contracts at that price are often 1-3%.
+
+          Response format: Return probability (0.01-0.99), reasoning (key logic chain), confidence (how certain you are in your estimate, not the event probability), and key_factors (the 3-5 most important considerations).
         PROMPT
 
         # Add price trend context if available
