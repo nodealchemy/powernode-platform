@@ -189,7 +189,10 @@ module Ai
               tick_interval: { type: "integer", required: false, description: "Seconds between ticks (default: 5)" },
               initial_balance: { type: "number", required: false, description: "Starting balance (default: 10000)" },
               name: { type: "string", required: false, description: "Session name" },
-              strategy_overrides: { type: "object", required: false, description: "Per-strategy parameter overrides" }
+              strategy_overrides: { type: "object", required: false, description: "Per-strategy parameter overrides" },
+              start_at: { type: "string", required: false, description: "Backtest start (ISO8601, default: 7 days ago)" },
+              end_at: { type: "string", required: false, description: "Backtest end (ISO8601, default: now)" },
+              replay_interval_hours: { type: "number", required: false, description: "Hours per tick (default: 1)" }
             }
           },
           "trading_parameter_sweep" => {
@@ -684,7 +687,12 @@ module Ai
           "venue_slug" => "simulator",
           "initial_balance" => initial_balance,
           "price_mode" => "historical_replay",
-          "mode" => "backtest"
+          "mode" => "backtest",
+          "backtest_config" => {
+            "start_at" => (params[:start_at] || 7.days.ago.iso8601),
+            "end_at" => (params[:end_at] || Time.current.iso8601),
+            "replay_interval_hours" => (params[:replay_interval_hours] || 1).to_f
+          }
         }
         session_config["strategy_overrides"] = params[:strategy_overrides] if params[:strategy_overrides].present?
 

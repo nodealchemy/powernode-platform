@@ -71,6 +71,55 @@ RSpec.describe Ai::Tools::TradingSimulationTool do
     end
   end
 
+  describe "#run_backtest" do
+    it "sets backtest_config with default time range" do
+      tool.send(:run_backtest, {})
+      session = Trading::TrainingSession.last
+      bt_config = session.config["backtest_config"]
+
+      expect(bt_config).to be_present
+      expect(bt_config["start_at"]).to be_present
+      expect(bt_config["end_at"]).to be_present
+      expect(bt_config["replay_interval_hours"]).to eq(1.0)
+    end
+
+    it "respects custom start_at and end_at params" do
+      start_at = 14.days.ago.iso8601
+      end_at = 3.days.ago.iso8601
+      tool.send(:run_backtest, { start_at: start_at, end_at: end_at })
+      session = Trading::TrainingSession.last
+      bt_config = session.config["backtest_config"]
+
+      expect(bt_config["start_at"]).to eq(start_at)
+      expect(bt_config["end_at"]).to eq(end_at)
+    end
+
+    it "respects custom replay_interval_hours" do
+      tool.send(:run_backtest, { replay_interval_hours: 4 })
+      session = Trading::TrainingSession.last
+      expect(session.config.dig("backtest_config", "replay_interval_hours")).to eq(4.0)
+    end
+
+    it "sets mode to backtest and price_mode to historical_replay" do
+      tool.send(:run_backtest, {})
+      session = Trading::TrainingSession.last
+      expect(session.config["mode"]).to eq("backtest")
+      expect(session.config["price_mode"]).to eq("historical_replay")
+      expect(session.config["venue_slug"]).to eq("simulator")
+    end
+
+    it "clamps tick_count to 5..500 range" do
+      tool.send(:run_backtest, { tick_count: 1000 })
+      session = Trading::TrainingSession.last
+      expect(session.tick_count).to eq(500)
+    end
+
+    it "enqueues the session for worker processing" do
+      tool.send(:run_backtest, {})
+      expect(WorkerJobService).to have_received(:enqueue_trading_training_session)
+    end
+  end
+
   describe "#serialize_training_session" do
     let(:session) do
       create(:trading_training_session,
