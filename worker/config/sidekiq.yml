@@ -559,12 +559,12 @@
       description: 'Training agent: session discovery, pruning, promotion, fast-track'
 
     trading_overseer_live_cycle:
-      cron: '*/15 * * * *'
+      cron: '*/5 * * * *'
       class: TradingOverseerCycleJob
       queue: trading_critical
       args:
         engine_type: live
-      description: 'Live agent: strategy health, positions, capital, phase advancement'
+      description: 'Live agent: strategy health, positions, capital, phase advancement (M2: 5m for paper_trade visibility)'
 
     trading_decision_expiry:
       cron: '*/15 * * * *'

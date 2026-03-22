@@ -190,6 +190,12 @@ class TradingTrainingSessionJob < BaseJob
   CLASSIC_TYPES = %w[prediction_market momentum mean_reversion arbitrage tail_end_yield].freeze
   STRATEGY_BATCH_SIZE = 25
 
+  # C1: Incremental context fetch — cold data (graph, RAG, regime, strategy config)
+  # refreshes every Nth tick. Hot data (prices, positions) refreshes every tick
+  # via the existing TickPriceCache. This eliminates 70s+ batch context fetch
+  # on most ticks for large sessions.
+  COLD_CONTEXT_REFRESH_TICKS = 5
+
   def execute(session_id)
     lock_key = "training_session_lock:#{session_id}"
 
@@ -358,6 +364,12 @@ class TradingTrainingSessionJob < BaseJob
     @strategy_intervals = {}   # strategy_id => tick_interval_seconds
     @last_evaluated_at = {}    # strategy_id => Time
 
+    # C1: Cold context cache — full strategy contexts cached across ticks.
+    # Cold data (strategy config, graph, RAG, regime) changes slowly; only
+    # refresh every COLD_CONTEXT_REFRESH_TICKS ticks. Prices are separately
+    # warmed via TickPriceCache every tick.
+    @cold_context_cache = {}
+
     log_info("Training loop starting",
       session_id: session_id,
       strategies: strategies.size,
@@ -423,6 +435,7 @@ class TradingTrainingSessionJob < BaseJob
       end
 
       tick_started_at = Time.now
+      tick_timings = {} # L2: Per-phase timing metrics
       log_info("Training tick #{tick_num}/#{tick_count}", session_id: session_id)
 
       all_strategy_ids = strategies.map { |s| s["id"] }
@@ -453,8 +466,33 @@ class TradingTrainingSessionJob < BaseJob
       classic_ids = strategies.select { |s| classic_types.include?(s["type"]) && due_strategy_ids.include?(s["id"]) }.map { |s| s["id"] }
       ai_ids = strategies.reject { |s| classic_types.include?(s["type"]) || !due_strategy_ids.include?(s["id"]) }.map { |s| s["id"] }
 
-      # Phase A: Batch-fetch contexts only for due strategies (not all)
-      contexts_by_id = fetch_batch_contexts(due_strategy_ids)
+      # Phase A: Batch-fetch contexts — C1 incremental: full fetch on tick 1 and
+      # every Nth tick, use cached cold context on intermediate ticks.
+      # Cold data (strategy config, parameters, graph, RAG) changes slowly;
+      # prices are separately warmed via TickPriceCache every tick.
+      phase_a_start = Time.now
+      is_cold_tick = @cold_context_cache.empty? || (tick_num % COLD_CONTEXT_REFRESH_TICKS == 1)
+
+      if is_cold_tick
+        # Full context fetch — updates cold cache
+        contexts_by_id = fetch_batch_contexts(due_strategy_ids)
+        contexts_by_id.each do |sid, ctx|
+          @cold_context_cache[sid.to_s] = ctx if ctx.is_a?(Hash) && !ctx["skipped"]
+        end
+        log_info("Cold context refresh: #{contexts_by_id.size} strategies fetched", session_id: session_id)
+      else
+        # Hot tick — use cached cold context, skip expensive server fetch
+        contexts_by_id = @cold_context_cache.slice(*due_strategy_ids.map(&:to_s))
+        # Include any strategies not in cache (new strategies added mid-session)
+        uncached_ids = due_strategy_ids.reject { |sid| @cold_context_cache.key?(sid.to_s) }
+        if uncached_ids.any?
+          fresh = fetch_batch_contexts(uncached_ids)
+          fresh.each { |sid, ctx| @cold_context_cache[sid.to_s] = ctx if ctx.is_a?(Hash) && !ctx["skipped"] }
+          contexts_by_id.merge!(fresh)
+        end
+        log_info("Hot tick: #{contexts_by_id.size} strategies from cache (#{uncached_ids.size} uncached fetched)", session_id: session_id)
+      end
+      tick_timings[:context_fetch_ms] = ((Time.now - phase_a_start) * 1000).round
 
       # Learn tick_interval_seconds from contexts (populates on tick 1, updates thereafter)
       contexts_by_id.each do |sid, ctx|
@@ -473,8 +511,9 @@ class TradingTrainingSessionJob < BaseJob
 
       # Pre-warm tick price cache with all pair_registry pairs (ALL pairs, not just due).
       # Skipped strategies need cached prices for when they become due.
+      phase_b_start = Time.now
       @tick_price_cache = TickPriceCache.new
-      @graph_cache = {}
+      @graph_cache ||= {} # M1: Persist graph cache across ticks (slow-changing data)
       sample_context = contexts_by_id.values.find { |c| c.is_a?(Hash) && !c["skipped"] }
       if sample_context
         all_pairs = (sample_context["pair_registry"] || {}).keys
@@ -484,15 +523,16 @@ class TradingTrainingSessionJob < BaseJob
           @tick_price_cache.warm!(trading_data_fetcher, all_pairs, venue_id, ws_cache: ws_cache)
           log_info("Price cache warmed: #{@tick_price_cache.size} pairs", session_id: session_id)
         end
+        tick_timings[:price_cache_ms] = ((Time.now - phase_b_start) * 1000).round
 
         # Pre-warm graph cache only for DUE strategies' pairs (not all).
-        # Graph warming is the most expensive per-ticker operation (~1s each).
+        # M1: Graph data is slow-changing — cache results across ticks with a 5-minute
+        # TTL. Only re-fetch base tickers not already in @graph_cache or expired.
+        graph_start = Time.now
         account_id = sample_context.dig("strategy", "account_id")
         first_agent_id = sample_context["agent_id"]
-        similarity_threshold = 0.55 # default; evaluators may override per-strategy
+        similarity_threshold = 0.55
 
-        # Graph pre-warm: skip for classic-only sessions, dry_run, and backtest.
-        # Graph is only useful for combinatorial_arbitrage and LLM strategies.
         has_graph_strategies = ai_ids.any?
         unless dry_run || backtest || !has_graph_strategies
           due_pairs = contexts_by_id.values
@@ -500,21 +540,34 @@ class TradingTrainingSessionJob < BaseJob
             .filter_map { |c| c.dig("strategy", "pair") }
           base_tickers = due_pairs.map { |p| p.sub(%r{/(YES|NO)\z}, "") }.uniq
 
-          base_tickers.each do |bt|
-            pair_key = "#{bt}/YES"
-            @graph_cache[bt] ||= trading_data_fetcher.market_graph_related(
-              pair: pair_key,
-              account_id: account_id,
-              agent_id: first_agent_id,
-              similarity_threshold: similarity_threshold
-            )
-          rescue StandardError => e
-            log_warn("Graph pre-warm failed for #{bt}", error: e.message)
+          # M1: Only fetch graph data for tickers not already cached.
+          # Graph relationships change much slower than prices (~minutes vs ~seconds).
+          @graph_cache_timestamps ||= {}
+          graph_ttl = 300 # 5 minutes
+          uncached_tickers = base_tickers.reject do |bt|
+            cached_at = @graph_cache_timestamps[bt]
+            @graph_cache.key?(bt) && cached_at && (Time.now - cached_at) < graph_ttl
           end
-          log_info("Graph cache warmed: #{@graph_cache.size} base tickers", session_id: session_id)
+
+          if uncached_tickers.any?
+            uncached_tickers.each do |bt|
+              pair_key = "#{bt}/YES"
+              @graph_cache[bt] = trading_data_fetcher.market_graph_related(
+                pair: pair_key,
+                account_id: account_id,
+                agent_id: first_agent_id,
+                similarity_threshold: similarity_threshold
+              )
+              @graph_cache_timestamps[bt] = Time.now
+            rescue StandardError => e
+              log_warn("Graph pre-warm failed for #{bt}", error: e.message)
+            end
+            log_info("Graph cache warmed: #{uncached_tickers.size} new tickers (#{@graph_cache.size} total cached)", session_id: session_id)
+          else
+            log_info("Graph cache hit: all #{base_tickers.size} tickers cached", session_id: session_id)
+          end
 
           # Batch-fetch prices for all related pairs discovered via graph.
-          # This eliminates ~100+ individual venue_fetch_ticker calls per tick.
           all_related_pairs = @graph_cache.values.flatten.filter_map { |r| r["pair"] || r[:pair] }.uniq
           uncached = all_related_pairs.reject { |p| @tick_price_cache.get(p) }
           if uncached.any? && venue_id
@@ -523,7 +576,11 @@ class TradingTrainingSessionJob < BaseJob
             log_info("Related price cache warmed: #{uncached.size} pairs fetched", session_id: session_id)
           end
         end
+        tick_timings[:graph_warm_ms] = ((Time.now - graph_start) * 1000).round
       end
+
+      # Phase B2: Strategy evaluation
+      eval_start = Time.now
 
       # Classic strategies — fast, no delay needed
       classic_ids.each do |sid|
@@ -570,6 +627,7 @@ class TradingTrainingSessionJob < BaseJob
           end
         end
       end
+      tick_timings[:evaluation_ms] = ((Time.now - eval_start) * 1000).round
 
       # Mid-tick cancellation: break from outer loop if cancel arrived during evaluation
       if cancel_requested?(session_id)
@@ -585,7 +643,15 @@ class TradingTrainingSessionJob < BaseJob
       end
 
       # Phase C: Batch-submit all results + tick progress in one request
+      submit_start = Time.now
       submit_batch_results(session_id, tick_num, pending_results, tick_results)
+      tick_timings[:submission_ms] = ((Time.now - submit_start) * 1000).round
+      tick_timings[:total_ms] = ((Time.now - tick_started_at) * 1000).round
+
+      # L2: Structured latency telemetry — data-driven tick optimization
+      log_info("Tick #{tick_num} timings: #{tick_timings.map { |k, v| "#{k}=#{v}ms" }.join(' ')} " \
+               "(classic=#{classic_ids.size} ai=#{ai_ids.size} cold=#{is_cold_tick})",
+        session_id: session_id)
 
       # Early completion: allow current tick to finish submitting, then break to finalize
       if completion_requested?(session_id)
@@ -688,7 +754,7 @@ class TradingTrainingSessionJob < BaseJob
   #   - Market scanning & rotation (every 15-30 min)
   #   - Promotion candidate detection
   #   - Capital rebalancing
-  ORCHESTRATOR_POLL_INTERVAL = 60 # seconds between supervision checks
+  ORCHESTRATOR_POLL_INTERVAL = 30 # seconds between supervision checks (L1: halved from 60s)
   EVOLUTION_INTERVAL = 1800 # 30 minutes between parameter evolution cycles
   MARKET_SCAN_INTERVAL = 900 # 15 minutes between market scans
   PROMOTION_CHECK_INTERVAL = 1800 # 30 minutes between promotion checks
