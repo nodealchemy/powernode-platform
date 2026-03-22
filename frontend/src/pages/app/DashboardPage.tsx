@@ -1,4 +1,4 @@
-import React, { useCallback, Suspense } from 'react';
+import React, { useCallback, useEffect, useState, Suspense } from 'react';
 import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
@@ -348,6 +348,11 @@ const DashboardOverview: React.FC = () => {
 };
 
 const DashboardPage: React.FC = () => {
+  // Re-render when extension routes are registered (e.g., trading, business)
+  const [, setRegistryVersion] = useState(() => featureRegistry.getVersion());
+  useEffect(() => {
+    return featureRegistry.subscribe(() => setRegistryVersion(featureRegistry.getVersion()));
+  }, []);
 
   return (
     <DashboardLayout>
