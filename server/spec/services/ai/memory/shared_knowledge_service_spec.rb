@@ -363,6 +363,46 @@ RSpec.describe Ai::Memory::SharedKnowledgeService, type: :service do
   end
 
   # ===========================================================================
+  # import_from_learnings marks source learnings
+  # ===========================================================================
+
+  describe "#import_from_learnings source learning event processing" do
+    let(:team) { create(:ai_agent_team, account: account) }
+
+    before do
+      # Distinct embeddings per call
+      call_count = 0
+      embeddings = 5.times.map { Array.new(1536) { rand(-1.0..1.0) } }
+      allow_any_instance_of(Ai::Memory::EmbeddingService)
+        .to receive(:generate) do
+          idx = call_count % embeddings.size
+          call_count += 1
+          embeddings[idx]
+        end
+    end
+
+    it "sets last_event_processed_at on source learnings after successful import" do
+      learning = Ai::CompoundLearning.create!(
+        account: account,
+        ai_agent_team: team,
+        title: "Imported Pattern",
+        content: "Pattern content that will be imported into shared knowledge.",
+        category: "best_practice",
+        importance_score: 0.85,
+        scope: "global",
+        status: "active",
+        extraction_method: "auto_success"
+      )
+
+      expect(learning.last_event_processed_at).to be_nil
+
+      service.import_from_learnings(min_importance: 0.7)
+
+      expect(learning.reload.last_event_processed_at).to be_within(2.seconds).of(Time.current)
+    end
+  end
+
+  # ===========================================================================
   # stats
   # ===========================================================================
 

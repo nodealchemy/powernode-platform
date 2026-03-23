@@ -88,6 +88,43 @@ RSpec.describe Ai::CompoundLearning, type: :model do
   end
 
   # ============================================================================
+  # TOUCH EVENT PROCESSED
+  # ============================================================================
+
+  describe "#touch_event_processed!" do
+    let(:learning) { create(:ai_compound_learning, account: account, ai_agent_team: team) }
+
+    it "sets last_event_processed_at to current time" do
+      expect(learning.last_event_processed_at).to be_nil
+
+      freeze_time do
+        learning.touch_event_processed!
+        expect(learning.reload.last_event_processed_at).to eq(Time.current)
+      end
+    end
+  end
+
+  describe "lifecycle methods set last_event_processed_at" do
+    let(:learning) { create(:ai_compound_learning, account: account, ai_agent_team: team,
+                            importance_score: 0.5, confidence_score: 0.5) }
+
+    it "verify! sets last_event_processed_at" do
+      learning.verify!(user: user)
+      expect(learning.reload.last_event_processed_at).to be_within(2.seconds).of(Time.current)
+    end
+
+    it "disprove! sets last_event_processed_at" do
+      learning.disprove!(user: user, reason: "Wrong")
+      expect(learning.reload.last_event_processed_at).to be_within(2.seconds).of(Time.current)
+    end
+
+    it "record_injection_outcome! sets last_event_processed_at" do
+      learning.record_injection_outcome!(successful: true)
+      expect(learning.reload.last_event_processed_at).to be_within(2.seconds).of(Time.current)
+    end
+  end
+
+  # ============================================================================
   # DECAY & EFFECTIVENESS
   # ============================================================================
 

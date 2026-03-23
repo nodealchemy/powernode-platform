@@ -296,6 +296,36 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
     end
   end
 
+  describe "#store_learning event processing" do
+    before do
+      allow(WorkerJobService).to receive(:enqueue_ai_dedup_learning)
+    end
+
+    it "sets last_event_processed_at on newly created learnings" do
+      service.store_learning(
+        { content: "Test learning content", category: "pattern",
+          title: "Test", extraction_method: "marker" }
+      )
+
+      learning = Ai::CompoundLearning.for_account(account.id).last
+      expect(learning.last_event_processed_at).to be_within(2.seconds).of(Time.current)
+    end
+
+    it "sets last_event_processed_at on dedup boost via text fallback" do
+      # Create an existing learning that will match text dedup
+      existing = create(:ai_compound_learning, account: account,
+                        content: "Existing learning content for dedup test",
+                        status: "active")
+
+      service.store_learning(
+        { content: "Existing learning content for dedup test",
+          category: "pattern", title: "Dupe", extraction_method: "marker" }
+      )
+
+      expect(existing.reload.last_event_processed_at).to be_within(2.seconds).of(Time.current)
+    end
+  end
+
   describe "#list_learnings" do
     before do
       create(:ai_compound_learning, account: account, category: "best_practice",

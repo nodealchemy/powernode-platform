@@ -91,6 +91,81 @@ RSpec.describe Ai::SharedKnowledge, type: :model do
     end
   end
 
+  describe '#touch_event_processed!' do
+    let(:knowledge) { create(:ai_shared_knowledge, account: account) }
+
+    it 'sets last_event_processed_at to current time' do
+      expect(knowledge.last_event_processed_at).to be_nil
+
+      freeze_time do
+        knowledge.touch_event_processed!
+        expect(knowledge.reload.last_event_processed_at).to eq(Time.current)
+      end
+    end
+  end
+
+  describe '#touch_usage! quality recalculation' do
+    let(:knowledge) { create(:ai_shared_knowledge, account: account, usage_count: 4) }
+
+    it 'triggers recalculate_quality_score! on every 5th use' do
+      expect(knowledge).to receive(:recalculate_quality_score!).once
+      knowledge.touch_usage!
+    end
+
+    it 'does not trigger recalculate_quality_score! on non-5th use' do
+      knowledge = create(:ai_shared_knowledge, account: account, usage_count: 3)
+      expect(knowledge).not_to receive(:recalculate_quality_score!)
+      knowledge.touch_usage!
+    end
+  end
+
+  describe '#record_rating!' do
+    let(:knowledge) { create(:ai_shared_knowledge, account: account, rating_sum: 0, rating_count: 0) }
+
+    it 'sets last_event_processed_at' do
+      knowledge.record_rating!(4)
+      expect(knowledge.reload.last_event_processed_at).to be_within(2.seconds).of(Time.current)
+    end
+
+    context 'with source learning provenance' do
+      let(:source_learning) do
+        create(:ai_compound_learning, account: account, importance_score: 0.5, status: "active")
+      end
+
+      let(:knowledge_with_source) do
+        create(:ai_shared_knowledge, account: account, rating_sum: 0, rating_count: 0,
+               provenance: { "source_learning_id" => source_learning.id })
+      end
+
+      it 'boosts source learning importance on high rating' do
+        knowledge_with_source.record_rating!(5)
+        expect(source_learning.reload.importance_score).to be > 0.5
+      end
+
+      it 'decays source learning importance on low rating' do
+        # Set updated_at far enough back for decay to take effect
+        source_learning.update_columns(updated_at: 3.days.ago, decay_rate: 0.1)
+        original = source_learning.importance_score
+
+        knowledge_with_source.record_rating!(1)
+        expect(source_learning.reload.importance_score).to be < original
+      end
+
+      it 'touches source learning event_processed' do
+        knowledge_with_source.record_rating!(4)
+        expect(source_learning.reload.last_event_processed_at).to be_within(2.seconds).of(Time.current)
+      end
+
+      it 'skips propagation for disproven source learnings' do
+        source_learning.update_columns(status: "disproven")
+        original = source_learning.importance_score
+
+        knowledge_with_source.record_rating!(5)
+        expect(source_learning.reload.importance_score).to eq(original)
+      end
+    end
+  end
+
   describe '#verify_integrity!' do
     let(:knowledge) { create(:ai_shared_knowledge, account: account, content: "test content") }
 
