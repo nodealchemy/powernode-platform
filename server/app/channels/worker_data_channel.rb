@@ -157,7 +157,7 @@ class WorkerDataChannel < ApplicationCable::Channel
         end
 
         if orders.any?
-          broadcast_service = ::Trading::TradingBroadcastService.new(strategy.portfolio.account) rescue nil
+          broadcast_service = ::Trading::TradingBroadcastService.new(strategy.account) rescue nil
           broadcast_service&.broadcast_tick_outcome!(strategy, {
             signals_generated: symbolized_signals.size,
             orders_submitted: orders.size
@@ -190,6 +190,8 @@ class WorkerDataChannel < ApplicationCable::Channel
             tick_num: data["tick_num"].to_i,
             tick_results: results_params.map { |r| outcomes[r["strategy_id"]] || {} }
           )
+          # Advance backtest cursor so next tick reads the next historical price window
+          session.advance_backtest_cursor! if session.backtest_mode?
         end
       rescue StandardError => e
         Rails.logger.warn("[WorkerData] batch tick_complete failed: #{e.message}")
