@@ -139,6 +139,11 @@ module Trading
           false
         end
 
+        if filtered.empty? && related.any?
+          filtered = find_related_from_pair_registry
+          log("#{strategy_pair}: post-filter fallback to pair_registry found #{filtered.size} candidates") if filtered.any?
+        end
+
         # Pre-fetch prices and sort by divergence (largest first).
         # This prioritizes markets most likely to have exploitable constraint violations,
         # ensuring the scan_limit budget is spent on the best candidates.

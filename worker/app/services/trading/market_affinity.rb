@@ -77,17 +77,17 @@ module Trading
           vol = market[:volume_24h].to_f
           cat = market[:category].to_s
           venue_type = opts[:venue_type].to_s
-          # Mean reversion needs prices away from extremes (room to revert to mean).
-          # Lower volume OK since we're looking for overreaction, not trend.
-          # Prediction market venues get reduced thresholds (same rationale as momentum).
+          # Mean reversion needs prices away from extremes (room to revert to mean)
+          # and sufficient volume to indicate genuine overreaction, not illiquidity.
+          # Tighter price band (0.25-0.75) ensures meaningful reversion opportunity.
           momentum_cats = %w[Crypto Financials Economics]
           is_pm_venue = venue_type == "prediction_market"
           if momentum_cats.include?(cat)
-            min_vol = is_pm_venue ? 200 : 500
-            vol >= min_vol && p.between?(0.15, 0.85)
+            min_vol = is_pm_venue ? 1_000 : 3_000
+            vol >= min_vol && p.between?(0.25, 0.75)
           else
-            min_vol = is_pm_venue ? 500 : 1_000
-            vol >= min_vol && p.between?(0.10, 0.90)
+            min_vol = is_pm_venue ? 2_000 : 5_000
+            vol >= min_vol && p.between?(0.20, 0.80)
           end
         }
       },

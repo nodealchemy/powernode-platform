@@ -189,6 +189,7 @@ class TradingTrainingSessionJob < BaseJob
 
   CLASSIC_TYPES = %w[prediction_market momentum mean_reversion arbitrage tail_end_yield].freeze
   STRATEGY_BATCH_SIZE = 25
+  MIN_STRATEGY_CAPITAL = 25.0
   MAX_DISCOVERY_ATTEMPTS = 3
   DISCOVERY_RETRY_DELAY = 2 # seconds between venue API retries
 
@@ -254,6 +255,8 @@ class TradingTrainingSessionJob < BaseJob
 
     @training_completed = false
     @shutdown_requested = false
+    @profit_hunter = nil
+    @discovered_markets = []
 
     # Start Redis pub/sub listener for immediate cancellation signals.
     # Falls back to HTTP polling if subscription fails.
@@ -347,6 +350,12 @@ class TradingTrainingSessionJob < BaseJob
     venue_slug = session_config["venue_slug"]
     dry_run = session_config["mode"] == "dry_run"
     backtest = session_config["mode"] == "backtest"
+
+    # Initialize profit hunter for resume path (setup path already sets it)
+    if @profit_hunter.nil?
+      ph_config = extract_profit_hunter_config(session_config)
+      @profit_hunter = Trading::ProfitHunter.new(ph_config) if ph_config
+    end
 
     if ws_pairs.any? && !backtest
       venue_id = session_status&.dig("data", "venue_id")
@@ -523,14 +532,21 @@ class TradingTrainingSessionJob < BaseJob
       # Phase B: Evaluate all strategies locally using pre-fetched contexts
       pending_results = []
 
-      # Pre-warm tick price cache with all pair_registry pairs (ALL pairs, not just due).
-      # Skipped strategies need cached prices for when they become due.
+      # Pre-warm tick price cache for strategy pairs only (not entire pair_registry).
+      # pair_registry can have 400+ entries from event enrichment — warming all of them
+      # causes 8+ minute CLOB API round-trips on cold cache. Strategy pairs + their
+      # complementary pairs (~8-16 total) is sufficient; graph cache handles the rest.
       phase_b_start = Time.now
       @tick_price_cache = TickPriceCache.new
       @graph_cache ||= {} # M1: Persist graph cache across ticks (slow-changing data)
       sample_context = contexts_by_id.values.find { |c| c.is_a?(Hash) && !c["skipped"] }
       if sample_context
-        all_pairs = (sample_context["pair_registry"] || {}).keys
+        pair_registry = sample_context["pair_registry"] || {}
+        strategy_pairs = contexts_by_id.values
+          .select { |c| c.is_a?(Hash) && !c["skipped"] }
+          .filter_map { |c| c.dig("strategy", "pair") }
+        complementary = strategy_pairs.filter_map { |p| pair_registry.dig(p, "complementary_pair") }
+        all_pairs = (strategy_pairs + complementary).uniq
         venue_id = sample_context.dig("strategy", "venue_id")
         if all_pairs.any? && venue_id && !backtest
           ws_cache = ws_active ? venue_ws_price_cache(venue_slug) : nil
@@ -582,10 +598,13 @@ class TradingTrainingSessionJob < BaseJob
           end
 
           # Batch-fetch prices for all related pairs discovered via graph.
-          all_related_pairs = @graph_cache.values.flatten.filter_map { |r| r["pair"] || r[:pair] }.uniq
+          all_related_pairs = @graph_cache.values.flatten.compact.filter_map { |r|
+            next unless r.is_a?(Hash)
+            r["pair"] || r[:pair]
+          }.uniq
           uncached = all_related_pairs.reject { |p| @tick_price_cache.get(p) }
           if uncached.any? && venue_id
-            trading_data_fetcher.batch_fetch_tickers(pairs: uncached.first(100), venue_id: venue_id)
+            trading_data_fetcher.batch_fetch_tickers(pairs: uncached.first(50), venue_id: venue_id)
               &.each { |pair, data| @tick_price_cache.set(pair, data) if data }
             log_info("Related price cache warmed: #{uncached.size} pairs fetched", session_id: session_id)
           end
@@ -667,6 +686,19 @@ class TradingTrainingSessionJob < BaseJob
                "(classic=#{classic_ids.size} ai=#{ai_ids.size} cold=#{is_cold_tick})",
         session_id: session_id)
 
+      # Phase C.5: Profit Hunter — assess tick and fast-prune zero-performers
+      if @profit_hunter
+        ph_state = build_profit_hunter_state(tick_results, strategies, contexts_by_id)
+        assessment = @profit_hunter.assess_tick!(tick_num, ph_state)
+
+        if assessment[:actions]&.include?(:fast_prune) && assessment[:prune_ids].any?
+          execute_fast_prune!(session_id, assessment[:prune_ids], strategies, all_strategy_ids)
+          log_info("Profit hunter pruned #{assessment[:prune_ids].size} strategies " \
+                   "(reserve: $#{@profit_hunter.reserve_capital.round(2)})",
+            session_id: session_id, tick: tick_num)
+        end
+      end
+
       # Early completion: allow current tick to finish submitting, then break to finalize
       if completion_requested?(session_id)
         log_info("Early completion requested — finishing current tick and proceeding to finalize",
@@ -700,6 +732,18 @@ class TradingTrainingSessionJob < BaseJob
         end
       end
 
+      # Phase D.5: Profit Hunter — hunt for new strategy/market combinations
+      if @profit_hunter && (tick_num % (@profit_hunter.config[:hunt_interval] || 5)).zero?
+        hunt_result = execute_profit_hunt!(session_id, tick_num, strategies, available_markets: @discovered_markets || [])
+        if hunt_result && hunt_result[:new_strategies]&.any?
+          strategies.concat(hunt_result[:new_strategies])
+          all_strategy_ids = strategies.map { |s| s["id"] }
+          log_info("Profit hunter deployed #{hunt_result[:new_strategies].size} new strategies " \
+                   "(reserve: $#{@profit_hunter.reserve_capital.round(2)})",
+            session_id: session_id, tick: tick_num)
+        end
+      end
+
       # Phase E: Dispatch async learning extraction for positions closed this tick
       dispatch_learning_extraction!(all_strategy_ids)
 
@@ -712,7 +756,7 @@ class TradingTrainingSessionJob < BaseJob
         @zero_activity_ticks = 0
       else
         @zero_activity_ticks += 1
-        max_zero = backtest ? 3 : 10
+        max_zero = backtest ? [5, strategies.size].max : 10
         if @zero_activity_ticks >= max_zero
           log_info("#{@zero_activity_ticks} consecutive zero-activity ticks — completing early",
             session_id: session_id, tick: tick_num, mode: backtest ? "backtest" : "live")
@@ -752,7 +796,16 @@ class TradingTrainingSessionJob < BaseJob
       return { shutdown: true, session_id: session_id }
     end
 
-    # Phase 3: Finalize
+    # Phase 3: Profit Hunter reflection (before finalize)
+    if @profit_hunter
+      reflection = @profit_hunter.reflect!
+      log_info("Profit hunter reflect: #{reflection[:hypotheses_confirmed]} confirmed, " \
+               "#{reflection[:hypotheses_rejected]} rejected, #{reflection[:total_pruned]} pruned",
+        session_id: session_id)
+      save_profit_hunter_reflection!(session_id, reflection)
+    end
+
+    # Phase 4: Finalize
     log_info("Finalizing training session", session_id: session_id)
 
     finalize = api_client.post_with_circuit_breaker("/api/v1/internal/trading/training_finalize", {
@@ -795,6 +848,16 @@ class TradingTrainingSessionJob < BaseJob
     # Read session config for supervision settings
     orchestrator_status = check_status(session_id)
     orchestrator_config = orchestrator_status&.dig("data", "config") || {}
+
+    # Initialize profit hunter for continuous mode (same config extraction as fixed_ticks)
+    if @profit_hunter.nil?
+      ph_config = extract_profit_hunter_config(orchestrator_config)
+      if ph_config
+        @profit_hunter = Trading::ProfitHunter.new(ph_config)
+        @profit_hunter_last_pnl = {} # track cumulative PnL per strategy for delta calculation
+        log_info("Profit hunter initialized for continuous mode", session_id: session_id)
+      end
+    end
 
     # Launch independent runners for each strategy
     strategies.each do |strategy|
@@ -889,6 +952,15 @@ class TradingTrainingSessionJob < BaseJob
       # Aggregate session metrics from all strategy runners
       aggregate_session_metrics!(session_id, strategies)
 
+      # Profit Hunter: assess + hunt cycle (non-fatal, like rebalancing)
+      if @profit_hunter
+        begin
+          run_profit_hunter_cycle!(session_id, strategies)
+        rescue StandardError => e
+          log_warn("Profit hunter cycle failed (non-fatal): #{e.message}", session_id: session_id)
+        end
+      end
+
       # Periodic: dispatch learning extraction
       dispatch_learning_extraction!(strategies.map { |s| s["id"] })
 
@@ -907,6 +979,15 @@ class TradingTrainingSessionJob < BaseJob
     if self.class.shutdown_requested?
       log_info("Shutdown requested, skipping finalize for recovery", session_id: session_id)
       return { shutdown: true, session_id: session_id }
+    end
+
+    # Profit Hunter reflection (before finalize, mirrors fixed_ticks pattern)
+    if @profit_hunter
+      reflection = @profit_hunter.reflect!
+      log_info("Profit hunter reflect: #{reflection[:hypotheses_confirmed]} confirmed, " \
+               "#{reflection[:hypotheses_rejected]} rejected, #{reflection[:total_pruned]} pruned",
+        session_id: session_id)
+      save_profit_hunter_reflection!(session_id, reflection)
     end
 
     # Finalize
@@ -949,6 +1030,79 @@ class TradingTrainingSessionJob < BaseJob
     )
   rescue StandardError => e
     log_warn("Metrics aggregation failed (non-fatal): #{e.message}", session_id: session_id)
+  end
+
+  # Run one profit hunter assess + hunt cycle using per-strategy state from the server.
+  # Each supervision cycle (~30s) acts as a virtual "tick" for the ProfitHunter.
+  # The @aggregate_tick_counter is reused as tick_num for interval calculations.
+  def run_profit_hunter_cycle!(session_id, strategies)
+    # Fetch per-strategy state from the server
+    raw_states = trading_data_fetcher.fetch_session_strategy_states(session_id: session_id)
+    states = (raw_states.is_a?(Array) ? raw_states : raw_states["states"] || [])
+    return if states.empty?
+
+    # Convert cumulative PnL to deltas (ProfitHunter accumulates internally)
+    @profit_hunter_last_pnl ||= {}
+    ph_states = states.map do |s|
+      sid = s["id"] || s[:id]
+      cumulative_pnl = (s["pnl_delta"] || s[:pnl_delta]).to_f
+      last_pnl = @profit_hunter_last_pnl[sid] || 0.0
+      delta = cumulative_pnl - last_pnl
+      @profit_hunter_last_pnl[sid] = cumulative_pnl
+
+      {
+        id: sid,
+        type: s["type"] || s[:type],
+        pair: s["pair"] || s[:pair],
+        signals_count: (s["signals_count"] || s[:signals_count]).to_i,
+        pnl_delta: delta,
+        allocated_capital: (s["allocated_capital"] || s[:allocated_capital]).to_f
+      }
+    end
+
+    tick_num = @aggregate_tick_counter
+
+    # Assess: fast-prune zero-performers
+    assessment = @profit_hunter.assess_tick!(tick_num, ph_states)
+    if assessment[:actions]&.include?(:fast_prune) && assessment[:prune_ids].any?
+      execute_continuous_prune!(session_id, assessment[:prune_ids])
+      log_info("Profit hunter pruned #{assessment[:prune_ids].size} strategies " \
+               "(reserve: $#{@profit_hunter.reserve_capital.round(2)})",
+        session_id: session_id, tick: tick_num)
+    end
+
+    # Hunt: deploy new strategy/market combinations on hunt interval ticks
+    if (tick_num % (@profit_hunter.config[:hunt_interval] || 5)).zero?
+      hunt_result = execute_profit_hunt!(session_id, tick_num, strategies, available_markets: @discovered_markets || [])
+      if hunt_result && hunt_result[:new_strategies]&.any?
+        # In continuous mode, launch a runner job for each newly deployed strategy
+        hunt_result[:new_strategies].each do |new_strategy|
+          new_sid = new_strategy["id"]
+          tick_interval = new_strategy["tick_interval_seconds"] || ORCHESTRATOR_POLL_INTERVAL
+          TradingStrategyRunnerJob.perform_async(new_sid, session_id, { "tick_interval" => tick_interval })
+          strategies << new_strategy
+        end
+        log_info("Profit hunter deployed #{hunt_result[:new_strategies].size} new strategies " \
+                 "(reserve: $#{@profit_hunter.reserve_capital.round(2)})",
+          session_id: session_id, tick: tick_num)
+      end
+    end
+  end
+
+  # Prune strategies in continuous mode via the prune_strategy endpoint.
+  # Unlike fixed_ticks, we don't manage in-memory arrays — runners stop themselves
+  # when the strategy is decommissioned.
+  def execute_continuous_prune!(session_id, prune_ids)
+    prune_ids.each do |sid|
+      api_client.post_with_circuit_breaker(
+        "/api/v1/internal/trading/prune_strategy",
+        { strategy_id: sid },
+        circuit_breaker: :trading_training
+      )
+      log_info("Continuous prune: decommissioned strategy #{sid}", session_id: session_id)
+    rescue StandardError => e
+      log_warn("Continuous prune failed for strategy #{sid}: #{e.message}", session_id: session_id)
+    end
   end
 
   # Mid-session parameter evolution cycle
@@ -1075,7 +1229,8 @@ class TradingTrainingSessionJob < BaseJob
           venue_slug: venue_slug,
           raw_markets: raw_markets,
           market_count: market_count_target,
-          config: session_config
+          config: session_config,
+          neg_risk_event_map: fetcher.neg_risk_event_map
         )
         markets = discovery["markets"] || []
         learning_context = discovery["learning_context"]
@@ -1116,6 +1271,9 @@ class TradingTrainingSessionJob < BaseJob
                             lc
                           end
 
+    # Stash discovered markets for profit hunter mid-session hunting
+    @discovered_markets = symbolized_markets
+
     affinity_result = Trading::MarketAffinity.filter_assignments(
       markets: symbolized_markets,
       strategy_types: strategy_types,
@@ -1140,6 +1298,20 @@ class TradingTrainingSessionJob < BaseJob
       return nil
     end
 
+    # Phase 2.5: Profit Hunter planning (opt-in)
+    profit_hunter_config = extract_profit_hunter_config(session_config)
+    if profit_hunter_config
+      @profit_hunter = Trading::ProfitHunter.new(profit_hunter_config)
+      plan = profit_hunter_plan!(session_id, session_config, assignments, strategy_types)
+      if plan
+        assignments = plan[:assignments] if plan[:assignments]
+        initial_balance = plan[:adjusted_balance] if plan[:adjusted_balance]
+        log_info("Profit hunter plan: #{plan[:exploitation_types]&.size || 0} exploit, " \
+                 "#{plan[:exploration_types]&.size || 0} explore, " \
+                 "reserve $#{@profit_hunter.reserve_capital.round(2)}", session_id: session_id)
+      end
+    end
+
     # Phase 3: Setup portfolio
     return nil if cancelled?(session_id)
     force_renew_lock!
@@ -1150,23 +1322,55 @@ class TradingTrainingSessionJob < BaseJob
     )
 
     # Phase 4: Create strategies in batches
-    per_strategy_capital = (initial_balance / assignments.size).round(2)
-    strategies = []
-    total_batches = (assignments.size.to_f / STRATEGY_BATCH_SIZE).ceil
+    # Allocate capital per strategy type first (equal share per type), then
+    # subdivide within each type. This prevents types with many market matches
+    # from starving types with fewer matches.
+    grouped = assignments.group_by { |a| a[:strategy_type] }
+    per_type_capital = (initial_balance / grouped.size).round(2)
 
-    assignments.each_slice(STRATEGY_BATCH_SIZE).with_index do |batch, i|
-      return nil if cancelled?(session_id)
-      force_renew_lock! # Each batch takes 30-60s; keep lock fresh for runner
-      update_timeline(session_id, "Creating strategies batch #{i + 1}/#{total_batches}...")
-      result = @data_fetcher.create_training_strategies(
-        session_id: session_id,
-        venue_slug: venue_slug,
-        assignments: batch,
-        per_strategy_capital: per_strategy_capital
-      )
-      strategies.concat(result["strategies"] || [])
+    # Within each type, drop assignments that would fall below the minimum
+    # tradeable capital, keeping the best candidates (sorted by volume proxy
+    # via assignment order which reflects discovery ranking).
+    sized_assignments = []
+    grouped.each do |stype, type_assignments|
+      per_strategy = (per_type_capital / type_assignments.size).round(2)
+      if per_strategy < MIN_STRATEGY_CAPITAL
+        # Too many markets for this type — keep only the top N that meet the minimum
+        max_strategies = (per_type_capital / MIN_STRATEGY_CAPITAL).floor
+        type_assignments = type_assignments.first(max_strategies)
+        per_strategy = (per_type_capital / type_assignments.size).round(2) if type_assignments.any?
+      end
+      type_assignments.each { |a| a[:allocated_capital] = per_strategy }
+      sized_assignments.concat(type_assignments)
+      log_info("Capital allocation: #{stype} → #{type_assignments.size} strategies @ $#{per_strategy}/ea " \
+               "(type budget: $#{per_type_capital})", session_id: session_id)
     end
-    log_info("Created #{strategies.size} strategies ($#{per_strategy_capital}/strategy)", session_id: session_id)
+    assignments = sized_assignments
+
+    # Batch by strategy type to ensure uniform per_strategy_capital within
+    # each batch (server-side uses per_strategy_capital * batch.size as budget).
+    strategies = []
+    batch_num = 0
+    type_grouped = assignments.group_by { |a| a[:strategy_type] }
+    total_batches = type_grouped.sum { |_, ta| (ta.size.to_f / STRATEGY_BATCH_SIZE).ceil }
+
+    type_grouped.each do |_stype, type_assignments|
+      capital = type_assignments.first[:allocated_capital]
+      type_assignments.each_slice(STRATEGY_BATCH_SIZE) do |batch|
+        return nil if cancelled?(session_id)
+        force_renew_lock! # Each batch takes 30-60s; keep lock fresh for runner
+        batch_num += 1
+        update_timeline(session_id, "Creating strategies batch #{batch_num}/#{total_batches.to_i}...")
+        result = @data_fetcher.create_training_strategies(
+          session_id: session_id,
+          venue_slug: venue_slug,
+          assignments: batch,
+          per_strategy_capital: capital
+        )
+        strategies.concat(result["strategies"] || [])
+      end
+    end
+    log_info("Created #{strategies.size} strategies across #{type_grouped.size} types", session_id: session_id)
 
     if strategies.empty?
       fail_session!(session_id, "No strategies created — all #{assignments.size} assignments failed")
@@ -1459,6 +1663,180 @@ class TradingTrainingSessionJob < BaseJob
     @last_lock_renew = Time.now
   rescue StandardError => e
     log_warn("Force lock renewal failed: #{e.message}")
+  end
+
+  # ─── Profit Hunter helpers ──────────────────────────────────
+
+  # Extract profit_hunter config from session config. Returns nil if not enabled.
+  def extract_profit_hunter_config(session_config)
+    return nil unless session_config["profit_hunter_enabled"]
+
+    {
+      reserve_pct: session_config["profit_hunter_reserve_pct"],
+      fast_prune_ticks: session_config["profit_hunter_fast_prune_ticks"],
+      hunt_interval: session_config["profit_hunter_hunt_interval"],
+      max_experiments: session_config["profit_hunter_max_experiments"],
+      llm_budget_usd: session_config["profit_hunter_llm_budget_usd"]
+    }.compact
+  end
+
+  # Decision Point 1: Plan session using cross-session intelligence
+  def profit_hunter_plan!(session_id, session_config, assignments, strategy_types)
+    venue_slug = session_config["venue_slug"]
+
+    # Fetch scorecards from server (Phase 3 cross-session intelligence)
+    scorecards = @data_fetcher.fetch_strategy_intelligence(session_id: session_id, venue_slug: venue_slug)
+
+    plan = @profit_hunter.plan_session!(
+      scorecards: scorecards,
+      available_types: strategy_types,
+      venue_slug: venue_slug
+    )
+
+    # Apply reserve: hold back capital by reducing initial balance
+    initial_balance = (session_config["initial_balance"] || 100_000).to_f
+    reserve_pct = plan[:reserve_pct] || @profit_hunter.config[:reserve_pct]
+    reserve_amount = (initial_balance * reserve_pct).round(2)
+    @profit_hunter.instance_variable_set(:@reserve_capital, reserve_amount)
+
+    # If plan has capital allocation, reweight assignments
+    if plan[:capital_allocation]&.any?
+      # Filter assignments to planned types only, keeping affinity results
+      planned_types = plan[:strategy_types]
+      filtered = assignments.select { |a| planned_types.include?(a[:strategy_type] || a["strategy_type"]) }
+      # Fall back to original if filtering removes everything
+      filtered = assignments if filtered.empty?
+
+      plan[:assignments] = filtered
+    end
+
+    plan[:adjusted_balance] = initial_balance - reserve_amount
+    plan
+  rescue StandardError => e
+    log_warn("Profit hunter plan failed (non-fatal, using defaults): #{e.message}", session_id: session_id)
+    nil
+  end
+
+  # Build per-strategy state hash for ProfitHunter from tick results
+  def build_profit_hunter_state(tick_results, strategies, contexts_by_id)
+    strategy_map = strategies.each_with_object({}) { |s, h| h[s["id"]] = s }
+
+    tick_results.filter_map do |result|
+      sid = result["strategy_id"] || result[:strategy_id]
+      next unless sid
+
+      strategy = strategy_map[sid]
+      next unless strategy
+
+      context = contexts_by_id[sid] || contexts_by_id[sid.to_s]
+      allocated = context&.dig("strategy", "allocated_capital").to_f
+
+      signals = result["signals_generated"].to_i
+      pnl = result["pnl_delta"].to_f
+
+      {
+        id: sid,
+        type: strategy["type"],
+        pair: strategy["pair"],
+        signals_count: signals,
+        pnl_delta: pnl,
+        allocated_capital: allocated
+      }
+    end
+  end
+
+  # Execute fast prune: decommission zero-performing strategies via prune_strategy endpoint.
+  # Closes open positions and releases capital back to the portfolio.
+  def execute_fast_prune!(session_id, prune_ids, strategies, all_strategy_ids)
+    prune_ids.each do |sid|
+      result = api_client.post_with_circuit_breaker(
+        "/api/v1/internal/trading/prune_strategy",
+        { strategy_id: sid },
+        circuit_breaker: :trading_training
+      )
+
+      all_strategy_ids.delete(sid)
+      strategies.reject! { |s| s["id"] == sid }
+      @strategy_evaluator&.evict(sid)
+      @cold_context_cache.delete(sid.to_s)
+
+      released = result.dig("data", "released_capital").to_f
+      log_info("Fast prune: strategy #{sid} (released $#{released.round(2)})", session_id: session_id)
+    rescue StandardError => e
+      log_warn("Fast prune failed for strategy #{sid}: #{e.message}", session_id: session_id)
+    end
+  end
+
+  # Execute profit hunt: deploy new strategies and rotate dead markets
+  def execute_profit_hunt!(session_id, tick_num, strategies, available_markets: [])
+    ph_state = strategies.map do |s|
+      sid = s["id"]
+      {
+        id: sid,
+        type: s["type"],
+        pair: s["pair"],
+        signals_count: 0, # Will be filled from @type_performance in profit hunter
+        pnl_delta: 0.0
+      }
+    end
+
+    hunt_result = @profit_hunter.hunt!(tick_num, ph_state, available_markets: available_markets)
+
+    return hunt_result if hunt_result[:skip_reason]
+
+    new_strategies = []
+
+    # Deploy new strategy/market combinations
+    if hunt_result[:new_assignments]&.any?
+      session_status = check_status(session_id)
+      venue_slug = session_status&.dig("data", "config", "venue_slug")
+
+      hunt_result[:new_assignments].each do |assignment|
+        result = @data_fetcher.create_training_strategies(
+          session_id: session_id,
+          venue_slug: venue_slug,
+          assignments: [{ pair: assignment[:pair], strategy_type: assignment[:strategy_type] }],
+          per_strategy_capital: assignment[:capital]
+        )
+        created = result["strategies"] || []
+        new_strategies.concat(created)
+
+        log_info("Hunt: deployed #{assignment[:strategy_type]} on #{assignment[:pair]} " \
+                 "(hypothesis: #{assignment[:hypothesis]}, capital: $#{assignment[:capital]})",
+          session_id: session_id)
+      rescue StandardError => e
+        log_warn("Hunt deployment failed for #{assignment[:strategy_type]} on #{assignment[:pair]}: #{e.message}",
+          session_id: session_id)
+        @profit_hunter.release_experiment_slot(assignment[:capital])
+      end
+    end
+
+    # Log market rotations (informational — actual rotation happens via new deployments)
+    hunt_result[:market_rotations]&.each do |rotation|
+      log_info("Hunt: dead market #{rotation[:dead_pair]} → replacement #{rotation[:replacement_pair]} " \
+               "(#{rotation[:reason]})", session_id: session_id)
+    end
+
+    hunt_result[:new_strategies] = new_strategies
+    hunt_result
+  rescue StandardError => e
+    log_warn("Profit hunt failed (non-fatal): #{e.message}", session_id: session_id)
+    nil
+  end
+
+  # Save profit hunter reflection data via shared memory
+  def save_profit_hunter_reflection!(session_id, reflection)
+    session_status = check_status(session_id)
+    venue_slug = session_status&.dig("data", "config", "venue_slug") || "unknown"
+
+    # Update profitability heatmap in shared memory
+    @data_fetcher.write_profit_hunter_heatmap(
+      venue_slug: venue_slug,
+      heatmap_updates: reflection[:heatmap_updates],
+      session_id: session_id
+    )
+  rescue StandardError => e
+    log_warn("Profit hunter reflection save failed (non-fatal): #{e.message}", session_id: session_id)
   end
 
   def close_session_positions!(session_id)

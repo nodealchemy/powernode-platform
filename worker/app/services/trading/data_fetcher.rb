@@ -249,12 +249,14 @@ module Trading
 
     # Send worker-fetched raw markets to backend for filtering, scoring, and registration.
     # No advisory lock — all operations are fast DB reads/writes.
-    def process_raw_markets(session_id:, venue_slug:, raw_markets:, market_count: 5, config: {})
+    def process_raw_markets(session_id:, venue_slug:, raw_markets:, market_count: 5, config: {}, neg_risk_event_map: nil)
+      payload = { session_id: session_id, venue_slug: venue_slug,
+                  raw_markets: raw_markets, market_count: market_count,
+                  config: config }
+      payload[:neg_risk_event_map] = neg_risk_event_map if neg_risk_event_map&.any?
       response = @api.post_with_circuit_breaker(
         "#{BASE}/process_raw_markets",
-        { session_id: session_id, venue_slug: venue_slug,
-          raw_markets: raw_markets, market_count: market_count,
-          config: config },
+        payload,
         circuit_breaker: :trading_training
       )
       extract_data(response)
@@ -350,6 +352,49 @@ module Trading
         { session_id: session_id, tick_num: tick_num, tick_results: tick_results },
         circuit_breaker: :trading_training
       )
+    end
+
+    # =====================================================================
+    # Strategy state endpoints (continuous mode)
+    # =====================================================================
+
+    # Fetch per-strategy states for a running training session.
+    # Used by the continuous orchestrator to feed ProfitHunter assess/hunt.
+    # Returns Array of { id, type, pair, signals_count, pnl_delta, allocated_capital, status }.
+    def fetch_session_strategy_states(session_id:)
+      response = @api.get("#{BASE}/session_strategy_states", { session_id: session_id })
+      extract_data(response)
+    end
+
+    # =====================================================================
+    # Profit Hunter endpoints
+    # =====================================================================
+
+    # Fetch cross-session strategy intelligence (scorecards, recommendations).
+    # Returns Hash of strategy_type => scorecard.
+    def fetch_strategy_intelligence(session_id:, venue_slug: nil)
+      response = @api.post_with_circuit_breaker(
+        "#{BASE}/profit_hunter_intelligence",
+        { session_id: session_id, venue_slug: venue_slug }.compact,
+        circuit_breaker: :trading_training
+      )
+      data = extract_data(response)
+      data["scorecards"] || {}
+    rescue StandardError => e
+      log_error("fetch_strategy_intelligence failed: #{e.message}")
+      {}
+    end
+
+    # Write profit hunter heatmap to shared memory via backend.
+    def write_profit_hunter_heatmap(venue_slug:, heatmap_updates:, session_id: nil)
+      @api.post_with_circuit_breaker(
+        "#{BASE}/profit_hunter_heatmap",
+        { venue_slug: venue_slug, heatmap_updates: heatmap_updates, session_id: session_id }.compact,
+        circuit_breaker: :trading_training
+      )
+    rescue StandardError => e
+      log_error("write_profit_hunter_heatmap failed: #{e.message}")
+      nil
     end
 
     # =====================================================================

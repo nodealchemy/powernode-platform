@@ -43,6 +43,7 @@ require_relative '../app/services/trading/price_change_detector'
 require_relative '../app/services/trading/regime_adaptive_params'
 require_relative '../app/services/trading/strategy_context_cache'
 require_relative '../app/services/trading/evolution_engine'
+require_relative '../app/services/trading/profit_hunter'
 Dir[File.expand_path('../app/services/trading/external_data/*.rb', __dir__)].sort.each { |f| require f }
 # Load evaluator concerns before base (Base includes DepthAware)
 Dir[File.expand_path('../app/services/trading/evaluators/concerns/*.rb', __dir__)].sort.each { |f| require f }
