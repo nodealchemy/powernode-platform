@@ -106,7 +106,13 @@ module Ai
               include_series: { type: "array", items: { type: "string" }, required: false, description: "Series ticker prefixes to scope discovery (e.g. ['KXFED', 'KXBTC']). Drastically speeds up discovery by skipping irrelevant series." },
               exclude_series: { type: "array", items: { type: "string" }, required: false, description: "Series ticker prefixes to exclude from discovery" },
               scheduled_for: { type: "string", required: false, description: "ISO8601 datetime to schedule session for future start (sets status to 'scheduled'). Overseer auto-starts when time arrives." },
-              duration_minutes: { type: "integer", required: false, description: "Session duration in minutes for continuous mode. Sets ends_at relative to start time (or scheduled_for). Overseer auto-completes when expired. Omit for indefinite." }
+              duration_minutes: { type: "integer", required: false, description: "Session duration in minutes for continuous mode. Sets ends_at relative to start time (or scheduled_for). Overseer auto-completes when expired. Omit for indefinite." },
+              profit_hunter_enabled: { type: "boolean", required: false, description: "Enable adaptive profit hunting — auto-prunes zero-performers, rotates dead markets, deploys reserve capital on new strategy/market combos" },
+              profit_hunter_reserve_pct: { type: "number", required: false, description: "Fraction of capital held in reserve for hunting (default: 0.15 = 15%)" },
+              profit_hunter_fast_prune_ticks: { type: "integer", required: false, description: "Prune strategies after N consecutive zero-result ticks (default: 3)" },
+              profit_hunter_hunt_interval: { type: "integer", required: false, description: "Run hunting loop every N ticks (default: 5)" },
+              profit_hunter_max_experiments: { type: "integer", required: false, description: "Max concurrent experimental strategies from hunting (default: 3)" },
+              profit_hunter_llm_budget_usd: { type: "number", required: false, description: "Cap LLM spend on exploration — prefers zero-LLM strategy types (default: 2.0)" }
             }
           },
           "trading_cancel_training_session" => {
