@@ -11,19 +11,23 @@ require 'sidekiq'
 require 'sidekiq/web'
 require 'sidekiq-scheduler'
 
-# Merge enterprise billing schedules into the Sidekiq config's :scheduler
-# section. sidekiq-scheduler reads config[:scheduler][:schedule] during its
-# startup callback and handles symbol→string key conversion internally via
+# Merge extension schedules into the Sidekiq config's :scheduler section.
+# sidekiq-scheduler reads config[:scheduler][:schedule] during its startup
+# callback and handles symbol→string key conversion internally via
 # Utils.stringify_keys, so we don't need to pre-stringify here.
 worker_root = File.expand_path('..', __dir__)
-enterprise_file = File.join(worker_root, '..', 'extensions', 'enterprise', 'worker', 'config', 'sidekiq_billing.yml')
-if File.exist?(enterprise_file)
-  Sidekiq.configure_server do |config|
-    billing_yaml = YAML.safe_load(ERB.new(File.read(enterprise_file)).result, permitted_classes: [Symbol])
-    if billing_yaml&.dig(:schedule)
-      scheduler_config = config[:scheduler] ||= {}
-      schedule = scheduler_config[:schedule] ||= {}
-      billing_yaml[:schedule].each { |k, v| schedule[k] = v }
+extensions_dir = File.join(worker_root, '..', 'extensions')
+if Dir.exist?(extensions_dir)
+  Dir.children(extensions_dir).sort.each do |slug|
+    Dir[File.join(extensions_dir, slug, 'worker', 'config', 'sidekiq_*.yml')].each do |yml|
+      Sidekiq.configure_server do |config|
+        ext_yaml = YAML.safe_load(ERB.new(File.read(yml)).result, permitted_classes: [Symbol])
+        if ext_yaml&.dig(:schedule)
+          scheduler_config = config[:scheduler] ||= {}
+          schedule = scheduler_config[:schedule] ||= {}
+          ext_yaml[:schedule].each { |k, v| schedule[k] = v }
+        end
+      end
     end
   end
 end
@@ -35,22 +39,24 @@ Sidekiq.configure_server do |config|
   # Fast shutdown: on SIGTERM, signal training sessions to exit their tick loop
   # immediately instead of waiting for Sidekiq's 300s timeout.
   # Also stop venue WS managers to prevent reconnect loops during shutdown.
+  # Guarded with defined? so the worker boots without the trading extension.
   config.on(:quiet) do
-    TradingTrainingSessionJob.shutdown_requested!
-    Trading::KalshiWsManager.instance.force_stop! rescue nil
-    Trading::PolymarketWsManager.instance.force_stop! rescue nil
+    TradingTrainingSessionJob.shutdown_requested! if defined?(TradingTrainingSessionJob)
+    Trading::KalshiWsManager.instance.force_stop! rescue nil if defined?(Trading::KalshiWsManager)
+    Trading::PolymarketWsManager.instance.force_stop! rescue nil if defined?(Trading::PolymarketWsManager)
   end
 
   # Fast recovery: on startup, dispatch pending sessions via the runner and
   # evaluate paused sessions via the overseer — no wait for the next cron tick.
   # The 3s sleep lets Redis and HTTP connections establish first.
+  # Guarded with defined? so the worker boots without the trading extension.
   config.on(:startup) do
-    TradingTrainingSessionJob.reset_shutdown_flag!
+    TradingTrainingSessionJob.reset_shutdown_flag! if defined?(TradingTrainingSessionJob)
     Thread.new do
       sleep 3
-      TradingTrainingSessionRunnerJob.perform_async
-      TradingSessionManagerCycleJob.perform_async
-      TradingPortfolioManagerCycleJob.perform_async
+      TradingTrainingSessionRunnerJob.perform_async if defined?(TradingTrainingSessionRunnerJob)
+      TradingSessionManagerCycleJob.perform_async if defined?(TradingSessionManagerCycleJob)
+      TradingPortfolioManagerCycleJob.perform_async if defined?(TradingPortfolioManagerCycleJob)
     rescue StandardError => e
       PowernodeWorker.logger.warn("[StartupHook] Startup recovery dispatch failed: #{e.message}")
     end

@@ -35,23 +35,6 @@ require_relative '../app/services/credential_resolver'
 require_relative '../app/services/firebase_service'
 require_relative '../app/services/twilio_service'
 
-# Trading services (data fetcher + external data sources + evaluators)
-require_relative '../app/services/trading/market_affinity'
-require_relative '../app/services/trading/data_fetcher'
-require_relative '../app/services/trading/strategy_evaluator'
-require_relative '../app/services/trading/price_change_detector'
-require_relative '../app/services/trading/regime_adaptive_params'
-require_relative '../app/services/trading/strategy_context_cache'
-require_relative '../app/services/trading/evolution_engine'
-require_relative '../app/services/trading/profit_hunter'
-Dir[File.expand_path('../app/services/trading/external_data/*.rb', __dir__)].sort.each { |f| require f }
-# Load evaluator concerns before base (Base includes DepthAware)
-Dir[File.expand_path('../app/services/trading/evaluators/concerns/*.rb', __dir__)].sort.each { |f| require f }
-require_relative '../app/services/trading/evaluators/base'
-Dir[File.expand_path('../app/services/trading/evaluators/*.rb', __dir__)].sort.each do |f|
-  require f unless f.end_with?('base.rb')
-end
-
 # Require base job first
 require_relative '../app/jobs/base_job'
 
@@ -104,10 +87,20 @@ if Dir.exist?(extensions_dir)
     deps_file = File.join(ext_worker, 'config', 'gem_dependencies.rb')
     load deps_file if File.exist?(deps_file)
 
-    # Load exceptions first (used by jobs)
+    # Load exceptions first (used by jobs and services)
     Dir[File.join(ext_worker, 'app', 'exceptions', '**', '*.rb')].sort.each { |f| require f }
 
-    # Load concerns before job classes that use them
+    # Load services (ordered: concerns → base → rest)
+    svc_dir = File.join(ext_worker, 'app', 'services')
+    if Dir.exist?(svc_dir)
+      Dir[File.join(svc_dir, '**', 'concerns', '*.rb')].sort.each { |f| require f }
+      Dir[File.join(svc_dir, '**', 'base.rb')].sort.each { |f| require f }
+      Dir[File.join(svc_dir, '**', '*.rb')].sort.each do |f|
+        require f unless f.include?('/concerns/') || f.end_with?('/base.rb')
+      end
+    end
+
+    # Load job concerns before job classes that use them
     concerns = Dir[File.join(ext_worker, 'app', 'jobs', 'concerns', '**', '*.rb')].sort
     concerns.each { |f| require f }
 
@@ -115,8 +108,5 @@ if Dir.exist?(extensions_dir)
     Dir[File.join(ext_worker, 'app', 'jobs', '**', '*.rb')].sort.each do |f|
       require f unless concerns.include?(f)
     end
-
-    # Load services
-    Dir[File.join(ext_worker, 'app', 'services', '**', '*.rb')].sort.each { |f| require f }
   end
 end
