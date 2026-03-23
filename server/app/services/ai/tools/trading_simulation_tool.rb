@@ -642,12 +642,20 @@ module Ai
           ticker = params[:ticker]
           return error_result("ticker is required for Kalshi imports") unless ticker.present?
 
+          # Map interval string to Kalshi period (minutes)
+          kalshi_period = case interval
+                          when "1m" then 1
+                          when "1h" then 60
+                          when "1d" then 1440
+                          else 60
+                          end
+
           # If ticker looks like an event prefix (e.g., "KXFED"), import the event
           if ticker.length <= 10 && !ticker.include?("/")
-            result = importer.import_event(ticker, interval: interval)
+            result = importer.import_event(ticker, period: kalshi_period)
             success_result({ venue: venue_slug, event_ticker: ticker, results: result, total_imported: result.sum { |r| r[:imported] || 0 } })
           else
-            result = importer.import_ticker(ticker, interval: interval)
+            result = importer.import_ticker(ticker, period: kalshi_period)
             success_result({ venue: venue_slug, ticker: ticker, **result })
           end
 

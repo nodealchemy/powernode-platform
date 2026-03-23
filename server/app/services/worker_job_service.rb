@@ -599,6 +599,26 @@ class WorkerJobService
       })
     end
 
+    # Enqueue an immediate Portfolio Manager cycle for a single account.
+    # Used as a post-completion trigger: when a training session finishes,
+    # the Portfolio Manager evaluates results for promotion immediately.
+    def enqueue_portfolio_manager_cycle(account_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "TradingPortfolioManagerCycleJob",
+        "args" => [{ "account_id" => account_id }],
+        "queue" => "trading_critical"
+      })
+    end
+
+    # Enqueue an immediate Session Manager cycle for a single account.
+    def enqueue_session_manager_cycle(account_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "TradingSessionManagerCycleJob",
+        "args" => [{ "account_id" => account_id }],
+        "queue" => "trading_critical"
+      })
+    end
+
     # Enqueue trading evolution epoch (async computation in worker)
     def enqueue_trading_evolution_epoch(portfolio_id, trigger_type: "scheduled")
       new.make_worker_request("POST", "/api/v1/jobs", {
