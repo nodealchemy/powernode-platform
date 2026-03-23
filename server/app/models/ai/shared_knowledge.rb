@@ -58,6 +58,11 @@ module Ai
         last_used_at: Time.current,
         updated_at: Time.current
       )
+      recalculate_quality_score! if usage_count % 5 == 0
+    end
+
+    def touch_event_processed!
+      update_column(:last_event_processed_at, Time.current)
     end
 
     # Verify content integrity
@@ -85,11 +90,10 @@ module Ai
     # Record an explicit 1-5 rating and trigger quality recalculation
     def record_rating!(score)
       score = score.to_i.clamp(1, 5)
-      update!(
-        rating_sum: rating_sum + score,
-        rating_count: self.rating_count + 1
-      )
+      update!(rating_sum: rating_sum + score, rating_count: self.rating_count + 1)
       recalculate_quality_score!
+      touch_event_processed!
+      propagate_rating_to_source_learning!(score)
     end
 
     # Recalculate quality score using a weighted multi-factor formula
@@ -113,6 +117,23 @@ module Ai
     end
 
     private
+
+    def propagate_rating_to_source_learning!(score)
+      source_id = provenance&.dig("source_learning_id") || provenance&.dig("original_learning_id")
+      return unless source_id
+
+      learning = Ai::CompoundLearning.find_by(id: source_id, account_id: account_id)
+      return unless learning&.status&.in?(%w[active verified])
+
+      if score >= 4
+        learning.boost_importance!(0.03)
+      elsif score <= 2
+        learning.decay_importance!
+      end
+      learning.touch_event_processed!
+    rescue StandardError => e
+      Rails.logger.warn("[SharedKnowledge] Rating propagation failed: #{e.message}")
+    end
 
     def calculate_structural_quality
       score = 0.3

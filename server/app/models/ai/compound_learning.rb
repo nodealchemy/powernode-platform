@@ -127,10 +127,15 @@ module Ai
       end
       update!(last_injected_at: Time.current)
       recalculate_effectiveness!
+      touch_event_processed!
     end
 
     def record_access!
       increment!(:access_count)
+    end
+
+    def touch_event_processed!
+      update_column(:last_event_processed_at, Time.current)
     end
 
     def verify!(user:)
@@ -141,6 +146,7 @@ module Ai
       )
       boost_importance!(0.15)
       update!(confidence_score: [confidence_score + 0.1, 1.0].min)
+      touch_event_processed!
     end
 
     def disprove!(user:, reason:)
@@ -152,6 +158,7 @@ module Ai
         importance_score: 0.05,
         confidence_score: 0.1
       )
+      touch_event_processed!
     end
 
     def resolve_contradiction!(note:)

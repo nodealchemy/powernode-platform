@@ -441,6 +441,7 @@ module Ai
               confidence_score: [existing.confidence_score + 0.02, 1.0].min,
               metadata: existing.metadata.merge("last_duplicate_at" => Time.current.iso8601)
             )
+            existing.touch_event_processed!
             return false
           end
 
@@ -465,6 +466,7 @@ module Ai
 
           if existing
             existing.boost_importance!(0.03)
+            existing.touch_event_processed!
             return false
           end
         end
@@ -486,6 +488,8 @@ module Ai
           tags: learning_data[:tags] || [],
           scope: "team"
         )
+
+        new_learning.touch_event_processed!
 
         # Enqueue async dedup check for the new learning
         begin

@@ -62,6 +62,7 @@ module Ai
         )
 
         entry.compute_integrity_hash!
+        entry.touch_event_processed!
 
         Rails.logger.info("[SharedKnowledge] Created entry '#{title}' (#{entry.id}) [#{access_level}/#{content_type}]")
         { success: true, entry: serialize_entry(entry) }
@@ -246,6 +247,7 @@ module Ai
 
           if result[:success]
             imported += 1
+            learning.touch_event_processed!
           else
             skipped += 1
           end

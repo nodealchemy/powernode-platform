@@ -181,6 +181,7 @@ module Ai
           )
 
           seal(learning)
+          learning.touch_event_processed!
           memory.update_columns(expires_at: Time.current)
 
           :promoted
@@ -231,6 +232,7 @@ module Ai
           )
 
           seal(shared)
+          learning.touch_event_processed!
 
           :promoted
         rescue StandardError => e

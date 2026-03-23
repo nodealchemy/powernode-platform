@@ -264,7 +264,7 @@ module Api
               promoted_at: Time.current,
               metadata: { promoted_from_team: learning.ai_agent_team_id, original_id: learning.id }
             )
-            learning.update_column(:last_event_processed_at, Time.current) if learning.respond_to?(:last_event_processed_at)
+            learning.touch_event_processed!
             render_success(promoted: true, learning_id: promoted.id)
           end
         rescue StandardError => e
@@ -290,7 +290,7 @@ module Api
             learning.deprecate!
             render_success(dedup: true, merged_into: existing.id)
           else
-            learning.update_column(:last_event_processed_at, Time.current) if learning.respond_to?(:last_event_processed_at)
+            learning.touch_event_processed!
             render_success(dedup: false, reason: "unique")
           end
         rescue StandardError => e
