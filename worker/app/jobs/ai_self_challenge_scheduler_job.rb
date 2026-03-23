@@ -4,6 +4,11 @@ class AiSelfChallengeSchedulerJob < BaseJob
   sidekiq_options queue: "ai_orchestration", retry: 1
 
   def execute(params = {})
+    unless ENV['SELF_CHALLENGES_ENABLED'] == 'true'
+      log_info("Self-challenges disabled (set SELF_CHALLENGES_ENABLED=true to enable)")
+      return { skipped: true, reason: "disabled" }
+    end
+
     log_info("Starting daily self-challenge scheduling")
     response = with_api_retry { api_client.post("/api/v1/internal/ai/self_challenges/schedule_daily", params) }
     if response["success"]

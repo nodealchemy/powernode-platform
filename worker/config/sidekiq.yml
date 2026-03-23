@@ -443,13 +443,6 @@
       queue: ai_orchestration
       description: 'Find and mutate underperforming skills using failure analysis'
 
-    # Self-challenge scheduler - generate daily challenges for agents
-    ai_self_challenge_scheduler:
-      cron: '0 6 * * *'  # Daily at 6:00 AM UTC
-      class: AiSelfChallengeSchedulerJob
-      queue: ai_orchestration
-      description: 'Generate self-challenges for agent weakest skills'
-
     # Governance scan - periodic scan of all active agents
     ai_governance_scan:
       cron: '0 */6 * * *'  # Every 6 hours
