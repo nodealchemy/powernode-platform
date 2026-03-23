@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_18_225124) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_23_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10844,6 +10844,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_18_225124) do
   end
 
   create_table "trading_strategies", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id"
     t.datetime "activated_at"
     t.uuid "ai_agent_budget_id"
     t.uuid "ai_agent_team_id"
@@ -10870,11 +10871,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_18_225124) do
     t.string "strategy_type", null: false
     t.integer "tick_interval_seconds", default: 60, null: false
     t.decimal "total_compounded_usd", precision: 19, scale: 2, default: "0.0"
-    t.uuid "trading_portfolio_id", null: false
+    t.uuid "trading_portfolio_id"
     t.uuid "trading_training_session_id"
     t.uuid "trading_venue_id", null: false
     t.decimal "unreinvested_earnings_usd", precision: 19, scale: 2, default: "0.0"
     t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_trading_strategies_on_account_id"
     t.index ["ai_agent_budget_id"], name: "index_trading_strategies_on_ai_agent_budget_id"
     t.index ["ai_agent_team_id"], name: "index_trading_strategies_on_ai_agent_team_id"
     t.index ["ai_mission_id"], name: "index_trading_strategies_on_ai_mission_id"
@@ -12502,6 +12504,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_18_225124) do
   add_foreign_key "trading_signals", "trading_strategies", on_delete: :cascade
   add_foreign_key "trading_simulations", "accounts"
   add_foreign_key "trading_simulations", "trading_portfolios"
+  add_foreign_key "trading_strategies", "accounts"
   add_foreign_key "trading_strategies", "ai_agent_budgets"
   add_foreign_key "trading_strategies", "ai_agent_teams"
   add_foreign_key "trading_strategies", "ai_missions"
