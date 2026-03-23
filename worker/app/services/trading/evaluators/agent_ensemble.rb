@@ -144,7 +144,7 @@ module Trading
       def collect_analyst_opinions(market_price)
         roles = param("agent_roles", ANALYST_ROLES)
         analyst_roles = roles.reject { |r| r == "trader" }
-        temperature = param("analyst_temperature", 0.5)
+        temperature = param("analyst_temperature", 0.7)
 
         # Parallel threads — each LLM call is I/O-bound
         threads = analyst_roles.first(@max_llm_calls).map do |role|
@@ -174,19 +174,37 @@ module Trading
       def call_analyst(role, market_price, temperature)
         system_prompt = analyst_system_prompt(role)
 
+        # P0-2: Inject trading context to all relevant roles (was previously role-gated)
         if @trading_context
           tc = @trading_context.is_a?(Hash) ? @trading_context : {}
-          system_prompt += "\n\nHistorical patterns:\n#{tc["compound_learnings"] || tc[:compound_learnings]}" if (tc["compound_learnings"] || tc[:compound_learnings]) && %w[technical fundamentals].include?(role)
-          system_prompt += "\n\nPast examples:\n#{tc["experience_replays"] || tc[:experience_replays]}" if (tc["experience_replays"] || tc[:experience_replays]) && role == "technical"
-          system_prompt += "\n\nWarnings:\n#{tc["reflexion_warnings"] || tc[:reflexion_warnings]}" if (tc["reflexion_warnings"] || tc[:reflexion_warnings]) && role == "risk_manager"
+          learnings = tc["compound_learnings"] || tc[:compound_learnings]
+          replays = tc["experience_replays"] || tc[:experience_replays]
+          warnings = tc["reflexion_warnings"] || tc[:reflexion_warnings]
+
+          # Historical patterns: universally relevant to all analyst roles
+          system_prompt += "\n\nHistorical patterns:\n#{learnings}" if learnings
+          # Past trade examples: relevant to roles that benefit from concrete examples
+          system_prompt += "\n\nPast examples:\n#{replays}" if replays && %w[technical fundamentals risk_manager].include?(role)
+          # Reflexion warnings: failure awareness for roles that assess risk and evidence
+          system_prompt += "\n\nWarnings:\n#{warnings}" if warnings && %w[risk_manager fundamentals].include?(role)
         end
 
         question = @market_question || strategy_pair
         price_context = build_price_context(market_price)
+
+        # P1-5: Enrich fundamentals analyst with settlement context
+        user_content = "Analyze #{strategy_pair} at current price #{market_price}. Market question: #{question}\n\n#{price_context}"
+        if role == "fundamentals"
+          if market_expiry
+            hours_left = ((market_expiry - Time.now) / 3600.0).round(1)
+            user_content += "\n\nSettlement: #{market_expiry.strftime('%Y-%m-%d %H:%M UTC')} (#{hours_left}h remaining)"
+          end
+        end
+
         response = llm_complete_structured(
           messages: [
             { role: "system", content: system_prompt },
-            { role: "user", content: "Analyze #{strategy_pair} at current price #{market_price}. Market question: #{question}\n\n#{price_context}" }
+            { role: "user", content: user_content }
           ],
           schema: analyst_schema,
           temperature: temperature
@@ -212,7 +230,7 @@ module Trading
 
         bull_args = bulls.map { |b| "#{b[:role]}: #{b[:reasoning]}" }.join("\n")
         bear_args = bears.map { |b| "#{b[:role]}: #{b[:reasoning]}" }.join("\n")
-        debate_temp = param("debate_temperature", 0.6)
+        debate_temp = param("debate_temperature", 0.5)
         debate_schema = { type: "object", properties: { rebuttal: { type: "string" }, updated_confidence: { type: "number" } },
                           required: %w[rebuttal updated_confidence], additionalProperties: false }
         timeout = param("analyst_timeout_seconds", 30)
@@ -282,13 +300,14 @@ module Trading
         return nil if analyses.empty?
         summary = analyses.map { |a| "#{a[:role]} (#{a[:direction]}, conf: #{a[:confidence]}): #{a[:reasoning]}" }.join("\n")
 
+        synthesizer_prompt = resolve_role_prompt("synthesizer")
         response = llm_complete_structured(
           messages: [
-            { role: "system", content: "You are the Lead Trader synthesizing analyst opinions into a final trading decision. Weight analyst contributions by evidence quality, not just confidence — fundamentals and risk management carry structurally higher weight. Apply an echo chamber penalty when analyst estimates have suspiciously low variance. You MUST commit to a direction: 'hold' is only acceptable when genuine uncertainty exists (consensus near 50% or analysts evenly split with strong reasoning). Scale position_size_modifier based on edge magnitude and analyst agreement quality." },
+            { role: "system", content: synthesizer_prompt },
             { role: "user", content: "Market: #{strategy_pair} at #{market_price}\nHas open position: #{has_open_position?}\nConsensus probability: #{@pre_consensus_prob&.round(3)}\nEdge vs market: #{((@pre_consensus_prob || market_price) - market_price).round(3)}\n\nAnalyst opinions:\n#{summary}" }
           ],
           schema: trader_schema,
-          temperature: param("trader_temperature", 0.2)
+          temperature: param("trader_temperature", 0.3)
         )
         track_llm_call!
 
@@ -320,7 +339,7 @@ module Trading
       end
 
       def calculate_consensus(analyses)
-        role_weights = param("role_weights", { "fundamentals" => 1.5, "risk_manager" => 1.3, "technical" => 1.2, "sentiment" => 1.0, "news" => 0.8 })
+        role_weights = param("role_weights", { "fundamentals" => 1.5, "risk_manager" => 1.3, "technical" => 1.2, "sentiment" => 1.0, "news" => 1.0 })
 
         # Probability-weighted averaging instead of vote-counting.
         # Each analyst's probability_estimate is weighted by their confidence and role weight.
@@ -392,49 +411,83 @@ module Trading
         parts.join("\n")
       end
 
+      # Resolve analyst system prompt: server context → hardcoded fallback.
+      # Server-resolved prompts are the canonical source (from ENSEMBLE_ROLE_PROMPTS
+      # in strategy_prompts.rb, with DB template override support). Hardcoded prompts
+      # serve as backwards-compatible fallback when context is unavailable.
       def analyst_system_prompt(role)
-        base = {
-          "technical" => <<~PROMPT.strip,
-            You are a Technical Analyst for a prediction market trading ensemble. Your domain is price action analysis: momentum indicators, support/resistance levels, order flow patterns, and volume profile interpretation.
-
-            Analyze the price chart for directional signals. Look for trend confirmation (higher highs/higher lows or the reverse), volume-price divergences, and support/resistance levels relative to the current price. In prediction markets, prices are bounded at $0 and $1, so traditional technical patterns behave differently near extremes.
-
-            Guard against recency bias (overweighting the last few price moves) and curve-fitting (seeing patterns in noise). Short price histories have low statistical significance.
-          PROMPT
-          "sentiment" => <<~PROMPT.strip,
-            You are a Sentiment Analyst for a prediction market trading ensemble. Your domain is crowd psychology, contrarian indicators, fear/greed dynamics, and social signal interpretation.
-
-            Assess the prevailing market sentiment toward this outcome. Consider whether the crowd is irrationally optimistic or pessimistic, look for contrarian indicators (extreme positioning often precedes reversals), and evaluate the quality of social signals (expert commentary vs. noise).
-
-            Your magnitude reflects your confidence in the sentiment read, not the expected price move. A strong bullish sentiment read with high confidence means you are certain the crowd is bullish, not that the price will rise.
-          PROMPT
-          "fundamentals" => <<~PROMPT.strip,
-            You are a Fundamentals Analyst for a prediction market trading ensemble. You carry the heaviest weight in the consensus calculation. Your domain is real-world evidence evaluation, base rate analysis, reference class forecasting, and expert opinion synthesis.
-
-            Evaluate the underlying event probability using evidence-based reasoning. Start with base rates for similar events (reference class forecasting), then update based on specific evidence for or against. Synthesize expert opinions, official data, and structural factors that influence the outcome.
-
-            This is the most important analyst role — your evidence-based probability anchors the entire ensemble's decision. Reason carefully from facts, not narratives.
-          PROMPT
-          "news" => <<~PROMPT.strip,
-            You are a News Analyst for a prediction market trading ensemble. Your domain is recent developments, catalyst identification, information asymmetry assessment, and pricing-in dynamics.
-
-            Assess recent news events and developments that could shift the probability of this outcome. Focus on genuinely new information — developments not yet reflected in the current price. Evaluate source credibility, information novelty, and potential for multi-hop effects (indirect impacts through related events).
-
-            Distinguish between news that changes the fundamental probability and news that merely generates attention or narrative momentum without new information content.
-          PROMPT
-          "risk_manager" => <<~PROMPT.strip,
-            You are a Risk Manager for a prediction market trading ensemble. You have veto authority — your concerns can block trades that other analysts support.
-
-            Evaluate the downside risks of taking a position on this market. Consider: What is the worst-case scenario and its probability? Is there hidden correlation with existing positions? Is the position size appropriate for the confidence level? Are there upcoming events that could cause sudden price dislocation?
-
-            Flag overconfidence: If other analysts are likely to agree strongly, that itself is a risk signal — unanimous agreement with high confidence often precedes the worst losses. Challenge the consensus when conviction is high but evidence quality is low.
-          PROMPT
-        }
-        prompt = base[role] || "You are a Market Analyst for prediction markets."
-        prompt + "\n\nEstimate the TRUE probability that this event will resolve YES. " \
-                 "Ignore the current market price — form your own independent estimate. " \
-                 "Return your probability_estimate as a number between 0.0 and 1.0."
+        resolve_role_prompt(role)
       end
+
+      # Resolve a role prompt from server context or hardcoded fallback.
+      def resolve_role_prompt(role)
+        # Prefer server-resolved prompts (single source of truth)
+        if @ensemble_role_prompts
+          prompts = @ensemble_role_prompts.is_a?(Hash) ? @ensemble_role_prompts : {}
+          prompt = prompts[role] || prompts[role.to_s]
+          return prompt if prompt.present?
+        end
+
+        # Fallback: hardcoded prompts (backwards compatibility)
+        FALLBACK_ROLE_PROMPTS[role] || FALLBACK_ROLE_PROMPTS["fundamentals"]
+      end
+
+      FALLBACK_ROLE_PROMPTS = {
+        "technical" => <<~PROMPT.strip,
+          You are a Technical Analyst for a prediction market trading ensemble. Your domain is price action analysis: momentum indicators, support/resistance levels, order flow patterns, and volume profile interpretation.
+
+          Analyze the price chart for directional signals. Look for trend confirmation (higher highs/higher lows or the reverse), volume-price divergences, and support/resistance levels relative to the current price. In prediction markets, prices are bounded at $0 and $1, so traditional technical patterns behave differently near extremes.
+
+          Estimate the TRUE probability that this event will resolve YES based on what the price action tells you about market participant conviction and information flow. Form your own independent estimate — do NOT anchor on the current market price. Return your probability_estimate as a number between 0.0 and 1.0.
+
+          Guard against recency bias (overweighting the last few price moves) and curve-fitting (seeing patterns in noise). Short price histories have low statistical significance.
+        PROMPT
+        "sentiment" => <<~PROMPT.strip,
+          You are a Sentiment Analyst for a prediction market trading ensemble. Your domain is crowd psychology, contrarian indicators, fear/greed dynamics, and social signal interpretation.
+
+          Assess the prevailing market sentiment toward this outcome. Consider whether the crowd is irrationally optimistic or pessimistic, look for contrarian indicators (extreme positioning often precedes reversals), and evaluate the quality of social signals (expert commentary vs. noise).
+
+          Estimate the TRUE probability that this event will resolve YES based on your sentiment read, independent of the current price. Sentiment can diverge from price when markets are slow to incorporate qualitative information. Return your probability_estimate as a number between 0.0 and 1.0.
+
+          Your magnitude reflects your confidence in the sentiment read, not the expected price move. A strong bullish sentiment read with high confidence means you are certain the crowd is bullish, not that the price will rise.
+        PROMPT
+        "fundamentals" => <<~PROMPT.strip,
+          You are a Fundamentals Analyst for a prediction market trading ensemble. Your domain is real-world evidence evaluation, base rate analysis, reference class forecasting, and expert opinion synthesis. You carry the heaviest weight in the consensus calculation.
+
+          Evaluate the underlying event probability using evidence-based reasoning. Start with base rates for similar events (reference class forecasting), then update based on specific evidence for or against. Synthesize expert opinions, official data, and structural factors that influence the outcome.
+
+          Estimate the TRUE probability that this event will resolve YES. Your estimate must be grounded in evidence, not price action or sentiment. Form your independent view before considering what the market or other analysts think. Return your probability_estimate as a number between 0.0 and 1.0.
+
+          This is the most important analyst role — your evidence-based probability anchors the entire ensemble's decision. Reason carefully from facts, not narratives.
+        PROMPT
+        "news" => <<~PROMPT.strip,
+          You are a News Analyst for a prediction market trading ensemble. Your domain is recent developments, catalyst identification, information asymmetry assessment, and pricing-in dynamics.
+
+          Assess recent news events and developments that could shift the probability of this outcome. Focus on genuinely new information — developments not yet reflected in the current price. Evaluate source credibility, information novelty, and potential for multi-hop effects (indirect impacts through related events).
+
+          Estimate the TRUE probability that this event will resolve YES based on the latest information landscape. The key question is whether recent news represents a material update to the prior probability or is already priced in. Return your probability_estimate as a number between 0.0 and 1.0.
+
+          Distinguish between news that changes the fundamental probability and news that merely generates attention or narrative momentum without new information content.
+        PROMPT
+        "risk_manager" => <<~PROMPT.strip,
+          You are a Risk Manager for a prediction market trading ensemble. You have veto authority — your concerns can block trades that other analysts support. Your domain is downside scenario analysis, tail risk assessment, correlation exposure evaluation, and position sizing adequacy.
+
+          Evaluate the downside risks of taking a position on this market. Consider: What is the worst-case scenario and its probability? Is there hidden correlation with existing positions? Is the position size appropriate for the confidence level? Are there upcoming events that could cause sudden price dislocation?
+
+          Estimate the TRUE probability that this event will resolve YES, but with special attention to tail risks that other analysts may underweight. Return your probability_estimate as a number between 0.0 and 1.0.
+
+          Flag overconfidence: If other analysts are likely to agree strongly, that itself is a risk signal — unanimous agreement with high confidence often precedes the worst losses. Challenge the consensus when conviction is high but evidence quality is low.
+        PROMPT
+        "synthesizer" => <<~PROMPT.strip,
+          You are the Lead Trader synthesizing analyst opinions into a final trading decision. You have received independent probability estimates and directional views from multiple specialist analysts.
+
+          Synthesis methodology: Weight analyst contributions by evidence quality, not just stated confidence. Fundamentals and risk management carry structurally higher weight. Apply an echo chamber penalty when analyst probability estimates have suspiciously low variance — unanimous agreement is a warning sign, not confirmation.
+
+          Decision requirements: You MUST commit to a directional decision (long, short, or close). "Hold" is acceptable only when genuine uncertainty exists (consensus probability near 50% or analysts split evenly with good reasoning on both sides). Never hold simply to avoid risk — that is the risk manager's job, not yours.
+
+          Position sizing: Your position_size_modifier reflects edge conviction. Scale it based on the gap between consensus probability and market price, analyst agreement quality (not just quantity), and the risk manager's assessment. A modifier of 1.0 is standard; above 1.0 signals exceptional edge; below 0.5 signals a marginal opportunity.
+        PROMPT
+      }.freeze
 
       def analyst_schema
         directions = param("force_directional", false) ? %w[long short close] : %w[long short hold close]
@@ -459,6 +512,18 @@ module Trading
             position_size_modifier: { type: "number", description: "Multiplier for default position size (0.1-2.0)" }
           },
           required: %w[direction confidence reasoning position_size_modifier], additionalProperties: false }
+      end
+
+      # Override health_report to include ensemble-specific data.
+      def health_report
+        base = super
+        base.merge(
+          analyst_count: param("agent_roles", ANALYST_ROLES).reject { |r| r == "trader" }.size,
+          debate_rounds: param("debate_rounds", 2),
+          llm_calls_per_tick: @llm_call_count || 0,
+          max_llm_calls: param("max_llm_calls_per_tick", 8),
+          consensus_quality: @pre_consensus_prob ? { probability: @pre_consensus_prob.round(4) } : nil
+        )
       end
 
       # Seconds remaining in the tick budget. Returns Float::INFINITY if no deadline set.

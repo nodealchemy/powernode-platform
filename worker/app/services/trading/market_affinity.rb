@@ -50,33 +50,44 @@ module Trading
 
       # --- Volume/volatility-dependent ---
       "momentum" => {
-        filter: ->(market, _pp, _opts) {
+        filter: ->(market, _pp, opts) {
           p = market[:yes_price] || 0.5
           vol = market[:volume_24h].to_f
           cat = market[:category].to_s
+          venue_type = opts[:venue_type].to_s
           # Momentum needs mid-range prices with room to move directionally.
           # Prefer categories with natural price movement (crypto, macro, financials).
           # Relax volume threshold for high-activity categories.
+          # Prediction market venues have structurally lower volume than CEX venues,
+          # so apply reduced thresholds to avoid filtering out all viable markets.
           momentum_cats = %w[Crypto Financials Economics]
+          is_pm_venue = venue_type == "prediction_market"
           if momentum_cats.include?(cat)
-            vol >= 1_000 && p.between?(0.15, 0.85)
+            min_vol = is_pm_venue ? 500 : 1_000
+            vol >= min_vol && p.between?(0.15, 0.85)
           else
-            vol >= 3_000 && p.between?(0.20, 0.80)
+            min_vol = is_pm_venue ? 1_000 : 3_000
+            vol >= min_vol && p.between?(0.20, 0.80)
           end
         }
       },
       "mean_reversion" => {
-        filter: ->(market, _pp, _opts) {
+        filter: ->(market, _pp, opts) {
           p = market[:yes_price] || 0.5
           vol = market[:volume_24h].to_f
           cat = market[:category].to_s
+          venue_type = opts[:venue_type].to_s
           # Mean reversion needs prices away from extremes (room to revert to mean).
           # Lower volume OK since we're looking for overreaction, not trend.
+          # Prediction market venues get reduced thresholds (same rationale as momentum).
           momentum_cats = %w[Crypto Financials Economics]
+          is_pm_venue = venue_type == "prediction_market"
           if momentum_cats.include?(cat)
-            vol >= 500 && p.between?(0.15, 0.85)
+            min_vol = is_pm_venue ? 200 : 500
+            vol >= min_vol && p.between?(0.15, 0.85)
           else
-            vol >= 1_000 && p.between?(0.10, 0.90)
+            min_vol = is_pm_venue ? 500 : 1_000
+            vol >= min_vol && p.between?(0.10, 0.90)
           end
         }
       },
@@ -158,13 +169,13 @@ module Trading
     #
     # @param markets [Array<Hash>] Markets with symbol keys from discover_markets API
     # @param strategy_types [Array<String>] Strategy type names to filter for
-    # @param markets [Array<Hash>] Markets with symbol keys from discover_markets API
-    # @param strategy_types [Array<String>] Strategy type names to filter for
     # @param learning_context [Hash, nil] Cross-session learning data from server:
     #   - :strategy_type_blacklist [Array<Hash>] combos to exclude (strategy_type, category, avg_pnl, sessions)
     #   - :strategy_type_category_performance [Hash] raw perf data keyed by "type:category"
     #   - :per_type_category_modifiers [Hash] per-type category modifiers from learnings
-    def self.filter_assignments(markets:, strategy_types:, learning_context: nil)
+    # @param venue_type [String, nil] Venue type (e.g. "prediction_market", "cex") for
+    #   venue-aware volume thresholds in affinity filters
+    def self.filter_assignments(markets:, strategy_types:, learning_context: nil, venue_type: nil)
       # Build price lookup from market discovery data
       pair_prices = {}
       markets.each do |m|
@@ -181,6 +192,7 @@ module Trading
 
       compatible = []
       stats = {}
+      filter_opts = { venue_type: venue_type }.compact
 
       strategy_types.each do |strategy_type|
         affinity = STRATEGY_MARKET_AFFINITY[strategy_type]
@@ -190,7 +202,7 @@ module Trading
         matched_markets = []
         markets.each do |market|
           if affinity&.dig(:filter)
-            next unless affinity[:filter].call(market, pair_prices, {})
+            next unless affinity[:filter].call(market, pair_prices, filter_opts)
           end
           matched_markets << market
         end

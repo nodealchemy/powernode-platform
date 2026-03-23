@@ -45,7 +45,7 @@ module Trading
         # Bayesian belief update from price movements
         if price_history.size >= 2
           prev = (price_history[-2]["close"] || price_history[-2][:close]).to_f
-          update_belief_from_price(previous_price: prev, mid_price: mid_price) if prev > 0
+          update_belief_from_price(previous_price: prev, current_price: mid_price) if prev > 0
         end
 
         # Autocorrelation check: negative = mean-reverting, positive = trending

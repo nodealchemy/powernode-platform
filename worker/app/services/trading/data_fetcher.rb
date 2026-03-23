@@ -57,15 +57,18 @@ module Trading
 
     # Post evaluation results (signals) back to the server.
     # The server creates signal records, processes orders, and updates P&L.
-    def record_evaluation_result(strategy_id:, signals:, tick_cost_usd: 0.0, market_data: {})
+    def record_evaluation_result(strategy_id:, signals:, tick_cost_usd: 0.0, market_data: {}, health_report: nil)
+      payload = {
+        strategy_id: strategy_id,
+        signals: signals,
+        tick_cost_usd: tick_cost_usd,
+        market_data: market_data
+      }
+      payload[:health_report] = health_report if health_report
+
       response = @api.post_with_circuit_breaker(
         "#{BASE}/record_evaluation_result",
-        {
-          strategy_id: strategy_id,
-          signals: signals,
-          tick_cost_usd: tick_cost_usd,
-          market_data: market_data
-        },
+        payload,
         circuit_breaker: :trading_training
       )
       extract_data(response)

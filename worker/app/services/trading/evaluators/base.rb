@@ -30,6 +30,7 @@ module Trading
         @agent_id = context["agent_id"]
         @trading_context = context["trading_context"]
         @market_question = context["market_question"]
+        @ensemble_role_prompts = context["ensemble_role_prompts"]
         @pair_registry = context["pair_registry"] || {}
         @price_history = context["price_history"] || []
         @allocated_capital = (context["allocated_capital"] || 0.0).to_f
@@ -62,6 +63,7 @@ module Trading
         @agent_id = context["agent_id"]
         @trading_context = context["trading_context"]
         @market_question = context["market_question"]
+        @ensemble_role_prompts = context["ensemble_role_prompts"]
         @pair_registry = context["pair_registry"] || {}
         @price_history = context["price_history"] || []
         @allocated_capital = (context["allocated_capital"] || 0.0).to_f
@@ -101,6 +103,105 @@ module Trading
       # Default tick cost — subclasses accumulate in @total_cost via last_llm_cost.
       def tick_cost_usd
         @total_cost || 0.0
+      end
+
+      # Per-tick health report. Returns a Hash summarizing strategy health
+      # so the server-side Overseer can read pre-computed metrics instead of
+      # re-querying DB for win rate, PnL, prune eligibility, etc.
+      def health_report
+        closed = performance_closed_positions
+        closed_count = closed.size
+        winning = closed.count { |p| (p["realized_pnl_usd"] || p[:realized_pnl_usd]).to_f > 0 }
+        pnl = (@strategy_data["current_pnl_usd"] || 0).to_f
+        capital = @allocated_capital
+        win_rate = closed_count > 0 ? (winning.to_f / closed_count).round(4) : nil
+        session_ticks = (@strategy_data["session_ticks"] || 0).to_i
+
+        {
+          win_rate: win_rate,
+          closed_positions: closed_count,
+          open_positions: @positions.size,
+          current_pnl_usd: pnl.round(4),
+          drawdown_pct: capital > 0 && pnl < 0 ? ((pnl.abs / capital) * 100).round(2) : 0.0,
+          tick_cost_usd: tick_cost_usd.round(6),
+          prune_signal: prune_signal(closed_count, winning, pnl, @positions.size, session_ticks),
+          param_suggestions: param_suggestions(closed_count, winning, pnl, capital),
+          promotion_readiness: promotion_readiness(closed_count, winning, pnl, capital)
+        }
+      end
+
+      private
+
+      # Closed positions from strategy context for health reporting.
+      # Prefers pre-loaded closed_positions array; falls back to performance_context.
+      def performance_closed_positions
+        cp = @strategy_data["closed_positions"]
+        return cp if cp.is_a?(Array)
+
+        pctx = @performance_context || {}
+        pctx["closed_positions"] || pctx[:closed_positions] || []
+      end
+
+      # Prune signal: idle (0 positions after 20+ ticks) or unprofitable
+      # (WR < 30%, PnL < 0, 3+ closed).
+      def prune_signal(closed_count, winning, pnl, open_count, session_ticks)
+        win_rate = closed_count > 0 ? (winning.to_f / closed_count) : 0.0
+
+        idle = closed_count == 0 && open_count == 0 && session_ticks >= 20
+        unprofitable = pnl < 0 && win_rate < 0.3 && closed_count >= 3
+
+        {
+          eligible: idle || unprofitable,
+          reason: idle ? "idle_no_trades" : (unprofitable ? "live_underperformance" : nil),
+          win_rate: win_rate.round(4),
+          session_ticks: session_ticks
+        }
+      end
+
+      # Suggest parameter modifications based on performance.
+      def param_suggestions(closed_count, winning, pnl, capital)
+        return { modifications: {} } if closed_count < 5
+
+        win_rate = winning.to_f / closed_count
+        mods = {}
+
+        current_ct = param("confidence_threshold", 0.3).to_f
+
+        if win_rate < 0.35 && pnl < 0
+          new_ct = [current_ct + 0.1, 0.95].min.round(2)
+          mods["confidence_threshold"] = { from: current_ct, to: new_ct } if new_ct != current_ct
+        elsif win_rate > 0.65 && pnl > 0
+          new_ct = [current_ct - 0.05, 0.05].max.round(2)
+          mods["confidence_threshold"] = { from: current_ct, to: new_ct } if new_ct != current_ct
+        end
+
+        if capital > 0 && pnl < -(capital * 0.10)
+          current_ps = param("position_size_pct", 8.0).to_f
+          new_ps = [current_ps * 0.75, 1.0].max.round(1)
+          mods["position_size_pct"] = { from: current_ps, to: new_ps } if new_ps != current_ps
+        end
+
+        { modifications: mods }
+      end
+
+      # Assess promotion readiness against PromotionCriteria thresholds.
+      def promotion_readiness(closed_count, winning, pnl, capital)
+        return { ready: false, reason: "insufficient_data" } if closed_count < 10
+
+        win_rate = winning.to_f / closed_count
+        pnl_pct = capital > 0 ? (pnl / capital * 100) : 0.0
+
+        ready = win_rate >= 0.45 && pnl > 10.0 && closed_count >= 15
+        pnl_override = closed_count >= 15 && pnl >= 50.0 && pnl_pct >= 5.0
+
+        {
+          ready: ready || pnl_override,
+          win_rate: win_rate.round(4),
+          pnl_usd: pnl.round(4),
+          pnl_pct: pnl_pct.round(2),
+          closed_positions: closed_count,
+          path: pnl_override ? "pnl_override" : "standard"
+        }
       end
 
       protected

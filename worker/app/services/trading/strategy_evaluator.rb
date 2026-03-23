@@ -63,11 +63,14 @@ module Trading
       signals = Array(evaluator.evaluate).compact
       tick_cost = evaluator.respond_to?(:tick_cost_usd) ? evaluator.tick_cost_usd : 0.0
 
+      health = evaluator.respond_to?(:health_report) ? evaluator.health_report : nil
+
       submission = {
         strategy_id: strategy_id,
         signals: signals,
         tick_cost_usd: tick_cost,
-        market_data: context["market_data"] || {}
+        market_data: context["market_data"] || {},
+        health_report: health
       }
 
       if evaluator.respond_to?(:external_data_sources) && evaluator.external_data_sources.any?
