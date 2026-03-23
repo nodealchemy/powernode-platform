@@ -13,10 +13,6 @@ const PortfolioSwitcherWrapper = (typeof __EXTENSIONS__ !== 'undefined' && __EXT
   ? lazy(() => import('@ext/trading/shared/components/PortfolioSwitcherWrapper'))
   : null;
 
-const OverseerHeartbeatWrapper = (typeof __EXTENSIONS__ !== 'undefined' && __EXTENSIONS__.includes('trading'))
-  ? lazy(() => import('@ext/trading/shared/components/OverseerHeartbeatWrapper'))
-  : null;
-
 export const Header: React.FC = () => {
   const location = useLocation();
   const permissions = useSelector((state: RootState) => state.auth.user?.permissions);
@@ -39,13 +35,6 @@ export const Header: React.FC = () => {
 
         {/* Right side */}
         <div className="flex items-center shrink-0 space-x-2 sm:space-x-4">
-          {/* Overseer Heartbeat */}
-          {OverseerHeartbeatWrapper && permissions?.includes('trading.view') && (
-            <Suspense fallback={null}>
-              <OverseerHeartbeatWrapper />
-            </Suspense>
-          )}
-
           {/* WebSocket Connection Status */}
           <WebSocketStatusIndicator />
 
