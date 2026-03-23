@@ -49,7 +49,8 @@ Sidekiq.configure_server do |config|
     Thread.new do
       sleep 3
       TradingTrainingSessionRunnerJob.perform_async
-      TradingOverseerCycleJob.perform_async
+      TradingSessionManagerCycleJob.perform_async
+      TradingPortfolioManagerCycleJob.perform_async
     rescue StandardError => e
       PowernodeWorker.logger.warn("[StartupHook] Startup recovery dispatch failed: #{e.message}")
     end

@@ -68,6 +68,12 @@ class TradingStrategyRunnerJob < BaseJob
       return { stopped: true, reason: "completion_requested" }
     end
 
+    # Process pending instructions from Overseer (Redis queue)
+    instruction_result = process_pending_instructions!
+    if instruction_result
+      return instruction_result if instruction_result[:stopped]
+    end
+
     # Check strategy time bounds
     strategy_data = status.dig("data") || {}
     begins_at = context_begins_at(strategy_data)
@@ -253,6 +259,48 @@ class TradingStrategyRunnerJob < BaseJob
       api_client.method(:post),
       api_client.method(:get)
     )
+  end
+
+  # Process pending instructions dispatched by the Overseer via Redis.
+  # LPOP all queued instructions and act on them immediately.
+  # Returns { stopped: true, reason: ... } if a halt instruction is received,
+  # or nil to continue normal tick execution.
+  def process_pending_instructions!
+    key = "trading:instr_q:#{@strategy_id}"
+
+    Sidekiq.redis do |conn|
+      loop do
+        raw = conn.lpop(key)
+        break unless raw
+
+        instruction = JSON.parse(raw)
+        action = instruction["action"]
+        log_info("Received instruction: #{action}", strategy_id: @strategy_id)
+
+        case action
+        when "trading.prune_strategy", "trading.decommission_strategy"
+          return { stopped: true, reason: "instruction_#{action.split('.').last}" }
+        when "trading.pause_strategy"
+          return { stopped: true, reason: "instruction_paused" }
+        when "trading.modify_params"
+          log_info("Acknowledged param modification — will use updated params next tick",
+                   strategy_id: @strategy_id)
+        when "trading.force_close_position"
+          log_info("Acknowledged force close — server already executed",
+                   strategy_id: @strategy_id)
+        when "trading.rebalance_capital"
+          log_info("Acknowledged capital rebalance",
+                   strategy_id: @strategy_id)
+        end
+      rescue JSON::ParserError => e
+        log_warn("Invalid instruction JSON: #{e.message}", strategy_id: @strategy_id)
+      end
+    end
+
+    nil
+  rescue StandardError => e
+    log_warn("process_pending_instructions! failed (non-fatal): #{e.message}", strategy_id: @strategy_id)
+    nil
   end
 
   def jid_active?(check_jid)

@@ -189,6 +189,8 @@ class TradingTrainingSessionJob < BaseJob
 
   CLASSIC_TYPES = %w[prediction_market momentum mean_reversion arbitrage tail_end_yield].freeze
   STRATEGY_BATCH_SIZE = 25
+  MAX_DISCOVERY_ATTEMPTS = 3
+  DISCOVERY_RETRY_DELAY = 2 # seconds between venue API retries
 
   # C1: Incremental context fetch — cold data (graph, RAG, regime, strategy config)
   # refreshes every Nth tick. Hot data (prices, positions) refreshes every tick
@@ -370,6 +372,11 @@ class TradingTrainingSessionJob < BaseJob
     # warmed via TickPriceCache every tick.
     @cold_context_cache = {}
 
+    # Rolling extraction window: tracks the last time learning extraction was dispatched
+    # so positions closed during inter-tick sleep periods aren't missed.
+    @last_extraction_at = nil
+    @session_started_at = Time.now
+
     log_info("Training loop starting",
       session_id: session_id,
       strategies: strategies.size,
@@ -431,6 +438,13 @@ class TradingTrainingSessionJob < BaseJob
         msg = "Circuit breaker: #{consecutive_timeouts} consecutive strategy tick timeouts"
         log_warn(msg, session_id: session_id)
         fail_session!(session_id, msg)
+        break
+      end
+
+      # Max duration enforcement (safety valve for sessions without ends_at)
+      max_dur = session_config["max_duration_minutes"]
+      if max_dur && @session_started_at && (Time.now - @session_started_at) > max_dur.to_i * 60
+        log_info("Max duration #{max_dur}m reached — completing session", session_id: session_id)
         break
       end
 
@@ -687,7 +701,24 @@ class TradingTrainingSessionJob < BaseJob
       end
 
       # Phase E: Dispatch async learning extraction for positions closed this tick
-      dispatch_learning_extraction!(all_strategy_ids, since: tick_started_at)
+      dispatch_learning_extraction!(all_strategy_ids)
+
+      # Phase F: Zero-activity early exit — stop wasting ticks when no market activity
+      # Applies to ALL modes: backtest (3 ticks), live/continuous (10 ticks)
+      @zero_activity_ticks ||= 0
+      tick_signals = tick_results.sum { |r| r["signals"]&.size || r[:signals]&.size || 0 }
+      tick_had_activity = tick_signals > 0 || tick_results.any? { |r| (r["positions_opened"] || r[:positions_opened]).to_i > 0 }
+      if tick_had_activity
+        @zero_activity_ticks = 0
+      else
+        @zero_activity_ticks += 1
+        max_zero = backtest ? 3 : 10
+        if @zero_activity_ticks >= max_zero
+          log_info("#{@zero_activity_ticks} consecutive zero-activity ticks — completing early",
+            session_id: session_id, tick: tick_num, mode: backtest ? "backtest" : "live")
+          break
+        end
+      end
 
       # Renew lock periodically so it doesn't expire during long sessions
       renew_lock_if_needed!
@@ -755,25 +786,15 @@ class TradingTrainingSessionJob < BaseJob
   #   - Promotion candidate detection
   #   - Capital rebalancing
   ORCHESTRATOR_POLL_INTERVAL = 30 # seconds between supervision checks (L1: halved from 60s)
-  EVOLUTION_INTERVAL = 1800 # 30 minutes between parameter evolution cycles
-  MARKET_SCAN_INTERVAL = 900 # 15 minutes between market scans
-  PROMOTION_CHECK_INTERVAL = 1800 # 30 minutes between promotion checks
-  TEMPORAL_PRUNING_INTERVAL = 600 # 10 minutes between temporal pruning cycles
-  REBALANCE_INTERVAL_DEFAULT = 600 # 10 minutes default capital rebalance interval
 
   def run_continuous_orchestrator!(session_id, strategies, tick_interval, start_tick: 0)
     @aggregate_tick_counter = start_tick
+    @session_started_at ||= Time.now
     log_info("Starting continuous orchestrator", session_id: session_id, strategies: strategies.size, start_tick: start_tick)
 
-    # Read session config for capital rebalance settings
+    # Read session config for supervision settings
     orchestrator_status = check_status(session_id)
     orchestrator_config = orchestrator_status&.dig("data", "config") || {}
-    @rebalance_enabled = orchestrator_config["rebalance_enabled"] == true
-    if @rebalance_enabled
-      rebalance_ticks = (orchestrator_config["rebalance_interval_ticks"] || 10).to_i
-      tick_interval_s = (orchestrator_config["tick_interval"] || tick_interval || 15).to_i
-      @rebalance_interval = [rebalance_ticks * tick_interval_s, 300].max # floor: 5 minutes
-    end
 
     # Launch independent runners for each strategy
     strategies.each do |strategy|
@@ -783,12 +804,6 @@ class TradingTrainingSessionJob < BaseJob
       TradingStrategyRunnerJob.perform_async(strategy["id"], session_id, opts)
     end
     log_info("Launched #{strategies.size} independent strategy runners", session_id: session_id)
-
-    @last_evolution_at = Time.now
-    @last_scan_at = Time.now
-    @last_rebalance_at = Time.now
-    last_promotion_check_at = Time.now
-    last_temporal_pruning_at = Time.now
 
     consecutive_status_failures = 0
 
@@ -828,6 +843,38 @@ class TradingTrainingSessionJob < BaseJob
         break
       end
 
+      # Max duration enforcement (safety valve for sessions without ends_at)
+      max_dur = orchestrator_config["max_duration_minutes"]
+      if max_dur && @session_started_at && (Time.now - @session_started_at) > max_dur.to_i * 60
+        log_info("Max duration #{max_dur}m reached — completing session", session_id: session_id)
+        break
+      end
+
+      # Zero-activity early termination for continuous sessions
+      # Skip the first 5 minutes to allow strategies time to start up
+      if @session_started_at && (Time.now - @session_started_at) > 300
+        current_metrics = status.dig("data", "metrics") || {}
+        current_signals = current_metrics["signals_total"].to_i
+        current_positions = current_metrics["positions_opened"].to_i
+        @last_activity_signals ||= 0
+        @last_activity_positions ||= 0
+        @zero_activity_cycles ||= 0
+
+        if current_signals > @last_activity_signals || current_positions > @last_activity_positions
+          @zero_activity_cycles = 0
+          @last_activity_signals = current_signals
+          @last_activity_positions = current_positions
+        else
+          @zero_activity_cycles += 1
+          # 10 consecutive supervision cycles (~5 min at 30s interval) with no new activity
+          if @zero_activity_cycles >= 10
+            log_info("#{@zero_activity_cycles} consecutive zero-activity cycles — completing session",
+              session_id: session_id, signals: current_signals, positions: current_positions)
+            break
+          end
+        end
+      end
+
       # Check if all strategies are decommissioned
       active_count = (status.dig("data", "active_strategy_count") || strategies.size).to_i
       if active_count == 0
@@ -835,35 +882,9 @@ class TradingTrainingSessionJob < BaseJob
         break
       end
 
-      # Periodic: mid-session parameter evolution
-      if Time.now - @last_evolution_at >= EVOLUTION_INTERVAL
-        run_evolution_cycle!(session_id)
-        @last_evolution_at = Time.now
-      end
-
-      # Periodic: market scanning & rotation
-      if Time.now - @last_scan_at >= MARKET_SCAN_INTERVAL
-        run_market_scan_cycle!(session_id)
-        @last_scan_at = Time.now
-      end
-
-      # Periodic: promotion candidate detection
-      if Time.now - last_promotion_check_at >= PROMOTION_CHECK_INTERVAL
-        run_promotion_check!(session_id)
-        last_promotion_check_at = Time.now
-      end
-
-      # Periodic: temporal pruning of underperforming strategies
-      if Time.now - last_temporal_pruning_at >= TEMPORAL_PRUNING_INTERVAL
-        run_temporal_pruning_cycle!(session_id)
-        last_temporal_pruning_at = Time.now
-      end
-
-      # Periodic: capital rebalancing
-      if @rebalance_enabled && Time.now - @last_rebalance_at >= (@rebalance_interval || REBALANCE_INTERVAL_DEFAULT)
-        run_capital_rebalance_cycle!(session_id)
-        @last_rebalance_at = Time.now
-      end
+      # Lifecycle decisions (evolution, promotion, pruning, rebalancing) are now
+      # handled by Ralph-loop decision engines (Session Manager, Portfolio Manager).
+      # The worker supervision loop only handles session-level operational concerns.
 
       # Aggregate session metrics from all strategy runners
       aggregate_session_metrics!(session_id, strategies)
@@ -931,86 +952,6 @@ class TradingTrainingSessionJob < BaseJob
   end
 
   # Mid-session parameter evolution cycle
-  def run_evolution_cycle!(session_id)
-    log_info("Running mid-session evolution cycle", session_id: session_id)
-    api_client.post_with_circuit_breaker(
-      "/api/v1/internal/trading/training_rebalance",
-      { session_id: session_id, mid_session_evolution: true },
-      circuit_breaker: :trading_training
-    )
-  rescue StandardError => e
-    log_warn("Evolution cycle failed (non-fatal): #{e.message}", session_id: session_id)
-  end
-
-  # Market scanning & rotation cycle
-  def run_market_scan_cycle!(session_id)
-    log_info("Running market scan cycle", session_id: session_id)
-    # Market scanning is handled server-side via the existing market discovery pipeline.
-    # The orchestrator triggers it by posting to the internal endpoint.
-    api_client.post_with_circuit_breaker(
-      "/api/v1/internal/trading/training_rebalance",
-      { session_id: session_id, market_rotation: true },
-      circuit_breaker: :trading_training
-    )
-  rescue StandardError => e
-    log_warn("Market scan cycle failed (non-fatal): #{e.message}", session_id: session_id)
-  end
-
-  # Promotion candidate check
-  def run_promotion_check!(session_id)
-    log_info("Checking for promotion candidates", session_id: session_id)
-    api_client.post_with_circuit_breaker(
-      "/api/v1/internal/trading/training_rebalance",
-      { session_id: session_id, check_promotions: true },
-      circuit_breaker: :trading_training
-    )
-  rescue StandardError => e
-    log_warn("Promotion check failed (non-fatal): #{e.message}", session_id: session_id)
-  end
-
-  # Temporal pruning cycle — decommissions strategies that are underperforming
-  # based on time-of-day/day-of-week temporal intelligence patterns.
-  def run_temporal_pruning_cycle!(session_id)
-    log_info("Running temporal pruning cycle", session_id: session_id)
-    response = api_client.post_with_circuit_breaker(
-      "/api/v1/internal/trading/temporal_prune",
-      { session_id: session_id },
-      circuit_breaker: :trading_training
-    )
-
-    if response && response["data"]
-      pruned = response.dig("data", "pruned") || []
-      if pruned.any?
-        log_info("Temporal pruning removed #{pruned.size} strategies: #{pruned.map { |p| p['type'] }.join(', ')}",
-                 session_id: session_id)
-      end
-    end
-  rescue StandardError => e
-    log_warn("Temporal pruning cycle failed (non-fatal): #{e.message}", session_id: session_id)
-  end
-
-  # Capital rebalance cycle — reallocates capital from underperformers to top performers.
-  # Uses the same internal endpoint as the batch mode rebalance.
-  def run_capital_rebalance_cycle!(session_id)
-    log_info("Running capital rebalance cycle", session_id: session_id)
-    result = api_client.post_with_circuit_breaker(
-      "/api/v1/internal/trading/training_rebalance",
-      { session_id: session_id, tick_num: @aggregate_tick_counter || 0 },
-      circuit_breaker: :trading_training
-    )
-
-    if result["success"] && !result.dig("data", "skipped")
-      decommissioned_ids = result.dig("data", "decommissioned") || []
-      if decommissioned_ids.any?
-        log_info("Rebalance decommissioned #{decommissioned_ids.size} strategies", session_id: session_id)
-      end
-      log_info("Rebalance complete: promoted=#{result.dig('data', 'promoted')&.size || 0}, " \
-        "demoted=#{result.dig('data', 'demoted')&.size || 0}", session_id: session_id)
-    end
-  rescue StandardError => e
-    log_warn("Capital rebalance failed (non-fatal): #{e.message}", session_id: session_id)
-  end
-
   # Write an adaptive orchestrator heartbeat via direct API call (not DataFetcher)
   # so lease_seconds reaches the server. The lease tells orphan recovery how long
   # to wait before declaring the orchestrator dead.
@@ -1029,22 +970,11 @@ class TradingTrainingSessionJob < BaseJob
     log_warn("Orchestrator heartbeat failed (non-fatal): #{e.message}", session_id: session_id)
   end
 
-  # Calculate lease duration based on the next scheduled operation.
-  # Expensive operations (evolution, market scan) get longer leases so orphan
-  # recovery doesn't false-trigger during a 5-minute venue API call.
+  # Calculate lease duration for the heartbeat.
+  # With lifecycle decisions moved to Ralph-loop engines, the supervision loop
+  # only runs lightweight operations (metrics aggregation, heartbeat).
   def next_operation_lease
-    base = ORCHESTRATOR_POLL_INTERVAL * 2 # 120s — generous margin for normal cycles
-    now = Time.now
-
-    if now - (@last_evolution_at || now) >= EVOLUTION_INTERVAL
-      300 # Evolution cycle can take up to 5 min
-    elsif now - (@last_scan_at || now) >= MARKET_SCAN_INTERVAL
-      300 # Market scan involves venue API calls
-    elsif @rebalance_enabled && now - (@last_rebalance_at || now) >= (@rebalance_interval || REBALANCE_INTERVAL_DEFAULT)
-      180 # Capital rebalance
-    else
-      base
-    end
+    ORCHESTRATOR_POLL_INTERVAL * 2 # 60s — generous margin for metrics aggregation
   end
 
   # Worker-orchestrated multi-phase setup.
@@ -1102,30 +1032,56 @@ class TradingTrainingSessionJob < BaseJob
       markets = discovery_config["markets"] || []
       learning_context = discovery_config["learning_context"]
     else
-      # Phase 1b: Fetch raw markets from venue API (worker-side I/O — the slow part)
-      update_timeline(session_id, "Fetching markets from #{venue_slug} API...")
+      # Phase 1b-1c: Fetch and process markets with progressive expansion
       fetcher = Trading::VenueMarketFetcher.new(discovery_config)
-      raw_markets = fetcher.fetch_markets(
-        venue_slug,
-        series_list: discovery_config["series_list"] || [],
-        limit: discovery_config["fetch_limit"] || 100,
-        min_volume: discovery_config["fetch_min_volume"] || 0,
-        event_tickers: discovery_config["event_tickers"] || []
-      )
-      log_info("Fetched #{raw_markets.size} raw markets from venue API", session_id: session_id)
+      markets = []
+      learning_context = nil
+      base_limit = discovery_config["fetch_limit"] || 100
 
-      # Phase 1c: Send raw markets to backend for filtering/scoring/registration (fast)
-      force_renew_lock!
-      update_timeline(session_id, "Processing #{raw_markets.size} markets...")
-      discovery = @data_fetcher.process_raw_markets(
-        session_id: session_id,
-        venue_slug: venue_slug,
-        raw_markets: raw_markets,
-        market_count: market_count_target,
-        config: session_config
-      )
-      markets = discovery["markets"] || []
-      learning_context = discovery["learning_context"]
+      MAX_DISCOVERY_ATTEMPTS.times do |attempt|
+        return nil if cancelled?(session_id)
+
+        current_offset = attempt * base_limit
+        current_min_volume = attempt.zero? ? (discovery_config["fetch_min_volume"] || 0) : 0
+
+        if attempt > 0
+          log_info("Expanding market search (attempt #{attempt + 1}/#{MAX_DISCOVERY_ATTEMPTS}, offset #{current_offset})", session_id: session_id)
+          sleep(DISCOVERY_RETRY_DELAY)
+        end
+
+        update_timeline(session_id, attempt.zero? ? "Fetching markets from #{venue_slug} API..." : "Expanding market search (attempt #{attempt + 1})...")
+        force_renew_lock!
+
+        raw_markets = fetcher.fetch_markets(
+          venue_slug,
+          series_list: discovery_config["series_list"] || [],
+          limit: base_limit,
+          min_volume: current_min_volume,
+          event_tickers: attempt.zero? ? (discovery_config["event_tickers"] || []) : [],
+          offset: current_offset
+        )
+        log_info("Fetched #{raw_markets.size} raw markets from venue API (attempt #{attempt + 1}, offset #{current_offset})", session_id: session_id)
+
+        if raw_markets.empty?
+          log_info("Venue returned no markets at offset #{current_offset}, stopping expansion", session_id: session_id)
+          break
+        end
+
+        # Phase 1c: Send raw markets to backend for filtering/scoring/registration (fast)
+        force_renew_lock!
+        update_timeline(session_id, "Processing #{raw_markets.size} markets...")
+        discovery = @data_fetcher.process_raw_markets(
+          session_id: session_id,
+          venue_slug: venue_slug,
+          raw_markets: raw_markets,
+          market_count: market_count_target,
+          config: session_config
+        )
+        markets = discovery["markets"] || []
+        learning_context = discovery["learning_context"]
+
+        break if markets.any?
+      end
     end
 
     # Post-discovery cap: venue APIs return more contracts than market_count
@@ -1163,7 +1119,8 @@ class TradingTrainingSessionJob < BaseJob
     affinity_result = Trading::MarketAffinity.filter_assignments(
       markets: symbolized_markets,
       strategy_types: strategy_types,
-      learning_context: symbolized_learning
+      learning_context: symbolized_learning,
+      venue_type: discovery_config["venue_type"]
     )
     assignments = affinity_result[:assignments]
     affinity_result[:stats].each do |type, s|
@@ -1210,6 +1167,11 @@ class TradingTrainingSessionJob < BaseJob
       strategies.concat(result["strategies"] || [])
     end
     log_info("Created #{strategies.size} strategies ($#{per_strategy_capital}/strategy)", session_id: session_id)
+
+    if strategies.empty?
+      fail_session!(session_id, "No strategies created — all #{assignments.size} assignments failed")
+      return nil
+    end
 
     # Phase 5: Prepare knowledge sources
     needs_knowledge = (strategy_types & %w[news_reactive sentiment_analysis combinatorial_arbitrage]).any?
@@ -1355,8 +1317,10 @@ class TradingTrainingSessionJob < BaseJob
   end
 
   def dispatch_learning_extraction!(strategy_ids, since: nil)
-    cutoff = (since || 90.seconds.ago).iso8601
-    TradingLearningExtractionJob.perform_async(strategy_ids, cutoff)
+    cutoff = since || @last_extraction_at || @session_started_at || 90.seconds.ago
+    cutoff_iso = cutoff.is_a?(String) ? cutoff : cutoff.iso8601
+    TradingLearningExtractionJob.perform_async(strategy_ids, cutoff_iso)
+    @last_extraction_at = Time.now
   rescue StandardError => e
     log_warn("Failed to dispatch learning extraction", error: e.message)
   end

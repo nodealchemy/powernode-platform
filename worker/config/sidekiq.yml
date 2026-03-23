@@ -550,21 +550,17 @@
       queue: trading_critical
       description: 'Check for pending training sessions and dispatch execution'
 
-    trading_overseer_training_cycle:
-      cron: '*/5 * * * *'
-      class: TradingOverseerCycleJob
+    trading_session_manager_cycle:
+      cron: '*/10 * * * *'
+      class: TradingSessionManagerCycleJob
       queue: trading_critical
-      args:
-        engine_type: training
-      description: 'Training agent: session discovery, pruning, promotion, fast-track'
+      description: 'Session Manager: session discovery, scheduling, pruning, mid-session actions'
 
-    trading_overseer_live_cycle:
-      cron: '*/5 * * * *'
-      class: TradingOverseerCycleJob
+    trading_portfolio_manager_cycle:
+      cron: '*/15 * * * *'
+      class: TradingPortfolioManagerCycleJob
       queue: trading_critical
-      args:
-        engine_type: live
-      description: 'Live agent: strategy health, positions, capital, phase advancement (M2: 5m for paper_trade visibility)'
+      description: 'Portfolio Manager: live strategy health, phase advancement, stagnancy, capital rebalancing'
 
     trading_decision_expiry:
       cron: '*/15 * * * *'
