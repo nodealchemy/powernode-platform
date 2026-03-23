@@ -34,22 +34,45 @@ module Trading
           halt_hours = param("settlement_halt_hours", 2)
           if market_expiry
             hours_left = (market_expiry - Time.now) / 3600.0
-            return has_open_position? ? check_tp_sl(signals) : signals if hours_left < halt_hours
+            if hours_left < halt_hours
+              return has_open_position? ? check_tp_sl(signals) : signals
+            end
           end
         end
 
-        # Volatility halt: pause in extreme price swings
+        # Volatility halt: pause in extreme price swings.
+        # PM mode uses absolute price change (cents) instead of percentage returns,
+        # because bounded 0-1 prices produce outsized % swings from normal moves
+        # (e.g. $0.20→$0.26 = 30% return but only a 6c move).
         if price_history&.size.to_i >= 5
-          recent_returns = price_history.last(5).each_cons(2).map { |a, b|
-            prev_close = (a["close"] || a[:close] || 0).to_f
-            curr_close = (b["close"] || b[:close] || 0).to_f
-            prev_close > 0 ? ((curr_close - prev_close) / prev_close).abs : 0
-          }
-          max_swing = recent_returns.max || 0
-          if max_swing > param("volatility_halt_threshold", 0.15)
-            return has_open_position? ? check_tp_sl(signals) : signals
+          mid = (bid_price + ask_price) / 2.0
+          is_pm = param("pm_mode", false) || mid.between?(0.01, 0.99)
+
+          if is_pm
+            recent_moves = price_history.last(5).each_cons(2).map { |a, b|
+              prev_close = (a["close"] || a[:close] || 0).to_f
+              curr_close = (b["close"] || b[:close] || 0).to_f
+              (curr_close - prev_close).abs
+            }
+            max_move_cents = (recent_moves.max || 0) * 100
+            # Halt on >25c absolute move (equivalent to 25% of the 0-1 range)
+            pm_halt_cents = param("volatility_halt_cents", 25)
+            if max_move_cents > pm_halt_cents
+              return has_open_position? ? check_tp_sl(signals) : signals
+            end
+          else
+            recent_returns = price_history.last(5).each_cons(2).map { |a, b|
+              prev_close = (a["close"] || a[:close] || 0).to_f
+              curr_close = (b["close"] || b[:close] || 0).to_f
+              prev_close > 0 ? ((curr_close - prev_close) / prev_close).abs : 0
+            }
+            max_swing = recent_returns.max || 0
+            if max_swing > param("volatility_halt_threshold", 0.15)
+              return has_open_position? ? check_tp_sl(signals) : signals
+            end
           end
         end
+
 
         bid = bid_price
         ask = ask_price

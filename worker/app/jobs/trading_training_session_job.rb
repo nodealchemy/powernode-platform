@@ -494,7 +494,9 @@ class TradingTrainingSessionJob < BaseJob
       # Cold data (strategy config, parameters, graph, RAG) changes slowly;
       # prices are separately warmed via TickPriceCache every tick.
       phase_a_start = Time.now
-      is_cold_tick = @cold_context_cache.empty? || (tick_num % COLD_CONTEXT_REFRESH_TICKS == 1)
+      # Backtest mode: every tick must be cold — the server advances the backtest cursor
+      # each tick, so cached context has stale historical prices from the previous cursor position.
+      is_cold_tick = backtest || @cold_context_cache.empty? || (tick_num % COLD_CONTEXT_REFRESH_TICKS == 1)
 
       if is_cold_tick
         # Full context fetch — updates cold cache
