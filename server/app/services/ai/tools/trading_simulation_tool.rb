@@ -697,8 +697,20 @@ module Ai
         tick_interval = (params[:tick_interval] || 5).to_i.clamp(1, 60)
         initial_balance = (params[:initial_balance] || 10_000).to_f
 
+        # Auto-detect source venue from existing price snapshots so the
+        # backtest discovery can find pairs (snapshots are stored with a
+        # source like "polymarket_live", not "simulator").
+        bt_start = params[:start_at] ? Time.parse(params[:start_at]) : 7.days.ago
+        bt_end   = params[:end_at]   ? Time.parse(params[:end_at])   : Time.current
+        source_venue = Trading::PriceSnapshot
+          .where(timestamp: bt_start..bt_end)
+          .where.not(source: "historical")
+          .pick(:source)
+          &.sub(/_live$/, "") || "polymarket"
+
         session_config = {
           "venue_slug" => "simulator",
+          "source_venue" => source_venue,
           "initial_balance" => initial_balance,
           "price_mode" => "historical_replay",
           "mode" => "backtest",
