@@ -382,7 +382,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   end
 
   def check_redis_status
-    Redis.current.ping == "PONG" ? "connected" : "disconnected"
+    Powernode::Redis.new_client.ping == "PONG" ? "connected" : "disconnected"
   rescue StandardError => e
     Rails.logger.error "Redis status check failed: #{e.message}"
     "unavailable"
@@ -423,7 +423,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
 
   def check_redis_health
     start = Time.current
-    Redis.current.ping
+    Powernode::Redis.new_client.ping
     response_time = ((Time.current - start) * 1000).round(2)
 
     { status: "healthy", response_time_ms: response_time }

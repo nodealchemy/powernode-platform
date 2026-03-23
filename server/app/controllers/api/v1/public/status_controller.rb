@@ -19,7 +19,7 @@ module Api
           end
 
           redis_connected = begin
-            Redis.current.ping == "PONG"
+            Powernode::Redis.new_client.ping == "PONG"
           rescue StandardError
             false
           end
@@ -54,7 +54,7 @@ module Api
           end
 
           redis_connected = begin
-            Redis.current.ping == "PONG"
+            Powernode::Redis.new_client.ping == "PONG"
           rescue StandardError
             false
           end

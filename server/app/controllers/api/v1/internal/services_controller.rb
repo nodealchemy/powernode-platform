@@ -74,7 +74,7 @@ class Api::V1::Internal::ServicesController < Api::V1::Internal::InternalBaseCon
   end
 
   def check_redis
-    Redis.current.ping == "PONG" ? "healthy" : "unhealthy"
+    Powernode::Redis.new_client.ping == "PONG" ? "healthy" : "unhealthy"
   rescue StandardError
     "unhealthy"
   end
@@ -87,7 +87,7 @@ class Api::V1::Internal::ServicesController < Api::V1::Internal::InternalBaseCon
 
   def test_redis_connection
     start = Time.current
-    Redis.current.ping
+    Powernode::Redis.new_client.ping
     latency = ((Time.current - start) * 1000).round(2)
     { connected: true, latency_ms: latency }
   rescue StandardError => e
