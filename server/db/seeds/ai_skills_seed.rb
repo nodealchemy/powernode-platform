@@ -128,6 +128,9 @@ puts "  [Skills] MCP servers done. Creating skills..."
 # Restore callback
 McpServer.set_callback(:create, :after, :initialize_connection) rescue nil
 
+# Suppress conflict check callback during seed — daily maintenance handles conflict scanning
+Ai::Skill.skip_callback(:commit, :after, :enqueue_conflict_check, raise: false)
+
 # ============================================================================
 # Skill definitions (unchanged from previous, but using HABTM)
 # ============================================================================

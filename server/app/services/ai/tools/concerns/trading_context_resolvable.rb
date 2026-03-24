@@ -25,10 +25,19 @@ module Ai
           end
         end
 
-        def resolve_strategy(identifier)
-          portfolio = resolve_portfolio
-          portfolio.strategies.find_by(id: identifier) ||
-            portfolio.strategies.find_by(name: identifier) ||
+        def resolve_strategy(identifier, portfolio_id: nil)
+          if portfolio_id.present?
+            portfolio = resolve_portfolio(portfolio_id)
+            scope = portfolio.strategies
+          else
+            # Search across ALL account portfolios — strategies may be in any
+            # portfolio (live, proving ground, training, etc.)
+            scope = ::Trading::Strategy.joins(:portfolio)
+                      .where(trading_portfolios: { account_id: account.id })
+          end
+
+          scope.find_by(id: identifier) ||
+            scope.find_by(name: identifier) ||
             raise(ActiveRecord::RecordNotFound, "Strategy not found: #{identifier}")
         end
 

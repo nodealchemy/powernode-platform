@@ -64,7 +64,7 @@ class AiProviderHealthCheckJob < BaseJob
 
   def fetch_providers
     response = with_api_retry do
-      api_client.get('admin/ai_providers', { include_disabled: true })
+      api_client.get('/api/v1/internal/ai/providers', { include_disabled: true })
     end
 
     response['providers'] || []

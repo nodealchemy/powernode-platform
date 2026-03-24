@@ -33,10 +33,11 @@ module Ai
       def self.action_definitions
         {
           "trading_list_strategies" => {
-            description: "List trading strategies with optional status and type filters",
+            description: "List trading strategies with optional status, type, and portfolio filters. Searches across all account portfolios by default.",
             parameters: {
               status: { type: "string", required: false, description: "Filter by status: draft, active, paused, declining, decommissioned" },
-              type: { type: "string", required: false, description: "Filter by strategy type" }
+              type: { type: "string", required: false, description: "Filter by strategy type" },
+              portfolio_id: { type: "string", required: false, description: "Filter to a specific portfolio (default: all portfolios)" }
             }
           },
           "trading_get_strategy" => {
@@ -144,8 +145,16 @@ module Ai
       private
 
       def list_strategies(params)
-        portfolio = resolve_portfolio
-        scope = portfolio.strategies.order(created_at: :desc)
+        if params[:portfolio_id].present?
+          portfolio = resolve_portfolio(params[:portfolio_id])
+          scope = portfolio.strategies
+        else
+          # Search across ALL account portfolios by default
+          scope = ::Trading::Strategy.joins(:portfolio)
+                    .where(trading_portfolios: { account_id: account.id })
+        end
+
+        scope = scope.order(created_at: :desc)
         scope = scope.where(status: params[:status]) if params[:status].present?
         scope = scope.where(strategy_type: params[:type]) if params[:type].present?
 
@@ -269,8 +278,8 @@ module Ai
       end
 
       def lifecycle_summary
-        portfolio = resolve_portfolio
-        strategies = portfolio.strategies
+        strategies = ::Trading::Strategy.joins(:portfolio)
+                       .where(trading_portfolios: { account_id: account.id })
 
         phases = strategies.group(:lifecycle_phase).count
         statuses = strategies.group(:status).count

@@ -61,7 +61,7 @@ module Ai
     # ==========================================
     before_validation :generate_slug, on: :create
     after_commit :sync_to_knowledge_graph, on: [:create, :update]
-    after_commit :enqueue_conflict_check, on: [:create, :update]
+    after_commit :enqueue_conflict_check, on: [:create, :update], if: :conflict_relevant_change?
     after_destroy :archive_knowledge_graph_node
 
     # ==========================================
@@ -167,6 +167,15 @@ module Ai
       Ai::SkillGraph::BridgeService.new(Account.find(account_id)).sync_skill(self)
     rescue StandardError => e
       Rails.logger.warn "[Ai::Skill] KG sync failed for skill #{id}: #{e.message}"
+    end
+
+    def conflict_relevant_change?
+      # New records always need a conflict check
+      return true if id_previously_changed?
+
+      # Only enqueue when columns that affect conflict detection change
+      conflict_columns = %w[name description slug category system_prompt commands tags status]
+      (saved_changes.keys & conflict_columns).any?
     end
 
     def enqueue_conflict_check

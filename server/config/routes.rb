@@ -459,6 +459,9 @@ Rails.application.routes.draw do
                to: "worktree_sessions#provision_worktree",
                as: :provision_worktree_session_worktree
 
+          # Provider listing for health checks (worker → server)
+          get "providers", to: "providers#index"
+
           # Kill switch check (worker → server)
           get "kill_switch/check", to: "kill_switch#check"
 
