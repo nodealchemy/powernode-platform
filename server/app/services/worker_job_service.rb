@@ -610,6 +610,17 @@ class WorkerJobService
       })
     end
 
+    # Enqueue an immediate Proving Ground Manager cycle for a single account.
+    # Used as a post-completion trigger: when a proving-ground session finishes,
+    # the PG Manager evaluates results for graduation immediately.
+    def enqueue_proving_ground_manager_cycle(account_id)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "TradingProvingGroundManagerCycleJob",
+        "args" => [{ "account_id" => account_id }],
+        "queue" => "trading_critical"
+      })
+    end
+
     # Enqueue an immediate Session Manager cycle for a single account.
     def enqueue_session_manager_cycle(account_id)
       new.make_worker_request("POST", "/api/v1/jobs", {

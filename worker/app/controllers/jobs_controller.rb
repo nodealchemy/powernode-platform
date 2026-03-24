@@ -645,6 +645,7 @@ class JobsController
       'TradingTrainingSessionJob',
       'TradingEvolutionEpochJob',
       'TradingSessionManagerCycleJob',
+      'TradingProvingGroundManagerCycleJob',
       'TradingPortfolioManagerCycleJob'
     ]
 
