@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_23_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_23_120003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10689,6 +10689,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_23_100000) do
     t.datetime "updated_at", null: false
     t.index ["account_id", "portfolio_type"], name: "idx_trading_portfolios_account_type"
     t.index ["account_id"], name: "index_trading_portfolios_on_account_id"
+    t.index ["account_id"], name: "index_trading_portfolios_unique_proving_ground", unique: true, where: "((portfolio_type)::text = 'proving_ground'::text)"
     t.index ["ai_agent_budget_id"], name: "index_trading_portfolios_on_ai_agent_budget_id"
     t.index ["ai_agent_team_id"], name: "index_trading_portfolios_on_ai_agent_team_id"
     t.index ["trading_training_session_id"], name: "idx_trading_portfolios_unique_session", unique: true, where: "(trading_training_session_id IS NOT NULL)"
@@ -10858,6 +10859,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_23_100000) do
     t.decimal "current_pnl_usd", precision: 19, scale: 2, default: "0.0", null: false
     t.datetime "decommissioned_at"
     t.datetime "ends_at"
+    t.datetime "graduated_at"
+    t.jsonb "graduation_metrics", default: {}, null: false
     t.datetime "high_water_mark_at"
     t.decimal "high_water_mark_usd", precision: 19, scale: 2, default: "0.0"
     t.datetime "last_compounding_at"
@@ -11004,6 +11007,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_23_100000) do
 
   create_table "trading_training_sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
+    t.integer "chain_sequence", default: 1, null: false
     t.datetime "completed_at"
     t.integer "completed_ticks", default: 0
     t.jsonb "config", default: {}
@@ -11016,6 +11020,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_23_100000) do
     t.jsonb "metrics", default: {}
     t.string "mode", default: "fixed_ticks", null: false
     t.string "name", null: false
+    t.uuid "parent_session_id"
     t.jsonb "recurrence_rule"
     t.jsonb "results", default: {}
     t.datetime "scheduled_for"
@@ -11030,6 +11035,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_23_100000) do
     t.string "venue_slug"
     t.index ["account_id", "status"], name: "index_trading_training_sessions_on_account_id_and_status"
     t.index ["account_id"], name: "index_trading_training_sessions_on_account_id"
+    t.index ["parent_session_id"], name: "index_trading_training_sessions_on_parent_session_id"
     t.index ["scheduled_for"], name: "idx_training_sessions_scheduled", where: "((scheduled_for IS NOT NULL) AND ((status)::text = 'scheduled'::text))"
     t.index ["status", "held"], name: "index_trading_training_sessions_on_status_and_held"
     t.index ["venue_slug"], name: "index_trading_training_sessions_on_venue_slug"
@@ -12529,6 +12535,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_23_100000) do
   add_foreign_key "trading_trades", "trading_positions", on_delete: :cascade
   add_foreign_key "trading_trades", "trading_venues"
   add_foreign_key "trading_training_sessions", "accounts"
+  add_foreign_key "trading_training_sessions", "trading_training_sessions", column: "parent_session_id"
   add_foreign_key "trading_venue_credentials", "trading_portfolios"
   add_foreign_key "trading_venue_credentials", "trading_venues"
   add_foreign_key "trading_venue_withdrawal_rules", "trading_portfolios"
