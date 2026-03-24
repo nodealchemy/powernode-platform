@@ -8,9 +8,9 @@ module Ai
       def self.definition
         {
           name: "memory_management",
-          description: "Read, write, search, consolidate shared memory, or get memory stats",
+          description: "Read, write, delete, search, consolidate shared memory, or get memory stats",
           parameters: {
-            action: { type: "string", required: true, description: "Action: read_shared_memory, write_shared_memory, search_memory, consolidate_memory, memory_stats, list_pools" },
+            action: { type: "string", required: true, description: "Action: read_shared_memory, write_shared_memory, delete_shared_memory, search_memory, consolidate_memory, memory_stats, list_pools" },
             pool_id: { type: "string", required: false, description: "Memory pool ID" },
             key: { type: "string", required: false, description: "Data key (dot-separated for nesting)" },
             value: { type: "object", required: false, description: "Value to write (for write action)" },
@@ -37,6 +37,13 @@ module Ai
             parameters: {
               pool_id: { type: "string", required: false, description: "Memory pool ID (default: 'default')" },
               key: { type: "string", required: true, description: "Data key to read" }
+            }
+          },
+          "delete_shared_memory" => {
+            description: "Delete a key from shared memory in a specific pool",
+            parameters: {
+              pool_id: { type: "string", required: false, description: "Memory pool ID (default: 'default')" },
+              key: { type: "string", required: true, description: "Data key to delete (dot-separated for nested keys)" }
             }
           },
           "search_memory" => {
@@ -78,6 +85,10 @@ module Ai
           pool = resolve_pool(params[:pool_id])
           pool.write_data(params[:key], params[:value], agent_id: resolved_agent_id)
           { success: true, key: params[:key], written: true }
+        when "delete_shared_memory"
+          pool = resolve_pool(params[:pool_id])
+          pool.delete_data(params[:key], agent_id: resolved_agent_id)
+          { success: true, key: params[:key], deleted: true }
         when "search_memory" then search_memory(params)
         when "consolidate_memory" then consolidate_memory(params)
         when "memory_stats" then memory_stats(params)

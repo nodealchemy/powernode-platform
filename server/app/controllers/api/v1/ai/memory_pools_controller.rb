@@ -5,9 +5,9 @@ module Api
     module Ai
       class MemoryPoolsController < ApplicationController
         before_action :authenticate_request
-        before_action :set_pool, only: %i[show update destroy read_data write_data query]
+        before_action :set_pool, only: %i[show update destroy read_data write_data delete_data query]
         before_action :authorize_read!, only: %i[index show read_data query]
-        before_action :authorize_manage!, only: %i[create update destroy write_data]
+        before_action :authorize_manage!, only: %i[create update destroy write_data delete_data]
 
         # GET /api/v1/ai/memory_pools
         def index
@@ -65,6 +65,14 @@ module Api
         def write_data
           @pool.write_data(params[:key], params[:value], agent_id: params[:agent_id])
           render_success(@pool.pool_summary)
+        rescue ArgumentError => e
+          render_error(e.message, status: :forbidden)
+        end
+
+        # DELETE /api/v1/ai/memory_pools/:id/data/*key
+        def delete_data
+          @pool.delete_data(params[:key], agent_id: params[:agent_id])
+          render_success({ key: params[:key], deleted: true })
         rescue ArgumentError => e
           render_error(e.message, status: :forbidden)
         end

@@ -44,6 +44,7 @@ module Ai
         # Memory management
         "write_shared_memory" => "Ai::Tools::MemoryTool",
         "read_shared_memory" => "Ai::Tools::MemoryTool",
+        "delete_shared_memory" => "Ai::Tools::MemoryTool",
         "search_memory" => "Ai::Tools::MemoryTool",
         "consolidate_memory" => "Ai::Tools::MemoryTool",
         "memory_stats" => "Ai::Tools::MemoryTool",
@@ -82,6 +83,7 @@ module Ai
         "create_knowledge" => "Ai::Tools::SharedKnowledgeTool",
         "update_knowledge" => "Ai::Tools::SharedKnowledgeTool",
         "promote_knowledge" => "Ai::Tools::SharedKnowledgeTool",
+        "delete_knowledge" => "Ai::Tools::SharedKnowledgeTool",
         # Skills
         "list_skills" => "Ai::Tools::SkillTool",
         "get_skill" => "Ai::Tools::SkillTool",

@@ -8,10 +8,10 @@ module Ai
       def self.definition
         {
           name: "shared_knowledge",
-          description: "Search, create, update, or promote shared knowledge entries",
+          description: "Search, create, update, promote, or delete shared knowledge entries",
           parameters: {
-            action: { type: "string", required: true, description: "Action: search_knowledge, create_knowledge, update_knowledge, promote_knowledge" },
-            entry_id: { type: "string", required: false, description: "Knowledge entry ID (for update/promote)" },
+            action: { type: "string", required: true, description: "Action: search_knowledge, create_knowledge, update_knowledge, promote_knowledge, delete_knowledge" },
+            entry_id: { type: "string", required: false, description: "Knowledge entry ID (for update/promote/delete)" },
             query: { type: "string", required: false, description: "Search query" },
             title: { type: "string", required: false, description: "Entry title (for create/update)" },
             content: { type: "string", required: false, description: "Entry content (for create/update)" },
@@ -59,6 +59,13 @@ module Ai
               entry_id: { type: "string", required: true, description: "Knowledge entry ID to promote" },
               access_level: { type: "string", required: false, description: "Target access level (auto-determined if omitted)" }
             }
+          },
+          "delete_knowledge" => {
+            description: "Delete (archive) a shared knowledge entry. Soft-deletes by default; use hard_delete: true to permanently remove.",
+            parameters: {
+              entry_id: { type: "string", required: true, description: "Knowledge entry ID to delete" },
+              hard_delete: { type: "boolean", required: false, description: "Permanently destroy instead of archiving (default: false)" }
+            }
           }
         }
       end
@@ -71,6 +78,7 @@ module Ai
         when "create_knowledge" then create_knowledge(params)
         when "update_knowledge" then update_knowledge(params)
         when "promote_knowledge" then promote_knowledge(params)
+        when "delete_knowledge" then delete_knowledge(params)
         else { success: false, error: "Unknown action: #{params[:action]}" }
         end
       end
@@ -127,6 +135,25 @@ module Ai
 
         result = knowledge_service.promote(entry_id: params[:entry_id], new_access_level: new_level)
         result
+      end
+
+      def delete_knowledge(params)
+        return { success: false, error: "entry_id is required" } if params[:entry_id].blank?
+
+        if params[:hard_delete] == true
+          entry = Ai::SharedKnowledge.find_by(id: params[:entry_id], account: account)
+          return { success: false, error: "Knowledge entry not found: #{params[:entry_id]}" } unless entry
+
+          entry.destroy!
+          Rails.logger.info("[SharedKnowledge] Hard-deleted entry #{params[:entry_id]}")
+          { success: true, entry_id: params[:entry_id], deleted: true, method: "hard_delete" }
+        else
+          result = knowledge_service.archive(entry_id: params[:entry_id])
+          result[:method] = "archived" if result[:success]
+          result
+        end
+      rescue ActiveRecord::RecordNotFound
+        { success: false, error: "Knowledge entry not found: #{params[:entry_id]}" }
       end
 
       def next_access_level(entry_id)

@@ -98,6 +98,26 @@ module Ai
       broadcast_key_write(key, agent_id)
     end
 
+    def delete_data(key, agent_id:)
+      raise ArgumentError, "Access denied" unless accessible_by?(agent_id)
+      raise ArgumentError, "Only owner can delete" unless writable_by?(agent_id)
+
+      keys = key.to_s.split(".")
+      target = data
+      keys[0...-1].each do |k|
+        target = target[k]
+        raise ArgumentError, "Key not found: #{key}" unless target.is_a?(Hash)
+      end
+
+      raise ArgumentError, "Key not found: #{key}" unless target.key?(keys.last)
+
+      target.delete(keys.last)
+      self.last_accessed_at = Time.current
+      save!
+
+      broadcast_key_delete(key, agent_id)
+    end
+
     def merge_data(data_hash, agent_id:)
       raise ArgumentError, "Access denied" unless accessible_by?(agent_id)
       raise ArgumentError, "Only owner can write" unless writable_by?(agent_id)
@@ -190,6 +210,20 @@ module Ai
           key: key.to_s,
           writer_agent_id: writer_agent_id,
           is_bulletin: is_bulletin,
+          version: version,
+          timestamp: Time.current.iso8601
+        }
+      )
+    end
+
+    def broadcast_key_delete(key, deleter_agent_id)
+      McpChannel.broadcast_to_account(
+        account_id,
+        {
+          type: "memory_pool_key_delete",
+          pool_id: pool_id,
+          key: key.to_s,
+          deleter_agent_id: deleter_agent_id,
           version: version,
           timestamp: Time.current.iso8601
         }

@@ -1440,6 +1440,7 @@ Rails.application.routes.draw do
         resources :memory_pools do
           member do
             get "data/*key", action: :read_data
+            delete "data/*key", action: :delete_data
             post :write_data
             post :query
           end
