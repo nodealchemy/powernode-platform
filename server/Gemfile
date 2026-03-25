@@ -28,7 +28,7 @@ gem "paypal-sdk-rest", require: false
 
 
 # HTTP client for webhook processing
-gem "http"
+gem "http", "~> 6.0"
 gem "httparty"
 
 # Analytics and reporting

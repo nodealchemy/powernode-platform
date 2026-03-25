@@ -783,7 +783,7 @@ DEPENDENCIES
   fugit
   google-cloud-storage (~> 1.51)
   groupdate
-  http
+  http (~> 6.0)
   httparty
   jwt
   kamal
