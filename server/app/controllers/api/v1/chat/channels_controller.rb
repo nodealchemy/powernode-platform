@@ -210,7 +210,7 @@ module Api
           total_idled = 0
           total_closed = 0
 
-          current_user.account.chat_channels.find_each do |channel|
+          current_account.chat_channels.find_each do |channel|
             manager = ::Chat::SessionManager.new(channel)
             result = manager.cleanup_stale_sessions
             total_idled += result[:idled]

@@ -58,9 +58,10 @@ class Billing::BillingSchedulerJob < BaseJob
       account_status: 'active'
     }
     
-    subscriptions_due = with_api_retry do
+    response = with_api_retry do
       api_client.get('/api/v1/subscriptions', params)
     end
+    subscriptions_due = response["data"] || []
 
     log_info("Scheduling billing automation for #{subscriptions_due.size} subscriptions")
 

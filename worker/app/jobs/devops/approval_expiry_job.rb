@@ -12,9 +12,9 @@ module Devops
       # Call backend API to expire stale tokens
       response = api_client.post('/api/v1/internal/devops/approval_tokens/expire_stale')
 
-      if response[:success]
-        expired_count = response.dig(:data, 'expired_count') || 0
-        failed_steps_count = response.dig(:data, 'failed_steps_count') || 0
+      if response["success"]
+        expired_count = response.dig("data", "expired_count") || 0
+        failed_steps_count = response.dig("data", "failed_steps_count") || 0
 
         logger.info "Approval expiry completed: #{expired_count} tokens expired, #{failed_steps_count} step executions failed"
 
@@ -24,10 +24,10 @@ module Devops
           failed_steps_count: failed_steps_count
         }
       else
-        logger.error "Failed to expire approval tokens: #{response[:error]}"
+        logger.error "Failed to expire approval tokens: #{response["error"]}"
         {
           success: false,
-          error: response[:error]
+          error: response["error"]
         }
       end
     rescue BackendApiClient::ApiError => e

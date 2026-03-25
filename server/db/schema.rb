@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_23_120003) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_24_130005) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10596,6 +10596,32 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_23_120003) do
     t.index ["trigger_type"], name: "index_trading_evolution_epochs_on_trigger_type"
   end
 
+  create_table "trading_forwarded_signals", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "direction"
+    t.datetime "executed_at"
+    t.decimal "execution_price", precision: 18, scale: 8
+    t.uuid "follower_signal_id"
+    t.datetime "forwarded_at"
+    t.integer "latency_ms"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "pair", null: false
+    t.decimal "scaled_quantity", precision: 18, scale: 8
+    t.string "signal_type", null: false
+    t.string "skip_reason"
+    t.decimal "source_price", precision: 18, scale: 8
+    t.decimal "source_quantity", precision: 18, scale: 8
+    t.uuid "source_signal_id", null: false
+    t.string "status", default: "pending", null: false
+    t.uuid "subscription_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["follower_signal_id"], name: "index_trading_forwarded_signals_on_follower_signal_id"
+    t.index ["source_signal_id"], name: "index_trading_forwarded_signals_on_source_signal_id"
+    t.index ["status"], name: "index_trading_forwarded_signals_on_status"
+    t.index ["subscription_id", "source_signal_id"], name: "idx_forwarded_signals_unique", unique: true
+    t.index ["subscription_id"], name: "index_trading_forwarded_signals_on_subscription_id"
+  end
+
   create_table "trading_orders", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.decimal "average_fill_price", precision: 19, scale: 8
     t.string "cancel_reason"
@@ -10643,6 +10669,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_23_120003) do
     t.index ["status"], name: "index_trading_overseer_decisions_on_status"
   end
 
+  create_table "trading_performance_fee_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.decimal "fee_pct", precision: 5, scale: 2, null: false
+    t.decimal "fee_usd", precision: 14, scale: 4, null: false
+    t.uuid "position_id", null: false
+    t.decimal "realized_pnl_usd", precision: 14, scale: 4, null: false
+    t.string "status", default: "pending", null: false
+    t.uuid "subscription_id", null: false
+    t.uuid "transfer_id"
+    t.datetime "updated_at", null: false
+    t.index ["position_id"], name: "index_trading_performance_fee_events_on_position_id"
+    t.index ["status"], name: "index_trading_performance_fee_events_on_status"
+    t.index ["subscription_id"], name: "index_trading_performance_fee_events_on_subscription_id"
+  end
+
   create_table "trading_performance_metrics", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.decimal "avg_loss_usd", precision: 19, scale: 2
     t.decimal "avg_win_usd", precision: 19, scale: 2
@@ -10675,14 +10716,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_23_120003) do
     t.uuid "account_id", null: false
     t.uuid "ai_agent_budget_id"
     t.uuid "ai_agent_team_id"
-    t.decimal "allocated_capital_usd", precision: 19, scale: 2, default: "0.0", null: false
-    t.decimal "available_capital_usd", precision: 19, scale: 2, default: "0.0", null: false
     t.jsonb "config", default: {}
     t.datetime "created_at", null: false
+    t.uuid "linked_live_portfolio_id"
+    t.decimal "live_allocated_usd", precision: 19, scale: 2, default: "0.0", null: false
+    t.decimal "live_available_usd", precision: 19, scale: 2, default: "0.0", null: false
+    t.decimal "live_capital_usd", precision: 19, scale: 2, default: "0.0", null: false
     t.string "name", default: "Default Portfolio", null: false
+    t.decimal "paper_allocated_usd", precision: 19, scale: 2, default: "0.0", null: false
+    t.decimal "paper_available_usd", precision: 19, scale: 2, default: "0.0", null: false
+    t.decimal "paper_capital_usd", precision: 19, scale: 2, default: "0.0", null: false
     t.string "portfolio_type", default: "live", null: false
     t.string "status", default: "active", null: false
-    t.decimal "total_capital_usd", precision: 19, scale: 2, default: "0.0", null: false
     t.decimal "total_pnl_pct", precision: 8, scale: 4, default: "0.0", null: false
     t.decimal "total_pnl_usd", precision: 19, scale: 2, default: "0.0", null: false
     t.uuid "trading_training_session_id"
@@ -10692,6 +10737,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_23_120003) do
     t.index ["account_id"], name: "index_trading_portfolios_unique_proving_ground", unique: true, where: "((portfolio_type)::text = 'proving_ground'::text)"
     t.index ["ai_agent_budget_id"], name: "index_trading_portfolios_on_ai_agent_budget_id"
     t.index ["ai_agent_team_id"], name: "index_trading_portfolios_on_ai_agent_team_id"
+    t.index ["linked_live_portfolio_id"], name: "index_trading_portfolios_on_linked_live_portfolio_id"
     t.index ["trading_training_session_id"], name: "idx_trading_portfolios_unique_session", unique: true, where: "(trading_training_session_id IS NOT NULL)"
     t.index ["trading_training_session_id"], name: "index_trading_portfolios_on_trading_training_session_id"
   end
@@ -10760,6 +10806,49 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_23_120003) do
     t.index ["timestamp"], name: "index_trading_price_snapshots_on_timestamp"
     t.index ["trading_price_feed_id", "timestamp", "interval"], name: "idx_trading_price_snaps_feed_time_interval", unique: true
     t.index ["trading_price_feed_id"], name: "index_trading_price_snapshots_on_trading_price_feed_id"
+  end
+
+  create_table "trading_published_strategies", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.jsonb "graduation_metrics", default: {}, null: false
+    t.decimal "min_fee_usd", precision: 10, scale: 4, default: "0.01", null: false
+    t.string "name", null: false
+    t.string "pair", null: false
+    t.decimal "performance_fee_pct", precision: 5, scale: 2, default: "0.0", null: false
+    t.jsonb "performance_snapshot", default: {}, null: false
+    t.datetime "published_at"
+    t.string "status", default: "active", null: false
+    t.string "strategy_type", null: false
+    t.integer "subscriber_count", default: 0, null: false
+    t.uuid "trading_portfolio_id", null: false
+    t.uuid "trading_strategy_id", null: false
+    t.datetime "unpublished_at"
+    t.datetime "updated_at", null: false
+    t.string "venue_slug", null: false
+    t.string "visibility", default: "public", null: false
+    t.index ["account_id"], name: "index_trading_published_strategies_on_account_id"
+    t.index ["status"], name: "index_trading_published_strategies_on_status"
+    t.index ["strategy_type", "pair"], name: "index_trading_published_strategies_on_strategy_type_and_pair"
+    t.index ["trading_portfolio_id"], name: "index_trading_published_strategies_on_trading_portfolio_id"
+    t.index ["trading_strategy_id"], name: "index_trading_published_strategies_on_trading_strategy_id", unique: true
+  end
+
+  create_table "trading_publisher_follows", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.boolean "auto_subscribe", default: true, null: false
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.decimal "default_capital_usd", precision: 14, scale: 4, default: "0.0", null: false
+    t.uuid "publisher_account_id", null: false
+    t.string "status", default: "active", null: false
+    t.datetime "unfollowed_at"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "publisher_account_id"], name: "idx_publisher_follows_unique", unique: true
+    t.index ["account_id"], name: "index_trading_publisher_follows_on_account_id"
+    t.index ["publisher_account_id"], name: "index_trading_publisher_follows_on_publisher_account_id"
+    t.index ["status"], name: "index_trading_publisher_follows_on_status"
   end
 
   create_table "trading_risk_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -10933,6 +11022,32 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_23_120003) do
     t.index ["parent_version_id"], name: "index_trading_strategy_versions_on_parent_version_id"
     t.index ["trading_strategy_id", "version_number"], name: "idx_trading_strat_versions_strat_num", unique: true
     t.index ["trading_strategy_id"], name: "index_trading_strategy_versions_on_trading_strategy_id"
+  end
+
+  create_table "trading_subscriptions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.decimal "allocated_capital_usd", precision: 14, scale: 4, default: "0.0", null: false
+    t.jsonb "config", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.uuid "follower_strategy_id"
+    t.decimal "high_water_mark_usd", precision: 14, scale: 4, default: "0.0", null: false
+    t.uuid "published_strategy_id", null: false
+    t.uuid "publisher_follow_id"
+    t.string "status", default: "active", null: false
+    t.datetime "subscribed_at"
+    t.decimal "total_fees_paid_usd", precision: 14, scale: 4, default: "0.0", null: false
+    t.decimal "total_pnl_usd", precision: 14, scale: 4, default: "0.0", null: false
+    t.integer "total_signals_executed", default: 0, null: false
+    t.integer "total_signals_received", default: 0, null: false
+    t.integer "total_signals_skipped", default: 0, null: false
+    t.datetime "unsubscribed_at"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "published_strategy_id"], name: "idx_subscriptions_unique", unique: true
+    t.index ["account_id"], name: "index_trading_subscriptions_on_account_id"
+    t.index ["follower_strategy_id"], name: "index_trading_subscriptions_on_follower_strategy_id"
+    t.index ["published_strategy_id"], name: "index_trading_subscriptions_on_published_strategy_id"
+    t.index ["publisher_follow_id"], name: "index_trading_subscriptions_on_publisher_follow_id"
+    t.index ["status"], name: "index_trading_subscriptions_on_status"
   end
 
   create_table "trading_sweep_proposals", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -12492,18 +12607,29 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_23_120003) do
   add_foreign_key "trading_evolution_candidates", "trading_strategies"
   add_foreign_key "trading_evolution_candidates", "trading_strategy_versions"
   add_foreign_key "trading_evolution_epochs", "trading_portfolios"
+  add_foreign_key "trading_forwarded_signals", "trading_signals", column: "follower_signal_id"
+  add_foreign_key "trading_forwarded_signals", "trading_signals", column: "source_signal_id"
+  add_foreign_key "trading_forwarded_signals", "trading_subscriptions", column: "subscription_id"
   add_foreign_key "trading_orders", "trading_positions", on_delete: :cascade
   add_foreign_key "trading_orders", "trading_strategies", on_delete: :cascade
   add_foreign_key "trading_orders", "trading_venues"
   add_foreign_key "trading_overseer_decisions", "accounts"
+  add_foreign_key "trading_performance_fee_events", "trading_positions", column: "position_id"
+  add_foreign_key "trading_performance_fee_events", "trading_subscriptions", column: "subscription_id"
   add_foreign_key "trading_performance_metrics", "trading_strategies"
   add_foreign_key "trading_portfolios", "accounts"
   add_foreign_key "trading_portfolios", "ai_agent_budgets"
   add_foreign_key "trading_portfolios", "ai_agent_teams"
+  add_foreign_key "trading_portfolios", "trading_portfolios", column: "linked_live_portfolio_id", on_delete: :nullify
   add_foreign_key "trading_portfolios", "trading_training_sessions"
   add_foreign_key "trading_positions", "trading_strategies", on_delete: :cascade
   add_foreign_key "trading_positions", "trading_venues"
   add_foreign_key "trading_price_snapshots", "trading_price_feeds"
+  add_foreign_key "trading_published_strategies", "accounts"
+  add_foreign_key "trading_published_strategies", "trading_portfolios"
+  add_foreign_key "trading_published_strategies", "trading_strategies"
+  add_foreign_key "trading_publisher_follows", "accounts"
+  add_foreign_key "trading_publisher_follows", "accounts", column: "publisher_account_id"
   add_foreign_key "trading_risk_events", "trading_risk_profiles"
   add_foreign_key "trading_risk_events", "trading_strategies"
   add_foreign_key "trading_risk_profiles", "accounts"
@@ -12523,6 +12649,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_23_120003) do
   add_foreign_key "trading_strategy_promotions", "trading_training_sessions", column: "training_session_id", on_delete: :cascade
   add_foreign_key "trading_strategy_versions", "trading_strategies"
   add_foreign_key "trading_strategy_versions", "trading_strategy_versions", column: "parent_version_id"
+  add_foreign_key "trading_subscriptions", "accounts"
+  add_foreign_key "trading_subscriptions", "trading_published_strategies", column: "published_strategy_id"
+  add_foreign_key "trading_subscriptions", "trading_publisher_follows", column: "publisher_follow_id"
+  add_foreign_key "trading_subscriptions", "trading_strategies", column: "follower_strategy_id"
   add_foreign_key "trading_sweep_proposals", "ai_agent_proposals"
   add_foreign_key "trading_sweep_proposals", "trading_portfolios"
   add_foreign_key "trading_sweep_proposals", "trading_wallet_transactions"

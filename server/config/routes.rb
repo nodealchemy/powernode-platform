@@ -172,6 +172,9 @@ Rails.application.routes.draw do
         # Data retention policies
         resources :data_retention_policies, only: [ :index ]
 
+        # Audit log creation for worker compliance jobs
+        resources :audit_logs, only: [ :create ]
+
         # User data export endpoints
         scope "users/:user_id" do
           get "export/profile", to: "data_exports#user_profile"
@@ -461,6 +464,8 @@ Rails.application.routes.draw do
 
           # Provider listing for health checks (worker → server)
           get "providers", to: "providers#index"
+          post "provider_health_metrics", to: "providers#store_health_metrics"
+          post "providers/sync_all", to: "providers#sync_all"
 
           # Kill switch check (worker → server)
           get "kill_switch/check", to: "kill_switch#check"
