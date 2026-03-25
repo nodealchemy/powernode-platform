@@ -622,10 +622,12 @@ class WorkerJobService
     end
 
     # Enqueue an immediate Session Manager cycle for a single account.
-    def enqueue_session_manager_cycle(account_id)
+    # Pass event_triggered: true for post-completion/failure/pause triggers
+    # to use the shorter event cooldown track (10s vs 45s for cron).
+    def enqueue_session_manager_cycle(account_id, event_triggered: false)
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "TradingSessionManagerCycleJob",
-        "args" => [{ "account_id" => account_id }],
+        "args" => [{ "account_id" => account_id, "event_triggered" => event_triggered }],
         "queue" => "trading_critical"
       })
     end
