@@ -18,7 +18,8 @@ module Ai
             portfolio_type: { type: "string", required: false, description: "Portfolio type: training or live (for create)" },
             trading_mode: { type: "string", required: false, description: "Trading mode: simulation, hybrid, or live" },
             status: { type: "string", required: false, description: "Portfolio status: active, paused, or closed" },
-            total_capital_usd: { type: "number", required: false, description: "Total capital in USD" },
+            paper_capital_usd: { type: "number", required: false, description: "Paper lane capital in USD" },
+            live_capital_usd: { type: "number", required: false, description: "Live lane capital in USD" },
             config: { type: "object", required: false, description: "Portfolio configuration" },
             days: { type: "integer", required: false, description: "Lookback period in days (for performance)" }
           }
@@ -60,7 +61,8 @@ module Ai
             description: "Create a trading portfolio for the current account",
             parameters: {
               name: { type: "string", required: true, description: "Portfolio name" },
-              total_capital_usd: { type: "number", required: true, description: "Total capital in USD" },
+              paper_capital_usd: { type: "number", required: false, description: "Paper lane capital in USD (default: 0)" },
+              live_capital_usd: { type: "number", required: false, description: "Live lane capital in USD (default: 0)" },
               portfolio_type: { type: "string", required: false, description: "Portfolio type: training or live (default: live)" },
               trading_mode: { type: "string", required: false, description: "Trading mode: simulation, hybrid, or live (default: simulation)" },
               config: { type: "object", required: false, description: "Additional portfolio configuration" }
@@ -71,7 +73,8 @@ module Ai
             parameters: {
               portfolio_id: { type: "string", required: false, description: "Portfolio ID (defaults to primary live portfolio)" },
               name: { type: "string", required: false, description: "New portfolio name" },
-              total_capital_usd: { type: "number", required: false, description: "New total capital in USD" },
+              paper_capital_usd: { type: "number", required: false, description: "New paper lane capital in USD" },
+              live_capital_usd: { type: "number", required: false, description: "New live lane capital in USD" },
               trading_mode: { type: "string", required: false, description: "Trading mode: simulation, hybrid, or live" },
               status: { type: "string", required: false, description: "Portfolio status: active, paused, or closed" },
               config: { type: "object", required: false, description: "Portfolio configuration (merged with existing)" }
@@ -87,6 +90,20 @@ module Ai
             description: "Per-strategy compounding state: earnings pool, total compounded, configuration",
             parameters: {
               portfolio_id: { type: "string", required: false, description: "Portfolio ID (defaults to primary live portfolio)" }
+            }
+          },
+          "trading_deposit_capital" => {
+            description: "Deposit virtual capital into a proving ground or training portfolio",
+            parameters: {
+              portfolio_id: { type: "string", required: false, description: "Portfolio ID (defaults to proving ground)" },
+              amount_usd: { type: "number", required: true, description: "Amount to deposit in USD" }
+            }
+          },
+          "trading_withdraw_capital" => {
+            description: "Withdraw virtual capital from a proving ground or training portfolio (limited to available capital)",
+            parameters: {
+              portfolio_id: { type: "string", required: false, description: "Portfolio ID (defaults to proving ground)" },
+              amount_usd: { type: "number", required: true, description: "Amount to withdraw in USD" }
             }
           }
         }
@@ -112,6 +129,8 @@ module Ai
         when "trading_update_portfolio" then update_portfolio(params)
         when "trading_list_wallets" then list_wallets(params)
         when "trading_compounding_summary" then compounding_summary(params)
+        when "trading_deposit_capital" then deposit_capital(params)
+        when "trading_withdraw_capital" then withdraw_capital(params)
         else error_result("Unknown action: #{params[:action]}")
         end
       rescue ActiveRecord::RecordNotFound => e
@@ -150,7 +169,17 @@ module Ai
             allocated_usd: portfolio.allocated_capital_usd.to_f,
             available_usd: portfolio.available_capital_usd.to_f,
             utilization_pct: portfolio.total_capital_usd.to_f > 0 ?
-              (portfolio.allocated_capital_usd.to_f / portfolio.total_capital_usd.to_f * 100).round(2) : 0
+              (portfolio.allocated_capital_usd.to_f / portfolio.total_capital_usd.to_f * 100).round(2) : 0,
+            paper: {
+              capital_usd: portfolio.paper_capital_usd.to_f,
+              allocated_usd: portfolio.paper_allocated_usd.to_f,
+              available_usd: portfolio.paper_available_usd.to_f
+            },
+            live: {
+              capital_usd: portfolio.live_capital_usd.to_f,
+              allocated_usd: portfolio.live_allocated_usd.to_f,
+              available_usd: portfolio.live_available_usd.to_f
+            }
           },
           pnl: {
             total_pnl_usd: portfolio.total_pnl_usd.to_f,
@@ -228,10 +257,18 @@ module Ai
 
         config = (params[:config] || {}).merge("trading_mode" => trading_mode)
 
+        paper_capital = (params[:paper_capital_usd] || 0).to_f
+        live_capital = (params[:live_capital_usd] || 0).to_f
+
         portfolio = Trading::Portfolio.create!(
           account: account,
           name: params[:name],
-          total_capital_usd: params[:total_capital_usd],
+          paper_capital_usd: paper_capital,
+          paper_available_usd: paper_capital,
+          paper_allocated_usd: 0,
+          live_capital_usd: live_capital,
+          live_available_usd: live_capital,
+          live_allocated_usd: 0,
           portfolio_type: portfolio_type,
           config: config,
           status: "active"
@@ -246,7 +283,8 @@ module Ai
         config_updates = {}
 
         attrs[:name] = params[:name] if params[:name].present?
-        attrs[:total_capital_usd] = params[:total_capital_usd] if params[:total_capital_usd]
+        attrs[:paper_capital_usd] = params[:paper_capital_usd] if params[:paper_capital_usd]
+        attrs[:live_capital_usd] = params[:live_capital_usd] if params[:live_capital_usd]
 
         if params[:status].present?
           unless Trading::Portfolio::STATUSES.include?(params[:status])
@@ -316,6 +354,69 @@ module Ai
         })
       end
 
+      def deposit_capital(params)
+        portfolio = resolve_portfolio_for_virtual(params[:portfolio_id])
+        return portfolio if portfolio.is_a?(Hash) # error_result
+
+        amount = params[:amount_usd].to_f
+        return error_result("Amount must be positive") if amount <= 0
+
+        # Virtual portfolios (proving ground, training) use paper lane
+        portfolio.update!(
+          paper_capital_usd: portfolio.paper_capital_usd + amount,
+          paper_available_usd: portfolio.paper_available_usd + amount
+        )
+        portfolio.recalculate_capital!
+
+        success_result({
+          message: "Deposited $#{amount.round(2)} into #{portfolio.name}",
+          portfolio: serialize_portfolio(portfolio.reload)
+        })
+      end
+
+      def withdraw_capital(params)
+        portfolio = resolve_portfolio_for_virtual(params[:portfolio_id])
+        return portfolio if portfolio.is_a?(Hash) # error_result
+
+        amount = params[:amount_usd].to_f
+        return error_result("Amount must be positive") if amount <= 0
+
+        portfolio.recalculate_capital!
+        if amount > portfolio.paper_available_usd.to_f
+          return error_result(
+            "Cannot withdraw $#{amount.round(2)} — only $#{portfolio.paper_available_usd.to_f.round(2)} available " \
+            "($#{portfolio.paper_allocated_usd.to_f.round(2)} allocated to strategies)"
+          )
+        end
+
+        portfolio.update!(
+          paper_capital_usd: portfolio.paper_capital_usd - amount,
+          paper_available_usd: portfolio.paper_available_usd - amount
+        )
+        portfolio.recalculate_capital!
+
+        success_result({
+          message: "Withdrew $#{amount.round(2)} from #{portfolio.name}",
+          portfolio: serialize_portfolio(portfolio.reload)
+        })
+      end
+
+      # Resolve portfolio for deposit/withdraw — defaults to proving_ground, validates virtual_capital
+      def resolve_portfolio_for_virtual(portfolio_id)
+        portfolio = if portfolio_id.present?
+          account.trading_portfolios.find(portfolio_id)
+        else
+          account.trading_portfolios.find_by(portfolio_type: "proving_ground") ||
+            account.trading_portfolios.find_by!(portfolio_type: "live")
+        end
+
+        unless portfolio.virtual_capital?
+          return error_result("Deposits/withdrawals are only available for virtual capital portfolios (proving ground or training)")
+        end
+
+        portfolio
+      end
+
       def serialize_portfolio(portfolio)
         {
           id: portfolio.id,
@@ -326,6 +427,12 @@ module Ai
           total_capital_usd: portfolio.total_capital_usd.to_f,
           allocated_capital_usd: portfolio.allocated_capital_usd.to_f,
           available_capital_usd: portfolio.available_capital_usd.to_f,
+          paper_capital_usd: portfolio.paper_capital_usd.to_f,
+          paper_allocated_usd: portfolio.paper_allocated_usd.to_f,
+          paper_available_usd: portfolio.paper_available_usd.to_f,
+          live_capital_usd: portfolio.live_capital_usd.to_f,
+          live_allocated_usd: portfolio.live_allocated_usd.to_f,
+          live_available_usd: portfolio.live_available_usd.to_f,
           total_pnl_usd: portfolio.total_pnl_usd.to_f,
           total_pnl_pct: portfolio.total_pnl_pct.to_f,
           config: portfolio.config,
