@@ -10,10 +10,10 @@ Rails.application.configure do
   # deadlocks when it acquires an exclusive lock while SSE BodyProxy instances
   # hold the executor state open indefinitely.
   #
-  # Code changes are picked up via Puma's `plugin :tmp_restart` instead —
-  # a file watcher in config/initializers/dev_reloader.rb touches
-  # tmp/restart.txt when .rb files change, triggering a graceful Puma restart.
-  # Autoloading still works (classes load lazily on first use).
+  # Code changes are picked up via Claude Code hooks — a PostToolUse hook
+  # marks services for restart after file edits, and the Stop hook applies
+  # the restart (SIGUSR2 for Puma, full restart for Sidekiq) at the end
+  # of each response turn.
   config.enable_reloading = false
 
   # Do not eager load code on boot (classes autoload lazily as needed).
