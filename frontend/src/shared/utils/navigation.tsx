@@ -4,7 +4,7 @@ import {
   FileText, Package, UserCheck,
   HelpCircle, LogOut, Bot, Brain, Bell,
   HardDrive, Workflow, Server, GitBranch,
-  Puzzle, BookOpen, UserCog, Activity, ShieldCheck,
+  Plug, BookOpen, UserCog, Activity, ShieldCheck,
   Container,
   Play, Rocket
 } from 'lucide-react';
@@ -247,7 +247,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           id: 'connections',
           name: 'Connections',
           href: '/app/devops/connections',
-          icon: Puzzle,
+          icon: Plug,
           description: 'Integrations, webhooks, API keys, and file storage',
           permissions: ['integrations.read', 'webhook.read', 'api.manage_keys', 'admin.storage.read'],
           order: 4
