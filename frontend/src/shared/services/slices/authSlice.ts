@@ -385,7 +385,6 @@ const authSlice = createSlice({
 
       // Refresh token
       .addCase(refreshAccessToken.pending, (state) => {
-        state.isLoading = true;
         state.error = null;
       })
       .addCase(refreshAccessToken.fulfilled, (state, action) => {

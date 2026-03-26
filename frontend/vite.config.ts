@@ -107,7 +107,7 @@ export default defineConfig(({ mode }: { mode: string }) => {
         '.host.docker.internal',
       ],
 
-      hmr: false,
+      hmr: true,
 
       cors: true,
 

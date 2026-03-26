@@ -52,7 +52,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = React.memo(({
   // Show loading spinner while authentication state is being determined
   // CRITICAL: Wait for loading to complete before making redirect decisions
   // But don't wait forever - if we've waited and still no user, redirect to login
-  if (isLoading || (isAuthenticated && !user && !waitedForUser)) {
+  if (!user && (isLoading || (isAuthenticated && !waitedForUser))) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <LoadingSpinner size="lg" />
