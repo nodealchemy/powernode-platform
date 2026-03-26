@@ -39,7 +39,11 @@ module Shared
       # Apply variable defaults from template definition
       merged_variables = apply_defaults
 
-      # Parse and render using Liquid
+      # Parse and render using Liquid (with fallback if gem not loaded)
+      unless defined?(Liquid)
+        return simple_substitute(content, merged_variables)
+      end
+
       liquid_template = Liquid::Template.parse(content)
       liquid_template.render(merged_variables, strict_variables: strict_mode?)
     rescue Liquid::Error => e
@@ -132,6 +136,13 @@ module Shared
 
     def strict_mode?
       options.fetch(:strict, false)
+    end
+
+    # Simple {{ var }} substitution when Liquid gem is unavailable
+    def simple_substitute(content, vars)
+      result = content.dup
+      vars.each { |key, value| result.gsub!("{{ #{key} }}", value.to_s) }
+      result
     end
 
     def handle_render_error(error)

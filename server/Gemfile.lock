@@ -345,6 +345,9 @@ GEM
     konstructor (1.0.2)
     language_server-protocol (3.17.0.5)
     lint_roller (1.1.0)
+    liquid (5.12.0)
+      bigdecimal
+      strscan (>= 3.1.1)
     llhttp (0.6.1)
     logger (1.7.0)
     lograge (0.14.0)
@@ -704,6 +707,7 @@ GEM
       ostruct
     stringio (3.2.0)
     stripe (18.4.2)
+    strscan (3.1.7)
     sys-filesystem (1.5.5)
       ffi (~> 1.1)
     thor (1.5.0)
@@ -788,6 +792,7 @@ DEPENDENCIES
   jwt
   kamal
   kaminari
+  liquid (~> 5.4)
   lograge (~> 0.14)
   logstash-event (~> 1.2)
   marcel (~> 1.0)

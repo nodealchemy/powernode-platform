@@ -156,6 +156,7 @@ gem "rqrcode", "~> 2.2"
 
 gem "redis", "~> 5.4"
 gem "neighbor"
+gem "liquid", "~> 5.4"
 
 # Error tracking and monitoring
 gem "sentry-ruby", "~> 5.17"
