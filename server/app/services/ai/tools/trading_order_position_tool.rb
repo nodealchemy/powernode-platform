@@ -105,9 +105,13 @@ module Ai
       private
 
       def list_positions(params)
-        scope = portfolio_positions
+        if params[:strategy_id].present?
+          strategy = resolve_strategy(params[:strategy_id])
+          scope = strategy.positions
+        else
+          scope = portfolio_positions
+        end
         scope = scope.where(status: params[:status]) if params[:status].present?
-        scope = filter_by_strategy(scope, params[:strategy_id])
 
         success_result({
           positions: scope.order(opened_at: :desc).limit(50).map { |p| serialize_position(p) },
@@ -167,9 +171,13 @@ module Ai
       end
 
       def list_orders(params)
-        scope = portfolio_orders
+        if params[:strategy_id].present?
+          strategy = resolve_strategy(params[:strategy_id])
+          scope = strategy.orders
+        else
+          scope = portfolio_orders
+        end
         scope = scope.where(status: params[:status]) if params[:status].present?
-        scope = filter_by_strategy(scope, params[:strategy_id])
 
         success_result({
           orders: scope.order(created_at: :desc).limit(50).map { |o| serialize_order(o) },
@@ -194,13 +202,13 @@ module Ai
       end
 
       def list_trades(params)
-        portfolio = resolve_portfolio
-        scope = Trading::Trade.joins(order: :strategy)
-          .where(trading_strategies: { trading_portfolio_id: portfolio.id })
-
         if params[:strategy_id].present?
           strategy = resolve_strategy(params[:strategy_id])
-          scope = scope.where(trading_orders: { trading_strategy_id: strategy.id })
+          scope = strategy.trades
+        else
+          portfolio = resolve_portfolio
+          scope = Trading::Trade.joins(order: :strategy)
+            .where(trading_strategies: { trading_portfolio_id: portfolio.id })
         end
 
         limit = (params[:limit] || 50).to_i.clamp(1, 200)

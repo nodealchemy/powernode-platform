@@ -197,13 +197,13 @@ module Ai
       end
 
       def list_signals(params)
-        portfolio = resolve_portfolio
-        scope = Trading::Signal.joins(:strategy)
-          .where(trading_strategies: { trading_portfolio_id: portfolio.id })
-
         if params[:strategy_id].present?
           strategy = resolve_strategy(params[:strategy_id])
-          scope = scope.where(trading_strategy_id: strategy.id)
+          scope = strategy.signals
+        else
+          portfolio = resolve_portfolio
+          scope = Trading::Signal.joins(:strategy)
+            .where(trading_strategies: { trading_portfolio_id: portfolio.id })
         end
 
         limit = (params[:limit] || 20).to_i.clamp(1, 100)
