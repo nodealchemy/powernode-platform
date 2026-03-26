@@ -252,8 +252,13 @@ class BaseJob
     # Count total executions in the last 5 minutes
     total_count = recent_executions.count { |timestamp| (now - timestamp) <= failure_window }
 
-    # Detect runaway loop conditions
-    if recent_count >= 5 # More than 5 executions in 1 minute
+    # Detect runaway loop conditions.
+    # Subclasses can override thresholds via RUNAWAY_LOOP_THRESHOLD / RUNAWAY_LOOP_WARN_THRESHOLD
+    # constants (e.g., continuous self-scheduling jobs need higher limits).
+    threshold_min = self.class.const_defined?(:RUNAWAY_LOOP_THRESHOLD) ? self.class::RUNAWAY_LOOP_THRESHOLD : 5
+    threshold_5min = self.class.const_defined?(:RUNAWAY_LOOP_WARN_THRESHOLD) ? self.class::RUNAWAY_LOOP_WARN_THRESHOLD : 15
+
+    if recent_count >= threshold_min
       logger.error "RUNAWAY LOOP DETECTED: #{recent_count} executions of #{self.class.name} in last #{recent_window}s"
       logger.error "Job args: #{args.inspect}"
       logger.error "Recent timestamps: #{recent_executions.last(10).inspect}"
@@ -261,7 +266,7 @@ class BaseJob
       Sidekiq.redis { |conn| conn.set("job_disabled:#{job_key}", "runaway_loop_detected", ex: 300) }
 
       raise StandardError, "Runaway loop detected: #{recent_count} executions in #{recent_window}s. Job disabled for 5 minutes."
-    elsif total_count >= 15 # More than 15 executions in 5 minutes
+    elsif total_count >= threshold_5min
       logger.warn "HIGH FREQUENCY EXECUTION: #{total_count} executions of #{self.class.name} in last #{failure_window}s"
       logger.warn "Job args: #{args.inspect}"
 
