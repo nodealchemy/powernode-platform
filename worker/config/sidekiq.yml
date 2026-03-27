@@ -457,5 +457,16 @@
       queue: ai_orchestration
       description: 'Detect potential collusion patterns between agent pairs'
 
+    # Codebase intelligence: incremental re-index to pick up file changes
+    ai_codebase_reindex:
+      cron: '0 */6 * * *'  # Every 6 hours
+      class: AiCodebaseIndexJob
+      queue: default
+      args:
+        - account_id: null  # Resolved at runtime from system worker
+          base_path: '/home/rett/Drive/Projects/powernode-platform'
+          incremental: true
+      description: 'Incremental re-index of platform codebase for code intelligence tools'
+
     # NOTE: Trading scheduled jobs have been moved to the trading extension:
     # extensions/trading/worker/config/sidekiq_trading.yml
