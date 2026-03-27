@@ -27,8 +27,10 @@ Before writing any code:
 | Task | MCP Query |
 |------|-----------|
 | Models or migrations | `platform.search_knowledge_graph` — entity relationships, column conventions, FK patterns |
-| Services | `platform.discover_skills` + `platform.search_knowledge` — existing service patterns, reusable capabilities |
+| Services | `platform.discover_skills` + `platform.code_semantic_search` — find existing services by meaning before creating new ones |
 | Controllers or API endpoints | `platform.query_learnings` — API anti-patterns, response format gotchas |
+| Refactoring shared code | `platform.code_blast_radius` — trace all files affected before renaming/moving symbols |
+| Understanding unfamiliar code | `platform.code_file_skeleton` + `platform.code_context_tree` — structure without reading every line |
 | MCP tools or actions | `platform.search_knowledge` query: "MCP tool schema" |
 | Permission logic | `platform.search_knowledge` query: "permission system" |
 | AI agent features | `platform.search_knowledge_graph` query: "AI orchestration" |
@@ -44,8 +46,10 @@ Before writing any code:
 ### During Work
 
 - **Before new associations**: `platform.search_knowledge_graph` for existing entity relationships to avoid duplication
-- **Before new service patterns**: `platform.query_learnings` category: `pattern` — check if the pattern is established or has known issues
+- **Before new service patterns**: `platform.query_learnings` category: `pattern` + `platform.code_semantic_search` — check if the pattern exists or has known issues
 - **Before adding gems**: `platform.query_learnings` query: "gem name" — check for known integration gotchas
+- **Before refactoring**: `platform.code_blast_radius` — understand full impact before changing shared symbols
+- **Before adding files**: `platform.code_context_tree` — understand directory structure and naming conventions
 
 ### After Work (MANDATORY for non-trivial changes)
 
@@ -72,7 +76,7 @@ Query MCP first. Use these files when MCP returns no relevant results:
 
 ## Backend MCP Tool Reference
 
-All 166 actions grouped by subsystem. Full parameter docs: [MCP_TOOL_CATALOG.md](../docs/platform/MCP_TOOL_CATALOG.md).
+All 180 actions grouped by subsystem. Full parameter docs: [MCP_TOOL_CATALOG.md](../docs/platform/MCP_TOOL_CATALOG.md).
 
 | Subsystem | Tools (all `platform.*`) |
 |-----------|--------------------------|
@@ -90,6 +94,9 @@ All 166 actions grouped by subsystem. Full parameter docs: [MCP_TOOL_CATALOG.md]
 | Quality | `verify_learning`, `dispute_learning`, `resolve_contradiction`, `rate_knowledge`, `knowledge_health` |
 | Skills | `list_skills`, `get_skill`, `discover_skills`, `get_skill_context`, `skill_health`, `skill_metrics`, `create_skill`, `update_skill`, `delete_skill`, `toggle_skill` |
 | Graph | `search_knowledge_graph`, `reason_knowledge_graph`, `get_graph_node`, `list_graph_nodes`, `get_graph_neighbors`, `graph_statistics`, `get_subgraph`, `extract_to_knowledge_graph` |
+| Codebase Discovery | `code_context_tree`, `code_file_skeleton`, `code_semantic_search`, `code_identifier_search`, `code_semantic_navigate`, `code_feature_hub` |
+| Codebase Analysis | `code_blast_radius`, `code_static_analysis`, `code_index_status` |
+| Codebase Memory | `code_upsert_node`, `code_create_relation`, `code_search_graph`, `code_prune_stale`, `code_bulk_index` |
 | Autonomy | `emergency_halt`, `emergency_resume`, `kill_switch_status`, `create_agent_goal`, `list_agent_goals`, `update_agent_goal`, `agent_introspect`, `propose_feature`, `send_proactive_notification`, `discover_claude_sessions`, `request_code_change`, `create_proposal`, `escalate`, `request_feedback`, `report_issue` |
 | Workspace | `send_message`, `list_messages`, `list_conversations`, `get_conversation_messages`, `send_concierge_message`, `confirm_concierge_action` |
 | Monitoring | `get_activity_feed`, `recent_events`, `get_notifications`, `dismiss_notification`, `get_mission_status`, `integration_health` |

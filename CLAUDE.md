@@ -93,7 +93,7 @@ user.role === 'manager'
 ### Design Principles
 | Principle | Rule |
 |-----------|------|
-| Reuse First | `platform.discover_skills` + `platform.search_knowledge` before proposing anything new — never standalone/greenfield when infrastructure exists |
+| Reuse First | `platform.discover_skills` + `platform.search_knowledge` + `platform.code_semantic_search` before proposing anything new — never standalone/greenfield when infrastructure exists |
 | Quality Gates | Run `cd frontend && npx tsc --noEmit` after TS changes, verify Ruby syntax after .rb changes |
 | Verify Seeds | After seed modifications: `cd server && rails db:seed` — watch for association/validation errors |
 | Stop & Ask | **HARD RULE**: After 3 failed attempts at the same fix, STOP immediately and ask the user. Do NOT try a 4th approach, do NOT continue iterating, do NOT try workarounds. Present what you tried and ask for guidance |
@@ -170,6 +170,7 @@ cd frontend && CI=true npm test
 | UUID System | `platform.search_knowledge` query: "UUID system" | [UUID_SYSTEM_IMPLEMENTATION.md](docs/platform/UUID_SYSTEM_IMPLEMENTATION.md) |
 | Workflow System | `platform.search_knowledge` query: "workflow system" | [WORKFLOW_SYSTEM_STANDARDS.md](docs/platform/WORKFLOW_SYSTEM_STANDARDS.md) |
 | Architecture | `platform.search_knowledge_graph` query: "platform architecture" | [DEVELOPMENT.md](docs/DEVELOPMENT.md) |
+| Codebase Structure | `platform.code_context_tree` / `platform.code_semantic_search` | [MCP_TOOL_CATALOG.md](docs/platform/MCP_TOOL_CATALOG.md) |
 | Learnings & Patterns | `platform.query_learnings` | [LEARNINGS.md](docs/platform/knowledge/LEARNINGS.md) |
 | Shared Knowledge | `platform.search_knowledge` | [KNOWLEDGE.md](docs/platform/knowledge/KNOWLEDGE.md) |
 | Skills Registry | `platform.discover_skills` | [SKILLS.md](docs/platform/knowledge/SKILLS.md) |
@@ -186,6 +187,7 @@ The Powernode MCP server (`platform.*` tools) is the **primary knowledge source*
 1. Run `platform.knowledge_health` — establish baseline, identify stale/conflicting knowledge
 2. Run `platform.learning_metrics` — check active learnings count, recent contributions
 3. If stale_count > 0 or conflicts detected, note them for resolution during the session
+4. Run `platform.code_index_status` with `repository_id: "powernode-platform"` — check codebase index freshness and stale file count
 
 ### BEFORE EVERY CODE CHANGE (MANDATORY)
 
@@ -194,9 +196,14 @@ The Powernode MCP server (`platform.*` tools) is the **primary knowledge source*
    - `platform.search_knowledge` — procedures, code snippets, reference material
    - `platform.search_knowledge_graph` — entity relationships, architecture decisions
    - `platform.discover_skills` — reusable capabilities matching the task
-2. **Apply discovered knowledge** to your implementation approach
-3. **Fall back to file scanning** only when MCP returns no relevant results
-4. **Feed file-scan discoveries back** into MCP (see "After Every Task")
+   - `platform.code_semantic_search` — find related code by meaning (e.g., "authentication middleware")
+   - `platform.code_identifier_search` — find specific classes/methods/functions by name
+2. **Understand impact** before modifying:
+   - `platform.code_blast_radius` — trace every file affected by changing a symbol
+   - `platform.code_file_skeleton` — review structure of files you're about to modify
+3. **Apply discovered knowledge** to your implementation approach
+4. **Fall back to file scanning** only when MCP returns no relevant results
+5. **Feed file-scan discoveries back** into MCP (see "After Every Task")
 
 ### DURING WORK (Active Reinforcement)
 
@@ -204,6 +211,8 @@ The Powernode MCP server (`platform.*` tools) is the **primary knowledge source*
 - **When using shared knowledge**: Call `platform.rate_knowledge` (4-5 if helpful, 1-2 if outdated) — this feeds quality scores
 - **Pattern verification**: Before introducing a new pattern, check `platform.query_learnings`
 - **Architecture context**: Before cross-cutting changes, check `platform.search_knowledge_graph`
+- **Code structure**: Use `platform.code_context_tree` to understand directory layout before adding files
+- **Impact analysis**: Use `platform.code_blast_radius` before renaming or refactoring shared symbols
 - **Memory context**: Use `platform.search_memory` to retrieve agent working memory relevant to the current task
 - **API context**: Use `platform.get_api_reference` to look up endpoint contracts before writing integration code
 - **Conflict resolution**: If you find two conflicting learnings, resolve with `platform.resolve_contradiction` immediately
@@ -383,6 +392,24 @@ All `platform.*` tools organized by development task. Full parameter docs: [MCP_
 | `escalate` | Structured escalation when stuck or encountering issues |
 | `request_feedback` | Request user feedback on completed work |
 | `report_issue` | Report a detected platform issue |
+
+### Codebase Intelligence (14 tools)
+| Tool | Description |
+|------|-------------|
+| `code_context_tree` | AST-based structural tree with file headers and symbol ranges (depth-pruned) |
+| `code_file_skeleton` | Function signatures, class methods, type definitions with line ranges (no bodies) |
+| `code_semantic_search` | Semantic search over code symbols using embeddings — finds code by meaning |
+| `code_identifier_search` | Search identifiers (functions, classes, variables) by name with usage counts |
+| `code_semantic_navigate` | Browse codebase by meaning using semantic clustering with labeled groups |
+| `code_feature_hub` | Obsidian-style feature navigation from markdown `[[wikilinks]]` |
+| `code_blast_radius` | Trace every file and line where a symbol is imported or used — impact analysis |
+| `code_static_analysis` | Run native linters/compilers (RuboCop, TypeScript, ESLint) with structured output |
+| `code_index_status` | Codebase index statistics: files indexed, symbols, staleness, embedding coverage |
+| `code_upsert_node` | Create/update a code-aware knowledge graph node with auto-embedding |
+| `code_create_relation` | Create typed edges between code nodes (imports, calls, inherits, etc.) |
+| `code_search_graph` | Search code graph with optional multi-hop traversal |
+| `code_prune_stale` | Find/archive nodes for files that no longer exist (dry_run supported) |
+| `code_bulk_index` | Trigger codebase indexing — AST parse, create KG nodes/edges, generate embeddings |
 
 ### DevOps & CI/CD (6 tools)
 | Tool | Description |
