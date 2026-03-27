@@ -9,6 +9,7 @@ module Ai
       created_by used_by located_in similar_to
       causes precedes follows custom
       requires enhances composes succeeds uses
+      imports calls defines inherits implements contains
     ].freeze
 
     # Associations

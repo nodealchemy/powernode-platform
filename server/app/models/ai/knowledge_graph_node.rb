@@ -6,8 +6,11 @@ module Ai
 
     has_neighbors :embedding
 
-    NODE_TYPES = %w[entity concept relation attribute].freeze
-    ENTITY_TYPES = %w[person organization technology event location skill agent team custom].freeze
+    NODE_TYPES = %w[entity concept relation attribute code_entity].freeze
+    ENTITY_TYPES = %w[
+      person organization technology event location skill agent team custom
+      file directory class module method function variable type_definition interface constant
+    ].freeze
     STATUSES = %w[active merged archived].freeze
 
     # Associations
@@ -38,6 +41,8 @@ module Ai
     scope :search_by_name, ->(query) { where("name ILIKE ?", "%#{sanitize_sql_like(query)}%") }
     scope :skill_nodes, -> { where(entity_type: "skill") }
     scope :for_skill, ->(skill_id) { where(ai_skill_id: skill_id) }
+    scope :code_entities, -> { where(node_type: "code_entity") }
+    scope :for_project, ->(kb_id) { code_entities.for_knowledge_base(kb_id) }
 
     # Get all edges (both incoming and outgoing)
     def edges
