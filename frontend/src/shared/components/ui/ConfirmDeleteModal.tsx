@@ -1,7 +1,7 @@
 import React from 'react';
 import { AlertTriangle, X } from 'lucide-react';
-import { Button } from './Button';
-import { LoadingSpinner } from './LoadingSpinner';
+import { Button } from '@/shared/components/ui/Button';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 
 interface ConfirmDeleteModalProps {
   isOpen: boolean;
