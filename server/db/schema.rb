@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_26_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_26_140001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -11171,10 +11171,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_26_000001) do
     t.jsonb "permissions", default: {}
     t.uuid "trading_portfolio_id", null: false
     t.uuid "trading_venue_id", null: false
+    t.uuid "trading_wallet_id"
     t.datetime "updated_at", null: false
     t.index ["trading_portfolio_id", "trading_venue_id"], name: "idx_trading_venue_creds_portfolio_venue", unique: true
     t.index ["trading_portfolio_id"], name: "index_trading_venue_credentials_on_trading_portfolio_id"
     t.index ["trading_venue_id"], name: "index_trading_venue_credentials_on_trading_venue_id"
+    t.index ["trading_wallet_id"], name: "index_trading_venue_credentials_on_trading_wallet_id"
   end
 
   create_table "trading_venue_withdrawal_rules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -12673,6 +12675,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_26_000001) do
   add_foreign_key "trading_training_sessions", "trading_training_sessions", column: "parent_session_id"
   add_foreign_key "trading_venue_credentials", "trading_portfolios"
   add_foreign_key "trading_venue_credentials", "trading_venues"
+  add_foreign_key "trading_venue_credentials", "trading_wallets"
   add_foreign_key "trading_venue_withdrawal_rules", "trading_portfolios"
   add_foreign_key "trading_venue_withdrawal_rules", "trading_venues"
   add_foreign_key "trading_venue_withdrawal_rules", "trading_wallets"
