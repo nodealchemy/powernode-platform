@@ -49,6 +49,38 @@ module Ai
             parameters: {
               repository_id: { type: "string", required: true, description: "Git repository ID, name, or full_name" }
             }
+          },
+          "code_dead_code" => {
+            description: "Find unreferenced, orphaned, or dead code in the codebase. Scores candidates by usage, connections, and recency.",
+            parameters: {
+              repository_id: { type: "string", required: true, description: "Git repository ID, name, or full_name" },
+              entity_types: { type: "array", required: false, description: "Filter: method, function, class (default: method, function, class)" },
+              scope_path: { type: "string", required: false, description: "Limit to files under this path prefix (e.g. 'extensions/trading')" },
+              min_score: { type: "number", required: false, description: "Minimum deadness score 0-1 (default: 0.5)" },
+              top_k: { type: "integer", required: false, description: "Max results (default: 50)" }
+            }
+          },
+          "code_find_duplicates" => {
+            description: "Find semantically duplicate code using embedding similarity. Groups duplicates and recommends which to keep.",
+            parameters: {
+              repository_id: { type: "string", required: true, description: "Git repository ID, name, or full_name" },
+              threshold: { type: "number", required: false, description: "Similarity threshold 0-1 (default: 0.95)" },
+              entity_types: { type: "array", required: false, description: "Filter: method, function, class (default: method, function)" },
+              scope_path: { type: "string", required: false, description: "Limit to files under this path prefix" },
+              top_k: { type: "integer", required: false, description: "Max duplicate groups (default: 30)" }
+            }
+          },
+          "code_analyze_section" => {
+            description: "Run focused dead code + duplicate analysis on a codebase section. Omit section to auto-discover sections. Use scope_path to limit discovery to a subtree.",
+            parameters: {
+              repository_id: { type: "string", required: true, description: "Git repository ID, name, or full_name" },
+              section: { type: "string", required: false, description: "Section path to analyze (e.g. 'server/app/models', 'frontend/src/features'). Omit to list available sections." },
+              scope_path: { type: "string", required: false, description: "Limit section discovery to a subtree (e.g. 'server/app/services', 'frontend/src')" },
+              dead_code: { type: "boolean", required: false, description: "Run dead code detection (default: true)" },
+              duplicates: { type: "boolean", required: false, description: "Run duplicate detection (default: true)" },
+              duplicate_threshold: { type: "number", required: false, description: "Similarity threshold for duplicates (default: 0.92)" },
+              min_dead_score: { type: "number", required: false, description: "Minimum deadness score (default: 0.5)" }
+            }
           }
         }
       end
@@ -60,6 +92,9 @@ module Ai
         when "blast_radius" then blast_radius(params)
         when "static_analysis" then static_analysis(params)
         when "index_status" then index_status(params)
+        when "dead_code" then dead_code(params)
+        when "find_duplicates" then find_duplicates(params)
+        when "analyze_section" then analyze_section(params)
         else { success: false, error: "Unknown action: #{params[:action]}" }
         end
       rescue ActiveRecord::RecordNotFound => e
@@ -136,6 +171,53 @@ module Ai
                                              .joins(:source_node).where(ai_knowledge_graph_nodes: { knowledge_base_id: kb.id }).count
           }
         }
+      end
+
+      def dead_code(params)
+        return { success: false, error: "repository_id is required" } if params[:repository_id].blank?
+
+        _repo, kb, _bp = resolve_project_context(params)
+
+        service = Ai::Codebase::DeadCodeDetectionService.new(account: account, knowledge_base: kb)
+        service.detect(
+          entity_types: params[:entity_types]&.map(&:to_s),
+          scope_path: params[:scope_path],
+          min_score: (params[:min_score] || 0.5).to_f,
+          top_k: (params[:top_k] || 50).to_i
+        )
+      end
+
+      def find_duplicates(params)
+        return { success: false, error: "repository_id is required" } if params[:repository_id].blank?
+
+        _repo, kb, _bp = resolve_project_context(params)
+
+        service = Ai::Codebase::DuplicateDetectionService.new(account: account, knowledge_base: kb)
+        service.detect(
+          threshold: (params[:threshold] || 0.95).to_f,
+          entity_types: params[:entity_types]&.map(&:to_s),
+          scope_path: params[:scope_path],
+          top_k: (params[:top_k] || 30).to_i
+        )
+      end
+
+      def analyze_section(params)
+        return { success: false, error: "repository_id is required" } if params[:repository_id].blank?
+
+        _repo, kb, _bp = resolve_project_context(params)
+        service = Ai::Codebase::SectionedAnalysisService.new(account: account, knowledge_base: kb)
+
+        if params[:section].blank?
+          return service.list_sections(scope_path: params[:scope_path])
+        end
+
+        service.analyze_section(
+          section: params[:section],
+          dead_code: params[:dead_code] != false,
+          duplicates: params[:duplicates] != false,
+          duplicate_threshold: (params[:duplicate_threshold] || 0.92).to_f,
+          min_dead_score: (params[:min_dead_score] || 0.5).to_f
+        )
       end
     end
   end

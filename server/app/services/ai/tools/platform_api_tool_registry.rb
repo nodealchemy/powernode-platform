@@ -335,6 +335,9 @@ module Ai
         "code_blast_radius" => "Ai::Tools::CodeAnalysisTool",
         "code_static_analysis" => "Ai::Tools::CodeAnalysisTool",
         "code_index_status" => "Ai::Tools::CodeAnalysisTool",
+        "code_dead_code" => "Ai::Tools::CodeAnalysisTool",
+        "code_find_duplicates" => "Ai::Tools::CodeAnalysisTool",
+        "code_analyze_section" => "Ai::Tools::CodeAnalysisTool",
         # Codebase Intelligence — Memory
         "code_upsert_node" => "Ai::Tools::CodeMemoryTool",
         "code_create_relation" => "Ai::Tools::CodeMemoryTool",
