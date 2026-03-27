@@ -16,7 +16,22 @@ module Ai
         "get_graph_neighbors" => "get_neighbors",
         "graph_statistics" => "statistics",
         "get_subgraph" => "subgraph",
-        "extract_to_knowledge_graph" => "extract"
+        "extract_to_knowledge_graph" => "extract",
+        # Codebase Intelligence
+        "code_context_tree" => "context_tree",
+        "code_file_skeleton" => "file_skeleton",
+        "code_semantic_search" => "semantic_search",
+        "code_identifier_search" => "identifier_search",
+        "code_semantic_navigate" => "semantic_navigate",
+        "code_feature_hub" => "feature_hub",
+        "code_blast_radius" => "blast_radius",
+        "code_static_analysis" => "static_analysis",
+        "code_index_status" => "index_status",
+        "code_upsert_node" => "upsert_node",
+        "code_create_relation" => "create_relation",
+        "code_search_graph" => "search_graph",
+        "code_prune_stale" => "prune_stale",
+        "code_bulk_index" => "bulk_index"
       }.freeze
 
       class << self

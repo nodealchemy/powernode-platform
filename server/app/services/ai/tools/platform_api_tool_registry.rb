@@ -323,7 +323,24 @@ module Ai
         "trading_get_evolution_epoch" => "Ai::Tools::TradingEvolutionTool",
         "trading_evolution_leaderboard" => "Ai::Tools::TradingEvolutionTool",
         "trading_trigger_evolution" => "Ai::Tools::TradingEvolutionTool",
-        "trading_list_audit_logs" => "Ai::Tools::TradingEvolutionTool"
+        "trading_list_audit_logs" => "Ai::Tools::TradingEvolutionTool",
+        # Codebase Intelligence — Discovery
+        "code_context_tree" => "Ai::Tools::CodeDiscoveryTool",
+        "code_file_skeleton" => "Ai::Tools::CodeDiscoveryTool",
+        "code_semantic_search" => "Ai::Tools::CodeDiscoveryTool",
+        "code_identifier_search" => "Ai::Tools::CodeDiscoveryTool",
+        "code_semantic_navigate" => "Ai::Tools::CodeDiscoveryTool",
+        "code_feature_hub" => "Ai::Tools::CodeDiscoveryTool",
+        # Codebase Intelligence — Analysis
+        "code_blast_radius" => "Ai::Tools::CodeAnalysisTool",
+        "code_static_analysis" => "Ai::Tools::CodeAnalysisTool",
+        "code_index_status" => "Ai::Tools::CodeAnalysisTool",
+        # Codebase Intelligence — Memory
+        "code_upsert_node" => "Ai::Tools::CodeMemoryTool",
+        "code_create_relation" => "Ai::Tools::CodeMemoryTool",
+        "code_search_graph" => "Ai::Tools::CodeMemoryTool",
+        "code_prune_stale" => "Ai::Tools::CodeMemoryTool",
+        "code_bulk_index" => "Ai::Tools::CodeMemoryTool"
       }.freeze
 
       def self.available_tools(agent: nil)
