@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_25_140001) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_26_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -2320,6 +2320,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_25_140001) do
     t.integer "embedding_dimensions", default: 1536
     t.string "embedding_model", default: "text-embedding-3-small", null: false
     t.string "embedding_provider", default: "openai", null: false
+    t.uuid "git_repository_id"
     t.boolean "is_public", default: false, null: false
     t.datetime "last_indexed_at"
     t.datetime "last_queried_at"
@@ -2333,6 +2334,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_25_140001) do
     t.index ["account_id", "name"], name: "index_ai_knowledge_bases_on_account_id_and_name", unique: true
     t.index ["account_id"], name: "index_ai_knowledge_bases_on_account_id"
     t.index ["created_by_id"], name: "index_ai_knowledge_bases_on_created_by_id"
+    t.index ["git_repository_id"], name: "index_ai_knowledge_bases_on_git_repository_id"
     t.index ["is_public"], name: "index_ai_knowledge_bases_on_is_public"
     t.index ["status"], name: "index_ai_knowledge_bases_on_status"
     t.check_constraint "chunking_strategy::text = ANY (ARRAY['recursive'::character varying::text, 'semantic'::character varying::text, 'fixed'::character varying::text, 'sentence'::character varying::text, 'paragraph'::character varying::text, 'custom'::character varying::text])", name: "check_kb_chunking_strategy"
@@ -2386,17 +2388,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_25_140001) do
     t.string "status", default: "active"
     t.datetime "updated_at", null: false
     t.index ["account_id", "ai_skill_id"], name: "idx_kg_nodes_unique_active_skill", unique: true, where: "((ai_skill_id IS NOT NULL) AND ((status)::text = 'active'::text))"
+    t.index ["account_id", "entity_type", "knowledge_base_id"], name: "idx_kg_nodes_code_entities", where: "(((node_type)::text = 'code_entity'::text) AND ((status)::text = 'active'::text))"
     t.index ["account_id", "name", "node_type"], name: "index_ai_kg_nodes_unique_active", unique: true, where: "((status)::text = 'active'::text)"
     t.index ["account_id"], name: "index_ai_knowledge_graph_nodes_on_account_id"
     t.index ["embedding"], name: "index_ai_knowledge_graph_nodes_on_embedding", opclass: :vector_cosine_ops, using: :hnsw
     t.index ["entity_type"], name: "index_ai_knowledge_graph_nodes_on_entity_type"
     t.index ["knowledge_base_id"], name: "index_ai_knowledge_graph_nodes_on_knowledge_base_id"
     t.index ["last_event_processed_at"], name: "index_ai_knowledge_graph_nodes_on_last_event_processed_at"
+    t.index ["metadata"], name: "idx_kg_nodes_code_metadata", where: "((node_type)::text = 'code_entity'::text)", using: :gin
     t.index ["name"], name: "index_ai_kg_nodes_on_name"
     t.index ["node_type"], name: "index_ai_knowledge_graph_nodes_on_node_type"
     t.index ["path"], name: "index_ai_knowledge_graph_nodes_on_path", using: :gist
     t.index ["status"], name: "index_ai_knowledge_graph_nodes_on_status"
-    t.check_constraint "node_type::text = ANY (ARRAY['entity'::character varying, 'concept'::character varying, 'relation'::character varying, 'attribute'::character varying]::text[])", name: "check_ai_kg_node_type"
+    t.check_constraint "node_type::text = ANY (ARRAY['entity'::character varying, 'concept'::character varying, 'relation'::character varying, 'attribute'::character varying, 'code_entity'::character varying]::text[])", name: "check_ai_kg_node_type"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'merged'::character varying, 'archived'::character varying]::text[])", name: "check_ai_kg_node_status"
   end
 
@@ -11939,6 +11943,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_25_140001) do
   add_foreign_key "ai_kill_switch_events", "accounts"
   add_foreign_key "ai_kill_switch_events", "users", column: "triggered_by_id"
   add_foreign_key "ai_knowledge_bases", "accounts"
+  add_foreign_key "ai_knowledge_bases", "git_repositories"
   add_foreign_key "ai_knowledge_bases", "users", column: "created_by_id"
   add_foreign_key "ai_knowledge_graph_edges", "accounts"
   add_foreign_key "ai_knowledge_graph_edges", "ai_documents", column: "source_document_id"
