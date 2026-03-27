@@ -205,6 +205,11 @@ Rails.application.routes.draw do
           delete :data_deletion_requests, to: "accounts#delete_data_deletion_requests"
         end
 
+        # Codebase intelligence indexing
+        scope :codebase do
+          post :index, to: "codebase#index_codebase"
+        end
+
         # Internal services namespace for worker service communication
         namespace :services do
           post :health_check
