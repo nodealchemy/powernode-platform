@@ -57,6 +57,7 @@ Sidekiq.configure_server do |config|
       TradingTrainingSessionRunnerJob.perform_async if defined?(TradingTrainingSessionRunnerJob)
       TradingSessionManagerCycleJob.perform_async if defined?(TradingSessionManagerCycleJob)
       TradingPortfolioManagerCycleJob.perform_async if defined?(TradingPortfolioManagerCycleJob)
+      TradingProvingGroundManagerCycleJob.perform_async if defined?(TradingProvingGroundManagerCycleJob)
     rescue StandardError => e
       PowernodeWorker.logger.warn("[StartupHook] Startup recovery dispatch failed: #{e.message}")
     end
