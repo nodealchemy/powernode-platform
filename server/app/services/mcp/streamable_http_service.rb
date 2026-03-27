@@ -185,7 +185,7 @@ module Mcp
   def build_http_client(uri)
     http = Net::HTTP.new(uri.host, uri.port)
     http.use_ssl = uri.scheme == "https"
-    http.read_timeout = 60
+    http.read_timeout = 300
     http.open_timeout = 10
 
     # For SSE, we need to handle chunked responses
