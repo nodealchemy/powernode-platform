@@ -90,6 +90,17 @@ user.role === 'manager'
 | Eager Loading | Always use `.includes()` when iterating associations — never bare `.all` followed by `.map`/`.each` accessing relations |
 | Webhook Receivers | Inbound webhooks MUST return 200/202 on processing errors — NEVER 500 (causes provider retry storms) |
 
+### Cryptographic Material Safety (ABSOLUTE RULES)
+| Rule | Details |
+|------|---------|
+| No key output | **NEVER** output, log, display, echo, or transmit private keys, API secrets, seed phrases, mnemonics, or signing material in any form |
+| No keys in code | **NEVER** store keys, secrets, or credentials in source code files, scripts, configs, environment files, or documentation |
+| No CLI key generation | **NEVER** generate private keys via CLI commands (rails runner, rake, irb) where they could appear in shell history |
+| Vault-only storage | ALL key generation MUST happen inside Vault or WalletKeyService (which stores directly to Vault) |
+| Audit all key ops | ALL key operations (generate, import, revoke, sign) MUST be logged to Trading::AuditLog |
+| No key arguments in logs | **NEVER** pass private keys as function arguments that could appear in logs, error messages, or exception traces |
+| Guide, don't handle | When assisting with wallet setup, guide the user through the UI/API — never handle key material directly |
+
 ### Design Principles
 | Principle | Rule |
 |-----------|------|
