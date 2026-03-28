@@ -22,7 +22,7 @@ module Ai
       trading.backtest_strategy trading.advance_backtest
       trading.fast_track_strategy
       trading.modify_schedule
-      trading.release_held_session
+      trading.release_held_session trading.graduate_to_live trading.chain_session
       *
     ].freeze
 
