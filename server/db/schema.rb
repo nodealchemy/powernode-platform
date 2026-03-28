@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_26_140001) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_28_131513) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10726,10 +10726,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_26_140001) do
     t.decimal "live_allocated_usd", precision: 19, scale: 2, default: "0.0", null: false
     t.decimal "live_available_usd", precision: 19, scale: 2, default: "0.0", null: false
     t.decimal "live_capital_usd", precision: 19, scale: 2, default: "0.0", null: false
+    t.decimal "live_realized_pnl_usd", precision: 18, scale: 4, default: "0.0", null: false
     t.string "name", default: "Default Portfolio", null: false
     t.decimal "paper_allocated_usd", precision: 19, scale: 2, default: "0.0", null: false
     t.decimal "paper_available_usd", precision: 19, scale: 2, default: "0.0", null: false
     t.decimal "paper_capital_usd", precision: 19, scale: 2, default: "0.0", null: false
+    t.decimal "paper_realized_pnl_usd", precision: 18, scale: 4, default: "0.0", null: false
     t.string "portfolio_type", default: "live", null: false
     t.string "status", default: "active", null: false
     t.decimal "total_pnl_pct", precision: 8, scale: 4, default: "0.0", null: false
@@ -10756,6 +10758,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_26_140001) do
     t.jsonb "metadata", default: {}
     t.datetime "opened_at", null: false
     t.string "pair", null: false
+    t.datetime "pnl_settled_at"
     t.decimal "quantity", precision: 19, scale: 8, null: false
     t.decimal "realized_pnl_usd", precision: 19, scale: 2, default: "0.0"
     t.string "side", null: false
