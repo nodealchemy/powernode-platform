@@ -832,6 +832,11 @@ Rails.application.routes.draw do
         get :infrastructure, on: :member, action: :infrastructure_config
         put :infrastructure, on: :member, action: :update_infrastructure_config
         post "infrastructure/test_redis", on: :member, action: :test_redis_connection
+
+        # Vault & Secrets configuration
+        get :vault, on: :member, action: :vault_config
+        put :vault, on: :member, action: :update_vault_config
+        post "vault/test", on: :member, action: :test_vault_connection
       end
 
       # Services Configuration (system-level)

@@ -16,7 +16,9 @@ module Security
     attr_reader :client
 
     def initialize(token: nil)
-      @address = ENV.fetch("VAULT_ADDR", "https://vault.powernode.internal:8200")
+      # Read from AdminSetting (UI-configured) first, fallback to ENV
+      db_config = self.class.admin_setting_config
+      @address = db_config["vault_addr"].presence || ENV.fetch("VAULT_ADDR", "https://vault.powernode.internal:8200")
       @skip_verify = ENV.fetch("VAULT_SKIP_VERIFY", "false") == "true"
       @cache = Rails.cache
 
@@ -200,7 +202,7 @@ module Security
       return false if circuit_open?
 
       health = @client.sys.health_status
-      health.sealed == false && health.initialized == true
+      health.instance_variable_get(:@sealed) == false && health.instance_variable_get(:@initialized) == true
     rescue StandardError => e
       Rails.logger.warn "Vault health check failed: #{e.message}"
       false
@@ -208,7 +210,7 @@ module Security
 
     # Seal status
     def sealed?
-      @client.sys.health_status.sealed
+      @client.sys.health_status.instance_variable_get(:@sealed)
     rescue StandardError
       true  # Assume sealed if we can't connect
     end
@@ -217,12 +219,12 @@ module Security
     def status
       health = @client.sys.health_status
       {
-        initialized: health.initialized,
-        sealed: health.sealed,
-        standby: health.standby,
-        server_time_utc: health.server_time_utc,
-        version: health.version,
-        cluster_name: health.cluster_name,
+        initialized: health.instance_variable_get(:@initialized),
+        sealed: health.instance_variable_get(:@sealed),
+        standby: health.instance_variable_get(:@standby),
+        server_time_utc: health.instance_variable_get(:@server_time_utc),
+        version: health.instance_variable_get(:@version),
+        cluster_name: health.instance_variable_get(:@cluster_name),
         circuit_state: @circuit_state
       }
     rescue StandardError => e
@@ -260,21 +262,20 @@ module Security
     end
 
     def fetch_app_token
-      # Use AppRole authentication
-      role_id = ENV.fetch("VAULT_ROLE_ID") do
-        raise AuthenticationError, "VAULT_ROLE_ID environment variable not set"
-      end
+      # Use AppRole authentication — read from AdminSetting first, fallback to ENV
+      db_config = self.class.admin_setting_config
+      role_id = db_config["vault_role_id"].presence || ENV["VAULT_ROLE_ID"]
+      secret_id = db_config["vault_secret_id"].presence || ENV["VAULT_SECRET_ID"]
 
-      secret_id = ENV.fetch("VAULT_SECRET_ID") do
-        raise AuthenticationError, "VAULT_SECRET_ID environment variable not set"
-      end
+      raise AuthenticationError, "VAULT_ROLE_ID not configured (set in UI or environment)" unless role_id.present?
+      raise AuthenticationError, "VAULT_SECRET_ID not configured (set in UI or environment)" unless secret_id.present?
 
       auth_client = Vault::Client.new(
         address: @address,
         ssl_verify: !@skip_verify
       )
 
-      response = auth_client.auth.approle.login(role_id, secret_id)
+      response = auth_client.auth.approle(role_id, secret_id)
       response.auth.client_token
     rescue Vault::HTTPError => e
       raise AuthenticationError, "Vault AppRole authentication failed: #{e.message}"
@@ -340,6 +341,27 @@ module Security
     class << self
       def instance
         @instance ||= new
+      end
+
+      # Reset the singleton — called after Vault config is updated via UI
+      def reconfigure!
+        @instance = nil
+      end
+
+      # Read Vault config from AdminSetting (DB-persisted, set via UI)
+      def admin_setting_config
+        return @_admin_config if defined?(@_admin_config) && @_admin_config_at && @_admin_config_at > 1.minute.ago
+
+        raw = defined?(AdminSetting) ? AdminSetting.get("vault_config") : nil
+        @_admin_config = case raw
+        when Hash then raw
+        when String then raw.present? ? JSON.parse(raw) : {}
+        else {}
+        end
+        @_admin_config_at = Time.current
+        @_admin_config
+      rescue StandardError
+        {}
       end
 
       delegate :read_secret, :write_secret, :delete_secret, :list_secrets,

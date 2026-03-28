@@ -23,10 +23,11 @@ Rails.application.config.after_initialize do
   # Skip Vault initialization in test environment
   next if Rails.env.test?
 
-  # Check if Vault configuration is present
-  vault_configured = ENV["VAULT_ADDR"].present? &&
-                     ENV["VAULT_ROLE_ID"].present? &&
-                     ENV["VAULT_SECRET_ID"].present?
+  # Check if Vault configuration is present (ENV or AdminSetting from UI)
+  db_config = Security::VaultClient.admin_setting_config rescue {}
+  vault_configured = (ENV["VAULT_ADDR"].present? || db_config["vault_addr"].present?) &&
+                     (ENV["VAULT_ROLE_ID"].present? || db_config["vault_role_id"].present?) &&
+                     (ENV["VAULT_SECRET_ID"].present? || db_config["vault_secret_id"].present?)
 
   if vault_configured
     begin

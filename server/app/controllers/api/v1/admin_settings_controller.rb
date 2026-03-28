@@ -393,6 +393,158 @@ class Api::V1::AdminSettingsController < ApplicationController
     render_success(result)
   end
 
+  # GET /api/v1/admin_settings/vault
+  def vault_config
+    connected = false
+    health = {}
+
+    begin
+      vault_client = Security::VaultClient.instance
+      health = vault_client.status || {}
+      connected = health[:sealed] == false
+    rescue StandardError => e
+      Rails.logger.info("[AdminSettings] Vault unavailable: #{e.message}")
+    end
+
+    # Read from AdminSetting (UI-configured) first, fallback to ENV
+    saved_config = begin
+      raw = AdminSetting.get("vault_config")
+      case raw
+      when Hash then raw
+      when String then raw.present? ? JSON.parse(raw) : {}
+      else {}
+      end
+    rescue StandardError
+      {}
+    end
+
+    vault_addr = saved_config["vault_addr"].presence || ENV["VAULT_ADDR"] || ""
+    vault_role_id = saved_config["vault_role_id"].presence || ENV["VAULT_ROLE_ID"]
+    vault_secret_id = saved_config["vault_secret_id"].presence || ENV["VAULT_SECRET_ID"]
+    configured = vault_addr.present?
+
+    # Mask credentials — show only last 4 chars
+    masked_role = vault_role_id.present? ? ("••••" + vault_role_id[-4..]) : ""
+    masked_secret = vault_secret_id.present? ? ("••••" + vault_secret_id[-4..]) : ""
+
+    # Key management stats
+    wallet_key_count = begin
+      Trading::Wallet.where(key_status: "secured").count
+    rescue StandardError
+      0
+    end
+    recent_key_ops = begin
+      Trading::AuditLog
+        .where(action: %w[keypair_generated key_imported key_deleted key_revoked])
+        .order(created_at: :desc)
+        .limit(10)
+        .map { |l| { action: l.action, wallet_type: l.metadata&.dig("wallet_type"), chain: l.metadata&.dig("chain"), created_at: l.created_at } }
+    rescue StandardError
+      []
+    end
+
+    render json: {
+      success: true,
+      data: {
+        status: {
+          connected: connected,
+          sealed: health[:sealed],
+          initialized: health[:initialized],
+          version: health[:version],
+          cluster_name: health[:cluster_name]
+        },
+        config: {
+          vault_addr: vault_addr,
+          vault_role_id: masked_role,
+          vault_secret_id: masked_secret,
+          configured: configured
+        },
+        keys: {
+          secured_count: wallet_key_count,
+          recent_operations: recent_key_ops
+        }
+      }
+    }
+  rescue StandardError => e
+    Rails.logger.error("[AdminSettings] vault_config failed: #{e.class}: #{e.message}")
+    render_error("Vault configuration check failed: #{e.message}", :internal_server_error)
+  end
+
+  # PUT /api/v1/admin_settings/vault
+  def update_vault_config
+    vault_params = params.require(:vault).permit(:vault_addr, :vault_role_id, :vault_secret_id)
+
+    # Store in AdminSetting (persisted config)
+    updates = {}
+    updates["vault_addr"] = vault_params[:vault_addr] if vault_params[:vault_addr].present?
+    updates["vault_role_id"] = vault_params[:vault_role_id] if vault_params[:vault_role_id].present? && vault_params[:vault_role_id] != "••••••••"
+    updates["vault_secret_id"] = vault_params[:vault_secret_id] if vault_params[:vault_secret_id].present? && !vault_params[:vault_secret_id].start_with?("••••••••")
+
+    AdminSetting.set("vault_config", updates.to_json) if updates.any?
+
+    # Reset the VaultClient singleton so it re-reads config on next use
+    Security::VaultClient.reconfigure! if updates.any?
+
+    log_audit_event("vault_config_update", "SystemSettings",
+                    metadata: { updated_fields: updates.keys })
+
+    render_success(message: "Vault configuration updated and applied.")
+  rescue StandardError => e
+    render_error("Failed to update Vault configuration: #{e.message}", :unprocessable_content)
+  end
+
+  # POST /api/v1/admin_settings/vault/test
+  def test_vault_connection
+    start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    db_config = Security::VaultClient.admin_setting_config
+
+    vault_addr = db_config["vault_addr"].presence || ENV["VAULT_ADDR"]
+    role_id = db_config["vault_role_id"].presence || ENV["VAULT_ROLE_ID"]
+    secret_id = db_config["vault_secret_id"].presence || ENV["VAULT_SECRET_ID"]
+
+    unless vault_addr.present? && role_id.present? && secret_id.present?
+      missing = []
+      missing << "VAULT_ADDR" unless vault_addr.present?
+      missing << "VAULT_ROLE_ID" unless role_id.present?
+      missing << "VAULT_SECRET_ID" unless secret_id.present?
+      return render json: { success: true, data: { connected: false, error: "Missing: #{missing.join(', ')}" } }
+    end
+
+    # Test with a raw Vault client to get the actual error
+    test_client = Vault::Client.new(
+      address: vault_addr,
+      ssl_verify: ENV.fetch("VAULT_SKIP_VERIFY", "false") != "true"
+    )
+    test_client.auth.approle(role_id, secret_id)
+    health = test_client.sys.health_status
+    latency_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time) * 1000).round(1)
+
+    # Extract values from HealthStatus (v0.20.0 uses instance variables, not methods)
+    sealed = health.instance_variable_get(:@sealed)
+    initialized = health.instance_variable_get(:@initialized)
+    version = health.instance_variable_get(:@version)
+
+    # Refresh singleton with successful config
+    Security::VaultClient.reconfigure!
+
+    render json: {
+      success: true,
+      data: {
+        connected: sealed == false,
+        sealed: sealed,
+        initialized: initialized,
+        version: version,
+        latency_ms: latency_ms
+      }
+    }
+  rescue Vault::HTTPConnectionError => e
+    latency_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time) * 1000).round(1)
+    render json: { success: true, data: { connected: false, error: "Cannot reach Vault at #{vault_addr}", latency_ms: latency_ms } }
+  rescue StandardError => e
+    latency_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time) * 1000).round(1)
+    render json: { success: true, data: { connected: false, error: e.message.truncate(200), latency_ms: latency_ms } }
+  end
+
   private
 
   # =============================================================================
