@@ -5,7 +5,7 @@ import { useSelector } from 'react-redux';
 import {
   CreditCard, Mail, Server,
   LayoutDashboard, ShieldAlert,
-  Network, Lock, Wrench, Puzzle
+  Network, Lock, Wrench, Puzzle, KeyRound
 } from 'lucide-react';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
@@ -88,6 +88,14 @@ const adminSettingsTabs: AdminSettingsTab[] = [
     icon: Server,
     description: 'Redis connection and infrastructure configuration',
     requiredPermissions: ['admin.settings.read']
+  },
+  {
+    id: 'vault',
+    label: 'Vault & Secrets',
+    href: '/app/admin/settings/vault',
+    icon: KeyRound,
+    description: 'HashiCorp Vault connection and key management',
+    requiredPermissions: ['admin.settings.security']
   },
   {
     id: 'development',

@@ -485,6 +485,46 @@ class AdminSettingsApi {
     }
   }
 
+  // Vault Configuration
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async getVaultConfig(): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const response = await api.get('/admin_settings/vault');
+      const responseData = response.data;
+      return responseData.success !== undefined ? responseData : { success: true, data: responseData };
+    } catch (error) {
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to fetch Vault config'
+        : 'Failed to fetch Vault config';
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  async updateVaultConfig(config: { vault_addr?: string; vault_role_id?: string; vault_secret_id?: string }): Promise<{ success: boolean; data?: { message: string }; error?: string }> {
+    try {
+      const response = await api.put('/admin_settings/vault', { vault: config });
+      return response.data;
+    } catch (error) {
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to update Vault config'
+        : 'Failed to update Vault config';
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async testVaultConnection(): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const response = await api.post('/admin_settings/vault/test');
+      return response.data;
+    } catch (error) {
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to test Vault connection'
+        : 'Failed to test Vault connection';
+      return { success: false, error: errorMessage };
+    }
+  }
+
   // Security Configuration Management
   async getSecurityConfig(): Promise<{
     csrf: {
