@@ -3,7 +3,7 @@ Description=Powernode Sidekiq Worker (instance %i)
 Documentation=https://github.com/powernode/platform
 After=powernode-backend@default.service redis.service network.target
 Requires=redis.service
-PartOf=powernode.target
+PartOf=powernode.target powernode-backend@default.service
 StartLimitIntervalSec=300
 StartLimitBurst=3
 
