@@ -157,6 +157,7 @@ module Ai
 
       def portfolio_summary(params)
         portfolio = resolve_portfolio(params[:portfolio_id])
+        portfolio.sync_capital!
         portfolio.recalculate_capital!
 
         strategies = portfolio.strategies
