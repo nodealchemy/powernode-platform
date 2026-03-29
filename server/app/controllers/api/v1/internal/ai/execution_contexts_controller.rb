@@ -135,12 +135,22 @@ module Api
             account_id = params[:account_id]
             account = Account.find(account_id)
 
-            # Find an AI provider that supports embeddings
-            provider = ::Ai::Provider
-              .where(account_id: account.id)
-              .where("capabilities @> ?", ["text_embedding"].to_json)
-              .active
-              .first || ::Ai::Provider.where(account_id: account.id).active.first
+            # Prefer the designated embedding agent's provider for consistent routing.
+            # Falls back to any provider with text_embedding capability.
+            embedding_agent = ::Ai::Agent
+              .where(account_id: account.id, status: "active")
+              .where("name ILIKE ?", "%embedding%")
+              .first
+
+            provider = if embedding_agent&.provider&.is_active
+                         embedding_agent.provider
+                       else
+                         ::Ai::Provider
+                           .where(account_id: account.id)
+                           .where("capabilities @> ?", ["text_embedding"].to_json)
+                           .active
+                           .first || ::Ai::Provider.where(account_id: account.id).active.first
+                       end
 
             credential = account.ai_provider_credentials
               .where(ai_provider_id: provider&.id, is_active: true)
@@ -150,7 +160,8 @@ module Api
               provider_type: provider&.provider_type || "openai",
               credential_id: credential&.id,
               ollama_url: provider&.configuration&.dig("base_url"),
-              ollama_model: provider&.configuration&.dig("embedding_model")
+              ollama_model: provider&.configuration&.dig("embedding_model"),
+              agent_id: embedding_agent&.id
             )
           rescue ActiveRecord::RecordNotFound
             render_error("Account not found", status: :not_found)
