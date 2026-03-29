@@ -44,7 +44,8 @@
   - [reports, 2]                 # Report generation
   - [integrations, 2]            # Third-party integration processing
   - [mcp, 2]                     # MCP server operations
-  - [trading_critical, 3]         # Time-sensitive: strategy ticks, price feeds, risk, training
+  - [trading_critical, 3]         # Time-sensitive: live strategy ticks, price feeds, risk monitoring
+  - [trading_training, 2]         # Training/PG strategy ticks, session management
   - [trading_batch, 1]            # Batch operations: evolution, metrics, sweeps, learning
   - [notifications, 1]           # Notification delivery
   - [analytics, 1]               # Analytics cache warmup and processing
