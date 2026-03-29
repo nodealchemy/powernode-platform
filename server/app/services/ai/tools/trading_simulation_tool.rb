@@ -659,11 +659,11 @@ module Ai
 
           # If ticker looks like an event prefix (e.g., "KXFED"), import the event
           if ticker.length <= 10 && !ticker.include?("/")
-            result = importer.import_event(ticker, period: kalshi_period)
-            success_result({ venue: venue_slug, event_ticker: ticker, results: result, total_imported: result.sum { |r| r[:imported] || 0 } })
+            total_imported = importer.import_event(ticker, period: kalshi_period)
+            success_result({ venue: venue_slug, event_ticker: ticker, total_imported: total_imported, stats: importer.stats })
           else
-            result = importer.import_ticker(ticker, period: kalshi_period)
-            success_result({ venue: venue_slug, ticker: ticker, **result })
+            total_imported = importer.import_ticker(ticker, period: kalshi_period)
+            success_result({ venue: venue_slug, ticker: ticker, total_imported: total_imported, stats: importer.stats })
           end
 
         when "polymarket"
