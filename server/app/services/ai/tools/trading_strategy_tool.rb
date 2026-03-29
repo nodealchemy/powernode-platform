@@ -64,7 +64,11 @@ module Ai
               strategy_id: { type: "string", required: true, description: "Strategy ID or name" },
               parameters: { type: "object", required: false, description: "Strategy parameters to merge" },
               config: { type: "object", required: false, description: "Strategy config to merge" },
-              name: { type: "string", required: false, description: "New strategy name" }
+              name: { type: "string", required: false, description: "New strategy name" },
+              risk_tier: { type: "string", required: false, description: "Risk tier: low, medium, high, extreme" },
+              allocated_capital_usd: { type: "number", required: false, description: "Allocated capital in USD" },
+              tick_interval_seconds: { type: "integer", required: false, description: "Tick interval in seconds" },
+              lifecycle_phase: { type: "string", required: false, description: "Lifecycle phase: conception, backtest, paper_trade, live_small, live_full" }
             }
           },
           "trading_activate_strategy" => {
@@ -191,6 +195,10 @@ module Ai
         strategy = resolve_strategy(params[:strategy_id])
         attrs = {}
         attrs[:name] = params[:name] if params[:name].present?
+        attrs[:risk_tier] = params[:risk_tier] if params[:risk_tier].present?
+        attrs[:allocated_capital_usd] = params[:allocated_capital_usd].to_f if params[:allocated_capital_usd].present?
+        attrs[:tick_interval_seconds] = params[:tick_interval_seconds].to_i if params[:tick_interval_seconds].present?
+        attrs[:lifecycle_phase] = params[:lifecycle_phase] if params[:lifecycle_phase].present?
 
         if params[:parameters].is_a?(Hash)
           attrs[:parameters] = strategy.parameters.merge(params[:parameters])
