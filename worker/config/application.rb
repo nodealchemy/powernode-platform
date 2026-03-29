@@ -48,12 +48,21 @@ Sidekiq.configure_server do |config|
 
   # Fast recovery: on startup, dispatch pending sessions via the runner and
   # evaluate paused sessions via the overseer — no wait for the next cron tick.
+  # Also re-dispatch runners for active live strategies (they die on restart).
   # The 3s sleep lets Redis and HTTP connections establish first.
   # Guarded with defined? so the worker boots without the trading extension.
   config.on(:startup) do
     TradingTrainingSessionJob.reset_shutdown_flag! if defined?(TradingTrainingSessionJob)
     Thread.new do
       sleep 3
+
+      # Clear stale runner locks from the old process — they reference dead JIDs
+      Sidekiq.redis do |conn|
+        conn.keys("strategy_runner_lock:*").each { |k| conn.del(k) }
+        conn.keys("job_disabled:TradingStrategyRunnerJob:*").each { |k| conn.del(k) }
+        conn.keys("job_executions:TradingStrategyRunnerJob:*").each { |k| conn.del(k) }
+      end
+
       TradingTrainingSessionRunnerJob.perform_async if defined?(TradingTrainingSessionRunnerJob)
       TradingSessionManagerCycleJob.perform_async if defined?(TradingSessionManagerCycleJob)
       TradingPortfolioManagerCycleJob.perform_async if defined?(TradingPortfolioManagerCycleJob)

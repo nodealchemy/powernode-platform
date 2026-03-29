@@ -39,6 +39,12 @@ class BaseJob
 
       result = execute(*args)
 
+      # Record execution attempt AFTER execute — only for jobs that actually
+      # ran (not skipped by locks). Skipped jobs return { skipped: true }.
+      unless result.is_a?(Hash) && result[:skipped]
+        record_execution_attempt(*args)
+      end
+
       @finished_at = Time.current
       duration = @finished_at - @started_at
       logger.info "Completed #{self.class.name} in #{duration.round(2)}s"
@@ -274,11 +280,19 @@ class BaseJob
       sleep(5)
     end
 
-    # Record this execution attempt
+    # Execution recording is deferred to perform() — only counts jobs that
+    # actually ran (not duplicates skipped by locks or other early returns).
+  end
+
+  def record_execution_attempt(*args)
+    job_key = generate_job_key(*args)
+    execution_key = "job_executions:#{job_key}"
+    now = Time.current.to_f
+
     Sidekiq.redis do |conn|
       conn.lpush(execution_key, now)
       conn.ltrim(execution_key, 0, 20) # Keep only last 20 executions
-      conn.expire(execution_key, failure_window + 60) # Auto-expire after 6 minutes
+      conn.expire(execution_key, 360) # Auto-expire after 6 minutes
     end
   end
 
