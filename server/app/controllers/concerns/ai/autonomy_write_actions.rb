@@ -266,6 +266,10 @@ module Ai
     end
 
     # POST budgets/rollover_expired
+    # Processes in batches to avoid timeout on large backlogs.
+    # The worker cron calls this periodically so remaining budgets are handled next run.
+    ROLLOVER_BATCH_LIMIT = 100
+
     def rollover_expired
       results = []
 
@@ -275,7 +279,8 @@ module Ai
         budgets_scope = ::Ai::AgentBudget.expired
       end
 
-      budgets_scope.find_each do |budget|
+      remaining = budgets_scope.count
+      budgets_scope.limit(ROLLOVER_BATCH_LIMIT).find_each do |budget|
         new_budget = budget.auto_rollover!
         results << { original_id: budget.id, new_id: new_budget&.id, success: new_budget.present? }
       rescue StandardError => e
@@ -285,6 +290,7 @@ module Ai
       render_success(data: {
         rolled_over: results.count { |r| r[:success] },
         failed: results.count { |r| !r[:success] },
+        remaining: [remaining - results.size, 0].max,
         results: results
       })
     end
