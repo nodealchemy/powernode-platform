@@ -12,9 +12,9 @@ module AiWorkflow
       # Call backend API to expire stale tokens
       response = api_client.post('/api/v1/internal/ai_workflow_approvals/expire_stale')
 
-      if response[:success]
-        expired_count = response.dig(:data, 'expired_count') || 0
-        failed_executions_count = response.dig(:data, 'failed_executions_count') || 0
+      if response['success']
+        expired_count = response.dig('data', 'expired_count') || 0
+        failed_executions_count = response.dig('data', 'failed_executions_count') || 0
 
         logger.info "AI workflow approval expiry completed: #{expired_count} tokens expired, #{failed_executions_count} node executions failed"
 
@@ -24,10 +24,10 @@ module AiWorkflow
           failed_executions_count: failed_executions_count
         }
       else
-        logger.error "Failed to expire AI workflow approval tokens: #{response[:error]}"
+        logger.error "Failed to expire AI workflow approval tokens: #{response['error']}"
         {
           success: false,
-          error: response[:error]
+          error: response['error']
         }
       end
     rescue BackendApiClient::ApiError => e
