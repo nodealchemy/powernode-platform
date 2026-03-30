@@ -34,7 +34,7 @@ end
 
 Sidekiq.configure_server do |config|
   concurrency = ENV.fetch('WORKER_CONCURRENCY', '25').to_i
-  config.redis = { url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'), size: concurrency + 5 }
+  config.redis = { url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1'), size: concurrency + 10 }
 
   # Fast shutdown: on SIGTERM, signal training sessions to exit their tick loop
   # immediately instead of waiting for Sidekiq's 300s timeout.
