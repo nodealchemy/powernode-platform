@@ -26,10 +26,13 @@ module Api
             )
             render_success(data: result)
           else
-            # Return memories from the specified tier (or short_term by default)
             tier = params[:tier] || "short_term"
-            entries = fetch_entries_for_tier(tier)
-            render_success(data: { tier: tier, entries: entries })
+            result = fetch_entries_for_tier_paginated(tier)
+            render_success(data: {
+              tier: tier,
+              entries: result[:entries],
+              pagination: result[:pagination]
+            })
           end
         end
 
@@ -148,10 +151,21 @@ module Api
           scope = scope.by_content_type(params[:content_type]) if params[:content_type].present?
           scope = scope.with_tag(params[:tag]) if params[:tag].present?
           scope = scope.high_quality if params[:high_quality] == "true"
+          scope = scope.where("title ILIKE :q OR content ILIKE :q", q: "%#{params[:q]}%") if params[:q].present?
 
-          entries = scope.limit(params[:limit]&.to_i || 50)
+          page_params = pagination_params
+          paginated = scope.page(page_params[:page]).per(page_params[:per_page])
 
-          render_success(data: entries.map { |e| serialize_shared_knowledge(e) })
+          render_success(data: {
+            entries: paginated.map { |e| serialize_shared_knowledge(e) },
+            pagination: {
+              current_page: paginated.current_page,
+              per_page: paginated.limit_value,
+              total_pages: paginated.total_pages,
+              total_count: paginated.total_count,
+              has_more: paginated.current_page < paginated.total_pages
+            }
+          })
         end
 
         private
@@ -183,36 +197,71 @@ module Api
         end
 
         def fetch_entries_for_tier(tier)
+          result = fetch_entries_for_tier_paginated(tier)
+          result[:entries]
+        end
+
+        def fetch_entries_for_tier_paginated(tier)
+          page_params = pagination_params
+
           case tier
           when "short_term"
-            ::Ai::AgentShortTermMemory
+            scope = ::Ai::AgentShortTermMemory
               .for_agent(@agent.id)
               .active
               .recent
-              .limit(params[:limit]&.to_i || 50)
-              .map { |m| serialize_short_term(m) }
+            scope = scope.where("memory_key ILIKE :q OR CAST(memory_value AS TEXT) ILIKE :q", q: "%#{params[:q]}%") if params[:q].present?
+            paginated = scope.page(page_params[:page]).per(page_params[:per_page])
+            {
+              entries: paginated.map { |m| serialize_short_term(m) },
+              pagination: build_pagination(paginated)
+            }
           when "working"
-            # Working memory is Redis-backed, return count only
             router = ::Ai::Memory::RouterService.new(account: current_account, agent: @agent)
             stats = router.stats
-            [{ tier: "working", summary: stats[:working] }]
+            {
+              entries: [{ tier: "working", summary: stats[:working] }],
+              pagination: { current_page: 1, per_page: 1, total_pages: 1, total_count: 1, has_more: false }
+            }
           when "long_term"
-            ::Ai::CompoundLearning
+            scope = ::Ai::CompoundLearning
               .where(account_id: current_account.id, source_agent_id: @agent.id)
               .active
               .order(created_at: :desc)
-              .limit(params[:limit]&.to_i || 50)
-              .map { |cl| serialize_long_term(cl) }
+            scope = scope.where(category: params[:category]) if params[:category].present?
+            scope = scope.where("importance_score >= ?", params[:min_importance].to_f) if params[:min_importance].present?
+            scope = scope.where("content ILIKE :q", q: "%#{params[:q]}%") if params[:q].present?
+            paginated = scope.page(page_params[:page]).per(page_params[:per_page])
+            {
+              entries: paginated.map { |cl| serialize_long_term(cl) },
+              pagination: build_pagination(paginated)
+            }
           when "shared"
-            ::Ai::SharedKnowledge
+            scope = ::Ai::SharedKnowledge
               .where(account_id: current_account.id)
               .accessible_by("team")
               .recent
-              .limit(params[:limit]&.to_i || 50)
-              .map { |sk| serialize_shared_knowledge(sk) }
+            scope = scope.by_content_type(params[:content_type]) if params[:content_type].present?
+            scope = scope.with_tag(params[:tag]) if params[:tag].present?
+            scope = scope.where("title ILIKE :q OR content ILIKE :q", q: "%#{params[:q]}%") if params[:q].present?
+            paginated = scope.page(page_params[:page]).per(page_params[:per_page])
+            {
+              entries: paginated.map { |sk| serialize_shared_knowledge(sk) },
+              pagination: build_pagination(paginated)
+            }
           else
-            []
+            { entries: [], pagination: { current_page: 1, per_page: page_params[:per_page], total_pages: 0, total_count: 0, has_more: false } }
           end
+        end
+
+        def build_pagination(paginated)
+          {
+            current_page: paginated.current_page,
+            per_page: paginated.limit_value,
+            total_pages: paginated.total_pages,
+            total_count: paginated.total_count,
+            has_more: paginated.current_page < paginated.total_pages
+          }
         end
 
         def serialize_short_term(memory)
