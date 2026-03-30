@@ -371,7 +371,9 @@ module Ai
         # Reject sessions for user-deactivated venues
         if incoming_venue.present?
           venue = Trading::Venue.find_by(slug: incoming_venue)
-          return error_result("Venue '#{incoming_venue}' is deactivated") if venue&.config&.dig("user_deactivated")
+          if venue&.config&.dig("user_deactivated")
+            return error_result("Venue '#{incoming_venue}' is deactivated by user. Clear user_deactivated in venue config to re-enable.")
+          end
         end
         incoming_types = config["strategy_types"] || ["llm_probability"]
 
