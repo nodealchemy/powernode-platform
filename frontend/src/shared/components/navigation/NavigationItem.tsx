@@ -1,6 +1,6 @@
 // Navigation Item Component
 import React, { useState, useMemo } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ExternalLink, icons } from 'lucide-react';
 import { NavigationItem as NavItem } from '@/shared/types/navigation';
 import { useNavigation } from '@/shared/hooks/NavigationContext';
@@ -19,7 +19,6 @@ export const NavigationItem: React.FC<NavigationItemProps> = ({
   showTooltip = false 
 }) => {
   const location = useLocation();
-  const navigate = useNavigate();
   const { hasPermission, config } = useNavigation();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
@@ -103,28 +102,17 @@ export const NavigationItem: React.FC<NavigationItemProps> = ({
     return <IconComponent className="w-5 h-5" />;
   };
 
-  // Handle special actions and provide fallback navigation
+  // Handle special actions — regular navigation is handled natively by <Link>
   const handleClick = (e: React.MouseEvent) => {
     if (item.id === 'logout') {
       e.preventDefault();
-      // Handle logout logic here
       return;
     }
 
-    // Handle custom actions (e.g., open-chat dispatches CustomEvent instead of navigating)
     if (item.action === 'open-chat') {
       e.preventDefault();
       window.dispatchEvent(new CustomEvent('powernode:open-chat-maximized'));
       return;
-    }
-
-    // Fallback navigation mechanism for reliability
-    if (!item.isExternal && item.href) {
-      // Prevent default Link behavior temporarily to test programmatic navigation
-      e.preventDefault();
-
-      // Use programmatic navigation as a more reliable method
-      navigate(item.href);
     }
   };
 
