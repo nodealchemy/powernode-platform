@@ -190,7 +190,7 @@ module AiJobsConcern
     )
 
     # Track error in centralized error tracking service
-    AiWorkflowErrorTrackingService.instance.track_error(error, enhanced_context)
+    ::AiWorkflowErrorTrackingService.instance.track_error(error, enhanced_context)
 
     error_data = {
       error_class: error.class.name,
