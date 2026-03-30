@@ -831,7 +831,8 @@ module Ai
         session_config = config.merge(
           "initial_balance" => (config["initial_balance"] || 10_000).to_f,
           "use_performance_sizing" => config["use_performance_sizing"] || false,
-          "mode" => session_mode
+          "mode" => session_mode,
+          "created_by" => config["created_by"] || "mcp"
         )
 
         scheduled_for = config["scheduled_for"].present? ? Time.parse(config["scheduled_for"]) : nil
