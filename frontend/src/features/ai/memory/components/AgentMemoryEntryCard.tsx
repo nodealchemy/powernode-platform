@@ -9,6 +9,8 @@ import {
   Edit2,
   Trash2,
   Copy,
+  Code,
+  Eye,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
@@ -16,6 +18,7 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { MarkdownRenderer } from '@/shared/components/ui/MarkdownRenderer';
 import { cn } from '@/shared/utils/cn';
 import { formatDateTime } from '@/shared/utils/formatters';
 import type { MemoryEntry, MemoryType } from '@/shared/services/ai/types/memory-types';
@@ -58,6 +61,7 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
   className,
 }) => {
   const [expanded, setExpanded] = useState(false);
+  const [showRaw, setShowRaw] = useState(false);
   const { addNotification } = useNotifications();
 
   const config = memoryTypeConfig[memory.memory_type];
@@ -73,6 +77,19 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
     }
     return String(memory.content);
   };
+
+  const getContentForRender = (): { text: string; isStructured: boolean } => {
+    if (memory.content_text) return { text: memory.content_text, isStructured: false };
+    if (typeof memory.content === 'object' && memory.content !== null) {
+      if ('text' in memory.content && typeof memory.content.text === 'string') {
+        return { text: memory.content.text, isStructured: false };
+      }
+      return { text: JSON.stringify(memory.content, null, 2), isStructured: true };
+    }
+    return { text: String(memory.content), isStructured: false };
+  };
+
+  const { text: contentText, isStructured } = getContentForRender();
 
   const copyContent = () => {
     navigator.clipboard.writeText(getContentPreview());
@@ -135,16 +152,19 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
         </div>
 
         {/* Content preview */}
-        <div className="mt-3">
-          <p
-            className={cn(
-              'text-sm text-theme-secondary',
-              !expanded && 'line-clamp-2'
+        {!expanded && (
+          <div className="mt-3">
+            {isStructured ? (
+              <p className="text-sm text-theme-secondary line-clamp-2 font-mono">
+                {contentText}
+              </p>
+            ) : (
+              <div className="max-h-[4.5rem] overflow-hidden [mask-image:linear-gradient(to_bottom,black_60%,transparent)]">
+                <MarkdownRenderer content={contentText} variant="preview" />
+              </div>
             )}
-          >
-            {getContentPreview()}
-          </p>
-        </div>
+          </div>
+        )}
 
         {/* Metadata */}
         <div className="flex items-center gap-4 mt-3 text-xs text-theme-muted">
@@ -198,12 +218,34 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
           <div className="mt-4 pt-4 border-t border-theme space-y-4">
             {/* Full content */}
             <div>
-              <h4 className="text-xs font-medium text-theme-secondary mb-2">Full Content</h4>
-              <pre className="bg-theme-surface-dark p-3 rounded-lg text-xs overflow-x-auto">
-                <code className="text-theme-primary">
-                  {JSON.stringify(memory.content, null, 2)}
-                </code>
-              </pre>
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-xs font-medium text-theme-secondary">Full Content</h4>
+                {!isStructured && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowRaw(!showRaw)}
+                    className="text-xs h-6"
+                  >
+                    {showRaw ? (
+                      <><Eye className="h-3 w-3 mr-1" />Rendered</>
+                    ) : (
+                      <><Code className="h-3 w-3 mr-1" />Raw</>
+                    )}
+                  </Button>
+                )}
+              </div>
+              {showRaw || isStructured ? (
+                <pre className="bg-theme-surface-dark p-3 rounded-lg text-xs overflow-x-auto">
+                  <code className="text-theme-primary">
+                    {isStructured ? contentText : JSON.stringify(memory.content, null, 2)}
+                  </code>
+                </pre>
+              ) : (
+                <div className="rounded-lg border border-theme-border p-4 bg-theme-surface/30">
+                  <MarkdownRenderer content={contentText} variant="admin" />
+                </div>
+              )}
             </div>
 
             {/* Task context */}

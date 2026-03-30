@@ -10,9 +10,10 @@ import { MemoryTimeline } from './MemoryTimeline';
 import { SharedLearningsPanel } from './SharedLearningsPanel';
 import { fetchMemoryStats, deleteMemory } from '../api/memoryApi';
 import { contextApi } from '../api/contextApi';
+import { useMemoryFilters } from '../hooks/useMemoryFilters';
 import type { PageAction } from '@/shared/components/layout/PageContainer';
 import type { AiAgent } from '@/shared/types/ai';
-import type { MemoryStats as MemoryStatsType, MemoryTier, MemoryEntry } from '../types/memory';
+import type { MemoryStats as MemoryStatsType, MemoryEntry } from '../types/memory';
 
 interface AgentMemoryContentProps {
   onActionsReady?: (actions: PageAction[]) => void;
@@ -20,12 +21,18 @@ interface AgentMemoryContentProps {
 
 export const AgentMemoryContent: React.FC<AgentMemoryContentProps> = ({ onActionsReady }) => {
   const { addNotification } = useNotifications();
+  const { agentId: urlAgentId, setAgentId: setUrlAgentId } = useMemoryFilters();
   const [agents, setAgents] = useState<AiAgent[]>([]);
   const [agentsLoading, setAgentsLoading] = useState(true);
-  const [selectedAgentId, setSelectedAgentId] = useState('');
+  const [selectedAgentId, setSelectedAgentId] = useState(urlAgentId || '');
   const [refreshKey, setRefreshKey] = useState(0);
   const [stats, setStats] = useState<MemoryStatsType | undefined>();
-  const [activeTier, setActiveTier] = useState<MemoryTier>('short_term');
+
+  // Sync agent selection to URL
+  const handleAgentChange = useCallback((id: string) => {
+    setSelectedAgentId(id);
+    setUrlAgentId(id);
+  }, [setUrlAgentId]);
 
   useEffect(() => {
     const loadAgents = async () => {
@@ -35,7 +42,9 @@ export const AgentMemoryContent: React.FC<AgentMemoryContentProps> = ({ onAction
         const agentsList = (items || []) as AiAgent[];
         setAgents(agentsList);
         if (agentsList.length > 0 && !selectedAgentId) {
-          setSelectedAgentId(agentsList[0].id);
+          const firstId = agentsList[0].id;
+          setSelectedAgentId(firstId);
+          setUrlAgentId(firstId);
         }
       } catch (_error) {
         addNotification({ type: 'error', message: 'Failed to load agents' });
@@ -52,7 +61,7 @@ export const AgentMemoryContent: React.FC<AgentMemoryContentProps> = ({ onAction
       const data = await fetchMemoryStats(selectedAgentId);
       setStats(data);
     } catch (_error) {
-      // Stats failure is non-critical — sidebar will fall back to its own fetch
+      // Stats failure is non-critical
     }
   }, [selectedAgentId]);
 
@@ -96,15 +105,11 @@ export const AgentMemoryContent: React.FC<AgentMemoryContentProps> = ({ onAction
         session_id: entry.session_id,
       });
       addNotification({ type: 'success', message: `Deleted memory entry "${entry.key}"` });
-      handleRefresh();
+      loadStats();
     } catch (_error) {
       addNotification({ type: 'error', message: 'Failed to delete memory entry' });
     }
-  }, [selectedAgentId, addNotification, handleRefresh]);
-
-  const handleTierClick = useCallback((tier: MemoryTier) => {
-    setActiveTier(tier);
-  }, []);
+  }, [selectedAgentId, addNotification, loadStats]);
 
   useEffect(() => {
     if (onActionsReady) {
@@ -151,7 +156,7 @@ export const AgentMemoryContent: React.FC<AgentMemoryContentProps> = ({ onAction
             <label className="text-sm font-medium text-theme-secondary shrink-0">Agent:</label>
             <select
               value={selectedAgentId}
-              onChange={(e) => setSelectedAgentId(e.target.value)}
+              onChange={(e) => handleAgentChange(e.target.value)}
               className="flex-1 text-sm rounded-lg bg-theme-surface border border-theme-border text-theme-primary py-2 px-3 focus:outline-none focus:ring-2 focus:ring-theme-primary"
             >
               {agents.length === 0 && <option value="">No agents available</option>}
@@ -166,29 +171,24 @@ export const AgentMemoryContent: React.FC<AgentMemoryContentProps> = ({ onAction
       </Card>
 
       {selectedAgentId && (
-        <>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-              <MemoryTimeline
-                key={`timeline-${refreshKey}`}
-                agentId={selectedAgentId}
-                stats={stats}
-                tier={activeTier}
-                onTierChange={setActiveTier}
-                onDeleteEntry={handleDeleteEntry}
-              />
-            </div>
-            <div className="space-y-6">
-              <MemoryStats
-                key={`stats-${refreshKey}`}
-                agentId={selectedAgentId}
-                stats={stats}
-                onTierClick={handleTierClick}
-              />
-              <SharedLearningsPanel />
-            </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <MemoryTimeline
+              key={`timeline-${selectedAgentId}-${refreshKey}`}
+              agentId={selectedAgentId}
+              stats={stats}
+              onDeleteEntry={handleDeleteEntry}
+            />
           </div>
-        </>
+          <div className="space-y-6">
+            <MemoryStats
+              key={`stats-${refreshKey}`}
+              agentId={selectedAgentId}
+              stats={stats}
+            />
+            <SharedLearningsPanel />
+          </div>
+        </div>
       )}
     </div>
   );

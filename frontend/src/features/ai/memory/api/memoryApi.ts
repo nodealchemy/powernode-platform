@@ -1,5 +1,13 @@
 import api from '@/shared/services/api';
-import type { MemoryEntry, SharedKnowledgeEntry, MemoryStats, MemoryTier } from '../types/memory';
+import type {
+  MemoryEntry,
+  SharedKnowledgeEntry,
+  MemoryStats,
+  MemoryTier,
+  MemoryPagination,
+  PaginatedMemoryResponse,
+  MemoryFilters,
+} from '../types/memory';
 
 const MEMORY_KEYS = {
   all: ['memory'] as const,
@@ -37,10 +45,47 @@ export async function fetchMemoryEntries(agentId: string, tier: MemoryTier): Pro
   return [];
 }
 
+export async function fetchMemoryEntriesPaginated(
+  agentId: string,
+  tier: MemoryTier,
+  page: number = 1,
+  perPage: number = 25,
+  filters: MemoryFilters = {}
+): Promise<PaginatedMemoryResponse> {
+  const params: Record<string, string | number> = { tier, page, per_page: perPage };
+  if (filters.q) params.q = filters.q;
+  if (filters.category) params.category = filters.category;
+  if (filters.content_type) params.content_type = filters.content_type;
+  if (filters.tag) params.tag = filters.tag;
+  if (filters.min_importance !== undefined) params.min_importance = filters.min_importance;
+
+  const { data } = await api.get(`/ai/agents/${agentId}/tiered_memory`, { params });
+  const result = data.data;
+
+  const defaultPagination: MemoryPagination = {
+    current_page: page,
+    per_page: perPage,
+    total_pages: 1,
+    total_count: 0,
+    has_more: false,
+  };
+
+  // Handle both old (flat array) and new (paginated) response shapes
+  if (Array.isArray(result)) {
+    return { tier, entries: result, pagination: { ...defaultPagination, total_count: result.length } };
+  }
+  return {
+    tier: result?.tier || tier,
+    entries: result?.entries || [],
+    pagination: result?.pagination || defaultPagination,
+  };
+}
+
 export async function fetchSharedKnowledge(): Promise<SharedKnowledgeEntry[]> {
   const { data } = await api.get('/ai/memory/shared_knowledge');
   const result = data.data;
   if (Array.isArray(result)) return result;
+  if (result?.entries && Array.isArray(result.entries)) return result.entries;
   if (result?.data && Array.isArray(result.data)) return result.data;
   return [];
 }

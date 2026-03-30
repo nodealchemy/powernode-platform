@@ -46,3 +46,25 @@ export interface SemanticSearchResult {
   score: number;
   distance: number;
 }
+
+export interface MemoryPagination {
+  current_page: number;
+  per_page: number;
+  total_pages: number;
+  total_count: number;
+  has_more: boolean;
+}
+
+export interface PaginatedMemoryResponse {
+  tier: string;
+  entries: MemoryEntry[];
+  pagination: MemoryPagination;
+}
+
+export interface MemoryFilters {
+  q?: string;
+  category?: string;
+  content_type?: string;
+  tag?: string;
+  min_importance?: number;
+}

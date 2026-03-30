@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { BookOpen, ChevronDown, ChevronRight } from 'lucide-react';
+import { MarkdownRenderer } from '@/shared/components/ui/MarkdownRenderer';
 import { sharedLearningsApi, type Learning } from '../api/sharedLearningsApi';
 
 const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
@@ -53,7 +54,9 @@ function CategorySection({ category, learnings }: CategorySectionProps) {
         <div className="divide-y divide-theme">
           {learnings.map((learning, idx) => (
             <div key={idx} className="px-4 py-3 flex items-start justify-between gap-4">
-              <p className="text-sm text-theme-primary flex-1">{learning.content}</p>
+              <div className="text-sm flex-1">
+                <MarkdownRenderer content={learning.content} variant="preview" fontSize="sm" />
+              </div>
               <ImportanceBadge importance={learning.importance || 0.5} />
             </div>
           ))}
