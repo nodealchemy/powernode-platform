@@ -34,6 +34,7 @@ require_relative '../app/services/credential_resolver'
 # Auto-require external service integrations
 require_relative '../app/services/firebase_service'
 require_relative '../app/services/twilio_service'
+require_relative '../app/services/ai_workflow_error_tracking_service'
 
 # Require base job first
 require_relative '../app/jobs/base_job'
