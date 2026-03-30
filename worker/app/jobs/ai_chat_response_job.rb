@@ -35,6 +35,7 @@ class AiChatResponseJob < BaseJob
 
     @conversation_id = conversation_id
     @message_id = message_id
+    @agent_id = agent_id
     start_time = Time.current
 
     begin
@@ -117,21 +118,22 @@ class AiChatResponseJob < BaseJob
     end
   end
 
-  def fetch_credentials(provider_id)
-    # Use the internal provider_config endpoint (worker JWT authorized)
+  def fetch_credentials(_provider_id)
+    # Use the internal provider_config endpoint with agent_id (worker JWT authorized).
+    # The endpoint resolves provider + credential from the agent record.
     response = api_client.post("/api/v1/internal/ai/provider_config", {
-      provider_id: provider_id
+      agent_id: @agent_id || @agent_data&.dig("id")
     })
 
     return nil unless response && response["success"]
 
     config = response["data"] || response
-    # Extract credential info from provider config response
     {
-      "api_key" => config["api_key"],
-      "api_secret" => config["api_secret"],
-      "base_url" => config["base_url"],
-      "model" => config["model"]
+      "provider_type" => config["provider_type"],
+      "provider_credential_id" => config["provider_credential_id"],
+      "base_url" => config["provider_base_url"],
+      "model" => config["model"],
+      "provider_name" => config["provider_name"]
     }.compact.presence
   end
 
