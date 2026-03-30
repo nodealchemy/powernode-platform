@@ -67,6 +67,7 @@ module Ai
     def serialize_conversation(conversation)
       data = {
         id: conversation.id, conversation_id: conversation.conversation_id,
+        account_id: conversation.account_id, ai_agent_id: conversation.ai_agent_id,
         title: conversation.title || "Conversation with #{conversation.provider.name}",
         status: conversation.status, message_count: conversation.message_count,
         total_tokens: conversation.total_tokens, total_cost: conversation.total_cost&.to_f,
