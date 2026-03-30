@@ -89,7 +89,7 @@ module Ai
               initial_balance: { type: "number", required: false, description: "Starting balance in USD" },
               venue_slug: { type: "string", required: false, description: "Trading venue slug (e.g. 'kalshi')" },
               risk_tier: { type: "string", required: false, description: "Risk tier (low/medium/high)" },
-              include_classic: { type: "boolean", required: false, description: "Include classic strategies" },
+              include_classic: { type: "boolean", required: false, description: "Deprecated — use strategy_types array to specify all desired types" },
               bypass_suppression: { type: "boolean", required: false, description: "Bypass intelligence suppression — allow strategies that would normally be blocked by poor historical performance" },
               use_performance_sizing: { type: "boolean", required: false, description: "Enable performance-based position sizing (scales size by win rate)" },
               probability_min: { type: "number", required: false, description: "Min probability filter for market selection" },
