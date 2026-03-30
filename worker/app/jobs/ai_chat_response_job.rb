@@ -118,16 +118,21 @@ class AiChatResponseJob < BaseJob
   end
 
   def fetch_credentials(provider_id)
-    response = backend_api_get("/api/v1/ai/credentials", {
-      provider_id: provider_id,
-      default_only: true,
-      active: true
+    # Use the internal provider_config endpoint (worker JWT authorized)
+    response = api_client.post("/api/v1/internal/ai/provider_config", {
+      provider_id: provider_id
     })
 
-    return nil unless response['success']
+    return nil unless response && response["success"]
 
-    creds = response['data']['credentials']
-    creds.is_a?(Array) ? creds.first : creds
+    config = response["data"] || response
+    # Extract credential info from provider config response
+    {
+      "api_key" => config["api_key"],
+      "api_secret" => config["api_secret"],
+      "base_url" => config["base_url"],
+      "model" => config["model"]
+    }.compact.presence
   end
 
   def build_chat_messages(conversation_id, agent)
