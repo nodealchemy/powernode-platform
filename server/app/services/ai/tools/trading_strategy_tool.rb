@@ -247,12 +247,15 @@ module Ai
           return error_result("Phase '#{next_phase}' requires explicit approval (set approved: true)")
         end
 
-        strategy.update!(lifecycle_phase: next_phase)
+        capital = params[:allocated_capital_usd]&.to_f
+        strategy.advance_phase!(force: true, capital_usd: capital)
+        strategy.reload
+
         success_result({
           strategy_id: strategy.id,
           name: strategy.name,
           previous_phase: phases[current_idx],
-          current_phase: next_phase
+          current_phase: strategy.lifecycle_phase
         })
       end
 

@@ -188,8 +188,18 @@ module Ai
       def cancel_order(params)
         order = resolve_order(params[:order_id])
 
-        unless %w[pending submitted].include?(order.status)
+        unless %w[pending submitted open].include?(order.status)
           return error_result("Order cannot be cancelled (status: #{order.status})")
+        end
+
+        # Cancel on venue if this is a real (non-paper) order
+        if order.venue_order_id.present? && !order.venue_order_id.start_with?("PAPER_")
+          strategy = order.strategy
+          adapter = order.venue.adapter_class.constantize.new(
+            order.venue,
+            config: strategy&.send(:build_live_adapter_config) || {}
+          )
+          adapter.cancel_order(order.venue_order_id)
         end
 
         order.cancel!(reason: "cancelled_via_mcp")
