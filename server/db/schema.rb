@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_31_140001) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_31_200001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10655,26 +10655,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_31_140001) do
     t.index ["venue_order_id"], name: "index_trading_orders_on_venue_order_id"
   end
 
-  create_table "trading_overseer_decisions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
-    t.string "action_category", null: false
-    t.string "agent_role"
-    t.datetime "created_at", null: false
-    t.datetime "expires_at"
-    t.jsonb "payload", default: "{}"
-    t.jsonb "reasoning", default: "{}"
-    t.datetime "resolved_at"
-    t.string "resolved_by"
-    t.string "status", default: "pending", null: false
-    t.jsonb "temporal_context", default: "{}"
-    t.datetime "updated_at", null: false
-    t.index ["account_id", "status"], name: "index_trading_overseer_decisions_on_account_id_and_status"
-    t.index ["account_id"], name: "index_trading_overseer_decisions_on_account_id"
-    t.index ["agent_role"], name: "index_trading_overseer_decisions_on_agent_role"
-    t.index ["expires_at"], name: "index_trading_overseer_decisions_on_expires_at", where: "((status)::text = 'pending'::text)"
-    t.index ["status"], name: "index_trading_overseer_decisions_on_status"
-  end
-
   create_table "trading_performance_fee_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.decimal "fee_pct", precision: 5, scale: 2, null: false
@@ -12625,7 +12605,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_31_140001) do
   add_foreign_key "trading_orders", "trading_positions", on_delete: :cascade
   add_foreign_key "trading_orders", "trading_strategies", on_delete: :cascade
   add_foreign_key "trading_orders", "trading_venues"
-  add_foreign_key "trading_overseer_decisions", "accounts"
   add_foreign_key "trading_performance_fee_events", "trading_positions", column: "position_id"
   add_foreign_key "trading_performance_fee_events", "trading_subscriptions", column: "subscription_id"
   add_foreign_key "trading_performance_metrics", "trading_strategies"
