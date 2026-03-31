@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_28_131513) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_31_140001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10658,6 +10658,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_28_131513) do
   create_table "trading_overseer_decisions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.string "action_category", null: false
+    t.string "agent_role"
     t.datetime "created_at", null: false
     t.datetime "expires_at"
     t.jsonb "payload", default: "{}"
@@ -10669,6 +10670,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_28_131513) do
     t.datetime "updated_at", null: false
     t.index ["account_id", "status"], name: "index_trading_overseer_decisions_on_account_id_and_status"
     t.index ["account_id"], name: "index_trading_overseer_decisions_on_account_id"
+    t.index ["agent_role"], name: "index_trading_overseer_decisions_on_agent_role"
     t.index ["expires_at"], name: "index_trading_overseer_decisions_on_expires_at", where: "((status)::text = 'pending'::text)"
     t.index ["status"], name: "index_trading_overseer_decisions_on_status"
   end
