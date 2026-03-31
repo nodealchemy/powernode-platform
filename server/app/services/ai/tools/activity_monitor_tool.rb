@@ -46,6 +46,14 @@ module Ai
               notification_id: { type: "string", required: true, description: "ID of the notification to dismiss" }
             }
           },
+          "dismiss_all_notifications" => {
+            description: "Dismiss all active notifications permanently (sets dismissed_at). Returns count of dismissed.",
+            parameters: {}
+          },
+          "mark_all_notifications_read" => {
+            description: "Mark all unread notifications as read (lighter than dismiss — still visible but marked as read). Returns count.",
+            parameters: {}
+          },
           "get_system_health" => {
             description: "Get a lightweight system health snapshot: active counts, approval queues, error rates, and provider status",
             parameters: {}
@@ -61,9 +69,11 @@ module Ai
         when "get_mission_status" then get_mission_status(params)
         when "get_notifications" then get_notifications(params)
         when "dismiss_notification" then dismiss_notification(params)
+        when "dismiss_all_notifications" then dismiss_all_notifications
+        when "mark_all_notifications_read" then mark_all_notifications_read
         when "get_system_health" then get_system_health
         else
-          { success: false, error: "Unknown action: #{params[:action]}. Valid: get_activity_feed, get_mission_status, get_notifications, dismiss_notification, get_system_health" }
+          { success: false, error: "Unknown action: #{params[:action]}. Valid: get_activity_feed, get_mission_status, get_notifications, dismiss_notification, dismiss_all_notifications, mark_all_notifications_read, get_system_health" }
         end
       end
 
@@ -161,6 +171,30 @@ module Ai
         { success: true, notification_id: notification.id, read_at: notification.read_at&.iso8601 }
       rescue StandardError => e
         { success: false, error: "Failed to dismiss notification: #{e.message}" }
+      end
+
+      def dismiss_all_notifications
+        return { success: false, error: "User context required" } unless user
+
+        scope = user.notifications.active
+        count = scope.count
+        scope.update_all(dismissed_at: Time.current)
+
+        { success: true, dismissed_count: count }
+      rescue StandardError => e
+        { success: false, error: "Failed to dismiss notifications: #{e.message}" }
+      end
+
+      def mark_all_notifications_read
+        return { success: false, error: "User context required" } unless user
+
+        scope = user.notifications.active.unread
+        count = scope.count
+        scope.update_all(read_at: Time.current)
+
+        { success: true, marked_read_count: count }
+      rescue StandardError => e
+        { success: false, error: "Failed to mark notifications read: #{e.message}" }
       end
 
       def get_system_health

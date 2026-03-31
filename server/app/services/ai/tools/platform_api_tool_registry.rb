@@ -133,6 +133,8 @@ module Ai
         "get_mission_status" => "Ai::Tools::ActivityMonitorTool",
         "get_notifications" => "Ai::Tools::ActivityMonitorTool",
         "dismiss_notification" => "Ai::Tools::ActivityMonitorTool",
+        "dismiss_all_notifications" => "Ai::Tools::ActivityMonitorTool",
+        "mark_all_notifications_read" => "Ai::Tools::ActivityMonitorTool",
         "get_system_health" => "Ai::Tools::ActivityMonitorTool",
         # Kill switch
         "emergency_halt" => "Ai::Tools::KillSwitchTool",

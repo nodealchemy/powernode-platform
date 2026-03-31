@@ -222,6 +222,19 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     }
   };
 
+  const handleDismissAll = async () => {
+    setLoading(true);
+    try {
+      await notificationApi.dismissAll();
+      setNotifications([]);
+      setUnreadCount(0);
+    } catch (_error) {
+      // Silently fail
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -259,11 +272,20 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-96 max-h-[32rem] bg-theme-surface rounded-xl shadow-xl border border-theme z-50 overflow-hidden flex flex-col">
+        <div className="absolute right-0 mt-2 w-[28rem] max-h-[32rem] bg-theme-surface rounded-xl shadow-xl border border-theme z-50 overflow-hidden flex flex-col">
           {/* Header */}
           <div className="px-4 py-3 border-b border-theme bg-theme-background flex items-center justify-between">
             <span className="text-sm font-semibold text-theme-primary">Notifications</span>
             <div className="flex items-center space-x-2">
+              {notifications.length > 0 && (
+                <button
+                  onClick={handleDismissAll}
+                  disabled={loading}
+                  className="text-xs text-theme-secondary hover:text-theme-danger transition-colors disabled:opacity-50"
+                >
+                  Dismiss all
+                </button>
+              )}
               {unreadCount > 0 && (
                 <button
                   onClick={handleMarkAllRead}
