@@ -134,6 +134,19 @@ module Ai
               session_id: { type: "string", required: true, description: "Training session ID" }
             }
           },
+          "trading_resume_training_session" => {
+            description: "Resume a paused training session (e.g. after worker restart). Cancels then retries with dispatch.",
+            parameters: {
+              session_id: { type: "string", required: true, description: "Training session ID" }
+            }
+          },
+          "trading_discover_venue_series" => {
+            description: "Scan a venue's API to discover all available market series and categories. Populates the venue's series_registry for diverse market discovery.",
+            parameters: {
+              venue_slug: { type: "string", required: true, description: "Venue slug (e.g. 'kalshi', 'polymarket')" },
+              max_pages: { type: "integer", required: false, description: "Max API pages to scan (default: 15)" }
+            }
+          },
           "trading_delete_training_session" => {
             description: "Delete a non-running training session",
             parameters: {
@@ -241,6 +254,8 @@ module Ai
         when "trading_cancel_training_session" then cancel_training_session(params)
         when "trading_complete_training_session" then complete_training_session(params)
         when "trading_retry_training_session" then retry_training_session(params)
+        when "trading_resume_training_session" then resume_training_session(params)
+        when "trading_discover_venue_series" then discover_venue_series(params)
         when "trading_delete_training_session" then delete_training_session(params)
         when "trading_training_session_report" then training_session_report(params)
         when "trading_get_strategy_params" then get_strategy_params(params)
@@ -476,6 +491,56 @@ module Ai
         WorkerJobService.enqueue_trading_training_session(session.id)
 
         success_result(serialize_training_session(session))
+      end
+
+      def resume_training_session(params)
+        session = resolve_training_session(params[:session_id])
+
+        unless session.status == "paused"
+          return error_result("Only paused sessions can be resumed (current: #{session.status})")
+        end
+
+        # Cancel then retry with dispatch — the cleanest path to resume a paused session
+        session.update!(status: "cancelled", completed_at: Time.current)
+
+        has_strategies = session.strategies.any?
+        completed = session.completed_ticks || 0
+
+        if has_strategies && completed > 0
+          session.update!(status: "pending", error_message: nil, completed_at: nil)
+        else
+          session.update!(
+            status: "pending", error_message: nil, completed_at: nil,
+            started_at: nil, completed_ticks: 0, total_ticks: 0,
+            metrics: {}, results: {}, timeline: []
+          )
+        end
+
+        session.strategies.where(status: "decommissioned").update_all(
+          status: "active", lifecycle_phase: "paper_trade"
+        )
+
+        WorkerJobService.enqueue_trading_training_session(session.id)
+        success_result(serialize_training_session(session.reload))
+      end
+
+      def discover_venue_series(params)
+        venue = account.trading_venues.find_by(slug: params[:venue_slug])
+        return error_result("Venue not found: #{params[:venue_slug]}") unless venue
+        return error_result("Venue adapter does not support series discovery") unless venue.adapter.method_defined?(:discover_series!)
+
+        adapter = venue.adapter.new(venue)
+        max_pages = (params[:max_pages] || 15).to_i.clamp(1, 30)
+        result = adapter.discover_series!(max_pages: max_pages)
+
+        by_category = result.group_by { |_, m| m["category"] }.transform_values(&:size)
+
+        success_result({
+          venue_slug: venue.slug,
+          total_series: result.size,
+          categories: by_category.sort_by { |_, c| -c }.to_h,
+          category_count: by_category.size
+        })
       end
 
       def delete_training_session(params)

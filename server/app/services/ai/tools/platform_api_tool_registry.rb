@@ -15,6 +15,13 @@ module Ai
         "container_terminate" => "Ai::Tools::ContainerTerminateTool",
         # Integration health
         "integration_health" => "Ai::Tools::IntegrationHealthTool",
+        # Ralph Loop management (autonomous agent duty cycles)
+        "list_ralph_loops" => "Ai::Tools::RalphLoopTool",
+        "get_ralph_loop" => "Ai::Tools::RalphLoopTool",
+        "pause_ralph_loop" => "Ai::Tools::RalphLoopTool",
+        "resume_ralph_loop" => "Ai::Tools::RalphLoopTool",
+        "delete_ralph_loop" => "Ai::Tools::RalphLoopTool",
+        "get_ralph_loop_statistics" => "Ai::Tools::RalphLoopTool",
         # Agent management
         "create_agent" => "Ai::Tools::AgentManagementTool",
         "list_agents" => "Ai::Tools::AgentManagementTool",
@@ -307,6 +314,8 @@ module Ai
         "trading_cancel_training_session" => "Ai::Tools::TradingSimulationTool",
         "trading_complete_training_session" => "Ai::Tools::TradingSimulationTool",
         "trading_retry_training_session" => "Ai::Tools::TradingSimulationTool",
+        "trading_resume_training_session" => "Ai::Tools::TradingSimulationTool",
+        "trading_discover_venue_series" => "Ai::Tools::TradingSimulationTool",
         "trading_delete_training_session" => "Ai::Tools::TradingSimulationTool",
         "trading_training_session_report" => "Ai::Tools::TradingSimulationTool",
         # Trading — strategy parameters
