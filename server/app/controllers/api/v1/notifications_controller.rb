@@ -72,6 +72,7 @@ class Api::V1::NotificationsController < ApplicationController
   # POST /api/v1/notifications/mark_all_read
   def mark_all_read
     count = current_user.notifications.active.unread.update_all(read_at: Time.current)
+    NotificationChannel.broadcast_all_read(current_account, count: count)
 
     render_success(
       message: "#{count} notifications marked as read",
@@ -82,6 +83,7 @@ class Api::V1::NotificationsController < ApplicationController
   # DELETE /api/v1/notifications/:id
   def destroy
     @notification.dismiss!
+    NotificationChannel.broadcast_notification_dismissed(@notification)
 
     render_success(
       message: "Notification dismissed"
@@ -91,6 +93,7 @@ class Api::V1::NotificationsController < ApplicationController
   # DELETE /api/v1/notifications/dismiss_all
   def dismiss_all
     count = current_user.notifications.active.update_all(dismissed_at: Time.current)
+    NotificationChannel.broadcast_all_dismissed(current_account, count: count)
 
     render_success(
       message: "#{count} notifications dismissed",

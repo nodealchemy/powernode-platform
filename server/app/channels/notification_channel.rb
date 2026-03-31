@@ -63,5 +63,19 @@ class NotificationChannel < ApplicationCable::Channel
         notification_id: notification.id
       })
     end
+
+    def broadcast_all_read(account, count:)
+      broadcast_to_account(account, {
+        type: "all_notifications_read",
+        count: count
+      })
+    end
+
+    def broadcast_all_dismissed(account, count:)
+      broadcast_to_account(account, {
+        type: "all_notifications_dismissed",
+        count: count
+      })
+    end
   end
 end

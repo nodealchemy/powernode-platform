@@ -109,7 +109,6 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   // WebSocket hook for real-time notification updates
   useNotificationWebSocket({
     onNewNotification: (wsNotif: WebSocketNotification) => {
-      // Add new notification to the top of the list
       setNotifications(prev => [transformWsNotification(wsNotif), ...prev.slice(0, 9)]);
       setUnreadCount(prev => prev + 1);
     },
@@ -123,8 +122,15 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
       setNotifications(prev => prev.filter(n => n.id !== notificationId));
       loadUnreadCount();
     },
+    onAllRead: () => {
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setUnreadCount(0);
+    },
+    onAllDismissed: () => {
+      setNotifications([]);
+      setUnreadCount(0);
+    },
     onError: (error: string) => {
-      // Silent fail for notifications - log in dev only
       if (process.env.NODE_ENV === 'development') {
         logger.warn('[NotificationBell] WebSocket error', { error });
       }

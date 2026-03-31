@@ -77,6 +77,24 @@ export const NotificationsPage: React.FC = () => {
     setUnreadCount(prev => Math.max(0, prev - 1));
   }, []);
 
+  // Handle single notification dismissed from WebSocket
+  const handleNotificationDismissed = useCallback((notificationId: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== notificationId));
+    setUnreadCount(prev => Math.max(0, prev - 1));
+  }, []);
+
+  // Handle bulk mark all read from WebSocket
+  const handleAllRead = useCallback(() => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setUnreadCount(0);
+  }, []);
+
+  // Handle bulk dismiss all from WebSocket
+  const handleAllDismissed = useCallback(() => {
+    setNotifications([]);
+    setUnreadCount(0);
+  }, []);
+
   // Toggle expand/collapse for a notification
   const toggleExpanded = useCallback((id: string) => {
     setExpandedIds(prev => {
@@ -120,7 +138,10 @@ export const NotificationsPage: React.FC = () => {
   // WebSocket connection for real-time notifications
   useNotificationWebSocket({
     onNewNotification: handleNewNotification,
-    onNotificationRead: handleNotificationRead
+    onNotificationRead: handleNotificationRead,
+    onNotificationDismissed: handleNotificationDismissed,
+    onAllRead: handleAllRead,
+    onAllDismissed: handleAllDismissed
   });
 
   const loadNotifications = useCallback(async () => {

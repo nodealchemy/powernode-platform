@@ -10,6 +10,8 @@ type NotificationEventType =
   | 'new_notification'
   | 'notification_read'
   | 'notification_dismissed'
+  | 'all_notifications_read'
+  | 'all_notifications_dismissed'
   | 'pong'
   | 'error';
 
@@ -32,6 +34,8 @@ interface NotificationWebSocketOptions {
   onNewNotification?: (notification: WebSocketNotification) => void;
   onNotificationRead?: (notificationId: string) => void;
   onNotificationDismissed?: (notificationId: string) => void;
+  onAllRead?: (count: number) => void;
+  onAllDismissed?: (count: number) => void;
   onConnected?: () => void;
   onError?: (error: string) => void;
 }
@@ -40,6 +44,8 @@ export const useNotificationWebSocket = ({
   onNewNotification,
   onNotificationRead,
   onNotificationDismissed,
+  onAllRead,
+  onAllDismissed,
   onConnected,
   onError
 }: NotificationWebSocketOptions) => {
@@ -51,12 +57,16 @@ export const useNotificationWebSocket = ({
   const onNewNotificationRef = useRef(onNewNotification);
   const onNotificationReadRef = useRef(onNotificationRead);
   const onNotificationDismissedRef = useRef(onNotificationDismissed);
+  const onAllReadRef = useRef(onAllRead);
+  const onAllDismissedRef = useRef(onAllDismissed);
   const onConnectedRef = useRef(onConnected);
   const onErrorRef = useRef(onError);
 
   onNewNotificationRef.current = onNewNotification;
   onNotificationReadRef.current = onNotificationRead;
   onNotificationDismissedRef.current = onNotificationDismissed;
+  onAllReadRef.current = onAllRead;
+  onAllDismissedRef.current = onAllDismissed;
   onConnectedRef.current = onConnected;
   onErrorRef.current = onError;
 
@@ -90,6 +100,14 @@ export const useNotificationWebSocket = ({
         if (data.notification_id) {
           onNotificationDismissedRef.current?.(data.notification_id as string);
         }
+        break;
+
+      case 'all_notifications_read':
+        onAllReadRef.current?.(data.count as number || 0);
+        break;
+
+      case 'all_notifications_dismissed':
+        onAllDismissedRef.current?.(data.count as number || 0);
         break;
 
       case 'pong':

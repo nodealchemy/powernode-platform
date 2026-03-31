@@ -168,6 +168,7 @@ module Ai
         return { success: false, error: "Notification not found" } unless notification
 
         notification.mark_as_read!
+        NotificationChannel.broadcast_notification_read(notification)
         { success: true, notification_id: notification.id, read_at: notification.read_at&.iso8601 }
       rescue StandardError => e
         { success: false, error: "Failed to dismiss notification: #{e.message}" }
@@ -179,6 +180,7 @@ module Ai
         scope = user.notifications.active
         count = scope.count
         scope.update_all(dismissed_at: Time.current)
+        NotificationChannel.broadcast_all_dismissed(account, count: count)
 
         { success: true, dismissed_count: count }
       rescue StandardError => e
@@ -191,6 +193,7 @@ module Ai
         scope = user.notifications.active.unread
         count = scope.count
         scope.update_all(read_at: Time.current)
+        NotificationChannel.broadcast_all_read(account, count: count)
 
         { success: true, marked_read_count: count }
       rescue StandardError => e
