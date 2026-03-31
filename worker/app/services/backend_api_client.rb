@@ -293,13 +293,15 @@ class BackendApiClient
       # Setting it manually disables auto-decompression, causing "invalid byte
       # sequence in UTF-8" when Rack::Deflater compresses the response.
 
-      # Retry middleware with exponential backoff
+      # Retry middleware with graduated exponential backoff
+      # Covers ~31s window (1s → 2s → 4s → 8s → 16s) to ride through backend restarts
       conn.request :retry,
-                   max: @config.max_retry_attempts,
-                   interval: 0.5,
-                   interval_randomness: 0.5,
+                   max: 5,
+                   interval: 1.0,
+                   interval_randomness: 0.25,
                    backoff_factor: 2,
-                   retry_statuses: [500, 502, 503, 504],
+                   retry_statuses: [502, 503, 504],
+                   exceptions: [Faraday::ConnectionFailed, Faraday::TimeoutError],
                    methods: [:get, :post, :put, :patch, :delete]
 
       # Timeout configuration
