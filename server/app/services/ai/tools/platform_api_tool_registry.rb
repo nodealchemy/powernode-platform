@@ -259,6 +259,7 @@ module Ai
         "trading_activate_strategy" => "Ai::Tools::TradingStrategyTool",
         "trading_pause_strategy" => "Ai::Tools::TradingStrategyTool",
         "trading_decommission_strategy" => "Ai::Tools::TradingStrategyTool",
+        "trading_demote_strategy" => "Ai::Tools::TradingStrategyTool",
         "trading_advance_phase" => "Ai::Tools::TradingStrategyTool",
         "trading_strategy_performance" => "Ai::Tools::TradingStrategyTool",
         "trading_strategy_versions" => "Ai::Tools::TradingStrategyTool",

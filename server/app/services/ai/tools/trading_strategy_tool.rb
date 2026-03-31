@@ -89,6 +89,12 @@ module Ai
               strategy_id: { type: "string", required: true, description: "Strategy ID or name" }
             }
           },
+          "trading_demote_strategy" => {
+            description: "Demote a strategy from live portfolio back to proving ground (closes positions, resets PnL, migrates portfolio)",
+            parameters: {
+              strategy_id: { type: "string", required: true, description: "Strategy ID or name" }
+            }
+          },
           "trading_advance_phase" => {
             description: "Advance strategy lifecycle phase (some phases require approval)",
             parameters: {
@@ -134,6 +140,7 @@ module Ai
         when "trading_activate_strategy" then activate_strategy(params)
         when "trading_pause_strategy" then pause_strategy(params)
         when "trading_decommission_strategy" then decommission_strategy(params)
+        when "trading_demote_strategy" then demote_strategy(params)
         when "trading_advance_phase" then advance_phase(params)
         when "trading_strategy_performance" then strategy_performance(params)
         when "trading_strategy_versions" then strategy_versions(params)
@@ -231,6 +238,25 @@ module Ai
         strategy = resolve_strategy(params[:strategy_id])
         strategy.update!(status: "decommissioned", lifecycle_phase: "decommissioned")
         success_result({ strategy_id: strategy.id, name: strategy.name, status: "decommissioned" })
+      end
+
+      def demote_strategy(params)
+        strategy = resolve_strategy(params[:strategy_id])
+        return error_result("Strategy is not on a live portfolio") unless strategy.portfolio&.live?
+        return error_result("Strategy must be in a paper phase to demote") unless strategy.lifecycle_phase.in?(%w[conception backtest paper_trade])
+
+        from_portfolio = strategy.portfolio
+        ::Trading::ProvingGroundService.demote!(strategy)
+        strategy.reload
+
+        success_result({
+          strategy_id: strategy.id,
+          name: strategy.name,
+          demoted: true,
+          from_portfolio: from_portfolio.name,
+          to_portfolio: strategy.portfolio.name,
+          allocated_capital_usd: strategy.allocated_capital_usd.to_f
+        })
       end
 
       def advance_phase(params)
