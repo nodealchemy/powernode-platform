@@ -89,6 +89,20 @@ module Ai
               strategy_id: { type: "string", required: true, description: "Strategy ID or name" }
             }
           },
+          "trading_decline_strategy" => {
+            description: "Move a live strategy to declining phase (closes positions, monitors for recovery, auto-decommissions after 30 days)",
+            parameters: {
+              strategy_id: { type: "string", required: true, description: "Strategy ID or name" },
+              reason: { type: "string", required: false, description: "Reason for declining (default: sustained_degradation)" }
+            }
+          },
+          "trading_recover_strategy" => {
+            description: "Recover a declining strategy back to its previous live phase at reduced capital",
+            parameters: {
+              strategy_id: { type: "string", required: true, description: "Strategy ID or name" },
+              capital_pct: { type: "number", required: false, description: "Recovery capital as fraction of original (default: 0.5)" }
+            }
+          },
           "trading_demote_strategy" => {
             description: "Demote a strategy from live portfolio back to proving ground (closes positions, resets PnL, migrates portfolio)",
             parameters: {
@@ -140,6 +154,8 @@ module Ai
         when "trading_activate_strategy" then activate_strategy(params)
         when "trading_pause_strategy" then pause_strategy(params)
         when "trading_decommission_strategy" then decommission_strategy(params)
+        when "trading_decline_strategy" then decline_strategy(params)
+        when "trading_recover_strategy" then recover_strategy(params)
         when "trading_demote_strategy" then demote_strategy(params)
         when "trading_advance_phase" then advance_phase(params)
         when "trading_strategy_performance" then strategy_performance(params)
@@ -236,8 +252,32 @@ module Ai
 
       def decommission_strategy(params)
         strategy = resolve_strategy(params[:strategy_id])
-        strategy.update!(status: "decommissioned", lifecycle_phase: "decommissioned")
+        strategy.decommission!
         success_result({ strategy_id: strategy.id, name: strategy.name, status: "decommissioned" })
+      end
+
+      def decline_strategy(params)
+        strategy = resolve_strategy(params[:strategy_id])
+        reason = params[:reason] || "sustained_degradation"
+        strategy.enter_declining!(reason: reason)
+        success_result({
+          strategy_id: strategy.id, name: strategy.name,
+          lifecycle_phase: "declining", status: "paused",
+          declined_from_phase: strategy.config&.dig("declined_from_phase"),
+          reason: reason
+        })
+      end
+
+      def recover_strategy(params)
+        strategy = resolve_strategy(params[:strategy_id])
+        capital_pct = (params[:capital_pct] || 0.5).to_f
+        strategy.recover_from_declining!(capital_pct: capital_pct)
+        success_result({
+          strategy_id: strategy.id, name: strategy.name,
+          lifecycle_phase: strategy.lifecycle_phase, status: "active",
+          allocated_capital_usd: strategy.allocated_capital_usd,
+          capital_pct: capital_pct
+        })
       end
 
       def demote_strategy(params)
