@@ -5,6 +5,8 @@ module Ai
     # Unified conversation tool — handles workspaces, agent conversations, and concierge interactions.
     # Merges the former WorkspaceTool and ConciergeTool into a single entry point.
     class ConversationTool < BaseTool
+      include ::Ai::ConversationAiGeneration
+
       REQUIRED_PERMISSION = "ai.conversations.create"
 
       def self.definition
@@ -168,11 +170,27 @@ module Ai
           response_message = conversation.messages.not_deleted.where(role: "assistant").order(created_at: :desc).first
           dispatched_agents = [{ id: conversation.agent.id, name: conversation.agent.name, type: "concierge" }]
         elsif conversation.agent&.provider&.is_active?
-          # Regular agent conversation: dispatch async response via worker
-          WorkerJobService.enqueue_ai_conversation_response(
-            conversation.id, message.message_id, user.id
-          )
-          dispatched_agents = [{ id: conversation.agent.id, name: conversation.agent.name, type: conversation.agent.agent_type }]
+          # Regular agent conversation: generate response synchronously
+          # (mirrors conversations_controller#send_message behavior — the async
+          # worker path has a 404 bug in AiChatResponseJob's agent lookup)
+          agent = conversation.agent
+          messages_for_ai = build_messages_for_ai(conversation, agent)
+          ai_response = generate_ai_response(agent, messages_for_ai)
+
+          if ai_response[:success]
+            response_message = conversation.add_assistant_message(
+              ai_response[:content],
+              message_type: "text",
+              token_count: ai_response[:usage]&.dig(:total_tokens) || 0,
+              cost_usd: calculate_cost(ai_response[:usage], agent.provider),
+              processing_metadata: {
+                model: ai_response[:model],
+                finish_reason: ai_response[:finish_reason],
+                usage: ai_response[:usage]
+              }.compact
+            )
+          end
+          dispatched_agents = [{ id: agent.id, name: agent.name, type: agent.agent_type }]
         end
 
         result = {

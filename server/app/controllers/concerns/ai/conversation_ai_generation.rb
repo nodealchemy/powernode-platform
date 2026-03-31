@@ -171,28 +171,6 @@ module Ai
       end
     end
 
-    # Extract text content from various provider response formats
-    def extract_content_from_response(data)
-      return "" unless data
-
-      if data.is_a?(String)
-        data
-      elsif data[:content].is_a?(Array)
-        data[:content].map { |c| c[:text] || c["text"] }.compact.join("\n")
-      elsif data[:content].is_a?(String)
-        data[:content]
-      elsif data[:choices].is_a?(Array)
-        data[:choices].first&.dig(:message, :content) ||
-          data[:choices].first&.dig("message", "content") || ""
-      elsif data[:message].is_a?(Hash)
-        data[:message][:content] || data[:message]["content"] || ""
-      elsif data[:response]
-        data[:response]
-      else
-        data.to_s
-      end
-    end
-
     # Calculate cost based on token usage
     def calculate_cost(usage, provider)
       return 0.0 unless usage
