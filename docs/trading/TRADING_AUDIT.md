@@ -2,8 +2,22 @@
 
 **Date:** 2026-03-31
 **Scope:** Full trading extension — backend models, services, controllers, jobs, evaluators, frontend components
-**Status:** Open — findings documented, no changes implemented
+**Status:** **CLOSED** — all 32 findings remediated (2026-03-31 through 2026-04-01)
 **Companion:** See `TRADING_EFFICIENCY_AUDIT.md` for runtime performance bottlenecks (separate scope)
+
+### Remediation Summary (10 phases)
+| Phase | Findings | Key Changes |
+|-------|----------|-------------|
+| 1 | M4,M11,M13,M15,L1,L2,L5 | LogFormatter, constants, CHECK constraints, error boundaries |
+| 2 | C5,C6,C7,C8 | Safety-critical error handling fixes |
+| 3 | M5,M6,M7 | N+1 query fixes, SQL optimization |
+| 4 | H14,H15 | AASM state machines, held→status merge |
+| 5 | M1,M2,L3,L4 | AdapterFactory (29 locations), VenueLifecycleService |
+| 6 | H13,M12,L6,L7 | tradingApi.ts split (8 modules), React Query hooks, skeletons |
+| 7 | H8,H9,H10,H11 | Controller/concern decomposition (3+4 files) |
+| 8 | H3,H6,H7,M14 | Model/adapter/job decomposition, TradingJobBase |
+| 9 | H12 | Frontend component decomposition (5→29 sub-components) |
+| 10 | C1,C2,C3,C4,H1,H2,H4,H5,M8-M10 | God objects, service decomposition, JSON validation |
 
 ---
 
