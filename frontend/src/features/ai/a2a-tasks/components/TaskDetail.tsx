@@ -464,14 +464,6 @@ export const TaskDetail: React.FC<TaskDetailProps> = ({ taskId, onClose, classNa
                   </span>
                 </div>
               )}
-              {Boolean(task.metadata?.workflow_run_id) && (
-                <div className="flex justify-between">
-                  <span className="text-theme-secondary">Workflow Run</span>
-                  <span className="text-theme-primary font-mono text-xs">
-                    {String(task.metadata?.workflow_run_id).substring(0, 16)}...
-                  </span>
-                </div>
-              )}
             </CardContent>
           </Card>
         </div>

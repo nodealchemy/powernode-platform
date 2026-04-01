@@ -14,9 +14,6 @@
  * - Old: aiAgentApi, aiAgentExecutionsApi, aiConversationsApi
  *   New: agentsApi (single consolidated service)
  *
- * - Old: workflowApi, workflowRunsApi, workflowSchedulesApi, workflowTriggersApi
- *   New: workflowsApi (single consolidated service)
- *
  * - Old: aiProviderApi, aiProviderCredentialsApi
  *   New: providersApi (single consolidated service)
  *
@@ -32,13 +29,11 @@
 
 // Base service and types
 // Import all service instances for local use
-import { workflowsApi } from '@/shared/services/ai/WorkflowsApiService';
 import { agentsApi } from '@/shared/services/ai/AgentsApiService';
 import { providersApi } from '@/shared/services/ai/ProvidersApiService';
 import { monitoringApi } from '@/shared/services/ai/MonitoringApiService';
 import { analyticsApi } from '@/shared/services/ai/AnalyticsApiService';
 import { pluginsApi } from '@/shared/services/ai/PluginsApiService';
-import { validationApi } from '@/shared/services/ai/ValidationApiService';
 import { conversationsApi } from '@/shared/services/ai/ConversationsApiService';
 import { modelRouterApi } from '@/shared/services/ai/ModelRouterApiService';
 import { aiOpsApi } from '@/shared/services/ai/AiOpsApiService';
@@ -67,18 +62,6 @@ export type {
   PaginatedResponse,
   QueryFilters,
 } from '@/shared/services/ai/BaseApiService';
-
-// Re-export Workflows service
-export { workflowsApi };
-export type {
-  WorkflowFilters,
-  WorkflowRunFilters,
-  CreateWorkflowRequest,
-  ExecuteWorkflowRequest,
-  WorkflowStatistics,
-  WorkflowValidationResult,
-  WorkflowRunMetrics,
-} from '@/shared/services/ai/types/workflow-api-types';
 
 // Re-export Agents service
 export { agentsApi };
@@ -161,12 +144,6 @@ export type {
   InstallPluginRequest,
 } from '@/shared/types/plugin';
 
-// Re-export Validation service
-export { validationApi };
-export type {
-  ValidationIssue,
-  ValidationRule,
-} from '@/shared/types/workflow';
 
 // Re-export Model Router service (Phase 1 - Intelligent Routing)
 export { modelRouterApi };
@@ -197,7 +174,6 @@ export type {
   ProviderMetrics,
   ProviderDetailMetrics,
   ProviderComparison,
-  WorkflowMetrics,
   AgentMetrics,
   CostAnalysisData,
   Alert as AiOpsAlert,
@@ -216,7 +192,6 @@ export type {
   RoiSummary,
   RoiTrends,
   DailyMetrics,
-  WorkflowRoi,
   AgentRoi,
   ProviderCost,
   CostBreakdown,
@@ -526,14 +501,12 @@ export type {
  * Convenience object for accessing all API services
  */
 export const aiApi = {
-  workflows: workflowsApi,
   agents: agentsApi,
   conversations: conversationsApi,
   providers: providersApi,
   monitoring: monitoringApi,
   analytics: analyticsApi,
   plugins: pluginsApi,
-  validation: validationApi,
   // Phase 1 - New services
   modelRouter: modelRouterApi,
   aiOps: aiOpsApi,

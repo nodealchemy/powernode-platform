@@ -39,15 +39,6 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
   })
 }));
 
-// Mock WebSocket hook
-jest.mock('@/shared/hooks/useAiMonitoringWebSocket', () => ({
-  useAiMonitoringWebSocket: () => ({
-    isConnected: true,
-    requestDashboardStats: jest.fn(),
-    error: null,
-  }),
-}));
-
 // Mock error boundary
 jest.mock('@/shared/components/error/AiErrorBoundary', () => ({
   AiErrorBoundary: ({ children }: any) => <>{children}</>,
@@ -238,15 +229,6 @@ jest.mock('@/features/ai/monitoring/components/ResourceUtilizationChart', () => 
     <div data-testid="resource-utilization-chart">
       {isLoading ? <span>Loading resources...</span> : <span>Resources loaded</span>}
       <button onClick={onRefresh} data-testid="refresh-resources">Refresh</button>
-    </div>
-  )
-}));
-
-jest.mock('@/features/ai/monitoring/components/WorkflowMonitoringPanel', () => ({
-  WorkflowMonitoringPanel: ({ isLoading, onRefresh }: any) => (
-    <div data-testid="workflow-monitoring-panel">
-      {isLoading ? <span>Loading workflows...</span> : <span>Workflow Performance</span>}
-      <button onClick={onRefresh} data-testid="refresh-workflows">Refresh</button>
     </div>
   )
 }));
@@ -627,16 +609,4 @@ describe('AIMonitoringPage', () => {
     });
   });
 
-  describe('Workflow Tab', () => {
-    it('displays workflow monitoring panel in the systems tab', async () => {
-      renderComponent();
-
-      // The workflow monitoring panel is inside the "systems" TabPanel
-      // which is always rendered (just hidden via display:none when not active)
-      await waitFor(() => {
-        expect(screen.getByTestId('workflow-monitoring-panel')).toBeInTheDocument();
-        expect(screen.getByText('Workflow Performance')).toBeInTheDocument();
-      });
-    });
-  });
 });

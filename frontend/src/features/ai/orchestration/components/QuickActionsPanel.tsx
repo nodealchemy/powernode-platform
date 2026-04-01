@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import {
   Bot,
   MessageSquare,
-  Workflow,
   BarChart3,
   Rocket,
   Server,
@@ -23,7 +22,6 @@ export const QuickActionsPanel: React.FC = () => {
   const quickActions: QuickAction[] = useMemo(() => [
     { id: 'new-mission', title: 'New Mission', icon: Rocket, href: '/app/ai/missions', color: 'text-theme-primary' },
     { id: 'create-agent', title: 'Create Agent', icon: Bot, href: '/app/ai/agents', color: 'text-theme-info' },
-    { id: 'design-workflow', title: 'New Workflow', icon: Workflow, href: '/app/ai/workflows/new', color: 'text-theme-warning' },
     { id: 'conversation', title: 'Chat', icon: MessageSquare, href: '/app/ai/communication', color: 'text-theme-success' },
     { id: 'analytics', title: 'Analytics', icon: BarChart3, href: '/app/ai/analytics', color: 'text-theme-secondary' },
     { id: 'mcp-browser', title: 'MCP', icon: Server, href: '/app/ai/infrastructure/mcp', color: 'text-theme-tertiary' },

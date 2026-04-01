@@ -41,8 +41,6 @@ const AGENT_TYPE_LABELS: Record<string, string> = {
   data_analyst: 'Data',
   content_generator: 'Content',
   image_generator: 'Image',
-  workflow_optimizer: 'Workflow',
-  workflow_operations: 'Ops',
 };
 
 const TRUST_CONFIG: Record<string, {

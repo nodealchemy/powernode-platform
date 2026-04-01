@@ -35,8 +35,6 @@ const AGENT_TYPES = [
   { value: 'data_analyst', label: 'Data Analyst' },
   { value: 'content_generator', label: 'Content Generator' },
   { value: 'image_generator', label: 'Image Generator' },
-  { value: 'workflow_optimizer', label: 'Workflow Optimizer' },
-  { value: 'workflow_operations', label: 'Workflow Operations' },
   { value: 'monitor', label: 'Monitor' }
 ];
 

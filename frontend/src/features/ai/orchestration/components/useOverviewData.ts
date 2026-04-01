@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { agentsApi, providersApi, conversationsApi } from '@/shared/services/ai';
-import { workflowsApi } from '@/shared/services/ai';
 import { useAIOrchestrationMonitor, resetAIOrchestrationMonitor } from '../services/aiOrchestrationMonitor';
 import type { AISystemMetrics } from '../services/aiOrchestrationMonitor';
 
@@ -11,12 +10,6 @@ export interface OverviewStats {
     health_status: 'healthy' | 'degraded' | 'critical';
   };
   agents: {
-    total: number;
-    active: number;
-    executing: number;
-    success_rate: number;
-  };
-  workflows: {
     total: number;
     active: number;
     executing: number;
@@ -51,13 +44,6 @@ interface AgentItem {
   execution_count?: number;
 }
 
-interface WorkflowItem {
-  id: string;
-  name: string;
-  status: 'draft' | 'published' | 'archived' | 'active';
-  last_run?: string;
-}
-
 interface ConversationItem {
   id: string;
   title: string | null;
@@ -70,16 +56,14 @@ interface ApiListResponse<T> {
   items?: T[];
   providers?: T[];
   agents?: T[];
-  workflows?: T[];
   data?: {
     items?: T[];
     providers?: T[];
     agents?: T[];
-    workflows?: T[];
   };
 }
 
-function extractItems<T>(response: ApiListResponse<T>, key: 'providers' | 'agents' | 'workflows'): T[] {
+function extractItems<T>(response: ApiListResponse<T>, key: 'providers' | 'agents'): T[] {
   if (response?.items) return response.items;
   if (response?.[key]) return response[key] as T[];
   if (response?.data?.items) return response.data.items;
@@ -119,7 +103,6 @@ export function useOverviewData() {
 
           if (JSON.stringify(metrics.providers) !== JSON.stringify(prevStats.providers)) updatedSections.push('providers');
           if (JSON.stringify(metrics.agents) !== JSON.stringify(prevStats.agents)) updatedSections.push('agents');
-          if (JSON.stringify(metrics.workflows) !== JSON.stringify(prevStats.workflows)) updatedSections.push('workflows');
           if (JSON.stringify(metrics.executions) !== JSON.stringify(prevStats.executions)) updatedSections.push('executions');
 
           return {
@@ -155,10 +138,9 @@ export function useOverviewData() {
       setLoading(true);
       setError(null);
 
-      const [providersRes, agentsRes, workflowsRes] = await Promise.allSettled([
+      const [providersRes, agentsRes] = await Promise.allSettled([
         providersApi.getProviders({ per_page: 100 }),
         agentsApi.getAgents({ per_page: 100 }),
-        workflowsApi.getWorkflows({ perPage: 100 }),
       ]);
 
       // Process providers
@@ -182,12 +164,6 @@ export function useOverviewData() {
         ? agents.reduce((acc, agent) => acc + (agent.success_rate || 95), 0) / agents.length
         : 0;
 
-      // Process workflows
-      let workflows: WorkflowItem[] = [];
-      if (workflowsRes.status === 'fulfilled') {
-        workflows = extractItems(workflowsRes.value as ApiListResponse<WorkflowItem>, 'workflows');
-      }
-      const activeWorkflows = workflows.filter((w) => w.status === 'active' || w.status === 'published');
 
       // Fetch real conversations
       let conversations: ConversationItem[] = [];
@@ -201,15 +177,12 @@ export function useOverviewData() {
       const todayConversations = conversations.filter((c) => new Date(c.created_at).toDateString() === new Date().toDateString());
 
       const totalExecutionsMonth = agents.reduce((acc, agent) => acc + (agent.execution_count || 0), 0);
-      const workflowSuccessRate = workflows.length > 0 ? agentSuccessRate : 0;
-      const overallSuccessRate = agents.length > 0 ? (agentSuccessRate + workflowSuccessRate) / (workflows.length > 0 ? 2 : 1) : 0;
 
       setStats({
         providers: { total: providers.length, active: activeProviders.length, health_status: providerHealthStatus },
         agents: { total: agents.length, active: activeAgents.length, executing: 0, success_rate: Math.round(agentSuccessRate) },
-        workflows: { total: workflows.length, active: activeWorkflows.length, executing: 0, success_rate: Math.round(workflowSuccessRate) },
         conversations: { total: conversations.length, active: activeConversations.length, today: todayConversations.length },
-        executions: { total_month: totalExecutionsMonth, total_today: 0, success_rate: Math.round(overallSuccessRate), avg_response_time: 0 },
+        executions: { total_month: totalExecutionsMonth, total_today: 0, success_rate: Math.round(agentSuccessRate), avg_response_time: 0 },
       });
     } catch (err) {
       let errorMessage = 'Failed to load AI system data';

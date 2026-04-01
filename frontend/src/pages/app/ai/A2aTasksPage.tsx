@@ -3,7 +3,6 @@ import { ArrowLeft } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { A2aTaskListPanel, A2aTaskDetailPanel } from '@/features/ai/a2a-tasks';
 import { usePermissions } from '@/shared/hooks/usePermissions';
-import { useAiOrchestrationWebSocket } from '@/shared/hooks/useAiOrchestrationWebSocket';
 import type { A2aTask } from '@/shared/services/ai/types/a2a-types';
 
 interface A2aTasksContentProps {
@@ -23,22 +22,6 @@ export const A2aTasksContent: React.FC<A2aTasksContentProps> = ({ refreshKey: ex
   }, [externalRefreshKey]);
 
   usePermissions();
-
-  useAiOrchestrationWebSocket({
-    onAgentEvent: (event) => {
-      if (
-        [
-          'agent_execution_started',
-          'agent_execution_completed',
-          'agent_execution_failed',
-          'agent_message_sent',
-          'agent_message_received',
-        ].includes(event.type)
-      ) {
-        setListKey((k) => k + 1);
-      }
-    },
-  });
 
   const handleSelectTask = (task: A2aTask) => {
     setSelectedTaskId(task.task_id);

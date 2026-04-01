@@ -6,7 +6,6 @@ import { Modal } from '@/shared/components/ui/Modal';
 import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';
-import { useAiOrchestrationWebSocket } from '@/shared/hooks/useAiOrchestrationWebSocket';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import {
@@ -57,14 +56,6 @@ const TeamsPage: React.FC = () => {
   // Start execution modal
   const [showExecutionModal, setShowExecutionModal] = useState(false);
   const [executionObjective, setExecutionObjective] = useState('');
-
-  useAiOrchestrationWebSocket({
-    onWorkflowRunEvent: (event) => {
-      if (['run_completed', 'run_failed', 'run_started'].includes(event.type)) {
-        if (selectedTeam) loadTeamData(selectedTeam.id);
-      }
-    }
-  });
 
   useEffect(() => { loadData(); }, []);
 

@@ -76,21 +76,6 @@ jest.mock('@/shared/hooks/BreadcrumbContext', () => ({
   })
 }));
 
-// Mock useAiOrchestrationWebSocket
-jest.mock('@/shared/hooks/useAiOrchestrationWebSocket', () => ({
-  useAiOrchestrationWebSocket: () => ({
-    isConnected: true,
-    subscribeToWorkflow: jest.fn(() => jest.fn()),
-    subscribeToWorkflowRun: jest.fn(() => jest.fn()),
-    subscribeToAgent: jest.fn(() => jest.fn()),
-    subscribeToAgentTeam: jest.fn(() => jest.fn()),
-    subscribeToBatch: jest.fn(() => jest.fn()),
-    subscribeToCircuitBreaker: jest.fn(() => jest.fn()),
-    subscribeToProvider: jest.fn(() => jest.fn()),
-    error: null
-  })
-}));
-
 // Mock modals
 jest.mock('@/features/ai/conversations/components/ConversationCreateModal', () => ({
   ConversationCreateModal: ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) =>

@@ -132,21 +132,6 @@ export interface DailyMetrics {
   days: number;
 }
 
-export interface WorkflowRoi {
-  workflows: Array<{
-    id: string;
-    name: string;
-    total_cost_usd: number;
-    total_value_usd: number;
-    roi_percentage: number;
-    execution_count: number;
-    avg_duration_ms: number;
-    time_saved_hours: number;
-    efficiency_score: number;
-  }>;
-  time_range: TimeRangeInfo;
-}
-
 export interface AgentRoi {
   agents: Array<{
     id: string;
@@ -354,15 +339,6 @@ class RoiApiService extends BaseApiService {
   // ==========================================================================
   // Breakdown Analysis
   // ==========================================================================
-
-  /**
-   * Get ROI by workflow
-   * GET /api/v1/ai/roi/by_workflow
-   */
-  async getByWorkflow(timeRange?: string): Promise<WorkflowRoi> {
-    const queryString = timeRange ? `?time_range=${timeRange}` : '';
-    return this.get<WorkflowRoi>(`${this.basePath}/by_workflow${queryString}`);
-  }
 
   /**
    * Get ROI by agent

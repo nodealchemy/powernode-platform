@@ -5,68 +5,6 @@
  * Use these to narrow unknown types to specific interfaces.
  */
 
-import type { NodeOutputData } from '@/shared/types/workflow';
-
-/**
- * Checks if output is JSON type
- */
-export function isNodeOutputJson(
-  output: unknown
-): output is Extract<NodeOutputData, { type: 'json' }> {
-  return (
-    typeof output === 'object' &&
-    output !== null &&
-    'type' in output &&
-    (output as Record<string, unknown>).type === 'json' &&
-    'data' in output
-  );
-}
-
-/**
- * Checks if output is text type
- */
-export function isNodeOutputText(
-  output: unknown
-): output is Extract<NodeOutputData, { type: 'text' }> {
-  return (
-    typeof output === 'object' &&
-    output !== null &&
-    'type' in output &&
-    (output as Record<string, unknown>).type === 'text' &&
-    'content' in output
-  );
-}
-
-/**
- * Checks if output is markdown type
- */
-export function isNodeOutputMarkdown(
-  output: unknown
-): output is Extract<NodeOutputData, { type: 'markdown' }> {
-  return (
-    typeof output === 'object' &&
-    output !== null &&
-    'type' in output &&
-    (output as Record<string, unknown>).type === 'markdown' &&
-    'content' in output
-  );
-}
-
-/**
- * Checks if output is error type
- */
-export function isNodeOutputError(
-  output: unknown
-): output is Extract<NodeOutputData, { type: 'error' }> {
-  return (
-    typeof output === 'object' &&
-    output !== null &&
-    'type' in output &&
-    (output as Record<string, unknown>).type === 'error' &&
-    'message' in output
-  );
-}
-
 /**
  * Safely extracts error message from unknown error type
  * @param error Unknown error value

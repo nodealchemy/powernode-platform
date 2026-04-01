@@ -45,7 +45,6 @@ const GitProvidersPage = React.lazy(() => import('./devops/GitProvidersPage').th
 // AI Primary navigation
 const AIOverviewPage = React.lazy(() => import('./ai/AIOverviewPage').then(m => ({ default: m.AIOverviewPage })));
 const AIAgentsPage = React.lazy(() => import('./ai/AIAgentsPage').then(m => ({ default: m.AIAgentsPage })));
-const WorkflowsPage = React.lazy(() => import('./ai/WorkflowsPage').then(m => ({ default: m.WorkflowsPage })));
 const AIMonitoringPage = React.lazy(() => import('./ai/AIMonitoringPage').then(m => ({ default: m.AIMonitoringPage })));
 const GovernancePage = React.lazy(() => import('./ai/GovernancePage'));
 // SandboxPage absorbed into Execution tabs
@@ -57,13 +56,8 @@ const InfrastructurePage = React.lazy(() => import('./ai/InfrastructurePage').th
 // AiBillingPage absorbed into Observability (Credits & FinOps tabs)
 
 // AI Sub-pages
-const CreateWorkflowPage = React.lazy(() => import('./ai').then(m => ({ default: m.CreateWorkflowPage })));
 const AIDebugPage = React.lazy(() => import('./ai').then(m => ({ default: m.AIDebugPage })));
 const AgentDetailPage = React.lazy(() => import('./ai/AgentDetailPage').then(m => ({ default: m.AgentDetailPage })));
-const WorkflowDetailPage = React.lazy(() => import('./ai/WorkflowDetailPage').then(m => ({ default: m.WorkflowDetailPage })));
-const WorkflowImportPage = React.lazy(() => import('./ai/WorkflowImportPage').then(m => ({ default: m.WorkflowImportPage })));
-const WorkflowMonitoringPage = React.lazy(() => import('./ai/WorkflowMonitoringPage').then(m => ({ default: m.WorkflowMonitoringPage })));
-const WorkflowValidationStatisticsPage = React.lazy(() => import('./ai/WorkflowValidationStatisticsPage').then(m => ({ default: m.WorkflowValidationStatisticsPage })));
 const AIAnalyticsPage = React.lazy(() => import('./ai/AIAnalyticsPage').then(m => ({ default: m.AIAnalyticsPage })));
 const AgentMemoryPage = React.lazy(() => import('./ai/AgentMemoryPage').then(m => ({ default: m.AgentMemoryPage })));
 const ContextDetailPage = React.lazy(() => import('./ai/ContextDetailPage').then(m => ({ default: m.ContextDetailPage })));
@@ -96,8 +90,6 @@ const ContainerDetailPage = React.lazy(() => import('@/features/devops/docker/pa
 // AI Feature Pages (standalone)
 const TeamsPage = React.lazy(() => import('./ai/TeamsPage'));
 const DevOpsTemplatesPage = React.lazy(() => import('./ai/DevOpsTemplatesPage'));
-const WorkflowAnalyticsPage = React.lazy(() => import('./ai/WorkflowAnalyticsPage').then(m => ({ default: m.WorkflowAnalyticsPage })));
-
 // Integration pages
 const IntegrationDetailPage = React.lazy(() => import('@/pages/app/devops/integrations').then(m => ({ default: m.IntegrationDetailPage })));
 const NewIntegrationPage = React.lazy(() => import('@/pages/app/devops/integrations').then(m => ({ default: m.NewIntegrationPage })));
@@ -192,14 +184,6 @@ const DashboardOverview: React.FC = () => {
             icon="🤖"
             description={statsLoading ? 'Loading...' : stats.agents.active > 0 ? `${stats.agents.active} active` : 'Configure AI agents'}
             onClick={() => navigate('/app/ai/agents')}
-          />
-
-          <MetricCard
-            title="Workflows"
-            value={statsLoading ? '...' : stats.workflows.total}
-            icon="🔄"
-            description={statsLoading ? 'Loading...' : stats.workflows.active > 0 ? `${stats.workflows.active} active` : 'Set up AI workflows'}
-            onClick={() => navigate('/app/ai/workflows')}
           />
 
           <MetricCard
@@ -377,13 +361,6 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/agents/:agentId/*" element={<AgentDetailPage />} />
         <Route path="/ai/agents/*" element={<AIAgentsPage />} />
         <Route path="/ai/teams" element={<TeamsPage />} />
-        <Route path="/ai/workflows/new" element={<CreateWorkflowPage />} />
-        <Route path="/ai/workflows/import" element={<WorkflowImportPage />} />
-        <Route path="/ai/workflows/monitoring" element={<WorkflowMonitoringPage />} />
-        <Route path="/ai/workflows/validation-stats" element={<WorkflowValidationStatisticsPage />} />
-        <Route path="/ai/workflows/templates" element={<WorkflowsPage />} />
-        <Route path="/ai/workflows/:id" element={<WorkflowDetailPage />} />
-        <Route path="/ai/workflows/*" element={<WorkflowsPage />} />
         <Route path="/ai/communication/conversations" element={<Navigate to="/app/ai/observability/conversations" replace />} />
         <Route path="/ai/communication/*" element={<Navigate to="/app/ai/teams" replace />} />
         <Route path="/ai/governance/*" element={<GovernancePage />} />
@@ -422,7 +399,6 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/learning/recommendations" element={<RecommendationsDashboard />} />
         <Route path="/ai/learning/insights" element={<TrajectoryInsights />} />
         <Route path="/ai/analytics/system" element={<AIAnalyticsPage />} />
-        <Route path="/ai/analytics/workflows" element={<WorkflowAnalyticsPage />} />
         <Route path="/ai/devops/templates" element={<DevOpsTemplatesPage />} />
         <Route path="/ai/debug" element={<AIDebugPage />} />
 

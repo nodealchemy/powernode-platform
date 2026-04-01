@@ -30,8 +30,7 @@ export const AGENT_TYPES = [
   { value: 'code_assistant', label: 'Code Assistant' },
   { value: 'data_analyst', label: 'Data Analyst' },
   { value: 'content_generator', label: 'Content Generator' },
-  { value: 'image_generator', label: 'Image Generator' },
-  { value: 'workflow_optimizer', label: 'Workflow Optimizer' }
+  { value: 'image_generator', label: 'Image Generator' }
 ];
 
 interface UseEditAgentFormOptions {

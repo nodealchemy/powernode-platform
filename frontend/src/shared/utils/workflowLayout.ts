@@ -9,15 +9,13 @@ export interface LayoutOptions {
 }
 
 /**
- * Auto-arrange workflow nodes using dagre's Sugiyama-based hierarchical layout.
+ * Auto-arrange graph nodes using dagre's Sugiyama-based hierarchical layout.
  *
  * Dagre implements the standard Sugiyama framework:
  * 1. Cycle removal (acyclic graph creation)
  * 2. Layer assignment (rank assignment using network simplex)
  * 3. Crossing reduction (layer-by-layer sweep with barycenter heuristic)
  * 4. Coordinate assignment (Brandes-Köpf algorithm for compact layout)
- *
- * This is the same approach used by GraphViz dot and other professional tools.
  */
 export const autoArrangeNodes = (
   nodes: Node[],
@@ -33,7 +31,6 @@ export const autoArrangeNodes = (
     spacing = 80
   } = options;
 
-  // Create dagre graph
   const g = new dagre.graphlib.Graph({ compound: false, multigraph: false });
 
   g.setGraph({
@@ -50,7 +47,6 @@ export const autoArrangeNodes = (
 
   g.setDefaultEdgeLabel(() => ({}));
 
-  // Add nodes
   nodes.forEach((node) => {
     g.setNode(node.id, {
       width: nodeWidth,
@@ -59,7 +55,6 @@ export const autoArrangeNodes = (
     });
   });
 
-  // Add edges with validation
   edges.forEach((edge) => {
     if (g.hasNode(edge.source) && g.hasNode(edge.target)) {
       g.setEdge(edge.source, edge.target, {
@@ -69,10 +64,8 @@ export const autoArrangeNodes = (
     }
   });
 
-  // Run layout algorithm
   dagre.layout(g);
 
-  // Extract positions (dagre returns center coordinates)
   return nodes.map((node) => {
     const nodeData = g.node(node.id);
     return {
@@ -84,13 +77,3 @@ export const autoArrangeNodes = (
     };
   });
 };
-
-/**
- * Get layout options for direction
- */
-export const getLayoutOptions = (direction: 'vertical' | 'horizontal'): LayoutOptions => ({
-  direction: direction === 'vertical' ? 'TB' : 'LR',
-  nodeWidth: 280,
-  nodeHeight: 120,
-  spacing: 80
-});

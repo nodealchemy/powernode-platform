@@ -20,13 +20,6 @@ export interface DashboardStats {
     paused: number;
     errored: number;
   };
-  workflows: {
-    total: number;
-    active: number;
-    running: number;
-    completedToday: number;
-    failedToday: number;
-  };
   repositories: number;
   alerts: MonitoringDashboard['alerts'];
 }
@@ -35,7 +28,6 @@ const DEFAULT_STATS: DashboardStats = {
   systemHealth: { status: 'healthy', score: 100 },
   overview: { totalExecutionsToday: 0, successRate: 0, avgResponseTime: 0, totalCostToday: 0 },
   agents: { total: 0, active: 0, paused: 0, errored: 0 },
-  workflows: { total: 0, active: 0, running: 0, completedToday: 0, failedToday: 0 },
   repositories: 0,
   alerts: [],
 };
@@ -69,13 +61,6 @@ export function useDashboardStats() {
         totalCostToday: d.overview.total_cost_today,
       };
       next.agents = d.agents;
-      next.workflows = {
-        total: d.workflows.total,
-        active: d.workflows.active,
-        running: d.workflows.running,
-        completedToday: d.workflows.completed_today,
-        failedToday: d.workflows.failed_today,
-      };
       next.alerts = d.alerts;
     } else {
       logger.warn('Dashboard monitoring fetch failed', monitoringResult.reason);

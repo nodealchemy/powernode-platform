@@ -12,8 +12,6 @@ const AGENT_TYPE_LABELS: Record<string, string> = {
   data_analyst: 'Data Analyst',
   content_generator: 'Content Generator',
   image_generator: 'Image Generator',
-  workflow_optimizer: 'Workflow Optimizer',
-  workflow_operations: 'Workflow Operations',
 };
 
 function ConfigRow({ label, value }: { label: string; value: React.ReactNode }) {

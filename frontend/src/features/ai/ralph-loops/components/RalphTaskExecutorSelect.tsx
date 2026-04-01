@@ -4,10 +4,8 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/Tabs';
 import { cn } from '@/shared/utils/cn';
 import { agentsApi } from '@/shared/services/ai/AgentsApiService';
-import { workflowsApi } from '@/shared/services/ai/WorkflowsApiService';
 import { skillsApi } from '@/features/ai/skills/services/skillsApi';
 import { ExecutorAgentTab } from './ExecutorAgentTab';
-import { ExecutorWorkflowTab } from './ExecutorWorkflowTab';
 import { ExecutorSkillTab } from './ExecutorSkillTab';
 import { ExecutorManualTab } from './ExecutorManualTab';
 import { DelegationConfigForm } from './DelegationConfigForm';
@@ -74,8 +72,8 @@ export const RalphTaskExecutorSelect: React.FC<RalphTaskExecutorSelectProps> = (
   const [taskAcceptanceCriteria, setTaskAcceptanceCriteria] = useState(initialTaskAcceptanceCriteria || '');
 
   // Executor state
-  const [executionType, setExecutionType] = useState<RalphExecutionType>(initialType);
-  const [executorId, setExecutorId] = useState<string>(initialExecutorId || '');
+  const [executionType] = useState<RalphExecutionType>(initialType);
+  const [executorId] = useState<string>(initialExecutorId || '');
   const [capabilities, setCapabilities] = useState<string[]>(initialCapabilities);
   const [matchStrategy, setMatchStrategy] = useState<RalphCapabilityMatchStrategy>(initialStrategy);
   const [newCapability, setNewCapability] = useState('');
@@ -84,8 +82,6 @@ export const RalphTaskExecutorSelect: React.FC<RalphTaskExecutorSelectProps> = (
 
   // UI state
   const [activeTab, setActiveTab] = useState<'definition' | 'executor'>('definition');
-  const [executorOptions, setExecutorOptions] = useState<ExecutorOption[]>([]);
-  const [loadingExecutors, setLoadingExecutors] = useState(false);
   const [fallbackExecutorOptions, setFallbackExecutorOptions] = useState<ExecutorOption[]>([]);
   const [loadingFallbackExecutors, setLoadingFallbackExecutors] = useState(false);
   const [availableSkillsByCategory, setAvailableSkillsByCategory] = useState<Record<string, Array<{ slug: string; name: string }>>>({});
@@ -122,10 +118,6 @@ export const RalphTaskExecutorSelect: React.FC<RalphTaskExecutorSelectProps> = (
           const response = await agentsApi.getAgents({ per_page: 100 });
           return (response.items || []).map((agent) => ({ id: agent.id, name: agent.name, description: agent.description }));
         }
-        case 'workflow': {
-          const response = await workflowsApi.getWorkflows({ per_page: 100 });
-          return (response.items || []).map((workflow) => ({ id: workflow.id, name: workflow.name, description: workflow.description }));
-        }
         default:
           return [];
       }
@@ -133,16 +125,6 @@ export const RalphTaskExecutorSelect: React.FC<RalphTaskExecutorSelectProps> = (
       return [];
     }
   }, []);
-
-  useEffect(() => {
-    const loadExecutors = async () => {
-      setLoadingExecutors(true);
-      const options = await fetchExecutors(executionType);
-      setExecutorOptions(options);
-      setLoadingExecutors(false);
-    };
-    loadExecutors();
-  }, [executionType, fetchExecutors]);
 
   useEffect(() => {
     const loadFallbackExecutors = async () => {
@@ -203,15 +185,6 @@ export const RalphTaskExecutorSelect: React.FC<RalphTaskExecutorSelectProps> = (
           </TabsContent>
 
           <TabsContent value="executor" className="space-y-4">
-            <ExecutorWorkflowTab
-              executionType={executionType}
-              executorId={executorId}
-              executorOptions={executorOptions}
-              loadingExecutors={loadingExecutors}
-              onExecutionTypeChange={setExecutionType}
-              onExecutorIdChange={setExecutorId}
-            />
-
             <ExecutorSkillTab
               capabilities={capabilities}
               matchStrategy={matchStrategy}

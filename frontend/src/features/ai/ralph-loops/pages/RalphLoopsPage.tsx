@@ -54,6 +54,7 @@ export const RalphLoopsContent: React.FC<RalphLoopsContentProps> = ({ refreshKey
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsAgents] = useState<{ id: string; name: string }[]>([]);
   const [liveIterations, setLiveIterations] = useState<RalphIteration[]>([]);
+  const [iterationRefreshKey, setIterationRefreshKey] = useState(0);
   const { showNotification } = useNotification();
 
   const loadLoop = async (loopId: string) => {
@@ -87,10 +88,15 @@ export const RalphLoopsContent: React.FC<RalphLoopsContentProps> = ({ refreshKey
           task_count: update.task_count ?? prev.task_count,
         };
       });
+      if (update.type === 'task_status_changed') {
+        setIterationRefreshKey(k => k + 1);
+      }
     } else if (['loop_completed', 'loop_failed', 'loop_cancelled'].includes(update.type)) {
       loadLoop(selectedLoop.id);
+      setIterationRefreshKey(k => k + 1);
     } else if (update.type === 'iteration_completed') {
       loadLoop(selectedLoop.id);
+      setIterationRefreshKey(k => k + 1);
       const iterationNumber = update.data?.iteration_number;
       if (iterationNumber) {
         ralphLoopsApi.getIteration(selectedLoop.id, String(iterationNumber))
@@ -103,6 +109,7 @@ export const RalphLoopsContent: React.FC<RalphLoopsContentProps> = ({ refreshKey
       loadLoop(selectedLoop.id);
     } else if (update.type === 'run_all_completed') {
       loadLoop(selectedLoop.id);
+      setIterationRefreshKey(k => k + 1);
       showNotification('Run All completed', 'success');
     }
   }, [selectedLoop?.id]);
@@ -250,6 +257,7 @@ export const RalphLoopsContent: React.FC<RalphLoopsContentProps> = ({ refreshKey
           liveIterations={liveIterations}
           editedTasks={editedTasks}
           activeTab={activeTab}
+          iterationRefreshKey={iterationRefreshKey}
           onActiveTabChange={setActiveTab}
           onTasksChange={handleTasksChange}
           onSavePrd={handleSavePrd}

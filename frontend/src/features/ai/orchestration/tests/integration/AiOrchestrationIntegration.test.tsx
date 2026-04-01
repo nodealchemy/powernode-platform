@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-import { agentsApi, workflowsApi, providersApi } from '@/shared/services/ai';
+import { agentsApi, providersApi } from '@/shared/services/ai';
 
 // Mock ESM packages before importing components
 jest.mock('remark-gfm', () => () => ({}));
@@ -18,14 +18,6 @@ jest.mock('@/shared/services/ai', () => ({
     updateAgent: jest.fn(),
     deleteAgent: jest.fn(),
     executeAgent: jest.fn()
-  },
-  workflowsApi: {
-    getWorkflows: jest.fn(),
-    createWorkflow: jest.fn(),
-    updateWorkflow: jest.fn(),
-    deleteWorkflow: jest.fn(),
-    executeWorkflow: jest.fn(),
-    getWorkflow: jest.fn()
   },
   providersApi: {
     getProviders: jest.fn(),
@@ -102,12 +94,6 @@ describe('AI Orchestration Integration Tests', () => {
       expect(agentsApi.deleteAgent).toBeDefined();
       expect(agentsApi.executeAgent).toBeDefined();
 
-      // Verify workflows API mocks
-      expect(workflowsApi.getWorkflows).toBeDefined();
-      expect(workflowsApi.createWorkflow).toBeDefined();
-      expect(workflowsApi.updateWorkflow).toBeDefined();
-      expect(workflowsApi.deleteWorkflow).toBeDefined();
-      expect(workflowsApi.executeWorkflow).toBeDefined();
     });
 
     it('can render components with query client provider', () => {
@@ -118,15 +104,12 @@ describe('AI Orchestration Integration Tests', () => {
     it('API mocks return promises when called', async () => {
       (providersApi.getProviders as jest.Mock).mockResolvedValue({ items: [] });
       (agentsApi.getAgents as jest.Mock).mockResolvedValue({ items: [] });
-      (workflowsApi.getWorkflows as jest.Mock).mockResolvedValue({ items: [] });
 
       const providersResult = await providersApi.getProviders();
       const agentsResult = await agentsApi.getAgents();
-      const workflowsResult = await workflowsApi.getWorkflows();
 
       expect(providersResult).toEqual({ items: [] });
       expect(agentsResult).toEqual({ items: [] });
-      expect(workflowsResult).toEqual({ items: [] });
     });
 
     it('API mocks can simulate errors', async () => {
@@ -170,21 +153,5 @@ describe('AI Orchestration Integration Tests', () => {
       expect(mockAgent).toHaveProperty('status');
     });
 
-    it('mock workflow data has correct shape', () => {
-      const mockWorkflow = {
-        id: 'workflow-1',
-        name: 'Content Pipeline',
-        description: 'Processes content',
-        status: 'active',
-        nodes: [],
-        edges: []
-      };
-
-      expect(mockWorkflow).toHaveProperty('id');
-      expect(mockWorkflow).toHaveProperty('name');
-      expect(mockWorkflow).toHaveProperty('status');
-      expect(mockWorkflow).toHaveProperty('nodes');
-      expect(mockWorkflow).toHaveProperty('edges');
-    });
   });
 });

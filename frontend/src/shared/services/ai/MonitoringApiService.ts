@@ -71,25 +71,6 @@ export interface MonitoringDashboard {
     avg_execution_time?: number;
     total_cost?: number;
   }>;
-  workflows: {
-    total: number;
-    active: number;
-    running: number;
-    completed_today: number;
-    failed_today: number;
-  };
-  // Individual workflows list for detailed view
-  workflowsList?: Array<{
-    id: string;
-    name: string;
-    status: string;
-    total_runs?: number;
-    successful_runs?: number;
-    failed_runs?: number;
-    success_rate?: number;
-    avg_duration?: number;
-    total_cost?: number;
-  }>;
   alerts: Array<{
     id: string;
     severity: 'critical' | 'warning' | 'info';
@@ -313,7 +294,6 @@ class MonitoringApiService extends BaseApiService {
     // Transform nested components structure to flat format expected by frontend
     const providerComponents = dashboard?.components?.providers;
     const agentComponents = dashboard?.components?.agents;
-    const workflowComponents = dashboard?.components?.workflows;
 
     // Map providers from nested structure
     const providers = (providerComponents?.providers || []).map(p => ({
@@ -330,15 +310,6 @@ class MonitoringApiService extends BaseApiService {
     const activeAgents = agentComponents?.active_agents || agentsList.filter(a => a.status === 'active').length;
     const erroredAgents = agentsList.filter(a => a.status === 'error' || a.status === 'failed').length;
     const pausedAgents = agentsList.filter(a => a.status === 'paused' || a.status === 'inactive').length;
-
-    // Calculate workflow stats
-    const workflowsListRaw = workflowComponents?.workflows || [];
-    const totalWorkflows = workflowComponents?.total_workflows || 0;
-    const activeWorkflows = workflowComponents?.active_workflows || 0;
-    // Running executions - default to 0
-    const runningExecutions = 0;
-    const completedToday = workflowComponents?.aggregated?.successful_runs || 0;
-    const failedToday = workflowComponents?.aggregated?.failed_runs || 0;
 
     // Use native overview data from backend
     const nativeOverview = dashboard?.overview;
@@ -374,25 +345,6 @@ class MonitoringApiService extends BaseApiService {
         success_rate: a.success_rate || 100,
         avg_execution_time: 0,
         total_cost: 0
-      })),
-      workflows: {
-        total: totalWorkflows,
-        active: activeWorkflows,
-        running: runningExecutions,
-        completed_today: completedToday,
-        failed_today: failedToday
-      },
-      // Include individual workflows list for detailed monitoring
-      workflowsList: workflowsListRaw.map(w => ({
-        id: w.id,
-        name: w.name,
-        status: w.status,
-        total_runs: w.total_runs || 0,
-        successful_runs: w.successful_runs || 0,
-        failed_runs: w.failed_runs || 0,
-        success_rate: w.success_rate || 0,
-        avg_duration: w.avg_duration || 0,
-        total_cost: parseFloat(w.total_cost || '0')
       })),
       alerts: [],
       // Include resource utilization data from backend

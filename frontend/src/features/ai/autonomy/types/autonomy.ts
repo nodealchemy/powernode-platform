@@ -224,7 +224,6 @@ export interface KillSwitchStatus {
   snapshot_preview?: {
     agents_to_restore: number;
     ralph_loops_to_resume: number;
-    workflow_schedules_to_resume: number;
     snapshot_taken_at: string;
   };
 }

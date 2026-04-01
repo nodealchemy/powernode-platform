@@ -346,20 +346,6 @@ class MarketplaceApi {
   }
 
   /**
-   * Create template from workflow
-   */
-  async createTemplateFromWorkflow(workflowId: string, params: {
-    name?: string;
-    description?: string;
-    category?: string;
-    difficulty_level?: string;
-    tags?: string[];
-  }): Promise<{ success: boolean; data: MarketplaceItem; message: string }> {
-    const response = await api.post(`/marketplace/templates/from_workflow/${workflowId}`, params);
-    return response.data;
-  }
-
-  /**
    * Create template from pipeline
    */
   async createTemplateFromPipeline(pipelineId: string, params: {

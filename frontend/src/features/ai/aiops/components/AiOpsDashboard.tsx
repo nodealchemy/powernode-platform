@@ -8,9 +8,6 @@ import {
   DollarSign,
   RefreshCw,
   Server,
-  TrendingDown,
-  TrendingUp,
-  Zap,
   XCircle
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
@@ -329,39 +326,8 @@ const AiOpsInnerContent: React.FC<AiOpsInnerContentProps> = ({
       </Card>
     </div>
 
-    {/* Workflows & Recent Errors */}
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center gap-2">
-          <Zap className="h-5 w-5" />
-          Top Workflows
-        </h3>
-        <div className="space-y-3">
-          {dashboardData.top_workflows.length === 0 ? (
-            <p className="text-sm text-theme-tertiary text-center py-4">No workflow data available</p>
-          ) : dashboardData.top_workflows.map((workflow, index) => (
-            <div key={workflow.id} className="flex items-center justify-between p-3 bg-theme-surface rounded-lg">
-              <div className="flex items-center gap-3">
-                <div className="w-6 h-6 bg-theme-info rounded flex items-center justify-center text-white text-xs font-bold">{index + 1}</div>
-                <div>
-                  <p className="font-medium text-theme-primary">{workflow.name}</p>
-                  <p className="text-xs text-theme-tertiary">{workflow.executions} executions</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="flex items-center gap-1">
-                  {workflow.success_rate >= 95 ? <TrendingUp className="h-3 w-3 text-theme-success" /> : <TrendingDown className="h-3 w-3 text-theme-error" />}
-                  <span className={`font-medium ${workflow.success_rate >= 95 ? 'text-theme-success' : 'text-theme-error'}`}>
-                    {workflow.success_rate.toFixed(1)}%
-                  </span>
-                </div>
-                <p className="text-xs text-theme-tertiary">{(workflow.avg_duration_ms / 1000).toFixed(1)}s avg</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
-
+    {/* Recent Errors */}
+    <div className="grid grid-cols-1 gap-6">
       <Card className="p-6">
         <h3 className="text-lg font-semibold text-theme-primary mb-4 flex items-center gap-2">
           <AlertTriangle className="h-5 w-5 text-theme-error" />

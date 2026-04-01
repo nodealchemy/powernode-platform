@@ -1,7 +1,6 @@
 import React from 'react';
 import {
   Bot,
-  Workflow,
   GitBranch,
   Network,
   Container,
@@ -24,7 +23,6 @@ const executionTypeConfig: Record<RalphExecutionType, {
   icon: React.FC<{ className?: string }>;
 }> = {
   agent: { label: 'AI Agent', icon: Bot },
-  workflow: { label: 'Workflow', icon: Workflow },
   pipeline: { label: 'Pipeline', icon: GitBranch },
   a2a_task: { label: 'A2A Task', icon: Network },
   container: { label: 'Container', icon: Container },

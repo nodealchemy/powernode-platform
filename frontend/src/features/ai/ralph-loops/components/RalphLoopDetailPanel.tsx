@@ -47,6 +47,7 @@ interface RalphLoopDetailPanelProps {
   liveIterations: RalphIteration[];
   editedTasks: PrdTask[];
   activeTab: string;
+  iterationRefreshKey?: number;
   onActiveTabChange: (tab: string) => void;
   onTasksChange: (tasks: PrdTask[]) => void;
   onSavePrd: (tasks?: PrdTask[]) => Promise<void>;
@@ -65,6 +66,7 @@ export const RalphLoopDetailPanel: React.FC<RalphLoopDetailPanelProps> = ({
   liveIterations,
   editedTasks,
   activeTab,
+  iterationRefreshKey,
   onActiveTabChange,
   onTasksChange,
   onSavePrd,
@@ -221,7 +223,7 @@ export const RalphLoopDetailPanel: React.FC<RalphLoopDetailPanelProps> = ({
           </TabsContent>
 
           <TabsContent value="iterations" className="mt-4">
-            <RalphIterationList loopId={loop.id} />
+            <RalphIterationList loopId={loop.id} refreshKey={iterationRefreshKey} />
           </TabsContent>
 
           <TabsContent value="progress" className="mt-4">

@@ -17,7 +17,6 @@ import { useAgentsList } from '@/features/ai/agents/hooks/useAgentsList';
 import { useTeamsList } from '@/features/ai/agents/hooks/useTeamsList';
 import { useAgentCards } from '@/features/ai/agents/hooks/useAgentCards';
 import { usePermissions } from '@/shared/hooks/usePermissions';
-import { useAiOrchestrationWebSocket } from '@/shared/hooks/useAiOrchestrationWebSocket';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 
 const tabs = [
@@ -58,15 +57,6 @@ export const AIAgentsPage: React.FC = () => {
     const newTab = getActiveTab();
     if (newTab !== activeTab) setActiveTab(newTab);
   }, [location.pathname]);
-
-  // WebSocket for team events (agent events handled by AgentsSplitPanel)
-  useAiOrchestrationWebSocket({
-    onAgentTeamEvent: (event) => {
-      if (['team_created', 'team_updated', 'team_deleted', 'team_execution_completed'].includes(event.type)) {
-        teamsList.loadTeams();
-      }
-    },
-  });
 
   // Initial load
   useEffect(() => {
