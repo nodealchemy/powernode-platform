@@ -124,13 +124,12 @@ module Ai
       end
 
       def system_prompt
-        mcp_metadata&.dig("model_config", "system_prompt")
+        mcp_metadata&.dig("system_prompt")
       end
 
       def system_prompt=(value)
         self.mcp_metadata ||= {}
-        self.mcp_metadata["model_config"] ||= {}
-        self.mcp_metadata["model_config"]["system_prompt"] = value
+        self.mcp_metadata["system_prompt"] = value
       end
 
       def model_config

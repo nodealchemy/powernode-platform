@@ -21,9 +21,12 @@ module Ai
       system_parts << agent.system_prompt if agent.system_prompt.present?
 
       # 2. Enabled skill system prompts and tool descriptions
-      active_skills = agent.skills.joins(:agent_skills)
+      active_skills = agent.skills
                            .where(ai_agent_skills: { is_active: true })
                            .where(status: "active")
+                           .select("ai_skills.*, ai_agent_skills.priority")
+                           .distinct
+                           .order("ai_agent_skills.priority ASC")
       if active_skills.any?
         skill_lines = active_skills.filter_map do |skill|
           next unless skill.system_prompt.present? || skill.commands.present?
