@@ -13,11 +13,11 @@ module Ai
           providers = ::Ai::Provider.where(account_id: account.id)
 
           providers.map do |provider|
-            executions = node_executions.where("ai_workflow_node_executions.created_at >= ?", start_time)
-                                       .where("ai_workflow_node_executions.metadata->>'provider_id' = ?", provider.id.to_s)
+            executions = agent_executions.where("ai_agent_executions.created_at >= ?", start_time)
+                                        .where(ai_provider_id: provider.id)
 
-            cost = executions.sum(:cost).to_f
-            tokens = calculate_tokens(executions)
+            cost = executions.sum(:cost_usd).to_f
+            tokens = executions.sum(:tokens_used).to_i
 
             {
               provider_id: provider.id,
@@ -25,8 +25,7 @@ module Ai
               provider_type: provider.provider_type,
               total_cost: cost.round(6),
               execution_count: executions.count,
-              input_tokens: tokens[:input],
-              output_tokens: tokens[:output],
+              total_tokens: tokens,
               cost_per_execution: executions.count.positive? ? (cost / executions.count).round(6) : 0
             }
           end.sort_by { |p| -p[:total_cost] }
@@ -37,11 +36,10 @@ module Ai
           start_time = time_range.ago
 
           agents.map do |agent|
-            executions = node_executions.where("ai_workflow_node_executions.created_at >= ?", start_time)
-                                       .joins(:node)
-                                       .where("ai_workflow_nodes.configuration->>'agent_id' = ?", agent.id.to_s)
+            executions = agent_executions.where("ai_agent_executions.created_at >= ?", start_time)
+                                        .where(ai_agent_id: agent.id)
 
-            cost = executions.sum(:cost).to_f
+            cost = executions.sum(:cost_usd).to_f
 
             {
               agent_id: agent.id,
@@ -54,23 +52,9 @@ module Ai
           end.sort_by { |a| -a[:total_cost] }
         end
 
-        # Cost breakdown by workflow
+        # Cost breakdown by workflow (stub - workflows have been removed)
         def cost_breakdown_by_workflow
-          start_time = time_range.ago
-
-          workflows.map do |workflow|
-            runs = workflow.runs.where("ai_workflow_runs.created_at >= ?", start_time)
-            cost = runs.sum(:total_cost).to_f
-
-            {
-              workflow_id: workflow.id,
-              workflow_name: workflow.name,
-              total_cost: cost.round(6),
-              execution_count: runs.count,
-              cost_per_execution: runs.count.positive? ? (cost / runs.count).round(6) : 0,
-              avg_duration_ms: runs.where(status: "completed").average(:duration_ms)&.to_f&.round(2)
-            }
-          end.sort_by { |w| -w[:total_cost] }
+          []
         end
 
         # Cost breakdown by model
@@ -79,14 +63,21 @@ module Ai
 
           model_costs = {}
 
-          node_executions.where("ai_workflow_node_executions.created_at >= ?", start_time)
-                        .pluck(:metadata, :cost).each do |metadata, cost|
-            model = metadata&.dig("model") || "unknown"
-            model_costs[model] ||= { cost: 0.0, count: 0, tokens: { input: 0, output: 0 } }
+          agent_executions.where("ai_agent_executions.created_at >= ?", start_time)
+                         .where.not(performance_metrics: nil)
+                         .pluck(:performance_metrics, :cost_usd).each do |metrics, cost|
+            model = metrics&.dig("model") || "unknown"
+            model_costs[model] ||= { cost: 0.0, count: 0, tokens: 0 }
             model_costs[model][:cost] += cost.to_f
             model_costs[model][:count] += 1
-            model_costs[model][:tokens][:input] += metadata&.dig("token_usage", "input_tokens") || 0
-            model_costs[model][:tokens][:output] += metadata&.dig("token_usage", "output_tokens") || 0
+          end
+
+          # Also aggregate by tokens_used from agent executions
+          agent_executions.where("ai_agent_executions.created_at >= ?", start_time)
+                         .where.not(performance_metrics: nil)
+                         .pluck(:performance_metrics, :tokens_used).each do |metrics, tokens|
+            model = metrics&.dig("model") || "unknown"
+            model_costs[model][:tokens] += tokens.to_i if model_costs[model]
           end
 
           model_costs.map do |model, data|
@@ -94,8 +85,7 @@ module Ai
               model: model,
               total_cost: data[:cost].round(6),
               execution_count: data[:count],
-              input_tokens: data[:tokens][:input],
-              output_tokens: data[:tokens][:output],
+              total_tokens: data[:tokens],
               cost_per_execution: data[:count].positive? ? (data[:cost] / data[:count]).round(6) : 0
             }
           end.sort_by { |m| -m[:total_cost] }
@@ -105,39 +95,29 @@ module Ai
         def daily_cost_breakdown
           start_time = time_range.ago
 
-          workflow_runs.where("ai_workflow_runs.created_at >= ?", start_time)
-                       .group("DATE(ai_workflow_runs.created_at)")
-                       .sum(:total_cost)
-                       .transform_keys(&:to_s)
-                       .transform_values { |v| v.to_f.round(6) }
+          agent_executions.where("ai_agent_executions.created_at >= ?", start_time)
+                         .group("DATE(ai_agent_executions.created_at)")
+                         .sum(:cost_usd)
+                         .transform_keys(&:to_s)
+                         .transform_values { |v| v.to_f.round(6) }
         end
 
         # Estimate potential cost savings
         def estimate_cost_savings
           opportunities = []
 
-          expensive_workflows = cost_breakdown_by_workflow.first(5)
-          expensive_workflows.each do |workflow|
-            if workflow[:cost_per_execution] > 0.10
+          expensive_agents = cost_breakdown_by_agent.first(5)
+          expensive_agents.each do |agent|
+            if agent[:cost_per_execution] > 0.10
               opportunities << {
-                type: "expensive_workflow",
-                resource_id: workflow[:workflow_id],
-                resource_name: workflow[:workflow_name],
-                current_cost: workflow[:total_cost],
-                potential_savings: (workflow[:total_cost] * 0.2).round(6),
+                type: "expensive_agent",
+                resource_id: agent[:agent_id],
+                resource_name: agent[:agent_name],
+                current_cost: agent[:total_cost],
+                potential_savings: (agent[:total_cost] * 0.2).round(6),
                 recommendation: "Consider optimizing prompts or using a more cost-effective model"
               }
             end
-          end
-
-          retry_cost = calculate_retry_cost
-          if retry_cost > 0
-            opportunities << {
-              type: "retry_cost",
-              current_cost: retry_cost.round(6),
-              potential_savings: (retry_cost * 0.5).round(6),
-              recommendation: "Reduce error rates to minimize retry costs"
-            }
           end
 
           model_costs = cost_breakdown_by_model
@@ -209,27 +189,6 @@ module Ai
         end
 
         private
-
-        def calculate_tokens(executions)
-          input = 0
-          output = 0
-
-          executions.pluck(:metadata).each do |metadata|
-            usage = metadata&.dig("token_usage") || {}
-            input += usage["input_tokens"] || 0
-            output += usage["output_tokens"] || 0
-          end
-
-          { input: input, output: output }
-        end
-
-        def calculate_retry_cost
-          start_time = time_range.ago
-
-          node_executions.where("ai_workflow_node_executions.created_at >= ?", start_time)
-                        .where("ai_workflow_node_executions.retry_count > 0")
-                        .sum(:cost).to_f
-        end
 
         def calculate_daily_trend(costs)
           return 0.0 if costs.length < 2

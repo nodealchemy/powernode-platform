@@ -78,60 +78,6 @@ class ProviderAvailabilityService
     true
   end
 
-  # Check if all providers required by a workflow are available
-  # @param workflow [Ai::Workflow] The workflow to check
-  # @return [Hash] { available: Boolean, unavailable_providers: Array, reasons: Hash }
-  def self.check_workflow_providers(workflow)
-    # Get all ai_agent nodes from the workflow
-    agent_nodes = workflow.nodes.where(node_type: "ai_agent")
-
-    return { available: true, unavailable_providers: [], reasons: {} } if agent_nodes.empty?
-
-    # Collect all unique provider IDs from agents
-    agent_ids = agent_nodes.map { |node| node.configuration["agent_id"] }.compact.uniq
-    agents = Ai::Agent.where(id: agent_ids).includes(:provider)
-
-    unavailable_providers = []
-    reasons = {}
-
-    agents.each do |agent|
-      provider = agent.provider
-      result = check_provider(provider)
-
-      unless result[:available]
-        unavailable_providers << {
-          provider_id: provider&.id,
-          provider_name: provider&.name || "Unknown",
-          agent_id: agent.id,
-          agent_name: agent.name
-        }
-        reasons[provider&.id] = result[:reason] if provider
-      end
-    end
-
-    {
-      available: unavailable_providers.empty?,
-      unavailable_providers: unavailable_providers,
-      reasons: reasons
-    }
-  end
-
-  # Validate all providers for a workflow and raise error if any are unavailable
-  # @param workflow [Ai::Workflow] The workflow to validate
-  # @raise [ProviderUnavailableError] if any required providers are unavailable
-  def self.validate_workflow_providers!(workflow)
-    result = check_workflow_providers(workflow)
-
-    unless result[:available]
-      first_unavailable = result[:unavailable_providers].first
-      provider_name = first_unavailable[:provider_name]
-      reason = result[:reasons][first_unavailable[:provider_id]]
-      raise ProviderUnavailableError.new(nil, "#{provider_name}: #{reason}")
-    end
-
-    true
-  end
-
   # Check if an agent's provider is available
   # @param agent [Ai::Agent] The agent to check
   # @return [Hash] { available: Boolean, reason: String }

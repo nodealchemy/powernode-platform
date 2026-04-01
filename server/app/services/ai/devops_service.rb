@@ -195,28 +195,9 @@ module Ai
 
     private
 
-    def create_workflow_from_template(template, installation, variable_values)
-      definition = template.workflow_definition.deep_dup
-
-      # Substitute variables
-      template.variables.each do |var|
-        var_name = var["name"]
-        var_value = variable_values[var_name] || var["default"]
-        definition = substitute_variable(definition, var_name, var_value)
-      end
-
-      Ai::Workflow.create!(
-        account: account,
-        name: "#{template.name} (from DevOps template)",
-        description: template.description,
-        workflow_type: "devops",
-        nodes: definition["nodes"] || [],
-        edges: definition["edges"] || [],
-        trigger_config: template.trigger_config,
-        status: "active"
-      )
-    rescue StandardError => e
-      Rails.logger.error "Failed to create workflow from template: #{e.message}"
+    def create_workflow_from_template(_template, _installation, _variable_values)
+      # Ai::Workflow models have been removed; template installation
+      # no longer creates a workflow resource.
       nil
     end
 

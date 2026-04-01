@@ -5,7 +5,7 @@ module Marketplace
   #
   # Usage:
   #   creator = Marketplace::InstanceCreator.new(user)
-  #   workflow = creator.create_from_workflow_template(template, name: "My Workflow")
+  #   pipeline = creator.create_from_pipeline_template(template, name: "My Pipeline")
   #
   class InstanceCreator
     attr_reader :user, :account
@@ -13,37 +13,6 @@ module Marketplace
     def initialize(user)
       @user = user
       @account = user.account
-    end
-
-    # Create an AI workflow from a workflow template
-    def create_from_workflow_template(template, params = {})
-      validate_subscription!(template)
-
-      workflow = Ai::Workflow.create!(
-        account: account,
-        created_by_user: user,
-        name: params[:name] || "#{template.name} Instance",
-        description: params[:description] || template.description,
-        category: template.category,
-        workflow_type: "standard",
-        variables: merge_variables(template.default_variables, params[:variables]),
-        timeout_minutes: template.workflow_definition.dig("settings", "timeout_minutes") || 30,
-        retry_on_failure: template.workflow_definition.dig("settings", "retry_on_failure") || false,
-        max_retries: template.workflow_definition.dig("settings", "max_retries") || 3,
-        is_active: true,
-        status: "draft"
-      )
-
-      # Create nodes from template definition
-      create_workflow_nodes(workflow, template)
-
-      # Create edges from template definition
-      create_workflow_edges(workflow, template)
-
-      # Increment template usage count
-      template.increment!(:usage_count)
-
-      workflow
     end
 
     # Create a CI/CD pipeline from a pipeline template
@@ -128,39 +97,6 @@ module Marketplace
       default = default_config.is_a?(Hash) ? default_config : {}
       custom = custom_config.is_a?(Hash) ? custom_config : {}
       default.deep_merge(custom)
-    end
-
-    def create_workflow_nodes(workflow, template)
-      nodes = template.workflow_definition["nodes"] || []
-
-      nodes.each do |node_def|
-        Ai::WorkflowNode.create!(
-          workflow: workflow,
-          node_id: node_def["node_id"],
-          node_type: node_def["node_type"],
-          name: node_def["name"],
-          position_x: node_def.dig("position", "x") || 0,
-          position_y: node_def.dig("position", "y") || 0,
-          configuration: node_def["configuration"] || {},
-          conditions: node_def["conditions"] || {}
-        )
-      end
-    end
-
-    def create_workflow_edges(workflow, template)
-      edges = template.workflow_definition["edges"] || []
-
-      edges.each do |edge_def|
-        Ai::WorkflowEdge.create!(
-          workflow: workflow,
-          edge_id: edge_def["edge_id"],
-          source_node_id: edge_def["source_node_id"],
-          target_node_id: edge_def["target_node_id"],
-          source_handle: edge_def["source_handle"],
-          target_handle: edge_def["target_handle"],
-          conditions: edge_def["conditions"] || {}
-        )
-      end
     end
 
     def create_pipeline_steps(pipeline, template)

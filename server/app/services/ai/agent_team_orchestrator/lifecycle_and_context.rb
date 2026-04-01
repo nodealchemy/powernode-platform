@@ -31,52 +31,6 @@ class Ai::AgentTeamOrchestrator
       team.update!(parallel_mode: "worktree") if team.respond_to?(:parallel_mode=)
     end
 
-    def create_workflow_run(input, context)
-      # Find or create workflow for this team execution
-      # Include version in the lookup to avoid uniqueness constraint issues
-      workflow = team.account.ai_workflows.find_or_initialize_by(
-        name: "Team Execution: #{team.name}",
-        slug: "team-execution-#{team.id}",
-        version: "1.0.0"
-      )
-
-      unless workflow.persisted?
-        workflow.assign_attributes(
-          creator_id: user.id,
-          description: "Auto-generated workflow for team #{team.name}",
-          status: "active",
-          configuration: { "team_execution" => true },
-          metadata: {
-            "team_id" => team.id,
-            "team_type" => team.team_type,
-            "auto_generated" => true
-          }
-        )
-        workflow.save!
-      end
-
-      workflow.runs.create!(
-        account_id: team.account_id,
-        run_id: "team_#{team.id}_#{SecureRandom.hex(8)}",
-        status: "running",
-        trigger_type: "manual",
-        triggered_by_user_id: user.id,
-        started_at: Time.current,
-        input_variables: {
-          "team_id" => team.id,
-          "team_name" => team.name,
-          "input" => input,
-          "context" => context
-        },
-        metadata: {
-          "team_type" => team.team_type,
-          "coordination_strategy" => team.coordination_strategy,
-          "member_count" => team.members.count,
-          "orchestrator" => "team_orchestrator_a2a"
-        }
-      )
-    end
-
     def setup_team_context(input, context)
       # Auto-create shared memory pool for this execution
       create_team_execution_pool

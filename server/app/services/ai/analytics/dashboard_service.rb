@@ -68,16 +68,8 @@ module Ai
 
       private
 
-      def workflows
-        account.ai_workflows
-      end
-
       def agents
         account.ai_agents
-      end
-
-      def workflow_runs
-        ::Ai::WorkflowRun.joins(:workflow).where(ai_workflows: { account_id: account.id })
       end
 
       def agent_executions

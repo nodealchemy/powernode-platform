@@ -23,12 +23,6 @@ class Ai::DebuggingService
           agent_name: execution.agent.name,
           provider_id: execution.ai_provider_id
         })
-      else
-        base_info.merge!({
-          type: "workflow_execution",
-          workflow_id: execution.ai_workflow_id,
-          workflow_name: execution.workflow.name
-        })
       end
 
       base_info
@@ -80,8 +74,6 @@ class Ai::DebuggingService
       # Add context-specific analysis
       if execution.respond_to?(:agent)
         error_analysis[:agent_context] = analyze_agent_error_context(execution)
-      else
-        error_analysis[:workflow_context] = analyze_workflow_error_context(execution)
       end
 
       error_analysis
@@ -157,7 +149,7 @@ class Ai::DebuggingService
       similar_executions = if execution.respond_to?(:agent)
                             find_similar_agent_executions(execution)
       else
-                            find_similar_workflow_executions(execution)
+                            Ai::AgentExecution.none
       end
 
       similar_executions.limit(10).map do |similar|

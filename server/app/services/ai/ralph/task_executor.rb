@@ -6,7 +6,6 @@ module Ai
     #
     # Routes Ralph tasks to various executor types:
     # - agent: Internal AI agent execution
-    # - workflow: Multi-step workflow execution
     # - pipeline: CI/CD pipeline execution
     # - a2a_task: A2A protocol delegation
     # - container: Sandboxed container execution
@@ -53,8 +52,6 @@ module Ai
         result = case task.execution_type
         when "agent"
                    execute_via_agent(executor)
-        when "workflow"
-                   execute_via_workflow(executor)
         when "pipeline"
                    execute_via_pipeline(executor)
         when "a2a_task"
@@ -175,33 +172,6 @@ module Ai
       rescue StandardError => e
         Rails.logger.error("Agent bridge execution failed: #{e.message}\n#{e.backtrace.first(5).join("\n")}")
         { success: false, error: e.message, executor_type: "agent", executor_id: agent.id }
-      end
-
-      # Execute task via workflow
-      def execute_via_workflow(workflow)
-        run = workflow.runs.create!(
-          account: account,
-          triggered_by_user: ralph_loop.created_by || account.users.first,
-          status: "pending",
-          input_data: {
-            ralph_task_id: task.id,
-            ralph_task_key: task.task_key,
-            task_details: task.task_details
-          }
-        )
-
-        # Dispatch workflow execution to worker
-        WorkerJobService.enqueue_ai_workflow_execution(run.id)
-
-        {
-          success: true,
-          workflow_run_id: run.id,
-          message: "Workflow execution queued",
-          executor_type: "workflow",
-          executor_id: workflow.id
-        }
-      rescue StandardError => e
-        { success: false, error: "Workflow execution error: #{e.message}" }
       end
 
       # Execute task via DevOps pipeline

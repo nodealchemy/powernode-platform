@@ -13,17 +13,17 @@ module Ai
       end
 
       def recent_error_analysis
-        failed_runs = ::Ai::WorkflowRun.where("created_at >= ? AND status = ?", 24.hours.ago, "failed")
-                                     .includes(:workflow)
-                                     .limit(10)
+        failed_executions = ::Ai::AgentExecution.where("created_at >= ? AND status = ?", 24.hours.ago, "failed")
+                                               .includes(:agent)
+                                               .limit(10)
 
         {
-          total_failures: failed_runs.count,
-          recent_failures: failed_runs.map do |run|
+          total_failures: failed_executions.count,
+          recent_failures: failed_executions.map do |execution|
             {
-              workflow_name: run.workflow.name,
-              failed_at: run.completed_at,
-              error_summary: run.error_details.is_a?(Hash) ? run.error_details["error_message"] : "Unknown error"
+              agent_name: execution.agent.name,
+              failed_at: execution.completed_at,
+              error_summary: execution.error_details.is_a?(Hash) ? execution.error_details["error_message"] : "Unknown error"
             }
           end
         }
@@ -33,12 +33,12 @@ module Ai
         {
           average_execution_time: calculate_average_execution_time,
           throughput: {
-            workflows_per_hour: ::Ai::WorkflowRun.where("created_at >= ?", 1.hour.ago).count,
+            executions_per_hour: ::Ai::AgentExecution.where("created_at >= ?", 1.hour.ago).count,
             conversations_per_hour: ::Ai::Conversation.where("created_at >= ?", 1.hour.ago).count
           },
           resource_usage: {
             active_conversations: ::Ai::Conversation.where("updated_at >= ?", 1.hour.ago).count,
-            running_workflows: ::Ai::WorkflowRun.where(status: %w[initializing running waiting_approval]).count,
+            running_executions: ::Ai::AgentExecution.where(status: "running").count,
             database_connections: ActiveRecord::Base.connection_pool.connections.size
           }
         }
@@ -53,7 +53,7 @@ module Ai
           },
           redis: check_redis_health,
           active_records: {
-            active_workflows: ::Ai::WorkflowRun.where(status: %w[initializing running waiting_approval]).count,
+            active_executions: ::Ai::AgentExecution.where(status: "running").count,
             active_conversations: ::Ai::Conversation.where("updated_at >= ?", 1.hour.ago).count
           }
         }
@@ -63,20 +63,20 @@ module Ai
 
       def activity_for_period(since)
         {
-          workflow_runs: ::Ai::WorkflowRun.where("created_at >= ?", since).count,
-          completed_runs: ::Ai::WorkflowRun.where("created_at >= ? AND status = ?", since, "completed").count,
-          failed_runs: ::Ai::WorkflowRun.where("created_at >= ? AND status = ?", since, "failed").count
+          agent_executions: ::Ai::AgentExecution.where("created_at >= ?", since).count,
+          completed_executions: ::Ai::AgentExecution.where("created_at >= ? AND status = ?", since, "completed").count,
+          failed_executions: ::Ai::AgentExecution.where("created_at >= ? AND status = ?", since, "failed").count
         }
       end
 
       def calculate_average_execution_time
-        completed_runs = ::Ai::WorkflowRun.where(status: "completed")
-                                        .where("completed_at >= ?", 24.hours.ago)
-                                        .where.not(duration_ms: nil)
+        completed_executions = ::Ai::AgentExecution.where(status: "completed")
+                                                   .where("completed_at >= ?", 24.hours.ago)
+                                                   .where.not(duration_ms: nil)
 
-        return 0 if completed_runs.empty?
+        return 0 if completed_executions.empty?
 
-        (completed_runs.average(:duration_ms) || 0).round(2)
+        (completed_executions.average(:duration_ms) || 0).round(2)
       end
     end
   end

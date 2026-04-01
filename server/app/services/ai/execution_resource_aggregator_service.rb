@@ -37,7 +37,7 @@ class Ai::ExecutionResourceAggregatorService
 
   def collect_artifact(filters)
     scope = Ai::A2aTask.where(account: @account).where.not(artifacts: nil)
-    scope = scope.where(ai_workflow_run_id: execution_run_ids(filters[:execution_id])) if filters[:execution_id]
+    scope = scope.where(id: filters[:execution_id]) if filters[:execution_id]
 
     scope.flat_map do |task|
       (task.artifacts || []).map do |artifact|
@@ -274,11 +274,6 @@ class Ai::ExecutionResourceAggregatorService
   def apply_worktree_filters(scope, filters)
     scope = scope.where(ai_agent_id: filters[:agent_id]) if filters[:agent_id]
     scope
-  end
-
-  def execution_run_ids(execution_id)
-    return nil unless execution_id
-    Ai::WorkflowRun.where(id: execution_id).pluck(:id)
   end
 
   def detect_url(value)

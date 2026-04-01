@@ -88,7 +88,7 @@ module Ai
         end
 
         # High-risk steps should have human_review
-        high_risk_steps = plan.steps.where(step_type: %w[agent_execution workflow_run])
+        high_risk_steps = plan.steps.where(step_type: %w[agent_execution])
           .where("(execution_config->>'risk_level')::text IN (?)", %w[high critical])
         if high_risk_steps.any? && plan.steps.where(step_type: "human_review").empty?
           errors << "High-risk steps detected without human review checkpoint"
@@ -170,7 +170,7 @@ module Ai
 
           For each step, provide:
           STEP: <number>
-          TYPE: agent_execution|workflow_run|observation|human_review|sub_goal
+          TYPE: agent_execution|observation|human_review|sub_goal
           DESCRIPTION: <what to do>
           DEPENDS_ON: <comma-separated step numbers, or "none">
           EST_MINUTES: <estimated duration>

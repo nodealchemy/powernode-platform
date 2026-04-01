@@ -7,7 +7,6 @@ module Marketplace
     include ActiveModel::Model
 
     ITEM_TYPES = {
-      "template" => "Ai::WorkflowTemplate",
       "integration" => "Devops::IntegrationTemplate"
     }.freeze
 
@@ -125,8 +124,6 @@ module Marketplace
 
     def subscribable?(item, item_type)
       case item_type.to_s
-      when "template"
-        item.published? && item.public?
       when "integration"
         item.marketplace_published?
       else
@@ -161,24 +158,8 @@ module Marketplace
 
     def perform_type_specific_setup(subscription, item, item_type, options)
       case item_type.to_s
-      when "template"
-        setup_template_subscription(subscription, item, options)
       when "integration"
         setup_integration_subscription(subscription, item, options)
-      end
-    end
-
-    def setup_template_subscription(subscription, template, options)
-      # Record template version
-      subscription.update_metadata("template_version", template.version)
-      subscription.update_metadata("difficulty_level", template.difficulty_level)
-
-      # Increment template usage count
-      template.increment!(:usage_count) if template.respond_to?(:usage_count)
-
-      # If auto-create workflow is requested, create it
-      if options[:create_workflow] && options[:workflow_name].present?
-        create_workflow_from_template(subscription, template, options)
       end
     end
 
@@ -191,40 +172,11 @@ module Marketplace
       integration.increment_install_count! if integration.respond_to?(:increment_install_count!)
     end
 
-    def create_workflow_from_template(subscription, template, options)
-      workflow = ::Ai::Workflow.create(
-        account: account,
-        name: options[:workflow_name],
-        description: template.description,
-        workflow_type: "template_based",
-        nodes: template.workflow_nodes,
-        edges: template.workflow_edges,
-        variables: template.default_variables,
-        status: "draft",
-        created_by_user_id: user.id
-      )
-
-      if workflow.persisted?
-        subscription.update_metadata("created_workflow_id", workflow.id)
-        subscription.update_metadata("workflow_created_at", Time.current.iso8601)
-      end
-
-      workflow
-    end
-
     def perform_type_specific_cleanup(subscription)
       case subscription.subscription_type
-      when "template"
-        cleanup_template_subscription(subscription)
       when "integration"
         cleanup_integration_subscription(subscription)
       end
-    end
-
-    def cleanup_template_subscription(subscription)
-      # Template subscriptions don't need special cleanup
-      # Created workflows remain even after unsubscribing
-      subscription.record_usage_metric("subscription_ended", 1)
     end
 
     def cleanup_integration_subscription(subscription)

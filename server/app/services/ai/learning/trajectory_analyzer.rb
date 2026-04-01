@@ -166,43 +166,32 @@ module Ai
       def analyze_failure_modes
         recommendations = []
 
-        # Find workflows with high failure rates at specific nodes
-        Ai::Workflow.where(account: @account).find_each do |workflow|
-          node_failures = Ai::WorkflowNodeExecution.joins(:workflow_run)
-                                                    .where(ai_workflow_runs: { ai_workflow_id: workflow.id })
-                                                    .where("ai_workflow_node_executions.created_at >= ?", 30.days.ago)
-                                                    .group(:ai_workflow_node_id)
-                                                    .select(
-                                                      "ai_workflow_node_id",
-                                                      "COUNT(*) as total",
-                                                      "COUNT(CASE WHEN ai_workflow_node_executions.status = 'failed' THEN 1 END) as failures"
-                                                    )
+        # Find agents with high failure rates
+        Ai::Agent.where(account: @account).find_each do |agent|
+          executions = Ai::AgentExecution.where(agent: agent)
+                                         .where("created_at >= ?", 30.days.ago)
 
-          node_failures.each do |nf|
-            next if nf.total < MIN_SAMPLE_SIZE
+          next if executions.count < MIN_SAMPLE_SIZE
 
-            failure_rate = (nf.failures.to_f / nf.total * 100).round(1)
-            next unless failure_rate >= 30
+          total = executions.count
+          failures = executions.where(status: "failed").count
+          failure_rate = (failures.to_f / total * 100).round(1)
+          next unless failure_rate >= 30
 
-            node = Ai::WorkflowNode.find_by(id: nf.ai_workflow_node_id)
-            next unless node
-
-            recommendations << {
-              recommendation_type: "timeout_adjustment",
-              target_type: "Ai::WorkflowNode",
-              target_id: node.id,
-              current_config: { node_name: node.name, failure_rate: failure_rate },
-              recommended_config: {},
-              evidence: {
-                workflow_name: workflow.name,
-                node_name: node.name,
-                failure_rate: failure_rate,
-                sample_size: nf.total,
-                suggestion: "Node '#{node.name}' fails #{failure_rate}% of the time. Check timeout or configuration."
-              },
-              confidence_score: [failure_rate / 100.0, 0.9].min
-            }
-          end
+          recommendations << {
+            recommendation_type: "agent_reliability",
+            target_type: "Ai::Agent",
+            target_id: agent.id,
+            current_config: { agent_name: agent.name, failure_rate: failure_rate },
+            recommended_config: {},
+            evidence: {
+              agent_name: agent.name,
+              failure_rate: failure_rate,
+              sample_size: total,
+              suggestion: "Agent '#{agent.name}' fails #{failure_rate}% of the time. Review configuration or provider."
+            },
+            confidence_score: [failure_rate / 100.0, 0.9].min
+          }
         end
 
         recommendations

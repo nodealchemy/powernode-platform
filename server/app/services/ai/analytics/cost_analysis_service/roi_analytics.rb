@@ -12,7 +12,6 @@ module Ai
           {
             summary: roi_summary_metrics(period),
             trends: roi_trends(period),
-            by_workflow: roi_by_workflow(period),
             by_agent: roi_by_agent(period),
             by_provider: roi_cost_by_provider(period),
             projections: roi_projections(period),
@@ -95,43 +94,6 @@ module Ai
               { date: date, cost: 0, value: 0, roi: 0, net_benefit: 0, tasks: 0, time_saved: 0 }
             end
           end
-        end
-
-        # ROI by workflow
-        def roi_by_workflow(period = nil)
-          period ||= time_range
-          start_date = period.ago
-
-          workflow_data = ::Ai::WorkflowRun
-            .joins(:workflow)
-            .where(ai_workflows: { account_id: account.id })
-            .where("ai_workflow_runs.created_at >= ?", start_date)
-            .group("ai_workflows.id", "ai_workflows.name")
-            .select(
-              "ai_workflows.id", "ai_workflows.name",
-              "COUNT(*) as total_runs",
-              "SUM(CASE WHEN ai_workflow_runs.status = 'completed' THEN 1 ELSE 0 END) as successful_runs",
-              "SUM(ai_workflow_runs.total_cost) as total_cost",
-              "AVG(ai_workflow_runs.duration_ms) as avg_duration_ms"
-            )
-
-          workflow_data.map do |data|
-            successful = data.successful_runs.to_i
-            cost = data.total_cost.to_f
-            time_saved = successful * DEFAULT_TIME_SAVED_PER_TASK
-            value = time_saved * hourly_rate
-
-            {
-              workflow_id: data.id, workflow_name: data.name,
-              total_runs: data.total_runs, successful_runs: successful,
-              success_rate: data.total_runs > 0 ? (successful.to_f / data.total_runs * 100).round(2) : 0,
-              total_cost: cost.round(4), time_saved_hours: time_saved.round(2),
-              value_generated: value.round(2),
-              roi_percentage: cost > 0 ? ((value - cost) / cost * 100).round(2) : 0,
-              cost_per_run: data.total_runs > 0 ? (cost / data.total_runs).round(4) : 0,
-              avg_duration_ms: data.avg_duration_ms.to_f.round(2)
-            }
-          end.sort_by { |w| -(w[:roi_percentage] || 0) }
         end
 
         # ROI by agent
@@ -234,7 +196,6 @@ module Ai
           period ||= time_range
           recs = []
           summary = roi_summary_metrics(period)
-          wf_roi = roi_by_workflow(period)
           agent_roi = roi_by_agent(period)
 
           if summary[:roi][:percentage] < 0
@@ -243,23 +204,9 @@ module Ai
               description: "Your AI investment is currently showing negative returns (#{summary[:roi][:percentage]}%)",
               impact: "high",
               actions: [
-                "Review high-cost workflows and optimize or disable them",
+                "Review high-cost agents and optimize or disable them",
                 "Consider switching to more cost-effective AI providers",
                 "Increase automation of high-value tasks"
-              ]
-            }
-          end
-
-          underperforming = wf_roi.select { |w| w[:roi_percentage] < 0 && w[:total_runs] > 10 }
-          if underperforming.any?
-            recs << {
-              type: "optimization", priority: 2, title: "Underperforming Workflows",
-              description: "#{underperforming.count} workflows have negative ROI", impact: "medium",
-              workflows: underperforming.first(3).map { |w| w[:workflow_name] },
-              actions: [
-                "Review and optimize workflow configurations",
-                "Consider disabling or consolidating these workflows",
-                "Analyze if the use cases are appropriate for AI automation"
               ]
             }
           end
@@ -278,14 +225,14 @@ module Ai
             }
           end
 
-          high_roi_workflows = wf_roi.select { |w| w[:roi_percentage] > 100 && w[:total_runs] > 10 }
-          if high_roi_workflows.any? && high_roi_workflows.count < wf_roi.count / 2
+          high_roi_agents = agent_roi.select { |a| a[:roi_percentage] > 100 && a[:total_executions] > 10 }
+          if high_roi_agents.any? && high_roi_agents.count < agent_roi.count / 2
             recs << {
-              type: "growth", priority: 3, title: "Expand High-ROI Workflows",
-              description: "#{high_roi_workflows.count} workflows show >100% ROI", impact: "high",
-              workflows: high_roi_workflows.first(3).map { |w| w[:workflow_name] },
+              type: "growth", priority: 3, title: "Expand High-ROI Agents",
+              description: "#{high_roi_agents.count} agents show >100% ROI", impact: "high",
+              agents: high_roi_agents.first(3).map { |a| a[:agent_name] },
               actions: [
-                "Increase usage of high-performing workflows",
+                "Increase usage of high-performing agents",
                 "Apply similar patterns to other use cases",
                 "Document successful patterns for replication"
               ]

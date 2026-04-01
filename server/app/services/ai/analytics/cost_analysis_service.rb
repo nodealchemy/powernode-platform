@@ -5,11 +5,11 @@ module Ai
     # Service for AI cost analysis, optimization insights, and ROI tracking
     #
     # Provides detailed cost analysis including:
-    # - Cost breakdown by provider, agent, workflow
+    # - Cost breakdown by provider, agent, model
     # - Cost trends and forecasting
     # - Budget tracking and alerts
     # - Optimization recommendations
-    # - ROI calculations by workflow, agent, and provider
+    # - ROI calculations by agent and provider
     # - ROI projections and recommendations
     #
     # Usage:
@@ -44,7 +44,6 @@ module Ai
           cost_trend: calculate_cost_trend,
           cost_by_provider: cost_breakdown_by_provider,
           cost_by_agent: cost_breakdown_by_agent,
-          cost_by_workflow: cost_breakdown_by_workflow,
           cost_by_model: cost_breakdown_by_model,
           daily_costs: daily_cost_breakdown,
           budget_status: budget_analysis,
@@ -59,13 +58,11 @@ module Ai
       def calculate_total_cost
         start_time = time_range.ago
 
-        workflow_cost = workflow_runs.where("ai_workflow_runs.created_at >= ?", start_time).sum(:total_cost).to_f
-        node_cost = node_executions.where("ai_workflow_node_executions.created_at >= ?", start_time).sum(:cost).to_f
+        agent_cost = agent_executions.where("ai_agent_executions.created_at >= ?", start_time).sum(:cost_usd).to_f
 
         {
-          total: workflow_cost.round(6),
-          workflow_cost: workflow_cost.round(6),
-          node_cost: node_cost.round(6),
+          total: agent_cost.round(6),
+          agent_cost: agent_cost.round(6),
           currency: "USD",
           period_start: start_time.iso8601,
           period_end: Time.current.iso8601
@@ -78,8 +75,8 @@ module Ai
         start_time = time_range.ago
         previous_start = start_time - time_range
 
-        current_cost = workflow_runs.where("ai_workflow_runs.created_at >= ?", start_time).sum(:total_cost).to_f
-        previous_cost = workflow_runs.where(ai_workflow_runs: { created_at: previous_start..start_time }).sum(:total_cost).to_f
+        current_cost = agent_executions.where("ai_agent_executions.created_at >= ?", start_time).sum(:cost_usd).to_f
+        previous_cost = agent_executions.where(ai_agent_executions: { created_at: previous_start..start_time }).sum(:cost_usd).to_f
 
         change = previous_cost.zero? ? nil : ((current_cost - previous_cost) / previous_cost * 100).round(2)
 
@@ -93,20 +90,12 @@ module Ai
 
       private
 
-      def workflows
-        account.ai_workflows
-      end
-
       def agents
         account.ai_agents
       end
 
-      def workflow_runs
-        ::Ai::WorkflowRun.joins(:workflow).where(ai_workflows: { account_id: account.id })
-      end
-
-      def node_executions
-        ::Ai::WorkflowNodeExecution.joins(workflow_run: :workflow).where(ai_workflows: { account_id: account.id })
+      def agent_executions
+        ::Ai::AgentExecution.where(account_id: account.id)
       end
     end
   end

@@ -63,8 +63,8 @@ module Ai
       def test_worker_connectivity
         {
           last_activity: last_worker_activity_time,
-          recent_completions: ::Ai::WorkflowRun.where("completed_at >= ?", 5.minutes.ago).count,
-          pending_jobs: ::Ai::WorkflowRun.where(status: %w[initializing running waiting_approval]).count
+          recent_completions: ::Ai::AgentExecution.where("completed_at >= ?", 5.minutes.ago).where(status: "completed").count,
+          pending_jobs: ::Ai::AgentExecution.where(status: %w[pending running]).count
         }
       end
 

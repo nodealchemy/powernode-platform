@@ -28,7 +28,6 @@ module Ai
 
         # Layer 3: Pause all schedules
         paused_loops = pause_all_ralph_loops
-        paused_schedules = pause_all_workflow_schedules
 
         # Layer 4: Cancel queued A2A tasks
         cancelled_tasks = cancel_all_pending_a2a_tasks(reason)
@@ -52,7 +51,6 @@ module Ai
             impact: {
               cancelled_executions: cancelled_count,
               paused_loops: paused_loops,
-              paused_schedules: paused_schedules,
               cancelled_tasks: cancelled_tasks,
               demoted_agents: demoted_agents
             }
@@ -66,7 +64,7 @@ module Ai
       end
 
       # Resume AI activity. Two modes:
-      # - :full — restores agent trust tiers, Ralph loops, and workflow schedules from snapshot
+      # - :full — restores agent trust tiers and Ralph loops from snapshot
       # - :minimal — only lifts the suspension flag and circuit breakers
       #
       # @param triggered_by [User]
@@ -113,7 +111,6 @@ module Ai
           agents_to_restore: agent_tiers.count { |_, tier| tier != "supervised" },
           total_agents: agent_tiers.size,
           ralph_loops_to_resume: (snapshot["active_ralph_loops"] || []).size,
-          workflow_schedules_to_resume: (snapshot["active_workflow_schedules"] || []).size,
           snapshot_taken_at: snapshot["captured_at"]
         }
       end
@@ -165,8 +162,7 @@ module Ai
         {
           "captured_at" => Time.current.iso8601,
           "agent_trust_tiers" => account_agent_trust_tiers,
-          "active_ralph_loops" => account_active_ralph_loop_ids,
-          "active_workflow_schedules" => account_active_workflow_schedule_ids
+          "active_ralph_loops" => account_active_ralph_loop_ids
         }
       end
 
@@ -183,15 +179,6 @@ module Ai
         account.ai_ralph_loops
           .where(schedule_paused: false)
           .where(status: %w[pending running paused])
-          .pluck(:id)
-          .map(&:to_s)
-      end
-
-      def account_active_workflow_schedule_ids
-        Ai::WorkflowSchedule
-          .joins(:workflow)
-          .where(ai_workflows: { account_id: account.id })
-          .where(is_active: true, status: "active")
           .pluck(:id)
           .map(&:to_s)
       end
@@ -220,17 +207,6 @@ module Ai
         loops = account.ai_ralph_loops.where(schedule_paused: false)
         count = loops.count
         loops.update_all(schedule_paused: true)
-        count
-      end
-
-      def pause_all_workflow_schedules
-        schedules = Ai::WorkflowSchedule
-          .joins(:workflow)
-          .where(ai_workflows: { account_id: account.id })
-          .where(is_active: true)
-
-        count = schedules.count
-        schedules.update_all(is_active: false, status: "paused")
         count
       end
 
@@ -305,7 +281,6 @@ module Ai
       def restore_from_snapshot(snapshot)
         restore_agent_trust_tiers(snapshot["agent_trust_tiers"])
         restore_ralph_loops(snapshot["active_ralph_loops"])
-        restore_workflow_schedules(snapshot["active_workflow_schedules"])
       end
 
       def restore_agent_trust_tiers(tiers)
@@ -323,12 +298,6 @@ module Ai
         return unless loop_ids.is_a?(Array) && loop_ids.any?
 
         Ai::RalphLoop.where(id: loop_ids).update_all(schedule_paused: false)
-      end
-
-      def restore_workflow_schedules(schedule_ids)
-        return unless schedule_ids.is_a?(Array) && schedule_ids.any?
-
-        Ai::WorkflowSchedule.where(id: schedule_ids).update_all(is_active: true, status: "active")
       end
 
       # ── Event recording ──────────────────────────────────────

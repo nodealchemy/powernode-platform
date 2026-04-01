@@ -19,8 +19,6 @@ module Ai
         result = case type.to_s
         when "agents"
           list_agents
-        when "workflows"
-          list_workflows
         when "pipelines"
           list_pipelines
         when "teams"
@@ -41,12 +39,6 @@ module Ai
           { id: agent.id, name: agent.name, provider_id: agent.ai_provider_id, temperature: agent.temperature,
             system_prompt_length: agent.system_prompt&.length,
             status: agent.status, created_at: agent.created_at }
-        when "workflow"
-          workflow = Ai::Workflow.find_by(id: id, account: @account)
-          return nil unless workflow
-          { id: workflow.id, name: workflow.name, node_count: workflow.nodes.count,
-            trigger_types: workflow.triggers.pluck(:trigger_type).uniq, status: workflow.status,
-            created_at: workflow.created_at }
         when "pipeline"
           pipeline = Devops::Pipeline.find_by(id: id, account_id: @account.id)
           return nil unless pipeline
@@ -69,7 +61,6 @@ module Ai
         result = {
           models: {
             "Ai::Agent" => extract_associations(Ai::Agent),
-            "Ai::Workflow" => extract_associations(Ai::Workflow),
             "Ai::AgentTeam" => extract_associations(Ai::AgentTeam),
             "Devops::Pipeline" => extract_associations(Devops::Pipeline)
           }
@@ -87,7 +78,6 @@ module Ai
 
         result = {
           mcp_tools: list_mcp_tools,
-          workflow_node_types: Ai::WorkflowNode.distinct.pluck(:node_type),
           providers: Ai::Provider.pluck(:name, :provider_type)
         }
 
@@ -122,14 +112,6 @@ module Ai
         {
           count: agents.count,
           items: agents.limit(100).map { |a| { id: a.id, name: a.name, status: a.status, provider_id: a.ai_provider_id } }
-        }
-      end
-
-      def list_workflows
-        workflows = Ai::Workflow.where(account: @account)
-        {
-          count: workflows.count,
-          items: workflows.limit(100).map { |w| { id: w.id, name: w.name, status: w.status, nodes: w.nodes.count } }
         }
       end
 

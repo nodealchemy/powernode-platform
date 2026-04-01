@@ -14,7 +14,6 @@ module Ai
             database: detailed_database_health,
             redis: detailed_redis_health,
             providers: detailed_provider_health,
-            workflows: detailed_workflow_health,
             agents: detailed_agent_health,
             workers: detailed_worker_health
           },
@@ -29,11 +28,7 @@ module Ai
         {
           status: "healthy",
           uptime: estimate_system_uptime,
-          active_workflows: account.ai_workflows.where(is_active: true).count,
-          active_agents: account.ai_agents.where(status: "active").count,
-          running_executions: ::Ai::WorkflowRun.joins(:workflow)
-                                              .where(ai_workflows: { account_id: account.id })
-                                              .where(status: %w[initializing running waiting_approval]).count
+          active_agents: account.ai_agents.where(status: "active").count
         }
       end
 
@@ -105,8 +100,9 @@ module Ai
       end
 
       def check_worker_health
-        recent_completions = ::Ai::WorkflowRun.where("completed_at >= ?", 10.minutes.ago).count
-        recent_starts = ::Ai::WorkflowRun.where("created_at >= ?", 10.minutes.ago).count
+        recent_completions = ::Ai::AgentExecution.where(status: "completed")
+                                                 .where("created_at >= ?", 10.minutes.ago).count
+        recent_starts = ::Ai::AgentExecution.where("created_at >= ?", 10.minutes.ago).count
 
         {
           status: recent_completions > 0 || recent_starts == 0 ? "healthy" : "degraded",
@@ -136,11 +132,7 @@ module Ai
           },
           table_counts: {
             ai_providers: account.ai_providers.count,
-            ai_workflows: account.ai_workflows.count,
             ai_agents: account.ai_agents.count,
-            ai_workflow_runs_today: ::Ai::WorkflowRun.joins(:workflow)
-                                                    .where(ai_workflows: { account_id: account.id })
-                                                    .where("ai_workflow_runs.created_at >= ?", Date.current).count,
             ai_conversations_today: account.ai_conversations.where("created_at >= ?", Date.current).count
           }
         }
@@ -185,23 +177,6 @@ module Ai
         end
       end
 
-      def detailed_workflow_health
-        workflows = account.ai_workflows
-
-        {
-          total_workflows: workflows.count,
-          active_workflows: workflows.where(is_active: true).count,
-          running_executions: ::Ai::WorkflowRun.where(workflow: workflows)
-                                            .where(status: %w[initializing running waiting_approval])
-                                            .count,
-          recent_runs: {
-            last_hour: ::Ai::WorkflowRun.where(workflow: workflows).where("created_at >= ?", 1.hour.ago).count,
-            last_24h: ::Ai::WorkflowRun.where(workflow: workflows).where("created_at >= ?", 24.hours.ago).count
-          },
-          success_rate: calculate_workflow_success_rate(workflows)
-        }
-      end
-
       def detailed_agent_health
         agents = account.ai_agents
 
@@ -218,13 +193,13 @@ module Ai
       def detailed_worker_health
         {
           recent_activity: {
-            workflow_runs: ::Ai::WorkflowRun.where("created_at >= ?", 1.hour.ago).count,
-            completed_runs: ::Ai::WorkflowRun.where(status: "completed").where("completed_at >= ?", 1.hour.ago).count,
-            failed_runs: ::Ai::WorkflowRun.where(status: "failed").where("completed_at >= ?", 1.hour.ago).count
+            agent_executions: ::Ai::AgentExecution.where("created_at >= ?", 1.hour.ago).count,
+            completed_executions: ::Ai::AgentExecution.where(status: "completed").where("created_at >= ?", 1.hour.ago).count,
+            failed_executions: ::Ai::AgentExecution.where(status: "failed").where("created_at >= ?", 1.hour.ago).count
           },
           queue_health: {
-            processing_rate: ::Ai::WorkflowRun.where("completed_at >= ?", 10.minutes.ago).count,
-            creation_rate: ::Ai::WorkflowRun.where("created_at >= ?", 10.minutes.ago).count
+            processing_rate: ::Ai::AgentExecution.where(status: "completed").where("created_at >= ?", 10.minutes.ago).count,
+            creation_rate: ::Ai::AgentExecution.where("created_at >= ?", 10.minutes.ago).count
           }
         }
       end
@@ -253,18 +228,10 @@ module Ai
         }
       end
 
-      def calculate_workflow_success_rate(workflows)
-        runs = ::Ai::WorkflowRun.where(workflow: workflows).where("created_at >= ?", 24.hours.ago)
-        total = runs.count
-        successful = runs.where(status: "completed").count
-
-        total > 0 ? (successful.to_f / total * 100).round(2) : 0
-      end
-
       def estimate_system_uptime
-        oldest_active = ::Ai::WorkflowRun.where(status: %w[initializing running waiting_approval])
-                                       .order(:created_at)
-                                       .first&.created_at
+        oldest_active = ::Ai::AgentExecution.where(status: "running")
+                                           .order(:created_at)
+                                           .first&.created_at
 
         return 0 unless oldest_active
 
@@ -272,15 +239,15 @@ module Ai
       end
 
       def last_worker_activity_time
-        recent_completion = ::Ai::WorkflowRun.where(status: %w[completed failed])
-                                           .order(completed_at: :desc)
-                                           .first&.completed_at
+        recent_execution = ::Ai::AgentExecution.where(status: %w[completed failed])
+                                              .order(created_at: :desc)
+                                              .first&.created_at
 
         recent_message = ::Ai::Message.where(role: "assistant")
                                    .order(created_at: :desc)
                                    .first&.created_at
 
-        [ recent_completion, recent_message ].compact.max
+        [ recent_execution, recent_message ].compact.max
       end
     end
   end

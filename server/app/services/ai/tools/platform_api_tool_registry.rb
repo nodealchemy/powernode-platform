@@ -38,12 +38,6 @@ module Ai
         "get_team" => "Ai::Tools::TeamManagementTool",
         "list_teams" => "Ai::Tools::TeamManagementTool",
         "update_team" => "Ai::Tools::TeamManagementTool",
-        # Workflow management
-        "create_workflow" => "Ai::Tools::WorkflowManagementTool",
-        "execute_workflow" => "Ai::Tools::WorkflowManagementTool",
-        "list_workflows" => "Ai::Tools::WorkflowManagementTool",
-        "get_workflow" => "Ai::Tools::WorkflowManagementTool",
-        "update_workflow" => "Ai::Tools::WorkflowManagementTool",
         # Pipeline management
         "trigger_pipeline" => "Ai::Tools::PipelineManagementTool",
         "list_pipelines" => "Ai::Tools::PipelineManagementTool",
