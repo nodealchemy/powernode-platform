@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_31_200001) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_31_200003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10111,6 +10111,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_31_200001) do
     t.index ["trading_strategy_id"], name: "index_trading_orders_on_trading_strategy_id"
     t.index ["trading_venue_id"], name: "index_trading_orders_on_trading_venue_id"
     t.index ["venue_order_id"], name: "index_trading_orders_on_venue_order_id"
+    t.check_constraint "order_type::text = ANY (ARRAY['market'::character varying, 'limit'::character varying, 'stop'::character varying, 'stop_limit'::character varying]::text[])", name: "check_trading_orders_order_type"
+    t.check_constraint "side::text = ANY (ARRAY['buy'::character varying, 'sell'::character varying]::text[])", name: "check_trading_orders_side"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'submitted'::character varying, 'open'::character varying, 'partially_filled'::character varying, 'filled'::character varying, 'cancelled'::character varying, 'rejected'::character varying, 'expired'::character varying]::text[])", name: "check_trading_orders_status"
   end
 
   create_table "trading_performance_fee_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -10432,6 +10435,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_31_200001) do
     t.index ["trading_portfolio_id"], name: "index_trading_strategies_on_trading_portfolio_id"
     t.index ["trading_training_session_id"], name: "index_trading_strategies_on_trading_training_session_id"
     t.index ["trading_venue_id"], name: "index_trading_strategies_on_trading_venue_id"
+    t.check_constraint "lifecycle_phase::text = ANY (ARRAY['conception'::character varying, 'backtest'::character varying, 'paper_trade'::character varying, 'live_small'::character varying, 'live_full'::character varying, 'declining'::character varying, 'decommissioned'::character varying]::text[])", name: "check_trading_strategies_lifecycle_phase"
+    t.check_constraint "status::text = ANY (ARRAY['draft'::character varying, 'active'::character varying, 'paused'::character varying, 'declining'::character varying, 'decommissioned'::character varying]::text[])", name: "check_trading_strategies_status"
   end
 
   create_table "trading_strategy_promotions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -10576,7 +10581,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_31_200001) do
     t.datetime "created_at", null: false
     t.datetime "ends_at"
     t.text "error_message"
-    t.boolean "held", default: false, null: false
     t.boolean "include_classic", default: false
     t.integer "market_count", default: 3
     t.jsonb "metrics", default: {}
@@ -10599,8 +10603,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_31_200001) do
     t.index ["account_id"], name: "index_trading_training_sessions_on_account_id"
     t.index ["parent_session_id"], name: "index_trading_training_sessions_on_parent_session_id"
     t.index ["scheduled_for"], name: "idx_training_sessions_scheduled", where: "((scheduled_for IS NOT NULL) AND ((status)::text = 'scheduled'::text))"
-    t.index ["status", "held"], name: "index_trading_training_sessions_on_status_and_held"
     t.index ["venue_slug"], name: "index_trading_training_sessions_on_venue_slug"
+    t.check_constraint "status::text = ANY (ARRAY['scheduled'::character varying, 'pending'::character varying, 'initializing'::character varying, 'running'::character varying, 'held'::character varying, 'paused'::character varying, 'completed'::character varying, 'completed_with_errors'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])", name: "check_trading_training_sessions_status"
   end
 
   create_table "trading_venue_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -10695,6 +10699,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_31_200001) do
     t.index ["is_active"], name: "index_trading_venues_on_is_active"
     t.index ["slug"], name: "index_trading_venues_on_slug", unique: true
     t.index ["venue_type"], name: "index_trading_venues_on_venue_type"
+    t.check_constraint "venue_type::text = ANY (ARRAY['cex'::character varying, 'dex'::character varying, 'prediction_market'::character varying, 'defi'::character varying, 'simulator'::character varying]::text[])", name: "check_trading_venues_venue_type"
   end
 
   create_table "trading_wallet_balances", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
