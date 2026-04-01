@@ -134,15 +134,7 @@ module Api
         def my_published
           templates = []
 
-          # Gather templates from all publishable types
-          templates += current_account.ai_workflows
-                        .joins("INNER JOIN ai_workflow_templates ON ai_workflow_templates.source_workflow_id = ai_workflows.id")
-                        .where(ai_workflow_templates: { account_id: current_account.id })
-                        .map { |_w| ::Ai::WorkflowTemplate.where(account_id: current_account.id) }
-                        .flatten
-
           # Get directly owned templates
-          templates += ::Ai::WorkflowTemplate.where(account_id: current_account.id).to_a
           templates += ::Devops::PipelineTemplate.where(account_id: current_account.id).to_a
           templates += ::Devops::IntegrationTemplate.where(account_id: current_account.id).to_a
           templates += ::Shared::PromptTemplate.where(account_id: current_account.id, is_system: false).to_a
@@ -155,7 +147,6 @@ module Api
             meta: {
               total_count: templates.count,
               counts_by_type: {
-                workflow_template: templates.count { |t| t.is_a?(::Ai::WorkflowTemplate) },
                 pipeline_template: templates.count { |t| t.is_a?(::Devops::PipelineTemplate) },
                 integration_template: templates.count { |t| t.is_a?(::Devops::IntegrationTemplate) },
                 prompt_template: templates.count { |t| t.is_a?(::Shared::PromptTemplate) }
@@ -170,7 +161,6 @@ module Api
           authorize_admin!
 
           templates = []
-          templates += ::Ai::WorkflowTemplate.marketplace_pending.to_a
           templates += ::Devops::PipelineTemplate.marketplace_pending.to_a
           templates += ::Devops::IntegrationTemplate.marketplace_pending.to_a
           templates += ::Shared::PromptTemplate.marketplace_pending.to_a
@@ -189,8 +179,6 @@ module Api
           creator = ::Marketplace::InstanceCreator.new(current_user)
 
           instance = case params[:type]
-          when "workflow_template"
-                       creator.create_from_workflow_template(@template, instance_params)
           when "pipeline_template"
                        creator.create_from_pipeline_template(@template, instance_params)
           when "integration_template"
@@ -212,8 +200,6 @@ module Api
 
         def set_template
           @template = case params[:type]
-          when "workflow_template"
-                        ::Ai::WorkflowTemplate.find(params[:id])
           when "pipeline_template"
                         ::Devops::PipelineTemplate.find(params[:id])
           when "integration_template"

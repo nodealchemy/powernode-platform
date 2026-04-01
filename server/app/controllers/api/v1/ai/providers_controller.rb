@@ -263,28 +263,16 @@ module Api
         end
 
         def calculate_total_api_calls
-          agent_calls = ::Ai::AgentExecution.joins(agent: :provider)
-                                       .where(ai_providers: { account_id: current_user.account_id })
-                                       .count
-
-          workflow_calls = ::Ai::WorkflowNodeExecution.joins(workflow_run: { workflow: :account })
-                                                  .where(accounts: { id: current_user.account_id })
-                                                  .where(node_type: "ai_agent")
-                                                  .count
-
-          agent_calls + workflow_calls
+          ::Ai::AgentExecution.joins(agent: :provider)
+                              .where(ai_providers: { account_id: current_user.account_id })
+                              .count
         end
 
         def calculate_total_cost
-          agent_cost = ::Ai::AgentExecution.joins(agent: :provider)
-                                      .where(ai_providers: { account_id: current_user.account_id })
-                                      .sum(:cost_usd)
-
-          workflow_cost = ::Ai::WorkflowNodeExecution.joins(workflow_run: { workflow: :account })
-                                                 .where(accounts: { id: current_user.account_id })
-                                                 .sum(:cost)
-
-          (agent_cost + workflow_cost).round(2)
+          ::Ai::AgentExecution.joins(agent: :provider)
+                              .where(ai_providers: { account_id: current_user.account_id })
+                              .sum(:cost_usd)
+                              .round(2)
         end
       end
     end

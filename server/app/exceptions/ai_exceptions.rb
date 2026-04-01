@@ -115,25 +115,6 @@ module AiExceptions
     end
   end
 
-  # Workflow-specific errors
-  class WorkflowError < ServiceError
-    attr_reader :workflow_id
-
-    def initialize(message, workflow_id: nil, details: {})
-      @workflow_id = workflow_id
-      super(message, code: "WORKFLOW_ERROR", details: details.merge(workflow_id: workflow_id), recoverable: true)
-    end
-  end
-
-  # Workflow validation errors (invalid structure, missing nodes)
-  class WorkflowValidationError < WorkflowError
-    def initialize(message, workflow_id: nil, details: {})
-      super(message, workflow_id: workflow_id, details: details)
-      @code = "WORKFLOW_VALIDATION_ERROR"
-      @recoverable = false
-    end
-  end
-
   # Agent-specific errors
   class AgentError < ServiceError
     attr_reader :agent_id

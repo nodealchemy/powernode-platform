@@ -71,20 +71,7 @@ module Api
 
         # POST /api/v1/ai/marketplace/templates
         def create
-          template_data = prepare_template_params
-
-          @template = ::Ai::WorkflowTemplate.new(template_data)
-
-          if @template.save
-            log_audit_event("ai.marketplace.template_created", @template)
-
-            render_success({
-              template: serialize_template_detail(@template),
-              message: "Template created successfully"
-            }, status: :created)
-          else
-            render_validation_error(@template.errors)
-          end
+          render_error("Workflow template creation is no longer supported via this endpoint", status: :gone)
         end
 
         # PATCH /api/v1/ai/marketplace/templates/:id
@@ -123,23 +110,7 @@ module Api
 
         # POST /api/v1/ai/marketplace/templates/from_workflow
         def create_from_workflow
-          actor = current_user || current_worker
-          workflow = actor.account.ai_workflows.find(params[:workflow_id])
-
-          template = build_template_from_workflow(workflow)
-
-          if template.persisted?
-            log_audit_event("ai.marketplace.template_created_from_workflow", template)
-
-            render_success({
-              template: serialize_template_detail(template),
-              message: "Template created from workflow successfully"
-            }, status: :created)
-          else
-            render_validation_error(template.errors)
-          end
-        rescue ActiveRecord::RecordNotFound
-          render_error("Workflow not found", status: :not_found)
+          render_error("Workflow template creation is no longer supported", status: :gone)
         end
 
         # POST /api/v1/ai/marketplace/templates/:id/install
@@ -315,13 +286,12 @@ module Api
           result = discovery_service.marketplace_statistics
 
           if current_user
-            account_templates = ::Ai::WorkflowTemplate.where(account_id: current_user.account.id)
             result[:account] = {
-              my_templates: account_templates.count,
-              published_templates: account_templates.where(is_public: true).count,
-              private_templates: account_templates.where(is_public: false).count,
-              total_installs: account_templates.sum(:usage_count),
-              templates_by_category: account_templates.group(:category).count
+              my_templates: 0,
+              published_templates: 0,
+              private_templates: 0,
+              total_installs: 0,
+              templates_by_category: {}
             }
           end
 
@@ -457,18 +427,6 @@ module Api
         # ===================================================================
 
         def set_template
-          if current_user
-            @template = ::Ai::WorkflowTemplate
-                          .includes(:created_by_user)
-                          .accessible_to_account(current_user.account.id)
-                          .find(params[:id])
-          else
-            @template = ::Ai::WorkflowTemplate
-                          .includes(:created_by_user)
-                          .public_templates
-                          .find(params[:id])
-          end
-        rescue ActiveRecord::RecordNotFound
           render_error("Template not found", status: :not_found)
         end
 
@@ -545,44 +503,7 @@ module Api
         # TEMPLATE CREATION HELPERS
         # ===================================================================
 
-        def build_template_from_workflow(workflow)
-          ::Ai::WorkflowTemplate.create(
-            name: params[:name] || "#{workflow.name} Template",
-            description: params[:description] || workflow.description || "Template created from #{workflow.name}",
-            category: params[:category] || "custom",
-            difficulty_level: params[:difficulty_level] || "intermediate",
-            tags: params[:tags] || workflow.metadata&.dig("tags") || [],
-            is_public: params[:is_public] || false,
-            version: params[:version] || "1.0.0",
-            license: params[:license] || "private",
-            account_id: workflow.account_id,
-            created_by_user_id: current_user&.id,
-            workflow_definition: extract_workflow_data(workflow),
-            metadata: {
-              node_count: workflow.nodes.count,
-              edge_count: workflow.edges.count,
-              complexity_score: calculate_complexity_score(workflow),
-              has_ai_agents: workflow.nodes.where(node_type: "ai_agent").exists?,
-              has_webhooks: workflow.nodes.where(node_type: "webhook").exists?,
-              has_schedules: workflow.triggers.where(trigger_type: "schedule").exists?,
-              source_workflow_id: workflow.id
-            }
-          )
-        end
-
-        def extract_workflow_data(workflow)
-          {
-            workflow: { name: workflow.name, description: workflow.description, version: workflow.version },
-            nodes: workflow.nodes.map { |n| { node_id: n.node_id, node_type: n.node_type, name: n.name, description: n.description, configuration: n.configuration || {}, position: n.position } },
-            edges: workflow.edges.map { |e| { source_node_id: e.source_node_id, target_node_id: e.target_node_id, edge_type: e.edge_type, condition: e.condition, configuration: e.configuration || {} } },
-            triggers: workflow.triggers.map { |t| { trigger_type: t.trigger_type, name: t.name, configuration: t.configuration, is_active: t.is_active } },
-            variables: workflow.variables.map { |v| { key: v.key, value: v.value, variable_type: v.variable_type, description: v.description, is_required: v.is_required } }
-          }
-        end
-
-        def calculate_complexity_score(workflow)
-          (workflow.nodes.count * 1.0) + (workflow.edges.count * 0.5) + (workflow.triggers.count * 1.5)
-        end
+        # Workflow template creation helpers removed — Ai::WorkflowTemplate has been deleted
 
         # ===================================================================
         # SERIALIZATION
