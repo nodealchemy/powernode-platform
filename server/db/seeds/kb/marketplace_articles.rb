@@ -90,7 +90,6 @@ Installing: Customer Support Workflow
 
   Permissions Required:
     - ai.agents.use
-    - ai.workflows.execute
 
   Configuration:
     - Select AI provider

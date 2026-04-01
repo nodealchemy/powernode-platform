@@ -7,17 +7,9 @@ puts "🧪 Testing Agent Functionality...\n"
 
 # Test 1: Agent retrieval by type
 puts "Test 1: Agent retrieval by type"
-workflow_ops = Ai::Agent.where(agent_type: 'workflow_operations')
-puts "  Workflow Operations Agents: #{workflow_ops.count}"
-workflow_ops.each { |agent| puts "    - #{agent.name} (#{agent.slug})" }
-
 monitors = Ai::Agent.where(agent_type: 'monitor')
 puts "  Monitor Agents: #{monitors.count}"
 monitors.each { |agent| puts "    - #{agent.name} (#{agent.slug})" }
-
-optimizers = Ai::Agent.where(agent_type: 'workflow_optimizer')
-puts "  Workflow Optimizer Agents: #{optimizers.count}"
-optimizers.each { |agent| puts "    - #{agent.name} (#{agent.slug})" }
 
 assistants = Ai::Agent.where(agent_type: 'assistant')
 puts "  Assistant Agents: #{assistants.count}"
@@ -35,7 +27,7 @@ end
 
 # Test 3: Agent configuration
 puts "\nTest 3: Agent configuration"
-sample_agent = Ai::Agent.where(agent_type: 'workflow_operations').first
+sample_agent = Ai::Agent.where(agent_type: 'assistant').first
 if sample_agent&.configuration&.present?
   puts "  ✅ Sample agent has configuration"
   puts "    - Model: #{sample_agent.configuration['model']}"

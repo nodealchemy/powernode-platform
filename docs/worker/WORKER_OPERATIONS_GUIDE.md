@@ -24,7 +24,7 @@ The Powernode worker is a standalone Sidekiq process (220+ jobs) that communicat
 
 ## Job Categories by Namespace
 
-### AI Jobs (94 top-level + 2 namespaced = 96)
+### AI Jobs
 
 The largest category — covers the entire AI platform.
 
@@ -32,8 +32,6 @@ The largest category — covers the entire AI platform.
 |-----|-------|-------------|
 | `AiAgentExecutionJob` | `ai_agents` | Execute AI agent with provider orchestration |
 | `AiTeamExecutionJob` | `ai_execution` | Multi-agent team orchestration |
-| `AiWorkflowExecutionJob` | `ai_workflows` | Workflow run execution |
-| `AiWorkflowNodeExecutionJob` | `ai_workflow_nodes` | Individual node execution |
 | `AiChatResponseJob` | `ai_conversations` | AI conversation response generation |
 | `AiChatAttachmentProcessingJob` | `ai_conversations` | Process chat attachments |
 | `AiChatContextBuilderJob` | `ai_conversations` | Build conversation context |
@@ -96,12 +94,6 @@ The largest category — covers the entire AI platform.
 | `AiExecutionCancellationJob` | `ai_cancellations` | Fast execution cancellation |
 | `AiExecutionTimeoutCleanupJob` | `ai_orchestration` | Timeout cleanup |
 | `AiWebhookDeliveryJob` | `ai_orchestration` | AI webhook delivery |
-| `AiWorkflowAnalyticsCacheWarmupJob` | `ai_workflow_health` | Analytics cache warmup |
-| `AiWorkflowCostMonitoringJob` | `ai_workflow_health` | Workflow cost monitoring |
-| `AiWorkflowHealthMonitoringJob` | `ai_workflow_health` | Workflow health checks |
-| `AiWorkflowMonthlyCleanupJob` | `ai_workflows` | Monthly workflow cleanup |
-| `AiWorkflowScheduleJob` | `ai_workflow_schedules` | Scheduled workflow triggers |
-| `AiWorkflowWeeklyReportJob` | `ai_workflows` | Weekly workflow reports |
 | `AiWorkspaceResponseJob` | `ai_conversations` | Workspace response handling |
 | `AiConversationResponseJob` | `ai_conversations` | Conversation response generation |
 | `AiEscalationTimeoutJob` | `ai_orchestration` | Autonomy escalation timeout enforcement |
@@ -121,9 +113,6 @@ The largest category — covers the entire AI platform.
 | `AiWorktreeProvisioningJob` | `ai_execution` | Worktree provisioning |
 | `AiWorktreePushAndPrJob` | `ai_execution` | Worktree push and PR creation |
 | `AiWorktreeTimeoutJob` | `ai_execution` | Worktree session timeout |
-| `WorkflowBatchExecutionJob` | `ai_workflows` | Batch workflow execution |
-| `AiWorkflow::ApprovalExpiryJob` | `ai_workflows` | Approval expiration |
-| `AiWorkflow::ApprovalNotificationJob` | `ai_workflows` | Approval notifications |
 
 ### Analytics (3 jobs)
 
@@ -178,20 +167,15 @@ The largest category — covers the entire AI platform.
 | `Git::ScheduledPipelineJob` | `devops_default` | Cron-triggered pipelines |
 | `Git::WebhookProcessingJob` | `devops_webhooks` | Git webhook processing |
 
-### MCP (10 jobs)
+### MCP (5 jobs)
 
 | Job | Queue | Description |
 |-----|-------|-------------|
-| `Mcp::McpDatabaseExecutionJob` | `mcp` | Database node execution |
-| `Mcp::McpEmailExecutionJob` | `mcp` | Email node execution |
-| `Mcp::McpFileExecutionJob` | `mcp` | File operation execution |
-| `Mcp::McpNotificationExecutionJob` | `mcp` | Notification execution |
 | `Mcp::McpServerConnectionJob` | `mcp` | MCP server connection |
 | `Mcp::McpServerHealthCheckJob` | `mcp` | Server health monitoring |
 | `Mcp::McpToolCacheRefreshJob` | `mcp` | Tool cache refresh |
 | `Mcp::McpToolDiscoveryJob` | `mcp` | Tool discovery |
 | `Mcp::McpToolExecutionJob` | `mcp` | Tool execution |
-| `Mcp::McpWorkflowResumeJob` | `mcp` | Workflow resume after pause |
 
 ### Notifications (6 jobs)
 
@@ -225,8 +209,8 @@ The largest category — covers the entire AI platform.
 
 | Priority | Queues |
 |----------|--------|
-| **3 (Critical)** | `critical`, `high`, `workflow_high_priority`, `subscription_lifecycle`, `ai_cancellations`, `devops_high` |
-| **2 (Standard)** | `ai_workflows`, `ai_agents`, `ai_conversations`, `ai_execution`, `ai_orchestration`, `ai_workflow_health`, `ai_workflow_schedules`, `ai_workflow_nodes`, `ai_testing`, `devops_default`, `devops_webhooks`, `file_processing`, `services`, `billing`, `billing_scheduler`, `compliance`, `email`, `reports`, `integrations`, `mcp` |
+| **3 (Critical)** | `critical`, `high`, `subscription_lifecycle`, `ai_cancellations`, `devops_high` |
+| **2 (Standard)** | `ai_agents`, `ai_conversations`, `ai_execution`, `ai_orchestration`, `ai_testing`, `devops_default`, `devops_webhooks`, `file_processing`, `services`, `billing`, `billing_scheduler`, `compliance`, `email`, `reports`, `integrations`, `mcp` |
 | **1 (Low)** | `notifications`, `analytics`, `schedules`, `webhooks`, `maintenance`, `default` |
 
 ### Configuration
@@ -238,7 +222,6 @@ redis: redis://localhost:6379/1
 ```
 
 Jobs requiring longer timeouts use circuit breakers:
-- AI workflows: 600s (`with_workflow_execution_circuit_breaker`)
 - AI providers: 600s (`with_ai_provider_circuit_breaker`)
 - Backend API: 120s (`with_backend_api_circuit_breaker`)
 
@@ -276,11 +259,10 @@ All cron schedules are defined in `worker/config/sidekiq.yml`.
 | Every 5m | `Docker::HealthCheckJob` | `devops_default` | Docker host health |
 | Every 5m | `Swarm::HealthCheckJob` | `devops_default` | Swarm cluster health |
 | Every 5m | `Git::RunnerHealthCheckJob` | `devops_default` | Git runner health |
-| Every 10m | `AiProviderHealthCheckJob` | `ai_workflow_health` | AI provider health |
+| Every 10m | `AiProviderHealthCheckJob` | `ai_orchestration` | AI provider health |
 | Hourly :00 | `Devops::ApprovalExpiryJob` | `default` | Expire DevOps approvals |
-| Hourly :15 | `AiWorkflow::ApprovalExpiryJob` | `default` | Expire AI workflow approvals |
 | Hourly | `AiBudgetRolloverJob` | `ai_orchestration` | Roll over expired budgets |
-| Every 6h | `AiProviderModelSyncJob` | `ai_workflow_health` | Sync provider models |
+| Every 6h | `AiProviderModelSyncJob` | `ai_orchestration` | Sync provider models |
 | Every 6h | `Compliance::AccountTerminationJob` | `compliance` | Process account terminations |
 | Every 6h | `ChatSessionCleanupJob` | `maintenance` | Clean stale chat sessions |
 | Daily 1 AM | `AiPricingSyncJob` | `ai_orchestration` | Sync model pricing |
@@ -346,7 +328,7 @@ The worker has its own service layer for processing logic.
 | `PdfReportWorkerService` | PDF report generation |
 | `FirebaseService` | Push notifications (Firebase) |
 | `TwilioService` | SMS delivery (Twilio) |
-| `AiWorkflowErrorTrackingService` | AI error classification |
+| `AiErrorTrackingService` | AI error classification (deprecated) |
 
 ### DevOps Services (16 files)
 

@@ -3,7 +3,7 @@
 # Monitoring and Analytics Agents Seed Data
 # Creates specialized agents for monitoring, analytics, and system oversight
 
-puts "📊 Creating Monitoring and Analytics Workflow Agents..."
+puts "📊 Creating Monitoring and Analytics Agents..."
 
 admin_account = Account.find_by(name: "Powernode Admin")
 admin_user = admin_account.users.find_by(email: "admin@powernode.org")
@@ -17,28 +17,28 @@ if admin_account && admin_user && provider
   # Performance Monitoring Specialist (Fixed)
   performance_monitor = Ai::Agent.find_or_create_by(
     account: admin_account,
-    slug: 'workflow-performance-monitor',
+    slug: 'system-performance-monitor',
     agent_type: 'monitor'
   ) do |agent|
-    agent.name = "Workflow Performance Monitor"
-    agent.description = "Advanced monitoring specialist tracking workflow performance, resource usage, and execution metrics in real-time"
+    agent.name = "System Performance Monitor"
+    agent.description = "Advanced monitoring specialist tracking system performance, resource usage, and execution metrics in real-time"
     agent.provider = provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
     agent.mcp_tool_manifest = {
-      'name' => 'workflow_performance_monitor',
-      'description' => 'Advanced monitoring specialist for workflow performance',
+      'name' => 'system_performance_monitor',
+      'description' => 'Advanced monitoring specialist for system performance',
       'type' => 'ai_agent',
       'version' => '1.0.0',
       'configuration' => {
         'system_prompt' => <<~PROMPT.strip,
-          You are a Workflow Performance Monitor, a specialized AI agent focused on real-time performance tracking, resource monitoring, and execution analytics for workflow systems.
+          You are a System Performance Monitor, a specialized AI agent focused on real-time performance tracking, resource monitoring, and execution analytics.
 
           ## Core Responsibilities:
-          - **Real-time Monitoring**: Track workflow execution times, resource consumption, and system performance metrics
+          - **Real-time Monitoring**: Track execution times, resource consumption, and system performance metrics
           - **Performance Analytics**: Analyze trends, identify patterns, and detect performance degradation
-          - **Resource Tracking**: Monitor CPU, memory, network, and storage utilization across workflow executions
+          - **Resource Tracking**: Monitor CPU, memory, network, and storage utilization across system operations
           - **Bottleneck Detection**: Identify performance bottlenecks and resource constraints
           - **Alert Management**: Generate intelligent alerts for performance anomalies and threshold breaches
           - **Metric Collection**: Gather comprehensive performance data for analysis and reporting
@@ -94,28 +94,28 @@ if admin_account && admin_user && provider
   # Analytics Intelligence Specialist
   analytics_specialist = Ai::Agent.find_or_create_by(
     account: admin_account,
-    slug: 'workflow-analytics-intelligence',
+    slug: 'system-analytics-intelligence',
     agent_type: 'data_analyst'
   ) do |agent|
-    agent.name = "Workflow Analytics Intelligence"
-    agent.description = "Advanced analytics specialist providing deep insights, trend analysis, and predictive intelligence for workflow systems"
+    agent.name = "System Analytics Intelligence"
+    agent.description = "Advanced analytics specialist providing deep insights, trend analysis, and predictive intelligence for platform systems"
     agent.provider = provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
     agent.mcp_tool_manifest = {
-      'name' => 'workflow_analytics_intelligence',
-      'description' => 'Advanced analytics specialist for workflow systems',
+      'name' => 'system_analytics_intelligence',
+      'description' => 'Advanced analytics specialist for platform systems',
       'type' => 'ai_agent',
       'version' => '1.0.0',
       'configuration' => {
         'system_prompt' => <<~PROMPT.strip,
-          You are a Workflow Analytics Intelligence specialist, an AI agent focused on extracting meaningful insights from workflow data through advanced analytics and predictive modeling.
+          You are a System Analytics Intelligence specialist, an AI agent focused on extracting meaningful insights from platform data through advanced analytics and predictive modeling.
 
           ## Core Responsibilities:
-          - **Advanced Analytics**: Deep statistical analysis of workflow performance and usage patterns
+          - **Advanced Analytics**: Deep statistical analysis of system performance and usage patterns
           - **Predictive Modeling**: Forecast future trends, capacity needs, and potential issues
-          - **Pattern Recognition**: Identify hidden patterns in workflow execution and user behavior
+          - **Pattern Recognition**: Identify hidden patterns in system execution and user behavior
           - **Business Intelligence**: Transform raw data into actionable business insights
           - **Trend Analysis**: Track performance trends, seasonal patterns, and usage evolution
           - **Data Visualization**: Create compelling charts, graphs, and dashboards for stakeholder communication
@@ -129,7 +129,7 @@ if admin_account && admin_user && provider
 
           ## Intelligence Areas:
           - **Performance Intelligence**: Efficiency trends, optimization opportunities, bottleneck patterns
-          - **Usage Intelligence**: User behavior patterns, popular workflows, adoption trends
+          - **Usage Intelligence**: User behavior patterns, popular features, adoption trends
           - **Cost Intelligence**: Resource cost analysis, efficiency metrics, ROI calculations
           - **Risk Intelligence**: Failure pattern analysis, vulnerability assessment, reliability metrics
 
@@ -269,26 +269,26 @@ if admin_account && admin_user && provider
   # Quality Assurance Monitor
   qa_monitor = Ai::Agent.find_or_create_by(
     account: admin_account,
-    slug: 'workflow-quality-assurance',
+    slug: 'system-quality-assurance',
     agent_type: 'monitor'
   ) do |agent|
-    agent.name = "Workflow Quality Assurance"
-    agent.description = "Quality assurance specialist monitoring workflow execution quality, data integrity, and compliance standards"
+    agent.name = "System Quality Assurance"
+    agent.description = "Quality assurance specialist monitoring execution quality, data integrity, and compliance standards"
     agent.provider = provider
     agent.creator = admin_user
     agent.status = 'active'
     agent.version = '1.0.0'
     agent.mcp_tool_manifest = {
-      'name' => 'workflow_quality_assurance',
-      'description' => 'Quality assurance specialist for workflow systems',
+      'name' => 'system_quality_assurance',
+      'description' => 'Quality assurance specialist for platform systems',
       'type' => 'ai_agent',
       'version' => '1.0.0',
       'configuration' => {
         'system_prompt' => <<~PROMPT.strip,
-          You are a Workflow Quality Assurance Monitor, a specialized AI agent focused on ensuring the highest quality standards across all workflow executions and system operations.
+          You are a System Quality Assurance Monitor, a specialized AI agent focused on ensuring the highest quality standards across all system operations.
 
           ## Core Responsibilities:
-          - **Quality Monitoring**: Continuous assessment of workflow execution quality and output standards
+          - **Quality Monitoring**: Continuous assessment of execution quality and output standards
           - **Data Validation**: Verify data integrity, format compliance, and business rule adherence
           - **Compliance Checking**: Ensure workflows meet regulatory, security, and organizational standards
           - **Test Automation**: Execute automated quality tests and validation procedures
@@ -303,7 +303,7 @@ if admin_account && admin_user && provider
           5. **Usability Quality**: User experience, interface responsiveness, accessibility
 
           ## Monitoring Areas:
-          - **Workflow Execution**: Success rates, error patterns, execution consistency
+          - **Execution Quality**: Success rates, error patterns, execution consistency
           - **Data Quality**: Completeness, accuracy, consistency, validity
           - **Code Quality**: Standards compliance, security practices, maintainability
           - **User Experience**: Performance perception, error handling, accessibility
@@ -358,10 +358,10 @@ if admin_account && admin_user && provider
     }
   end
 
-  puts "✅ Created Workflow Performance Monitor (ID: #{performance_monitor.id})"
-  puts "✅ Created Workflow Analytics Intelligence (ID: #{analytics_specialist.id})"
+  puts "✅ Created System Performance Monitor (ID: #{performance_monitor.id})"
+  puts "✅ Created System Analytics Intelligence (ID: #{analytics_specialist.id})"
   puts "✅ Created System Health Monitor (ID: #{health_monitor.id})"
-  puts "✅ Created Workflow Quality Assurance (ID: #{qa_monitor.id})"
+  puts "✅ Created System Quality Assurance (ID: #{qa_monitor.id})"
 
   puts "\n📊 Monitoring and Analytics Agents Summary:"
   puts "   Monitor Agents: #{Ai::Agent.where(agent_type: 'monitor').count}"
