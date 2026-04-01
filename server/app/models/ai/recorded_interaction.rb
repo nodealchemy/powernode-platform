@@ -17,7 +17,6 @@ module Ai
     # Associations
     belongs_to :account
     belongs_to :sandbox, class_name: "Ai::Sandbox", foreign_key: "sandbox_id"
-    belongs_to :source_workflow_run, class_name: "Ai::WorkflowRun", foreign_key: "source_workflow_run_id", optional: true
 
     # Validations
     validates :recording_id, presence: true, uniqueness: true
@@ -29,7 +28,6 @@ module Ai
     scope :by_type, ->(type) { where(interaction_type: type) }
     scope :by_provider, ->(provider) { where(provider_type: provider) }
     scope :by_model, ->(model) { where(model_name: model) }
-    scope :for_workflow_run, ->(run) { where(source_workflow_run: run).order(sequence_number: :asc) }
     scope :recent, -> { order(recorded_at: :desc) }
     scope :ordered, -> { order(sequence_number: :asc) }
 
@@ -38,14 +36,13 @@ module Ai
     before_validation :set_recorded_at, on: :create
 
     # Class methods
-    def self.record!(sandbox:, account:, interaction_type:, request_data:, response_data:, provider_type: nil, model_name: nil, source_workflow_run: nil, latency_ms: nil, tokens_input: 0, tokens_output: 0, cost: 0, sequence_number: nil, metadata: {})
+    def self.record!(sandbox:, account:, interaction_type:, request_data:, response_data:, provider_type: nil, model_name: nil, latency_ms: nil, tokens_input: 0, tokens_output: 0, cost: 0, sequence_number: nil, metadata: {})
       create!(
         sandbox: sandbox,
         account: account,
         interaction_type: interaction_type,
         provider_type: provider_type,
         model_name: model_name,
-        source_workflow_run: source_workflow_run,
         request_data: request_data,
         response_data: response_data,
         metadata: metadata,

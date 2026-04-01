@@ -7,7 +7,6 @@ module Ai
     # Associations
     belongs_to :account
     belongs_to :sandbox, class_name: "Ai::Sandbox", foreign_key: "sandbox_id", optional: true
-    belongs_to :target_workflow, class_name: "Ai::Workflow", foreign_key: "target_workflow_id", optional: true
     belongs_to :target_agent, class_name: "Ai::Agent", foreign_key: "target_agent_id", optional: true
     belongs_to :created_by, class_name: "User", foreign_key: "created_by_id", optional: true
 
@@ -19,7 +18,6 @@ module Ai
     # Scopes
     scope :active, -> { where(status: "active") }
     scope :paused, -> { where(status: "paused") }
-    scope :for_workflow, ->(workflow) { where(target_workflow: workflow) }
     scope :for_agent, ->(agent) { where(target_agent: agent) }
     scope :recent, -> { order(last_run_at: :desc) }
 
@@ -36,11 +34,10 @@ module Ai
     end
 
     def target
-      target_workflow || target_agent
+      target_agent
     end
 
     def target_type
-      return "workflow" if target_workflow.present?
       return "agent" if target_agent.present?
 
       nil

@@ -29,7 +29,6 @@ module Shared
              foreign_key: :parent_template_id, dependent: :nullify
 
     # Polymorphic usage tracking
-    has_many :ai_workflow_nodes, class_name: "Ai::WorkflowNode", foreign_key: :shared_prompt_template_id, dependent: :nullify
     has_many :devops_pipeline_steps, class_name: "Devops::PipelineStep",
              foreign_key: :shared_prompt_template_id, dependent: :nullify
 
@@ -197,7 +196,7 @@ module Shared
     #
     # @return [Integer]
     def usage_count
-      ai_workflow_nodes.count + devops_pipeline_steps.count
+      devops_pipeline_steps.count
     end
 
     private

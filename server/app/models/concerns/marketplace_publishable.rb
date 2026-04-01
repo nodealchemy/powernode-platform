@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Concern for models that can be published to the marketplace
-# Include in: Ai::WorkflowTemplate, Devops::PipelineTemplate, Devops::IntegrationTemplate, Shared::PromptTemplate
+# Include in: Devops::PipelineTemplate, Devops::IntegrationTemplate, Shared::PromptTemplate
 #
 # Required columns on the model:
 #   - is_marketplace_published: boolean, default: false
@@ -134,8 +134,6 @@ module MarketplacePublishable
   # Get the marketplace template type for this item
   def marketplace_template_type
     case self.class.name
-    when "Ai::WorkflowTemplate"
-      "workflow_template"
     when "Devops::PipelineTemplate"
       "pipeline_template"
     when "Devops::IntegrationTemplate"
@@ -167,7 +165,6 @@ module MarketplacePublishable
     count = 0
 
     # Count across all publishable template types
-    count += Ai::WorkflowTemplate.published_by_account(account.id).count if defined?(Ai::WorkflowTemplate)
     count += Devops::PipelineTemplate.published_by_account(account.id).count if defined?(Devops::PipelineTemplate)
     count += Devops::IntegrationTemplate.published_by_account(account.id).count if defined?(Devops::IntegrationTemplate)
     count += Shared::PromptTemplate.published_by_account(account.id).count if defined?(Shared::PromptTemplate)

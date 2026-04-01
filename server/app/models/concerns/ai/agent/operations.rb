@@ -26,7 +26,7 @@ module Ai
 
         # Check if agent has required fields
         errors_list << "Agent name is missing" if name.blank?
-        errors_list << "Agent type is invalid" unless %w[assistant code_assistant data_analyst content_generator image_generator workflow_optimizer workflow_operations monitor].include?(agent_type)
+        errors_list << "Agent type is invalid" unless %w[assistant code_assistant data_analyst content_generator image_generator monitor].include?(agent_type)
         errors_list << "AI provider is missing or inactive" unless provider&.is_active?
         errors_list << "No skills assigned" if skill_slugs.empty?
 

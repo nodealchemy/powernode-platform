@@ -62,21 +62,6 @@ module Ai
       increment!(:installation_count)
     end
 
-    def validate_workflow_definition
-      errors = []
-
-      if workflow_definition.blank?
-        errors << "Workflow definition is required"
-        return errors
-      end
-
-      # Check for required fields
-      errors << "Workflow definition must include nodes" unless workflow_definition["nodes"].is_a?(Array)
-      errors << "Workflow definition must include edges" unless workflow_definition["edges"].is_a?(Array)
-
-      errors
-    end
-
     private
 
     def generate_slug

@@ -103,8 +103,6 @@ module Ai
       case resource_type
       when "provider"
         Ai::Provider.find_by(id: resource_id)
-      when "workflow"
-        Ai::Workflow.find_by(id: resource_id)
       when "agent"
         Ai::Agent.find_by(id: resource_id)
       else
@@ -266,48 +264,9 @@ module Ai
       opportunities
     end
 
-    def self.identify_usage_opportunities(account)
-      opportunities = []
-
-      # Find workflows with high execution counts that could benefit from batching
-      high_volume_workflows = Ai::WorkflowRun
-                                .joins(:workflow)
-                                .where(ai_workflows: { account_id: account.id })
-                                .where("ai_workflow_runs.created_at >= ?", 7.days.ago)
-                                .group(:ai_workflow_id)
-                                .having("COUNT(*) > ?", 100)
-                                .count
-
-      high_volume_workflows.each do |workflow_id, count|
-        workflow = Ai::Workflow.find_by(id: workflow_id)
-        next unless workflow
-
-        total_cost = Ai::WorkflowRun.where(ai_workflow_id: workflow_id)
-                                    .where("created_at >= ?", 7.days.ago)
-                                    .sum(:total_cost)
-
-        avg_cost = count.positive? ? total_cost / count : 0
-        batch_overhead_factor = 0.6
-        estimated_batch_cost = avg_cost * batch_overhead_factor * count
-        estimated_savings = [total_cost - estimated_batch_cost, 0].max
-
-        opportunities << {
-          optimization_type: "batching",
-          resource_type: "workflow",
-          resource_id: workflow_id,
-          description: "High-volume workflow '#{workflow.name}' could benefit from batch processing",
-          current_cost_usd: total_cost,
-          potential_savings_usd: estimated_savings.round(2),
-          recommendation: {
-            workflow_name: workflow.name,
-            executions_7d: count,
-            avg_cost_per_execution: avg_cost.round(4),
-            suggestion: "Implement batch processing for similar requests"
-          }
-        }
-      end
-
-      opportunities
+    def self.identify_usage_opportunities(_account)
+      # Usage pattern analysis (previously based on workflow runs) - placeholder for future agent-based analysis
+      []
     end
 
     def self.identify_caching_opportunities(account)

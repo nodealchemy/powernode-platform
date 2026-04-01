@@ -18,7 +18,6 @@ module SupplyChain
     # ============================================
     belongs_to :account
     belongs_to :sbom, class_name: "SupplyChain::Sbom"
-    belongs_to :workflow_run, class_name: "AiWorkflowRun", optional: true
     belongs_to :created_by, class_name: "User", optional: true
     belongs_to :approved_by, class_name: "User", optional: true
 
