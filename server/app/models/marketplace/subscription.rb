@@ -35,14 +35,12 @@ module Marketplace
     scope :recent, -> { order(subscribed_at: :desc) }
 
     # Scopes - Type filtering (polymorphic)
-    scope :for_workflow_templates, -> { where(subscribable_type: "Ai::WorkflowTemplate") }
     scope :for_pipeline_templates, -> { where(subscribable_type: "Devops::PipelineTemplate") }
     scope :for_integration_templates, -> { where(subscribable_type: "Devops::IntegrationTemplate") }
     scope :for_prompt_templates, -> { where(subscribable_type: "Shared::PromptTemplate") }
 
     scope :for_type, ->(type) {
       case type.to_s
-      when "workflow_template", "template" then for_workflow_templates
       when "pipeline_template" then for_pipeline_templates
       when "integration_template", "integration" then for_integration_templates
       when "prompt_template" then for_prompt_templates
@@ -56,10 +54,6 @@ module Marketplace
     after_update :log_status_changes, if: :saved_change_to_status?
 
     # Type checking methods
-    def workflow_template_subscription?
-      subscribable_type == "Ai::WorkflowTemplate"
-    end
-
     def pipeline_template_subscription?
       subscribable_type == "Devops::PipelineTemplate"
     end
@@ -72,13 +66,8 @@ module Marketplace
       subscribable_type == "Shared::PromptTemplate"
     end
 
-    def template_subscription?
-      workflow_template_subscription?
-    end
-
     def subscription_type
       case subscribable_type
-      when "Ai::WorkflowTemplate" then "workflow_template"
       when "Devops::PipelineTemplate" then "pipeline_template"
       when "Devops::IntegrationTemplate" then "integration_template"
       when "Shared::PromptTemplate" then "prompt_template"

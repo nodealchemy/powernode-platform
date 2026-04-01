@@ -86,16 +86,6 @@ Rails.application.routes.draw do
         end
       end
 
-      # AI Workflow Approval Tokens (public, token-based auth)
-      namespace :ai_workflows do
-        resources :approval_tokens, only: [ :show ], param: :token do
-          member do
-            post :approve
-            post :reject
-          end
-        end
-      end
-
       # Internal API for worker service
       namespace :internal do
         resources :users, only: [ :show ]
@@ -247,7 +237,6 @@ Rails.application.routes.draw do
               patch :processing
               patch :processed
               patch :failed
-              post :trigger_workflows
             end
           end
 
@@ -352,16 +341,6 @@ Rails.application.routes.draw do
           end
         end
 
-        # AI Workflow approval management for worker service
-        resources :ai_workflow_approvals, only: [ :show ], param: :node_execution_id do
-          member do
-            post :create_tokens
-          end
-          collection do
-            post :expire_stale
-          end
-        end
-
         # Billing endpoints for worker service (business only, see business routes)
 
         # Internal AI endpoints (for worker service)
@@ -431,7 +410,6 @@ Rails.application.routes.draw do
 
           # Self-healing endpoints (worker → server)
           scope "self_healing", controller: "self_healing" do
-            post :check_stuck_workflows
             post :check_degraded_providers
             post :check_orphaned_executions
             post :check_anomalies
@@ -1182,9 +1160,6 @@ Rails.application.routes.draw do
 
       # MCP (Model Context Protocol) resources
       resources :mcp_servers do
-        collection do
-          get :for_workflow_builder
-        end
         member do
           post :connect
           post :disconnect
@@ -1462,132 +1437,6 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
-        # 1. WORKFLOWS CONTROLLER - Consolidated workflow management
-        # ===================================================================
-
-        # Lookup endpoint for worker service (finds workflow by run_id)
-        get "workflows/runs/lookup/:run_id", to: "workflows#runs_lookup"
-
-        # Collection route for listing all workflow runs across all workflows
-        # Used by worker service for cleanup operations
-        get "workflow_runs", to: "workflows#runs_index"
-        # Direct update route for workflow runs (used by worker cleanup jobs)
-        patch "workflow_runs/:run_id", to: "workflows#run_update_direct"
-
-        resources :workflows do
-          member do
-            post :execute
-            post :duplicate
-            get :validate
-            get :export
-            # Template conversions → WorkflowTemplatesController
-            post :convert_to_template, to: "workflow_templates#convert_to_template"
-            post :convert_to_workflow, to: "workflow_templates#convert_to_workflow"
-            post :create_from_template, to: "workflow_templates#create_from_template"
-          end
-
-          collection do
-            post :import
-            get :statistics
-            get :templates, to: "workflow_templates#templates"
-          end
-
-          # Nested runs (replaces workflow_runs, workflow_executions, workflow_node_executions)
-          # Explicitly map REST actions to prefixed controller methods
-          get "runs", to: "workflows#runs_index"
-          get "runs/:run_id", to: "workflows#run_show", as: :workflow_run
-          patch "runs/:run_id", to: "workflows#run_update"
-          put "runs/:run_id", to: "workflows#run_update"
-          delete "runs/:run_id", to: "workflows#run_destroy"
-          delete "runs", to: "workflows#runs_destroy_all", as: :destroy_all_workflow_runs
-
-          # Run-specific member actions
-          post "runs/:run_id/cancel", to: "workflows#run_cancel", as: :cancel_workflow_run
-          post "runs/:run_id/retry", to: "workflows#run_retry", as: :retry_workflow_run
-          post "runs/:run_id/pause", to: "workflows#run_pause", as: :pause_workflow_run
-          post "runs/:run_id/resume", to: "workflows#run_resume", as: :resume_workflow_run
-          get "runs/:run_id/logs", to: "workflows#run_logs", as: :workflow_run_logs
-          get "runs/:run_id/node_executions", to: "workflows#run_node_executions", as: :workflow_run_node_executions
-          get "runs/:run_id/metrics", to: "workflows#run_metrics", as: :workflow_run_metrics
-          get "runs/:run_id/download", to: "workflows#run_download", as: :download_workflow_run
-          post "runs/:run_id/process", to: "workflows#run_process", as: :process_workflow_run
-          post "runs/:run_id/broadcast", to: "workflows#run_broadcast", as: :broadcast_workflow_run
-          post "runs/:run_id/check_timeout", to: "workflows#run_check_timeout", as: :check_timeout_workflow_run
-
-          # Nested schedules
-          resources :schedules, controller: "workflows" do
-            member do
-              post :activate
-              post :deactivate
-              post :trigger_now
-              get :execution_history
-            end
-
-            collection do
-              get :due
-              post :validate_cron
-            end
-          end
-
-          # Nested triggers
-          resources :triggers, controller: "workflows" do
-            member do
-              post :activate
-              post :deactivate
-              post :test
-            end
-
-            collection do
-              post :webhook_endpoint, path: "webhook"
-              post :event_endpoint, path: "event"
-            end
-
-            # Git workflow triggers - maps git events to workflow triggers
-            resources :git_triggers, controller: "workflow_git_triggers" do
-              member do
-                post :test
-              end
-            end
-          end
-
-          # All git triggers for a workflow (across all triggers)
-          get "git_triggers", to: "workflow_git_triggers#workflow_index", as: :workflow_git_triggers
-
-          # Nested versions
-          resources :versions, controller: "workflows" do
-            member do
-              post :restore
-              get :compare
-            end
-          end
-
-          # Nested validations
-          resources :validations, controller: "workflow_validations", only: [ :index, :show, :create ] do
-            collection do
-              get :latest
-              post :auto_fix
-              post "auto_fix/:issue_code", action: :auto_fix_single
-              get :preview_fixes
-            end
-          end
-
-        end
-
-        # ===================================================================
-        # Git Workflow Triggers - Top-level routes for managing git triggers
-        # Used for CRUD operations when trigger_id is provided as a param
-        # ===================================================================
-        resources :workflow_git_triggers, only: [ :index, :show, :create, :update, :destroy ] do
-          member do
-            post :test
-          end
-
-          collection do
-            get :workflow_index
-          end
-        end
-
-        # ===================================================================
         # 2. AGENTS CONTROLLER - Consolidated agent management
         # ===================================================================
         resources :agents do
@@ -1833,8 +1682,7 @@ Rails.application.routes.draw do
           post :export
           get :formats, action: :export_formats
 
-          # Workflow/Agent specific analytics
-          get "workflows/:workflow_id", action: :workflow_analytics
+          # Agent specific analytics
           get "agents/:agent_id", action: :agent_analytics
         end
 
@@ -1848,13 +1696,6 @@ Rails.application.routes.draw do
           get "/:id/download", action: :report_download
         end
 
-        # ===================================================================
-        # 7. VALIDATION STATISTICS - Aggregate validation analytics
-        # ===================================================================
-        resource :validation_statistics, only: [ :show ] do
-          get :common_issues
-          get :health_distribution
-        end
 
         # Marketplace routes (8) are in business/server/config/routes.rb
 
@@ -2442,7 +2283,7 @@ Rails.application.routes.draw do
         # ===================================================================
         # 13. AIOPS CONTROLLER - Real-Time AI Operations Dashboard
         # ===================================================================
-        # Comprehensive observability for AI workflows: latency, costs, errors
+        # Comprehensive observability for AI operations: latency, costs, errors
         # Revenue: Monitoring tiers + alerting add-ons
         # ===================================================================
         scope :aiops, controller: "ai_ops" do
@@ -2456,8 +2297,7 @@ Rails.application.routes.draw do
           get "providers/:id/metrics", action: :provider_metrics
           get "providers/comparison", action: :provider_comparison
 
-          # Workflow and agent metrics
-          get "workflows", action: :workflows
+          # Agent metrics
           get "agents", action: :agents
 
           # Cost analysis
@@ -2473,9 +2313,9 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
-        # 14. ROI CONTROLLER - Workflow Revenue Analytics & ROI Tracking
+        # 14. ROI CONTROLLER - AI Revenue Analytics & ROI Tracking
         # ===================================================================
-        # Tracks business value and ROI of AI workflows with cost attribution
+        # Tracks business value and ROI of AI operations with cost attribution
         # Revenue: Premium analytics tiers
         # ===================================================================
         scope :roi, controller: "roi" do
@@ -2488,7 +2328,6 @@ Rails.application.routes.draw do
           get "daily_metrics", action: :daily_metrics
 
           # Breakdown analysis
-          get "by_workflow", action: :by_workflow
           get "by_agent", action: :by_agent
           get "by_provider", action: :by_provider
           get "cost_breakdown", action: :cost_breakdown

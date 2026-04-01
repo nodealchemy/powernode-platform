@@ -112,7 +112,7 @@ class AiA2aExternalTaskJob < BaseJob
     {
       id: @task['task_id'],
       message: message,
-      sessionId: @task['ai_workflow_run_id'],
+      sessionId: @task['session_id'],
       historyLength: (@task['history'] || []).size,
       acceptedOutputModes: ['application/json', 'text/plain'],
       metadata: @task['metadata'] || {}

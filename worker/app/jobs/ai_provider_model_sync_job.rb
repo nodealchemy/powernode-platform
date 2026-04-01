@@ -3,7 +3,7 @@
 # Background job to sync AI provider models and pricing from upstream APIs
 # Runs every 6 hours to keep model lists and pricing up to date
 class AiProviderModelSyncJob < BaseJob
-  sidekiq_options queue: :ai_workflow_health
+  sidekiq_options queue: :ai_orchestration
 
   def execute
     log_info("Starting AI Provider Model Sync")

@@ -179,7 +179,6 @@ cd frontend && CI=true npm test
 | Theme System | `platform.search_knowledge` query: "theme system" | [THEME_SYSTEM_REFERENCE.md](docs/platform/THEME_SYSTEM_REFERENCE.md) |
 | API Standards | `platform.search_knowledge` query: "API response standards" | [API_RESPONSE_STANDARDS.md](docs/platform/API_RESPONSE_STANDARDS.md) |
 | UUID System | `platform.search_knowledge` query: "UUID system" | [UUID_SYSTEM_IMPLEMENTATION.md](docs/platform/UUID_SYSTEM_IMPLEMENTATION.md) |
-| Workflow System | `platform.search_knowledge` query: "workflow system" | [WORKFLOW_SYSTEM_STANDARDS.md](docs/platform/WORKFLOW_SYSTEM_STANDARDS.md) |
 | Architecture | `platform.search_knowledge_graph` query: "platform architecture" | [DEVELOPMENT.md](docs/DEVELOPMENT.md) |
 | Codebase Structure | `platform.code_context_tree` / `platform.code_semantic_search` | [MCP_TOOL_CATALOG.md](docs/platform/MCP_TOOL_CATALOG.md) |
 | Learnings & Patterns | `platform.query_learnings` | [LEARNINGS.md](docs/platform/knowledge/LEARNINGS.md) |
@@ -323,15 +322,6 @@ All `platform.*` tools organized by development task. Full parameter docs: [MCP_
 | `update_team` | Update team configuration |
 | `add_team_member` | Add an agent to a team with a role |
 | `execute_team` | Execute a team task with orchestration |
-
-### Workflow Management (5 tools)
-| Tool | Description |
-|------|-------------|
-| `create_workflow` | Create an AI workflow with nodes and edges |
-| `list_workflows` | List workflows (filterable by status, trigger type) |
-| `get_workflow` | Get workflow details including node graph |
-| `update_workflow` | Update workflow definition |
-| `execute_workflow` | Trigger a workflow run with input parameters |
 
 ### Knowledge Graph Exploration (7 tools)
 | Tool | Description |

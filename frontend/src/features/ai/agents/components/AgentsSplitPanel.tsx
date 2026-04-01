@@ -8,7 +8,6 @@ import { usePermissions } from '@/shared/hooks/usePermissions';
 import { useNotification } from '@/shared/hooks/useNotification';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useChatWindow } from '@/features/ai/chat/context/ChatWindowContext';
-import { useAiOrchestrationWebSocket } from '@/shared/hooks/useAiOrchestrationWebSocket';
 import { agentsApi } from '@/shared/services/ai';
 import type { AiAgent } from '@/shared/types/ai';
 
@@ -33,19 +32,6 @@ export const AgentsSplitPanel: React.FC = () => {
 
   // Detail data
   const { agent, stats, analytics, loading, error, reload } = useAgentDetail(selectedAgentId);
-
-  // WebSocket for real-time agent events
-  useAiOrchestrationWebSocket({
-    onAgentEvent: (event) => {
-      if (['agent_created', 'agent_updated', 'agent_deleted', 'agent_execution_completed'].includes(event.type)) {
-        setRefreshKey(prev => prev + 1);
-        // If currently-viewed agent was updated, reload detail
-        if (selectedAgentId && (event.agent_id === selectedAgentId || event.data?.agent_id === selectedAgentId)) {
-          reload();
-        }
-      }
-    },
-  });
 
   // Handlers
   const handleSelectAgent = useCallback((a: AiAgent) => {

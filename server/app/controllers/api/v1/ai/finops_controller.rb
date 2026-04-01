@@ -173,10 +173,9 @@ module Api
           monthly_budget = account.settings&.dig("ai_monthly_budget")
           return nil unless monthly_budget
 
-          month_cost = ::Ai::WorkflowRun.joins(:workflow)
-                                         .where(ai_workflows: { account_id: account.id })
-                                         .where("ai_workflow_runs.created_at >= ?", Time.current.beginning_of_month)
-                                         .sum(:total_cost).to_f
+          month_cost = ::Ai::AgentExecution.where(account_id: account.id)
+                                            .where("created_at >= ?", Time.current.beginning_of_month)
+                                            .sum(:cost_usd).to_f
 
           utilization = (month_cost / monthly_budget * 100).round(2)
 

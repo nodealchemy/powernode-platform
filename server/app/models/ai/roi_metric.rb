@@ -182,39 +182,33 @@ module Ai
       # Calculate values from executions
       date_range = date_range_for_period(period_type, period_date)
 
-      # Get AI costs from executions
-      workflow_costs = Ai::WorkflowRun
-                         .joins(:workflow)
-                         .where(ai_workflows: { account_id: account.id })
-                         .where(created_at: date_range)
-                         .sum(:total_cost)
-
+      # Get AI costs from agent executions
       agent_costs = Ai::AgentExecution
                       .joins(:agent)
                       .where(ai_agents: { account_id: account.id })
                       .where(created_at: date_range)
                       .sum(:cost_usd)
 
-      # Get task counts
-      workflow_runs = Ai::WorkflowRun
-                        .joins(:workflow)
-                        .where(ai_workflows: { account_id: account.id })
-                        .where(created_at: date_range)
+      # Get task counts from agent executions
+      executions = Ai::AgentExecution
+                     .joins(:agent)
+                     .where(ai_agents: { account_id: account.id })
+                     .where(created_at: date_range)
 
-      successful_runs = workflow_runs.where(status: "completed").count
-      avg_execution_hours = workflow_runs.where(status: "completed").average(:duration_ms)&.to_f&./(3_600_000) || 0
+      successful_runs = executions.where(status: "completed").count
+      avg_execution_hours = executions.where(status: "completed").average(:duration_ms)&.to_f&./(3_600_000) || 0
       manual_baseline = account.settings&.dig("ai_manual_baseline_hours")&.to_f || 0.25
       time_saved = [successful_runs * (manual_baseline - avg_execution_hours), 0].max
 
       # Update metric
       metric.assign_attributes(
-        ai_cost_usd: (workflow_costs + agent_costs).to_f,
-        total_cost_usd: (workflow_costs + agent_costs).to_f,
+        ai_cost_usd: agent_costs.to_f,
+        total_cost_usd: agent_costs.to_f,
         time_saved_hours: time_saved,
         time_saved_value_usd: time_saved * DEFAULT_HOURLY_RATE,
-        tasks_completed: workflow_runs.count,
+        tasks_completed: executions.count,
         tasks_automated: successful_runs,
-        errors_prevented: workflow_runs.where(status: "failed").count
+        errors_prevented: executions.where(status: "failed").count
       )
 
       metric.save!

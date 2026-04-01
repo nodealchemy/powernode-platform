@@ -8,7 +8,6 @@ module Ai
     belongs_to :account
     belongs_to :sandbox, class_name: "Ai::Sandbox", foreign_key: "sandbox_id"
     belongs_to :created_by, class_name: "User", foreign_key: "created_by_id", optional: true
-    belongs_to :target_workflow, class_name: "Ai::Workflow", foreign_key: "target_workflow_id", optional: true
     belongs_to :target_agent, class_name: "Ai::Agent", foreign_key: "target_agent_id", optional: true
 
     has_many :test_results, class_name: "Ai::TestResult", foreign_key: :scenario_id, dependent: :destroy
@@ -24,7 +23,6 @@ module Ai
     scope :active, -> { where(status: "active") }
     scope :draft, -> { where(status: "draft") }
     scope :by_type, ->(type) { where(scenario_type: type) }
-    scope :for_workflow, ->(workflow) { where(target_workflow: workflow) }
     scope :for_agent, ->(agent) { where(target_agent: agent) }
     scope :with_tags, ->(tags) { where("tags ?| array[:tags]", tags: tags) }
 
@@ -50,15 +48,14 @@ module Ai
     end
 
     def can_run?
-      active? && (target_workflow.present? || target_agent.present?)
+      active? && target_agent.present?
     end
 
     def target
-      target_workflow || target_agent
+      target_agent
     end
 
     def target_type
-      return "workflow" if target_workflow.present?
       return "agent" if target_agent.present?
 
       nil

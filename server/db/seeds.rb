@@ -883,12 +883,12 @@ load Rails.root.join('db', 'seeds', 'knowledge_base_articles.rb')
 
 # Marketing permissions loaded via extension seeds (extensions/marketing/)
 
-# Load AI Providers and Workflows (only in development/test)
+# Load AI Providers and Agents (only in development/test)
 if Rails.env.development? || Rails.env.test?
   puts "\n🤖 Loading Comprehensive AI Providers (OpenAI, Grok, Ollama, Claude)..."
   load Rails.root.join('db', 'seeds', 'comprehensive_ai_providers_seed.rb')
 
-  puts "\n🧠 Loading Claude-Powered Workflow Agents..."
+  puts "\n🧠 Loading Claude-Powered Agents..."
   load Rails.root.join('db', 'seeds', 'claude_agents_seed.rb')
 
   puts "\n📊 Loading Monitoring and Analytics Agents..."
@@ -896,9 +896,6 @@ if Rails.env.development? || Rails.env.test?
 
   puts "\n🔌 Loading MCP Servers..."
   load Rails.root.join('db', 'seeds', 'mcp_servers_seeds.rb')
-
-  puts "\n🚀 Loading AI Workflow Showcase Examples..."
-  load Rails.root.join('db', 'seeds', 'ai_workflow_showcase_seeds.rb')
 
   puts "\n🗄️  Loading File Storage configurations..."
   load Rails.root.join('db', 'seeds', 'file_storage_seeds.rb')
@@ -1003,9 +1000,6 @@ puts "   KB Articles: #{KnowledgeBase::Article.count}"
 if Rails.env.development? || Rails.env.test?
   puts "   AI Providers: #{Ai::Provider.count}"
   puts "   AI Agents: #{Ai::Agent.count}"
-  puts "   AI Workflows: #{Ai::Workflow.count}"
-  puts "   AI Workflow Templates: #{Ai::WorkflowTemplate.count}"
-  puts "   AI Workflow Runs: #{Ai::WorkflowRun.count}"
   puts "   DevOps Container Templates: #{Devops::ContainerTemplate.count}"
   puts "   AI DevOps Templates: #{Ai::DevopsTemplate.count}"
   puts "   AI Skills: #{Ai::Skill.count}"

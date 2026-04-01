@@ -44,17 +44,6 @@ export const CostMetricsPanel: React.FC<CostMetricsPanelProps> = ({ costAnalytic
             </div>
           </div>
 
-          <div className="p-4 bg-theme-surface rounded-lg">
-            <p className="text-sm text-theme-tertiary">Top Expensive Workflows</p>
-            <div className="mt-2 space-y-1">
-              {costAnalytics.top_expensive_workflows.slice(0, 3).map((workflow) => (
-                <div key={workflow.id} className="flex justify-between text-sm">
-                  <span className="text-theme-secondary truncate max-w-[120px]">{workflow.name}</span>
-                  <span className="font-medium text-theme-primary">${workflow.total_cost_usd.toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </Card>
     </div>

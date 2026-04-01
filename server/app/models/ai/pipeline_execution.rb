@@ -7,7 +7,6 @@ module Ai
     # Associations
     belongs_to :account
     belongs_to :devops_installation, class_name: "Ai::DevopsTemplateInstallation", foreign_key: "devops_installation_id", optional: true
-    belongs_to :workflow_run, class_name: "Ai::WorkflowRun", foreign_key: "workflow_run_id", optional: true
     belongs_to :triggered_by, class_name: "User", foreign_key: "triggered_by_id", optional: true
 
     has_many :deployment_risks, class_name: "Ai::DeploymentRisk", foreign_key: "pipeline_execution_id", dependent: :nullify

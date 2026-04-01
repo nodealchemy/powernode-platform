@@ -36,7 +36,7 @@ Before writing any code:
 | Autonomy dashboard/panels | `platform.search_knowledge` query: "autonomy dashboard" |
 | Admin panel | `platform.search_knowledge` query: "admin panel" |
 | API hooks / data fetching | `platform.query_learnings` query: "React hooks" — established fetch patterns |
-| Agent/team/workflow UI | `platform.get_agent` / `platform.get_team` / `platform.get_workflow` — understand data shapes |
+| Agent/team UI | `platform.get_agent` / `platform.get_team` — understand data shapes |
 | KB article UI | `platform.list_kb_articles` / `platform.get_kb_article` — check content structure |
 | Page UI | `platform.list_pages` / `platform.get_page` — check page data model |
 | Memory visualization | `platform.memory_stats` / `platform.search_memory` — understand memory tier data |
@@ -62,7 +62,7 @@ Query MCP first. Use these files when MCP returns no relevant results:
 
 | When working on | MCP Query | File Fallback |
 |-----------------|-----------|---------------|
-| `features/ai/*` | `platform.search_knowledge` query: "AI frontend workflow" | [WORKFLOW_FRONTEND_GUIDE.md](../docs/frontend/WORKFLOW_FRONTEND_GUIDE.md) |
+| `features/ai/*` | `platform.search_knowledge` query: "AI frontend" | [AI_ORCHESTRATION_GUIDE.md](../docs/platform/AI_ORCHESTRATION_GUIDE.md) |
 | `shared/components/*` | `platform.search_knowledge` query: "UI components" | [UI_COMPONENT_DEVELOPER_SPECIALIST.md](../docs/frontend/UI_COMPONENT_DEVELOPER_SPECIALIST.md) |
 | Theme/styling | `platform.search_knowledge` query: "theme system" | [THEME_SYSTEM_REFERENCE.md](../docs/platform/THEME_SYSTEM_REFERENCE.md) |
 | Permission checks | `platform.search_knowledge` query: "permission frontend" | [PERMISSION_SYSTEM_REFERENCE.md](../docs/platform/PERMISSION_SYSTEM_REFERENCE.md) |
@@ -92,7 +92,6 @@ Scoped to tools useful for frontend development. Full catalog: [MCP_TOOL_CATALOG
 |------|----------|
 | `list_agents` / `get_agent` | Understand agent data shape for agent management UI |
 | `list_teams` / `get_team` | Understand team data shape for team management UI |
-| `list_workflows` / `get_workflow` | Understand workflow data shape for workflow builder UI |
 | `list_skills` / `get_skill` | Understand skill data shape for skill browser UI |
 | `list_kb_articles` / `get_kb_article` | Understand article data shape for KB UI |
 | `list_pages` / `get_page` | Understand page data shape for CMS UI |
@@ -110,7 +109,7 @@ Scoped to tools useful for frontend development. Full catalog: [MCP_TOOL_CATALOG
 | `rate_knowledge` | Rate shared knowledge quality after using it |
 | `knowledge_health` | Run diagnostics on knowledge system health |
 
-**Excluded**: Backend write operations (agent/team/workflow CRUD), DevOps tools, RAG processing, memory write/consolidation, skill admin, knowledge curation. See root [CLAUDE.md](../CLAUDE.md) for the full catalog.
+**Excluded**: Backend write operations (agent/team CRUD), DevOps tools, RAG processing, memory write/consolidation, skill admin, knowledge curation. See root [CLAUDE.md](../CLAUDE.md) for the full catalog.
 
 ## Key Specialists
 

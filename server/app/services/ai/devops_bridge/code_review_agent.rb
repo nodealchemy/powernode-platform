@@ -95,12 +95,8 @@ module Ai
       end
 
       def execute_agent(agent, prompt)
-        service = Ai::AgentOrchestrationService.new(account: @account)
-        result = service.execute_agent(
-          agent: agent,
-          input: prompt,
-          trigger_type: "code_review"
-        )
+        executor = Ai::McpAgentExecutor.new(agent: agent, account: @account)
+        result = executor.execute({ "input" => prompt })
 
         { output: result[:output] || result[:response] }
       rescue => e

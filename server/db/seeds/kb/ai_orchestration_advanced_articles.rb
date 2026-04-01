@@ -2485,15 +2485,6 @@ mcp_platform_tools_content = <<~MARKDOWN
   | `add_team_member` | Add agent to team | `ai.agents.execute` |
   | `execute_team` | Queue team execution | `ai.agents.execute` |
 
-  ### Workflow Management (5 tools)
-  | Tool | Action | Permission |
-  |------|--------|------------|
-  | `create_workflow` | Create workflow | `ai.workflows.execute` |
-  | `list_workflows` | List workflows | `ai.workflows.execute` |
-  | `get_workflow` | Get workflow details | `ai.workflows.execute` |
-  | `update_workflow` | Update workflow | `ai.workflows.execute` |
-  | `execute_workflow` | Queue workflow | `ai.workflows.execute` |
-
   ### Memory Management (6 tools)
   | Tool | Action | Permission |
   |------|--------|------------|

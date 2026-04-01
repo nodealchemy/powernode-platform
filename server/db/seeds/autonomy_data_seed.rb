@@ -110,9 +110,9 @@ extra_agents = [
   {
     name: "Process Automation Optimizer",
     slug: "process-automation-optimizer",
-    agent_type: "workflow_optimizer",
+    agent_type: "assistant",
     provider: grok_provider,
-    description: "Workflow optimization agent that analyzes and improves automated processes for efficiency and reliability"
+    description: "Process optimization agent that analyzes and improves automated processes for efficiency and reliability"
   },
   {
     name: "Legal & Compliance Analyst",

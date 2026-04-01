@@ -5,7 +5,6 @@ import { configureStore } from '@reduxjs/toolkit';
 import { EnhancedAIOverview } from './EnhancedAIOverview';
 import * as aiOrchestrationMonitor from '../services/aiOrchestrationMonitor';
 import { agentsApi, providersApi } from '@/shared/services/ai';
-import { workflowsApi } from '@/shared/services/ai';
 
 // Mock the consolidated AI services
 jest.mock('@/shared/services/ai', () => ({
@@ -15,9 +14,6 @@ jest.mock('@/shared/services/ai', () => ({
   agentsApi: {
     getAgents: jest.fn(),
     getConversations: jest.fn()
-  },
-  workflowsApi: {
-    getWorkflows: jest.fn()
   }
 }));
 jest.mock('../services/aiOrchestrationMonitor');
@@ -118,7 +114,7 @@ describe('EnhancedAIOverview', () => {
     // Setup API mocks
     (providersApi.getProviders as jest.Mock).mockResolvedValue(mockApiResponses.providers);
     (agentsApi.getAgents as jest.Mock).mockResolvedValue(mockApiResponses.agents);
-    (workflowsApi.getWorkflows as jest.Mock).mockResolvedValue(mockApiResponses.workflows);
+    // workflowsApi removed.mockResolvedValue(mockApiResponses.workflows);
     (agentsApi.getConversations as jest.Mock).mockResolvedValue(mockApiResponses.conversations);
   });
 
@@ -312,7 +308,7 @@ describe('EnhancedAIOverview', () => {
       // Component uses Promise.allSettled, so API rejections use fallback data
       (providersApi.getProviders as jest.Mock).mockRejectedValue(new Error('API Error'));
       (agentsApi.getAgents as jest.Mock).mockRejectedValue(new Error('API Error'));
-      (workflowsApi.getWorkflows as jest.Mock).mockRejectedValue(new Error('API Error'));
+      // workflowsApi removed.mockRejectedValue(new Error('API Error'));
 
       renderComponent();
 
@@ -327,7 +323,7 @@ describe('EnhancedAIOverview', () => {
       // Some APIs succeed, some fail - component should still work
       (providersApi.getProviders as jest.Mock).mockResolvedValue(mockApiResponses.providers);
       (agentsApi.getAgents as jest.Mock).mockRejectedValue(new Error('Agents API Error'));
-      (workflowsApi.getWorkflows as jest.Mock).mockRejectedValue(new Error('Workflows API Error'));
+      // workflowsApi removed.mockRejectedValue(new Error('Workflows API Error'));
 
       renderComponent();
 

@@ -5,7 +5,6 @@ import {
   XCircle,
   AlertCircle,
   Bot,
-  Workflow,
   MessageSquare,
   Zap,
   Eye,
@@ -16,7 +15,7 @@ import { useAIOrchestrationMonitor, AISystemEvent } from '../services/aiOrchestr
 
 interface ActivityItem {
   id: string;
-  type: 'agent_executed' | 'workflow_completed' | 'workflow_failed' | 'provider_health_changed' | 'conversation_started' | 'conversation_ended';
+  type: 'agent_executed' | 'provider_health_changed' | 'conversation_started' | 'conversation_ended';
   title: string;
   description: string;
   timestamp: string;
@@ -46,8 +45,6 @@ export const RealTimeActivityFeed: React.FC<RealTimeActivityFeedProps> = ({
 
   const activityTypes = [
     { id: 'agent_executed', label: 'Agent Executions', icon: Bot },
-    { id: 'workflow_completed', label: 'Workflow Completed', icon: CheckCircle },
-    { id: 'workflow_failed', label: 'Workflow Failed', icon: XCircle },
     { id: 'conversation_started', label: 'Conversations', icon: MessageSquare },
     { id: 'provider_health_changed', label: 'Provider Health', icon: AlertCircle }
   ];
@@ -106,10 +103,6 @@ export const RealTimeActivityFeed: React.FC<RealTimeActivityFeedProps> = ({
     switch (event.type) {
       case 'agent_executed':
         return `Agent "${event.data.name || event.data.id}" executed`;
-      case 'workflow_completed':
-        return `Workflow "${event.data.name || event.data.id}" completed`;
-      case 'workflow_failed':
-        return `Workflow "${event.data.name || event.data.id}" failed`;
       case 'conversation_started':
         return 'New AI conversation started';
       case 'conversation_ended':
@@ -125,10 +118,6 @@ export const RealTimeActivityFeed: React.FC<RealTimeActivityFeedProps> = ({
     switch (event.type) {
       case 'agent_executed':
         return event.data.message || `Agent execution ${event.data.status || 'completed'}`;
-      case 'workflow_completed':
-        return event.data.message || 'Workflow execution finished successfully';
-      case 'workflow_failed':
-        return event.data.message || 'Workflow execution encountered an error';
       case 'conversation_started':
         return event.data.message || 'User initiated new conversation';
       case 'conversation_ended':
@@ -142,9 +131,6 @@ export const RealTimeActivityFeed: React.FC<RealTimeActivityFeedProps> = ({
 
   const getEventStatus = (event: AISystemEvent): 'success' | 'error' | 'warning' | 'info' => {
     switch (event.type) {
-      case 'workflow_failed':
-        return 'error';
-      case 'workflow_completed':
       case 'agent_executed':
         return 'success';
       case 'provider_health_changed':
@@ -167,8 +153,6 @@ export const RealTimeActivityFeed: React.FC<RealTimeActivityFeedProps> = ({
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'agent_executed': return <Bot className="h-3 w-3" />;
-      case 'workflow_completed':
-      case 'workflow_failed': return <Workflow className="h-3 w-3" />;
       case 'conversation_started':
       case 'conversation_ended': return <MessageSquare className="h-3 w-3" />;
       case 'provider_health_changed': return <Zap className="h-3 w-3" />;

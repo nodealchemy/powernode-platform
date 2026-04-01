@@ -106,11 +106,6 @@ module Ai
         when "agent_execution"
           # Enqueue execution via worker
           WorkerJobService.enqueue_ai_goal_plan_step_execution(step.id)
-        when "workflow_run"
-          config = step.execution_config
-          if config["workflow_id"]
-            WorkerJobService.enqueue_ai_workflow_execution(config["workflow_id"], config)
-          end
         when "observation"
           # Just mark as completed — observations are passive
           step.complete!(result: "Observation checkpoint passed")

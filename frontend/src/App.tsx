@@ -40,7 +40,6 @@ import { McpOAuthCallbackPage } from '@/pages/public/oauth/McpOAuthCallbackPage'
 import { OAuthConsentPage } from '@/pages/public/oauth/OAuthConsentPage';
 import { StatusPage } from '@/pages/public/StatusPage';
 import { ApprovalResponsePage } from '@/features/devops/pipelines/pages/ApprovalResponsePage';
-import { ApprovalResponsePage as AiWorkflowApprovalResponsePage } from '@/features/ai/workflows/pages/ApprovalResponsePage';
 import { DetachedChatPage } from '@/features/ai/chat/pages/DetachedChatPage';
 
 import './App.css';
@@ -326,16 +325,6 @@ const AppContent: React.FC = () => {
           <Route
             path="/ci-cd/reject/:token"
             element={<ApprovalResponsePage />}
-          />
-
-          {/* AI Workflow Approval Routes (public, token-based auth) */}
-          <Route
-            path="/ai-workflows/approve/:token"
-            element={<AiWorkflowApprovalResponsePage />}
-          />
-          <Route
-            path="/ai-workflows/reject/:token"
-            element={<AiWorkflowApprovalResponsePage />}
           />
 
           {/* Detached chat window (popup or new tab) */}

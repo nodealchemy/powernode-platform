@@ -271,7 +271,7 @@ agents_data = [
   },
   {
     name: 'Process Automation Optimizer',
-    agent_type: 'workflow_optimizer',
+    agent_type: 'assistant',
     provider: anthropic_provider,
     description: 'Analyzes business processes to identify bottlenecks, redundancies, and automation opportunities. Designs optimized workflows with estimated time and cost savings.',
     mcp_metadata: {
@@ -316,7 +316,7 @@ agents_data = [
   },
   {
     name: 'DevOps Pipeline Operator',
-    agent_type: 'workflow_operations',
+    agent_type: 'assistant',
     provider: anthropic_provider,
     description: 'Manages CI/CD pipelines, deployment orchestration, rollback procedures, and build log analysis. Monitors pipeline health and optimizes build times.',
     mcp_metadata: {
@@ -1126,7 +1126,7 @@ templates_data = [
     price_usd: nil,
     is_featured: false,
     agent_config: {
-      'agent_type' => 'workflow_optimizer',
+      'agent_type' => 'assistant',
       'model_recommendation' => 'claude-sonnet-4-5-20250929',
       'temperature' => 0.5,
       'max_tokens' => 4096,
@@ -1159,7 +1159,7 @@ templates_data = [
     price_usd: nil,
     is_featured: true,
     agent_config: {
-      'agent_type' => 'workflow_operations',
+      'agent_type' => 'assistant',
       'model_recommendation' => 'claude-haiku-4-5-20251001',
       'temperature' => 0.1,
       'max_tokens' => 4096,
@@ -1247,85 +1247,6 @@ templates_data.each do |td|
   template.save!
   templates_created += 1
   puts "  ✅ Template '#{template.name}' (#{td[:pricing_type]}, #{td[:vertical]})"
-end
-
-# ===========================================================================
-# 4 WORKFLOW EXAMPLES (Ai::Workflow)
-# ===========================================================================
-workflows_data = [
-  {
-    name: 'Customer Onboarding Workflow',
-    description: 'Automated customer onboarding sequence: welcome email, account setup verification, product tour scheduling, and success check-in.',
-    workflow_type: 'ai',
-    status: 'active',
-    configuration: {
-      'execution_mode' => 'sequential',
-      'timeout_seconds' => 7200,
-      'max_parallel_nodes' => 1,
-      'auto_retry' => true,
-      'error_handling' => 'continue',
-      'notifications' => { 'on_completion' => true, 'on_error' => true }
-    }
-  },
-  {
-    name: 'Content Publishing Workflow',
-    description: 'Content publishing pipeline: draft creation, editorial review, SEO optimization, scheduled publication, and social media distribution.',
-    workflow_type: 'ai',
-    status: 'active',
-    configuration: {
-      'execution_mode' => 'sequential',
-      'timeout_seconds' => 3600,
-      'max_parallel_nodes' => 1,
-      'auto_retry' => false,
-      'error_handling' => 'stop',
-      'notifications' => { 'on_completion' => true, 'on_error' => true }
-    }
-  },
-  {
-    name: 'Incident Response Workflow',
-    description: 'Parallel incident response: detect anomaly, notify on-call, gather diagnostics, update status page, and initiate mitigation concurrently.',
-    workflow_type: 'ai',
-    status: 'active',
-    configuration: {
-      'execution_mode' => 'parallel',
-      'timeout_seconds' => 1800,
-      'max_parallel_nodes' => 5,
-      'auto_retry' => true,
-      'error_handling' => 'continue',
-      'notifications' => { 'on_completion' => true, 'on_error' => true }
-    }
-  },
-  {
-    name: 'Data Processing Pipeline',
-    description: 'Sequential data processing: ingest raw data, validate schema, transform and enrich, load into warehouse, and generate summary report.',
-    workflow_type: 'ai',
-    status: 'active',
-    configuration: {
-      'execution_mode' => 'sequential',
-      'timeout_seconds' => 5400,
-      'max_parallel_nodes' => 1,
-      'auto_retry' => true,
-      'error_handling' => 'stop',
-      'notifications' => { 'on_completion' => true, 'on_error' => true }
-    }
-  }
-]
-
-workflows_created = 0
-
-workflows_data.each do |wd|
-  workflow = Ai::Workflow.find_or_create_by!(account: admin_account, name: wd[:name]) do |w|
-    w.description = wd[:description]
-    w.workflow_type = wd[:workflow_type]
-    w.status = wd[:status]
-    w.creator = admin_user
-    w.configuration = wd[:configuration]
-    w.version = '1.0.0'
-    w.visibility = 'public'
-    w.is_active = true
-  end
-  workflows_created += 1
-  puts "  ✅ Workflow '#{workflow.name}' (#{wd[:workflow_type]}, #{wd[:status]})"
 end
 
 # ===========================================================================
@@ -1477,6 +1398,5 @@ puts "   Team Roles: #{roles_created}"
 puts "   Team Members: #{members_created}"
 puts "   Team Channels: #{channels_created}"
 puts "   Marketplace Templates: #{templates_created}"
-puts "   Workflows: #{workflows_created}"
 puts "   Skills: #{skills_created}"
 puts "✅ AI Example Templates seeding completed!"

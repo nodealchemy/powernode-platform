@@ -44,16 +44,8 @@ module Ai
 
       private
 
-      def workflow_runs
-        ::Ai::WorkflowRun.joins(:workflow).where(ai_workflows: { account_id: account.id })
-      end
-
-      def completed_runs
-        workflow_runs.where(status: "completed")
-      end
-
-      def node_executions
-        ::Ai::WorkflowNodeExecution.joins(workflow_run: :workflow).where(ai_workflows: { account_id: account.id })
+      def agent_executions
+        ::Ai::AgentExecution.joins(:agent).where(ai_agents: { account_id: account.id })
       end
     end
   end

@@ -323,9 +323,9 @@ class BaseJob
 
   def generate_job_key(*args)
     # Create a consistent key for the same job + arguments combination
-    # For workflow jobs, use the workflow run ID as the key component
+    # For jobs with UUID arguments, use the UUID as the key component
     if args.first.is_a?(String) && args.first.match?(/^[0-9a-f-]+$/)
-      # Assume first argument is a UUID (workflow run ID, etc.)
+      # Assume first argument is a UUID (execution ID, etc.)
       "#{self.class.name}:#{args.first}"
     else
       # For other jobs, create a hash of the arguments

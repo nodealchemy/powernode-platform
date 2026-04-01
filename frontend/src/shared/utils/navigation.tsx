@@ -66,15 +66,6 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 4
         },
         {
-          id: 'ai-workflows',
-          name: 'Workflows',
-          href: '/app/ai/workflows',
-          icon: Workflow,
-          description: 'Advanced visual workflow builder for developers',
-          permissions: ['ai.workflows.read'],
-          order: 12
-        },
-        {
           id: 'ai-execution',
           name: 'Execution',
           href: '/app/ai/execution',
@@ -116,11 +107,11 @@ export const defaultNavigationConfig: NavigationConfig = {
           href: '/app/ai/governance',
           icon: ShieldCheck,
           description: 'AI governance policies and compliance',
-          permissions: ['ai.workflows.read'],
+          permissions: ['ai.governance.read'],
           order: 11
         },
       ],
-      permissions: ['ai.agents.read', 'ai.workflows.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.analytics.read', 'ai.teams.read', 'ai.missions.read'],
+      permissions: ['ai.agents.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.analytics.read', 'ai.teams.read', 'ai.missions.read'],
       collapsible: true,
       defaultExpanded: true,
       order: 10

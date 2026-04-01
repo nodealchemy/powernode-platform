@@ -51,7 +51,7 @@ module Ai
     validates :slug, presence: true, uniqueness: { scope: :account_id }, length: { maximum: 150 },
                      format: { with: /\A[a-z0-9\-_]+\z/, message: "can only contain lowercase letters, numbers, hyphens, and underscores" }
     validates :agent_type, presence: true, inclusion: {
-      in: %w[assistant code_assistant data_analyst content_generator image_generator workflow_optimizer workflow_operations monitor mcp_client],
+      in: %w[assistant code_assistant data_analyst content_generator image_generator monitor mcp_client],
       message: "is not included in the list"
     }
     validates :status, inclusion: { in: %w[active inactive paused error archived] }
@@ -230,7 +230,7 @@ module Ai
     }.freeze
 
     # Agent types that benefit from stronger models
-    REASONING_PREFERRED_TYPES = %w[monitor data_analyst workflow_optimizer].freeze
+    REASONING_PREFERRED_TYPES = %w[monitor data_analyst].freeze
 
     def model_suitable_for_agent_type
       model = mcp_metadata.dig("model_config", "model")

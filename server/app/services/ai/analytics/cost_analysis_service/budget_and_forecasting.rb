@@ -11,8 +11,8 @@ module Ai
           budget_limit = account.settings&.dig("ai_budget_limit")
           monthly_budget = account.settings&.dig("ai_monthly_budget")
 
-          current_cost = workflow_runs.where("ai_workflow_runs.created_at >= ?", time_range.ago).sum(:total_cost).to_f
-          month_cost = workflow_runs.where("ai_workflow_runs.created_at >= ?", Time.current.beginning_of_month).sum(:total_cost).to_f
+          current_cost = agent_executions.where("ai_agent_executions.created_at >= ?", time_range.ago).sum(:cost_usd).to_f
+          month_cost = agent_executions.where("ai_agent_executions.created_at >= ?", Time.current.beginning_of_month).sum(:cost_usd).to_f
 
           {
             period_budget: budget_limit,
@@ -34,10 +34,10 @@ module Ai
 
           return { configured: false, message: "No monthly budget configured" } unless monthly_budget
 
-          month_cost = ::Ai::WorkflowRun.joins(:workflow)
-                                         .where(ai_workflows: { account_id: target_account.id })
-                                         .where("ai_workflow_runs.created_at >= ?", Time.current.beginning_of_month)
-                                         .sum(:total_cost).to_f
+          month_cost = ::Ai::AgentExecution
+                                         .where(account_id: target_account.id)
+                                         .where("ai_agent_executions.created_at >= ?", Time.current.beginning_of_month)
+                                         .sum(:cost_usd).to_f
 
           utilization = (month_cost / monthly_budget * 100).round(2)
 

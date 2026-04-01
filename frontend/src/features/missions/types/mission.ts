@@ -109,7 +109,7 @@ export interface MissionWebSocketEvent {
 
 // Task Graph types
 export type RalphTaskStatus = 'pending' | 'in_progress' | 'passed' | 'failed' | 'blocked' | 'skipped';
-export type ExecutionType = 'agent' | 'workflow' | 'pipeline' | 'a2a_task' | 'container' | 'human' | 'community';
+export type ExecutionType = 'agent' | 'pipeline' | 'a2a_task' | 'container' | 'human' | 'community';
 
 export interface TaskGraphNode {
   id: string;

@@ -21,7 +21,6 @@ module Ai
         executive_summary
         cost_analysis
         performance_analysis
-        workflow_analysis
         agent_analysis
         custom
       ].freeze
@@ -43,7 +42,6 @@ module Ai
         when "executive_summary" then generate_executive_summary(options)
         when "cost_analysis" then generate_cost_report(options)
         when "performance_analysis" then generate_performance_report(options)
-        when "workflow_analysis" then generate_workflow_report(options)
         when "agent_analysis" then generate_agent_report(options)
         when "custom" then generate_custom_report(options)
         else raise ArgumentError, "Unknown report type: #{type}"
@@ -179,31 +177,6 @@ module Ai
         }
       end
 
-      def generate_workflow_report(options)
-        metrics_service = MetricsService.new(account: account, time_range: time_range)
-        workflow_metrics = metrics_service.workflow_metrics
-
-        specific_workflows = if options[:workflow_ids].present?
-                               options[:workflow_ids].map do |id|
-                                 workflow = account.ai_workflows.find_by(id: id)
-                                 next nil unless workflow
-
-                                 metrics_service.workflow_specific_metrics(workflow)
-                               end.compact
-        else
-                               []
-        end
-
-        {
-          title: "Workflow Analysis Report",
-          summary: workflow_metrics,
-          top_performers: find_top_performing_workflows,
-          needs_attention: find_workflows_needing_attention,
-          execution_trends: workflow_execution_trends,
-          workflow_details: specific_workflows
-        }
-      end
-
       def generate_agent_report(options)
         metrics_service = MetricsService.new(account: account, time_range: time_range)
         agent_metrics = metrics_service.agent_metrics
@@ -236,7 +209,6 @@ module Ai
             case section.to_s
             when "cost" then { name: "Cost Analysis", data: generate_cost_report({}) }
             when "performance" then { name: "Performance", data: generate_performance_report({}) }
-            when "workflows" then { name: "Workflows", data: generate_workflow_report({}) }
             when "agents" then { name: "Agents", data: generate_agent_report({}) }
             else { name: section.to_s, data: {} }
             end
@@ -386,7 +358,6 @@ module Ai
         when "executive_summary" then "High-level overview of AI operations with key metrics and trends"
         when "cost_analysis" then "Detailed cost breakdown and optimization recommendations"
         when "performance_analysis" then "Performance metrics, SLA compliance, and bottleneck analysis"
-        when "workflow_analysis" then "Workflow execution statistics and performance analysis"
         when "agent_analysis" then "Agent performance and utilization analysis"
         when "custom" then "Customizable report with selected sections"
         else "Report"
@@ -398,7 +369,6 @@ module Ai
         when "executive_summary" then "~5 seconds"
         when "cost_analysis" then "~10 seconds"
         when "performance_analysis" then "~15 seconds"
-        when "workflow_analysis" then "~20 seconds"
         when "agent_analysis" then "~10 seconds"
         when "custom" then "Varies"
         else "Unknown"
@@ -410,77 +380,16 @@ module Ai
         Time.current + 1.day
       end
 
-      def find_top_performing_workflows
-        start_time = time_range.ago
-
-        account.ai_workflows.map do |workflow|
-          runs = workflow.runs.where("ai_workflow_runs.created_at >= ?", start_time)
-                        .where.not(status: %w[running initializing pending])
-
-          total = runs.count
-          next nil if total < 5
-
-          completed = runs.where(status: "completed").count
-          success_rate = (completed.to_f / total * 100).round(2)
-
-          {
-            id: workflow.id,
-            name: workflow.name,
-            executions: total,
-            success_rate: success_rate
-          }
-        end.compact.select { |w| w[:success_rate] >= 95 }.sort_by { |w| -w[:executions] }.first(5)
-      end
-
-      def find_workflows_needing_attention
-        start_time = time_range.ago
-
-        account.ai_workflows.map do |workflow|
-          runs = workflow.runs.where("ai_workflow_runs.created_at >= ?", start_time)
-                        .where.not(status: %w[running initializing pending])
-
-          total = runs.count
-          next nil if total < 3
-
-          failed = runs.where(status: "failed").count
-          failure_rate = (failed.to_f / total * 100).round(2)
-
-          next nil if failure_rate < 10
-
-          {
-            id: workflow.id,
-            name: workflow.name,
-            executions: total,
-            failure_rate: failure_rate,
-            recent_errors: runs.where(status: "failed").order(created_at: :desc).limit(3).pluck(:error_details)
-          }
-        end.compact.sort_by { |w| -w[:failure_rate] }.first(5)
-      end
-
-      def workflow_execution_trends
-        start_time = time_range.ago
-
-        ::Ai::WorkflowRun.joins(:workflow)
-                        .where(ai_workflows: { account_id: account.id })
-                        .where("ai_workflow_runs.created_at >= ?", start_time)
-                        .group("DATE(ai_workflow_runs.created_at)")
-                        .count
-                        .transform_keys(&:to_s)
-      end
-
       def analyze_agent_performance
         start_time = time_range.ago
 
         account.ai_agents.map do |agent|
-          node_executions = ::Ai::WorkflowNodeExecution.joins(:node, workflow_run: :workflow)
-                                              .where(ai_workflows: { account_id: account.id })
-                                              .where("ai_workflow_nodes.configuration->>'agent_id' = ?", agent.id.to_s)
-                                              .where("ai_workflow_node_executions.created_at >= ?", start_time)
+          executions = agent.executions.where("created_at >= ?", start_time)
 
-          total = node_executions.count
+          total = executions.count
           next nil if total.zero?
 
-          completed = node_executions.where(status: "completed").count
+          completed = executions.where(status: "completed").count
 
           {
             id: agent.id,
@@ -488,7 +397,7 @@ module Ai
             agent_type: agent.agent_type,
             total_executions: total,
             success_rate: (completed.to_f / total * 100).round(2),
-            avg_response_time_ms: node_executions.where(status: "completed").average(:execution_time_ms)&.to_f&.round(2)
+            avg_response_time_ms: executions.where(status: "completed").average(:duration_ms)&.to_f&.round(2)
           }
         end.compact.sort_by { |a| -a[:total_executions] }
       end

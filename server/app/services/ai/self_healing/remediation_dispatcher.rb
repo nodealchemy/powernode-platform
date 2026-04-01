@@ -41,12 +41,8 @@ module Ai
           case trigger_event
           when "circuit_breaker_opened"
             context[:service_type] == "provider" ? "provider_failover" : "alert_escalation"
-          when "workflow_node_failed"
-            transient_error?(context[:error_class]) ? "workflow_retry" : "alert_escalation"
           when "repeated_failures"
             "alert_escalation"
-          when "stuck_execution"
-            "workflow_retry"
           when "provider_degradation"
             "provider_failover"
           when "execution_degradation"
@@ -62,8 +58,6 @@ module Ai
           case action
           when "provider_failover"
             execute_provider_failover(account, context)
-          when "workflow_retry"
-            execute_workflow_retry(account, context)
           when "model_downgrade"
             execute_model_downgrade(account, context)
           when "context_trim"
@@ -104,21 +98,6 @@ module Ai
           end
 
           { status: "success", message: "Switched #{switched} agents to #{backup.name}" }
-        end
-
-        def execute_workflow_retry(account, context)
-          execution_id = context[:execution_id] || context[:node_execution_id]
-          return { status: "skipped", message: "No execution specified" } unless execution_id
-
-          workflow_run = Ai::WorkflowRun.find_by(id: execution_id)
-          return { status: "skipped", message: "Workflow run not found" } unless workflow_run
-
-          recovery = Ai::WorkflowRecoveryService.new(workflow_run: workflow_run, account: account)
-          recovery.attempt_retry(execution_id)
-
-          { status: "success", message: "Retry initiated for execution #{execution_id}" }
-        rescue => e
-          { status: "failure", message: "Retry failed: #{e.message}" }
         end
 
         def execute_model_downgrade(account, context)
@@ -226,8 +205,6 @@ module Ai
           case action
           when "provider_failover"
             { provider_id: context[:provider_id], circuit_state: context[:circuit_state] }
-          when "workflow_retry"
-            { execution_id: context[:execution_id], status: context[:status] }
           when "model_downgrade"
             { provider_id: context[:source_id] || context[:provider_id] }
           when "context_trim"

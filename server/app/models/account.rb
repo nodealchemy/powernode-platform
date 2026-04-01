@@ -67,10 +67,6 @@ class Account < ApplicationRecord
   has_many :ai_performance_benchmarks, class_name: "Ai::PerformanceBenchmark", dependent: :destroy
   has_many :ai_ab_tests, class_name: "Ai::AbTest", dependent: :destroy
 
-  # AI Workflow associations
-  has_many :ai_workflows, class_name: "Ai::Workflow", dependent: :destroy
-  has_many :ai_workflow_runs, class_name: "Ai::WorkflowRun", dependent: :destroy
-
   # AI A2A (Agent-to-Agent) Protocol associations
   has_many :ai_agent_cards, class_name: "Ai::AgentCard", dependent: :destroy
   has_many :ai_a2a_tasks, class_name: "Ai::A2aTask", dependent: :destroy

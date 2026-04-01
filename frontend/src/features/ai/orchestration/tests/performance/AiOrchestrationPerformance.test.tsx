@@ -19,14 +19,6 @@ jest.mock('@/shared/services/ai', () => ({
     deleteAgent: jest.fn(),
     executeAgent: jest.fn()
   },
-  workflowsApi: {
-    getWorkflows: jest.fn(),
-    createWorkflow: jest.fn(),
-    updateWorkflow: jest.fn(),
-    deleteWorkflow: jest.fn(),
-    executeWorkflow: jest.fn(),
-    getWorkflow: jest.fn()
-  },
   providersApi: {
     getProviders: jest.fn(),
     createProvider: jest.fn(),

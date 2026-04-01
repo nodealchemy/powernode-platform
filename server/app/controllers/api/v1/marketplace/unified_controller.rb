@@ -12,11 +12,10 @@ module Api
         def index
           items = []
 
-          # Filter types (default to templates and integrations)
-          requested_types = params[:types]&.split(",") || %w[template integration]
+          # Filter types (default to integrations)
+          requested_types = params[:types]&.split(",") || %w[integration]
 
           # Build items array from each type
-          items += normalize_templates(filtered_templates) if requested_types.include?("template")
           items += normalize_integrations(filtered_integrations) if requested_types.include?("integration")
 
           # Apply search filter if provided
@@ -62,8 +61,6 @@ module Api
           item_id = params[:id]
 
           item = case item_type
-          when "template"
-                   find_template(item_id)
           when "integration"
                    find_integration(item_id)
           else
@@ -85,8 +82,6 @@ module Api
           item_id = params[:id]
 
           installation = case item_type
-          when "template"
-                           install_template(item_id)
           when "integration"
                            install_integration(item_id)
           else
@@ -103,16 +98,6 @@ module Api
         private
 
         # Query builders
-        def filtered_templates
-          templates = Ai::WorkflowTemplate.public_templates.published
-
-          templates = templates.by_category(params[:category]) if params[:category].present?
-          templates = templates.search_by_text(params[:search]) if params[:search].present?
-          templates = templates.featured if params[:verified] == "true"
-
-          templates
-        end
-
         def filtered_integrations
           integrations = Devops::IntegrationTemplate.marketplace_published
 
@@ -124,27 +109,6 @@ module Api
         end
 
         # Normalizers - convert each model to unified MarketplaceItem format
-        def normalize_templates(templates)
-          templates.map do |template|
-            {
-              id: template.id,
-              type: "template",
-              name: template.name,
-              slug: template.slug,
-              description: template.description,
-              category: template.category,
-              tags: template.tags || [],
-              icon: template.metadata&.dig("icon"),
-              version: template.version,
-              rating: template.rating || 0.0,
-              install_count: template.usage_count || 0,
-              is_verified: template.is_featured || false,
-              status: template.published? ? "published" : "draft",
-              created_at: template.created_at.iso8601
-            }
-          end
-        end
-
         def normalize_integrations(integrations)
           integrations.map do |integration|
             {
@@ -167,53 +131,18 @@ module Api
         end
 
         # Item finders
-        def find_template(template_id)
-          Ai::WorkflowTemplate.public_templates.find_by(id: template_id)
-        end
-
         def find_integration(integration_id)
           Devops::IntegrationTemplate.marketplace_published.find_by(id: integration_id)
         end
 
         def normalize_item(item, type)
           case type
-          when "template"
-            normalize_templates([ item ]).first
           when "integration"
             normalize_integrations([ item ]).first
           end
         end
 
         # Install handlers
-        def install_template(template_id)
-          template = Ai::WorkflowTemplate.public_templates.find_by(id: template_id)
-          return { success: false, error: "Template not found" } unless template
-
-          installation = template.install_to_account(
-            account_id: current_account.id,
-            installed_by_user_id: current_user.id
-          )
-
-          if installation.persisted?
-            {
-              success: true,
-              data: {
-                id: installation.id,
-                item_id: template.id,
-                item_type: "template",
-                item_name: template.name,
-                status: "active",
-                installed_at: installation.created_at.iso8601
-              }
-            }
-          else
-            { success: false, error: installation.errors.full_messages.join(", ") }
-          end
-        rescue StandardError => e
-          Rails.logger.error "Failed to install template #{template_id}: #{e.message}"
-          { success: false, error: "Installation failed" }
-        end
-
         def install_integration(integration_id)
           integration = Devops::IntegrationTemplate.marketplace_published.find_by(id: integration_id)
           return { success: false, error: "Integration not found" } unless integration

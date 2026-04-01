@@ -74,17 +74,7 @@ module Api
       end
 
       def collect_error_tracking_stats
-        begin
-          error_service = AiWorkflowErrorTrackingService.instance
-          {
-            recent_errors: error_service.analyze_errors(since: 1.hour.ago),
-            system_health: error_service.system_health_status,
-            error_patterns: error_service.error_patterns(limit: 5),
-            critical_errors_count: error_service.critical_errors(since: 1.hour.ago).size
-          }
-        rescue StandardError => e
-          { error: e.message }
-        end
+        { status: 'not_available' }
       end
 
       def collect_circuit_breaker_status

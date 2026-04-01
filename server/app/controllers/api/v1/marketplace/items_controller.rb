@@ -13,17 +13,15 @@ module Api
           items = []
 
           # Filter types (default to all feature-aligned types)
-          default_types = %w[workflow_template pipeline_template integration_template prompt_template]
+          default_types = %w[pipeline_template integration_template prompt_template]
           requested_types = params[:types]&.split(",") || default_types
 
           # Feature-aligned types
-          items += normalize_workflow_templates(filtered_workflow_templates) if requested_types.include?("workflow_template")
           items += normalize_pipeline_templates(filtered_pipeline_templates) if requested_types.include?("pipeline_template")
           items += normalize_integration_templates(filtered_integration_templates) if requested_types.include?("integration_template")
           items += normalize_prompt_templates(filtered_prompt_templates) if requested_types.include?("prompt_template")
 
-          # Legacy types (template and integration only)
-          items += normalize_templates(filtered_templates) if requested_types.include?("template")
+          # Legacy types (integration only)
           items += normalize_integrations(filtered_integrations) if requested_types.include?("integration")
 
           # Apply search filter if provided
@@ -73,7 +71,6 @@ module Api
           items = []
 
           # Get featured/verified items from each type
-          items += normalize_templates(featured_templates)
           items += normalize_integrations(featured_integrations)
 
           # Sort by rating and install count
@@ -94,12 +91,6 @@ module Api
             categories[cat][:types] |= [ "integration" ]
           end
 
-          ::Ai::WorkflowTemplate.public_templates.published.pluck(:category).compact.each do |cat|
-            categories[cat] ||= { name: cat, count: 0, types: [] }
-            categories[cat][:count] += 1
-            categories[cat][:types] |= [ "template" ]
-          end
-
           render_success(categories.values.sort_by { |c| -c[:count] })
         end
 
@@ -111,8 +102,6 @@ module Api
 
           item = case item_type
           # Feature-aligned types
-          when "workflow_template"
-                   find_workflow_template(item_id)
           when "pipeline_template"
                    find_pipeline_template(item_id)
           when "integration_template"
@@ -120,8 +109,6 @@ module Api
           when "prompt_template"
                    find_prompt_template(item_id)
           # Legacy types
-          when "template"
-                   find_template(item_id)
           when "integration"
                    find_integration(item_id)
           else
@@ -243,14 +230,6 @@ module Api
         private
 
         # Query builders - Feature-aligned types
-        def filtered_workflow_templates
-          templates = ::Ai::WorkflowTemplate.marketplace_published
-          templates = templates.by_category(params[:category]) if params[:category].present?
-          templates = templates.search_by_text(params[:search]) if params[:search].present?
-          templates = templates.featured if params[:verified] == "true"
-          templates
-        end
-
         def filtered_pipeline_templates
           templates = ::Devops::PipelineTemplate.marketplace_published
           templates = templates.by_category(params[:category]) if params[:category].present?
@@ -275,14 +254,6 @@ module Api
         end
 
         # Query builders - Legacy types
-        def filtered_templates
-          templates = ::Ai::WorkflowTemplate.public_templates.published
-          templates = templates.by_category(params[:category]) if params[:category].present?
-          templates = templates.search_by_text(params[:search]) if params[:search].present?
-          templates = templates.featured if params[:verified] == "true"
-          templates
-        end
-
         def filtered_integrations
           integrations = ::Devops::IntegrationTemplate.marketplace_published
           integrations = integrations.by_category(params[:category]) if params[:category].present?
@@ -291,41 +262,11 @@ module Api
           integrations
         end
 
-        def featured_templates
-          ::Ai::WorkflowTemplate.public_templates.published.featured.limit(3)
-        end
-
         def featured_integrations
           ::Devops::IntegrationTemplate.marketplace_published.featured.limit(3)
         end
 
         # Normalizers - Feature-aligned types
-        def normalize_workflow_templates(templates)
-          templates.map do |template|
-            {
-              id: template.id,
-              type: "workflow_template",
-              name: template.name,
-              slug: template.slug,
-              description: template.description,
-              category: template.category,
-              tags: template.tags || [],
-              icon: template.metadata&.dig("icon"),
-              version: template.version,
-              rating: template.rating || template.marketplace_rating || 0.0,
-              rating_count: template.rating_count || template.marketplace_review_count || 0,
-              install_count: template.usage_count || 0,
-              is_verified: template.is_featured || false,
-              is_featured: template.is_featured || false,
-              difficulty_level: template.difficulty_level,
-              node_count: template.node_count,
-              status: template.published? ? "published" : "draft",
-              publisher: serialize_publisher(template.account),
-              created_at: template.created_at.iso8601
-            }
-          end
-        end
-
         def normalize_pipeline_templates(templates)
           templates.map do |template|
             {
@@ -417,31 +358,6 @@ module Api
         end
 
         # Normalizers - Legacy types
-        def normalize_templates(templates)
-          templates.map do |template|
-            {
-              id: template.id,
-              type: "template",
-              name: template.name,
-              slug: template.slug,
-              description: template.description,
-              category: template.category,
-              tags: template.tags || [],
-              icon: template.metadata&.dig("icon"),
-              version: template.version,
-              rating: template.rating || template.marketplace_rating || 0.0,
-              rating_count: template.marketplace_review_count || 0,
-              install_count: template.usage_count || 0,
-              is_verified: template.is_featured || false,
-              is_featured: template.is_featured || false,
-              difficulty_level: template.difficulty_level,
-              node_count: template.node_count,
-              status: template.published? ? "published" : "draft",
-              created_at: template.created_at.iso8601
-            }
-          end
-        end
-
         def normalize_integrations(integrations)
           integrations.map do |integration|
             {
@@ -468,17 +384,8 @@ module Api
         end
 
         # Item finders
-        def find_template(template_id)
-          ::Ai::WorkflowTemplate.public_templates.find_by(id: template_id)
-        end
-
         def find_integration(integration_id)
           ::Devops::IntegrationTemplate.marketplace_published.find_by(id: integration_id)
-        end
-
-        # Item finders - Feature-aligned types
-        def find_workflow_template(template_id)
-          ::Ai::WorkflowTemplate.marketplace_published.find_by(id: template_id)
         end
 
         def find_pipeline_template(template_id)
@@ -496,8 +403,6 @@ module Api
         def find_item_by_type(item_type, item_id)
           case item_type
           # Feature-aligned types
-          when "workflow_template"
-            ::Ai::WorkflowTemplate.find_by(id: item_id)
           when "pipeline_template"
             ::Devops::PipelineTemplate.find_by(id: item_id)
           when "integration_template"
@@ -505,8 +410,6 @@ module Api
           when "prompt_template"
             ::Shared::PromptTemplate.find_by(id: item_id)
           # Legacy types
-          when "template"
-            ::Ai::WorkflowTemplate.find_by(id: item_id)
           when "integration"
             ::Devops::IntegrationTemplate.find_by(id: item_id)
           end
@@ -515,8 +418,6 @@ module Api
         def normalize_item(item, type)
           case type
           # Feature-aligned types
-          when "workflow_template"
-            normalize_workflow_templates([ item ]).first
           when "pipeline_template"
             normalize_pipeline_templates([ item ]).first
           when "integration_template"
@@ -524,8 +425,6 @@ module Api
           when "prompt_template"
             normalize_prompt_templates([ item ]).first
           # Legacy types
-          when "template"
-            normalize_templates([ item ]).first
           when "integration"
             normalize_integrations([ item ]).first
           end

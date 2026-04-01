@@ -5,7 +5,7 @@ module Marketplace
   #
   # Usage:
   #   creator = Marketplace::TemplateCreator.new(user)
-  #   template = creator.create_from_workflow(workflow, name: "My Template", description: "...")
+  #   template = creator.create_from_pipeline(pipeline, name: "My Template", description: "...")
   #
   class TemplateCreator
     attr_reader :user, :account
@@ -13,27 +13,6 @@ module Marketplace
     def initialize(user)
       @user = user
       @account = user.account
-    end
-
-    # Create a workflow template from an existing AI workflow
-    def create_from_workflow(workflow, params = {})
-      validate_ownership!(workflow)
-
-      Ai::WorkflowTemplate.create!(
-        account: account,
-        created_by_user: user,
-        source_workflow: workflow,
-        name: params[:name] || "#{workflow.name} Template",
-        description: params[:description] || workflow.description,
-        category: params[:category] || workflow.category || "custom",
-        difficulty_level: params[:difficulty_level] || "intermediate",
-        workflow_definition: extract_workflow_definition(workflow),
-        default_variables: params[:default_variables] || workflow.variables || {},
-        tags: params[:tags] || [],
-        version: "1.0.0",
-        is_public: false,
-        is_featured: false
-      )
     end
 
     # Create a pipeline template from an existing CI/CD pipeline
@@ -111,37 +90,6 @@ module Marketplace
     def validate_ownership!(resource)
       return if resource.account_id == account.id
       raise TemplateCreatorError, "You can only create templates from your own resources"
-    end
-
-    def extract_workflow_definition(workflow)
-      {
-        "nodes" => workflow.nodes.order(:position).map do |node|
-          {
-            "node_id" => node.node_id,
-            "node_type" => node.node_type,
-            "name" => node.name,
-            "position" => { "x" => node.position_x, "y" => node.position_y },
-            "configuration" => sanitize_configuration(node.configuration),
-            "conditions" => node.conditions
-          }
-        end,
-        "edges" => workflow.edges.map do |edge|
-          {
-            "edge_id" => edge.edge_id,
-            "source_node_id" => edge.source_node_id,
-            "target_node_id" => edge.target_node_id,
-            "source_handle" => edge.source_handle,
-            "target_handle" => edge.target_handle,
-            "conditions" => edge.conditions
-          }
-        end,
-        "variables" => workflow.variables || [],
-        "settings" => {
-          "timeout_minutes" => workflow.timeout_minutes,
-          "retry_on_failure" => workflow.retry_on_failure,
-          "max_retries" => workflow.max_retries
-        }
-      }
     end
 
     def extract_pipeline_definition(pipeline)

@@ -68,16 +68,6 @@ class WorkerJobService
       })
     end
 
-    # Enqueue AI workflow execution job
-    def enqueue_ai_workflow_execution(run_id, job_options = {})
-      new.make_worker_request("POST", "/api/v1/jobs", {
-        "job_class" => "AiWorkflowExecutionJob",
-        "args" => [ run_id, job_options ],
-        "queue" => "ai_workflows",
-        "options" => { "retry" => 3 }
-      })
-    end
-
     # Enqueue workspace response job for a non-primary team member agent
     def enqueue_workspace_response(conversation_id, message_id, agent_id, account_id)
       new.make_worker_request("POST", "/api/v1/jobs", {
@@ -198,18 +188,6 @@ class WorkerJobService
       elsif delay.positive?
         payload["at"] = (Time.current + delay).to_i
       end
-
-      new.make_worker_request("POST", "/api/v1/jobs", payload)
-    end
-
-    # Enqueue node execution retry job
-    def enqueue_node_execution_retry(node_execution_id, delay_ms: 0)
-      payload = {
-        "job_class" => "AiWorkflowNodeExecutionJob",
-        "args" => [ node_execution_id ],
-        "queue" => "ai_workflows"
-      }
-      payload["at"] = (Time.current + (delay_ms / 1000.0)).to_i if delay_ms.positive?
 
       new.make_worker_request("POST", "/api/v1/jobs", payload)
     end
@@ -645,11 +623,6 @@ class WorkerJobService
     alias_method :enqueue_ci_cd_step_execution, :enqueue_devops_step_execution
     alias_method :enqueue_ci_cd_pipeline_execution, :enqueue_devops_pipeline_execution
     alias_method :enqueue_ci_cd_approval_notification, :enqueue_devops_approval_notification
-  end
-
-  # Instance methods for compatibility
-  def queue_ai_workflow_execution(run_id)
-    self.class.enqueue_ai_workflow_execution(run_id)
   end
 
   def make_worker_request(method, path, payload = {})

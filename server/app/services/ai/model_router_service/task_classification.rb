@@ -87,10 +87,10 @@ module Ai
         # Check account-level budget
         monthly_budget = @account.settings&.dig("ai_monthly_budget")
         if monthly_budget.present?
-          month_cost = Ai::WorkflowRun.joins(:workflow)
-                                       .where(ai_workflows: { account_id: @account.id })
-                                       .where("ai_workflow_runs.created_at >= ?", Time.current.beginning_of_month)
-                                       .sum(:total_cost).to_f
+          month_cost = Ai::AgentExecution.joins(:agent)
+                                         .where(ai_agents: { account_id: @account.id })
+                                         .where("ai_agent_executions.created_at >= ?", Time.current.beginning_of_month)
+                                         .sum(:cost_usd).to_f
           if month_cost >= monthly_budget * 0.9
             @logger.info "[ModelRouter] Account monthly budget >90% consumed, downgrading to economy tier"
             return "economy"

@@ -9,7 +9,6 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { useAiMonitoringWebSocket, DashboardStats, SystemAlert } from '@/shared/hooks/useAiMonitoringWebSocket';
 import { monitoringApi, HealthStatus } from '@/shared/services/ai/MonitoringApiService';
 import { conversationsApi, ConversationBase } from '@/shared/services/ai/ConversationsApiService';
 import {
@@ -39,7 +38,6 @@ import { AgentPerformancePanel } from '@/features/ai/monitoring/components/Agent
 import { ConversationAnalytics } from '@/features/ai/monitoring/components/ConversationAnalytics';
 import { AlertManagementCenter } from '@/features/ai/monitoring/components/AlertManagementCenter';
 import { ResourceUtilizationChart } from '@/features/ai/monitoring/components/ResourceUtilizationChart';
-import { WorkflowMonitoringPanel } from '@/features/ai/monitoring/components/WorkflowMonitoringPanel';
 import { AiErrorBoundary } from '@/shared/components/error/AiErrorBoundary';
 import { SelfHealingContent } from '@/features/ai/self-healing/SelfHealingDashboard';
 import { EvaluationContent } from '@/features/ai/evaluation/pages/EvaluationDashboardPage';
@@ -66,7 +64,7 @@ export const AIMonitoringPage: React.FC = () => {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [resources, setResources] = useState<ResourceUtilization | null>(null);
 
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
@@ -88,57 +86,6 @@ export const AIMonitoringPage: React.FC = () => {
   }, [location.pathname, getActiveTab]);
 
   const [timeRange, setTimeRange] = useState('1h');
-
-  // WebSocket hook for real-time updates
-  const {
-    isConnected: wsConnected,
-    requestDashboardStats,
-    error: wsError
-  } = useAiMonitoringWebSocket({
-    onDashboardStats: (stats: DashboardStats) => {
-      // Update dashboard with real-time stats from WebSocket
-      setDashboardData(prev => prev ? {
-        ...prev,
-        overview: {
-          ...prev.overview,
-          total_workflows: stats.total_workflows,
-          active_conversations: stats.active_executions
-        }
-      } : prev);
-      setLastUpdate(new Date());
-    },
-    onSystemAlert: (alert: SystemAlert) => {
-      // Add new alert to the list
-      setAlerts(prev => [{
-        id: alert.id,
-        severity: alert.severity === 'critical' ? 'critical' : alert.severity === 'warning' ? 'high' : 'medium',
-        component: alert.source,
-        title: alert.message.split(':')[0] || 'Alert',
-        message: alert.message,
-        metadata: {},
-        acknowledged: false,
-        acknowledged_at: null,
-        acknowledged_by: null,
-        resolved: false,
-        resolved_at: null,
-        resolved_by: null,
-        created_at: alert.timestamp
-      }, ...prev]);
-
-      addNotificationRef.current({
-        type: alert.severity === 'critical' ? 'error' : 'warning',
-        title: 'System Alert',
-        message: alert.message
-      });
-    },
-    onError: (errorMessage: string) => {
-      addNotificationRef.current({
-        type: 'error',
-        title: 'WebSocket Error',
-        message: errorMessage
-      });
-    }
-  });
 
   // Permission checks
   const canViewMonitoring = useMemo(() =>
@@ -411,15 +358,6 @@ export const AIMonitoringPage: React.FC = () => {
     fetchMonitoringData();
   }, [canViewMonitoring, fetchMonitoringData]);
 
-  // Update connection state based on WebSocket and initial fetch
-  useEffect(() => {
-    if (wsConnected && !isConnected) {
-      setIsConnected(true);
-    } else if (!wsConnected && wsError) {
-      setIsConnected(false);
-    }
-  }, [wsConnected, wsError, isConnected]);
-
   // Handle time range changes
   const handleTimeRangeChange = useCallback((newTimeRange: string) => {
     setTimeRange(newTimeRange);
@@ -429,13 +367,8 @@ export const AIMonitoringPage: React.FC = () => {
 
   // Refresh all data
   const refreshAllData = useCallback(async () => {
-    // Fetch via REST API for full data
     await fetchMonitoringData();
-    // Also request WebSocket update for real-time sync
-    if (wsConnected) {
-      requestDashboardStats();
-    }
-  }, [fetchMonitoringData, wsConnected, requestDashboardStats]);
+  }, [fetchMonitoringData]);
 
 
   if (!canViewMonitoring) {
@@ -568,10 +501,6 @@ export const AIMonitoringPage: React.FC = () => {
                 } :
                 undefined
               }
-            />
-            <WorkflowMonitoringPanel
-              isLoading={isLoading}
-              onRefresh={refreshAllData}
             />
           </TabPanel>
 

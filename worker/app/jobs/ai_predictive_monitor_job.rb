@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class AiPredictiveMonitorJob < BaseJob
-  sidekiq_options queue: "ai_workflow_health", retry: 2
+  sidekiq_options queue: "ai_orchestration", retry: 2
 
   def execute(params = {})
     action = params["action"] || "monitor_all"

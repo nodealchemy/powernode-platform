@@ -86,7 +86,7 @@ export interface AiAgent {
   id: string;
   name: string;
   description: string;
-  agent_type: 'assistant' | 'code_assistant' | 'data_analyst' | 'content_generator' | 'image_generator' | 'workflow_optimizer';
+  agent_type: 'assistant' | 'code_assistant' | 'data_analyst' | 'content_generator' | 'image_generator';
   // Provider info
   provider?: {
     id: string;

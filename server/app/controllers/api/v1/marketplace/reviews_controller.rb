@@ -155,8 +155,6 @@ module Api
           return unless params[:item_type].present? && params[:item_id].present?
 
           @reviewable = case params[:item_type]
-          when "template", "workflow_template"
-                         ::Ai::WorkflowTemplate.find_by(id: params[:item_id])
           when "integration", "integration_template"
                          ::Devops::IntegrationTemplate.find_by(id: params[:item_id])
           when "pipeline_template"

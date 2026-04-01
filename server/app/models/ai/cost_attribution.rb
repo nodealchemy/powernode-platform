@@ -80,8 +80,6 @@ module Ai
       return nil unless source_type.present? && source_id.present?
 
       case source_type
-      when "workflow"
-        Ai::Workflow.find_by(id: source_id)
       when "agent"
         Ai::Agent.find_by(id: source_id)
       when "provider"

@@ -35,7 +35,7 @@ Before writing any code:
 | Permission logic | `platform.search_knowledge` query: "permission system" |
 | AI agent features | `platform.search_knowledge_graph` query: "AI orchestration" |
 | Billing/payments | `platform.search_knowledge` query: "billing" or "payment integration" |
-| Agent/team/workflow resources | `platform.list_agents` / `platform.list_teams` / `platform.list_workflows` — inspect existing resources |
+| Agent/team resources | `platform.list_agents` / `platform.list_teams` — inspect existing resources |
 | Memory tier operations | `platform.search_memory` + `platform.memory_stats` — understand current memory state |
 | RAG / knowledge bases | `platform.list_knowledge_bases` + `platform.search_documents` — check existing document stores |
 | Pipeline / CI/CD | `platform.list_pipelines` + `platform.get_pipeline_status` — verify pipeline state |
@@ -83,7 +83,6 @@ All 180 actions grouped by subsystem. Full parameter docs: [MCP_TOOL_CATALOG.md]
 | Agents | `create_agent`, `list_agents`, `get_agent`, `update_agent`, `execute_agent` |
 | Agent Containers | `deploy_container_agent`, `container_status`, `container_logs`, `container_terminate` |
 | Teams | `create_team`, `list_teams`, `get_team`, `update_team`, `add_team_member`, `execute_team` |
-| Workflows | `create_workflow`, `list_workflows`, `get_workflow`, `update_workflow`, `execute_workflow` |
 | Pipelines | `trigger_pipeline`, `list_pipelines`, `get_pipeline_status` |
 | Memory | `write_shared_memory`, `read_shared_memory`, `search_memory`, `consolidate_memory`, `memory_stats`, `list_pools` |
 | RAG | `query_knowledge_base`, `list_knowledge_bases`, `create_knowledge_base`, `add_document`, `process_document`, `search_documents`, `delete_document` |

@@ -273,19 +273,6 @@ module CircuitBreaker
     breaker.call(&block)
   end
 
-  # Dedicated circuit breaker for AI workflow execution
-  # Higher timeout to accommodate complex workflows with multiple AI agent calls
-  def with_workflow_execution_circuit_breaker(&block)
-    breaker = CircuitBreakerRegistry.instance.get_breaker(
-      'workflow_execution',
-      failure_threshold: 5,     # Allow more failures before opening (was 3)
-      recovery_timeout: 120,    # Longer recovery for complex workflows (was 30)
-      timeout: 600              # 10 minutes for complex workflows (was 300)
-    )
-
-    breaker.call(&block)
-  end
-
   # Dedicated circuit breaker for long-running trading training sessions.
   # Training runs 15-30 ticks × 60-150 strategies × external API calls per tick.
   # A single tick can generate 100+ API calls — temporary 500s on one call

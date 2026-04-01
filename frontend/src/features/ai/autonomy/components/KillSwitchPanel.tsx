@@ -93,7 +93,6 @@ const KillSwitchButton: React.FC = () => {
                     <p className="text-theme-secondary">Restore preview:</p>
                     <p className="text-theme-primary">{status.snapshot_preview.agents_to_restore} agents to restore trust tiers</p>
                     <p className="text-theme-primary">{status.snapshot_preview.ralph_loops_to_resume} Ralph loops to resume</p>
-                    <p className="text-theme-primary">{status.snapshot_preview.workflow_schedules_to_resume} workflow schedules to re-enable</p>
                   </div>
                 )}
                 <div className="flex items-center gap-4">

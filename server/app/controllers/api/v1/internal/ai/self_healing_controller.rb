@@ -6,15 +6,17 @@ module Api
       module Ai
         class SelfHealingController < InternalBaseController
           # POST /api/v1/internal/ai/self_healing/check_stuck_workflows
+          # Workflow runs have been removed — check stuck agent executions instead
           def check_stuck_workflows
             cutoff = 30.minutes.ago
-            stuck = ::Ai::WorkflowRun.where(status: "running")
-                                      .where("started_at < ?", cutoff)
+            stuck = ::Ai::AgentExecution.where(status: "running")
+                                        .where("started_at < ?", cutoff)
 
-            stuck.find_each do |run|
-              run.update!(status: "failed", error_message: "Timed out after 30 minutes",
-                          completed_at: Time.current)
-              Rails.logger.warn "[SelfHealing] Cancelled stuck workflow run #{run.id}"
+            stuck.find_each do |execution|
+              execution.update!(status: "failed",
+                                error_message: "Timed out after 30 minutes",
+                                completed_at: Time.current)
+              Rails.logger.warn "[SelfHealing] Cancelled stuck agent execution #{execution.id}"
             end
 
             render_success(count: stuck.count)

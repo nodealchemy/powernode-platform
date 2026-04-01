@@ -155,8 +155,6 @@ class Ai::DebuggingService
     case execution_type
     when "agent"
       @account.ai_agent_executions.find_by(id: execution_id)
-    when "workflow"
-      @account.ai_workflow_runs.find_by(id: execution_id)
     else
       nil
     end

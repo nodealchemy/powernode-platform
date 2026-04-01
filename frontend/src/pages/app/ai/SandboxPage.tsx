@@ -5,7 +5,6 @@ import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';
-import { useAiOrchestrationWebSocket } from '@/shared/hooks/useAiOrchestrationWebSocket';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import {
   sandboxApi,
@@ -75,24 +74,6 @@ export const SandboxContent: React.FC<{ refreshKey?: number }> = ({ refreshKey: 
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
-
-  // WebSocket for real-time sandbox and workflow updates
-  useAiOrchestrationWebSocket({
-    onWorkflowRunEvent: (event) => {
-      if (['run_completed', 'run_failed'].includes(event.type)) {
-        if (selectedSandbox) {
-          loadSandboxData(selectedSandbox.id);
-        }
-      }
-    },
-    onBatchEvent: (event) => {
-      if (['batch_completed', 'batch_failed', 'batch_progress_update'].includes(event.type)) {
-        if (selectedSandbox) {
-          loadSandboxData(selectedSandbox.id);
-        }
-      }
-    },
-  });
 
   const loadData = async () => {
     try {

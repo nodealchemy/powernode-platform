@@ -171,25 +171,6 @@ module AuditActions
   ].freeze
 
   # =============================================================================
-  # AI WORKFLOW ACTIONS
-  # =============================================================================
-  AI_WORKFLOW_ACTIONS = %w[
-    ai.workflows.list ai.workflows.view ai.workflows.create ai.workflows.update ai.workflows.delete
-    ai.workflows.read ai.workflows.execute ai.workflows.pause ai.workflows.resume ai.workflows.duplicate
-    ai.workflows.export ai.workflows.validate ai.workflows.clone ai.workflows.import
-    ai.workflows.convert_to_template ai.workflows.convert_to_workflow ai.workflows.create_from_template
-    ai.executions.read ai.executions.create ai.executions.update ai.executions.cancel ai.executions.retry
-    ai.workflow_runs.read ai.workflow_runs.create ai.workflow_runs.update ai.workflow_runs.cancel
-    ai.workflow_runs.retry ai.workflow_runs.pause ai.workflow_runs.resume
-    ai.workflows.run.cancel ai.workflows.run.delete ai.workflows.run.download ai.workflows.run.pause
-    ai.workflows.run.resume ai.workflows.run.retry ai.workflows.runs.bulk_delete
-    ai.workflow_validations.auto_fix ai.workflow_validations.create
-    ai.workflow_validations.read ai.workflow_validations.auto_fix_single ai.workflow_validations.preview_fixes
-    ai.validation_statistics.read ai.validation_statistics.health_distribution ai.validation_statistics.common_issues
-    ai.workflow_git_triggers.create ai.workflow_git_triggers.update ai.workflow_git_triggers.delete
-  ].freeze
-
-  # =============================================================================
   # AI PROMPT TEMPLATE ACTIONS
   # =============================================================================
   AI_PROMPT_TEMPLATE_ACTIONS = %w[
@@ -340,7 +321,6 @@ module AuditActions
     AI_MESSAGE_ACTIONS,
     AI_ANALYTICS_ACTIONS,
     AI_PROVIDER_ACTIONS,
-    AI_WORKFLOW_ACTIONS,
     AI_PROMPT_TEMPLATE_ACTIONS,
     AI_MARKETPLACE_ACTIONS,
     AI_MONITORING_ACTIONS,
@@ -419,7 +399,6 @@ module AuditActions
       when "ai_message" then AI_MESSAGE_ACTIONS
       when "ai_analytics" then AI_ANALYTICS_ACTIONS
       when "ai_provider" then AI_PROVIDER_ACTIONS
-      when "ai_workflow" then AI_WORKFLOW_ACTIONS
       when "ai_prompt_template" then AI_PROMPT_TEMPLATE_ACTIONS
       when "ai_marketplace" then AI_MARKETPLACE_ACTIONS
       when "ai_monitoring" then AI_MONITORING_ACTIONS
@@ -441,7 +420,6 @@ module AuditActions
         AI_MESSAGE_ACTIONS,
         AI_ANALYTICS_ACTIONS,
         AI_PROVIDER_ACTIONS,
-        AI_WORKFLOW_ACTIONS,
         AI_PROMPT_TEMPLATE_ACTIONS,
         AI_MARKETPLACE_ACTIONS,
         AI_MONITORING_ACTIONS,

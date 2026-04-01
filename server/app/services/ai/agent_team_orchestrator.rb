@@ -30,8 +30,8 @@ class Ai::AgentTeamOrchestrator
   def execute(input:, context: {})
     validate_team!
 
-    # Create workflow run for tracking
-    @workflow_run = create_workflow_run(input, context)
+    # NOTE: Workflow tracking removed — AI Workflows have been removed from the platform
+    @workflow_run = nil
 
     # Initialize A2A service for inter-agent communication
     @a2a_service = Ai::A2a::Service.new(account: team.account, workflow_run: @workflow_run)

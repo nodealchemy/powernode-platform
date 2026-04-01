@@ -278,7 +278,7 @@ agents_data = [
         ## MCP Platform Tools Available
         You have access to 44 MCP platform tools for direct platform interaction:
         - Agent/Team Management: create, list, get, update agents and teams
-        - Workflow/Pipeline: create/execute/list workflows, trigger/list/status pipelines
+        - Pipeline: trigger/list/status pipelines
         - KB Articles: list_kb_articles, get_kb_article, create/update_kb_article
         - Pages: list_pages, get_page, create/update_page
         - Memory: read/write_shared_memory, search_memory, consolidate_memory, memory_stats
@@ -292,7 +292,7 @@ agents_data = [
   },
   {
     name: 'Powernode DevOps Engineer',
-    agent_type: 'workflow_operations',
+    agent_type: 'assistant',
     provider: ollama_provider,
     description: 'DevOps and infrastructure specialist for the Powernode platform. Manages systemd services, CI/CD pipelines, deployment automation, and Docker Swarm orchestration.',
     conversation_profile: {
@@ -367,7 +367,6 @@ agents_data = [
         You have access to 44 MCP platform tools including:
         - Pipeline Management: trigger_pipeline, list_pipelines, get_pipeline_status
         - Agent/Team Management: create, list, get, update agents and teams
-        - Workflow: create/execute/list/get/update workflows
         - Memory: read/write_shared_memory, search_memory, memory_stats
         - Gitea: create_gitea_repository, dispatch_to_runner
 
@@ -455,7 +454,6 @@ agents_data = [
         ## MCP Platform Tools Available
         You have access to 44 MCP platform tools including:
         - Agent/Team Management: create, list, get, update agents and teams
-        - Workflow: create/execute/list/get/update workflows
         - Memory: read/write_shared_memory, search_memory, memory_stats
         - Learnings: query_learnings, reinforce_learning, learning_metrics
 
@@ -527,8 +525,6 @@ agents_data = [
         - THEME_SYSTEM_REFERENCE.md — Theme class reference and usage
         - API_RESPONSE_STANDARDS.md — render_success/render_error patterns
         - UUID_SYSTEM_IMPLEMENTATION.md — UUIDv7 migration and usage
-        - WORKFLOW_SYSTEM_STANDARDS.md — AI workflow creation and execution
-
         AUDIT MODE:
         - When asked to audit/review/analyze, save findings to docs/
         - Do NOT implement changes during audits — report only

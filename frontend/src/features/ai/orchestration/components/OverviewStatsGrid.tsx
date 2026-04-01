@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Settings, Bot, Workflow, Zap, ArrowRight } from 'lucide-react';
+import { Settings, Bot, Zap, ArrowRight } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Progress } from '@/shared/components/ui/Progress';
 import type { OverviewStats } from './useOverviewData';
@@ -78,35 +78,6 @@ export const OverviewStatsGrid: React.FC<OverviewStatsGridProps> = ({ stats, rec
             <span className="font-medium">{stats?.agents.success_rate || 0}%</span>
           </div>
           <Progress value={stats?.agents.success_rate || 0} className="h-1" />
-        </div>
-      </div>
-
-      {/* Workflows Card */}
-      <div className={`card-theme p-6 hover:shadow-lg transition-all cursor-pointer ${
-        recentUpdates.includes('workflows') ? 'ring-2 ring-theme-success ring-opacity-50 bg-theme-success/5' : ''
-      }`} onClick={() => navigate('/app/ai/workflows')}>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-theme-warning/10 rounded-lg">
-              <Workflow className="h-5 w-5 text-theme-warning" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-theme-primary">{stats?.workflows.total || 0}</div>
-              <div className="text-sm text-theme-secondary">Workflows</div>
-            </div>
-          </div>
-          <ArrowRight className="h-4 w-4 text-theme-muted" />
-        </div>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-theme-secondary">Executing</span>
-            <span className="font-medium">{stats?.workflows.executing || 0}</span>
-          </div>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-theme-secondary">Success Rate</span>
-            <span className="font-medium">{stats?.workflows.success_rate || 0}%</span>
-          </div>
-          <Progress value={stats?.workflows.success_rate || 0} className="h-1" />
         </div>
       </div>
 

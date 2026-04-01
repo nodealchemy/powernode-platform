@@ -2,7 +2,7 @@ import { useEffect, useCallback, useRef } from 'react';
 import { store } from '@/shared/services';
 
 export interface AISystemEvent {
-  type: 'agent_executed' | 'workflow_completed' | 'workflow_failed' | 'provider_health_changed' | 'conversation_started' | 'conversation_ended';
+  type: 'agent_executed' | 'provider_health_changed' | 'conversation_started' | 'conversation_ended';
   timestamp: string;
   data: {
     id: string;
@@ -20,12 +20,6 @@ export interface AISystemMetrics {
     health_status: 'healthy' | 'degraded' | 'critical';
   };
   agents: {
-    total: number;
-    active: number;
-    executing: number;
-    success_rate: number;
-  };
-  workflows: {
     total: number;
     active: number;
     executing: number;

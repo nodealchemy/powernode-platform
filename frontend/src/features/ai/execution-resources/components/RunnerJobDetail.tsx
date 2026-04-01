@@ -41,28 +41,21 @@ export function RunnerJobDetail({ resource }: ResourceDetailProps) {
         </div>
       )}
 
-      {/* Workflow info */}
-      {(resource.workflow_run_id ?? resource.metadata?.workflow_run_id) != null && (
-        <div className="text-sm text-theme-secondary">
-          Workflow Run: <span className="font-mono">{String(resource.workflow_run_id ?? resource.metadata?.workflow_run_id)}</span>
-        </div>
-      )}
-
       {/* Timestamps */}
       <div className="flex flex-wrap gap-4 text-xs text-theme-tertiary">
         {resource.dispatched_at && <span>Dispatched: {formatTimestamp(resource.dispatched_at)}</span>}
         {resource.completed_at && <span>Completed: {formatTimestamp(resource.completed_at)}</span>}
       </div>
 
-      {(resource.url || resource.workflow_url) && (
+      {resource.url && (
         <a
-          href={resource.url || resource.workflow_url}
+          href={resource.url}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 text-sm text-theme-primary hover:underline"
         >
           <ExternalLink className="w-3.5 h-3.5" />
-          View Workflow Run
+          View Job Run
         </a>
       )}
 

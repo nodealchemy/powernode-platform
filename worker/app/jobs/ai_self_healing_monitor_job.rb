@@ -10,14 +10,6 @@ class AiSelfHealingMonitorJob < BaseJob
 
     results = {}
 
-    # Check stuck workflows
-    begin
-      response = api_client.post("/api/v1/internal/ai/self_healing/check_stuck_workflows")
-      results[:stuck_workflows] = response['data'] if response['success']
-    rescue StandardError => e
-      log_error("[SelfHealingMonitor] Stuck workflow check failed: #{e.message}")
-    end
-
     # Check degraded providers
     begin
       response = api_client.post("/api/v1/internal/ai/self_healing/check_degraded_providers")

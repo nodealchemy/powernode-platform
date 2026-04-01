@@ -18,7 +18,7 @@ module HealthDataFetchersConcern
   end
 
   def store_health_metrics(health_report)
-    api_client.post('admin/ai_workflow_health_metrics', {
+    api_client.post('admin/ai_health_metrics', {
       timestamp: health_report[:timestamp],
       overall_status: health_report[:overall_status],
       checks: health_report[:checks]
@@ -31,7 +31,7 @@ module HealthDataFetchersConcern
     log_warn("Processing health alerts for status: #{health_report[:overall_status]}")
 
     alert_data = {
-      alert_type: 'ai_workflow_health',
+      alert_type: 'ai_health',
       severity: health_report[:overall_status],
       timestamp: health_report[:timestamp],
       summary: generate_health_summary(health_report),
@@ -54,35 +54,6 @@ module HealthDataFetchersConcern
     end
   rescue StandardError => e
     log_error("Failed to broadcast health status: #{e.message}")
-  end
-
-  def fetch_stuck_workflows
-    api_client.get('admin/ai_workflows/stuck_analysis')['workflows'] || []
-  rescue StandardError
-    []
-  end
-
-  def calculate_recent_failure_rate
-    stats = api_client.get('admin/ai_workflows/execution_stats?period=1h')
-    return 0.0 unless stats['total_executions'] && stats['total_executions'] > 0
-
-    (stats['failed_executions'].to_f / stats['total_executions'] * 100).round(2)
-  rescue StandardError
-    0.0
-  end
-
-  def calculate_average_execution_time
-    stats = api_client.get('admin/ai_workflows/performance_stats?period=1h')
-    stats['average_execution_time_ms'] || 0
-  rescue StandardError
-    0
-  end
-
-  def count_active_workflows
-    stats = api_client.get('admin/ai_workflows/status_counts')
-    stats['running'] || 0
-  rescue StandardError
-    0
   end
 
   def fetch_ai_providers
@@ -123,37 +94,6 @@ module HealthDataFetchersConcern
     }
   rescue StandardError
     { size: 0, latency: 0, busy: 0 }
-  end
-
-  def fetch_event_dispatcher_health
-    health = api_client.get('admin/ai_workflow_events/health')
-    health['event_dispatcher'] || { status: 'unknown' }
-  rescue StandardError
-    { status: 'failed', error: 'Unable to fetch event dispatcher health' }
-  end
-
-  def fetch_trigger_service_health
-    health = api_client.get('admin/ai_workflow_events/health')
-    health['trigger_service'] || { status: 'unknown' }
-  rescue StandardError
-    { status: 'failed', error: 'Unable to fetch trigger service health' }
-  end
-
-  def fetch_integration_service_health
-    { status: 'healthy', last_check: Time.current.iso8601 }
-  rescue StandardError
-    { status: 'failed', error: 'Unable to fetch integration service health' }
-  end
-
-  def calculate_event_processing_metrics
-    stats = api_client.get('admin/ai_workflow_events/processing_stats')
-    {
-      events_processed_last_hour: stats['events_processed_last_hour'] || 0,
-      average_processing_time_ms: stats['average_processing_time_ms'] || 0,
-      failed_events_last_hour: stats['failed_events_last_hour'] || 0
-    }
-  rescue StandardError
-    { events_processed_last_hour: 0, average_processing_time_ms: 0, failed_events_last_hour: 0 }
   end
 
   def fetch_database_pool_stats

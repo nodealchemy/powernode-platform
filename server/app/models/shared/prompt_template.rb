@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
 module Shared
-  # Unified prompt template system for AI Workflows and CI/CD Pipelines
+  # Unified prompt template system for AI agents and CI/CD Pipelines.
   # Supports Liquid templating, versioning, and domain-scoped templates.
   #
   # Domains:
-  #   - workflow: Templates for AI workflow nodes
+  #   - trading: Templates for trading strategy agents and evaluation pipelines
   #   - cicd: Templates for CI/CD pipeline steps
-  #   - general: Templates available to both systems
+  #   - general: Templates available to all systems
   #
   class PromptTemplate < ApplicationRecord
     self.table_name = "shared_prompt_templates"
@@ -16,7 +16,7 @@ module Shared
     # Constants
     # ============================================
     CATEGORIES = %w[review implement security deploy docs custom general agent workflow].freeze
-    DOMAINS = %w[ai_workflow cicd general].freeze
+    DOMAINS = %w[trading cicd general].freeze
 
     # ============================================
     # Associations
@@ -29,7 +29,6 @@ module Shared
              foreign_key: :parent_template_id, dependent: :nullify
 
     # Polymorphic usage tracking
-    has_many :ai_workflow_nodes, class_name: "Ai::WorkflowNode", foreign_key: :shared_prompt_template_id, dependent: :nullify
     has_many :devops_pipeline_steps, class_name: "Devops::PipelineStep",
              foreign_key: :shared_prompt_template_id, dependent: :nullify
 
@@ -56,7 +55,7 @@ module Shared
     scope :user_templates, -> { where(is_system: false) }
     scope :by_category, ->(category) { where(category: category) }
     scope :for_domain, ->(domain) { where(domain: [ domain, "general" ]) }
-    scope :for_ai_workflow, -> { for_domain("ai_workflow") }
+    scope :for_trading, -> { for_domain("trading") }
     scope :for_cicd, -> { for_domain("cicd") }
     scope :latest_versions, -> { where(parent_template_id: nil) }
     scope :search, ->(query) {
@@ -197,7 +196,7 @@ module Shared
     #
     # @return [Integer]
     def usage_count
-      ai_workflow_nodes.count + devops_pipeline_steps.count
+      devops_pipeline_steps.count
     end
 
     private

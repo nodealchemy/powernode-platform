@@ -139,8 +139,8 @@ module Ai
       end
 
       def execute_agent_task(agent, prompt)
-        service = Ai::AgentOrchestrationService.new(@account)
-        result = service.execute(agent_id: agent.id, input: prompt)
+        executor = Ai::McpAgentExecutor.new(agent: agent, account: @account)
+        result = executor.execute({ "input" => prompt })
         { success: result[:status] == "completed", output: result[:output], error: result[:error] }
       rescue StandardError => e
         { success: false, error: e.message }

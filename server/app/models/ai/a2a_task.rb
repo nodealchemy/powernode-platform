@@ -18,7 +18,6 @@ module Ai
     belongs_to :to_agent, class_name: "Ai::Agent", foreign_key: "to_agent_id", optional: true
     belongs_to :from_agent_card, class_name: "Ai::AgentCard", foreign_key: "from_agent_card_id", optional: true
     belongs_to :to_agent_card, class_name: "Ai::AgentCard", foreign_key: "to_agent_card_id", optional: true
-    belongs_to :workflow_run, class_name: "Ai::WorkflowRun", foreign_key: "ai_workflow_run_id", optional: true
     belongs_to :parent_task, class_name: "Ai::A2aTask", foreign_key: "parent_task_id", optional: true
 
     has_many :subtasks, class_name: "Ai::A2aTask", foreign_key: "parent_task_id", dependent: :destroy
@@ -42,7 +41,6 @@ module Ai
     scope :input_required, -> { where(status: "input_required") }
     scope :terminal, -> { where(status: TERMINAL_STATUSES) }
     scope :in_progress, -> { where(status: %w[pending active input_required]) }
-    scope :for_workflow_run, ->(run_id) { where(ai_workflow_run_id: run_id) }
     scope :from_agent, ->(agent_id) { where(from_agent_id: agent_id) }
     scope :to_agent, ->(agent_id) { where(to_agent_id: agent_id) }
     scope :external_tasks, -> { where(is_external: true) }
@@ -197,7 +195,6 @@ module Ai
     def to_a2a_json
       {
         id: task_id,
-        sessionId: workflow_run&.run_id,
         status: a2a_status,
         artifacts: a2a_artifacts,
         history: history
@@ -218,7 +215,6 @@ module Ai
         "completed_at" => completed_at&.iso8601,
         "from_agent_id" => from_agent_id,
         "to_agent_id" => to_agent_id,
-        "workflow_run_id" => ai_workflow_run_id,
         "is_external" => is_external,
         "retry_count" => retry_count
       ).compact
@@ -305,7 +301,6 @@ module Ai
         status: status,
         from_agent_id: from_agent_id,
         to_agent_id: to_agent_id,
-        workflow_run_id: ai_workflow_run_id,
         is_external: is_external,
         duration_ms: duration_ms,
         created_at: created_at,
@@ -343,9 +338,9 @@ module Ai
     end
 
     def set_sequence_number
-      return unless ai_workflow_run_id.present? && sequence_number.nil?
+      return unless parent_task_id.present? && sequence_number.nil?
 
-      max_sequence = Ai::A2aTask.where(ai_workflow_run_id: ai_workflow_run_id).maximum(:sequence_number) || 0
+      max_sequence = Ai::A2aTask.where(parent_task_id: parent_task_id).maximum(:sequence_number) || 0
       self.sequence_number = max_sequence + 1
     end
 
@@ -400,8 +395,7 @@ module Ai
         {
           type: "a2a_task_update",
           task_id: task_id,
-          status: status,
-          workflow_run_id: workflow_run&.run_id
+          status: status
         }
       )
     end

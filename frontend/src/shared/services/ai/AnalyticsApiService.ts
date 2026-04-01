@@ -32,7 +32,7 @@ import { BaseApiService, QueryFilters, PaginatedResponse } from '@/shared/servic
  */
 
 export interface AnalyticsFilters extends QueryFilters {
-  component?: 'workflows' | 'agents' | 'providers' | 'all';
+  component?: 'agents' | 'providers' | 'all';
   time_range?: '24h' | '7d' | '30d' | '90d' | 'custom';
   start_date?: string;
   end_date?: string;
@@ -53,12 +53,6 @@ export interface AnalyticsDashboard {
     executions: number;
     success_rate: number;
     cost_usd: number;
-  }>;
-  top_workflows: Array<{
-    id: string;
-    name: string;
-    execution_count: number;
-    success_rate: number;
   }>;
   top_agents: Array<{
     id: string;
@@ -88,11 +82,6 @@ export interface CostAnalytics {
   cost_trend: Array<{
     date: string;
     cost_usd: number;
-  }>;
-  top_expensive_workflows: Array<{
-    id: string;
-    name: string;
-    total_cost_usd: number;
   }>;
   optimization_potential_usd: number;
 }

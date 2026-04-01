@@ -162,8 +162,6 @@ export interface ResourceDetail extends ExecutionResource {
   output_result_runner?: Record<string, unknown>;
   logs?: string | null;
   runner_labels?: string[];
-  workflow_run_id?: string;
-  workflow_url?: string;
   dispatched_at?: string | null;
   runner_name?: string | null;
   repository_name?: string | null;

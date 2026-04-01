@@ -3889,14 +3889,12 @@ Permission Matrix:
 
   AI Developers:
     - ai.agents.create
-    - ai.workflows.create
     - ai.prompts.manage
     - ai.sandbox.use
 
   AI Users:
     - ai.conversations.create
     - ai.agents.use
-    - ai.workflows.execute
 
   Viewers:
     - ai.analytics.view

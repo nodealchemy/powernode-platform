@@ -189,9 +189,6 @@ module AiJobsConcern
       queue: self.class.get_sidekiq_options['queue']
     )
 
-    # Track error in centralized error tracking service
-    ::AiWorkflowErrorTrackingService.instance.track_error(error, enhanced_context)
-
     error_data = {
       error_class: error.class.name,
       error_message: error.message,

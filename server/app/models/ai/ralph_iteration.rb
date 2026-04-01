@@ -141,6 +141,8 @@ module Ai
         duration_ms: duration_ms,
         started_at: started_at&.iso8601,
         completed_at: completed_at&.iso8601,
+        input_tokens: tokens_input,
+        output_tokens: tokens_output,
         total_tokens: total_tokens,
         cost: cost&.to_f
       }

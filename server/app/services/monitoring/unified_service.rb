@@ -12,7 +12,6 @@ module Monitoring
   # - System health and performance
   # - AI providers
   # - Agents
-  # - Workflows
   # - Conversations
   # - Costs and resource utilization
   #
@@ -25,7 +24,7 @@ module Monitoring
     include AiMonitoringConcern
 
     # Component types for monitoring
-    COMPONENTS = %w[system providers agents workflows conversations costs resources].freeze
+    COMPONENTS = %w[system providers agents conversations costs resources].freeze
 
     # Explicit initialize to ensure account is set
     # Note: Can't call super due to ActiveModel::Model conflict with BaseAiService
@@ -71,7 +70,6 @@ module Monitoring
   def get_system_overview
     {
       status: determine_health_status,
-      active_workflows: count_active_workflows,
       active_agents: count_active_agents,
       total_executions_today: count_executions_today,
       total_cost_today: calculate_cost_today,
@@ -120,8 +118,6 @@ module Monitoring
       get_provider_metrics(time_range)
     when "agents"
       get_agent_metrics(time_range)
-    when "workflows"
-      get_workflow_metrics(time_range)
     when "conversations"
       get_conversation_metrics(time_range)
     when "costs"
@@ -211,40 +207,6 @@ module Monitoring
   end
 
   # =============================================================================
-  # WORKFLOW METRICS
-  # =============================================================================
-
-  def get_workflow_metrics(time_range)
-    workflows = get_account_workflows
-
-    {
-      total_workflows: workflows.count,
-      active_workflows: workflows.active.count,
-      workflows: workflows.limit(10).map { |workflow| workflow_summary(workflow, time_range) },
-      aggregated: aggregate_workflow_metrics(workflows, time_range)
-    }
-  end
-
-  def workflow_summary(workflow, time_range)
-    runs = workflow.runs.where("created_at >= ?", time_range.ago)
-
-    {
-      id: workflow.id,
-      name: workflow.name,
-      status: workflow.status,
-      total_runs: runs.count,
-      successful_runs: runs.where(status: "completed").count,
-      failed_runs: runs.where(status: "failed").count,
-      success_rate: calculate_success_rate(
-        runs.where(status: "completed").count,
-        runs.count
-      ),
-      avg_duration: runs.average(:duration_ms)&.to_f || 0,
-      total_cost: runs.sum(:total_cost) || 0
-    }
-  end
-
-  # =============================================================================
   # CONVERSATION METRICS
   # =============================================================================
 
@@ -269,7 +231,6 @@ module Monitoring
       total_cost: calculate_total_cost(time_range),
       cost_by_provider: calculate_cost_by_provider(time_range),
       cost_by_agent: calculate_cost_by_agent(time_range),
-      cost_by_workflow: calculate_cost_by_workflow(time_range),
       cost_trend: calculate_cost_trend(time_range),
       projected_monthly_cost: project_monthly_cost(time_range)
     }
@@ -334,12 +295,6 @@ module Monitoring
     @account.ai_agents.includes(:provider)
   end
 
-  def get_account_workflows
-    return Ai::Workflow.none unless @account
-
-    @account.ai_workflows.includes(:workflow_runs)
-  end
-
   def get_account_conversations(time_range)
     return Ai::Conversation.none unless @account
 
@@ -350,12 +305,6 @@ module Monitoring
   # CALCULATION HELPERS
   # =============================================================================
 
-  def count_active_workflows
-    return 0 unless @account
-
-    @account.ai_workflows.where(is_active: true).count
-  end
-
   def count_active_agents
     return 0 unless @account
 
@@ -363,15 +312,17 @@ module Monitoring
   end
 
   def count_executions_today
-    Ai::WorkflowRun.where(account: @account)
-                 .where("created_at >= ?", Time.current.beginning_of_day)
-                 .count
+    Ai::AgentExecution.joins(:agent)
+                   .where(ai_agents: { account: @account })
+                   .where("ai_agent_executions.created_at >= ?", Time.current.beginning_of_day)
+                   .count
   end
 
   def calculate_cost_today
-    Ai::WorkflowRun.where(account: @account)
-                 .where("created_at >= ?", Time.current.beginning_of_day)
-                 .sum(:total_cost) || 0.0
+    Ai::AgentExecution.joins(:agent)
+                   .where(ai_agents: { account: @account })
+                   .where("ai_agent_executions.created_at >= ?", Time.current.beginning_of_day)
+                   .sum(:cost_usd) || 0.0
   end
 
   def get_avg_response_time(time_range = 1.hour)
@@ -385,12 +336,13 @@ module Monitoring
   end
 
   def get_success_rate(time_range = 1.hour)
-    runs = Ai::WorkflowRun.where(account: @account)
-                       .where("created_at >= ?", time_range.ago)
+    executions = Ai::AgentExecution.joins(:agent)
+                                .where(ai_agents: { account: @account })
+                                .where("ai_agent_executions.created_at >= ?", time_range.ago)
 
     calculate_success_rate(
-      runs.where(status: "completed").count,
-      runs.count
+      executions.where(status: "completed").count,
+      executions.count
     )
   end
 
@@ -539,22 +491,6 @@ module Monitoring
     }
   end
 
-  def aggregate_workflow_metrics(workflows, time_range)
-    all_runs = Ai::WorkflowRun.where(workflow: workflows)
-                           .where("created_at >= ?", time_range.ago)
-
-    {
-      total_runs: all_runs.count,
-      successful_runs: all_runs.where(status: "completed").count,
-      failed_runs: all_runs.where(status: "failed").count,
-      success_rate: calculate_success_rate(
-        all_runs.where(status: "completed").count,
-        all_runs.count
-      ),
-      total_cost: all_runs.sum(:total_cost) || 0
-    }
-  end
-
   def get_total_messages(time_range)
     Ai::Message.joins(:conversation)
             .where(ai_conversations: { account: @account })
@@ -589,16 +525,10 @@ module Monitoring
   end
 
   def calculate_total_cost(time_range)
-    workflow_cost = Ai::WorkflowRun.where(account: @account)
-                                .where("created_at >= ?", time_range.ago)
-                                .sum(:total_cost) || 0.0
-
-    agent_cost = Ai::AgentExecution.joins(:agent)
-                                .where(ai_agents: { account: @account })
-                                .where("ai_agent_executions.created_at >= ?", time_range.ago)
-                                .sum(:cost_usd) || 0.0
-
-    workflow_cost + agent_cost
+    Ai::AgentExecution.joins(:agent)
+                   .where(ai_agents: { account: @account })
+                   .where("ai_agent_executions.created_at >= ?", time_range.ago)
+                   .sum(:cost_usd) || 0.0
   end
 
   def calculate_cost_by_provider(time_range)
@@ -639,33 +569,8 @@ module Monitoring
     end
   end
 
-  def calculate_cost_by_workflow(time_range)
-    Ai::WorkflowRun.joins(:workflow)
-                .where(ai_workflows: { account: @account })
-                .where("ai_workflow_runs.created_at >= ?", time_range.ago)
-                .group("ai_workflows.id", "ai_workflows.name")
-                .select("ai_workflows.id as workflow_id",
-                       "ai_workflows.name as workflow_name",
-                       "SUM(ai_workflow_runs.total_cost) as total_cost",
-                       "COUNT(ai_workflow_runs.id) as run_count")
-                .map do |result|
-      {
-        workflow_id: result.workflow_id,
-        workflow_name: result.workflow_name,
-        total_cost: result.total_cost&.to_f || 0.0,
-        run_count: result.run_count
-      }
-    end
-  end
-
   def calculate_cost_trend(time_range)
     # Calculate daily cost trend for the time range
-    workflow_costs = Ai::WorkflowRun.where(account: @account)
-                                  .where("created_at >= ?", time_range.ago)
-                                  .group("DATE(created_at)")
-                                  .select("DATE(created_at) as date",
-                                         "SUM(total_cost) as daily_cost")
-
     agent_costs = Ai::AgentExecution.joins(:agent)
                                  .where(ai_agents: { account: @account })
                                  .where("ai_agent_executions.created_at >= ?", time_range.ago)
@@ -673,15 +578,10 @@ module Monitoring
                                  .select("DATE(ai_agent_executions.created_at) as date",
                                         "SUM(cost_usd) as daily_cost")
 
-    # Merge workflow and agent costs by date
-    all_costs = {}
-    workflow_costs.each { |c| all_costs[c.date.to_s] = (all_costs[c.date.to_s] || 0) + (c.daily_cost&.to_f || 0) }
-    agent_costs.each { |c| all_costs[c.date.to_s] = (all_costs[c.date.to_s] || 0) + (c.daily_cost&.to_f || 0) }
-
-    all_costs.map do |date, cost|
+    agent_costs.map do |c|
       {
-        date: date,
-        total_cost: cost.round(2)
+        date: c.date.to_s,
+        total_cost: (c.daily_cost&.to_f || 0).round(2)
       }
     end.sort_by { |d| d[:date] }
   end
@@ -772,22 +672,17 @@ module Monitoring
   end
 
   def get_requests_per_second(time_range)
-    # Calculate requests per second from workflow runs and agent executions
-    workflow_requests = Ai::WorkflowRun.where(account: @account)
-                                    .where("created_at >= ?", time_range.ago)
-                                    .count
-
+    # Calculate requests per second from agent executions
     agent_requests = Ai::AgentExecution.joins(:agent)
                                     .where(ai_agents: { account: @account })
                                     .where("ai_agent_executions.created_at >= ?", time_range.ago)
                                     .count
 
-    total_requests = workflow_requests + agent_requests
     time_window_seconds = time_range.to_f
 
     return 0 if time_window_seconds.zero?
 
-    (total_requests.to_f / time_window_seconds).round(3)
+    (agent_requests.to_f / time_window_seconds).round(3)
   end
 
   def get_active_connections
@@ -809,35 +704,22 @@ module Monitoring
   end
 
   def get_error_metrics(time_range)
-    # Count failed workflow runs and agent executions
-    failed_workflows = Ai::WorkflowRun.where(account: @account)
-                                   .where("created_at >= ?", time_range.ago)
-                                   .where(status: "failed")
-                                   .count
-
+    # Count failed agent executions
     failed_agents = Ai::AgentExecution.joins(:agent)
                                    .where(ai_agents: { account: @account })
                                    .where("ai_agent_executions.created_at >= ?", time_range.ago)
                                    .where(status: "failed")
                                    .count
 
-    total_workflows = Ai::WorkflowRun.where(account: @account)
-                                  .where("created_at >= ?", time_range.ago)
-                                  .count
-
     total_agents = Ai::AgentExecution.joins(:agent)
                                   .where(ai_agents: { account: @account })
                                   .where("ai_agent_executions.created_at >= ?", time_range.ago)
                                   .count
 
-    total_errors = failed_workflows + failed_agents
-    total_requests = total_workflows + total_agents
-
-    error_rate = total_requests > 0 ? ((total_errors.to_f / total_requests) * 100).round(2) : 0.0
+    error_rate = total_agents > 0 ? ((failed_agents.to_f / total_agents) * 100).round(2) : 0.0
 
     {
-      total_errors: total_errors,
-      failed_workflows: failed_workflows,
+      total_errors: failed_agents,
       failed_agents: failed_agents,
       error_rate: error_rate
     }

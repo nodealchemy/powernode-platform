@@ -22,7 +22,6 @@ import { agentsApi, conversationsApi, GlobalConversationFilters } from '@/shared
 import { ConversationBase } from '@/shared/services/ai/ConversationsApiService';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { useAiOrchestrationWebSocket } from '@/shared/hooks/useAiOrchestrationWebSocket';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { AiAgent } from '@/shared/types/ai';
@@ -40,16 +39,6 @@ export const AIConversationsPage: React.FC = () => {
   const { currentUser } = useAuth();
   const { addNotification } = useNotifications();
   const { confirm, ConfirmationDialog } = useConfirmation();
-
-  // WebSocket for real-time conversation updates
-  useAiOrchestrationWebSocket({
-    onAgentEvent: (event) => {
-      // Refresh conversation list when agent messages are received or conversations end
-      if (['agent_message_received', 'agent_execution_completed', 'agent_execution_failed'].includes(event.type)) {
-        loadConversations(pagination.currentPage, pagination.perPage);
-      }
-    },
-  });
 
   const [conversations, setConversations] = useState<ConversationBase[]>([]);
   const [availableAgents, setAvailableAgents] = useState<AiAgent[]>([]);

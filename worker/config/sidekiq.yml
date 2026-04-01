@@ -1,9 +1,8 @@
 # Sidekiq Configuration for Powernode Worker Service
 #
 # NOTE: Per-queue timeouts are not directly supported in sidekiq.yml.
-# For jobs requiring longer timeouts (e.g., AI workflows), set custom
-# timeouts in the job class using circuit breakers:
-#   - AI workflows use with_workflow_execution_circuit_breaker (600s timeout)
+# For jobs requiring longer timeouts, set custom timeouts in the job
+# class using circuit breakers:
 #   - AI providers use with_ai_provider_circuit_breaker (600s timeout)
 #   - Backend API uses with_backend_api_circuit_breaker (120s timeout)
 #
@@ -20,18 +19,13 @@
 :queues:
   - [critical, 3]                # Critical system operations
   - [high, 3]                    # High priority tasks
-  - [workflow_high_priority, 3]  # High priority workflow batch execution
   - [subscription_lifecycle, 3]  # Billing lifecycle (renewals, cancellations)
-  - [ai_cancellations, 3]        # AI task/workflow cancellations (fast processing)
+  - [ai_cancellations, 3]        # AI task cancellations (fast processing)
   - [devops_high, 3]             # High priority DevOps operations (pipeline execution, deployment)
-  - [ai_workflows, 2]            # AI workflow execution (uses 600s circuit breaker)
   - [ai_agents, 2]               # AI agent operations (uses 600s circuit breaker)
   - [ai_conversations, 2]        # AI conversation processing
   - [ai_execution, 2]             # AI team execution (multi-agent orchestration)
   - [ai_orchestration, 2]        # AI orchestration (team execution, skill sync, reviews)
-  - [ai_workflow_health, 2]      # AI workflow health monitoring and cost checks
-  - [ai_workflow_schedules, 2]   # AI workflow scheduled triggers
-  - [ai_workflow_nodes, 2]       # AI workflow node execution
   - [ai_testing, 2]              # AI testing and validation
   - [devops_default, 2]          # Default DevOps queue (step execution, sync)
   - [devops_webhooks, 2]         # DevOps webhook processing
@@ -96,13 +90,6 @@
       class: Devops::ApprovalExpiryJob
       queue: default
       description: 'Expire stale DevOps pipeline step approval tokens'
-
-    # Expire stale AI workflow approval tokens hourly
-    ai_workflow_approval_expiry:
-      cron: '15 * * * *'  # Every hour at minute 15 (offset from CI/CD)
-      class: AiWorkflow::ApprovalExpiryJob
-      queue: default
-      description: 'Expire stale AI workflow approval tokens'
 
     # Database backup - daily full backup at 2 AM UTC
     daily_database_backup:
@@ -200,14 +187,14 @@
     ai_provider_model_sync:
       cron: '0 */6 * * *'
       class: AiProviderModelSyncJob
-      queue: ai_workflow_health
+      queue: ai_orchestration
       description: 'Sync AI provider models and pricing from upstream APIs'
 
     # AI Provider health check - every 10 minutes
     ai_provider_health_check:
       every: '10m'
       class: AiProviderHealthCheckJob
-      queue: ai_workflow_health
+      queue: ai_orchestration
       description: 'Check AI provider health and connectivity'
 
     # AI Memory Pool cleanup - daily at 3:30 AM UTC
@@ -325,12 +312,12 @@
       queue: maintenance
       description: 'Sync MCP knowledge stores to markdown docs for offline fallback'
 
-    # Self-healing monitor - checks stuck workflows, degraded providers, orphaned executions
+    # Self-healing monitor - checks degraded providers, orphaned executions
     ai_self_healing_monitor:
       every: '10m'
       class: AiSelfHealingMonitorJob
       queue: ai_orchestration
-      description: 'AI system self-healing: detect and remediate stuck/degraded/orphaned resources'
+      description: 'AI system self-healing: detect and remediate degraded/orphaned resources'
 
     # Trajectory analysis - generate improvement recommendations per account
     ai_trajectory_analysis:

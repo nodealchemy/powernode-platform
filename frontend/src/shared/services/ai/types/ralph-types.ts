@@ -15,7 +15,7 @@ export type RalphIterationStatus = 'pending' | 'running' | 'completed' | 'failed
 export type RalphSchedulingMode = 'manual' | 'scheduled' | 'continuous' | 'event_triggered' | 'autonomous';
 
 // Execution types for tasks
-export type RalphExecutionType = 'agent' | 'workflow' | 'pipeline' | 'a2a_task' | 'container' | 'human' | 'community';
+export type RalphExecutionType = 'agent' | 'pipeline' | 'a2a_task' | 'container' | 'human' | 'community';
 
 // Capability match strategies
 export type RalphCapabilityMatchStrategy = 'all' | 'any' | 'weighted';
@@ -184,7 +184,9 @@ export interface RalphIteration {
   status: RalphIterationStatus;
   ai_prompt?: string;
   ai_output?: string;
+  learning_extracted?: string;
   git_commit_sha?: string;
+  git_branch?: string;
   checks_passed?: boolean;
   check_results?: {
     command: string;
@@ -195,6 +197,7 @@ export interface RalphIteration {
   duration_ms?: number;
   input_tokens?: number;
   output_tokens?: number;
+  total_tokens?: number;
   cost?: number;
   error_message?: string;
   started_at?: string;

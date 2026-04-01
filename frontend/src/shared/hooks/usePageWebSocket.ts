@@ -100,7 +100,7 @@ const CHANNEL_NAMES: Record<ChannelType, string> = {
   subscriptions: 'SubscriptionChannel',
   customers: 'CustomerChannel',
   aiOrchestration: 'AiOrchestrationChannel',
-  aiMonitoring: 'AiWorkflowMonitoringChannel',
+  aiMonitoring: 'AiOrchestrationChannel',
   devops: 'DevopsPipelineChannel'
 };
 
