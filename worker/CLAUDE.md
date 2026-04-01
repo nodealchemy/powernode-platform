@@ -19,7 +19,6 @@ Sidekiq standalone worker for Powernode.
 | Task | MCP Query |
 |------|-----------|
 | New job class | `platform.discover_skills` + `platform.search_knowledge` query: "background job patterns" |
-| AI workflow jobs | `platform.search_knowledge_graph` query: "AI workflow" — entity relationships, job chains |
 | MCP-related jobs | `platform.search_knowledge` query: "MCP job" |
 | Billing/payment jobs | `platform.search_knowledge` query: "billing jobs" |
 | Job error handling | `platform.query_learnings` query: "Sidekiq error handling" — known failure modes |
@@ -48,7 +47,6 @@ Query MCP first. Use these files when MCP returns no relevant results:
 | When working on | MCP Query | File Fallback |
 |-----------------|-----------|---------------|
 | `app/jobs/*` | `platform.search_knowledge` query: "background jobs" | [BACKGROUND_JOB_ENGINEER_SPECIALIST.md](../docs/backend/BACKGROUND_JOB_ENGINEER_SPECIALIST.md) |
-| AI workflow jobs | `platform.search_knowledge_graph` query: "AI workflow jobs" | [WORKFLOW_SYSTEM_STANDARDS.md](../docs/platform/WORKFLOW_SYSTEM_STANDARDS.md) |
 | MCP jobs | `platform.search_knowledge` query: "MCP tools" | [MCP_CONFIGURATION.md](../docs/platform/MCP_CONFIGURATION.md) |
 | Billing jobs | `platform.search_knowledge` query: "billing engine" | [BILLING_ENGINE_DEVELOPER_SPECIALIST.md](../docs/backend/BILLING_ENGINE_DEVELOPER_SPECIALIST.md) |
 
@@ -73,9 +71,6 @@ Scoped to tools workers actually need. Full catalog: [MCP_TOOL_CATALOG.md](../do
 | `execute_agent` | Execute an AI agent with a prompt (used by AI workflow jobs) |
 | `get_agent` | Get agent config before execution (provider, model, trust score) |
 | `execute_team` | Execute a team task with multi-agent orchestration |
-| `execute_workflow` | Trigger a workflow run with input parameters |
-| `get_workflow` | Get workflow definition including node graph |
-| `list_workflows` | List workflows to find scheduled/triggered ones |
 | `dispatch_to_runner` | Dispatch a job to a Git runner (GitHub/Gitea) |
 | `trigger_pipeline` | Trigger a CI/CD pipeline run |
 | `list_pipelines` | List pipelines for status monitoring |
@@ -100,4 +95,4 @@ Scoped to tools workers actually need. Full catalog: [MCP_TOOL_CATALOG.md](../do
 | `create_skill` | Register reusable job utilities as skills |
 | `extract_to_knowledge_graph` | Record job chain dependencies and orchestration flows |
 
-**Excluded**: Content management (KB articles, pages), agent/team/workflow admin CRUD, skill admin, knowledge curation — these are server/frontend concerns, not worker operations.
+**Excluded**: Content management (KB articles, pages), agent/team admin CRUD, skill admin, knowledge curation — these are server/frontend concerns, not worker operations.

@@ -549,16 +549,11 @@ class JobsController
       'Notifications::ReviewNotificationJob',
       # Service jobs
       'Services::TestPaymentGatewayConnectionJob',
-      # AI/Workflow jobs
+      # AI jobs
       'AiConversationProcessingJob',
       'AiAgentExecutionJob',
       'AiTeamExecutionJob',
       'AiWorkspaceResponseJob',
-      'AiWorkflowExecutionJob',
-      'AiWorkflowNodeExecutionJob',
-      'WorkflowTimeoutJob',
-      'WorkflowCleanupJob',
-      'AiWorkflow::ApprovalExpiryJob',
       # File processing jobs
       'ThumbnailGenerationJob',
       'MetadataExtractionJob',

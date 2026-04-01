@@ -5,54 +5,6 @@ module HealthCheckStepsConcern
 
   private
 
-  def check_workflow_execution_health(health_report)
-    logger.debug "Checking workflow execution health"
-
-    check_result = {
-      status: 'healthy',
-      metrics: {},
-      issues: []
-    }
-
-    begin
-      # Check for stuck workflows
-      stuck_workflows = fetch_stuck_workflows
-      if stuck_workflows.any?
-        check_result[:status] = 'warning'
-        check_result[:issues] << "#{stuck_workflows.size} workflows appear stuck"
-        check_result[:metrics][:stuck_workflows] = stuck_workflows.size
-      end
-
-      # Check failure rate
-      failure_rate = calculate_recent_failure_rate
-      if failure_rate > 10.0
-        check_result[:status] = 'critical' if failure_rate > 25.0
-        check_result[:status] = 'warning' if check_result[:status] != 'critical'
-        check_result[:issues] << "High failure rate: #{failure_rate.round(1)}%"
-      end
-      check_result[:metrics][:failure_rate] = failure_rate
-
-      # Check average execution time
-      avg_execution_time = calculate_average_execution_time
-      if avg_execution_time > 300_000
-        check_result[:status] = 'warning'
-        check_result[:issues] << "High average execution time: #{avg_execution_time}ms"
-      end
-      check_result[:metrics][:avg_execution_time_ms] = avg_execution_time
-
-      # Check active workflow count
-      active_workflows = count_active_workflows
-      check_result[:metrics][:active_workflows] = active_workflows
-
-    rescue StandardError => e
-      check_result[:status] = 'failed'
-      check_result[:error] = e.message
-      log_error("Workflow execution health check failed: #{e.message}")
-    end
-
-    health_report[:checks][:workflow_execution] = check_result
-  end
-
   def check_provider_connectivity(health_report)
     logger.debug "Checking AI provider connectivity"
 
@@ -117,12 +69,6 @@ module HealthCheckStepsConcern
         enqueued_jobs: stats['enqueued'] || 0
       }
 
-      ai_workflow_queues = %w[ai_workflow_execution ai_workflow_node ai_workflow_schedule ai_workflow_health]
-      ai_workflow_queues.each do |queue_name|
-        queue_stats = fetch_queue_stats(queue_name)
-        check_result[:queues][queue_name] = queue_stats
-      end
-
       if check_result[:metrics][:retry_jobs] > 100
         check_result[:status] = 'warning'
       end
@@ -138,49 +84,6 @@ module HealthCheckStepsConcern
     end
 
     health_report[:checks][:worker_queues] = check_result
-  end
-
-  def check_event_system_health(health_report)
-    logger.debug "Checking event system health"
-
-    check_result = {
-      status: 'healthy',
-      metrics: {},
-      components: {}
-    }
-
-    begin
-      dispatcher_health = fetch_event_dispatcher_health
-      check_result[:components][:event_dispatcher] = dispatcher_health
-
-      trigger_health = fetch_trigger_service_health
-      check_result[:components][:trigger_service] = trigger_health
-
-      integration_health = fetch_integration_service_health
-      check_result[:components][:integration_service] = integration_health
-
-      event_metrics = calculate_event_processing_metrics
-      check_result[:metrics] = event_metrics
-
-      # Note: API responses use string keys, hardcoded hashes use symbol keys - check both
-      failed_components = [dispatcher_health, trigger_health, integration_health].count do |c|
-        status = c['status'] || c[:status]
-        status != 'healthy'
-      end
-
-      if failed_components > 1
-        check_result[:status] = 'critical'
-      elsif failed_components > 0
-        check_result[:status] = 'warning'
-      end
-
-    rescue StandardError => e
-      check_result[:status] = 'failed'
-      check_result[:error] = e.message
-      log_error("Event system health check failed: #{e.message}")
-    end
-
-    health_report[:checks][:event_system] = check_result
   end
 
   def check_database_performance(health_report)

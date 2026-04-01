@@ -334,7 +334,6 @@ class BackendApiClient
   def post_with_circuit_breaker(path, data = {}, circuit_breaker: nil)
     breaker_method = case circuit_breaker
                      when :trading_training then :with_trading_training_circuit_breaker
-                     when :workflow_execution then :with_workflow_execution_circuit_breaker
                      else :with_backend_api_circuit_breaker
                      end
 

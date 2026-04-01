@@ -2,22 +2,6 @@
 
 require 'rails_helper'
 
-# Stub AiWorkflowMonitoringChannel for worker tests
-class AiWorkflowMonitoringChannel
-  class << self
-    attr_accessor :provider_health_broadcasts
-
-    def broadcast_provider_health(data)
-      @provider_health_broadcasts ||= []
-      @provider_health_broadcasts << data
-    end
-
-    def reset_provider_health!
-      @provider_health_broadcasts = []
-    end
-  end
-end
-
 RSpec.describe AiProviderHealthCheckJob, type: :job do
   subject { described_class }
 
@@ -33,7 +17,6 @@ RSpec.describe AiProviderHealthCheckJob, type: :job do
     Sidekiq::Testing.fake!
     freeze_time_at(current_time)
     allow(job_instance).to receive(:api_client).and_return(api_client_double)
-    AiWorkflowMonitoringChannel.reset_provider_health! if AiWorkflowMonitoringChannel.respond_to?(:reset_provider_health!)
     allow_any_instance_of(BaseJob).to receive(:check_runaway_loop).and_return(nil)
   end
 
@@ -44,7 +27,7 @@ RSpec.describe AiProviderHealthCheckJob, type: :job do
 
   describe 'job configuration' do
     it 'is configured with correct queue' do
-      expect(described_class.get_sidekiq_options['queue']).to eq('ai_workflow_health')
+      expect(described_class.get_sidekiq_options['queue']).to eq('ai_orchestration')
     end
   end
 
