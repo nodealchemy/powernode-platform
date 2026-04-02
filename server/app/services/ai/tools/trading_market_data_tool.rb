@@ -271,10 +271,10 @@ module Ai
         venue_slug = params[:venue_slug]
 
         if venue_slug.present?
-          WorkerJobService.enqueue_market_discovery(venue_slug)
+          WorkerJobService.enqueue_market_discovery(venue_slug, force: true)
         else
-          WorkerJobService.enqueue_market_discovery("kalshi")
-          WorkerJobService.enqueue_market_discovery("polymarket")
+          WorkerJobService.enqueue_market_discovery("kalshi", force: true)
+          WorkerJobService.enqueue_market_discovery("polymarket", force: true)
         end
 
         success_result({

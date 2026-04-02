@@ -624,8 +624,9 @@ class WorkerJobService
     # so the worker can enrich categories, apply diversity caps, and use
     # Thompson Sampling arms data — without needing direct DB access.
     # @param venue_slug [String, nil] Venue to scan (e.g. 'kalshi', 'polymarket'). Nil = all venues.
-    def enqueue_market_discovery(venue_slug = nil)
+    def enqueue_market_discovery(venue_slug = nil, force: false)
       context = build_market_discovery_context(venue_slug)
+      context["force_refresh"] = true if force
       new.make_worker_request("POST", "/api/v1/jobs", {
         "job_class" => "TradingMarketDiscoveryJob",
         "args" => venue_slug ? [venue_slug, context] : [nil, context],
@@ -665,7 +666,8 @@ class WorkerJobService
         "excluded_markets" => pool&.data&.dig("trading", "intelligence", "market_excluded") || {},
         "target_categories" => pool&.data&.dig("trading", "target_categories") || [],
         "discovery_thresholds" => pool&.data&.dig("trading", "discovery_thresholds") || {},
-        "discovery_interval" => pool&.data&.dig("trading", "discovery_interval") || {}
+        "discovery_interval" => pool&.data&.dig("trading", "discovery_interval") || {},
+        "discovery_series" => pool&.data&.dig("trading", "discovery_series") || {}
       }
     rescue StandardError => e
       Rails.logger.warn("[WorkerJobService] Failed to build discovery context: #{e.message}")
