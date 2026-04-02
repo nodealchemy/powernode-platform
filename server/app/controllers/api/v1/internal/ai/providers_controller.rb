@@ -15,6 +15,26 @@ module Api
             })
           end
 
+          # POST /api/v1/internal/ai/providers/:id/health_check
+          # Called by AiProviderHealthCheckJob to test individual provider connectivity
+          def health_check
+            provider = ::Ai::Provider.find_by(id: params[:id])
+            return render_error("Provider not found", status: :not_found) unless provider
+
+            success = provider.perform_health_check
+            render_success(
+              id: provider.id,
+              healthy: success,
+              status: success ? "healthy" : "unhealthy",
+              response_time_ms: provider.health_metrics["response_time_ms"],
+              consecutive_failures: provider.health_metrics["consecutive_failures"] || 0,
+              last_error: provider.health_metrics["last_error"],
+              checked_at: Time.current.iso8601
+            )
+          rescue StandardError => e
+            render_internal_error("Health check failed", exception: e)
+          end
+
           # POST /api/v1/internal/ai/provider_health_metrics
           # Called by AiProviderHealthCheckJob to persist health check results
           def store_health_metrics

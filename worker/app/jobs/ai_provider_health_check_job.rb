@@ -67,7 +67,7 @@ class AiProviderHealthCheckJob < BaseJob
       api_client.get('/api/v1/internal/ai/providers', { include_disabled: true })
     end
 
-    response['providers'] || []
+    response.dig('data', 'providers') || response['providers'] || []
   rescue StandardError => e
     log_error("Failed to fetch providers", e)
     []
@@ -78,7 +78,7 @@ class AiProviderHealthCheckJob < BaseJob
     provider_name = provider['name'] || provider['provider_type']
 
     # Skip disabled providers but count them
-    if provider['status'] == 'disabled' || provider['is_active'] == false
+    if provider['status'] == 'disabled' || provider['enabled'] == false
       health_report[:summary][:disabled] += 1
       health_report[:providers][provider_name] = {
         id: provider_id,
@@ -90,15 +90,13 @@ class AiProviderHealthCheckJob < BaseJob
     end
 
     begin
-      # Perform health check via API
+      # Perform health check via internal API endpoint
       start_time = Time.current
-      result = with_api_retry(max_attempts: 1) do
-        api_client.post("admin/ai_providers/#{provider_id}/health_check", {
-          timeout: 15,
-          test_type: 'basic'
-        })
+      response = with_api_retry(max_attempts: 1) do
+        api_client.post("/api/v1/internal/ai/providers/#{provider_id}/health_check", {})
       end
       response_time_ms = ((Time.current - start_time) * 1000).round
+      result = response.dig('data') || response
 
       # Analyze result
       provider_health = analyze_provider_health(provider, result, response_time_ms)

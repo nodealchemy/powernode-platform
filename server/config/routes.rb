@@ -445,8 +445,9 @@ Rails.application.routes.draw do
                to: "worktree_sessions#provision_worktree",
                as: :provision_worktree_session_worktree
 
-          # Provider listing for health checks (worker → server)
+          # Provider listing and health checks (worker → server)
           get "providers", to: "providers#index"
+          post "providers/:id/health_check", to: "providers#health_check"
           post "provider_health_metrics", to: "providers#store_health_metrics"
           post "providers/sync_all", to: "providers#sync_all"
 

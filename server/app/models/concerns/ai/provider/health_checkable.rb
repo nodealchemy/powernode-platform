@@ -151,7 +151,7 @@ module Ai
         return true if Rails.env.test?
 
         # Check based on provider_type rather than exact slug
-        supported_provider_types = %w[openai anthropic ollama google azure huggingface]
+        supported_provider_types = %w[openai anthropic ollama google azure huggingface grok custom]
         supported_provider_types.include?(provider_type)
       end
 
