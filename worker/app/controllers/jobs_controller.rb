@@ -641,7 +641,8 @@ class JobsController
       'TradingEvolutionEpochJob',
       'TradingSessionManagerCycleJob',
       'TradingProvingGroundManagerCycleJob',
-      'TradingPortfolioManagerCycleJob'
+      'TradingPortfolioManagerCycleJob',
+      'TradingMarketDiscoveryJob'
     ]
 
     allowed_jobs.include?(job_class)

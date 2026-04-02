@@ -49,9 +49,10 @@ class ActionCableClient
   end
 
   # Send an action request and block until the response arrives.
+  # Auto-reconnects once if the connection was lost since the last call.
   # Returns the parsed response hash (with "success", "data"/"error" keys).
   def send_request(action, params = {}, timeout: DEFAULT_TIMEOUT)
-    raise "Not connected" unless connected?
+    reconnect! if !connected? && @url && @token
 
     request_id = SecureRandom.uuid
     entry = { mutex: Mutex.new, cv: ConditionVariable.new, response: nil }
@@ -87,7 +88,24 @@ class ActionCableClient
     @ws = nil
   end
 
+  # Attempt to re-establish a dropped connection.
+  # Called automatically by send_request when the connection is down.
+  def reconnect!
+    disconnect rescue nil
+    @welcome_received = false
+    @subscribed = false
+    connect
+    logger&.info("[ActionCableClient] Reconnected to #{@url}")
+  rescue StandardError => e
+    logger&.warn("[ActionCableClient] Reconnect failed: #{e.message}")
+    raise "Not connected"
+  end
+
   private
+
+  def logger
+    @logger ||= defined?(PowernodeWorker) ? PowernodeWorker.application.logger : Logger.new($stdout)
+  end
 
   def setup_handlers
     client = self
