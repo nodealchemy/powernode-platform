@@ -525,13 +525,16 @@ module Ai
       end
 
       def discover_venue_series(params)
-        venue = account.trading_venues.find_by(slug: params[:venue_slug])
+        venue = ::Trading::Venue.find_by(slug: params[:venue_slug])
         return error_result("Venue not found: #{params[:venue_slug]}") unless venue
-        return error_result("Venue adapter does not support series discovery") unless venue.adapter.method_defined?(:discover_series!)
 
-        adapter = venue.adapter.new(venue)
+        adapter = ::Trading::AdapterFactory.build(venue)
+        unless adapter.respond_to?(:market_discovery) && adapter.market_discovery.respond_to?(:discover_series!)
+          return error_result("Venue adapter does not support series discovery")
+        end
+
         max_pages = (params[:max_pages] || 15).to_i.clamp(1, 30)
-        result = adapter.discover_series!(max_pages: max_pages)
+        result = adapter.market_discovery.discover_series!(max_pages: max_pages)
 
         by_category = result.group_by { |_, m| m["category"] }.transform_values(&:size)
 

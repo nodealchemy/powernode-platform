@@ -619,6 +619,58 @@ class WorkerJobService
       })
     end
 
+    # Enqueue market discovery job to refresh scored market catalog.
+    # Pre-assembles a discovery context from shared memory and venue config
+    # so the worker can enrich categories, apply diversity caps, and use
+    # Thompson Sampling arms data — without needing direct DB access.
+    # @param venue_slug [String, nil] Venue to scan (e.g. 'kalshi', 'polymarket'). Nil = all venues.
+    def enqueue_market_discovery(venue_slug = nil)
+      context = build_market_discovery_context(venue_slug)
+      new.make_worker_request("POST", "/api/v1/jobs", {
+        "job_class" => "TradingMarketDiscoveryJob",
+        "args" => venue_slug ? [venue_slug, context] : [nil, context],
+        "queue" => "trading_batch"
+      })
+    end
+
+    private
+
+    def build_market_discovery_context(venue_slug = nil)
+      return {} unless defined?(::Trading)
+
+      account = Account.find_by(subdomain: "admin")
+      return {} unless account
+
+      pool = account.ai_memory_pools.find_by(pool_id: "default")
+      slugs = venue_slug ? [venue_slug] : %w[kalshi polymarket]
+
+      # Series registries from venue config (populated by discover_series!)
+      series_registries = {}
+      slugs.each do |slug|
+        venue = ::Trading::Venue.find_by(slug: slug)
+        next unless venue
+        series_registries[slug] = venue.config["series_registry"] || {}
+      end
+
+      # Market arms (Thompson Sampling) from shared memory
+      arms = {}
+      slugs.each do |slug|
+        arms[slug] = pool&.data&.dig("trading", "market_arms", slug) || {}
+      end
+
+      {
+        "series_registries" => series_registries,
+        "diversity" => pool&.data&.dig("trading", "market_diversity") || {},
+        "arms" => arms,
+        "excluded_markets" => pool&.data&.dig("trading", "intelligence", "market_excluded") || {},
+        "target_categories" => pool&.data&.dig("trading", "target_categories") || [],
+        "discovery_thresholds" => pool&.data&.dig("trading", "discovery_thresholds") || {}
+      }
+    rescue StandardError => e
+      Rails.logger.warn("[WorkerJobService] Failed to build discovery context: #{e.message}")
+      {}
+    end
+
     # Legacy aliases for backwards compatibility
     alias_method :enqueue_ci_cd_step_execution, :enqueue_devops_step_execution
     alias_method :enqueue_ci_cd_pipeline_execution, :enqueue_devops_pipeline_execution

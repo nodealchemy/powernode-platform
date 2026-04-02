@@ -276,6 +276,9 @@ module Ai
         "trading_list_price_feeds" => "Ai::Tools::TradingMarketDataTool",
         "trading_market_regime" => "Ai::Tools::TradingMarketDataTool",
         "trading_list_signals" => "Ai::Tools::TradingMarketDataTool",
+        "trading_market_discovery" => "Ai::Tools::TradingMarketDataTool",
+        "trading_refresh_market_discovery" => "Ai::Tools::TradingMarketDataTool",
+        "trading_market_arms" => "Ai::Tools::TradingMarketDataTool",
         # Trading — risk management
         "trading_get_risk_profile" => "Ai::Tools::TradingRiskTool",
         "trading_update_risk_profile" => "Ai::Tools::TradingRiskTool",

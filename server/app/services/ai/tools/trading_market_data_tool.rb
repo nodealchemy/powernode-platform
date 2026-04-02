@@ -52,6 +52,24 @@ module Ai
               strategy_id: { type: "string", required: false, description: "Filter by strategy ID or name" },
               limit: { type: "integer", required: false, description: "Max results (default: 20)" }
             }
+          },
+          "trading_market_discovery" => {
+            description: "Read the Market Discovery catalog for a venue. Returns pre-scored markets ranked by tradability (price range, volume, movement, spread, settlement).",
+            parameters: {
+              venue_slug: { type: "string", required: true, description: "Venue slug (kalshi, polymarket)" }
+            }
+          },
+          "trading_refresh_market_discovery" => {
+            description: "Trigger a fresh Market Discovery run for a venue. Dispatches a background job; results available in ~10 seconds via trading_market_discovery.",
+            parameters: {
+              venue_slug: { type: "string", required: false, description: "Venue slug (kalshi, polymarket). Omit to refresh all venues." }
+            }
+          },
+          "trading_market_arms" => {
+            description: "Read per-market-series win/loss tracking data (Thompson Sampling arms) for a venue. Shows historical performance used to enrich discovery scores.",
+            parameters: {
+              venue_slug: { type: "string", required: true, description: "Venue slug (kalshi, polymarket)" }
+            }
           }
         }
       end
@@ -73,6 +91,9 @@ module Ai
         when "trading_list_price_feeds" then list_price_feeds
         when "trading_market_regime" then market_regime
         when "trading_list_signals" then list_signals(params)
+        when "trading_market_discovery" then market_discovery(params)
+        when "trading_refresh_market_discovery" then refresh_market_discovery(params)
+        when "trading_market_arms" then market_arms(params)
         else error_result("Unknown action: #{params[:action]}")
         end
       rescue ActiveRecord::RecordNotFound => e
@@ -212,6 +233,77 @@ module Ai
           signals: scope.order(created_at: :desc).limit(limit).map { |s| serialize_signal(s) },
           count: scope.count
         })
+      end
+
+      def market_discovery(params)
+        venue_slug = params[:venue_slug]
+        return error_result("venue_slug is required") unless venue_slug.present?
+
+        redis = Powernode::Redis.new_worker_client
+        key = "trading:market_discovery:#{venue_slug}"
+        meta_key = "#{key}:meta"
+
+        raw = redis.get(key)
+        meta = redis.get(meta_key)
+
+        markets = raw ? JSON.parse(raw) : []
+        meta_data = meta ? JSON.parse(meta) : {}
+
+        # Enrich with Thompson Sampling arms from Postgres
+        arms = ::Trading::MarketArmTracker.read_arms(account, venue_slug)
+        markets.each do |m|
+          series = m["series"]
+          m["arms"] = arms[series] if series && arms[series]
+        end
+
+        success_result({
+          venue_slug: venue_slug,
+          markets: markets,
+          market_count: markets.size,
+          meta: meta_data,
+          arms_count: arms.size
+        })
+      rescue StandardError => e
+        error_result("Market discovery read failed: #{e.message}")
+      end
+
+      def refresh_market_discovery(params)
+        venue_slug = params[:venue_slug]
+
+        if venue_slug.present?
+          WorkerJobService.enqueue_market_discovery(venue_slug)
+        else
+          WorkerJobService.enqueue_market_discovery("kalshi")
+          WorkerJobService.enqueue_market_discovery("polymarket")
+        end
+
+        success_result({
+          dispatched: true,
+          venue_slug: venue_slug || "all",
+          message: "Market discovery job dispatched. Results available in ~10 seconds via trading_market_discovery."
+        })
+      rescue WorkerJobService::WorkerServiceError => e
+        error_result("Failed to dispatch discovery job: #{e.message}")
+      end
+
+      def market_arms(params)
+        venue_slug = params[:venue_slug]
+        return error_result("venue_slug is required") unless venue_slug.present?
+
+        arms = ::Trading::MarketArmTracker.read_arms(account, venue_slug)
+
+        # Enrich with Thompson Sampling scores
+        enriched = arms.transform_values do |arm|
+          arm.merge("thompson_score" => ::Trading::MarketArmTracker.thompson_score(arm).round(4))
+        end
+
+        success_result({
+          venue_slug: venue_slug,
+          arms: enriched,
+          arms_count: enriched.size
+        })
+      rescue StandardError => e
+        error_result("Market arms read failed: #{e.message}")
       end
 
       def serialize_venue(venue)
