@@ -664,7 +664,8 @@ class WorkerJobService
         "arms" => arms,
         "excluded_markets" => pool&.data&.dig("trading", "intelligence", "market_excluded") || {},
         "target_categories" => pool&.data&.dig("trading", "target_categories") || [],
-        "discovery_thresholds" => pool&.data&.dig("trading", "discovery_thresholds") || {}
+        "discovery_thresholds" => pool&.data&.dig("trading", "discovery_thresholds") || {},
+        "discovery_interval" => pool&.data&.dig("trading", "discovery_interval") || {}
       }
     rescue StandardError => e
       Rails.logger.warn("[WorkerJobService] Failed to build discovery context: #{e.message}")
