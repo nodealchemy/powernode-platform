@@ -90,9 +90,9 @@ module Api
         private
 
         def set_pool
-          @pool = current_account.ai_memory_pools.find(params[:id])
-        rescue ActiveRecord::RecordNotFound
-          render_not_found("Memory Pool")
+          @pool = current_account.ai_memory_pools.find_by(id: params[:id]) ||
+                  current_account.ai_memory_pools.find_by(pool_id: params[:id])
+          render_not_found("Memory Pool") unless @pool
         end
 
         def authorize_read!
