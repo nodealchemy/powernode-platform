@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Brain, Server, Route, AppWindow, Workflow, Activity } from 'lucide-react';
+import { Brain, Server, Route, AppWindow, Workflow, Activity, Database } from 'lucide-react';
 import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { AiProvidersPage as AiProvidersComponent } from '@/features/ai/providers/components/AiProvidersPage';
+import { AiDataSourcesPage as AiDataSourcesComponent } from '@/features/ai/data-sources/components/AiDataSourcesPage';
 import { McpBrowserContent } from '@/pages/app/ai/McpBrowserPage';
 import { ModelRouterContent } from '@/pages/app/ai/ModelRouterPage';
 import { McpAppsContent } from '@/features/ai/mcp-apps';
@@ -12,6 +13,7 @@ import { McpSessionsTab } from '@/features/ai/mcp-server/components/McpSessionsT
 
 const tabs = [
   { id: 'providers', label: 'Providers', icon: <Brain size={16} />, path: '/' },
+  { id: 'data-sources', label: 'Data Sources', icon: <Database size={16} />, path: '/data-sources' },
   { id: 'mcp', label: 'MCP Servers', icon: <Server size={16} />, path: '/mcp' },
   { id: 'model-router', label: 'Model Router', icon: <Route size={16} />, path: '/model-router' },
   { id: 'mcp-apps', label: 'MCP Apps', icon: <AppWindow size={16} />, path: '/mcp-apps' },
@@ -29,6 +31,7 @@ export const InfrastructurePage: React.FC = () => {
     if (path.includes('/infrastructure/mcp-apps')) return 'mcp-apps';
     if (path.includes('/infrastructure/mcp')) return 'mcp';
     if (path.includes('/infrastructure/model-router')) return 'model-router';
+    if (path.includes('/infrastructure/data-sources')) return 'data-sources';
     return 'providers';
   };
 
@@ -85,6 +88,9 @@ export const InfrastructurePage: React.FC = () => {
       >
         <TabPanel tabId="providers" activeTab={activeTab}>
           <AiProvidersComponent onActionsReady={handleActionsReady} />
+        </TabPanel>
+        <TabPanel tabId="data-sources" activeTab={activeTab}>
+          <AiDataSourcesComponent onActionsReady={handleActionsReady} />
         </TabPanel>
         <TabPanel tabId="mcp" activeTab={activeTab}>
           <McpBrowserContent />

@@ -642,3 +642,60 @@ export interface ConversationAnalytics {
     avgParticipants: number;
   };
 }
+
+// AI Data Source System TypeScript Interfaces
+
+export interface AiDataSource {
+  id: string;
+  account_id: string;
+  name: string;
+  slug: string;
+  source_type: string;
+  description: string;
+  api_base_url: string;
+  capabilities: string[];
+  configuration: Record<string, unknown>;
+  rate_limits: Record<string, number>;
+  default_parameters: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  is_active: boolean;
+  requires_auth: boolean;
+  priority_order: number;
+  documentation_url?: string;
+  health_status: 'healthy' | 'degraded' | 'critical' | 'unknown';
+  last_health_check_at?: string;
+  credential_count: number;
+  created_at: string;
+  updated_at: string;
+  credentials?: AiDataSourceCredential[];
+  quota?: DataSourceQuota;
+}
+
+export interface AiDataSourceCredential {
+  id: string;
+  name: string;
+  is_active: boolean;
+  is_default: boolean;
+  expires_at?: string;
+  last_used_at?: string;
+  last_test_at?: string;
+  last_test_status?: 'success' | 'failed';
+  last_error?: string;
+  consecutive_failures: number;
+  success_count: number;
+  failure_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DataSourceQuota {
+  usage: { minute: number; hour: number; day: number; bandwidth_today: number };
+  limits: Record<string, number>;
+  utilization: { minute_pct: number | null; hour_pct: number | null; day_pct: number | null };
+}
+
+export interface DataSourceFilters extends PaginationParams {
+  source_type?: string;
+  search?: string;
+  sort?: 'name' | 'priority' | 'created_at';
+}

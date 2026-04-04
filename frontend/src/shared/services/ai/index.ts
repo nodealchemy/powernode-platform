@@ -55,6 +55,7 @@ import { containerExecutionApi } from '@/shared/services/ai/ContainerExecutionAp
 import { ralphLoopsApi } from '@/shared/services/ai/RalphLoopsApiService';
 import { workspacesApi } from '@/shared/services/ai/WorkspacesApiService';
 import { intelligenceApi } from '@/shared/services/ai/IntelligenceApiService';
+import { dataSourcesApi } from '@/shared/services/ai/DataSourcesApiService';
 
 export { BaseApiService } from '@/shared/services/ai/BaseApiService';
 export type {
@@ -100,6 +101,14 @@ export type {
   ProviderStatistics,
   ConnectionTestResult,
 } from '@/shared/services/ai/ProvidersApiService';
+
+// Re-export Data Sources service
+export { dataSourcesApi };
+export type {
+  DataSourceQueryFilters,
+  CreateDataSourceRequest,
+  CreateDataSourceCredentialRequest,
+} from '@/shared/services/ai/DataSourcesApiService';
 
 // Re-export Monitoring service
 export { monitoringApi };
@@ -536,6 +545,8 @@ export const aiApi = {
   workspaces: workspacesApi,
   // Intelligence (Phase 1-4 AGI: Learning, Coordination, Goals)
   intelligence: intelligenceApi,
+  // Data Sources (External data source management)
+  dataSources: dataSourcesApi,
 } as const;
 
 export default aiApi;
