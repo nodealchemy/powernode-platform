@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_31_200003) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_04_200000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -1761,6 +1761,63 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_31_200003) do
     t.index ["detection_id"], name: "index_ai_data_detections_on_detection_id", unique: true
     t.index ["source_type"], name: "index_ai_data_detections_on_source_type"
     t.check_constraint "action_taken::text = ANY (ARRAY['logged'::character varying::text, 'masked'::character varying::text, 'blocked'::character varying::text, 'encrypted'::character varying::text, 'flagged'::character varying::text])", name: "check_detection_action"
+  end
+
+  create_table "ai_data_source_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "ai_data_source_id", null: false
+    t.integer "consecutive_failures", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.string "encrypted_api_key"
+    t.string "encrypted_api_secret"
+    t.datetime "expires_at", precision: nil
+    t.integer "failure_count", default: 0, null: false
+    t.boolean "is_active", default: true, null: false
+    t.boolean "is_default", default: false, null: false
+    t.string "last_error", limit: 1000
+    t.datetime "last_test_at", precision: nil
+    t.string "last_test_status", limit: 20
+    t.datetime "last_used_at", precision: nil
+    t.string "name", limit: 255, null: false
+    t.jsonb "rate_limits", default: {}, null: false
+    t.integer "success_count", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.jsonb "usage_stats", default: {}, null: false
+    t.index ["account_id", "ai_data_source_id", "is_default"], name: "index_ai_data_source_credentials_unique_default", unique: true, where: "(is_default = true)"
+    t.index ["account_id", "ai_data_source_id"], name: "idx_on_account_id_ai_data_source_id_e1834b7823"
+    t.index ["account_id"], name: "index_ai_data_source_credentials_on_account_id"
+    t.index ["ai_data_source_id"], name: "index_ai_data_source_credentials_on_ai_data_source_id"
+    t.index ["consecutive_failures"], name: "index_ai_data_source_credentials_on_consecutive_failures"
+    t.index ["is_active"], name: "index_ai_data_source_credentials_on_is_active"
+  end
+
+  create_table "ai_data_sources", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "api_base_url", limit: 500
+    t.jsonb "capabilities", default: [], null: false
+    t.jsonb "configuration", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.jsonb "default_parameters", default: {}, null: false
+    t.text "description"
+    t.string "documentation_url", limit: 500
+    t.string "health_status", limit: 20, default: "unknown"
+    t.boolean "is_active", default: true, null: false
+    t.datetime "last_health_check_at", precision: nil
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", limit: 255, null: false
+    t.integer "priority_order", default: 1000, null: false
+    t.jsonb "rate_limits", default: {}, null: false
+    t.boolean "requires_auth", default: false, null: false
+    t.string "slug", limit: 100, null: false
+    t.string "source_type", limit: 50, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "slug"], name: "index_ai_data_sources_unique_slug_per_account", unique: true
+    t.index ["account_id"], name: "index_ai_data_sources_on_account_id"
+    t.index ["capabilities"], name: "index_ai_data_sources_on_capabilities", using: :gin
+    t.index ["is_active"], name: "index_ai_data_sources_on_is_active"
+    t.index ["priority_order"], name: "index_ai_data_sources_on_priority_order"
+    t.index ["source_type", "is_active"], name: "index_ai_data_sources_on_source_type_and_is_active"
+    t.index ["source_type"], name: "index_ai_data_sources_on_source_type"
   end
 
   create_table "ai_delegation_policies", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -10604,7 +10661,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_31_200003) do
     t.index ["parent_session_id"], name: "index_trading_training_sessions_on_parent_session_id"
     t.index ["scheduled_for"], name: "idx_training_sessions_scheduled", where: "((scheduled_for IS NOT NULL) AND ((status)::text = 'scheduled'::text))"
     t.index ["venue_slug"], name: "index_trading_training_sessions_on_venue_slug"
-    t.check_constraint "status::text = ANY (ARRAY['scheduled'::character varying, 'pending'::character varying, 'initializing'::character varying, 'running'::character varying, 'held'::character varying, 'paused'::character varying, 'completed'::character varying, 'completed_with_errors'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])", name: "check_trading_training_sessions_status"
+    t.check_constraint "status::text = ANY (ARRAY['scheduled'::character varying, 'pending'::character varying, 'initializing'::character varying, 'running'::character varying, 'held'::character varying, 'paused'::character varying, 'completed'::character varying, 'completed_with_errors'::character varying, 'analysis'::character varying, 'analyzed'::character varying, 'failed'::character varying, 'cancelled'::character varying]::text[])", name: "check_trading_training_sessions_status"
   end
 
   create_table "trading_venue_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -11189,7 +11246,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_31_200003) do
   add_foreign_key "ai_ab_tests", "users", column: "created_by_id"
   add_foreign_key "ai_account_credits", "accounts"
   add_foreign_key "ai_agent_budgets", "accounts"
-  add_foreign_key "ai_agent_budgets", "ai_agent_budgets", column: "parent_budget_id"
+  add_foreign_key "ai_agent_budgets", "ai_agent_budgets", column: "parent_budget_id", on_delete: :nullify
   add_foreign_key "ai_agent_budgets", "ai_agents", column: "agent_id"
   add_foreign_key "ai_agent_cards", "accounts"
   add_foreign_key "ai_agent_cards", "ai_agents"
@@ -11326,6 +11383,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_31_200003) do
   add_foreign_key "ai_data_connectors", "users", column: "created_by_id"
   add_foreign_key "ai_data_detections", "accounts"
   add_foreign_key "ai_data_detections", "ai_data_classifications", column: "classification_id"
+  add_foreign_key "ai_data_source_credentials", "accounts", on_delete: :cascade
+  add_foreign_key "ai_data_source_credentials", "ai_data_sources", on_delete: :cascade
+  add_foreign_key "ai_data_sources", "accounts", on_delete: :cascade
   add_foreign_key "ai_delegation_policies", "accounts"
   add_foreign_key "ai_delegation_policies", "ai_agents", column: "agent_id"
   add_foreign_key "ai_deployment_risks", "accounts"

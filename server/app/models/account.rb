@@ -16,6 +16,8 @@ class Account < ApplicationRecord
   # AI-related associations
   has_many :ai_providers, class_name: "Ai::Provider", dependent: :destroy
   has_many :ai_provider_credentials, class_name: "Ai::ProviderCredential", dependent: :destroy
+  has_many :ai_data_sources, class_name: "Ai::DataSource", dependent: :destroy
+  has_many :ai_data_source_credentials, class_name: "Ai::DataSourceCredential", dependent: :destroy
   has_many :ai_agents, class_name: "Ai::Agent", dependent: :destroy
   has_many :ai_conversations, class_name: "Ai::Conversation", dependent: :destroy
   has_many :ai_messages, through: :ai_conversations, source: :messages

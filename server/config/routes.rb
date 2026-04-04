@@ -1552,6 +1552,22 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
+        # DATA SOURCES - External data API management (NOAA, Open-Meteo, etc.)
+        # ===================================================================
+        resources :data_sources do
+          member do
+            get :quota_status
+            post :test_connection
+          end
+          resources :credentials, controller: "data_source_credentials" do
+            member do
+              post :test
+              post :make_default
+            end
+          end
+        end
+
+        # ===================================================================
         # 4. GLOBAL CONVERSATIONS CONTROLLER - Cross-agent conversation management
         # ===================================================================
         resources :conversations, only: [ :index, :show, :update, :destroy ] do

@@ -68,6 +68,12 @@ module Permissions
     "ai.providers.delete" => "Delete AI providers",
     "ai.providers.test" => "Test AI provider connections",
 
+    # AI Orchestration - Data Sources
+    "ai.data_sources.read" => "View AI data sources",
+    "ai.data_sources.create" => "Create AI data sources",
+    "ai.data_sources.update" => "Update AI data sources",
+    "ai.data_sources.delete" => "Delete AI data sources",
+
     # AI Orchestration - Credentials
     "ai.credentials.read" => "View AI provider credentials",
     "ai.credentials.create" => "Create AI provider credentials",
@@ -539,7 +545,7 @@ module Permissions
         "audit.read",
         "kb.read",
         # Basic AI permissions
-        "ai.providers.read", "ai.agents.read", "ai.executions.read",
+        "ai.providers.read", "ai.data_sources.read", "ai.agents.read", "ai.executions.read",
         "ai.workflows.read", "ai.workflow_executions.read",
         "ai.conversations.read", "ai.conversations.create", "ai.conversations.participate",
         "ai.messages.read", "ai.messages.create", "ai.templates.read", "ai.templates.install",
@@ -581,6 +587,7 @@ module Permissions
         "ai.providers.read", "ai.providers.create", "ai.providers.update", "ai.providers.delete", "ai.providers.test",
         "ai.credentials.read", "ai.credentials.create", "ai.credentials.update",
         "ai.credentials.delete", "ai.credentials.test",
+        "ai.data_sources.read", "ai.data_sources.create", "ai.data_sources.update", "ai.data_sources.delete",
         "ai.agents.read", "ai.agents.create", "ai.agents.update", "ai.agents.delete",
         "ai.agents.execute", "ai.agents.clone",
         "ai.executions.read", "ai.executions.cancel", "ai.executions.retry",
@@ -791,6 +798,7 @@ module Permissions
         "ai.providers.read", "ai.providers.create", "ai.providers.update", "ai.providers.delete", "ai.providers.test",
         "ai.credentials.read", "ai.credentials.create", "ai.credentials.update",
         "ai.credentials.delete", "ai.credentials.test",
+        "ai.data_sources.read", "ai.data_sources.create", "ai.data_sources.update", "ai.data_sources.delete",
         "ai.agents.read", "ai.agents.create", "ai.agents.update", "ai.agents.delete",
         "ai.agents.execute", "ai.agents.clone",
         "ai.executions.read", "ai.executions.cancel", "ai.executions.retry",

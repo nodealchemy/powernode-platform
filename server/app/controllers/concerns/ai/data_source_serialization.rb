@@ -1,0 +1,78 @@
+# frozen_string_literal: true
+
+module Ai
+  module DataSourceSerialization
+    extend ActiveSupport::Concern
+
+    private
+
+    def serialize_data_source(ds)
+      {
+        id: ds.id,
+        account_id: ds.account_id,
+        name: ds.name,
+        slug: ds.slug,
+        source_type: ds.source_type,
+        is_active: ds.is_active,
+        requires_auth: ds.requires_auth,
+        api_base_url: ds.api_base_url,
+        priority_order: ds.priority_order,
+        capabilities: ds.capabilities,
+        health_status: ds.health_status,
+        last_health_check_at: ds.last_health_check_at&.iso8601,
+        created_at: ds.created_at.iso8601,
+        updated_at: ds.updated_at.iso8601,
+        stats: {
+          credentials_count: ds.credentials.size
+        }
+      }
+    end
+
+    def serialize_data_source_detail(ds)
+      serialize_data_source(ds).merge(
+        description: ds.description,
+        documentation_url: ds.documentation_url,
+        configuration: ds.configuration,
+        default_parameters: ds.default_parameters,
+        rate_limits: ds.rate_limits,
+        metadata: ds.metadata,
+        credentials: ds.credentials.map { |c| serialize_data_source_credential(c) },
+        quota: ds.quota_summary
+      )
+    end
+
+    def serialize_data_source_credential(cred)
+      {
+        id: cred.id,
+        name: cred.name,
+        is_active: cred.is_active,
+        is_default: cred.is_default,
+        expires_at: cred.expires_at&.iso8601,
+        last_used_at: cred.last_used_at&.iso8601,
+        last_test_at: cred.last_test_at&.iso8601,
+        last_test_status: cred.last_test_status,
+        last_error: cred.last_error,
+        created_at: cred.created_at.iso8601,
+        updated_at: cred.updated_at.iso8601,
+        data_source: {
+          id: cred.data_source.id,
+          name: cred.data_source.name,
+          source_type: cred.data_source.source_type
+        },
+        stats: {
+          success_count: cred.success_count,
+          failure_count: cred.failure_count,
+          consecutive_failures: cred.consecutive_failures,
+          success_rate: calculate_data_source_credential_success_rate(cred)
+        }
+      }
+    end
+
+    def calculate_data_source_credential_success_rate(cred)
+      total = cred.success_count + cred.failure_count
+      return 0 if total.zero?
+
+      ((cred.success_count.to_f / total) * 100).round(2)
+    end
+  end
+end
