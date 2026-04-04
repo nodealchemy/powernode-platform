@@ -22,6 +22,7 @@ module Ai
         last_health_check_at: ds.last_health_check_at&.iso8601,
         created_at: ds.created_at.iso8601,
         updated_at: ds.updated_at.iso8601,
+        credential_count: ds.credentials.size,
         stats: {
           credentials_count: ds.credentials.size
         }
