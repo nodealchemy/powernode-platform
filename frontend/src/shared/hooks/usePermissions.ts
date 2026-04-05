@@ -23,8 +23,8 @@ export const usePermissions = () => {
     if (resource && action) {
       // Check for resource wildcard
       if (user.permissions.includes(`${resource}.*`)) return true;
-      // Check for system wildcard
-      if (user.permissions.includes('*.*') || user.permissions.includes('system.*')) {
+      // Check for system wildcard / superuser
+      if (user.permissions.includes('*.*') || user.permissions.includes('system.*') || user.permissions.includes('system.admin')) {
         return true;
       }
     }
