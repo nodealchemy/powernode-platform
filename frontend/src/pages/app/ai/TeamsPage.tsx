@@ -1,51 +1,17 @@
-// Teams Management Page - List/Detail Layout with 5 Consolidated Tabs
-import React, { useState, useEffect, useCallback } from 'react';
+// Teams Management Page — Full-Width Index Table
+import React, { useState } from 'react';
 import { Plus, Users, Play } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Modal } from '@/shared/components/ui/Modal';
-import { useDispatch } from 'react-redux';
-import { addNotification } from '@/shared/services/slices/uiSlice';
-import { AppDispatch } from '@/shared/services';
-import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
-import {
-  teamsApi,
-  Team,
-  TeamRole,
-  TeamChannel,
-  TeamExecution,
-  TeamTemplate,
-  TeamAnalytics
-} from '@/shared/services/ai/TeamsApiService';
-import { TeamListPanel } from '@/features/ai/agent-teams/components/TeamListPanel';
-import { TeamDetailPanel } from '@/features/ai/agent-teams/components/TeamDetailPanel';
-
-interface ApiErrorResponse {
-  response?: { data?: { error?: string } };
-}
-
-function isApiError(error: unknown): error is ApiErrorResponse {
-  return typeof error === 'object' && error !== null && 'response' in error;
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (isApiError(error)) return error.response?.data?.error || fallback;
-  if (error instanceof Error) return error.message;
-  return fallback;
-}
+import { useNotification } from '@/shared/hooks/useNotification';
+import { teamsApi } from '@/shared/services/ai/TeamsApiService';
+import type { Team } from '@/shared/services/ai/TeamsApiService';
+import { TeamsIndexTable } from '@/features/ai/agent-teams/components/TeamsIndexTable';
 
 const TeamsPage: React.FC = () => {
   const { confirm, ConfirmationDialog } = useConfirmation();
-  const dispatch = useDispatch<AppDispatch>();
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
-  const [roles, setRoles] = useState<TeamRole[]>([]);
-  const [channels, setChannels] = useState<TeamChannel[]>([]);
-  const [executions, setExecutions] = useState<TeamExecution[]>([]);
-  const [templates, setTemplates] = useState<TeamTemplate[]>([]);
-  const [teamAnalytics, setTeamAnalytics] = useState<TeamAnalytics | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [periodDays, setPeriodDays] = useState(30);
+  const { showNotification } = useNotification();
 
   // Create team modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -55,124 +21,65 @@ const TeamsPage: React.FC = () => {
 
   // Start execution modal
   const [showExecutionModal, setShowExecutionModal] = useState(false);
+  const [executionTeam, setExecutionTeam] = useState<Team | null>(null);
   const [executionObjective, setExecutionObjective] = useState('');
 
-  useEffect(() => { loadData(); }, []);
-
-  const loadTeamData = useCallback(async (teamId: string) => {
-    try {
-      const [rolesRes, channelsRes, executionsRes, analyticsRes] = await Promise.all([
-        teamsApi.listRoles(teamId),
-        teamsApi.listChannels(teamId),
-        teamsApi.listExecutions(teamId),
-        teamsApi.getTeamAnalytics(teamId, periodDays).catch(() => null)
-      ]);
-      setRoles(rolesRes.roles || []);
-      setChannels(channelsRes.channels || []);
-      setExecutions(executionsRes.executions || []);
-      setTeamAnalytics(analyticsRes);
-    } catch (error) {
-      dispatch(addNotification({ type: 'error', message: getErrorMessage(error, 'Failed to load team details') }));
-    }
-  }, [dispatch, periodDays]);
-
-  useEffect(() => {
-    if (selectedTeam) loadTeamData(selectedTeam.id);
-  }, [selectedTeam, loadTeamData]);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [teamsRes, templatesRes] = await Promise.all([
-        teamsApi.listTeams(),
-        teamsApi.listTemplates()
-      ]);
-      setTeams(teamsRes.teams || []);
-      setTemplates(templatesRes.templates || []);
-      if (teamsRes.teams?.length > 0 && !selectedTeam) setSelectedTeam(teamsRes.teams[0]);
-    } catch (error) {
-      dispatch(addNotification({ type: 'error', message: getErrorMessage(error, 'Failed to load teams data') }));
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Refresh key to trigger table reload
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const handleCreateTeam = async () => {
     if (!newTeamName.trim()) return;
     try {
-      const team = await teamsApi.createTeam({
+      await teamsApi.createTeam({
         name: newTeamName,
         description: newTeamDescription || undefined,
-        team_topology: newTeamTopology as Team['team_topology']
+        team_topology: newTeamTopology as Team['team_topology'],
       });
-      dispatch(addNotification({ type: 'success', message: 'Team created' }));
-      setTeams([...teams, team]);
-      setSelectedTeam(team);
+      showNotification('Team created', 'success');
       setShowCreateModal(false);
       setNewTeamName('');
       setNewTeamDescription('');
-    } catch (error) {
-      dispatch(addNotification({ type: 'error', message: getErrorMessage(error, 'Failed to create team') }));
+      setRefreshKey(prev => prev + 1);
+    } catch {
+      showNotification('Failed to create team', 'error');
     }
   };
 
   const handleDeleteTeam = (teamId: string) => {
-    const teamName = teams.find(t => t.id === teamId)?.name || 'this team';
     confirm({
       title: 'Delete Team',
-      message: `Are you sure you want to delete "${teamName}"? This will permanently remove all roles, channels, and execution history.`,
+      message: 'Are you sure you want to delete this team? This will permanently remove all roles, channels, and execution history.',
       confirmLabel: 'Delete',
       variant: 'danger',
       onConfirm: async () => {
         try {
           await teamsApi.deleteTeam(teamId);
-          dispatch(addNotification({ type: 'success', message: 'Team deleted' }));
-          const remaining = teams.filter(t => t.id !== teamId);
-          setTeams(remaining);
-          if (selectedTeam?.id === teamId) setSelectedTeam(remaining[0] || null);
-        } catch (error) {
-          dispatch(addNotification({ type: 'error', message: getErrorMessage(error, 'Failed to delete team') }));
+          showNotification('Team deleted', 'success');
+          setRefreshKey(prev => prev + 1);
+        } catch {
+          showNotification('Failed to delete team', 'error');
         }
       },
     });
   };
 
   const handleStartExecution = async () => {
-    if (!selectedTeam || !executionObjective.trim()) return;
+    if (!executionTeam || !executionObjective.trim()) return;
     try {
-      const execution = await teamsApi.startExecution(selectedTeam.id, { objective: executionObjective });
-      dispatch(addNotification({ type: 'success', message: 'Execution started' }));
-      setExecutions([execution, ...executions]);
+      await teamsApi.startExecution(executionTeam.id, { objective: executionObjective });
+      showNotification('Execution started', 'success');
       setShowExecutionModal(false);
       setExecutionObjective('');
-    } catch (error) {
-      dispatch(addNotification({ type: 'error', message: getErrorMessage(error, 'Failed to start execution') }));
+      setExecutionTeam(null);
+    } catch {
+      showNotification('Failed to start execution', 'error');
     }
   };
 
-  const handleExecutionAction = async (executionId: string, action: 'pause' | 'resume' | 'cancel') => {
-    try {
-      if (action === 'pause') await teamsApi.pauseExecution(executionId);
-      else if (action === 'resume') await teamsApi.resumeExecution(executionId);
-      else await teamsApi.cancelExecution(executionId, 'Cancelled by user');
-      dispatch(addNotification({ type: 'success', message: `Execution ${action}d` }));
-      if (selectedTeam) loadTeamData(selectedTeam.id);
-    } catch (error) {
-      dispatch(addNotification({ type: 'error', message: getErrorMessage(error, `Failed to ${action} execution`) }));
-    }
+  const handleOpenExecution = (team: Team) => {
+    setExecutionTeam(team);
+    setShowExecutionModal(true);
   };
-
-  const handlePublishTemplate = async (templateId: string) => {
-    try {
-      await teamsApi.publishTemplate(templateId);
-      dispatch(addNotification({ type: 'success', message: 'Template published' }));
-      loadData();
-    } catch (error) {
-      dispatch(addNotification({ type: 'error', message: getErrorMessage(error, 'Failed to publish template') }));
-    }
-  };
-
-  const { refreshAction } = useRefreshAction({ onRefresh: loadData, loading });
 
   return (
     <PageContainer
@@ -181,38 +88,17 @@ const TeamsPage: React.FC = () => {
       breadcrumbs={[
         { label: 'Dashboard', href: '/app' },
         { label: 'AI', href: '/app/ai' },
-        { label: 'Teams' }
+        { label: 'Teams' },
       ]}
       actions={[
-        refreshAction,
-        { id: 'start-execution', label: 'Start Execution', onClick: () => setShowExecutionModal(true), icon: Play, variant: 'secondary' as const, disabled: !selectedTeam },
-        { id: 'create-team', label: 'Create Team', onClick: () => setShowCreateModal(true), icon: Plus, variant: 'primary' as const }
+        { id: 'create-team', label: 'Create Team', onClick: () => setShowCreateModal(true), icon: Plus, variant: 'primary' as const },
       ]}
     >
-      <div className="flex h-[calc(100vh-12rem)]">
-        <TeamListPanel
-          teams={teams}
-          selectedTeam={selectedTeam}
-          onSelectTeam={setSelectedTeam}
-          onCreateClick={() => setShowCreateModal(true)}
-          loading={loading}
-        />
-
-        <TeamDetailPanel
-          team={selectedTeam}
-          roles={roles}
-          channels={channels}
-          executions={executions}
-          templates={templates}
-          teamAnalytics={teamAnalytics}
-          onDeleteTeam={handleDeleteTeam}
-          onStartExecution={() => setShowExecutionModal(true)}
-          onExecutionAction={handleExecutionAction}
-          onPublishTemplate={handlePublishTemplate}
-          onPeriodChange={setPeriodDays}
-          loading={loading}
-        />
-      </div>
+      <TeamsIndexTable
+        onStartExecution={handleOpenExecution}
+        onDeleteTeam={handleDeleteTeam}
+        refreshKey={refreshKey}
+      />
 
       {/* Create Team Modal */}
       <Modal
@@ -253,13 +139,13 @@ const TeamsPage: React.FC = () => {
       {/* Start Execution Modal */}
       <Modal
         isOpen={showExecutionModal}
-        onClose={() => setShowExecutionModal(false)}
+        onClose={() => { setShowExecutionModal(false); setExecutionTeam(null); }}
         title="Start Team Execution"
         maxWidth="md"
         icon={<Play />}
         footer={
           <div className="flex justify-end gap-3">
-            <button onClick={() => setShowExecutionModal(false)} className="btn-theme btn-theme-secondary">Cancel</button>
+            <button onClick={() => { setShowExecutionModal(false); setExecutionTeam(null); }} className="btn-theme btn-theme-secondary">Cancel</button>
             <button onClick={handleStartExecution} disabled={!executionObjective.trim()} className="btn-theme btn-theme-primary">Start</button>
           </div>
         }
@@ -267,7 +153,7 @@ const TeamsPage: React.FC = () => {
         <div className="space-y-4 p-4">
           <div>
             <label className="block text-sm font-medium text-theme-primary mb-1">Team</label>
-            <p className="text-sm text-theme-secondary">{selectedTeam?.name || 'No team selected'}</p>
+            <p className="text-sm text-theme-secondary">{executionTeam?.name || 'No team selected'}</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-theme-primary mb-1">Objective</label>
