@@ -10,6 +10,8 @@ import { ChatWindowProvider } from '@/features/ai/chat/context/ChatWindowContext
 import { ChatWindowRoot } from '@/features/ai/chat/components/ChatWindowRoot';
 import { FloatingChatWidget } from '@/features/ai/chat/components/FloatingChatWidget';
 import { AgentDetailModal } from '@/features/ai/agents/components/AgentDetailModal';
+import { TeamDetailModal } from '@/features/ai/agent-teams/components/TeamDetailModal';
+import { MissionDetailModal } from '@/features/missions/components/MissionDetailModal';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -49,6 +51,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           <FloatingChatWidget />
           <ChatWindowRoot />
           <AgentDetailModal />
+          <TeamDetailModal />
+          <MissionDetailModal />
         </div>
       </ChatWindowProvider>
     </NavigationProvider>
