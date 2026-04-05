@@ -92,7 +92,10 @@ module Api
         # Agent identity is optional — sessions without agents receive MCP notifications only
         def stream
           session = find_mcp_session
-          return head :bad_request unless session
+          unless session
+            render json: { error: "Session not found or expired", error_code: "session_invalid" }, status: :bad_request
+            return
+          end
 
           agent = session.ai_agent
 

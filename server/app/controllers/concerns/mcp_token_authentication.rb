@@ -15,7 +15,7 @@ module McpTokenAuthentication
     token_string = extract_bearer_token
 
     unless token_string.present?
-      render_oauth_unauthorized("No access token provided")
+      render_oauth_unauthorized("No access token provided", error_code: "missing_token")
       return
     end
 
@@ -24,7 +24,7 @@ module McpTokenAuthentication
     if doorkeeper_token&.accessible?
       authenticate_via_doorkeeper_token(doorkeeper_token)
     else
-      render_oauth_unauthorized("Invalid or expired access token")
+      render_oauth_unauthorized("Invalid or expired access token", error_code: "token_invalid")
     end
   end
 
@@ -32,7 +32,7 @@ module McpTokenAuthentication
     user = User.find_by(id: doorkeeper_token.resource_owner_id)
 
     unless user&.active? && user&.account&.active?
-      render_oauth_unauthorized("User or account inactive")
+      render_oauth_unauthorized("User or account inactive", error_code: "user_inactive")
       return
     end
 
@@ -70,13 +70,28 @@ module McpTokenAuthentication
     session.update_columns(oauth_application_id: doorkeeper_token.application_id) if session.oauth_application_id.nil?
   end
 
-  def render_oauth_unauthorized(message)
+  def render_oauth_unauthorized(message, error_code: nil)
     resource_url = "#{request.base_url}#{PROTECTED_RESOURCE_PATH}"
     response.set_header(
       "WWW-Authenticate",
       %(Bearer resource_metadata="#{resource_url}")
     )
-    render json: { error: message }, status: :unauthorized
+    body = { error: message, error_code: error_code }
+
+    # Include session hint so the daemon can distinguish "token expired"
+    # from "session revoked" and choose the right recovery path.
+    session_token = request.headers["Mcp-Session-Id"]
+    if session_token.present? && error_code == "token_invalid"
+      session = McpSession.find_by(session_token: session_token)
+      if session
+        body[:session_status] = session.status
+        body[:session_reactivatable] = session.reactivatable? if session.revoked?
+      else
+        body[:session_status] = "not_found"
+      end
+    end
+
+    render json: body, status: :unauthorized
   end
 
   def extract_bearer_token
