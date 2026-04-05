@@ -8,7 +8,7 @@ export function useMemoryFilters() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const tier = (searchParams.get('tier') as MemoryTier) || 'short_term';
-  const agentId = searchParams.get('agent') || '';
+  const agentId = searchParams.get('memory_agent') || '';
 
   const filters: MemoryFilters = useMemo(() => {
     const f: MemoryFilters = {};
@@ -65,7 +65,7 @@ export function useMemoryFilters() {
     (id: string) => {
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev);
-        next.set('agent', id);
+        next.set('memory_agent', id);
         return next;
       }, { replace: true });
     },
