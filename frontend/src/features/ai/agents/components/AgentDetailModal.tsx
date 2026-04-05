@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Brain,
   MessageSquare,
@@ -12,6 +12,14 @@ import {
   Shield,
   Archive,
 } from 'lucide-react';
+import { useAgentModal } from '@/shared/hooks/useAgentModal';
+import { useAgentDetail } from '../hooks/useAgentDetail';
+import { usePermissions } from '@/shared/hooks/usePermissions';
+import { useNotification } from '@/shared/hooks/useNotification';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
+import { useChatWindow } from '@/features/ai/chat/context/ChatWindowContext';
+import { agentsApi } from '@/shared/services/ai';
+import { Modal } from '@/shared/components/ui/Modal';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/Tabs';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
@@ -22,111 +30,137 @@ import { AgentHistoryTab } from './detail-tabs/AgentHistoryTab';
 import { AgentTeamsTab } from './detail-tabs/AgentTeamsTab';
 import { AgentSkillsTab } from './detail-tabs/AgentSkillsTab';
 import { AgentWorkspacesTab } from './detail-tabs/AgentWorkspacesTab';
+import { EditAgentModal } from './EditAgentModal';
+import { STATUS_CONFIG, AGENT_TYPE_LABELS, TRUST_CONFIG } from '../constants/agentConstants';
 import { cn } from '@/shared/utils/cn';
-import type { AiAgent } from '@/shared/types/ai';
-import type { AgentStats, AgentAnalytics } from '@/shared/services/ai/types/agent-api-types';
 
-const STATUS_CONFIG: Record<AiAgent['status'], {
-  variant: 'success' | 'warning' | 'danger' | 'info' | 'outline';
-  label: string;
-}> = {
-  active: { variant: 'success', label: 'Active' },
-  inactive: { variant: 'outline', label: 'Inactive' },
-  error: { variant: 'danger', label: 'Error' },
-};
+export const AgentDetailModal: React.FC = () => {
+  const { agentId, isOpen, closeAgent } = useAgentModal();
+  const { agent, stats, analytics, loading, error, reload } = useAgentDetail(agentId);
+  const { hasPermission } = usePermissions();
+  const { showNotification } = useNotification();
+  const { openConversationMaximized } = useChatWindow();
+  const { confirm, ConfirmationDialog } = useConfirmation();
 
-const AGENT_TYPE_LABELS: Record<string, string> = {
-  assistant: 'Assistant',
-  code_assistant: 'Code',
-  data_analyst: 'Data',
-  content_generator: 'Content',
-  image_generator: 'Image',
-};
+  const canManage = hasPermission('ai.agents.manage');
 
-const TRUST_CONFIG: Record<string, {
-  variant: 'outline' | 'info' | 'success' | 'primary';
-  label: string;
-  icon?: boolean;
-}> = {
-  supervised: { variant: 'outline', label: 'Supervised', icon: true },
-  monitored: { variant: 'info', label: 'Monitored' },
-  trusted: { variant: 'success', label: 'Trusted' },
-  autonomous: { variant: 'primary', label: 'Autonomous' },
-};
+  const [activeDetailTab, setActiveDetailTab] = useState('config');
+  const [showEditModal, setShowEditModal] = useState(false);
 
-interface AgentDetailPanelProps {
-  agent: AiAgent | null;
-  stats: AgentStats | null;
-  analytics: AgentAnalytics | null;
-  loading: boolean;
-  error: string | null;
-  activeTab: string;
-  onActiveTabChange: (tab: string) => void;
-  onChat: () => void;
-  onEdit: () => void;
-  onClone: () => void;
-  onToggleStatus: () => void;
-  onDelete: () => void;
-  onArchive: () => void;
-  canManage: boolean;
-}
+  // Reset tab when agent changes
+  useEffect(() => {
+    setActiveDetailTab('config');
+  }, [agentId]);
 
-export const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({
-  agent,
-  stats,
-  analytics,
-  loading,
-  error,
-  activeTab,
-  onActiveTabChange,
-  onChat,
-  onEdit,
-  onClone,
-  onToggleStatus,
-  onDelete,
-  onArchive,
-  canManage,
-}) => {
-  // Empty state
-  if (!agent && !loading && !error) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center">
-          <Brain className="w-12 h-12 text-theme-tertiary mx-auto mb-3" />
-          <p className="text-sm text-theme-secondary">Select an agent to view details</p>
-        </div>
-      </div>
-    );
-  }
+  // --- Action handlers ---
 
-  // Loading state
-  if (loading && !agent) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <Loader2 className="w-6 h-6 text-theme-secondary animate-spin" />
-      </div>
-    );
-  }
+  const handleChat = useCallback(() => {
+    if (agent) {
+      openConversationMaximized(agent.id, agent.name);
+    }
+  }, [agent, openConversationMaximized]);
 
-  // Error state
-  if (error && !agent) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <p className="text-sm text-theme-error">{error}</p>
-      </div>
-    );
-  }
+  const handleClone = useCallback(async () => {
+    if (!agent) return;
+    try {
+      const cloned = await agentsApi.cloneAgent(agent.id);
+      showNotification(`Cloned as "${cloned.name}"`, 'success');
+      reload();
+    } catch {
+      showNotification('Failed to clone agent', 'error');
+    }
+  }, [agent, reload, showNotification]);
 
-  if (!agent) return null;
+  const handleEdit = useCallback(() => {
+    setShowEditModal(true);
+  }, []);
 
-  const status = STATUS_CONFIG[agent.status] || STATUS_CONFIG.inactive;
-  const successRate = stats?.success_rate ?? agent.execution_stats?.success_rate ?? 0;
-  const trustLevel = (agent as { trust_level?: string }).trust_level;
+  const handleToggleStatus = useCallback(async () => {
+    if (!agent) return;
+    try {
+      if (agent.status === 'active') {
+        await agentsApi.pauseAgent(agent.id);
+        showNotification(`${agent.name} paused`, 'success');
+      } else {
+        await agentsApi.resumeAgent(agent.id);
+        showNotification(`${agent.name} resumed`, 'success');
+      }
+      reload();
+    } catch {
+      showNotification('Failed to update agent status', 'error');
+    }
+  }, [agent, reload, showNotification]);
+
+  const handleArchive = useCallback(async () => {
+    if (!agent) return;
+    try {
+      await agentsApi.archiveAgent(agent.id);
+      showNotification(`${agent.name} archived`, 'success');
+      closeAgent();
+    } catch {
+      showNotification('Failed to archive agent', 'error');
+    }
+  }, [agent, closeAgent, showNotification]);
+
+  const handleDelete = useCallback(() => {
+    if (!agent) return;
+    confirm({
+      title: 'Delete Agent',
+      message: `Are you sure you want to delete "${agent.name}"? This action cannot be undone.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        await agentsApi.deleteAgent(agent.id);
+        showNotification(`${agent.name} deleted`, 'success');
+        closeAgent();
+      },
+    });
+  }, [agent, confirm, closeAgent, showNotification]);
+
+  const handleAgentUpdated = useCallback(() => {
+    setShowEditModal(false);
+    reload();
+  }, [reload]);
+
+  const handleAgentDeleted = useCallback(() => {
+    setShowEditModal(false);
+    closeAgent();
+  }, [closeAgent]);
+
+  // --- Derived data ---
+
+  const status = agent ? (STATUS_CONFIG[agent.status] || STATUS_CONFIG.inactive) : null;
+  const successRate = stats?.success_rate ?? agent?.execution_stats?.success_rate ?? 0;
+  const trustLevel = agent ? (agent as { trust_level?: string }).trust_level : undefined;
   const trustConfig = trustLevel ? TRUST_CONFIG[trustLevel] : undefined;
-  const version = (agent as { mcp_tool_manifest?: { version?: string } }).mcp_tool_manifest?.version;
+  const version = agent
+    ? (agent as { mcp_tool_manifest?: { version?: string } }).mcp_tool_manifest?.version
+    : undefined;
 
-  return (
-    <div className="flex-1 overflow-y-auto p-6">
+  // --- Modal content ---
+
+  const renderContent = () => {
+    // Loading state
+    if (loading && !agent) {
+      return (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-6 h-6 text-theme-secondary animate-spin" />
+        </div>
+      );
+    }
+
+    // Error state
+    if (error && !agent) {
+      return (
+        <div className="flex items-center justify-center py-20">
+          <p className="text-sm text-theme-error">{error}</p>
+        </div>
+      );
+    }
+
+    if (!agent || !status) return null;
+
+    return (
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-start justify-between">
@@ -161,24 +195,24 @@ export const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({
 
           {/* Action buttons */}
           <div className="flex items-center gap-1.5">
-            <Button variant="outline" size="sm" onClick={onChat}>
+            <Button variant="outline" size="sm" onClick={handleChat}>
               <MessageSquare className="h-3.5 w-3.5 mr-1" />
               Chat
             </Button>
             {canManage && (
               <>
-                <Button variant="outline" size="sm" onClick={onClone} title="Clone agent">
+                <Button variant="outline" size="sm" onClick={handleClone} title="Clone agent">
                   <Copy className="h-3.5 w-3.5 mr-1" />
                   Clone
                 </Button>
-                <Button variant="ghost" size="sm" onClick={onEdit}>
+                <Button variant="outline" size="sm" onClick={handleEdit}>
                   <Settings className="h-3.5 w-3.5 mr-1" />
                   Edit
                 </Button>
                 <Button
                   variant={agent.status === 'active' ? 'warning' : 'success'}
                   size="sm"
-                  onClick={onToggleStatus}
+                  onClick={handleToggleStatus}
                 >
                   {agent.status === 'active'
                     ? <><Pause className="h-3.5 w-3.5 mr-1" />Pause</>
@@ -192,8 +226,8 @@ export const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({
                     </Button>
                   }
                   items={[
-                    { icon: Archive, label: 'Archive', onClick: onArchive },
-                    { icon: Trash2, label: 'Delete', onClick: onDelete, danger: true },
+                    { icon: Archive, label: 'Archive', onClick: handleArchive },
+                    { icon: Trash2, label: 'Delete', onClick: handleDelete, danger: true },
                   ]}
                   align="right"
                   width="w-40"
@@ -271,7 +305,7 @@ export const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({
         {stats && stats.total_executions > 0 && <AgentDetailStatsCards stats={stats} />}
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={onActiveTabChange}>
+        <Tabs value={activeDetailTab} onValueChange={setActiveDetailTab}>
           <TabsList>
             <TabsTrigger value="config">Config</TabsTrigger>
             <TabsTrigger value="history">History</TabsTrigger>
@@ -301,6 +335,31 @@ export const AgentDetailPanel: React.FC<AgentDetailPanelProps> = ({
           </TabsContent>
         </Tabs>
       </div>
-    </div>
+    );
+  };
+
+  return (
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={closeAgent}
+        title=""
+        maxWidth="5xl"
+        variant="centered"
+        disableContentScroll
+      >
+        {renderContent()}
+      </Modal>
+
+      <EditAgentModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        agent={agent}
+        onAgentUpdated={handleAgentUpdated}
+        onAgentDeleted={handleAgentDeleted}
+      />
+
+      {ConfirmationDialog}
+    </>
   );
 };

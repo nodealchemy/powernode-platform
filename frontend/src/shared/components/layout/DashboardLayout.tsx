@@ -9,6 +9,7 @@ import { ImpersonationBanner } from '@/features/admin/components/ImpersonationBa
 import { ChatWindowProvider } from '@/features/ai/chat/context/ChatWindowContext';
 import { ChatWindowRoot } from '@/features/ai/chat/components/ChatWindowRoot';
 import { FloatingChatWidget } from '@/features/ai/chat/components/FloatingChatWidget';
+import { AgentDetailModal } from '@/features/ai/agents/components/AgentDetailModal';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -47,6 +48,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
 
           <FloatingChatWidget />
           <ChatWindowRoot />
+          <AgentDetailModal />
         </div>
       </ChatWindowProvider>
     </NavigationProvider>

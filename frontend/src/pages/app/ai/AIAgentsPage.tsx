@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
-  Plus, LayoutDashboard, Brain, CreditCard, ArrowLeft, Globe, Shield,
+  Plus, Brain, CreditCard, ArrowLeft, Globe, Shield,
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { TeamBuilderModal } from '@/features/ai/agent-teams/components/TeamBuilderModal';
 import { ExecuteTeamModal } from '@/features/ai/agent-teams/components/ExecuteTeamModal';
 import { CreateAgentModal } from '@/features/ai/agents/components/CreateAgentModal';
-import { AgentsOverviewTab } from '@/features/ai/agents/components/tabs/AgentsOverviewTab';
-import { AgentsSplitPanel } from '@/features/ai/agents/components/AgentsSplitPanel';
+import { ExpandableStatsHeader } from '@/features/ai/agents/components/ExpandableStatsHeader';
+import { AgentsIndexTable } from '@/features/ai/agents/components/AgentsIndexTable';
 import { CardsTab } from '@/features/ai/agents/components/tabs/CardsTab';
 import { CommunityAgentsContent } from '@/features/ai/community-agents/pages/CommunityAgentsPage';
 import { AutonomyContent } from '@/features/ai/autonomy/pages/AutonomyDashboardPage';
@@ -20,8 +20,7 @@ import { usePermissions } from '@/shared/hooks/usePermissions';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 
 const tabs = [
-  { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={16} />, path: '/' },
-  { id: 'agents', label: 'Agents', icon: <Brain size={16} />, path: '/list' },
+  { id: 'agents', label: 'Agents', icon: <Brain size={16} />, path: '/' },
   { id: 'cards', label: 'Cards', icon: <CreditCard size={16} />, path: '/cards' },
   { id: 'community', label: 'Community', icon: <Globe size={16} />, path: '/community' },
   { id: 'autonomy', label: 'Autonomy', icon: <Shield size={16} />, path: '/autonomy' },
@@ -33,12 +32,12 @@ export const AIAgentsPage: React.FC = () => {
 
   const canCreateAgents = hasPermission('ai.agents.create');
 
-  // Hooks — agentsList still needed for overview tab stats
+  // Hooks — agentsList still needed for header stats
   const agentsList = useAgentsList();
   const teamsList = useTeamsList();
   const agentCards = useAgentCards();
 
-  // Local modal state — only for overview tab's create modal
+  // Local modal state
   const [showCreateAgentModal, setShowCreateAgentModal] = useState(false);
 
   // Tab routing
@@ -46,9 +45,8 @@ export const AIAgentsPage: React.FC = () => {
     const path = location.pathname;
     if (path.includes('/agents/community')) return 'community';
     if (path.includes('/agents/autonomy')) return 'autonomy';
-    if (path.includes('/agents/list')) return 'agents';
     if (path.includes('/agents/cards')) return 'cards';
-    return 'overview';
+    return 'agents';
   };
 
   const [activeTab, setActiveTab] = useState(getActiveTab());
@@ -78,7 +76,7 @@ export const AIAgentsPage: React.FC = () => {
     loading: agentsList.agentsLoading || teamsList.teamsLoading,
   });
 
-  // Agent created from overview tab
+  // Agent created
   const handleAgentCreated = () => {
     setShowCreateAgentModal(false);
     agentsList.loadAgents();
@@ -90,14 +88,11 @@ export const AIAgentsPage: React.FC = () => {
       { label: 'Dashboard', href: '/app' },
       { label: 'AI', href: '/app/ai' },
     ];
-    const activeTabInfo = tabs.find(t => t.id === activeTab);
-    if (activeTab === 'overview') {
+    if (activeTab === 'agents') {
       base.push({ label: 'Agents' });
-    } else if (activeTab === 'cards') {
-      base.push({ label: 'Agents', href: '/app/ai/agents' });
-      base.push({ label: 'Agent Cards' });
     } else {
       base.push({ label: 'Agents', href: '/app/ai/agents' });
+      const activeTabInfo = tabs.find(t => t.id === activeTab);
       if (activeTabInfo) {
         base.push({ label: activeTabInfo.label });
       }
@@ -105,7 +100,7 @@ export const AIAgentsPage: React.FC = () => {
     return base;
   };
 
-  // Page actions — "Create Agent" only shown on overview tab (split panel has its own)
+  // Page actions
   const pageActions = [
     refreshAction,
     ...(activeTab === 'cards' && agentCards.cardViewMode !== 'list' ? [{
@@ -122,7 +117,7 @@ export const AIAgentsPage: React.FC = () => {
       variant: 'primary' as const,
       icon: Plus,
     }] : []),
-    ...(activeTab === 'overview' && canCreateAgents ? [{
+    ...(activeTab === 'agents' && canCreateAgents ? [{
       id: 'create-agent',
       label: 'Create Agent',
       onClick: () => setShowCreateAgentModal(true),
@@ -138,6 +133,12 @@ export const AIAgentsPage: React.FC = () => {
       breadcrumbs={getBreadcrumbs()}
       actions={pageActions}
     >
+      <ExpandableStatsHeader
+        agentStats={agentsList.agentStats}
+        teamStats={teamsList.teamStats}
+        loading={agentsList.agentsLoading}
+      />
+
       <TabContainer
         tabs={tabs}
         activeTab={activeTab}
@@ -146,12 +147,8 @@ export const AIAgentsPage: React.FC = () => {
         variant="underline"
         className="mb-6"
       >
-        <TabPanel tabId="overview" activeTab={activeTab}>
-          <AgentsOverviewTab agentStats={agentsList.agentStats} teamStats={teamsList.teamStats} />
-        </TabPanel>
-
         <TabPanel tabId="agents" activeTab={activeTab}>
-          <AgentsSplitPanel />
+          <AgentsIndexTable />
         </TabPanel>
 
         <TabPanel tabId="cards" activeTab={activeTab}>
@@ -192,7 +189,7 @@ export const AIAgentsPage: React.FC = () => {
         onExecute={teamsList.handleExecuteTeam}
       />
 
-      {/* Create Agent Modal — only for overview tab */}
+      {/* Create Agent Modal */}
       <CreateAgentModal
         isOpen={showCreateAgentModal}
         onClose={() => setShowCreateAgentModal(false)}

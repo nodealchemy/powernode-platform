@@ -352,7 +352,6 @@ const DashboardPage: React.FC = () => {
 
         {/* AI Pages - Primary navigation */}
         <Route path="/ai" element={<AIOverviewPage />} />
-        <Route path="/ai/agents/list" element={<AIAgentsPage />} />
         <Route path="/ai/agents/cards" element={<AIAgentsPage />} />
         <Route path="/ai/agents/marketplace" element={<AIAgentsPage />} />
         <Route path="/ai/agents/community" element={<AIAgentsPage />} />
