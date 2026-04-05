@@ -144,8 +144,9 @@ sys.exit(1)
 _CURL_PID=""
 
 MAX_INBOX_LINES=100
-TOKEN_REFRESH_INTERVAL=1800  # 30 minutes
+TOKEN_REFRESH_INTERVAL=1800  # 30 minutes (fallback when TTL unknown)
 MAX_BACKOFF=30
+MAX_AUTH_BACKOFF=120  # longer backoff for auth failures (credentials stale)
 NUDGE_COOLDOWN=10  # seconds between tmux nudges (prevents spam)
 SSE_READ_TIMEOUT=90  # seconds — server pings every 30s; 3 missed pings = stale connection
 
@@ -333,6 +334,32 @@ RUBY
   fi
 }
 
+# Returns seconds until token expiry (0 if expired, empty string if unknown)
+_token_ttl_remaining() {
+  if _is_remote; then
+    python3 -c "
+import json, sys, time
+with open(sys.argv[1]) as f:
+    d = json.load(f)
+for key, val in d.get('mcpOAuth', {}).items():
+    if key.startswith('powernode'):
+        expires_ms = val.get('expiresAt', 0)
+        remaining = (expires_ms / 1000.0) - time.time()
+        print(int(max(remaining, 0)))
+        sys.exit(0)
+sys.exit(1)
+" "$CC_CREDENTIALS" 2>/dev/null
+  else
+    # Local mode: estimate from token file age (tokens last 7200s)
+    if [[ -f "$TOKEN_FILE" ]]; then
+      local age
+      age=$(( $(date +%s) - $(stat -c%Y "$TOKEN_FILE") ))
+      local remaining=$(( 7200 - age ))
+      echo $(( remaining > 0 ? remaining : 0 ))
+    fi
+  fi
+}
+
 get_token() {
   # Remote mode: always read fresh from credentials (avoids stale tokens after OAuth rotation)
   if _is_remote; then
@@ -391,11 +418,23 @@ ensure_session() {
     local discover_payload='{"jsonrpc":"2.0","id":"discover-1","method":"session/discover","params":{}}'
     local discover_response
     discover_response=$(curl -sS -X POST \
+      -w '\n%{http_code}' \
       -H "Authorization: Bearer $token" \
       -H "Content-Type: application/json" \
       -H "Accept: application/json" \
       -d "$discover_payload" \
       "$SSE_ENDPOINT" 2>>"$LOG_FILE") || { log "ERROR: session/discover request failed"; return 1; }
+
+    # Extract HTTP status from last line (appended by -w)
+    local discover_status
+    discover_status=$(echo "$discover_response" | tail -1)
+    discover_response=$(echo "$discover_response" | sed '$d')
+
+    if [[ "$discover_status" == "401" ]]; then
+      log "AUTH FAILURE during session discovery — token is stale"
+      rm -f "$TOKEN_FILE"
+      return 2
+    fi
 
     local picked
     picked=$(_pick_unclaimed_session "$discover_response" "${_PREFERRED_SESSION:-}") || {
@@ -454,11 +493,23 @@ ensure_session() {
     local discover_payload='{"jsonrpc":"2.0","id":"discover-pi","method":"session/discover","params":{}}'
     local discover_response
     discover_response=$(curl -sS -X POST \
+      -w '\n%{http_code}' \
       -H "Authorization: Bearer $token" \
       -H "Content-Type: application/json" \
       -H "Accept: application/json" \
       -d "$discover_payload" \
       "$SSE_ENDPOINT" 2>>"$LOG_FILE") || { log "ERROR: session/discover request failed"; return 1; }
+
+    # Extract HTTP status from last line (appended by -w)
+    local discover_status
+    discover_status=$(echo "$discover_response" | tail -1)
+    discover_response=$(echo "$discover_response" | sed '$d')
+
+    if [[ "$discover_status" == "401" ]]; then
+      log "AUTH FAILURE during per-instance session discovery — token is stale"
+      rm -f "$TOKEN_FILE"
+      return 2
+    fi
 
     local picked
     picked=$(_pick_unclaimed_session "$discover_response" "${_PREFERRED_SESSION:-}") || {
@@ -777,11 +828,16 @@ run_sse_loop() {
 
   log "Connecting to SSE: $SSE_ENDPOINT (session: ${session_id:0:12}...)"
 
+  # Dump response headers to a temp file so we can detect 401/400 before
+  # entering the SSE read loop. Without this, auth failures look identical
+  # to network timeouts (both cause read EOF).
+  local headers_file="/tmp/powernode_sse_headers_${INSTANCE_ID:-shared}.txt"
+  rm -f "$headers_file"
+
   # Start curl in background via process substitution, capture its PID.
-  # This allows _kill_orphan_curls to kill only THIS daemon's curl — not
-  # other instances' connections (which caused cascading disconnects).
   exec 3< <(curl -sS -N \
     --max-time 0 \
+    -D "$headers_file" \
     -H "Authorization: Bearer $token" \
     -H "Mcp-Session-Id: $session_id" \
     -H "Accept: text/event-stream" \
@@ -789,11 +845,53 @@ run_sse_loop() {
     "$SSE_ENDPOINT" 2>>"$LOG_FILE")
   _CURL_PID=$!
 
+  # Wait for headers to arrive (401 responses arrive in ~50ms, 200 in ~100ms)
+  local header_wait=0
+  while [[ ! -s "$headers_file" ]] && (( header_wait < 15 )); do
+    sleep 0.1
+    header_wait=$((header_wait + 1))
+  done
+
+  # Check HTTP status from response headers
+  local http_status=""
+  if [[ -s "$headers_file" ]]; then
+    http_status=$(grep -oP 'HTTP/\S+\s+\K\d+' "$headers_file" | tail -1)
+  fi
+  rm -f "$headers_file"
+
+  # Handle auth/session failures immediately — don't enter read loop
+  if [[ "$http_status" == "401" ]]; then
+    local error_body=""
+    read -t 2 -r error_body <&3 || true
+    exec 3<&-
+    _kill_orphan_curls
+
+    local error_code=""
+    error_code=$(echo "$error_body" | python3 -c "import sys,json; print(json.load(sys.stdin).get('error_code',''))" 2>/dev/null) || true
+
+    log "AUTH FAILURE (401): error_code=$error_code body=$error_body"
+
+    case "$error_code" in
+      user_inactive) return 4 ;;
+      *)             return 2 ;;  # token_invalid, missing_token, or unknown
+    esac
+  fi
+
+  if [[ "$http_status" == "400" ]]; then
+    local error_body=""
+    read -t 2 -r error_body <&3 || true
+    exec 3<&-
+    _kill_orphan_curls
+    log "SESSION FAILURE (400): $error_body"
+    return 3
+  fi
+
+  # Status is 200 (or unknown for slow responses) — enter SSE read loop
   {
     set +eo pipefail  # Disable errexit — process_sse_event may fail non-fatally
     local current_event="" current_data=""
 
-    log "SSE read loop started (read timeout: ${SSE_READ_TIMEOUT}s, curl PID: $_CURL_PID)"
+    log "SSE read loop started (HTTP $http_status, read timeout: ${SSE_READ_TIMEOUT}s, curl PID: $_CURL_PID)"
 
     while IFS= read -t "$SSE_READ_TIMEOUT" -r line; do
       line="${line%$'\r'}"
@@ -818,12 +916,11 @@ run_sse_loop() {
     log "SSE read loop exited (read timeout or EOF)"
   } <&3
   exec 3<&-
-  local exit_code=$?
 
   # Kill only THIS daemon's curl process — not other instances' connections.
   _kill_orphan_curls
 
-  log "SSE connection closed (exit: $exit_code) — will reconnect"
+  log "SSE connection closed — will reconnect"
   return 1
 }
 
@@ -853,6 +950,7 @@ _run_daemon_loop() {
   local _PREFERRED_SESSION=""
   local _DIRECT_RETRY=0
   local backoff=1
+  local auth_backoff=5
   local last_token_refresh
   last_token_refresh=$(date +%s)
 
@@ -869,71 +967,146 @@ _run_daemon_loop() {
       continue
     fi
 
-    # Periodic token refresh
+    # Proactive token refresh: refresh before expiry instead of only after failure.
+    # Uses TTL-aware scheduling when expiry is known, falls back to fixed interval.
     local now
     now=$(date +%s)
-    if (( now - last_token_refresh > TOKEN_REFRESH_INTERVAL )); then
-      log "Periodic token refresh..."
+    local ttl_remaining
+    ttl_remaining=$(_token_ttl_remaining 2>/dev/null) || ttl_remaining=""
+
+    local should_refresh=false
+    if [[ -n "$ttl_remaining" && "$ttl_remaining" -ge 0 ]] 2>/dev/null; then
+      # Refresh at 25% remaining life, capped at 30 min (don't refresh 6h early for 24h dev tokens)
+      local refresh_threshold=$(( ttl_remaining < 1800 ? ttl_remaining : 1800 ))
+      if (( ttl_remaining <= refresh_threshold && ttl_remaining < 7200 )); then
+        should_refresh=true
+        log "Proactive token refresh: ${ttl_remaining}s remaining"
+      fi
+    elif (( now - last_token_refresh > TOKEN_REFRESH_INTERVAL )); then
+      should_refresh=true
+      log "Periodic token refresh (${TOKEN_REFRESH_INTERVAL}s interval)..."
+    fi
+
+    if [[ "$should_refresh" == true ]]; then
       if refresh_token; then
         last_token_refresh=$now
         backoff=1
+        auth_backoff=5
       fi
     fi
 
     # Ensure session is valid
-    ensure_session || { sleep "$backoff"; continue; }
+    ensure_session
+    local session_exit=$?
+    if [[ "$session_exit" -eq 2 ]]; then
+      # Auth failure during session discovery — refresh token and retry
+      log "Auth failure during session discovery — refreshing token..."
+      rm -f "$TOKEN_FILE"
+      refresh_token || true
+      last_token_refresh=$(date +%s)
+      sleep 5
+      continue
+    elif [[ "$session_exit" -ne 0 ]]; then
+      sleep "$backoff"
+      continue
+    fi
 
     # Run SSE connection (blocks until disconnect)
-    if run_sse_loop; then
-      backoff=1
-      _DIRECT_RETRY=0  # Reset direct reconnect counter on success
-    else
-      # After SSE disconnect, refresh token immediately instead of waiting
-      # for the 30-minute periodic interval — the disconnect may be caused
-      # by an expired token.
-      log "SSE disconnected — refreshing token before reconnect..."
-      if refresh_token; then
-        last_token_refresh=$(date +%s)
-        backoff=1  # Fresh token — reconnect quickly
-        log "Token refreshed successfully after disconnect"
-      else
-        log "Token refresh failed — will retry on next iteration"
-      fi
+    # Return codes: 0=success, 1=network, 2=auth failure, 3=session invalid, 4=user inactive
+    run_sse_loop
+    local sse_exit=$?
 
-      # If SIGHUP triggered this disconnect, skip backoff and reconnect immediately
-      if [[ "$_RELOAD_REQUESTED" -eq 1 ]]; then
-        _RELOAD_REQUESTED=0
-        log "Reload requested — reconnecting immediately with fresh channels..."
+    case "$sse_exit" in
+      0)
+        # Clean exit
         backoff=1
+        auth_backoff=5
         _DIRECT_RETRY=0
+        ;;
+
+      2)
+        # AUTH FAILURE (401): token invalid/expired.
+        # Clear everything and rediscover — don't waste retries with stale credentials.
+        log "Auth recovery — invalidating token and session, rediscovering..."
+        rm -f "$TOKEN_FILE" "$SESSION_FILE"
+        _DIRECT_RETRY=0
+        _PREFERRED_SESSION=""
+
+        if refresh_token; then
+          last_token_refresh=$(date +%s)
+          auth_backoff=5  # Reset auth backoff on successful refresh
+          log "Token refreshed after auth failure — rediscovering session..."
+          sleep 5
+        else
+          log "Token refresh also failed — credentials may be stale. Manual /mcp may be needed."
+          sleep "$auth_backoff"
+          auth_backoff=$(( auth_backoff * 2 ))
+          (( auth_backoff > MAX_AUTH_BACKOFF )) && auth_backoff=$MAX_AUTH_BACKOFF
+        fi
         continue
-      fi
+        ;;
 
-      # Try direct reconnect with our known session first — the server will
-      # reactivate the revoked session automatically when it receives the SSE
-      # GET request. This avoids the TOCTOU race where multiple daemons all
-      # delete their session files and call session/discover simultaneously,
-      # potentially grabbing the same session.
-      _PREFERRED_SESSION=$(cat "$SESSION_FILE" 2>/dev/null) || true
-      _DIRECT_RETRY=$(( ${_DIRECT_RETRY:-0} + 1 ))
+      3)
+        # SESSION FAILURE (400): session not found or expired.
+        # Token may still be good — just need a new session.
+        log "Session invalid — clearing for rediscovery..."
+        rm -f "$SESSION_FILE"
+        _DIRECT_RETRY=0
+        _PREFERRED_SESSION=""
+        refresh_token || true
+        last_token_refresh=$(date +%s)
+        sleep 2
+        continue
+        ;;
 
-      if [[ -n "$_PREFERRED_SESSION" && $_DIRECT_RETRY -le 3 ]]; then
-        log "Direct reconnect attempt $_DIRECT_RETRY/3 with ${_PREFERRED_SESSION:0:12}..."
-        # Keep session file intact — run_sse_loop will use the existing session
+      4)
+        # USER INACTIVE: manual intervention required.
+        log "CRITICAL: User or account inactive — cannot auto-recover. Run /mcp to re-authenticate."
+        sleep 120
+        continue
+        ;;
+
+      1|*)
+        # NETWORK FAILURE: existing reconnection logic.
+        log "SSE disconnected (network) — refreshing token before reconnect..."
+        if refresh_token; then
+          last_token_refresh=$(date +%s)
+          backoff=1
+          log "Token refreshed successfully after disconnect"
+        else
+          log "Token refresh failed — will retry on next iteration"
+        fi
+
+        # SIGHUP → skip backoff
+        if [[ "$_RELOAD_REQUESTED" -eq 1 ]]; then
+          _RELOAD_REQUESTED=0
+          log "Reload requested — reconnecting immediately with fresh channels..."
+          backoff=1
+          _DIRECT_RETRY=0
+          continue
+        fi
+
+        # Direct reconnect with known session (server reactivates revoked sessions)
+        _PREFERRED_SESSION=$(cat "$SESSION_FILE" 2>/dev/null) || true
+        _DIRECT_RETRY=$(( ${_DIRECT_RETRY:-0} + 1 ))
+
+        if [[ -n "$_PREFERRED_SESSION" && $_DIRECT_RETRY -le 3 ]]; then
+          log "Direct reconnect attempt $_DIRECT_RETRY/3 with ${_PREFERRED_SESSION:0:12}..."
+          sleep "$backoff"
+          backoff=$(( backoff * 2 ))
+          (( backoff > MAX_BACKOFF )) && backoff=$MAX_BACKOFF
+          continue
+        fi
+
+        # 3 direct attempts failed — rediscover
+        _DIRECT_RETRY=0
+        rm -f "$SESSION_FILE"
+        log "Cleared session for rediscovery, reconnecting in ${backoff}s..."
         sleep "$backoff"
         backoff=$(( backoff * 2 ))
         (( backoff > MAX_BACKOFF )) && backoff=$MAX_BACKOFF
-        continue
-      fi
-
-      # Either no preferred session or 3 direct attempts failed — rediscover
-      _DIRECT_RETRY=0
-      rm -f "$SESSION_FILE"
-      log "Cleared session for rediscovery, reconnecting in ${backoff}s..."
-      sleep "$backoff"
-      backoff=$(( backoff * 2 ))
-      (( backoff > MAX_BACKOFF )) && backoff=$MAX_BACKOFF
-    fi
+        ;;
+    esac
   done
 }
 
