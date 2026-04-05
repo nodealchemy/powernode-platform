@@ -2,10 +2,19 @@
 
 module Ai
   class McpClientIdentityService
-    def initialize(account:, user:, doorkeeper_token:)
+    # @param include_grace_period [Boolean] When true, agents whose only session
+    #   is in the reconnect grace period are eligible for reuse. Used during
+    #   auto-provisioning (session/discover self-healing) where the daemon IS the
+    #   disconnected client trying to reclaim its identity.
+    # @param client_info [Hash] MCP client_info from the initialize handshake.
+    #   Used to detect the correct AI provider (e.g., "Anthropic's agentic coding
+    #   tool" → anthropic provider). Falls back to OAuth application name if empty.
+    def initialize(account:, user:, doorkeeper_token:, include_grace_period: false, client_info: {})
       @account = account
       @user = user
       @doorkeeper_token = doorkeeper_token
+      @include_grace_period = include_grace_period
+      @client_info = client_info || {}
     end
 
     # Resolves or creates an Ai::Agent identity for this MCP client.
@@ -72,7 +81,7 @@ module Ai
 
     private
 
-    attr_reader :account, :user, :doorkeeper_token
+    attr_reader :account, :user, :doorkeeper_token, :include_grace_period, :client_info
 
     # PostgreSQL advisory lock keyed on account ID to serialize concurrent
     # resolve_agent calls for the same account. Uses pg_advisory_xact_lock
@@ -106,16 +115,23 @@ module Ai
         .where.not(ai_agent_id: nil)
         .where("client_info->>'version' IS DISTINCT FROM ?", "auto-provisioned")
         .select(:ai_agent_id)
-      grace_agent_ids = McpSession.in_grace_period
-        .where.not(ai_agent_id: nil).select(:ai_agent_id)
 
-      account.ai_agents
+      query = account.ai_agents
         .where(agent_type: "mcp_client", status: "active")
         .where("mcp_metadata->>'oauth_application_id' = ?", oauth_application_id.to_s)
         .where.not(id: real_active_agent_ids)
-        .where.not(id: grace_agent_ids)
-        .order(created_at: :desc)
-        .first
+
+      # During normal initialize, exclude agents with grace-period sessions to
+      # avoid stealing an identity from a temporarily-disconnected client.
+      # During auto-provisioning (include_grace_period: true), the caller IS the
+      # disconnected client reclaiming its identity — allow reuse.
+      unless include_grace_period
+        grace_agent_ids = McpSession.in_grace_period
+          .where.not(ai_agent_id: nil).select(:ai_agent_id)
+        query = query.where.not(id: grace_agent_ids)
+      end
+
+      query.order(created_at: :desc).first
     end
 
     def oauth_application_id
@@ -131,8 +147,7 @@ module Ai
       sequence = next_sequence_number(app_name)
       agent_name = "#{app_name} ##{sequence}"
 
-      # Find a default provider for the account
-      provider = account.ai_providers.where(is_active: true).order(:created_at).first
+      provider = detect_provider
       return nil unless provider
 
       agent = Ai::Agent.create!(
@@ -172,6 +187,32 @@ module Ai
       end
     rescue StandardError => e
       Rails.logger.warn "[McpClientIdentityService] Failed to restore workspace memberships: #{e.message}"
+    end
+
+    # Detects the AI provider from client_info signals and OAuth app name.
+    # Builds a keyword string from all available signals, matches against known
+    # provider types, then falls back to the first active provider.
+    PROVIDER_KEYWORDS = {
+      "anthropic" => %w[anthropic claude],
+      "openai"    => %w[openai gpt chatgpt],
+      "google"    => %w[google gemini],
+      "grok"      => %w[grok x.ai xai],
+      "ollama"    => %w[ollama],
+    }.freeze
+
+    def detect_provider
+      signals = client_info.values_at("name", "title", "description", "websiteUrl")
+      signals << (oauth_application&.name || "")
+      haystack = signals.compact.join(" ").downcase
+
+      PROVIDER_KEYWORDS.each do |provider_type, keywords|
+        if keywords.any? { |kw| haystack.include?(kw) }
+          match = account.ai_providers.where(is_active: true, provider_type: provider_type).first
+          return match if match
+        end
+      end
+
+      account.ai_providers.where(is_active: true).order(:created_at).first
     end
 
     def next_sequence_number(app_name)

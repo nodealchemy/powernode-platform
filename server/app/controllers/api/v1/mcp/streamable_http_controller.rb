@@ -321,28 +321,32 @@ module Api
             return nil
           end
 
-          # Reuse auto-provisioned sessions (created by session/discover self-healing)
-          # instead of creating a new session + agent. This prevents the race where
-          # session/discover auto-provisions agent #1, then initialize creates agent #2.
+          # Reuse an existing session for this OAuth app instead of creating a new one.
+          # Priority: (1) auto-provisioned sessions (placeholders from session/discover),
+          # (2) stale active sessions (SSE disconnected, daemon dead — last activity > 60s).
+          # This prevents agent identity accumulation on reconnects.
           session = nil
           if @doorkeeper_token&.application_id.present?
-            auto_session = McpSession.active
+            reusable_session = McpSession.active
               .where(user: current_user, account: current_account,
                      oauth_application_id: @doorkeeper_token.application_id)
-              .where("client_info->>'version' = ?", "auto-provisioned")
-              .order(created_at: :desc)
+              .where(
+                "client_info->>'version' = ? OR last_activity_at < ?",
+                "auto-provisioned", 60.seconds.ago
+              )
+              .order(Arel.sql("CASE WHEN client_info->>'version' = 'auto-provisioned' THEN 0 ELSE 1 END, created_at DESC"))
               .first
 
-            if auto_session
-              auto_session.update!(
+            if reusable_session
+              reusable_session.update!(
                 protocol_version: negotiated,
                 client_info: params["clientInfo"] || {},
                 ip_address: request.remote_ip,
                 user_agent: request.user_agent,
                 expires_at: SESSION_TTL.from_now
               )
-              session = auto_session
-              Rails.logger.info "[MCP StreamableHTTP] Upgraded auto-provisioned session #{session.id} with real client info"
+              session = reusable_session
+              Rails.logger.info "[MCP StreamableHTTP] Reused session #{session.id} (was #{session.client_info_before_last_save&.dig('version') == 'auto-provisioned' ? 'auto-provisioned' : 'stale'}) with real client info"
             end
           end
 
@@ -370,7 +374,7 @@ module Api
           # commits atomically with agent creation — preventing another concurrent
           # request from seeing the agent as orphaned between creation and binding.
           # Skip if the upgraded auto-provisioned session already has an agent linked.
-          agent = resolve_and_link_agent(session) unless session.ai_agent_id.present?
+          agent = resolve_and_link_agent(session, client_info: params["clientInfo"] || {}) unless session.ai_agent_id.present?
 
           # Allow multiple concurrent sessions per OAuth app (e.g., multiple Claude
           # Code instances). Stale sessions expire naturally via their 24h TTL and the
@@ -683,7 +687,11 @@ module Api
             oauth_application_id: app_id
           )
 
-          resolve_and_link_agent(session)
+          # include_grace_period: true — this IS the recovery flow for a disconnected
+          # client. Allow reuse of agents whose session is in the grace period so the
+          # daemon reclaims its original identity (e.g., "Claude Code (powernode) #1")
+          # instead of creating a new #N+1.
+          resolve_and_link_agent(session, include_grace_period: true)
 
           Rails.logger.info(
             "[MCP StreamableHTTP] Auto-provisioned session #{session.id} " \
@@ -697,13 +705,18 @@ module Api
 
         # Resolves the MCP client agent and links it to the session inside the
         # same advisory-locked transaction, ensuring atomicity.
-        def resolve_and_link_agent(session)
+        # @param include_grace_period [Boolean] passed through to identity service;
+        #   true during auto-provisioning to allow reclaiming a temporarily-orphaned agent.
+        # @param client_info [Hash] MCP client_info for provider detection.
+        def resolve_and_link_agent(session, include_grace_period: false, client_info: {})
           return nil unless @doorkeeper_token
 
           ::Ai::McpClientIdentityService.new(
             account: current_account,
             user: current_user,
-            doorkeeper_token: @doorkeeper_token
+            doorkeeper_token: @doorkeeper_token,
+            include_grace_period: include_grace_period,
+            client_info: client_info
           ).resolve_agent do |agent|
             session.link_agent!(agent)
           end

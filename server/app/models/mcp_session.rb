@@ -99,11 +99,44 @@ class McpSession < ApplicationRecord
       .find_each { |s| s.update!(status: "expired") }
   end
 
-  # Bulk cleanup: delete expired sessions older than the given age
+  # Bulk cleanup: delete expired sessions older than the given age,
+  # then destroy orphaned MCP client agents (no remaining sessions).
   def self.cleanup_expired!(older_than: 48.hours)
-    where(status: %w[expired revoked])
+    deleted = where(status: %w[expired revoked])
       .where("expires_at < ?", older_than.ago)
       .delete_all
+
+    # Clean up MCP client agents that have no active or grace-period sessions.
+    # These are leftovers from accumulated reconnections — their sequence numbers
+    # (#3, #4, ...) block lower numbers from being reused.
+    cleanup_orphaned_agents! if deleted > 0
+
+    deleted
+  end
+
+  # Destroys MCP client agents that have no remaining sessions (active or grace-period).
+  # Preserves agents that are members of non-workspace teams (manually configured).
+  def self.cleanup_orphaned_agents!
+    agents_with_sessions = McpSession
+      .where(status: "active").or(McpSession.in_grace_period)
+      .where.not(ai_agent_id: nil)
+      .select(:ai_agent_id)
+
+    # MCP client agents with no live session binding
+    orphaned = Ai::Agent.where(agent_type: "mcp_client", status: "active")
+      .where.not(id: agents_with_sessions)
+
+    orphaned.find_each do |agent|
+      # Preserve agents in non-workspace teams (manually assigned)
+      manual_teams = Ai::AgentTeamMember.joins(:team)
+        .where(ai_agent_id: agent.id)
+        .where.not(ai_agent_teams: { team_type: "workspace" })
+      next if manual_teams.exists?
+
+      Ai::McpClientIdentityService.force_deactivate_agent(
+        OpenStruct.new(ai_agent: agent)
+      )
+    end
   end
 
   private
