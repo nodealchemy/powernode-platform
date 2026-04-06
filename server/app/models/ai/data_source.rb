@@ -13,7 +13,7 @@ module Ai
              foreign_key: "ai_data_source_id", dependent: :destroy
 
     # Constants
-    SOURCE_TYPES = %w[noaa_ncei noaa_gfs noaa_observations open_meteo custom].freeze
+    SOURCE_TYPES = %w[noaa_ncei noaa_gfs noaa_observations open_meteo fred yahoo_finance espn newsapi custom].freeze
     HEALTH_STATUSES = %w[healthy degraded critical unknown].freeze
 
     # Validations

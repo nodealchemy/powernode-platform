@@ -238,4 +238,189 @@ create_or_find_data_source(admin_account, {
   }
 })
 
+# =============================================================================
+# 5. FRED - Federal Reserve Economic Data
+# =============================================================================
+create_or_find_data_source(admin_account, {
+  name: "FRED",
+  slug: "fred",
+  source_type: "fred",
+  description: "Federal Reserve Economic Data (FRED) from the St. Louis Fed. " \
+               "Provides access to 800,000+ economic time series including CPI, " \
+               "Fed Funds Rate, GDP, unemployment, PCE, and producer prices. " \
+               "Requires a free API key.",
+  api_base_url: "https://api.stlouisfed.org/fred",
+  requires_auth: true,
+  is_active: true,
+  priority_order: 500,
+  documentation_url: "https://fred.stlouisfed.org/docs/api/fred/",
+  capabilities: %w[
+    economic_indicators
+    release_calendar
+    series_search
+    observations
+    categories
+  ],
+  rate_limits: {
+    "requests_per_minute" => 120,
+    "requests_per_day" => 10_000
+  },
+  default_parameters: {
+    "file_type" => "json"
+  },
+  configuration: {
+    "auth_type" => "query_param",
+    "auth_param" => "api_key",
+    "response_format" => "json",
+    "key_series" => {
+      "CPIAUCSL" => "CPI-U All Urban Consumers",
+      "FEDFUNDS" => "Federal Funds Rate",
+      "GDP" => "Gross Domestic Product",
+      "UNRATE" => "Unemployment Rate",
+      "PAYEMS" => "Non-Farm Payrolls",
+      "PCEPI" => "PCE Price Index",
+      "PPIACO" => "Producer Price Index"
+    },
+    "notes" => "Free API key from https://fred.stlouisfed.org/docs/api/api_key.html — instant delivery."
+  },
+  metadata: {
+    "provider" => "Federal Reserve Bank of St. Louis",
+    "data_coverage" => "800K+ US economic time series (1776-present)",
+    "update_frequency" => "Varies by series (monthly, quarterly, etc.)",
+    "license" => "Public domain"
+  }
+})
+
+# =============================================================================
+# 6. Yahoo Finance - Financial Spot Prices
+# =============================================================================
+create_or_find_data_source(admin_account, {
+  name: "Yahoo Finance",
+  slug: "yahoo-finance",
+  source_type: "yahoo_finance",
+  description: "Yahoo Finance public API for real-time and historical financial data. " \
+               "Provides spot prices, charts, and quotes for equities, commodities, " \
+               "indices, and currencies. No API key required.",
+  api_base_url: "https://query1.finance.yahoo.com/v8/finance",
+  requires_auth: false,
+  is_active: true,
+  priority_order: 600,
+  documentation_url: "https://finance.yahoo.com",
+  capabilities: %w[
+    spot_price
+    quote
+    chart
+    historical_data
+  ],
+  rate_limits: {
+    "requests_per_minute" => 60,
+    "requests_per_hour" => 2000
+  },
+  default_parameters: {},
+  configuration: {
+    "auth_type" => "none",
+    "response_format" => "json",
+    "key_symbols" => {
+      "WTI" => "CL=F",
+      "SP500" => "^GSPC",
+      "DOW" => "^DJI",
+      "NASDAQ" => "^IXIC",
+      "GOLD" => "GC=F",
+      "SILVER" => "SI=F"
+    },
+    "notes" => "Public API, no key required. Rate limits are unofficial — be respectful."
+  },
+  metadata: {
+    "provider" => "Yahoo Finance",
+    "data_coverage" => "Global equities, commodities, indices, currencies",
+    "update_frequency" => "Real-time during market hours, 15-min delay for some data"
+  }
+})
+
+# =============================================================================
+# 7. ESPN - Sports Data
+# =============================================================================
+create_or_find_data_source(admin_account, {
+  name: "ESPN",
+  slug: "espn",
+  source_type: "espn",
+  description: "ESPN public API for US major sports leagues. Provides standings, " \
+               "scores, schedules, and team statistics for NBA, NHL, MLB, and NFL. " \
+               "No API key required.",
+  api_base_url: "https://site.api.espn.com/apis/site/v2/sports",
+  requires_auth: false,
+  is_active: true,
+  priority_order: 700,
+  documentation_url: "https://site.api.espn.com",
+  capabilities: %w[
+    standings
+    scores
+    schedule
+    team_stats
+    player_stats
+  ],
+  rate_limits: {
+    "requests_per_minute" => 30,
+    "requests_per_hour" => 500
+  },
+  default_parameters: {},
+  configuration: {
+    "auth_type" => "none",
+    "response_format" => "json",
+    "leagues" => {
+      "NBA" => "basketball/nba",
+      "NHL" => "hockey/nhl",
+      "MLB" => "baseball/mlb",
+      "NFL" => "football/nfl"
+    },
+    "notes" => "Public API, no key required. Unofficial — endpoints may change."
+  },
+  metadata: {
+    "provider" => "ESPN",
+    "data_coverage" => "NBA, NHL, MLB, NFL — standings, scores, schedules",
+    "update_frequency" => "Real-time during games"
+  }
+})
+
+# =============================================================================
+# 8. NewsAPI - News Headlines
+# =============================================================================
+create_or_find_data_source(admin_account, {
+  name: "NewsAPI",
+  slug: "newsapi",
+  source_type: "newsapi",
+  description: "NewsAPI provides real-time and historical news article search across " \
+               "80,000+ sources worldwide. Useful for event-driven market analysis, " \
+               "IPO tracking, and sentiment context. Requires a free API key.",
+  api_base_url: "https://newsapi.org/v2",
+  requires_auth: true,
+  is_active: true,
+  priority_order: 800,
+  documentation_url: "https://newsapi.org/docs",
+  capabilities: %w[
+    top_headlines
+    everything
+    sources
+  ],
+  rate_limits: {
+    "requests_per_day" => 100
+  },
+  default_parameters: {
+    "language" => "en",
+    "sortBy" => "publishedAt"
+  },
+  configuration: {
+    "auth_type" => "header",
+    "auth_header" => "X-Api-Key",
+    "response_format" => "json",
+    "notes" => "Free tier: 100 requests/day. Developer plan ($449/mo) for production use. Register at https://newsapi.org/register."
+  },
+  metadata: {
+    "provider" => "NewsAPI",
+    "data_coverage" => "80K+ global news sources, articles searchable by keyword/date/source",
+    "update_frequency" => "Real-time",
+    "license" => "Free for development, paid for production"
+  }
+})
+
 puts "✅ AI Data Sources seeded: #{admin_account.ai_data_sources.count} total"
