@@ -192,6 +192,14 @@ const DashboardOverview: React.FC = () => {
             description={statsLoading ? 'Loading...' : stats.repositories > 0 ? `${stats.repositories} connected` : 'Connect your repos'}
             onClick={() => navigate('/app/devops/source-control')}
           />
+
+          <MetricCard
+            title="Executions Today"
+            value={statsLoading ? '...' : stats.overview.totalExecutionsToday}
+            icon="⚡"
+            description={statsLoading ? 'Loading...' : stats.overview.totalExecutionsToday > 0 ? `${stats.overview.successRate}% success rate` : 'No executions yet'}
+            onClick={() => navigate('/app/ai/observability')}
+          />
         </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
