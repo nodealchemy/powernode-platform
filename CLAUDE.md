@@ -109,6 +109,41 @@ user.role === 'manager'
 | Verify Seeds | After seed modifications: `cd server && rails db:seed` — watch for association/validation errors |
 | Stop & Ask | **HARD RULE**: After 3 failed attempts at the same fix, STOP immediately and ask the user. Do NOT try a 4th approach, do NOT continue iterating, do NOT try workarounds. Present what you tried and ask for guidance |
 | Audit Sessions | When asked to audit/review/analyze code, save findings to `docs/` and do NOT implement changes. Audit = report only, unless the user explicitly says to fix |
+| Verify Changes | Ruby: syntax check + related spec. TypeScript: `tsc --noEmit`. Migrations: `rails db:migrate:status`. Seeds: `rails db:seed`. Use `/verify` for targeted checks |
+| Verify CWD | Before git operations on submodules, always `git rev-parse --show-toplevel` to confirm you're in the right repo |
+| Completion Gate | Before reporting work as done, run `/verify` on changed files. Never mark a task complete with unverified changes |
+| Dead Reference Cleanup | After deleting any file, `grep -r` for all import/require references to it across the codebase and remove them before committing |
+| Plan Before Multi-File | Changes touching **3+ files**: outline which files will change and data flow direction, then wait for user approval before writing code. Single-file fixes can proceed directly |
+| Parallel Investigation | When debugging spans backend + frontend or 3+ services, spawn parallel sub-agents: one per layer/service. Merge findings before proposing a fix — never serialize investigation across layers |
+
+### Architecture Principles
+| Principle | Rule |
+|-----------|------|
+| Pull, Never Push | Downstream managers always **pull** from upstream sources — upstream services NEVER push to downstream. When unsure about data flow direction, ask before implementing |
+| Extension Isolation | Each extension (`extensions/*`) is self-contained. Extensions depend on core, core NEVER depends on extensions |
+| Service Boundaries | Cross-namespace communication goes through service interfaces, never direct model access across namespaces |
+
+### Bulk Operation Safety
+| Rule | Details |
+|------|---------|
+| State the count | Before ANY bulk operation (approve, reject, delete, update), always state the exact count: "This will affect N items" |
+| Confirmation threshold | Operations affecting **more than 5 items** require explicit user confirmation |
+| Show samples | For bulk operations, show the first 3 and last 1 items for verification |
+| Never batch-approve | Training decisions, permission grants, and financial operations MUST be reviewed individually |
+
+### Submodule Safety (CRITICAL)
+- **4 submodules**: `extensions/business`, `extensions/trading`, `extensions/supply-chain` (git submodules) + `extensions/marketing` (plain directory)
+- **CWD verification**: Before EVERY `git add`/`git commit`, run `git rev-parse --show-toplevel` and verify it matches the intended repo
+- **Never commit extension files from parent**: Files under `extensions/*/` MUST be committed from within the submodule. Running `git add extensions/trading/...` from parent only stages a pointer change
+- **Commit order**: Commit inside each submodule FIRST, then update pointers in parent
+
+### Terminology
+| Term | Meaning | Don't Confuse With |
+|------|---------|-------------------|
+| `server/` | Rails app directory on disk | Not "backend directory" |
+| `powernode-backend` | Systemd service name (`powernode-backend@default`) | Not "server service" or "rails service" |
+| `worker/` | Standalone Sidekiq app directory | Not "job runner" |
+| `powernode-worker` | Systemd service name (`powernode-worker@default`) | Not "sidekiq service" |
 
 ---
 
@@ -124,6 +159,18 @@ journalctl -u powernode-backend@default -f      # Tail service logs
 ```
 
 **NEVER** use manual commands (`rails server`, `sidekiq`, `npm start`)
+
+### Service Operations Reference
+| Service | Unit Name | Port | Restart Behavior |
+|---------|-----------|------|-----------------|
+| Rails API | `powernode-backend@default` | 3000 | SIGUSR2 reload (~30ms) via `scripts/reload-backend.sh`. Auto-reloaded by Stop hook after `.rb` edits |
+| Sidekiq | `powernode-worker@default` | — | Full restart (~28s drain). **Wait 30s** before checking status — "deactivating" is normal during drain |
+| Worker HTTP API | `powernode-worker-web@default` | 4567 | If port 4567 refused, restart THIS service, not `powernode-worker` |
+| Frontend | `powernode-frontend@default` | 5173 | Full restart |
+
+**Stuck worker**: If worker is draining >30s, use `sudo systemctl stop powernode-worker@default && sudo systemctl start powernode-worker@default` (stop+start, not restart)
+**Never restart worker multiple times** in quick succession — batch code changes, ONE restart at end
+**After restart**: Verify with `sudo scripts/systemd/powernode-installer.sh status`
 
 ---
 
