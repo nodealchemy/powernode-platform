@@ -10,8 +10,8 @@ module Ai
         # @return [Hash] Success rate analysis
         def analyze_success_rates
           start_time = time_range.ago
-          runs = workflow_runs.where("ai_workflow_runs.created_at >= ?", start_time)
-                             .where.not(status: %w[running initializing pending])
+          runs = agent_executions.where("ai_agent_executions.created_at >= ?", start_time)
+                                 .where.not(status: %w[running pending])
 
           total = runs.count
           return empty_success_stats if total.zero?
@@ -28,9 +28,8 @@ module Ai
             success_rate: (completed.to_f / total * 100).round(2),
             failure_rate: (failed.to_f / total * 100).round(2),
             cancellation_rate: (cancelled.to_f / total * 100).round(2),
-            by_workflow: success_rates_by_workflow(start_time),
-            by_day: success_rates_by_day(start_time),
-            by_trigger_type: success_rates_by_trigger(start_time)
+            by_agent: success_rates_by_agent(start_time),
+            by_day: success_rates_by_day(start_time)
           }
         end
 
@@ -38,7 +37,7 @@ module Ai
         # @return [Hash] Throughput analysis
         def analyze_throughput
           start_time = time_range.ago
-          runs = workflow_runs.where("ai_workflow_runs.created_at >= ?", start_time)
+          runs = agent_executions.where("ai_agent_executions.created_at >= ?", start_time)
 
           total = runs.count
           hours = time_range.to_i / 3600.0
@@ -61,7 +60,7 @@ module Ai
         # @return [Hash] Error rate analysis
         def analyze_error_rates
           start_time = time_range.ago
-          failed_runs = workflow_runs.where("ai_workflow_runs.created_at >= ?", start_time).where(status: "failed")
+          failed_runs = agent_executions.where("ai_agent_executions.created_at >= ?", start_time).where(status: "failed")
 
           error_types = {}
           failed_runs.pluck(:error_details).each do |details|
@@ -74,8 +73,7 @@ module Ai
             total_errors: failed_runs.count,
             error_rate: calculate_error_rate(start_time),
             by_error_type: error_types.sort_by { |_, v| -v }.to_h,
-            by_workflow: error_rates_by_workflow(start_time),
-            by_node_type: error_rates_by_node_type(start_time),
+            by_agent: error_rates_by_agent(start_time),
             recent_errors: recent_errors(start_time, limit: 10),
             mtbf_hours: calculate_mtbf(start_time)
           }
@@ -87,16 +85,16 @@ module Ai
           {
             total_executions: 0, successful: 0, failed: 0, cancelled: 0,
             success_rate: nil, failure_rate: nil, cancellation_rate: nil,
-            by_workflow: [], by_day: {}, by_trigger_type: {}
+            by_agent: [], by_day: {}
           }
         end
 
-        def success_rates_by_workflow(since)
-          workflows = account.ai_workflows
+        def success_rates_by_agent(since)
+          agents = account.ai_agents
 
-          workflows.map do |workflow|
-            runs = workflow.runs.where("ai_workflow_runs.created_at >= ?", since)
-                          .where.not(status: %w[running initializing pending])
+          agents.map do |agent|
+            runs = agent.executions.where("ai_agent_executions.created_at >= ?", since)
+                        .where.not(status: %w[running pending])
 
             total = runs.count
             next nil if total.zero?
@@ -104,23 +102,23 @@ module Ai
             completed = runs.where(status: "completed").count
 
             {
-              id: workflow.id,
-              name: workflow.name,
+              id: agent.id,
+              name: agent.name,
               total: total,
               success_rate: (completed.to_f / total * 100).round(2)
             }
-          end.compact.sort_by { |w| w[:success_rate] }
+          end.compact.sort_by { |a| a[:success_rate] }
         end
 
         def success_rates_by_day(since)
-          runs_by_day = workflow_runs.where("ai_workflow_runs.created_at >= ?", since)
-                                    .where.not(status: %w[running initializing pending])
-                                    .group("DATE(ai_workflow_runs.created_at)")
+          runs_by_day = agent_executions.where("ai_agent_executions.created_at >= ?", since)
+                                        .where.not(status: %w[running pending])
+                                        .group("DATE(ai_agent_executions.created_at)")
 
-          completed_by_day = workflow_runs.where("ai_workflow_runs.created_at >= ?", since)
-                                         .where(status: "completed")
-                                         .group("DATE(ai_workflow_runs.created_at)")
-                                         .count
+          completed_by_day = agent_executions.where("ai_agent_executions.created_at >= ?", since)
+                                             .where(status: "completed")
+                                             .group("DATE(ai_agent_executions.created_at)")
+                                             .count
 
           runs_by_day.count.transform_keys(&:to_s).transform_values do |total|
             date = runs_by_day.count.key(total)
@@ -129,40 +127,22 @@ module Ai
           end
         end
 
-        def success_rates_by_trigger(since)
-          runs = workflow_runs.where("ai_workflow_runs.created_at >= ?", since)
-                             .where.not(status: %w[running initializing pending])
-                             .group(:trigger_type)
-
-          total_by_trigger = runs.count
-          completed_by_trigger = workflow_runs.where("ai_workflow_runs.created_at >= ?", since)
-                                             .where(status: "completed")
-                                             .group(:trigger_type)
-                                             .count
-
-          total_by_trigger.transform_values do |total|
-            trigger = total_by_trigger.key(total)
-            completed = completed_by_trigger[trigger] || 0
-            (completed.to_f / total * 100).round(2)
-          end
-        end
-
         def calculate_error_rate(since)
-          total = workflow_runs.where("ai_workflow_runs.created_at >= ?", since)
-                              .where.not(status: %w[running initializing pending])
-                              .count
+          total = agent_executions.where("ai_agent_executions.created_at >= ?", since)
+                                  .where.not(status: %w[running pending])
+                                  .count
           return 0.0 if total.zero?
 
-          failed = workflow_runs.where("ai_workflow_runs.created_at >= ?", since).where(status: "failed").count
+          failed = agent_executions.where("ai_agent_executions.created_at >= ?", since).where(status: "failed").count
           (failed.to_f / total * 100).round(2)
         end
 
-        def error_rates_by_workflow(since)
-          workflows = account.ai_workflows
+        def error_rates_by_agent(since)
+          agents = account.ai_agents
 
-          workflows.map do |workflow|
-            runs = workflow.runs.where("ai_workflow_runs.created_at >= ?", since)
-                          .where.not(status: %w[running initializing pending])
+          agents.map do |agent|
+            runs = agent.executions.where("ai_agent_executions.created_at >= ?", since)
+                        .where.not(status: %w[running pending])
 
             total = runs.count
             next nil if total.zero?
@@ -170,46 +150,35 @@ module Ai
             failed = runs.where(status: "failed").count
 
             {
-              id: workflow.id,
-              name: workflow.name,
+              id: agent.id,
+              name: agent.name,
               error_rate: (failed.to_f / total * 100).round(2)
             }
-          end.compact.sort_by { |w| -w[:error_rate] }
-        end
-
-        def error_rates_by_node_type(since)
-          node_executions.where("ai_workflow_node_executions.created_at >= ?", since)
-                        .joins(:node)
-                        .group("ai_workflow_nodes.node_type")
-                        .count
-                        .transform_values do |total|
-            # Simplified - would need actual calculation
-            0.0
-          end
+          end.compact.sort_by { |a| -a[:error_rate] }
         end
 
         def recent_errors(since, limit:)
-          workflow_runs.where("ai_workflow_runs.created_at >= ?", since)
-                       .where(status: "failed")
-                       .includes(:workflow)
-                       .order("ai_workflow_runs.completed_at DESC")
-                       .limit(limit)
-                       .map do |run|
+          agent_executions.where("ai_agent_executions.created_at >= ?", since)
+                          .where(status: "failed")
+                          .includes(:agent)
+                          .order("ai_agent_executions.completed_at DESC")
+                          .limit(limit)
+                          .map do |execution|
             {
-              run_id: run.run_id,
-              workflow_name: run.workflow.name,
-              error_type: run.error_details&.dig("error_type"),
-              error_message: run.error_details&.dig("error_message")&.truncate(100),
-              occurred_at: run.completed_at&.iso8601
+              execution_id: execution.execution_id,
+              agent_name: execution.agent.name,
+              error_type: execution.error_details&.dig("error_type"),
+              error_message: execution.error_message&.truncate(100),
+              occurred_at: execution.completed_at&.iso8601
             }
           end
         end
 
         def calculate_mtbf(since)
-          failed_runs = workflow_runs.where("ai_workflow_runs.created_at >= ?", since)
-                                    .where(status: "failed")
-                                    .where.not(completed_at: nil)
-                                    .order("ai_workflow_runs.completed_at")
+          failed_runs = agent_executions.where("ai_agent_executions.created_at >= ?", since)
+                                        .where(status: "failed")
+                                        .where.not(completed_at: nil)
+                                        .order("ai_agent_executions.completed_at")
 
           return nil if failed_runs.count < 2
 
@@ -220,38 +189,37 @@ module Ai
         end
 
         def find_peak_hour(since)
-          workflow_runs.where("ai_workflow_runs.created_at >= ?", since)
-                       .group("DATE_TRUNC('hour', ai_workflow_runs.created_at)")
-                       .count
-                       .max_by { |_, v| v }
-                       &.first&.iso8601
+          agent_executions.where("ai_agent_executions.created_at >= ?", since)
+                          .group("DATE_TRUNC('hour', ai_agent_executions.created_at)")
+                          .count
+                          .max_by { |_, v| v }
+                          &.first&.iso8601
         end
 
         def find_peak_day(since)
-          workflow_runs.where("ai_workflow_runs.created_at >= ?", since)
-                       .group("DATE(ai_workflow_runs.created_at)")
-                       .count
-                       .max_by { |_, v| v }
-                       &.first&.to_s
+          agent_executions.where("ai_agent_executions.created_at >= ?", since)
+                          .group("DATE(ai_agent_executions.created_at)")
+                          .count
+                          .max_by { |_, v| v }
+                          &.first&.to_s
         end
 
         def throughput_by_hour_of_day(since)
-          workflow_runs.where("ai_workflow_runs.created_at >= ?", since)
-                       .group("EXTRACT(HOUR FROM ai_workflow_runs.created_at)")
-                       .count
-                       .transform_keys { |k| k.to_i.to_s }
+          agent_executions.where("ai_agent_executions.created_at >= ?", since)
+                          .group("EXTRACT(HOUR FROM ai_agent_executions.created_at)")
+                          .count
+                          .transform_keys { |k| k.to_i.to_s }
         end
 
         def throughput_by_day_of_week(since)
-          workflow_runs.where("ai_workflow_runs.created_at >= ?", since)
-                       .group("EXTRACT(DOW FROM ai_workflow_runs.created_at)")
-                       .count
-                       .transform_keys { |k| %w[Sun Mon Tue Wed Thu Fri Sat][k.to_i] }
+          agent_executions.where("ai_agent_executions.created_at >= ?", since)
+                          .group("EXTRACT(DOW FROM ai_agent_executions.created_at)")
+                          .count
+                          .transform_keys { |k| %w[Sun Mon Tue Wed Thu Fri Sat][k.to_i] }
         end
 
         def find_concurrent_peak(since)
-          # This would require more sophisticated tracking
-          workflow_runs.where("ai_workflow_runs.created_at >= ?", since).where(status: "running").count
+          agent_executions.where("ai_agent_executions.created_at >= ?", since).where(status: "running").count
         end
       end
     end

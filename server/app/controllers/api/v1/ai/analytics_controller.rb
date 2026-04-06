@@ -7,7 +7,7 @@ module Api
         include AuditLogging
 
         before_action :validate_permissions
-        before_action :set_time_range, only: %i[dashboard overview metrics cost_analysis performance_analysis insights recommendations workflow_analytics agent_analytics export]
+        before_action :set_time_range, only: %i[dashboard overview metrics cost_analysis performance_analysis insights recommendations agent_analytics export]
         before_action :set_account_scope
 
         # GET /api/v1/ai/analytics/dashboard
@@ -87,18 +87,6 @@ module Api
             generated_at: Time.current.iso8601,
             time_range: time_range_info
           })
-        end
-
-        # GET /api/v1/ai/analytics/workflows/:workflow_id
-        def workflow_analytics
-          workflow = current_user.account.ai_workflows.find(params[:workflow_id])
-          render_success({
-            workflow_analytics: metrics_service.workflow_specific_metrics(workflow),
-            time_range: time_range_info,
-            timestamp: Time.current.iso8601
-          })
-        rescue ActiveRecord::RecordNotFound
-          render_error("Workflow not found", status: :not_found)
         end
 
         # GET /api/v1/ai/analytics/agents/:agent_id
@@ -185,7 +173,7 @@ module Api
           when "dashboard", "overview", "metrics", "real_time",
                "cost_analysis", "performance_analysis",
                "insights", "recommendations",
-               "workflow_analytics", "agent_analytics"
+               "agent_analytics"
             require_permission("ai.analytics.read")
           when "export"
             require_permission("ai.analytics.export")

@@ -81,17 +81,6 @@ module Mcp
             }
           }
         },
-        "ai/workflows" => {
-          scope: -> { @account.ai_workflows.where(status: "active") },
-          to_resource: ->(workflow) {
-            {
-              uri: "powernode://ai/workflows/#{workflow.id}",
-              name: workflow.name,
-              description: workflow.description,
-              mimeType: "application/json"
-            }
-          }
-        },
         "ai/prompts" => {
           scope: -> { @account.shared_prompt_templates.active },
           to_resource: ->(template) {
@@ -126,10 +115,6 @@ module Mcp
         agent = @account.ai_agents.where(status: "active").find_by(id: identifier)
         return nil unless agent
         { text: agent_to_json(agent), mime_type: "application/json" }
-      when "ai/workflows"
-        workflow = @account.ai_workflows.where(status: "active").find_by(id: identifier)
-        return nil unless workflow
-        { text: workflow_to_json(workflow), mime_type: "application/json" }
       when "ai/prompts"
         template = @account.shared_prompt_templates.active.find_by(slug: identifier)
         return nil unless template
@@ -178,15 +163,5 @@ module Mcp
       }.to_json
     end
 
-    def workflow_to_json(workflow)
-      {
-        id: workflow.id,
-        name: workflow.name,
-        description: workflow.description,
-        status: workflow.status,
-        workflow_type: workflow.workflow_type,
-        created_at: workflow.created_at.iso8601
-      }.to_json
-    end
   end
 end

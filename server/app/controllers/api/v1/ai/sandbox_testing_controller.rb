@@ -71,15 +71,12 @@ module Api
 
         # POST /api/v1/ai/sandboxes/:sandbox_id/benchmarks
         def create_benchmark
-          target_workflow = params[:target_workflow_id].present? ?
-            current_account.ai_workflows.find(params[:target_workflow_id]) : nil
           target_agent = params[:target_agent_id].present? ?
             current_account.ai_agents.find(params[:target_agent_id]) : nil
 
           benchmark = @service.create_benchmark(
             name: params[:name],
             sandbox: @sandbox,
-            target_workflow: target_workflow,
             target_agent: target_agent,
             baseline_metrics: params[:baseline_metrics] || {},
             thresholds: params[:thresholds] || {},

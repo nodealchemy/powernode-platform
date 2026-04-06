@@ -7,7 +7,7 @@ module Api
       # MARKETPLACE CONTROLLER - Consolidated AI Template Marketplace
       # ==================================================================
       #
-      # Manages AI workflow template marketplace operations.
+      # Manages AI template marketplace operations.
       # Delegates business logic to:
       # - Ai::Marketplace::TemplateDiscoveryService (discovery, search, recommendations)
       # - Ai::Marketplace::InstallationService (installations, updates, ratings)

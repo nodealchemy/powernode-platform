@@ -25,30 +25,30 @@ module Ai
           bottlenecks = []
           start_time = time_range.ago
 
-          # Slow nodes
-          slow_nodes = find_slow_nodes(start_time)
-          slow_nodes.each do |node|
+          # Slow agents
+          slow_agents = find_slow_agents(start_time)
+          slow_agents.each do |agent|
             bottlenecks << {
-              type: "slow_node",
-              resource_type: "node",
-              resource_name: node[:name],
+              type: "slow_agent",
+              resource_type: "agent",
+              resource_name: agent[:name],
               metric: "avg_duration_ms",
-              value: node[:avg_duration],
+              value: agent[:avg_duration],
               threshold: 5000,
               impact: "high",
-              recommendation: "Optimize node configuration or use caching"
+              recommendation: "Optimize agent configuration or use caching"
             }
           end
 
-          # High error rate workflows
-          error_workflows = find_high_error_workflows(start_time)
-          error_workflows.each do |workflow|
+          # High error rate agents
+          error_agents = find_high_error_agents(start_time)
+          error_agents.each do |agent|
             bottlenecks << {
               type: "high_error_rate",
-              resource_type: "workflow",
-              resource_name: workflow[:name],
+              resource_type: "agent",
+              resource_name: agent[:name],
               metric: "error_rate",
-              value: workflow[:error_rate],
+              value: agent[:error_rate],
               threshold: 10,
               impact: "high",
               recommendation: "Review error logs and fix common failure patterns"
@@ -135,11 +135,7 @@ module Ai
         end
 
         def token_utilization(since)
-          total = 0
-          node_executions.where("ai_workflow_node_executions.created_at >= ?", since).pluck(:metadata).each do |metadata|
-            usage = metadata&.dig("token_usage") || {}
-            total += (usage["input_tokens"] || 0) + (usage["output_tokens"] || 0)
-          end
+          total = agent_executions.where("ai_agent_executions.created_at >= ?", since).sum(:tokens_used)
           { total_tokens: total }
         end
 
@@ -148,8 +144,8 @@ module Ai
         end
 
         def calculate_avg_queue_time(since)
-          runs = workflow_runs.where("ai_workflow_runs.created_at >= ?", since)
-                             .where.not(started_at: nil)
+          runs = agent_executions.where("ai_agent_executions.created_at >= ?", since)
+                                 .where.not(started_at: nil)
 
           times = runs.map do |r|
             r.started_at && r.created_at ? (r.started_at - r.created_at) * 1000 : nil
@@ -158,18 +154,18 @@ module Ai
           times.empty? ? 0 : (times.sum / times.length).round(2)
         end
 
-        def find_slow_nodes(since)
-          node_executions.where("ai_workflow_node_executions.created_at >= ?", since)
-                        .where(status: "completed")
-                        .joins(:node)
-                        .group("ai_workflow_nodes.id", "ai_workflow_nodes.name", "ai_workflow_nodes.node_type")
-                        .having("AVG(ai_workflow_node_executions.duration_ms) > ?", 5000)
-                        .average(:duration_ms)
-                        .map { |(id, name, type), avg| { id: id, name: name, type: type, avg_duration: avg&.to_f&.round(2) } }
+        def find_slow_agents(since)
+          agent_executions.where("ai_agent_executions.created_at >= ?", since)
+                          .where(status: "completed")
+                          .joins(:agent)
+                          .group("ai_agents.id", "ai_agents.name")
+                          .having("AVG(ai_agent_executions.duration_ms) > ?", 5000)
+                          .average(:duration_ms)
+                          .map { |(id, name), avg| { id: id, name: name, avg_duration: avg&.to_f&.round(2) } }
         end
 
-        def find_high_error_workflows(since)
-          error_rates_by_workflow(since).select { |w| w[:error_rate] > 10 }
+        def find_high_error_agents(since)
+          error_rates_by_agent(since).select { |a| a[:error_rate] > 10 }
         end
 
         def queue_depth_high?(since)
@@ -177,22 +173,23 @@ module Ai
         end
 
         def calculate_availability(since)
-          total = workflow_runs.where("ai_workflow_runs.created_at >= ?", since).count
+          total = agent_executions.where("ai_agent_executions.created_at >= ?", since).count
           return 100.0 if total.zero?
 
-          failed = workflow_runs.where("ai_workflow_runs.created_at >= ?", since)
-                               .where(status: "failed")
-                               .where("ai_workflow_runs.error_details->>'error_type' IN (?)", %w[system_error service_unavailable])
-                               .count
+          failed = agent_executions.where("ai_agent_executions.created_at >= ?", since)
+                                   .where(status: "failed")
+                                   .where("ai_agent_executions.error_details->>'error_type' IN (?)", %w[system_error service_unavailable])
+                                   .count
 
           ((total - failed).to_f / total * 100).round(2)
         end
 
         def calculate_response_time_trend(since)
-          daily_avg = completed_runs.where("ai_workflow_runs.completed_at >= ?", since)
-                                   .group("DATE(ai_workflow_runs.completed_at)")
-                                   .average(:duration_ms)
-                                   .values
+          daily_avg = agent_executions.where(status: "completed")
+                                      .where("ai_agent_executions.completed_at >= ?", since)
+                                      .group("DATE(ai_agent_executions.completed_at)")
+                                      .average(:duration_ms)
+                                      .values
 
           return "stable" if daily_avg.length < 2
 

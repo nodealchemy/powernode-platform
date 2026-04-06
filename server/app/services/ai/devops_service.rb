@@ -196,8 +196,6 @@ module Ai
     private
 
     def create_workflow_from_template(_template, _installation, _variable_values)
-      # Ai::Workflow models have been removed; template installation
-      # no longer creates a workflow resource.
       nil
     end
 

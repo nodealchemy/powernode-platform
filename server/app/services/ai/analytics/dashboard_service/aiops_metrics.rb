@@ -11,7 +11,6 @@ module Ai
             health: system_health,
             overview: system_overview(ops_time_range),
             providers: ops_provider_metrics(ops_time_range),
-            workflows: ops_workflow_metrics(ops_time_range),
             agents: ops_agent_metrics(ops_time_range),
             cost_analysis: ops_cost_analysis(ops_time_range),
             alerts: active_alerts,
@@ -23,15 +22,13 @@ module Ai
 
         def system_health
           providers_health = calculate_providers_health
-          workflows_health = calculate_workflows_health
           agents_health = calculate_agents_health
           infrastructure_health = calculate_infrastructure_health
 
           overall_score = (
-            providers_health[:score] * 0.3 +
-            workflows_health[:score] * 0.3 +
-            agents_health[:score] * 0.2 +
-            infrastructure_health[:score] * 0.2
+            providers_health[:score] * 0.4 +
+            agents_health[:score] * 0.3 +
+            infrastructure_health[:score] * 0.3
           ).round(0)
 
           {
@@ -39,7 +36,6 @@ module Ai
             status: determine_health_status(overall_score),
             components: {
               providers: providers_health,
-              workflows: workflows_health,
               agents: agents_health,
               infrastructure: infrastructure_health
             },
@@ -51,25 +47,13 @@ module Ai
         def system_overview(ops_time_range = 1.hour)
           start_time = ops_time_range.ago
 
-          wf_runs = workflow_runs.where("ai_workflow_runs.created_at >= ?", start_time)
           ag_execs = agent_executions.where("ai_agent_executions.created_at >= ?", start_time)
-
-          total_workflows = wf_runs.count
-          successful_workflows = wf_runs.where(status: "completed").count
-          failed_workflows = wf_runs.where(status: "failed").count
 
           total_executions = ag_execs.count
           successful_executions = ag_execs.where(status: "completed").count
 
           {
             time_range_seconds: ops_time_range.to_i,
-            workflows: {
-              total: total_workflows,
-              successful: successful_workflows,
-              failed: failed_workflows,
-              running: wf_runs.where(status: %w[initializing running waiting_approval]).count,
-              success_rate: total_workflows > 0 ? (successful_workflows.to_f / total_workflows * 100).round(2) : 100
-            },
             executions: {
               total: total_executions,
               successful: successful_executions,
@@ -77,12 +61,10 @@ module Ai
               success_rate: total_executions > 0 ? (successful_executions.to_f / total_executions * 100).round(2) : 100
             },
             performance: {
-              avg_workflow_duration_ms: wf_runs.where(status: "completed").average(:duration_ms)&.to_f&.round(2) || 0,
               avg_execution_duration_ms: ag_execs.where(status: "completed").average(:duration_ms)&.to_f&.round(2) || 0,
-              throughput_per_minute: (total_workflows / (ops_time_range / 60.0)).round(2)
+              throughput_per_minute: (total_executions / (ops_time_range / 60.0)).round(2)
             },
             costs: {
-              total_workflow_cost: wf_runs.sum(:total_cost).to_f.round(4),
               total_execution_cost: ag_execs.sum(:cost_usd).to_f.round(4),
               total_tokens: ag_execs.sum(:tokens_used)
             }
@@ -136,32 +118,8 @@ module Ai
 
         def ops_provider_comparison(ops_time_range: 1.hour) = ::Ai::ProviderMetric.provider_comparison(account, time_range: ops_time_range)
 
-        def ops_workflow_metrics(ops_time_range = 1.hour)
-          start_time = ops_time_range.ago
-
-          account.ai_workflows.active.limit(20).map do |workflow|
-            runs = workflow.runs.where("created_at >= ?", start_time)
-            total = runs.count
-            successful = runs.where(status: "completed").count
-            failed = runs.where(status: "failed").count
-
-            {
-              workflow_id: workflow.id,
-              workflow_name: workflow.name,
-              is_active: workflow.is_active,
-              metrics: {
-                total_runs: total,
-                successful: successful,
-                failed: failed,
-                running: runs.where(status: %w[initializing running waiting_approval]).count,
-                success_rate: total > 0 ? (successful.to_f / total * 100).round(2) : 100,
-                avg_duration_ms: runs.where(status: "completed").average(:duration_ms)&.to_f&.round(2) || 0,
-                total_cost: runs.sum(:total_cost).to_f.round(4)
-              },
-              recent_status: runs.order(created_at: :desc).first&.status || "idle",
-              last_run_at: runs.order(created_at: :desc).first&.created_at
-            }
-          end
+        def ops_workflow_metrics(_ops_time_range = 1.hour)
+          []
         end
 
         def ops_agent_metrics(ops_time_range = 1.hour)
@@ -198,18 +156,14 @@ module Ai
           attributions = ::Ai::CostAttribution.for_account(account)
                                                .where("created_at >= ?", start_time)
 
-          wf_costs = workflow_runs.where("ai_workflow_runs.created_at >= ?", start_time)
-                                  .sum(:total_cost)
-
           ag_costs = agent_executions.where("ai_agent_executions.created_at >= ?", start_time)
                                      .sum(:cost_usd)
 
           {
             time_range_seconds: ops_time_range.to_i,
             totals: {
-              workflow_cost: wf_costs.to_f.round(4),
               agent_cost: ag_costs.to_f.round(4),
-              total_cost: (wf_costs + ag_costs).to_f.round(4)
+              total_cost: ag_costs.to_f.round(4)
             },
             by_category: attributions.any? ?
               attributions.group(:cost_category).sum(:amount_usd) : {},
@@ -263,20 +217,6 @@ module Ai
             end
           end
 
-          recent_wf = workflow_runs.where("ai_workflow_runs.created_at >= ?", 15.minutes.ago)
-
-          if recent_wf.count > 10
-            failure_rate = recent_wf.where(status: "failed").count.to_f / recent_wf.count * 100
-            if failure_rate > 20
-              alerts << {
-                type: "high_failure_rate",
-                severity: "critical",
-                message: "High workflow failure rate: #{failure_rate.round(1)}%",
-                detected_at: Time.current
-              }
-            end
-          end
-
           alerts
         end
 
@@ -302,17 +242,15 @@ module Ai
         def aiops_real_time_metrics
           start_time = 1.minute.ago
 
-          wf_runs = workflow_runs.where("ai_workflow_runs.created_at >= ?", start_time)
           ag_execs = agent_executions.where("ai_agent_executions.created_at >= ?", start_time)
 
           {
             timestamp: Time.current.iso8601,
-            active_workflows: workflow_runs.where(status: %w[initializing running waiting_approval]).count,
-            requests_per_minute: wf_runs.count + ag_execs.count,
-            success_rate: ops_calculate_combined_success_rate(wf_runs, ag_execs),
-            avg_latency_ms: ops_calculate_combined_avg_latency(wf_runs, ag_execs),
-            errors_last_minute: wf_runs.where(status: "failed").count + ag_execs.where(status: "failed").count,
-            cost_last_minute: (wf_runs.sum(:total_cost) + ag_execs.sum(:cost_usd)).to_f.round(4)
+            requests_per_minute: ag_execs.count,
+            success_rate: ops_calculate_combined_success_rate(ag_execs),
+            avg_latency_ms: ops_calculate_combined_avg_latency(ag_execs),
+            errors_last_minute: ag_execs.where(status: "failed").count,
+            cost_last_minute: ag_execs.sum(:cost_usd).to_f.round(4)
           }
         end
 
@@ -365,20 +303,6 @@ module Ai
           { score: score, status: determine_health_status(score), issues: issues }
         end
 
-        def calculate_workflows_health
-          recent_runs = workflow_runs.where("ai_workflow_runs.created_at >= ?", 1.hour.ago)
-          return { score: 100, status: "healthy", issues: [] } if recent_runs.count < 5
-
-          total = recent_runs.count
-          successful = recent_runs.where(status: "completed").count
-          score = (successful.to_f / total * 100).round(0)
-
-          issues = []
-          issues << "#{total - successful} failed workflows in last hour" if score < 95
-
-          { score: score, status: determine_health_status(score), issues: issues }
-        end
-
         def calculate_agents_health
           recent_execs = agent_executions.where("ai_agent_executions.created_at >= ?", 1.hour.ago)
           return { score: 100, status: "healthy", issues: [] } if recent_execs.count < 5
@@ -424,14 +348,16 @@ module Ai
           end
         end
 
-        def last_incident_time = workflow_runs.where(status: "failed").order(created_at: :desc).first&.created_at
+        def last_incident_time
+          agent_executions.where(status: "failed").order(created_at: :desc).first&.created_at
+        end
 
         def calculate_uptime_percentage
-          total = workflow_runs.where("ai_workflow_runs.created_at >= ?", 24.hours.ago).count
+          total = agent_executions.where("ai_agent_executions.created_at >= ?", 24.hours.ago).count
           return 100.0 if total.zero?
 
-          successful = workflow_runs.where("ai_workflow_runs.created_at >= ?", 24.hours.ago)
-                                    .where(status: "completed").count
+          successful = agent_executions.where("ai_agent_executions.created_at >= ?", 24.hours.ago)
+                                       .where(status: "completed").count
           (successful.to_f / total * 100).round(2)
         end
 
@@ -473,23 +399,21 @@ module Ai
             start_time = (hours_ago + 1).hours.ago
             end_time = hours_ago.hours.ago
 
-            wf_cost = workflow_runs.where(created_at: start_time..end_time).sum(:total_cost)
             ag_cost = agent_executions.where(created_at: start_time..end_time).sum(:cost_usd)
 
-            { hour: end_time.strftime("%H:%M"), cost_usd: (wf_cost + ag_cost).to_f.round(4) }
+            { hour: end_time.strftime("%H:%M"), cost_usd: ag_cost.to_f.round(4) }
           end.reverse
         end
 
-        def ops_calculate_combined_success_rate(wf_runs, ag_execs)
-          total = wf_runs.count + ag_execs.count
+        def ops_calculate_combined_success_rate(ag_execs)
+          total = ag_execs.count
           return 100.0 if total.zero?
-          successful = wf_runs.where(status: "completed").count + ag_execs.where(status: "completed").count
+          successful = ag_execs.where(status: "completed").count
           (successful.to_f / total * 100).round(2)
         end
 
-        def ops_calculate_combined_avg_latency(wf_runs, ag_execs)
-          all_latencies = wf_runs.where(status: "completed").pluck(:duration_ms).compact +
-                          ag_execs.where(status: "completed").pluck(:duration_ms).compact
+        def ops_calculate_combined_avg_latency(ag_execs)
+          all_latencies = ag_execs.where(status: "completed").pluck(:duration_ms).compact
           return 0 if all_latencies.empty?
           (all_latencies.sum.to_f / all_latencies.length).round(2)
         end

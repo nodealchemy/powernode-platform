@@ -23,8 +23,6 @@ module Api
 
         # POST /api/v1/ai/sandboxes/:sandbox_id/scenarios
         def create_scenario
-          target_workflow = params[:target_workflow_id].present? ?
-            current_account.ai_workflows.find(params[:target_workflow_id]) : nil
           target_agent = params[:target_agent_id].present? ?
             current_account.ai_agents.find(params[:target_agent_id]) : nil
 
@@ -32,7 +30,6 @@ module Api
             sandbox: @sandbox,
             name: params[:name],
             scenario_type: params[:scenario_type],
-            target_workflow: target_workflow,
             target_agent: target_agent,
             user: current_user,
             description: params[:description],

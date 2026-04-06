@@ -11,21 +11,12 @@ module A2a
 
       # List pipelines (CI/CD workflows)
       def list_pipelines(input, task = nil)
-        scope = @account.ai_workflows.where(workflow_type: "cicd").order(created_at: :desc)
-
-        scope = scope.where(status: input["status"]) if input["status"].present?
-
-        page = (input["page"] || 1).to_i
-        per_page = [ (input["per_page"] || 20).to_i, 100 ].min
-
-        pipelines = scope.offset((page - 1) * per_page).limit(per_page)
-
         {
           output: {
-            pipelines: pipelines.map { |p| pipeline_summary(p) },
-            total: scope.count,
-            page: page,
-            per_page: per_page
+            pipelines: [],
+            total: 0,
+            page: (input["page"] || 1).to_i,
+            per_page: [(input["per_page"] || 20).to_i, 100].min
           }
         }
       end
@@ -128,24 +119,12 @@ module A2a
 
       private
 
-      def find_pipeline(id)
-        @account.ai_workflows.where(workflow_type: "cicd").find(id)
+      def find_pipeline(_id)
+        raise ActiveRecord::RecordNotFound, "Workflow pipelines have been removed"
       end
 
-      def find_run(run_id)
-        @account.ai_workflow_runs.find_by!(run_id: run_id)
-      end
-
-      def pipeline_summary(pipeline)
-        {
-          id: pipeline.id,
-          name: pipeline.name,
-          description: pipeline.description,
-          status: pipeline.status,
-          execution_count: pipeline.execution_count,
-          last_executed_at: pipeline.last_executed_at&.iso8601,
-          created_at: pipeline.created_at.iso8601
-        }
+      def find_run(_run_id)
+        raise ActiveRecord::RecordNotFound, "Workflow runs have been removed"
       end
     end
   end

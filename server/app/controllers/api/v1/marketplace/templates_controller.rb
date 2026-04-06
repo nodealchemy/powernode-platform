@@ -7,19 +7,8 @@ module Api
         before_action :set_template, only: [ :submit, :withdraw, :approve, :reject ]
 
         # POST /api/v1/marketplace/templates/from_workflow/:id
-        # Create a template from an existing workflow
         def create_from_workflow
-          workflow = current_account.ai_workflows.find(params[:id])
-
-          creator = ::Marketplace::TemplateCreator.new(current_user)
-          template = creator.create_from_workflow(workflow, template_params)
-
-          render_success(
-            serialize_template(template),
-            message: "Workflow template created successfully"
-          )
-        rescue ::Marketplace::TemplateCreatorError => e
-          render_error(e.message, status: :unprocessable_content)
+          render_error("Workflow templates have been removed", status: :gone)
         end
 
         # POST /api/v1/marketplace/templates/from_pipeline/:id

@@ -353,12 +353,8 @@ module Ai
     end
 
     def find_matching_workflow
-      scope = ralph_loop.account.ai_workflows.where(status: "active")
-
-      # Match workflows by tags/categories that align with required capabilities
-      return scope.first if required_capabilities.blank?
-
-      scope.where("tags && ARRAY[?]::varchar[]", required_capabilities).first || scope.first
+      # Ai::Workflow models have been removed
+      nil
     end
 
     def find_matching_pipeline

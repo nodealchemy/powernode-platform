@@ -10,7 +10,8 @@ module Ai
         # @return [Hash] Response time analysis
         def analyze_response_times
           start_time = time_range.ago
-          runs = completed_runs.where("completed_at >= ?", start_time)
+          runs = agent_executions.where(status: "completed")
+                                 .where("ai_agent_executions.completed_at >= ?", start_time)
 
           durations = runs.where.not(duration_ms: nil).pluck(:duration_ms)
 
@@ -30,7 +31,7 @@ module Ai
             p99_ms: percentile(sorted, 99),
             std_dev_ms: standard_deviation(durations).round(2),
             by_hour: response_times_by_hour(start_time),
-            by_workflow: response_times_by_workflow(start_time)
+            by_agent: response_times_by_agent(start_time)
           }
         end
 
@@ -54,25 +55,27 @@ module Ai
           {
             count: 0, min_ms: nil, max_ms: nil, avg_ms: nil,
             median_ms: nil, p75_ms: nil, p90_ms: nil, p95_ms: nil, p99_ms: nil,
-            std_dev_ms: nil, by_hour: {}, by_workflow: []
+            std_dev_ms: nil, by_hour: {}, by_agent: []
           }
         end
 
         def response_times_by_hour(since)
-          completed_runs.where("ai_workflow_runs.completed_at >= ?", since)
-                       .group("DATE_TRUNC('hour', ai_workflow_runs.completed_at)")
-                       .average(:duration_ms)
-                       .transform_keys { |k| k.iso8601 }
-                       .transform_values { |v| v&.to_f&.round(2) }
+          agent_executions.where(status: "completed")
+                          .where("ai_agent_executions.completed_at >= ?", since)
+                          .group("DATE_TRUNC('hour', ai_agent_executions.completed_at)")
+                          .average(:duration_ms)
+                          .transform_keys { |k| k.iso8601 }
+                          .transform_values { |v| v&.to_f&.round(2) }
         end
 
-        def response_times_by_workflow(since)
-          completed_runs.where("ai_workflow_runs.completed_at >= ?", since)
-                       .joins(:workflow)
-                       .group("ai_workflows.id", "ai_workflows.name")
-                       .average(:duration_ms)
-                       .map { |(id, name), avg| { id: id, name: name, avg_ms: avg&.to_f&.round(2) } }
-                       .sort_by { |w| -(w[:avg_ms] || 0) }
+        def response_times_by_agent(since)
+          agent_executions.where(status: "completed")
+                          .where("ai_agent_executions.completed_at >= ?", since)
+                          .joins(:agent)
+                          .group("ai_agents.id", "ai_agents.name")
+                          .average(:duration_ms)
+                          .map { |(id, name), avg| { id: id, name: name, avg_ms: avg&.to_f&.round(2) } }
+                          .sort_by { |a| -(a[:avg_ms] || 0) }
         end
       end
     end

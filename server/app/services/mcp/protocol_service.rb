@@ -442,11 +442,6 @@ module Mcp
       agent = @account.ai_agents.find(agent_id)
       executor = Ai::McpAgentExecutor.new(agent: agent, account: @account)
       executor.execute(params)
-    when "workflow"
-      workflow_id = tool_manifest["metadata"]["workflow_id"]
-      workflow = @account.ai_workflows.find(workflow_id)
-      executor = McpWorkflowExecutor.new(workflow: workflow, account: @account)
-      executor.execute(params)
     when "platform_tool"
       Ai::Tools::McpPlatformToolRegistrar.execute_tool(
         "platform.#{tool_manifest['name']}",

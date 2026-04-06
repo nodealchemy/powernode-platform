@@ -134,54 +134,6 @@ class McpChannel < ApplicationCable::Channel
     end
   end
 
-  # Handle workflow execution requests
-  def execute_workflow(data)
-    @logger.info "[MCP_CHANNEL] Handling workflow execution request"
-
-    begin
-      workflow_id = data.dig("params", "workflow_id")
-      input_variables = data.dig("params", "input_variables") || {}
-      execution_options = data.dig("params", "execution_options") || {}
-
-      raise ProtocolError, "Missing workflow_id" unless workflow_id
-
-      # Find workflow
-      workflow = current_user.account.ai_workflows.find(workflow_id)
-
-      # Create workflow run
-      workflow_run = workflow.create_run(
-        input_variables: input_variables,
-        triggered_by_user: current_user,
-        trigger_type: "mcp_channel",
-        trigger_context: {
-          "connection_id" => @connection_id,
-          "channel" => "mcp_channel"
-        }
-      )
-
-      # Execute via MCP workflow service
-      Mcp::AiWorkflowOrchestrator.new(
-        workflow_run: workflow_run,
-        account: current_user.account,
-        user: current_user
-      ).execute_workflow
-
-      transmit_mcp_message({
-        id: data["id"],
-        result: {
-          workflow_run_id: workflow_run.id,
-          status: workflow_run.status,
-          started_at: workflow_run.started_at.iso8601
-        }
-      })
-
-    rescue ActiveRecord::RecordNotFound
-      transmit_mcp_error(data["id"], ProtocolError.new("Workflow not found"))
-    rescue StandardError => e
-      transmit_mcp_error(data["id"], e)
-    end
-  end
-
   # Handle agent execution requests
   def execute_agent(data)
     @logger.info "[MCP_CHANNEL] Handling agent execution request"
@@ -245,8 +197,6 @@ class McpChannel < ApplicationCable::Channel
       case resource_type
       when "tool_events"
         subscribe_to_tool_events(resource_id, filters)
-      when "workflow_events"
-        subscribe_to_workflow_events(resource_id, filters)
       when "agent_events"
         subscribe_to_agent_events(resource_id, filters)
       else
@@ -328,7 +278,6 @@ class McpChannel < ApplicationCable::Channel
     # Check if user has any MCP-related permissions
     mcp_permissions = [
       "ai.agents.read",
-      "ai.workflows.read",
       "ai.providers.read",
       "admin.access"
     ]
@@ -407,14 +356,6 @@ class McpChannel < ApplicationCable::Channel
     end
   end
 
-  def subscribe_to_workflow_events(workflow_id, filters)
-    if workflow_id == "all"
-      stream_from "mcp_workflow_events_#{current_user.account_id}"
-    else
-      stream_from "mcp_workflow_#{workflow_id}_events"
-    end
-  end
-
   def subscribe_to_agent_events(agent_id, filters)
     if agent_id == "all"
       stream_from "mcp_agent_events_#{current_user.account_id}"
@@ -462,17 +403,6 @@ class McpChannel < ApplicationCable::Channel
     })
   end
 
-  def self.broadcast_workflow_event(event_type, workflow_id, data, account)
-    message = {
-      type: "workflow_event",
-      event_type: event_type,
-      workflow_id: workflow_id,
-      data: data
-    }
-
-    broadcast_to_account(account.id, message) if account
-  end
-
   def self.broadcast_to_connection(connection_id, message)
     # This would need to be implemented based on connection tracking
     # For now, we'll use the transport service
@@ -500,7 +430,6 @@ class McpChannel < ApplicationCable::Channel
   def mcp_related_permissions
     [
       "ai.agents.read", "ai.agents.create", "ai.agents.update", "ai.agents.delete",
-      "ai.workflows.read", "ai.workflows.create", "ai.workflows.update", "ai.workflows.delete",
       "ai.providers.read", "ai.providers.update",
       "admin.access"
     ]
