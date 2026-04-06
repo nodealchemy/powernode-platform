@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { fetchCompoundMetrics, CompoundMetrics, CompoundLearning } from '../services/compoundLearningApi';
+import { fetchCompoundMetrics, CompoundMetrics } from '../services/compoundLearningApi';
 
 const CATEGORY_COLORS: Record<string, string> = {
   pattern: 'info',
@@ -46,28 +46,6 @@ const ScoreGauge: React.FC<{ score: number; label: string }> = ({ score, label }
     </div>
   );
 };
-
-const LearningRow: React.FC<{ learning: CompoundLearning }> = ({ learning }) => (
-  <div className="flex items-start gap-3 p-3 rounded-lg bg-theme-surface border border-theme-border">
-    <Badge variant={(CATEGORY_COLORS[learning.category] || 'default') as 'info' | 'danger' | 'success' | 'warning' | 'default'}>
-      {learning.category.replace('_', ' ')}
-    </Badge>
-    <div className="flex-1 min-w-0">
-      <p className="text-sm font-medium text-theme-primary truncate">
-        {learning.title || learning.content.substring(0, 80)}
-      </p>
-      <p className="text-xs text-theme-muted mt-0.5 line-clamp-2">{learning.content}</p>
-    </div>
-    <div className="text-right shrink-0">
-      {learning.effectiveness_score !== null && (
-        <p className="text-xs text-theme-muted">
-          {Math.round(learning.effectiveness_score * 100)}% effective
-        </p>
-      )}
-      <p className="text-xs text-theme-muted">{learning.injection_count} uses</p>
-    </div>
-  </div>
-);
 
 export const CompoundMetricsDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -157,34 +135,6 @@ export const CompoundMetricsDashboard: React.FC = () => {
                   </Badge>
                   <span className="text-lg font-semibold text-theme-primary">{count}</span>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Most effective learnings */}
-      {metrics.most_effective.length > 0 && (
-        <Card>
-          <CardHeader title="Most Effective Learnings" />
-          <CardContent>
-            <div className="space-y-2">
-              {metrics.most_effective.map((learning) => (
-                <LearningRow key={learning.id} learning={learning} />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Recently added */}
-      {metrics.recently_added.length > 0 && (
-        <Card>
-          <CardHeader title="Recently Added" />
-          <CardContent>
-            <div className="space-y-2">
-              {metrics.recently_added.slice(0, 5).map((learning) => (
-                <LearningRow key={learning.id} learning={learning} />
               ))}
             </div>
           </CardContent>
