@@ -227,8 +227,15 @@ module Ai
         fm = []
         fm << { role: "system", content: sys } if sys.present?
         other.each { |m| fm << openai_normalize_message(m) }
-        body = { model: model, messages: fm, max_tokens: opts[:max_tokens] || 4096, temperature: opts[:temperature] || 0.7 }
-        %i[top_p stop presence_penalty frequency_penalty].each { |k| body[k] = opts[k] if opts[k] }
+        body = { model: model, messages: fm }
+        if model.to_s.match?(/\Ao\d/)
+          # OpenAI reasoning models (o3, o4-mini, etc.) use max_completion_tokens and don't support temperature
+          body[:max_completion_tokens] = opts[:max_tokens] || 4096
+        else
+          body[:max_tokens] = opts[:max_tokens] || 4096
+          body[:temperature] = opts[:temperature] || 0.7
+        end
+        %i[top_p stop presence_penalty frequency_penalty].each { |k| body[k] = opts[k] if opts[k] && !model.to_s.match?(/\Ao\d/) }
         body
       end
 

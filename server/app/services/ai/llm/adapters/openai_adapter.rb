@@ -197,17 +197,22 @@ module Ai
             formatted_messages << normalize_message(m)
           end
 
-          body = {
-            model: model,
-            messages: formatted_messages,
-            max_tokens: opts[:max_tokens] || 4096,
-            temperature: opts[:temperature] || 0.7
-          }
+          body = { model: model, messages: formatted_messages }
 
-          body[:top_p] = opts[:top_p] if opts[:top_p]
-          body[:stop] = opts[:stop] if opts[:stop]
-          body[:presence_penalty] = opts[:presence_penalty] if opts[:presence_penalty]
-          body[:frequency_penalty] = opts[:frequency_penalty] if opts[:frequency_penalty]
+          if model.to_s.match?(/\Ao\d/)
+            # OpenAI reasoning models (o3, o4-mini, etc.) use max_completion_tokens and don't support temperature
+            body[:max_completion_tokens] = opts[:max_tokens] || 4096
+          else
+            body[:max_tokens] = opts[:max_tokens] || 4096
+            body[:temperature] = opts[:temperature] || 0.7
+          end
+
+          unless model.to_s.match?(/\Ao\d/)
+            body[:top_p] = opts[:top_p] if opts[:top_p]
+            body[:stop] = opts[:stop] if opts[:stop]
+            body[:presence_penalty] = opts[:presence_penalty] if opts[:presence_penalty]
+            body[:frequency_penalty] = opts[:frequency_penalty] if opts[:frequency_penalty]
+          end
           body
         end
 

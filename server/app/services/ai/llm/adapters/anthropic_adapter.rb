@@ -181,7 +181,7 @@ module Ai
           # Anthropic uses output_config for structured output (GA since late 2025)
           body[:output_config] = {
             format: {
-              type: "json",
+              type: "json_schema",
               schema: schema[:schema] || schema
             }
           }
