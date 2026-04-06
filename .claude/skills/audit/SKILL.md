@@ -13,8 +13,8 @@ Run quality checks and report results. Accept an optional focus argument to limi
 ## Focus Areas
 
 - **all** (default) — run everything
-- **backend** — Ruby checks only (steps 1, 4, 5)
-- **frontend** — Frontend checks only (steps 3, 6, 7)
+- **backend** — Ruby checks only (steps 1, 4, 5, 6)
+- **frontend** — Frontend checks only (steps 3, 7, 8)
 - **types** — TypeScript type check only (step 3)
 - **patterns** — Pattern validation only (steps 1, 2)
 
@@ -47,18 +47,24 @@ Also check untracked `.rb` files:
 cd $PROJECT_DIR/server && git ls-files --others --exclude-standard -- '*.rb' | xargs -I{} ruby -c {} 2>&1
 ```
 
-### 5. Frozen String Literal Pragma
+### 5. Rails Eager Load Check (backend only)
+Verify all Ruby classes load without errors:
+```bash
+cd $PROJECT_DIR/server && bundle exec rails runner "Rails.application.eager_load!; puts 'Eager load OK'" 2>&1
+```
+
+### 6. Frozen String Literal Pragma
 Scan for Ruby files missing the pragma:
 ```bash
 grep -rL "frozen_string_literal: true" $PROJECT_DIR/server/app/ --include="*.rb" | head -20
 ```
 
-### 6. Console.log Scan
+### 7. Console.log Scan
 ```bash
 grep -rn "console\.log" $PROJECT_DIR/frontend/src/ --include="*.ts" --include="*.tsx" | head -20
 ```
 
-### 7. Hardcoded Color Scan
+### 8. Hardcoded Color Scan
 ```bash
 grep -rn "bg-\(red\|blue\|green\|yellow\|gray\|slate\|zinc\|neutral\|stone\)" $PROJECT_DIR/frontend/src/ --include="*.tsx" | grep -v "theme" | head -20
 ```
@@ -74,6 +80,7 @@ Present results as a summary table:
 | Quick Pattern Check    | ✅/❌  | count  |
 | TypeScript Types       | ✅/❌  | count  |
 | Ruby Syntax            | ✅/❌  | count  |
+| Rails Eager Load       | ✅/❌  | count  |
 | Frozen String Literal  | ✅/❌  | count  |
 | Console.log            | ✅/❌  | count  |
 | Hardcoded Colors       | ✅/❌  | count  |

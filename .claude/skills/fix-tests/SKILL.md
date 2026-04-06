@@ -2,20 +2,22 @@
 name: fix-tests
 description: Run tests, diagnose failures, fix and re-run until green
 disable-model-invocation: true
-argument-hint: [scope: backend|frontend|e2e|path/to/spec]
+argument-hint: [scope: backend|frontend|e2e|path/to/spec] [--loop]
 ---
 
 # Fix Tests Workflow
 
 Run the test suite for the given scope, diagnose failures, fix them, and re-run. Follow this process exactly:
 
-## Step 1: Determine Scope
+## Step 1: Determine Scope & Mode
 
 Parse the argument to determine what to run:
 - `backend` or no argument → `cd server && bundle exec rspec --format progress`
 - `frontend` → `cd frontend && CI=true npm test`
 - `e2e` → `cd frontend && npx playwright test`
 - A specific file path → run that file directly
+
+**Loop mode** (`--loop`): Run the full fix cycle autonomously without asking for input. Make best-judgment fixes. Suitable for headless/unattended runs via `claude -p "/fix-tests backend --loop"`.
 
 ## Step 2: Run Tests
 
@@ -51,9 +53,19 @@ Fix any type errors found (same 3-attempt limit).
 
 Re-run the full suite for the original scope to confirm everything passes.
 
-## Step 6: Summary
+## Step 6: Loop Mode Continuation (--loop only)
+
+If `--loop` flag was provided and Step 5 still has failures:
+1. Return to Step 3 with the NEW set of failures (not the originals)
+2. Repeat the full cycle up to **3 total loop iterations**
+3. If failures persist after 3 full loops, stop and report
+
+This enables autonomous fix pipelines: `claude -p "/fix-tests backend --loop" --allowedTools "Bash,Read,Edit,Grep,Glob"`
+
+## Step 7: Summary
 
 Report:
 - Total tests: pass / fail / pending
 - Failures fixed (list each with one-line description of what was wrong)
 - Failures remaining (if any, with diagnosis of why they couldn't be auto-fixed)
+- Loop iterations completed (if --loop mode)
