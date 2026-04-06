@@ -163,7 +163,7 @@ export const defaultNavigationConfig: NavigationConfig = {
         {
           id: 'users',
           name: 'Users',
-          href: '/app/users',
+          href: '/app/profile/users',
           icon: Users,
           description: 'Manage your team members',
           permissions: ['team.read'],
@@ -330,7 +330,7 @@ export const defaultNavigationConfig: NavigationConfig = {
     {
       id: 'invite-team',
       name: 'Invite Team Member',
-      href: '/app/users',
+      href: '/app/profile/users',
       icon: UserCheck,
       description: 'Add someone to your team'
     },

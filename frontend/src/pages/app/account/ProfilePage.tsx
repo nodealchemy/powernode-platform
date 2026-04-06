@@ -10,6 +10,7 @@ import { useTheme } from '@/shared/hooks/ThemeContext';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { Save, RefreshCw } from 'lucide-react';
+import { UsersContent } from '@/pages/app/account/UsersPage';
 
 // Type guard for settings update data
 const isSettingsUpdateData = (data: unknown): data is Partial<UserSettings> => {
@@ -24,6 +25,7 @@ export const ProfilePage: React.FC = () => {
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [childActions, setChildActions] = useState<PageAction[]>([]);
   
   // Get active tab from URL path
   const getActiveTabFromPath = useCallback(() => {
@@ -36,7 +38,8 @@ export const ProfilePage: React.FC = () => {
     if (path === '/app/profile/preferences') return 'preferences';
     if (path === '/app/profile/notifications') return 'notifications';
     if (path === '/app/profile/security') return 'security';
-    
+    if (path === '/app/profile/users') return 'users';
+
     // Default to profile for base settings path or any other case
     return 'profile';
   }, [location.pathname]);
@@ -50,6 +53,7 @@ export const ProfilePage: React.FC = () => {
     if (path === '/app/profile/preferences') return 'preferences';
     if (path === '/app/profile/notifications') return 'notifications';
     if (path === '/app/profile/security') return 'security';
+    if (path === '/app/profile/users') return 'users';
     return 'profile';
   });
 
@@ -342,7 +346,18 @@ export const ProfilePage: React.FC = () => {
     return hasUpperCase && hasLowerCase && hasNumbers && hasSpecialChar;
   };
 
-  const pageActions: PageAction[] = [
+  const handleActionsReady = useCallback((actions: PageAction[]) => {
+    setChildActions(actions);
+  }, []);
+
+  // Clear child actions when leaving a tab that provides them
+  useEffect(() => {
+    if (activeTab !== 'users') {
+      setChildActions([]);
+    }
+  }, [activeTab]);
+
+  const profileActions: PageAction[] = [
     {
       id: 'save',
       label: 'Save Changes',
@@ -378,6 +393,11 @@ export const ProfilePage: React.FC = () => {
     
     if (canManageBilling) {
       baseTabs.push({ id: 'subscription', label: 'Subscription', icon: '💳', path: '/subscription' });
+    }
+
+    const canManageTeam = user?.permissions?.includes('team.read');
+    if (canManageTeam) {
+      baseTabs.push({ id: 'users', label: 'Users', icon: '👥', path: '/users' });
     }
 
     baseTabs.push(
@@ -426,7 +446,7 @@ export const ProfilePage: React.FC = () => {
       title="My Profile"
       description={getPageDescription()}
       breadcrumbs={breadcrumbs}
-      actions={loading ? [] : pageActions}
+      actions={loading ? [] : (childActions.length > 0 ? childActions : profileActions)}
     >
       {loading ? (
         <div className="flex items-center justify-center h-64">
@@ -830,6 +850,10 @@ export const ProfilePage: React.FC = () => {
             </div>
           )}
         </TabPanel>
+
+            <TabPanel tabId="users" activeTab={activeTab}>
+              <UsersContent onActionsReady={handleActionsReady} />
+            </TabPanel>
       </TabContainer>
       </div>
       )}

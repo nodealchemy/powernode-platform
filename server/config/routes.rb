@@ -735,6 +735,7 @@ Rails.application.routes.draw do
           put :unlock
           post :reset_password
           post :resend_verification
+          post :manual_verify
         end
       end
 

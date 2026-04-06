@@ -49,7 +49,7 @@ export interface TeamMembersTableProps {
   onEditUser: (user: User) => void;
   onRolesModal: (user: User) => void;
   onImpersonateUser: (user: User) => void;
-  onUserAction: (user: User, action: 'suspend' | 'activate' | 'unlock' | 'reset_password' | 'resend_verification') => void;
+  onUserAction: (user: User, action: 'suspend' | 'activate' | 'unlock' | 'reset_password' | 'resend_verification' | 'manual_verify') => void;
   onDeleteUser: (user: User) => void;
 }
 

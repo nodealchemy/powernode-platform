@@ -167,6 +167,12 @@ class UsersApiService {
     return response.data;
   }
 
+  // Manual verify (development only)
+  async manualVerify(user_id: string): Promise<{ success: boolean; message: string }> {
+    const response = await api.post(`/users/${user_id}/manual_verify`);
+    return response.data;
+  }
+
   // Get users for specific account only
   async getAccountUsers(account_id?: string): Promise<UsersListResponse> {
     const response = await api.get('/users', {

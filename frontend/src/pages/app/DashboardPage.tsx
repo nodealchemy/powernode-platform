@@ -26,7 +26,6 @@ const KnowledgeBaseArticlePage = React.lazy(() => import('./content/KnowledgeBas
 const KnowledgeBaseAdminPage = React.lazy(() => import('./content/KnowledgeBaseAdminPage'));
 const KnowledgeBaseArticleEditor = React.lazy(() => import('@/features/content/knowledge-base/components/KnowledgeBaseArticleEditor').then(m => ({ default: m.KnowledgeBaseArticleEditor })));
 const MyFilesPage = React.lazy(() => import('./content/MyFilesPage'));
-const UsersPage = React.lazy(() => import('./account/UsersPage').then(m => ({ default: m.UsersPage })));
 const AuditLogsPage = React.lazy(() => import('./admin/AuditLogsPage').then(m => ({ default: m.AuditLogsPage })));
 const PrivacyDashboardPage = React.lazy(() => import('./privacy/PrivacyDashboardPage'));
 const NotificationsPage = React.lazy(() => import('./account/NotificationsPage').then(m => ({ default: m.NotificationsPage })));
@@ -483,9 +482,6 @@ const DashboardPage: React.FC = () => {
         {/* Business analytics + metrics routes handled by featureRegistry (business) */}
 
         {/* Marketplace routes handled by featureRegistry (business) */}
-
-        {/* Admin routes - consistent with navigation */}
-        <Route path="/users" element={<UsersPage />} />
 
         {/* Admin management routes */}
         <Route path="/admin/settings/*" element={<AdminSettingsPage />} />

@@ -24,7 +24,11 @@ import {
   UserFiltersState
 } from './users-page';
 
-const UsersPage: React.FC = () => {
+interface UsersContentProps {
+  onActionsReady?: (actions: PageAction[]) => void;
+}
+
+export const UsersContent: React.FC<UsersContentProps> = ({ onActionsReady }) => {
   const dispatch = useDispatch<AppDispatch>();
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
   const { showNotification } = useNotifications();
@@ -322,8 +326,10 @@ const UsersPage: React.FC = () => {
       } else {
         setFormErrors([response.message || 'Failed to create user']);
       }
-    } catch (_error) {
-      setFormErrors(['Failed to create user. Please try again.']);
+    } catch (error: unknown) {
+      const axiosErr = error as { response?: { data?: { details?: { errors?: string[] }; error?: string } } };
+      const serverErrors = axiosErr.response?.data?.details?.errors;
+      setFormErrors(serverErrors?.length ? serverErrors : [axiosErr.response?.data?.error || 'Failed to create user. Please try again.']);
     } finally {
       setActionLoading(false);
     }
@@ -380,7 +386,7 @@ const UsersPage: React.FC = () => {
   };
 
   // Handle user action (suspend/activate/unlock)
-  const handleUserAction = async (user: User, action: 'suspend' | 'activate' | 'unlock' | 'reset_password' | 'resend_verification') => {
+  const handleUserAction = async (user: User, action: 'suspend' | 'activate' | 'unlock' | 'reset_password' | 'resend_verification' | 'manual_verify') => {
     try {
       setActionLoading(true);
       let response;
@@ -400,6 +406,9 @@ const UsersPage: React.FC = () => {
           break;
         case 'resend_verification':
           response = await usersApi.resendVerification(user.id);
+          break;
+        case 'manual_verify':
+          response = await usersApi.manualVerify(user.id);
           break;
       }
 
@@ -515,31 +524,12 @@ const UsersPage: React.FC = () => {
     }
   ], [loading, filteredUsers.length, showFilters, isFiltersDefault, filters.sortOrder, loadData]);
 
-  const breadcrumbs = [
-    { label: 'Dashboard', href: '/app' },
-    { label: 'Account' },
-    { label: 'User Management' }
-  ];
-
-  const getPageDescription = () => {
-    if (loading) return "Loading user management dashboard...";
-    const totalUsers = filteredUsers.length;
-    const selectedCount = selectedUsers.size;
-
-    if (selectedCount > 0) {
-      return `${selectedCount} of ${totalUsers} users selected • Full administrative user management`;
-    }
-
-    return `${totalUsers} users • Full administrative user management with bulk operations, filtering, and impersonation`;
-  };
+  useEffect(() => {
+    onActionsReady?.(loading ? [] : pageActions);
+  }, [onActionsReady, pageActions, loading]);
 
   return (
-    <PageContainer
-      title="User Management"
-      description={getPageDescription()}
-      breadcrumbs={breadcrumbs}
-      actions={loading ? [] : pageActions}
-    >
+    <>
       {loading ? (
         <div className="flex items-center justify-center min-h-64">
           <LoadingSpinner size="lg" />
@@ -642,6 +632,28 @@ const UsersPage: React.FC = () => {
           {ConfirmationDialog}
         </>
       )}
+    </>
+  );
+};
+
+const UsersPage: React.FC = () => {
+  const [actions, setActions] = useState<PageAction[]>([]);
+  const handleActionsReady = useCallback((newActions: PageAction[]) => {
+    setActions(newActions);
+  }, []);
+
+  return (
+    <PageContainer
+      title="User Management"
+      description="Full administrative user management with bulk operations, filtering, and impersonation"
+      breadcrumbs={[
+        { label: 'Dashboard', href: '/app' },
+        { label: 'Profile', href: '/app/profile' },
+        { label: 'Users' }
+      ]}
+      actions={actions}
+    >
+      <UsersContent onActionsReady={handleActionsReady} />
     </PageContainer>
   );
 };

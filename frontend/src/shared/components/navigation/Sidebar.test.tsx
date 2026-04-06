@@ -13,7 +13,7 @@ let mockIsCollapsed = false;
 const mockNavigationConfig = {
   items: [
     { id: 'dashboard', label: 'Dashboard', href: '/app/dashboard', icon: () => <span>D</span>, order: 1 },
-    { id: 'users', label: 'Users', href: '/app/users', icon: () => <span>U</span>, order: 2 },
+    { id: 'users', label: 'Users', href: '/app/profile/users', icon: () => <span>U</span>, order: 2 },
   ],
   sections: [
     {

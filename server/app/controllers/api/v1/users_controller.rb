@@ -4,11 +4,11 @@ class Api::V1::UsersController < ApplicationController
   include UserSerialization
   include AuditLogging
 
-  before_action :set_user, only: [ :show, :update, :destroy, :suspend, :activate, :unlock, :reset_password, :resend_verification ]
+  before_action :set_user, only: [ :show, :update, :destroy, :suspend, :activate, :unlock, :reset_password, :resend_verification, :manual_verify ]
   before_action -> { require_permission("admin.user.read") }, only: [ :index, :stats ]
   before_action -> { require_permission("admin.user.create") }, only: [ :create ]
   before_action -> { require_permission("admin.user.delete") }, only: [ :destroy ]
-  before_action -> { require_permission("admin.user.manage") }, only: [ :suspend, :activate, :unlock, :reset_password, :resend_verification ]
+  before_action -> { require_permission("admin.user.manage") }, only: [ :suspend, :activate, :unlock, :reset_password, :resend_verification, :manual_verify ]
 
   # GET /api/v1/users
   def index
@@ -142,6 +142,21 @@ class Api::V1::UsersController < ApplicationController
     else
       render_validation_error(@user)
     end
+  end
+
+  # POST /api/v1/users/:id/manual_verify (development only)
+  def manual_verify
+    unless Rails.env.development?
+      return render_error("Manual verification is only available in development", status: :forbidden)
+    end
+
+    if @user.email_verified_at.present?
+      return render_error("User email is already verified", status: :unprocessable_content)
+    end
+
+    @user.update!(email_verified_at: Time.current, email_verification_token: nil)
+    log_audit_event("user.manually_verified", @user)
+    render_success(user_data(@user), message: "User email verified")
   end
 
   # POST /api/v1/users/:id/resend_verification
