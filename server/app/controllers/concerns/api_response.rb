@@ -62,6 +62,9 @@ module ApiResponse
   # Validation error response (422 status)
   # @param errors [ActiveModel::Errors, Array, String] Validation errors
   def render_validation_error(errors)
+    # Accept ActiveRecord models directly — extract their errors
+    errors = errors.errors if errors.respond_to?(:errors) && !errors.is_a?(ActiveModel::Errors)
+
     case errors
     when ActiveModel::Errors
       error_details = errors.full_messages
