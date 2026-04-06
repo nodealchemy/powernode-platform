@@ -38,6 +38,9 @@ export interface CompoundMetrics {
   compound_score: number;
 }
 
+export type SortField = 'created_at' | 'importance_score' | 'effectiveness_score' | 'injection_count' | 'confidence_score';
+export type SortDir = 'asc' | 'desc';
+
 export interface LearningFilters {
   status?: string;
   category?: string;
@@ -46,14 +49,22 @@ export interface LearningFilters {
   team_id?: string;
   query?: string;
   limit?: number;
+  offset?: number;
+  sort_by?: SortField;
+  sort_dir?: SortDir;
+}
+
+export interface LearningsPage {
+  learnings: CompoundLearning[];
+  meta: { total_count: number; offset: number; limit: number };
 }
 
 export const fetchCompoundMetrics = async (): Promise<CompoundMetrics> => {
   const response = await apiClient.get('/ai/learning/compound_metrics');
-  return response.data?.metrics;
+  return response.data?.data?.metrics;
 };
 
-export const fetchLearnings = async (filters: LearningFilters = {}): Promise<CompoundLearning[]> => {
+export const fetchLearnings = async (filters: LearningFilters = {}): Promise<LearningsPage> => {
   const params = new URLSearchParams();
   if (filters.status) params.set('status', filters.status);
   if (filters.category) params.set('category', filters.category);
@@ -62,17 +73,24 @@ export const fetchLearnings = async (filters: LearningFilters = {}): Promise<Com
   if (filters.team_id) params.set('team_id', filters.team_id);
   if (filters.query) params.set('query', filters.query);
   if (filters.limit) params.set('limit', filters.limit.toString());
+  if (filters.offset) params.set('offset', filters.offset.toString());
+  if (filters.sort_by) params.set('sort_by', filters.sort_by);
+  if (filters.sort_dir) params.set('sort_dir', filters.sort_dir);
 
   const response = await apiClient.get(`/ai/learning/learnings?${params.toString()}`);
-  return response.data?.learnings || [];
+  const data = response.data?.data || {};
+  return {
+    learnings: data.learnings || [],
+    meta: response.data?.meta || { total_count: 0, offset: 0, limit: 50 },
+  };
 };
 
 export const reinforceLearning = async (id: string): Promise<CompoundLearning> => {
   const response = await apiClient.post(`/ai/learning/reinforce/${id}`);
-  return response.data?.learning;
+  return response.data?.data?.learning;
 };
 
 export const promoteCrossTeam = async (): Promise<number> => {
   const response = await apiClient.post('/ai/learning/promote');
-  return response.data?.promoted_count || 0;
+  return response.data?.data?.promoted_count || 0;
 };

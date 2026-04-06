@@ -8,12 +8,12 @@ export async function fetchEvaluationResults(params?: {
   limit?: number;
 }): Promise<EvaluationResult[]> {
   const response = await apiClient.get('/ai/learning/evaluation_results', { params });
-  return response.data?.results || [];
+  return response.data?.data?.results || [];
 }
 
 export async function fetchAgentTrends(): Promise<AgentScoreTrend[]> {
   const response = await apiClient.get('/ai/learning/agent_trends');
-  return response.data?.trends || [];
+  return response.data?.data?.trends || [];
 }
 
 export async function fetchBenchmarks(params?: {
@@ -22,7 +22,7 @@ export async function fetchBenchmarks(params?: {
   limit?: number;
 }): Promise<PerformanceBenchmark[]> {
   const response = await apiClient.get('/ai/learning/benchmarks', { params });
-  return response.data?.benchmarks || [];
+  return response.data?.data?.benchmarks || [];
 }
 
 export async function createBenchmark(data: {
@@ -32,7 +32,7 @@ export async function createBenchmark(data: {
   thresholds?: Record<string, number>;
 }): Promise<PerformanceBenchmark> {
   const response = await apiClient.post('/ai/learning/benchmarks', data);
-  return response.data?.benchmark;
+  return response.data?.data?.benchmark;
 }
 
 export async function runBenchmark(id: string): Promise<{
@@ -40,5 +40,5 @@ export async function runBenchmark(id: string): Promise<{
   results: Record<string, unknown>;
 }> {
   const response = await apiClient.post(`/ai/learning/benchmarks/${id}/run`);
-  return response.data;
+  return response.data?.data;
 }
