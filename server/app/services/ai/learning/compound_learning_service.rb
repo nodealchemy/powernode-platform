@@ -389,13 +389,7 @@ module Ai
       end
 
       def list_learnings(filters = {})
-        scope = Ai::CompoundLearning.for_account(@account.id)
-
-        scope = scope.where(status: filters[:status]) if filters[:status].present?
-        scope = scope.by_category(filters[:category]) if filters[:category].present?
-        scope = scope.where(scope: filters[:scope]) if filters[:scope].present?
-        scope = scope.where("importance_score >= ?", filters[:min_importance]) if filters[:min_importance].present?
-        scope = scope.for_team(filters[:team_id]) if filters[:team_id].present?
+        scope = build_learnings_scope(filters)
 
         if filters[:query].present?
           # Try semantic search first
@@ -412,8 +406,28 @@ module Ai
           end
         end
 
-        scope = scope.order(created_at: :desc) unless filters[:query].present?
+        scope = apply_sort(scope, filters)
+        scope = scope.offset(filters[:offset]) if filters[:offset].to_i > 0
         scope.limit(filters[:limit] || 50)
+      end
+
+      def count_learnings(filters = {})
+        scope = build_learnings_scope(filters)
+
+        if filters[:query].present?
+          query_embedding = @embedding_service.generate(filters[:query])
+          if query_embedding
+            return scope.active
+              .nearest_neighbors(:embedding, query_embedding, distance: "cosine")
+              .limit(500)
+              .to_a
+              .count { |e| e.neighbor_distance <= 0.6 }
+          else
+            scope = scope.where("content ILIKE ? OR title ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(filters[:query])}%", "%#{ActiveRecord::Base.sanitize_sql_like(filters[:query])}%")
+          end
+        end
+
+        scope.count
       end
 
       # Store a learning with embedding generation and deduplication.
@@ -505,6 +519,24 @@ module Ai
       end
 
       private
+
+      SORTABLE_COLUMNS = %w[created_at importance_score effectiveness_score injection_count confidence_score updated_at].freeze
+
+      def build_learnings_scope(filters)
+        scope = Ai::CompoundLearning.for_account(@account.id)
+        scope = scope.where(status: filters[:status]) if filters[:status].present?
+        scope = scope.by_category(filters[:category]) if filters[:category].present?
+        scope = scope.where(scope: filters[:scope]) if filters[:scope].present?
+        scope = scope.where("importance_score >= ?", filters[:min_importance]) if filters[:min_importance].present?
+        scope = scope.for_team(filters[:team_id]) if filters[:team_id].present?
+        scope
+      end
+
+      def apply_sort(scope, filters)
+        column = SORTABLE_COLUMNS.include?(filters[:sort_by]) ? filters[:sort_by] : "created_at"
+        direction = filters[:sort_dir] == "asc" ? :asc : :desc
+        scope.order(column => direction)
+      end
 
       def boost_injected_learnings_on_success(execution)
         # Find learnings injected into this execution (those with recent injection timestamps)

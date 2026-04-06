@@ -78,18 +78,25 @@ module Api
         # GET /api/v1/ai/learning/learnings
         def learnings
           service = ::Ai::Learning::CompoundLearningService.new(account: current_account)
-          results = service.list_learnings(
+          filters = {
             status: params[:status] || "active",
             category: params[:category],
             scope: params[:scope],
             min_importance: params[:min_importance]&.to_f,
             team_id: params[:team_id],
             query: params[:query],
-            limit: params[:limit]&.to_i || 50
-          )
+            limit: params[:limit]&.to_i || 50,
+            offset: params[:offset]&.to_i || 0,
+            sort_by: params[:sort_by],
+            sort_dir: params[:sort_dir]
+          }
+
+          results = service.list_learnings(filters)
+          total = service.count_learnings(filters.except(:limit, :offset, :sort_by, :sort_dir))
 
           render_success(
-            learnings: results.map { |l| l.respond_to?(:learning_summary) ? l.learning_summary : l }
+            learnings: results.map { |l| l.respond_to?(:learning_summary) ? l.learning_summary : l },
+            meta: { total_count: total, offset: filters[:offset], limit: filters[:limit] }
           )
         end
 
