@@ -19,6 +19,13 @@ Rails.application.configure do
   # Do not eager load code on boot (classes autoload lazily as needed).
   config.eager_load = false
 
+  # When running under systemd, route logs to STDOUT for journalctl capture
+  # instead of writing to log/development.log (which thrashes file sync services).
+  if ENV["RAILS_LOG_TO_STDOUT"].present?
+    config.logger = ActiveSupport::TaggedLogging.logger(STDOUT)
+    config.log_level = ENV.fetch("RAILS_LOG_LEVEL", "debug")
+  end
+
   # Show full error reports.
   config.consider_all_requests_local = true
 
