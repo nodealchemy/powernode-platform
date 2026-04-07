@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_04_200000) do
+ActiveRecord::Schema[8.1].define(version: 2026_04_06_150000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10397,6 +10397,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_04_200000) do
     t.index ["account_id"], name: "index_trading_risk_profiles_on_account_id", unique: true
   end
 
+  create_table "trading_signal_attributions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.decimal "confidence", precision: 5, scale: 4
+    t.datetime "created_at", null: false
+    t.string "direction", null: false
+    t.string "evaluator_type", null: false
+    t.jsonb "metadata", default: "{}"
+    t.boolean "outcome_profitable"
+    t.datetime "outcome_recorded_at"
+    t.decimal "outcome_return", precision: 10, scale: 6
+    t.decimal "predicted_probability", precision: 8, scale: 6
+    t.uuid "trading_signal_id", null: false
+    t.uuid "trading_strategy_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["evaluator_type"], name: "index_trading_signal_attributions_on_evaluator_type"
+    t.index ["trading_signal_id"], name: "index_trading_signal_attributions_on_trading_signal_id"
+    t.index ["trading_strategy_id", "evaluator_type"], name: "idx_sig_attr_strat_eval"
+    t.index ["trading_strategy_id"], name: "index_trading_signal_attributions_on_trading_strategy_id"
+  end
+
   create_table "trading_signals", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "acted_on_at"
     t.decimal "confidence", precision: 5, scale: 4, null: false
@@ -12089,6 +12108,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_04_200000) do
   add_foreign_key "trading_risk_events", "trading_risk_profiles"
   add_foreign_key "trading_risk_events", "trading_strategies"
   add_foreign_key "trading_risk_profiles", "accounts"
+  add_foreign_key "trading_signal_attributions", "trading_signals"
+  add_foreign_key "trading_signal_attributions", "trading_strategies"
   add_foreign_key "trading_signals", "trading_strategies", on_delete: :cascade
   add_foreign_key "trading_simulations", "accounts"
   add_foreign_key "trading_simulations", "trading_portfolios"
