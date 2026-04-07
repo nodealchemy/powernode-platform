@@ -86,6 +86,18 @@ sessions = data.get('result', {}).get('sessions', [])
 if not sessions:
     sys.exit(1)
 
+# First-pass: prefer session tagged for this instance (server-side reservation)
+if my_instance:
+    for s in sessions:
+        cid = s.get('client_instance_id', '') or ''
+        if cid == my_instance:
+            token = s.get('session_token', '')
+            if token:
+                display = s.get('display_name', '') or ''
+                agent_id = s.get('agent_id', '') or ''
+                print(token + '\t' + display + '\t' + agent_id)
+                sys.exit(0)
+
 # Build set of session tokens already claimed by live processes
 claimed = {}
 for f in glob.glob('/tmp/powernode_mcp_session_*.txt'):
@@ -415,7 +427,7 @@ ensure_session() {
     local token
     token=$(get_token) || { log "ERROR: No token for session discovery"; return 1; }
 
-    local discover_payload='{"jsonrpc":"2.0","id":"discover-1","method":"session/discover","params":{}}'
+    local discover_payload="{\"jsonrpc\":\"2.0\",\"id\":\"discover-1\",\"method\":\"session/discover\",\"params\":{\"client_instance_id\":\"${INSTANCE_ID}\"}}"
     local discover_response
     discover_response=$(curl -sS -X POST \
       -w '\n%{http_code}' \
@@ -490,7 +502,7 @@ ensure_session() {
     local token
     token=$(get_token) || { log "ERROR: No token for session discovery"; return 1; }
 
-    local discover_payload='{"jsonrpc":"2.0","id":"discover-pi","method":"session/discover","params":{}}'
+    local discover_payload="{\"jsonrpc\":\"2.0\",\"id\":\"discover-pi\",\"method\":\"session/discover\",\"params\":{\"client_instance_id\":\"${INSTANCE_ID}\"}}"
     local discover_response
     discover_response=$(curl -sS -X POST \
       -w '\n%{http_code}' \

@@ -399,7 +399,9 @@ module Api
           }
         end
 
-        def handle_session_discover(_params)
+        def handle_session_discover(params)
+          client_instance_id = params["client_instance_id"]
+
           # Include grace-period sessions so daemons can reclaim their own session
           # after disconnect. The server will call reactivate! automatically when
           # the daemon sends an SSE GET with the revoked session token.
@@ -416,7 +418,7 @@ module Api
           # Auto-provision one so the SSE daemon (and workspace UI) can recover
           # from the dead state caused by server restarts or cleanup tasks.
           if discovered.empty? && @doorkeeper_token&.application_id.present?
-            new_session = auto_provision_mcp_session
+            new_session = auto_provision_mcp_session(client_instance_id: client_instance_id)
             discovered = [new_session] if new_session
           end
 
@@ -428,6 +430,7 @@ module Api
               created_at: s.created_at.iso8601,
               last_activity_at: s.last_activity_at&.iso8601,
               client_info: s.client_info,
+              client_instance_id: s.metadata&.dig("client_instance_id"),
               status: s.status
             }
           end
@@ -668,16 +671,34 @@ module Api
         # expired beyond grace period and agents were destroyed. Called from
         # handle_session_discover when no sessions exist for an authenticated client.
         # Creates a new session + agent so the SSE daemon can discover and claim it.
-        def auto_provision_mcp_session
+        # When client_instance_id is provided, tags the session so concurrent instances
+        # each get their own session instead of sharing one.
+        def auto_provision_mcp_session(client_instance_id: nil)
           app_id = @doorkeeper_token.application_id
 
-          # Guard: don't create if a concurrent request just created one
-          existing = McpSession.active
+          scope = McpSession.active
             .where(user: current_user, account: current_account, oauth_application_id: app_id)
-            .first
-          return existing if existing
+
+          if client_instance_id.present?
+            # Return session already tagged for this instance
+            existing = scope.where("metadata->>'client_instance_id' = ?", client_instance_id).first
+            return existing if existing
+
+            # Claim an untagged session (legacy or freshly created by another path)
+            existing = scope.where("metadata->>'client_instance_id' IS NULL OR metadata->>'client_instance_id' = ''").first
+            if existing
+              existing.update_column(:metadata, existing.metadata.merge("client_instance_id" => client_instance_id))
+              return existing
+            end
+            # All existing sessions belong to other instances — create a new one
+          else
+            # Legacy: return any existing (backward compat for clients without instance ID)
+            existing = scope.first
+            return existing if existing
+          end
 
           app_name = @doorkeeper_token.application&.name || "MCP Client"
+          instance_metadata = client_instance_id.present? ? { "client_instance_id" => client_instance_id } : {}
 
           session = McpSession.create!(
             user: current_user,
@@ -687,7 +708,8 @@ module Api
             ip_address: request.remote_ip,
             user_agent: request.user_agent,
             expires_at: SESSION_TTL.from_now,
-            oauth_application_id: app_id
+            oauth_application_id: app_id,
+            metadata: instance_metadata
           )
 
           # include_grace_period: true — this IS the recovery flow for a disconnected

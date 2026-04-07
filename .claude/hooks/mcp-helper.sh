@@ -129,6 +129,17 @@ sessions = data.get('result', {}).get('sessions', [])
 if not sessions:
     sys.exit(1)
 
+# First-pass: prefer session tagged for this instance (server-side reservation)
+if my_instance:
+    for s in sessions:
+        cid = s.get('client_instance_id', '') or ''
+        if cid == my_instance:
+            token = s.get('session_token', '')
+            if token:
+                display = s.get('display_name', '') or ''
+                print(token + '\t' + display)
+                sys.exit(0)
+
 # Build set of session tokens already claimed by live processes
 claimed = {}
 for f in glob.glob('/tmp/powernode_mcp_session_*.txt'):
@@ -245,7 +256,7 @@ mcp_ensure_session() {
   token=$(mcp_token) || return 1
 
   # Discover existing sessions instead of creating a new one
-  local discover_payload='{"jsonrpc":"2.0","id":"discover-helper","method":"session/discover","params":{}}'
+  local discover_payload="{\"jsonrpc\":\"2.0\",\"id\":\"discover-helper\",\"method\":\"session/discover\",\"params\":{\"client_instance_id\":\"${MCP_INSTANCE_ID}\"}}"
   local discover_response
   discover_response=$(curl -sS -X POST \
     -H "Authorization: Bearer $token" \
