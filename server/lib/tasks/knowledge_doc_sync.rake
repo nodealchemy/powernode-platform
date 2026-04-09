@@ -23,12 +23,32 @@ namespace :mcp do
 
     if result[:success]
       puts "Sync completed at #{result[:synced_at]}:"
-      puts "  Learnings: #{result[:learnings][:count]} entries"
-      puts "  Knowledge: #{result[:knowledge][:count]} entries"
-      puts "  Skills:    #{result[:skills][:count]} entries"
-      puts "  Graph:     #{result[:graph][:nodes]} nodes, #{result[:graph][:edges]} edges"
-      puts "  TODOs:     #{result[:todos][:count]} items"
-      puts "Output: docs/platform/knowledge/ + docs/TODO.md"
+      puts ""
+
+      result.each do |scope, scope_data|
+        next unless scope_data.is_a?(Hash) && scope_data.key?(:learnings)
+
+        label = scope.to_s.titleize
+        learnings_count = scope_data.dig(:learnings, :count) || 0
+        knowledge_count = scope_data.dig(:knowledge, :count) || 0
+        skills_count = scope_data.dig(:skills, :count) || 0
+
+        parts = []
+        parts << "#{learnings_count} learnings" if learnings_count > 0
+        parts << "#{knowledge_count} knowledge" if knowledge_count > 0
+        parts << "#{skills_count} skills" if skills_count > 0
+
+        if scope_data[:graph]
+          parts << "#{scope_data[:graph][:nodes]} graph nodes"
+          parts << "#{scope_data[:graph][:edges]} graph edges"
+        end
+        parts << "#{scope_data[:todos][:count]} TODOs" if scope_data[:todos]
+
+        puts "  #{label.ljust(12)} #{parts.join(', ')}"
+      end
+
+      puts ""
+      puts "Output: docs/platform/knowledge/ + extension docs/ + docs/TODO.md"
     else
       puts "Sync failed: #{result[:error]}"
       exit 1

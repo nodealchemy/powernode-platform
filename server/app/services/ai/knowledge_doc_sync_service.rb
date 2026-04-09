@@ -2,9 +2,10 @@
 
 module Ai
   class KnowledgeDocSyncService
-    OUTPUT_DIR = Rails.root.join("..", "docs", "platform", "knowledge")
+    PLATFORM_OUTPUT_DIR = Rails.root.join("..", "docs", "platform", "knowledge")
+    EXTENSIONS_ROOT = Rails.root.join("..", "extensions")
 
-    # Size caps to prevent oversized files
+    # Size caps per scope (platform or each extension)
     MAX_LEARNINGS = 100
     MAX_KNOWLEDGE = 100
     MAX_SKILLS = 50
@@ -26,23 +27,79 @@ module Ai
     # Generic failure titles that carry no actionable insight
     GENERIC_FAILURE_TITLES = /\A(General failure|Timeout failure|Unknown error)\z/i
 
+    # Tag values that route entries to extension doc directories.
+    # Keys are matched against each entry's tags array.
+    # Values are extension slugs (matching extensions/<slug>/).
+    EXTENSION_TAG_ROUTES = {
+      "trading"       => "trading",
+      "supply_chain"  => "supply-chain",
+      "billing"       => "business",
+      "baas"          => "business",
+      "reseller"      => "business"
+    }.freeze
+
+    # Tag prefixes that imply an extension (e.g., "venue:polymarket" → trading)
+    EXTENSION_TAG_PREFIX_ROUTES = {
+      "venue:"    => "trading",
+      "strategy:" => "trading"
+    }.freeze
+
+    # Ephemeral learnings — individual trade records, not durable knowledge
+    EPHEMERAL_LEARNING_TITLE_PATTERNS = [
+      /\AWin: /,
+      /\ALoss: /
+    ].freeze
+
+    # Ephemeral knowledge — raw session summaries with no analytical value
+    EPHEMERAL_KNOWLEDGE_TITLE_PATTERNS = [
+      /\ATrading session: /,
+      /\ASession idle: /,
+      /\ASession profitable: /,
+      /\ASession (R|r)egression /
+    ].freeze
+
     def initialize(account:)
       @account = account
     end
 
     def sync_all!
       timestamp = Time.current.strftime("%Y-%m-%d %H:%M UTC")
-      FileUtils.mkdir_p(OUTPUT_DIR)
 
-      results = {
-        learnings: sync_learnings(timestamp),
-        knowledge: sync_knowledge(timestamp),
-        skills: sync_skills(timestamp),
-        graph: sync_graph(timestamp),
-        todos: sync_todos(timestamp)
-      }
+      # Fetch and partition all data upfront
+      all_learnings = fetch_learnings
+      all_knowledge = fetch_knowledge
+      all_skills = fetch_skills
 
-      results[:success] = results.values.all? { |r| r[:success] }
+      partitioned_learnings = partition_by_extension(all_learnings)
+      partitioned_knowledge = partition_by_extension(all_knowledge)
+      partitioned_skills = partition_by_extension(all_skills)
+
+      scopes = (["platform"] + partitioned_learnings.keys + partitioned_knowledge.keys + partitioned_skills.keys).uniq
+
+      results = {}
+
+      scopes.each do |scope|
+        output_dir = output_dir_for(scope)
+        FileUtils.mkdir_p(output_dir)
+
+        scope_learnings = partitioned_learnings[scope] || []
+        scope_knowledge = partitioned_knowledge[scope] || []
+        scope_skills = partitioned_skills[scope] || []
+
+        results[scope.to_sym] = {
+          learnings: render_learnings(scope_learnings.first(MAX_LEARNINGS), timestamp, output_dir, scope: scope),
+          knowledge: render_knowledge(scope_knowledge.first(MAX_KNOWLEDGE), timestamp, output_dir, scope: scope),
+          skills: render_skills(scope_skills.first(MAX_SKILLS), timestamp, output_dir, scope: scope)
+        }
+      end
+
+      # Graph and TODOs are always platform-scoped
+      results[:platform][:graph] = sync_graph(timestamp)
+      results[:platform][:todos] = sync_todos(timestamp)
+
+      results[:success] = results.values.all? do |scope_results|
+        scope_results.is_a?(Hash) && scope_results.values.all? { |r| r.is_a?(Hash) ? r[:success] != false : true }
+      end
       results[:synced_at] = timestamp
       results
     rescue StandardError => e
@@ -52,18 +109,90 @@ module Ai
 
     private
 
-    def sync_learnings(timestamp)
+    # =========================================================================
+    # Data fetching (query once, partition later)
+    # =========================================================================
+
+    def fetch_learnings
       entries = CompoundLearning
         .for_account(@account.id)
         .where(status: %w[active verified])
         .where("importance_score >= ? OR confidence_score >= ?", LEARNING_MIN_IMPORTANCE, LEARNING_MIN_CONFIDENCE)
         .where("title IS NOT NULL AND title != ''")
-        .order(importance_score: :desc, confidence_score: :desc)
-        .limit(MAX_LEARNINGS * 2) # over-fetch to allow post-query filtering
+        .order(importance_score: :desc, confidence_score: :desc, id: :asc)
+        .limit(MAX_LEARNINGS * 5) # over-fetch to allow per-scope caps after partitioning
 
-      entries = filter_learnings(entries)
+      filter_learnings(entries)
+    end
 
-      lines = doc_header("Learnings & Patterns", timestamp,
+    def fetch_knowledge
+      entries = SharedKnowledge
+        .where(account: @account)
+        .where("quality_score >= ? OR quality_score IS NULL", KNOWLEDGE_MIN_QUALITY)
+        .order(quality_score: :desc, usage_count: :desc, id: :asc)
+        .limit(MAX_KNOWLEDGE * 5)
+
+      filter_knowledge(entries)
+    end
+
+    def fetch_skills
+      Skill
+        .for_account(@account.id)
+        .where(status: "active", is_enabled: true)
+        .order(usage_count: :desc, effectiveness_score: :desc, id: :asc)
+        .limit(MAX_SKILLS * 3)
+        .to_a
+    end
+
+    # =========================================================================
+    # Extension partitioning
+    # =========================================================================
+
+    def partition_by_extension(entries)
+      result = Hash.new { |h, k| h[k] = [] }
+
+      entries.each do |entry|
+        scope = detect_extension(entry.tags)
+        result[scope] << entry
+      end
+
+      result
+    end
+
+    def detect_extension(tags)
+      return "platform" if tags.blank?
+
+      tags.each do |tag|
+        # Direct tag match (e.g., "trading" → "trading")
+        if EXTENSION_TAG_ROUTES.key?(tag)
+          return EXTENSION_TAG_ROUTES[tag]
+        end
+
+        # Prefix match (e.g., "venue:polymarket" → "trading")
+        EXTENSION_TAG_PREFIX_ROUTES.each do |prefix, ext_slug|
+          return ext_slug if tag.start_with?(prefix)
+        end
+      end
+
+      "platform"
+    end
+
+    def output_dir_for(scope)
+      if scope == "platform"
+        PLATFORM_OUTPUT_DIR
+      else
+        EXTENSIONS_ROOT.join(scope, "docs", "knowledge")
+      end
+    end
+
+    # =========================================================================
+    # Rendering (entries pre-partitioned, output dir provided)
+    # =========================================================================
+
+    def render_learnings(entries, timestamp, output_dir, scope: "platform")
+      scope_label = scope == "platform" ? "" : " (#{scope})"
+
+      lines = doc_header("Learnings & Patterns#{scope_label}", timestamp,
         "Source: `ai_compound_learnings` | Filter: status IN (active, verified), importance >= #{LEARNING_MIN_IMPORTANCE} OR confidence >= #{LEARNING_MIN_CONFIDENCE}, non-blank title, deduplicated")
       lines << "**#{entries.size} entries** exported (max #{MAX_LEARNINGS})"
       lines << ""
@@ -83,27 +212,22 @@ module Ai
           lines << truncate_content(sanitize_content(learning.content))
           lines << ""
           lines << "- **Importance**: #{format_score(learning.importance_score)} | **Confidence**: #{format_score(learning.confidence_score)} | **Effectiveness**: #{format_score(learning.effectiveness_score)}"
-          lines << "- **Scope**: #{learning.scope} | **Access count**: #{learning.access_count} | **Injections**: #{learning.injection_count}"
-          lines << "- **Tags**: #{learning.tags&.join(', ').presence || 'none'}"
+          lines << "- **Scope**: #{learning.scope} | **Tags**: #{learning.tags&.join(', ').presence || 'none'}"
           lines << ""
         end
       end
 
-      write_file("LEARNINGS.md", lines)
+      write_file("LEARNINGS.md", lines, output_dir)
       { success: true, count: entries.size }
     rescue StandardError => e
-      Rails.logger.error("[KnowledgeDocSync] Learnings sync failed: #{e.message}")
+      Rails.logger.error("[KnowledgeDocSync] Learnings sync failed (#{scope}): #{e.message}")
       { success: false, error: e.message }
     end
 
-    def sync_knowledge(timestamp)
-      entries = SharedKnowledge
-        .where(account: @account)
-        .where("quality_score >= ? OR quality_score IS NULL", KNOWLEDGE_MIN_QUALITY)
-        .order(quality_score: :desc, usage_count: :desc)
-        .limit(MAX_KNOWLEDGE)
+    def render_knowledge(entries, timestamp, output_dir, scope: "platform")
+      scope_label = scope == "platform" ? "" : " (#{scope})"
 
-      lines = doc_header("Shared Knowledge", timestamp,
+      lines = doc_header("Shared Knowledge#{scope_label}", timestamp,
         "Source: `ai_shared_knowledges` | Filter: quality_score >= #{KNOWLEDGE_MIN_QUALITY}")
       lines << "**#{entries.size} entries** exported (max #{MAX_KNOWLEDGE})"
       lines << ""
@@ -127,21 +251,17 @@ module Ai
         end
       end
 
-      write_file("KNOWLEDGE.md", lines)
+      write_file("KNOWLEDGE.md", lines, output_dir)
       { success: true, count: entries.size }
     rescue StandardError => e
-      Rails.logger.error("[KnowledgeDocSync] Knowledge sync failed: #{e.message}")
+      Rails.logger.error("[KnowledgeDocSync] Knowledge sync failed (#{scope}): #{e.message}")
       { success: false, error: e.message }
     end
 
-    def sync_skills(timestamp)
-      entries = Skill
-        .for_account(@account.id)
-        .where(status: "active", is_enabled: true)
-        .order(usage_count: :desc, effectiveness_score: :desc)
-        .limit(MAX_SKILLS)
+    def render_skills(entries, timestamp, output_dir, scope: "platform")
+      scope_label = scope == "platform" ? "" : " (#{scope})"
 
-      lines = doc_header("Skills Registry", timestamp,
+      lines = doc_header("Skills Registry#{scope_label}", timestamp,
         "Source: `ai_skills` | Filter: status = active, enabled = true")
       lines << "**#{entries.size} skills** exported (max #{MAX_SKILLS})"
       lines << ""
@@ -177,13 +297,14 @@ module Ai
         end
       end
 
-      write_file("SKILLS.md", lines)
+      write_file("SKILLS.md", lines, output_dir)
       { success: true, count: entries.size }
     rescue StandardError => e
-      Rails.logger.error("[KnowledgeDocSync] Skills sync failed: #{e.message}")
+      Rails.logger.error("[KnowledgeDocSync] Skills sync failed (#{scope}): #{e.message}")
       { success: false, error: e.message }
     end
 
+    # Graph stays platform-only — nodes are codebase-level, not extension-specific
     def sync_graph(timestamp)
       graph_service = KnowledgeGraph::GraphService.new(@account)
       stats = graph_service.statistics
@@ -191,7 +312,7 @@ module Ai
       top_nodes = KnowledgeGraphNode
         .where(account: @account, status: "active")
         .where("confidence >= ?", GRAPH_NODE_MIN_CONFIDENCE)
-        .order(mention_count: :desc, confidence: :desc)
+        .order(mention_count: :desc, confidence: :desc, id: :asc)
         .limit(MAX_GRAPH_NODES)
 
       edges = KnowledgeGraphEdge
@@ -240,7 +361,6 @@ module Ai
         lines << "| Source | Relation | Target | Weight | Confidence |"
         lines << "|--------|----------|--------|--------|------------|"
 
-        node_names = top_nodes.index_by(&:id)
         edges.includes(:source_node, :target_node).each do |edge|
           source_name = edge.source_node&.name || edge.source_node_id.to_s[0..7]
           target_name = edge.target_node&.name || edge.target_node_id.to_s[0..7]
@@ -249,13 +369,14 @@ module Ai
         lines << ""
       end
 
-      write_file("GRAPH.md", lines)
+      write_file("GRAPH.md", lines, PLATFORM_OUTPUT_DIR)
       { success: true, nodes: top_nodes.size, edges: edges.size, stats: stats.slice(:node_count, :edge_count) }
     rescue StandardError => e
       Rails.logger.error("[KnowledgeDocSync] Graph sync failed: #{e.message}")
       { success: false, error: e.message }
     end
 
+    # TODOs stay platform-only
     def sync_todos(timestamp)
       entries = SharedKnowledge
         .where(account: @account)
@@ -300,14 +421,22 @@ module Ai
       { success: false, error: e.message }
     end
 
-    # --- Learnings quality filters ---
+    # =========================================================================
+    # Quality filters
+    # =========================================================================
 
     def filter_learnings(entries)
       entries
         .reject { |l| has_excluded_tags?(l) }
         .reject { |l| generic_failure?(l) }
+        .reject { |l| ephemeral_learning?(l) }
         .then { |list| deduplicate_by_title(list) }
-        .first(MAX_LEARNINGS)
+    end
+
+    def filter_knowledge(entries)
+      entries
+        .reject { |k| ephemeral_knowledge?(k) }
+        .to_a
     end
 
     def has_excluded_tags?(learning)
@@ -323,6 +452,26 @@ module Ai
         learning.content&.match?(/\AExecution error: Unknown error\z/)
     end
 
+    def ephemeral_learning?(learning)
+      # Individual trade win/loss records — per-position P&L is runtime data
+      return true if EPHEMERAL_LEARNING_TITLE_PATTERNS.any? { |pat| learning.title&.match?(pat) }
+
+      # Zero-activity session idles that nobody has ever accessed
+      return true if learning.title&.start_with?("Session idle:") && learning.access_count.to_i == 0
+
+      false
+    end
+
+    def ephemeral_knowledge?(entry)
+      # Raw session summaries (e.g., "Trading session: Overseer Temporal Session (overnight)")
+      return true if EPHEMERAL_KNOWLEDGE_TITLE_PATTERNS.any? { |pat| entry.title&.match?(pat) }
+
+      # System-generated entries with zero usage and low quality
+      return true if entry.source_type == "system" && entry.usage_count.to_i == 0 && entry.quality_score.to_f < 0.6
+
+      false
+    end
+
     def deduplicate_by_title(entries)
       entries.group_by(&:title).map do |_title, group|
         # Keep the entry with highest effective score (verified > active, then by importance)
@@ -330,7 +479,9 @@ module Ai
       end
     end
 
-    # --- Helpers ---
+    # =========================================================================
+    # Helpers
+    # =========================================================================
 
     def doc_header(title, timestamp, filter_description)
       [
@@ -367,11 +518,12 @@ module Ai
     def format_score(value)
       return "-" if value.nil?
 
-      format("%.2f", value)
+      format("%.1f", value)
     end
 
-    def write_file(filename, lines)
-      path = OUTPUT_DIR.join(filename)
+    def write_file(filename, lines, output_dir)
+      FileUtils.mkdir_p(output_dir)
+      path = output_dir.is_a?(Pathname) ? output_dir.join(filename) : File.join(output_dir, filename)
       File.write(path, lines.join("\n") + "\n")
       Rails.logger.info("[KnowledgeDocSync] Wrote #{path}")
     end
