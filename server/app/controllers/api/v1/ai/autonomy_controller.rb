@@ -215,15 +215,15 @@ module Api
           case broadcast_type
           when "cost_status"
             Account.find_each do |acct|
-              AiWorkflowMonitoringChannel.broadcast_cost_alert(acct.id, data)
+              AiOrchestrationChannel.broadcast_alert(account_id: acct.id, alert_type: "cost_status", **data.symbolize_keys)
             end
           when "health_status"
             Account.find_each do |acct|
-              AiWorkflowMonitoringChannel.broadcast_system_alert(acct.id, data)
+              AiOrchestrationChannel.broadcast_health_change(data, acct)
             end
           when "provider_health"
             Account.find_each do |acct|
-              AiWorkflowMonitoringChannel.broadcast_system_alert(acct.id, data.merge(source: "provider_health"))
+              AiOrchestrationChannel.broadcast_health_change(data.merge(source: "provider_health"), acct)
             end
           else
             return render_error("Unknown broadcast type: #{broadcast_type}", status: :unprocessable_content)

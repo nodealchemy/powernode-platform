@@ -279,6 +279,15 @@ module Ai
         budgets_scope = ::Ai::AgentBudget.expired
       end
 
+      # Skip orphaned budgets whose agents have been deleted
+      budgets_scope = budgets_scope.where(agent_id: ::Ai::Agent.select(:id))
+
+      # Skip budgets that were already rolled over (have a rollover transaction)
+      already_rolled = ::Ai::BudgetTransaction
+        .where(transaction_type: "rollover")
+        .select(:ai_agent_budget_id)
+      budgets_scope = budgets_scope.where.not(id: already_rolled)
+
       remaining = budgets_scope.count
       budgets_scope.limit(ROLLOVER_BATCH_LIMIT).find_each do |budget|
         new_budget = budget.auto_rollover!

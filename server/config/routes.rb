@@ -2841,6 +2841,20 @@ Rails.application.routes.draw do
       # Combines pipeline management with third-party integrations
       # ===================================================================
 
+      # Integrations facade — maps /integrations/instances to the devops integration system
+      namespace :integrations do
+        resources :instances do
+          member do
+            post :activate
+            post :deactivate
+            post :test
+            post :execute
+            get :health
+            get :stats
+          end
+        end
+      end
+
       namespace :devops do
         # Aggregated overview
         resource :overview, only: [ :show ], controller: "overview"
