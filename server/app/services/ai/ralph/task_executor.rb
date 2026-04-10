@@ -32,18 +32,24 @@ module Ai
         4. Be concise but thorough
       LIQUID
 
-      attr_reader :task, :ralph_loop, :account
+      attr_reader :task, :ralph_loop, :account, :user
 
-      def initialize(task:, ralph_loop: nil)
+      def initialize(task:, ralph_loop: nil, user: nil)
         @task = task
         @ralph_loop = ralph_loop || task.ralph_loop
         @account = @ralph_loop.account
+        @user = user
       end
 
       # Execute the task using the appropriate executor
       def execute
         executor = resolve_executor
         return fallback_execution if executor.nil?
+
+        # Enforce agent-level permissions when user context is available
+        if task.execution_type == "agent" && executor.is_a?(Ai::Agent)
+          enforce_executor_permissions!(executor)
+        end
 
         # Record execution attempt
         task.record_execution_attempt!(executor)
@@ -90,6 +96,18 @@ module Ai
         return executor if executor
 
         nil
+      end
+
+      # Verify user has agent-level required_permissions.
+      # Autonomous loops (user: nil) are exempt — system-level execution is trusted.
+      def enforce_executor_permissions!(agent)
+        return unless user
+
+        agent.required_permissions.each do |perm|
+          unless user.has_permission?(perm)
+            raise "Permission denied: user lacks '#{perm}' required by agent '#{agent.name}'"
+          end
+        end
       end
 
       # Execute task via AI agent with agentic tool-calling loop

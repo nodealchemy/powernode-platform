@@ -113,6 +113,12 @@ module Ai
       agent_skills.where(is_active: true).joins(:skill).where(ai_skills: { status: "active" }).pluck("ai_skills.slug")
     end
 
+    # Required permissions for interacting with this agent (conversations, Ralph loops, etc.)
+    # Stored in mcp_metadata["required_permissions"] as an array of permission strings.
+    def required_permissions
+      mcp_metadata&.dig("required_permissions") || []
+    end
+
     # Conversation profile accessors
     def conversation_tone
       conversation_profile["tone"]

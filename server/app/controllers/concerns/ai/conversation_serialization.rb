@@ -14,12 +14,28 @@ module Ai
         require_permission("ai.conversations.create")
       when "update", "archive", "unarchive", "pin", "unpin", "bulk", "plan_response", "confirm_action", "scheduled_messages_update"
         require_permission("ai.conversations.update")
-      when "destroy", "scheduled_messages_destroy"
+      when "destroy", "clear_messages", "scheduled_messages_destroy"
         require_permission("ai.conversations.delete")
       when "worker_complete", "worker_error"
         return if current_worker
         require_permission("ai.conversations.update")
       end
+    end
+
+    # Enforce agent-level required_permissions (stored in mcp_metadata).
+    # Agents can declare permissions beyond the generic ai.conversations.* check,
+    # e.g. the Trading Overseer requires "trading.view".
+    def enforce_agent_permissions
+      return if current_worker
+      return unless params[:agent_id].present?
+
+      @agent ||= current_user.account.ai_agents.find(params[:agent_id])
+      @agent.required_permissions.each do |perm|
+        require_permission(perm)
+        return if performed?
+      end
+    rescue ActiveRecord::RecordNotFound
+      render_error("Agent not found", status: :not_found)
     end
 
     def conversation_params

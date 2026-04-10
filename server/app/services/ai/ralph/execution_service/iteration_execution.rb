@@ -78,7 +78,7 @@ module Ai
           prompt = build_task_prompt(task)
           iteration.update!(ai_prompt: prompt)
 
-          executor = Ai::Ralph::TaskExecutor.new(task: task, ralph_loop: ralph_loop)
+          executor = Ai::Ralph::TaskExecutor.new(task: task, ralph_loop: ralph_loop, user: user)
           result = executor.execute
 
           if result[:success]

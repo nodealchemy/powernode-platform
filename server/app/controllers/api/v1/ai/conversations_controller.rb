@@ -14,6 +14,7 @@ module Api
         before_action :set_conversation, only: [ :show, :update, :destroy, :archive, :unarchive, :duplicate, :stats, :pin, :unpin, :plan_response ]
         before_action :set_agent_for_nested, only: [ :active ]
         before_action :validate_permissions
+        before_action :enforce_agent_permissions, only: [ :create, :send_message, :messages, :clear_messages, :active ]
 
         # =============================================================================
         # GLOBAL CONVERSATION ACTIONS
@@ -47,7 +48,7 @@ module Api
 
         # POST /api/v1/ai/agents/:agent_id/conversations
         def create
-          agent = current_user.account.ai_agents.find(params[:agent_id])
+          agent = @agent || current_user.account.ai_agents.find(params[:agent_id])
           ProviderAvailabilityService.validate_agent_provider!(agent)
 
           conversation = agent.conversations.build(
@@ -162,7 +163,7 @@ module Api
 
         # POST /api/v1/ai/agents/:agent_id/conversations/:id/send_message
         def send_message
-          agent = current_user.account.ai_agents.find(params[:agent_id])
+          agent = @agent || current_user.account.ai_agents.find(params[:agent_id])
           conversation = agent.conversations.find_by(id: params[:id]) ||
                            agent.conversations.find_by!(conversation_id: params[:id])
 
@@ -314,7 +315,7 @@ module Api
         # GET /api/v1/ai/agents/:agent_id/conversations/:id/messages
         # Supports cursor-based pagination via `before` and `after` (sequence_number cursors)
         def messages
-          agent = current_user.account.ai_agents.find(params[:agent_id])
+          agent = @agent || current_user.account.ai_agents.find(params[:agent_id])
           conversation = agent.conversations.includes(messages: :user).find_by(id: params[:id]) ||
                          agent.conversations.includes(messages: :user).find_by(conversation_id: params[:id])
 
@@ -374,7 +375,7 @@ module Api
 
         # POST /api/v1/ai/agents/:agent_id/conversations/:id/clear_messages
         def clear_messages
-          agent = current_user.account.ai_agents.find(params[:agent_id])
+          agent = @agent || current_user.account.ai_agents.find(params[:agent_id])
           conversation = agent.conversations.find_by(id: params[:id]) ||
                          agent.conversations.find_by(conversation_id: params[:id])
 

@@ -9,6 +9,7 @@ module Api
 
         before_action :set_ralph_loop, only: %i[show update destroy start pause resume cancel reset tasks task update_task iterations iteration learnings progress]
         before_action :validate_permissions
+        before_action :enforce_default_agent_permissions, only: %i[create start resume]
 
         # GET /api/v1/ai/ralph_loops
         def index
@@ -271,6 +272,27 @@ module Api
 
           permission_map.each do |actions, permission|
             return require_permission(permission) if actions.include?(action_name)
+          end
+        end
+
+        # Enforce agent-level required_permissions on the loop's default agent.
+        # Prevents users from creating/starting loops with agents they lack permissions for.
+        def enforce_default_agent_permissions
+          return if current_worker
+
+          agent_id = if action_name == "create"
+            params.dig(:ralph_loop, :default_agent_id)
+          else
+            @ralph_loop&.default_agent_id
+          end
+          return unless agent_id.present?
+
+          agent = resolved_account.ai_agents.find_by(id: agent_id)
+          return unless agent
+
+          agent.required_permissions.each do |perm|
+            require_permission(perm)
+            return if performed?
           end
         end
 
