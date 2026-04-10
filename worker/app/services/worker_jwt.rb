@@ -6,8 +6,8 @@ require 'jwt'
 # Uses WORKER_ID + JWT_SECRET_KEY from environment.
 # Tokens are cached per-thread for 4 minutes (expires in 5).
 class WorkerJwt
-  TOKEN_LIFETIME = 300    # 5 minutes
-  CACHE_LIFETIME = 240    # 4 minutes (refresh before expiry)
+  TOKEN_LIFETIME = 3600   # 1 hour — long-running training sessions can exceed 10min
+  CACHE_LIFETIME = 3300   # 55 minutes (refresh before expiry)
 
   class << self
     # Returns a short-lived JWT for the current worker.

@@ -112,7 +112,17 @@ class AiProviderHealthCheckJob < BaseJob
         health_report[:summary][:unhealthy] += 1
       end
     rescue StandardError => e
-      log_error("Health check failed for provider #{provider_name}", e)
+      # Transient connection errors (status line parsing, timeouts) are expected
+      # when the backend is restarting or under load — log as WARN, not ERROR.
+      transient = e.message.include?("wrong status line") ||
+                  e.message.include?("Connection refused") ||
+                  e.message.include?("Connection failed") ||
+                  e.message.include?("timeout")
+      if transient
+        log_warn("Health check transient failure for #{provider_name}: #{e.message}")
+      else
+        log_error("Health check failed for provider #{provider_name}", e)
+      end
 
       health_report[:providers][provider_name] = {
         id: provider_id,
@@ -213,50 +223,14 @@ class AiProviderHealthCheckJob < BaseJob
   end
 
   def process_provider_alerts(health_report)
-    health_report[:providers].each do |provider_name, provider_health|
-      next unless provider_health[:status] == 'unhealthy'
+    unhealthy = health_report[:providers].select { |_, v| v[:status] == 'unhealthy' }
 
-      begin
-        with_api_retry do
-          api_client.post('admin/system_alerts', {
-            alert_type: 'ai_provider_health',
-            severity: 'warning',
-            category: 'provider_monitoring',
-            title: "AI Provider Unhealthy: #{provider_name}",
-            message: provider_health[:issues]&.join(', ') || 'Provider health check failed',
-            metadata: {
-              provider_id: provider_health[:id],
-              provider_name: provider_name,
-              response_time_ms: provider_health[:response_time_ms],
-              error: provider_health[:error]
-            }
-          })
-        end
-        log_info("Sent health alert for provider: #{provider_name}")
-      rescue StandardError => e
-        log_error("Failed to send alert for provider #{provider_name}", e)
-      end
+    unhealthy.each do |provider_name, provider_health|
+      log_warn("Provider unhealthy: #{provider_name} — #{provider_health[:issues]&.join(', ') || provider_health[:error]}")
     end
 
-    # Send critical alert if overall status is critical
-    return unless health_report[:overall_status] == 'critical'
-
-    begin
-      with_api_retry do
-        api_client.post('admin/system_alerts', {
-          alert_type: 'ai_provider_health',
-          severity: 'critical',
-          category: 'provider_monitoring',
-          title: 'Critical: Multiple AI Providers Unhealthy',
-          message: "#{health_report[:summary][:unhealthy]} out of #{health_report[:summary][:total]} providers are unhealthy",
-          metadata: {
-            summary: health_report[:summary],
-            unhealthy_providers: health_report[:providers].select { |_, v| v[:status] == 'unhealthy' }.keys
-          }
-        })
-      end
-    rescue StandardError => e
-      log_error("Failed to send critical health alert", e)
+    if health_report[:overall_status] == 'critical'
+      log_error("CRITICAL: #{health_report[:summary][:unhealthy]}/#{health_report[:summary][:total]} providers unhealthy")
     end
   end
 
@@ -268,6 +242,6 @@ class AiProviderHealthCheckJob < BaseJob
       })
     end
   rescue StandardError => e
-    log_error("Failed to broadcast provider health status", e)
+    log_warn("Failed to broadcast provider health status: #{e.message}")
   end
 end
