@@ -54,5 +54,31 @@ pidfile ENV["PIDFILE"] if ENV["PIDFILE"]
 if web_concurrency > 0
   on_worker_boot do
     ActiveRecord::Base.establish_connection if defined?(ActiveRecord)
+
+    # Worker recycler: restart this worker after MAX_WORKER_AGE or when RSS exceeds
+    # MAX_WORKER_RSS. Puma phased-restart replaces workers one at a time, so there's
+    # no downtime. This prevents memory bloat from long-running trading context assembly.
+    max_age = ENV.fetch("MAX_WORKER_AGE", 3600).to_i     # 1 hour default
+    max_rss_mb = ENV.fetch("MAX_WORKER_RSS_MB", 800).to_i # 800MB default
+    worker_booted_at = Time.now
+
+    Thread.new do
+      loop do
+        sleep 60
+        age = Time.now - worker_booted_at
+        rss_kb = `ps -o rss= -p #{Process.pid}`.strip.to_i rescue 0
+        rss_mb = rss_kb / 1024
+
+        if age > max_age
+          $stdout.puts "[Puma] Worker #{Process.pid} recycling: age #{(age / 60).round}min > #{max_age / 60}min limit"
+          Process.kill(:QUIT, Process.pid)
+          break
+        elsif rss_mb > max_rss_mb
+          $stdout.puts "[Puma] Worker #{Process.pid} recycling: RSS #{rss_mb}MB > #{max_rss_mb}MB limit"
+          Process.kill(:QUIT, Process.pid)
+          break
+        end
+      end
+    end
   end
 end

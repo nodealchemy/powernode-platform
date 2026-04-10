@@ -140,6 +140,7 @@ module Ai
       private
 
       def with_circuit_breaker(model)
+        enforce_rate_limit!
         service_name = "llm_#{provider_name}_#{model}".gsub(/[^a-zA-Z0-9_]/, "_")
 
         Ai::CircuitBreakerRegistry.protect(service_name: service_name) do
@@ -155,11 +156,26 @@ module Ai
         )
       end
 
+      # Check provider-level rate limits before making the API call.
+      # If the provider is over its configured requests_per_minute, sleep
+      # until the next window rather than hammering the API and eating 429s.
+      def enforce_rate_limit!
+        return unless provider&.respond_to?(:can_make_request?)
+        return if provider.can_make_request?
+
+        rpm = provider.rate_limit["requests_per_minute"] || 60
+        Rails.logger.warn "[LLM] Rate limit reached for #{provider_name} (#{rpm} rpm) — waiting"
+        sleep(60.0 / rpm) # Wait one request-slot worth of time
+      end
+
       def track_usage(response, model)
         return unless response.success? && provider
 
         usage = response.usage
         return if usage[:total_tokens].zero?
+
+        # Update provider rate limit counters
+        update_provider_rate_counters!
 
         # Look up pricing
         pricing = Ai::ProviderManagementService.model_pricing_for(model)
@@ -203,6 +219,16 @@ module Ai
         )
       rescue StandardError => e
         Rails.logger.warn "[LLM] Failed to record metric: #{e.message}"
+      end
+
+      # Increment the provider's rate limit counters so can_make_request? works
+      def update_provider_rate_counters!
+        return unless provider&.respond_to?(:send) && provider.respond_to?(:update_rate_limit_counters, true)
+
+        provider.send(:update_rate_limit_counters, 1, Time.current)
+        provider.save!(validate: false) if provider.changed?
+      rescue StandardError => e
+        Rails.logger.debug "[LLM] Rate counter update skipped: #{e.message}"
       end
     end
   end
