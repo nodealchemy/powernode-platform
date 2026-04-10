@@ -1,5 +1,5 @@
 import React from 'react';
-import { UserCheck, Shield, Settings, BadgeCheck } from 'lucide-react';
+import { UserCheck, Shield, Settings, BadgeCheck, KeyRound } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { getUserInitials } from '@/shared/utils/userUtils';
@@ -159,6 +159,18 @@ export const TeamMembersTable: React.FC<TeamMembersTableProps> = ({
                         <Shield className="h-4 w-4" />
                       </Button>
                     )
+                  )}
+
+                  {user.id !== currentUserId && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => onUserAction(user, 'reset_password')}
+                      disabled={actionLoading}
+                      title="Reset Password"
+                    >
+                      <KeyRound className="h-4 w-4" />
+                    </Button>
                   )}
 
                   {process.env.NODE_ENV === 'development' && !user.email_verified && user.id !== currentUserId && (

@@ -7,9 +7,10 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { UserRolesModal } from '@/features/account/users/components/UserRolesModal';
+import { Modal } from '@/shared/components/ui/Modal';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { UserPlus, RefreshCw, Filter, Download } from 'lucide-react';
+import { UserPlus, RefreshCw, Filter, Download, Copy, Check } from 'lucide-react';
 
 import {
   TeamStatsCards,
@@ -46,6 +47,8 @@ export const UsersContent: React.FC<UsersContentProps> = ({ onActionsReady }) =>
   const [showRolesModal, setShowRolesModal] = useState(false);
   const [selectedUserForRoles, setSelectedUserForRoles] = useState<User | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [tempPassword, setTempPassword] = useState<{ password: string; userName: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // Filtering and search state
   const [filters, setFilters] = useState<UserFiltersState>({
@@ -385,7 +388,7 @@ export const UsersContent: React.FC<UsersContentProps> = ({ onActionsReady }) =>
     }
   };
 
-  // Handle user action (suspend/activate/unlock)
+  // Handle user action (suspend/activate/unlock/reset_password)
   const handleUserAction = async (user: User, action: 'suspend' | 'activate' | 'unlock' | 'reset_password' | 'resend_verification' | 'manual_verify') => {
     try {
       setActionLoading(true);
@@ -403,6 +406,12 @@ export const UsersContent: React.FC<UsersContentProps> = ({ onActionsReady }) =>
           break;
         case 'reset_password':
           response = await usersApi.resetUserPassword(user.id);
+          if (response.success && response.data?.temporary_password) {
+            setTempPassword({ password: response.data.temporary_password, userName: user.name });
+            setCopied(false);
+            await loadData();
+            return;
+          }
           break;
         case 'resend_verification':
           response = await usersApi.resendVerification(user.id);
@@ -422,6 +431,13 @@ export const UsersContent: React.FC<UsersContentProps> = ({ onActionsReady }) =>
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleCopyPassword = async () => {
+    if (!tempPassword) return;
+    await navigator.clipboard.writeText(tempPassword.password);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   // Open edit modal
@@ -630,6 +646,39 @@ export const UsersContent: React.FC<UsersContentProps> = ({ onActionsReady }) =>
             onUserUpdated={handleUserRolesUpdated}
           />
           {ConfirmationDialog}
+
+          {/* Temporary Password Modal */}
+          <Modal
+            isOpen={!!tempPassword}
+            onClose={() => setTempPassword(null)}
+            title="Password Reset Successful"
+            maxWidth="sm"
+          >
+            <div className="space-y-4">
+              <p className="text-sm text-theme-secondary">
+                A temporary password has been generated for <strong className="text-theme-primary">{tempPassword?.userName}</strong>.
+                Please share this password securely — it cannot be retrieved again.
+              </p>
+              <div className="flex items-center gap-2 p-3 bg-theme-background rounded-lg border border-theme font-mono text-sm">
+                <span className="flex-1 select-all text-theme-primary">{tempPassword?.password}</span>
+                <button
+                  onClick={handleCopyPassword}
+                  className="p-1.5 rounded hover:bg-theme-surface-hover text-theme-secondary"
+                  title="Copy to clipboard"
+                >
+                  {copied ? <Check className="h-4 w-4 text-theme-success" /> : <Copy className="h-4 w-4" />}
+                </button>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setTempPassword(null)}
+                  className="px-4 py-2 text-sm font-medium rounded-lg bg-theme-interactive-primary text-theme-on-primary hover:bg-theme-interactive-primary-hover"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </Modal>
         </>
       )}
     </>

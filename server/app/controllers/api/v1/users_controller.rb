@@ -135,7 +135,7 @@ class Api::V1::UsersController < ApplicationController
 
   # POST /api/v1/users/:id/reset_password
   def reset_password
-    temp_password = SecureRandom.hex(8)
+    temp_password = generate_compliant_password
     if @user.update(password: temp_password, password_confirmation: temp_password)
       log_audit_event("user.password_reset", @user, metadata: { initiated_by: current_user.id })
       render_success({ temporary_password: temp_password }, message: "Password reset successfully")
@@ -222,5 +222,20 @@ class Api::V1::UsersController < ApplicationController
       role = Role.find_by(name: role_name)
       user.add_role(role.name) if role
     end
+  end
+
+  # Generate a password that satisfies PasswordStrengthService requirements:
+  # >= 12 chars, uppercase, lowercase, digit, special char
+  def generate_compliant_password
+    specials = %w[! @ # $ % & *]
+    guaranteed = [
+      ("A".."Z").to_a.sample,
+      ("a".."z").to_a.sample,
+      ("0".."9").to_a.sample,
+      specials.sample
+    ]
+    pool = [*"A".."Z", *"a".."z", *"0".."9", *specials]
+    fill = Array.new(12) { pool.sample }
+    (guaranteed + fill).shuffle.join
   end
 end

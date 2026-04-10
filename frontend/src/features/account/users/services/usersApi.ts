@@ -150,7 +150,7 @@ class UsersApiService {
   }
 
   // Reset user password
-  async resetUserPassword(user_id: string): Promise<{ success: boolean; message: string }> {
+  async resetUserPassword(user_id: string): Promise<{ success: boolean; message: string; data?: { temporary_password: string } }> {
     const response = await api.post(`/users/${user_id}/reset_password`);
     return response.data;
   }
