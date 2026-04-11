@@ -83,6 +83,12 @@ if Dir.exist?(extensions_dir)
     ext_worker = File.join(extensions_dir, slug, 'worker')
     next unless Dir.exist?(ext_worker)
 
+    # Load shared lib (math kernel, markov classes, etc.)
+    ext_lib = File.join(extensions_dir, slug, 'lib')
+    if Dir.exist?(ext_lib)
+      Dir[File.join(ext_lib, '**', '*.rb')].sort.each { |f| require f }
+    end
+
     # Load optional gem dependencies
     deps_file = File.join(ext_worker, 'config', 'gem_dependencies.rb')
     load deps_file if File.exist?(deps_file)
