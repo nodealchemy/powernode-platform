@@ -150,7 +150,7 @@ module Ai
     def update_metadata(key, value)
       current_metadata = metadata || {}
       current_metadata[key] = value
-      update!(metadata: current_metadata)
+      update_column(:metadata, current_metadata)
     end
 
     def api_endpoint_must_be_valid_url
