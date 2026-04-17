@@ -317,6 +317,10 @@ export.csv
 # Security scan reports (generated locally)
 security-reports/
 
+# Auto-generated knowledge docs (source of truth is MCP/database, synced by rails mcp:sync_docs)
+docs/platform/knowledge/
+docs/TODO.md
+
 # RSpec auto-generated example files
 worker/spec/examples.txt
 
