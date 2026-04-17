@@ -317,9 +317,10 @@ export.csv
 # Security scan reports (generated locally)
 security-reports/
 
-# Auto-generated knowledge docs (source of truth is MCP/database, synced by rails mcp:sync_docs)
+# Auto-generated docs (source of truth is MCP/database)
 docs/platform/knowledge/
 docs/TODO.md
+docs/platform/MCP_TOOL_CATALOG.md
 
 # RSpec auto-generated example files
 worker/spec/examples.txt
@@ -329,4 +330,4 @@ server/scripts/test_*.sh
 server/scripts/trigger_*.sh
 
 # Test output artifacts
-rspec_results.json
+**/rspec_results.json
