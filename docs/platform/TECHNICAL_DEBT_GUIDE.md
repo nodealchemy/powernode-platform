@@ -44,7 +44,6 @@
 | Monitoring & Metrics | 17 | Medium |
 | Backend Features | 11 | Medium |
 | Testing Improvements | 7 | Low |
-| Workflow System Phase 2 | 3 | Low |
 
 ### Estimated Effort
 
@@ -69,7 +68,6 @@
 
 ### Long-term (Deferred)
 1. **Testing Improvements** - Better test coverage
-2. **Workflow System Phase 2** - Planned feature release
 
 ---
 
@@ -117,11 +115,6 @@ avgResponseTime: '45ms'
 - **Issue**: Add customer modal not implemented
 - **Impact**: Cannot add customers from UI
 - **Effort**: Medium - Create modal + form + validation + API
-
-**File**: `frontend/src/pages/app/ai/WorkflowTemplatesPage.tsx` (line 268)
-- **Issue**: Template details modal not implemented
-- **Impact**: Cannot view template details
-- **Effort**: Medium - Create details view
 
 ---
 
@@ -184,7 +177,6 @@ avgResponseTime: '45ms'
 **Cost Analytics**:
 - Line 551: `# TODO: Implement detailed cost breakdown by provider`
 - Line 556: `# TODO: Implement detailed cost breakdown by agent`
-- Line 561: `# TODO: Implement detailed cost breakdown by workflow`
 - Line 566: `# TODO: Implement cost trend calculation`
 
 **System Metrics**:
@@ -260,15 +252,6 @@ maintenance_mode: false, # TODO: Implement maintenance mode
 ```
 - **Impact**: Missing audit trails for subscriptions and listings
 
-### Service Features
-
-**File**: `server/app/services/concerns/base_workflow_service.rb` (line 208)
-```ruby
-# TODO: Implement more robust expression evaluation
-```
-- **Impact**: Limited workflow condition evaluation
-- **Effort**: Large - Requires expression parser
-
 ---
 
 ## Medium Priority: UI/UX Improvements
@@ -307,13 +290,9 @@ maintenance_mode: false, # TODO: Implement maintenance mode
 - **Issue**: Last updated timestamp not displayed
 - **Effort**: Very Small - Uncomment and display timestamp
 
-**File**: `frontend/src/shared/services/ai/WorkflowsApiService.ts` (line 283)
-- **Issue**: Average execution time calculation missing
-- **Effort**: Small - Add calculation logic
-
 ---
 
-## Low Priority: Testing & Phase 2
+## Low Priority: Testing
 
 ### Test Assertions
 
@@ -324,12 +303,6 @@ maintenance_mode: false, # TODO: Implement maintenance mode
 **File**: `frontend/src/features/payment-gateways/components/GatewayConfigModal.test.tsx`
 - Lines 279, 308 - Missing Redux store assertions
 - **Effort**: Small - Add Redux assertions
-
-### Workflow System Phase 2
-
-**File**: `server/app/services/mcp/workflow_orchestrator.rb`
-- Lines 1154, 1159, 1165 - Phase 2 features not yet implemented
-- **Note**: Deferred to Phase 2 development cycle
 
 ---
 

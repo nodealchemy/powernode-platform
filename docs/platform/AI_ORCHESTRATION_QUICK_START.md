@@ -1,197 +1,201 @@
 # AI Orchestration Quick Start
 
-**Quick reference guide and implementation roadmap**
+**Quick reference guide for the Missions / Ralph Loops / Agents architecture**
+
+**Version**: 4.0 | **Last Updated**: April 2026
 
 ---
 
 ## Table of Contents
 
-1. [Quick Start Guide](#quick-start-guide)
+1. [Getting Started](#getting-started)
 2. [Component Import Paths](#component-import-paths)
 3. [Custom Hooks](#custom-hooks)
 4. [WebSocket Events](#websocket-events)
 5. [Common Patterns](#common-patterns)
-6. [Backend Implementation Roadmap](#backend-implementation-roadmap)
-7. [Troubleshooting](#troubleshooting)
+6. [Troubleshooting](#troubleshooting)
+7. [Performance Tips](#performance-tips)
+8. [Quick Reference Tables](#quick-reference-tables)
 
 ---
 
-## Quick Start Guide
+## Getting Started
 
 ### 1. Install Dependencies
 
 ```bash
 cd frontend
-npm install recharts lucide-react date-fns
+npm install
 ```
 
 ### 2. Import Services
 
 ```typescript
-// Consolidated import
-import { agentsApi, workflowsApi, providersApi, monitoringApi } from '@/shared/services/ai';
+// Consolidated imports
+import {
+  agentsApi, teamsApi, missionsApi,
+  providersApi, monitoringApi, analyticsApi
+} from '@/shared/services/ai';
 
 // Or use the convenience object
 import { aiApi } from '@/shared/services/ai';
 ```
 
-### 3. Basic Workflow Execution
+### 3. Create and Start a Mission
 
 ```typescript
-// Execute workflow
-const run = await workflowsApi.executeWorkflow('workflow-id', {
-  input_variables: { key: 'value' },
-  trigger_type: 'manual'
+// Create a mission (inherits from a repository + objective)
+const mission = await missionsApi.createMission({
+  name: 'Add daily summaries feature',
+  objective: 'Implement admin UI and scheduled job for daily operational summaries',
+  mission_type: 'development',
+  repository_id: repoId,
 });
 
-// Monitor progress via WebSocket
+// Start it — dispatches the first phase job (analyzing)
+await missionsApi.startMission(mission.id);
+
+// Monitor progress via MissionChannel
 useWebSocket({
-  channel: 'AiOrchestrationChannel',
-  params: { type: 'workflow_run', id: run.id },
-  onMessage: (msg) => updateProgress(msg.payload)
+  channel: 'MissionChannel',
+  params: { type: 'mission', id: mission.id },
+  onMessage: (msg) => {
+    // msg.event: status_changed | phase_changed | approval_required | error
+    updateMissionState(msg.payload);
+  }
 });
 ```
 
-### 4. Check Permissions
+### 4. Handle an Approval Gate
+
+```typescript
+// When MissionChannel emits `approval_required`
+await missionsApi.approveMission(mission.id, {
+  gate: 'prd_review',
+  feedback: 'Looks good'
+});
+
+// Or reject to route back to earlier phase
+await missionsApi.rejectMission(mission.id, {
+  gate: 'code_review',
+  feedback: 'Needs more tests'
+});
+```
+
+### 5. Check Permissions
 
 ```typescript
 // Always use permission-based access control
-const canExecute = currentUser?.permissions?.includes('ai.workflows.execute');
+const canManage = currentUser?.permissions?.includes('ai.missions.manage');
 
-// Never use role-based checks
-// ❌ const canExecute = currentUser?.roles?.includes('admin');
+// ❌ Never use role-based checks
+// const canManage = currentUser?.roles?.includes('admin');
 ```
 
 ---
 
 ## Component Import Paths
 
-### Batch Execution
+### Missions
 
 ```typescript
-import { BatchExecutionModal } from '@/features/ai-workflows/components/batch/BatchExecutionModal';
-import { BatchProgressPanel } from '@/features/ai-workflows/components/batch/BatchProgressPanel';
-import { BatchResultsTable } from '@/features/ai-workflows/components/batch/BatchResultsTable';
-import { useBatchExecution } from '@/features/ai-workflows/hooks/useBatchExecution';
+import { MissionsPage } from '@/features/missions/pages/MissionsPage';
+import { MissionDetailModal } from '@/features/missions/components/MissionDetailModal';
+import { MissionsIndexTable } from '@/features/missions/components/MissionsIndexTable';
+import { useMissions } from '@/features/missions/hooks/useMissions';
+import { useMissionModal } from '@/shared/hooks/useMissionModal';
 ```
 
-### Streaming Execution
+### Autonomy
 
 ```typescript
-import { StreamingExecutionPanel } from '@/features/ai-workflows/components/streaming/StreamingExecutionPanel';
-import { StreamingExecutionModal } from '@/features/ai-workflows/components/streaming/StreamingExecutionModal';
-import { useStreamingExecution } from '@/features/ai-workflows/hooks/useStreamingExecution';
+import { AutonomyDashboardPage } from '@/features/ai/autonomy/pages/AutonomyDashboardPage';
+import { KillSwitchPanel } from '@/features/ai/autonomy/components/KillSwitchPanel';
+import { GoalsPanel } from '@/features/ai/autonomy/components/GoalsPanel';
+import { ProposalsPanel } from '@/features/ai/autonomy/components/ProposalsPanel';
+import { InterventionPoliciesPanel } from '@/features/ai/autonomy/components/InterventionPoliciesPanel';
+import { TrustScoreCard } from '@/features/ai/autonomy/components/TrustScoreCard';
+import { BudgetRegimeIndicator } from '@/features/ai/autonomy/components/BudgetRegimeIndicator';
+import { CircuitBreakerStatusPanel } from '@/features/ai/autonomy/components/CircuitBreakerStatusPanel';
+import { ShadowModeResultsPanel } from '@/features/ai/autonomy/components/ShadowModeResultsPanel';
 ```
 
-### Circuit Breaker
+### Compound Learning
 
 ```typescript
-import { CircuitBreakerDashboard } from '@/features/ai-workflows/components/circuit-breaker/CircuitBreakerDashboard';
-import { CircuitBreakerCard } from '@/features/ai-workflows/components/circuit-breaker/CircuitBreakerCard';
-import { useCircuitBreaker } from '@/features/ai-workflows/hooks/useCircuitBreaker';
+import { LearningsList } from '@/features/ai/learning/components/LearningsList';
+import { CompoundMetricsDashboard } from '@/features/ai/learning/components/CompoundMetricsDashboard';
+import { compoundLearningApi } from '@/features/ai/learning/services/compoundLearningApi';
 ```
 
-### Validation
+### Content Linking
 
 ```typescript
-import { NodeValidationPanel } from '@/features/ai-workflows/components/validation/NodeValidationPanel';
-import { WorkflowHealthScore } from '@/features/ai-workflows/components/validation/WorkflowHealthScore';
-import { useWorkflowValidation } from '@/features/ai-workflows/hooks/useWorkflowValidation';
+import { BacklinksPanel } from '@/features/content/pages/components/BacklinksPanel';
+import { DailySummariesPanel } from '@/features/content/pages/components/DailySummariesPanel';
 ```
 
-### MCP Browser
+### Monitoring
 
 ```typescript
-import { McpServerCard } from '@/features/ai/components/McpServerCard';
-import { McpToolExplorer } from '@/features/ai/components/McpToolExplorer';
-```
-
-### Cost Optimization
-
-```typescript
-import { CostOptimizationDashboard } from '@/features/ai-workflows/components/cost/CostOptimizationDashboard';
-import { CostBreakdownChart } from '@/features/ai-workflows/components/cost/CostBreakdownChart';
-import { ProviderCostComparison } from '@/features/ai-workflows/components/cost/ProviderCostComparison';
+import { CircuitBreakerStatus } from '@/features/ai/monitoring/components/CircuitBreakerStatus';
 ```
 
 ---
 
 ## Custom Hooks
 
-### useBatchExecution
+### useMissions
 
 ```typescript
+// frontend/src/features/missions/hooks/useMissions.ts
 const {
-  batchStatus,
-  isExecuting,
+  missions,
+  isLoading,
   error,
-  startBatch,
-  pauseBatch,
-  resumeBatch,
-  cancelBatch
-} = useBatchExecution({
-  onBatchComplete: (status) => console.log('Done!', status),
-  onError: (error) => console.error(error)
-});
-
-// Start batch
-await startBatch({
-  workflow_ids: ['wf-1', 'wf-2'],
-  concurrency: 2,
-  execution_mode: 'parallel'
+  refetch,
+  createMission,
+  startMission,
+  approveGate,
+  rejectGate,
+} = useMissions({
+  statusFilter: 'active',
+  typeFilter: 'development',
 });
 ```
 
-### useStreamingExecution
+### useMissionModal
 
 ```typescript
-const {
-  executionState,
-  isStreaming,
-  startStreaming,
-  pauseStreaming,
-  resumeStreaming,
-  stopStreaming,
-  retryExecution
-} = useStreamingExecution({
-  maxMessages: 1000,
-  onMessageReceived: (msg) => console.log(msg),
-  onComplete: () => console.log('Complete')
-});
+// frontend/src/shared/hooks/useMissionModal.ts
+const { openMissionModal, closeMissionModal, missionId } = useMissionModal();
 
-await startStreaming('workflow-id', { input: 'value' });
+// From any component
+openMissionModal(mission.id);
 ```
 
-### useCircuitBreaker
+### Generic useWebSocket
 
 ```typescript
-const {
-  breakers,
-  isConnected,
-  getBreakerById,
-  getBreakersByService
-} = useCircuitBreaker({
-  autoConnect: true,
-  onBreakerOpen: (breaker) => console.warn(`${breaker.name} opened!`)
+// frontend/src/shared/hooks/useWebSocket.ts
+const { isConnected, error, subscribe } = useWebSocket({
+  channel: 'MissionChannel',
+  params: { type: 'mission', id: missionId },
+  onMessage: handleMessage,
 });
-
-const aiBreakers = getBreakersByService('ai_provider');
 ```
 
-### useWorkflowValidation
+### compoundLearningApi
 
 ```typescript
-const {
-  validationResult,
-  isValidating,
-  error,
-  validate,
-  clearResult
-} = useWorkflowValidation({
-  workflowId: 'workflow-id',
-  autoValidate: true,
-  validateOnChange: true,
-  debounceMs: 1000
+// frontend/src/features/ai/learning/services/compoundLearningApi.ts
+// Pagination + filtering + sorting handled by the API client.
+const response = await compoundLearningApi.list({
+  category: 'pattern',
+  status: 'verified',
+  page: 1,
+  per_page: 25,
+  sort: 'created_at:desc',
 });
 ```
 
@@ -199,7 +203,17 @@ const {
 
 ## WebSocket Events
 
-### Subscribe to Events
+### Subscribe to Mission Events
+
+```typescript
+useWebSocket({
+  channel: 'MissionChannel',
+  params: { type: 'mission', id: missionId },
+  onMessage: handleMessage
+});
+```
+
+### Subscribe to Orchestration Events (Unified)
 
 ```typescript
 useWebSocket({
@@ -211,28 +225,41 @@ useWebSocket({
 
 ### Event Types
 
-**Batch Execution**:
-- `batch.execution.started`
-- `batch.execution.progress`
-- `batch.execution.completed`
-- `batch.execution.failed`
-- `batch.workflow.completed`
+**Mission lifecycle** (on `MissionChannel`):
+- `status_changed`
+- `phase_changed`
+- `approval_required`
+- `approval_resolved`
+- `error`
 
-**Streaming**:
-- `streaming.execution.started`
-- `streaming.message.received`
-- `streaming.node.changed`
-- `streaming.execution.completed`
+**Agent execution** (on `AiOrchestrationChannel` or `AiAgentExecutionChannel`):
+- `agent.created` / `agent.updated` / `agent.deleted`
+- `agent.execution.started`
+- `agent.execution.completed`
+- `agent.execution.failed`
+
+**Ralph Loop** (on `AiOrchestrationChannel`):
+- `ralph_loop.started`
+- `ralph_loop.progress`
+- `ralph_loop.iteration_completed`
+- `ralph_loop.task_status_changed`
+- `ralph_loop.learning_added`
+- `ralph_loop.completed` / `failed` / `paused` / `cancelled`
 
 **Circuit Breaker**:
 - `circuit_breaker.state_changed`
-- `circuit_breaker.opened`
-- `circuit_breaker.closed`
-- `circuit_breaker.failure`
+- `circuit_breaker.opened` / `closed` / `half_opened`
+- `circuit_breaker.failure` / `success` / `reset`
 
-**Validation**:
-- `validation.completed`
-- `validation.issue_found`
+**Monitoring / System**:
+- `monitoring.alert.triggered`
+- `monitoring.metrics.updated`
+- `system.health.changed`
+
+**Worktree session** (Code Factory / Ralph):
+- `worktree_session.status_changed` / `provisioning` / `active` / `merging` / `completed` / `failed` / `cancelled` / `conflicts_detected`
+- `worktree.created` / `ready` / `task_started` / `completed` / `failed`
+- `merge.started` / `completed` / `conflict` / `resolved` / `failed`
 
 ---
 
@@ -242,13 +269,13 @@ useWebSocket({
 
 ```typescript
 const { currentUser } = useAuth();
-const canManage = currentUser?.permissions?.includes('ai_orchestration.manage');
+const canManage = currentUser?.permissions?.includes('ai.missions.manage');
 
 if (!canManage) {
   return <AccessDenied />;
 }
 
-return <ManagementPanel />;
+return <MissionsPage />;
 ```
 
 ### API Loading Pattern
@@ -295,121 +322,18 @@ const handleMessage = useCallback((message) => {
 }, []);
 ```
 
----
+### Global Modal Pattern (Missions/Teams/Agents)
 
-## Backend Implementation Roadmap
+The UI uses full-width index pages with a global detail modal. Deep links (`/missions/:id`) open the modal over any page.
 
-### Sprint 1: Foundation (Week 1)
+```typescript
+import { useMissionModal } from '@/shared/hooks/useMissionModal';
 
-**Monday - Database Setup**:
-```bash
-cd server
-rails generate migration CreateAiOrchestrationTables
-rails db:migrate
+const { openMissionModal } = useMissionModal();
+
+// From any component
+openMissionModal(missionId);
 ```
-
-**Required Tables**:
-- `ai_workflows` - Workflow definitions
-- `ai_workflow_nodes` - Workflow nodes
-- `ai_workflow_edges` - Node connections
-- `ai_workflow_runs` - Execution records
-- `ai_workflow_node_executions` - Node execution records
-- `batch_workflow_runs` - Batch execution records
-- `circuit_breakers` - Circuit breaker state
-
-**Tuesday - Core Models**:
-```ruby
-# Implement: AiWorkflow, AiWorkflowRun, AiWorkflowNode
-# Include: Associations, Validations, Scopes, Callbacks
-```
-
-**Wednesday - Supporting Models**:
-```ruby
-# Implement: BatchWorkflowRun, CircuitBreaker, ValidationRule
-```
-
-**Thursday - Basic Controllers**:
-```ruby
-# Create: Api::V1::AiWorkflowsController (CRUD)
-# Create: Api::V1::CircuitBreakersController (CRUD)
-```
-
-**Friday - Testing & Review**:
-```bash
-bundle exec rspec spec/models/
-bundle exec rspec spec/requests/
-```
-
-### Sprint 2: Execution Engine (Week 2)
-
-**Monday - Execution Services**:
-```ruby
-# Implement: WorkflowExecutionService, BatchExecutionService
-```
-
-**Tuesday - Background Jobs**:
-```ruby
-# Create: AiWorkflowExecutionJob, WorkflowBatchExecutionJob
-# Pattern: Inherit from BaseJob, use execute method
-```
-
-**Wednesday - Execution Endpoints**:
-```ruby
-# Implement: POST /execute, POST /batch/execute
-```
-
-**Thursday - Batch Control**:
-```ruby
-# Implement: pause, resume, cancel endpoints
-```
-
-**Friday - Integration Testing**
-
-### Sprint 3: Real-time & Monitoring (Week 3)
-
-**Monday - WebSocket Channel**:
-```ruby
-# Implement: AiOrchestrationChannel
-# Include: Subscription authorization, broadcasting
-```
-
-**Tuesday - Circuit Breakers**:
-```ruby
-# Implement: State management, event tracking
-```
-
-**Wednesday - Validation System**:
-```ruby
-# Implement: WorkflowValidationService, auto-fix
-```
-
-**Thursday - MCP Integration**:
-```ruby
-# Implement: MCP server management, tool execution
-```
-
-**Friday - Real-time Testing**
-
-### Sprint 4: Polish & Production (Week 4)
-
-**Monday - Performance Optimization**:
-- Optimize N+1 queries
-- Add database indexes
-- Implement caching
-
-**Tuesday - Testing**:
-- Achieve 80%+ coverage
-- Integration tests
-- Load tests
-
-**Wednesday - Monitoring**:
-- Add StatsD metrics
-- Configure alerts
-- Create dashboards
-
-**Thursday - Security & Documentation**
-
-**Friday - Production Deployment**
 
 ---
 
@@ -421,14 +345,13 @@ bundle exec rspec spec/requests/
 
 **Solutions**:
 1. Check WebSocket URL in environment variables
-2. Verify user has required permissions
-3. Check subscription params are correct
+2. Verify user has required permissions (`ai.missions.read`, `ai_orchestration.read`, etc.)
+3. Check subscription params are correct (channel name, type, id)
 
 ```typescript
-// Debug WebSocket
 const { isConnected, error } = useWebSocket({
-  channel: 'AiOrchestrationChannel',
-  params: { type: 'account', id: accountId },
+  channel: 'MissionChannel',
+  params: { type: 'mission', id: missionId },
   onMessage: (msg) => console.log('Received:', msg)
 });
 console.log('Connected:', isConnected, 'Error:', error);
@@ -440,18 +363,9 @@ console.log('Connected:', isConnected, 'Error:', error);
 
 **Solutions**:
 1. Check authentication token is valid
-2. Verify API endpoint is implemented
+2. Verify API endpoint exists (`rails routes | grep <resource>`)
 3. Check request/response format
-4. Look for CORS issues
-
-```typescript
-try {
-  const response = await apiService.getData();
-} catch (error) {
-  console.error('API Error:', error);
-  console.error('Response:', error.response);
-}
-```
+4. Inspect Rails logs: `journalctl -u powernode-backend@default -f`
 
 ### Permission Denied Errors
 
@@ -459,44 +373,44 @@ try {
 
 **Solutions**:
 1. Verify user has required permissions in database
-2. Check permission strings match exactly
-3. Ensure permissions array is populated
+2. Check permission strings match exactly (spelling and dots)
+3. Ensure `currentUser.permissions` array is populated (login response)
 
 ```typescript
 console.log('Permissions:', currentUser?.permissions);
 console.log('Has permission:',
-  currentUser?.permissions?.includes('ai_orchestration.read'));
+  currentUser?.permissions?.includes('ai.missions.manage'));
 ```
 
-### Batch Execution Fails
+### Mission Stuck in a Phase
 
-**Symptoms**: Batch executions hang or fail
+**Symptoms**: Mission doesn't advance past a specific phase
 
 **Solutions**:
-1. Check Sidekiq is running: `systemctl status powernode-worker@default`
-2. Verify worker can communicate with backend API
-3. Check concurrency settings
-4. Review worker logs
+1. Check Sidekiq worker is running: `systemctl status powernode-worker@default`
+2. Inspect mission phase execution log via `get_mission_status` MCP tool
+3. Use `POST /api/v1/ai/missions/:id/retry_phase` to re-dispatch current phase job
+4. Check worker logs for errors in `AiMission<Phase>Job`
 
 ```bash
 # Check Sidekiq
 systemctl status powernode-worker@default
 
-# Monitor queue
-redis-cli LLEN queue:ai_workflows
+# Tail worker logs
+journalctl -u powernode-worker@default -f
 ```
 
 ### Circuit Breakers Always Open
 
-**Symptoms**: Circuit breakers immediately open
+**Symptoms**: Provider circuit breakers immediately open
 
 **Solutions**:
 1. Check failure threshold configuration
 2. Verify success threshold for recovery
-3. Check underlying service is healthy
+3. Check underlying provider is healthy via `/api/v1/internal/ai/providers/:id/health`
 
 ```ruby
-# Reset circuit breaker
+# Reset from Rails console (admin only)
 breaker = CircuitBreaker.find(id)
 breaker.reset!
 ```
@@ -513,24 +427,24 @@ const filteredItems = useMemo(() => {
 }, [items]);
 ```
 
-### Debounce Validation
+### Debounce User Input
 
 ```typescript
-const debouncedValidate = useMemo(
-  () => debounce(validate, 1000),
-  [validate]
+const debouncedSearch = useMemo(
+  () => debounce(setQuery, 300),
+  []
 );
 ```
 
 ### Lazy Load Components
 
 ```typescript
-const BatchExecutionModal = lazy(() =>
-  import('@/features/ai-workflows/components/batch/BatchExecutionModal')
+const MissionDetailModal = lazy(() =>
+  import('@/features/missions/components/MissionDetailModal')
 );
 
 <Suspense fallback={<Loading />}>
-  <BatchExecutionModal {...props} />
+  <MissionDetailModal {...props} />
 </Suspense>
 ```
 
@@ -538,12 +452,11 @@ const BatchExecutionModal = lazy(() =>
 
 ```typescript
 const handleMessage = useCallback((message) => {
-  const newData = message.payload.data;
   setData(prev => {
-    if (JSON.stringify(prev) === JSON.stringify(newData)) {
-      return prev; // No update needed
+    if (JSON.stringify(prev) === JSON.stringify(message.payload)) {
+      return prev; // No update needed — avoid React re-render
     }
-    return newData;
+    return message.payload;
   });
 }, []);
 ```
@@ -556,12 +469,17 @@ const handleMessage = useCallback((message) => {
 
 | Feature | Read | Manage |
 |---------|------|--------|
-| Workflow Validation | `ai_orchestration.read` | `ai_orchestration.manage` |
-| Batch Execution | `ai_orchestration.read` | `ai_orchestration.manage` |
-| Streaming Execution | `ai_orchestration.read` | `ai_orchestration.manage` |
-| Circuit Breaker | `ai_orchestration.read` | `system.admin` |
-| MCP Browser | `ai_orchestration.read` | `ai_orchestration.manage` |
-| Cost Dashboard | `analytics.read` | N/A |
+| Missions | `ai.missions.read` | `ai.missions.manage` |
+| Agents | `ai.agents.read` | `ai.agents.manage` |
+| Teams | `ai.teams.read` | `ai.teams.manage` |
+| Ralph Loops | `ai.ralph.read` | `ai.ralph.manage` |
+| Code Factory | `ai.code_factory.read` | `ai.code_factory.manage` |
+| Providers | `ai.providers.manage` | `ai.providers.manage` |
+| Autonomy | `ai.autonomy.read` | `ai.autonomy.manage` |
+| Data Sources | `ai.data_sources.read` | `ai.data_sources.manage` |
+| Cost Dashboard | `ai.analytics.read` | N/A |
+| Daily Summaries | `admin.access` | `admin.access` |
+| Orchestration Streams | `ai_orchestration.read` | `system.admin` |
 
 ### Development Commands
 
@@ -569,19 +487,19 @@ const handleMessage = useCallback((message) => {
 # Start services
 sudo systemctl start powernode.target
 
-# Run backend tests
+# Run backend specs
 cd server && bundle exec rspec
 
-# Run frontend tests
-cd frontend && npm test
+# Run frontend tests (CI=true is required)
+cd frontend && CI=true npm test
 
 # Type check
-cd frontend && npm run typecheck
+cd frontend && npx tsc --noEmit
 
 # Database migrations
 cd server && rails db:migrate
 
-# Check routes
+# Check AI routes
 cd server && rails routes | grep ai
 ```
 
@@ -589,14 +507,15 @@ cd server && rails routes | grep ai
 
 | Purpose | Path |
 |---------|------|
-| Orchestration Service | `server/app/services/ai_agent_orchestration_service.rb` |
-| MCP Orchestrator | `server/app/services/mcp/workflow_orchestrator.rb` |
-| Workflows Controller | `server/app/controllers/api/v1/ai/workflows_controller.rb` |
+| Agent Orchestration | `server/app/services/ai_agent_orchestration_service.rb` |
+| Missions Orchestrator | `server/app/services/ai/missions/orchestrator_service.rb` |
+| Ralph Loop Execution | `server/app/services/ai/ralph/execution_service.rb` |
+| Missions Controller | `server/app/controllers/api/v1/ai/missions_controller.rb` |
+| Ralph Controller | `server/app/controllers/api/v1/ai/ralph_loops_controller.rb` |
 | Frontend AI Services | `frontend/src/shared/services/ai/index.ts` |
-| Workflow Types | `frontend/src/shared/types/workflow.ts` |
-| Workflow Builder | `frontend/src/shared/components/workflow/WorkflowBuilder.tsx` |
+| Mission Types | `frontend/src/shared/types/mission.ts` |
+| Missions Page | `frontend/src/features/missions/pages/MissionsPage.tsx` |
 
 ---
 
-**Document Status**: ✅ Complete
-**Consolidates**: AI_ORCHESTRATION_QUICK_REFERENCE.md, AI_ORCHESTRATION_TEAM_HANDOFF.md, AI_ORCHESTRATION_REDESIGN.md, AI_ORCHESTRATION_BACKEND_ROADMAP.md
+**Document Status**: Complete

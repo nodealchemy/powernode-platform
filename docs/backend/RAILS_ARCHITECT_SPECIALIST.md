@@ -38,7 +38,7 @@ Platform Version: 0.3.1
 | Namespace | Description |
 |-----------|-------------|
 | `Account` | Account-related models |
-| `Ai` | AI agents, conversations, workflows, teams, memory, knowledge graph (135+ models) |
+| `Ai` | AI agents, conversations, missions, teams, ralph loops, memory, knowledge graph, autonomy, codebase intelligence (132 models) |
 | `BaaS` | Backend-as-a-Service models |
 | `Chat` | Multi-platform chat (channels, sessions, messages) |
 | `Database` | Database management models |
@@ -66,11 +66,11 @@ The Rails Architect specializes in Rails 8 API setup, configuration, and archite
 
 ### Core Responsibilities
 - Setting up Rails 8.1 API-only applications
-- Configuring database connections and migrations (352 tables, UUIDv7 PKs)
-- Designing RESTful API endpoints (244 controllers across 15+ namespaces)
+- Configuring database connections and migrations (423 tables, UUIDv7 PKs)
+- Designing RESTful API endpoints (398 controllers across 15+ namespaces)
 - Setting up middleware and security configurations
 - Implementing authentication systems (JWT with impersonation)
-- Managing 17 ActionCable channels for real-time communication
+- Managing 21 ActionCable channels for real-time communication
 
 ### Key Focus Areas
 - Rails 8.1 conventions and best practices

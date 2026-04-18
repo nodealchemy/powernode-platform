@@ -29,16 +29,16 @@
 |-------|--------|-------------|
 | Services | 85%+ | Orchestration, autonomy, security, memory, RAG |
 | Models | 90%+ | Trust scoring, delegation, guardrails, missions |
-| Controllers | 80%+ | 73 AI controllers |
+| Controllers | 80%+ | 88 AI controllers |
 | Jobs | 75%+ | Mission phase jobs, maintenance jobs |
-| Frontend Components | 70%+ | Workflow builder, mission dashboard |
+| Frontend Components | 70%+ | Mission dashboard, agent index, team index |
 | Frontend Services | 90%+ | API integration layer |
 
 ### Key Test Patterns
 
 ```ruby
 # User setup with permissions
-user = user_with_permissions('ai.workflows.execute')
+user = user_with_permissions('ai.missions.manage')
 
 # Auth headers for request specs
 headers = auth_headers_for(user)
@@ -61,7 +61,7 @@ include_examples 'scopes to current account'
 
 | Metric | Description | Alert Threshold |
 |--------|-------------|-----------------|
-| API response time | P95 across 73 controllers | > 500ms |
+| API response time | P95 across 88 AI controllers | > 500ms |
 | API error rate | 5xx errors | > 5% |
 | Mission completion rate | Successful missions | < 80% |
 | Ralph task success rate | Passed vs failed tasks | < 85% |

@@ -13,12 +13,14 @@ This directory contains comprehensive documentation for the Powernode subscripti
 
 ### Platform Documentation (`platform/`)
 System-wide architectural and integration documentation:
-- **Permission System**: Complete permission-based access control implementation
-- **Pattern Analysis**: Platform standardization and compliance documentation (95%+ consistency)
-- **MCP Configuration**: Model Context Protocol setup and automated delegation
-- **UUID System**: UUIDv7 implementation across all 340+ platform models
+- **Permission System**: Permission-based access control
+- **MCP Configuration**: Model Context Protocol setup + 305 tool actions across 50 tool classes
+- **UUID System**: UUIDv7 implementation across all 423 tables
 - **Accessibility Standards**: Platform accessibility compliance and guidelines
-- **Platform Audit Strategy**: Comprehensive platform analysis and monitoring
+- **AI Orchestration**: 132 models, 88 controllers, 376 services across 52 subdirectories
+- **Content Linking**: Wikilinks and backlinks on the knowledge graph
+- **Daily Summaries**: Auto-generated operational summaries
+- **Data Sources**: Managed external data API integration (NOAA, Open-Meteo, FRED, etc.)
 
 ### Backend Documentation (`backend/`)
 Rails API specialist documentation:
@@ -74,19 +76,23 @@ For service-specific implementation documentation:
 
 The platform has achieved:
 - ✅ **Comprehensive Test Coverage** - Tests passing across frontend and backend
-- ✅ **Complete Documentation** - Comprehensive guides with 18+ specialist documentation files
-- ✅ **Standardized Patterns** - 95%+ pattern consistency across all services
+- ✅ **Specialist Documentation** - 16 specialist role guides across backend, frontend, infrastructure, services, testing
 - ✅ **Production Ready** - Full-stack subscription platform with payment integration
-- ✅ **Testing Excellence** - Comprehensive test suite with 25+ new test files
 - ✅ **Documentation Hygiene** - Organized documentation structure with proper file organization
 
 ## Key Platform Documentation Files
 
 ### Platform Architecture & Standards
-- **[Permission System Reference](platform/PERMISSION_SYSTEM_REFERENCE.md)** - Complete permission system reference
+- **[Permission System Reference](platform/PERMISSION_SYSTEM_REFERENCE.md)** - Permission-based access control
 - **[UUID System Implementation](platform/UUID_SYSTEM_IMPLEMENTATION.md)** - UUIDv7 system documentation
 - **[MCP Configuration](platform/MCP_CONFIGURATION.md)** - Model Context Protocol setup and tools
-- **[AI Orchestration Guide](platform/AI_ORCHESTRATION_GUIDE.md)** - AI agent and workflow architecture
+- **[MCP Tool Catalog](platform/MCP_TOOL_CATALOG.md)** - All 305 MCP actions across 50 tool classes
+- **[AI Orchestration Guide](platform/AI_ORCHESTRATION_GUIDE.md)** - Agents, missions, ralph loops, autonomy, codebase intelligence
+- **[Missions Guide](platform/MISSIONS_GUIDE.md)** - End-to-end development pipeline with approval gates
+- **[Agent Autonomy Guide](platform/AGENT_AUTONOMY_GUIDE.md)** - Trust tiers, goals, proposals, escalations
+- **[Data Sources](platform/DATA_SOURCES.md)** - External data API integration
+- **[Daily Summaries](platform/DAILY_SUMMARIES.md)** - Auto-generated operational summaries
+- **[Content Linking](platform/CONTENT_LINKING.md)** - Wikilinks and backlinks
 - **[Theme System Reference](platform/THEME_SYSTEM_REFERENCE.md)** - Theme system documentation
 - **[API Response Standards](platform/API_RESPONSE_STANDARDS.md)** - API response format standards
 

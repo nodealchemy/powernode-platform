@@ -60,11 +60,11 @@ frontend/src/shared/hooks/
 ├── # AI/Orchestration
 ├── useAiMonitoringWebSocket.ts        # AI execution monitoring
 ├── useAiMonitoringWebSocket.test.ts
-├── useAiOrchestrationWebSocket.ts     # Workflow orchestration
+├── useAiOrchestrationWebSocket.ts     # Unified AI orchestration events
 ├── useAiStreamingWebSocket.ts         # AI streaming responses
 ├── useAiStreamingWebSocket.test.ts
 │
-├── # MCP/Workflows
+├── # MCP
 ├── useMcpWebSocket.ts                 # MCP channel updates
 │
 ├── # Business
@@ -264,32 +264,43 @@ export const useAiMonitoringWebSocket = (): UseAiMonitoringWebSocketReturn => {
 
 **File**: `useAiOrchestrationWebSocket.ts`
 
-Handles workflow execution updates.
+Subscribes to unified AI orchestration events (agent executions, Ralph loops, worktree sessions, circuit breakers, monitoring).
 
 ```typescript
-interface WorkflowRunUpdate {
-  run_id: string;
-  workflow_id: string;
-  status: 'initializing' | 'running' | 'completed' | 'failed';
-  current_node?: string;
-  progress?: number;
-  node_statuses?: Record<string, string>;
+interface OrchestrationEvent {
+  event: string;
+  resource_type: string;
+  resource_id: string;
+  payload: Record<string, unknown>;
+  timestamp: string;
 }
 
 export const useAiOrchestrationWebSocket = () => {
   const { isConnected, subscribe } = useWebSocket();
 
-  const subscribeToWorkflowRun = useCallback((runId: string, onUpdate: (update: WorkflowRunUpdate) => void) => {
+  const subscribeToAccount = useCallback((
+    accountId: string,
+    onEvent: (event: OrchestrationEvent) => void
+  ) => {
     return subscribe({
       channel: 'AiOrchestrationChannel',
-      params: { run_id: runId },
-      onMessage: (data) => {
-        onUpdate(data as WorkflowRunUpdate);
-      },
+      params: { type: 'account', id: accountId },
+      onMessage: (data) => onEvent(data as OrchestrationEvent),
     });
   }, [subscribe]);
 
-  return { isConnected, subscribeToWorkflowRun };
+  const subscribeToRalphLoop = useCallback((
+    loopId: string,
+    onEvent: (event: OrchestrationEvent) => void
+  ) => {
+    return subscribe({
+      channel: 'AiOrchestrationChannel',
+      params: { type: 'ralph_loop', id: loopId },
+      onMessage: (data) => onEvent(data as OrchestrationEvent),
+    });
+  }, [subscribe]);
+
+  return { isConnected, subscribeToAccount, subscribeToRalphLoop };
 };
 ```
 
@@ -297,14 +308,13 @@ export const useAiOrchestrationWebSocket = () => {
 
 **File**: `useMcpWebSocket.ts`
 
-MCP protocol channel for workflow nodes.
+MCP protocol channel for tool invocation events.
 
 ```typescript
-interface McpNodeUpdate {
+interface McpToolUpdate {
   event: string;
   params: {
-    workflow_id: string;
-    node_id: string;
+    tool_id: string;
     status: string;
     output?: unknown;
   };
@@ -313,23 +323,18 @@ interface McpNodeUpdate {
 export const useMcpWebSocket = () => {
   const { isConnected, subscribe } = useWebSocket();
 
-  const subscribeToWorkflow = useCallback((
-    workflowId: string,
-    onNodeUpdate: (update: McpNodeUpdate) => void
+  const subscribeToTool = useCallback((
+    toolId: string,
+    onUpdate: (update: McpToolUpdate) => void
   ) => {
     return subscribe({
       channel: 'McpChannel',
-      params: { workflow_id: workflowId },
-      onMessage: (data) => {
-        const update = data as McpNodeUpdate;
-        if (update.params?.workflow_id === workflowId) {
-          onNodeUpdate(update);
-        }
-      },
+      params: { tool_id: toolId },
+      onMessage: (data) => onUpdate(data as McpToolUpdate),
     });
   }, [subscribe]);
 
-  return { isConnected, subscribeToWorkflow };
+  return { isConnected, subscribeToTool };
 };
 ```
 

@@ -1,7 +1,6 @@
 # Cypress E2E Test Audit Report
 
 **Generated**: January 2026
-**Updated**: January 2026
 **Scope**: Full audit of frontend behavior and Cypress test coverage
 
 ---
@@ -63,12 +62,12 @@ cy.get('[data-testid="button"]').should('be.visible').click();
 **Applied fix across all files:**
 ```typescript
 // Before (anti-pattern)
-cy.visit('/app/ai/workflows');
+cy.visit('/app/ai/agents');
 cy.wait(2000);
 
 // After (proper pattern)
 cy.setupAiIntercepts();
-cy.visit('/app/ai/workflows');
+cy.visit('/app/ai/agents');
 cy.waitForPageLoad();
 ```
 
@@ -98,8 +97,6 @@ cy.waitForPageLoad();
 
 | Page | Route | Status | Tests |
 |------|-------|--------|-------|
-| WorkflowDetailPage | `/ai/workflows/:id` | ✅ Covered | 57 tests |
-| CreateWorkflowPage | `/ai/workflows/new` | ✅ Covered | 61 tests |
 | PrivacyDashboardPage | `/privacy` | ✅ Covered | 50+ tests |
 | ItemDetailPage | `/marketplace/:type/:id` | ✅ Covered | 38 tests |
 | AdminSettingsEmailTabPage | `/admin/settings/email` | ✅ Covered | Has tests |
@@ -112,8 +109,6 @@ cy.waitForPageLoad();
 
 | Page | Route | Status | Tests |
 |------|-------|--------|-------|
-| WorkflowImportPage | `/ai/workflows/import` | ✅ Covered | 43 tests |
-| WorkflowMonitoringPage | `/ai/workflows/monitoring` | ✅ Covered | Has tests |
 | AgentTeamsPage | `/ai/agent-teams` | ✅ Covered | 45 tests |
 | ContextsPage | `/ai/contexts` | ✅ Covered | 51 tests |
 | ContextDetailPage | `/ai/contexts/:id` | ✅ Covered | Has tests |
@@ -130,7 +125,6 @@ cy.waitForPageLoad();
 | AIDebugPage | `/ai/debug` | ✅ Covered | Developer utility |
 | McpBrowserPage | `/ai/mcp` | ✅ Covered | MCP integration |
 | AgentMemoryPage | `/ai/agents/:id/memory` | ✅ Covered | Agent details |
-| WorkflowValidationStatisticsPage | `/ai/workflows/validation-stats` | ✅ Covered | Validation utility |
 
 ---
 
@@ -169,7 +163,7 @@ cy.waitForPageLoad();
 
 **Domain-specific intercept setup commands:**
 - `cy.setupApiIntercepts()` - Common user/account/CRUD endpoints
-- `cy.setupAiIntercepts()` - AI workflows, agents, conversations
+- `cy.setupAiIntercepts()` - AI agents, teams, conversations
 - `cy.setupAdminIntercepts()` - Admin settings, roles, audit logs
 - `cy.setupDevopsIntercepts()` - Webhooks, API keys, integrations
 - `cy.setupSystemIntercepts()` - Workers, storage, health

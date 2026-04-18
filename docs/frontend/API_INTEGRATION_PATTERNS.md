@@ -44,9 +44,12 @@ frontend/src/features/
 │   ├── agents/
 │   │   └── services/
 │   │       └── agentsApi.ts
-│   └── workflows/
+│   └── teams/
 │       └── services/
-│           └── workflowsApi.ts
+│           └── teamsApi.ts
+├── missions/
+│   └── services/
+│       └── missionsApi.ts
 ├── business/
 │   └── subscriptions/
 │       └── services/
@@ -506,18 +509,19 @@ export const impersonationApi = new ImpersonationApi();
 
 ```typescript
 // Good
-interface CreateWorkflowRequest {
+interface CreateMissionRequest {
   name: string;
-  description?: string;
-  nodes: WorkflowNode[];
+  objective: string;
+  mission_type: 'development' | 'research' | 'operations';
+  repository_id: string;
 }
 
-async createWorkflow(data: CreateWorkflowRequest): Promise<ApiResponse<Workflow>> {
+async createMission(data: CreateMissionRequest): Promise<ApiResponse<Mission>> {
   // ...
 }
 
 // Bad
-async createWorkflow(data: any): Promise<any> {
+async createMission(data: any): Promise<any> {
   // ...
 }
 ```

@@ -1,6 +1,6 @@
 # Database Schema Reference
 
-396 tables across 10 model namespaces, all using UUIDv7 primary keys on PostgreSQL.
+423 tables across 10 model namespaces, all using UUIDv7 primary keys on PostgreSQL.
 
 ---
 
@@ -37,9 +37,8 @@ Core platform models not in a namespace:
 | `ReportRequest` | Async report generation |
 | `EmailDelivery` | Email delivery tracking |
 | `BackgroundJob` | Job status tracking |
-| `BatchWorkflowRun` | Batch workflow execution |
 
-### Ai:: Namespace (135 models)
+### Ai:: Namespace (132 models)
 
 The largest namespace — covers the entire AI platform.
 
@@ -47,18 +46,21 @@ The largest namespace — covers the entire AI platform.
 |------|--------|----------|
 | Agents | 15+ | `Agent`, `AgentExecution`, `AgentExecutionStep`, `AgentCapability`, `AgentConfiguration` |
 | Teams | 10+ | `AgentTeam`, `AgentTeamMember`, `TeamExecution`, `TeamChannel`, `TeamMessage` |
-| Workflows | 15+ | `Workflow`, `WorkflowRun`, `WorkflowNode`, `WorkflowEdge`, `WorkflowNodeExecution` |
+| Missions | 2 | `Mission`, `MissionApproval` |
+| Ralph | 5+ | `RalphLoop`, `RalphTask`, `RalphIteration`, `RalphLearning` |
 | Providers | 8+ | `Provider`, `ProviderModel`, `ModelRoutingRule`, `ProviderHealthCheck` |
-| Knowledge | 12+ | `KnowledgeGraphNode`, `KnowledgeGraphRelationship`, `CompoundLearning`, `SharedKnowledge` |
-| Memory | 8+ | `MemoryEntry`, `MemoryPool`, `ContextEntry`, `ContextGroup` |
-| Skills | 5+ | `Skill`, `SkillExecution`, `AgentSkill` |
+| Data Sources | 2 | `DataSource`, `DataSourceCredential` |
+| Knowledge | 12+ | `KnowledgeGraphNode`, `KnowledgeGraphEdge`, `CompoundLearning`, `SharedKnowledge` |
+| Memory | 8+ | `MemoryEntry`, `MemoryPool`, `ContextEntry`, `ContextGroup`, `AgentShortTermMemory` |
+| Skills | 5+ | `Skill`, `SkillExecution`, `AgentSkill`, `SkillMutation`, `SkillChallenge` |
 | Tools | 5+ | `Tool`, `ToolExecution`, `ToolCategory` |
-| Code Factory | 10+ | `CodeFactoryRun`, `CodeFactoryContract`, `CodeFactoryTask` |
-| Missions | 5+ | `Mission`, `MissionStage`, `MissionArtifact` |
+| Code Factory | 10+ | `CodeFactoryRun`, `CodeFactoryContract`, `CodeFactoryTask`, `RiskContract`, `ReviewState` |
+| Autonomy | 10+ | `AgentTrustScore`, `DelegationPolicy`, `AgentPrivilegePolicy`, `BehavioralFingerprint`, `KillSwitchEvent`, `AgentGoal`, `AgentObservation`, `AgentProposal`, `AgentEscalation`, `InterventionPolicy`, `AgentFeedback` |
 | Conversations | 5+ | `Conversation`, `Message`, `Attachment` |
 | Monitoring | 5+ | `CostTracking`, `UsageMetric`, `BudgetAlert` |
-| Templates | 5+ | `SystemPromptTemplate`, `WorkflowTemplate` |
+| Templates | 5+ | `SystemPromptTemplate` |
 | Trust & Safety | 5+ | `TrustScore`, `Guardrail`, `GuardrailEvaluation` |
+| Worktree | 5+ | `Worktree`, `WorktreeSession`, `WorktreeEvent` |
 
 ### Devops:: Namespace (41 models)
 
@@ -149,8 +151,10 @@ The largest namespace — covers the entire AI platform.
 Account ──┬── User (many) ──── Role (many) ──── Permission (many)
           ├── Subscription (one) ──── Plan
           ├── Ai::Agent (many) ──── Ai::AgentExecution (many)
-          ├── Ai::Workflow (many) ──── Ai::WorkflowRun (many)
+          ├── Ai::Mission (many) ──── Ai::MissionApproval (many)
+          ├── Ai::RalphLoop (many) ──── Ai::RalphTask (many)
           ├── Ai::AgentTeam (many) ──── Ai::AgentTeamMember (many)
+          ├── Ai::KnowledgeGraphNode (many) ──── Ai::KnowledgeGraphEdge (many)
           ├── Devops::Pipeline (many) ──── Devops::PipelineRun (many)
           └── Invoice (many) ──── Payment (many)
 ```

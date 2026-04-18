@@ -58,9 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0] - 2026-02-26
 
 ### Added
-- **AI Orchestration System**: Complete AI workflow orchestration with database schema, models, services, API endpoints, and WebSocket channels
+- **AI Orchestration System**: Agent execution, team orchestration, provider management, WebSocket channels
 - **MCP Integration**: Model Context Protocol implementation with OAuth 2.1 and security hardening (2025-06-18 spec compliance)
-- **Workflow Builder**: MCP nodes integration into visual workflow builder
 - **GDPR Compliance**: Data privacy features including consent management and data export
 - **Notification System**: Comprehensive notification infrastructure with email, in-app, and WebSocket delivery
 - **Account Switcher**: UI component for managing multiple accounts
@@ -81,7 +80,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Login persistence issues
 - MCP streamable HTTP test assertions
-- Zeitwerk autoloading conflicts for workflow services
 - Non-deterministic worker test failures
 - Frontend test assertions and expectations
 - Hardcoded colors converted to theme classes

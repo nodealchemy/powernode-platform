@@ -24,7 +24,7 @@ Powernode uses UUIDv7 (UUID Version 7) as the default primary key format for all
 
 - All models automatically inherit UUIDv7 generation
 - No configuration required for new models
-- Consistent platform standard across all 396 tables
+- Consistent platform standard across all 423 tables
 
 ### 3. Database Schema
 

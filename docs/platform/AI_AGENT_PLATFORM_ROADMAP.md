@@ -1,7 +1,6 @@
 # AI Agent Orchestration Platform - Implementation Roadmap
 
-**Version**: 1.0 | **Date**: February 2026 | **Status**: Review Draft
-**Scope**: Transform Powernode into a cutting-edge AI agent orchestration platform
+**Version**: 1.1 | **Date**: April 2026 | **Status**: Historical Roadmap (Phases 1-4 shipped)
 
 ---
 
@@ -9,12 +8,12 @@
 
 ### Current State
 The Powernode platform has a **remarkably extensive** AI foundation:
-- **117 database tables** for AI features
-- **114 models**, **133 services**, **98 controllers**
+- **423 database tables** across 10 model namespaces
+- **132 AI models**, **376 AI services across 52 subdirectories**, **88 AI controllers**
 - **252+ test files** with parallel test support
-- Workflow engine with 11+ node types and DAG execution
+- Mission pipelines (approval-gated dev lifecycle) and Ralph Loops (recursive agentic execution)
 - Chat system with 5 platform adapters (Telegram, Discord, Slack, WhatsApp, Mattermost)
-- MCP integration with OAuth 2.1 and 14 configured MCP servers
+- MCP integration with OAuth 2.1, 305 tool actions across 50 tool classes
 - Compound learning system with pgvector embeddings
 - Cost tracking, credit system, and provider management
 
@@ -53,7 +52,8 @@ A world-class AI agent orchestration platform where:
 ### Strengths
 - **Architecture**: Clean service layer pattern, 79% controller consolidation achieved
 - **Data Model**: Comprehensive with UUIDv7 PKs, JSONB configs, proper indexing
-- **Workflow Engine**: Production-grade with versioning, scheduling, approval gates
+- **Mission Pipelines**: Production-grade with approval gates, PRD generation, preview deployments — see [MISSIONS_GUIDE.md](MISSIONS_GUIDE.md)
+- **Ralph Loops**: Recursive agentic execution from PRDs — see [RALPH_LOOPS_GUIDE.md](RALPH_LOOPS_GUIDE.md)
 - **Chat System**: Multi-platform with webhook verification, A2A task linking
 - **Security**: Permission-based access control, guardrails pipeline, audit logging
 - **Testing**: 252+ spec files, parallel test infrastructure, E2E framework
@@ -111,10 +111,6 @@ echo ".env.staging" >> .gitignore
 
 **Test failures:**
 - `server/spec/models/plan_spec.rb:549` -- investigate and fix
-- `server/spec/services/ai/ai_workflow_orchestrator_spec.rb:572/583/605` -- investigate and fix
-
-**Theme violation:**
-- `frontend/src/features/ai/workflows/pages/ApprovalResponsePage.tsx:172` -- replace `from-purple-600 to-violet-600` with `bg-theme-primary`
 
 **Schema check:**
 - Verify if both `ai_message` and `ai_messages` tables exist, consolidate if duplicate
@@ -381,7 +377,7 @@ platform.chat.send         - Send message in chat channel
 # Trusted+ trust level
 platform.agent.spawn       - Create a sub-agent
 platform.agent.configure   - Modify own configuration
-platform.workflow.trigger  - Trigger a workflow
+platform.mission.trigger   - Start a mission pipeline
 platform.knowledge.share   - Publish to shared knowledge base
 
 # Autonomous only
@@ -865,8 +861,8 @@ span.set_attribute('powernode.sandbox.id', sandbox.id)
 
 **Trace Hierarchy:**
 ```
-Workflow Execution (root span)
-  └── Node Execution (child span)
+Mission Execution (root span)
+  └── Phase Execution (child span)
       └── Agent Execution (child span)
           ├── Guardrails: Input Rail (child span)
           ├── Memory: Context Retrieval (child span)
@@ -949,7 +945,7 @@ end
 - [ ] Full OTel instrumentation on all AI service calls
 - [ ] GenAI semantic conventions on every LLM request
 - [ ] Custom Powernode span attributes (agent_id, trust_level, cost, sandbox_id)
-- [ ] Trace hierarchy: Workflow → Node → Agent → LLM Call
+- [ ] Trace hierarchy: Mission → Phase → Agent → LLM Call
 - [ ] OTel Collector → Prometheus + Loki + Tempo pipeline working
 - [ ] 8 Grafana dashboards created and functional
 - [ ] A2A Agent Card endpoint for every agent

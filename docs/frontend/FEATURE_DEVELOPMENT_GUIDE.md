@@ -27,14 +27,15 @@ Powernode frontend uses a feature-based architecture where each domain is self-c
 frontend/src/features/
 ├── account/           # User account, auth, profile
 ├── admin/             # System administration
-├── ai/                # AI agents, workflows, monitoring
+├── ai/                # AI agents, teams, autonomy, knowledge graph
 ├── app/               # App shell, layout
 ├── baas/              # Billing-as-a-Service
 ├── business/          # Subscriptions, payments, invoices
-├── content/           # CMS pages, blog, KB
+├── content/           # CMS pages, daily summaries, backlinks, KB
 ├── delegations/       # Permission delegations
 ├── developer/         # API keys, webhooks, docs
 ├── devops/            # CI/CD, deployments
+├── missions/          # AI mission management
 ├── privacy/           # GDPR, consent management
 ├── supply-chain/      # Supply chain security
 └── system/            # System settings, audit logs
@@ -72,32 +73,34 @@ frontend/src/features/<domain>/
     └── index.ts
 ```
 
-### Example: AI Workflows Feature
+### Example: Missions Feature
 
 ```
-frontend/src/features/ai/
+frontend/src/features/missions/
 ├── index.ts
 ├── routes.tsx
 │
-├── workflows/
-│   ├── components/
-│   │   ├── WorkflowList.tsx
-│   │   ├── WorkflowCard.tsx
-│   │   ├── WorkflowBuilder.tsx
-│   │   ├── WorkflowExecutionForm.tsx
-│   │   └── WorkflowExecutionDetails.tsx
-│   │
-│   ├── pages/
-│   │   ├── WorkflowsPage.tsx
-│   │   ├── WorkflowCreatePage.tsx
-│   │   └── WorkflowDetailPage.tsx
-│   │
-│   ├── services/
-│   │   └── workflowsApi.ts
-│   │
-│   └── hooks/
-│       ├── useWorkflows.ts
-│       └── useWorkflowExecution.ts
+├── components/
+│   ├── MissionsList.tsx
+│   ├── MissionCard.tsx
+│   ├── MissionDetailModal.tsx
+│   ├── MissionApprovalGate.tsx
+│   └── MissionPhaseTimeline.tsx
+│
+├── pages/
+│   ├── MissionsPage.tsx
+│   └── MissionCreatePage.tsx
+│
+├── services/
+│   └── missionsApi.ts
+│
+└── hooks/
+    ├── useMissions.ts
+    └── useMissionChannel.ts
+
+frontend/src/features/ai/
+├── index.ts
+├── routes.tsx
 │
 ├── agents/
 │   └── ...

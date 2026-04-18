@@ -193,9 +193,7 @@ The channel translates backend model format to frontend-compatible format:
 |---------|---------|
 | `AiStreamingChannel` | General AI response streaming |
 | `AiAgentExecutionChannel` | Agent execution status updates |
-| `AiOrchestrationChannel` | Multi-agent orchestration events |
-| `AiWorkflowMonitoringChannel` | Workflow run monitoring |
-| `AiWorkflowOrchestrationChannel` | Workflow orchestration events |
+| `AiOrchestrationChannel` | Unified orchestration events (agents, ralph loops, worktrees, circuit breakers, monitoring) |
 | `TeamChannelChannel` | Team chat communication |
 | `TeamExecutionChannel` | Team task execution updates |
 | `DevopsPipelineChannel` | Pipeline run status updates |

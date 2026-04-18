@@ -9,8 +9,8 @@ The Powernode worker is a standalone Sidekiq process (220+ jobs) that communicat
 ```
 ┌─────────────────────┐     HTTP API     ┌─────────────────────┐
 │  Worker (Sidekiq)   │ ───────────────> │  Server (Rails 8)   │
-│  220+ jobs          │ <─────────────── │  311 controllers    │
-│  33 queues          │                  │  634 services       │
+│  221 jobs           │ <─────────────── │  398 controllers    │
+│  33 queues          │                  │  603 services       │
 │  Redis DB 1         │                  │  PostgreSQL         │
 └─────────────────────┘                  └─────────────────────┘
 ```

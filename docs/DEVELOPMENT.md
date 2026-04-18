@@ -53,7 +53,7 @@ journalctl -u 'powernode-*' --since "5 min ago"
 | Frontend | React + TypeScript + Tailwind | `frontend/` |
 | Worker | Sidekiq (standalone) | `worker/` |
 | Business | Git submodule | `extensions/business/` |
-| Database | PostgreSQL (UUIDv7 PKs) | 396 tables |
+| Database | PostgreSQL (UUIDv7 PKs) | 423 tables |
 | Cache/Queues | Redis | DB 0 (cache), DB 1 (Sidekiq) |
 
 ### Codebase Scale
@@ -77,7 +77,7 @@ journalctl -u 'powernode-*' --since "5 min ago"
 | Namespace | Models | Description |
 |-----------|--------|-------------|
 | `Account` | 3 | Multi-tenant account hierarchy, delegations |
-| `Ai` | 145 | Agents, teams, workflows, memory, knowledge graph, providers, skills, tools, autonomy, observations, AGI (experience replay, goal decomposition, stigmergic coordination, pressure fields, governance, self-improvement) |
+| `Ai` | 132 | Agents, teams, missions, ralph loops, memory, knowledge graph, providers, skills, tools, autonomy, observations, AGI (experience replay, goal decomposition, stigmergic coordination, pressure fields, governance, self-improvement) |
 | `Chat` | 5 | Conversations, messages, attachments, sessions |
 | `Database` | 2 | Database connections, query history |
 | `DataManagement` | 3 | Data sanitization, retention policies |
@@ -97,8 +97,7 @@ All controllers are under `Api::V1`.
 | Namespace | Controllers | Scope |
 |-----------|-------------|-------|
 | `admin/` | Admin panel endpoints | Account/system administration |
-| `ai/` | AI feature endpoints | Agents, teams, workflows, memory, knowledge |
-| `ai_workflows/` | Workflow management | Workflow CRUD and execution |
+| `ai/` | AI feature endpoints | Agents, teams, missions, ralph loops, memory, knowledge, autonomy |
 | `auth/` | Authentication | Login, register, password, 2FA, OAuth |
 | `chat/` | Chat endpoints | Conversations, messages, streaming |
 | `devops/` | DevOps endpoints | Pipelines, runners, deployments |
@@ -120,13 +119,12 @@ Plus 40 top-level controllers (accounts, users, plans, subscriptions, etc.).
 
 | Namespace | Files | Description |
 |-----------|-------|-------------|
-| `ai/` | 356 | Agent orchestration, providers, workflows, cost optimization, memory, knowledge, autonomy, AGI |
-| `mcp/` | 101 | Node executors (50+), orchestration, conditional evaluation |
+| `ai/` | 376 | Agent orchestration, providers, missions, ralph loops, cost optimization, memory, knowledge, autonomy, codebase intelligence, AGI |
+| `mcp/` | 19 | Protocol-level execution engine, conditional evaluation |
 | `devops/` | 45 | CI/CD, Git operations, deployment, registry, Docker |
 | `a2a/` | 17 | Agent-to-Agent protocol services |
 | `chat/` | 10 | Conversation management, context building |
 | `security/` | 11 | Authentication, authorization, encryption |
-| `orchestration/` | 8 | Workflow orchestration coordination |
 | `cost_optimization/` | 7 | Budget management, cost analysis, recommendations |
 | `storage_providers/` | 7 | S3, GCS, Local, NFS, SMB storage backends |
 | `concerns/` | 7 | Shared service concerns (circuit breaker, broadcasting) |
@@ -147,21 +145,24 @@ Plus 40 top-level controllers (accounts, users, plans, subscriptions, etc.).
 
 ## AI Subsystem Map
 
-The AI platform is the largest subsystem (356 services, 145 models).
+The AI platform is the largest subsystem (376 services across 52 subdirectories, 132 models).
 
 ### Core Systems
 
 | System | Purpose | Key Files |
 |--------|---------|-----------|
 | **Agent Orchestration** | Execute AI agents with provider fallback | `ai/agent_orchestration_service.rb` |
-| **Code Factory** | Automated code generation pipeline (PRD → tasks → code → review) | `ai/code_factory/` |
-| **Ralph Loops** | Mission lifecycle (analyze → plan → execute → test → review → deploy → merge) | `ai_mission_*_job.rb` |
+| **Missions** | End-to-end dev lifecycle with approval gates (analyze → plan → execute → test → review → deploy → merge) | `ai/missions/`, `ai_mission_*_job.rb` |
+| **Ralph Loops** | Recursive agentic task execution from PRDs | `ai/ralph/` |
+| **Code Factory** | Risk-aware code review with evidence-based merge gating | `ai/code_factory/` |
 | **AGUI (Agent GUI)** | Chat-based agent interaction with streaming | `ai_conversation_channel.rb`, `chat/` |
 | **Model Router** | Load balancing, circuit breaking, cost optimization across providers | `ai/provider_load_balancer_service.rb` |
 | **Knowledge Graph** | Entity-relationship graph with multi-hop reasoning | `ai/knowledge_graph/` |
 | **Compound Learning** | Pattern/discovery/best-practice learning with decay and reinforcement | `ai/compound_learning/` |
 | **Memory Tiers** | STM → Working → LTM with consolidation and decay | `ai/memory/` |
-| **MCP Protocol** | 194-tool Model Context Protocol for agent capabilities | `mcp/` |
+| **Codebase Intelligence** | AST indexing, semantic search, blast-radius analysis, static analysis | `ai/codebase/` |
+| **Data Sources** | External data API integration (NOAA, Open-Meteo, FRED, Yahoo Finance, ESPN, NewsAPI) | `ai/data_source*.rb`, `ai/data_source_credential*.rb` |
+| **MCP Protocol** | 305-action Model Context Protocol for agent capabilities | `mcp/`, `ai/tools/` |
 | **A2A Protocol** | Agent-to-Agent communication and task delegation | `a2a/` |
 | **Skill Registry** | Reusable agent capabilities with lifecycle management | `ai/skills/` |
 | **Team Execution** | Multi-agent orchestration with role-based coordination | `ai/team_execution/` |
@@ -174,32 +175,26 @@ The AI platform is the largest subsystem (356 services, 145 models).
 | **Self-Improvement** | Autonomous capability enhancement and reflexion | `ai/agi/` |
 | **Self-Healing** | Automated error recovery and system repair | `ai/agi/` |
 
-### Workflow System
-
-50 node executors in `mcp/node_executors/`:
-- **Control flow**: start, end, condition, loop, split, merge, delay, scheduler
-- **AI**: ai_agent, sub_workflow
-- **Integration**: api_call, webhook, notification, email, database, file operations
-- **Content**: page and KB article CRUD
-- **DevOps**: CI/CD, Git operations, deployment
-- **MCP**: tool, prompt, resource execution
-
 ---
 
-## Frontend Feature Modules (10)
+## Frontend Feature Modules (14)
 
 | Module | Path | Description |
 |--------|------|-------------|
 | `account` | `frontend/src/features/account/` | Account settings, profile management |
 | `admin` | `frontend/src/features/admin/` | Admin panel, system management |
-| `ai` | `frontend/src/features/ai/` | AI agents, workflows, chat, knowledge |
+| `ai` | `frontend/src/features/ai/` | AI agents, teams, autonomy, knowledge graph, compound learning |
+| `app` | `frontend/src/features/app/` | Top-level app shell and routing |
+| `baas` | `frontend/src/features/baas/` | Backend-as-a-Service tenant management |
 | `business` | `frontend/src/features/business/` | Billing, subscriptions, invoices |
-| `content` | `frontend/src/features/content/` | CMS pages, KB articles |
+| `content` | `frontend/src/features/content/` | CMS pages, KB articles, daily summaries, backlinks |
 | `delegations` | `frontend/src/features/delegations/` | Cross-account access delegation |
 | `developer` | `frontend/src/features/developer/` | API keys, webhooks, developer tools |
 | `devops` | `frontend/src/features/devops/` | Pipelines, repositories, deployments |
-| `missions` | `frontend/src/features/missions/` | AI mission control (Ralph) |
+| `missions` | `frontend/src/features/missions/` | AI mission control with approval gates |
 | `privacy` | `frontend/src/features/privacy/` | GDPR, data export, consent |
+| `supply-chain` | `frontend/src/features/supply-chain/` | Supply chain extension UI |
+| `system` | `frontend/src/features/system/` | System-level admin and configuration |
 
 ---
 
@@ -209,9 +204,8 @@ The worker is a standalone Sidekiq process that communicates with the server via
 
 | Category | Jobs | Queue | Description |
 |----------|------|-------|-------------|
-| AI (top-level) | 74 | `ai_agents`, `ai_workflows`, `ai_orchestration` | Agent execution, workflows, memory, knowledge, missions |
+| AI (top-level) | 74 | `ai_agents`, `ai_orchestration` | Agent execution, memory, knowledge, missions |
 | AGI | 13 | `ai_orchestration`, `ai_agents` | Experience replay, goal decomposition, stigmergic coordination, pressure fields, governance, self-improvement, self-healing |
-| AI Workflow | 2 | `ai_workflows` | Approval expiry, notifications |
 | Analytics | 3 | `analytics` | Metrics aggregation, live metrics, recalculation |
 | Compliance | 4 | `compliance` | GDPR data deletion, export, retention, account termination |
 | DevOps | 9 | `devops_default`, `devops_high` | Pipeline steps, deployment, sync, approvals |
@@ -233,7 +227,7 @@ The worker is a standalone Sidekiq process that communicates with the server via
 
 ---
 
-## WebSocket Channels (17)
+## WebSocket Channels (21)
 
 All channels use ActionCable with JWT authentication.
 
@@ -243,19 +237,23 @@ All channels use ActionCable with JWT authentication.
 | `AiConversationChannel` | `conversation_id` | AI chat messaging and streaming |
 | `AiOrchestrationChannel` | `type`, `id` | Unified AI orchestration events |
 | `AiStreamingChannel` | `execution_id` or `conversation_id` | Token-by-token AI response streaming |
-| `AiWorkflowMonitoringChannel` | `workflow_id` (optional) | Workflow monitoring and analytics |
-| `AiWorkflowOrchestrationChannel` | — | Account-level workflow events |
 | `AnalyticsChannel` | `account_id` | Real-time analytics updates |
 | `CodeFactoryChannel` | `type`, `id` | Code Factory run updates and reviews |
 | `CustomerChannel` | `account_id` | Customer data updates (admin) |
 | `DevopsPipelineChannel` | `account_id`, `pipeline_id` | CI/CD pipeline status |
 | `GitJobLogsChannel` | `repository_id`, `pipeline_id`, `job_id` | Live pipeline job log streaming |
 | `McpChannel` | — | MCP protocol WebSocket transport |
-| `MissionChannel` | `type`, `id` | Mission (Ralph) progress updates |
+| `MissionChannel` | `type`, `id` | Mission progress updates |
 | `NotificationChannel` | `account_id` | Real-time notifications |
 | `SubscriptionChannel` | `account_id` | Subscription status changes |
+| `SupplyChainChannel` | `account_id` | Supply chain extension events |
+| `SystemChannel` | `account_id` | System-level admin events |
 | `TeamChannelChannel` | `channel_id` | Team channel messaging |
 | `TeamExecutionChannel` | `team_id` | Multi-agent team execution monitoring |
+| `TradingChannel` | `account_id` | Trading extension events |
+| `TradingTrainingChannel` | `session_id` | Trading training session events |
+| `WorkerDataChannel` | — | Worker ↔ server data streaming |
+| `WorkerToolDispatchChannel` | — | Worker tool dispatch events |
 
 ---
 
@@ -366,4 +364,5 @@ sudo systemctl daemon-reload && sudo systemctl restart powernode-backend@default
 - [Permission System](platform/PERMISSION_SYSTEM_REFERENCE.md) — Access control reference
 - [Theme System](platform/THEME_SYSTEM_REFERENCE.md) — Frontend styling guide
 - [Backend Services](backend/BACKEND_SERVICE_ARCHITECTURE.md) — Service layer architecture
-- [WebSocket Architecture](platform/WEBSOCKET_AND_REALTIME.md) — Real-time communication
+- [WebSocket Integration](frontend/WEBSOCKET_INTEGRATION.md) — Real-time communication (frontend guide)
+- [ActionCable Channels Reference](platform/ACTIONCABLE_CHANNELS_REFERENCE.md) — Channel catalogue

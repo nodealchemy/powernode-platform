@@ -193,13 +193,12 @@ end
 
 ## Related Documentation
 
-- [MCP_INTEGRATION_GUIDE.md](MCP_INTEGRATION_GUIDE.md) - Workflow execution architecture
-- [WORKFLOW_IO_STANDARD.md](workflows/WORKFLOW_IO_STANDARD.md) - Node I/O specification
+- [MCP_TOOL_CATALOG.md](MCP_TOOL_CATALOG.md) - Full catalogue of 305 MCP actions
+- [AI_ORCHESTRATION_GUIDE.md](AI_ORCHESTRATION_GUIDE.md) - AI platform architecture
 - [API_RESPONSE_STANDARDS.md](API_RESPONSE_STANDARDS.md) - API response format
 
 ---
 
-**Document Status**: Complete (166 MCP tools registered)
-**Consolidates**: MCP_MODEL_CONFIGURATION.md, MCP_DOCUMENTATION_ENHANCEMENT_PLAN.md, AUTOMATED_MCP_DELEGATION_CONFIG.md
+**Document Status**: Complete (305 MCP actions registered across 50 tool classes)
 **Tool Registry**: `server/app/services/ai/tools/platform_api_tool_registry.rb`
 **Tool Catalog**: [MCP_TOOL_CATALOG.md](MCP_TOOL_CATALOG.md) (regenerate with `rails mcp:generate_tool_catalog`)

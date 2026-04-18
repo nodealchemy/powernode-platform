@@ -9,7 +9,7 @@ Platform Version: 0.3.1
 
 ## Platform DevOps Capabilities
 
-Powernode includes a built-in DevOps platform with 41 models, 30+ API controllers, and 20+ services:
+Powernode includes a built-in DevOps platform with 43 models, 42 API controllers, and 48 services:
 
 | Capability | Components |
 |-----------|-----------|
@@ -35,7 +35,7 @@ The DevOps Engineer specializes in infrastructure automation, deployment pipelin
 - **Deployment Orchestration**: Multi-environment deployment strategies (blue/green, canary)
 - **Monitoring & Alerting**: Application and infrastructure health monitoring
 - **Security Infrastructure**: TLS communication, Vault secrets, PCI compliance
-- **Database Operations**: Backup, recovery, and migration automation (352 tables)
+- **Database Operations**: Backup, recovery, and migration automation (423 tables)
 
 ### Integration Points
 - **Platform Architect**: Infrastructure planning and resource allocation
@@ -51,9 +51,9 @@ The DevOps Engineer specializes in infrastructure automation, deployment pipelin
 # Infrastructure Components
 Application Servers: Puma (Rails 8.1 API) - systemd managed
 Background Processing: Sidekiq (standalone worker service) with Redis
-Database: PostgreSQL with pgvector extension (352 tables)
+Database: PostgreSQL with pgvector extension (423 tables)
 Cache Layer: Redis (DB 0: cache, DB 1: Sidekiq, DB 2: ActionCable)
-WebSockets: ActionCable (17 channels) via Puma
+WebSockets: ActionCable (21 channels) via Puma
 File Storage: Local / S3-compatible
 Container Runtime: Docker with optional Swarm clustering
 DevOps Platform: Built-in CI/CD with multi-provider git integration

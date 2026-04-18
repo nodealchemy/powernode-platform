@@ -10,9 +10,9 @@ The Powernode Worker is a fully isolated Sidekiq 7.2 process that executes backg
 ┌─────────────────────────────────┐          ┌──────────────────────────────┐
 │          WORKER                 │          │          SERVER              │
 │                                 │          │                              │
-│  Sidekiq 7.2 (220+ jobs)       │   HTTP   │  Rails 8 API                 │
-│  45 services                    │ ───────> │  311 controllers             │
-│  Redis DB 1 (queues only)       │ <─────── │  634 services                │
+│  Sidekiq 7.2 (221 jobs)         │   HTTP   │  Rails 8 API                 │
+│  46 services                    │ ───────> │  398 controllers             │
+│  Redis DB 1 (queues only)       │ <─────── │  603 services                │
 │  NO database access             │   JSON   │  PostgreSQL + Redis DB 0     │
 │  NO ActiveRecord models         │          │                              │
 │  NO shared gems with server     │          │                              │
@@ -66,7 +66,7 @@ All API clients use circuit breakers to prevent cascading failures:
 |----------------|---------|----------|
 | Backend API | 120s | Standard server communication |
 | AI Provider | 600s | AI model calls (long-running) |
-| AI Workflow Execution | 600s | Workflow node execution |
+| Mission Execution | 600s | Mission phase jobs |
 | Web Auth | Separate | Sidekiq Web authentication (isolated from job processing) |
 
 The circuit breaker pattern is implemented in `app/services/concerns/circuit_breaker.rb`.
@@ -79,7 +79,8 @@ The circuit breaker pattern is implemented in `app/services/concerns/circuit_bre
 Sidekiq::Job (from sidekiq gem)
     └── BaseJob (worker/app/jobs/base_job.rb)
             ├── AiAgentExecutionJob
-            ├── AiWorkflowExecutionJob
+            ├── AiMissionAnalyzeJob
+            ├── AiRalphIterationJob
             ├── Devops::StepExecutionJob
             ├── Notifications::EmailDeliveryJob
             ├── ... (all 220+ jobs)
@@ -157,7 +158,7 @@ Retryable HTTP status codes: `408, 429, 500, 502, 503, 504`
 | `PdfReportWorkerService` | PDF report generation |
 | `FirebaseService` | Firebase push notification delivery |
 | `TwilioService` | SMS delivery via Twilio |
-| `AiWorkflowErrorTrackingService` | AI workflow error classification and tracking |
+| `AiErrorTrackingService` | AI execution error classification and tracking |
 
 ### DevOps Services (16 files)
 
@@ -206,7 +207,7 @@ The worker uses `sidekiq-scheduler` for cron-based job scheduling. All schedules
 | **Every minute** | Docker::HostSyncJob, Swarm::ClusterSyncJob |
 | **Every 5 minutes** | Docker::HealthCheckJob, Swarm::HealthCheckJob, Git::RunnerHealthCheckJob |
 | **Every 10 minutes** | AiProviderHealthCheckJob |
-| **Hourly** | Devops::ApprovalExpiryJob, AiWorkflow::ApprovalExpiryJob, AiBudgetRolloverJob |
+| **Hourly** | Devops::ApprovalExpiryJob, AiProposalExpiryJob, AiBudgetRolloverJob |
 | **Every 6 hours** | AiProviderModelSyncJob, Compliance::AccountTerminationJob, ChatSessionCleanupJob |
 | **Daily 1-2 AM** | AiPricingSyncJob, AiTrustDecayJob, Maintenance::ScheduledBackupJob, Compliance::DataRetentionEnforcementJob |
 | **Daily 3-4 AM** | AiMemoryPoolCleanupJob, AiCompoundLearningMaintenanceJob, AiMemoryMaintenanceJob, AiTeamMessageCleanupJob, AiBudgetReconciliationJob |
@@ -259,8 +260,8 @@ Jobs record metrics to Redis (`job_metrics:{name}`):
 ### Structured Logging
 
 ```ruby
-log_info("Processing workflow", workflow_id: id, status: "running")
-log_error("Execution failed", exception, workflow_id: id)
+log_info("Processing mission phase", mission_id: id, phase: "executing")
+log_error("Execution failed", exception, mission_id: id)
 log_warn("Rate limit approaching", remaining: 10)
 ```
 

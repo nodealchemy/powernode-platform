@@ -64,7 +64,6 @@ Steps execute sequentially within a pipeline run. Each step has a type, position
 |------|-------------|
 | `checkout` | Clone/checkout repository code |
 | `claude_execute` | AI-powered step using prompt templates |
-| `ai_workflow` | Execute an AI workflow |
 | `post_comment` | Post a comment to PR/issue |
 | `create_pr` | Create a pull request |
 | `create_branch` | Create a new branch |
@@ -341,7 +340,7 @@ Execution records for integration runs.
 | `McpServerExecutor` | Execute via MCP server |
 | `RestApiExecutor` | Execute REST API calls |
 | `WebhookExecutor` | Execute webhooks |
-| `AiWorkflowTriggerService` | Bridge between DevOps and AI workflows |
+| `AiMissionTriggerService` | Bridge between DevOps and AI missions |
 | `RunnerHealthService` | Runner health monitoring |
 | `RunnerLifecycleService` | Runner registration and lifecycle |
 

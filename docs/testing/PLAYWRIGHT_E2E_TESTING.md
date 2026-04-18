@@ -4,7 +4,7 @@ End-to-end testing infrastructure for the Powernode platform using Playwright.
 
 ## Overview
 
-Playwright provides cross-browser E2E testing for AI functionality and other platform features. Tests are organized using the Page Object Model pattern and cover the 26 phases from the manual testing guide.
+Playwright provides cross-browser E2E testing for AI functionality and other platform features. Tests are organized using the Page Object Model pattern and cover the 25 phases from the manual testing guide.
 
 ## Directory Structure
 

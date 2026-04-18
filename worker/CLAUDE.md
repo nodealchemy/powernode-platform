@@ -68,9 +68,10 @@ Scoped to tools workers actually need. Full catalog: [MCP_TOOL_CATALOG.md](../do
 ### Execution & Dispatch
 | Tool | Use Case |
 |------|----------|
-| `execute_agent` | Execute an AI agent with a prompt (used by AI workflow jobs) |
+| `execute_agent` | Execute an AI agent with a prompt (used by Mission phase jobs, Ralph iteration jobs) |
 | `get_agent` | Get agent config before execution (provider, model, trust score) |
 | `execute_team` | Execute a team task with multi-agent orchestration |
+| `get_mission_status` | Check mission lifecycle state before dispatching a phase job |
 | `dispatch_to_runner` | Dispatch a job to a Git runner (GitHub/Gitea) |
 | `trigger_pipeline` | Trigger a CI/CD pipeline run |
 | `list_pipelines` | List pipelines for status monitoring |

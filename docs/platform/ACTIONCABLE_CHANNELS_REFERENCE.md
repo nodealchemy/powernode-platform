@@ -1,6 +1,6 @@
 # ActionCable Channels Reference
 
-17 WebSocket channels for real-time communication. All require JWT authentication via ActionCable connection.
+21 WebSocket channels for real-time communication. All require JWT authentication via ActionCable connection.
 
 ---
 
@@ -61,21 +61,27 @@ Real-time messaging for AI chat conversations.
 
 **File**: `server/app/channels/ai_orchestration_channel.rb`
 
-Unified channel for all AI orchestration events. Replaces several legacy channels.
+Unified channel for agent executions, Ralph loops, worktree sessions, circuit breakers, and monitoring events.
 
 | Param | Required | Description |
 |-------|----------|-------------|
-| `type` | Yes | Resource type: `workflow`, `workflow_run`, `agent`, `account` |
+| `type` | Yes | Resource type: `account`, `agent`, `monitoring`, `system`, `circuit_breaker`, `ralph_loop`, `worktree_session` |
 | `id` | Yes | Resource ID |
 
 **Streams**:
-- `ai_orchestration:workflow_run:{id}` — Run-specific updates
-- `ai_orchestration:workflow:{id}` — Workflow-level updates
 - `ai_orchestration:account:{id}` — Account-wide monitoring
+- `ai_orchestration:agent:{id}` — Agent-scoped updates
+- `ai_orchestration:ralph_loop:{id}` — Ralph loop lifecycle
+- `ai_orchestration:worktree_session:{id}` — Worktree session updates
+- `ai_orchestration:circuit_breaker:{id}` — Breaker state transitions
+- `ai_orchestration:monitoring:{account_id}` — Alerts and health events
 
 **Events**:
-- `workflow.run.created` / `workflow.run.status.changed` / `workflow.run.completed`
-- `workflow.node.execution.updated`
+- `agent.created` / `agent.updated` / `agent.deleted` / `agent.execution.started/completed/failed`
+- `ralph_loop.started` / `progress` / `iteration_completed` / `task_status_changed` / `learning_added` / `completed` / `failed` / `paused` / `cancelled`
+- `worktree_session.status_changed` / `provisioning` / `active` / `merging` / `completed` / `failed` / `cancelled` / `conflicts_detected`
+- `circuit_breaker.state_changed` / `opened` / `closed` / `half_opened` / `failure` / `success` / `reset`
+- `monitoring.alert.triggered` / `monitoring.metrics.updated` / `system.health.changed`
 
 ---
 
@@ -93,32 +99,6 @@ Token-by-token streaming for AI provider responses.
 One of `execution_id` or `conversation_id` is required.
 
 **Events**: Token chunks, completion signals.
-
----
-
-### AiWorkflowMonitoringChannel
-
-**File**: `server/app/channels/ai_workflow_monitoring_channel.rb`
-
-Workflow monitoring and analytics. Specialized wrapper around AiOrchestrationChannel.
-
-| Param | Required | Description |
-|-------|----------|-------------|
-| `workflow_id` | No | Specific workflow (omit for account-wide) |
-
-**Authorization**: Requires monitoring permission.
-
----
-
-### AiWorkflowOrchestrationChannel
-
-**File**: `server/app/channels/ai_workflow_orchestration_channel.rb`
-
-Account-level workflow orchestration events.
-
-No required params — subscribes to account-level stream automatically.
-
-**Stream**: `ai_orchestration:account:{account_id}`
 
 ---
 
@@ -178,12 +158,14 @@ Live streaming of Git pipeline job logs.
 
 **File**: `server/app/channels/mission_channel.rb`
 
-Ralph mission progress updates.
+Mission lifecycle events: status/phase transitions, approval gates, and errors.
 
 | Param | Required | Description |
 |-------|----------|-------------|
 | `type` | Yes | `mission` or `account` |
 | `id` | Yes | Resource ID |
+
+**Events**: `status_changed`, `phase_changed`, `approval_required`, `approval_resolved`, `error`.
 
 ---
 
@@ -293,6 +275,46 @@ Multi-agent team execution monitoring.
 
 ---
 
+## Extension Channels
+
+### SupplyChainChannel
+
+**File**: `server/app/channels/supply_chain_channel.rb`
+
+Supply chain extension events scoped to an account.
+
+### SystemChannel
+
+**File**: `server/app/channels/system_channel.rb`
+
+System-level admin events (health, maintenance, configuration changes).
+
+### TradingChannel
+
+**File**: `server/app/channels/trading_channel.rb`
+
+Trading extension events (strategy lifecycle, position updates, risk alerts) scoped to an account.
+
+### TradingTrainingChannel
+
+**File**: `server/app/channels/trading_training_channel.rb`
+
+Trading training session events scoped to a session ID (live tick execution, learning extraction, phase transitions).
+
+### WorkerDataChannel
+
+**File**: `server/app/channels/worker_data_channel.rb`
+
+Worker-to-server data streaming transport. Used by standalone Sidekiq worker for bulk updates.
+
+### WorkerToolDispatchChannel
+
+**File**: `server/app/channels/worker_tool_dispatch_channel.rb`
+
+Worker tool dispatch protocol channel. Used for pushing tool invocations from worker jobs to the server's tool registry.
+
+---
+
 ## Frontend Integration
 
 ### Specialized Hooks
@@ -303,7 +325,8 @@ Multi-agent team execution monitoring.
 | `useSubscriptionWebSocket` | SubscriptionChannel | Subscription status |
 | `useCustomerWebSocket` | CustomerChannel | Customer updates |
 | `useAnalyticsWebSocket` | AnalyticsChannel | Analytics events |
-| `useWorkflowExecution` | AiOrchestrationChannel | Workflow execution monitoring |
+| `useMissionChannel` | MissionChannel | Mission lifecycle monitoring |
+| `useRalphLoopChannel` | AiOrchestrationChannel | Ralph loop iteration monitoring |
 
 ### Connection Lifecycle
 
@@ -312,4 +335,4 @@ Multi-agent team execution monitoring.
 - **Token refresh**: Automatic on 401 response
 - **Cleanup**: All subscriptions cleared on logout
 
-See [WEBSOCKET_AND_REALTIME.md](WEBSOCKET_AND_REALTIME.md) for architecture details.
+See [../frontend/WEBSOCKET_INTEGRATION.md](../frontend/WEBSOCKET_INTEGRATION.md) for frontend integration patterns.

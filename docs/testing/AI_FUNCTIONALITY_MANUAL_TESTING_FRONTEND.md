@@ -4,7 +4,7 @@
 
 Comprehensive manual testing plan for all AI components with **frontend-first approach**. All tests are executable through the UI at `/app/ai/*` routes with real AI execution via Ollama.
 
-**Scope**: 26 phases, 100+ test cases, 20 AI navigation items
+**Scope**: Manual testing plan for the AI frontend.
 
 ---
 
@@ -19,7 +19,7 @@ sudo systemctl start powernode.target
 **Note**: Ollama is pre-configured as a remote provider in the admin account. Use the provider URL and credentials provided for your development environment.
 
 ### 0.2 Test User Requirements
-- Full AI permissions: `ai.providers.*`, `ai.agents.*`, `ai.workflows.*`, `ai.conversations.*`, `ai.context.*`, `ai.analytics.*`
+- Full AI permissions: `ai.providers.*`, `ai.agents.*`, `ai.missions.*`, `ai.teams.*`, `ai.ralph.*`, `ai.autonomy.*`, `ai.conversations.*`, `ai.context.*`, `ai.analytics.*`, `admin.access`
 - Login at `https://<your-proxy-host>` or `http://localhost:3000`
 
 ---
@@ -54,17 +54,6 @@ sudo systemctl start powernode.target
 | **3.2 Send Message** | Click "Continue" → Enter: "My name is Test User" → Send | AI response with greeting |
 | **3.3 Context Retention** | Send: "What is my name?" | AI responds with "Test User" (remembers context) |
 | **3.4 Multi-turn** | Continue conversation with 3+ messages | Full history visible, scrollable |
-
----
-
-## Phase 4: Workflows (`/app/ai/workflows`)
-
-| Test | Steps | Expected |
-|------|-------|----------|
-| **4.1 Create Workflow** | Click "Create Workflow" → Name: "Simple AI Flow" → Save | Workflow in list |
-| **4.2 Add Nodes** | Open workflow → Add Start node → Add AI Agent node (select test agent) → Add End node → Connect | Visual connections on canvas |
-| **4.3 Execute Workflow** | Click play → Enter input → Execute | Execution runs, node-by-node progress |
-| **4.4 View Results** | Wait for completion → Check results | Output from AI agent displayed |
 
 ---
 
@@ -190,7 +179,7 @@ sudo systemctl start powernode.target
 |------|-------------|----------|
 | **16.1 No Create** | Remove `ai.agents.create` | "Create Agent" button hidden |
 | **16.2 No Execute** | Remove `ai.agents.execute` | "Execute" button hidden |
-| **16.3 No Delete** | Remove `ai.workflows.delete` | Delete icon hidden |
+| **16.3 No Delete** | Remove `ai.agents.delete` | Delete icon hidden |
 
 ---
 
@@ -206,19 +195,7 @@ sudo systemctl start powernode.target
 
 ---
 
-## Phase 18: Advanced Workflow Validation (`/app/ai/workflows/:id`)
-
-| Test | Steps | Expected |
-|------|-------|----------|
-| **18.1 View Workflow Health Score** | Open workflow → Validation section | Health score (0-100) with grade and color |
-| **18.2 Validation Rules Display** | Create workflow with issues → View validation | ValidationRuleCard shows severity, category |
-| **18.3 Auto-Fixable Issues** | View auto-fixable issues | "Auto-fixable" badge, selection checkbox |
-| **18.4 Navigate to Node** | Click "Go to node" on issue | Canvas scrolls to problematic node |
-| **18.5 Validation Suggestions** | View warnings | Suggestion with lightbulb icon |
-
----
-
-## Phase 19: Circuit Breaker Monitoring (`/app/ai/monitoring/workflows`)
+## Phase 19: Circuit Breaker Monitoring (`/app/ai/monitoring/circuit-breakers`)
 
 | Test | Steps | Expected |
 |------|-------|----------|
@@ -321,14 +298,13 @@ sudo systemctl start powernode.target
 | Providers | `frontend/src/features/ai/providers/components/AiProvidersPage.tsx` |
 | Agents | `frontend/src/features/ai/agents/AiAgentDashboard.tsx` |
 | Conversations | `frontend/src/pages/app/ai/AIConversationsPage.tsx` |
-| Workflows | `frontend/src/pages/app/ai/WorkflowsPage.tsx` |
+| Missions | `frontend/src/features/missions/pages/MissionsPage.tsx` |
 | Teams | `frontend/src/pages/app/ai/AgentTeamsPage.tsx` |
 | Ralph Loops | `frontend/src/features/ai/ralph-loops/pages/RalphLoopsPage.tsx` |
 | Contexts | `frontend/src/pages/app/ai/ContextsPage.tsx` |
 | Monitoring | `frontend/src/pages/app/ai/AIMonitoringPage.tsx` |
 | Memory API | `frontend/src/shared/services/ai/MemoryApiService.ts` |
 | Message Actions | `frontend/src/features/ai/conversations/components/MessageActions.tsx` |
-| Workflow Validation | `frontend/src/features/ai/workflows/components/validation/ValidationPanel.tsx` |
 | Circuit Breaker | `frontend/src/features/ai/monitoring/components/CircuitBreakerCard.tsx` |
 | Context Import/Export | `frontend/src/features/ai/contexts/components/ImportExportPanel.tsx` |
 | Publisher Dashboard | `frontend/src/features/ai/marketplace/components/PublisherDashboard.tsx` |
@@ -351,10 +327,8 @@ sudo systemctl start powernode.target
 - [ ] Phase 1.3 - Remote Ollama provider connection successful
 - [ ] Phase 2.2 - Agent executes with real AI response
 - [ ] Phase 3.3 - Conversation maintains context
-- [ ] Phase 4.3 - Workflow executes end-to-end
 - [ ] Phase 7.2-7.4 - Memory CRUD and search work
 - [ ] Phase 17.3 - Message copy functionality works
-- [ ] Phase 18.1 - Workflow validation displays health score
 - [ ] Phase 19.1 - Circuit breaker states visible
 - [ ] Phase 20.1 - Context export produces valid file
 - [ ] Phase 26.2 - WebSocket auto-reconnection works
@@ -377,3 +351,76 @@ After each create/update:
 3. **Test both happy path and edge cases**
 4. **Verify WebSocket updates throughout**
 5. **Check permission gating on each feature**
+
+---
+
+## Appendix: UI Scenarios
+
+### Missions (`/app/ai/missions`)
+
+| Test | Steps | Expected |
+|------|-------|----------|
+| **M.1 Missions full-width index** | Navigate to missions | Full-width list, no left sidebar, missions grouped by status |
+| **M.2 Open detail modal** | Click any mission row | Global modal opens over the index; URL deep-links to `/app/ai/missions/:id` |
+| **M.3 Start mission** | New mission → click Start | Status transitions to `active`; Mission channel emits `phase_changed` |
+| **M.4 Approval gate** | On `awaiting_prd_approval`, click Approve | Transitions to `executing`; Ralph Loop tasks appear |
+| **M.5 Reject + retry** | Reject on `awaiting_code_approval` | Routes back to `reviewing`; retry phase works |
+
+### Teams (`/app/ai/teams`)
+
+| Test | Steps | Expected |
+|------|-------|----------|
+| **T.1 Full-width team index** | Navigate to teams | Full-width list + global detail modal pattern |
+| **T.2 Execute team** | Open team → Execute with task | Live multi-agent execution with role-per-column view |
+
+### Agents (`/app/ai/agents`)
+
+| Test | Steps | Expected |
+|------|-------|----------|
+| **A.1 Full-width agent index** | Navigate to agents | Full-width list + global detail modal pattern |
+| **A.2 Execute + stream** | Execute agent with prompt | Streaming tokens via `AiStreamingChannel` |
+
+### Compound Learning (`/app/ai/learning`)
+
+| Test | Steps | Expected |
+|------|-------|----------|
+| **L.1 Merged metrics card** | Navigate to learning | Single card shows total, active, verified, deprecated counts |
+| **L.2 Infinite scroll** | Scroll down | Next page auto-loads via `useInfiniteLearnings` |
+| **L.3 Sort/filter** | Change filter to `failure_mode` | List reloads with filtered category, query params persist in URL |
+
+### Autonomy & Governance
+
+| Test | Steps | Expected |
+|------|-------|----------|
+| **G.1 Kill switch** | Navigate to `/app/ai/autonomy` → Halt | `AiOrchestrationChannel` broadcasts; all AI jobs exit gracefully on next tick |
+| **G.2 Resume** | Click Resume with reason | `KillSwitchEvent` row created; activity resumes |
+| **G.3 Agent goals** | Create goal for an agent | Goal appears in the list; progress bar updates on `update_agent_goal` |
+| **G.4 Proposals inbox** | Approve a proposal | Status flips to `approved`; `AgentFeedback` row created if reviewer rating |
+| **G.5 Escalation** | Trigger escalation (stuck agent) | `AgentEscalation` open; auto-escalates past severity timeout |
+
+### Content — Daily Summaries (`/app/content/daily-summaries`)
+
+| Test | Steps | Expected |
+|------|-------|----------|
+| **DS.1 View panel** | Navigate as admin | Timeline sidebar + empty detail view on first load |
+| **DS.2 Generate now** | Click "Generate Now" | New summary renders in detail view; history sidebar updates |
+| **DS.3 Deep link** | Use page slug URL | Summary content loads via `/admin/pages/:id` |
+| **DS.4 Non-admin gate** | Non-admin user navigates | Access denied (no `admin.access` permission) |
+
+### Content — Backlinks Panel *(requires API endpoints to be wired)*
+
+| Test | Steps | Expected |
+|------|-------|----------|
+| **BL.1 View backlinks** | Open Page → Backlinks tab | Backlinks list populated from `Ai::KnowledgeGraphEdge` references |
+| **BL.2 Unlinked mentions** | View unlinked mentions | Pages that mention title as plain text shown; "Copy [[link]]" button works |
+| **BL.3 Related pages** | View related pages | Semantic neighbours shown with similarity bar |
+
+*Note: These scenarios depend on the backlinks API endpoints landing. See [CONTENT_LINKING.md](../platform/CONTENT_LINKING.md) for the implementation status.*
+
+### Password Reset Modal
+
+| Test | Steps | Expected |
+|------|-------|----------|
+| **PR.1 Trigger reset** | Admin resets user password | Modal shows temporary password with copy-to-clipboard button |
+| **PR.2 Copy to clipboard** | Click copy | Clipboard contains temp password; toast confirms copy |
+| **PR.3 Auto-dismiss** | Close modal | Password not persisted in DOM after close |

@@ -20,7 +20,7 @@ This document provides a complete mapping of all API communications between the 
 │                                                                 │
 │  ┌─────────────────┐    ┌─────────────────┐                    │
 │  │  API Services   │    │  WebSocket Hooks │                    │
-│  │  (96 files)     │    │  (17 channels)   │                    │
+│  │  (95 files)     │    │  (21 channels)   │                    │
 │  └────────┬────────┘    └────────┬────────┘                    │
 └───────────┼─────────────────────┼──────────────────────────────┘
             │ HTTP REST           │ WebSocket
@@ -31,7 +31,7 @@ This document provides a complete mapping of all API communications between the 
 │                                                                 │
 │  ┌─────────────────┐    ┌─────────────────┐    ┌──────────────┐│
 │  │  API Controllers │    │  WebSocket      │    │  Internal    ││
-│  │  (254 controllers)│   │  Channels       │    │  API         ││
+│  │  (398 controllers)│   │  Channels       │    │  API         ││
 │  └─────────────────┘    └─────────────────┘    └──────┬───────┘│
 └──────────────────────────────────────────────────────┼─────────┘
                                                        │ HTTP REST
@@ -360,27 +360,35 @@ This document provides a complete mapping of all API communications between the 
 
 ### 1.17 AI Orchestration System
 
-**Justification:** Complete AI workflow automation with agents, providers, and monitoring.
+**Justification:** End-to-end AI agent execution, mission pipelines, Ralph loops, and provider management.
 
-#### Workflows
+#### Missions
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `/api/v1/ai/workflows` | GET/POST | List/create workflows |
-| `/api/v1/ai/workflows/{id}` | GET/PATCH/DELETE | Workflow CRUD |
-| `/api/v1/ai/workflows/{id}/execute` | POST | Execute workflow |
-| `/api/v1/ai/workflows/{id}/duplicate` | POST | Duplicate workflow |
-| `/api/v1/ai/workflows/{id}/validate` | GET | Validate structure |
-| `/api/v1/ai/workflows/{id}/export` | GET | Export workflow |
-| `/api/v1/ai/workflows/import` | POST | Import workflow |
-| `/api/v1/ai/workflows/templates` | GET | Workflow templates |
-| `/api/v1/ai/workflows/{id}/runs` | GET | List workflow runs |
-| `/api/v1/ai/workflows/{id}/runs/{run_id}` | GET/PATCH/DELETE | Run CRUD |
-| `/api/v1/ai/workflows/{id}/runs/{run_id}/cancel` | POST | Cancel run |
-| `/api/v1/ai/workflows/{id}/runs/{run_id}/retry` | POST | Retry run |
-| `/api/v1/ai/workflows/{id}/runs/{run_id}/pause` | POST | Pause run |
-| `/api/v1/ai/workflows/{id}/runs/{run_id}/resume` | POST | Resume run |
-| `/api/v1/ai/workflows/{id}/runs/{run_id}/logs` | GET | Run logs |
-| `/api/v1/ai/workflows/{id}/runs/{run_id}/node_executions` | GET | Node executions |
+| `/api/v1/ai/missions` | GET/POST | List/create missions |
+| `/api/v1/ai/missions/{id}` | GET/PATCH/DELETE | Mission CRUD |
+| `/api/v1/ai/missions/{id}/start` | POST | Start mission pipeline |
+| `/api/v1/ai/missions/{id}/approve` | POST | Approve an approval gate |
+| `/api/v1/ai/missions/{id}/reject` | POST | Reject an approval gate |
+| `/api/v1/ai/missions/{id}/pause` | POST | Pause mission |
+| `/api/v1/ai/missions/{id}/resume` | POST | Resume mission |
+| `/api/v1/ai/missions/{id}/cancel` | POST | Cancel mission |
+| `/api/v1/ai/missions/{id}/retry_phase` | POST | Retry current phase |
+| `/api/v1/ai/missions/{id}/generate_prd` | POST | Generate PRD |
+| `/api/v1/ai/missions/{id}/run_tests` | POST | Trigger tests |
+| `/api/v1/ai/missions/{id}/deploy` | POST | Deploy preview |
+| `/api/v1/ai/missions/{id}/create_pr` | POST | Create pull request |
+
+#### Ralph Loops
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/v1/ai/ralph_loops` | GET/POST | List/create ralph loops |
+| `/api/v1/ai/ralph_loops/{id}` | GET/PATCH/DELETE | Loop CRUD |
+| `/api/v1/ai/ralph_loops/{id}/run_iteration` | POST | Run next iteration |
+| `/api/v1/ai/ralph_loops/{id}/pause` | POST | Pause loop |
+| `/api/v1/ai/ralph_loops/{id}/resume` | POST | Resume loop |
+| `/api/v1/ai/ralph_loops/webhook/{token}` | POST | Webhook-triggered execution |
+| `/api/v1/ai/ralph_loops/webhook/{token}/status` | GET | Webhook loop status |
 
 #### Agents
 | Endpoint | Method | Purpose |
@@ -454,10 +462,8 @@ This document provides a complete mapping of all API communications between the 
 |---------|---------|
 | `AiAgentExecutionChannel` | Agent execution status |
 | `AiConversationChannel` | AI conversation streaming |
-| `AiOrchestrationChannel` | Multi-agent orchestration events |
-| `AiStreamingChannel` | AI response streaming |
-| `AiWorkflowMonitoringChannel` | Workflow monitoring dashboard |
-| `AiWorkflowOrchestrationChannel` | Workflow execution events |
+| `AiOrchestrationChannel` | Unified stream: agent executions, Ralph loops, worktrees, circuit breakers, monitoring, system health |
+| `AiStreamingChannel` | AI response streaming (LLM token stream) |
 | `AnalyticsChannel` | Live analytics updates |
 | `CodeFactoryChannel` | Code factory execution status |
 | `CustomerChannel` | Customer event notifications |
@@ -568,16 +574,18 @@ Authorization: Bearer {WORKER_TOKEN}
 
 ---
 
-### 2.7 AI Workflow Execution
+### 2.7 AI Mission & Ralph Loop Execution
 
-**Justification:** Execute AI workflows asynchronously with real-time status updates.
+**Justification:** Execute mission phases and Ralph iterations asynchronously with real-time status updates.
 
 | Endpoint | Method | Job(s) Using | Purpose |
 |----------|--------|--------------|---------|
-| `/api/v1/ai/workflows/runs/lookup/{run_id}` | GET | `AiWorkflowExecutionJob` | Look up workflow run |
-| `/api/v1/ai/workflows/{id}/runs/{run_id}/process` | POST | `AiWorkflowExecutionJob` | Execute workflow |
-| `/api/v1/ai/workflows/{id}/runs/{run_id}` | PATCH | `AiWorkflowExecutionJob` | Update run status |
-| `/api/v1/ai/workflows/{id}/runs/{run_id}/broadcast` | POST | `AiWorkflowExecutionJob` | Broadcast real-time status |
+| `/api/v1/ai/missions/{id}` | GET | `AiMission*Job` | Look up mission state |
+| `/api/v1/ai/missions/{id}/advance` | POST | `AiMission*Job` | Advance after phase completion |
+| `/api/v1/ai/missions/{id}/deploy_callback` | POST | `AiMissionDeployJob` | Deployment result callback |
+| `/api/v1/ai/ralph_loops/{id}` | GET | `AiRalphIterationJob` | Look up loop state |
+| `/api/v1/ai/ralph_loops/{id}/run_iteration` | POST | `AiRalphIterationJob` | Kick off next iteration |
+| `/api/v1/ai/ralph_loops/process_scheduled` | POST | `AiRalphScheduledJob` | Process scheduled loops |
 
 ---
 
@@ -639,8 +647,8 @@ failure_threshold: 5
 recovery_timeout: 120 seconds
 request_timeout: 600 seconds (10 min)
 
-# Workflow Execution Circuit Breaker
-service_name: 'workflow_execution'
+# Mission Phase Execution Circuit Breaker
+service_name: 'mission_execution'
 failure_threshold: 3
 recovery_timeout: 30 seconds
 request_timeout: 300 seconds (5 min)

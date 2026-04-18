@@ -1,7 +1,7 @@
 # AI Functionality Manual Testing Plan
 
 ## Overview
-A comprehensive testing plan covering the full AI functionality in Powernode, organized into 16 phases. This covers 93 AI models, 60+ services, and 22 frontend features.
+A comprehensive testing plan covering the full AI functionality in Powernode. This covers 132 AI models, 376 services, and the current frontend feature set.
 
 **Prerequisites:**
 - Development environment running (`sudo systemctl start powernode.target`)
@@ -11,22 +11,24 @@ A comprehensive testing plan covering the full AI functionality in Powernode, or
 **Scope Summary:**
 | Area | Components | Coverage |
 |------|-----------|----------|
-| Agent System | 8 models | Phases 1-3, 9-10 |
-| Workflows | 15 models | Phases 4, 7, 11-12, 20 |
-| Teams | 6 models | Phase 6 |
-| Ralph Loops | 3 models | Phase 5, 7 |
-| Memory/Context | 4 models | Phase 8 |
-| Providers | 3 models | Phase 1, 19 |
-| A2A Protocol | 2 models | Phase 10 |
-| Marketplace | 7 models | Phase 14 |
-| Credits/Billing | 8 models | Phase 15 |
-| Governance | 8 models | Phase 13 |
-| RAG/Knowledge | 4 models | Phase 16 |
-| Monitoring | 3 models | Phase 17 |
-| Sandboxes | 4 models | Phase 18 |
-| Model Routing | 2 models | Phase 19 |
+| Agent System | 15+ models | Phases 1-3, 9-10 |
+| Missions | `Ai::Mission`, `Ai::MissionApproval` | See Appendix A (Missions test plan) |
+| Teams | 10+ models | Phase 6 |
+| Ralph Loops | `Ai::RalphLoop`, `Ai::RalphTask`, `Ai::RalphIteration` | Phase 5 + Appendix B |
+| Memory/Context | 8+ models | Phase 8 |
+| Providers | 8+ models | Phase 1, 19 |
+| A2A Protocol | 2+ models | Phase 10 |
+| Data Sources | `Ai::DataSource`, `Ai::DataSourceCredential` | See Appendix C |
+| Daily Summaries | `DailySummaryService`, `DailySummaryJob` | See Appendix D |
+| Marketplace | 7+ models | Phase 14 |
+| Credits/Billing | 8+ models | Phase 15 |
+| Autonomy/Governance | `AgentGoal`, `AgentObservation`, `AgentProposal`, `AgentEscalation`, `KillSwitchEvent`, `InterventionPolicy` | Phase 13 |
+| RAG/Knowledge | 4+ models | Phase 16 |
+| Knowledge Graph | `KnowledgeGraphNode`, `KnowledgeGraphEdge` | Appendix E (Content Linking) |
+| Monitoring | 3+ models | Phase 17 |
+| Sandboxes | 4+ models | Phase 18 |
+| Model Routing | 2+ models | Phase 19 |
 
-**Total: 20 Phases, 120+ Test Scenarios, 78+ Models Covered**
 
 ---
 
@@ -52,7 +54,7 @@ puts "Accounts: #{Account.count}"
 puts "Users: #{User.count}"
 puts "AI Providers: #{Ai::Provider.count}"
 puts "AI Agents: #{Ai::Agent.count}"
-puts "AI Workflows: #{Ai::Workflow.count}"
+puts "AI Missions: #{Ai::Mission.count}"
 puts "Ralph Loops: #{Ai::RalphLoop.count}"
 puts "Agent Teams: #{Ai::AgentTeam.count}"
 ```
@@ -283,106 +285,6 @@ puts "Last executed: #{stats[:last_executed_at]}"
 
 ---
 
-## Phase 4: Workflows
-
-### 4.1 Create Simple Workflow
-```bash
-# In Rails console
-account = Account.first
-user = User.first
-
-workflow = Ai::Workflow.create!(
-  account: account,
-  creator: user,
-  name: 'Simple AI Test Workflow',
-  description: 'Tests basic agent execution in workflow',
-  status: 'draft',
-  workflow_type: 'ai',  # 'ai' or 'cicd'
-  is_template: false
-)
-
-# Add start node (is_start_node: true for start nodes)
-start_node = workflow.nodes.create!(
-  node_id: 'start_1',
-  name: 'Start',
-  node_type: 'start',
-  is_start_node: true,
-  position: { x: 100, y: 100 },
-  configuration: {}
-)
-
-# Add AI agent node
-agent = Ai::Agent.find_by(slug: 'ollama-example-agent')
-agent_node = workflow.nodes.create!(
-  node_id: 'ai_agent_1',
-  name: 'AI Processing',
-  node_type: 'ai_agent',
-  position: { x: 300, y: 100 },
-  configuration: {
-    ai_agent_id: agent.id,
-    input_mapping: { input: '{{trigger.input}}' }
-  }
-)
-
-# Add end node (is_end_node: true for end nodes)
-end_node = workflow.nodes.create!(
-  node_id: 'end_1',
-  name: 'End',
-  node_type: 'end',
-  is_end_node: true,
-  position: { x: 500, y: 100 },
-  configuration: {}
-)
-
-# Create edges (use node_id strings, not node objects)
-workflow.edges.create!(
-  edge_id: 'edge_1',
-  source_node_id: 'start_1',
-  target_node_id: 'ai_agent_1'
-)
-workflow.edges.create!(
-  edge_id: 'edge_2',
-  source_node_id: 'ai_agent_1',
-  target_node_id: 'end_1'
-)
-
-# Activate workflow
-workflow.update!(status: 'active')
-puts "Workflow ID: #{workflow.id}"
-```
-
-### 4.2 Execute Workflow
-```bash
-# Create workflow run
-run = Ai::WorkflowRun.create!(
-  workflow: workflow,
-  account: account,
-  triggered_by_user: user,
-  status: 'pending',
-  trigger_type: 'manual',
-  input_variables: { input: 'Process this text through the workflow' }
-)
-
-# Execute via orchestrator
-orchestrator = Mcp::AiWorkflowOrchestrator.new(workflow_run: run)
-result = orchestrator.execute
-
-puts "Run status: #{run.reload.status}"
-puts "Output: #{run.output_data}"
-puts "Run summary: #{run.run_summary}"
-```
-
-### 4.3 Test via API
-```bash
-# Trigger workflow execution
-curl -X POST "https://<your-proxy-host>/api/v1/ai/workflows/{WORKFLOW_ID}/execute" \
-  -H "Authorization: Bearer {TOKEN}" \
-  -H "Content-Type: application/json" \
-  -d '{"trigger_data": {"input": "Test input from API"}}'
-```
-
----
-
 ## Phase 5: Ralph Loops
 
 ### 5.1 Create Ralph Loop
@@ -544,59 +446,6 @@ puts "Team execution result: #{result}"
 
 ---
 
-## Phase 7: Advanced - Workflow with Ralph Loop Node
-
-### 7.1 Create Workflow with Ralph Loop
-```bash
-workflow = Ai::Workflow.create!(
-  account: account,
-  creator: user,
-  name: 'Ralph Loop Workflow',
-  description: 'Workflow that executes a Ralph Loop',
-  status: 'draft',
-  workflow_type: 'ai'
-)
-
-# Start node
-start_node = workflow.nodes.create!(
-  node_id: 'start_1',
-  name: 'Start',
-  node_type: 'start',
-  is_start_node: true,
-  position: { x: 100, y: 100 },
-  configuration: {}
-)
-
-# Ralph Loop node
-ralph_node = workflow.nodes.create!(
-  node_id: 'ralph_loop_1',
-  name: 'Execute Ralph Loop',
-  node_type: 'ralph_loop',
-  position: { x: 300, y: 100 },
-  configuration: {
-    operation: 'run_to_completion',
-    ralph_loop_id: ralph_loop.id,
-    timeout_seconds: 300
-  }
-)
-
-# End node
-end_node = workflow.nodes.create!(
-  node_id: 'end_1',
-  name: 'End',
-  node_type: 'end',
-  is_end_node: true,
-  position: { x: 500, y: 100 },
-  configuration: {}
-)
-
-workflow.edges.create!(edge_id: 'edge_1', source_node_id: 'start_1', target_node_id: 'ralph_loop_1')
-workflow.edges.create!(edge_id: 'edge_2', source_node_id: 'ralph_loop_1', target_node_id: 'end_1')
-workflow.update!(status: 'active')
-```
-
----
-
 ## Phase 8: Memory and Context System
 
 The AI memory system provides persistent context for agents with three memory types: factual, experiential, and working.
@@ -610,7 +459,7 @@ account = agent.account
 # Create persistent context for an agent
 context = Ai::PersistentContext.create!(
   account: account,
-  contextable: agent,  # polymorphic: agent, team, or workflow
+  contextable: agent,  # polymorphic: agent, team, or mission
   context_type: 'agent_context',
   name: 'Primary Context',
   description: 'Main memory store for the agent',
@@ -998,381 +847,6 @@ curl "https://<your-proxy-host>/api/v1/ai/a2a_tasks/{TASK_ID}" \
 
 ---
 
-## Phase 11: Advanced Workflow Nodes
-
-The workflow system supports 39 node types. Here we test the more complex ones.
-
-### 11.1 Conditional Branching Node
-```bash
-# In Rails console
-workflow = Ai::Workflow.create!(
-  account: Account.first,
-  creator: User.first,
-  name: 'Conditional Workflow',
-  status: 'draft',
-  workflow_type: 'ai'
-)
-
-# Start node
-workflow.nodes.create!(
-  node_id: 'start_1', name: 'Start', node_type: 'start',
-  is_start_node: true, position: { x: 100, y: 100 }
-)
-
-# Condition node with branches
-condition_node = workflow.nodes.create!(
-  node_id: 'condition_1',
-  name: 'Check Priority',
-  node_type: 'condition',
-  position: { x: 300, y: 100 },
-  configuration: {
-    conditions: [
-      { expression: '{{input.priority}} == "high"', target: 'urgent_path' },
-      { expression: '{{input.priority}} == "low"', target: 'normal_path' },
-      { default: true, target: 'default_path' }
-    ]
-  }
-)
-
-# Branch paths
-workflow.nodes.create!(node_id: 'urgent_path', name: 'Urgent Handler',
-  node_type: 'ai_agent', position: { x: 500, y: 50 },
-  configuration: { ai_agent_id: Ai::Agent.first.id })
-
-workflow.nodes.create!(node_id: 'normal_path', name: 'Normal Handler',
-  node_type: 'ai_agent', position: { x: 500, y: 150 },
-  configuration: { ai_agent_id: Ai::Agent.first.id })
-
-# End node
-workflow.nodes.create!(
-  node_id: 'end_1', name: 'End', node_type: 'end',
-  is_end_node: true, position: { x: 700, y: 100 }
-)
-
-# Create edges
-workflow.edges.create!(edge_id: 'e1', source_node_id: 'start_1', target_node_id: 'condition_1')
-workflow.edges.create!(edge_id: 'e2', source_node_id: 'urgent_path', target_node_id: 'end_1')
-workflow.edges.create!(edge_id: 'e3', source_node_id: 'normal_path', target_node_id: 'end_1')
-
-workflow.update!(status: 'active')
-```
-
-### 11.2 Loop Node with Iteration
-```bash
-# Create workflow with loop
-workflow = Ai::Workflow.create!(
-  account: Account.first, creator: User.first,
-  name: 'Loop Workflow', status: 'draft', workflow_type: 'ai'
-)
-
-workflow.nodes.create!(
-  node_id: 'start_1', name: 'Start', node_type: 'start',
-  is_start_node: true, position: { x: 100, y: 100 }
-)
-
-# Loop node - iterates over array
-loop_node = workflow.nodes.create!(
-  node_id: 'loop_1',
-  name: 'Process Items',
-  node_type: 'loop',
-  position: { x: 300, y: 100 },
-  configuration: {
-    iterator_variable: 'items',    # Array to iterate
-    item_variable: 'current_item', # Current item variable name
-    max_iterations: 100,           # Safety limit
-    parallel_execution: false      # Sequential vs parallel
-  }
-)
-
-# Loop body (AI agent)
-workflow.nodes.create!(
-  node_id: 'process_item', name: 'Process Item',
-  node_type: 'ai_agent', position: { x: 500, y: 100 },
-  configuration: {
-    ai_agent_id: Ai::Agent.first.id,
-    input_mapping: { input: '{{current_item}}' }
-  }
-)
-
-workflow.nodes.create!(
-  node_id: 'end_1', name: 'End', node_type: 'end',
-  is_end_node: true, position: { x: 700, y: 100 }
-)
-
-# Edges - loop back
-workflow.edges.create!(edge_id: 'e1', source_node_id: 'start_1', target_node_id: 'loop_1')
-workflow.edges.create!(edge_id: 'e2', source_node_id: 'loop_1', target_node_id: 'process_item',
-  edge_type: 'loop_body')
-workflow.edges.create!(edge_id: 'e3', source_node_id: 'process_item', target_node_id: 'loop_1',
-  edge_type: 'loop_continue')
-workflow.edges.create!(edge_id: 'e4', source_node_id: 'loop_1', target_node_id: 'end_1',
-  edge_type: 'loop_complete')
-
-workflow.update!(status: 'active')
-
-# Test with array input
-run = Ai::WorkflowRun.create!(
-  workflow: workflow, account: Account.first, triggered_by_user: User.first,
-  status: 'pending', trigger_type: 'manual',
-  input_variables: { items: ['item1', 'item2', 'item3'] }
-)
-
-orchestrator = Mcp::AiWorkflowOrchestrator.new(workflow_run: run)
-orchestrator.execute
-```
-
-### 11.3 Parallel Split and Merge
-```bash
-workflow = Ai::Workflow.create!(
-  account: Account.first, creator: User.first,
-  name: 'Parallel Workflow', status: 'draft', workflow_type: 'ai'
-)
-
-# Start
-workflow.nodes.create!(node_id: 'start', name: 'Start', node_type: 'start',
-  is_start_node: true, position: { x: 100, y: 200 })
-
-# Split into parallel branches
-workflow.nodes.create!(
-  node_id: 'split_1', name: 'Split', node_type: 'split',
-  position: { x: 250, y: 200 },
-  configuration: { split_type: 'parallel' }
-)
-
-# Parallel branches
-workflow.nodes.create!(node_id: 'branch_a', name: 'Analysis A',
-  node_type: 'ai_agent', position: { x: 400, y: 100 },
-  configuration: { ai_agent_id: Ai::Agent.first.id })
-
-workflow.nodes.create!(node_id: 'branch_b', name: 'Analysis B',
-  node_type: 'ai_agent', position: { x: 400, y: 300 },
-  configuration: { ai_agent_id: Ai::Agent.first.id })
-
-# Merge parallel results
-workflow.nodes.create!(
-  node_id: 'merge_1', name: 'Merge Results', node_type: 'merge',
-  position: { x: 550, y: 200 },
-  configuration: {
-    merge_strategy: 'all',  # all, any, first
-    output_format: 'array'
-  }
-)
-
-# End
-workflow.nodes.create!(node_id: 'end', name: 'End', node_type: 'end',
-  is_end_node: true, position: { x: 700, y: 200 })
-
-# Edges
-workflow.edges.create!(edge_id: 'e1', source_node_id: 'start', target_node_id: 'split_1')
-workflow.edges.create!(edge_id: 'e2', source_node_id: 'split_1', target_node_id: 'branch_a')
-workflow.edges.create!(edge_id: 'e3', source_node_id: 'split_1', target_node_id: 'branch_b')
-workflow.edges.create!(edge_id: 'e4', source_node_id: 'branch_a', target_node_id: 'merge_1')
-workflow.edges.create!(edge_id: 'e5', source_node_id: 'branch_b', target_node_id: 'merge_1')
-workflow.edges.create!(edge_id: 'e6', source_node_id: 'merge_1', target_node_id: 'end')
-
-workflow.update!(status: 'active')
-```
-
-### 11.4 Human Approval Node
-```bash
-# Workflow with human approval gate
-workflow.nodes.create!(
-  node_id: 'approval_gate',
-  name: 'Manager Approval',
-  node_type: 'human_approval',
-  position: { x: 400, y: 100 },
-  configuration: {
-    approvers: ['manager@company.com'],  # or role-based
-    approval_type: 'any',                 # any, all, majority
-    timeout_hours: 24,
-    escalation_policy: {
-      escalate_after_hours: 12,
-      escalate_to: ['director@company.com']
-    },
-    context_template: 'Please review: {{previous_node.output}}'
-  }
-)
-
-# When workflow reaches this node, it pauses and:
-# 1. Creates Ai::ApprovalRequest record
-# 2. Sends notifications to approvers
-# 3. Waits for approval/rejection via API or UI
-```
-
-### 11.5 Sub-Workflow Node
-```bash
-# Create a reusable sub-workflow
-sub_workflow = Ai::Workflow.create!(
-  account: Account.first, creator: User.first,
-  name: 'Data Processing Sub-Workflow',
-  status: 'active', workflow_type: 'ai'
-)
-# ... add nodes to sub_workflow ...
-
-# Reference in parent workflow
-parent_workflow.nodes.create!(
-  node_id: 'sub_process',
-  name: 'Run Data Processing',
-  node_type: 'sub_workflow',
-  position: { x: 400, y: 100 },
-  configuration: {
-    sub_workflow_id: sub_workflow.id,
-    input_mapping: { data: '{{trigger.raw_data}}' },
-    output_mapping: { processed: '{{sub_workflow.result}}' },
-    max_depth: 3  # Prevent infinite recursion
-  }
-)
-```
-
-### 11.6 API Call Node
-```bash
-workflow.nodes.create!(
-  node_id: 'external_api',
-  name: 'Fetch External Data',
-  node_type: 'api_call',
-  position: { x: 400, y: 100 },
-  configuration: {
-    url: 'https://api.example.com/data',
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer {{secrets.api_key}}'
-    },
-    body: { query: '{{trigger.search_term}}' },
-    timeout_seconds: 30,
-    retry_config: { max_retries: 3, backoff: 'exponential' },
-    response_mapping: { data: '$.results', count: '$.total' }
-  }
-)
-```
-
-### 11.7 Transform Node
-```bash
-workflow.nodes.create!(
-  node_id: 'transform_data',
-  name: 'Transform Results',
-  node_type: 'transform',
-  position: { x: 500, y: 100 },
-  configuration: {
-    transform_type: 'jmespath',  # jmespath, jsonpath, javascript
-    expression: 'items[?score > `0.5`].{name: name, value: score}',
-    # or for javascript:
-    # transform_type: 'javascript',
-    # expression: 'data.items.filter(i => i.score > 0.5).map(i => ({name: i.name}))'
-  }
-)
-```
-
----
-
-## Phase 12: Workflow Triggers and Scheduling
-
-### 12.1 Webhook Trigger
-```bash
-# Create webhook-triggered workflow
-workflow = Ai::Workflow.find_by(name: 'Simple AI Test Workflow')
-
-trigger = Ai::WorkflowTrigger.create!(
-  workflow: workflow,
-  trigger_type: 'webhook',
-  name: 'External System Webhook',
-  is_active: true,
-  configuration: {
-    secret_token: SecureRandom.hex(32),
-    validation: {
-      required_headers: ['X-Signature'],
-      ip_whitelist: ['10.0.0.0/8']
-    }
-  }
-)
-
-puts "Webhook URL: https://<your-proxy-host>/webhooks/ai/workflows/#{trigger.id}"
-puts "Secret: #{trigger.configuration['secret_token']}"
-
-# Test webhook (from external system)
-# curl -X POST "https://<your-proxy-host>/webhooks/ai/workflows/{TRIGGER_ID}" \
-#   -H "X-Signature: {computed_signature}" \
-#   -d '{"event": "new_ticket", "data": {...}}'
-```
-
-### 12.2 Schedule Trigger (Cron)
-```bash
-# Create scheduled workflow execution
-schedule = Ai::WorkflowSchedule.create!(
-  workflow: workflow,
-  account: workflow.account,
-  name: 'Daily Report Generation',
-  schedule_type: 'cron',
-  cron_expression: '0 9 * * *',  # Every day at 9 AM
-  timezone: 'America/New_York',
-  is_active: true,
-  input_template: {
-    report_date: '{{date.yesterday}}',
-    format: 'pdf'
-  },
-  next_run_at: Ai::WorkflowSchedule.calculate_next_run('0 9 * * *', 'America/New_York')
-)
-
-puts "Next run: #{schedule.next_run_at}"
-
-# Manual trigger test
-schedule.trigger_now!
-```
-
-### 12.3 Event-Based Trigger
-```bash
-# Trigger workflow on system events
-trigger = Ai::WorkflowTrigger.create!(
-  workflow: workflow,
-  trigger_type: 'event',
-  name: 'On Subscription Created',
-  is_active: true,
-  configuration: {
-    event_types: ['subscription.created', 'subscription.upgraded'],
-    filter: {
-      'subscription.plan_tier': ['professional', 'business']
-    }
-  }
-)
-
-# Workflow will be triggered when matching events occur
-```
-
-### 12.4 Git Trigger (CI/CD)
-```bash
-# Trigger on git events
-git_trigger = Ai::WorkflowTrigger.create!(
-  workflow: workflow,
-  trigger_type: 'git',
-  name: 'On Push to Main',
-  is_active: true,
-  configuration: {
-    repository: 'org/repo',
-    events: ['push', 'pull_request'],
-    branches: ['main', 'develop'],
-    paths: ['src/**/*.rb', 'config/**']
-  }
-)
-```
-
-### 12.5 API Trigger
-```bash
-# Test manual API trigger
-curl -X POST "https://<your-proxy-host>/api/v1/ai/workflows/{WORKFLOW_ID}/execute" \
-  -H "Authorization: Bearer {TOKEN}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "trigger_type": "api",
-    "input_variables": {
-      "input": "Process this data"
-    },
-    "priority": "high",
-    "callback_url": "https://myapp.com/webhook/workflow-complete"
-  }'
-```
-
----
-
 ## Phase 13: Governance and Compliance
 
 ### 13.1 Create Compliance Policy
@@ -1399,7 +873,6 @@ policy = Ai::CompliancePolicy.create!(
   },
   applies_to: {
     agent_types: ['all'],
-    workflow_types: ['ai'],
     exclude_sandboxes: true
   }
 )
@@ -1464,7 +937,7 @@ sla = Ai::SlaContract.create!(
   },
   applies_to: {
     agent_ids: [Ai::Agent.first.id],
-    workflow_ids: []
+    mission_ids: []
   },
   measurement_window: 'rolling_24h',
   alert_config: {
@@ -1481,43 +954,16 @@ violations.each do |v|
 end
 ```
 
-### 13.5 Approval Workflows
+### 13.5 Mission Approval Gates
 ```bash
-# Create approval request
-request = Ai::ApprovalRequest.create!(
+# Create mission approval record
+approval = Ai::MissionApproval.create!(
   account: account,
-  requestable: workflow,  # polymorphic
-  request_type: 'workflow_publish',
-  requester: User.first,
-  status: 'pending',
-  title: 'Publish Production Workflow',
-  description: 'Request to publish workflow to production',
-  metadata: {
-    changes_summary: 'Added new AI agent node',
-    risk_assessment: 'low'
-  },
-  expires_at: 7.days.from_now
-)
-
-# Create approval chain (multi-level)
-chain = Ai::ApprovalChain.create!(
-  account: account,
-  approval_request: request,
-  chain_type: 'sequential',  # sequential, parallel, any
-  steps: [
-    { level: 1, approvers: ['tech_lead@company.com'], required: true },
-    { level: 2, approvers: ['manager@company.com'], required: true }
-  ]
-)
-
-# Record approval decision
-Ai::ApprovalDecision.create!(
-  approval_request: request,
-  approval_chain: chain,
-  approver: User.find_by(email: 'tech_lead@company.com'),
+  mission: mission,
+  user: User.first,
+  gate: 'prd_review',
   decision: 'approved',
-  level: 1,
-  comments: 'Looks good, approved for next level'
+  feedback: 'Looks good, approved for next phase'
 )
 ```
 
@@ -1837,7 +1283,7 @@ Ai::OutcomeBillingRecord.create!(
 # Track ROI metrics
 metric = Ai::RoiMetric.create!(
   account: account,
-  measurable: workflow,
+  measurable: mission,
   metric_type: 'cost_savings',
   period: 'monthly',
   period_start: 1.month.ago.beginning_of_month,
@@ -2090,26 +1536,6 @@ curl -X POST "https://<your-proxy-host>/api/v1/ai/rag/query" \
 | 3.2 | Agent lifecycle (pause/resume) | ☐ |
 | 3.3 | Agent statistics | ☐ |
 
-### Workflows (Phases 4, 7, 11-12)
-| Phase | Feature | Status |
-|-------|---------|--------|
-| 4.1 | Create simple workflow | ☐ |
-| 4.2 | Execute workflow | ☐ |
-| 4.3 | Workflow API | ☐ |
-| 7.1 | Workflow with Ralph Loop node | ☐ |
-| 11.1 | Conditional branching node | ☐ |
-| 11.2 | Loop node with iteration | ☐ |
-| 11.3 | Parallel split and merge | ☐ |
-| 11.4 | Human approval node | ☐ |
-| 11.5 | Sub-workflow node | ☐ |
-| 11.6 | API call node | ☐ |
-| 11.7 | Transform node | ☐ |
-| 12.1 | Webhook trigger | ☐ |
-| 12.2 | Schedule trigger (cron) | ☐ |
-| 12.3 | Event-based trigger | ☐ |
-| 12.4 | Git trigger (CI/CD) | ☐ |
-| 12.5 | API trigger | ☐ |
-
 ### Ralph Loops (Phase 5)
 | Phase | Feature | Status |
 |-------|---------|--------|
@@ -2157,7 +1583,7 @@ curl -X POST "https://<your-proxy-host>/api/v1/ai/rag/query" \
 | 13.2 | Check policy compliance | ☐ |
 | 13.3 | Audit entry logging | ☐ |
 | 13.4 | SLA contract and monitoring | ☐ |
-| 13.5 | Approval workflows | ☐ |
+| 13.5 | Mission approval gates | ☐ |
 | 13.6 | Policy violation tracking | ☐ |
 
 ### Marketplace (Phase 14)
@@ -2209,11 +1635,10 @@ curl -X POST "https://<your-proxy-host>/api/v1/ai/rag/query" \
 | 18.1 | Create sandbox environment | ☐ |
 | 18.2 | Deploy agent to sandbox | ☐ |
 | 18.3 | Execute in sandbox | ☐ |
-| 18.4 | Test workflows in sandbox | ☐ |
-| 18.5 | Record and replay interactions | ☐ |
-| 18.6 | A/B testing | ☐ |
-| 18.7 | Cleanup sandbox | ☐ |
-| 18.8 | Sandbox API | ☐ |
+| 18.4 | Record and replay interactions | ☐ |
+| 18.5 | A/B testing | ☐ |
+| 18.6 | Cleanup sandbox | ☐ |
+| 18.7 | Sandbox API | ☐ |
 
 ### Model Routing (Phase 19)
 | Phase | Feature | Status |
@@ -2223,17 +1648,6 @@ curl -X POST "https://<your-proxy-host>/api/v1/ai/rag/query" \
 | 19.3 | Track routing decisions | ☐ |
 | 19.4 | Cost optimization | ☐ |
 | 19.5 | Model routing API | ☐ |
-
-### Workflow Validation (Phase 20)
-| Phase | Feature | Status |
-|-------|---------|--------|
-| 20.1 | Validate workflow structure | ☐ |
-| 20.2 | Auto-fix workflow issues | ☐ |
-| 20.3 | Workflow circuit breaker | ☐ |
-| 20.4 | Workflow recovery from checkpoint | ☐ |
-| 20.5 | Compensation (rollback) | ☐ |
-| 20.6 | Validation statistics | ☐ |
-| 20.7 | Validation API | ☐ |
 
 ---
 
@@ -2331,7 +1745,7 @@ puts "Success Rate: #{metrics[:success_rate]}%"
 puts "Avg Latency: #{metrics[:avg_latency_ms]}ms"
 puts "Total Cost: $#{metrics[:total_cost]}"
 puts "Active Agents: #{metrics[:active_agents]}"
-puts "Active Workflows: #{metrics[:active_workflows]}"
+puts "Active Missions: #{metrics[:active_missions]}"
 
 # Get alerts
 alerts = metrics_service.active_alerts
@@ -2424,22 +1838,7 @@ puts "Executions this hour: #{usage[:executions_this_hour]}"
 puts "Remaining: #{usage[:remaining_executions]}"
 ```
 
-### 18.4 Test Workflows in Sandbox
-```bash
-# Deploy workflow to sandbox
-workflow = Ai::Workflow.first
-sandbox_workflow = service.deploy_workflow(workflow)
-
-# Run with test data
-test_run = service.execute_workflow(
-  workflow: sandbox_workflow,
-  input_variables: { test_mode: true, input: 'Test data' }
-)
-
-puts "Test run status: #{test_run.status}"
-```
-
-### 18.5 Record and Replay Interactions
+### 18.4 Record and Replay Interactions
 ```bash
 # Record an interaction for replay
 interaction = Ai::RecordedInteraction.create!(
@@ -2625,398 +2024,3 @@ curl -X POST "https://<your-proxy-host>/api/v1/ai/model_router/route" \
 
 ---
 
-## Phase 20: Workflow Validation and Auto-Fix
-
-### 20.1 Validate Workflow Structure
-```bash
-# In Rails console
-workflow = Ai::Workflow.first
-
-# Full validation
-validator = Ai::WorkflowValidationService.new(workflow: workflow)
-result = validator.validate
-
-puts "Valid: #{result.valid?}"
-
-if !result.valid?
-  result.errors.each do |error|
-    puts "❌ #{error[:severity]}: #{error[:code]}"
-    puts "   #{error[:message]}"
-    puts "   Node: #{error[:node_id]}" if error[:node_id]
-  end
-end
-
-result.warnings.each do |warning|
-  puts "⚠️  #{warning[:code]}: #{warning[:message]}"
-end
-```
-
-### 20.2 Auto-Fix Workflow Issues
-```bash
-# Attempt automatic fixes
-autofix = Ai::WorkflowAutoFixService.new(workflow: workflow)
-fix_result = autofix.fix
-
-if fix_result.success?
-  puts "Fixed #{fix_result.data[:fixes_applied].count} issues:"
-  fix_result.data[:fixes_applied].each do |fix|
-    puts "  ✓ #{fix[:type]}: #{fix[:description]}"
-  end
-else
-  puts "Could not auto-fix: #{fix_result.error}"
-end
-```
-
-### 20.3 Workflow Circuit Breaker
-```bash
-# Get circuit breaker status
-workflow_run = Ai::WorkflowRun.last
-circuit = Ai::WorkflowRetryStrategyService.circuit_breaker_status(workflow_run)
-
-puts "Circuit status: #{circuit[:state]}"  # closed, open, half_open
-puts "Failure count: #{circuit[:failure_count]}"
-puts "Last failure: #{circuit[:last_failure_at]}"
-
-# Manual circuit breaker control
-Ai::WorkflowRetryStrategyService.trip_circuit(workflow)  # Open
-Ai::WorkflowRetryStrategyService.reset_circuit(workflow) # Close
-```
-
-### 20.4 Workflow Recovery from Checkpoint
-```bash
-# Create checkpoint during execution
-checkpoint = Ai::WorkflowCheckpoint.create!(
-  workflow_run: workflow_run,
-  node_id: 'current_node',
-  state: workflow_run.runtime_context,
-  checkpoint_type: 'automatic',
-  created_at: Time.current
-)
-
-# Recover from checkpoint after failure
-recovery_service = Ai::WorkflowCheckpointRecoveryService.new(workflow_run: workflow_run)
-recovered_run = recovery_service.recover_from_checkpoint(checkpoint)
-
-puts "Recovered run ID: #{recovered_run.id}"
-puts "Resuming from: #{checkpoint.node_id}"
-```
-
-### 20.5 Compensation (Rollback)
-```bash
-# Define compensation actions for nodes
-workflow.nodes.find_by(node_id: 'api_call_1').update!(
-  compensation_config: {
-    enabled: true,
-    action: 'api_call',
-    config: {
-      url: 'https://api.example.com/rollback',
-      method: 'POST',
-      body: { transaction_id: '{{node.output.transaction_id}}' }
-    }
-  }
-)
-
-# Execute compensation on failure
-compensation_service = Ai::WorkflowCompensationService.new(workflow_run: failed_run)
-compensation_service.execute_compensations
-
-# Check compensation status
-failed_run.workflow_compensations.each do |comp|
-  puts "#{comp.node_id}: #{comp.status}"
-end
-```
-
-### 20.6 Validation Statistics
-```bash
-# Get validation statistics
-stats = Ai::WorkflowValidationService.statistics(account: account)
-
-puts "Total validations: #{stats[:total_validations]}"
-puts "Pass rate: #{stats[:pass_rate]}%"
-puts "Common issues:"
-stats[:common_issues].each do |issue|
-  puts "  #{issue[:code]}: #{issue[:count]} occurrences"
-end
-```
-
-### 20.7 Test via API
-```bash
-# Validate workflow
-curl -X POST "https://<your-proxy-host>/api/v1/ai/workflows/{WORKFLOW_ID}/validate" \
-  -H "Authorization: Bearer {TOKEN}"
-
-# Auto-fix workflow
-curl -X POST "https://<your-proxy-host>/api/v1/ai/workflows/{WORKFLOW_ID}/auto_fix" \
-  -H "Authorization: Bearer {TOKEN}"
-
-# Get circuit breaker status
-curl "https://<your-proxy-host>/api/v1/ai/workflows/{WORKFLOW_ID}/circuit_breaker" \
-  -H "Authorization: Bearer {TOKEN}"
-```
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Provider connection fails**
-   - Check remote Ollama server is accessible: `curl {provider.api_endpoint}/api/tags`
-   - Verify credentials are active: `provider.provider_credentials.active.any?`
-   - Check provider `api_endpoint` is correctly configured
-
-2. **Agent execution hangs**
-   - Check Sidekiq is running: `sudo scripts/systemd/powernode-installer.sh status`
-   - Check model availability on remote server: `curl {provider.api_endpoint}/api/tags`
-   - Review logs: `tail -f server/log/development.log`
-
-3. **Workflow fails to execute**
-   - Verify all nodes are properly connected
-   - Check workflow status is 'active'
-   - Verify agent referenced in nodes exists and is active
-
-4. **Ralph Loop stuck**
-   - Check task dependencies are satisfiable
-   - Verify max_iterations hasn't been reached
-   - Check iteration error messages in `ai_ralph_iterations` table
-
-5. **"Agent cannot be executed" error**
-   - Agent must have status 'active': `agent.update!(status: 'active')`
-   - Agent must have valid MCP tool manifest
-   - Provider must have active credentials
-
-6. **Workflow structure validation fails**
-   - Ensure at least one node has `is_start_node: true`
-   - Ensure at least one node has `is_end_node: true`
-   - Check for circular dependencies in edges
-
-7. **Memory/context not retrieving entries**
-   - Check context is `status: 'active'`
-   - Verify entries haven't expired (`expires_at`)
-   - Check `entry_type` filter matches what you're querying
-
-8. **A2A task fails**
-   - Verify target agent is accessible and active
-   - Check agent card is published with correct URL
-   - Verify authentication tokens are valid
-
-9. **RAG query returns no results**
-   - Verify documents have been chunked: `kb.documents.first.document_chunks.count`
-   - Check embeddings exist: `chunk.embedding.present?`
-   - Lower `similarity_threshold` in configuration
-   - Verify knowledge base is active
-
-10. **Credit transaction fails**
-    - Check sufficient credit balance
-    - Verify credits haven't expired
-    - Check usage rate is defined for the model
-
-11. **Marketplace purchase fails**
-    - Verify payment method is valid
-    - Check item is still listed and available
-    - Verify account permissions for marketplace purchases
-
-12. **Approval workflow stuck**
-    - Check approval request hasn't expired
-    - Verify approvers have received notification
-    - Check all required levels in approval chain
-
----
-
-## Quick Reference
-
-### Model Associations
-```ruby
-# Account has many:
-account.ai_providers
-account.ai_agents
-account.ai_workflows
-account.ai_ralph_loops
-account.ai_agent_teams
-account.ai_knowledge_bases
-account.ai_account_credits
-account.ai_compliance_policies
-
-# Agent belongs to:
-agent.account
-agent.creator  # User
-agent.provider # Ai::Provider
-
-# Agent has many:
-agent.executions     # Ai::AgentExecution
-agent.conversations  # Ai::Conversation
-agent.messages       # Ai::Message
-agent.contexts       # Ai::PersistentContext
-agent.agent_card     # Ai::AgentCard
-
-# Workflow has many:
-workflow.nodes       # Ai::WorkflowNode
-workflow.edges       # Ai::WorkflowEdge
-workflow.runs        # Ai::WorkflowRun
-workflow.triggers    # Ai::WorkflowTrigger
-workflow.schedules   # Ai::WorkflowSchedule
-workflow.variables   # Ai::WorkflowVariable
-
-# Knowledge Base has many:
-kb.documents           # Ai::Document
-kb.document_chunks     # via documents
-kb.rag_queries         # Ai::RagQuery
-```
-
-### Status Values
-```ruby
-# Agent status
-%w[active inactive paused error archived]
-
-# Execution status
-%w[pending running completed failed cancelled]
-
-# Workflow status
-%w[draft active paused inactive archived]
-
-# Ralph Loop status
-%w[pending running paused completed failed cancelled]
-
-# Ralph Task status
-%w[pending in_progress passed failed blocked skipped]
-
-# Memory entry types
-%w[factual experiential working]
-
-# Context entry status
-%w[active archived expired]
-
-# Team types
-%w[hierarchical mesh sequential parallel]
-
-# Coordination strategies
-%w[manager_led consensus auction round_robin priority_based]
-
-# Trigger types
-%w[manual webhook schedule event api_call git]
-
-# Credit transaction types
-%w[credit debit transfer refund]
-
-# Compliance policy types
-%w[data_handling access_control rate_limiting content_filtering]
-
-# Approval statuses
-%w[pending approved rejected expired]
-```
-
-### Service Result Pattern
-```ruby
-# All services return Result struct
-result = service.some_method
-result.success?  # true/false
-result.data      # Hash with data on success
-result.error     # String error message on failure
-```
-
-### Key Services
-```ruby
-# Agent Management
-Ai::Agents::ManagementService.new(agent:, user:)
-  .execute(input_parameters:)
-  .validate
-  .pause / .resume
-  .stats
-
-# Workflow Execution
-Mcp::AiWorkflowOrchestrator.new(workflow_run:)
-  .execute
-
-# Memory Management
-Ai::MemoryManagementService.new(agent:)
-  .get_relevant_context(query:, max_entries:)
-  .inject_context(base_prompt:, context_entries:)
-
-# RAG Service
-Ai::RagService.new(knowledge_base:)
-  .process_document(doc)
-  .query(rag_query)
-
-# A2A Service
-Ai::A2a::Service.new(task:)
-  .execute
-
-# Credit Management
-Ai::CreditManagementService.new(account:)
-  .debit(amount:, description:, reference:)
-  .credit(amount:, source:)
-  .balance
-
-# Governance
-Ai::GovernanceService.new(account:)
-  .check_compliance(entity:)
-  .create_audit_entry(auditable:, action:, details:)
-```
-
-### Node Types (39 total)
-```ruby
-# Control Flow
-%w[start end trigger condition loop delay merge split]
-
-# AI Operations
-%w[ai_agent prompt_template data_processor transform]
-
-# External
-%w[api_call webhook database file email notification]
-
-# CI/CD
-%w[ci_trigger ci_wait_status git_commit_status deploy run_tests]
-
-# Advanced
-%w[ralph_loop sub_workflow human_approval mcp_operation]
-```
-
----
-
-## Coverage Statistics
-
-This testing plan covers **20 phases** with **120+ test scenarios**:
-
-| Category | Models | Services | Controllers | Tests |
-|----------|--------|----------|-------------|-------|
-| Agent System | 8 | 5 | 3 | 15 |
-| Workflows | 15 | 10 | 5 | 30 |
-| Teams | 6 | 3 | 2 | 4 |
-| Ralph Loops | 3 | 2 | 1 | 5 |
-| Memory/Context | 4 | 5 | 3 | 7 |
-| A2A Protocol | 2 | 3 | 2 | 6 |
-| Marketplace | 7 | 4 | 3 | 6 |
-| Credits | 8 | 2 | 1 | 8 |
-| Governance | 8 | 2 | 1 | 6 |
-| RAG | 4 | 1 | 1 | 8 |
-| Monitoring | 3 | 4 | 3 | 5 |
-| Sandboxes | 4 | 2 | 1 | 8 |
-| Model Routing | 2 | 2 | 1 | 5 |
-| Validation | 4 | 4 | 2 | 7 |
-| **Total** | **78+** | **49+** | **29+** | **120** |
-
-### Phase Summary
-
-| Phase | Topic | Test Count |
-|-------|-------|------------|
-| 0 | Setup Verification | 3 |
-| 1 | Basic Agent Functionality | 4 |
-| 2 | Agent Conversations | 3 |
-| 3 | Agent Validation & Lifecycle | 3 |
-| 4 | Workflows | 3 |
-| 5 | Ralph Loops | 5 |
-| 6 | Agent Teams | 2 |
-| 7 | Workflow with Ralph Loop | 1 |
-| 8 | Memory and Context | 7 |
-| 9 | Agent Templates | 4 |
-| 10 | A2A Protocol | 6 |
-| 11 | Advanced Workflow Nodes | 7 |
-| 12 | Workflow Triggers | 5 |
-| 13 | Governance | 6 |
-| 14 | Marketplace | 6 |
-| 15 | Credits and Billing | 8 |
-| 16 | RAG and Knowledge Bases | 8 |
-| 17 | Monitoring and Debugging | 5 |
-| 18 | Sandboxes and Testing | 8 |
-| 19 | Model Routing | 5 |
-| 20 | Workflow Validation | 7 |

@@ -71,15 +71,14 @@ The Blog Generation Workflows include automatic Knowledge Base article creation,
 
   # Rich metadata for tracking and analytics
   'metadata' => {
-    'source' => 'ai_workflow',
-    'workflow_id' => '{{workflow.id}}',
-    'workflow_run_id' => '{{workflow_run.id}}',
+    'source' => 'ai_mission',
+    'mission_id' => '{{mission.id}}',
     'word_count' => '{{editor_output.word_count}}',
     'quality_score' => '{{editor_output.quality_score}}',
     'seo_score' => '{{seo_output.seo_score}}',
     'has_images' => true,
     'image_count' => '{{image_data.total_images_recommended}}',
-    'generation_model' => '{{workflow.ai_provider.model}}',
+    'generation_model' => '{{mission.ai_provider.model}}',
     'created_at' => '{{workflow.current_timestamp}}'
   }
 }

@@ -62,25 +62,28 @@ powernode-platform/
 
 #### Frontend Organization (Feature-Based)
 
-**11 Feature Modules:**
+**14 Feature Modules:**
 
 | Module | Description |
 |--------|-------------|
 | `account/` | Account settings and profile management |
 | `admin/` | Admin dashboard, user management, system configuration |
-| `ai/` | AI agents, conversations, workflows, teams, knowledge graph |
+| `ai/` | AI agents, conversations, teams, autonomy, knowledge graph, compound learning |
+| `app/` | Top-level app shell and routing |
 | `baas/` | Backend-as-a-Service tenant management |
 | `business/` | Subscriptions, plans, billing management |
-| `content/` | Knowledge base articles, pages, file management |
+| `content/` | Pages, knowledge base articles, daily summaries, backlinks |
 | `delegations/` | Permission delegation and access sharing |
 | `developer/` | Developer tools, API keys, webhooks |
 | `devops/` | DevOps dashboard, pipelines, containers, Docker/Swarm |
 | `missions/` | AI mission management and tracking |
 | `privacy/` | Privacy settings and data management |
+| `supply-chain/` | Supply chain extension UI |
+| `system/` | System-level admin (maintenance, health, configuration) |
 
 ```
 src/
-├── features/           # 11 business domain modules
+├── features/           # 14 business domain modules
 │   └── [feature]/
 │       ├── components/ # Feature-specific components
 │       ├── hooks/      # Feature-specific hooks

@@ -22,35 +22,37 @@
 
 The Powernode backend uses a service-oriented architecture with services organized in `server/app/services/`. Services encapsulate business logic and are called from controllers, jobs, and other services.
 
-### Directory Structure (634 service files across 22+ namespaces)
+### Directory Structure (603 service files across 28 top-level namespaces, April 2026)
 
 ```
 server/app/services/
-├── ai/                    # AI orchestration, agents, providers (317 files)
-├── mcp/                   # Model Context Protocol services (101 files)
-├── devops/                # CI/CD and deployment services (38 files)
-├── a2a/                   # Agent-to-Agent protocol (17 files)
-├── chat/                  # Conversation management (10 files)
-├── security/              # Auth, encryption, security (11 files)
-├── orchestration/         # Workflow orchestration (8 files)
-├── cost_optimization/     # Cost tracking and optimization (7 files)
-├── storage_providers/     # Storage backend implementations (7 files)
-├── concerns/              # Shared service concerns (7 files)
-├── provider_testing/      # Provider health checks (6 files)
-├── shared/                # Cross-cutting utilities (4 files)
-├── billing/               # Payment and subscription services (2 files)
-├── data_management/       # Data sanitization and management (2 files)
-├── monitoring/            # Health monitoring (2 files)
-├── permissions/           # Permission management (2 files)
-├── rate_limiting/         # Request rate limiting (2 files)
-├── audit/                 # Audit log services (2 files)
-├── admin/                 # Admin panel services (2 files)
-├── auth/                  # Authentication services (1 file)
-├── accounts/              # Account management (1 file)
-├── analytics/             # Analytics processing
+├── ai/                    # AI orchestration, agents, missions, autonomy, codebase (376 files, 52 subdirs)
+├── mcp/                   # Model Context Protocol execution engine (19 files)
+├── devops/                # CI/CD and deployment services
+├── a2a/                   # Agent-to-Agent protocol
+├── chat/                  # Conversation management
+├── security/              # Auth, encryption, security
+├── cost_optimization/     # Cost tracking and optimization
+├── storage_providers/     # Storage backend implementations (S3, GCS, NFS, SMB, local)
+├── provider_testing/      # Provider health checks
+├── shared/                # Cross-cutting utilities (incl. FeatureGateService)
+├── concerns/              # Shared service concerns
+├── billing/               # Payment and subscription services
 ├── baas/                  # Billing-as-a-Service API services
+├── data_management/       # Data sanitization and management
+├── monitoring/            # Health monitoring
+├── permissions/           # Permission management
+├── rate_limiting/         # Request rate limiting
+├── audit/                 # Audit log services
+├── admin/                 # Admin panel services (incl. DailySummaryService)
+├── auth/                  # Authentication services
+├── accounts/              # Account management
+├── analytics/             # Analytics processing
 ├── notifications/         # Notification delivery
-└── services/              # Service management
+├── services/              # Service management
+├── marketplace/           # Marketplace services
+├── supply_chain/          # Supply chain extensions
+└── system/                # System-level services
 ```
 
 ---
@@ -61,24 +63,24 @@ server/app/services/
 
 | Domain | Service Count | Primary Responsibility |
 |--------|---------------|------------------------|
-| AI | 317 | Agent execution, provider management, workflows, knowledge, memory |
-| MCP | 101 | Node executors, orchestration, protocol handling |
-| DevOps | 38 | CI/CD, Git, deployment, registry |
-| A2A | 17 | Agent-to-Agent protocol |
-| Security | 11 | Authentication, authorization, encryption |
-| Chat | 10 | Conversation management, context building |
-| Orchestration | 8 | Workflow orchestration coordination |
-| Cost Optimization | 7 | Cost tracking, optimization, budgets |
-| Storage | 7 | S3, GCS, NFS, SMB, local |
-| Provider Testing | 6 | Connection testing, health checks |
-| Billing | 2 | Subscriptions, payments |
-| Others | 25+ | Admin, audit, monitoring, permissions, rate limiting |
+| AI | 376 | Agent execution, missions, Ralph loops, autonomy, codebase intelligence, providers, knowledge, memory |
+| MCP | 19 | Model Context Protocol execution engine and tool registry |
+| DevOps | varies | CI/CD, Git, deployment, registry |
+| A2A | varies | Agent-to-Agent protocol |
+| Security | varies | Authentication, authorization, encryption |
+| Chat | varies | Conversation management, context building |
+| Cost Optimization | varies | Cost tracking, optimization, budgets |
+| Storage | varies | S3, GCS, NFS, SMB, local |
+| Provider Testing | varies | Connection testing, health checks |
+| Billing | varies | Subscriptions, payments |
+| Admin | varies | Daily summaries, maintenance |
+| Others | 15+ | Audit, monitoring, permissions, rate limiting, marketplace, supply chain |
 
 ---
 
 ## AI Services
 
-Located in `server/app/services/ai/`. Handles AI agent orchestration, provider management, and workflow execution.
+Located in `server/app/services/ai/` (376 files across 52 subdirectories). Handles agent orchestration, mission pipelines, Ralph loops, autonomy/governance, provider management, knowledge graph, memory tiers, codebase intelligence, and data source integrations.
 
 ### Core Services
 
@@ -169,63 +171,58 @@ end
 
 Tests provider connectivity and capabilities.
 
-### Workflow Services
+### Mission Pipeline Services
 
-#### WorkflowValidationService
+Located in `server/app/services/ai/missions/`.
 
-**File**: `workflow_validation_service.rb`
+| Service | Purpose |
+|---------|---------|
+| `OrchestratorService` | Lifecycle transitions, phase dispatch, approval handling |
+| `PrdGenerationService` | AI-generated PRD from objective + repo context |
+| `RepoAnalysisService` | Repo structure analysis and feature suggestion |
+| `AppLaunchService` | Preview deployment allocation and cleanup |
+| `PrManagementService` | Branch creation and pull request management |
+| `TestRunnerService` | Test triggering and status polling |
 
-Validates workflow structure and configuration.
+See [MISSIONS_GUIDE.md](../platform/MISSIONS_GUIDE.md) for the full pipeline documentation.
 
-```ruby
-class Ai::WorkflowValidationService
-  def initialize(workflow)
-  def validate
-  def validate_node(node)
-  def validate_edges
-end
-```
+### Ralph Loop Services
 
-#### WorkflowRecoveryService
+Located in `server/app/services/ai/ralph/`.
 
-**File**: `workflow_recovery_service.rb`
+| Service | Purpose |
+|---------|---------|
+| `ExecutionService` | Recursive agentic task execution from PRDs |
+| `TaskExecutor` | Individual task execution with agent dispatch |
+| Git tool wrappers | Branch/commit/push helpers for autonomous sessions |
 
-Handles workflow failure recovery.
+See [RALPH_LOOPS_GUIDE.md](../platform/RALPH_LOOPS_GUIDE.md).
 
-#### WorkflowCheckpointRecoveryService
+### Autonomy Services
 
-**File**: `workflow_checkpoint_recovery_service.rb`
+Located in `server/app/services/ai/autonomy/`.
 
-Checkpoint-based recovery for long-running workflows.
+| Service | Purpose |
+|---------|---------|
+| `TrustEngineService` | Trust score evaluation + promotion/demotion |
+| `ExecutionGateService` | 5-check pre-execution governance gate |
+| `BehavioralFingerprintService` | Statistical anomaly detection |
+| `ConformanceEngineService` | Rule-based event sequence validation |
+| `DelegationAuthorityService` | Delegation validation |
+| `KillSwitchService` | Emergency halt/resume |
+| `ObservationPipelineService` | Multi-sensor environmental observation |
+| `DutyCycleService` | Agent activity scheduling windows |
+| `ShadowModeService` | Risk-free action evaluation |
+| `ApprovalWorkflowService` | Human approval routing |
+| `CapabilityMatrixService` | Per-tier capability resolution |
 
-#### WorkflowCircuitBreakerService
+See [AGENT_AUTONOMY_GUIDE.md](../platform/AGENT_AUTONOMY_GUIDE.md).
 
-**File**: `workflow_circuit_breaker_service.rb`
+### Codebase Intelligence Services
 
-Circuit breaker for workflow execution.
+Located in `server/app/services/ai/codebase/` — powers the 14 `code_*` MCP tools.
 
-#### WorkflowRetryStrategyService
-
-**File**: `workflow_retry_strategy_service.rb`
-
-Configurable retry strategies for workflows.
-
-### Node Validators
-
-Located in `server/app/services/ai/workflow_validators/`.
-
-| Validator | Node Type | Purpose |
-|-----------|-----------|---------|
-| `BaseValidator` | All | Base validation logic |
-| `AiAgentValidator` | ai_agent | Validates agent configuration |
-| `ApiCallValidator` | api_call | Validates API call config |
-| `ConditionValidator` | condition | Validates condition expressions |
-| `DelayValidator` | delay | Validates delay configuration |
-| `HumanApprovalValidator` | human_approval | Validates approval setup |
-| `LoopValidator` | loop | Validates loop configuration |
-| `SubWorkflowValidator` | sub_workflow | Validates nested workflows |
-| `TransformValidator` | transform | Validates transform rules |
-| `WebhookValidator` | webhook | Validates webhook config |
+Capabilities: AST parsing, semantic search with embeddings, identifier search, blast-radius analysis, dead code detection, duplicate detection, static analysis runner, KG upsert/relation, bulk indexing, staleness pruning.
 
 ### Support Services
 
@@ -241,34 +238,15 @@ Located in `server/app/services/ai/workflow_validators/`.
 
 ## MCP Services
 
-Located in `server/app/services/mcp/`. Implements the Model Context Protocol for workflow execution.
+Located in `server/app/services/mcp/` (19 files). Implements the Model Context Protocol for tool registration and discovery.
 
 ### Core Components
 
-#### AiWorkflowOrchestrator
+#### Platform API Tool Registry
 
-Primary orchestrator for workflow execution (not in mcp/ but central to MCP).
+**File**: `ai/tools/platform_api_tool_registry.rb`
 
-#### Orchestrator Modules
-
-Located in `server/app/services/mcp/orchestrator/`.
-
-| Module | Purpose |
-|--------|---------|
-| `Validation` | Pre-execution validation |
-| `Compensation` | Rollback on failure |
-
-#### Node Executors
-
-See [NODE_EXECUTOR_REFERENCE.md](NODE_EXECUTOR_REFERENCE.md) for complete documentation.
-
-50 node executor classes in `server/app/services/mcp/node_executors/`:
-- Control flow: start, end, condition, loop, split, merge, delay, scheduler
-- AI: ai_agent, sub_workflow
-- Integration: api_call, webhook, notification, email, database, file operations
-- Content: page and KB article CRUD
-- DevOps: CI/CD, Git operations, deployment
-- MCP: tool, prompt, resource execution
+Registers all 305 `platform.*` MCP tool actions across 50 tool classes. Regenerable catalog: `rails mcp:generate_tool_catalog`.
 
 ### Support Services
 
@@ -584,12 +562,12 @@ Located in `server/app/services/concerns/`.
 
 | Concern | Purpose |
 |---------|---------|
-| `AiNodeExecutors` | AI node execution helpers |
-| `AiOrchestrationBroadcasting` | ActionCable broadcasting |
+| `AgentBackedService` | Adds AI agent backing to a service class |
 | `AiMonitoringConcern` | AI monitoring helpers |
-| `AiWorkflowService` | Workflow service helpers |
 | `BaseAiService` | Base AI service functionality |
 | `CircuitBreakerCore` | Circuit breaker implementation |
+| `Ai::ToolCallExtraction` | Extract structured tool calls from LLM output |
+| `Ai::LlmCallable` | Mixin for services that call LLM providers |
 
 ### Using Concerns
 
