@@ -865,6 +865,11 @@ Rails.application.routes.draw do
             post :publish
             post :unpublish
             post :duplicate
+            get :backlinks
+            get :unlinked_mentions
+            get :related_pages
+            post :extract_links
+            post :generate_embedding
           end
         end
 

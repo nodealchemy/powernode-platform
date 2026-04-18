@@ -99,6 +99,29 @@ class ContentLinkService
     node.set_embedding!(embedding) if embedding
   end
 
+  # Return pages semantically similar to this page via KG node embedding cosine similarity.
+  # Yields [content_record, similarity_float] pairs sorted by similarity DESC.
+  def related_pages_for(page, limit: 10)
+    source_node = find_page_node(page)
+    return [] unless source_node&.embedding.present?
+
+    neighbors = Ai::KnowledgeGraphNode
+      .where(account: @account, entity_type: %w[page article])
+      .where.not(id: source_node.id)
+      .where.not(embedding: nil)
+      .nearest_neighbors(:embedding, source_node.embedding, distance: "cosine")
+      .limit(limit)
+
+    neighbors.filter_map do |node|
+      content = resolve_node_to_content(node)
+      next unless content
+
+      # neighbor_distance is a cosine distance (0 = identical, 2 = opposite).
+      similarity = 1.0 - node.neighbor_distance.to_f
+      [ content, similarity ]
+    end
+  end
+
   private
 
   def find_page_node(page)

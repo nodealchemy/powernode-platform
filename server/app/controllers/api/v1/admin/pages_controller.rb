@@ -179,6 +179,53 @@ class Api::V1::Admin::PagesController < ApplicationController
     end
   end
 
+  # GET /api/v1/admin/pages/:id/backlinks
+  def backlinks
+    set_page
+    service = ContentLinkService.new(account: current_user.account)
+
+    render_success(data: { backlinks: service.backlinks_for(@page).map { |item| serialize_link_target(item) } })
+  end
+
+  # GET /api/v1/admin/pages/:id/unlinked_mentions
+  def unlinked_mentions
+    set_page
+    service = ContentLinkService.new(account: current_user.account)
+
+    render_success(data: { unlinked_mentions: service.unlinked_mentions_for(@page).map { |item| serialize_link_target(item) } })
+  end
+
+  # GET /api/v1/admin/pages/:id/related_pages
+  def related_pages
+    set_page
+    service = ContentLinkService.new(account: current_user.account)
+    limit = (params[:limit].presence || 10).to_i.clamp(1, 50)
+
+    results = service.related_pages_for(@page, limit: limit).map do |item, similarity|
+      serialize_link_target(item).merge(similarity: similarity.round(4))
+    end
+
+    render_success(data: { related_pages: results })
+  end
+
+  # POST /api/v1/admin/pages/:id/extract_links
+  def extract_links
+    set_page
+    service = ContentLinkService.new(account: current_user.account)
+    count = service.extract_links!(@page)
+
+    render_success(data: { extracted: count })
+  end
+
+  # POST /api/v1/admin/pages/:id/generate_embedding
+  def generate_embedding
+    set_page
+    service = ContentLinkService.new(account: current_user.account)
+    service.generate_page_embedding!(@page)
+
+    render_success(data: { status: "generated" })
+  end
+
   private
 
   def set_page
@@ -221,6 +268,16 @@ class Api::V1::Admin::PagesController < ApplicationController
       estimated_read_time: page.estimated_read_time,
       created_at: page.created_at,
       updated_at: page.updated_at
+    }
+  end
+
+  def serialize_link_target(record)
+    {
+      id: record.id,
+      title: record.title,
+      slug: record.slug,
+      type: record.is_a?(Page) ? "page" : "article",
+      excerpt: record.content.to_s.truncate(200)
     }
   end
 end
