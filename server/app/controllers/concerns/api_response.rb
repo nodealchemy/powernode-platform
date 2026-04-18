@@ -14,6 +14,7 @@ module ApiResponse
   # @param message [String] Optional message for simple success responses
   # @param extra_data [Hash] Additional keyword arguments treated as data fields
   def render_success(positional_data = nil, status: :ok, meta: nil, message: nil, data: nil, **extra_data)
+    validate_http_status!(status)
     response = { success: true }
 
     # Determine actual data (keyword takes precedence, then positional, then extra_data)
@@ -48,6 +49,7 @@ module ApiResponse
   def render_error(message, positional_status = nil, status: :bad_request, code: nil, details: nil)
     # Determine actual status (positional takes precedence for backward compat)
     actual_status = positional_status || status
+    validate_http_status!(actual_status)
 
     response = {
       success: false,
@@ -119,6 +121,24 @@ module ApiResponse
   end
 
   private
+
+  # Guard against kwarg-name collisions with caller data (e.g. a controller
+  # accidentally passing `status: "healthy"` as a data field). Without this
+  # check Rails silently coerces unknown status values via `.to_i` → 0, and
+  # Puma emits `HTTP/1.1 0 CUSTOM` on the wire.
+  def validate_http_status!(status)
+    case status
+    when Integer
+      return if status.between?(100, 599)
+    when Symbol
+      return if Rack::Utils::SYMBOL_TO_STATUS_CODE.key?(status)
+    end
+
+    raise ArgumentError,
+          "Invalid HTTP status #{status.inspect} for render_success/render_error. " \
+          "Expected Integer 100-599 or a Rack status symbol (e.g. :ok, :not_found). " \
+          "If `status:` is meant as a data field, wrap the payload in `data: { ... }`."
+  end
 
   # Sanitize data for JSON rendering by converting ActionController::Parameters
   # and ensuring all nested structures are properly converted

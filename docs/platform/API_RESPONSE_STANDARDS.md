@@ -22,6 +22,18 @@ render_success(data, message: "Operation completed")
 }
 ```
 
+> **⚠ kwarg-collision gotcha:** `render_success` declares `status:` as an HTTP-status kwarg and collects other kwargs as data via `**extra_data`. If your payload has a field literally named `status` (health status, subscription status, order status, etc.), wrap it in `data: { ... }` — otherwise the string silently becomes the HTTP status code.
+>
+> ```ruby
+> # ❌ BROKEN: `status: "healthy"` is captured as HTTP status → coerced to 0 → wire emits "HTTP/1.1 0 CUSTOM"
+> render_success(id: x, healthy: true, status: "healthy")
+>
+> # ✅ CORRECT: wrap in data:
+> render_success(data: { id: x, healthy: true, status: "healthy" })
+> ```
+>
+> Since 2026-04-17, `render_success` / `render_error` raise `ArgumentError` at call time for any `status:` that isn't an Integer 100-599 or a Rack status symbol, so this footgun now fails loudly instead of silently.
+
 ### Error Response
 
 ```ruby

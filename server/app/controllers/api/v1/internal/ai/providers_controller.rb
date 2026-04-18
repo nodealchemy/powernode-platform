@@ -22,7 +22,10 @@ module Api
             return render_error("Provider not found", status: :not_found) unless provider
 
             success = provider.perform_health_check
-            render_success(
+            # NOTE: wrap the payload in `data:` — passing `status:` as a keyword to
+            # render_success would collide with its HTTP-status kwarg and serialize
+            # as the HTTP status code (0 for strings → "HTTP/1.1 0 CUSTOM" on the wire).
+            render_success(data: {
               id: provider.id,
               healthy: success,
               status: success ? "healthy" : "unhealthy",
@@ -30,7 +33,7 @@ module Api
               consecutive_failures: provider.health_metrics["consecutive_failures"] || 0,
               last_error: provider.health_metrics["last_error"],
               checked_at: Time.current.iso8601
-            )
+            })
           rescue StandardError => e
             render_internal_error("Health check failed", exception: e)
           end
