@@ -49,6 +49,32 @@ export interface PageResponse {
   data: Page;
 }
 
+export interface BacklinkItem {
+  id: string;
+  title: string;
+  slug: string;
+  type: 'page' | 'article';
+  excerpt: string;
+}
+
+export interface UnlinkedMentionItem extends BacklinkItem {}
+
+export interface RelatedPageItem extends BacklinkItem {
+  similarity: number;
+}
+
+export interface BacklinksResponse {
+  data: { backlinks: BacklinkItem[] };
+}
+
+export interface UnlinkedMentionsResponse {
+  data: { unlinked_mentions: UnlinkedMentionItem[] };
+}
+
+export interface RelatedPagesResponse {
+  data: { related_pages: RelatedPageItem[] };
+}
+
 class PagesApi {
   // Public API endpoints (no authentication required)
   async getPublicPages(page = 1, perPage = 20): Promise<PagesResponse> {
@@ -148,6 +174,32 @@ class PagesApi {
       .replace(/\s+/g, '-') // Replace spaces with dashes
       .replace(/-+/g, '-') // Replace multiple dashes with single dash
       .replace(/^-|-$/g, ''); // Remove leading/trailing dashes
+  }
+
+  // Content linking — backlinks, unlinked mentions, related pages
+  async getBacklinks(pageId: string): Promise<BacklinksResponse> {
+    const response = await api.get(`/admin/pages/${pageId}/backlinks`);
+    return response.data;
+  }
+
+  async getUnlinkedMentions(pageId: string): Promise<UnlinkedMentionsResponse> {
+    const response = await api.get(`/admin/pages/${pageId}/unlinked_mentions`);
+    return response.data;
+  }
+
+  async getRelatedPages(pageId: string, limit = 10): Promise<RelatedPagesResponse> {
+    const response = await api.get(`/admin/pages/${pageId}/related_pages?limit=${limit}`);
+    return response.data;
+  }
+
+  async extractLinks(pageId: string): Promise<{ data: { extracted: number } }> {
+    const response = await api.post(`/admin/pages/${pageId}/extract_links`);
+    return response.data;
+  }
+
+  async generateEmbedding(pageId: string): Promise<{ data: { status: string } }> {
+    const response = await api.post(`/admin/pages/${pageId}/generate_embedding`);
+    return response.data;
   }
 }
 
