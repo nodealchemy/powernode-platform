@@ -2,7 +2,7 @@
 
 **Wikilink extraction, backlink indexing, and page embeddings on the knowledge graph**
 
-**Version**: 0.9 (implementation in progress) | **Last Updated**: April 2026
+**Version**: 1.0 | **Last Updated**: April 2026
 
 ---
 
@@ -11,8 +11,6 @@
 Content Linking extends the platform's `Page` and `KnowledgeBase::Article` models with bidirectional linking on the knowledge graph. Authors reference other content with Obsidian-style wikilinks — `[[Title]]` or `[[Title|Display Text]]` — and the backend extracts those references into typed `references` edges on `Ai::KnowledgeGraphEdge`. Each referenced page can then render its inbound-link panel (backlinks), unlinked plain-text mentions, and semantically related pages (based on embeddings).
 
 The design goal is to give long-form content the same knowledge-graph surface area as structured entities, so pages, KB articles, missions, and agents all coexist as linkable nodes in one graph.
-
-> **Implementation status:** The backend service (`ContentLinkService`) is in place with full logic for extraction, backlinks, unlinked mentions, and page embeddings. The frontend `BacklinksPanel` is also written. The HTTP API routes and `pagesApi` client methods wiring the two together are **still pending** as of April 2026. Expect `pagesApi.getBacklinks / getUnlinkedMentions / getRelatedPages` and corresponding controller actions to land alongside the first shipped version.
 
 ---
 
@@ -59,6 +57,10 @@ service.find_or_create_page_node(page)
 # 5. Generate + store an embedding for the page's content on its KG node
 service.generate_page_embedding!(page)
 # => vector stored via Ai::KnowledgeGraphNode#set_embedding!
+
+# 6. Find pages/articles that are semantically similar via embedding cosine similarity
+service.related_pages_for(page, limit: 10)
+# => Array of [content_record, similarity_float] pairs, sorted DESC by similarity
 ```
 
 ### Edge model
@@ -90,19 +92,19 @@ Nodes track `mention_count`, `status: "active"`, `confidence: 1.0` at creation. 
 
 ---
 
-## Expected HTTP API *(not yet wired)*
+## HTTP API
 
-When the routes land, they're expected to look like:
+All endpoints require the `admin.access` permission.
 
 | Method | Path | Purpose |
 |--------|------|---------|
 | `GET` | `/api/v1/admin/pages/:id/backlinks` | Pages/articles that `[[link]]` to this page |
-| `GET` | `/api/v1/admin/pages/:id/unlinked_mentions` | Pages that mention title in plain text only |
-| `GET` | `/api/v1/admin/pages/:id/related_pages` | Semantic neighbours via embedding similarity |
+| `GET` | `/api/v1/admin/pages/:id/unlinked_mentions` | Pages that mention the title in plain text only |
+| `GET` | `/api/v1/admin/pages/:id/related_pages?limit=N` | Semantic neighbours via embedding similarity (default limit 10, max 50) |
 | `POST` | `/api/v1/admin/pages/:id/extract_links` | Force re-extraction of wikilinks for this page |
 | `POST` | `/api/v1/admin/pages/:id/generate_embedding` | Force regeneration of the page's embedding |
 
-Expected response shape for each read endpoint:
+Response shape for the read endpoints:
 
 ```json
 {
@@ -115,7 +117,9 @@ Expected response shape for each read endpoint:
 }
 ```
 
-(Shape matches `BacklinkItem` / `UnlinkedMentionItem` / `RelatedPageItem` interfaces consumed by `BacklinksPanel`.)
+`related_pages` entries additionally include `similarity` (0.0–1.0 cosine similarity).
+
+Shapes match `BacklinkItem` / `UnlinkedMentionItem` / `RelatedPageItem` interfaces consumed by `BacklinksPanel`.
 
 ---
 
@@ -131,15 +135,20 @@ Three sections:
 
 Each list item deep-links to `/app/content/pages/<slug>`.
 
-The panel calls three methods on `pagesApi` (not yet implemented on the client side as of April 2026):
+The panel calls three methods on `pagesApi`:
 
 ```ts
 pagesApi.getBacklinks(pageId)
 pagesApi.getUnlinkedMentions(pageId)
-pagesApi.getRelatedPages(pageId)
+pagesApi.getRelatedPages(pageId, limit)
 ```
 
-Implementing these is the remaining work required to ship the feature.
+Plus two write methods for content admins:
+
+```ts
+pagesApi.extractLinks(pageId)       // Force re-extraction
+pagesApi.generateEmbedding(pageId)  // Force embedding regeneration
+```
 
 ---
 
@@ -156,6 +165,8 @@ Implementing these is the remaining work required to ship the feature.
 | Role | Path |
 |------|------|
 | Service | `server/app/services/content_link_service.rb` |
+| Controller actions | `server/app/controllers/api/v1/admin/pages_controller.rb` (`backlinks`, `unlinked_mentions`, `related_pages`, `extract_links`, `generate_embedding`) |
+| Routes | `server/config/routes.rb` (under admin pages resource) |
 | KG node model | `server/app/models/ai/knowledge_graph_node.rb` |
 | KG edge model | `server/app/models/ai/knowledge_graph_edge.rb` |
 | Embedding service | `server/app/services/ai/memory/embedding_service.rb` |
