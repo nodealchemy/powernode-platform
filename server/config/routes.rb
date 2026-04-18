@@ -868,6 +868,14 @@ Rails.application.routes.draw do
           end
         end
 
+        # Daily operational summaries (auto-generated Pages)
+        resources :daily_summaries, only: [ :index ] do
+          collection do
+            get :latest
+            post :generate
+          end
+        end
+
         # Circuit Breakers management
         resources :circuit_breakers do
           member do
