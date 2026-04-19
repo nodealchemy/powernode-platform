@@ -275,6 +275,10 @@ dist
 .idea/dataSources.ids
 .idea/sqlDataSources.xml
 
+# Terminal multiplexer (personal dev config)
+.tmux.conf
+*.tmux.conf
+
 # OS generated files
 .DS_Store
 .DS_Store?
