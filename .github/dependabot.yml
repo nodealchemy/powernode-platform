@@ -1,0 +1,10 @@
+# Dependabot is intentionally disabled for this repository.
+#
+# An empty `updates:` list overrides GitHub's UI auto-configuration so no
+# version-update PRs are opened. To re-enable, remove this comment and
+# add `- package-ecosystem: ...` entries under `updates:`.
+#
+# NOTE: This file does NOT disable Dependabot security alerts. Those are
+# controlled separately in the GitHub UI (repo Settings → Code security).
+version: 2
+updates: []
