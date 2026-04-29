@@ -335,3 +335,6 @@ server/scripts/trigger_*.sh
 
 # Test output artifacts
 **/rspec_results.json
+
+# Per-host extension enable/disable state (written by admin "Toggle Extension")
+config/extensions_state.json
