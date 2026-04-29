@@ -3,7 +3,8 @@
   "slug": "marketing",
   "version": "0.1.0",
   "description": "Marketing campaigns, content calendar, email lists, social media management, and campaign analytics.",
-  "author": "Powernode",
+  "author": "Everett C. Haimes III",
+  "homepage": "https://powernode.org",
   "capabilities": ["campaigns", "content_calendar", "email_lists", "social_media", "campaign_analytics"],
   "components": {
     "server": true,
