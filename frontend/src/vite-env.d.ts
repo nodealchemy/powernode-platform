@@ -22,6 +22,7 @@ interface ImportMeta {
 
 // Extension build flags injected by Vite define
 declare const __EXTENSIONS__: string[];
+declare const __DISABLED_EXTENSIONS__: string[];
 
 // Extension module declarations — TS types for extension modules resolved by Vite alias.
 // Wildcard declaration covers all @ext/* imports so TypeScript doesn't try to

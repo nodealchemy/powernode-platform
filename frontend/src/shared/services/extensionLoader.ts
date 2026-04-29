@@ -35,15 +35,28 @@ let extensionsLoaded = false;
  * Discover and load all extensions found at build time.
  * Each extension must export a `register()` function from `frontend/src/register.ts`.
  * Idempotent — safe to call multiple times (React StrictMode double-fires effects).
+ *
+ * Slugs listed in `__DISABLED_EXTENSIONS__` (build-time constant from
+ * config/extensions_state.json) are skipped. The corresponding register modules
+ * are also stubbed at build time by the `disabled-extensions-stub` Vite plugin,
+ * so calling them is safe — the skip here is defense in depth and keeps the
+ * `loaded` map honest.
  */
 export async function loadAllExtensions(): Promise<void> {
   if (extensionsLoaded) return;
   extensionsLoaded = true;
 
+  const disabled = typeof __DISABLED_EXTENSIONS__ !== 'undefined' ? __DISABLED_EXTENSIONS__ : [];
+
   for (const [modulePath, loader] of Object.entries(registerModules)) {
     // Extract slug from path: ../../../../extensions/{slug}/frontend/src/register.ts
     const parts = modulePath.split('/');
     const slug = parts[5];
+
+    if (disabled.includes(slug)) {
+      logger.info(`Extension "${slug}" is disabled — skipping`);
+      continue;
+    }
 
     try {
       const mod = await loader();

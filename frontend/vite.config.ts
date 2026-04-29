@@ -56,6 +56,24 @@ export default defineConfig(({ mode }: { mode: string }) => {
     }
   }
 
+  // Read disabled-extension state at build time. Missing/malformed file => empty list.
+  // The state file is written by the Rails admin "Toggle Extension" action.
+  const disabledSlugs: string[] = (() => {
+    const stateFile = path.resolve(__dirname, '../config/extensions_state.json');
+    try {
+      if (fs.existsSync(stateFile)) {
+        const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+        return Array.isArray(state.disabled) ? state.disabled.map(String) : [];
+      }
+    } catch {
+      /* fall through to empty list */
+    }
+    return [];
+  })();
+
+  // Slugs effectively active in this build — drives the __EXTENSIONS__ feature gate.
+  const enabledSlugs = discoveredSlugs.filter((s) => !disabledSlugs.includes(s));
+
   return {
     base: '/',
 
@@ -76,6 +94,35 @@ export default defineConfig(({ mode }: { mode: string }) => {
         },
         load(id: string) {
           if (id === '\0ext-stub') return 'export default null;';
+        },
+      }] : []),
+      // When an extension is disabled via config/extensions_state.json, stub
+      // every module that lives under its directory (including register.ts and
+      // anything imported via @ext/<slug>/* or @<slug>/*). The check covers
+      // both pre-resolution alias ids and post-resolution absolute paths so
+      // the order against viteTsconfigPaths doesn't matter.
+      ...(disabledSlugs.length > 0 ? [{
+        name: 'disabled-extensions-stub',
+        enforce: 'pre' as const,
+        resolveId(id: string) {
+          for (const slug of disabledSlugs) {
+            // Pre-resolution alias forms
+            if (id.startsWith(`@${slug}/`) || id === `@${slug}` ||
+                id.startsWith(`@ext/${slug}/`) || id === `@ext/${slug}`) {
+              return '\0disabled-ext-stub';
+            }
+            // Post-resolution absolute or relative path inside the disabled dir
+            if (id.includes(`/extensions/${slug}/`)) {
+              return '\0disabled-ext-stub';
+            }
+          }
+          return null;
+        },
+        load(id: string) {
+          if (id === '\0disabled-ext-stub') {
+            return 'export const register = () => {};\nexport default {};\n';
+          }
+          return null;
         },
       }] : []),
     ],
@@ -182,7 +229,11 @@ export default defineConfig(({ mode }: { mode: string }) => {
     define: {
       'process.env.NODE_ENV': JSON.stringify(mode),
       'process.env.REACT_APP_VERSION': JSON.stringify(packageJson.version),
-      '__EXTENSIONS__': JSON.stringify(discoveredSlugs),
+      // __EXTENSIONS__ reflects extensions effectively active in this build.
+      // Disabled extensions are removed so existing `__EXTENSIONS__.includes(slug)`
+      // gates (App.tsx, Header.tsx, AdminSettingsTabs.tsx) tree-shake their imports.
+      '__EXTENSIONS__': JSON.stringify(enabledSlugs),
+      '__DISABLED_EXTENSIONS__': JSON.stringify(disabledSlugs),
     },
     
     optimizeDeps: {
