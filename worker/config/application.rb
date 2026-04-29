@@ -15,10 +15,27 @@ require 'sidekiq-scheduler'
 # sidekiq-scheduler reads config[:scheduler][:schedule] during its startup
 # callback and handles symbol→string key conversion internally via
 # Utils.stringify_keys, so we don't need to pre-stringify here.
+#
+# Disabled extensions (per config/extensions_state.json) are skipped so the
+# scheduler doesn't enqueue jobs whose classes aren't loaded — that would
+# otherwise produce a flood of "uninitialized constant" NameError retries.
 worker_root = File.expand_path('..', __dir__)
 extensions_dir = File.join(worker_root, '..', 'extensions')
+disabled_extensions_for_cron = begin
+  state_file = File.join(worker_root, '..', 'config', 'extensions_state.json')
+  if File.exist?(state_file)
+    Array(JSON.parse(File.read(state_file))['disabled']).map(&:to_s)
+  else
+    []
+  end
+rescue JSON::ParserError, IOError, SystemCallError
+  []
+end
+
 if Dir.exist?(extensions_dir)
   Dir.children(extensions_dir).sort.each do |slug|
+    next if disabled_extensions_for_cron.include?(slug)
+
     Dir[File.join(extensions_dir, slug, 'worker', 'config', 'sidekiq_*.yml')].each do |yml|
       Sidekiq.configure_server do |config|
         ext_yaml = YAML.safe_load(ERB.new(File.read(yml)).result, permitted_classes: [Symbol])

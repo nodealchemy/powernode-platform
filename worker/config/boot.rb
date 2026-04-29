@@ -64,10 +64,26 @@ job_files.each do |f|
   require f unless excluded_files.include?(f)
 end
 
-# Load extension worker modules dynamically from extensions/*/extension.json
+# Load extension worker modules dynamically from extensions/*/extension.json.
+# Skip slugs marked disabled in config/extensions_state.json so a disabled
+# extension's worker code is never required.
 extensions_dir = File.expand_path('../../extensions', __dir__)
+disabled_extensions = begin
+  state_file = File.expand_path('../../config/extensions_state.json', __dir__)
+  if File.exist?(state_file)
+    Array(JSON.parse(File.read(state_file))['disabled']).map(&:to_s)
+  else
+    []
+  end
+rescue JSON::ParserError, IOError, SystemCallError => e
+  warn "[Worker] Failed to read #{state_file}: #{e.message}"
+  []
+end
+
 if Dir.exist?(extensions_dir)
   Dir.children(extensions_dir).sort.each do |slug|
+    next if disabled_extensions.include?(slug)
+
     manifest_path = File.join(extensions_dir, slug, 'extension.json')
     next unless File.exist?(manifest_path)
 
