@@ -265,4 +265,66 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
       expect_success_response
     end
   end
+
+  describe 'PUT /api/v1/admin_settings/extensions/:slug/toggle' do
+    let(:headers) { auth_headers_for(user_with_settings_view) }
+    # Use 'business' since its manifest is present in this checkout. The toggle
+    # endpoint requires the manifest to exist on disk.
+    let(:slug) { 'business' }
+
+    before do
+      allow(Audit::LoggingService.instance).to receive(:log).and_return(nil)
+      allow(Shared::ExtensionStateStore).to receive(:set_disabled!).and_return('disabled' => [])
+    end
+
+    context 'when disabling an extension' do
+      it 'persists the disable to the state store' do
+        put "/api/v1/admin_settings/extensions/#{slug}/toggle",
+            params: { enabled: false }.to_json,
+            headers: headers.merge('Content-Type' => 'application/json')
+
+        expect(Shared::ExtensionStateStore).to have_received(:set_disabled!)
+          .with(slug, disabled: true)
+      end
+
+      it 'returns requires_restart and requires_frontend_rebuild flags' do
+        put "/api/v1/admin_settings/extensions/#{slug}/toggle",
+            params: { enabled: false }.to_json,
+            headers: headers.merge('Content-Type' => 'application/json')
+
+        body = JSON.parse(response.body)
+        expect(body.dig('data', 'requires_restart')).to be true
+        expect(body.dig('data', 'requires_frontend_rebuild')).to be true
+        expect(body.dig('data', 'slug')).to eq(slug)
+      end
+    end
+
+    context 'when re-enabling an extension whose engine is not currently loaded' do
+      # Regression: the previous implementation rejected toggling whenever the
+      # engine wasn't in the registry, which made re-enabling impossible after
+      # a load-time disable. With the state-file-based gate, this must succeed.
+      it 'allows the toggle when the manifest exists on disk' do
+        allow(Powernode::ExtensionRegistry).to receive(:loaded?).with(slug).and_return(false)
+
+        put "/api/v1/admin_settings/extensions/#{slug}/toggle",
+            params: { enabled: true }.to_json,
+            headers: headers.merge('Content-Type' => 'application/json')
+
+        expect(response).to have_http_status(:ok)
+        expect(Shared::ExtensionStateStore).to have_received(:set_disabled!)
+          .with(slug, disabled: false)
+      end
+    end
+
+    context 'when the extension manifest does not exist' do
+      it 'returns not_found' do
+        put '/api/v1/admin_settings/extensions/does-not-exist/toggle',
+            params: { enabled: false }.to_json,
+            headers: headers.merge('Content-Type' => 'application/json')
+
+        expect(response).to have_http_status(:not_found)
+        expect(Shared::ExtensionStateStore).not_to have_received(:set_disabled!)
+      end
+    end
+  end
 end

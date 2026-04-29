@@ -186,10 +186,11 @@ class Api::V1::AdminSettingsController < ApplicationController
       return render_error("Extension '#{slug}' does not support toggling", :unprocessable_content)
     end
 
-    unless extension_installed?(slug)
-      return render_error("Extension '#{slug}' engine is not loaded", :unprocessable_content)
-    end
-
+    # Note: we deliberately do not gate on `extension_installed?` here. Once an
+    # extension is disabled via the state file, its engine is not loaded into
+    # this process — but we must still allow the user to re-enable it via the
+    # same endpoint. Manifest presence (checked above via `meta_file.exist?`)
+    # is the canonical "this extension exists and can be toggled" check.
     enabled = ActiveModel::Type::Boolean.new.cast(params[:enabled])
 
     if defined?(Flipper)
@@ -200,6 +201,11 @@ class Api::V1::AdminSettingsController < ApplicationController
       end
     end
 
+    # Persist the disable decision so backend, worker, and Vite build-time loaders
+    # can skip the extension on next boot. Flipper handles runtime gating; this
+    # store handles load-time gating (the Engine, worker requires, Vite glob).
+    Shared::ExtensionStateStore.set_disabled!(slug, disabled: !enabled)
+
     new_state = extension_enabled?(slug, meta)
 
     log_audit_event("extension_toggle", "SystemSettings",
@@ -208,7 +214,9 @@ class Api::V1::AdminSettingsController < ApplicationController
     render_success(
       slug: slug,
       enabled: new_state,
-      message: "#{meta['name'] || slug.titleize} #{new_state ? 'enabled' : 'disabled'}"
+      requires_restart: true,
+      requires_frontend_rebuild: true,
+      message: "#{meta['name'] || slug.titleize} #{new_state ? 'enabled' : 'disabled'}. Restart backend/worker and rebuild frontend to take full effect."
     )
   rescue JSON::ParserError
     render_error("Invalid extension metadata for '#{slug}'", :unprocessable_content)
