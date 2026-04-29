@@ -14,6 +14,9 @@ end
 Rails.application.config.after_initialize do
   next unless ActiveRecord::Base.connection.table_exists?(:flipper_features)
 
+  # Core platform flags — always present. Extension flags (e.g. business_mode,
+  # trading_mode) are registered separately below from extensions/*/extension.json
+  # so they appear if and only if the extension exists on disk.
   flags = %w[
     self_healing_remediation
     trajectory_analysis
@@ -21,7 +24,6 @@ Rails.application.config.after_initialize do
     agent_introspection
     agent_evaluation
     cross_system_triggers
-    business_mode
     skill_lifecycle_research
     skill_lifecycle_auto_create
     skill_conflict_auto_resolve
@@ -33,6 +35,49 @@ Rails.application.config.after_initialize do
 
   flags.each do |flag|
     Flipper.add(flag) unless Flipper.exist?(flag)
+  end
+
+  # Sync extension feature flags to extensions on disk.
+  #
+  # An extension's <slug>_mode flag must exist iff extensions/<slug>/extension.json
+  # is present. When a manifest is added the flag appears; when the directory is
+  # removed (submodule deinit, rm -rf) the flag is pruned so the admin UI never
+  # offers a toggle for an absent extension.
+  extensions_dir = Rails.root.join("..", "extensions")
+  extension_flag_names = Set.new
+  if File.directory?(extensions_dir)
+    extensions_dir.children.select(&:directory?).each do |ext_dir|
+      manifest = ext_dir.join("extension.json")
+      next unless manifest.exist?
+
+      begin
+        meta = JSON.parse(manifest.read)
+      rescue JSON::ParserError => e
+        Rails.logger.warn("[Flipper] Invalid manifest #{manifest}: #{e.message}")
+        next
+      end
+
+      flag_name = meta["feature_flag"]
+      next if flag_name.blank?
+
+      extension_flag_names << flag_name.to_s
+      Flipper.add(flag_name) unless Flipper.exist?(flag_name)
+    end
+  end
+
+  # Prune orphan extension flags: any *_mode feature whose extension manifest
+  # is no longer on disk. We only touch flags that look like extension flags
+  # (suffix "_mode") to avoid removing core platform flags. The static list
+  # above (e.g. business_mode) is whitelisted via extension_flag_names when the
+  # extension is present.
+  Flipper.features.each do |feature|
+    name = feature.name.to_s
+    next unless name.end_with?("_mode")
+    next if extension_flag_names.include?(name)
+    next if flags.include?(name) # don't prune anything in the static core list
+
+    Rails.logger.info("[Flipper] Pruning orphan extension flag #{name} (no manifest on disk)")
+    Flipper.remove(name)
   end
 
   # Auto-enable skill self-learning (safe — SelfLearningService has per-method rescue guards)

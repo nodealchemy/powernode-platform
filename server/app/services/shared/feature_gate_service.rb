@@ -57,13 +57,33 @@ module Shared
       flipper_enabled?(:business_mode)
     end
 
-    # Check if a specific extension is enabled
+    # Check if a specific extension is enabled.
+    #
+    # An extension is considered enabled iff:
+    #   1. Its manifest is present on disk (extensions/<slug>/extension.json)
+    #   2. It is NOT marked disabled in config/extensions_state.json (load-time gate)
+    #   3. Its Flipper flag (<slug>_mode) is enabled (runtime gate)
+    #
+    # The first two conditions can be evaluated even when the engine is not
+    # loaded into the current process, which lets the admin UI display the
+    # correct state for an extension that was disabled at boot.
+    #
     # @param slug [String]
     # @return [Boolean]
     def self.extension_enabled?(slug)
-      return false unless extension_loaded?(slug)
+      return false unless extension_manifest_present?(slug)
+      return false if Shared::ExtensionStateStore.disabled?(slug)
 
       flipper_enabled?(:"#{slug.tr('-', '_')}_mode")
+    end
+
+    # Check if an extension's manifest exists on disk. This is process-independent
+    # and survives engine unload — used by the admin UI to enumerate toggleable
+    # extensions even when their engines are not currently loaded.
+    # @param slug [String]
+    # @return [Boolean]
+    def self.extension_manifest_present?(slug)
+      File.exist?(Rails.root.join("..", "extensions", slug, "extension.json"))
     end
 
     # Check if running in core (self-hosted) mode
