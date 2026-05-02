@@ -15,15 +15,29 @@ FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.path // 
 BASENAME=$(basename "$FILE_PATH")
 [[ "$BASENAME" == *".test."* || "$BASENAME" == *".spec."* ]] && exit 0
 
-# Find frontend directory — always use the core frontend
+# Find the frontend dir for the edited file (platform OR extension)
 FRONTEND_DIR=$(echo "$FILE_PATH" | sed 's|/frontend/src/.*|/frontend|')
 [[ ! -d "$FRONTEND_DIR" ]] && exit 0
 
-# Use project-local tsc, not npx (avoids npx resolution failures)
+# Pick the right tsconfig:
+# - Platform frontend has tsconfig.json (default)
+# - Extension frontends only have tsconfig.check.json — without picking
+#   it explicitly, tsc with no config prints its help and exits non-zero,
+#   which the hook would surface as a confusing "type errors found".
+if [[ -f "$FRONTEND_DIR/tsconfig.json" ]]; then
+  TSC_ARGS=(--noEmit)
+elif [[ -f "$FRONTEND_DIR/tsconfig.check.json" ]]; then
+  TSC_ARGS=(--noEmit -p tsconfig.check.json)
+else
+  exit 0
+fi
+
+# Use the platform's tsc binary. Extension frontends' node_modules is a
+# symlink to the platform's node_modules (see scripts/validate.sh).
 TSC="$FRONTEND_DIR/node_modules/.bin/tsc"
 [[ ! -x "$TSC" ]] && exit 0
 
-OUTPUT=$(cd "$FRONTEND_DIR" && "$TSC" --noEmit 2>&1)
+OUTPUT=$(cd "$FRONTEND_DIR" && "$TSC" "${TSC_ARGS[@]}" 2>&1)
 EXIT_CODE=$?
 
 if [[ $EXIT_CODE -ne 0 ]]; then
