@@ -71,6 +71,35 @@ gem "marcel", "~> 1.0"
 gem "sys-filesystem", "~> 1.5"
 
 # ===================================================================
+# INFRASTRUCTURE / CLOUD COMPUTE — extensions/system/
+# Used by System::Providers::* adapters for cloud instance lifecycle.
+# Active when extensions/system/ is loaded and a ProviderConnection is
+# configured. Constants referenced in the adapter source files require
+# these specific gem families:
+#   AwsProvider        → Aws::EC2::Client (aws-sdk-ec2)
+#   GcpProvider        → Google::Cloud::Compute::V1::* (google-cloud-compute v2)
+#   OpenStackProvider  → Fog::OpenStack::{Compute,Network,Volume,Image} (fog-openstack v1)
+#   AzureProvider      → Azure::{Compute,Network}::Mgmt::V2020_*::*ManagementClient
+#                        (azure_mgmt_compute + azure_mgmt_network 0.21+ era)
+# ===================================================================
+
+gem "aws-sdk-ec2", "~> 1.0"
+gem "google-cloud-compute", "~> 1.16"
+gem "fog-openstack", "~> 1.0"
+
+# NOTE: AzureProvider is non-functional in Phase 1 because the deprecated
+# azure_mgmt_compute/azure_mgmt_network family transitively depends on
+# faraday < 2.0 via ms_rest_azure, which conflicts with the platform's
+# faraday ~> 2.0 pin. Future work: rewrite AzureProvider against the Azure
+# REST API directly using Faraday 2.x (see Azure ARM REST docs), or wait
+# for a Faraday-2-compatible Azure SDK. Until then, AzureProvider raises
+# NameError at runtime if invoked.
+
+# SSH client gem for Phase 2 daemon path. Phase 1 platform-side execution
+# uses Open3 + system `ssh` (see System::SshExecutionService).
+gem "net-ssh", "~> 7.0"
+
+# ===================================================================
 # SECURITY & SECRET MANAGEMENT
 # ===================================================================
 

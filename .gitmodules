@@ -10,3 +10,6 @@
 	path = extensions/business
 	url = git@git.ipnode.net:powernode/powernode-business.git
 	branch = develop
+[submodule "extensions/system"]
+	path = extensions/system
+	url = git@git.ipnode.net:powernode/powernode-system.git

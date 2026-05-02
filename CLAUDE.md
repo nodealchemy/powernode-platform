@@ -9,6 +9,7 @@ Development guidance for **Powernode** subscription platform.
 - **Frontend**: React TypeScript (`./frontend`) - Theme-aware, Tailwind CSS
 - **Worker**: Sidekiq standalone (`./worker`) - API-only communication
 - **Business**: Git submodule (`./extensions/business`) - proprietary features (billing, BaaS, reseller, AI publisher)
+- **System**: Git submodule (`./extensions/system`) - node lifecycle, module CRUD, fleet autonomy, on-node Go agent, initramfs, CLI. **Public on GitHub** (MIT) at `rett/powernode-system`, private on Gitea. Mounted as a submodule of this repo since 2026-05-02.
 - **Database**: PostgreSQL with native UUID schema
 - **Payments**: Stripe, PayPal with PCI compliance (business only)
 
@@ -132,7 +133,8 @@ user.role === 'manager'
 | Never batch-approve | Training decisions, permission grants, and financial operations MUST be reviewed individually |
 
 ### Submodule Safety (CRITICAL)
-- **4 submodules**: `extensions/business`, `extensions/trading`, `extensions/supply-chain` (git submodules) + `extensions/marketing` (plain directory)
+- **5 submodules**: `extensions/business`, `extensions/trading`, `extensions/supply-chain`, `extensions/system` (git submodules) + `extensions/marketing` (plain directory)
+- **System extension** is dual-remoted: origin = `git@git.ipnode.org:powernode/powernode-system.git` (private), `github` = `git@github.com:rett/powernode-system.git` (**public, MIT-licensed**) — the only extension whose code is public; commits get pushed to both
 - **CWD verification**: Before EVERY `git add`/`git commit`, run `git rev-parse --show-toplevel` and verify it matches the intended repo
 - **Never commit extension files from parent**: Files under `extensions/*/` MUST be committed from within the submodule. Running `git add extensions/trading/...` from parent only stages a pointer change
 - **Commit order**: Commit inside each submodule FIRST, then update pointers in parent

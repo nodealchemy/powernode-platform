@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_06_150000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_01_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -9261,6 +9261,93 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_150000) do
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text])", name: "check_vuln_scans_status"
   end
 
+  create_table "system_bootstrap_tokens", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "consumed_at"
+    t.string "consumed_from_ip"
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.string "intended_subject", null: false
+    t.uuid "node_id", null: false
+    t.uuid "node_instance_id"
+    t.text "purpose"
+    t.boolean "single_use", default: true, null: false
+    t.string "token_hash", null: false
+    t.datetime "updated_at", null: false
+    t.index ["consumed_at"], name: "index_system_bootstrap_tokens_on_consumed_at"
+    t.index ["expires_at"], name: "index_system_bootstrap_tokens_on_expires_at"
+    t.index ["node_id"], name: "index_system_bootstrap_tokens_on_node_id"
+    t.index ["node_instance_id"], name: "index_system_bootstrap_tokens_on_node_instance_id"
+    t.index ["token_hash"], name: "index_system_bootstrap_tokens_on_token_hash", unique: true
+  end
+
+  create_table "system_cve_exposures", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.uuid "cve_id", null: false
+    t.datetime "detected_at", default: -> { "now()" }, null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.uuid "node_module_version_id", null: false
+    t.string "package_name", null: false
+    t.string "package_version"
+    t.string "resolution_note"
+    t.datetime "resolved_at"
+    t.string "state", default: "open", null: false
+    t.datetime "updated_at", null: false
+    t.index ["cve_id", "node_module_version_id", "package_name"], name: "ix_cve_exposures_unique", unique: true
+    t.index ["cve_id"], name: "index_system_cve_exposures_on_cve_id"
+    t.index ["detected_at"], name: "index_system_cve_exposures_on_detected_at"
+    t.index ["node_module_version_id"], name: "index_system_cve_exposures_on_node_module_version_id"
+    t.index ["state"], name: "index_system_cve_exposures_on_state"
+    t.check_constraint "state::text = ANY (ARRAY['open'::character varying, 'remediating'::character varying, 'resolved'::character varying, 'wont_fix'::character varying]::text[])", name: "ck_cve_exposures_state"
+  end
+
+  create_table "system_cves", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "affected_packages", default: [], null: false
+    t.datetime "created_at", null: false
+    t.string "cve_id", null: false
+    t.string "feed_source"
+    t.datetime "ingested_at", default: -> { "now()" }
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "published_at"
+    t.string "reference_url"
+    t.string "severity", null: false
+    t.text "summary"
+    t.datetime "updated_at", null: false
+    t.index ["affected_packages"], name: "index_system_cves_on_affected_packages", using: :gin
+    t.index ["cve_id"], name: "index_system_cves_on_cve_id", unique: true
+    t.index ["ingested_at"], name: "index_system_cves_on_ingested_at"
+    t.index ["published_at"], name: "index_system_cves_on_published_at"
+    t.index ["severity"], name: "index_system_cves_on_severity"
+    t.check_constraint "severity::text = ANY (ARRAY['critical'::character varying, 'high'::character varying, 'medium'::character varying, 'low'::character varying, 'unknown'::character varying]::text[])", name: "ck_cves_severity"
+  end
+
+  create_table "system_fleet_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "certificate_id"
+    t.string "correlation_id"
+    t.datetime "created_at", null: false
+    t.uuid "cve_id"
+    t.datetime "emitted_at", default: -> { "now()" }, null: false
+    t.string "kind", null: false
+    t.uuid "node_id"
+    t.uuid "node_instance_id"
+    t.uuid "node_module_id"
+    t.uuid "node_module_version_id"
+    t.jsonb "payload", default: {}, null: false
+    t.string "severity", default: "low", null: false
+    t.string "source"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "emitted_at"], name: "index_system_fleet_events_on_account_id_and_emitted_at"
+    t.index ["account_id"], name: "index_system_fleet_events_on_account_id"
+    t.index ["correlation_id"], name: "index_system_fleet_events_on_correlation_id"
+    t.index ["emitted_at"], name: "index_system_fleet_events_on_emitted_at"
+    t.index ["kind"], name: "index_system_fleet_events_on_kind"
+    t.index ["node_instance_id"], name: "index_system_fleet_events_on_node_instance_id"
+    t.index ["node_module_id"], name: "index_system_fleet_events_on_node_module_id"
+    t.index ["payload"], name: "index_system_fleet_events_on_payload", using: :gin
+    t.index ["severity"], name: "index_system_fleet_events_on_severity"
+    t.check_constraint "severity::text = ANY (ARRAY['low'::character varying, 'medium'::character varying, 'high'::character varying, 'critical'::character varying]::text[])", name: "ck_fleet_events_severity"
+  end
+
   create_table "system_instance_mount_points", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.jsonb "config", default: {}, null: false
     t.datetime "created_at", null: false
@@ -9276,6 +9363,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_150000) do
     t.index ["node_instance_id"], name: "index_system_instance_mount_points_on_node_instance_id"
     t.index ["status"], name: "index_system_instance_mount_points_on_status"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'mounted'::character varying, 'unmounted'::character varying, 'error'::character varying]::text[])", name: "system_instance_mount_points_status_check"
+  end
+
+  create_table "system_module_artifacts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "architecture", null: false
+    t.datetime "built_at", null: false
+    t.text "cosign_bundle"
+    t.datetime "created_at", null: false
+    t.string "fsverity_root_hash"
+    t.string "media_type", null: false
+    t.uuid "node_module_version_id", null: false
+    t.string "oci_digest", null: false
+    t.string "oci_ref", null: false
+    t.string "provenance_uri"
+    t.string "sbom_uri"
+    t.bigint "size_bytes", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.string "vex_uri"
+    t.index ["architecture"], name: "index_system_module_artifacts_on_architecture"
+    t.index ["node_module_version_id", "architecture"], name: "idx_uniq_system_module_artifacts_version_arch", unique: true
+    t.index ["node_module_version_id"], name: "index_system_module_artifacts_on_node_module_version_id"
+    t.index ["oci_digest"], name: "index_system_module_artifacts_on_oci_digest"
   end
 
   create_table "system_module_dependencies", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -9337,14 +9445,43 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_150000) do
     t.index ["ramdisk_file_object_id"], name: "index_system_node_architectures_on_ramdisk_file_object_id"
   end
 
+  create_table "system_node_certificates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "encrypted_credentials"
+    t.uuid "encryption_key_id"
+    t.string "issuer_subject"
+    t.datetime "migrated_to_vault_at"
+    t.uuid "node_instance_id", null: false
+    t.datetime "not_after", null: false
+    t.datetime "not_before", null: false
+    t.text "pem_chain"
+    t.string "revocation_reason"
+    t.datetime "revoked_at"
+    t.string "serial", null: false
+    t.string "subject", null: false
+    t.datetime "updated_at", null: false
+    t.string "vault_path"
+    t.index ["node_instance_id"], name: "index_system_node_certificates_on_node_instance_id"
+    t.index ["not_after"], name: "index_system_node_certificates_on_not_after"
+    t.index ["revoked_at"], name: "index_system_node_certificates_on_revoked_at"
+    t.index ["serial"], name: "index_system_node_certificates_on_serial", unique: true
+    t.index ["subject"], name: "index_system_node_certificates_on_subject"
+  end
+
   create_table "system_node_instances", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "agent_version"
+    t.string "architecture", default: "amd64", null: false
+    t.string "boot_id"
     t.jsonb "config", default: {}, null: false
     t.datetime "created_at", null: false
     t.text "description"
-    t.text "key_ciphertext"
+    t.uuid "enrollment_token_id"
+    t.text "key"
+    t.datetime "last_heartbeat_at"
     t.decimal "latitude", precision: 10, scale: 7, comment: "Latitude coordinate"
     t.decimal "longitude", precision: 10, scale: 7, comment: "Longitude coordinate"
     t.string "mac_address", comment: "Primary MAC address"
+    t.string "mtls_subject"
     t.string "name", null: false
     t.uuid "node_id", null: false
     t.string "private_ip_address"
@@ -9352,12 +9489,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_150000) do
     t.uuid "provider_instance_type_id"
     t.uuid "provider_region_id"
     t.string "public_ip_address"
+    t.jsonb "running_module_digests", default: {}, null: false
     t.string "status", default: "pending", null: false
     t.datetime "updated_at", null: false
     t.string "variety", default: "cloud", null: false
     t.string "vpn_ip_address"
+    t.index ["architecture"], name: "index_system_node_instances_on_architecture"
     t.index ["config"], name: "index_system_node_instances_on_config", using: :gin
+    t.index ["enrollment_token_id"], name: "index_system_node_instances_on_enrollment_token_id"
+    t.index ["last_heartbeat_at"], name: "index_system_node_instances_on_last_heartbeat_at"
     t.index ["mac_address"], name: "index_system_node_instances_on_mac_address", unique: true, where: "(mac_address IS NOT NULL)"
+    t.index ["mtls_subject"], name: "index_system_node_instances_on_mtls_subject"
     t.index ["node_id", "name"], name: "index_system_node_instances_on_node_id_and_name", unique: true
     t.index ["node_id", "status"], name: "index_system_node_instances_on_node_id_and_status"
     t.index ["node_id", "variety"], name: "index_system_node_instances_on_node_id_and_variety"
@@ -9365,6 +9507,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_150000) do
     t.index ["provider_instance_type_id"], name: "index_system_node_instances_on_provider_instance_type_id"
     t.index ["provider_region_id", "status"], name: "index_system_node_instances_on_provider_region_id_and_status"
     t.index ["provider_region_id"], name: "index_system_node_instances_on_provider_region_id"
+    t.index ["running_module_digests"], name: "index_system_node_instances_on_running_module_digests", using: :gin
+    t.check_constraint "architecture::text = ANY (ARRAY['amd64'::character varying, 'arm64'::character varying]::text[])", name: "system_node_instances_architecture_check"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'provisioning'::character varying, 'running'::character varying, 'stopped'::character varying, 'terminated'::character varying, 'error'::character varying]::text[])", name: "system_node_instances_status_check"
     t.check_constraint "variety::text = ANY (ARRAY['cloud'::character varying, 'physical'::character varying, 'dynamic'::character varying]::text[])", name: "system_node_instances_variety_check"
   end
@@ -9388,21 +9532,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_150000) do
   create_table "system_node_module_categories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.string "color"
+    t.uuid "config_category_id"
     t.datetime "created_at", null: false
     t.text "description"
     t.boolean "enabled", default: true, null: false
     t.string "icon"
+    t.uuid "instance_category_id"
     t.string "name", null: false
     t.uuid "parent_id"
     t.integer "position", default: 0, null: false
     t.boolean "public", default: false, null: false
     t.datetime "updated_at", null: false
+    t.string "variety", default: "subscription", null: false
     t.index ["account_id", "name"], name: "index_system_node_module_categories_on_account_id_and_name", unique: true
     t.index ["account_id"], name: "index_system_node_module_categories_on_account_id"
+    t.index ["config_category_id"], name: "index_system_node_module_categories_on_config_category_id"
     t.index ["enabled"], name: "index_system_node_module_categories_on_enabled"
+    t.index ["instance_category_id"], name: "index_system_node_module_categories_on_instance_category_id"
     t.index ["parent_id"], name: "index_system_node_module_categories_on_parent_id"
     t.index ["position"], name: "index_system_node_module_categories_on_position"
     t.index ["public"], name: "index_system_node_module_categories_on_public"
+    t.index ["variety"], name: "index_system_node_module_categories_on_variety"
+    t.check_constraint "variety::text = ANY (ARRAY['subscription'::character varying, 'config'::character varying, 'instance'::character varying]::text[])", name: "system_node_module_categories_variety_check"
   end
 
   create_table "system_node_module_copy_paths", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -9422,6 +9573,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_150000) do
   end
 
   create_table "system_node_module_versions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "blessed_at"
     t.text "changelog"
     t.jsonb "config", default: {}, null: false
     t.datetime "created_at", null: false
@@ -9430,41 +9582,69 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_150000) do
     t.string "data_file_name"
     t.integer "data_file_size"
     t.jsonb "file_spec", default: {}, null: false
+    t.string "fsverity_root_hash"
+    t.datetime "live_at"
     t.jsonb "mask", default: {}, null: false
     t.uuid "node_module_id", null: false
+    t.string "oci_digest"
     t.jsonb "package_spec", default: {}, null: false
+    t.string "promotion_state", default: "built", null: false
+    t.string "provenance_uri"
+    t.datetime "retired_at"
+    t.string "sbom_uri"
+    t.datetime "staging_baked_at"
     t.datetime "updated_at", null: false
     t.integer "version_number", null: false
+    t.string "vex_uri"
     t.index ["created_by_id"], name: "index_system_node_module_versions_on_created_by_id"
     t.index ["data_checksum"], name: "index_system_node_module_versions_on_data_checksum"
     t.index ["node_module_id", "version_number"], name: "idx_module_versions_unique", unique: true
     t.index ["node_module_id"], name: "index_system_node_module_versions_on_node_module_id"
+    t.index ["oci_digest"], name: "index_system_node_module_versions_on_oci_digest"
+    t.index ["promotion_state"], name: "index_system_node_module_versions_on_promotion_state"
     t.index ["version_number"], name: "index_system_node_module_versions_on_version_number"
+    t.check_constraint "promotion_state::text = ANY (ARRAY['built'::character varying, 'staging'::character varying, 'blessed'::character varying, 'live'::character varying, 'retired'::character varying]::text[])", name: "system_node_module_versions_promotion_state_check"
   end
 
   create_table "system_node_modules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.uuid "category_id"
     t.jsonb "config", default: {}, null: false
+    t.integer "consent_budget_per_day"
+    t.integer "consent_budget_used_count", default: 0, null: false
+    t.datetime "consent_budget_window_start_at"
     t.uuid "copy_path_id"
+    t.string "cosign_identity_regexp", comment: "Sigstore Fulcio identity regexp the agent will accept (e.g. 'https://gitea.example.com/.+')"
+    t.string "cosign_issuer_regexp", comment: "Sigstore Fulcio OIDC issuer regexp (e.g. 'https://gitea.example.com')"
     t.datetime "created_at", null: false
     t.uuid "current_version_id"
     t.integer "current_version_number", default: 0, null: false
     t.string "data_checksum"
     t.string "data_file_name"
     t.integer "data_file_size"
+    t.jsonb "dependency_spec", default: [], null: false
     t.text "description"
     t.boolean "enabled", default: true, null: false
-    t.jsonb "file_spec", default: {}, null: false
+    t.jsonb "file_spec", default: [], null: false
+    t.string "gitea_repo_full_name"
+    t.text "init_restart"
+    t.text "init_start"
+    t.text "init_stop"
     t.boolean "lock_spec", default: false, null: false
-    t.jsonb "mask", default: {}, null: false
+    t.text "manifest_yaml"
+    t.jsonb "mask", default: [], null: false
     t.string "name", null: false
+    t.uuid "node_id"
+    t.uuid "node_instance_id"
     t.uuid "node_platform_id"
-    t.jsonb "package_spec", default: {}, null: false
+    t.jsonb "package_spec", default: [], null: false
+    t.uuid "parent_module_id"
     t.integer "priority", default: 0, null: false
     t.boolean "public", default: false, null: false
+    t.boolean "reboot_required", default: false, null: false
     t.datetime "updated_at", null: false
     t.string "variety", default: "config", null: false
+    t.string "webhook_secret"
     t.index ["account_id", "name"], name: "index_system_node_modules_on_account_id_and_name", unique: true
     t.index ["account_id"], name: "index_system_node_modules_on_account_id"
     t.index ["category_id"], name: "index_system_node_modules_on_category_id"
@@ -9475,12 +9655,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_150000) do
     t.index ["data_checksum"], name: "index_system_node_modules_on_data_checksum"
     t.index ["enabled"], name: "index_system_node_modules_on_enabled"
     t.index ["file_spec"], name: "index_system_node_modules_on_file_spec", using: :gin
+    t.index ["gitea_repo_full_name"], name: "idx_uniq_system_node_modules_gitea_repo", unique: true, where: "(gitea_repo_full_name IS NOT NULL)"
     t.index ["lock_spec"], name: "index_system_node_modules_on_lock_spec"
     t.index ["mask"], name: "index_system_node_modules_on_mask", using: :gin
+    t.index ["node_id"], name: "index_system_node_modules_on_node_id"
+    t.index ["node_instance_id"], name: "index_system_node_modules_on_node_instance_id"
     t.index ["node_platform_id"], name: "index_system_node_modules_on_node_platform_id"
     t.index ["package_spec"], name: "index_system_node_modules_on_package_spec", using: :gin
+    t.index ["parent_module_id", "node_id", "node_instance_id"], name: "idx_system_node_modules_dependant_scope"
+    t.index ["parent_module_id"], name: "index_system_node_modules_on_parent_module_id"
     t.index ["priority"], name: "index_system_node_modules_on_priority"
     t.index ["public"], name: "index_system_node_modules_on_public"
+    t.index ["reboot_required"], name: "index_system_node_modules_on_reboot_required"
     t.index ["variety"], name: "index_system_node_modules_on_variety"
     t.check_constraint "variety::text = ANY (ARRAY['config'::character varying, 'instance'::character varying, 'subscription'::character varying]::text[])", name: "system_node_modules_variety_check"
   end
@@ -9568,12 +9754,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_150000) do
     t.datetime "created_at", null: false
     t.text "description"
     t.boolean "enabled", default: true, null: false
+    t.uuid "internal_ca_id"
     t.string "name", null: false
     t.uuid "node_template_id", null: false
     t.string "public_address"
     t.integer "runtime_amount", default: 0, comment: "Runtime tracking in minutes"
-    t.text "ssh_host_key_ciphertext"
-    t.text "ssh_key_ciphertext"
+    t.text "ssh_host_key"
+    t.string "ssh_host_key_fingerprint"
+    t.text "ssh_key"
+    t.string "ssh_key_fingerprint"
+    t.string "ssh_key_type", default: "ed25519", null: false
     t.boolean "tmpfs_store", default: false, comment: "Use tmpfs for storage"
     t.datetime "updated_at", null: false
     t.uuid "worker_id"
@@ -9581,42 +9771,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_150000) do
     t.index ["account_id", "name"], name: "index_system_nodes_on_account_id_and_name", unique: true
     t.index ["account_id"], name: "index_system_nodes_on_account_id"
     t.index ["config"], name: "index_system_nodes_on_config", using: :gin
+    t.index ["internal_ca_id"], name: "index_system_nodes_on_internal_ca_id"
     t.index ["node_template_id"], name: "index_system_nodes_on_node_template_id"
+    t.index ["ssh_host_key_fingerprint"], name: "index_system_nodes_on_ssh_host_key_fingerprint"
+    t.index ["ssh_key_fingerprint"], name: "index_system_nodes_on_ssh_key_fingerprint"
     t.index ["worker_id"], name: "index_system_nodes_on_worker_id"
-  end
-
-  create_table "system_operations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
-    t.string "command", null: false
-    t.datetime "completed_at"
-    t.datetime "created_at", null: false
-    t.text "description"
-    t.text "error_message"
-    t.jsonb "events", default: [], null: false
-    t.boolean "exclusive", default: false, null: false
-    t.uuid "initiated_by_id"
-    t.uuid "operable_id"
-    t.string "operable_type"
-    t.jsonb "options", default: {}, null: false
-    t.integer "progress", default: 0, null: false
-    t.datetime "scheduled_at"
-    t.datetime "started_at"
-    t.string "status", default: "pending", null: false
-    t.datetime "updated_at", null: false
-    t.index ["account_id"], name: "index_system_operations_on_account_id"
-    t.index ["command"], name: "index_system_operations_on_command"
-    t.index ["completed_at"], name: "index_system_operations_on_completed_at"
-    t.index ["events"], name: "index_system_operations_on_events", using: :gin
-    t.index ["exclusive"], name: "index_system_operations_on_exclusive"
-    t.index ["initiated_by_id"], name: "index_system_operations_on_initiated_by_id"
-    t.index ["operable_type", "operable_id"], name: "index_system_operations_on_operable"
-    t.index ["operable_type", "operable_id"], name: "index_system_operations_on_operable_type_and_operable_id"
-    t.index ["options"], name: "index_system_operations_on_options", using: :gin
-    t.index ["scheduled_at"], name: "index_system_operations_on_scheduled_at"
-    t.index ["started_at"], name: "index_system_operations_on_started_at"
-    t.index ["status"], name: "index_system_operations_on_status"
-    t.check_constraint "progress >= 0 AND progress <= 100", name: "system_operations_progress_check"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'scheduled'::character varying, 'running'::character varying, 'complete'::character varying, 'failed'::character varying, 'aborted'::character varying, 'cancelled'::character varying]::text[])", name: "system_operations_status_check"
   end
 
   create_table "system_provider_availability_zones", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -9629,6 +9788,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_150000) do
     t.string "status", default: "available", null: false
     t.datetime "updated_at", null: false
     t.string "zone_code", null: false
+    t.index "provider_region_id, lower((name)::text)", name: "idx_uniq_system_provider_availability_zones_region_name", unique: true
     t.index ["capabilities"], name: "index_system_provider_availability_zones_on_capabilities", using: :gin
     t.index ["provider_region_id", "enabled"], name: "idx_on_provider_region_id_enabled_5fd74dd1c4"
     t.index ["provider_region_id", "zone_code"], name: "idx_on_provider_region_id_zone_code_83ae317fad", unique: true
@@ -9638,7 +9798,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_150000) do
   end
 
   create_table "system_provider_connections", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.text "access_key_ciphertext"
+    t.text "access_key"
     t.uuid "account_id", null: false
     t.jsonb "config", default: {}, null: false
     t.datetime "created_at", null: false
@@ -9650,7 +9810,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_150000) do
     t.datetime "last_tested_at"
     t.string "name", null: false
     t.uuid "provider_id", null: false
-    t.text "secret_key_ciphertext"
+    t.text "secret_key"
     t.string "status", default: "pending", null: false
     t.string "tenant"
     t.datetime "updated_at", null: false
@@ -9681,6 +9841,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_150000) do
     t.integer "storage_gb"
     t.datetime "updated_at", null: false
     t.integer "vcpus"
+    t.index "account_id, provider_id, lower((name)::text)", name: "idx_uniq_system_provider_instance_types_account_provider_name", unique: true
     t.index ["account_id", "enabled"], name: "index_system_provider_instance_types_on_account_id_and_enabled"
     t.index ["account_id"], name: "index_system_provider_instance_types_on_account_id"
     t.index ["provider_id", "instance_type_code"], name: "idx_on_provider_id_instance_type_code_ced29cad6e", unique: true
@@ -9754,6 +9915,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_150000) do
     t.string "ramdisk_image"
     t.string "region_code", null: false
     t.datetime "updated_at", null: false
+    t.index "account_id, provider_id, lower((name)::text)", name: "idx_uniq_system_provider_regions_account_provider_name", unique: true
     t.index ["account_id", "enabled"], name: "index_system_provider_regions_on_account_id_and_enabled"
     t.index ["account_id"], name: "index_system_provider_regions_on_account_id"
     t.index ["capabilities"], name: "index_system_provider_regions_on_capabilities", using: :gin
@@ -9955,6 +10117,44 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_150000) do
     t.index ["provider_region_id", "volume_type_id"], name: "idx_region_volume_types_unique", unique: true
     t.index ["provider_region_id"], name: "index_system_region_volume_types_on_provider_region_id"
     t.index ["volume_type_id"], name: "index_system_region_volume_types_on_volume_type_id"
+  end
+
+  create_table "system_tasks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.uuid "claimed_by_worker_id"
+    t.string "command", null: false
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.text "error_message"
+    t.jsonb "events", default: [], null: false
+    t.boolean "exclusive", default: false, null: false
+    t.string "idempotency_key"
+    t.uuid "initiated_by_id"
+    t.uuid "operable_id"
+    t.string "operable_type"
+    t.jsonb "options", default: {}, null: false
+    t.integer "progress", default: 0, null: false
+    t.datetime "scheduled_at"
+    t.datetime "started_at"
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "idempotency_key"], name: "idx_system_tasks_idempotency", unique: true, where: "(idempotency_key IS NOT NULL)"
+    t.index ["account_id"], name: "index_system_tasks_on_account_id"
+    t.index ["claimed_by_worker_id"], name: "index_system_tasks_on_claimed_by_worker_id"
+    t.index ["command"], name: "index_system_tasks_on_command"
+    t.index ["completed_at"], name: "index_system_tasks_on_completed_at"
+    t.index ["events"], name: "index_system_tasks_on_events", using: :gin
+    t.index ["exclusive"], name: "index_system_tasks_on_exclusive"
+    t.index ["initiated_by_id"], name: "index_system_tasks_on_initiated_by_id"
+    t.index ["operable_type", "operable_id"], name: "index_system_operations_on_operable"
+    t.index ["operable_type", "operable_id"], name: "index_system_tasks_on_operable_type_and_operable_id"
+    t.index ["options"], name: "index_system_tasks_on_options", using: :gin
+    t.index ["scheduled_at"], name: "index_system_tasks_on_scheduled_at"
+    t.index ["started_at"], name: "index_system_tasks_on_started_at"
+    t.index ["status"], name: "index_system_tasks_on_status"
+    t.check_constraint "progress >= 0 AND progress <= 100", name: "system_operations_progress_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'scheduled'::character varying, 'running'::character varying, 'complete'::character varying, 'failed'::character varying, 'aborted'::character varying, 'cancelled'::character varying]::text[])", name: "system_operations_status_check"
   end
 
   create_table "system_template_modules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -12006,8 +12206,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_150000) do
   add_foreign_key "supply_chain_vulnerability_scans", "accounts"
   add_foreign_key "supply_chain_vulnerability_scans", "supply_chain_container_images", column: "container_image_id", on_delete: :cascade
   add_foreign_key "supply_chain_vulnerability_scans", "users", column: "triggered_by_id"
+  add_foreign_key "system_bootstrap_tokens", "system_node_instances", column: "node_instance_id"
+  add_foreign_key "system_bootstrap_tokens", "system_nodes", column: "node_id"
+  add_foreign_key "system_cve_exposures", "system_cves", column: "cve_id"
+  add_foreign_key "system_cve_exposures", "system_node_module_versions", column: "node_module_version_id"
+  add_foreign_key "system_fleet_events", "accounts"
   add_foreign_key "system_instance_mount_points", "system_node_instances", column: "node_instance_id"
   add_foreign_key "system_instance_mount_points", "system_node_mount_points", column: "mount_point_id"
+  add_foreign_key "system_module_artifacts", "system_node_module_versions", column: "node_module_version_id"
   add_foreign_key "system_module_dependencies", "system_node_modules", column: "dependency_id"
   add_foreign_key "system_module_dependencies", "system_node_modules", column: "node_module_id"
   add_foreign_key "system_module_puppet_assignments", "system_node_modules", column: "node_module_id"
@@ -12016,21 +12222,28 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_150000) do
   add_foreign_key "system_node_architectures", "file_objects", column: "image_file_object_id"
   add_foreign_key "system_node_architectures", "file_objects", column: "kernel_file_object_id"
   add_foreign_key "system_node_architectures", "file_objects", column: "ramdisk_file_object_id"
+  add_foreign_key "system_node_certificates", "system_node_instances", column: "node_instance_id"
+  add_foreign_key "system_node_instances", "system_bootstrap_tokens", column: "enrollment_token_id"
   add_foreign_key "system_node_instances", "system_nodes", column: "node_id"
   add_foreign_key "system_node_instances", "system_provider_instance_types", column: "provider_instance_type_id"
   add_foreign_key "system_node_instances", "system_provider_regions", column: "provider_region_id"
   add_foreign_key "system_node_module_assignments", "system_node_modules", column: "node_module_id"
   add_foreign_key "system_node_module_assignments", "system_nodes", column: "node_id"
   add_foreign_key "system_node_module_categories", "accounts"
+  add_foreign_key "system_node_module_categories", "system_node_module_categories", column: "config_category_id"
+  add_foreign_key "system_node_module_categories", "system_node_module_categories", column: "instance_category_id"
   add_foreign_key "system_node_module_categories", "system_node_module_categories", column: "parent_id"
   add_foreign_key "system_node_module_copy_paths", "accounts"
   add_foreign_key "system_node_module_versions", "system_node_modules", column: "node_module_id"
   add_foreign_key "system_node_module_versions", "users", column: "created_by_id"
   add_foreign_key "system_node_modules", "accounts"
+  add_foreign_key "system_node_modules", "system_node_instances", column: "node_instance_id"
   add_foreign_key "system_node_modules", "system_node_module_categories", column: "category_id"
   add_foreign_key "system_node_modules", "system_node_module_copy_paths", column: "copy_path_id"
   add_foreign_key "system_node_modules", "system_node_module_versions", column: "current_version_id"
+  add_foreign_key "system_node_modules", "system_node_modules", column: "parent_module_id"
   add_foreign_key "system_node_modules", "system_node_platforms", column: "node_platform_id"
+  add_foreign_key "system_node_modules", "system_nodes", column: "node_id"
   add_foreign_key "system_node_mount_points", "accounts"
   add_foreign_key "system_node_platforms", "accounts"
   add_foreign_key "system_node_platforms", "system_node_architectures", column: "node_architecture_id"
@@ -12040,8 +12253,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_150000) do
   add_foreign_key "system_nodes", "accounts"
   add_foreign_key "system_nodes", "system_node_templates", column: "node_template_id"
   add_foreign_key "system_nodes", "workers"
-  add_foreign_key "system_operations", "accounts"
-  add_foreign_key "system_operations", "users", column: "initiated_by_id"
   add_foreign_key "system_provider_availability_zones", "system_provider_regions", column: "provider_region_id"
   add_foreign_key "system_provider_connections", "accounts"
   add_foreign_key "system_provider_connections", "system_providers", column: "provider_id"
@@ -12071,6 +12282,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_06_150000) do
   add_foreign_key "system_region_instance_types", "system_provider_regions", column: "provider_region_id"
   add_foreign_key "system_region_volume_types", "system_provider_regions", column: "provider_region_id"
   add_foreign_key "system_region_volume_types", "system_provider_volume_types", column: "volume_type_id"
+  add_foreign_key "system_tasks", "accounts"
+  add_foreign_key "system_tasks", "users", column: "initiated_by_id"
+  add_foreign_key "system_tasks", "workers", column: "claimed_by_worker_id", on_delete: :nullify
   add_foreign_key "system_template_modules", "system_node_modules", column: "node_module_id"
   add_foreign_key "system_template_modules", "system_node_templates", column: "node_template_id"
   add_foreign_key "task_executions", "scheduled_tasks"

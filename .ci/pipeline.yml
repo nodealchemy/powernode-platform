@@ -1,0 +1,171 @@
+# Generic CI/CD Pipeline Configuration
+# This configuration can be adapted for various CI/CD platforms
+
+variables:
+  POSTGRES_DB: powernode_test
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  POSTGRES_HOST: postgres
+  RAILS_ENV: test
+  NODE_ENV: test
+
+stages:
+  - setup
+  - test
+  - build
+  - security
+  - deploy
+
+# Setup stage
+setup:backend:
+  stage: setup
+  script:
+    - cd server
+    - bundle install
+    - bundle exec rails db:create db:migrate
+    - bundle exec rails db:seed
+  cache:
+    paths:
+      - server/vendor/bundle
+      - server/.bundle
+
+setup:frontend:
+  stage: setup
+  script:
+    - cd frontend
+    - npm ci
+    - npm run build
+  cache:
+    paths:
+      - frontend/node_modules
+      - frontend/.npm
+
+# Test stage
+test:backend:
+  stage: test
+  dependencies:
+    - setup:backend
+  script:
+    - cd server
+    - bundle exec rspec --format progress --format RspecJunitFormatter --out rspec.xml
+    - bundle exec rails test:security
+  artifacts:
+    reports:
+      junit: server/rspec.xml
+    paths:
+      - server/coverage/
+    expire_in: 30 days
+  coverage: '/\(\d+.\d+\%\) covered/'
+
+test:frontend:
+  stage: test
+  dependencies:
+    - setup:frontend
+  script:
+    - cd frontend
+    - npm run test -- --coverage --watchAll=false --testResultsProcessor=jest-junit
+    - npm run lint
+    - npm run lint:security
+  artifacts:
+    reports:
+      junit: frontend/junit.xml
+    paths:
+      - frontend/coverage/
+    expire_in: 30 days
+  coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
+
+test:e2e:
+  stage: test
+  dependencies:
+    - setup:backend
+    - setup:frontend
+  script:
+    - cd server && bundle exec rails server -e test -p 3000 -d
+    - cd frontend && npm start &
+    - sleep 30
+    - cd frontend && npm run cypress:run
+  artifacts:
+    when: always
+    paths:
+      - frontend/cypress/videos/
+      - frontend/cypress/screenshots/
+    expire_in: 30 days
+
+# Build stage
+build:backend:
+  stage: build
+  script:
+    - cd server
+    - bundle install --deployment --without development test
+    - bundle exec rails assets:precompile
+  artifacts:
+    paths:
+      - server/public/assets/
+    expire_in: 1 week
+
+build:frontend:
+  stage: build
+  script:
+    - cd frontend
+    - npm ci --only=production
+    - npm run build
+  artifacts:
+    paths:
+      - frontend/build/
+    expire_in: 1 week
+
+# Security stage
+security:backend:
+  stage: security
+  script:
+    - cd server
+    - bundle exec bundle-audit check --update
+    - bundle exec brakeman -q -o brakeman.json
+  artifacts:
+    reports:
+      sast: server/brakeman.json
+  allow_failure: true
+
+security:frontend:
+  stage: security
+  script:
+    - cd frontend
+    - npm audit --audit-level moderate
+    - npm run lint:security
+  allow_failure: true
+
+security:secrets:
+  stage: security
+  script:
+    - |
+      echo "Scanning for secrets..."
+      find . -name "*.rb" -o -name "*.js" -o -name "*.ts" -o -name "*.tsx" -o -name "*.yml" -o -name "*.yaml" | \
+      xargs grep -l -E "(password|secret|key|token|api_key)" | \
+      head -10
+  allow_failure: true
+
+# Deploy stage
+deploy:staging:
+  stage: deploy
+  environment:
+    name: staging
+  script:
+    - echo "Deploying to staging environment..."
+    - echo "Database migrations would run here"
+    - echo "Application deployment would happen here"
+  only:
+    - develop
+  when: manual
+
+deploy:production:
+  stage: deploy
+  environment:
+    name: production
+  script:
+    - echo "Deploying to production environment..."
+    - echo "Database migrations would run here"
+    - echo "Application deployment would happen here"
+  only:
+    - main
+    - master
+  when: manual

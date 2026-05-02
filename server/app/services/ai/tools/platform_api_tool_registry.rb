@@ -4,6 +4,24 @@ module Ai
   module Tools
     class PlatformApiToolRegistry
       TOOLS = {
+        # System extension fleet (Golden Eclipse M5)
+        "system_list_nodes" => "Ai::Tools::SystemFleetTool",
+        "system_get_node" => "Ai::Tools::SystemFleetTool",
+        "system_create_node" => "Ai::Tools::SystemFleetTool",
+        "system_list_instances" => "Ai::Tools::SystemFleetTool",
+        "system_get_instance" => "Ai::Tools::SystemFleetTool",
+        "system_provision_instance" => "Ai::Tools::SystemFleetTool",
+        "system_terminate_instance" => "Ai::Tools::SystemFleetTool",
+        "system_list_templates" => "Ai::Tools::SystemFleetTool",
+        "system_get_template" => "Ai::Tools::SystemFleetTool",
+        "system_assign_module_to_template" => "Ai::Tools::SystemFleetTool",
+        "system_list_modules" => "Ai::Tools::SystemFleetTool",
+        "system_get_module" => "Ai::Tools::SystemFleetTool",
+        "system_list_module_versions" => "Ai::Tools::SystemFleetTool",
+        "system_promote_module_version" => "Ai::Tools::SystemFleetTool",
+        "system_drift_report" => "Ai::Tools::SystemFleetTool",
+        "system_list_tasks" => "Ai::Tools::SystemFleetTool",
+        "system_cancel_task" => "Ai::Tools::SystemFleetTool",
         # Project & CI/CD
         "create_gitea_repository" => "Ai::Tools::ProjectInitTool",
         "update_gitea_repository" => "Ai::Tools::RepoManagementTool",

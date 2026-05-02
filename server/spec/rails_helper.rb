@@ -85,6 +85,20 @@ RSpec.configure do |config|
     end
   end
 
+  # System (Infrastructure) extension factories
+  system_factories = Rails.root.join('..', 'extensions', 'system', 'server', 'spec', 'factories')
+  if system_factories.exist?
+    Dir[system_factories.join('**/*.rb')].sort.each do |factory_file|
+      begin
+        load factory_file
+      rescue FactoryBot::DuplicateDefinitionError => e
+        factory_name = e.message.sub("Factory already registered: ", "")
+        FactoryBot::Internal.factories.instance_variable_get(:@items).delete(factory_name)
+        load factory_file
+      end
+    end
+  end
+
   config.include FactoryBot::Syntax::Methods
 
   # Time travel helpers (travel_to, freeze_time, etc.)

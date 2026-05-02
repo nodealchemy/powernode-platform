@@ -3104,6 +3104,9 @@ Rails.application.routes.draw do
         end
       end
 
+      # System Infrastructure routes are defined in extensions/system/server/config/routes.rb
+      # and loaded automatically by Rails::Engine.
+
     end
   end
 
