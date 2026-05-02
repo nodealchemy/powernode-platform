@@ -14,6 +14,7 @@ module ApiResponse
   # @param message [String] Optional message for simple success responses
   # @param extra_data [Hash] Additional keyword arguments treated as data fields
   def render_success(positional_data = nil, status: :ok, meta: nil, message: nil, data: nil, **extra_data)
+    status = normalize_http_status(status)
     validate_http_status!(status)
     response = { success: true }
 
@@ -49,6 +50,7 @@ module ApiResponse
   def render_error(message, positional_status = nil, status: :bad_request, code: nil, details: nil)
     # Determine actual status (positional takes precedence for backward compat)
     actual_status = positional_status || status
+    actual_status = normalize_http_status(actual_status)
     validate_http_status!(actual_status)
 
     response = {
@@ -121,6 +123,32 @@ module ApiResponse
   end
 
   private
+
+  # Symbols Rack deprecated in favor of the IETF-aligned names. Older
+  # callers (and the rspec-rails `have_http_status` matcher) still reach
+  # for these; translating in one place avoids a 267-call codebase
+  # sweep and keeps the rest of the platform internally consistent.
+  #
+  # Mapping derived from the Rack changelog (Rack 3.0 / 3.1 RFC 9110
+  # alignment):
+  #   :unprocessable_entity     → :unprocessable_content (422)
+  #   :request_entity_too_large → :content_too_large     (413)
+  #   :payload_too_large        → :content_too_large     (413)
+  #   :request_uri_too_long     → :uri_too_long          (414)
+  DEPRECATED_STATUS_ALIASES = {
+    unprocessable_entity:     :unprocessable_content,
+    request_entity_too_large: :content_too_large,
+    payload_too_large:        :content_too_large,
+    request_uri_too_long:     :uri_too_long
+  }.freeze
+
+  # Translate a deprecated symbol to its modern equivalent so both
+  # validate_http_status! and the downstream `render` accept it.
+  # Non-deprecated values pass through unchanged.
+  def normalize_http_status(status)
+    return DEPRECATED_STATUS_ALIASES[status] if status.is_a?(Symbol) && DEPRECATED_STATUS_ALIASES.key?(status)
+    status
+  end
 
   # Guard against kwarg-name collisions with caller data (e.g. a controller
   # accidentally passing `status: "healthy"` as a data field). Without this
