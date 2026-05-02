@@ -198,8 +198,9 @@ cmd_install() {
         local basename="$(basename "${unit_file}")"
         local dest="${SYSTEMD_DIR}/${basename}"
 
-        # For .service files, inject User= and Group= into [Service] section
-        if [[ "${basename}" == *.service ]]; then
+        # Inject User=/Group= into templated service instances only (powernode-*@.service).
+        # Non-templated helpers (e.g. capability setters) declare their own User= and run as root.
+        if [[ "${basename}" == *@.service ]]; then
             sed -e "/^\[Service\]/a User=${run_user}\nGroup=${run_group}" \
                 "${unit_file}" > "${dest}"
         else
@@ -252,6 +253,13 @@ cmd_install() {
         systemctl enable "powernode-${svc}@default.service" 2>/dev/null || true
         log_ok "Enabled powernode-${svc}@default"
     done
+
+    # Host-prep helpers (non-templated). Conditioned via ConditionPathExists, so they stay
+    # inert if their target binary isn't installed yet.
+    if [[ -e "${SYSTEMD_DIR}/powernode-qemu-bridge-cap.service" ]]; then
+        systemctl enable --now powernode-qemu-bridge-cap.service 2>/dev/null || true
+        log_ok "Enabled powernode-qemu-bridge-cap (CAP_NET_ADMIN on qemu-bridge-helper)"
+    fi
 
     echo ""
     log_ok "Installation complete!"

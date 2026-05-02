@@ -1,0 +1,16 @@
+[Unit]
+Description=Powernode: grant CAP_NET_ADMIN to qemu-bridge-helper
+Documentation=https://github.com/powernode/platform
+# Re-apply on every boot — setcap is idempotent and survives reboots, but
+# is reset whenever qemu-system-* is upgraded. Running this on boot keeps
+# the capability fresh after package upgrades that happen outside our control.
+ConditionPathExists=/usr/lib/qemu/qemu-bridge-helper
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/setcap cap_net_admin+ep /usr/lib/qemu/qemu-bridge-helper
+
+[Install]
+WantedBy=multi-user.target
