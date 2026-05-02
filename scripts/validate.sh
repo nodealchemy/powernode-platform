@@ -65,10 +65,40 @@ else
   RESULTS+=("${YELLOW}SKIP${NC} Backend specs")
 fi
 
-# 2. TypeScript type check
+# 2. TypeScript type check (platform + each extension that has tsconfig.check.json)
 if [[ "$SKIP_TS" == "false" ]]; then
   echo -e "${BLUE}[2/4] Running TypeScript type check...${NC}"
+  TS_OK=true
   if (cd "$PROJECT_ROOT/frontend" && npx tsc --noEmit 2>&1); then
+    :
+  else
+    TS_OK=false
+  fi
+  # Each extensions/*/frontend/tsconfig.check.json is a tsc gate for that
+  # extension's frontend tree (Vite resolves @<slug>/* aliases at runtime,
+  # but the platform's main tsconfig.json only includes its own src). Without
+  # this loop, runtime ReferenceErrors and TS1005 syntax errors in extension
+  # components slip past the validation gate (see history: CanaryMarker +
+  # ArchitectureList).
+  # tsc needs to walk up from extension source files and find react etc. —
+  # it walks up from the file location, so the platform's node_modules has
+  # to be reachable from extensions/<slug>/frontend/. We ensure this by
+  # symlinking; never commit the symlink (extension .gitignore handles that).
+  for ext_tsconfig in "$PROJECT_ROOT"/extensions/*/frontend/tsconfig.check.json; do
+    [[ -f "$ext_tsconfig" ]] || continue
+    ext_dir="$(dirname "$ext_tsconfig")"
+    ext_slug="$(basename "$(dirname "$ext_dir")")"
+    if [[ ! -e "$ext_dir/node_modules" ]]; then
+      ln -sf "$PROJECT_ROOT/frontend/node_modules" "$ext_dir/node_modules"
+    fi
+    if (cd "$PROJECT_ROOT/frontend" && npx tsc --noEmit -p "$ext_tsconfig" 2>&1); then
+      :
+    else
+      echo -e "${RED}  └─ extensions/$ext_slug/frontend tsc failed${NC}"
+      TS_OK=false
+    fi
+  done
+  if [[ "$TS_OK" == "true" ]]; then
     RESULTS+=("${GREEN}PASS${NC} TypeScript types")
   else
     RESULTS+=("${RED}FAIL${NC} TypeScript types")
