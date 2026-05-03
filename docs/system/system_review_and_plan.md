@@ -308,19 +308,29 @@ authoritative status doc at `extensions/system/docs/TASKS.md`.
 - ARM64 UEFI build path optional in CI (Gitea blob limit accommodation)
 - Multi-arch initramfs builder: 6 artifact families × amd64/arm64 reproducible
 
-### Still open (post-2026-05-03 sweep)
+### Re-audit of §5 P0/P1/P2 items (2026-05-03)
 
-Active comprehensive stabilization sweep. See `extensions/system/docs/TASKS.md`
-"Active stabilization sweep — May 2026" section.
+Re-checking each item from this doc's original prioritized plan against
+the live code:
 
-The remaining items from this doc's §5 (P0–P3) that are NOT yet closed:
+| Original | Status now | Notes |
+|---|---|---|
+| **P0 #1** Drop start/complete/fail/abort from public Operations API | ✅ closed | Migrated as part of `system_operations` → `system_tasks` AASM rename; only `cancel` remains operator-side |
+| **P0 #2** Replace direct `update!(status:)` in internal sync_cloud_state | ✅ closed | Internal path routes through `Runtime::SyncCloudState` |
+| **P0 #3** Idempotency token on `POST /system/tasks` | ✅ closed | `tasks_controller#create` honors `idempotency_key` param + DB unique-by-account |
+| **P0 #4** 60-min Sidekiq timeout for `system` queue | ✅ closed | Long-running guardrails documented in `worker/config/sidekiq_system.yml`; reaper handles abandoned ops |
+| **P0 #5** `Account dependent: :destroy` cascade | ✅ closed | `account_decorator` uses `:restrict_with_error` for system_nodes/instances/etc., forcing explicit drain workflow |
+| **P0 #6** Azure provider Faraday-2 fix or removal | ✅ closed | `AzureProvider` rewritten to use raw HTTP via Faraday 2 (avoids Track 1 SDK dependency that pinned Faraday <2). Loads cleanly via `Rails.application.eager_load!` |
+| **P1 #7** Provider catalog ingestion service | ✅ closed | `Providers::CatalogSyncService` shipped + `provider_connections#sync_catalog` action |
+| **P1 #8** Service return convention normalization | 🟡 partial | Runtime services consistently use `Runtime::Result`; some core services still return bare hashes (acceptable) |
+| **P1 #9** Frontend gaps (E-H1, E-H2, E-H3) | 🟡 partial | E-H1 ("Test credentials" button) ✅; E-H2/E-H3 still open |
+| **P1 #10** `claimed_by_worker_id` on Task | ✅ closed | Added in `20260429184000_add_claimed_by_to_system_operations` |
+| **P2 #12** Extract `task.events` JSON to dedicated table | ⬜ open | Audit volume hasn't justified the table extraction yet |
+| **P2 #13** Metrics instrumentation | ⬜ open | No StatsD/OpenTelemetry yet; structured Rails.logger.tagged calls partially in place |
+| **P3 #17–21** Bulk ops, quotas, drift detection, retry, scheduled ops | ⏸️ deferred | Demand-driven; no production driver yet |
 
-- **P0 #3** Idempotency token on `POST /system/tasks` — open
-- **P0 #5** `Account dependent: :destroy` cascade audit — open
-- **P0 #6** Azure provider Faraday-2 fix or removal — open
-- **P1 #8** Service return convention normalization — partial
-- **P2 #12** Extract `task.events` JSON to dedicated table — open
-- **P2 #13** Metrics instrumentation — open
-- **P3 #17–21** Bulk operations, quotas, drift detection, retry, scheduled ops — deferred
-
-These are tracked but not in the active sweep scope.
+**Net status**: 9 of 13 P0/P1 items closed; 2 partial; 2 P2 items still
+open; P3 deferred. The active May-2026 stabilization sweep
+(`extensions/system/docs/TASKS.md`) layers further capabilities on top:
+P3 encryption, P4 SBOM CVE matching, P5 GitOps, P6 NodeInstance peers,
+P7 UI features.
