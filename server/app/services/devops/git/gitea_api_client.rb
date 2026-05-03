@@ -291,6 +291,53 @@ module Devops
       end
     end
 
+    # ─── Gitea Actions secrets management ────────────────────────────────
+    # Per-repo Actions secrets (key/value pairs that workflows consume via
+    # ${{ secrets.<NAME> }}). Gitea API mirrors GitHub's:
+    #   GET    /repos/{owner}/{repo}/actions/secrets       — list (names only)
+    #   PUT    /repos/{owner}/{repo}/actions/secrets/{name} — create/update
+    #   DELETE /repos/{owner}/{repo}/actions/secrets/{name} — delete
+    #
+    # Used by GiteaActionsTool to let operators (and Claude Code) configure
+    # the secrets a workflow needs (POWERNODE_DISK_IMAGE_WEBHOOK_SECRET,
+    # POWERNODE_REGISTRY_TOKEN, etc.) without leaving the chat.
+    def list_action_secrets(owner, repo)
+      result = get("/repos/#{owner}/#{repo}/actions/secrets")
+      # Gitea returns either a bare array or {secrets: [...]} depending on
+      # version. Normalize to an array of hashes regardless.
+      raw = case result
+            when Array then result
+            when Hash  then Array(result["secrets"] || result["data"])
+            else            []
+            end
+      raw.map do |s|
+        if s.is_a?(Hash)
+          { name: s["name"], created_at: s["created_at"], updated_at: s["updated_at"] }.compact
+        else
+          { name: s.to_s }
+        end
+      end
+    rescue NotFoundError
+      []
+    end
+
+    def create_or_update_action_secret(owner, repo, name, value)
+      with_error_handling do
+        # Gitea expects the value plaintext; encryption-at-rest is handled
+        # server-side. Different from GitHub which requires libsodium-encrypted
+        # values — Gitea is simpler.
+        put("/repos/#{owner}/#{repo}/actions/secrets/#{name}", { data: value })
+        { success: true, name: name }
+      end
+    end
+
+    def delete_action_secret(owner, repo, name)
+      with_error_handling do
+        delete("/repos/#{owner}/#{repo}/actions/secrets/#{name}")
+        { success: true, name: name }
+      end
+    end
+
     def cancel_workflow_run(owner, repo, run_id)
       with_error_handling do
         post("/repos/#{owner}/#{repo}/actions/runs/#{run_id}/cancel")

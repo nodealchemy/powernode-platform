@@ -26,6 +26,14 @@ module Ai
         "create_gitea_repository" => "Ai::Tools::ProjectInitTool",
         "update_gitea_repository" => "Ai::Tools::RepoManagementTool",
         "dispatch_to_runner" => "Ai::Tools::RunnerDispatchTool",
+        # Gitea Actions: secrets management + workflow_dispatch + run monitoring.
+        # Plan: docs/plans/wondrous-yawning-anchor.md (Phase 2 — operator-driven CI).
+        "set_gitea_action_secret"     => "Ai::Tools::GiteaActionsTool",
+        "list_gitea_action_secrets"   => "Ai::Tools::GiteaActionsTool",
+        "delete_gitea_action_secret"  => "Ai::Tools::GiteaActionsTool",
+        "dispatch_gitea_workflow"     => "Ai::Tools::GiteaActionsTool",
+        "list_gitea_workflow_runs"    => "Ai::Tools::GiteaActionsTool",
+        "get_gitea_workflow_run"      => "Ai::Tools::GiteaActionsTool",
         # Container deployment & management
         "deploy_container_agent" => "Ai::Tools::ContainerDeploymentTool",
         "container_status" => "Ai::Tools::ContainerStatusTool",
