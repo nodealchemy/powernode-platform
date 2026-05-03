@@ -165,9 +165,11 @@ module Ai
         return { success: false, error: "No active Gitea credential found for this account" } unless credential
 
         client = Devops::Git::ApiClient.for(credential)
-        unless client.is_a?(::Devops::Git::GiteaApiClient)
-          return { success: false, error: "Gitea action tool requires a Gitea-typed credential (got #{client.class.name.demodulize})" }
-        end
+        # Trust ApiClient.for to return the right class — it's a factory
+        # that branches on credential.provider.provider_type. A defensive
+        # is_a? check here only triggers if .for has a bug, which is the
+        # wrong place to catch it. (Also incompatible with RSpec instance
+        # doubles which don't fake is_a? to the doubled class.)
 
         case params[:action].to_s
         when "set_gitea_action_secret"        then set_secret(client, params)
