@@ -517,7 +517,24 @@ module Permissions
     "system.git.process_webhooks" => "Process Git webhook events",
     "system.git.sync_repositories" => "Sync Git repositories",
     "system.git.sync_pipelines" => "Sync CI/CD pipelines",
-    "system.git.access_credentials" => "Access Git credentials for operations"
+    "system.git.access_credentials" => "Access Git credentials for operations",
+
+    # Disk-image publication (system extension)
+    # Plan: docs/plans/wondrous-yawning-anchor.md (Phase 2 — Chunk 1).
+    # `publish_disk_image` is the worker-only permission CI runners hold —
+    # the controller authorizes against this and additionally enforces
+    # worker.account_id == platform.account_id for cross-tenant safety.
+    "system.platforms.publish_disk_image"        => "CI worker can register a disk-image build against a NodePlatform",
+    "system.platforms.rollback_disk_image"       => "Operator can re-activate a prior disk-image publication",
+    "system.platforms.manage_disk_image_policy"  => "Operator can edit cosign trust regexps + retention count on a NodePlatform",
+    "system.disk_image_webhooks.read"            => "List disk-image webhook secrets for the current account",
+    "system.disk_image_webhooks.create"          => "Create a new disk-image webhook secret",
+    "system.disk_image_webhooks.delete"          => "Revoke a disk-image webhook secret",
+    "system.disk_image_webhooks.rotate_secret"   => "Rotate a disk-image webhook's HMAC secret",
+    "system.ci_workers.read"                     => "List CI workers for the current account",
+    "system.ci_workers.create"                   => "Provision a new CI worker (returns plaintext token once)",
+    "system.ci_workers.delete"                   => "Revoke a CI worker",
+    "system.ci_workers.rotate_token"             => "Rotate a CI worker's authentication token"
   }.freeze
 
   # All permissions combined
@@ -777,6 +794,27 @@ module Permissions
         "system.worker.report",
         "system.worker.execute",
         "system.jobs.process",
+        "system.api.internal"
+      ]
+    },
+
+    # CI worker role — narrowly scoped for Gitea/GitHub Actions runners
+    # that publish disk images. Operators provision one of these per
+    # CI pipeline via the /app/system/ci-workers UI; the returned token
+    # is stored as a secret in the operator's CI configuration.
+    #
+    # Scope is deliberately minimal — `system.platforms.publish_disk_image`
+    # only. A leaked CI token can register disk images but cannot read
+    # other resources, escalate to other workers, or touch billing/AI.
+    # Plan: docs/plans/wondrous-yawning-anchor.md (Phase 2 — Chunk 1).
+    "ci_worker" => {
+      display_name: "CI Worker",
+      description: "External CI runner authorized only to register disk-image builds against this account's NodePlatforms",
+      role_type: "system",
+      permissions: [
+        "system.platforms.publish_disk_image",
+        # Worker auth basics — needed for token validation + activity tracking.
+        "system.worker.heartbeat",
         "system.api.internal"
       ]
     },

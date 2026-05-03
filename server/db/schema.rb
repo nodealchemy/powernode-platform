@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_03_030100) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_04_000200) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -9320,6 +9320,61 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_03_030100) do
     t.check_constraint "severity::text = ANY (ARRAY['critical'::character varying, 'high'::character varying, 'medium'::character varying, 'low'::character varying, 'unknown'::character varying]::text[])", name: "ck_cves_severity"
   end
 
+  create_table "system_disk_image_publications", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "arch", null: false
+    t.integer "attempt_count", default: 1, null: false
+    t.text "attestation_bundle", comment: "cosign attest-blob bundle over the publication payload predicate"
+    t.text "cosign_bundle", comment: "cosign sign-blob bundle over the .img bytes"
+    t.datetime "created_at", null: false
+    t.text "error_message"
+    t.uuid "file_object_id"
+    t.string "firmware_ref", comment: "rpi4-firmware module ref pinned at build time"
+    t.string "git_sha", null: false
+    t.uuid "node_platform_id", null: false
+    t.string "oci_ref", comment: "Source OCI artifact ref (null for direct-upload mode)"
+    t.jsonb "payload", default: {}, null: false
+    t.uuid "prior_file_object_id"
+    t.datetime "published_at"
+    t.datetime "purged_at"
+    t.datetime "retired_at"
+    t.string "sha256", null: false
+    t.bigint "size_bytes", null: false
+    t.string "status", default: "queued", null: false, comment: "queued|awaiting_upload|verifying|published|failed|retired|purged"
+    t.uuid "triggered_by_worker_id"
+    t.datetime "updated_at", null: false
+    t.datetime "verified_at"
+    t.uuid "webhook_id"
+    t.index ["account_id"], name: "index_system_disk_image_publications_on_account_id"
+    t.index ["file_object_id"], name: "index_system_disk_image_publications_on_file_object_id"
+    t.index ["node_platform_id", "created_at"], name: "idx_dip_platform_created_desc", order: { created_at: :desc }
+    t.index ["node_platform_id", "git_sha"], name: "idx_dip_platform_sha_unique", unique: true
+    t.index ["node_platform_id", "status"], name: "idx_dip_platform_status"
+    t.index ["node_platform_id"], name: "index_system_disk_image_publications_on_node_platform_id"
+    t.index ["prior_file_object_id"], name: "index_system_disk_image_publications_on_prior_file_object_id"
+    t.index ["status"], name: "index_system_disk_image_publications_on_status"
+    t.index ["triggered_by_worker_id"], name: "index_system_disk_image_publications_on_triggered_by_worker_id"
+    t.index ["webhook_id"], name: "index_system_disk_image_publications_on_webhook_id"
+  end
+
+  create_table "system_disk_image_webhooks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id"
+    t.string "label", null: false, comment: "Operator-chosen identifier (e.g. 'main-ci', 'release-pipeline')"
+    t.datetime "last_received_at"
+    t.datetime "last_rotated_at"
+    t.integer "received_count", default: 0, null: false
+    t.text "secret", null: false, comment: "HMAC secret for X-Powernode-Signature verification. Encrypted at rest via `encrypts :secret`. Plaintext shown to operator exactly once at create/rotate."
+    t.string "secret_preview", null: false, comment: "First 8 chars of the secret for operator UI disambiguation (so they can identify which secret is which without seeing the full value)."
+    t.string "status", default: "active", null: false, comment: "active|disabled|revoked"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "label"], name: "idx_diw_account_label_unique", unique: true
+    t.index ["account_id"], name: "index_system_disk_image_webhooks_on_account_id"
+    t.index ["created_by_id"], name: "index_system_disk_image_webhooks_on_created_by_id"
+    t.index ["status"], name: "index_system_disk_image_webhooks_on_status"
+  end
+
   create_table "system_fleet_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.uuid "certificate_id"
@@ -9706,10 +9761,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_03_030100) do
   create_table "system_node_platforms", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.text "build_script"
+    t.string "cosign_identity_regexp", comment: "Sigstore Fulcio identity regexp the publication processor will accept (e.g. 'https://git.ipnode.org/powernode/.+')"
+    t.string "cosign_issuer_regexp", comment: "Sigstore Fulcio OIDC issuer regexp (e.g. 'https://git.ipnode.org')"
     t.datetime "created_at", null: false
     t.text "description"
     t.datetime "disk_image_built_at"
     t.uuid "disk_image_file_object_id"
+    t.string "disk_image_git_sha", comment: "Git SHA of the source build that produced the active disk image"
+    t.string "disk_image_oci_ref", comment: "Last-published OCI reference (e.g. git.ipnode.org/powernode/disk-images/ubuntu-24.04-rpi4:abc123)"
+    t.text "disk_image_publication_error", comment: "Last error message if disk_image_publication_status='failed'"
+    t.string "disk_image_publication_status", default: "none", null: false, comment: "none|verifying|published|failed — operator-facing status"
+    t.integer "disk_image_retention_count", default: 3, null: false, comment: "Number of historical publications to retain before reaper purges (per platform)"
     t.string "disk_image_sha256"
     t.bigint "disk_image_size_bytes"
     t.boolean "enabled", default: true, null: false
@@ -12250,6 +12312,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_03_030100) do
   add_foreign_key "system_bootstrap_tokens", "system_nodes", column: "node_id"
   add_foreign_key "system_cve_exposures", "system_cves", column: "cve_id"
   add_foreign_key "system_cve_exposures", "system_node_module_versions", column: "node_module_version_id"
+  add_foreign_key "system_disk_image_publications", "accounts"
+  add_foreign_key "system_disk_image_publications", "file_objects"
+  add_foreign_key "system_disk_image_publications", "file_objects", column: "prior_file_object_id"
+  add_foreign_key "system_disk_image_publications", "system_disk_image_webhooks", column: "webhook_id"
+  add_foreign_key "system_disk_image_publications", "system_node_platforms", column: "node_platform_id"
+  add_foreign_key "system_disk_image_publications", "workers", column: "triggered_by_worker_id"
+  add_foreign_key "system_disk_image_webhooks", "accounts"
+  add_foreign_key "system_disk_image_webhooks", "users", column: "created_by_id"
   add_foreign_key "system_fleet_events", "accounts"
   add_foreign_key "system_instance_mount_points", "system_node_instances", column: "node_instance_id"
   add_foreign_key "system_instance_mount_points", "system_node_mount_points", column: "mount_point_id"

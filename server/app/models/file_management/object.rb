@@ -44,7 +44,8 @@ module FileManagement
     validates :category, inclusion: {
       in: %w[user_upload workflow_output ai_generated temp system import page_content
              sbom_export attestation_proof supply_chain_scan_report
-             vendor_compliance vendor_assessment vendor_certificate],
+             vendor_compliance vendor_assessment vendor_certificate
+             disk_image],
       allow_nil: true
     }
     validates :visibility, presence: true, inclusion: {
