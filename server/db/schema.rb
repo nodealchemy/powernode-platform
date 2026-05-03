@@ -9405,6 +9405,46 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_04_000300) do
     t.check_constraint "severity::text = ANY (ARRAY['low'::character varying::text, 'medium'::character varying::text, 'high'::character varying::text, 'critical'::character varying::text])", name: "ck_fleet_events_severity"
   end
 
+  create_table "system_gitops_repositories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.boolean "auto_apply", default: false, null: false
+    t.string "branch", default: "main", null: false
+    t.datetime "created_at", null: false
+    t.boolean "enabled", default: true, null: false
+    t.integer "last_diff_count", default: 0, null: false
+    t.text "last_error"
+    t.string "last_status", default: "pending"
+    t.datetime "last_synced_at"
+    t.string "last_synced_revision"
+    t.jsonb "metadata", default: {}
+    t.string "name", null: false
+    t.string "path_prefix", default: ""
+    t.string "repo_url", null: false
+    t.datetime "updated_at", null: false
+    t.string "vault_credential_path"
+    t.index ["account_id", "name"], name: "index_system_gitops_repositories_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_system_gitops_repositories_on_account_id"
+    t.index ["enabled"], name: "index_system_gitops_repositories_on_enabled"
+    t.index ["last_synced_at"], name: "index_system_gitops_repositories_on_last_synced_at"
+  end
+
+  create_table "system_gitops_sync_runs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.integer "diff_count", default: 0, null: false
+    t.jsonb "diff_summary", default: {}
+    t.text "error_message"
+    t.uuid "gitops_repository_id", null: false
+    t.uuid "proposal_ids", default: [], array: true
+    t.datetime "started_at", null: false
+    t.string "status", default: "running", null: false
+    t.string "synced_revision"
+    t.datetime "updated_at", null: false
+    t.index ["gitops_repository_id"], name: "index_system_gitops_sync_runs_on_gitops_repository_id"
+    t.index ["started_at"], name: "index_system_gitops_sync_runs_on_started_at"
+    t.index ["status"], name: "index_system_gitops_sync_runs_on_status"
+  end
+
   create_table "system_instance_mount_points", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.jsonb "config", default: {}, null: false
     t.datetime "created_at", null: false
@@ -12356,6 +12396,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_04_000300) do
   add_foreign_key "system_disk_image_webhooks", "accounts"
   add_foreign_key "system_disk_image_webhooks", "users", column: "created_by_id"
   add_foreign_key "system_fleet_events", "accounts"
+  add_foreign_key "system_gitops_repositories", "accounts"
+  add_foreign_key "system_gitops_sync_runs", "system_gitops_repositories", column: "gitops_repository_id"
   add_foreign_key "system_instance_mount_points", "system_node_instances", column: "node_instance_id"
   add_foreign_key "system_instance_mount_points", "system_node_mount_points", column: "mount_point_id"
   add_foreign_key "system_module_artifacts", "system_node_module_versions", column: "node_module_version_id"
