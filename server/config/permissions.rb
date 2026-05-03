@@ -806,11 +806,16 @@ module Permissions
     # Scope is deliberately minimal — `system.platforms.publish_disk_image`
     # only. A leaked CI token can register disk images but cannot read
     # other resources, escalate to other workers, or touch billing/AI.
+    #
+    # role_type: "user" so it's assignable to per-account workers
+    # (the platform's only one-system-worker constraint applies to
+    # role_type=system roles). The name is allow-listed in
+    # Worker.assignable_roles_for_account.
     # Plan: docs/plans/wondrous-yawning-anchor.md (Phase 2 — Chunk 1).
     "ci_worker" => {
       display_name: "CI Worker",
       description: "External CI runner authorized only to register disk-image builds against this account's NodePlatforms",
-      role_type: "system",
+      role_type: "user",
       permissions: [
         "system.platforms.publish_disk_image",
         # Worker auth basics — needed for token validation + activity tracking.

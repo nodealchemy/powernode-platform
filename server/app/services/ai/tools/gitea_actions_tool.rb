@@ -27,11 +27,16 @@ module Ai
 
       ACTIONS = %w[
         set_gitea_action_secret
+        set_gitea_action_secrets_bulk
         list_gitea_action_secrets
         delete_gitea_action_secret
         dispatch_gitea_workflow
+        list_gitea_workflows
         list_gitea_workflow_runs
         get_gitea_workflow_run
+        get_gitea_job_logs
+        cancel_gitea_workflow_run
+        rerun_gitea_workflow
       ].freeze
 
       def self.definition
@@ -108,6 +113,47 @@ module Ai
               repo:   { type: "string", required: true },
               run_id: { type: "string", required: true }
             }
+          },
+          "set_gitea_action_secrets_bulk" => {
+            description: "Set multiple per-repo Actions secrets in one call (efficiency wrapper). Replaces existing values; missing keys are unchanged.",
+            parameters: {
+              owner:   { type: "string", required: true },
+              repo:    { type: "string", required: true },
+              secrets: { type: "object", required: true, description: "Hash of {SECRET_NAME: 'plaintext value', ...}. Names beginning with GITEA_ or GITHUB_ are reserved by Gitea — use a different prefix (e.g. PLATFORM_READ_TOKEN)." }
+            }
+          },
+          "list_gitea_workflows" => {
+            description: "List all workflows defined in a repo (returns name + state for each .gitea/workflows/*.yaml file)",
+            parameters: {
+              owner: { type: "string", required: true },
+              repo:  { type: "string", required: true }
+            }
+          },
+          "get_gitea_job_logs" => {
+            description: "Fetch the raw log text for a workflow job. Useful for diagnosing failed runs without leaving the chat.",
+            parameters: {
+              owner:  { type: "string", required: true },
+              repo:   { type: "string", required: true },
+              job_id: { type: "string", required: true, description: "Job ID from get_gitea_workflow_run.jobs[].id" },
+              tail:   { type: "integer", required: false, description: "Return only the last N lines (default: full log)" },
+              grep:   { type: "string", required: false, description: "Filter to lines matching this regex (case-insensitive)" }
+            }
+          },
+          "cancel_gitea_workflow_run" => {
+            description: "Cancel a queued or in-progress workflow run",
+            parameters: {
+              owner:  { type: "string", required: true },
+              repo:   { type: "string", required: true },
+              run_id: { type: "string", required: true }
+            }
+          },
+          "rerun_gitea_workflow" => {
+            description: "Re-run a completed workflow run (useful for retrying transient failures)",
+            parameters: {
+              owner:  { type: "string", required: true },
+              repo:   { type: "string", required: true },
+              run_id: { type: "string", required: true }
+            }
           }
         }
       end
@@ -124,12 +170,17 @@ module Ai
         end
 
         case params[:action].to_s
-        when "set_gitea_action_secret"     then set_secret(client, params)
-        when "list_gitea_action_secrets"   then list_secrets(client, params)
-        when "delete_gitea_action_secret"  then delete_secret(client, params)
-        when "dispatch_gitea_workflow"     then dispatch_workflow(client, params)
-        when "list_gitea_workflow_runs"    then list_runs(client, params)
-        when "get_gitea_workflow_run"      then get_run(client, params)
+        when "set_gitea_action_secret"        then set_secret(client, params)
+        when "set_gitea_action_secrets_bulk"  then set_secrets_bulk(client, params)
+        when "list_gitea_action_secrets"      then list_secrets(client, params)
+        when "delete_gitea_action_secret"     then delete_secret(client, params)
+        when "dispatch_gitea_workflow"        then dispatch_workflow(client, params)
+        when "list_gitea_workflows"           then list_workflows(client, params)
+        when "list_gitea_workflow_runs"       then list_runs(client, params)
+        when "get_gitea_workflow_run"         then get_run(client, params)
+        when "get_gitea_job_logs"             then get_job_logs(client, params)
+        when "cancel_gitea_workflow_run"      then cancel_run(client, params)
+        when "rerun_gitea_workflow"           then rerun_run(client, params)
         else
           { success: false, error: "Unknown action: #{params[:action].inspect} (supported: #{ACTIONS.join(', ')})" }
         end
@@ -205,6 +256,93 @@ module Ai
         jobs = client.get_workflow_run_jobs(owner, repo, run_id) rescue []
 
         { success: true, owner: owner, repo: repo, run: run, jobs: jobs }
+      end
+
+      def set_secrets_bulk(client, params)
+        owner, repo = require_owner_repo(params)
+        return owner if owner.is_a?(Hash)
+
+        secrets = params[:secrets]
+        return { success: false, error: "secrets hash required" } unless secrets.is_a?(Hash) && secrets.any?
+
+        results = secrets.map do |name, value|
+          name = name.to_s
+          result = client.create_or_update_action_secret(owner, repo, name, value.to_s)
+          { secret_name: name, success: !!result[:success], error: result[:error] }
+        end
+
+        failures = results.reject { |r| r[:success] }
+        {
+          success: failures.empty?,
+          owner: owner, repo: repo,
+          set_count: results.length - failures.length,
+          failed_count: failures.length,
+          results: results,
+          message: failures.empty? ? "All secrets stored." : "Some secrets failed — check :results."
+        }
+      end
+
+      def list_workflows(client, params)
+        owner, repo = require_owner_repo(params)
+        return owner if owner.is_a?(Hash)
+
+        workflows = client.list_workflows(owner, repo)
+        normalized = Array(workflows).map do |w|
+          if w.is_a?(Hash)
+            { name: w["name"] || w["filename"], path: w["path"] || w["filename"], state: w["state"] }.compact
+          else
+            { name: w.to_s }
+          end
+        end
+        { success: true, owner: owner, repo: repo, count: normalized.length, workflows: normalized }
+      end
+
+      def get_job_logs(client, params)
+        owner, repo = require_owner_repo(params)
+        return owner if owner.is_a?(Hash)
+
+        job_id = params[:job_id].to_s
+        return { success: false, error: "job_id required" } if job_id.blank?
+
+        logs = client.get_job_logs(owner, repo, job_id)
+        return { success: false, error: "no logs returned for job #{job_id}" } unless logs.is_a?(String)
+
+        # Server-side filter to keep responses small. tail and grep can be combined.
+        if (regex = params[:grep]).present?
+          re = ::Regexp.new(regex.to_s, ::Regexp::IGNORECASE)
+          logs = logs.lines.select { |l| l.match?(re) }.join
+        end
+        if (tail_n = params[:tail]).present? && tail_n.to_i.positive?
+          logs = logs.lines.last(tail_n.to_i).join
+        end
+
+        { success: true, owner: owner, repo: repo, job_id: job_id, log_size_bytes: logs.bytesize, logs: logs }
+      end
+
+      def cancel_run(client, params)
+        owner, repo = require_owner_repo(params)
+        return owner if owner.is_a?(Hash)
+
+        run_id = params[:run_id].to_s
+        return { success: false, error: "run_id required" } if run_id.blank?
+
+        result = client.cancel_workflow_run(owner, repo, run_id)
+        return { success: false, error: result[:error] || "cancel failed" } unless result[:success]
+
+        { success: true, owner: owner, repo: repo, run_id: run_id, message: "Workflow run cancelled" }
+      end
+
+      def rerun_run(client, params)
+        owner, repo = require_owner_repo(params)
+        return owner if owner.is_a?(Hash)
+
+        run_id = params[:run_id].to_s
+        return { success: false, error: "run_id required" } if run_id.blank?
+
+        result = client.rerun_workflow(owner, repo, run_id)
+        return { success: false, error: result[:error] || "rerun failed" } unless result[:success]
+
+        { success: true, owner: owner, repo: repo, run_id: run_id, message: "Workflow run re-queued" }
       end
 
       def require_owner_repo(params)

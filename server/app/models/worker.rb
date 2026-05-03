@@ -188,8 +188,12 @@ class Worker < ApplicationRecord
       system?
     when "user"
       # User roles only valid for account workers (has account_id)
-      # Only specific user roles are allowed for management interface access
-      system? ? false : [ "member", "manager", "billing_admin", "developer", "owner" ].include?(role.name)
+      # Only specific user roles are allowed for management interface access.
+      # ci_worker is allow-listed: it's the narrowly-scoped role
+      # operators provision per-CI-pipeline (plan: docs/plans/wondrous-yawning-anchor.md
+      # Phase 2 — Chunk 1). It's not a "management interface" role but
+      # it IS account-scoped.
+      system? ? false : %w[member manager billing_admin developer owner ci_worker].include?(role.name)
     when "admin"
       # Admin roles only for system workers
       system?
@@ -204,8 +208,9 @@ class Worker < ApplicationRecord
       # System workers can have system and admin roles
       Role.where(role_type: [ "system", "admin" ])
     else
-      # Account workers can only have specific user roles for management interface
-      Role.where(role_type: "user").where(name: [ "member", "manager", "billing_admin", "developer", "owner" ])
+      # Account workers can only have specific user roles for management
+      # interface, plus the ci_worker scope for CI-runner authentication.
+      Role.where(role_type: "user").where(name: %w[member manager billing_admin developer owner ci_worker])
     end
   end
 

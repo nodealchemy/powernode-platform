@@ -28,12 +28,22 @@ module Ai
         "dispatch_to_runner" => "Ai::Tools::RunnerDispatchTool",
         # Gitea Actions: secrets management + workflow_dispatch + run monitoring.
         # Plan: docs/plans/wondrous-yawning-anchor.md (Phase 2 — operator-driven CI).
-        "set_gitea_action_secret"     => "Ai::Tools::GiteaActionsTool",
-        "list_gitea_action_secrets"   => "Ai::Tools::GiteaActionsTool",
-        "delete_gitea_action_secret"  => "Ai::Tools::GiteaActionsTool",
-        "dispatch_gitea_workflow"     => "Ai::Tools::GiteaActionsTool",
-        "list_gitea_workflow_runs"    => "Ai::Tools::GiteaActionsTool",
-        "get_gitea_workflow_run"      => "Ai::Tools::GiteaActionsTool",
+        "set_gitea_action_secret"        => "Ai::Tools::GiteaActionsTool",
+        "set_gitea_action_secrets_bulk"  => "Ai::Tools::GiteaActionsTool",
+        "list_gitea_action_secrets"      => "Ai::Tools::GiteaActionsTool",
+        "delete_gitea_action_secret"     => "Ai::Tools::GiteaActionsTool",
+        "dispatch_gitea_workflow"        => "Ai::Tools::GiteaActionsTool",
+        "list_gitea_workflows"           => "Ai::Tools::GiteaActionsTool",
+        "list_gitea_workflow_runs"       => "Ai::Tools::GiteaActionsTool",
+        "get_gitea_workflow_run"         => "Ai::Tools::GiteaActionsTool",
+        "get_gitea_job_logs"             => "Ai::Tools::GiteaActionsTool",
+        "cancel_gitea_workflow_run"      => "Ai::Tools::GiteaActionsTool",
+        "rerun_gitea_workflow"           => "Ai::Tools::GiteaActionsTool",
+        # Platform-side disk-image operator wrappers (one MCP call =
+        # one operator-meaningful step). Plan: docs/plans/wondrous-yawning-anchor.md.
+        "provision_disk_image_webhook"   => "Ai::Tools::DiskImageOperatorTool",
+        "provision_ci_worker"            => "Ai::Tools::DiskImageOperatorTool",
+        "bootstrap_disk_image_ci"        => "Ai::Tools::DiskImageOperatorTool",
         # Container deployment & management
         "deploy_container_agent" => "Ai::Tools::ContainerDeploymentTool",
         "container_status" => "Ai::Tools::ContainerStatusTool",
