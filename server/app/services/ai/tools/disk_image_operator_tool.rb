@@ -165,10 +165,16 @@ module Ai
         gitea_credential = find_gitea_credential
         return { success: false, error: "No active Gitea credential found for this account" } unless gitea_credential
 
+        # Build the webhook URL using the operator-supplied platform_api_base
+        # so the URL CI hits is reachable from the runner. POWERNODE_PUBLIC_URL
+        # env (set on the platform host) is the secondary fallback. Default
+        # localhost:3000 is the last resort for tests/dev.
+        webhook_url = build_webhook_url(webhook, host_override: platform_api_base)
+
         gitea_client = ::Devops::Git::ApiClient.for(gitea_credential)
         secret_results = {}
         {
-          "POWERNODE_DISK_IMAGE_WEBHOOK_URL"    => build_webhook_url(webhook),
+          "POWERNODE_DISK_IMAGE_WEBHOOK_URL"    => webhook_url,
           "POWERNODE_DISK_IMAGE_WEBHOOK_SECRET" => webhook_secret,
           "POWERNODE_CI_WORKER_TOKEN"           => worker_token,
           "POWERNODE_API_BASE"                  => platform_api_base
@@ -209,7 +215,7 @@ module Ai
 
         result = {
           success: true,
-          webhook:  { id: webhook.id, label: webhook.label, action: webhook_action, url: build_webhook_url(webhook), secret_preview: webhook_secret[0, 12] + "..." },
+          webhook:  { id: webhook.id, label: webhook.label, action: webhook_action, url: webhook_url, secret_preview: webhook_secret[0, 12] + "..." },
           ci_worker: { id: worker.id, name: worker.name, action: worker_action, token_preview: worker_token[0, 12] + "..." },
           gitea_secrets_set: secret_results,
           note:    "Operator's CI workflow can now publish disk images. Trigger via dispatch_gitea_workflow or push a tag."
@@ -220,9 +226,10 @@ module Ai
         { success: false, error: "Bootstrap failed: #{e.class}: #{e.message}" }
       end
 
-      def build_webhook_url(webhook)
-        base = ENV.fetch("POWERNODE_PUBLIC_URL", "http://localhost:3000")
-        "#{base}/api/v1/system/webhooks/disk_image/built/#{webhook.id}"
+      def build_webhook_url(webhook, host_override: nil)
+        base = host_override.presence ||
+               ENV.fetch("POWERNODE_PUBLIC_URL", "http://localhost:3000")
+        "#{base.chomp('/')}/api/v1/system/webhooks/disk_image/built/#{webhook.id}"
       end
 
       def find_gitea_credential
