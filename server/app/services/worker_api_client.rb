@@ -70,6 +70,30 @@ class WorkerApiClient
     )
   end
 
+  # Queue the async tail of a disk-image webhook receive — worker
+  # picks up the publication, calls back to /worker_api/disk_image_publications/process,
+  # which runs the long-pole oras pull + cosign verify + storage upload.
+  # Plan: docs/plans/wondrous-yawning-anchor.md (Phase 2 — Chunk 2).
+  def queue_disk_image_publication_processing(publication_id:)
+    queue_job(
+      "System::ProcessDiskImagePublicationJob",
+      [ publication_id ],
+      queue: "services"
+    )
+  end
+
+  # Queue the per-publish retention sweep — fires immediately after a
+  # successful publish so old DiskImagePublications get retired without
+  # waiting for the daily 3:30 AM reaper. Idempotent: re-runs are no-ops
+  # when nothing's eligible.
+  def queue_disk_image_retention_sweep(platform_id:)
+    queue_job(
+      "System::ExpireOldDiskImageFileObjectsJob",
+      [],
+      queue: "maintenance"
+    )
+  end
+
   # Queue a Git pipeline sync job
   # @param repository_id [String] GitRepository ID
   # @param external_pipeline_id [String] Optional external pipeline ID to sync specific run

@@ -7,6 +7,7 @@ class FileStorageService
   class StorageNotFoundError < StandardError; end
   class FileNotFoundError < StandardError; end
   class InvalidFileError < StandardError; end
+  class NotSupportedError < StandardError; end
 
   attr_reader :account, :storage_config, :provider
 
@@ -503,6 +504,83 @@ class FileStorageService
       queue_processing_job(file_object, task)
     end
   end
+
+  public
+
+  def storage_supports_direct_upload?
+    %w[s3 azure gcs].include?(@storage_config.provider_type.to_s.downcase)
+  end
+
+  # ─── Direct-upload + integrity verification (Phase 2 — Chunk 2) ─────
+  #
+  # Plan: docs/plans/wondrous-yawning-anchor.md.
+
+  # Issues a presigned PUT URL so a CI runner can upload a multi-GB blob
+  # directly to the storage backend without it transiting Rails. Only
+  # S3/Azure/GCS providers support direct upload — Local/NFS/SMB raise
+  # NotSupportedError, and the caller (worker_api initiate endpoint)
+  # returns 422 with "use OCI-pull mode instead" guidance.
+  #
+  # Creates the FileObject record up front so the CI runner gets back
+  # a stable file_object_id to reference at /finalize time. The bytes
+  # haven't landed yet — checksum_sha256 reflects the EXPECTED sha
+  # (caller-supplied). /finalize then verifies the actual bytes match.
+  def signed_upload_url(category:, filename:, content_type:, expected_sha256:,
+                        expected_size_bytes:, expires_in: 1.hour, uploaded_by: nil)
+    unless storage_supports_direct_upload?
+      raise NotSupportedError,
+            "Storage backend '#{@storage_config.provider_type}' does not support presigned uploads. " \
+            "Use the OCI-pull publication mode instead, or migrate to S3/Azure/GCS."
+    end
+
+    storage_key = generate_storage_key(filename, category)
+
+    file_object = FileManagement::Object.create!(
+      account: account,
+      storage: @storage_config,
+      filename: filename,
+      content_type: content_type,
+      file_size: expected_size_bytes,
+      checksum_sha256: expected_sha256,
+      storage_key: storage_key,
+      visibility: "private",
+      category: category,
+      processing_status: "pending",
+      uploaded_by: uploaded_by
+    )
+
+    url = @provider.presigned_upload_url(
+      storage_key,
+      filename: filename,
+      content_type: content_type,
+      expires_in: expires_in
+    )
+
+    {
+      file_object_id:    file_object.id,
+      upload_url:        url,
+      upload_expires_at: Time.current + expires_in
+    }
+  end
+
+  # Streams the stored bytes through SHA-256 and compares to the
+  # FileObject's checksum_sha256 column. Used after a direct upload
+  # completes — verifies the bytes the operator's CI runner PUT
+  # actually match the SHA they declared at /initiate time.
+  def verify_integrity(file_object)
+    expected = file_object.checksum_sha256
+    digest = Digest::SHA256.new
+    @provider.stream_file(file_object) { |chunk| digest.update(chunk) }
+    computed = digest.hexdigest
+
+    {
+      verified:        expected.present? && computed == expected,
+      computed_sha256: computed,
+      expected_sha256: expected
+    }
+  end
+
+  private
 
   def log_info(message)
     @logger.info "[FileStorageService] #{message}"

@@ -552,6 +552,8 @@ class JobsController
       # System extension jobs
       'System::ProcessModulePublicationJob',
       'System::ExpireUnclaimedDevicesJob',
+      'System::ProcessDiskImagePublicationJob',
+      'System::ExpireOldDiskImageFileObjectsJob',
       # AI jobs
       'AiConversationProcessingJob',
       'AiAgentExecutionJob',
