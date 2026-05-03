@@ -323,14 +323,21 @@ the live code:
 | **P0 #6** Azure provider Faraday-2 fix or removal | ✅ closed | `AzureProvider` rewritten to use raw HTTP via Faraday 2 (avoids Track 1 SDK dependency that pinned Faraday <2). Loads cleanly via `Rails.application.eager_load!` |
 | **P1 #7** Provider catalog ingestion service | ✅ closed | `Providers::CatalogSyncService` shipped + `provider_connections#sync_catalog` action |
 | **P1 #8** Service return convention normalization | 🟡 partial | Runtime services consistently use `Runtime::Result`; some core services still return bare hashes (acceptable) |
-| **P1 #9** Frontend gaps (E-H1, E-H2, E-H3) | 🟡 partial | E-H1 ("Test credentials" button) ✅; E-H2/E-H3 still open |
+| **P1 #9** Frontend gaps (E-H1, E-H2, E-H3) | ✅ closed | E-H1 "Test credentials" button ✅; E-H2 Template Export wired in `TemplateList.tsx:67-72` (`canExport` + `handleExport` calling `systemApi.exportTemplate`); E-H3 `PuppetResourceForm.tsx` complete component covering all 13 resource types |
 | **P1 #10** `claimed_by_worker_id` on Task | ✅ closed | Added in `20260429184000_add_claimed_by_to_system_operations` |
 | **P2 #12** Extract `task.events` JSON to dedicated table | ⬜ open | Audit volume hasn't justified the table extraction yet |
 | **P2 #13** Metrics instrumentation | ⬜ open | No StatsD/OpenTelemetry yet; structured Rails.logger.tagged calls partially in place |
 | **P3 #17–21** Bulk ops, quotas, drift detection, retry, scheduled ops | ⏸️ deferred | Demand-driven; no production driver yet |
 
-**Net status**: 9 of 13 P0/P1 items closed; 2 partial; 2 P2 items still
-open; P3 deferred. The active May-2026 stabilization sweep
-(`extensions/system/docs/TASKS.md`) layers further capabilities on top:
-P3 encryption, P4 SBOM CVE matching, P5 GitOps, P6 NodeInstance peers,
-P7 UI features.
+**Net status**: **10 of 13** P0/P1 items closed; 1 partial; 2 P2 items still
+open; P3 deferred. The May-2026 stabilization sweep shipped the
+remaining capabilities (P3 encryption, P4 SBOM CVE matching, P5 GitOps,
+P6 NodeInstance peers, P7 UI features) — see
+`extensions/system/docs/TASKS.md`.
+
+For the items that remain (RuboCop sweep, syft CI ingestion, Concierge
+backend routing, mention picker integration, metrics instrumentation,
+`task.events` table extraction), a refined sequenced roadmap is in
+`~/.claude/plans/perform-comprehensive-examination-of-glistening-perlis.md`
+under "Phase 10 — Deferred Item Roadmap" (~17 engineer-days total,
+parallelizable across two weeks).
