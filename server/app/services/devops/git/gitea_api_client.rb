@@ -338,6 +338,115 @@ module Devops
       end
     end
 
+    # ─── Gitea personal access token (PAT) management ─────────────────
+    # Operates on the authenticated user (the credential's own user).
+    # Used by GiteaActionsTool to mint a scoped read token for CI
+    # workflows that need to clone private repos — without forcing the
+    # operator to leave the chat and use Gitea's web UI.
+    #
+    # Gitea API:
+    #   POST   /users/{username}/tokens   — create
+    #   GET    /users/{username}/tokens   — list (no plaintext)
+    #   DELETE /users/{username}/tokens/{name_or_id} — delete
+    #
+    # Returns the plaintext token in the `sha1` field (Gitea naming
+    # oddity — the value IS the token, NOT a SHA digest). We rename to
+    # `token` in the result hash so callers don't have to remember.
+    def create_user_token(name, scopes: %w[read:repository])
+      with_error_handling do
+        username = current_user["username"] || current_user[:username]
+        return { success: false, error: "could not resolve current user" } if username.blank?
+
+        # POST /users/{username}/tokens REQUIRES HTTP Basic Auth — Gitea
+        # rejects bearer/token auth on this endpoint to prevent PAT-from-PAT
+        # privilege escalation. PATs CAN be used as the password in Basic
+        # Auth (Gitea v1.21+), so we get the same security posture as a
+        # password-based call without needing to store the user's password.
+        # The acting PAT must have `write:user` scope.
+        response = basic_auth_request(:post, "/api/v1/users/#{username}/tokens",
+                                      body: { name: name, scopes: Array(scopes) })
+
+        unless response.success?
+          require "json"
+          err_body = (::JSON.parse(response.body) rescue {})
+          msg = err_body["message"] || response.reason_phrase
+          return { success: false, error: "Gitea PAT creation failed (#{response.status}): #{msg}. Acting credential must have write:user scope (or use a credential with a Gitea password instead of a PAT)." }
+        end
+
+        require "json"
+        result = ::JSON.parse(response.body)
+        plaintext = result["sha1"]
+        return { success: false, error: "Gitea returned no token in response" } if plaintext.blank?
+
+        {
+          success: true,
+          token_id:    result["id"],
+          name:        result["name"],
+          token:       plaintext,
+          scopes:      Array(result["scopes"])
+        }
+      end
+    end
+
+    def list_user_tokens
+      username = current_user["username"] || current_user[:username]
+      return [] if username.blank?
+
+      # GET /users/{username}/tokens also requires Basic Auth (same gate
+      # as POST). Bearer auth returns 401.
+      response = basic_auth_request(:get, "/api/v1/users/#{username}/tokens")
+      return [] unless response.success?
+
+      result = ::JSON.parse(response.body) rescue []
+      Array(result).map do |t|
+        next nil unless t.is_a?(Hash)
+        {
+          id:               t["id"],
+          name:             t["name"],
+          scopes:           Array(t["scopes"]),
+          token_last_eight: t["token_last_eight"]
+        }.compact
+      end.compact
+    rescue StandardError
+      []
+    end
+
+    def delete_user_token(name_or_id)
+      with_error_handling do
+        username = current_user["username"] || current_user[:username]
+        return { success: false, error: "could not resolve current user" } if username.blank?
+
+        response = basic_auth_request(:delete, "/api/v1/users/#{username}/tokens/#{name_or_id}")
+        unless response.success?
+          err_body = (::JSON.parse(response.body) rescue {})
+          return { success: false, error: "Gitea PAT deletion failed (#{response.status}): #{err_body['message'] || response.reason_phrase}" }
+        end
+
+        { success: true, name_or_id: name_or_id }
+      end
+    end
+
+    # Helper: Gitea's user-token CRUD endpoints all reject bearer auth
+    # and require HTTP Basic Auth (PAT can be used as the password).
+    # Build a one-off Faraday connection per call so we don't pollute
+    # the main bearer-authenticated client.
+    def basic_auth_request(method, path, body: nil)
+      require "faraday"
+      require "json"
+      require "base64"
+
+      username = current_user["username"] || current_user[:username]
+      basic_auth_header = "Basic #{::Base64.strict_encode64("#{username}:#{@token}")}"
+
+      conn = ::Faraday.new(url: @base_url) { |f| f.adapter ::Faraday.default_adapter }
+      conn.send(method, path) do |req|
+        req.headers["Authorization"] = basic_auth_header
+        req.headers["Accept"]        = "application/json"
+        req.headers["Content-Type"]  = "application/json" if body
+        req.body = body.to_json if body
+      end
+    end
+
     def cancel_workflow_run(owner, repo, run_id)
       with_error_handling do
         post("/repos/#{owner}/#{repo}/actions/runs/#{run_id}/cancel")

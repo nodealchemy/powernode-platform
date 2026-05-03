@@ -37,6 +37,9 @@ module Ai
         get_gitea_job_logs
         cancel_gitea_workflow_run
         rerun_gitea_workflow
+        create_gitea_user_token
+        list_gitea_user_tokens
+        delete_gitea_user_token
       ].freeze
 
       def self.definition
@@ -45,8 +48,11 @@ module Ai
           description: "Gitea Actions secrets management + workflow_dispatch + run monitoring",
           parameters: {
             action: { type: "string", required: true, description: "One of: #{ACTIONS.join(', ')}" },
-            owner:  { type: "string", required: true,  description: "Repository owner (username or organization)" },
-            repo:   { type: "string", required: true,  description: "Repository name" },
+            # owner/repo are required for repo-scoped actions but NOT for the
+            # 3 user-scoped PAT actions (create/list/delete_gitea_user_token).
+            # Action-level guards (require_owner_repo) enforce them where needed.
+            owner:  { type: "string", required: false, description: "Repository owner (required for repo-scoped actions)" },
+            repo:   { type: "string", required: false, description: "Repository name (required for repo-scoped actions)" },
             # set_gitea_action_secret + delete_gitea_action_secret
             secret_name:  { type: "string", required: false, description: "Secret key (e.g. POWERNODE_DISK_IMAGE_WEBHOOK_SECRET)" },
             secret_value: { type: "string", required: false, description: "Secret plaintext (set actions only — not returned by list)" },
@@ -154,6 +160,24 @@ module Ai
               repo:   { type: "string", required: true },
               run_id: { type: "string", required: true }
             }
+          },
+          "create_gitea_user_token" => {
+            description: "Create a personal access token for the authenticated Gitea user. Returns plaintext EXACTLY ONCE — caller must capture. Use to mint scoped read tokens for CI workflows without leaving the chat.",
+            parameters: {
+              token_name:        { type: "string",  required: true,  description: "Human-readable name for the token (e.g. 'platform-ci-readonly')" },
+              scopes:            { type: "array",   required: false, description: "Gitea scope strings (default: ['read:repository']). Common: read:repository, write:repository, read:user, write:user, write:package" },
+              set_as_secret:     { type: "object",  required: false, description: "Optional: immediately set the new token as a Gitea Actions secret. Hash: {owner, repo, secret_name}. Combines mint + paste in one call." }
+            }
+          },
+          "list_gitea_user_tokens" => {
+            description: "List the authenticated user's personal access tokens (names + scopes only — plaintext is never returned by Gitea after creation)",
+            parameters: {}
+          },
+          "delete_gitea_user_token" => {
+            description: "Delete a personal access token by name or numeric ID. Used for rotation or cleanup.",
+            parameters: {
+              name_or_id: { type: "string", required: true, description: "Token name or numeric ID (from list_gitea_user_tokens)" }
+            }
           }
         }
       end
@@ -183,6 +207,9 @@ module Ai
         when "get_gitea_job_logs"             then get_job_logs(client, params)
         when "cancel_gitea_workflow_run"      then cancel_run(client, params)
         when "rerun_gitea_workflow"           then rerun_run(client, params)
+        when "create_gitea_user_token"        then create_user_token(client, params)
+        when "list_gitea_user_tokens"         then list_user_tokens(client)
+        when "delete_gitea_user_token"        then delete_user_token(client, params)
         else
           { success: false, error: "Unknown action: #{params[:action].inspect} (supported: #{ACTIONS.join(', ')})" }
         end
@@ -345,6 +372,62 @@ module Ai
         return { success: false, error: result[:error] || "rerun failed" } unless result[:success]
 
         { success: true, owner: owner, repo: repo, run_id: run_id, message: "Workflow run re-queued" }
+      end
+
+      # Mint a Gitea PAT for the authenticated user. Optionally pipe it
+      # straight into a repo's Actions secret in a single call — collapses
+      # 3 manual web UI steps (generate token → copy → paste into secret)
+      # into one MCP invocation.
+      def create_user_token(client, params)
+        token_name = params[:token_name].to_s
+        return { success: false, error: "token_name required" } if token_name.blank?
+
+        scopes = Array(params[:scopes]).map(&:to_s)
+        scopes = %w[read:repository] if scopes.empty?
+
+        result = client.create_user_token(token_name, scopes: scopes)
+        return { success: false, error: result[:error] || "create failed" } unless result[:success]
+
+        response = {
+          success:    true,
+          token_id:   result[:token_id],
+          token_name: result[:name],
+          scopes:     result[:scopes],
+          plaintext:  result[:token],
+          note:       "Plaintext token shown ONCE. Save it now — Gitea cannot retrieve it again."
+        }
+
+        # Optional: pipe straight into a repo's Actions secret.
+        sas = params[:set_as_secret]
+        if sas.is_a?(Hash) && sas[:owner].present? && sas[:repo].present? && sas[:secret_name].present?
+          # NOTE: Gitea reserves GITEA_* and GITHUB_* secret names.
+          # Caller must pick a non-reserved name (e.g. PLATFORM_READ_TOKEN).
+          set_result = client.create_or_update_action_secret(
+            sas[:owner].to_s, sas[:repo].to_s, sas[:secret_name].to_s, result[:token]
+          )
+          response[:set_as_secret] = if set_result[:success]
+                                       { ok: true, owner: sas[:owner], repo: sas[:repo], secret_name: sas[:secret_name] }
+                                     else
+                                       { ok: false, error: set_result[:error] }
+                                     end
+        end
+
+        response
+      end
+
+      def list_user_tokens(client)
+        tokens = client.list_user_tokens
+        { success: true, count: tokens.length, tokens: tokens }
+      end
+
+      def delete_user_token(client, params)
+        name_or_id = params[:name_or_id].to_s
+        return { success: false, error: "name_or_id required" } if name_or_id.blank?
+
+        result = client.delete_user_token(name_or_id)
+        return { success: false, error: result[:error] || "delete failed" } unless result[:success]
+
+        { success: true, name_or_id: name_or_id, message: "User token deleted" }
       end
 
       def require_owner_repo(params)

@@ -37,7 +37,7 @@ RSpec.describe Ai::Tools::GiteaActionsTool do
       expect(described_class.definition[:name]).to eq("gitea_actions")
     end
 
-    it "lists all 11 actions in ACTIONS constant" do
+    it "lists all 14 actions in ACTIONS constant" do
       expect(described_class::ACTIONS).to contain_exactly(
         "set_gitea_action_secret",
         "set_gitea_action_secrets_bulk",
@@ -49,7 +49,10 @@ RSpec.describe Ai::Tools::GiteaActionsTool do
         "get_gitea_workflow_run",
         "get_gitea_job_logs",
         "cancel_gitea_workflow_run",
-        "rerun_gitea_workflow"
+        "rerun_gitea_workflow",
+        "create_gitea_user_token",
+        "list_gitea_user_tokens",
+        "delete_gitea_user_token"
       )
     end
 
@@ -307,6 +310,101 @@ RSpec.describe Ai::Tools::GiteaActionsTool do
       result = tool.execute(params: { action: "rerun_gitea_workflow", owner: "o", repo: "r", run_id: "42" })
       expect(result[:success]).to be true
       expect(result[:message]).to eq("Workflow run re-queued")
+    end
+  end
+
+  describe "create_gitea_user_token" do
+    it "delegates to client.create_user_token + returns plaintext" do
+      expect(client).to receive(:create_user_token)
+        .with("my-token", scopes: %w[read:repository])
+        .and_return({
+          success: true, token_id: 42, name: "my-token",
+          token: "abcdef0123456789abcdef0123456789abcdef01",
+          scopes: %w[read:repository]
+        })
+
+      result = tool.execute(params: { action: "create_gitea_user_token", token_name: "my-token" })
+      expect(result[:success]).to be true
+      expect(result[:plaintext]).to start_with("abcdef")
+      expect(result[:token_id]).to eq(42)
+      expect(result[:note]).to match(/shown ONCE/)
+    end
+
+    it "respects custom scopes" do
+      expect(client).to receive(:create_user_token)
+        .with("admin-token", scopes: %w[write:user write:repository])
+        .and_return({ success: true, token_id: 1, name: "admin-token", token: "x" * 40, scopes: %w[write:user write:repository] })
+
+      tool.execute(params: { action: "create_gitea_user_token", token_name: "admin-token", scopes: %w[write:user write:repository] })
+    end
+
+    it "pipes through to set_as_secret when provided" do
+      allow(client).to receive(:create_user_token).and_return({ success: true, token_id: 7, name: "n", token: "t" * 40, scopes: %w[read:repository] })
+      expect(client).to receive(:create_or_update_action_secret)
+        .with("o", "r", "PLATFORM_READ_TOKEN", "t" * 40)
+        .and_return({ success: true })
+
+      result = tool.execute(params: {
+        action: "create_gitea_user_token",
+        token_name: "n",
+        set_as_secret: { owner: "o", repo: "r", secret_name: "PLATFORM_READ_TOKEN" }
+      })
+      expect(result[:set_as_secret]).to include(ok: true, secret_name: "PLATFORM_READ_TOKEN")
+    end
+
+    it "surfaces set_as_secret failures without losing the plaintext token" do
+      allow(client).to receive(:create_user_token).and_return({ success: true, token_id: 7, name: "n", token: "t" * 40, scopes: [] })
+      allow(client).to receive(:create_or_update_action_secret).and_return({ success: false, error: "rejected" })
+
+      result = tool.execute(params: {
+        action: "create_gitea_user_token",
+        token_name: "n",
+        set_as_secret: { owner: "o", repo: "r", secret_name: "X" }
+      })
+      expect(result[:success]).to be true # PAT was minted; secret-set failure is reported separately
+      expect(result[:plaintext]).to eq("t" * 40)
+      expect(result[:set_as_secret][:ok]).to be false
+    end
+
+    it "rejects blank token_name" do
+      result = tool.execute(params: { action: "create_gitea_user_token", token_name: "" })
+      expect(result[:success]).to be false
+      expect(result[:error]).to eq("token_name required")
+    end
+
+    it "surfaces upstream Gitea PAT creation errors" do
+      expect(client).to receive(:create_user_token).and_return({ success: false, error: "Gitea PAT creation failed (401): bad credentials" })
+      result = tool.execute(params: { action: "create_gitea_user_token", token_name: "x" })
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/Gitea PAT creation failed/)
+    end
+  end
+
+  describe "list_gitea_user_tokens" do
+    it "returns the list shape with id + name + scopes per token" do
+      expect(client).to receive(:list_user_tokens).and_return([
+        { id: 1, name: "dev",      scopes: %w[all] },
+        { id: 2, name: "platform", scopes: %w[read:repository] }
+      ])
+      result = tool.execute(params: { action: "list_gitea_user_tokens" })
+      expect(result[:success]).to be true
+      expect(result[:count]).to eq(2)
+      expect(result[:tokens].map { |t| t[:name] }).to contain_exactly("dev", "platform")
+    end
+  end
+
+  describe "delete_gitea_user_token" do
+    it "delegates to client.delete_user_token" do
+      expect(client).to receive(:delete_user_token).with("dev").and_return({ success: true })
+      result = tool.execute(params: { action: "delete_gitea_user_token", name_or_id: "dev" })
+      expect(result[:success]).to be true
+      expect(result[:message]).to eq("User token deleted")
+    end
+
+    it "rejects blank name_or_id" do
+      result = tool.execute(params: { action: "delete_gitea_user_token" })
+      expect(result[:success]).to be false
+      expect(result[:error]).to eq("name_or_id required")
     end
   end
 end

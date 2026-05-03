@@ -39,6 +39,9 @@ module Ai
         "get_gitea_job_logs"             => "Ai::Tools::GiteaActionsTool",
         "cancel_gitea_workflow_run"      => "Ai::Tools::GiteaActionsTool",
         "rerun_gitea_workflow"           => "Ai::Tools::GiteaActionsTool",
+        "create_gitea_user_token"        => "Ai::Tools::GiteaActionsTool",
+        "list_gitea_user_tokens"         => "Ai::Tools::GiteaActionsTool",
+        "delete_gitea_user_token"        => "Ai::Tools::GiteaActionsTool",
         # Platform-side disk-image operator wrappers (one MCP call =
         # one operator-meaningful step). Plan: docs/plans/wondrous-yawning-anchor.md.
         "provision_disk_image_webhook"   => "Ai::Tools::DiskImageOperatorTool",

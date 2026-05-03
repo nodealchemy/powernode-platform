@@ -176,5 +176,79 @@ RSpec.describe Ai::Tools::DiskImageOperatorTool do
       expect(result[:success]).to be true # bootstrap itself succeeded; partial secret failures surface in detail map
       expect(result[:gitea_secrets_set].values).to all(match(/error/))
     end
+
+    context "with create_platform_read_token: true" do
+      it "mints a PAT, sets PLATFORM_READ_TOKEN secret, returns token preview" do
+        allow(gitea_client).to receive(:delete_user_token) # idempotent cleanup; may noop
+        expect(gitea_client).to receive(:create_user_token)
+          .with("plat-test-platform-ci-readonly", scopes: %w[read:repository read:user])
+          .and_return({
+            success: true, token_id: 99, name: "plat-test-platform-ci-readonly",
+            token: "abcdef0123456789abcdef0123456789abcdef01", scopes: %w[read:repository read:user]
+          })
+        expect(gitea_client).to receive(:create_or_update_action_secret)
+          .with("o", "r", "PLATFORM_READ_TOKEN", "abcdef0123456789abcdef0123456789abcdef01")
+          .and_return({ success: true })
+
+        result = tool.execute(params: {
+          action: "bootstrap_disk_image_ci",
+          owner: "o", repo: "r", label: "plat-test",
+          create_platform_read_token: true
+        })
+
+        expect(result[:success]).to be true
+        expect(result[:platform_read_token][:token_id]).to eq(99)
+        expect(result[:platform_read_token][:plaintext_set_as_secret]).to eq("PLATFORM_READ_TOKEN")
+        expect(result[:gitea_secrets_set]["PLATFORM_READ_TOKEN"]).to eq("ok")
+      end
+
+      it "is idempotent: deletes existing token with same name first (delete failure does not block create)" do
+        # Prior token exists; delete_user_token may succeed or fail — bootstrap
+        # uses `rescue nil` so a missing prior token doesn't break the flow.
+        allow(gitea_client).to receive(:delete_user_token).and_raise(StandardError.new("not found"))
+        expect(gitea_client).to receive(:create_user_token).and_return({
+          success: true, token_id: 100, name: "plat-test-platform-ci-readonly",
+          token: "x" * 40, scopes: %w[read:repository read:user]
+        })
+        allow(gitea_client).to receive(:create_or_update_action_secret).and_return({ success: true })
+
+        result = tool.execute(params: {
+          action: "bootstrap_disk_image_ci",
+          owner: "o", repo: "r", label: "plat-test",
+          create_platform_read_token: true
+        })
+        expect(result[:success]).to be true
+        expect(result[:platform_read_token][:token_id]).to eq(100)
+      end
+
+      it "respects platform_read_token_name override" do
+        allow(gitea_client).to receive(:delete_user_token)
+        expect(gitea_client).to receive(:create_user_token)
+          .with("custom-token-name", scopes: %w[read:repository read:user])
+          .and_return({ success: true, token_id: 1, name: "custom-token-name", token: "x" * 40, scopes: [] })
+        allow(gitea_client).to receive(:create_or_update_action_secret).and_return({ success: true })
+
+        tool.execute(params: {
+          action: "bootstrap_disk_image_ci",
+          owner: "o", repo: "r", label: "default-label",
+          create_platform_read_token: true,
+          platform_read_token_name: "custom-token-name"
+        })
+      end
+
+      it "surfaces token-mint failure in platform_read_token map" do
+        allow(gitea_client).to receive(:delete_user_token)
+        allow(gitea_client).to receive(:create_user_token).and_return({ success: false, error: "scope insufficient" })
+        allow(gitea_client).to receive(:create_or_update_action_secret).and_return({ success: true })
+
+        result = tool.execute(params: {
+          action: "bootstrap_disk_image_ci",
+          owner: "o", repo: "r", label: "fail-token",
+          create_platform_read_token: true
+        })
+        expect(result[:success]).to be true # the rest of bootstrap still succeeds
+        expect(result[:platform_read_token][:error]).to match(/scope insufficient/)
+      end
+    end
   end
 end

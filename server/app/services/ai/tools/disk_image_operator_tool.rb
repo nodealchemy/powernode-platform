@@ -49,12 +49,14 @@ module Ai
             }
           },
           "bootstrap_disk_image_ci" => {
-            description: "End-to-end setup: provision webhook + CI worker, set all 4 needed Gitea Actions secrets in one call (POWERNODE_DISK_IMAGE_WEBHOOK_URL, POWERNODE_DISK_IMAGE_WEBHOOK_SECRET, POWERNODE_CI_WORKER_TOKEN, POWERNODE_API_BASE). Idempotent: re-running with the same label updates existing rows + re-sets secrets.",
+            description: "End-to-end setup: provision webhook + CI worker, set all 4 needed Gitea Actions secrets in one call (POWERNODE_DISK_IMAGE_WEBHOOK_URL, POWERNODE_DISK_IMAGE_WEBHOOK_SECRET, POWERNODE_CI_WORKER_TOKEN, POWERNODE_API_BASE). Optionally also mints a Gitea PAT and sets it as PLATFORM_READ_TOKEN for the parent platform checkout step. Idempotent: re-running with the same label rotates secrets + token.",
             parameters: {
-              owner:           { type: "string", required: true,  description: "Gitea repo owner" },
-              repo:            { type: "string", required: true,  description: "Gitea repo name" },
-              label:           { type: "string", required: true,  description: "Operator-chosen identifier (used for both webhook label and CI worker name)" },
-              platform_api_base: { type: "string", required: false, description: "Public-routable platform API base URL CI runners will call back to (default: ENV['POWERNODE_PUBLIC_URL'] or 'http://localhost:3000')" }
+              owner:           { type: "string",  required: true,  description: "Gitea repo owner" },
+              repo:            { type: "string",  required: true,  description: "Gitea repo name" },
+              label:           { type: "string",  required: true,  description: "Operator-chosen identifier (used for both webhook label and CI worker name)" },
+              platform_api_base: { type: "string", required: false, description: "Public-routable platform API base URL CI runners will call back to (default: ENV['POWERNODE_PUBLIC_URL'] or 'http://localhost:3000')" },
+              create_platform_read_token: { type: "boolean", required: false, description: "When true (default false), mint a Gitea PAT with read:repository scope and set it as PLATFORM_READ_TOKEN secret in the same repo. Closes the manual 'go to Gitea web UI to generate a PAT' step." },
+              platform_read_token_name:   { type: "string",  required: false, description: "Override the auto-generated PAT name (default: '<label>-platform-ci-readonly')" }
             }
           }
         }
@@ -175,13 +177,45 @@ module Ai
           secret_results[k] = result[:success] ? "ok" : "error: #{result[:error]}"
         end
 
-        {
+        # Optionally also mint a Gitea PAT for the parent platform
+        # checkout step (PLATFORM_READ_TOKEN). Closes the manual "go to
+        # Gitea web UI" step that operators otherwise hit on first
+        # workflow run. Idempotent across re-runs: deletes any prior
+        # token with the same name first so each bootstrap call lands
+        # a fresh, in-sync token.
+        platform_token_result = nil
+        if params[:create_platform_read_token]
+          token_name = params[:platform_read_token_name].to_s.presence || "#{label}-platform-ci-readonly"
+
+          # Idempotency: tokens with the same name are deleted to make
+          # room for a fresh one (Gitea rejects duplicate-name creates).
+          gitea_client.delete_user_token(token_name) rescue nil
+
+          token_result = gitea_client.create_user_token(token_name, scopes: %w[read:repository read:user])
+          if token_result[:success]
+            set_secret_result = gitea_client.create_or_update_action_secret(owner, repo, "PLATFORM_READ_TOKEN", token_result[:token])
+            secret_results["PLATFORM_READ_TOKEN"] = set_secret_result[:success] ? "ok" : "error: #{set_secret_result[:error]}"
+            platform_token_result = {
+              token_id:        token_result[:token_id],
+              token_name:      token_result[:name],
+              scopes:          token_result[:scopes],
+              plaintext_set_as_secret: "PLATFORM_READ_TOKEN",
+              token_preview:   token_result[:token][0, 12] + "..."
+            }
+          else
+            platform_token_result = { error: token_result[:error] }
+          end
+        end
+
+        result = {
           success: true,
           webhook:  { id: webhook.id, label: webhook.label, action: webhook_action, url: build_webhook_url(webhook), secret_preview: webhook_secret[0, 12] + "..." },
           ci_worker: { id: worker.id, name: worker.name, action: worker_action, token_preview: worker_token[0, 12] + "..." },
           gitea_secrets_set: secret_results,
           note:    "Operator's CI workflow can now publish disk images. Trigger via dispatch_gitea_workflow or push a tag."
         }
+        result[:platform_read_token] = platform_token_result if platform_token_result
+        result
       rescue StandardError => e
         { success: false, error: "Bootstrap failed: #{e.class}: #{e.message}" }
       end
