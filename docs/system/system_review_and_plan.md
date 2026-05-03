@@ -1,8 +1,19 @@
 # System Extension — High-Level Review & Hardening Plan
 
 **Date:** 2026-04-30
+**Last revised:** 2026-05-03 — partially superseded by [`extensions/system/docs/TASKS.md`](../../extensions/system/docs/TASKS.md) and the active stabilization sweep plan at `~/.claude/plans/perform-comprehensive-examination-of-glistening-perlis.md`.
 **Scope:** Strategic review of the System extension (operator-side infrastructure management). Walk through intended use, find gaps, identify cleanup, propose hardening.
 **Audience:** Operator (Everett) deciding on Phase 1 sign-off and Phase 2 scope.
+
+> **REVISION NOTE (2026-05-03)** — Several 🔴 / 🟡 markers below are stale.
+> Specifically:
+> - Provider connection `test` action: ✅ shipped (`provider_connections_controller.rb:58-72`)
+> - Provider catalog ingestion: ✅ shipped as `sync_catalog` action (`provider_connections_controller.rb:77-89`) backed by `services/system/providers/catalog_sync_service.rb`
+> - Frontend "Test credentials" button: ✅ wired
+> - M3 Multi-arch image builder: ✅ shipped (`extensions/system/initramfs/build.sh` + dracut configs + 6 artifact families across amd64/arm64)
+> - M4 QEMU thin slice: ✅ shipped (`LocalQemuProvider` with Libvirt/Recorder/Disabled runners + 15-spec coverage)
+>
+> See **§8 What was actually shipped** at the bottom of this doc.
 
 ---
 
@@ -23,7 +34,7 @@ Reverse-engineered from the model graph, controller surfaces, and runtime servic
 
 | # | Journey | Models touched | Status |
 |---|---------|----------------|--------|
-| **A** | **Onboard a cloud account** — register `Provider`, add `ProviderConnection` credentials, ingest catalog (regions/AZs/instance types) | Provider, ProviderConnection, ProviderRegion, ProviderAvailabilityZone, ProviderInstanceType | 🔴 **Catalog ingestion missing** |
+| **A** | **Onboard a cloud account** — register `Provider`, add `ProviderConnection` credentials, ingest catalog (regions/AZs/instance types) | Provider, ProviderConnection, ProviderRegion, ProviderAvailabilityZone, ProviderInstanceType | ✅ **Shipped** — `provider_connections_controller#sync_catalog` + `Providers::CatalogSyncService` |
 | **B** | **Define and deploy a node** — create `Node`, attach `NodeTemplate`/`NodeArchitecture`/`NodePlatform`, spin up `NodeInstance` (cloud or physical) | Node, NodeInstance, ProviderRegion, ProviderInstanceType, ProviderNetwork(Subnet) | 🟡 **Frontend cascading complete; backend Operation pipeline works; no real cloud smoke test yet** |
 | **C** | **Manage instance lifecycle** — start/stop/reboot/terminate, allocate/release public IPs, attach/detach volumes, SSH exec | NodeInstance, ProviderVolume, Operation | 🟢 **Wired end-to-end (AASM enforced)** |
 | **D** | **Distribute software** — author `NodeModule`, version it, build (tar), commit (SCP), apply config to instances | NodeModule(Version), NodeModuleAssignment, ModuleDependency | 🟡 **Build/commit implemented but not exercised end-to-end against real instances** |
@@ -38,8 +49,8 @@ Reverse-engineered from the model graph, controller surfaces, and runtime servic
 | Capability | Models | Service path | Tests | Status |
 |---|---|---|---|---|
 | Provider CRUD | Provider, ProviderConnection, ProviderRegion, etc. | `*_controller.rb` | provider specs | ✅ |
-| Connection credential test | ProviderConnection | — | — | 🔴 No `test` action wired (legacy had it; covered in `legacy_view_audit.md` E-H1) |
-| Provider catalog ingestion (sync regions/AZs from cloud) | ProviderRegion, ProviderAvailabilityZone, ProviderInstanceType, ProviderNetwork | — | — | 🔴 **No service exists** — operator must populate catalog rows manually |
+| Connection credential test | ProviderConnection | `provider_connection.test_connection!` | provider_connection specs | ✅ Wired at `provider_connections_controller#test` (controller:58-72), permission `system.connections.test` |
+| Provider catalog ingestion (sync regions/AZs from cloud) | ProviderRegion, ProviderAvailabilityZone, ProviderInstanceType, ProviderNetwork | `Providers::CatalogSyncService.sync_for(connection)` | catalog_sync specs | ✅ Shipped at `provider_connections_controller#sync_catalog` (controller:77-89) |
 | Node CRUD | Node | nodes_controller | node_spec | ✅ |
 | NodeInstance lifecycle (start/stop/reboot/terminate) | NodeInstance | InstanceControlService → Runtime::ControlInstance | control_instance_spec | ✅ AASM wired |
 | Public IP associate/disassociate | NodeInstance | IpManagementService + Runtime::ManagePublicIp | manage_public_ip_spec | ✅ |
@@ -48,7 +59,7 @@ Reverse-engineered from the model graph, controller surfaces, and runtime servic
 | Module distribute / apply config | NodeModule, NodeInstance | Runtime::SyncModules, Runtime::ApplyConfig | — | 🟡 Runtimes exist but no specs |
 | Puppet authoring | PuppetModule, PuppetResource | puppet controllers | puppet_module_spec | 🟡 Frontend missing nested resource form (legacy E-H3) |
 | SSH execution | — | SshExecutionService | — | 🟡 Open3 path; no specs |
-| Cloud state sync | NodeInstance | CloudSyncService → Runtime::SyncCloudState | sync_cloud_state_spec | ✅ |
+| Cloud state sync | NodeInstance | CloudSyncService → Runtime::SyncCloudState | sync_cloud_state_spec | 🟡 Service exists; **not yet scheduled** (active sweep P2.1 adds per-account fan-out via `SystemCloudSyncJob` cron `17 * * * *`) |
 | Operation audit log | Operation.events JSON | — | operation_spec | 🟡 JSON column — ungrep-able for cross-row audit queries |
 | ActionCable live updates | SystemChannel | broadcast_operation_update / progress / node_update / stats_update | — | ✅ |
 | Per-account isolation | Account decorator with 17 has_many | — | — | ✅ Just wired (depended_on by every controller) |
@@ -63,7 +74,7 @@ Reverse-engineered from the model graph, controller surfaces, and runtime servic
 | Instance lifecycle (compact + standard) | ✅ | terminate + IP buttons added |
 | Cascading provider selects | ✅ | C1 resolved |
 | Operations list + tab + live progress | ✅ | |
-| Providers / connections | 🟡 | "Test credentials" button missing (E-H1) |
+| Providers / connections | ✅ | "Test credentials" + "Sync catalog" buttons wired |
 | Templates | 🟡 | Export action missing (E-H2) |
 | Puppet modules | 🟡 | Nested PuppetResource form missing (E-H3) |
 | Volumes | 🟡 | `custom_mount_script` + RAID UI missing (E-M2/E-M3) |
@@ -258,3 +269,58 @@ After Sprint 1 + Sprint 2:
 ---
 
 *Generated 2026-04-30 from a structural audit of `extensions/system/` against journeys decoded from the model graph and controller inventory. No code was changed during this audit; the implementation plan above is for review and prioritization.*
+
+---
+
+## 8. What was actually shipped (2026-05-03 update)
+
+This appendix corrects the stale 🔴 / 🟡 markers above. Cross-reference the
+authoritative status doc at `extensions/system/docs/TASKS.md`.
+
+### Shipped between 2026-04-30 and 2026-05-03
+
+| Item | Sprint-1 priority | Where it lives now |
+|---|---|---|
+| Drop `start`/`complete`/`fail`/`abort` from public Operations API | P0 #1 | Migrated as part of `system_operations` → `system_tasks` AASM rename (migration `20260430130000_rename_system_operations_to_tasks.rb`); operator-side keeps `cancel` only |
+| Replace direct `update!(status: …)` with AASM events | P0 #2 | Internal sync_cloud_state path now routes through `Runtime::SyncCloudState` |
+| Configure 60-min per-queue Sidekiq timeout | P0 #4 | Long-running op guardrails documented + reaper path; see `worker/config/sidekiq_system.yml:12-31` |
+| Provider catalog ingestion service | P1 #7 | `Providers::CatalogSyncService.sync_for(connection)` — shipped + spec'd. Wired into `provider_connections_controller#sync_catalog` |
+| Frontend E-H1 "Test credentials" button | P1 #9 | Wired |
+| `claimed_by_worker_id` on Task (renamed from Operation) | P1 #10 | Migration `20260429184000_add_claimed_by_to_system_operations.rb` |
+| QEMU smoke test | P1 #11 | `LocalQemuProvider` runner triplet (Libvirt/Recorder/Disabled) + 15-spec integration coverage; M3+M4 Ubuntu 24.04 overlay-union root with system-base + nginx modules verified |
+
+### Major schema migrations landed since 2026-04-30
+
+- `system_operations` → `system_tasks` (AASM, polymorphic, `claimed_by_worker_id`)
+- `bootstrap_tokens` (1-hour TTL, SHA-256 hashed, single-use, audit-logged)
+- `node_certificates` (mTLS plumbing, 90-day TTL, auto-rotate)
+- `module_artifacts` (OCI digest + fs-verity hash + cosign trust policy)
+- `cves` + `cve_exposures` (CVE response pipeline foundation)
+- `fleet_events` (90d routine / 365d critical retention)
+- `slo_definitions` (SLO tracking)
+- `consent_budgets` (per-module daily decision ceiling)
+- `physical_enrollment` columns on bootstrap path
+- `disk_image_publications` + `disk_image_webhooks`
+
+### Recent CI/release work
+
+- Disk-image publication pipeline (Phase 2 chunks 1-4): direct upload, OCI ingest, retention sweeps, Gitea Actions workflow with cosign-signed artifacts
+- ARM64 UEFI build path optional in CI (Gitea blob limit accommodation)
+- Multi-arch initramfs builder: 6 artifact families × amd64/arm64 reproducible
+
+### Still open (post-2026-05-03 sweep)
+
+Active comprehensive stabilization sweep. See `extensions/system/docs/TASKS.md`
+"Active stabilization sweep — May 2026" section.
+
+The remaining items from this doc's §5 (P0–P3) that are NOT yet closed:
+
+- **P0 #3** Idempotency token on `POST /system/tasks` — open
+- **P0 #5** `Account dependent: :destroy` cascade audit — open
+- **P0 #6** Azure provider Faraday-2 fix or removal — open
+- **P1 #8** Service return convention normalization — partial
+- **P2 #12** Extract `task.events` JSON to dedicated table — open
+- **P2 #13** Metrics instrumentation — open
+- **P3 #17–21** Bulk operations, quotas, drift detection, retry, scheduled ops — deferred
+
+These are tracked but not in the active sweep scope.
