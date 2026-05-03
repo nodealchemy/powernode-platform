@@ -549,6 +549,8 @@ class JobsController
       'Notifications::ReviewNotificationJob',
       # Service jobs
       'Services::TestPaymentGatewayConnectionJob',
+      # System extension jobs
+      'System::ProcessModulePublicationJob',
       # AI jobs
       'AiConversationProcessingJob',
       'AiAgentExecutionJob',

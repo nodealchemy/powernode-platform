@@ -49,6 +49,27 @@ class WorkerApiClient
     queue_job("Git::RepositorySyncJob", [ credential_id ], queue: "services")
   end
 
+  # Queue async processing of a module publication (post-Gitea-webhook).
+  # The webhook receiver does sync HMAC + module lookup, then enqueues
+  # this so the slow path (manifest fetch from Gitea, version snapshot,
+  # OCI ingest with cosign verify, skill registration, fleet event
+  # emission) runs out of band — keeping the webhook ack fast enough
+  # that Gitea's retry window never elapses.
+  #
+  # The version snapshot is created INSIDE the processor (not by the
+  # webhook) so the snapshot captures the manifest-imported module
+  # state rather than stale pre-import data.
+  # @param node_module_id [String] UUID of the NodeModule
+  # @param tag [String] Git tag the publication is for (e.g. "v1.2.3")
+  # @return [Hash] Response from worker (job_id + status)
+  def queue_module_publication_processing(node_module_id, tag)
+    queue_job(
+      "System::ProcessModulePublicationJob",
+      [ node_module_id, tag ],
+      queue: "services"
+    )
+  end
+
   # Queue a Git pipeline sync job
   # @param repository_id [String] GitRepository ID
   # @param external_pipeline_id [String] Optional external pipeline ID to sync specific run
