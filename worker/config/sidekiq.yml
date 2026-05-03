@@ -116,6 +116,15 @@
       queue: maintenance
       description: 'Remove expired backups beyond retention period'
 
+    # System extension — physical-device claim queue reaper.
+    # Drops UnclaimedDevice rows past their 24h TTL.
+    # Reference: docs/plans/wondrous-yawning-anchor.md §10.
+    expire_unclaimed_devices:
+      cron: '0 3 * * *'  # Every day at 3:00 AM UTC
+      class: System::ExpireUnclaimedDevicesJob
+      queue: maintenance
+      description: 'Reap UnclaimedDevice rows past expires_at (24h default TTL)'
+
     # NOTE: Billing scheduled jobs (billing_scheduler, daily_payment_reconciliation,
     # billing_cleanup) have been moved to enterprise:
     # extensions/enterprise/worker/config/sidekiq_billing.yml

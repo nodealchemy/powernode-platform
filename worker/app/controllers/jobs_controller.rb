@@ -551,6 +551,7 @@ class JobsController
       'Services::TestPaymentGatewayConnectionJob',
       # System extension jobs
       'System::ProcessModulePublicationJob',
+      'System::ExpireUnclaimedDevicesJob',
       # AI jobs
       'AiConversationProcessingJob',
       'AiAgentExecutionJob',
