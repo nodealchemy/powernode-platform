@@ -106,6 +106,7 @@ const CiCdPage = React.lazy(() => import('@/pages/app/devops/CiCdPage').then(m =
 const ConnectionsPage = React.lazy(() => import('@/pages/app/devops/ConnectionsPage').then(m => ({ default: m.ConnectionsPage })));
 const SwarmHubPage = React.lazy(() => import('@/pages/app/devops/SwarmHubPage').then(m => ({ default: m.SwarmHubPage })));
 const DockerHubPage = React.lazy(() => import('@/pages/app/devops/DockerHubPage').then(m => ({ default: m.DockerHubPage })));
+const KubernetesHubPage = React.lazy(() => import('@/pages/app/devops/KubernetesHubPage').then(m => ({ default: m.KubernetesHubPage })));
 
 // Marketing routes handled by featureRegistry (marketing extension)
 
@@ -479,6 +480,9 @@ const DashboardPage: React.FC = () => {
         <Route path="/devops/docker/:hostId/containers/:containerId/*" element={<HostProvider><ContainerDetailPage /></HostProvider>} />
         <Route path="/devops/docker/:hostId" element={<HostProvider><HostDashboardPage /></HostProvider>} />
         <Route path="/devops/docker/*" element={<DockerHubPage />} />
+
+        {/* Kubernetes (Phase 2 — K3s today, kubeadm in Phase 3) */}
+        <Route path="/devops/kubernetes/*" element={<KubernetesHubPage />} />
 
         {/* Audit Logs */}
         <Route path="/admin/audit-logs/*" element={<AuditLogsPage />} />

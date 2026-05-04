@@ -5,7 +5,7 @@ import {
   HelpCircle, LogOut, Bot, Brain, Bell,
   HardDrive, Workflow, Server, GitBranch,
   Plug, BookOpen, UserCog, Activity, ShieldCheck,
-  Container,
+  Container, Boxes,
   Play, Rocket
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
@@ -269,9 +269,18 @@ export const defaultNavigationConfig: NavigationConfig = {
           description: 'Docker hosts, containers, images, and monitoring',
           permissions: ['docker.hosts.read'],
           order: 7
+        },
+        {
+          id: 'kubernetes',
+          name: 'Kubernetes',
+          href: '/app/devops/kubernetes',
+          icon: Boxes,
+          description: 'K3s and kubeadm clusters, nodes, and workloads',
+          permissions: ['kubernetes.clusters.read'],
+          order: 8
         }
       ],
-      permissions: ['git.providers.read', 'git.repositories.read', 'devops.pipelines.read', 'cicd.runners.read', 'webhook.read', 'integrations.read', 'api.manage_keys', 'admin.storage.read', 'devops.containers.read', 'swarm.clusters.read', 'docker.hosts.read'],
+      permissions: ['git.providers.read', 'git.repositories.read', 'devops.pipelines.read', 'cicd.runners.read', 'webhook.read', 'integrations.read', 'api.manage_keys', 'admin.storage.read', 'devops.containers.read', 'swarm.clusters.read', 'docker.hosts.read', 'kubernetes.clusters.read'],
       collapsible: true,
       defaultExpanded: true,
       order: 11
