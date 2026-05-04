@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, RefreshCw, Wifi, Trash2, Edit3, Server } from 'lucide-react';
+import { Plus, RefreshCw, Wifi, Trash2, Edit3, Server, Link as LinkIcon } from 'lucide-react';
 import type { PageAction } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
@@ -157,10 +157,24 @@ export const DockerHostsPage: React.FC<DockerHostsPageProps> = ({ onActionsReady
                   </span>
                 </div>
 
-                <div className="flex items-center gap-4 mb-4 text-sm text-theme-secondary">
+                <div className="flex items-center gap-2 mb-4 text-sm text-theme-secondary flex-wrap">
                   <span className="px-2 py-0.5 rounded bg-theme-surface text-theme-secondary text-xs font-medium">
                     {host.environment}
                   </span>
+                  {host.provisioning_state === 'managed' && (
+                    // Phase B — managed hosts are platform-bookkept; the
+                    // badge signals to operators that Edit/Remove are
+                    // disabled on this card. Link icon hints at the
+                    // backing NodeInstance (deep-link arrives in a
+                    // follow-up once /app/system/compute/instances/:id
+                    // routes are wired).
+                    <span
+                      className="px-2 py-0.5 rounded bg-theme-info bg-opacity-10 text-theme-info text-xs font-medium inline-flex items-center gap-1"
+                      title="Auto-provisioned from a System NodeInstance — endpoint and TLS credentials are platform-managed"
+                    >
+                      <LinkIcon className="w-3 h-3" /> Managed
+                    </span>
+                  )}
                   <span>{host.container_count} containers</span>
                   <span>{host.image_count} images</span>
                 </div>
@@ -175,12 +189,24 @@ export const DockerHostsPage: React.FC<DockerHostsPageProps> = ({ onActionsReady
                   <Button size="xs" variant="ghost" onClick={() => handleTestConnection(host.id)} loading={testingIds.has(host.id)}>
                     {!testingIds.has(host.id) && <Wifi className="w-3.5 h-3.5 mr-1" />} Test
                   </Button>
-                  <Button size="xs" variant="ghost" onClick={() => openEditModal(host)}>
-                    <Edit3 className="w-3.5 h-3.5 mr-1" /> Edit
-                  </Button>
-                  <Button size="xs" variant="danger" onClick={() => handleDelete(host.id, host.name)}>
-                    <Trash2 className="w-3.5 h-3.5 mr-1" /> Remove
-                  </Button>
+                  {host.provisioning_state === 'managed' ? (
+                    // Edit/Remove are platform-managed for managed
+                    // hosts. Operator changes lifecycle via module
+                    // assignment (assign/unassign docker-engine on the
+                    // backing NodeInstance), not via this card.
+                    <span className="text-xs text-theme-tertiary italic px-2">
+                      Lifecycle via module assignment
+                    </span>
+                  ) : (
+                    <>
+                      <Button size="xs" variant="ghost" onClick={() => openEditModal(host)}>
+                        <Edit3 className="w-3.5 h-3.5 mr-1" /> Edit
+                      </Button>
+                      <Button size="xs" variant="danger" onClick={() => handleDelete(host.id, host.name)}>
+                        <Trash2 className="w-3.5 h-3.5 mr-1" /> Remove
+                      </Button>
+                    </>
+                  )}
                 </div>
               </Card>
             ))}

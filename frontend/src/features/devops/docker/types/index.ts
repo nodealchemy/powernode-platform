@@ -4,6 +4,12 @@
 
 export type HostEnvironment = 'staging' | 'production' | 'development' | 'custom';
 export type HostStatus = 'pending' | 'connected' | 'disconnected' | 'error' | 'maintenance';
+// Phase B — 'managed' hosts are auto-provisioned by the system extension
+// from a NodeInstance with the docker-engine module assigned. Their
+// lifecycle (api_endpoint, TLS material, status) is platform-managed;
+// operator should not edit them directly. 'external' = legacy
+// operator-registered hosts, no NodeInstance backing.
+export type HostProvisioningState = 'external' | 'managed';
 
 export type ContainerState = 'created' | 'running' | 'paused' | 'restarting' | 'exited' | 'removing' | 'dead';
 
@@ -28,6 +34,13 @@ export interface DockerHostSummary {
   auto_sync: boolean;
   tls_verify: boolean;
   has_tls_credentials: boolean;
+  // Phase B — present on every host_summary response. 'external' hosts
+  // come from operator-registered Docker daemons. 'managed' hosts have
+  // a backing System::NodeInstance and are auto-provisioned by the
+  // platform; node_instance_id is set iff provisioning_state ===
+  // 'managed'.
+  provisioning_state: HostProvisioningState;
+  node_instance_id: string | null;
 }
 
 export interface DockerHost extends DockerHostSummary {
