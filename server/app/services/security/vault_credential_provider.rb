@@ -9,6 +9,9 @@ module Security
       mcp_server: "mcp-servers",
       chat_channel: "chat-channels",
       git_credential: "git-credentials",
+      wireguard_node_key: "wireguard-node-keys",
+      wireguard_user_key: "wireguard-user-keys",
+      federation_trust_jwt: "sdwan-federation-trust-jwts",
       custom: "custom"
     }.freeze
 

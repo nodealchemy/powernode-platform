@@ -125,6 +125,14 @@
       queue: maintenance
       description: 'Reap UnclaimedDevice rows past expires_at (24h default TTL)'
 
+    # SDWAN — 90-day audit retention sweep on revoked Sdwan::UserDevice
+    # rows. Slice 5 (deferred reaper) of the SDWAN plan.
+    sdwan_reap_user_devices:
+      cron: '15 3 * * *'  # 3:15 AM UTC, after the unclaimed-devices reaper
+      class: Sdwan::ReapUserDevicesJob
+      queue: maintenance
+      description: 'Reap Sdwan::UserDevice rows revoked >90 days ago + their Vault entries'
+
     # System extension — disk-image publication retention sweep.
     # Two-stage: retire newest > N (default 3) per platform, then purge
     # retired past 7-day grace window. Plan: docs/plans/wondrous-yawning-anchor.md (Phase 2 — Chunk 2).
