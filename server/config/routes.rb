@@ -3102,6 +3102,18 @@ Rails.application.routes.draw do
             end
           end
         end
+
+        # Phase 2 — Kubernetes cluster management. Cluster creation is
+        # implicit (assign k3s-server module → agent bootstrap); this
+        # surface is read + decommission + kubeconfig retrieval.
+        namespace :kubernetes do
+          resources :clusters, only: %i[index show destroy] do
+            member do
+              get :kubeconfig
+            end
+            resources :nodes, only: %i[index show], controller: "nodes"
+          end
+        end
       end
 
       # System Infrastructure routes are defined in extensions/system/server/config/routes.rb
