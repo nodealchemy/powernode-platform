@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_05_000100) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_05_000200) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -5938,6 +5938,60 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_05_000100) do
     t.index ["is_public", "is_active"], name: "idx_templates_public_active"
     t.index ["is_public"], name: "index_devops_integration_templates_on_is_public"
     t.index ["slug"], name: "index_devops_integration_templates_on_slug", unique: true
+  end
+
+  create_table "devops_kubernetes_clusters", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "api_endpoint", null: false
+    t.boolean "auto_sync", default: true, null: false
+    t.integer "consecutive_failures", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.text "encrypted_agent_token"
+    t.text "encrypted_kubeconfig"
+    t.text "encrypted_server_token"
+    t.string "encryption_key_id"
+    t.string "environment", default: "development", null: false
+    t.string "flavor", default: "k3s", null: false
+    t.string "k8s_version"
+    t.datetime "last_synced_at"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", null: false
+    t.integer "node_count", default: 0, null: false
+    t.integer "pod_count", default: 0, null: false
+    t.string "slug", null: false
+    t.string "status", default: "pending", null: false
+    t.integer "sync_interval_seconds", default: 60, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "name"], name: "index_devops_kubernetes_clusters_on_account_id_and_name", unique: true
+    t.index ["account_id"], name: "index_devops_kubernetes_clusters_on_account_id"
+    t.index ["environment"], name: "index_devops_kubernetes_clusters_on_environment"
+    t.index ["flavor"], name: "index_devops_kubernetes_clusters_on_flavor"
+    t.index ["slug"], name: "index_devops_kubernetes_clusters_on_slug", unique: true
+    t.index ["status"], name: "index_devops_kubernetes_clusters_on_status"
+    t.check_constraint "environment::text = ANY (ARRAY['staging'::character varying, 'production'::character varying, 'development'::character varying, 'custom'::character varying]::text[])", name: "chk_kubernetes_clusters_environment"
+    t.check_constraint "flavor::text = ANY (ARRAY['k3s'::character varying, 'kubeadm'::character varying]::text[])", name: "chk_kubernetes_clusters_flavor"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'bootstrapping'::character varying, 'active'::character varying, 'degraded'::character varying, 'disconnected'::character varying, 'error'::character varying]::text[])", name: "chk_kubernetes_clusters_status"
+  end
+
+  create_table "devops_kubernetes_nodes", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "k8s_version"
+    t.uuid "kubernetes_cluster_id", null: false
+    t.datetime "last_heartbeat_at"
+    t.jsonb "metadata", default: {}, null: false
+    t.string "name", null: false
+    t.uuid "node_instance_id", null: false
+    t.string "role", null: false
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["kubernetes_cluster_id", "name"], name: "idx_k8s_nodes_cluster_name", unique: true
+    t.index ["kubernetes_cluster_id"], name: "idx_k8s_nodes_cluster"
+    t.index ["node_instance_id"], name: "idx_k8s_nodes_node_instance_unique", unique: true
+    t.index ["role"], name: "index_devops_kubernetes_nodes_on_role"
+    t.index ["status"], name: "index_devops_kubernetes_nodes_on_status"
+    t.check_constraint "role::text = ANY (ARRAY['server'::character varying, 'agent'::character varying, 'control_plane'::character varying, 'worker'::character varying]::text[])", name: "chk_kubernetes_nodes_role"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'joining'::character varying, 'active'::character varying, 'not_ready'::character varying, 'disconnected'::character varying, 'error'::character varying]::text[])", name: "chk_kubernetes_nodes_status"
   end
 
   create_table "devops_pipeline_repositories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -12461,6 +12515,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_05_000100) do
   add_foreign_key "devops_integration_instances", "devops_integration_credentials", column: "integration_credential_id"
   add_foreign_key "devops_integration_instances", "devops_integration_templates", column: "integration_template_id"
   add_foreign_key "devops_integration_instances", "users", column: "created_by_user_id"
+  add_foreign_key "devops_kubernetes_clusters", "accounts"
+  add_foreign_key "devops_kubernetes_nodes", "devops_kubernetes_clusters", column: "kubernetes_cluster_id", on_delete: :cascade
+  add_foreign_key "devops_kubernetes_nodes", "system_node_instances", column: "node_instance_id", on_delete: :cascade
   add_foreign_key "devops_pipeline_repositories", "devops_pipelines", on_delete: :cascade
   add_foreign_key "devops_pipeline_repositories", "git_repositories", on_delete: :cascade
   add_foreign_key "devops_pipeline_runs", "devops_pipelines", on_delete: :cascade
