@@ -139,11 +139,39 @@ module Ai
       # In workspace mode, restrict to delegation-relevant tools only (~25 vs ~84)
       if @conversation&.workspace_conversation?
         definitions = definitions.select { |d| WORKSPACE_TOOLS.include?(d[:name].to_s) }
+      elsif (patterns = agent_tool_filter_patterns).any?
+        # Agent-declared tool surface — extension agents (e.g., System Concierge,
+        # SDWAN Concierge) restrict the LLM to a curated tool slice via
+        # agent.metadata["concierge_tool_filter"] — patterns are tool-name
+        # prefixes or exact names. Avoids hardcoding extension-specific names
+        # in the platform-level bridge.
+        definitions = definitions.select { |d| tool_matches_patterns?(d[:name].to_s, patterns) }
       end
 
       llm_tools = definitions.map { |defn| convert_to_llm_tool(defn) }
       llm_tools << confirmation_tool_definition
       llm_tools
+    end
+
+    # Reads the agent's declared tool filter (from metadata). Patterns can be
+    # exact tool names or prefix patterns ending in "*" (e.g. "system_*").
+    # Empty / missing = no agent-driven filter (default tool surface applies).
+    def agent_tool_filter_patterns
+      meta = agent&.metadata
+      return [] unless meta.is_a?(Hash)
+
+      patterns = meta["concierge_tool_filter"] || meta[:concierge_tool_filter]
+      Array(patterns).map(&:to_s).reject(&:empty?)
+    end
+
+    def tool_matches_patterns?(tool_name, patterns)
+      patterns.any? do |pattern|
+        if pattern.end_with?("*")
+          tool_name.start_with?(pattern.chomp("*"))
+        else
+          tool_name == pattern
+        end
+      end
     end
 
     def confirmation_tool_definition
