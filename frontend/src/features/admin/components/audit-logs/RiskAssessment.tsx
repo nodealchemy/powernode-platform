@@ -162,7 +162,7 @@ export const RiskAssessment: React.FC<RiskAssessmentProps> = ({ metrics, timeRan
       case 'high': return 'bg-theme-status-warning';
       case 'medium': return 'bg-theme-status-warning';
       case 'low': return 'bg-theme-status-success';
-      default: return 'bg-theme-secondary';
+      default: return 'bg-theme-surface';
     }
   };
 

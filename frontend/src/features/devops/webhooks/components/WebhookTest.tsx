@@ -263,7 +263,7 @@ export const WebhookTest: React.FC<WebhookTestProps> = ({
 
             <div className="bg-theme-surface rounded-lg p-4 border border-theme">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-theme-tertiary bg-opacity-10">
+                <div className="p-2 rounded-lg bg-theme-background-secondary bg-opacity-10">
                   <Globe className="w-5 h-5 text-theme-tertiary" />
                 </div>
                 <div>

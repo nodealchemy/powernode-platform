@@ -29,7 +29,7 @@ const CHAPTER_COLORS: Record<string, string> = {
   planning: 'bg-theme-warning/10 text-theme-warning border-theme-warning/30',
   implementation: 'bg-theme-success/10 text-theme-success border-theme-success/30',
   testing: 'bg-theme-danger/10 text-theme-danger border-theme-danger/30',
-  reflection: 'bg-theme-secondary/10 text-theme-secondary border-theme-secondary/30',
+  reflection: 'bg-theme-surface/10 text-theme-secondary border-theme-secondary/30',
   lessons_learned: 'bg-theme-interactive-primary/10 text-theme-interactive-primary border-theme-interactive-primary/30',
 };
 

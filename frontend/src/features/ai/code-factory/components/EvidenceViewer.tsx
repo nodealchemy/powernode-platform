@@ -6,9 +6,9 @@ interface Props {
 }
 
 const statusBadge: Record<string, string> = {
-  pending: 'bg-theme-secondary-bg text-theme-secondary',
-  captured: 'bg-theme-info-bg text-theme-info',
-  verified: 'bg-theme-success-bg text-theme-success',
+  pending: 'bg-theme-surface-bg text-theme-secondary',
+  captured: 'bg-theme-info text-theme-info',
+  verified: 'bg-theme-success text-theme-success',
   failed: 'bg-theme-error-bg text-theme-error',
 };
 
@@ -64,7 +64,7 @@ export const EvidenceViewer: React.FC<Props> = ({ reviewStates }) => {
                   <span
                     key={idx}
                     className={`w-2 h-2 rounded-full ${
-                      a.passed === true ? 'bg-theme-success' : a.passed === false ? 'bg-theme-error' : 'bg-theme-secondary'
+                      a.passed === true ? 'bg-theme-success' : a.passed === false ? 'bg-theme-error' : 'bg-theme-surface'
                     }`}
                     title={`${a.type}: ${a.passed === true ? 'passed' : a.passed === false ? 'failed' : 'pending'}`}
                   />
@@ -132,7 +132,7 @@ export const EvidenceViewer: React.FC<Props> = ({ reviewStates }) => {
           {Object.keys(selectedManifest.verification_result).length > 0 && (
             <div>
               <h4 className="text-xs font-medium text-theme-secondary mb-2">Verification Result</h4>
-              <pre className="text-xs text-theme-secondary bg-theme-secondary-bg p-2 rounded overflow-x-auto">
+              <pre className="text-xs text-theme-secondary bg-theme-surface-bg p-2 rounded overflow-x-auto">
                 {JSON.stringify(selectedManifest.verification_result, null, 2)}
               </pre>
             </div>

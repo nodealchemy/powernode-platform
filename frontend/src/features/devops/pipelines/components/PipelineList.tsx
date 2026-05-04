@@ -19,7 +19,7 @@ const StatusBadge: React.FC<{ isActive: boolean }> = ({ isActive }) => (
     className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
       isActive
         ? 'bg-theme-success/10 text-theme-success'
-        : 'bg-theme-secondary/10 text-theme-secondary'
+        : 'bg-theme-surface/10 text-theme-secondary'
     }`}
   >
     {isActive ? 'Active' : 'Inactive'}

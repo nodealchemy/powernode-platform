@@ -58,7 +58,7 @@ export const RunMonitor: React.FC<Props> = ({ reviewState }) => {
                     ? isFailed
                       ? 'bg-theme-error'
                       : 'bg-theme-accent animate-pulse'
-                    : 'bg-theme-tertiary-bg'
+                    : 'bg-theme-background-secondary-bg'
                 }`}
               />
               <span className="text-[10px] text-theme-secondary mt-1 block text-center">
@@ -101,8 +101,8 @@ export const RunMonitor: React.FC<Props> = ({ reviewState }) => {
                   key={check}
                   className={`px-2 py-0.5 rounded text-xs ${
                     passed
-                      ? 'bg-theme-success-bg text-theme-success'
-                      : 'bg-theme-secondary-bg text-theme-secondary'
+                      ? 'bg-theme-success text-theme-success'
+                      : 'bg-theme-surface-bg text-theme-secondary'
                   }`}
                 >
                   {passed ? '\u2713' : '\u25CB'} {check}

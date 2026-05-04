@@ -15,7 +15,7 @@ const categoryColors: Record<string, { bg: string; text: string }> = {
   generation: { bg: 'bg-theme-success/10', text: 'text-theme-success' },
   transformation: { bg: 'bg-theme-warning/10', text: 'text-theme-warning' },
   communication: { bg: 'bg-theme-primary/10', text: 'text-theme-primary' },
-  integration: { bg: 'bg-theme-secondary/10', text: 'text-theme-secondary' },
+  integration: { bg: 'bg-theme-surface/10', text: 'text-theme-secondary' },
   default: { bg: 'bg-theme-muted/10', text: 'text-theme-muted' },
 };
 

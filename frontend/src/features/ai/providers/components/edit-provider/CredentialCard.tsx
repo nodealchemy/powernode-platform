@@ -31,7 +31,7 @@ const getTestStatusBadge = (credential: AiProviderCredential) => {
   const lastTestStatus = credential.last_test_status;
 
   if (!lastTestAt) {
-    return <span className="text-xs px-2 py-0.5 rounded bg-theme-secondary/20 text-theme-muted">Not tested</span>;
+    return <span className="text-xs px-2 py-0.5 rounded bg-theme-surface/20 text-theme-muted">Not tested</span>;
   }
   if (lastTestStatus === 'success') {
     return <span className="text-xs px-2 py-0.5 rounded bg-theme-success/20 text-theme-success flex items-center gap-1"><Check className="h-3 w-3" />Passed</span>;
@@ -54,7 +54,7 @@ export const CredentialCard: React.FC<CredentialCardProps> = ({
 }) => {
   if (isEditing) {
     return (
-      <div className="p-3 bg-theme-secondary/10 rounded-lg border border-theme">
+      <div className="p-3 bg-theme-surface/10 rounded-lg border border-theme">
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -129,7 +129,7 @@ export const CredentialCard: React.FC<CredentialCardProps> = ({
   const lastTestAt = credential.last_test_at;
 
   return (
-    <div className="p-3 bg-theme-secondary/10 rounded-lg border border-theme">
+    <div className="p-3 bg-theme-surface/10 rounded-lg border border-theme">
       <div className="flex items-center justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2">

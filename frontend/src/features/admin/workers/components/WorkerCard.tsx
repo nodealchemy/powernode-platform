@@ -210,7 +210,7 @@ export const WorkerCard: React.FC<WorkerCardProps> = ({
                 🟢 Online
               </span>
             ) : (
-              <span className="px-2 py-1 bg-theme-secondary-background text-theme-secondary text-xs rounded-full font-medium">
+              <span className="px-2 py-1 bg-theme-surface-background text-theme-secondary text-xs rounded-full font-medium">
                 ⚫ Offline
               </span>
             )}

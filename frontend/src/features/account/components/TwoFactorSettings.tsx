@@ -144,7 +144,7 @@ export const TwoFactorSettings: React.FC = () => {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center">
             <div className={`w-3 h-3 rounded-full mr-3 ${
-              status?.enabled ? 'bg-theme-success' : 'bg-theme-secondary'
+              status?.enabled ? 'bg-theme-success' : 'bg-theme-surface'
             }`} />
             <div>
               <p className="font-medium text-theme-primary">

@@ -7,8 +7,8 @@ const STATUS_STYLES: Record<ParallelSessionStatus, { dot: string; pulse?: boolea
   merging: { dot: 'bg-theme-warning' },
   completed: { dot: 'bg-theme-success' },
   failed: { dot: 'bg-theme-error' },
-  pending: { dot: 'bg-theme-secondary' },
-  cancelled: { dot: 'bg-theme-tertiary' },
+  pending: { dot: 'bg-theme-surface' },
+  cancelled: { dot: 'bg-theme-background-secondary' },
 };
 
 const STRATEGY_LABELS: Record<MergeStrategy, string> = {

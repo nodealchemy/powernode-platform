@@ -17,7 +17,7 @@ function ImportanceBadge({ importance }: { importance: number }) {
     ? 'bg-theme-error/10 text-theme-error'
     : importance >= 0.6
       ? 'bg-theme-warning/10 text-theme-warning'
-      : 'bg-theme-secondary/10 text-theme-secondary';
+      : 'bg-theme-surface/10 text-theme-secondary';
 
   return (
     <span className={`px-1.5 py-0.5 text-xs rounded ${className}`}>

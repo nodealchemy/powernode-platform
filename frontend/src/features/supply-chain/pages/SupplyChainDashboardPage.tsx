@@ -132,7 +132,7 @@ const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts }) => {
       case 'medium':
         return 'bg-theme-primary/10';
       default:
-        return 'bg-theme-secondary/10';
+        return 'bg-theme-surface/10';
     }
   };
 
@@ -228,7 +228,7 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({ activities }) => {
             return (
               <div
                 key={`${activity.type}-${index}`}
-                className="flex items-start gap-3 p-2 rounded hover:bg-theme-secondary/5 transition-colors"
+                className="flex items-start gap-3 p-2 rounded hover:bg-theme-surface/5 transition-colors"
               >
                 <div className="p-1.5 rounded bg-theme-primary/10">
                   <IconComponent className="w-4 h-4 text-theme-primary" />

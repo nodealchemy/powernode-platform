@@ -65,7 +65,7 @@ export const ContractEditor: React.FC<Props> = ({ contract, onSave, onClose }) =
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 bg-theme-secondary-bg rounded border border-theme-border text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+              className="w-full px-3 py-2 bg-theme-surface-bg rounded border border-theme-border text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
               placeholder="Production Risk Contract"
             />
           </div>
@@ -87,7 +87,7 @@ export const ContractEditor: React.FC<Props> = ({ contract, onSave, onClose }) =
                   <select
                     value={tier.tier}
                     onChange={(e) => handleTierChange(index, 'tier', e.target.value)}
-                    className="px-2 py-1 bg-theme-secondary-bg rounded border border-theme-border text-sm text-theme-primary"
+                    className="px-2 py-1 bg-theme-surface-bg rounded border border-theme-border text-sm text-theme-primary"
                   >
                     <option value="low">Low</option>
                     <option value="standard">Standard</option>
@@ -111,7 +111,7 @@ export const ContractEditor: React.FC<Props> = ({ contract, onSave, onClose }) =
                     onChange={(e) =>
                       handleTierChange(index, 'patterns', e.target.value.split(',').map(p => p.trim()))
                     }
-                    className="w-full px-2 py-1 bg-theme-secondary-bg rounded border border-theme-border text-sm text-theme-primary"
+                    className="w-full px-2 py-1 bg-theme-surface-bg rounded border border-theme-border text-sm text-theme-primary"
                   />
                 </div>
                 <div>
@@ -122,7 +122,7 @@ export const ContractEditor: React.FC<Props> = ({ contract, onSave, onClose }) =
                     onChange={(e) =>
                       handleTierChange(index, 'required_checks', e.target.value.split(',').map(c => c.trim()))
                     }
-                    className="w-full px-2 py-1 bg-theme-secondary-bg rounded border border-theme-border text-sm text-theme-primary"
+                    className="w-full px-2 py-1 bg-theme-surface-bg rounded border border-theme-border text-sm text-theme-primary"
                   />
                 </div>
                 <div className="flex items-center gap-4">
@@ -141,7 +141,7 @@ export const ContractEditor: React.FC<Props> = ({ contract, onSave, onClose }) =
                       min="0"
                       value={tier.min_reviewers}
                       onChange={(e) => handleTierChange(index, 'min_reviewers', parseInt(e.target.value) || 0)}
-                      className="w-16 px-1 py-0.5 bg-theme-secondary-bg rounded border border-theme-border text-sm text-theme-primary"
+                      className="w-16 px-1 py-0.5 bg-theme-surface-bg rounded border border-theme-border text-sm text-theme-primary"
                     />
                   </label>
                 </div>

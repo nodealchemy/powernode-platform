@@ -8,12 +8,12 @@ export const STATUS_CONFIG: Record<MissionStatus, {
   dot: string;
   pulse?: boolean;
 }> = {
-  draft: { variant: 'outline', label: 'Draft', dot: 'bg-theme-secondary' },
+  draft: { variant: 'outline', label: 'Draft', dot: 'bg-theme-surface' },
   active: { variant: 'success', label: 'Active', dot: 'bg-theme-success', pulse: true },
   paused: { variant: 'warning', label: 'Paused', dot: 'bg-theme-warning' },
   completed: { variant: 'primary', label: 'Completed', dot: 'bg-theme-info' },
   failed: { variant: 'danger', label: 'Failed', dot: 'bg-theme-error' },
-  cancelled: { variant: 'outline', label: 'Cancelled', dot: 'bg-theme-secondary' },
+  cancelled: { variant: 'outline', label: 'Cancelled', dot: 'bg-theme-surface' },
 };
 
 export type StatusTabId = 'all' | 'active' | 'completed' | 'failed';

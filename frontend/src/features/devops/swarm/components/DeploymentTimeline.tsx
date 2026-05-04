@@ -29,7 +29,7 @@ export const DeploymentTimeline: React.FC<DeploymentTimelineProps> = ({ deployme
                 deployment.status === 'completed' ? 'bg-theme-success' :
                 deployment.status === 'failed' ? 'bg-theme-error' :
                 deployment.status === 'running' ? 'bg-theme-info' :
-                deployment.status === 'cancelled' ? 'bg-theme-tertiary' :
+                deployment.status === 'cancelled' ? 'bg-theme-background-secondary' :
                 'bg-theme-warning'
               }`} />
 

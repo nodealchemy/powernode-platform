@@ -11,11 +11,11 @@ interface Props {
 }
 
 const statusColors: Record<string, string> = {
-  pending: 'bg-theme-secondary-bg text-theme-secondary',
-  reviewing: 'bg-theme-info-bg text-theme-info',
-  clean: 'bg-theme-success-bg text-theme-success',
+  pending: 'bg-theme-surface-bg text-theme-secondary',
+  reviewing: 'bg-theme-info text-theme-info',
+  clean: 'bg-theme-success text-theme-success',
   dirty: 'bg-theme-error-bg text-theme-error',
-  stale: 'bg-theme-warning-bg text-theme-warning',
+  stale: 'bg-theme-warning text-theme-warning',
 };
 
 const tierColors: Record<string, string> = {
@@ -75,7 +75,7 @@ const RunCardExpanded: React.FC<{
                       ? isFailed
                         ? 'bg-theme-error'
                         : 'bg-theme-accent animate-pulse'
-                      : 'bg-theme-tertiary-bg'
+                      : 'bg-theme-background-secondary-bg'
                   }`}
                 />
                 <span className="text-[10px] text-theme-secondary mt-1 block text-center">
@@ -89,19 +89,19 @@ const RunCardExpanded: React.FC<{
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-theme-secondary-bg rounded-lg p-2 text-center">
+        <div className="bg-theme-surface-bg rounded-lg p-2 text-center">
           <div className="text-lg font-semibold text-theme-primary">{state.review_findings_count}</div>
           <div className="text-[10px] text-theme-secondary">Findings</div>
         </div>
-        <div className="bg-theme-secondary-bg rounded-lg p-2 text-center">
+        <div className="bg-theme-surface-bg rounded-lg p-2 text-center">
           <div className="text-lg font-semibold text-theme-error">{state.critical_findings_count}</div>
           <div className="text-[10px] text-theme-secondary">Critical</div>
         </div>
-        <div className="bg-theme-secondary-bg rounded-lg p-2 text-center">
+        <div className="bg-theme-surface-bg rounded-lg p-2 text-center">
           <div className="text-lg font-semibold text-theme-primary">{state.remediation_attempts}</div>
           <div className="text-[10px] text-theme-secondary">Remediations</div>
         </div>
-        <div className="bg-theme-secondary-bg rounded-lg p-2 text-center">
+        <div className="bg-theme-surface-bg rounded-lg p-2 text-center">
           <div className="text-lg font-semibold text-theme-primary">{state.bot_threads_resolved}</div>
           <div className="text-[10px] text-theme-secondary">Threads Resolved</div>
         </div>
@@ -119,8 +119,8 @@ const RunCardExpanded: React.FC<{
                   key={check}
                   className={`px-2 py-0.5 rounded text-xs ${
                     passed
-                      ? 'bg-theme-success-bg text-theme-success'
-                      : 'bg-theme-secondary-bg text-theme-secondary'
+                      ? 'bg-theme-success text-theme-success'
+                      : 'bg-theme-surface-bg text-theme-secondary'
                   }`}
                 >
                   {passed ? '\u2713' : '\u25CB'} {check}
@@ -137,7 +137,7 @@ const RunCardExpanded: React.FC<{
           <h5 className="text-xs font-semibold text-theme-secondary uppercase tracking-wider mb-2">Evidence Manifests</h5>
           <div className="flex flex-wrap gap-2">
             {state.evidence_manifests.map((m) => (
-              <span key={m.id} className="text-xs bg-theme-secondary-bg rounded px-2 py-1">
+              <span key={m.id} className="text-xs bg-theme-surface-bg rounded px-2 py-1">
                 <span className="text-theme-primary capitalize">{m.manifest_type.replace(/_/g, ' ')}</span>
                 <span className={`ml-2 ${m.status === 'verified' ? 'text-theme-success' : 'text-theme-secondary'}`}>
                   {m.status}

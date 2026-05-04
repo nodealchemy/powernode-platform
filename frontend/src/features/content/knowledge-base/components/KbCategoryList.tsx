@@ -34,7 +34,7 @@ export function KbCategoryList({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-theme-secondary bg-theme-tertiary px-2 py-1 rounded-full">
+          <span className="text-sm text-theme-secondary bg-theme-background-secondary px-2 py-1 rounded-full">
             {category.article_count}
           </span>
           <ChevronRightIcon className="h-4 w-4 text-theme-tertiary group-hover:text-theme-primary" />

@@ -2,12 +2,12 @@ import React from 'react';
 import type { RalphLoopSummary, RalphLoopStatus } from '@/shared/services/ai/types/ralph-types';
 
 const STATUS_STYLES: Record<RalphLoopStatus, { dot: string; pulse?: boolean }> = {
-  pending: { dot: 'bg-theme-secondary' },
+  pending: { dot: 'bg-theme-surface' },
   running: { dot: 'bg-theme-info', pulse: true },
   paused: { dot: 'bg-theme-warning' },
   completed: { dot: 'bg-theme-success' },
   failed: { dot: 'bg-theme-error' },
-  cancelled: { dot: 'bg-theme-tertiary' },
+  cancelled: { dot: 'bg-theme-background-secondary' },
 };
 
 function timeAgo(dateStr: string | undefined): string {

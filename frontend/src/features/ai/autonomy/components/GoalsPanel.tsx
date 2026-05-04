@@ -207,7 +207,7 @@ const GoalCard: React.FC<{
         {/* Compact progress bar for active goals */}
         {goal.status === 'active' && (
           <div className="w-20 flex items-center gap-1.5 shrink-0">
-            <div className="flex-1 h-1.5 bg-theme-secondary/20 rounded-full overflow-hidden">
+            <div className="flex-1 h-1.5 bg-theme-surface/20 rounded-full overflow-hidden">
               <div className="h-full bg-theme-info rounded-full" style={{ width: `${Math.round(goal.progress * 100)}%` }} />
             </div>
             <span className="text-xs text-theme-muted">{Math.round(goal.progress * 100)}%</span>
@@ -245,7 +245,7 @@ const GoalCard: React.FC<{
                   <span>Progress</span>
                   <span>{Math.round(goal.progress * 100)}%</span>
                 </div>
-                <div className="h-2 bg-theme-secondary/20 rounded-full overflow-hidden">
+                <div className="h-2 bg-theme-surface/20 rounded-full overflow-hidden">
                   <div className="h-full bg-theme-info rounded-full" style={{ width: `${Math.round(goal.progress * 100)}%` }} />
                 </div>
               </div>

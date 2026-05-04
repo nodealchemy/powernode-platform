@@ -241,12 +241,12 @@ export const CodeFactoryContent: React.FC<{
                       .filter(g => g.status === 'open' || g.status === 'in_progress')
                       .slice(0, 5)
                       .map((gap) => (
-                        <div key={gap.id} className="flex items-center gap-2 bg-theme-secondary-bg rounded-lg px-3 py-2">
+                        <div key={gap.id} className="flex items-center gap-2 bg-theme-surface-bg rounded-lg px-3 py-2">
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
                             gap.severity === 'critical' ? 'bg-theme-danger/20 text-theme-danger'
                               : gap.severity === 'high' ? 'bg-theme-error-bg text-theme-error'
-                              : gap.severity === 'medium' ? 'bg-theme-warning-bg text-theme-warning'
-                              : 'bg-theme-secondary-bg text-theme-secondary'
+                              : gap.severity === 'medium' ? 'bg-theme-warning text-theme-warning'
+                              : 'bg-theme-surface-bg text-theme-secondary'
                           }`}>
                             {gap.severity}
                           </span>
@@ -290,11 +290,11 @@ export const CodeFactoryContent: React.FC<{
                   return (
                     <div className="space-y-3">
                       <div className="grid grid-cols-3 gap-2">
-                        <div className="bg-theme-success-bg rounded-lg p-2 text-center">
+                        <div className="bg-theme-success rounded-lg p-2 text-center">
                           <div className="text-lg font-semibold text-theme-success">{verified}</div>
                           <div className="text-[10px] text-theme-secondary">Verified</div>
                         </div>
-                        <div className="bg-theme-secondary-bg rounded-lg p-2 text-center">
+                        <div className="bg-theme-surface-bg rounded-lg p-2 text-center">
                           <div className="text-lg font-semibold text-theme-primary">{pending}</div>
                           <div className="text-[10px] text-theme-secondary">Pending</div>
                         </div>
@@ -305,7 +305,7 @@ export const CodeFactoryContent: React.FC<{
                       </div>
                       <div className="space-y-1.5">
                         {manifests.slice(0, 4).map((m) => (
-                          <div key={m.id} className="flex items-center justify-between bg-theme-secondary-bg rounded-lg px-3 py-2">
+                          <div key={m.id} className="flex items-center justify-between bg-theme-surface-bg rounded-lg px-3 py-2">
                             <div className="flex items-center gap-2 min-w-0">
                               <span className="text-xs text-theme-primary capitalize">{m.manifest_type.replace(/_/g, ' ')}</span>
                               <span className="text-xs text-theme-secondary">PR #{m.pr_number}</span>
@@ -313,9 +313,9 @@ export const CodeFactoryContent: React.FC<{
                             <div className="flex items-center gap-2 flex-shrink-0">
                               <span className="text-[10px] text-theme-secondary">{m.assertions.length} assertions</span>
                               <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
-                                m.status === 'verified' ? 'bg-theme-success-bg text-theme-success'
+                                m.status === 'verified' ? 'bg-theme-success text-theme-success'
                                   : m.status === 'failed' ? 'bg-theme-error-bg text-theme-error'
-                                  : 'bg-theme-secondary-bg text-theme-secondary'
+                                  : 'bg-theme-surface-bg text-theme-secondary'
                               }`}>
                                 {m.status}
                               </span>

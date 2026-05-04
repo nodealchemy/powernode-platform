@@ -8,7 +8,7 @@ export const STATUS_CONFIG: Record<AiAgent['status'], {
   dot: string;
 }> = {
   active: { variant: 'success', label: 'Active', dot: 'bg-theme-success' },
-  inactive: { variant: 'outline', label: 'Inactive', dot: 'bg-theme-secondary' },
+  inactive: { variant: 'outline', label: 'Inactive', dot: 'bg-theme-surface' },
   error: { variant: 'danger', label: 'Error', dot: 'bg-theme-error' },
 };
 

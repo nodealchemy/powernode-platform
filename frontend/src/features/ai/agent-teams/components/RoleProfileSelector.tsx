@@ -36,7 +36,7 @@ const SELECTED_COLORS: Record<string, string> = {
   reviewer: 'border-theme-interactive-primary bg-theme-interactive-primary/10',
   type_checker: 'border-theme-success bg-theme-success/10',
   test_writer: 'border-theme-danger bg-theme-danger/10',
-  documentation_expert: 'border-theme-secondary bg-theme-secondary/10',
+  documentation_expert: 'border-theme-secondary bg-theme-surface/10',
   custom: 'border-theme-primary bg-theme-accent',
 };
 

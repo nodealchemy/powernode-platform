@@ -34,8 +34,8 @@ const STATUS_COLORS: Record<string, string> = {
   failed: 'bg-theme-error/10 text-theme-error',
   conflict: 'bg-theme-error/10 text-theme-error',
   rejected: 'bg-theme-error/10 text-theme-error',
-  cancelled: 'bg-theme-tertiary/10 text-theme-tertiary',
-  archived: 'bg-theme-tertiary/10 text-theme-tertiary',
+  cancelled: 'bg-theme-background-secondary/10 text-theme-tertiary',
+  archived: 'bg-theme-background-secondary/10 text-theme-tertiary',
 };
 
 function timeAgo(dateStr: string): string {

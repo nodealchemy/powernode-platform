@@ -192,7 +192,7 @@ export const UsageDashboard: React.FC = () => {
               </div>
               {meter.quota_limit && (
                 <div className="mt-2">
-                  <div className="w-full bg-theme-tertiary rounded-full h-1.5">
+                  <div className="w-full bg-theme-background-secondary rounded-full h-1.5">
                     <div
                       className={`h-1.5 rounded-full ${meter.quota_exceeded ? 'bg-theme-error' : 'bg-theme-interactive-primary'}`}
                       style={{ width: `${Math.min(meter.quota_percent, 100)}%` }}

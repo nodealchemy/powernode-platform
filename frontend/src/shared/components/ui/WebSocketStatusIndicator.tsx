@@ -33,7 +33,7 @@ export const WebSocketStatusIndicator: React.FC<WebSocketStatusIndicatorProps> =
       };
     } else {
       return {
-        dotColor: 'bg-theme-tertiary',
+        dotColor: 'bg-theme-background-secondary',
         textColor: 'text-theme-secondary',
         label: 'Offline',
         description: 'Real-time connection inactive'

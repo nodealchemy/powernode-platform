@@ -280,7 +280,7 @@ export const AgentsIndexTable: React.FC = () => {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <span className={cn('w-2 h-2 rounded-full flex-shrink-0', STATUS_CONFIG[agent.status]?.dot || 'bg-theme-secondary')} />
+                      <span className={cn('w-2 h-2 rounded-full flex-shrink-0', STATUS_CONFIG[agent.status]?.dot || 'bg-theme-surface')} />
                       <div className="min-w-0">
                         <div className="text-sm font-medium text-theme-primary truncate">{agent.name}</div>
                         {agent.description && (

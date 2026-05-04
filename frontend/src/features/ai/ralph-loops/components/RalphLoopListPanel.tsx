@@ -24,12 +24,12 @@ const TAB_STATUS_MAP: Record<TabId, RalphLoopStatus[] | null> = {
 };
 
 const STATUS_DOT: Record<RalphLoopStatus, string> = {
-  pending: 'bg-theme-secondary',
+  pending: 'bg-theme-surface',
   running: 'bg-theme-info',
   paused: 'bg-theme-warning',
   completed: 'bg-theme-success',
   failed: 'bg-theme-error',
-  cancelled: 'bg-theme-tertiary',
+  cancelled: 'bg-theme-background-secondary',
 };
 
 interface RalphLoopListPanelProps {
@@ -203,7 +203,7 @@ export const RalphLoopListPanel: React.FC<RalphLoopListPanelProps> = ({
                   : 'hover:bg-theme-surface-hover'
               }`}
             >
-              <span className={`w-2.5 h-2.5 rounded-full ${STATUS_DOT[l.status] || 'bg-theme-secondary'}`} />
+              <span className={`w-2.5 h-2.5 rounded-full ${STATUS_DOT[l.status] || 'bg-theme-surface'}`} />
             </button>
           ))}
         </>

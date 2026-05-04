@@ -75,7 +75,7 @@ export const QuotaProgress: React.FC<QuotaProgressProps> = ({ quotas }) => {
               </span>
             </div>
 
-            <div className="w-full bg-theme-tertiary rounded-full h-3">
+            <div className="w-full bg-theme-background-secondary rounded-full h-3">
               <div
                 className={`h-3 rounded-full transition-all ${getProgressColor(quota)}`}
                 style={{ width: `${Math.min(quota.usage_percent, 100)}%` }}

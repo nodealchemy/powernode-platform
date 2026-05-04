@@ -102,7 +102,7 @@ export const getStatusColor = (status?: string): string => {
     case 'processing':
       return 'text-theme-info bg-theme-info/20';
     default:
-      return 'text-theme-secondary bg-theme-secondary/20';
+      return 'text-theme-secondary bg-theme-surface/20';
   }
 };
 
@@ -135,7 +135,7 @@ export const getMcpOperationColor = (type?: string): string => {
     case 'prompt':
       return 'text-theme-warning bg-theme-warning/20';
     default:
-      return 'text-theme-secondary bg-theme-secondary/20';
+      return 'text-theme-secondary bg-theme-surface/20';
   }
 };
 
@@ -149,7 +149,7 @@ export const getConditionBranchColor = (branch?: string | boolean): string => {
   if (branch === false || branch === 'false' || branch === 'no') {
     return 'text-theme-danger bg-theme-danger/20';
   }
-  return 'text-theme-secondary bg-theme-secondary/20';
+  return 'text-theme-secondary bg-theme-surface/20';
 };
 
 /**
@@ -168,7 +168,7 @@ export const getNotificationChannelColor = (channel?: string): string => {
     case 'discord':
       return 'text-theme-interactive-primary bg-theme-interactive-primary/20';
     default:
-      return 'text-theme-secondary bg-theme-secondary/20';
+      return 'text-theme-secondary bg-theme-surface/20';
   }
 };
 
@@ -190,7 +190,7 @@ export const getFileOperationColor = (operation?: string): string => {
     case 'delete':
       return 'text-theme-danger bg-theme-danger/20';
     default:
-      return 'text-theme-secondary bg-theme-secondary/20';
+      return 'text-theme-secondary bg-theme-surface/20';
   }
 };
 
@@ -221,7 +221,7 @@ export const getLoopTypeColor = (type?: string): string => {
     case 'times':
       return 'text-theme-info bg-theme-info/20';
     default:
-      return 'text-theme-secondary bg-theme-secondary/20';
+      return 'text-theme-secondary bg-theme-surface/20';
   }
 };
 
@@ -247,7 +247,7 @@ export const getPriorityColor = (priority?: string | number): string => {
     case 3:
       return 'text-theme-success bg-theme-success/20';
     default:
-      return 'text-theme-secondary bg-theme-secondary/20';
+      return 'text-theme-secondary bg-theme-surface/20';
   }
 };
 
@@ -270,7 +270,7 @@ export const getContentActionColor = (action?: string): string => {
     case 'archive':
       return 'text-theme-danger bg-theme-danger/20';
     default:
-      return 'text-theme-secondary bg-theme-secondary/20';
+      return 'text-theme-secondary bg-theme-surface/20';
   }
 };
 

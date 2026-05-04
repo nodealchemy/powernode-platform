@@ -162,7 +162,7 @@ export const JobProgressModal: React.FC<JobProgressModalProps> = ({
       case 'in_progress':
         return 'bg-theme-primary';
       default:
-        return 'bg-theme-secondary';
+        return 'bg-theme-surface';
     }
   };
 

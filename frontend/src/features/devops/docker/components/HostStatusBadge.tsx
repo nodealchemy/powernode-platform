@@ -18,7 +18,7 @@ export const HostStatusBadge: React.FC<HostStatusBadgeProps> = ({ status, size =
         status === 'error' ? 'bg-theme-error' :
         status === 'pending' ? 'bg-theme-warning' :
         status === 'maintenance' ? 'bg-theme-info' :
-        'bg-theme-tertiary'
+        'bg-theme-background-secondary'
       }`} />
       {status}
     </span>

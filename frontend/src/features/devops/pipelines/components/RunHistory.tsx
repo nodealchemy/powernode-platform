@@ -22,7 +22,7 @@ const getStatusConfig = (status: DevopsPipelineRunStatus) => {
     running: { bg: 'bg-theme-info/10', text: 'text-theme-info', icon: RefreshCw, label: 'Running' },
     success: { bg: 'bg-theme-success/10', text: 'text-theme-success', icon: CheckCircle, label: 'Success' },
     failure: { bg: 'bg-theme-error/10', text: 'text-theme-error', icon: XCircle, label: 'Failed' },
-    cancelled: { bg: 'bg-theme-secondary/10', text: 'text-theme-secondary', icon: AlertCircle, label: 'Cancelled' },
+    cancelled: { bg: 'bg-theme-surface/10', text: 'text-theme-secondary', icon: AlertCircle, label: 'Cancelled' },
   };
   return configs[status] || configs.pending;
 };
@@ -173,7 +173,7 @@ const RunRow: React.FC<{
                   Step: {run.current_step.name}
                 </span>
                 <div className="flex items-center gap-2">
-                  <div className="w-24 h-1.5 bg-theme-secondary/20 rounded-full overflow-hidden">
+                  <div className="w-24 h-1.5 bg-theme-surface/20 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-theme-info rounded-full transition-all"
                       style={{ width: `${run.progress_percentage}%` }}

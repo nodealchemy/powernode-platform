@@ -131,7 +131,7 @@ export const ReviewPanel: React.FC<ReviewPanelProps> = ({
           <div className="w-full bg-theme-accent rounded-full h-2 relative">
             {/* Threshold marker */}
             <div
-              className="absolute top-0 bottom-0 w-0.5 bg-theme-secondary"
+              className="absolute top-0 bottom-0 w-0.5 bg-theme-surface"
               style={{ left: `${qualityThreshold * 100}%` }}
             />
             <div

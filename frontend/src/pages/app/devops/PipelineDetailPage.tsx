@@ -224,7 +224,7 @@ export const PipelineDetailPage: React.FC = () => {
           <div className="bg-theme-surface rounded-lg border border-theme p-4">
             <div className="text-sm text-theme-secondary mb-1">Status</div>
             <div className="flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full ${pipeline.is_active ? 'bg-theme-success' : 'bg-theme-secondary'}`} />
+              <span className={`w-2 h-2 rounded-full ${pipeline.is_active ? 'bg-theme-success' : 'bg-theme-surface'}`} />
               <span className="font-medium text-theme-primary">
                 {pipeline.is_active ? 'Active' : 'Inactive'}
               </span>
@@ -284,7 +284,7 @@ export const PipelineDetailPage: React.FC = () => {
                     <div className="font-medium text-theme-primary">{step.name}</div>
                     <div className="text-sm text-theme-secondary">{step.step_type}</div>
                   </div>
-                  <span className={`px-2 py-0.5 rounded text-xs ${step.is_active ? 'bg-theme-success/10 text-theme-success' : 'bg-theme-secondary/10 text-theme-secondary'}`}>
+                  <span className={`px-2 py-0.5 rounded text-xs ${step.is_active ? 'bg-theme-success/10 text-theme-success' : 'bg-theme-surface/10 text-theme-secondary'}`}>
                     {step.is_active ? 'Active' : 'Disabled'}
                   </span>
                 </div>

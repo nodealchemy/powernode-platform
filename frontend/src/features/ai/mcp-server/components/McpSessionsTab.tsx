@@ -45,7 +45,7 @@ export const McpSessionsTab: React.FC<McpSessionsTabProps> = ({ onActionsReady }
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
       active: 'bg-theme-success/10 text-theme-success',
-      expired: 'bg-theme-tertiary/20 text-theme-tertiary',
+      expired: 'bg-theme-background-secondary/20 text-theme-tertiary',
       revoked: 'bg-theme-error/10 text-theme-error',
     };
     return styles[status] || styles.expired;

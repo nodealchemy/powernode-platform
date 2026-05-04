@@ -139,7 +139,7 @@ export const AdminSystemHealth: React.FC<AdminSystemHealthProps> = ({
       unhealthy: 'bg-theme-error bg-opacity-10 text-theme-error',
       major_outage: 'bg-theme-error bg-opacity-10 text-theme-error',
       error: 'bg-theme-error bg-opacity-10 text-theme-error',
-      no_data: 'bg-theme-secondary bg-opacity-10 text-theme-secondary',
+      no_data: 'bg-theme-surface bg-opacity-10 text-theme-secondary',
     };
 
     const style = statusStyles[status] || statusStyles.no_data;

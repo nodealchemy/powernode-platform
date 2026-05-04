@@ -120,7 +120,7 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
                 'px-1.5 py-0.5 text-xs rounded',
                 entry.importance_score >= 0.8 ? 'bg-theme-error/10 text-theme-error' :
                 entry.importance_score >= 0.6 ? 'bg-theme-warning/10 text-theme-warning' :
-                'bg-theme-secondary/10 text-theme-secondary'
+                'bg-theme-surface/10 text-theme-secondary'
               )}>
                 {Math.round(entry.importance_score * 100)}% importance
               </span>

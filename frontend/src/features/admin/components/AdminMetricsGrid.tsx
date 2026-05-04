@@ -199,7 +199,7 @@ export const AdminMetricsGrid: React.FC<AdminMetricsGridProps> = ({
                       ? 'bg-theme-success bg-opacity-10 text-theme-success'
                       : metric.trend === 'down'
                       ? 'bg-theme-error bg-opacity-10 text-theme-error'
-                      : 'bg-theme-secondary bg-opacity-10 text-theme-secondary'
+                      : 'bg-theme-surface bg-opacity-10 text-theme-secondary'
                   }`}
                 >
                   {metric.trend === 'up' ? (

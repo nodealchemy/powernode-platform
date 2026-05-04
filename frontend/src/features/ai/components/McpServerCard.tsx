@@ -70,7 +70,7 @@ export const McpServerCard: React.FC<McpServerCardProps> = ({
       case 'connected': return 'bg-theme-success';
       case 'connecting': return 'bg-theme-warning';
       case 'error': return 'bg-theme-error';
-      default: return 'bg-theme-tertiary';
+      default: return 'bg-theme-background-secondary';
     }
   };
 

@@ -9,7 +9,7 @@ export const STATUS_CONFIG: Record<string, {
 }> = {
   active: { variant: 'success', label: 'Active', dot: 'bg-theme-success' },
   paused: { variant: 'warning', label: 'Paused', dot: 'bg-theme-warning' },
-  archived: { variant: 'outline', label: 'Archived', dot: 'bg-theme-secondary' },
+  archived: { variant: 'outline', label: 'Archived', dot: 'bg-theme-surface' },
   disbanded: { variant: 'danger', label: 'Disbanded', dot: 'bg-theme-error' },
 };
 

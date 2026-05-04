@@ -28,9 +28,9 @@ const TypingBubble: React.FC<{ agentName?: string }> = ({ agentName }) => (
     <div className="max-w-[75%] rounded-lg px-4 py-2 bg-theme-primary/10 text-theme-secondary">
       <div className="flex items-center gap-2">
         <div className="flex gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-theme-secondary animate-bounce" style={{ animationDelay: '0ms' }} />
-          <span className="w-1.5 h-1.5 rounded-full bg-theme-secondary animate-bounce" style={{ animationDelay: '150ms' }} />
-          <span className="w-1.5 h-1.5 rounded-full bg-theme-secondary animate-bounce" style={{ animationDelay: '300ms' }} />
+          <span className="w-1.5 h-1.5 rounded-full bg-theme-surface animate-bounce" style={{ animationDelay: '0ms' }} />
+          <span className="w-1.5 h-1.5 rounded-full bg-theme-surface animate-bounce" style={{ animationDelay: '150ms' }} />
+          <span className="w-1.5 h-1.5 rounded-full bg-theme-surface animate-bounce" style={{ animationDelay: '300ms' }} />
         </div>
         {agentName && (
           <span className="text-xs text-theme-secondary">{agentName} is typing</span>

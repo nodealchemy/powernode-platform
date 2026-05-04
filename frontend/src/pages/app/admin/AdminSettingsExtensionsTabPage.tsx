@@ -87,7 +87,7 @@ export const AdminSettingsExtensionsTabPage: React.FC = () => {
         <Puzzle className="w-12 h-12 text-theme-tertiary mx-auto mb-3" />
         <h3 className="text-lg font-medium text-theme-primary">No Extensions Found</h3>
         <p className="mt-2 text-sm text-theme-secondary">
-          Place extensions in the <code className="text-xs bg-theme-tertiary/20 px-1.5 py-0.5 rounded">extensions/</code> directory with an <code className="text-xs bg-theme-tertiary/20 px-1.5 py-0.5 rounded">extension.json</code> manifest.
+          Place extensions in the <code className="text-xs bg-theme-background-secondary/20 px-1.5 py-0.5 rounded">extensions/</code> directory with an <code className="text-xs bg-theme-background-secondary/20 px-1.5 py-0.5 rounded">extension.json</code> manifest.
         </p>
       </div>
     );
@@ -134,7 +134,7 @@ export const AdminSettingsExtensionsTabPage: React.FC = () => {
                   <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
                     ext.installed
                       ? 'bg-theme-success/10 text-theme-success'
-                      : 'bg-theme-tertiary/30 text-theme-secondary'
+                      : 'bg-theme-background-secondary/30 text-theme-secondary'
                   }`}>
                     {ext.installed ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
                     {ext.installed ? 'Installed' : 'Not loaded'}
@@ -142,7 +142,7 @@ export const AdminSettingsExtensionsTabPage: React.FC = () => {
                   <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
                     ext.enabled
                       ? 'bg-theme-interactive-primary/10 text-theme-interactive-primary'
-                      : 'bg-theme-tertiary/30 text-theme-secondary'
+                      : 'bg-theme-background-secondary/30 text-theme-secondary'
                   }`}>
                     {ext.enabled ? 'Enabled' : 'Disabled'}
                   </span>
@@ -155,7 +155,7 @@ export const AdminSettingsExtensionsTabPage: React.FC = () => {
                   className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary focus:ring-offset-2 ${
                     ext.enabled
                       ? 'bg-theme-interactive-primary'
-                      : 'bg-theme-tertiary'
+                      : 'bg-theme-background-secondary'
                   } ${!ext.installed ? 'opacity-40 cursor-not-allowed' : isToggling ? 'opacity-50 cursor-wait' : 'cursor-pointer'}`}
                   role="switch"
                   aria-checked={ext.enabled}
@@ -184,7 +184,7 @@ export const AdminSettingsExtensionsTabPage: React.FC = () => {
                 {ext.capabilities.map((cap) => (
                   <span
                     key={cap}
-                    className="inline-flex items-center rounded-md bg-theme-tertiary/15 px-2 py-1 text-xs text-theme-secondary"
+                    className="inline-flex items-center rounded-md bg-theme-background-secondary/15 px-2 py-1 text-xs text-theme-secondary"
                   >
                     {cap}
                   </span>

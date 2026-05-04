@@ -93,9 +93,9 @@ export function StatusBadge({ status, className = '' }: { status: string; classN
     conflict: 'bg-theme-error/10 text-theme-error',
     rejected: 'bg-theme-error/10 text-theme-error',
     rolled_back: 'bg-theme-error/10 text-theme-error',
-    cancelled: 'bg-theme-tertiary/10 text-theme-tertiary',
-    archived: 'bg-theme-tertiary/10 text-theme-tertiary',
-    cleaned_up: 'bg-theme-tertiary/10 text-theme-tertiary',
+    cancelled: 'bg-theme-background-secondary/10 text-theme-tertiary',
+    archived: 'bg-theme-background-secondary/10 text-theme-tertiary',
+    cleaned_up: 'bg-theme-background-secondary/10 text-theme-tertiary',
   };
 
   const colors = colorMap[status] || 'bg-theme-surface text-theme-secondary';

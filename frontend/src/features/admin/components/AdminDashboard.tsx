@@ -235,7 +235,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         ? 'bg-theme-success bg-opacity-10 text-theme-success'
                         : account.status === 'suspended'
                         ? 'bg-theme-error bg-opacity-10 text-theme-error'
-                        : 'bg-theme-secondary bg-opacity-10 text-theme-secondary'
+                        : 'bg-theme-surface bg-opacity-10 text-theme-secondary'
                     }`}
                   >
                     {account.status}

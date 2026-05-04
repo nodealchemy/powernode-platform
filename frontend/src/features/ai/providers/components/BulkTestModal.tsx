@@ -105,7 +105,7 @@ export const BulkTestModal: React.FC<BulkTestModalProps> = ({
   const getStatusIcon = (status: TestResult['status']) => {
     switch (status) {
       case 'pending':
-        return <div className="h-4 w-4 rounded-full bg-theme-tertiary opacity-30" />;
+        return <div className="h-4 w-4 rounded-full bg-theme-background-secondary opacity-30" />;
       case 'testing':
         return <Clock className="h-4 w-4 text-theme-warning animate-spin" />;
       case 'success':

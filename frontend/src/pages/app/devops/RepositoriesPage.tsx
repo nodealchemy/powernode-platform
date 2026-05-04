@@ -299,7 +299,7 @@ const RepositoryCard: React.FC<{
                 <h3 className="font-medium text-theme-primary truncate">{repository.name}</h3>
                 <ProviderBadge type={repository.provider_type} />
                 {repository.is_archived && (
-                  <span className="flex items-center gap-1 px-1.5 py-0.5 text-xs rounded bg-theme-secondary/10 text-theme-secondary">
+                  <span className="flex items-center gap-1 px-1.5 py-0.5 text-xs rounded bg-theme-surface/10 text-theme-secondary">
                     <Archive className="w-3 h-3" />
                     Archived
                   </span>
@@ -652,7 +652,7 @@ const RepositoryCard: React.FC<{
                                     index === 0 ? 'border-theme-primary bg-theme-primary' : 'border-theme-secondary bg-theme-surface'
                                   }`} />
                                   {index < commits.length - 1 && (
-                                    <div className="w-0.5 h-full min-h-[16px] bg-theme-secondary/30 mt-1" />
+                                    <div className="w-0.5 h-full min-h-[16px] bg-theme-surface/30 mt-1" />
                                   )}
                                 </div>
                                 <div className="flex-1 min-w-0">

@@ -363,7 +363,7 @@ export function DevOpsHubPage() {
                   <StatusIndicator label="Busy" value={cicd.runners.busy} total={totalRunners} type="warning" />
                   <StatusIndicator label="Offline" value={cicd.runners.offline} total={totalRunners} type="error" />
                 </div>
-                <div className="h-2 bg-theme-secondary/20 rounded-full overflow-hidden flex">
+                <div className="h-2 bg-theme-surface/20 rounded-full overflow-hidden flex">
                   <div className="bg-theme-success transition-all" style={{ width: `${(cicd.runners.online / totalRunners) * 100}%` }} />
                   <div className="bg-theme-warning transition-all" style={{ width: `${(cicd.runners.busy / totalRunners) * 100}%` }} />
                   <div className="bg-theme-error transition-all" style={{ width: `${(cicd.runners.offline / totalRunners) * 100}%` }} />
@@ -406,7 +406,7 @@ export function DevOpsHubPage() {
                 </div>
                 {totalStatusRuns > 0 && (
                   <>
-                    <div className="h-2 bg-theme-secondary/20 rounded-full overflow-hidden flex">
+                    <div className="h-2 bg-theme-surface/20 rounded-full overflow-hidden flex">
                       <div className="bg-theme-success transition-all" style={{ width: `${(successRuns / totalStatusRuns) * 100}%` }} />
                       <div className="bg-theme-error transition-all" style={{ width: `${(failedRuns / totalStatusRuns) * 100}%` }} />
                     </div>
@@ -451,7 +451,7 @@ export function DevOpsHubPage() {
                     <p className="text-[10px] text-theme-tertiary">Failed</p>
                   </div>
                 </div>
-                <div className="h-2 bg-theme-secondary/20 rounded-full overflow-hidden flex">
+                <div className="h-2 bg-theme-surface/20 rounded-full overflow-hidden flex">
                   {infra.containers.finished > 0 && (
                     <>
                       <div className="bg-theme-success transition-all" style={{ width: `${(infra.containers.completed / infra.containers.finished) * 100}%` }} />

@@ -170,7 +170,7 @@ export const ImpersonateUserModal: React.FC<ImpersonateUserModalProps> = ({
                               </span>
                             ))
                           ) : (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-theme-tertiary bg-opacity-10 text-theme-tertiary">
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-theme-background-secondary bg-opacity-10 text-theme-tertiary">
                               No Role
                             </span>
                           )}

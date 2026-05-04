@@ -31,8 +31,8 @@ const statusIcons: Record<string, React.FC<{ className?: string }>> = {
 const conclusionStyles: Record<string, { bg: string; text: string; icon: React.FC<{ className?: string }> }> = {
   success: { bg: 'bg-theme-success/10', text: 'text-theme-success', icon: CheckCircle },
   failure: { bg: 'bg-theme-error/10', text: 'text-theme-error', icon: XCircle },
-  cancelled: { bg: 'bg-theme-secondary/10', text: 'text-theme-secondary', icon: StopCircle },
-  skipped: { bg: 'bg-theme-secondary/10', text: 'text-theme-secondary', icon: Clock },
+  cancelled: { bg: 'bg-theme-surface/10', text: 'text-theme-secondary', icon: StopCircle },
+  skipped: { bg: 'bg-theme-surface/10', text: 'text-theme-secondary', icon: Clock },
 };
 
 export const PipelineList: React.FC<PipelineListProps> = ({

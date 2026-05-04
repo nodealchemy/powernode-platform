@@ -20,8 +20,8 @@ const getCategoryConfig = (category: DevopsPromptCategory) => {
     security: { bg: 'bg-theme-error/10', text: 'text-theme-error', label: 'Security' },
     deploy: { bg: 'bg-theme-warning/10', text: 'text-theme-warning', label: 'Deploy' },
     docs: { bg: 'bg-theme-primary/10', text: 'text-theme-primary', label: 'Docs' },
-    custom: { bg: 'bg-theme-secondary/10', text: 'text-theme-secondary', label: 'Custom' },
-    general: { bg: 'bg-theme-secondary/10', text: 'text-theme-secondary', label: 'General' },
+    custom: { bg: 'bg-theme-surface/10', text: 'text-theme-secondary', label: 'Custom' },
+    general: { bg: 'bg-theme-surface/10', text: 'text-theme-secondary', label: 'General' },
     agent: { bg: 'bg-theme-primary/10', text: 'text-theme-primary', label: 'Agent' },
     workflow: { bg: 'bg-theme-info/10', text: 'text-theme-info', label: 'Workflow' },
   };

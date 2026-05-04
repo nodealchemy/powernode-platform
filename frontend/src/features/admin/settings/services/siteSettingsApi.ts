@@ -191,7 +191,7 @@ class SiteSettingsApiService {
       case 'string':
         return 'bg-theme-primary/20 text-theme-primary border-theme-primary/30';
       case 'text':
-        return 'bg-theme-secondary/20 text-theme-secondary border-theme-secondary/30';
+        return 'bg-theme-surface/20 text-theme-secondary border-theme-secondary/30';
       case 'boolean':
         return 'bg-theme-success/20 text-theme-success border-theme-success/30';
       case 'integer':

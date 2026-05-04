@@ -70,7 +70,7 @@ const ProviderCard: React.FC<{
         className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
           provider.is_active
             ? 'bg-theme-success/10 text-theme-success'
-            : 'bg-theme-secondary/10 text-theme-secondary'
+            : 'bg-theme-surface/10 text-theme-secondary'
         }`}
       >
         {provider.is_active ? 'Active' : 'Inactive'}

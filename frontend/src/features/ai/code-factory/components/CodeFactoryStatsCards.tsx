@@ -19,8 +19,8 @@ const STATUS_ORDER: Record<string, number> = {
 const STEPS = ['Preflight', 'Review', 'Remediation', 'Verify', 'Evidence', 'Complete'];
 
 const severityColors: Record<string, string> = {
-  low: 'bg-theme-secondary-bg text-theme-secondary',
-  medium: 'bg-theme-warning-bg text-theme-warning',
+  low: 'bg-theme-surface-bg text-theme-secondary',
+  medium: 'bg-theme-warning text-theme-warning',
   high: 'bg-theme-error-bg text-theme-error',
   critical: 'bg-theme-danger/20 text-theme-danger',
 };
@@ -38,7 +38,7 @@ const MiniProgressBar: React.FC<{ status: string }> = ({ status }) => {
               ? 'bg-theme-success'
               : idx === i
               ? isFailed ? 'bg-theme-error' : 'bg-theme-accent'
-              : 'bg-theme-tertiary-bg'
+              : 'bg-theme-background-secondary-bg'
           }`}
         />
       ))}
@@ -154,15 +154,15 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
           ) : (
             <div className="space-y-2">
               {contracts.slice(0, 5).map((contract) => (
-                <div key={contract.id} className="flex items-center justify-between bg-theme-secondary-bg rounded-lg px-3 py-2">
+                <div key={contract.id} className="flex items-center justify-between bg-theme-surface-bg rounded-lg px-3 py-2">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-sm text-theme-primary truncate">{contract.name}</span>
                     <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
                       contract.status === 'active'
-                        ? 'bg-theme-success-bg text-theme-success'
+                        ? 'bg-theme-success text-theme-success'
                         : contract.status === 'draft'
-                        ? 'bg-theme-secondary-bg text-theme-secondary border border-theme-border'
-                        : 'bg-theme-warning-bg text-theme-warning'
+                        ? 'bg-theme-surface-bg text-theme-secondary border border-theme-border'
+                        : 'bg-theme-warning text-theme-warning'
                     }`}>
                       {contract.status}
                     </span>
@@ -193,7 +193,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
           ) : (
             <div className="space-y-2">
               {activeRuns.slice(0, 5).map((run) => (
-                <div key={run.id} className="bg-theme-secondary-bg rounded-lg px-3 py-2 space-y-1.5">
+                <div key={run.id} className="bg-theme-surface-bg rounded-lg px-3 py-2 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-theme-primary">PR #{run.pr_number}</span>
@@ -242,7 +242,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
                 {slaRate.toFixed(1)}%
               </span>
             </div>
-            <div className="h-2 bg-theme-tertiary-bg rounded-full overflow-hidden">
+            <div className="h-2 bg-theme-background-secondary-bg rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all ${
                   slaRate >= 90 ? 'bg-theme-success' : slaRate >= 70 ? 'bg-theme-warning' : 'bg-theme-error'
@@ -330,7 +330,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
                     : null;
 
                   return (
-                    <div key={gap.id} className="flex items-center gap-2 bg-theme-secondary-bg rounded px-3 py-2">
+                    <div key={gap.id} className="flex items-center gap-2 bg-theme-surface-bg rounded px-3 py-2">
                       <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${severityColors[gap.severity] || ''}`}>
                         {gap.severity}
                       </span>

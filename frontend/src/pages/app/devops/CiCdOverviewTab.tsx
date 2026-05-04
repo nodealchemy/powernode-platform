@@ -238,7 +238,7 @@ export function CiCdOverviewTab() {
                 <StatusIndicator label="Busy" value={stats.runners.busy} total={totalRunners} type="warning" />
                 <StatusIndicator label="Offline" value={stats.runners.offline} total={totalRunners} type="error" />
               </div>
-              <div className="h-2 bg-theme-secondary/20 rounded-full overflow-hidden flex">
+              <div className="h-2 bg-theme-surface/20 rounded-full overflow-hidden flex">
                 <div
                   className="bg-theme-success transition-all"
                   style={{ width: `${(stats.runners.online / totalRunners) * 100}%` }}
@@ -343,7 +343,7 @@ export function CiCdOverviewTab() {
                   <p className="text-xs text-theme-tertiary">Cancelled</p>
                 </div>
               </div>
-              <div className="h-2 bg-theme-secondary/20 rounded-full overflow-hidden flex">
+              <div className="h-2 bg-theme-surface/20 rounded-full overflow-hidden flex">
                 <div
                   className="bg-theme-success transition-all"
                   style={{ width: `${(successCount / totalStatusRuns) * 100}%` }}
@@ -353,7 +353,7 @@ export function CiCdOverviewTab() {
                   style={{ width: `${(failedCount / totalStatusRuns) * 100}%` }}
                 />
                 <div
-                  className="bg-theme-tertiary transition-all"
+                  className="bg-theme-background-secondary transition-all"
                   style={{ width: `${(cancelledCount / totalStatusRuns) * 100}%` }}
                 />
               </div>

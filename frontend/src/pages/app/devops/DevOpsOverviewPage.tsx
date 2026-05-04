@@ -485,7 +485,7 @@ export function DevOpsOverviewPage() {
                     <StatusIndicator label="Offline" value={stats.runners.offline} total={totalRunners} type="error" />
                   </div>
                 </div>
-                <div className="h-2 bg-theme-secondary/20 rounded-full overflow-hidden flex">
+                <div className="h-2 bg-theme-surface/20 rounded-full overflow-hidden flex">
                   <div
                     className="bg-theme-success transition-all"
                     style={{ width: `${(stats.runners.online / totalRunners) * 100}%` }}

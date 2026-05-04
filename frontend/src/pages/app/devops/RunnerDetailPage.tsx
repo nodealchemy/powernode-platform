@@ -20,7 +20,7 @@ const StatusBadge: React.FC<{ status: string; busy: boolean }> = ({ status, busy
       case 'offline':
         return 'bg-theme-error/10 text-theme-error';
       default:
-        return 'bg-theme-secondary/10 text-theme-secondary';
+        return 'bg-theme-surface/10 text-theme-secondary';
     }
   };
 
@@ -211,7 +211,7 @@ export const RunnerDetailPage: React.FC = () => {
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
               <div className={`w-16 h-16 rounded-lg flex items-center justify-center ${
-                runner.status === 'online' ? 'bg-theme-success/10' : 'bg-theme-secondary/10'
+                runner.status === 'online' ? 'bg-theme-success/10' : 'bg-theme-surface/10'
               }`}>
                 <Server className={`w-8 h-8 ${
                   runner.status === 'online' ? 'text-theme-success' : 'text-theme-secondary'

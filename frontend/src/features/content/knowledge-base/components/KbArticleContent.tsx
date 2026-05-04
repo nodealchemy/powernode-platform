@@ -295,7 +295,7 @@ function AttachmentCard({ attachment }: AttachmentCardProps) {
           </h4>
           <div className="flex items-center gap-3 mb-4 text-sm text-theme-secondary">
             <span className="font-medium">{attachment.file_size}</span>
-            <span className="w-1 h-1 bg-theme-tertiary rounded-full"></span>
+            <span className="w-1 h-1 bg-theme-background-secondary rounded-full"></span>
             <span>{attachment.download_count} downloads</span>
           </div>
           <Button

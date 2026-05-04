@@ -107,7 +107,7 @@ export const AdminSettingsDevelopmentTabPage: React.FC = () => {
             className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary focus:ring-offset-2 ${
               info.business_enabled
                 ? 'bg-theme-interactive-primary'
-                : 'bg-theme-tertiary'
+                : 'bg-theme-background-secondary'
             } ${toggling ? 'opacity-50 cursor-wait' : ''}`}
             role="switch"
             aria-checked={info.business_enabled}
@@ -125,7 +125,7 @@ export const AdminSettingsDevelopmentTabPage: React.FC = () => {
           <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
             info.business_enabled
               ? 'bg-theme-success/10 text-theme-success'
-              : 'bg-theme-tertiary/30 text-theme-secondary'
+              : 'bg-theme-background-secondary/30 text-theme-secondary'
           }`}>
             {info.business_enabled ? 'Enabled' : 'Disabled'}
           </span>
@@ -176,7 +176,7 @@ export const AdminSettingsDevelopmentTabPage: React.FC = () => {
                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
                   flag.enabled
                     ? 'bg-theme-success/10 text-theme-success'
-                    : 'bg-theme-tertiary/30 text-theme-secondary'
+                    : 'bg-theme-background-secondary/30 text-theme-secondary'
                 }`}>
                   {flag.enabled ? 'on' : 'off'}
                 </span>

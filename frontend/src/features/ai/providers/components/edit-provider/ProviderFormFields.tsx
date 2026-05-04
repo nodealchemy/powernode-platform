@@ -60,7 +60,7 @@ export const ProviderFormFields: React.FC<ProviderFormFieldsProps> = ({
             placeholder="custom-ai-provider"
             required
             disabled={true}
-            className="bg-theme-secondary/10"
+            className="bg-theme-surface/10"
           />
         </div>
       </div>
@@ -74,7 +74,7 @@ export const ProviderFormFields: React.FC<ProviderFormFieldsProps> = ({
             value={data.provider_type}
             onChange={(value) => onChange('provider_type', value)}
             disabled={true}
-            className="bg-theme-secondary/10"
+            className="bg-theme-surface/10"
           >
             <option value="">Select a provider type</option>
             <option value="openai">OpenAI</option>
