@@ -91,6 +91,15 @@ module Ai
         "system_decommission_docker_runtime"       => "Ai::Tools::DockerProvisioningTool",
         "system_mark_docker_ready"                 => "Ai::Tools::DockerProvisioningTool",
         "system_list_managed_docker_hosts"         => "Ai::Tools::DockerProvisioningTool",
+        # Phase 2: Kubernetes (K3s today, kubeadm in Phase 3).
+        # Cluster *creation* is implicit via module assignment +
+        # agent-driven bootstrap — there is no kubernetes_create_cluster
+        # action. The MCP surface is read + decommission + kubeconfig.
+        "kubernetes_list_clusters"                 => "Ai::Tools::KubernetesClusterTool",
+        "kubernetes_get_cluster"                   => "Ai::Tools::KubernetesClusterTool",
+        "kubernetes_list_nodes"                    => "Ai::Tools::KubernetesClusterTool",
+        "kubernetes_decommission_cluster"          => "Ai::Tools::KubernetesProvisioningTool",
+        "kubernetes_get_kubeconfig"                => "Ai::Tools::KubernetesProvisioningTool",
         # Project & CI/CD
         "create_gitea_repository" => "Ai::Tools::ProjectInitTool",
         "update_gitea_repository" => "Ai::Tools::RepoManagementTool",

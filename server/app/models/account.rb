@@ -197,6 +197,13 @@ class Account < ApplicationRecord
   has_many :devops_docker_events, through: :devops_docker_hosts, source: :docker_events
   has_many :devops_docker_activities, through: :devops_docker_hosts, source: :docker_activities
 
+  # Phase 2 — Kubernetes clusters (managed, multi-NodeInstance topology
+  # via Devops::KubernetesNode). Cascade destroy mirrors the Docker
+  # host pattern; nodes auto-cascade via the FK constraint set on the
+  # devops_kubernetes_nodes table.
+  has_many :devops_kubernetes_clusters, class_name: "Devops::KubernetesCluster", dependent: :destroy
+  has_many :devops_kubernetes_nodes, through: :devops_kubernetes_clusters, source: :kubernetes_nodes
+
   # Community and Federation associations
   has_many :community_agents, class_name: "CommunityAgent", foreign_key: :owner_account_id, dependent: :destroy
   has_many :federation_partners, class_name: "FederationPartner", dependent: :destroy
