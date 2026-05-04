@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_05_000200) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_05_000500) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10299,6 +10299,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_05_000200) do
     t.text "description"
     t.boolean "enabled", default: true, null: false
     t.uuid "internal_ca_id"
+    t.string "lifecycle_class", default: "persistent", null: false
     t.string "name", null: false
     t.uuid "node_template_id", null: false
     t.string "public_address"
@@ -10316,10 +10317,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_05_000200) do
     t.index ["account_id"], name: "index_system_nodes_on_account_id"
     t.index ["config"], name: "index_system_nodes_on_config", using: :gin
     t.index ["internal_ca_id"], name: "index_system_nodes_on_internal_ca_id"
+    t.index ["lifecycle_class"], name: "index_system_nodes_on_lifecycle_class"
     t.index ["node_template_id"], name: "index_system_nodes_on_node_template_id"
     t.index ["ssh_host_key_fingerprint"], name: "index_system_nodes_on_ssh_host_key_fingerprint"
     t.index ["ssh_key_fingerprint"], name: "index_system_nodes_on_ssh_key_fingerprint"
     t.index ["worker_id"], name: "index_system_nodes_on_worker_id"
+    t.check_constraint "lifecycle_class::text = ANY (ARRAY['persistent'::character varying, 'ephemeral'::character varying, 'spot'::character varying]::text[])", name: "chk_system_nodes_lifecycle_class"
   end
 
   create_table "system_provider_availability_zones", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -12504,7 +12507,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_05_000200) do
   add_foreign_key "devops_docker_events", "devops_docker_hosts", column: "docker_host_id"
   add_foreign_key "devops_docker_events", "users", column: "acknowledged_by_id"
   add_foreign_key "devops_docker_hosts", "accounts"
-  add_foreign_key "devops_docker_hosts", "system_node_instances", column: "node_instance_id", on_delete: :nullify
+  add_foreign_key "devops_docker_hosts", "system_node_instances", column: "node_instance_id", on_delete: :cascade
   add_foreign_key "devops_docker_images", "devops_docker_hosts", column: "docker_host_id"
   add_foreign_key "devops_integration_credentials", "accounts"
   add_foreign_key "devops_integration_credentials", "users", column: "created_by_user_id"
@@ -12706,7 +12709,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_05_000200) do
   add_foreign_key "sdwan_peer_keys", "sdwan_peers"
   add_foreign_key "sdwan_peers", "accounts"
   add_foreign_key "sdwan_peers", "sdwan_networks"
-  add_foreign_key "sdwan_peers", "system_node_instances", column: "node_instance_id"
+  add_foreign_key "sdwan_peers", "system_node_instances", column: "node_instance_id", on_delete: :cascade
   add_foreign_key "sdwan_port_mappings", "accounts"
   add_foreign_key "sdwan_port_mappings", "sdwan_networks"
   add_foreign_key "sdwan_port_mappings", "sdwan_peers"
