@@ -93,7 +93,12 @@ module Ai
         instance_id = params[:node_instance_id] or
           return { success: false, error: "node_instance_id is required" }
 
-        instance = ::System::NodeInstance.where(account_id: account.id).find(instance_id)
+        # NodeInstance delegates account_id to its Node — no direct
+        # column. Scoping through the join keeps account isolation.
+        instance = ::System::NodeInstance
+                     .joins(:node)
+                     .where(system_nodes: { account_id: account.id })
+                     .find(instance_id)
         host = ::System::DockerDaemonProvisionerService.provision!(
           node_instance: instance,
           account: account
