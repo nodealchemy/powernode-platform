@@ -250,4 +250,128 @@ RSpec.describe Devops::DockerHost, type: :model do
       end
     end
   end
+
+  # Phase B — managed (NodeInstance-backed) host extensions.
+  # The migration adds two columns: `node_instance_id` (FK, partial-unique
+  # when present) and `provisioning_state` ('external' | 'managed') with a
+  # consistency check constraint. The model layer mirrors the DB
+  # invariant via a custom validation so #invalid? surfaces violations
+  # without needing a DB roundtrip.
+  describe 'phase B managed-host extensions' do
+    let(:account) { create(:account) }
+    let(:node) { sdwan_test_node(account: account) }
+    let(:node_instance) { sdwan_test_node_instance(node: node) }
+
+    describe 'provisioning_state validation' do
+      it 'defaults new hosts to external' do
+        host = create(:devops_docker_host, account: account)
+        expect(host.provisioning_state).to eq('external')
+        expect(host).to be_external
+      end
+
+      it 'rejects an invalid provisioning_state value' do
+        host = build(:devops_docker_host, account: account, provisioning_state: 'bogus')
+        expect(host).not_to be_valid
+        expect(host.errors[:provisioning_state]).to be_present
+      end
+    end
+
+    describe 'managed/external consistency' do
+      it 'rejects external host with a node_instance_id' do
+        host = build(:devops_docker_host,
+                     account: account,
+                     provisioning_state: 'external',
+                     node_instance_id: node_instance.id)
+        expect(host).not_to be_valid
+        expect(host.errors[:node_instance_id]).to include('must be blank for external hosts')
+      end
+
+      it 'rejects managed host without a node_instance_id' do
+        host = build(:devops_docker_host,
+                     account: account,
+                     provisioning_state: 'managed',
+                     node_instance_id: nil)
+        expect(host).not_to be_valid
+        expect(host.errors[:node_instance_id]).to include('must be present for managed hosts')
+      end
+
+      it 'accepts managed host with a node_instance_id' do
+        host = build(:devops_docker_host,
+                     account: account,
+                     provisioning_state: 'managed',
+                     api_endpoint: 'tcp://[fd00::1]:2376',
+                     node_instance_id: node_instance.id)
+        expect(host).to be_valid
+      end
+    end
+
+    describe 'scopes' do
+      let!(:external_host) do
+        create(:devops_docker_host, account: account, provisioning_state: 'external')
+      end
+      let!(:managed_host) do
+        create(:devops_docker_host,
+               account: account,
+               provisioning_state: 'managed',
+               api_endpoint: 'tcp://[fd00::2]:2376',
+               node_instance_id: node_instance.id)
+      end
+
+      it 'partitions hosts by provisioning_state via .managed and .external' do
+        expect(Devops::DockerHost.managed.pluck(:id)).to contain_exactly(managed_host.id)
+        expect(Devops::DockerHost.external.pluck(:id)).to contain_exactly(external_host.id)
+      end
+    end
+
+    describe 'tcp api_endpoint format' do
+      it 'accepts tcp:// endpoints (used by managed hosts on the SDWAN overlay)' do
+        host = build(:devops_docker_host, account: account, api_endpoint: 'tcp://[fd00::1]:2376')
+        expect(host).to be_valid
+      end
+    end
+
+    describe '#host_summary' do
+      it 'includes provisioning_state and node_instance_id' do
+        host = create(:devops_docker_host,
+                      account: account,
+                      provisioning_state: 'managed',
+                      api_endpoint: 'tcp://[fd00::3]:2376',
+                      node_instance_id: node_instance.id)
+        expect(host.host_summary).to include(
+          provisioning_state: 'managed',
+          node_instance_id: node_instance.id
+        )
+      end
+    end
+
+    describe 'partial unique index on node_instance_id' do
+      it 'rejects a second managed host for the same NodeInstance' do
+        create(:devops_docker_host,
+               account: account,
+               provisioning_state: 'managed',
+               api_endpoint: 'tcp://[fd00::4]:2376',
+               node_instance_id: node_instance.id)
+
+        expect {
+          Devops::DockerHost.create!(
+            account: account,
+            name: 'duplicate-managed',
+            slug: 'duplicate-managed',
+            api_endpoint: 'tcp://[fd00::5]:2376',
+            environment: 'production',
+            status: 'pending',
+            provisioning_state: 'managed',
+            node_instance_id: node_instance.id
+          )
+        }.to raise_error(ActiveRecord::RecordNotUnique)
+      end
+
+      it 'allows multiple external hosts (FK is nullable, partial index excludes nulls)' do
+        create(:devops_docker_host, account: account, name: 'ext-a', provisioning_state: 'external')
+        expect {
+          create(:devops_docker_host, account: account, name: 'ext-b', provisioning_state: 'external')
+        }.not_to raise_error
+      end
+    end
+  end
 end

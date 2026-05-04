@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_05_000006) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_05_000100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -5756,7 +5756,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_05_000006) do
     t.bigint "memory_bytes"
     t.jsonb "metadata", default: {}
     t.string "name", null: false
+    t.uuid "node_instance_id"
     t.string "os_type"
+    t.string "provisioning_state", default: "external", null: false
     t.string "slug", null: false
     t.string "status", default: "pending", null: false
     t.bigint "storage_bytes"
@@ -5766,9 +5768,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_05_000006) do
     t.index ["account_id", "name"], name: "index_devops_docker_hosts_on_account_id_and_name", unique: true
     t.index ["account_id"], name: "index_devops_docker_hosts_on_account_id"
     t.index ["environment"], name: "index_devops_docker_hosts_on_environment"
+    t.index ["node_instance_id"], name: "idx_devops_docker_hosts_node_instance_unique", unique: true, where: "(node_instance_id IS NOT NULL)"
     t.index ["slug"], name: "index_devops_docker_hosts_on_slug", unique: true
     t.index ["status"], name: "index_devops_docker_hosts_on_status"
     t.check_constraint "environment::text = ANY (ARRAY['staging'::character varying, 'production'::character varying, 'development'::character varying, 'custom'::character varying]::text[])", name: "chk_docker_hosts_environment"
+    t.check_constraint "provisioning_state::text = 'external'::text AND node_instance_id IS NULL OR provisioning_state::text = 'managed'::text AND node_instance_id IS NOT NULL", name: "devops_docker_hosts_provisioning_state_consistency"
+    t.check_constraint "provisioning_state::text = ANY (ARRAY['external'::character varying, 'managed'::character varying]::text[])", name: "devops_docker_hosts_provisioning_state_enum"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'connected'::character varying, 'disconnected'::character varying, 'error'::character varying, 'maintenance'::character varying]::text[])", name: "chk_docker_hosts_status"
   end
 
@@ -12445,6 +12450,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_05_000006) do
   add_foreign_key "devops_docker_events", "devops_docker_hosts", column: "docker_host_id"
   add_foreign_key "devops_docker_events", "users", column: "acknowledged_by_id"
   add_foreign_key "devops_docker_hosts", "accounts"
+  add_foreign_key "devops_docker_hosts", "system_node_instances", column: "node_instance_id", on_delete: :nullify
   add_foreign_key "devops_docker_images", "devops_docker_hosts", column: "docker_host_id"
   add_foreign_key "devops_integration_credentials", "accounts"
   add_foreign_key "devops_integration_credentials", "users", column: "created_by_user_id"

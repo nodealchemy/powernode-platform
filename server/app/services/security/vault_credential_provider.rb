@@ -12,6 +12,12 @@ module Security
       wireguard_node_key: "wireguard-node-keys",
       wireguard_user_key: "wireguard-user-keys",
       federation_trust_jwt: "sdwan-federation-trust-jwts",
+      # Docker daemon mTLS material — platform-side client cert/key for
+      # calling a managed `dockerd` over the SDWAN overlay. The CA chain
+      # comes from `System::InternalCaService.ca_chain_pem`; only the
+      # client half ({cert_pem, key_pem, serial, not_after}) is stored
+      # here, keyed by `Devops::DockerHost.id`.
+      docker_daemon_tls: "docker-daemon-tls",
       custom: "custom"
     }.freeze
 

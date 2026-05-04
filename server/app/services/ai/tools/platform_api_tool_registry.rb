@@ -83,6 +83,14 @@ module Ai
         "system_sdwan_create_port_mapping"         => "Ai::Tools::SdwanTool",
         "system_sdwan_update_port_mapping"         => "Ai::Tools::SdwanTool",
         "system_sdwan_delete_port_mapping"         => "Ai::Tools::SdwanTool",
+        # Phase B: Docker daemon auto-provisioning on NodeInstances.
+        # Distinct from the docker_* family below — those tools manage
+        # *external*, operator-registered hosts; these manage *managed*
+        # hosts whose lifecycle is bound to a System::NodeInstance.
+        "system_provision_docker_runtime"          => "Ai::Tools::DockerProvisioningTool",
+        "system_decommission_docker_runtime"       => "Ai::Tools::DockerProvisioningTool",
+        "system_mark_docker_ready"                 => "Ai::Tools::DockerProvisioningTool",
+        "system_list_managed_docker_hosts"         => "Ai::Tools::DockerProvisioningTool",
         # Project & CI/CD
         "create_gitea_repository" => "Ai::Tools::ProjectInitTool",
         "update_gitea_repository" => "Ai::Tools::RepoManagementTool",
