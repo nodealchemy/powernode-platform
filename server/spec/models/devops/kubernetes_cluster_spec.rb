@@ -153,6 +153,40 @@ RSpec.describe Devops::KubernetesCluster, type: :model do
     end
   end
 
+  describe "VIP cleanup on destroy (slice 3)" do
+    let(:account) { create(:account) }
+
+    it "destroys the api VIP referenced in metadata.api_vip_id" do
+      # We can't easily seed a real Sdwan::VirtualIp here without
+      # the system extension factories; verify the callback is wired
+      # by stubbing the lookup.
+      cluster = create(:devops_kubernetes_cluster, account: account)
+      cluster.update!(metadata: { "api_vip_id" => "fake-vip-id" })
+
+      expect(::Sdwan::VirtualIp).to receive(:where).with(id: "fake-vip-id").and_return(
+        double(destroy_all: true)
+      )
+      cluster.destroy!
+    end
+
+    it "is no-op when metadata.api_vip_id is absent" do
+      cluster = create(:devops_kubernetes_cluster, account: account)
+      expect(::Sdwan::VirtualIp).not_to receive(:where)
+      expect { cluster.destroy! }.not_to raise_error
+    end
+
+    it "rescues VIP cleanup failures (cluster destroy still succeeds)" do
+      cluster = create(:devops_kubernetes_cluster, account: account)
+      cluster.update!(metadata: { "api_vip_id" => "any-id" })
+
+      allow(::Sdwan::VirtualIp).to receive(:where).and_raise(StandardError, "vault unreachable")
+      expect(Rails.logger).to receive(:warn).with(/VIP cleanup failed/)
+
+      expect { cluster.destroy! }.not_to raise_error
+      expect(Devops::KubernetesCluster.where(id: cluster.id)).to be_empty
+    end
+  end
+
   describe "DB-level constraints" do
     it "rejects an invalid flavor at the DB layer" do
       cluster = build(:devops_kubernetes_cluster)

@@ -51,6 +51,14 @@ module Devops
     validates :sync_interval_seconds,
               numericality: { greater_than_or_equal_to: 30, less_than_or_equal_to: 3600 }
 
+    # Phase 2.5 hardening (slice 3) — when the cluster goes away, its
+    # api_endpoint VIP must go with it. Otherwise the VIP orphans on
+    # the SDWAN network with no claimant. Best-effort cleanup —
+    # rescued so VIP cleanup failures don't roll back cluster
+    # decommission (operator can purge orphans via
+    # `system_sdwan_delete_virtual_ip` if needed).
+    before_destroy :destroy_api_vip!, prepend: true
+
     scope :active, -> { where(status: "active") }
     scope :auto_syncable, -> { where(auto_sync: true, status: "active") }
     scope :by_environment, ->(env) { where(environment: env) }
@@ -121,6 +129,19 @@ module Devops
     end
 
     private
+
+    def destroy_api_vip!
+      vip_id = (metadata || {})["api_vip_id"]
+      return if vip_id.blank?
+      return unless defined?(::Sdwan::VirtualIp) # system extension may be disabled
+      ::Sdwan::VirtualIp.where(id: vip_id).destroy_all
+    rescue StandardError => e
+      Rails.logger.warn(
+        "[Devops::KubernetesCluster] VIP cleanup failed for cluster_id=#{id} " \
+        "vip_id=#{vip_id}: #{e.class}: #{e.message}. Operator can purge via " \
+        "system_sdwan_delete_virtual_ip."
+      )
+    end
 
     def generate_slug
       return if slug.present?
