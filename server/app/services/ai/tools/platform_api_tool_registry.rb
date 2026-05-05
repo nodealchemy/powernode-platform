@@ -51,6 +51,13 @@ module Ai
         "system_terminate_ci_worker" => "Ai::Tools::SystemFleetTool",
         "system_list_ci_workers" => "Ai::Tools::SystemFleetTool",
         "system_list_disk_image_webhooks" => "Ai::Tools::SystemFleetTool",
+        # Missing-features slice 6a — GitOps reconciler MCP surface
+        "system_gitops_register_repository" => "Ai::Tools::SystemFleetTool",
+        "system_gitops_sync_repository" => "Ai::Tools::SystemFleetTool",
+        "system_gitops_get_sync_run" => "Ai::Tools::SystemFleetTool",
+        "system_gitops_get_drift_report" => "Ai::Tools::SystemFleetTool",
+        # Missing-features slice Vault DR-3 — pepper rotation
+        "system_rotate_vault_transit_pepper" => "Ai::Tools::SystemFleetTool",
         # SDWAN overlay (Slice 1 of we-are-continuing-development-spicy-bear.md)
         "system_sdwan_list_networks"   => "Ai::Tools::SdwanTool",
         "system_sdwan_get_network"     => "Ai::Tools::SdwanTool",
@@ -79,6 +86,7 @@ module Ai
         "system_sdwan_list_federation_peers"   => "Ai::Tools::SdwanTool",
         "system_sdwan_get_federation_peer"     => "Ai::Tools::SdwanTool",
         "system_sdwan_propose_federation_peer" => "Ai::Tools::SdwanTool",
+        "system_sdwan_accept_federation_peer"  => "Ai::Tools::SdwanTool",
         "system_sdwan_revoke_federation_peer"  => "Ai::Tools::SdwanTool",
         "system_sdwan_federation_scan"         => "Ai::Tools::SdwanTool",
         # Slice 9a: routing layer (static subnet routing)

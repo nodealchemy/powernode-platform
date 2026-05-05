@@ -118,6 +118,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_06_000001) do
     t.string "stripe_customer_id", limit: 50
     t.string "subdomain", limit: 30
     t.string "tax_id"
+    t.datetime "transit_key_rotated_at", comment: "When the account was last re-wrapped to a new transit key version."
+    t.string "transit_key_version", comment: "Vault transit key version (e.g. 'v1', 'v2') currently wrapping this account's encryption key. Null = pre-rotation backfill needed."
     t.datetime "updated_at", null: false
     t.index ["ai_suspended"], name: "index_accounts_on_ai_suspended", where: "(ai_suspended = true)"
     t.index ["analytics_tier"], name: "index_accounts_on_analytics_tier"
@@ -126,6 +128,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_06_000001) do
     t.index ["status"], name: "index_accounts_on_status"
     t.index ["stripe_customer_id"], name: "index_accounts_on_stripe_customer_id", unique: true, where: "(stripe_customer_id IS NOT NULL)"
     t.index ["subdomain"], name: "index_accounts_on_subdomain", unique: true, where: "((subdomain IS NOT NULL) AND ((subdomain)::text <> ''::text))"
+    t.index ["transit_key_version"], name: "index_accounts_on_transit_key_version", where: "(transit_key_version IS NOT NULL)"
     t.check_constraint "analytics_tier::text = ANY (ARRAY['free'::text, 'starter'::text, 'pro'::text, 'business'::text])", name: "check_analytics_tier"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'cancelled'::character varying::text, 'suspended'::character varying::text])", name: "valid_account_status"
   end
