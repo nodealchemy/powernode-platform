@@ -33,6 +33,12 @@ module Ai
         "system_drain_instance" => "Ai::Tools::SystemFleetTool",
         "system_get_silent_instances" => "Ai::Tools::SystemFleetTool",
         "system_validate_module_manifest" => "Ai::Tools::SystemFleetTool",
+        # Gap remediation slice 2 — CVE catalog + module assignment cleanup
+        "system_get_cve" => "Ai::Tools::SystemFleetTool",
+        "system_get_cve_exposure" => "Ai::Tools::SystemFleetTool",
+        "system_create_cve" => "Ai::Tools::SystemFleetTool",
+        "system_delete_cve" => "Ai::Tools::SystemFleetTool",
+        "system_unassign_module_from_template" => "Ai::Tools::SystemFleetTool",
         # SDWAN overlay (Slice 1 of we-are-continuing-development-spicy-bear.md)
         "system_sdwan_list_networks"   => "Ai::Tools::SdwanTool",
         "system_sdwan_get_network"     => "Ai::Tools::SdwanTool",
