@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_06_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_06_000100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -8498,6 +8498,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_06_000001) do
   end
 
   create_table "sdwan_federation_peers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "acceptance_token_digest", comment: "SHA-256 hex digest of the plaintext acceptance token. Plaintext returned exactly once on propose; stored only as digest."
+    t.datetime "acceptance_token_expires_at", comment: "When the acceptance token expires. accept! refuses tokens past this time."
     t.uuid "account_id", null: false
     t.datetime "created_at", null: false
     t.text "encrypted_credentials"
@@ -8512,6 +8514,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_06_000001) do
     t.string "status", default: "proposed", null: false
     t.datetime "updated_at", null: false
     t.string "vault_path"
+    t.index ["acceptance_token_digest"], name: "index_federation_peers_on_token_digest", where: "(acceptance_token_digest IS NOT NULL)"
     t.index ["account_id", "remote_instance_id"], name: "idx_sdwan_federation_peers_unique_remote", unique: true
     t.index ["account_id"], name: "index_sdwan_federation_peers_on_account_id"
     t.index ["remote_prefix_advertisement"], name: "index_sdwan_federation_peers_on_remote_prefix_advertisement"
