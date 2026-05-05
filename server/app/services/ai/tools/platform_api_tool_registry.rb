@@ -29,6 +29,10 @@ module Ai
         "system_drain_instance_pool" => "Ai::Tools::SystemFleetTool",
         "system_acquire_pooled_instance" => "Ai::Tools::SystemFleetTool",
         "system_replenish_instance_pool" => "Ai::Tools::SystemFleetTool",
+        # Gap remediation slice 1 — operator-runbook-driven actions
+        "system_drain_instance" => "Ai::Tools::SystemFleetTool",
+        "system_get_silent_instances" => "Ai::Tools::SystemFleetTool",
+        "system_validate_module_manifest" => "Ai::Tools::SystemFleetTool",
         # SDWAN overlay (Slice 1 of we-are-continuing-development-spicy-bear.md)
         "system_sdwan_list_networks"   => "Ai::Tools::SdwanTool",
         "system_sdwan_get_network"     => "Ai::Tools::SdwanTool",
