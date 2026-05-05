@@ -58,6 +58,8 @@ module Ai
         "system_gitops_get_drift_report" => "Ai::Tools::SystemFleetTool",
         # Missing-features slice Vault DR-3 — pepper rotation
         "system_rotate_vault_transit_pepper" => "Ai::Tools::SystemFleetTool",
+        # Missing-features slice 6b — GitOps apply path
+        "system_gitops_apply_proposal" => "Ai::Tools::SystemFleetTool",
         # SDWAN overlay (Slice 1 of we-are-continuing-development-spicy-bear.md)
         "system_sdwan_list_networks"   => "Ai::Tools::SdwanTool",
         "system_sdwan_get_network"     => "Ai::Tools::SdwanTool",
