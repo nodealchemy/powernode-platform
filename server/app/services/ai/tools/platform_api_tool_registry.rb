@@ -22,6 +22,13 @@ module Ai
         "system_drift_report" => "Ai::Tools::SystemFleetTool",
         "system_list_tasks" => "Ai::Tools::SystemFleetTool",
         "system_cancel_task" => "Ai::Tools::SystemFleetTool",
+        # Slice 7 — instance pools
+        "system_list_instance_pools" => "Ai::Tools::SystemFleetTool",
+        "system_get_instance_pool" => "Ai::Tools::SystemFleetTool",
+        "system_create_instance_pool" => "Ai::Tools::SystemFleetTool",
+        "system_drain_instance_pool" => "Ai::Tools::SystemFleetTool",
+        "system_acquire_pooled_instance" => "Ai::Tools::SystemFleetTool",
+        "system_replenish_instance_pool" => "Ai::Tools::SystemFleetTool",
         # SDWAN overlay (Slice 1 of we-are-continuing-development-spicy-bear.md)
         "system_sdwan_list_networks"   => "Ai::Tools::SdwanTool",
         "system_sdwan_get_network"     => "Ai::Tools::SdwanTool",

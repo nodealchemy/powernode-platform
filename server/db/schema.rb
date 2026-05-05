@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_05_000500) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_06_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -9852,6 +9852,36 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_05_000500) do
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'mounted'::character varying, 'unmounted'::character varying, 'error'::character varying]::text[])", name: "system_instance_mount_points_status_check"
   end
 
+  create_table "system_instance_pools", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.datetime "last_replenished_at"
+    t.string "lifecycle_class", default: "ephemeral", null: false
+    t.integer "max_size", default: 10, null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.integer "min_size", default: 0, null: false
+    t.string "name", null: false
+    t.uuid "node_template_id", null: false
+    t.uuid "provider_instance_type_id"
+    t.uuid "provider_region_id"
+    t.string "status", default: "active", null: false
+    t.integer "target_size", default: 1, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "name"], name: "idx_instance_pools_account_name_unique", unique: true
+    t.index ["account_id"], name: "index_system_instance_pools_on_account_id"
+    t.index ["node_template_id"], name: "index_system_instance_pools_on_node_template_id"
+    t.index ["provider_instance_type_id"], name: "index_system_instance_pools_on_provider_instance_type_id"
+    t.index ["provider_region_id"], name: "index_system_instance_pools_on_provider_region_id"
+    t.index ["status", "last_replenished_at"], name: "idx_instance_pools_reaper_targets", where: "((status)::text = ANY ((ARRAY['active'::character varying, 'draining'::character varying])::text[]))"
+    t.check_constraint "lifecycle_class::text = ANY (ARRAY['ephemeral'::character varying, 'spot'::character varying]::text[])", name: "chk_instance_pools_lifecycle_class"
+    t.check_constraint "max_size >= target_size", name: "chk_instance_pools_max_gte_target"
+    t.check_constraint "min_size >= 0", name: "chk_instance_pools_min_size_nonneg"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'paused'::character varying, 'draining'::character varying, 'archived'::character varying]::text[])", name: "chk_instance_pools_status"
+    t.check_constraint "target_size >= 0", name: "chk_instance_pools_target_size_nonneg"
+    t.check_constraint "target_size >= min_size", name: "chk_instance_pools_target_gte_min"
+  end
+
   create_table "system_module_artifacts", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "architecture", null: false
     t.datetime "built_at", null: false
@@ -10002,6 +10032,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_05_000500) do
     t.string "discovered_hostname"
     t.string "discovered_mac"
     t.uuid "enrollment_token_id"
+    t.uuid "instance_pool_id"
     t.text "key"
     t.datetime "last_heartbeat_at"
     t.decimal "latitude", precision: 10, scale: 7, comment: "Latitude coordinate"
@@ -10010,6 +10041,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_05_000500) do
     t.string "mtls_subject"
     t.string "name", null: false
     t.uuid "node_id", null: false
+    t.datetime "pool_acquired_at"
+    t.string "pool_state"
+    t.datetime "pool_warming_started_at"
     t.string "private_ip_address"
     t.boolean "private_netboot", default: false, comment: "Enable private netboot"
     t.uuid "provider_instance_type_id"
@@ -10025,6 +10059,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_05_000500) do
     t.index ["config"], name: "index_system_node_instances_on_config", using: :gin
     t.index ["discovered_mac"], name: "index_system_node_instances_on_discovered_mac"
     t.index ["enrollment_token_id"], name: "index_system_node_instances_on_enrollment_token_id"
+    t.index ["instance_pool_id", "pool_state", "pool_warming_started_at"], name: "idx_node_instances_pool_acquire", where: "(instance_pool_id IS NOT NULL)"
+    t.index ["instance_pool_id"], name: "index_system_node_instances_on_instance_pool_id"
     t.index ["last_heartbeat_at"], name: "index_system_node_instances_on_last_heartbeat_at"
     t.index ["mac_address"], name: "index_system_node_instances_on_mac_address", unique: true, where: "(mac_address IS NOT NULL)"
     t.index ["mtls_subject"], name: "index_system_node_instances_on_mtls_subject"
@@ -10037,6 +10073,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_05_000500) do
     t.index ["provider_region_id"], name: "index_system_node_instances_on_provider_region_id"
     t.index ["running_module_digests"], name: "index_system_node_instances_on_running_module_digests", using: :gin
     t.check_constraint "architecture::text = ANY (ARRAY['amd64'::character varying, 'arm64'::character varying]::text[])", name: "system_node_instances_architecture_check"
+    t.check_constraint "instance_pool_id IS NULL AND pool_state IS NULL OR instance_pool_id IS NOT NULL AND pool_state IS NOT NULL", name: "chk_node_instances_pool_consistency"
+    t.check_constraint "pool_state IS NULL OR (pool_state::text = ANY (ARRAY['warming'::character varying, 'ready'::character varying, 'claimed'::character varying, 'draining'::character varying, 'errored'::character varying]::text[]))", name: "chk_node_instances_pool_state"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'provisioning'::character varying, 'running'::character varying, 'stopped'::character varying, 'terminated'::character varying, 'error'::character varying]::text[])", name: "system_node_instances_status_check"
     t.check_constraint "variety::text = ANY (ARRAY['cloud'::character varying, 'physical'::character varying, 'dynamic'::character varying]::text[])", name: "system_node_instances_variety_check"
   end
@@ -12829,6 +12867,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_05_000500) do
   add_foreign_key "system_gitops_sync_runs", "system_gitops_repositories", column: "gitops_repository_id"
   add_foreign_key "system_instance_mount_points", "system_node_instances", column: "node_instance_id"
   add_foreign_key "system_instance_mount_points", "system_node_mount_points", column: "mount_point_id"
+  add_foreign_key "system_instance_pools", "accounts", on_delete: :cascade
+  add_foreign_key "system_instance_pools", "system_node_templates", column: "node_template_id", on_delete: :restrict
+  add_foreign_key "system_instance_pools", "system_provider_instance_types", column: "provider_instance_type_id", on_delete: :nullify
+  add_foreign_key "system_instance_pools", "system_provider_regions", column: "provider_region_id", on_delete: :nullify
   add_foreign_key "system_module_artifacts", "system_node_module_versions", column: "node_module_version_id"
   add_foreign_key "system_module_dependencies", "system_node_modules", column: "dependency_id"
   add_foreign_key "system_module_dependencies", "system_node_modules", column: "node_module_id"
@@ -12842,6 +12884,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_05_000500) do
   add_foreign_key "system_node_instance_peers", "accounts"
   add_foreign_key "system_node_instance_peers", "system_node_instances", column: "node_instance_id"
   add_foreign_key "system_node_instances", "system_bootstrap_tokens", column: "enrollment_token_id"
+  add_foreign_key "system_node_instances", "system_instance_pools", column: "instance_pool_id", on_delete: :nullify
   add_foreign_key "system_node_instances", "system_nodes", column: "node_id"
   add_foreign_key "system_node_instances", "system_provider_instance_types", column: "provider_instance_type_id"
   add_foreign_key "system_node_instances", "system_provider_regions", column: "provider_region_id"
