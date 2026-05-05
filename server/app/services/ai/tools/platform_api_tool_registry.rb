@@ -39,6 +39,18 @@ module Ai
         "system_create_cve" => "Ai::Tools::SystemFleetTool",
         "system_delete_cve" => "Ai::Tools::SystemFleetTool",
         "system_unassign_module_from_template" => "Ai::Tools::SystemFleetTool",
+        # Gap remediation slice 3 — pool ops + canary marking
+        "system_return_pooled_instance" => "Ai::Tools::SystemFleetTool",
+        "system_delete_instance_pool" => "Ai::Tools::SystemFleetTool",
+        "system_module_mark_canary" => "Ai::Tools::SystemFleetTool",
+        # Gap remediation slice 5 — disk image CI
+        "system_list_disk_image_publications" => "Ai::Tools::SystemFleetTool",
+        "system_set_default_disk_image_publication" => "Ai::Tools::SystemFleetTool",
+        "system_set_disk_image_retention" => "Ai::Tools::SystemFleetTool",
+        "system_provision_ci_worker" => "Ai::Tools::SystemFleetTool",
+        "system_terminate_ci_worker" => "Ai::Tools::SystemFleetTool",
+        "system_list_ci_workers" => "Ai::Tools::SystemFleetTool",
+        "system_list_disk_image_webhooks" => "Ai::Tools::SystemFleetTool",
         # SDWAN overlay (Slice 1 of we-are-continuing-development-spicy-bear.md)
         "system_sdwan_list_networks"   => "Ai::Tools::SdwanTool",
         "system_sdwan_get_network"     => "Ai::Tools::SdwanTool",
