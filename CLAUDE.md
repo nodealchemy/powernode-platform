@@ -41,7 +41,7 @@ Use `platform.discover_skills` with a task description to find the right special
 - **Staged commits**: Group changes into logical commits by concern (models, services, controllers, frontend, tests, config) — never one monolithic commit
 
 ### Business Submodule (`./extensions/business`)
-- **Separate git repo** at `extensions/business/` — has its own branch, commits, and remote (`git@git.ipnode.net:powernode/powernode-business.git`)
+- **Separate git repo** at `extensions/business/` — has its own branch, commits, and a private upstream (added manually by maintainers with access; not committed to public repo)
 - **Always check both repos**: `git status` in root AND `git -C extensions/business status` — changes in `extensions/business/` are invisible to the parent repo's `git status`
 - **Commit order**: Commit inside `extensions/business/` first, then update the submodule pointer in the parent repo
 - **Path aliases**: Business frontend uses `@business/` for intra-business imports, `@/` for core shared imports
@@ -134,7 +134,8 @@ user.role === 'manager'
 
 ### Submodule Safety (CRITICAL)
 - **5 submodules**: `extensions/business`, `extensions/trading`, `extensions/supply-chain`, `extensions/system` (git submodules) + `extensions/marketing` (plain directory)
-- **System extension** is dual-remoted: origin = `git@git.ipnode.org:powernode/powernode-system.git` (private), `github` = `git@github.com:rett/powernode-system.git` (**public, MIT-licensed**) — the only extension whose code is public; commits get pushed to both
+- **System and supply-chain extensions** are publicly mirrored on GitHub — `.gitmodules` advertises `https://github.com/rett/powernode-system.git` and `https://github.com/rett/powernode-supply-chain.git`. Maintainer's local checkout has `origin` = the public GitHub mirror and `ipnode` = the private upstream (added manually). Push to both remotes on every release. **Do NOT run `git submodule sync`** on these submodules — it would overwrite local config and drop the private upstream remote.
+- **Business and trading extensions** are not committed to the public repo (gitignored in the parent's tree; not present in `.gitmodules`). Maintainers with access add them locally via `git submodule add <private-url> extensions/business` (and similar for trading); their commits go to the private upstream only and never appear in public clones.
 - **CWD verification**: Before EVERY `git add`/`git commit`, run `git rev-parse --show-toplevel` and verify it matches the intended repo
 - **Never commit extension files from parent**: Files under `extensions/*/` MUST be committed from within the submodule. Running `git add extensions/trading/...` from parent only stages a pointer change
 - **Commit order**: Commit inside each submodule FIRST, then update pointers in parent

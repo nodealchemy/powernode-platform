@@ -1,15 +1,8 @@
-[submodule "extensions/supply-chain"]
-	path = extensions/supply-chain
-	url = git@git.ipnode.net:powernode/powernode-supply-chain.git
-	branch = develop
-[submodule "extensions/trading"]
-	path = extensions/trading
-	url = git@git.ipnode.net:powernode/powernode-trading.git
-	branch = develop
-[submodule "extensions/business"]
-	path = extensions/business
-	url = git@git.ipnode.net:powernode/powernode-business.git
-	branch = develop
 [submodule "extensions/system"]
 	path = extensions/system
-	url = git@git.ipnode.net:powernode/powernode-system.git
+	url = https://github.com/rett/powernode-system.git
+	branch = develop
+[submodule "extensions/supply-chain"]
+	path = extensions/supply-chain
+	url = https://github.com/rett/powernode-supply-chain.git
+	branch = develop

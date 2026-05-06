@@ -9,7 +9,7 @@ Powernode is a self-hosted platform that gives you full control over AI agents, 
 - **AI Agent Orchestration** — Deploy agents with trust scoring, autonomy tiers, and 5 team strategies. Kill switch, goal tracking, proposals, escalations, and behavioral fingerprinting keep agents operating within defined boundaries.
 - **Multi-Provider LLM Routing** — 10+ providers (Anthropic, OpenAI, Ollama, Azure, Google, Groq, Grok, Mistral, Cohere), 145+ models, cost-optimized selection with per-agent budgets and ROI tracking.
 - **Knowledge Infrastructure** — GraphRAG over 1,190+ nodes and 1,670+ edges, 4-tier memory system (working → STM → LTM → shared), compound learning with decay and reinforcement, RAG pipeline with pgvector embeddings and 3-round agentic retrieval.
-- **MCP-Native Platform** — 194 platform tools spanning knowledge, memory, skills, autonomy, DevOps, Docker, and content management. Full A2A protocol support for agent-to-agent communication.
+- **MCP-Native Platform** — 431 tool actions across 57 tool classes spanning knowledge, memory, skills, autonomy, DevOps, Docker, and content management. Full A2A protocol support for agent-to-agent communication.
 - **DevOps Automation** — CI/CD pipelines with 13 step types (including AI-powered), Docker Swarm orchestration, multi-provider Git integration (GitHub, GitLab, Gitea), supply chain security with SBOM generation.
 - **Production Foundation** — 543+ granular permissions, 17 WebSocket channels, JWT + OAuth 2.0 authentication, and 20,600+ tests across backend, frontend, and E2E.
 
@@ -25,7 +25,7 @@ Powernode is a self-hosted platform that gives you full control over AI agents, 
 - **Content Management** - Knowledge base articles, content pages, CMS
 - **Analytics** - Customer health scoring, usage tracking, platform telemetry
 
-### AI & Automation (145 models, 194 MCP tools)
+### AI & Automation (145 models, 431 MCP tool actions)
 - **AI Agents** - Create, deploy, and manage agents with trust scoring and autonomy tiers
 - **Agent Teams** - Multi-agent orchestration (5 strategies: manager_led, consensus, auction, round_robin, priority_based)
 - **AI Workflows** - Visual builder with 35+ node types and circuit breakers
@@ -33,7 +33,7 @@ Powernode is a self-hosted platform that gives you full control over AI agents, 
 - **Code Factory** - PRD generation, automated code review, remediation loops
 - **Ralph Loops** - Recursive agent learning with 15-round tool calling
 - **Model Router** - Cost-optimized provider selection across 10+ providers (Anthropic, OpenAI, Ollama, Azure, Google, Groq, Grok, Mistral, Cohere)
-- **MCP Integration** - 194 platform tools for knowledge, memory, skills, RAG, autonomy, Docker, and DevOps
+- **MCP Integration** - 431 tool actions for knowledge, memory, skills, RAG, autonomy, Docker, and DevOps
 - **A2A Protocol** - Agent-to-Agent communication with agent cards
 - **Memory System** - 4-tier architecture (working, STM, LTM, shared) with consolidation
 - **Knowledge Graph** - 1,190+ nodes, 1,670+ edges with hybrid search and GraphRAG
@@ -70,6 +70,24 @@ Extensions are loaded dynamically via `FeatureGateService`. When no extensions a
 - **Trading** (`extensions/trading/`) - Algorithmic trading with strategies, portfolios, risk monitoring, and evolution
 - **Supply Chain** (`extensions/supply-chain/`) - Supply chain management and logistics
 - **Marketing** (`extensions/marketing/`) - Campaign management and marketing automation
+
+### Distribution & Cloning
+
+Powernode is **MIT-licensed throughout**. Publicly available components:
+
+- **`powernode-platform`** (this repo) — core platform
+- **`powernode-system`** ([github.com/rett/powernode-system](https://github.com/rett/powernode-system)) — fleet, mesh, signed module supply chain, on-node Go agent, mounted as a git submodule at `extensions/system/`
+
+The `business`, `trading`, and `supply-chain` extensions are MIT-licensed but currently maintained in private repositories. Public clones run in **core mode** — single-user self-hosted, all platform features unlocked — without those extensions.
+
+```bash
+# Public clone with the system submodule initialized
+git clone <repo-url>
+cd powernode-platform
+git submodule update --init extensions/system
+```
+
+Running `git submodule update --init` without the path argument will attempt to clone the private extensions and produce permission-denied errors. These are safe to ignore if you only need core mode.
 
 ## Architecture Overview
 
@@ -196,7 +214,7 @@ Services:
 - **[API Standards](docs/platform/API_RESPONSE_STANDARDS.md)** - API conventions
 - **[UUID System](docs/platform/UUID_SYSTEM_IMPLEMENTATION.md)** - UUIDv7 across 340+ models
 - **[MCP Configuration](docs/platform/MCP_CONFIGURATION.md)** - MCP server setup and OAuth
-- **[MCP Tool Catalog](docs/platform/MCP_TOOL_CATALOG.md)** - 194 platform tools reference
+- **[MCP Tool Catalog](docs/platform/MCP_TOOL_CATALOG.md)** - 431 tool actions across 57 tool classes
 - **[Workflow System](docs/platform/WORKFLOW_SYSTEM_STANDARDS.md)** - Workflow patterns
 - **[Node Executors](docs/backend/NODE_EXECUTOR_REFERENCE.md)** - 35+ workflow node types
 
