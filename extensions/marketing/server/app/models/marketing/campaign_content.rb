@@ -2,6 +2,8 @@
 
 module Marketing
   class CampaignContent < ApplicationRecord
+    self.table_name = "marketing_campaign_contents"
+
     CHANNELS = %w[email twitter linkedin facebook instagram sms chat].freeze
     STATUSES = %w[draft approved rejected].freeze
 

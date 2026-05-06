@@ -2,6 +2,8 @@
 
 module Marketing
   class ContentCalendar < ApplicationRecord
+    self.table_name = "marketing_content_calendars"
+
     ENTRY_TYPES = %w[post email social event reminder].freeze
     STATUSES = %w[planned scheduled published cancelled].freeze
 

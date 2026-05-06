@@ -2,6 +2,8 @@
 
 module Marketing
   class CampaignMetric < ApplicationRecord
+    self.table_name = "marketing_campaign_metrics"
+
     # Associations
     belongs_to :campaign, class_name: "Marketing::Campaign", foreign_key: "campaign_id"
 

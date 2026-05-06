@@ -2,6 +2,8 @@
 
 module Marketing
   class Campaign < ApplicationRecord
+    self.table_name = "marketing_campaigns"
+
     include Auditable
 
     CAMPAIGN_TYPES = %w[email social chat sms multi_channel].freeze

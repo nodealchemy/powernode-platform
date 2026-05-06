@@ -2,6 +2,8 @@
 
 module Marketing
   class EmailList < ApplicationRecord
+    self.table_name = "marketing_email_lists"
+
     LIST_TYPES = %w[standard dynamic segment].freeze
 
     # Associations

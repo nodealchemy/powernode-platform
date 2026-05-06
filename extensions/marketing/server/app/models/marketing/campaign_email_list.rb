@@ -2,6 +2,8 @@
 
 module Marketing
   class CampaignEmailList < ApplicationRecord
+    self.table_name = "marketing_campaign_email_lists"
+
     # Associations
     belongs_to :campaign, class_name: "Marketing::Campaign", foreign_key: "campaign_id"
     belongs_to :email_list, class_name: "Marketing::EmailList", foreign_key: "email_list_id"

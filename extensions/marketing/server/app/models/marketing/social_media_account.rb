@@ -2,6 +2,8 @@
 
 module Marketing
   class SocialMediaAccount < ApplicationRecord
+    self.table_name = "marketing_social_media_accounts"
+
     PLATFORMS = %w[twitter linkedin facebook instagram].freeze
     STATUSES = %w[connected disconnected expired error].freeze
 

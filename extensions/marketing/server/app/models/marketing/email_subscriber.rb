@@ -2,6 +2,8 @@
 
 module Marketing
   class EmailSubscriber < ApplicationRecord
+    self.table_name = "marketing_email_subscribers"
+
     STATUSES = %w[pending subscribed unsubscribed bounced complained].freeze
 
     # Associations
