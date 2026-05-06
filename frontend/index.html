@@ -47,6 +47,49 @@
     <meta name="twitter:description" content="Open-source control plane for production AI agent fleets. Knowledge graph + governance + swarm coordination, all MIT-licensed." />
     <meta name="twitter:image" content="/og-image.png" />
     <meta name="twitter:image:alt" content="Powernode — Mission control for AI agent fleets" />
+
+    <!-- Schema.org JSON-LD: Organization + WebSite + SoftwareApplication.
+         Relative URLs resolve against the page being crawled, so this works
+         for any deployment without per-instance configuration. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "/#org",
+            "name": "Powernode",
+            "url": "/",
+            "logo": "/logo192.png",
+            "description": "Open-source control plane for production AI agent fleets."
+          },
+          {
+            "@type": "WebSite",
+            "@id": "/#website",
+            "url": "/",
+            "name": "Powernode",
+            "description": "Mission control for AI agent fleets — open source.",
+            "publisher": { "@id": "/#org" },
+            "inLanguage": "en-US"
+          },
+          {
+            "@type": "SoftwareApplication",
+            "@id": "/#software",
+            "name": "Powernode",
+            "applicationCategory": "DeveloperApplication",
+            "operatingSystem": "Linux, macOS, Windows (containerized)",
+            "description": "Open-source control plane for production AI agent fleets. Knowledge graph + MCP-native skill execution + swarm coordination + real-time governance, all MIT-licensed and self-hostable.",
+            "url": "/",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "license": "https://opensource.org/licenses/MIT"
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
