@@ -1,1 +1,5 @@
-# See https://www.robotstxt.org/robotstxt.html for documentation on how to use the robots.txt file
+# Powernode API backend — no public crawlable content.
+# All public pages are served by the frontend (see https://powernode.org/robots.txt).
+
+User-agent: *
+Disallow: /
