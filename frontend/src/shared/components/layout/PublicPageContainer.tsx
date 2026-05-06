@@ -40,16 +40,41 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
-  // Update document title if provided
+  // Update document title + per-page meta tags (description, og:title/description, twitter:title/description)
+  // when the page provides them. Restores defaults from index.html on unmount so navigating between
+  // pages doesn't carry stale meta forward. Only updates tags that exist in the initial HTML — does
+  // not create new tags, so the index.html template remains the source of truth for what's available.
   React.useEffect(() => {
-    if (title) {
-      document.title = `${title} | Powernode`;
+    const fullTitle = title ? `${title} | Powernode` : null;
+    if (fullTitle) {
+      document.title = fullTitle;
+    }
+
+    const restorers: Array<() => void> = [];
+    const updateMeta = (selector: string, value: string) => {
+      const tag = document.querySelector(selector) as HTMLMetaElement | null;
+      if (!tag) return;
+      const original = tag.getAttribute('content') || '';
+      tag.setAttribute('content', value);
+      restorers.push(() => tag.setAttribute('content', original));
+    };
+
+    if (description) {
+      updateMeta('meta[name="description"]', description);
+      updateMeta('meta[property="og:description"]', description);
+      updateMeta('meta[name="twitter:description"]', description);
+    }
+
+    if (fullTitle) {
+      updateMeta('meta[property="og:title"]', fullTitle);
+      updateMeta('meta[name="twitter:title"]', fullTitle);
     }
 
     return () => {
       document.title = "Powernode";
+      restorers.forEach(fn => fn());
     };
-  }, [title]);
+  }, [title, description]);
 
   // Close mobile menu on route change
   React.useEffect(() => {
