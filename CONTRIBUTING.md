@@ -12,7 +12,12 @@ This project adheres to the [Contributor Covenant Code of Conduct](CODE_OF_CONDU
 
 1. Read [`CLAUDE.md`](CLAUDE.md) — it covers the architecture, conventions, MCP-first workflow, and platform organization. The file is named for the AI assistant we use during development, but the conventions apply to all contributors.
 2. Follow setup in [`README.md`](README.md) for installing dependencies and running the platform locally.
-3. Run the test suite to confirm your environment works:
+3. **Set up extension frontend symlinks** (one-time, after `cd frontend && npm install`):
+   ```bash
+   ./scripts/setup-extension-frontend-symlinks.sh
+   ```
+   This creates `extensions/<ext>/frontend/node_modules` symlinks to the parent's `frontend/node_modules` so extension Jest tests can resolve dependencies. The symlinks are gitignored; the script is idempotent.
+4. Run the test suite to confirm your environment works:
    ```bash
    cd server && bundle exec rspec --format progress
    cd frontend && CI=true npm test
