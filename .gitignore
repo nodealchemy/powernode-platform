@@ -161,6 +161,10 @@ paypal_*
 # Ignore node_modules
 node_modules/
 /node_modules
+# Extension frontend symlinks (created by scripts/setup-extension-frontend-symlinks.sh).
+# These are symlinks not directories, so they don't match the `node_modules/`
+# trailing-slash rule above.
+extensions/*/frontend/node_modules
 
 # Ignore compiled assets
 /public/packs
