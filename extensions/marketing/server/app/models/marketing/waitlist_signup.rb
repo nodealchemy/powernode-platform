@@ -4,6 +4,11 @@ module Marketing
   class WaitlistSignup < ApplicationRecord
     self.table_name = "marketing_waitlist_signups"
 
+    # Name of the auto-managed EmailList that confirmed signups are synced into.
+    # Findable via Marketing::EmailList.find_by(name: WAITLIST_LIST_NAME) for
+    # nurture-campaign workflows.
+    WAITLIST_LIST_NAME = "Cloud Waitlist"
+
     belongs_to :email_subscriber,
       class_name: "Marketing::EmailSubscriber",
       foreign_key: "email_subscriber_id",
@@ -28,8 +33,15 @@ module Marketing
     scope :converted, -> { where.not(converted_account_id: nil) }
     scope :by_source, ->(source) { where(source: source) }
 
+    # Transitions pending → confirmed and synchronously creates a
+    # Marketing::EmailSubscriber on the auto-managed "Cloud Waitlist" list
+    # so nurture campaigns can target the address. Sync errors are logged
+    # but don't roll back the status transition — confirmation succeeds
+    # even if the subscriber-list machinery is unhealthy.
     def confirm!
       update!(status: "confirmed", confirmed_at: Time.current, confirmation_token: nil)
+      sync_to_email_subscriber!
+      self
     end
 
     def unsubscribe!
@@ -48,6 +60,31 @@ module Marketing
 
     def ensure_confirmation_token
       self.confirmation_token ||= SecureRandom.urlsafe_base64(32)
+    end
+
+    # Idempotent: if email_subscriber_id is already set, returns immediately.
+    # If no Account exists yet (fresh install), returns silently — the signup
+    # row is still saved and confirmation still completes.
+    def sync_to_email_subscriber!
+      return if email_subscriber_id.present?
+
+      account = Account.first
+      return unless account
+
+      list = Marketing::EmailList.find_or_create_by!(account: account, name: WAITLIST_LIST_NAME) do |l|
+        l.list_type = "standard"
+      end
+
+      subscriber = Marketing::EmailSubscriber.find_or_create_by!(email_list: list, email: email) do |s|
+        s.status = "subscribed"
+        s.source = "waitlist"
+        s.subscribed_at = Time.current
+        s.confirmed_at = Time.current
+      end
+
+      update_column(:email_subscriber_id, subscriber.id)
+    rescue StandardError => e
+      Rails.logger.error("[Marketing::WaitlistSignup #{id}] sync_to_email_subscriber! failed: #{e.class} — #{e.message}")
     end
   end
 end

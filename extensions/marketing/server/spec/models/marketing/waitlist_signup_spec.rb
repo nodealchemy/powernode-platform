@@ -101,6 +101,64 @@ RSpec.describe Marketing::WaitlistSignup, type: :model do
         expect(signup.confirmed_at).to be_within(2.seconds).of(Time.current)
         expect(signup.confirmation_token).to be_nil
       end
+
+      context "EmailSubscriber sync" do
+        let!(:account) { create(:account) }
+
+        it "auto-creates the 'Cloud Waitlist' EmailList on first sync" do
+          signup = create(:marketing_waitlist_signup)
+          expect {
+            signup.confirm!
+          }.to change { Marketing::EmailList.where(name: "Cloud Waitlist").count }.by(1)
+
+          list = Marketing::EmailList.find_by(name: "Cloud Waitlist")
+          expect(list.account_id).to eq(account.id)
+          expect(list.list_type).to eq("standard")
+        end
+
+        it "reuses an existing 'Cloud Waitlist' EmailList on subsequent syncs" do
+          create(:marketing_email_list, account: account, name: "Cloud Waitlist")
+          signup = create(:marketing_waitlist_signup)
+
+          expect {
+            signup.confirm!
+          }.not_to change(Marketing::EmailList, :count)
+        end
+
+        it "creates an EmailSubscriber and links it via email_subscriber_id" do
+          signup = create(:marketing_waitlist_signup)
+
+          expect {
+            signup.confirm!
+          }.to change(Marketing::EmailSubscriber, :count).by(1)
+
+          subscriber = Marketing::EmailSubscriber.find_by(email: signup.email)
+          expect(subscriber).to be_present
+          expect(subscriber.status).to eq("subscribed")
+          expect(subscriber.source).to eq("waitlist")
+          expect(signup.reload.email_subscriber_id).to eq(subscriber.id)
+        end
+
+        it "is idempotent — re-confirming doesn't create a second subscriber" do
+          signup = create(:marketing_waitlist_signup)
+          signup.confirm!
+
+          expect {
+            signup.confirm!
+          }.not_to change(Marketing::EmailSubscriber, :count)
+        end
+
+        it "logs and continues when sync fails (status still transitions)" do
+          allow(Marketing::EmailList).to receive(:find_or_create_by!).and_raise(StandardError.new("simulated failure"))
+          allow(Rails.logger).to receive(:error)
+          signup = create(:marketing_waitlist_signup)
+
+          expect { signup.confirm! }.not_to raise_error
+          expect(signup.reload.status).to eq("confirmed")
+          expect(signup.email_subscriber_id).to be_nil
+          expect(Rails.logger).to have_received(:error).with(/sync_to_email_subscriber!/)
+        end
+      end
     end
 
     describe "#unsubscribe!" do

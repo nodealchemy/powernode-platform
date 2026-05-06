@@ -38,8 +38,15 @@ module Api
             )
 
             if signup.save
+              # Auto-confirm on creation: transition to confirmed and sync to
+              # the "Cloud Waitlist" EmailList for nurture campaigns. confirm!
+              # rescues sync failures internally, so this won't fail the
+              # user-facing flow if EmailList machinery is unhealthy.
+              signup.confirm!
+
               Rails.logger.info(
-                "[Marketing] WaitlistSignup created id=#{signup.id} source=#{signup.source}"
+                "[Marketing] WaitlistSignup created+confirmed id=#{signup.id} " \
+                "source=#{signup.source} subscriber=#{signup.email_subscriber_id || 'none'}"
               )
               render_success(
                 { id: signup.id, email: signup.email, status: signup.status },

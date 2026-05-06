@@ -6,15 +6,26 @@ RSpec.describe "Api::V1::Marketing::Public::LeadsController", type: :request do
   describe "POST /api/v1/marketing/public/leads/waitlist" do
     let(:endpoint) { "/api/v1/marketing/public/leads/waitlist" }
 
-    it "creates a new waitlist signup with valid email" do
+    it "creates a new waitlist signup with valid email and auto-confirms" do
       expect {
         post endpoint, params: { email: "new@example.com", source: "homepage" }, as: :json
       }.to change(Marketing::WaitlistSignup, :count).by(1)
 
       expect(response).to have_http_status(:ok)
       data = JSON.parse(response.body).fetch("data")
-      expect(data).to include("email" => "new@example.com", "status" => "pending")
+      expect(data).to include("email" => "new@example.com", "status" => "confirmed")
       expect(data["id"]).to be_present
+    end
+
+    it "syncs to EmailSubscriber on confirmation when an Account exists" do
+      create(:account)
+      expect {
+        post endpoint, params: { email: "synced@example.com" }, as: :json
+      }.to change(Marketing::EmailSubscriber, :count).by(1)
+
+      signup = Marketing::WaitlistSignup.find_by(email: "synced@example.com")
+      expect(signup.email_subscriber_id).to be_present
+      expect(Marketing::EmailList.find_by(name: "Cloud Waitlist")).to be_present
     end
 
     it "is idempotent — duplicate email returns success without creating a new row" do
