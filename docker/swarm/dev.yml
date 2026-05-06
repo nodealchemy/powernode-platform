@@ -51,7 +51,7 @@ services:
   # Rails Backend API
   # Runs production image in development mode (seeds create admin user only in dev/test)
   backend:
-    image: git.ipnode.org/powernode/powernode-backend:${TAG:-dev-latest}
+    image: ${REGISTRY:-localhost:5000}/powernode/powernode-backend:${TAG:-dev-latest}
     environment:
       - RAILS_ENV=production
       - SEED_ADMIN_USERS=true
@@ -105,7 +105,7 @@ services:
 
   # Sidekiq Worker (standalone, communicates with backend via HTTP API)
   worker:
-    image: git.ipnode.org/powernode/powernode-worker:${TAG:-dev-latest}
+    image: ${REGISTRY:-localhost:5000}/powernode/powernode-worker:${TAG:-dev-latest}
     environment:
       - REDIS_URL=redis://redis:6379/1
       - BACKEND_API_URL=http://backend:3000
@@ -130,7 +130,7 @@ services:
 
   # React Frontend (nginx:alpine serves built SPA)
   frontend:
-    image: git.ipnode.org/powernode/powernode-frontend:${TAG:-dev-latest}
+    image: ${REGISTRY:-localhost:5000}/powernode/powernode-frontend:${TAG:-dev-latest}
     networks:
       - frontend
     deploy:

@@ -91,7 +91,7 @@ module Devops
       create_registry_webhook(owner, repo_name, webhook_secret)
 
       # Create ContainerTemplate linked to the repo
-      registry_url = ENV.fetch("POWERNODE_REGISTRY_URL", "git.ipnode.net/powernode")
+      registry_url = ENV.fetch("POWERNODE_REGISTRY_URL", "registry.example.com/powernode")
       template = Devops::ContainerTemplate.create!(
         account: @account,
         created_by: @user,
@@ -138,7 +138,7 @@ module Devops
         DOCKERFILE
       else
         parent = config[:parent_image] || "powernode-agent-base"
-        registry_url = ENV.fetch("POWERNODE_REGISTRY_URL", "git.ipnode.net/powernode")
+        registry_url = ENV.fetch("POWERNODE_REGISTRY_URL", "registry.example.com/powernode")
         packages_line = config[:packages].present? ? "RUN apk add --no-cache #{config[:packages]}" : "# Add custom packages here"
 
         <<~DOCKERFILE
@@ -213,7 +213,7 @@ module Devops
               - uses: actions/checkout@v4
               - uses: docker/login-action@v3
                 with:
-                  registry: git.ipnode.net
+                  registry: registry.example.com
                   username: ${{ secrets.REGISTRY_USER }}
                   password: ${{ secrets.REGISTRY_TOKEN }}
               - uses: docker/build-push-action@v5
@@ -221,14 +221,14 @@ module Devops
                   context: .
                   push: true
                   tags: |
-                    git.ipnode.net/powernode/#{image_name}:latest
-                    git.ipnode.net/powernode/#{image_name}:${{ github.sha }}
+                    registry.example.com/powernode/#{image_name}:latest
+                    registry.example.com/powernode/#{image_name}:${{ github.sha }}
               - name: Notify Powernode
                 run: |
                   curl -sf -X POST "${{ secrets.POWERNODE_WEBHOOK_URL }}" \\
                     -H "Content-Type: application/json" \\
                     -H "X-Gitea-Signature: $(echo -n '{}' | openssl dgst -sha256 -hmac '${{ secrets.WEBHOOK_SECRET }}' | cut -d' ' -f2)" \\
-                    -d '{"repo":"#{image_name}","tag":"${{ github.sha }}","registry":"git.ipnode.net/powernode"}'
+                    -d '{"repo":"#{image_name}","tag":"${{ github.sha }}","registry":"registry.example.com/powernode"}'
       WORKFLOW
     end
 

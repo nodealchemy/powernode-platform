@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_06_000100) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_06_000200) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -7536,6 +7536,31 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_06_000100) do
     t.check_constraint "status::text = ANY (ARRAY['connected'::character varying, 'disconnected'::character varying, 'expired'::character varying, 'error'::character varying]::text[])", name: "marketing_social_status_check"
   end
 
+  create_table "marketing_waitlist_signups", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "confirmation_token"
+    t.datetime "confirmed_at"
+    t.uuid "converted_account_id"
+    t.datetime "converted_at"
+    t.datetime "created_at", null: false
+    t.string "email", null: false
+    t.uuid "email_subscriber_id"
+    t.string "ip_address"
+    t.jsonb "metadata", default: {}
+    t.string "referrer"
+    t.string "source"
+    t.string "status", default: "pending"
+    t.datetime "unsubscribed_at"
+    t.datetime "updated_at", null: false
+    t.string "user_agent"
+    t.index ["confirmation_token"], name: "index_marketing_waitlist_signups_on_confirmation_token", unique: true, where: "(confirmation_token IS NOT NULL)"
+    t.index ["converted_account_id"], name: "index_marketing_waitlist_signups_on_converted_account_id"
+    t.index ["email"], name: "index_marketing_waitlist_signups_on_email", unique: true
+    t.index ["email_subscriber_id"], name: "index_marketing_waitlist_signups_on_email_subscriber_id"
+    t.index ["source"], name: "index_marketing_waitlist_signups_on_source"
+    t.index ["status"], name: "index_marketing_waitlist_signups_on_status"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'confirmed'::character varying, 'unsubscribed'::character varying]::text[])", name: "marketing_waitlist_signups_status_check"
+  end
+
   create_table "marketplace_reviews", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.text "content"
@@ -10270,14 +10295,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_06_000100) do
   create_table "system_node_platforms", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.text "build_script"
-    t.string "cosign_identity_regexp", comment: "Sigstore Fulcio identity regexp the publication processor will accept (e.g. 'https://git.ipnode.org/powernode/.+')"
-    t.string "cosign_issuer_regexp", comment: "Sigstore Fulcio OIDC issuer regexp (e.g. 'https://git.ipnode.org')"
+    t.string "cosign_identity_regexp", comment: "Sigstore Fulcio identity regexp the publication processor will accept (e.g. 'https://registry.example.com/powernode/.+')"
+    t.string "cosign_issuer_regexp", comment: "Sigstore Fulcio OIDC issuer regexp (e.g. 'https://registry.example.com')"
     t.datetime "created_at", null: false
     t.text "description"
     t.datetime "disk_image_built_at"
     t.uuid "disk_image_file_object_id"
     t.string "disk_image_git_sha", comment: "Git SHA of the source build that produced the active disk image"
-    t.string "disk_image_oci_ref", comment: "Last-published OCI reference (e.g. git.ipnode.org/powernode/disk-images/ubuntu-24.04-rpi4:abc123)"
+    t.string "disk_image_oci_ref", comment: "Last-published OCI reference (e.g. registry.example.com/powernode/disk-images/ubuntu-24.04-rpi4:abc123)"
     t.text "disk_image_publication_error", comment: "Last error message if disk_image_publication_status='failed'"
     t.string "disk_image_publication_status", default: "none", null: false, comment: "none|verifying|published|failed — operator-facing status"
     t.integer "disk_image_retention_count", default: 3, null: false, comment: "Number of historical publications to retain before reaper purges (per platform)"
@@ -12678,6 +12703,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_06_000100) do
   add_foreign_key "marketing_email_subscribers", "marketing_email_lists", column: "email_list_id"
   add_foreign_key "marketing_social_media_accounts", "accounts"
   add_foreign_key "marketing_social_media_accounts", "users", column: "connected_by_id"
+  add_foreign_key "marketing_waitlist_signups", "accounts", column: "converted_account_id", on_delete: :nullify
+  add_foreign_key "marketing_waitlist_signups", "marketing_email_subscribers", column: "email_subscriber_id", on_delete: :nullify
   add_foreign_key "marketplace_reviews", "accounts"
   add_foreign_key "marketplace_reviews", "users"
   add_foreign_key "marketplace_subscriptions", "accounts"

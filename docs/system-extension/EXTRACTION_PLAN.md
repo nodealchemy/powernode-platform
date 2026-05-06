@@ -10,7 +10,7 @@ the existing `extensions/trading/` pattern.
 
 | Side | URL | Visibility | State |
 |---|---|---|---|
-| Gitea | `git@git.ipnode.org:powernode/powernode-system.git` | private | ✅ created (3-file scaffold commit — overwritten by `--force` on first push) |
+| Gitea | `git@git.example.com:powernode/powernode-system.git` | private | ✅ created (3-file scaffold commit — overwritten by `--force` on first push) |
 | GitHub | `git@github.com:rett/powernode-system.git` | **public** | ✅ created (empty — clean push works) |
 
 Topics on GitHub: `powernode, infrastructure, kubernetes-alternative, node-management, composefs, ipxe, golang, rails, typescript`.
@@ -70,7 +70,7 @@ ls   # should show server/ frontend/ worker/ agent/ initramfs/ ...
 git log --oneline | head -5   # should still have meaningful commits
 
 # Add both remotes
-git remote add origin git@git.ipnode.org:powernode/powernode-system.git
+git remote add origin git@git.example.com:powernode/powernode-system.git
 git remote add github git@github.com:rett/powernode-system.git
 
 # Force-push to Gitea — the MCP scaffold-on-create added .gitignore +
@@ -103,7 +103,7 @@ rm -rf extensions/system   # in case anything's still there
 git commit -m "Extract system extension to submodule"
 
 # Add as submodule (origin = Gitea, like trading)
-git submodule add git@git.ipnode.org:powernode/powernode-system.git extensions/system
+git submodule add git@git.example.com:powernode/powernode-system.git extensions/system
 
 # The submodule will check out master by default. Pin to the SHA we just pushed.
 cd extensions/system

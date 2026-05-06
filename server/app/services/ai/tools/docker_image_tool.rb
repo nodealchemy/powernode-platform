@@ -36,7 +36,7 @@ module Ai
             description: "Pull a Docker image from a registry to a host",
             parameters: {
               host_id: { type: "string", required: false, description: "Docker host ID, slug, or name" },
-              image: { type: "string", required: true, description: "Image name (e.g. 'nginx', 'git.ipnode.org/powernode/backend')" },
+              image: { type: "string", required: true, description: "Image name (e.g. 'nginx', 'registry.example.com/myorg/myimage')" },
               tag: { type: "string", required: false, description: "Image tag (default: latest)" },
               credential_id: { type: "string", required: false, description: "Registry credential ID for authenticated pulls" }
             }

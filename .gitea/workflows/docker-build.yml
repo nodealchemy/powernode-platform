@@ -16,7 +16,7 @@ on:
       - '.gitea/workflows/docker-build.yml'
 
 env:
-  REGISTRY: git.ipnode.org
+  REGISTRY: ${{ vars.REGISTRY }}
   IMAGE_TAG: ${{ gitea.event.inputs.tag || 'dev-latest' }}
 
 jobs:
