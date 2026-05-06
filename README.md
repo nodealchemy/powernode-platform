@@ -76,18 +76,20 @@ Extensions are loaded dynamically via `FeatureGateService`. When no extensions a
 Powernode is **MIT-licensed throughout**. Publicly available components:
 
 - **`powernode-platform`** (this repo) — core platform
-- **`powernode-system`** ([github.com/rett/powernode-system](https://github.com/rett/powernode-system)) — fleet, mesh, signed module supply chain, on-node Go agent, mounted as a git submodule at `extensions/system/`
+- **`powernode-system`** ([github.com/rett/powernode-system](https://github.com/rett/powernode-system)) — fleet, mesh, signed module supply chain, on-node Go agent. Mounted at `extensions/system/`.
+- **`powernode-supply-chain`** ([github.com/rett/powernode-supply-chain](https://github.com/rett/powernode-supply-chain)) — supply-chain security extension (SBOM workflows, attestations). Mounted at `extensions/supply-chain/`.
+- **`powernode-marketing`** ([github.com/rett/powernode-marketing](https://github.com/rett/powernode-marketing)) — marketing extension (campaigns, calendar, email lists, social, public landing pages). Mounted at `extensions/marketing/`.
 
-The `business`, `trading`, and `supply-chain` extensions are MIT-licensed but currently maintained in private repositories. Public clones run in **core mode** — single-user self-hosted, all platform features unlocked — without those extensions.
+The `business` and `trading` extensions are MIT-licensed but currently maintained in private repositories. Public clones run in **core mode** — single-user self-hosted, all platform features unlocked — without those extensions.
 
 ```bash
-# Public clone with the system submodule initialized
+# Public clone with all public submodules initialized
 git clone <repo-url>
 cd powernode-platform
-git submodule update --init extensions/system
+git submodule update --init extensions/system extensions/supply-chain extensions/marketing
 ```
 
-Running `git submodule update --init` without the path argument will attempt to clone the private extensions and produce permission-denied errors. These are safe to ignore if you only need core mode.
+Running `git submodule update --init` without the path arguments will additionally attempt to clone the private extensions (`business`, `trading`) and produce permission-denied errors. These are safe to ignore if you only need core mode.
 
 ## Architecture Overview
 

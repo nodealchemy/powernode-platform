@@ -6,3 +6,7 @@
 	path = extensions/supply-chain
 	url = https://github.com/rett/powernode-supply-chain.git
 	branch = develop
+[submodule "extensions/marketing"]
+	path = extensions/marketing
+	url = https://github.com/rett/powernode-marketing.git
+	branch = develop
