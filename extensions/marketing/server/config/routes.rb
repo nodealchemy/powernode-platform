@@ -8,6 +8,8 @@ Rails.application.routes.draw do
         # First in the namespace so explicit routes here win over any wildcard matches below.
         namespace :public do
           post "leads/waitlist", to: "leads#waitlist"
+          get "blog/posts", to: "blog#index"
+          get "blog/posts/:slug", to: "blog#show"
         end
 
         resources :campaigns do

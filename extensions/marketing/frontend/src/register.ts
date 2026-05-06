@@ -13,6 +13,9 @@ const MarketingAnalyticsPage = lazy(() => import('./features/marketing/pages/Mar
 const HomePage = lazy(() => import('./features/marketing/public/HomePage').then(m => ({ default: m.HomePage })));
 const PricingPage = lazy(() => import('./features/marketing/public/PricingPage').then(m => ({ default: m.PricingPage })));
 const FeaturesPage = lazy(() => import('./features/marketing/public/FeaturesPage').then(m => ({ default: m.FeaturesPage })));
+const BlogIndexPage = lazy(() => import('./features/marketing/public/BlogIndexPage').then(m => ({ default: m.BlogIndexPage })));
+const BlogPostPage = lazy(() => import('./features/marketing/public/BlogPostPage').then(m => ({ default: m.BlogPostPage })));
+const DocsLandingPage = lazy(() => import('./features/marketing/public/DocsLandingPage').then(m => ({ default: m.DocsLandingPage })));
 
 export function register(): void {
   // Public-facing marketing routes (rendered by App.tsx, no authentication required)
@@ -21,6 +24,9 @@ export function register(): void {
     { path: '/', component: HomePage },
     { path: '/pricing', component: PricingPage },
     { path: '/features', component: FeaturesPage },
+    { path: '/blog', component: BlogIndexPage },
+    { path: '/blog/:slug', component: BlogPostPage },
+    { path: '/docs', component: DocsLandingPage },
   ]);
 
   // Marketing routes — rendered dynamically via featureRegistry in DashboardPage
