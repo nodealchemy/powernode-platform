@@ -1,8 +1,8 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
-import { ArrowLeft, User, Facebook, Twitter, Linkedin, Instagram, Youtube } from 'lucide-react';
+import { ArrowLeft, User, Facebook, Twitter, Linkedin, Instagram, Youtube, Menu, X } from 'lucide-react';
 import { useFooter } from '@/shared/contexts/FooterContext';
 import logoIcon from '@/assets/images/logo-icon.png';
 
@@ -37,6 +37,8 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
 }) => {
   const { isAuthenticated, user } = useSelector((state: RootState) => state.auth);
   const { footerData } = useFooter();
+  const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
 
   // Update document title if provided
   React.useEffect(() => {
@@ -48,6 +50,21 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
       document.title = "Powernode";
     };
   }, [title]);
+
+  // Close mobile menu on route change
+  React.useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  // Close mobile menu on Escape
+  React.useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileMenuOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [mobileMenuOpen]);
 
   return (
     <div className={`min-h-screen bg-theme-background ${className}`}>
@@ -79,7 +96,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
               </nav>
             )}
 
-            <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-3 md:space-x-6">
               {showBackButton && (
                 <Link
                   to={backButtonHref}
@@ -92,7 +109,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
 
               {isAuthenticated && user ? (
                 <div className="flex items-center space-x-4">
-                  <span className="text-sm text-theme-secondary">
+                  <span className="hidden md:inline text-sm text-theme-secondary">
                     Welcome, {user.name}
                   </span>
                   <Link
@@ -107,21 +124,66 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                 <>
                   <Link
                     to="/login"
-                    className="text-sm font-semibold text-theme-secondary hover:text-theme-primary transition-colors duration-200"
+                    className="hidden md:inline-block text-sm font-semibold text-theme-secondary hover:text-theme-primary transition-colors duration-200"
                   >
                     Sign in
                   </Link>
                   <Link
                     to="/plans"
-                    className="inline-flex items-center space-x-2 px-6 py-3 bg-theme-info-solid hover:bg-theme-interactive-primary-hover text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                    className="inline-flex items-center space-x-2 px-4 py-2 md:px-6 md:py-3 bg-theme-info-solid hover:bg-theme-interactive-primary-hover text-white font-semibold rounded-lg md:rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl text-sm"
                   >
                     <span>Get Started</span>
                   </Link>
                 </>
               )}
+
+              {mainNav && mainNav.length > 0 && (
+                <button
+                  type="button"
+                  className="md:hidden inline-flex items-center justify-center p-2 rounded-md text-theme-secondary hover:text-theme-primary hover:bg-theme-surface focus:outline-none focus:ring-2 focus:ring-theme-info transition-colors"
+                  onClick={() => setMobileMenuOpen(prev => !prev)}
+                  aria-expanded={mobileMenuOpen}
+                  aria-controls="mobile-menu"
+                  data-testid="mobile-nav-toggle"
+                >
+                  <span className="sr-only">{mobileMenuOpen ? 'Close menu' : 'Open menu'}</span>
+                  {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                </button>
+              )}
             </div>
           </div>
         </div>
+
+        {/* Mobile menu panel (md and below; rendered inside sticky header so backdrop blur covers it) */}
+        {mainNav && mainNav.length > 0 && mobileMenuOpen && (
+          <div
+            id="mobile-menu"
+            className="md:hidden border-t border-theme bg-theme-background"
+            role="region"
+            aria-label="Mobile navigation"
+          >
+            <nav className="max-w-7xl mx-auto px-4 sm:px-6 py-4 space-y-1">
+              {mainNav.map(item => (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className="block px-3 py-3 rounded-md text-base font-semibold text-theme-secondary hover:text-theme-primary hover:bg-theme-surface transition-colors"
+                  data-testid={`mobile-nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+                >
+                  {item.label}
+                </Link>
+              ))}
+              {!isAuthenticated && (
+                <Link
+                  to="/login"
+                  className="block px-3 py-3 mt-2 pt-3 border-t border-theme rounded-md text-base font-semibold text-theme-secondary hover:text-theme-primary hover:bg-theme-surface transition-colors"
+                >
+                  Sign in
+                </Link>
+              )}
+            </nav>
+          </div>
+        )}
       </header>
 
       {/* Page Header Section */}
