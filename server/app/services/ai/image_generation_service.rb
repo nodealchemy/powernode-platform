@@ -10,10 +10,16 @@ module Ai
 
     class GenerationError < StandardError; end
 
-    attr_reader :account
+    attr_reader :account, :user
 
-    def initialize(account:)
+    # @param account [Account] tenant scope for credential resolution + storage
+    # @param user [User, nil] the user attributed as uploader on the resulting
+    #   FileManagement::Object. Required for storage to succeed since the model
+    #   has a non-optional belongs_to :uploaded_by. Optional only when called
+    #   with store: false (e.g. generate_raw).
+    def initialize(account:, user: nil)
       @account = account
+      @user = user
     end
 
     # Generate an image using DALL-E 3
@@ -135,6 +141,7 @@ module Ai
         filename: filename,
         content_type: "image/png",
         category: "ai_generated",
+        uploaded_by_id: user&.id,
         metadata: {
           generator: "dall-e",
           model: model,

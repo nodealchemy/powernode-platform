@@ -63,7 +63,7 @@ module Ai
       def generate_image(params)
         return { success: false, error: "prompt is required" } if params[:prompt].blank?
 
-        service = Ai::ImageGenerationService.new(account: account)
+        service = Ai::ImageGenerationService.new(account: account, user: user)
         result = service.generate(
           prompt: params[:prompt],
           size: params[:size] || "1024x1024",
