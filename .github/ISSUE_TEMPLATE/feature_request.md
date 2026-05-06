@@ -1,0 +1,47 @@
+---
+name: Feature Request
+about: Propose a new capability, integration, or workflow
+title: "[Feature] "
+labels: enhancement
+---
+
+<!--
+Before filing:
+- Search existing issues and discussions to avoid duplicates.
+- For large changes, consider opening a Discussion first to align on approach.
+- See CONTRIBUTING.md for the kinds of features we are and aren't actively pursuing.
+-->
+
+## Use Case
+
+What problem does this solve? Who benefits? A concrete example scenario is helpful.
+
+## Proposed Solution
+
+Describe what you'd like to see. UI sketches, API shape, configuration surface, behavior expectations — whatever's most relevant.
+
+## Alternatives Considered
+
+What other approaches did you weigh? Why is the proposed approach better?
+
+## Scope
+
+Which parts of the platform would this touch?
+
+- [ ] Backend (`server/`)
+- [ ] Frontend (`frontend/`)
+- [ ] Worker (`worker/`)
+- [ ] Extension — which one? `business` / `marketing` / `system` / `trading` / `supply-chain`
+- [ ] Documentation (`docs/`)
+- [ ] Tests
+- [ ] Migrations / schema
+
+## Additional Context
+
+Links to upstream APIs, prior art in other projects, related issues, screenshots, mockups.
+
+## Contribution
+
+- [ ] I can submit a PR
+- [ ] I can help test
+- [ ] I'm proposing the idea — someone else would implement
