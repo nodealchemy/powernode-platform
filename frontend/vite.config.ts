@@ -171,6 +171,11 @@ export default defineConfig(({ mode }: { mode: string }) => {
           changeOrigin: true,
           secure: false,
         },
+        '/sitemap.xml': {
+          target: 'http://127.0.0.1:3000',
+          changeOrigin: true,
+          secure: false,
+        },
         '/api/v1': {
           target: 'http://127.0.0.1:3000/api/v1',
           changeOrigin: true,

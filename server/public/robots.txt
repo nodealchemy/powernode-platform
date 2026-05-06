@@ -1,5 +1,6 @@
 # Powernode API backend — no public crawlable content.
-# All public pages are served by the frontend (see https://powernode.org/robots.txt).
+# All public pages are served by the frontend; see the frontend's /robots.txt
+# for crawl rules (Rails' /sitemap.xml route serves the dynamic sitemap).
 
 User-agent: *
 Disallow: /

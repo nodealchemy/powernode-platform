@@ -18,5 +18,3 @@ Disallow: /forgot-password
 Disallow: /onboarding/
 Disallow: /settings/
 Disallow: /developer/
-
-Sitemap: https://powernode.org/sitemap.xml

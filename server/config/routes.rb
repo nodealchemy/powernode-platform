@@ -25,6 +25,13 @@ Rails.application.routes.draw do
     get "oauth-authorization-server/*path", to: "well_known#oauth_authorization_server"
   end
 
+  # =========================================================================
+  # SEO — sitemap.xml served from the root path per sitemaps.org spec.
+  # Uses request.base_url so URLs track the actual public host (including
+  # X-Forwarded-* from reverse proxies). No hardcoded domain.
+  # =========================================================================
+  get "/sitemap.xml", to: "sitemap#index", defaults: { format: :xml }
+
 
   # Doorkeeper OAuth 2.1 endpoints — outside namespace to avoid controller resolution issues
   # (namespace would prefix module path, causing Api::V1::Doorkeeper::* lookups to fail)
