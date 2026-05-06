@@ -4,6 +4,12 @@ Rails.application.routes.draw do
   namespace :api do
     namespace :v1 do
       namespace :marketing do
+        # Public-facing endpoints (no authentication required).
+        # First in the namespace so explicit routes here win over any wildcard matches below.
+        namespace :public do
+          post "leads/waitlist", to: "leads#waitlist"
+        end
+
         resources :campaigns do
           member do
             post :execute

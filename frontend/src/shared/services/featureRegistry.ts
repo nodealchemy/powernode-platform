@@ -29,6 +29,7 @@ export interface FeatureNavSection {
 
 interface FeatureRegistryState {
   routes: Map<string, FeatureRoute[]>;
+  publicRoutes: Map<string, FeatureRoute[]>;
   navItems: Map<string, FeatureNavItem[]>;
   navSections: Map<string, FeatureNavSection[]>;
   version: number;
@@ -37,6 +38,7 @@ interface FeatureRegistryState {
 
 const state: FeatureRegistryState = {
   routes: new Map(),
+  publicRoutes: new Map(),
   navItems: new Map(),
   navSections: new Map(),
   version: 0,
@@ -66,6 +68,31 @@ export const featureRegistry = {
       return state.routes.get(namespace) || [];
     }
     return Array.from(state.routes.values()).flat();
+  },
+
+  /**
+   * Register PUBLIC routes for a namespace (no authentication required).
+   * Consumed by App.tsx routing for unauthenticated landing/marketing pages.
+   * Public routes render WITHOUT any PublicRoute or ProtectedRoute wrapper —
+   * they're visible to authenticated and unauthenticated users alike.
+   * First-match wins in App.tsx, so extension-registered public routes
+   * override the default routes when the extension is loaded; they fall
+   * through to App.tsx defaults when the extension is absent.
+   */
+  registerPublicRoutes(namespace: string, routes: FeatureRoute[]): void {
+    const existing = state.publicRoutes.get(namespace) || [];
+    state.publicRoutes.set(namespace, [...existing, ...routes]);
+    notifyListeners();
+  },
+
+  /**
+   * Get all registered public routes, optionally filtered by namespace
+   */
+  getPublicRoutes(namespace?: string): FeatureRoute[] {
+    if (namespace) {
+      return state.publicRoutes.get(namespace) || [];
+    }
+    return Array.from(state.publicRoutes.values()).flat();
   },
 
   /**
@@ -141,6 +168,7 @@ export const featureRegistry = {
    */
   clear(): void {
     state.routes.clear();
+    state.publicRoutes.clear();
     state.navItems.clear();
     state.navSections.clear();
   },

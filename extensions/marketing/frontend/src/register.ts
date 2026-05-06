@@ -1,7 +1,7 @@
 import { lazy } from 'react';
 import { featureRegistry } from '@/shared/services/featureRegistry';
 
-// Lazy-loaded marketing page components
+// Lazy-loaded admin marketing page components (rendered inside /app/* via DashboardPage)
 const MarketingCampaignsPage = lazy(() => import('./features/marketing/pages/MarketingCampaignsPage').then(m => ({ default: m.MarketingCampaignsPage })));
 const MarketingCampaignDetailPage = lazy(() => import('./features/marketing/pages/MarketingCampaignDetailPage').then(m => ({ default: m.MarketingCampaignDetailPage })));
 const MarketingCalendarPage = lazy(() => import('./features/marketing/pages/MarketingCalendarPage').then(m => ({ default: m.MarketingCalendarPage })));
@@ -9,7 +9,20 @@ const MarketingEmailListsPage = lazy(() => import('./features/marketing/pages/Ma
 const MarketingSocialPage = lazy(() => import('./features/marketing/pages/MarketingSocialPage').then(m => ({ default: m.MarketingSocialPage })));
 const MarketingAnalyticsPage = lazy(() => import('./features/marketing/pages/MarketingAnalyticsPage').then(m => ({ default: m.MarketingAnalyticsPage })));
 
+// Lazy-loaded PUBLIC marketing page components (rendered at root domain, no auth)
+const HomePage = lazy(() => import('./features/marketing/public/HomePage').then(m => ({ default: m.HomePage })));
+const PricingPage = lazy(() => import('./features/marketing/public/PricingPage').then(m => ({ default: m.PricingPage })));
+const FeaturesPage = lazy(() => import('./features/marketing/public/FeaturesPage').then(m => ({ default: m.FeaturesPage })));
+
 export function register(): void {
+  // Public-facing marketing routes (rendered by App.tsx, no authentication required)
+  // These override App.tsx defaults like the `/` -> `/welcome` redirect when present.
+  featureRegistry.registerPublicRoutes('marketing', [
+    { path: '/', component: HomePage },
+    { path: '/pricing', component: PricingPage },
+    { path: '/features', component: FeaturesPage },
+  ]);
+
   // Marketing routes — rendered dynamically via featureRegistry in DashboardPage
   featureRegistry.registerRoutes('marketing', [
     { path: '/marketing/campaigns', component: MarketingCampaignsPage, permission: 'marketing.campaigns.read' },

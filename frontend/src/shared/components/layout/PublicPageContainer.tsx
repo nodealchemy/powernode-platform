@@ -6,6 +6,11 @@ import { ArrowLeft, User, Facebook, Twitter, Linkedin, Instagram, Youtube } from
 import { useFooter } from '@/shared/contexts/FooterContext';
 import logoIcon from '@/assets/images/logo-icon.png';
 
+export interface PublicMainNavItem {
+  label: string;
+  path: string;
+}
+
 interface PublicPageContainerProps {
   children: React.ReactNode;
   title?: string;
@@ -14,6 +19,10 @@ interface PublicPageContainerProps {
   backButtonLabel?: string;
   backButtonHref?: string;
   className?: string;
+  // Optional inline nav rendered in the sticky header between logo and sign-in actions.
+  // Extension-owned: marketing pages pass their public-page links here. Default undefined
+  // preserves backward compatibility for auth flows and CMS pages that don't need a nav.
+  mainNav?: PublicMainNavItem[];
 }
 
 export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
@@ -23,7 +32,8 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
   showBackButton = false,
   backButtonLabel = "Back",
   backButtonHref = "/",
-  className = ""
+  className = "",
+  mainNav,
 }) => {
   const { isAuthenticated, user } = useSelector((state: RootState) => state.auth);
   const { footerData } = useFooter();
@@ -33,7 +43,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
     if (title) {
       document.title = `${title} | Powernode`;
     }
-    
+
     return () => {
       document.title = "Powernode";
     };
@@ -53,7 +63,22 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                 Powernode
               </h1>
             </Link>
-            
+
+            {mainNav && mainNav.length > 0 && (
+              <nav className="hidden md:flex items-center space-x-8" aria-label="Marketing navigation">
+                {mainNav.map(item => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className="text-sm font-semibold text-theme-secondary hover:text-theme-primary transition-colors duration-200"
+                    data-testid={`marketing-nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </nav>
+            )}
+
             <div className="flex items-center space-x-6">
               {showBackButton && (
                 <Link
@@ -151,7 +176,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                 <p className="text-theme-secondary text-sm leading-relaxed mb-6">
                   {footerData?.footer_description || 'Powerful subscription management platform designed to help businesses grow. Trusted by thousands of companies worldwide.'}
                 </p>
-                
+
                 {/* Social Media Links */}
                 {footerData && (footerData.social_facebook || footerData.social_twitter || footerData.social_linkedin || footerData.social_instagram || footerData.social_youtube) && (
                   <div className="flex items-center space-x-4">
@@ -189,12 +214,12 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                 <h4 className="text-theme-primary font-semibold mb-6">Product</h4>
                 <ul className="space-y-4">
                   <li>
-                    <Link to="/plans" className="text-theme-secondary hover:text-theme-primary transition-colors duration-200 text-sm">
+                    <Link to="/features" className="text-theme-secondary hover:text-theme-primary transition-colors duration-200 text-sm">
                       Features
                     </Link>
                   </li>
                   <li>
-                    <Link to="/plans" className="text-theme-secondary hover:text-theme-primary transition-colors duration-200 text-sm">
+                    <Link to="/pricing" className="text-theme-secondary hover:text-theme-primary transition-colors duration-200 text-sm">
                       Pricing
                     </Link>
                   </li>
@@ -263,7 +288,7 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                   </Link>
                 </div>
               </div>
-              
+
               <div className="flex items-center space-x-6">
                 <div className="flex items-center space-x-2 bg-theme-surface px-3 py-2 rounded-full">
                   <div className="w-2 h-2 bg-theme-success-solid rounded-full animate-pulse"></div>

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useReducer } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Provider, useDispatch, useSelector } from 'react-redux';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -7,6 +7,7 @@ import { store } from '@/shared/services';
 import { getCurrentUser, refreshAccessToken, clearAuth, forceTokenClear, checkImpersonationStatus } from '@/shared/services/slices/authSlice';
 import { isTokenInvalidError, isValidTokenFormat } from '@/shared/utils/tokenUtils';
 import { loadAllExtensions } from '@/shared/services/extensionLoader';
+import { featureRegistry } from '@/shared/services/featureRegistry';
 
 // Theme Provider
 import { ThemeProvider } from '@/shared/hooks/ThemeContext';
@@ -69,6 +70,13 @@ const AppContent: React.FC = () => {
     loadAllExtensions().catch(() => {
       // Extension loading failure is non-fatal
     });
+  }, []);
+
+  // Re-render when featureRegistry changes so extension-registered public
+  // marketing routes appear as soon as extensions finish loading.
+  const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
+  useEffect(() => {
+    return featureRegistry.subscribe(() => forceUpdate());
   }, []);
 
   // Auth initialization with proper dependencies to prevent double execution
@@ -204,6 +212,19 @@ const AppContent: React.FC = () => {
     <Router>
       <div className="App bg-theme-background min-h-screen text-theme-primary">
         <Routes>
+          {/* Extension-registered public marketing routes (rendered first; fall through to App.tsx defaults below when the marketing extension is absent or hasn't yet registered a given path) */}
+          {featureRegistry.getPublicRoutes().map((route) => (
+            <Route
+              key={`public:${route.path}`}
+              path={route.path}
+              element={
+                <React.Suspense fallback={<LoadingSpinner message="Loading..." />}>
+                  {React.createElement(route.component as React.ComponentType)}
+                </React.Suspense>
+              }
+            />
+          ))}
+
           {/* Public routes */}
           <Route
             path="/plans"
