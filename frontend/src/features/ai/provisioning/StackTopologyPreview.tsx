@@ -256,9 +256,16 @@ export const buildTopologyFlowGraph = (
     // so edges can route horizontally — much cleaner for the hub-and-spoke
     // topology (user → gateway → provider → compute clusters) than having
     // every line funnel through the same vertical handle points.
+    //
+    // ReactFlow uses top-level `width`/`height` for parent-container layout
+    // calculations (separate from `style.width/height` which is just CSS).
+    // Setting both ensures children's `extent: 'parent'` clamping uses the
+    // dynamically-grown size, not ReactFlow's measured/default fallback.
     const flowNode: FlowNode = {
       id: node.id,
       position: pos,
+      width: dims.width,
+      height: dims.height,
       data: {
         label: (
           <div className="flex items-center gap-1.5 px-2 w-full justify-center" style={{ minWidth: 0 }}>
