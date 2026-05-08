@@ -288,6 +288,23 @@ module AuditActions
   ].freeze
 
   # =============================================================================
+  # SYSTEM NODE INSTANCE LIFECYCLE ACTIONS
+  # Emitted by the System::NodeInstance Auditable decoration on every AASM
+  # transition. Used by Billing::AuditExportService for compliance exports.
+  # =============================================================================
+  SYSTEM_NODE_INSTANCE_ACTIONS = %w[
+    system.node_instance.start
+    system.node_instance.stop
+    system.node_instance.reboot
+    system.node_instance.terminate
+    system.node_instance.mark_provisioning
+    system.node_instance.mark_running
+    system.node_instance.mark_stopped
+    system.node_instance.mark_terminated
+    system.node_instance.mark_errored
+  ].freeze
+
+  # =============================================================================
   # LEGACY ACTIONS (deprecated, kept for backward compatibility)
   # These will be migrated to their standardized equivalents
   # =============================================================================
@@ -332,6 +349,7 @@ module AuditActions
     INVITATION_ACTIONS,
     SITE_SETTING_ACTIONS,
     SUPPLY_CHAIN_ACTIONS,
+    SYSTEM_NODE_INSTANCE_ACTIONS,
     LEGACY_ACTIONS
   ].flatten.uniq.freeze
 
