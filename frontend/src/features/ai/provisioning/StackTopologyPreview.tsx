@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import * as dagre from 'dagre';
 import {
   ReactFlow,
   Background,
@@ -108,30 +109,168 @@ const NODE_ICON: Record<TopologyNodeType, React.ComponentType<{ className?: stri
   external_provider: Cloud
 };
 
-// Region column geometry. Containers and leaves stack within a column; the
-// column width grows if a region's grid needs more columns than baseline.
-const REGION_COL_BASE_WIDTH = 320;
-const REGION_GUTTER = 32;
-const ROW_HEIGHT = 60;
-// Children inside a `network` container — laid out as a compact grid. Cell
-// dimensions must fit the largest child-class node type (compute @ 116×40)
-// plus a small gutter for breathing room between siblings; otherwise nodes
-// overlap horizontally or vertically inside the parent box.
-const CHILD_PADDING = 12;
-const CHILD_COLS = 2;
-const CHILD_COL_WIDTH = 132;
-const CHILD_ROW_HEIGHT = 56;
-const CHILD_HEADER_OFFSET = 26;
+// Layout geometry now computed by dagre's compound (subgraph) layout —
+// see layoutTopology(). Container sizes adapt to children automatically;
+// the manual region-column / child-grid constants we used previously are
+// no longer needed.
 
 /**
  * Build a ReactFlow node + edge graph from the backend topology preview.
  *
- * Layout heuristic: arrange regions horizontally, nodes within a region
- * stacked vertically. Container nodes (`type=network`) are emitted first and
- * receive subgraph children via `parentId`. The MVP layout is intentionally
- * deterministic — slice 5 may swap in dagre, but for ≤20-node previews the
- * simple grid keeps the diagram legible without an extra dependency.
+ * Two-pass dagre layout. Compound (subgraph) mode hits a known rank-
+ * assignment bug ("Cannot set properties of undefined (setting 'rank')")
+ * when edges cross subgraph boundaries, which is exactly our shape:
+ * gateway → compute edges run from outside the `network` container into
+ * children inside it. The two-pass approach sidesteps the bug:
+ *
+ *   1. INNER pass per container: dagre lays out only that container's
+ *      children + edges between them. Output is the children's positions
+ *      relative to the container's origin, plus the container's bounds.
+ *   2. OUTER pass: dagre lays out non-container nodes + container proxies
+ *      (fixed-size from inner pass) using only edges that don't both live
+ *      inside a single container.
+ *
+ * Direction LR matches our left/right handle positions for clean
+ * horizontal flow with smoothstep edges.
  */
+
+const DAGRE_NODESEP = 18;
+const DAGRE_RANKSEP = 36;
+const DAGRE_MARGIN = 16;
+
+const layoutTopology = (
+  preview: TopologyPreview
+): {
+  positions: Map<string, { x: number; y: number }>;
+  sizes: Map<string, { width: number; height: number }>;
+} => {
+  const positions = new Map<string, { x: number; y: number }>();
+  const sizes = new Map<string, { width: number; height: number }>();
+
+  const containerIds = new Set(
+    preview.nodes.filter((n) => n.type === 'network').map((n) => n.id)
+  );
+  const childrenOf = new Map<string, TopologyNode[]>();
+  preview.nodes.forEach((n) => {
+    if (n.parent_id && containerIds.has(n.parent_id)) {
+      const arr = childrenOf.get(n.parent_id) ?? [];
+      arr.push(n);
+      childrenOf.set(n.parent_id, arr);
+    }
+  });
+
+  const sizeOf = (n: TopologyNode): { width: number; height: number } => {
+    const style = NODE_STYLE[n.type] ?? NODE_STYLE.compute;
+    return { width: style.width, height: style.height };
+  };
+
+  // Pass 1: lay out each container's children. Each container's children
+  // are positioned relative to the container's local origin (0, 0).
+  containerIds.forEach((containerId) => {
+    const children = childrenOf.get(containerId) ?? [];
+    if (children.length === 0) {
+      sizes.set(containerId, { width: 200, height: 80 });
+      return;
+    }
+
+    const g = new dagre.graphlib.Graph();
+    g.setGraph({
+      rankdir: 'LR',
+      align: 'UL',
+      nodesep: DAGRE_NODESEP,
+      ranksep: DAGRE_RANKSEP,
+      marginx: DAGRE_MARGIN,
+      marginy: DAGRE_MARGIN,
+      ranker: 'tight-tree'
+    });
+    g.setDefaultEdgeLabel(() => ({}));
+
+    const childIds = new Set(children.map((c) => c.id));
+    children.forEach((c) => {
+      const dim = sizeOf(c);
+      g.setNode(c.id, { width: dim.width, height: dim.height });
+    });
+    // Only edges where BOTH endpoints are inside this container.
+    preview.edges.forEach((e) => {
+      if (childIds.has(e.source) && childIds.has(e.target)) {
+        g.setEdge(e.source, e.target);
+      }
+    });
+    dagre.layout(g);
+
+    // Compute child relative positions + container bounds from dagre output.
+    let maxX = 0;
+    let maxY = 0;
+    children.forEach((c) => {
+      const dn = g.node(c.id);
+      if (!dn) return;
+      const x = dn.x - dn.width / 2;
+      const y = dn.y - dn.height / 2;
+      positions.set(c.id, { x, y });
+      sizes.set(c.id, { width: dn.width, height: dn.height });
+      maxX = Math.max(maxX, x + dn.width);
+      maxY = Math.max(maxY, y + dn.height);
+    });
+    sizes.set(containerId, {
+      width: maxX + DAGRE_MARGIN,
+      height: maxY + DAGRE_MARGIN
+    });
+  });
+
+  // Pass 2: lay out non-container nodes + container proxies (using sizes
+  // computed in pass 1). Skip edges that belong entirely inside a container.
+  const outerGraph = new dagre.graphlib.Graph();
+  outerGraph.setGraph({
+    rankdir: 'LR',
+    align: 'UL',
+    nodesep: DAGRE_NODESEP,
+    ranksep: DAGRE_RANKSEP,
+    marginx: DAGRE_MARGIN,
+    marginy: DAGRE_MARGIN,
+    ranker: 'tight-tree'
+  });
+  outerGraph.setDefaultEdgeLabel(() => ({}));
+
+  // Container parents that we've laid children inside, kept as opaque proxies
+  // here. Non-container nodes go in directly.
+  preview.nodes.forEach((n) => {
+    if (n.parent_id && containerIds.has(n.parent_id)) return; // child handled in pass 1
+    if (containerIds.has(n.id)) {
+      const dim = sizes.get(n.id) ?? { width: 200, height: 80 };
+      outerGraph.setNode(n.id, { width: dim.width, height: dim.height });
+    } else {
+      const dim = sizeOf(n);
+      sizes.set(n.id, dim);
+      outerGraph.setNode(n.id, { width: dim.width, height: dim.height });
+    }
+  });
+
+  preview.edges.forEach((e) => {
+    const sNode = preview.nodes.find((n) => n.id === e.source);
+    const tNode = preview.nodes.find((n) => n.id === e.target);
+    if (!sNode || !tNode) return;
+    // Map endpoints to their outer-graph representative: a child becomes
+    // its parent container; everything else is itself.
+    const outerS = sNode.parent_id && containerIds.has(sNode.parent_id) ? sNode.parent_id : e.source;
+    const outerT = tNode.parent_id && containerIds.has(tNode.parent_id) ? tNode.parent_id : e.target;
+    if (outerS === outerT) return; // edge entirely inside one container
+    if (outerGraph.hasNode(outerS) && outerGraph.hasNode(outerT)) {
+      outerGraph.setEdge(outerS, outerT);
+    }
+  });
+
+  dagre.layout(outerGraph);
+
+  // Write absolute positions for outer-graph nodes (containers + outsiders).
+  outerGraph.nodes().forEach((id) => {
+    const dn = outerGraph.node(id);
+    if (!dn) return;
+    positions.set(id, { x: dn.x - dn.width / 2, y: dn.y - dn.height / 2 });
+  });
+
+  return { positions, sizes };
+};
+
 export const buildTopologyFlowGraph = (
   preview: TopologyPreview | null | undefined
 ): { nodes: FlowNode[]; edges: FlowEdge[] } => {
@@ -139,97 +278,10 @@ export const buildTopologyFlowGraph = (
     return { nodes: [], edges: [] };
   }
 
-  const regionToIndex = new Map<string, number>();
-  preview.regions.forEach((r) => {
-    if (!regionToIndex.has(r.id)) regionToIndex.set(r.id, regionToIndex.size);
-  });
-
-  // Container nodes don't share the regional column layout — they wrap children.
   const containers = preview.nodes.filter((n) => n.type === 'network');
   const leaves = preview.nodes.filter((n) => n.type !== 'network');
 
-  const positions = new Map<string, { x: number; y: number }>();
-  const containerChildCounts = new Map<string, number>();
-  const perRegionLeafCount = new Map<string, number>();
-
-  // Pre-pass: count children per container so we can size each container to
-  // fit its grid before placing them. Without this, children spill out of
-  // fixed-size containers and overlap with sibling region content.
-  leaves.forEach((node) => {
-    if (node.parent_id) {
-      containerChildCounts.set(node.parent_id, (containerChildCounts.get(node.parent_id) ?? 0) + 1);
-    }
-  });
-
-  const containerSize = (containerId: string): { width: number; height: number } => {
-    const childCount = containerChildCounts.get(containerId) ?? 0;
-    const cols = Math.min(CHILD_COLS, Math.max(1, childCount));
-    const rows = Math.max(1, Math.ceil(childCount / CHILD_COLS));
-    return {
-      width: cols * CHILD_COL_WIDTH + CHILD_PADDING * 2,
-      height: rows * CHILD_ROW_HEIGHT + CHILD_HEADER_OFFSET + CHILD_PADDING
-    };
-  };
-
-  // Containers laid out first across regions so they "own" their slots. The
-  // column width grows with the widest container to keep regions visually
-  // separated.
-  const regionColumnWidth = new Map<string, number>();
-  containers.forEach((node, idx) => {
-    const regionId = node.region_id ?? `__container_${idx}`;
-    if (!regionToIndex.has(regionId)) regionToIndex.set(regionId, regionToIndex.size);
-    const size = containerSize(node.id);
-    const current = regionColumnWidth.get(regionId) ?? REGION_COL_BASE_WIDTH;
-    regionColumnWidth.set(regionId, Math.max(current, size.width + REGION_GUTTER));
-  });
-
-  const regionXOffset = (regionIdx: number, regionId: string): number => {
-    let x = 0;
-    for (let i = 0; i < regionIdx; i += 1) {
-      const id = [...regionToIndex.entries()].find(([, idx]) => idx === i)?.[0];
-      x += id ? (regionColumnWidth.get(id) ?? REGION_COL_BASE_WIDTH) : REGION_COL_BASE_WIDTH;
-    }
-    void regionId;
-    return x;
-  };
-
-  containers.forEach((node, idx) => {
-    const regionId = node.region_id ?? `__container_${idx}`;
-    const regionIdx = regionToIndex.get(regionId) ?? idx;
-    positions.set(node.id, { x: regionXOffset(regionIdx, regionId), y: 0 });
-  });
-
-  leaves.forEach((node) => {
-    if (node.parent_id) {
-      // Child of a container — laid out as a CHILD_COLS-wide grid inside
-      // its parent's bounding box.
-      const within = (perRegionLeafCount.get(`child:${node.parent_id}`) ?? 0);
-      perRegionLeafCount.set(`child:${node.parent_id}`, within + 1);
-      const col = within % CHILD_COLS;
-      const row = Math.floor(within / CHILD_COLS);
-      positions.set(node.id, {
-        x: CHILD_PADDING + col * CHILD_COL_WIDTH,
-        y: CHILD_HEADER_OFFSET + row * CHILD_ROW_HEIGHT
-      });
-      return;
-    }
-    const regionId = node.region_id ?? '__default';
-    if (!regionToIndex.has(regionId)) regionToIndex.set(regionId, regionToIndex.size);
-    const regionIdx = regionToIndex.get(regionId) ?? 0;
-    const within = perRegionLeafCount.get(`region:${regionId}`) ?? 0;
-    perRegionLeafCount.set(`region:${regionId}`, within + 1);
-    // Leaves below the region's containers — the tallest container in this
-    // region defines where leaves start so we don't sit on top of containers.
-    const containersInRegion = containers.filter((c) => (c.region_id ?? '') === regionId);
-    const tallestContainer = containersInRegion.reduce(
-      (h, c) => Math.max(h, containerSize(c.id).height),
-      0
-    );
-    positions.set(node.id, {
-      x: regionXOffset(regionIdx, regionId) + 8,
-      y: tallestContainer + 24 + within * ROW_HEIGHT
-    });
-  });
+  const { positions, sizes } = layoutTopology(preview);
 
   const renderNode = (node: TopologyNode): FlowNode => {
     const style = NODE_STYLE[node.type] ?? NODE_STYLE.compute;
@@ -237,10 +289,9 @@ export const buildTopologyFlowGraph = (
     const pos = positions.get(node.id) ?? { x: 0, y: 0 };
     const isContainer = node.type === 'network';
 
-    // Containers grow to fit their children — see containerSize().
-    const dims = isContainer
-      ? containerSize(node.id)
-      : { width: style.width, height: style.height };
+    // Containers grow to fit their children via dagre's compound layout —
+    // sizes.get(node.id) returns dagre's computed bounds.
+    const dims = sizes.get(node.id) ?? { width: style.width, height: style.height };
 
     const baseStyle: React.CSSProperties = {
       width: dims.width,
