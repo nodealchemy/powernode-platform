@@ -241,6 +241,16 @@ module Ai
           hypervisor" / "on-box" phrasing), "pro_cloud" (Powernode-managed
           pool). If no provider is mentioned, leave it null (do NOT guess).
 
+          Local provider regions rule: when `preferred_provider` is
+          "local_qemu" (or any other local-hypervisor provider — runs on the
+          operator's own hardware), regions are NOT meaningful. Even if the
+          operator mentions a cloud-style region like "us-east" or "eu-west"
+          in passing, leave `regions` as an empty array []. Local providers
+          have no concept of cloud regions; surfacing one would make the
+          downstream plan composer try to resolve a non-existent zone. If
+          the operator truly insists on a cloud-region label after picking
+          local_qemu, treat it as confused intent and prefer empty regions.
+
           Run-My-Code rule: if the operator references a Git repository (e.g.
           "github.com/me/my-bot", "github:me/repo", "gitlab.com/foo/bar",
           "https://gitea.example.com/me/svc"), populate `repo_url` with the
@@ -372,6 +382,17 @@ module Ai
         out["regions"] = Array(out["regions"]).map(&:to_s).uniq
         out["compliance"] = Array(out["compliance"]).map(&:to_s).uniq
         out["data_residency"] = Array(out["data_residency"]).map(&:to_s).uniq
+
+        # Local-provider regions are meaningless — runs on the operator's own
+        # hardware. Belt-and-suspenders to the prompt rule above: if the LLM
+        # still extracts a cloud-style region alongside a local provider,
+        # scrub it so the downstream composer doesn't try to resolve a
+        # non-existent zone. Keep this list synchronized with
+        # CostEstimatorService::LOCAL_PROVIDER_TYPES.
+        local_providers = %w[local_qemu]
+        if out["preferred_provider"] && local_providers.include?(out["preferred_provider"].to_s)
+          out["regions"] = []
+        end
 
         unless out["budget_cap_usd_monthly"].nil?
           out["budget_cap_usd_monthly"] = out["budget_cap_usd_monthly"].to_f

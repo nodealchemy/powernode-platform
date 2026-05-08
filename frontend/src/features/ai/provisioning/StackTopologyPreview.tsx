@@ -102,8 +102,17 @@ const NODE_ICON: Record<TopologyNodeType, React.ComponentType<{ className?: stri
   external_provider: Cloud
 };
 
-const REGION_COL_WIDTH = 280;
-const ROW_HEIGHT = 110;
+// Region column geometry. Containers and leaves stack within a column; the
+// column width grows if a region's grid needs more columns than baseline.
+const REGION_COL_BASE_WIDTH = 320;
+const REGION_GUTTER = 32;
+const ROW_HEIGHT = 84;
+// Children inside a `network` container — laid out as a compact grid.
+const CHILD_PADDING = 16;
+const CHILD_COLS = 3;
+const CHILD_COL_WIDTH = 100;
+const CHILD_ROW_HEIGHT = 56;
+const CHILD_HEADER_OFFSET = 28;
 
 /**
  * Build a ReactFlow node + edge graph from the backend topology preview.
@@ -131,32 +140,85 @@ export const buildTopologyFlowGraph = (
   const leaves = preview.nodes.filter((n) => n.type !== 'network');
 
   const positions = new Map<string, { x: number; y: number }>();
-  const perRegionCount = new Map<string, number>();
+  const containerChildCounts = new Map<string, number>();
+  const perRegionLeafCount = new Map<string, number>();
 
-  // Containers laid out first across regions so they "own" their slots.
+  // Pre-pass: count children per container so we can size each container to
+  // fit its grid before placing them. Without this, children spill out of
+  // fixed-size containers and overlap with sibling region content.
+  leaves.forEach((node) => {
+    if (node.parent_id) {
+      containerChildCounts.set(node.parent_id, (containerChildCounts.get(node.parent_id) ?? 0) + 1);
+    }
+  });
+
+  const containerSize = (containerId: string): { width: number; height: number } => {
+    const childCount = containerChildCounts.get(containerId) ?? 0;
+    const cols = Math.min(CHILD_COLS, Math.max(1, childCount));
+    const rows = Math.max(1, Math.ceil(childCount / CHILD_COLS));
+    return {
+      width: cols * CHILD_COL_WIDTH + CHILD_PADDING * 2,
+      height: rows * CHILD_ROW_HEIGHT + CHILD_HEADER_OFFSET + CHILD_PADDING
+    };
+  };
+
+  // Containers laid out first across regions so they "own" their slots. The
+  // column width grows with the widest container to keep regions visually
+  // separated.
+  const regionColumnWidth = new Map<string, number>();
   containers.forEach((node, idx) => {
     const regionId = node.region_id ?? `__container_${idx}`;
     if (!regionToIndex.has(regionId)) regionToIndex.set(regionId, regionToIndex.size);
+    const size = containerSize(node.id);
+    const current = regionColumnWidth.get(regionId) ?? REGION_COL_BASE_WIDTH;
+    regionColumnWidth.set(regionId, Math.max(current, size.width + REGION_GUTTER));
+  });
+
+  const regionXOffset = (regionIdx: number, regionId: string): number => {
+    let x = 0;
+    for (let i = 0; i < regionIdx; i += 1) {
+      const id = [...regionToIndex.entries()].find(([, idx]) => idx === i)?.[0];
+      x += id ? (regionColumnWidth.get(id) ?? REGION_COL_BASE_WIDTH) : REGION_COL_BASE_WIDTH;
+    }
+    void regionId;
+    return x;
+  };
+
+  containers.forEach((node, idx) => {
+    const regionId = node.region_id ?? `__container_${idx}`;
     const regionIdx = regionToIndex.get(regionId) ?? idx;
-    positions.set(node.id, { x: regionIdx * REGION_COL_WIDTH, y: 0 });
+    positions.set(node.id, { x: regionXOffset(regionIdx, regionId), y: 0 });
   });
 
   leaves.forEach((node) => {
     if (node.parent_id) {
-      // child of a container — local coords inside the container
-      const within = perRegionCount.get(node.parent_id) ?? 0;
-      perRegionCount.set(node.parent_id, within + 1);
-      positions.set(node.id, { x: 16 + (within % 2) * 110, y: 24 + Math.floor(within / 2) * 56 });
+      // Child of a container — laid out as a CHILD_COLS-wide grid inside
+      // its parent's bounding box.
+      const within = (perRegionLeafCount.get(`child:${node.parent_id}`) ?? 0);
+      perRegionLeafCount.set(`child:${node.parent_id}`, within + 1);
+      const col = within % CHILD_COLS;
+      const row = Math.floor(within / CHILD_COLS);
+      positions.set(node.id, {
+        x: CHILD_PADDING + col * CHILD_COL_WIDTH,
+        y: CHILD_HEADER_OFFSET + row * CHILD_ROW_HEIGHT
+      });
       return;
     }
     const regionId = node.region_id ?? '__default';
     if (!regionToIndex.has(regionId)) regionToIndex.set(regionId, regionToIndex.size);
     const regionIdx = regionToIndex.get(regionId) ?? 0;
-    const within = perRegionCount.get(`region:${regionId}`) ?? 0;
-    perRegionCount.set(`region:${regionId}`, within + 1);
+    const within = perRegionLeafCount.get(`region:${regionId}`) ?? 0;
+    perRegionLeafCount.set(`region:${regionId}`, within + 1);
+    // Leaves below the region's containers — the tallest container in this
+    // region defines where leaves start so we don't sit on top of containers.
+    const containersInRegion = containers.filter((c) => (c.region_id ?? '') === regionId);
+    const tallestContainer = containersInRegion.reduce(
+      (h, c) => Math.max(h, containerSize(c.id).height),
+      0
+    );
     positions.set(node.id, {
-      x: regionIdx * REGION_COL_WIDTH + 8,
-      y: 160 + within * ROW_HEIGHT // leave room above for any container
+      x: regionXOffset(regionIdx, regionId) + 8,
+      y: tallestContainer + 24 + within * ROW_HEIGHT
     });
   });
 
@@ -166,9 +228,14 @@ export const buildTopologyFlowGraph = (
     const pos = positions.get(node.id) ?? { x: 0, y: 0 };
     const isContainer = node.type === 'network';
 
+    // Containers grow to fit their children — see containerSize().
+    const dims = isContainer
+      ? containerSize(node.id)
+      : { width: style.width, height: style.height };
+
     const baseStyle: React.CSSProperties = {
-      width: style.width,
-      height: style.height,
+      width: dims.width,
+      height: dims.height,
       background: style.background,
       border: `${style.borderStyle === 'dashed' ? '1px dashed' : '1.5px solid'} ${style.border}`,
       borderRadius: style.borderRadius,
@@ -217,8 +284,16 @@ export const buildTopologyFlowGraph = (
     source: edge.source,
     target: edge.target,
     label: edge.label,
-    markerEnd: { type: MarkerType.ArrowClosed },
-    labelStyle: { fontSize: 10, fill: 'currentColor' }
+    markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--theme-secondary, #9ca3af)' },
+    style: { stroke: 'var(--theme-secondary, #9ca3af)', strokeWidth: 1.25 },
+    // Edge labels rendered in an SVG context — `currentColor` resolves to
+    // ReactFlow's default `--rf-edge-label-color` which inherits white on
+    // dark themes, producing white-on-white. Hardcode a theme variable
+    // with a readable fallback.
+    labelStyle: { fontSize: 10, fill: 'var(--theme-secondary, #9ca3af)' },
+    labelBgStyle: { fill: 'var(--theme-surface, #1f2937)', fillOpacity: 0.85 },
+    labelBgPadding: [4, 2] as [number, number],
+    labelBgBorderRadius: 3
   }));
 
   return { nodes: flowNodes, edges: flowEdges };

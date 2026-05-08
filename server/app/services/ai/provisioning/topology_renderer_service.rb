@@ -59,7 +59,7 @@ module Ai
         user_node    = build_node(node_id_counter, type: "user_device", label: "Operator")
         gateway_node = build_node(node_id_counter, type: "gateway",     label: "SDWAN Gateway")
         nodes << user_node << gateway_node
-        edges << build_edge(from: user_node[:id], to: gateway_node[:id], label: "ingress", kind: "ingress")
+        edges << build_edge(source: user_node[:id], target: gateway_node[:id], label: "ingress", kind: "ingress")
 
         # One region container per region in the brief — compute nodes parent
         # under their region for visual grouping.
@@ -77,9 +77,9 @@ module Ai
         provider_node = build_node(node_id_counter, type: "external_provider", label: provider_label_for(brief))
         nodes << provider_node
         region_nodes.each_value do |rnode|
-          edges << build_edge(from: gateway_node[:id], to: rnode[:id], label: "tunnel", kind: "tunnel")
+          edges << build_edge(source: gateway_node[:id], target: rnode[:id], label: "tunnel", kind: "tunnel")
         end
-        edges << build_edge(from: provider_node[:id], to: gateway_node[:id], label: "control", kind: "tunnel")
+        edges << build_edge(source: provider_node[:id], target: gateway_node[:id], label: "control", kind: "tunnel")
 
         # Walk the plan steps and emit compute/volume/database/cache nodes as
         # the skills warrant.
@@ -106,7 +106,7 @@ module Ai
                                        parent_id: parent_region&.dig(:id),
                                        region_id: parent_region&.dig(:region_id))
             nodes << compute_node
-            edges << build_edge(from: parent_region[:id], to: compute_node[:id], label: "lan", kind: "tunnel") if parent_region
+            edges << build_edge(source: parent_region[:id], target: compute_node[:id], label: "lan", kind: "tunnel") if parent_region
 
             # Each compute gets a volume — UX clarity over compactness.
             volume_node = build_node(node_id_counter,
@@ -115,7 +115,7 @@ module Ai
                                      parent_id: parent_region&.dig(:id),
                                      region_id: parent_region&.dig(:region_id))
             nodes << volume_node
-            edges << build_edge(from: compute_node[:id], to: volume_node[:id], label: "data", kind: "data")
+            edges << build_edge(source: compute_node[:id], target: volume_node[:id], label: "data", kind: "data")
 
             # Add a cache node for the first instance if the intent hints at one.
             if idx.zero? && intent_text.match?(CACHE_HINT_REGEX)
@@ -125,7 +125,7 @@ module Ai
                                       parent_id: parent_region&.dig(:id),
                                       region_id: parent_region&.dig(:region_id))
               nodes << cache_node
-              edges << build_edge(from: compute_node[:id], to: cache_node[:id], label: "data", kind: "data")
+              edges << build_edge(source: compute_node[:id], target: cache_node[:id], label: "data", kind: "data")
             end
 
             estimated_resources << {
@@ -242,8 +242,11 @@ module Ai
         node
       end
 
-      def build_edge(from:, to:, label:, kind:)
-        { from: from, to: to, label: label, kind: kind }
+      def build_edge(source:, target:, label:, kind:)
+        # Emit ReactFlow's canonical edge shape (source/target) so the
+        # frontend StackTopologyPreview can pass these through unchanged.
+        # Older callers used from/to; aligning to match the TS TopologyEdge.
+        { source: source, target: target, label: label, kind: kind }
       end
     end
   end
