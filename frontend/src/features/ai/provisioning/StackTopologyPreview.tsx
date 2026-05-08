@@ -6,8 +6,14 @@ import {
   Controls,
   MarkerType,
   Position,
+  BaseEdge,
+  EdgeLabelRenderer,
+  getSmoothStepPath,
+  useInternalNode,
   type Node as FlowNode,
-  type Edge as FlowEdge
+  type Edge as FlowEdge,
+  type EdgeProps,
+  type InternalNode as RfInternalNode
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import {
@@ -137,6 +143,126 @@ const NODE_ICON: Record<TopologyNodeType, React.ComponentType<{ className?: stri
 const DAGRE_NODESEP = 18;
 const DAGRE_RANKSEP = 36;
 const DAGRE_MARGIN = 16;
+
+/**
+ * Floating-edge geometry: find where a straight line from the source node's
+ * center to the target node's center crosses the source node's bounding
+ * rectangle. Used by FloatingSmoothEdge to anchor edges at the closest
+ * perimeter point rather than fixed handle positions.
+ *
+ * Algorithm: project the dx/dy direction onto the rectangle's aspect ratio
+ * — whichever dimension's slope is exceeded first decides which side
+ * (top/bottom vs left/right) is hit. Returns the absolute (x, y) of the
+ * intersection plus the matching ReactFlow Position.
+ */
+const getNodeIntersection = (
+  source: RfInternalNode,
+  target: RfInternalNode
+): { x: number; y: number; position: Position } => {
+  const sw = source.measured?.width ?? source.width ?? 100;
+  const sh = source.measured?.height ?? source.height ?? 40;
+  const tw = target.measured?.width ?? target.width ?? 100;
+  const th = target.measured?.height ?? target.height ?? 40;
+
+  const sx = (source.internals.positionAbsolute?.x ?? source.position.x) + sw / 2;
+  const sy = (source.internals.positionAbsolute?.y ?? source.position.y) + sh / 2;
+  const tx = (target.internals.positionAbsolute?.x ?? target.position.x) + tw / 2;
+  const ty = (target.internals.positionAbsolute?.y ?? target.position.y) + th / 2;
+
+  const dx = tx - sx;
+  const dy = ty - sy;
+
+  // Avoid div-by-zero for stacked or coincident nodes.
+  if (dx === 0 && dy === 0) {
+    return { x: sx, y: sy, position: Position.Right };
+  }
+
+  const halfW = sw / 2;
+  const halfH = sh / 2;
+
+  // Compare slopes: which side of the source rect does the line hit first?
+  const aspect = Math.abs(dy) * halfW - Math.abs(dx) * halfH;
+
+  if (aspect < 0) {
+    // Hits left or right edge first
+    const xOff = halfW * Math.sign(dx);
+    const yOff = (xOff * dy) / dx;
+    return {
+      x: sx + xOff,
+      y: sy + yOff,
+      position: dx > 0 ? Position.Right : Position.Left
+    };
+  }
+  // Hits top or bottom edge first
+  const yOff = halfH * Math.sign(dy);
+  const xOff = dy === 0 ? 0 : (yOff * dx) / dy;
+  return {
+    x: sx + xOff,
+    y: sy + yOff,
+    position: dy > 0 ? Position.Bottom : Position.Top
+  };
+};
+
+interface FloatingSmoothEdgeData extends Record<string, unknown> {
+  routedLabel?: string;
+}
+
+const FloatingSmoothEdge: React.FC<EdgeProps<FlowEdge<FloatingSmoothEdgeData>>> = ({
+  id,
+  source,
+  target,
+  markerEnd,
+  style,
+  data,
+  label
+}) => {
+  const sourceNode = useInternalNode(source);
+  const targetNode = useInternalNode(target);
+
+  if (!sourceNode || !targetNode) return null;
+
+  const sourceIntersection = getNodeIntersection(sourceNode, targetNode);
+  const targetIntersection = getNodeIntersection(targetNode, sourceNode);
+
+  const [path, labelX, labelY] = getSmoothStepPath({
+    sourceX: sourceIntersection.x,
+    sourceY: sourceIntersection.y,
+    sourcePosition: sourceIntersection.position,
+    targetX: targetIntersection.x,
+    targetY: targetIntersection.y,
+    targetPosition: targetIntersection.position,
+    borderRadius: 8
+  });
+
+  const text = (data?.routedLabel ?? label ?? '') as string;
+
+  return (
+    <>
+      <BaseEdge id={id} path={path} markerEnd={markerEnd} style={style} />
+      {text ? (
+        <EdgeLabelRenderer>
+          <div
+            style={{
+              position: 'absolute',
+              transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+              background: 'var(--theme-surface, #1f2937)',
+              padding: '1px 4px',
+              borderRadius: 3,
+              fontSize: 10,
+              color: 'var(--theme-secondary, #9ca3af)',
+              pointerEvents: 'none'
+            }}
+            className="nodrag nopan"
+          >
+            {text}
+          </div>
+        </EdgeLabelRenderer>
+      ) : null}
+    </>
+  );
+};
+
+const EDGE_TYPES = { floating: FloatingSmoothEdge };
 
 const layoutTopology = (
   preview: TopologyPreview
@@ -356,18 +482,15 @@ export const buildTopologyFlowGraph = (
     id: `e-${idx}-${edge.source}-${edge.target}`,
     source: edge.source,
     target: edge.target,
-    label: edge.label,
-    // Smoothstep routes edges with right-angle bends instead of bezier
-    // arcs — works well with the left/right handle positions and keeps
-    // the diagram readable when many edges share endpoints.
-    type: 'smoothstep',
-    pathOptions: { borderRadius: 8 },
+    // Floating edges anchor at the closest perimeter point of each node
+    // rather than fixed left/right handles — minimizes edge length when
+    // source and target aren't horizontally aligned (e.g. provider node
+    // sitting below the gateway connects via Top→Bottom instead of being
+    // forced through Right→Left). Geometry handled by FloatingSmoothEdge.
+    type: 'floating',
+    data: { routedLabel: edge.label },
     markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--theme-secondary, #9ca3af)' },
-    style: { stroke: 'var(--theme-secondary, #9ca3af)', strokeWidth: 1.25 },
-    labelStyle: { fontSize: 10, fill: 'var(--theme-secondary, #9ca3af)' },
-    labelBgStyle: { fill: 'var(--theme-surface, #1f2937)', fillOpacity: 0.85 },
-    labelBgPadding: [4, 2] as [number, number],
-    labelBgBorderRadius: 3
+    style: { stroke: 'var(--theme-secondary, #9ca3af)', strokeWidth: 1.25 }
   }));
 
   return { nodes: flowNodes, edges: flowEdges };
@@ -428,6 +551,7 @@ export const StackTopologyPreview: React.FC<StackTopologyPreviewProps> = ({
       <ReactFlow
         nodes={nodes}
         edges={edges}
+        edgeTypes={EDGE_TYPES}
         fitView
         nodesDraggable={false}
         nodesConnectable={false}
