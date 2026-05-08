@@ -48,24 +48,29 @@ interface NodeStyleSpec {
  * fallbacks so the diagram still looks reasonable if a theme overrides the
  * default palette without supplying every var.
  */
+// Sizes are tuned for the embedded preview, not a full architecture
+// diagram — compact enough to fit several rows in a modal without
+// overflow. Children inside `network` containers must fit within
+// CHILD_COL_WIDTH × CHILD_ROW_HEIGHT (see layout pass below); keep the
+// largest "child-class" type (compute / database) within those bounds.
 const NODE_STYLE: Record<TopologyNodeType, NodeStyleSpec> = {
   compute: {
-    width: 160, height: 64,
+    width: 116, height: 40,
     background: 'rgba(59, 130, 246, 0.10)', border: 'var(--theme-info, #3b82f6)',
-    borderRadius: 12, borderStyle: 'solid', shape: 'rounded'
+    borderRadius: 10, borderStyle: 'solid', shape: 'rounded'
   },
   volume: {
-    width: 96, height: 64,
+    width: 80, height: 40,
     background: 'var(--theme-surface, #1f2937)', border: 'var(--theme-border, #4b5563)',
     borderRadius: 4, borderStyle: 'solid', shape: 'square'
   },
   database: {
-    width: 160, height: 64,
+    width: 116, height: 40,
     background: 'rgba(59, 130, 246, 0.10)', border: 'var(--theme-info, #3b82f6)',
-    borderRadius: 32, borderStyle: 'solid', shape: 'cylinder'
+    borderRadius: 20, borderStyle: 'solid', shape: 'cylinder'
   },
   cache: {
-    width: 120, height: 64,
+    width: 96, height: 40,
     background: 'rgba(234, 179, 8, 0.10)', border: 'var(--theme-warning, #eab308)',
     borderRadius: 8, borderStyle: 'solid', shape: 'hexagon'
   },
@@ -75,17 +80,17 @@ const NODE_STYLE: Record<TopologyNodeType, NodeStyleSpec> = {
     borderRadius: 12, borderStyle: 'dashed', shape: 'rounded'
   },
   gateway: {
-    width: 96, height: 96,
+    width: 80, height: 80,
     background: 'rgba(34, 197, 94, 0.10)', border: 'var(--theme-success, #22c55e)',
     borderRadius: 12, borderStyle: 'solid', shape: 'diamond'
   },
   user_device: {
-    width: 56, height: 56,
+    width: 48, height: 48,
     background: 'var(--theme-surface, #1f2937)', border: 'var(--theme-border, #4b5563)',
-    borderRadius: 28, borderStyle: 'solid', shape: 'circle'
+    borderRadius: 24, borderStyle: 'solid', shape: 'circle'
   },
   external_provider: {
-    width: 144, height: 56,
+    width: 120, height: 48,
     background: 'var(--theme-surface, #1f2937)', border: 'var(--theme-border, #4b5563)',
     borderRadius: 8, borderStyle: 'solid', shape: 'rounded'
   }
@@ -106,13 +111,16 @@ const NODE_ICON: Record<TopologyNodeType, React.ComponentType<{ className?: stri
 // column width grows if a region's grid needs more columns than baseline.
 const REGION_COL_BASE_WIDTH = 320;
 const REGION_GUTTER = 32;
-const ROW_HEIGHT = 84;
-// Children inside a `network` container — laid out as a compact grid.
-const CHILD_PADDING = 16;
-const CHILD_COLS = 3;
-const CHILD_COL_WIDTH = 100;
+const ROW_HEIGHT = 60;
+// Children inside a `network` container — laid out as a compact grid. Cell
+// dimensions must fit the largest child-class node type (compute @ 116×40)
+// plus a small gutter for breathing room between siblings; otherwise nodes
+// overlap horizontally or vertically inside the parent box.
+const CHILD_PADDING = 12;
+const CHILD_COLS = 2;
+const CHILD_COL_WIDTH = 132;
 const CHILD_ROW_HEIGHT = 56;
-const CHILD_HEADER_OFFSET = 28;
+const CHILD_HEADER_OFFSET = 26;
 
 /**
  * Build a ReactFlow node + edge graph from the backend topology preview.
