@@ -272,6 +272,15 @@ module Ai
         return existing if existing
 
         agent = resolve_provisioning_agent
+
+        # GC stale provisioning goals before creating — Ai::AgentGoal caps
+        # active goals per agent at MAX_ACTIVE_GOALS (5). Each chat session
+        # that opens compose_plan creates a goal; if the user doesn't follow
+        # through to approve+execute, the goal sits at status=pending forever
+        # and the next mission hits the cap. Sweep zombie provisioning goals
+        # belonging to abandoned chat sessions before creating ours.
+        gc_stale_provisioning_goals!(agent)
+
         Ai::AgentGoal.create!(
           account: account,
           agent: agent,
@@ -284,6 +293,36 @@ module Ai
           success_criteria: { "brief" => brief, "mission_id" => mission.id },
           metadata: { "provisioning_mission_id" => mission.id }
         )
+      end
+
+      # Threshold for considering a pending provisioning goal abandoned. The
+      # user has either closed the chat or moved on to a different mission;
+      # the goal will never advance to "active" because no one approved+executed
+      # the plan. Conservative — 30 minutes is much longer than a typical
+      # provisioning conversation.
+      STALE_PROVISIONING_GOAL_THRESHOLD = 30.minutes
+
+      def gc_stale_provisioning_goals!(agent)
+        return unless agent
+
+        # Only sweep when we're about to hit the cap — a no-op for
+        # accounts under normal load.
+        active_count = Ai::AgentGoal.where(ai_agent_id: agent.id).active.count
+        return if active_count < Ai::AgentGoal::MAX_ACTIVE_GOALS
+
+        zombies = Ai::AgentGoal
+                    .where(ai_agent_id: agent.id, status: "pending")
+                    .where("metadata ? 'provisioning_mission_id'")
+                    .where("updated_at < ?", STALE_PROVISIONING_GOAL_THRESHOLD.ago)
+                    .order(updated_at: :asc)
+
+        zombies.find_each do |goal|
+          goal.abandon!("auto-gc: stale provisioning chat session")
+          Rails.logger.info(
+            "[PlanComposerService] GC'd stale provisioning goal #{goal.id} " \
+              "(mission #{goal.metadata["provisioning_mission_id"]})"
+          )
+        end
       end
 
       # Select a text-capable agent whose provider matches the account's
