@@ -232,11 +232,14 @@ module Ai
             data_residency: array of country/region codes the data must stay in
             preferred_provider: string id of a cloud provider, or null
 
-          Provider extraction rule: if the operator names a specific cloud provider
-          (AWS, Hetzner, DigitalOcean, GCP, Azure, Vultr, Linode, OpenStack), populate
+          Provider extraction rule: if the operator names a specific provider
+          (AWS, Hetzner, DigitalOcean, GCP, Azure, Vultr, Linode, OpenStack,
+          Local QEMU/KVM, LocalQemu, "local hypervisor", Pro Cloud), populate
           `preferred_provider` with the lowercase canonical identifier — e.g.
           "aws", "hetzner", "digitalocean", "gcp", "azure", "vultr", "linode",
-          "openstack". If no provider is mentioned, leave it null (do NOT guess).
+          "openstack", "local_qemu" (for Local QEMU/KVM and any "local
+          hypervisor" / "on-box" phrasing), "pro_cloud" (Powernode-managed
+          pool). If no provider is mentioned, leave it null (do NOT guess).
 
           Run-My-Code rule: if the operator references a Git repository (e.g.
           "github.com/me/my-bot", "github:me/repo", "gitlab.com/foo/bar",

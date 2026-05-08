@@ -130,6 +130,12 @@ module Ai
 
       # ---------------- compute pricing ----------------
 
+      # Provider types that don't accrue cloud-style charges — runs on the
+      # operator's own hardware/disk/network, so compute/storage/egress are
+      # all $0. Surface a single "free" line so the plan still shows what's
+      # being provisioned without confusing operators with phantom costs.
+      LOCAL_PROVIDER_TYPES = %w[local_qemu].freeze
+
       def compute_line_items(skill:, inputs:, brief:)
         instance_type = lookup_instance_type(inputs)
         region_id     = inputs["provider_region_id"] || inputs[:provider_region_id]
@@ -139,6 +145,19 @@ module Ai
 
         regions = Array(brief["regions"] || brief[:regions])
         region_label = region_label_for(region_id) || regions.first || "default"
+
+        # Local hypervisor short-circuit — no compute/storage/egress charges.
+        if instance_type && local_provider?(instance_type)
+          name = "#{instance_type.name} on local hypervisor × #{count}"
+          rows = [build_row(resource_type: "compute", name: name, monthly_usd: 0.0, count: count)]
+          return {
+            by_resource: rows,
+            one_time_usd: 0.0,
+            stale: false,
+            priced: true,
+            unpriceable: false
+          }
+        end
 
         compute_monthly = 0.0
         priced = false
@@ -172,6 +191,15 @@ module Ai
           priced: priced || storage_monthly.positive? || egress_monthly.positive?,
           unpriceable: false
         }
+      end
+
+      # True when the instance type belongs to a provider that runs on local
+      # hardware (LocalQemu, future on-prem types) and accrues no cloud charges.
+      def local_provider?(instance_type)
+        return false unless instance_type.respond_to?(:provider) && instance_type.provider
+        LOCAL_PROVIDER_TYPES.include?(instance_type.provider.provider_type.to_s)
+      rescue StandardError
+        false
       end
 
       # ---------------- network/sdwan pricing ----------------

@@ -16,11 +16,25 @@ module Ai
 
       # Compose a task plan by matching skills to mission phases.
       # Creates a RalphLoop with RalphTasks mapped to each phase.
+      #
+      # Idempotent: a second invocation on the same mission returns the
+      # already-composed graph instead of recreating tasks. Without this,
+      # re-running compose hit `task_key has already been taken` because
+      # RalphTask.task_key is unique within a ralph_loop. The deep-link
+      # path (`/app/system/provision?mission_id=…`) auto-fires compose on
+      # mount, so this guard is the difference between a 422 and a clean
+      # re-render of the existing plan.
       def compose!
         phases = mission.phases_for_type
         raise CompositionError, "Mission has no phases defined" if phases.blank?
 
         ralph_loop = find_or_create_ralph_loop!
+
+        if ralph_loop.ralph_tasks.exists?
+          existing = ralph_loop.ralph_tasks.order(:position).to_a
+          return build_task_graph(ralph_loop, existing)
+        end
+
         tasks = []
 
         phases.each_with_index do |phase_key, index|

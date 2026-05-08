@@ -423,10 +423,72 @@ module Api
         end
 
         # POST /api/v1/ai/missions/:id/compose_plan
+        #
+        # Infrastructure missions: returns the rich provisioning plan
+        # (cost / topology / risk) sourced from PlanComposerService. Reuses
+        # the cached plan when one already exists for the mission so the
+        # deep-link page (`/app/system/provision?mission_id=…`) shows the
+        # same data the chat already presented, no extra LLM cost.
+        #
+        # Other mission types: falls through to the legacy
+        # SkillCompositionService task graph.
         def compose_plan
           mission = find_mission!
           return unless mission
 
+          if mission.mission_type.to_s == "infrastructure"
+            return compose_provisioning_plan(mission)
+          end
+
+          compose_skill_plan(mission)
+        end
+
+        private
+
+        def compose_provisioning_plan(mission)
+          plan = existing_provisioning_plan(mission) || compose_new_provisioning_plan(mission)
+          return unless plan # error already rendered by composer
+
+          snapshot = ::Ai::Provisioning::PlanSnapshotService
+                       .new(account: current_account).snapshot(plan: plan)
+          render_success(plan: snapshot.merge(mission_id: mission.id))
+        end
+
+        # Look up the plan referenced by `mission.configuration["plan"]["plan_id"]`
+        # — set by the chat-tool path when it composes. Avoids re-running the LLM.
+        def existing_provisioning_plan(mission)
+          plan_id = mission.configuration&.dig("plan", "plan_id")
+          return nil if plan_id.blank?
+          ::Ai::GoalPlan.find_by(id: plan_id)
+        end
+
+        def compose_new_provisioning_plan(mission)
+          composer = ::Ai::Provisioning::PlanComposerService.new(
+            account: current_account, mission: mission
+          )
+          result = composer.compose!
+
+          if result.is_a?(Hash) && result[:clarification_needed]
+            render_error(result[:message] || "Multiple providers configured — clarify before composing",
+                         :unprocessable_content,
+                         details: result.except(:clarification_needed))
+            return nil
+          end
+
+          unless result
+            render_error(composer.cap_exceeded_payload ? "LLM cost cap exceeded" : "Plan composition returned no plan",
+                         :unprocessable_content)
+            return nil
+          end
+
+          result
+        rescue ::Ai::Provisioning::PlanComposerService::BriefMissingError,
+               ::Ai::Provisioning::PlanComposerService::AgentMissingError => e
+          render_error(e.message, :unprocessable_content)
+          nil
+        end
+
+        def compose_skill_plan(mission)
           llm_client = nil
           model = nil
           if mission.configuration&.dig("reasoning", "mode") == "star"
@@ -448,6 +510,8 @@ module Api
         rescue ::Ai::Missions::SkillCompositionService::CompositionError => e
           render_error(e.message, :unprocessable_content)
         end
+
+        public
 
         private
 

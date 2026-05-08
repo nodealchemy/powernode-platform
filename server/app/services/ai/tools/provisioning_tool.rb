@@ -192,13 +192,11 @@ module Ai
         # Plan exists, mission can sit at review_plan awaiting operator decision.
         advance_to_review_plan!(mission)
 
-        success_result(
-          plan_id: plan.id,
-          dag: serialize_dag(plan),
-          cost_estimate: build_cost_estimate(plan),
-          topology_preview: build_topology_preview(plan),
-          risk: build_risk(plan)
-        )
+        # Single source of truth for the rich plan shape — same payload the
+        # REST `/missions/:id/compose_plan` endpoint returns, so the chat card
+        # and the deep-link page render identical data.
+        snapshot = ::Ai::Provisioning::PlanSnapshotService.new(account: account).snapshot(plan: plan)
+        success_result(snapshot.merge(mission_id: mission.id))
       rescue ::Ai::Provisioning::PlanComposerService::BriefMissingError,
              ::Ai::Provisioning::PlanComposerService::AgentMissingError => e
         error_result(e.message)
