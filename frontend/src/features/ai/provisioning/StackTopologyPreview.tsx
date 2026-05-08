@@ -56,29 +56,28 @@ interface NodeStyleSpec {
  * fallbacks so the diagram still looks reasonable if a theme overrides the
  * default palette without supplying every var.
  */
-// Sizes are tuned for the embedded preview, not a full architecture
-// diagram — compact enough to fit several rows in a modal without
-// overflow. Children inside `network` containers must fit within
-// CHILD_COL_WIDTH × CHILD_ROW_HEIGHT (see layout pass below); keep the
-// largest "child-class" type (compute / database) within those bounds.
+// Sizes are tuned for the embedded preview. Widths chosen so the most
+// common labels fit without truncation: "Compute node 1" / "Volume 1" /
+// "SDWAN Gateway" / "Cloud provider". Heights stay at a 44px baseline
+// to keep the diagram dense.
 const NODE_STYLE: Record<TopologyNodeType, NodeStyleSpec> = {
   compute: {
-    width: 116, height: 40,
+    width: 168, height: 44,
     background: 'rgba(59, 130, 246, 0.10)', border: 'var(--theme-info, #3b82f6)',
     borderRadius: 10, borderStyle: 'solid', shape: 'rounded'
   },
   volume: {
-    width: 80, height: 40,
+    width: 116, height: 44,
     background: 'var(--theme-surface, #1f2937)', border: 'var(--theme-border, #4b5563)',
     borderRadius: 4, borderStyle: 'solid', shape: 'square'
   },
   database: {
-    width: 116, height: 40,
+    width: 168, height: 44,
     background: 'rgba(59, 130, 246, 0.10)', border: 'var(--theme-info, #3b82f6)',
-    borderRadius: 20, borderStyle: 'solid', shape: 'cylinder'
+    borderRadius: 22, borderStyle: 'solid', shape: 'cylinder'
   },
   cache: {
-    width: 96, height: 40,
+    width: 116, height: 44,
     background: 'rgba(234, 179, 8, 0.10)', border: 'var(--theme-warning, #eab308)',
     borderRadius: 8, borderStyle: 'solid', shape: 'hexagon'
   },
@@ -88,17 +87,17 @@ const NODE_STYLE: Record<TopologyNodeType, NodeStyleSpec> = {
     borderRadius: 12, borderStyle: 'dashed', shape: 'rounded'
   },
   gateway: {
-    width: 64, height: 40,
+    width: 132, height: 44,
     background: 'rgba(34, 197, 94, 0.10)', border: 'var(--theme-success, #22c55e)',
     borderRadius: 10, borderStyle: 'solid', shape: 'diamond'
   },
   user_device: {
-    width: 40, height: 40,
+    width: 96, height: 44,
     background: 'var(--theme-surface, #1f2937)', border: 'var(--theme-border, #4b5563)',
-    borderRadius: 20, borderStyle: 'solid', shape: 'circle'
+    borderRadius: 22, borderStyle: 'solid', shape: 'rounded'
   },
   external_provider: {
-    width: 96, height: 40,
+    width: 132, height: 44,
     background: 'var(--theme-surface, #1f2937)', border: 'var(--theme-border, #4b5563)',
     borderRadius: 6, borderStyle: 'solid', shape: 'rounded'
   }
@@ -547,10 +546,24 @@ export const StackTopologyPreview: React.FC<StackTopologyPreviewProps> = ({
 
   return (
     <div
-      className={`relative bg-theme-surface border border-theme rounded overflow-hidden ${className}`}
+      className={`relative bg-theme-surface border border-theme rounded overflow-hidden topology-preview-root ${className}`}
       style={containerStyle}
       data-testid="stack-topology-preview"
     >
+      {/* Hide ReactFlow's decorative handle dots — the diagram is read-only
+          (nodesConnectable=false) so the dots add no affordance, but they
+          render at the edge connection points and visually conflict with
+          the edge labels we draw at midpoints. Scoped to the topology
+          preview wrapper so we don't affect other ReactFlow surfaces in
+          the app (mission task graph, knowledge graph, etc). */}
+      <style>{`
+        .topology-preview-root .react-flow__handle {
+          opacity: 0;
+          pointer-events: none;
+          width: 0;
+          height: 0;
+        }
+      `}</style>
       {expandable && (
         <button
           type="button"
