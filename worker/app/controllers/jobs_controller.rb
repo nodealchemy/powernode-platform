@@ -625,6 +625,13 @@ class JobsController
       'AiMissionDeployJob',
       'AiMissionMergeJob',
       'AiMissionCleanupJob',
+      # AI Provisioning jobs (M0/M1/M2 system_provisioning mission template)
+      'AiProvisioningCaptureIntentJob',
+      'AiProvisioningComposePlanJob',
+      'AiProvisioningExecuteJob',
+      'AiProvisioningStepJob',
+      'AiProvisioningVerifyJob',
+      'AiProvisioningHandoffJob',
       # AI remediation jobs (migrated from server)
       'AiConversationResponseJob',
       'AiSelfHealingMonitorJob',
