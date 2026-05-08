@@ -68,6 +68,13 @@ Rails.application.routes.draw do
       # CSRF token endpoint for authenticated users
       get :csrf_token, to: "csrf#token"
 
+      # M2 Self-Serve Hardening (BYOC) — per-account onboarding flag.
+      # FirstRunWizard polls /onboarding/status on each load and POSTs
+      # /onboarding/complete after the operator finishes (or skips) the
+      # BYOC flow. Authenticated user-only; account-scoped.
+      get  "onboarding/status",   to: "onboarding#status"
+      post "onboarding/complete", to: "onboarding#complete"
+
       # Configuration endpoints (no authentication required)
       get :config, to: "config#index"
       get "config/allowed_hosts", to: "config#allowed_hosts"
@@ -205,6 +212,21 @@ Rails.application.routes.draw do
         # Codebase intelligence indexing
         scope :codebase do
           post :index, to: "codebase#index_codebase"
+        end
+
+        # AI provisioning phase-job endpoints (capture_intent, compose_plan,
+        # execute, verify, handoff) invoked by AiProvisioning*Job → server-side
+        # services.
+        namespace :ai do
+          scope "provisioning/missions/:mission_id", controller: "provisioning" do
+            post :capture_intent
+            post :compose_plan
+            post :execute
+            post :verify
+            post :handoff
+            # Per-step DAG execution — AiProvisioningStepJob → execute_step!
+            post "steps/:step_id/execute", action: :execute_step
+          end
         end
 
         # Internal services namespace for worker service communication

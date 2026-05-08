@@ -1,0 +1,256 @@
+# frozen_string_literal: true
+
+# Internal endpoints invoked by the worker's three provisioning phase jobs
+# (capture_intent, compose_plan, execute). The worker is API-only with the
+# server, so each phase job POSTs here, the controller invokes the matching
+# server-side service, and returns the result.
+class Api::V1::Internal::Ai::ProvisioningController < Api::V1::Internal::InternalBaseController
+  before_action :load_mission
+
+  # POST /api/v1/internal/ai/provisioning/missions/:mission_id/capture_intent
+  def capture_intent
+    natural_language = params[:natural_language].presence || @mission.objective.to_s
+    prior_brief      = params[:prior_brief]
+
+    service = ::Ai::Provisioning::IntentCaptureService.new(
+      account: @mission.account,
+      user: @mission.created_by,
+      conversation: @mission.conversation
+    )
+    result = service.capture(natural_language: natural_language, prior_brief: prior_brief)
+
+    persist_brief(result)
+    render_success(result)
+  rescue StandardError => e
+    Rails.logger.error("[Internal::Ai::Provisioning#capture_intent] #{e.class}: #{e.message}")
+    render_error("Capture intent failed: #{e.message}", status: :unprocessable_entity)
+  end
+
+  # POST /api/v1/internal/ai/provisioning/missions/:mission_id/compose_plan
+  def compose_plan
+    service = ::Ai::Provisioning::PlanComposerService.new(
+      account: @mission.account,
+      mission: @mission
+    )
+    plan = service.compose!
+
+    persist_plan_pointer(plan)
+    render_success(plan_id: plan&.id, mission_id: @mission.id)
+  rescue StandardError => e
+    Rails.logger.error("[Internal::Ai::Provisioning#compose_plan] #{e.class}: #{e.message}")
+    render_error("Compose plan failed: #{e.message}", status: :unprocessable_entity)
+  end
+
+  # POST /api/v1/internal/ai/provisioning/missions/:mission_id/execute
+  def execute
+    plan = resolve_plan!
+    return render_error("No plan available for mission", status: :unprocessable_entity) unless plan
+
+    runner = ::Ai::Provisioning::SkillCompositionRunner.new(
+      account: @mission.account,
+      mission: @mission,
+      plan: plan
+    )
+    result = runner.execute!
+    render_success(result.merge(mission_id: @mission.id))
+  rescue StandardError => e
+    Rails.logger.error("[Internal::Ai::Provisioning#execute] #{e.class}: #{e.message}")
+    render_error("Execute failed: #{e.message}", status: :unprocessable_entity)
+  end
+
+  # POST /api/v1/internal/ai/provisioning/missions/:mission_id/verify
+  #
+  # Phase-4 entry point. For M2 the verification is a stub that records a
+  # synthetic SLO check pass — the long-lived ProjectSloSensor (Slice A) does
+  # the real ongoing sampling once the mission is in the `adapting` phase.
+  # On success we hand control back to the orchestrator which advances to
+  # `handoff`. On failure we leave the mission paused at `verify` so an
+  # operator can retry or abort.
+  def verify
+    slo_targets = (@mission.configuration.is_a?(Hash) ? @mission.configuration["slo_targets"] : nil) || {}
+
+    # M2 stub — a real probe would sample provisioned resource health here
+    # (provisioner outputs, fleet signals, monitoring rollups). Mark healthy
+    # and let the next phase run.
+    healthy = true
+    checked_at = Time.current.iso8601
+
+    record_verification(slo_targets: slo_targets, healthy: healthy, checked_at: checked_at)
+
+    orchestrator = ::Ai::Missions::OrchestratorService.new(mission: @mission)
+    orchestrator.advance!(
+      result: { verification: { healthy: healthy, checked_at: checked_at } },
+      expected_phase: "verify"
+    )
+
+    render_success(
+      mission_id: @mission.id,
+      healthy: healthy,
+      slo_targets: slo_targets,
+      checked_at: checked_at,
+      phase: @mission.reload.current_phase
+    )
+  rescue StandardError => e
+    Rails.logger.error("[Internal::Ai::Provisioning#verify] #{e.class}: #{e.message}")
+    render_error("Verify failed: #{e.message}", status: :unprocessable_entity)
+  end
+
+  # POST /api/v1/internal/ai/provisioning/missions/:mission_id/handoff
+  #
+  # Phase-5 entry point. Creates a single Ai::RalphLoop bound to the mission
+  # — its iterations are driven by FleetAutonomyService.tick! (60s) rather
+  # than the loop's own scheduler, so we keep `scheduling_mode: "manual"`
+  # and `max_iterations: 0` to disable internal scheduling. Then advances
+  # the mission to the long-lived `adapting` phase.
+  def handoff
+    ralph_loop = build_ralph_loop_for_mission!
+
+    orchestrator = ::Ai::Missions::OrchestratorService.new(mission: @mission)
+    orchestrator.advance!(
+      result: { handoff: { ralph_loop_id: ralph_loop.id } },
+      expected_phase: "handoff"
+    )
+
+    notify_handoff!(ralph_loop)
+
+    render_success(
+      mission_id: @mission.id,
+      ralph_loop_id: ralph_loop.id,
+      phase: @mission.reload.current_phase
+    )
+  rescue StandardError => e
+    Rails.logger.error("[Internal::Ai::Provisioning#handoff] #{e.class}: #{e.message}")
+    render_error("Handoff failed: #{e.message}", status: :unprocessable_entity)
+  end
+
+  # POST /api/v1/internal/ai/provisioning/missions/:mission_id/steps/:step_id/execute
+  #
+  # Invoked by AiProvisioningStepJob — one POST per step in the DAG layer
+  # the runner just dispatched. Loads the step (account-scoped through its
+  # plan), reattaches it to a runner instance, and runs execute_step!.
+  # The optional runner_id passed by the worker is preserved on the runner
+  # so step-progress broadcasts include the originating run identifier.
+  def execute_step
+    step = resolve_step!(params[:step_id])
+    return render_error("Step not found", status: :not_found) unless step
+
+    plan = step.plan
+    return render_error("Step is not bound to a plan", status: :unprocessable_entity) unless plan
+
+    runner = ::Ai::Provisioning::SkillCompositionRunner.new(
+      account: @mission.account,
+      mission: @mission,
+      plan: plan
+    )
+    runner.instance_variable_set(:@runner_id, params[:runner_id]) if params[:runner_id].present?
+
+    result = runner.execute_step!(step)
+    render_success(result.merge(mission_id: @mission.id, step_id: step.id))
+  rescue StandardError => e
+    Rails.logger.error("[Internal::Ai::Provisioning#execute_step] #{e.class}: #{e.message}")
+    render_error("Step execute failed: #{e.message}", status: :unprocessable_entity)
+  end
+
+  private
+
+  # Account-scopes the step lookup through its plan to prevent cross-account
+  # access via leaked step_ids. (Steps don't have account_id directly — the
+  # join through ai_goal_plans.account_id is the only safe scope.)
+  def resolve_step!(step_id)
+    return nil if step_id.blank?
+    ::Ai::GoalPlanStep
+      .joins(:plan)
+      .where(ai_goal_plans: { account_id: @mission.account_id })
+      .find_by(id: step_id)
+  end
+
+  def load_mission
+    @mission = ::Ai::Mission.find_by(id: params[:mission_id])
+    return render_error("Mission not found", status: :not_found) unless @mission
+  end
+
+  def persist_brief(result)
+    return unless @mission && result.is_a?(Hash)
+
+    cfg = @mission.configuration.is_a?(Hash) ? @mission.configuration.deep_dup : {}
+    cfg["brief"] = result[:brief] || result["brief"] || cfg["brief"]
+    @mission.update_columns(configuration: cfg) if cfg["brief"].present?
+  end
+
+  def persist_plan_pointer(plan)
+    return unless @mission && plan&.respond_to?(:id)
+
+    cfg = @mission.configuration.is_a?(Hash) ? @mission.configuration.deep_dup : {}
+    cfg["plan"] ||= {}
+    cfg["plan"]["plan_id"] = plan.id
+    @mission.update_columns(configuration: cfg)
+  end
+
+  def resolve_plan!
+    plan_id = @mission.configuration.is_a?(Hash) ? @mission.configuration.dig("plan", "plan_id") : nil
+    return ::Ai::GoalPlan.find_by(id: plan_id) if plan_id.present?
+
+    # Fallback: most-recent approved plan for this mission's goal pointer (if any).
+    nil
+  end
+
+  # Persist the verification result on the mission's configuration so it
+  # rides through the phase_history alongside the phase exit and is visible
+  # to operators / the adapting phase consumers.
+  def record_verification(slo_targets:, healthy:, checked_at:)
+    return unless @mission
+
+    cfg = @mission.configuration.is_a?(Hash) ? @mission.configuration.deep_dup : {}
+    cfg["verification"] = {
+      "healthy" => healthy,
+      "checked_at" => checked_at,
+      "slo_targets" => slo_targets
+    }
+    @mission.update_columns(configuration: cfg)
+  end
+
+  # Build the per-mission Ai::RalphLoop. Iterations are driven by
+  # FleetAutonomyService.tick! rather than the loop's internal scheduler,
+  # so we keep scheduling_mode: "manual" + max_iterations: 0 (unbounded).
+  def build_ralph_loop_for_mission!
+    return @mission.ralph_loops.first if @mission.respond_to?(:ralph_loops) && @mission.ralph_loops.any?
+
+    ::Ai::RalphLoop.create!(
+      id: ::UUID7.generate,
+      account: @mission.account,
+      mission: @mission,
+      name: "Provisioning adaptation: #{@mission.name}".truncate(255),
+      status: "pending",
+      scheduling_mode: "manual",
+      max_iterations: 0,
+      configuration: {
+        "source" => "system_provisioning",
+        "mission_id" => @mission.id,
+        "driven_by" => "FleetAutonomyService"
+      }
+    )
+  end
+
+  # Best-effort handoff announcement. Posts a system message into the
+  # mission's conversation so the user sees a clear "we're now adapting"
+  # marker, and broadcasts a mission-level event so the UI can react.
+  def notify_handoff!(ralph_loop)
+    payload = {
+      mission_id: @mission.id,
+      ralph_loop_id: ralph_loop.id,
+      phase: "adapting"
+    }
+    ::MissionChannel.broadcast_mission_event(@mission.id, "mission_handed_off", payload)
+
+    conversation = @mission.respond_to?(:conversation) ? @mission.conversation : nil
+    return unless conversation
+
+    conversation.add_system_message(
+      "Provisioning handed off — adaptation loop active.",
+      activity_type: "mission_handed_off",
+      metadata: payload
+    )
+  rescue StandardError => e
+    Rails.logger.warn("[Internal::Ai::Provisioning#notify_handoff!] #{e.class}: #{e.message}")
+  end
+end

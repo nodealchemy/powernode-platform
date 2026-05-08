@@ -42,6 +42,64 @@ import { OAuthConsentPage } from '@/pages/public/oauth/OAuthConsentPage';
 import { StatusPage } from '@/pages/public/StatusPage';
 import { ApprovalResponsePage } from '@/features/devops/pipelines/pages/ApprovalResponsePage';
 import { DetachedChatPage } from '@/features/ai/chat/pages/DetachedChatPage';
+const ProvisioningPage = React.lazy(() => import('@/pages/ProvisioningPage'));
+const FirstRunWizard = React.lazy(() =>
+  import('@/features/onboarding/FirstRunWizard').then((m) => ({ default: m.FirstRunWizard }))
+);
+import apiClient from '@/shared/services/apiClient';
+import { logger } from '@/shared/utils/logger';
+
+interface OnboardingStatusResponse {
+  data?: { completed?: boolean; has_credentials?: boolean };
+  completed?: boolean;
+  has_credentials?: boolean;
+}
+
+/**
+ * OnboardingGate — wraps protected routes that depend on a configured provider.
+ *
+ * When the operator has not yet completed BYOC onboarding (no provider creds and
+ * no `account.metadata.onboarding_completed_at` stamp), redirect to /onboarding.
+ *
+ * Failures from `GET /api/v1/onboarding/status` are non-fatal — the gate falls
+ * through to the wrapped children so the platform stays usable when Slice C is
+ * absent or down. The check is account-level state and only runs on mount.
+ */
+const OnboardingGate: React.FC<{ children: React.ReactElement }> = ({ children }) => {
+  const [status, setStatus] = React.useState<'unknown' | 'ok' | 'redirect'>('unknown');
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const response = await apiClient.get<OnboardingStatusResponse>('/onboarding/status');
+        const envelope = response.data ?? {};
+        const inner = envelope.data ?? envelope;
+        const complete = Boolean(inner.completed) || Boolean(inner.has_credentials);
+        if (!cancelled) setStatus(complete ? 'ok' : 'redirect');
+      } catch (err) {
+        // Endpoint absent (M2 not yet shipped) or transient failure — fail open
+        // so the user can still reach the app.
+        logger.debug('OnboardingGate: status check failed; falling through', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+        if (!cancelled) setStatus('ok');
+      }
+    };
+    void check();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (status === 'unknown') {
+    return <LoadingSpinner message="Checking setup…" />;
+  }
+  if (status === 'redirect') {
+    return <Navigate to="/onboarding" replace />;
+  }
+  return children;
+};
 
 import './App.css';
 import '@/assets/styles/themes.css';
@@ -298,7 +356,23 @@ const AppContent: React.FC = () => {
             path="/app/*"
             element={
               <ProtectedRoute requireEmailVerification>
-                <DashboardPage />
+                <OnboardingGate>
+                  <DashboardPage />
+                </OnboardingGate>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* First-run BYOC onboarding wizard (M2). Reachable from the
+              OnboardingGate redirect or directly when an operator wants to
+              re-run setup. */}
+          <Route
+            path="/onboarding"
+            element={
+              <ProtectedRoute requireEmailVerification>
+                <React.Suspense fallback={<LoadingSpinner message="Loading setup…" />}>
+                  <FirstRunWizard />
+                </React.Suspense>
               </ProtectedRoute>
             }
           />
@@ -354,6 +428,20 @@ const AppContent: React.FC = () => {
             element={
               <ProtectedRoute>
                 <DetachedChatPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* AI Provisioning entry point (M1 chat → plan review → execution) */}
+          <Route
+            path="/new"
+            element={
+              <ProtectedRoute requireEmailVerification>
+                <OnboardingGate>
+                  <React.Suspense fallback={<LoadingSpinner message="Loading provisioning…" />}>
+                    <ProvisioningPage />
+                  </React.Suspense>
+                </OnboardingGate>
               </ProtectedRoute>
             }
           />
