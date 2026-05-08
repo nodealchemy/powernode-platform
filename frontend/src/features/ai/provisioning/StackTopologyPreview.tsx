@@ -4,6 +4,7 @@ import {
   Background,
   Controls,
   MarkerType,
+  Position,
   type Node as FlowNode,
   type Edge as FlowEdge
 } from '@xyflow/react';
@@ -80,19 +81,19 @@ const NODE_STYLE: Record<TopologyNodeType, NodeStyleSpec> = {
     borderRadius: 12, borderStyle: 'dashed', shape: 'rounded'
   },
   gateway: {
-    width: 80, height: 80,
+    width: 64, height: 40,
     background: 'rgba(34, 197, 94, 0.10)', border: 'var(--theme-success, #22c55e)',
-    borderRadius: 12, borderStyle: 'solid', shape: 'diamond'
+    borderRadius: 10, borderStyle: 'solid', shape: 'diamond'
   },
   user_device: {
-    width: 48, height: 48,
+    width: 40, height: 40,
     background: 'var(--theme-surface, #1f2937)', border: 'var(--theme-border, #4b5563)',
-    borderRadius: 24, borderStyle: 'solid', shape: 'circle'
+    borderRadius: 20, borderStyle: 'solid', shape: 'circle'
   },
   external_provider: {
-    width: 120, height: 48,
+    width: 96, height: 40,
     background: 'var(--theme-surface, #1f2937)', border: 'var(--theme-border, #4b5563)',
-    borderRadius: 8, borderStyle: 'solid', shape: 'rounded'
+    borderRadius: 6, borderStyle: 'solid', shape: 'rounded'
   }
 };
 
@@ -251,6 +252,10 @@ export const buildTopologyFlowGraph = (
       color: 'var(--theme-primary, #f9fafb)'
     };
 
+    // Handles on left+right (rather than ReactFlow's default top+bottom)
+    // so edges can route horizontally — much cleaner for the hub-and-spoke
+    // topology (user → gateway → provider → compute clusters) than having
+    // every line funnel through the same vertical handle points.
     const flowNode: FlowNode = {
       id: node.id,
       position: pos,
@@ -263,7 +268,9 @@ export const buildTopologyFlowGraph = (
         )
       },
       style: baseStyle,
-      type: 'default'
+      type: 'default',
+      sourcePosition: Position.Right,
+      targetPosition: Position.Left
     };
 
     if (node.parent_id) {
@@ -292,12 +299,13 @@ export const buildTopologyFlowGraph = (
     source: edge.source,
     target: edge.target,
     label: edge.label,
+    // Smoothstep routes edges with right-angle bends instead of bezier
+    // arcs — works well with the left/right handle positions and keeps
+    // the diagram readable when many edges share endpoints.
+    type: 'smoothstep',
+    pathOptions: { borderRadius: 8 },
     markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--theme-secondary, #9ca3af)' },
     style: { stroke: 'var(--theme-secondary, #9ca3af)', strokeWidth: 1.25 },
-    // Edge labels rendered in an SVG context — `currentColor` resolves to
-    // ReactFlow's default `--rf-edge-label-color` which inherits white on
-    // dark themes, producing white-on-white. Hardcode a theme variable
-    // with a readable fallback.
     labelStyle: { fontSize: 10, fill: 'var(--theme-secondary, #9ca3af)' },
     labelBgStyle: { fill: 'var(--theme-surface, #1f2937)', fillOpacity: 0.85 },
     labelBgPadding: [4, 2] as [number, number],
