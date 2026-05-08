@@ -11,6 +11,10 @@ RSpec.describe Ai::Mission, type: :model do
     it { is_expected.to belong_to(:conversation).class_name("Ai::Conversation").optional }
     it { is_expected.to belong_to(:mission_template).class_name("Ai::MissionTemplate").optional }
     it { is_expected.to have_many(:approvals).class_name("Ai::MissionApproval") }
+
+    # Self-Serve Hardening M4 Slice A — optional pointer at an
+    # `Account::TeamDelegation` (per-team isolation).
+    it { is_expected.to belong_to(:delegation).class_name("Account::TeamDelegation").optional }
   end
 
   describe "validations" do
@@ -132,6 +136,87 @@ RSpec.describe Ai::Mission, type: :model do
       expect(template.template_type).to eq("account")
       expect(template.mission_type).to eq("development")
       expect(template.name).to eq("My Template")
+    end
+  end
+
+  describe "#requires_second_signature?" do
+    let(:account) { create(:account) }
+    let(:mission) do
+      build(:ai_mission, account: account, custom_phases: [
+        { "key" => "handoff", "label" => "Handoff", "order" => 0, "requires_approval" => true, "gate_name" => "handoff" },
+        { "key" => "adapting", "label" => "Adapting", "order" => 1, "requires_approval" => false }
+      ])
+    end
+
+    def stub_plan_features(features_hash)
+      plan = double("Plan", features: features_hash)
+      sub  = double("Subscription", plan: plan)
+      allow(account).to receive(:active_subscription).and_return(sub)
+    end
+
+    it "returns false when not at the handoff phase" do
+      mission.current_phase = "adapting"
+      stub_plan_features("second_signature_required" => true)
+      expect(mission.requires_second_signature?).to be false
+    end
+
+    it "returns false on Free/Pro tier (feature flag absent or false)" do
+      mission.current_phase = "handoff"
+      stub_plan_features("second_signature_required" => false)
+      expect(mission.requires_second_signature?).to be false
+    end
+
+    it "returns false when features hash lacks the flag entirely" do
+      mission.current_phase = "handoff"
+      stub_plan_features({})
+      expect(mission.requires_second_signature?).to be false
+    end
+
+    it "returns true on Business+ tier when the flag is enabled and at handoff" do
+      mission.current_phase = "handoff"
+      stub_plan_features("second_signature_required" => true)
+      expect(mission.requires_second_signature?).to be true
+    end
+
+    it "returns false when active_subscription is missing (graceful chain)" do
+      mission.current_phase = "handoff"
+      allow(account).to receive(:active_subscription).and_return(nil)
+      expect(mission.requires_second_signature?).to be false
+    end
+
+    it "returns false when account itself is nil (defensive)" do
+      mission.current_phase = "handoff"
+      allow(mission).to receive(:account).and_return(nil)
+      expect(mission.requires_second_signature?).to be false
+    end
+  end
+
+  describe "#distinct_approver_count" do
+    let(:account) { create(:account) }
+    let(:user_a) { create(:user, account: account) }
+    let(:user_b) { create(:user, account: account) }
+    let(:mission) { create(:ai_mission, account: account) }
+
+    it "counts distinct approved approvers at the gate" do
+      create(:ai_mission_approval, mission: mission, account: account, user: user_a, gate: "handoff", decision: "approved")
+      create(:ai_mission_approval, mission: mission, account: account, user: user_b, gate: "handoff", decision: "approved")
+      expect(mission.distinct_approver_count("handoff")).to eq(2)
+    end
+
+    it "counts the same user twice as one" do
+      create(:ai_mission_approval, mission: mission, account: account, user: user_a, gate: "handoff", decision: "approved")
+      create(:ai_mission_approval, mission: mission, account: account, user: user_a, gate: "handoff", decision: "approved")
+      expect(mission.distinct_approver_count("handoff")).to eq(1)
+    end
+
+    it "ignores rejected approvals" do
+      create(:ai_mission_approval, mission: mission, account: account, user: user_a, gate: "handoff", decision: "rejected", comment: "no")
+      expect(mission.distinct_approver_count("handoff")).to eq(0)
+    end
+
+    it "scopes to the requested gate" do
+      create(:ai_mission_approval, mission: mission, account: account, user: user_a, gate: "feature_selection", decision: "approved")
+      expect(mission.distinct_approver_count("handoff")).to eq(0)
     end
   end
 

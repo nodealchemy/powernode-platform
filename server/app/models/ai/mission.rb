@@ -7,7 +7,7 @@ module Ai
     include Auditable
 
     # ==================== Constants ====================
-    MISSION_TYPES = %w[development research operations custom].freeze
+    MISSION_TYPES = %w[development research operations infrastructure custom].freeze
 
     STATUSES = %w[draft active paused completed failed cancelled].freeze
     TERMINAL_STATUSES = %w[completed failed cancelled].freeze
@@ -22,6 +22,15 @@ module Ai
     belongs_to :ralph_loop, class_name: "Ai::RalphLoop", foreign_key: "ralph_loop_id", optional: true
     belongs_to :review_state, class_name: "Ai::CodeFactory::ReviewState", foreign_key: "review_state_id", optional: true
     belongs_to :mission_template, class_name: "Ai::MissionTemplate", foreign_key: "mission_template_id", optional: true
+    # Self-Serve Hardening M4 Slice A — optional per-team isolation pointer.
+    # Backed by `Account::TeamDelegation` (extensions/business). Leading `::` keeps
+    # the constant resolved at the top level when business is loaded; when business
+    # is disabled, this column stays NULL on every row.
+    belongs_to :delegation,
+               class_name: "::Account::TeamDelegation",
+               foreign_key: "delegation_id",
+               inverse_of: :missions,
+               optional: true
 
     has_many :approvals, class_name: "Ai::MissionApproval", foreign_key: "mission_id", dependent: :destroy
 
@@ -44,6 +53,7 @@ module Ai
     scope :development, -> { where(mission_type: "development") }
     scope :research, -> { where(mission_type: "research") }
     scope :operations, -> { where(mission_type: "operations") }
+    scope :infrastructure, -> { where(mission_type: "infrastructure") }
     scope :recent, -> { order(created_at: :desc) }
     scope :with_deployment, -> { where.not(deployed_port: nil) }
 
@@ -70,6 +80,10 @@ module Ai
       mission_type == "operations"
     end
 
+    def infrastructure?
+      mission_type == "infrastructure"
+    end
+
     def terminal?
       TERMINAL_STATUSES.include?(status)
     end
@@ -90,6 +104,31 @@ module Ai
 
     def current_gate
       current_phase if awaiting_approval?
+    end
+
+    # M4 Enterprise Polish — second-signature gate.
+    #
+    # Returns true when the mission is sitting at the `handoff` phase AND
+    # the account's active plan has `features["second_signature_required"]`
+    # set to true. Business+ tiers opt in via the plan seed. Free/Pro tiers
+    # return false here so the existing single-approval handoff flow is
+    # preserved verbatim.
+    #
+    # Defensive against missing chain links — if any of account /
+    # active_subscription / plan / features is nil or non-hash, returns
+    # false (fail-open to existing behavior, never harder than configured).
+    def requires_second_signature?
+      return false unless current_phase == "handoff"
+
+      features = account&.try(:active_subscription)&.try(:plan)&.try(:features)
+      features.is_a?(Hash) && features["second_signature_required"] == true
+    end
+
+    # Distinct count of approved approvers at the given gate. Used by the
+    # second-signature gate to determine whether the threshold (>= 2 distinct
+    # users) has been met. Same user approving twice counts once.
+    def distinct_approver_count(gate)
+      approvals.approved.where(gate: gate).distinct.pluck(:user_id).compact.length
     end
 
     def phases_for_type

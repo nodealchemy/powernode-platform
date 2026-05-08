@@ -5,7 +5,7 @@ module Ai
     self.table_name = "ai_goal_plan_steps"
 
     STATUSES = %w[pending executing completed failed skipped].freeze
-    STEP_TYPES = %w[agent_execution workflow_run observation human_review sub_goal].freeze
+    STEP_TYPES = %w[agent_execution workflow_run observation human_review sub_goal provisioning_skill].freeze
 
     belongs_to :plan, class_name: "Ai::GoalPlan", foreign_key: "plan_id"
     belongs_to :sub_goal, class_name: "Ai::AgentGoal", foreign_key: "sub_goal_id", optional: true

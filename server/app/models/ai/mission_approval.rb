@@ -4,7 +4,7 @@ module Ai
   class MissionApproval < ApplicationRecord
     self.table_name = "ai_mission_approvals"
 
-    GATES = %w[feature_selection prd_review code_review merge_approval].freeze
+    GATES = %w[feature_selection prd_review code_review merge_approval plan_review handoff].freeze
     DECISIONS = %w[approved rejected].freeze
 
     belongs_to :mission, class_name: "Ai::Mission", foreign_key: "mission_id"

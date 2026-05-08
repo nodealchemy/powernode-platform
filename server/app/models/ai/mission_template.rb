@@ -5,7 +5,7 @@ module Ai
     self.table_name = "ai_mission_templates"
 
     TEMPLATE_TYPES = %w[system account community].freeze
-    MISSION_TYPES = %w[development research operations custom].freeze
+    MISSION_TYPES = %w[development research operations infrastructure custom].freeze
     STATUSES = %w[active archived].freeze
 
     belongs_to :account, optional: true # nil for system templates
