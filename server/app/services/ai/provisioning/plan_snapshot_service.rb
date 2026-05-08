@@ -51,12 +51,29 @@ module Ai
       # rendered as "0 steps" everywhere it was consumed.
       def build_dag(plan)
         steps = plan.steps.reload.to_a.sort_by { |s| s.step_number.to_i }
-        nodes = steps.map { |s| node_for(s) }
+        purpose = plan_purpose_for(plan)
+        nodes = steps.map { |s| node_for(s, plan_purpose: purpose) }
         edges = build_edges(steps)
         { nodes: nodes, edges: edges }
       end
 
-      def node_for(step)
+      # Pulls the operator's stated purpose from the plan's goal — the brief's
+      # use_case ends up here via PlanComposerService.find_or_create_goal!
+      # ("marketing website for an insulation company", "Discord bot for daily
+      # RSS posts"). Used to differentiate steps that share the same skill +
+      # resource shape but serve a particular project, so the operator sees
+      # "Provision 1× qemu.small for marketing site" instead of just
+      # "Provision 1× qemu.small".
+      def plan_purpose_for(plan)
+        return nil unless plan.respond_to?(:goal) && plan.goal
+        desc = plan.goal.description.to_s.strip
+        return desc if desc.present?
+        plan.goal.title.to_s.sub(/\AProvision:\s*/, "").strip.presence
+      rescue StandardError
+        nil
+      end
+
+      def node_for(step, plan_purpose: nil)
         cfg = step.execution_config.is_a?(Hash) ? step.execution_config : {}
         skill = (cfg["skill"] || cfg[:skill]).to_s
         inputs = (cfg["inputs"] || cfg[:inputs] || {})
@@ -65,7 +82,7 @@ module Ai
           step_number: step.step_number,
           name: cfg["name"] || cfg[:name] || derive_step_name(skill, inputs),
           skill: skill.presence,
-          description: cfg["description"] || cfg[:description] || derive_step_description(skill, inputs),
+          description: cfg["description"] || cfg[:description] || derive_step_description(skill, inputs, plan_purpose: plan_purpose),
           dependencies: Array(step.dependencies).map(&:to_i),
           status: step.respond_to?(:status) ? step.status.to_s : "pending",
           on_failure: cfg["on_failure"] || cfg[:on_failure]
@@ -111,19 +128,44 @@ module Ai
         end
       end
 
-      def derive_step_description(skill, inputs)
-        return nil unless skill == "provision_full_stack"
+      # Build the second-line description for a step. Leads with the
+      # operator's stated purpose ("marketing website for an insulation
+      # company") so the row tells you WHAT will run on the box, not just
+      # the resource shape. Falls back to the resource breakdown alone
+      # when no purpose was captured.
+      def derive_step_description(skill, inputs, plan_purpose: nil)
         bits = []
-        if (count = (inputs["count"] || inputs[:count] || 1).to_i).positive?
-          bits << "#{count} instance#{count == 1 ? '' : 's'}"
+        bits << "For: #{plan_purpose}" if plan_purpose.present? && provision_like?(skill)
+
+        if skill == "provision_full_stack"
+          if (count = (inputs["count"] || inputs[:count] || 1).to_i).positive?
+            bits << "#{count} instance#{count == 1 ? '' : 's'}"
+          end
+          if (inst = resolve_instance_label(inputs))
+            bits << inst
+          end
+          if (region = resolve_region_label(inputs))
+            bits << region
+          end
+        elsif skill == "scale_project"
+          if (inst = resolve_instance_label(inputs))
+            bits << inst
+          end
+        elsif skill == "attach_storage"
+          gb = (inputs["size_gb"] || inputs[:size_gb] || inputs["storage_gb"] || inputs[:storage_gb]).to_i
+          bits << "#{gb}GB" if gb.positive?
+        elsif skill == "deploy_app_code"
+          bits << inputs["branch"] if inputs["branch"].present?
         end
-        if (inst = resolve_instance_label(inputs))
-          bits << inst
-        end
-        if (region = resolve_region_label(inputs))
-          bits << region
-        end
+
         bits.empty? ? nil : bits.join(" · ")
+      end
+
+      # Skill families where a "For: <purpose>" prefix on the step row makes
+      # sense. Pure-infrastructure operations (configure_sdwan, etc.) read
+      # better without one.
+      def provision_like?(skill)
+        %w[provision_full_stack scale_project attach_storage deploy_app_code relocate_workload].include?(skill.to_s)
       end
 
       def resolve_instance_label(inputs)
