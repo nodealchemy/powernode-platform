@@ -199,10 +199,54 @@ module Ai
         "compute"
       end
 
+      # Provider types that don't have cloud-style regions — runs on the
+      # operator's own hardware. Keep aligned with
+      # CostEstimatorService::LOCAL_PROVIDER_TYPES.
+      LOCAL_PROVIDER_TYPES = %w[local_qemu].freeze
+
       def regions_for(brief)
-        list = Array(brief["regions"] || brief[:regions])
+        if local_provider?(brief)
+          # Local providers don't have cloud regions. Even if the brief
+          # still carries a stale cloud-region label like "us-east-1" from
+          # a pre-fix capture (or the LLM hallucinated one), render the
+          # local-hypervisor box with a provider-honest label instead of
+          # mis-attributing the workload to AWS.
+          return [{ id: "region-1", name: "local hypervisor" }]
+        end
+
+        list = Array(brief["regions"] || brief[:regions]).reject { |r| r.to_s.strip.empty? }
         list = ["default"] if list.empty?
         list.map.with_index { |code, idx| { id: "region-#{idx + 1}", name: code.to_s } }
+      end
+
+      # Authoritative provider detection: prefer brief.preferred_provider, but
+      # fall back to the plan's resolved provider (via the first compute step's
+      # provider_region_id → System::ProviderRegion → System::Provider). The
+      # brief can lag — e.g. user types "use Local QEMU" AFTER capture_brief
+      # ran, leaving preferred_provider nil — but the resolved region/instance
+      # type IS local_qemu's, and that's what actually matters for rendering.
+      def local_provider?(brief)
+        preferred = (brief["preferred_provider"] || brief[:preferred_provider]).to_s
+        return true if LOCAL_PROVIDER_TYPES.include?(preferred)
+
+        # Fall back to the plan's resolved provider on its first compute step.
+        first_step = ordered_steps(plan).find do |s|
+          COMPUTE_SKILLS.include?((s.execution_config || {})["skill"].to_s)
+        end
+        return false unless first_step
+
+        region_id = first_step.execution_config&.dig("inputs", "provider_region_id")
+        return false if region_id.blank?
+        return false unless defined?(::System::ProviderRegion)
+
+        provider_type = ::System::ProviderRegion.where(account_id: account.id)
+                                                .find_by(id: region_id)
+                                                &.provider
+                                                &.provider_type
+                                                &.to_s
+        LOCAL_PROVIDER_TYPES.include?(provider_type.to_s)
+      rescue StandardError
+        false
       end
 
       def provider_label_for(brief)
