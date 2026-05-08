@@ -209,6 +209,9 @@ class Account < ApplicationRecord
   has_many :federation_partners, class_name: "FederationPartner", dependent: :destroy
   has_many :ai_dag_executions, class_name: "Ai::DagExecution", dependent: :destroy
 
+  # System extension associations (M1 Self-Serve Hardening)
+  has_many :system_provider_credentials, class_name: "System::ProviderCredential", dependent: :destroy
+
   # Validations
   validates :name, presence: true, length: { minimum: 2, maximum: 100 }
   validates :subdomain, format: { with: /\A[a-z0-9\-]+\z/, message: "can only contain lowercase letters, numbers, and hyphens" },
@@ -229,6 +232,11 @@ class Account < ApplicationRecord
   after_initialize :set_defaults
   after_create :broadcast_customer_created
   after_update :broadcast_customer_updated, if: :saved_changes?
+  # M1 Self-Serve: every new account gets per-account provider/regions/
+  # instance-types/templates wired up so the activation funnel can spin
+  # up Pro Cloud nodes without operator intervention. Failures are logged
+  # but don't roll back account creation — surfaced via monitoring.
+  after_create_commit :run_account_bootstrap
 
   # Instance methods
   def active?
@@ -277,6 +285,24 @@ class Account < ApplicationRecord
     subscription&.active? || false
   end
 
+  # M4 Enterprise Polish — single source of truth for "the currently
+  # billing-active subscription" used by feature-gate readers like the
+  # mission second-signature gate, CostCapGuard, audit export, and IP
+  # allowlist. Returns nil when:
+  #   * the account doesn't carry the `subscription` association at all
+  #     (core mode without business loaded), or
+  #   * the subscription exists but isn't in `active`/`trialing` state
+  #     (past_due/cancelled/unpaid all gate features off).
+  # Callers are expected to chain `.plan.features` / `.plan.limits` and
+  # treat any nil link as "feature unavailable" (fail-closed for the
+  # feature, fail-open for the existing flow).
+  def active_subscription
+    return nil unless respond_to?(:subscription)
+    sub = subscription
+    return nil if sub.nil?
+    sub.active? ? sub : nil
+  end
+
   def subscription_status
     return "none" unless respond_to?(:subscription)
     subscription&.status || "none"
@@ -295,14 +321,64 @@ class Account < ApplicationRecord
     Worker.system_worker.present?
   end
 
+  # M2 Self-Serve Hardening (BYOC): onboarding state lives in the
+  # platform-managed `metadata` JSONB. The FirstRunWizard reads
+  # `onboarding_completed?` to decide whether to redirect a freshly-
+  # registered account into the BYOC flow; `mark_onboarding_complete!`
+  # is invoked by Api::V1::OnboardingController#complete after the
+  # operator either configures provider creds or skips.
+  def onboarding_completed?
+    return false unless metadata.is_a?(Hash)
+    metadata["onboarding_completed_at"].present?
+  end
+
+  def onboarding_completed_at
+    return nil unless metadata.is_a?(Hash)
+    raw = metadata["onboarding_completed_at"]
+    return nil if raw.blank?
+
+    case raw
+    when Time, DateTime, ActiveSupport::TimeWithZone then raw
+    when String
+      Time.iso8601(raw) rescue Time.parse(raw) rescue nil
+    end
+  end
+
+  def mark_onboarding_complete!(at: Time.current, provider_credential_id: nil, provider_type: nil)
+    base = (metadata.is_a?(Hash) ? metadata : {}).merge(
+      "onboarding_completed_at" => at.iso8601
+    )
+    base["onboarding_provider_credential_id"] = provider_credential_id if provider_credential_id.present?
+    base["onboarding_provider_type"] = provider_type if provider_type.present?
+    self.metadata = base
+    save!
+  end
+
   private
 
   def normalize_subdomain
     self.subdomain = subdomain&.downcase&.strip
   end
 
+  # M1 Self-Serve: bootstrap System extension state per-account. Wrapped
+  # in rescue so a transient failure (e.g., system extension disabled)
+  # doesn't roll back account creation — surface via monitoring instead.
+  def run_account_bootstrap
+    return unless defined?(::System::AccountBootstrapService)
+
+    ::System::AccountBootstrapService.call(self)
+  rescue StandardError => e
+    Rails.logger.error(
+      "[Account.after_create_commit] AccountBootstrapService failed for account #{id}: #{e.class}: #{e.message}"
+    )
+  end
+
   def set_defaults
     self.settings ||= {}
+    # Read-write guard for the platform-managed metadata bag (M2 BYOC
+    # onboarding flag, etc.). NOT NULL with default {} at the DB level,
+    # but normalize new in-memory records too.
+    self.metadata ||= {} if has_attribute?(:metadata)
   end
 
   def broadcast_customer_created
