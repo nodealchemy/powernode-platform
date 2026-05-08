@@ -130,8 +130,15 @@ module Ai
       if delegated
         Rails.logger.info("[ConciergeService] Delegation detected via send_message (success) — suppressing final text response")
       elsif result[:content].present?
+        # Surface non-truncated tool payloads (e.g. provisioning brief/plan)
+        # into content_metadata.cards so the chat UI can render rich cards
+        # inline. AgentToolBridge collects these via its CARD_TOOLS allowlist.
+        cards = result[:chat_cards].presence
+        content_metadata = cards ? { cards: cards } : {}
+
         @conversation.add_assistant_message(
           result[:content],
+          content_metadata: content_metadata,
           processing_metadata: {
             mode: "tool_bridge",
             tool_calls: result[:tool_calls_log].presence,

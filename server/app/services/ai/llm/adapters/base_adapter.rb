@@ -141,6 +141,12 @@ module Ai
         end
 
         def build_error_response(error, status_code: nil)
+          # Surface upstream errors at error-level so callers can grep
+          # journalctl instead of having to inspect raw_response[:error]
+          # on the returned response object. Keeps debugging short for
+          # provider 4xx/5xx, rate limits, model-not-found, etc.
+          Rails.logger.error "[LLM #{provider_name}] error response: status=#{status_code || 'n/a'} msg=#{error}"
+
           Ai::Llm::Response.new(
             content: nil,
             provider: provider_name,

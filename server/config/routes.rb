@@ -1534,7 +1534,9 @@ Rails.application.routes.draw do
               post :archive
               get :messages
               post :clear_messages
-              get :export
+              # Implementation lives in Ai::AgentConversationActions#export_conversation,
+              # which is included in AgentsController (not ConversationsController).
+              get :export, to: "agents#export_conversation"
             end
 
             collection do
@@ -1632,6 +1634,11 @@ Rails.application.routes.draw do
             post :worker_complete
             post :worker_stream_chunk
             post :worker_error
+
+            # Cross-agent messages surface for concierge / workspace conversations
+            # that aren't bound to a single agent_id (e.g. provisioning chat).
+            get :messages
+            post :messages, action: :send_message
 
             # Scheduled messages nested under conversation
             get "scheduled_messages", action: :scheduled_messages_index

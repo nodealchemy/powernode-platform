@@ -162,10 +162,10 @@ module Api
         end
 
         # POST /api/v1/ai/agents/:agent_id/conversations/:id/send_message
+        # POST /api/v1/ai/conversations/:id/messages          (global, e.g. concierge chat)
         def send_message
-          agent = @agent || current_user.account.ai_agents.find(params[:agent_id])
-          conversation = agent.conversations.find_by(id: params[:id]) ||
-                           agent.conversations.find_by!(conversation_id: params[:id])
+          agent, conversation = resolve_agent_and_conversation
+          raise ActiveRecord::RecordNotFound unless conversation && agent
 
           unless conversation.can_send_message?
             return render_error("Conversation is not active", status: :unprocessable_content)
@@ -313,27 +313,10 @@ module Api
         end
 
         # GET /api/v1/ai/agents/:agent_id/conversations/:id/messages
+        # GET /api/v1/ai/conversations/:id/messages          (global, e.g. concierge chat)
         # Supports cursor-based pagination via `before` and `after` (sequence_number cursors)
         def messages
-          agent = @agent || current_user.account.ai_agents.find(params[:agent_id])
-          conversation = agent.conversations.includes(messages: :user).find_by(id: params[:id]) ||
-                         agent.conversations.includes(messages: :user).find_by(conversation_id: params[:id])
-
-          # Fall back to team membership lookup for workspace conversations
-          # (workspace conversations belong to the concierge, not the MCP client)
-          if conversation.nil?
-            conversation = ::Ai::Conversation
-              .joins(agent_team: :members)
-              .where(ai_agent_team_members: { ai_agent_id: agent.id })
-              .includes(messages: :user)
-              .find_by(id: params[:id]) ||
-            ::Ai::Conversation
-              .joins(agent_team: :members)
-              .where(ai_agent_team_members: { ai_agent_id: agent.id })
-              .includes(messages: :user)
-              .find_by(conversation_id: params[:id])
-          end
-
+          _agent, conversation = resolve_agent_and_conversation(eager: { messages: :user })
           raise ActiveRecord::RecordNotFound unless conversation
 
           limit = (params[:limit] || 50).to_i.clamp(1, 200)
@@ -375,21 +358,7 @@ module Api
 
         # POST /api/v1/ai/agents/:agent_id/conversations/:id/clear_messages
         def clear_messages
-          agent = @agent || current_user.account.ai_agents.find(params[:agent_id])
-          conversation = agent.conversations.find_by(id: params[:id]) ||
-                         agent.conversations.find_by(conversation_id: params[:id])
-
-          if conversation.nil?
-            conversation = ::Ai::Conversation
-              .joins(agent_team: :members)
-              .where(ai_agent_team_members: { ai_agent_id: agent.id })
-              .find_by(id: params[:id]) ||
-            ::Ai::Conversation
-              .joins(agent_team: :members)
-              .where(ai_agent_team_members: { ai_agent_id: agent.id })
-              .find_by(conversation_id: params[:id])
-          end
-
+          _agent, conversation = resolve_agent_and_conversation
           raise ActiveRecord::RecordNotFound unless conversation
 
           count = conversation.messages.not_deleted.update_all(deleted_at: Time.current)
@@ -457,6 +426,37 @@ module Api
           @agent = current_user.account.ai_agents.find(params[:agent_id])
         rescue ActiveRecord::RecordNotFound
           render_error("Agent not found", status: :not_found)
+        end
+
+        # Resolves [agent, conversation] for both routing surfaces:
+        #   - agent-scoped: /api/v1/ai/agents/:agent_id/conversations/:id/...
+        #   - global:       /api/v1/ai/conversations/:id/messages
+        # On the global path, the agent is derived from conversation.agent so
+        # the action body can use it uniformly (e.g. for AI generation).
+        def resolve_agent_and_conversation(eager: nil)
+          if params[:agent_id].present?
+            agent = @agent || current_user.account.ai_agents.find(params[:agent_id])
+            scope = agent.conversations
+            scope = scope.includes(eager) if eager
+            conversation = scope.find_by(id: params[:id]) || scope.find_by(conversation_id: params[:id])
+
+            if conversation.nil?
+              # Fallback for workspace conversations the agent is a member of via team
+              team_scope = ::Ai::Conversation
+                .joins(agent_team: :members)
+                .where(ai_agent_team_members: { ai_agent_id: agent.id })
+              team_scope = team_scope.includes(eager) if eager
+              conversation = team_scope.find_by(id: params[:id]) ||
+                             team_scope.find_by(conversation_id: params[:id])
+            end
+
+            [agent, conversation]
+          else
+            scope = current_user.account.ai_conversations
+            scope = scope.includes(eager) if eager
+            conversation = scope.find_by(id: params[:id]) || scope.find_by(conversation_id: params[:id])
+            [conversation&.agent, conversation]
+          end
         end
 
         # Dispatch background response jobs for non-primary workspace team members.

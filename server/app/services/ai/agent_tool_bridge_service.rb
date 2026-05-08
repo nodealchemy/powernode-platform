@@ -43,14 +43,53 @@ module Ai
       [configured, HARD_MAX_ITERATIONS].min
     end
 
+    # Per-provider tool-count cap. OpenAI rejects >128 with HTTP 400; Anthropic
+    # is higher. We add a safety margin so a tool list that brushes the cap
+    # doesn't 400 if a future provider pads its array.
+    OPENAI_TOOL_CAP = 100
+    ANTHROPIC_TOOL_CAP = 200
+    DEFAULT_TOOL_CAP = 100
+
+    def max_tools_for_provider(llm_client)
+      provider_type = llm_client.respond_to?(:provider_type) ? llm_client.provider_type.to_s : ""
+      case provider_type
+      when "openai" then OPENAI_TOOL_CAP
+      when "anthropic" then ANTHROPIC_TOOL_CAP
+      else DEFAULT_TOOL_CAP
+      end
+    end
+
     # Convert platform tool definitions to LLM function-calling format
     def tool_definitions_for_llm
       @tool_definitions_for_llm ||= build_tool_definitions
     end
 
     # Dispatch a tool call from an LLM response through the platform tool registrar.
-    # Returns a String (JSON) for appending as a tool result message.
+    # Tools whose results should be surfaced (non-truncated) to the chat UI as
+    # rich cards. Each entry maps a tool name to a card kind that the frontend
+    # uses to pick a renderer. Add new entries as cards land.
+    CARD_TOOLS = {
+      "platform_provisioning_capture_brief" => "provisioning_brief",
+      "platform_provisioning_compose_plan"  => "provisioning_plan",
+      "platform_provisioning_approve_plan"  => "provisioning_plan_approved",
+      "platform_provisioning_execute"       => "provisioning_execution",
+      "platform_provisioning_status"        => "provisioning_status",
+      "platform_provisioning_adapt"         => "provisioning_adaptation"
+    }.freeze
+
+    # Dispatch a tool call. Returns the truncated JSON string the LLM sees as
+    # the tool result message. Used by external callers (worker channel,
+    # llm_proxy_controller, action-grammar fallback). The agent loop uses
+    # #dispatch_tool_call_capturing instead so it can also surface
+    # non-truncated payloads to the chat UI.
     def dispatch_tool_call(tool_call)
+      dispatch_tool_call_capturing(tool_call).first
+    end
+
+    # Internal: dispatch a tool call and return [truncated_json, full_result].
+    # The full result hash is captured for surfacing to the chat UI when the
+    # tool is whitelisted in CARD_TOOLS.
+    def dispatch_tool_call_capturing(tool_call)
       tool_name = tool_call[:name] || tool_call["name"]
       arguments = tool_call[:arguments] || tool_call["arguments"] || {}
       arguments = JSON.parse(arguments) if arguments.is_a?(String)
@@ -66,19 +105,19 @@ module Ai
         mcp_agent: agent
       )
 
-      truncate_result(result.to_json)
+      [truncate_result(result.to_json), result]
     rescue ArgumentError => e
       Rails.logger.warn "[AgentToolBridge] Unknown tool: #{tool_name} - #{e.message}"
-      { error: "Unknown tool: #{tool_name}", message: e.message }.to_json
+      [{ error: "Unknown tool: #{tool_name}", message: e.message }.to_json, nil]
     rescue ::Mcp::ProtocolService::PermissionDeniedError => e
       Rails.logger.warn "[AgentToolBridge] Permission denied: #{tool_name} - #{e.message}"
-      { error: "Permission denied", tool: tool_name, message: e.message }.to_json
+      [{ error: "Permission denied", tool: tool_name, message: e.message }.to_json, nil]
     rescue Ai::Introspection::RateLimiter::RateLimitExceeded => e
       Rails.logger.warn "[AgentToolBridge] Rate limited: #{tool_name} - #{e.message}"
-      { error: "Rate limit exceeded", tool: tool_name, message: e.message }.to_json
+      [{ error: "Rate limit exceeded", tool: tool_name, message: e.message }.to_json, nil]
     rescue StandardError => e
       Rails.logger.error "[AgentToolBridge] Tool error: #{tool_name} - #{e.message}"
-      { error: "Tool execution failed", tool: tool_name, message: e.message }.to_json
+      [{ error: "Tool execution failed", tool: tool_name, message: e.message }.to_json, nil]
     end
 
     # Shared agentic tool loop — call LLM with tools, dispatch calls, repeat.
@@ -90,10 +129,28 @@ module Ai
     # @return [Hash] { content:, usage:, tool_calls_log:, finish_reason: }
     def execute_tool_loop(llm_client:, messages:, model:, **opts)
       tools = tool_definitions_for_llm
+
+      # Provider tool-count cap — OpenAI rejects >128, Anthropic rejects ~256.
+      # Filter to an intent-relevant subset based on the user's most recent
+      # message so we never blow the cap. See Ai::ToolRelevanceFilter.
+      max_tools = max_tools_for_provider(llm_client)
+      if tools.size > max_tools
+        latest_user_message = messages.reverse.find do |m|
+          (m[:role] || m["role"])&.to_s == "user"
+        end
+        user_content = latest_user_message&.dig(:content) || latest_user_message&.dig("content")
+        before_count = tools.size
+        tools = ::Ai::ToolRelevanceFilter.filter(tools, user_message: user_content, max_tools: max_tools)
+        Rails.logger.info "[AgentToolBridge] Tool relevance filter: #{before_count} → #{tools.size} (cap=#{max_tools})"
+      end
+
       max_iter = max_iterations
       iteration = 0
       accumulated_usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
       tool_calls_log = []
+      # Surface non-truncated results for tools whitelisted in CARD_TOOLS.
+      # Frontend reads these from message.content_metadata.cards.
+      chat_cards = []
 
       tool_names = tools.map { |t| t[:name] || t.dig(:function, :name) }.compact
       Rails.logger.info "[AgentToolBridge] Starting loop: model=#{model} tools=#{tool_names.length} (#{tool_names.join(', ')}) messages=#{messages.length} system_prompt_length=#{opts[:system_prompt]&.length}"
@@ -124,6 +181,7 @@ module Ai
             content: response.content,
             usage: accumulated_usage,
             tool_calls_log: tool_calls_log,
+            chat_cards: chat_cards,
             finish_reason: response.finish_reason
           }
         end
@@ -134,7 +192,7 @@ module Ai
           tool_call_id = tool_call[:id] || tool_call["id"] || SecureRandom.uuid
           call_start = Time.current
 
-          result_json = dispatch_tool_call(tool_call)
+          result_json, full_result = dispatch_tool_call_capturing(tool_call)
           call_duration_ms = ((Time.current - call_start) * 1000).round
 
           tool_calls_log << {
@@ -142,6 +200,19 @@ module Ai
             duration_ms: call_duration_ms,
             result_preview: result_json.to_s.truncate(200)
           }
+
+          # Surface non-truncated payload as a chat card when whitelisted.
+          card_kind = CARD_TOOLS[tool_name]
+          if card_kind && full_result.is_a?(Hash)
+            payload = card_payload_from_result(full_result)
+            if payload
+              chat_cards << {
+                kind: card_kind, tool: tool_name,
+                arguments: tool_call[:arguments] || tool_call["arguments"] || {},
+                payload: payload
+              }
+            end
+          end
 
           Rails.logger.info "[AgentToolBridge] Tool #{tool_name} completed in #{call_duration_ms}ms"
 
@@ -156,6 +227,18 @@ module Ai
           messages << { role: "tool", tool_call_id: tool_call_id, content: result_json }
         end
       end
+    end
+
+    # Pull the structured payload out of a tool result. Tool results from the
+    # Ai::Tools::* family come in two common shapes:
+    #   - { success: true, data: {...} }    (most platform tools)
+    #   - { ...top-level payload... }       (a few legacy tools)
+    # We prefer :data when present so the frontend reads the same shape it
+    # would get from the corresponding REST endpoint.
+    def card_payload_from_result(result)
+      return nil unless result.is_a?(Hash)
+      return nil if result[:success] == false || result["success"] == false
+      result[:data] || result["data"] || result
     end
 
     # Extended agentic loop with optional reasoning, reflection, and evaluation.

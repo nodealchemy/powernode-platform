@@ -35,7 +35,10 @@ module Ai
         return if performed?
       end
     rescue ActiveRecord::RecordNotFound
-      render_error("Agent not found", status: :not_found)
+      # Mirrors the wording used by action-body rescues in send_message /
+      # messages / clear_messages so the operator sees the same error
+      # regardless of which layer caught the missing-agent case.
+      render_error("Agent or conversation not found", status: :not_found)
     end
 
     def conversation_params
