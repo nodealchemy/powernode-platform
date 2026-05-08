@@ -398,7 +398,7 @@ test.describe('AI Provisioning Plan Review (M1+M2)', () => {
   });
 
   test('side-business persona prompt → plan review modal renders all three previews', async ({ page }) => {
-    await page.goto('/new', { waitUntil: 'load' });
+    await page.goto('/app/system/provision', { waitUntil: 'load' });
 
     // Chat surface ready (ProvisioningPage bootstrap completed via mock).
     const input = page.getByTestId('chat-input');

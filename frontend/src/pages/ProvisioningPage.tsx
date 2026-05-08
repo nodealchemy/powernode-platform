@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, Server } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Loader2, Server, X } from 'lucide-react';
 import { ProjectProvisioningChat } from '@/features/ai/provisioning/ProjectProvisioningChat';
 import { ProvisioningPlanReview } from '@/features/ai/provisioning/ProvisioningPlanReview';
 import { ExecutionPill } from '@/features/ai/provisioning/ExecutionPill';
@@ -41,6 +42,13 @@ interface ApiEnvelope<T> {
  *       → onReject / onClose → return to chat
  */
 export const ProvisioningPage: React.FC = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // Allow deep-linking to a specific mission (e.g. from a Concierge chat
+  // card "Open in provisioning"). When present, the page auto-fetches that
+  // mission's plan instead of waiting for the chat to surface plan_ready.
+  const initialMissionId = searchParams.get('mission_id');
+
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversationError, setConversationError] = useState<string | null>(null);
 
@@ -116,6 +124,18 @@ export const ProvisioningPage: React.FC = () => {
       setPlanLoading(false);
     }
   }, []);
+
+  // ------------------------------------------------------------------ //
+  // Deep-link bootstrap: when arriving via /app/system/provision?mission_id=X
+  // (e.g. from a card click in the standard concierge chat), auto-fetch and
+  // open the plan for that mission. Runs once on mount; ignored if no
+  // mission_id was passed.
+  // ------------------------------------------------------------------ //
+  useEffect(() => {
+    if (!initialMissionId || !conversationId) return;
+    void handleOpenPlan(initialMissionId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialMissionId, conversationId]);
 
   // ------------------------------------------------------------------ //
   // Plan review actions
@@ -214,6 +234,15 @@ export const ProvisioningPage: React.FC = () => {
       <header className="border-b border-theme bg-theme-surface px-4 py-3 flex items-center gap-2">
         <Server className="h-5 w-5 text-theme-interactive-primary" aria-hidden="true" />
         <h1 className="text-base font-semibold text-theme-primary">Provision a new project</h1>
+        <button
+          type="button"
+          onClick={() => navigate('/app')}
+          className="ml-auto rounded p-1.5 text-theme-tertiary hover:bg-theme-background-secondary hover:text-theme-primary"
+          aria-label="Close provisioning page"
+          data-testid="provisioning-page-close"
+        >
+          <X className="h-4 w-4" aria-hidden="true" />
+        </button>
       </header>
 
       <main className="flex-1 overflow-hidden p-4">

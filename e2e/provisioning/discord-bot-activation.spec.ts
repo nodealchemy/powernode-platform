@@ -439,7 +439,7 @@ test.describe('M1 Self-Serve — Discord Bot Activation Funnel', () => {
     // business/* e2e suites and the controller specs; the M1 entry point
     // is /new with a valid session, so we go straight there using the
     // logged-in storage state from global-setup.
-    await page.goto('/new', { waitUntil: 'load' });
+    await page.goto('/app/system/provision', { waitUntil: 'load' });
 
     const input = page.getByTestId('chat-input');
     await expect(input).toBeVisible({ timeout: 15000 });
@@ -528,7 +528,7 @@ test.describe('M1 Self-Serve — Discord Bot Activation Funnel', () => {
   test('paywall: 2nd provision attempt on free tier renders UpgradeRequiredCard', async ({ page }) => {
     await stubActivationApis(page, { upgradeRequired: true });
 
-    await page.goto('/new', { waitUntil: 'load' });
+    await page.goto('/app/system/provision', { waitUntil: 'load' });
 
     const input = page.getByTestId('chat-input');
     await expect(input).toBeVisible({ timeout: 15000 });

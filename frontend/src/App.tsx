@@ -96,7 +96,7 @@ const OnboardingGate: React.FC<{ children: React.ReactElement }> = ({ children }
     return <LoadingSpinner message="Checking setup…" />;
   }
   if (status === 'redirect') {
-    return <Navigate to="/onboarding" replace />;
+    return <Navigate to="/app/onboarding" replace />;
   }
   return children;
 };
@@ -347,6 +347,36 @@ const AppContent: React.FC = () => {
             element={<OAuthConsentPage />}
           />
 
+          {/* First-run onboarding wizard. Registered before /app/* so it
+              renders standalone (no DashboardPage shell) — the wizard is
+              its own full-screen flow. Reachable from OnboardingGate or
+              directly when an operator wants to re-run setup. */}
+          <Route
+            path="/app/onboarding"
+            element={
+              <ProtectedRoute requireEmailVerification>
+                <React.Suspense fallback={<LoadingSpinner message="Loading setup…" />}>
+                  <FirstRunWizard />
+                </React.Suspense>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* AI provisioning chat (System extension). Registered before
+              /app/* so it renders standalone with its own layout. */}
+          <Route
+            path="/app/system/provision"
+            element={
+              <ProtectedRoute requireEmailVerification>
+                <OnboardingGate>
+                  <React.Suspense fallback={<LoadingSpinner message="Loading provisioning…" />}>
+                    <ProvisioningPage />
+                  </React.Suspense>
+                </OnboardingGate>
+              </ProtectedRoute>
+            }
+          />
+
           {/* Legacy dashboard redirect */}
           <Route
             path="/dashboard/*"
@@ -359,20 +389,6 @@ const AppContent: React.FC = () => {
                 <OnboardingGate>
                   <DashboardPage />
                 </OnboardingGate>
-              </ProtectedRoute>
-            }
-          />
-
-          {/* First-run BYOC onboarding wizard (M2). Reachable from the
-              OnboardingGate redirect or directly when an operator wants to
-              re-run setup. */}
-          <Route
-            path="/onboarding"
-            element={
-              <ProtectedRoute requireEmailVerification>
-                <React.Suspense fallback={<LoadingSpinner message="Loading setup…" />}>
-                  <FirstRunWizard />
-                </React.Suspense>
               </ProtectedRoute>
             }
           />
@@ -428,20 +444,6 @@ const AppContent: React.FC = () => {
             element={
               <ProtectedRoute>
                 <DetachedChatPage />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* AI Provisioning entry point (M1 chat → plan review → execution) */}
-          <Route
-            path="/new"
-            element={
-              <ProtectedRoute requireEmailVerification>
-                <OnboardingGate>
-                  <React.Suspense fallback={<LoadingSpinner message="Loading provisioning…" />}>
-                    <ProvisioningPage />
-                  </React.Suspense>
-                </OnboardingGate>
               </ProtectedRoute>
             }
           />

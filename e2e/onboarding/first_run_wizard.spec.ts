@@ -133,10 +133,10 @@ test.describe('M2 BYOC First-Run Wizard', () => {
     // loads in test mode — they don't affect the gate logic.
     page.on('pageerror', () => {});
 
-    // OnboardingGate is wired into /new (and the rest of /app) but the
-    // /onboarding route itself doesn't gate. We hit /new so the gate fires
-    // and observe the redirect.
-    await page.goto('/new');
+    // OnboardingGate is wired into /app/system/provision (and the rest of
+    // /app) but the /app/onboarding route itself doesn't gate. We hit the
+    // gated provisioning route so the gate fires and observe the redirect.
+    await page.goto('/app/system/provision');
     await page.waitForURL(/\/onboarding/, { timeout: 15000 });
 
     // ---- Step 1 — welcome -------------------------------------------------
@@ -197,7 +197,7 @@ test.describe('M2 BYOC First-Run Wizard', () => {
     await page.waitForURL(/\/new/, { timeout: 15000 });
 
     // ---- Second visit — should NOT redirect ------------------------------
-    await page.goto('/new');
+    await page.goto('/app/system/provision');
     // Give the gate a beat to run; if it were going to bounce, it would have
     // by now. We don't have a deterministic "gate done" event so we
     // explicitly assert we're still at /new and the wizard's testid is gone.
@@ -215,7 +215,7 @@ test.describe('M2 BYOC First-Run Wizard', () => {
     await stubOnboardingApis(page, () => status);
     page.on('pageerror', () => {});
 
-    await page.goto('/onboarding');
+    await page.goto('/app/onboarding');
     await page.getByTestId('first-run-next-btn').click();
     await page.getByTestId('first-run-provider-vultr').click();
     await page.getByTestId('first-run-next-btn').click();
