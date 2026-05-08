@@ -5,20 +5,16 @@ import { logger } from '@/shared/utils/logger';
 import apiClient from '@/shared/services/apiClient';
 
 /**
- * Provider type slugs supported by M2 BYOC.
+ * Provider categories supported by the unified onboarding wizard.
  *
- * Slice C / the Rails `ProviderCredentialsController#test` endpoint accepts
- * either a Provider record UUID or — during first-run onboarding when no
- * Provider exists yet — the slug surfaced here.
+ * Each category routes to a different credential-create surface:
+ *   - ai:    POST /ai/providers + POST /ai/providers/:id/credentials
+ *   - cloud: POST /system/provider_credentials (auto-creates provider)
+ *   - git:   POST /git/providers + POST /git/providers/:id/credentials
  */
-export type OnboardingProviderType =
-  | 'aws'
-  | 'hetzner'
-  | 'digitalocean'
-  | 'vultr'
-  | 'gcp'
-  | 'azure'
-  | 'localqemu';
+export type ProviderCategory = 'ai' | 'cloud' | 'git';
+
+export type ProviderTypeSlug = string;
 
 export type ProviderCredentialValues = Record<string, string>;
 
@@ -42,117 +38,234 @@ export interface ProviderFieldDef {
 }
 
 /**
- * Per-provider credential field schemas. Mirrors the BYOC contract documented in
- * `docs/m1_selfserve_acceptance.md` and the Slice C `CredentialValidationService`.
+ * Per-category, per-provider field schemas. Keyed first by category so the
+ * wizard's category-step picks the right set, then by provider-type slug.
  *
- * Order matters — fields render top-to-bottom in this order.
+ * Order within each category matters — fields render top-to-bottom in this order.
  */
-export const PROVIDER_FIELD_SCHEMAS: Record<OnboardingProviderType, ProviderFieldDef[]> = {
-  aws: [
-    {
-      key: 'access_key_id',
-      label: 'Access Key ID',
-      type: 'text',
-      placeholder: 'AKIA…',
-      required: true,
-    },
-    {
-      key: 'secret_access_key',
-      label: 'Secret Access Key',
-      type: 'password',
-      required: true,
-    },
-    {
-      key: 'region',
-      label: 'Default Region',
-      type: 'text',
-      defaultValue: 'us-east-1',
-      required: true,
-    },
-  ],
-  hetzner: [
-    {
-      key: 'api_token',
-      label: 'API Token',
-      type: 'password',
-      placeholder: 'Generated under Hetzner Cloud Console → Security',
-      required: true,
-    },
-  ],
-  digitalocean: [
-    {
-      key: 'personal_access_token',
-      label: 'Personal Access Token',
-      type: 'password',
-      placeholder: 'dop_v1_…',
-      required: true,
-    },
-  ],
-  vultr: [
-    {
-      key: 'api_key',
-      label: 'API Key',
-      type: 'password',
-      required: true,
-    },
-  ],
-  gcp: [
-    {
-      key: 'service_account_json',
-      label: 'Service Account JSON',
-      type: 'textarea',
-      placeholder: '{ "type": "service_account", … }',
-      helper: 'Paste the full JSON key downloaded from IAM → Service Accounts.',
-      required: true,
-      jsonValidate: true,
-    },
-  ],
-  azure: [
-    {
-      key: 'tenant_id',
-      label: 'Tenant ID',
-      type: 'text',
-      required: true,
-    },
-    {
-      key: 'client_id',
-      label: 'Client ID',
-      type: 'text',
-      required: true,
-    },
-    {
-      key: 'client_secret',
-      label: 'Client Secret',
-      type: 'password',
-      required: true,
-    },
-    {
-      key: 'subscription_id',
-      label: 'Subscription ID',
-      type: 'text',
-      required: true,
-    },
-  ],
-  localqemu: [
-    {
-      key: 'libvirt_uri',
-      label: 'Libvirt Connection URI',
-      type: 'text',
-      defaultValue: 'qemu:///system',
-      helper: 'Local QEMU/KVM is the default smoke-test provider — no remote credentials needed.',
-      required: false,
-    },
-  ],
+export const PROVIDER_FIELD_SCHEMAS: Record<ProviderCategory, Record<ProviderTypeSlug, ProviderFieldDef[]>> = {
+  ai: {
+    anthropic: [
+      {
+        key: 'api_key',
+        label: 'API Key',
+        type: 'password',
+        placeholder: 'sk-ant-…',
+        helper: 'Generated under console.anthropic.com → Settings → API Keys.',
+        required: true,
+      },
+      {
+        key: 'default_model',
+        label: 'Default Model',
+        type: 'text',
+        defaultValue: 'claude-sonnet-4-6',
+        helper: 'Model id used by the concierge agent for chat.',
+        required: false,
+      },
+    ],
+    openai: [
+      {
+        key: 'api_key',
+        label: 'API Key',
+        type: 'password',
+        placeholder: 'sk-…',
+        required: true,
+      },
+      {
+        key: 'organization_id',
+        label: 'Organization ID',
+        type: 'text',
+        placeholder: 'org-… (optional)',
+        required: false,
+      },
+      {
+        key: 'default_model',
+        label: 'Default Model',
+        type: 'text',
+        defaultValue: 'gpt-4o',
+        required: false,
+      },
+    ],
+    ollama: [
+      {
+        key: 'base_url',
+        label: 'Ollama Base URL',
+        type: 'text',
+        defaultValue: 'http://localhost:11434',
+        helper: 'Self-hosted Ollama instance — no remote credentials needed.',
+        required: false,
+      },
+      {
+        key: 'default_model',
+        label: 'Default Model',
+        type: 'text',
+        defaultValue: 'llama3',
+        required: false,
+      },
+    ],
+  },
+  cloud: {
+    aws: [
+      {
+        key: 'access_key_id',
+        label: 'Access Key ID',
+        type: 'text',
+        placeholder: 'AKIA…',
+        required: true,
+      },
+      {
+        key: 'secret_access_key',
+        label: 'Secret Access Key',
+        type: 'password',
+        required: true,
+      },
+      {
+        key: 'region',
+        label: 'Default Region',
+        type: 'text',
+        defaultValue: 'us-east-1',
+        required: true,
+      },
+    ],
+    hetzner: [
+      {
+        key: 'api_token',
+        label: 'API Token',
+        type: 'password',
+        placeholder: 'Generated under Hetzner Cloud Console → Security',
+        required: true,
+      },
+    ],
+    digitalocean: [
+      {
+        key: 'personal_access_token',
+        label: 'Personal Access Token',
+        type: 'password',
+        placeholder: 'dop_v1_…',
+        required: true,
+      },
+    ],
+    vultr: [
+      {
+        key: 'api_key',
+        label: 'API Key',
+        type: 'password',
+        required: true,
+      },
+    ],
+    gcp: [
+      {
+        key: 'service_account_json',
+        label: 'Service Account JSON',
+        type: 'textarea',
+        placeholder: '{ "type": "service_account", … }',
+        helper: 'Paste the full JSON key downloaded from IAM → Service Accounts.',
+        required: true,
+        jsonValidate: true,
+      },
+    ],
+    azure: [
+      {
+        key: 'tenant_id',
+        label: 'Tenant ID',
+        type: 'text',
+        required: true,
+      },
+      {
+        key: 'client_id',
+        label: 'Client ID',
+        type: 'text',
+        required: true,
+      },
+      {
+        key: 'client_secret',
+        label: 'Client Secret',
+        type: 'password',
+        required: true,
+      },
+      {
+        key: 'subscription_id',
+        label: 'Subscription ID',
+        type: 'text',
+        required: true,
+      },
+    ],
+    local_qemu: [
+      {
+        key: 'libvirt_uri',
+        label: 'Libvirt Connection URI',
+        type: 'text',
+        defaultValue: 'qemu:///system',
+        helper: 'Connects to your local KVM/QEMU hypervisor — no remote credentials needed.',
+        required: false,
+      },
+    ],
+  },
+  git: {
+    github: [
+      {
+        key: 'personal_access_token',
+        label: 'Personal Access Token',
+        type: 'password',
+        placeholder: 'ghp_…',
+        helper: 'Fine-grained PAT with repo + workflow scopes.',
+        required: true,
+      },
+    ],
+    gitea: [
+      {
+        key: 'base_url',
+        label: 'Gitea Base URL',
+        type: 'text',
+        placeholder: 'https://git.example.com',
+        required: true,
+      },
+      {
+        key: 'access_token',
+        label: 'Access Token',
+        type: 'password',
+        required: true,
+      },
+    ],
+    gitlab: [
+      {
+        key: 'base_url',
+        label: 'GitLab Base URL',
+        type: 'text',
+        defaultValue: 'https://gitlab.com',
+        required: false,
+      },
+      {
+        key: 'access_token',
+        label: 'Personal Access Token',
+        type: 'password',
+        placeholder: 'glpat-…',
+        required: true,
+      },
+    ],
+  },
 };
 
-export const PROVIDER_LABELS: Record<OnboardingProviderType, string> = {
-  aws: 'Amazon Web Services',
-  hetzner: 'Hetzner Cloud',
-  digitalocean: 'DigitalOcean',
-  vultr: 'Vultr',
-  gcp: 'Google Cloud Platform',
-  azure: 'Microsoft Azure',
-  localqemu: 'LocalQemu (smoke test)',
+export const PROVIDER_LABELS: Record<ProviderCategory, Record<ProviderTypeSlug, string>> = {
+  ai: {
+    anthropic: 'Anthropic Claude',
+    openai: 'OpenAI',
+    ollama: 'Ollama (self-hosted)',
+  },
+  cloud: {
+    aws: 'Amazon Web Services',
+    hetzner: 'Hetzner Cloud',
+    digitalocean: 'DigitalOcean',
+    vultr: 'Vultr',
+    gcp: 'Google Cloud Platform',
+    azure: 'Microsoft Azure',
+    local_qemu: 'Local KVM/QEMU',
+  },
+  git: {
+    github: 'GitHub',
+    gitea: 'Gitea',
+    gitlab: 'GitLab',
+  },
 };
 
 interface TestResponseEnvelope {
@@ -164,12 +277,14 @@ interface TestResponseEnvelope {
 export type CredentialTestStatus = 'idle' | 'testing' | 'valid' | 'invalid';
 
 export interface ProviderCredentialFormProps {
-  /** Provider type slug — selects the field schema. */
-  providerType: OnboardingProviderType;
+  /** Provider category — selects the schema set. */
+  category: ProviderCategory;
+  /** Provider type slug within the category (e.g. 'aws' under 'cloud'). */
+  providerType: ProviderTypeSlug;
   /**
-   * Optional provider_id sent in the test/save payload. When the wizard is used
-   * in first-run mode no Provider record exists yet, so we fall back to the
-   * provider type slug; Slice C accepts either form.
+   * Optional provider_id sent in the test/save payload. When the wizard is
+   * used in first-run mode no Provider record exists yet, so we fall back
+   * to the provider type slug; the cloud surface accepts either form.
    */
   providerId?: string;
   /** Initial credential values (e.g., when editing an existing record). */
@@ -178,7 +293,11 @@ export interface ProviderCredentialFormProps {
   onChange?: (values: ProviderCredentialValues, isValid: boolean) => void;
   /** Notified when the credential test transitions; useful for save-button gating. */
   onTestStatusChange?: (status: CredentialTestStatus) => void;
-  /** Optional override for the "Test credentials" endpoint (defaults to BYOC contract). */
+  /**
+   * Optional override for the "Test credentials" endpoint. Defaults to the
+   * cloud-provider test endpoint; AI and Git categories don't currently
+   * expose a parallel test surface, so the wizard hides the button there.
+   */
   testEndpoint?: string;
   /** Compact form variant suppresses the description block. */
   compact?: boolean;
@@ -226,17 +345,19 @@ const buildInitialValues = (
 };
 
 /**
- * ProviderCredentialForm — dynamic per-provider credential entry component.
+ * ProviderCredentialForm — dynamic per-(category, provider) credential entry.
  *
- * Renders a field schema selected by `providerType`, validates required fields
- * client-side, and wires a "Test credentials" CTA that calls the BYOC
- * `POST /api/v1/system/provider_credentials/test` endpoint owned by Slice C.
+ * Renders a field schema selected by `(category, providerType)`, validates
+ * required fields client-side, and wires a "Test credentials" CTA that calls
+ * the cloud-category test endpoint when applicable.
  *
- * The component is controlled by the parent via `onChange` so the FirstRunWizard
- * can persist values between steps. The internal `testStatus` is also lifted via
- * `onTestStatusChange` so the wizard can require a green check before "Save".
+ * The component is controlled by the parent via `onChange` so the
+ * FirstRunWizard can persist values between steps. The internal `testStatus`
+ * is also lifted via `onTestStatusChange` so the wizard can require a green
+ * check before "Save" for categories that support testing.
  */
 export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
+  category,
   providerType,
   providerId,
   initialValues,
@@ -247,7 +368,8 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
   hideTestButton = false,
   className = '',
 }) => {
-  const fields = PROVIDER_FIELD_SCHEMAS[providerType];
+  const fields = PROVIDER_FIELD_SCHEMAS[category]?.[providerType] ?? [];
+  const providerLabel = PROVIDER_LABELS[category]?.[providerType] ?? providerType;
 
   const [values, setValues] = useState<ProviderCredentialValues>(() =>
     buildInitialValues(fields, initialValues)
@@ -256,15 +378,16 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
   const [testStatus, setTestStatus] = useState<CredentialTestStatus>('idle');
   const [testMessage, setTestMessage] = useState<string | null>(null);
 
-  // Reset values + status whenever the schema (provider) changes — guards against
-  // stale credentials from a previously-selected provider polluting the new payload.
+  // Reset values + status whenever the schema (category/provider) changes — guards
+  // against stale credentials from a previously-selected provider polluting the
+  // new payload.
   useEffect(() => {
     setValues(buildInitialValues(fields, initialValues));
     setTouched({});
     setTestStatus('idle');
     setTestMessage(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [providerType]);
+  }, [category, providerType]);
 
   const { isValid, errors } = useMemo(() => computeValidity(fields, values), [fields, values]);
 
@@ -279,7 +402,6 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
 
   const handleChange = (key: string, next: string) => {
     setValues((prev) => ({ ...prev, [key]: next }));
-    // Any edit invalidates a previous green check — operator must re-test.
     if (testStatus !== 'idle') {
       setTestStatus('idle');
       setTestMessage(null);
@@ -292,7 +414,6 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
 
   const handleTest = async () => {
     if (!isValid) {
-      // Mark every field as touched so the inline errors render.
       const allTouched: Record<string, boolean> = {};
       fields.forEach((f) => {
         allTouched[f.key] = true;
@@ -306,6 +427,7 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
       const response = await apiClient.post<TestResponseEnvelope>(testEndpoint, {
         provider_id: providerId ?? providerType,
         provider_type: providerType,
+        provider_category: category,
         credentials: values,
       });
       const envelope = response.data ?? {};
@@ -319,6 +441,7 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
       }
     } catch (err) {
       logger.error('ProviderCredentialForm: credential test failed', err, {
+        category,
         providerType,
       });
       setTestStatus('invalid');
@@ -329,7 +452,7 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
   };
 
   const renderField = (field: ProviderFieldDef): React.ReactElement => {
-    const fieldId = `provider-cred-${providerType}-${field.key}`;
+    const fieldId = `provider-cred-${category}-${providerType}-${field.key}`;
     const errorMsg = touched[field.key] ? errors[field.key] : undefined;
     const commonProps = {
       id: fieldId,
@@ -395,7 +518,7 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
   return (
     <div
       className={`space-y-4 ${className}`.trim()}
-      data-testid={`provider-credential-form-${providerType}`}
+      data-testid={`provider-credential-form-${category}-${providerType}`}
     >
       {!compact && (
         <div className="flex items-start gap-2 rounded-lg border border-theme bg-theme-info/10 px-3 py-2 text-xs text-theme-secondary">
@@ -435,7 +558,7 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
               data-testid="provider-cred-test-success"
             >
               <CheckCircle2 className="h-4 w-4" />
-              Credentials accepted by {PROVIDER_LABELS[providerType]}.
+              Credentials accepted by {providerLabel}.
             </span>
           )}
 

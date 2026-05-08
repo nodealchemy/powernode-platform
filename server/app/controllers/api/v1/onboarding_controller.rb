@@ -41,19 +41,38 @@ class Api::V1::OnboardingController < ApplicationController
   private
 
   def status_payload(account)
+    categories = category_states(account)
     {
       completed: account.onboarding_completed?,
-      has_credentials: account_has_active_credentials?(account),
-      completed_at: account.onboarding_completed_at&.iso8601
+      # Aggregate convenience flag — true when ANY category has at least one
+      # active credential. Pre-cascade callers consume this; the wizard reads
+      # `categories` directly for per-step skip decisions.
+      has_credentials: categories.values.any? { |c| c[:has_credentials] },
+      completed_at: account.onboarding_completed_at&.iso8601,
+      categories: categories
     }
   end
 
-  # System extension may be disabled in core mode — guard the
-  # association lookup so the endpoint stays usable for self-hosted
-  # installs that haven't pulled the System extension.
-  def account_has_active_credentials?(account)
-    return false unless account.respond_to?(:system_provider_credentials)
-    account.system_provider_credentials.where(is_active: true).exists?
+  # Per-category credential state used by the FirstRunWizard's smart-skip
+  # logic. Each category is guarded by `respond_to?` so the endpoint stays
+  # usable in core mode (System extension disabled) and on self-hosted
+  # installs that haven't pulled all extensions.
+  def category_states(account)
+    {
+      ai: credential_state(account, :ai_provider_credentials),
+      cloud: credential_state(account, :system_provider_credentials),
+      git: credential_state(account, :git_provider_credentials)
+    }
+  end
+
+  def credential_state(account, association_name)
+    return { has_credentials: false, count: 0, available: false } unless account.respond_to?(association_name)
+
+    scope = account.public_send(association_name)
+    scope = scope.where(is_active: true) if scope.model.column_names.include?("is_active")
+    count = scope.count
+
+    { has_credentials: count.positive?, count: count, available: true }
   end
 
   # Account.after_create_commit already ran AccountBootstrapService,

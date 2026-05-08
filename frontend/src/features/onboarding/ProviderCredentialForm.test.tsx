@@ -21,7 +21,7 @@ beforeEach(() => {
 
 describe('ProviderCredentialForm', () => {
   it('renders the AWS field schema with the default us-east-1 region prefilled', () => {
-    render(<ProviderCredentialForm providerType="aws" />);
+    render(<ProviderCredentialForm category="cloud" providerType="aws" />);
     expect(screen.getByTestId('provider-cred-field-access_key_id')).toBeInTheDocument();
     expect(screen.getByTestId('provider-cred-field-secret_access_key')).toBeInTheDocument();
     const region = screen.getByTestId('provider-cred-field-region') as HTMLInputElement;
@@ -30,32 +30,32 @@ describe('ProviderCredentialForm', () => {
   });
 
   it('renders the Hetzner schema with only an api_token field', () => {
-    render(<ProviderCredentialForm providerType="hetzner" />);
+    render(<ProviderCredentialForm category="cloud" providerType="hetzner" />);
     expect(screen.getByTestId('provider-cred-field-api_token')).toBeInTheDocument();
     expect(screen.queryByTestId('provider-cred-field-access_key_id')).toBeNull();
   });
 
   it('renders the Azure schema with all four service-principal fields', () => {
-    render(<ProviderCredentialForm providerType="azure" />);
+    render(<ProviderCredentialForm category="cloud" providerType="azure" />);
     ['tenant_id', 'client_id', 'client_secret', 'subscription_id'].forEach((key) => {
       expect(screen.getByTestId(`provider-cred-field-${key}`)).toBeInTheDocument();
     });
   });
 
   it('renders the GCP schema as a textarea for the service account JSON', () => {
-    render(<ProviderCredentialForm providerType="gcp" />);
+    render(<ProviderCredentialForm category="cloud" providerType="gcp" />);
     const textarea = screen.getByTestId('provider-cred-field-service_account_json');
     expect(textarea.tagName).toBe('TEXTAREA');
   });
 
   it('renders the LocalQemu schema with the libvirt URI prefilled', () => {
-    render(<ProviderCredentialForm providerType="localqemu" />);
+    render(<ProviderCredentialForm category="cloud" providerType="local_qemu" />);
     const uri = screen.getByTestId('provider-cred-field-libvirt_uri') as HTMLInputElement;
     expect(uri.value).toBe('qemu:///system');
   });
 
   it('disables the Test button until all required fields are populated', () => {
-    render(<ProviderCredentialForm providerType="aws" />);
+    render(<ProviderCredentialForm category="cloud" providerType="aws" />);
     const testBtn = screen.getByTestId('provider-cred-test-btn');
     expect(testBtn).toBeDisabled();
 
@@ -69,7 +69,7 @@ describe('ProviderCredentialForm', () => {
   });
 
   it('flags an inline error when GCP service account JSON is malformed', () => {
-    render(<ProviderCredentialForm providerType="gcp" />);
+    render(<ProviderCredentialForm category="cloud" providerType="gcp" />);
     const textarea = screen.getByTestId('provider-cred-field-service_account_json');
     fireEvent.change(textarea, { target: { value: 'not-json' } });
     fireEvent.blur(textarea);
@@ -79,7 +79,7 @@ describe('ProviderCredentialForm', () => {
 
   it('POSTs to the BYOC test endpoint with provider_id + credentials and renders success', async () => {
     mockPost.mockResolvedValueOnce({ data: { data: { valid: true } } });
-    render(<ProviderCredentialForm providerType="hetzner" />);
+    render(<ProviderCredentialForm category="cloud" providerType="hetzner" />);
 
     fireEvent.change(screen.getByTestId('provider-cred-field-api_token'), {
       target: { value: 'token-abc' },
@@ -105,7 +105,7 @@ describe('ProviderCredentialForm', () => {
     mockPost.mockResolvedValueOnce({
       data: { data: { valid: false, error: 'AccessDenied' } },
     });
-    render(<ProviderCredentialForm providerType="vultr" />);
+    render(<ProviderCredentialForm category="cloud" providerType="vultr" />);
     fireEvent.change(screen.getByTestId('provider-cred-field-api_key'), {
       target: { value: 'bad-key' },
     });
@@ -119,7 +119,7 @@ describe('ProviderCredentialForm', () => {
   it('uses providerId override in the test payload when present', async () => {
     mockPost.mockResolvedValueOnce({ data: { data: { valid: true } } });
     render(
-      <ProviderCredentialForm providerType="aws" providerId="11111111-2222-3333-4444-555555555555" />
+      <ProviderCredentialForm category="cloud" providerType="aws" providerId="11111111-2222-3333-4444-555555555555" />
     );
 
     fireEvent.change(screen.getByTestId('provider-cred-field-access_key_id'), {
@@ -146,6 +146,7 @@ describe('ProviderCredentialForm', () => {
     const onTestStatus = jest.fn();
     render(
       <ProviderCredentialForm
+        category="cloud"
         providerType="hetzner"
         onTestStatusChange={onTestStatus}
       />
