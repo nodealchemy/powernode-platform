@@ -26,6 +26,7 @@ import { ChatStreamingRenderer } from '@/features/ai/chat/components/ChatStreami
 import { MessageEditor } from '@/features/ai/chat/components/MessageEditor';
 import { PlanApprovalActions } from '@/features/ai/chat/components/PlanApprovalActions';
 import { ConciergeActionCard } from '@/features/ai/chat/components/ConciergeActionCard';
+import { ChatProvisioningCardSlot } from '@/features/ai/provisioning/ChatProvisioningCardSlot';
 import type { AiMessage } from '@/shared/types/ai';
 import { cleanMessageContent, formatTimestamp, parseMentions } from './utils';
 
@@ -401,6 +402,18 @@ export const MessageList = React.memo<MessageListProps>(({
               onConfirmed={onConciergeConfirm}
             />
           )}
+
+          {/* Provisioning chat cards — surfaced from Concierge tool results
+              via assistant_message.content_metadata.cards (see backend
+              Ai::AgentToolBridge::CARD_TOOLS). Each card renders a compact
+              inline preview with a deep-link to /app/system/provision. */}
+          {isAI && message.metadata?.cards?.length ? (
+            <div className="space-y-2">
+              {message.metadata.cards.map((card, i) => (
+                <ChatProvisioningCardSlot key={`${card.kind}-${i}`} card={card} />
+              ))}
+            </div>
+          ) : null}
 
           {/* Message action bar */}
           {!isProcessing && !isEditing && (

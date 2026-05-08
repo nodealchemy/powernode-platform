@@ -160,8 +160,12 @@ export const ProvisioningPlanReview: React.FC<ProvisioningPlanReviewProps> = ({
     return `${intent} · ${regions} · ${budget}`;
   }, [brief]);
 
-  const monthlyTotal = plan.cost_estimate.monthly_usd;
-  const oneTimeTotal = plan.cost_estimate.one_time_usd;
+  // Defensive — partial plans (e.g. server-side compose_plan returning early
+  // before cost/topology/risk are filled) may be missing these blocks. The
+  // body renders placeholders below when they're undefined; here we only need
+  // the totals for the footer summary, so coerce to zero.
+  const monthlyTotal = plan.cost_estimate?.monthly_usd ?? 0;
+  const oneTimeTotal = plan.cost_estimate?.one_time_usd ?? 0;
 
   const footer = (
     <div className="flex flex-1 flex-wrap items-center gap-2 justify-end">
@@ -212,7 +216,7 @@ export const ProvisioningPlanReview: React.FC<ProvisioningPlanReviewProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Review provisioning plan"
-      subtitle={briefSummary ?? `Plan ${plan.plan_id.slice(0, 8)}`}
+      subtitle={briefSummary ?? `Plan ${plan.plan_id?.slice(0, 8) ?? '(pending)'}`}
       icon={<ShieldCheck />}
       maxWidth="5xl"
       footer={footer}
@@ -265,18 +269,36 @@ export const ProvisioningPlanReview: React.FC<ProvisioningPlanReviewProps> = ({
 
           <section data-testid="provisioning-topology">
             <h4 className="text-sm font-semibold text-theme-primary mb-2">Topology preview</h4>
-            <StackTopologyPreview
-              topology={plan.topology_preview}
-              width="100%"
-              height={320}
-              className="w-full"
-            />
+            {plan.topology_preview ? (
+              <StackTopologyPreview
+                topology={plan.topology_preview}
+                width="100%"
+                height={320}
+                className="w-full"
+              />
+            ) : (
+              <p className="text-xs text-theme-tertiary italic">
+                Topology not yet available — backend returned a partial plan.
+              </p>
+            )}
           </section>
         </div>
 
         {/* Cost + risk row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <CostBreakdown estimate={plan.cost_estimate} />
+          {plan.cost_estimate ? (
+            <CostBreakdown estimate={plan.cost_estimate} />
+          ) : (
+            <section
+              className="rounded-lg border border-theme bg-theme-surface p-4"
+              data-testid="provisioning-cost-missing"
+            >
+              <h4 className="text-sm font-semibold text-theme-primary mb-2">Cost estimate</h4>
+              <p className="text-xs text-theme-tertiary italic">
+                Cost estimate not yet computed.
+              </p>
+            </section>
+          )}
           <section
             className="rounded-lg border border-theme bg-theme-surface p-4"
             data-testid="provisioning-risk"
@@ -286,15 +308,19 @@ export const ProvisioningPlanReview: React.FC<ProvisioningPlanReviewProps> = ({
                 <AlertTriangle className="w-4 h-4 text-theme-warning" />
                 <h4 className="text-sm font-semibold text-theme-primary">Risk assessment</h4>
               </div>
-              <Badge variant={RISK_VARIANT[plan.risk.severity]} size="sm">
-                {RISK_LABEL[plan.risk.severity]} · {plan.risk.score}
-              </Badge>
+              {plan.risk?.severity != null && (
+                <Badge variant={RISK_VARIANT[plan.risk.severity]} size="sm">
+                  {RISK_LABEL[plan.risk.severity]} · {plan.risk.score}
+                </Badge>
+              )}
             </div>
-            {plan.risk.factors.length === 0 ? (
+            {!plan.risk ? (
+              <p className="text-xs text-theme-tertiary italic">Risk assessment not yet computed.</p>
+            ) : plan.risk.factors?.length === 0 ? (
               <p className="text-xs text-theme-tertiary italic">No risk factors detected.</p>
             ) : (
               <ul className="space-y-2">
-                {plan.risk.factors.map((factor, idx) => (
+                {(plan.risk.factors ?? []).map((factor, idx) => (
                   <RiskChip key={`${factor.name}-${idx}`} factor={factor} />
                 ))}
               </ul>

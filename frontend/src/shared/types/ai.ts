@@ -192,6 +192,27 @@ export interface ActionContext {
   resolved_at?: string;
 }
 
+/**
+ * Rich chat card surfaced from a tool result. The Concierge writes these to
+ * `assistant_message.content_metadata.cards` whenever a whitelisted tool fires
+ * (see `Ai::AgentToolBridge::CARD_TOOLS` on the backend). The frontend reads
+ * them via `mapBackendMessage` and renders the appropriate component per `kind`.
+ */
+export type ChatCardKind =
+  | 'provisioning_brief'
+  | 'provisioning_plan'
+  | 'provisioning_plan_approved'
+  | 'provisioning_execution'
+  | 'provisioning_status'
+  | 'provisioning_adaptation';
+
+export interface ChatCard {
+  kind: ChatCardKind;
+  tool: string;
+  arguments?: Record<string, unknown>;
+  payload: Record<string, unknown>;
+}
+
 export interface AiMessage {
   id: string;
   sender_type: 'user' | 'ai' | 'system';
@@ -222,6 +243,7 @@ export interface AiMessage {
     action_context?: ActionContext;
     concierge_action?: string;
     action_params?: Record<string, unknown>;
+    cards?: ChatCard[];
     user_rating?: {
       rating: string;
       rated_at: string;

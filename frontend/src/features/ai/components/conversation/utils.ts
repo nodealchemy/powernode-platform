@@ -1,5 +1,5 @@
 import { cleanMarkdownContent } from '@/shared/utils/markdownUtils';
-import type { AiMessage, MessageAction, ActionContext } from '@/shared/types/ai';
+import type { AiMessage, MessageAction, ActionContext, ChatCard } from '@/shared/types/ai';
 
 /**
  * Clean AI streaming content to remove chunked encoding artifacts.
@@ -84,6 +84,7 @@ export const mapBackendMessage = (msg: Record<string, unknown>): AiMessage => {
         concierge_action: (msg.content_metadata as Record<string, unknown>).concierge_action as string | undefined,
         action_params: (msg.content_metadata as Record<string, unknown>).action_params as Record<string, unknown> | undefined,
         mentions: (msg.content_metadata as Record<string, unknown>).mentions as Array<{ id: string; name: string }> | undefined,
+        cards: (msg.content_metadata as Record<string, unknown>).cards as ChatCard[] | undefined,
       } : {})
     }
   };
