@@ -456,10 +456,22 @@ module Api
 
         # Look up the plan referenced by `mission.configuration["plan"]["plan_id"]`
         # — set by the chat-tool path when it composes. Avoids re-running the LLM.
+        # Runs a lazy compaction pass to fold any redundant provisioning clusters
+        # that pre-date the collapse fix, so operators see a clean plan even if
+        # the cached version was composed before the collapse logic existed.
         def existing_provisioning_plan(mission)
           plan_id = mission.configuration&.dig("plan", "plan_id")
           return nil if plan_id.blank?
-          ::Ai::GoalPlan.find_by(id: plan_id)
+          plan = ::Ai::GoalPlan.find_by(id: plan_id)
+          return nil unless plan
+
+          ::Ai::Provisioning::PlanComposerService
+            .new(account: current_account, mission: mission)
+            .compact_existing_plan!(plan)
+          plan.reload
+        rescue StandardError => e
+          Rails.logger.warn("[MissionsController] lazy plan compaction failed: #{e.class}: #{e.message}")
+          plan
         end
 
         def compose_new_provisioning_plan(mission)

@@ -152,6 +152,17 @@ module Ai
         plan
       end
 
+      # Lazy compaction for already-composed plans. Plans created before
+      # collapse_redundant_provisioning_clusters! existed (or composed when
+      # the LLM emitted a redundant tree) carry duplicate provision steps
+      # in the DB. The deep-link page returns the cached plan as-is, so
+      # operators still see the redundant rows. Calling this on read folds
+      # them in place — idempotent (no changes when the plan is already
+      # compact).
+      def compact_existing_plan!(plan)
+        collapse_consecutive_same_target_steps!(plan)
+      end
+
       # Set when #compose! aborts because of a cost-cap miss. Callers (the
       # provisioning tool, internal API) read this to render UpgradeRequiredCard.
       attr_reader :cap_exceeded_payload
