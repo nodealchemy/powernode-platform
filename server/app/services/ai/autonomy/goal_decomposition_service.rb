@@ -148,7 +148,10 @@ module Ai
         {
           agent_name: agent.name,
           agent_type: agent.agent_type,
-          capabilities: agent.capabilities,
+          capabilities: (agent.respond_to?(:capabilities) ? agent.capabilities : nil) ||
+                        agent.mcp_tool_manifest&.dig("capabilities") ||
+                        agent.mcp_metadata&.dig("capabilities") ||
+                        [],
           trust_tier: Ai::AgentTrustScore.find_by(agent_id: agent.id)&.tier || "supervised",
           budget_remaining: Ai::AgentBudget.where(agent_id: agent.id).active.first&.remaining_cents&.to_f&./(100),
           existing_sub_goals: goal.sub_goals.pluck(:title, :status)
@@ -156,6 +159,8 @@ module Ai
       end
 
       def build_decomposition_prompt(goal, context)
+        constraints_section = build_constraints_section(goal)
+
         <<~PROMPT
           Decompose this goal into executable steps (max #{MAX_STEPS}).
 
@@ -167,7 +172,7 @@ module Ai
           Agent: #{context[:agent_name]} (#{context[:agent_type]})
           Trust: #{context[:trust_tier]}
           Budget: $#{context[:budget_remaining] || 'unknown'}
-
+          #{constraints_section}
           For each step, provide:
           STEP: <number>
           TYPE: agent_execution|observation|human_review|sub_goal
@@ -178,6 +183,55 @@ module Ai
 
           Include human_review steps for high-risk operations. Keep steps atomic and ordered by dependency.
         PROMPT
+      end
+
+      # When the goal carries a provisioning brief in its success_criteria
+      # (set by Ai::Provisioning::PlanComposerService), surface its hard
+      # constraints prominently. Without this, the LLM sees the brief only
+      # as a buried JSON dump and tends to over-decompose: e.g. expanding a
+      # `scale.initial: 1` brief into 16 separate compute provisioning
+      # steps. Constraints listed here ARE binding — the prompt instructs
+      # the LLM to honor them rather than enumerate setup tasks.
+      def build_constraints_section(goal)
+        brief = goal.success_criteria.is_a?(Hash) ? (goal.success_criteria["brief"] || goal.success_criteria[:brief]) : nil
+        return "" unless brief.is_a?(Hash) && brief.any?
+
+        scale = brief["scale"] || brief[:scale] || {}
+        regions = Array(brief["regions"] || brief[:regions])
+
+        bits = []
+        if scale.is_a?(Hash)
+          initial = scale["initial"] || scale[:initial]
+          target = scale["target"] || scale[:target]
+          bits << "  - scale.initial: #{initial} (do NOT exceed this instance count)" if initial
+          bits << "  - scale.target: #{target}" if target && target != initial
+          bits << "  - scale.growth_profile: #{scale['growth_profile'] || scale[:growth_profile]}" if scale["growth_profile"] || scale[:growth_profile]
+        end
+        bits << "  - regions: #{regions.join(', ')} (only provision in these)" if regions.any?
+        if (cap = brief["budget_cap_usd_monthly"] || brief[:budget_cap_usd_monthly])
+          bits << "  - budget_cap_usd_monthly: $#{cap} (estimated cost MUST stay below this)"
+        end
+        if (compliance = Array(brief["compliance"] || brief[:compliance])).any?
+          bits << "  - compliance: #{compliance.join(', ')}"
+        end
+        if (use_case = brief["use_case"] || brief[:use_case]).is_a?(String) && use_case.size.positive?
+          bits << "  - use_case: #{use_case}"
+        end
+
+        return "" if bits.empty?
+
+        <<~SECTION
+
+          HARD CONSTRAINTS (must be honored exactly — do NOT over-decompose):
+          #{bits.join("\n")}
+
+          The plan MUST provision exactly the resources implied by scale/regions.
+          Do not add separate setup, configuration, or installation steps for
+          things the executor will handle internally — assume the skill executor
+          (e.g. `provision_full_stack`) handles the entire compute+network+module
+          composition in one step per (instance × region). For a small project,
+          ONE provisioning step plus optional verification is sufficient.
+        SECTION
       end
 
       def parse_plan_steps(response_text)

@@ -139,6 +139,15 @@ module Ai
         "kubernetes_list_nodes"                    => "Ai::Tools::KubernetesClusterTool",
         "kubernetes_decommission_cluster"          => "Ai::Tools::KubernetesProvisioningTool",
         "kubernetes_get_kubeconfig"                => "Ai::Tools::KubernetesProvisioningTool",
+        # AI-driven provisioning (Golden Eclipse M0) — natural-language conversation
+        # surface that drives capture → compose → approve → execute → adapt
+        # via the three Ai::Provisioning::* services + system_provisioning mission template.
+        "platform_provisioning_capture_brief" => "Ai::Tools::ProvisioningTool",
+        "platform_provisioning_compose_plan"  => "Ai::Tools::ProvisioningTool",
+        "platform_provisioning_approve_plan"  => "Ai::Tools::ProvisioningTool",
+        "platform_provisioning_execute"       => "Ai::Tools::ProvisioningTool",
+        "platform_provisioning_status"        => "Ai::Tools::ProvisioningTool",
+        "platform_provisioning_adapt"         => "Ai::Tools::ProvisioningTool",
         # Project & CI/CD
         "create_gitea_repository" => "Ai::Tools::ProjectInitTool",
         "update_gitea_repository" => "Ai::Tools::RepoManagementTool",

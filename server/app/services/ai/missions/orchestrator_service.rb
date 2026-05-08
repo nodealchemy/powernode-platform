@@ -7,10 +7,20 @@ module Ai
 
       CLEANUP_PHASES = %w[completed cancelled].freeze
 
-      attr_reader :mission, :account
+      attr_reader :mission
 
       def initialize(mission:)
         @mission = mission
+      end
+
+      # Lazy account lookup so callers can construct the orchestrator from
+      # contexts that don't yet (or never will) resolve `mission.account` —
+      # e.g. SkillCompositionRunner unit tests pass a duck-typed mission
+      # double that only stubs the methods broadcast_step_event! actually
+      # touches. Re-evaluating on each call would be wasteful, so we
+      # memoize on first hit.
+      def account
+        return @account if defined?(@account)
         @account = mission.account
       end
 
@@ -57,10 +67,12 @@ module Ai
       end
 
       def handle_approval!(gate:, user:, decision:, comment: nil, selected_feature: nil, prd_modifications: nil)
+        gate_name = gate_for_phase(gate)
+
         approval = mission.approvals.create!(
           account: account,
           user: user,
-          gate: gate_for_phase(gate),
+          gate: gate_name,
           decision: decision,
           comment: comment,
           metadata: { selected_feature: selected_feature, prd_modifications: prd_modifications }.compact
@@ -69,6 +81,21 @@ module Ai
         if decision == "approved"
           if selected_feature.present?
             mission.update!(selected_feature: selected_feature)
+          end
+
+          # M4 second-signature gate — Business+ plans require two distinct
+          # approvers at the `handoff` phase. The first approval is recorded
+          # but the mission stays at `handoff` until a different user also
+          # approves. Free/Pro tiers (predicate returns false) skip this
+          # branch entirely and advance after the single approval below.
+          if mission.requires_second_signature? &&
+             mission.distinct_approver_count(gate_name) < 2
+            Rails.logger.info(
+              "[OrchestratorService] mission=#{mission.id} second-signature gate: " \
+              "first approval recorded by user_id=#{user.id} at gate=#{gate_name} — " \
+              "awaiting second distinct approver"
+            )
+            return mission
           end
 
           advance!(result: { approval_id: approval.id })
@@ -112,7 +139,63 @@ module Ai
         mission
       end
 
+      # Emit a step-level `provisioning_step_changed` event for the Plan Review
+      # / Execution streaming UI. Called by SkillCompositionRunner (and any
+      # alternative step processors) so the OrchestratorService is the single
+      # surface that announces step transitions for a mission. Safe to invoke
+      # from any thread / background job — broadcast failures are logged but
+      # never raised so we don't break the runner's transaction.
+      #
+      # @param step [#id, #step_number, Hash, String] step record, hash payload, or id
+      # @param status [String] one of: started, completed, failed, executing, rolled_back
+      # @param outputs [Hash, nil] optional outputs hash (omitted from payload when nil/blank)
+      # @param error [String, nil] optional error message (omitted when blank)
+      # @param extra [Hash] optional supplemental fields merged into the payload
+      #        (used by SkillCompositionRunner to surface runner_id + skill name)
+      # @return [Hash] the broadcast payload (useful for tests + logging)
+      def broadcast_step_event!(step:, status:, outputs: nil, error: nil, extra: {})
+        payload = {
+          mission_id: mission.id,
+          step_id: extract_step_id(step),
+          step_number: extract_step_number(step),
+          status: status.to_s
+        }
+        payload[:outputs] = outputs if outputs.is_a?(Hash) && outputs.any?
+        payload[:error]   = error   if error.is_a?(String) && !error.strip.empty?
+        payload.merge!(extra) if extra.is_a?(Hash) && extra.any?
+
+        ::MissionChannel.broadcast_mission_event(mission.id, "provisioning_step_changed", payload)
+        payload
+      rescue StandardError => e
+        Rails.logger.warn(
+          "[OrchestratorService] broadcast_step_event failed for mission #{mission.id}: " \
+          "#{e.class}: #{e.message}"
+        )
+        nil
+      end
+
       private
+
+      # Extract a stable step identifier from whatever shape the caller hands us.
+      # Accepts AR records (Ai::GoalPlanStep), Hashes ({ step_id:, step_number: }),
+      # or bare String/UUID ids.
+      def extract_step_id(step)
+        return step if step.is_a?(String)
+        return step.id if step.respond_to?(:id) && !step.is_a?(Hash)
+        if step.is_a?(Hash)
+          return step[:step_id] || step["step_id"] || step[:id] || step["id"]
+        end
+        nil
+      end
+
+      def extract_step_number(step)
+        return step.step_number if step.respond_to?(:step_number) && !step.is_a?(Hash)
+        if step.is_a?(Hash)
+          return step[:step_number] || step["step_number"]
+        end
+        nil
+      end
+
 
       def transition_to_phase!(phase)
         mission.update!(current_phase: phase)

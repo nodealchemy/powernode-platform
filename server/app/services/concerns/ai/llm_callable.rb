@@ -41,19 +41,33 @@ module Ai
 
     # Resolve the model to use from the agent's provider config.
     # Falls back to the provider's cheapest chat model if agent config is empty.
+    #
+    # The agent.mcp_metadata.model_config.model override is honored ONLY when
+    # the configured model ID is actually in the provider's supported_models —
+    # otherwise we silently fall through to the provider default. Without this
+    # validation, an agent whose mcp_metadata says "gpt-4.1-mini" but whose
+    # provider is Anthropic will send an OpenAI model ID to the Anthropic
+    # HTTP client and the API call will fail on an unknown model.
     def resolve_model(agent)
-      # Agent's MCP metadata may specify a model
-      configured = agent.mcp_metadata&.dig("model_config", "model")
-      return configured if configured.present?
-
-      # Fall back to the provider's cheapest chat-capable model
       provider = agent.provider
+      configured = agent.mcp_metadata&.dig("model_config", "model")
+
+      if configured.present? && provider
+        supported_ids = (provider.supported_models || []).map { |m| m["id"] }
+        return configured if supported_ids.include?(configured)
+      elsif configured.present?
+        # No provider on the agent — accept the override; the worker has to
+        # route somehow.
+        return configured
+      end
+
       return "gpt-4.1-mini" unless provider
 
       models = provider.supported_models || []
       chat_models = models.select { |m| m["capabilities"]&.include?("text_generation") }
-      mini = chat_models.find { |m| m["id"].to_s.include?("mini") }
-      (mini || chat_models.first || models.first)&.dig("id") || "gpt-4.1-mini"
+      # Prefer "mini" / "haiku" / "small" / "nano" tier models for cheap calls.
+      preferred = chat_models.find { |m| m["id"].to_s.match?(/mini|haiku|small|nano/i) }
+      (preferred || chat_models.first || models.first)&.dig("id") || "gpt-4.1-mini"
     end
   end
 end

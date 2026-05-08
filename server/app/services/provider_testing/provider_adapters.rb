@@ -88,7 +88,7 @@ module ProviderTesting
       }
 
       payload = {
-        model: config["model"] || "claude-3-haiku-20240307",
+        model: config["model"] || "claude-haiku-4-5-20251001",
         messages: [ { role: "user", content: @test_config[:test_message] } ],
         max_tokens: 50
       }
@@ -245,7 +245,7 @@ module ProviderTesting
         "Content-Type" => "application/json"
       }
 
-      test_model = "claude-3-haiku-20240307"
+      test_model = "claude-haiku-4-5-20251001"
       payload = {
         model: test_model,
         messages: [ { role: "user", content: "Hi" } ],

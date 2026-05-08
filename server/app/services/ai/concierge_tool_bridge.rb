@@ -15,6 +15,13 @@ module Ai
   class ConciergeToolBridge < AgentToolBridgeService
     CONCIERGE_MAX_ITERATIONS = 8
 
+    # Confidence threshold for the provisioning intent classifier — below this,
+    # we don't auto-bootstrap a mission and let the LLM handle the message
+    # through the normal tool-loop path. Above it, we treat the message as an
+    # explicit provisioning request and dispatch capture_brief directly.
+    PROVISIONING_CONFIDENCE_THRESHOLD = 0.5
+    PROVISIONING_INTENT = "provision_infrastructure"
+
     # Tools that target the concierge itself — calling them would cause recursion
     SELF_REFERENTIAL_TOOLS = %w[
       send_concierge_message confirm_concierge_action
@@ -69,6 +76,43 @@ module Ai
     # frequently hallucinate conversation IDs instead of extracting the actual UUID
     # from the system prompt.
     WORKSPACE_CONTEXT_TOOLS = %w[send_message list_messages invite_agent].freeze
+
+    # Provisioning intent dispatcher — when the user's message looks like a
+    # provisioning request (regex pre-filter inside IntentCaptureService plus
+    # an LLM confidence-scoring pass), auto-bootstrap the infrastructure
+    # mission via platform_provisioning_capture_brief instead of letting the
+    # generic tool loop guess at the right action.
+    #
+    # Returns the ProvisioningTool result Hash on a hit (caller renders the
+    # brief + missing_fields in the conversation), or nil when classification
+    # below threshold lets the caller fall through to the standard flow.
+    #
+    # Existing dispatch_tool_call handlers are untouched — this is an
+    # opt-in helper called by the Concierge service before the tool loop.
+    def classify_and_dispatch_provisioning(natural_language:)
+      return nil if natural_language.to_s.strip.empty?
+
+      classifier = ::Ai::Provisioning::IntentCaptureService.new(
+        account: account, user: @user, conversation: @conversation
+      )
+      classification = classifier.classify(natural_language: natural_language)
+
+      return nil unless classification[:intent_type] == PROVISIONING_INTENT
+      return nil unless classification[:confidence].to_f >= PROVISIONING_CONFIDENCE_THRESHOLD
+
+      Rails.logger.info(
+        "[ConciergeToolBridge] Provisioning intent detected " \
+        "(confidence=#{classification[:confidence]}); dispatching capture_brief"
+      )
+
+      tool = ::Ai::Tools::ProvisioningTool.new(
+        account: account, agent: agent, user: @user
+      )
+      tool.execute(params: {
+        action: "platform_provisioning_capture_brief",
+        natural_language: natural_language
+      })
+    end
 
     def dispatch_tool_call(tool_call)
       tool_name = tool_call[:name] || tool_call["name"]

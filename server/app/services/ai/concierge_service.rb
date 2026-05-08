@@ -2,8 +2,8 @@
 
 module Ai
   class ConciergeService
-    INTENTS = %w[create_mission check_status analyze_repo approve_action question delegate_to_team code_review deploy general_chat].freeze
-    CONFIRM_REQUIRED = %w[create_mission delegate_to_team code_review deploy].freeze
+    INTENTS = %w[create_mission check_status analyze_repo approve_action question delegate_to_team code_review deploy general_chat provision_infrastructure adapt_project view_project].freeze
+    CONFIRM_REQUIRED = %w[create_mission delegate_to_team code_review deploy provision_infrastructure].freeze
 
     # Provider types that support function/tool calling
     TOOL_CAPABLE_PROVIDERS = %w[openai anthropic].freeze
