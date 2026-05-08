@@ -142,6 +142,13 @@ const NODE_ICON: Record<TopologyNodeType, React.ComponentType<{ className?: stri
 const DAGRE_NODESEP = 18;
 const DAGRE_RANKSEP = 36;
 const DAGRE_MARGIN = 16;
+// Reserved at top of container nodes for the container's own label so it
+// doesn't overlap children. Children's relative y positions are shifted
+// down by this amount, and the container's overall height includes it.
+const CONTAINER_HEADER_HEIGHT = 24;
+// Extra inner padding (beyond dagre's marginx/marginy) so the dashed border
+// has visible breathing room around the children.
+const CONTAINER_INNER_PADDING = 8;
 
 /**
  * Floating-edge geometry: find where a straight line from the source node's
@@ -244,10 +251,16 @@ const FloatingSmoothEdge: React.FC<EdgeProps<FlowEdge<FloatingSmoothEdgeData>>> 
             style={{
               position: 'absolute',
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-              background: 'var(--theme-surface, #1f2937)',
+              // Translucent surface so the edge line shows through where the
+              // label sits over it — fully opaque background hid the line
+              // behind it (especially noticeable on short edges where the
+              // midpoint label covered most of the segment).
+              background: 'rgba(31, 41, 55, 0.55)',
+              backdropFilter: 'blur(2px)',
               padding: '1px 4px',
               borderRadius: 3,
               fontSize: 10,
+              lineHeight: 1.2,
               color: 'var(--theme-secondary, #9ca3af)',
               pointerEvents: 'none'
             }}
@@ -324,21 +337,24 @@ const layoutTopology = (
     dagre.layout(g);
 
     // Compute child relative positions + container bounds from dagre output.
+    // Children are shifted down by CONTAINER_HEADER_HEIGHT to leave room for
+    // the container's own top-aligned label, plus an extra inner padding so
+    // the dashed border has visible breathing room around children.
     let maxX = 0;
     let maxY = 0;
     children.forEach((c) => {
       const dn = g.node(c.id);
       if (!dn) return;
-      const x = dn.x - dn.width / 2;
-      const y = dn.y - dn.height / 2;
+      const x = dn.x - dn.width / 2 + CONTAINER_INNER_PADDING;
+      const y = dn.y - dn.height / 2 + CONTAINER_HEADER_HEIGHT + CONTAINER_INNER_PADDING;
       positions.set(c.id, { x, y });
       sizes.set(c.id, { width: dn.width, height: dn.height });
       maxX = Math.max(maxX, x + dn.width);
       maxY = Math.max(maxY, y + dn.height);
     });
     sizes.set(containerId, {
-      width: maxX + DAGRE_MARGIN,
-      height: maxY + DAGRE_MARGIN
+      width: maxX + DAGRE_MARGIN + CONTAINER_INNER_PADDING,
+      height: maxY + DAGRE_MARGIN + CONTAINER_INNER_PADDING
     });
   });
 
@@ -437,19 +453,43 @@ export const buildTopologyFlowGraph = (
     // calculations (separate from `style.width/height` which is just CSS).
     // Setting both ensures children's `extent: 'parent'` clamping uses the
     // dynamically-grown size, not ReactFlow's measured/default fallback.
+    // Containers render their label at the TOP of the box (so it doesn't
+    // sit on top of children); leaf nodes center the label vertically.
+    const labelEl = isContainer ? (
+      <div
+        className="flex items-center justify-center gap-1 px-2 w-full"
+        style={{
+          minWidth: 0,
+          position: 'absolute',
+          top: 4,
+          left: 0,
+          right: 0,
+          pointerEvents: 'none'
+        }}
+      >
+        <Icon className="w-3.5 h-3.5 flex-shrink-0" />
+        <span className="text-[11px] truncate leading-none">{node.label}</span>
+      </div>
+    ) : (
+      // h-full + flex/items-center is what actually vertically centers
+      // the icon+label against the node's full height. Without h-full,
+      // the inner div only takes its content height and renders at the
+      // top of the node (baseStyle.padding=0 strips ReactFlow's default).
+      <div
+        className="flex items-center justify-center gap-1.5 px-2 w-full h-full"
+        style={{ minWidth: 0 }}
+      >
+        <Icon className="w-4 h-4 flex-shrink-0" />
+        <span className="text-xs truncate leading-none">{node.label}</span>
+      </div>
+    );
+
     const flowNode: FlowNode = {
       id: node.id,
       position: pos,
       width: dims.width,
       height: dims.height,
-      data: {
-        label: (
-          <div className="flex items-center gap-1.5 px-2 w-full justify-center" style={{ minWidth: 0 }}>
-            <Icon className="w-4 h-4 flex-shrink-0" />
-            <span className="text-xs truncate">{node.label}</span>
-          </div>
-        )
-      },
+      data: { label: labelEl },
       style: baseStyle,
       type: 'default',
       sourcePosition: Position.Right,

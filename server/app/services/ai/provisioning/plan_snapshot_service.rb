@@ -58,17 +58,96 @@ module Ai
 
       def node_for(step)
         cfg = step.execution_config.is_a?(Hash) ? step.execution_config : {}
-        skill = cfg["skill"] || cfg[:skill]
+        skill = (cfg["skill"] || cfg[:skill]).to_s
+        inputs = (cfg["inputs"] || cfg[:inputs] || {})
         {
           id: step.id.to_s,
           step_number: step.step_number,
-          name: cfg["name"] || cfg[:name] || skill || "step #{step.step_number}",
-          skill: skill,
-          description: cfg["description"] || cfg[:description],
+          name: cfg["name"] || cfg[:name] || derive_step_name(skill, inputs),
+          skill: skill.presence,
+          description: cfg["description"] || cfg[:description] || derive_step_description(skill, inputs),
           dependencies: Array(step.dependencies).map(&:to_i),
           status: step.respond_to?(:status) ? step.status.to_s : "pending",
           on_failure: cfg["on_failure"] || cfg[:on_failure]
         }
+      end
+
+      # Derive a human-friendly headline from skill + inputs so 4 identical
+      # `provision_full_stack` steps stop reading as 4 identical rows.
+      # Example outputs:
+      #   "Provision 2× qemu.small (local hypervisor)"
+      #   "Scale qemu.small +1"
+      #   "Attach 50GB volume"
+      def derive_step_name(skill, inputs)
+        case skill
+        when "provision_full_stack"
+          count = (inputs["count"] || inputs[:count] || 1).to_i
+          inst = resolve_instance_label(inputs)
+          region = resolve_region_label(inputs)
+          parts = ["Provision"]
+          parts << "#{count}×"
+          parts << inst if inst
+          parts << "(#{region})" if region
+          parts.join(" ")
+        when "scale_project"
+          delta = (inputs["delta"] || inputs[:delta] || inputs["count"] || 1).to_i
+          inst = resolve_instance_label(inputs)
+          "Scale #{inst || 'compute'} #{delta.positive? ? '+' : ''}#{delta}"
+        when "attach_storage"
+          gb = (inputs["size_gb"] || inputs[:size_gb] || inputs["storage_gb"] || inputs[:storage_gb]).to_i
+          gb.positive? ? "Attach #{gb}GB volume" : "Attach storage"
+        when "configure_sdwan_for_project"
+          "Configure SDWAN"
+        when "deploy_app_code"
+          repo = inputs["repo_url"] || inputs[:repo_url]
+          repo.present? ? "Deploy #{repo.to_s.split('/').last(2).join('/')}" : "Deploy app code"
+        when "relocate_workload"
+          dst = inputs["target_region"] || inputs[:target_region]
+          dst.present? ? "Relocate to #{dst}" : "Relocate workload"
+        when "", nil
+          "Step"
+        else
+          skill.tr("_", " ").capitalize
+        end
+      end
+
+      def derive_step_description(skill, inputs)
+        return nil unless skill == "provision_full_stack"
+        bits = []
+        if (count = (inputs["count"] || inputs[:count] || 1).to_i).positive?
+          bits << "#{count} instance#{count == 1 ? '' : 's'}"
+        end
+        if (inst = resolve_instance_label(inputs))
+          bits << inst
+        end
+        if (region = resolve_region_label(inputs))
+          bits << region
+        end
+        bits.empty? ? nil : bits.join(" · ")
+      end
+
+      def resolve_instance_label(inputs)
+        return nil unless defined?(::System::ProviderInstanceType)
+        id = inputs["provider_instance_type_id"] || inputs[:provider_instance_type_id]
+        return nil if id.blank?
+        ::System::ProviderInstanceType.where(account_id: account.id).find_by(id: id)&.name
+      rescue StandardError
+        nil
+      end
+
+      def resolve_region_label(inputs)
+        return nil unless defined?(::System::ProviderRegion)
+        id = inputs["provider_region_id"] || inputs[:provider_region_id]
+        return nil if id.blank?
+        region = ::System::ProviderRegion.where(account_id: account.id).find_by(id: id)
+        return nil unless region
+        provider_type = region.provider&.provider_type.to_s
+        # Local hypervisor regions have arbitrary names — show the provider
+        # type instead of the meaningless region code (e.g. "default-region").
+        return "local hypervisor" if provider_type == "local_qemu"
+        region.code.presence || region.name.presence
+      rescue StandardError
+        nil
       end
 
       # Each step's `dependencies` field stores upstream step_numbers; resolve
