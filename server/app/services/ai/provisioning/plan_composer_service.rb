@@ -430,6 +430,94 @@ module Ai
           merged = try_collapse_pass!(plan, steps)
           break unless merged
         end
+
+        # Aggressive second pass — same fingerprint, ANY DAG shape.
+        collapse_redundant_provisioning_clusters!(plan)
+      end
+
+      # Aggressive cluster collapse for identical-fingerprint provision_full_stack
+      # steps regardless of dependency shape. The LLM often emits a redundant
+      # parallel-branch DAG for what should be a single step (e.g. 8 steps with
+      # the same template/region/instance_type for a 1-instance brief, branched
+      # via deps=[1], deps=[1] sibling fan-out). The linear-chain mergeable?
+      # check above can't fold those because each parent has multiple dependents.
+      #
+      # This pass groups provision_full_stack steps by fingerprint
+      # (template_id + provider_region_id + provider_instance_type_id) and
+      # collapses each group >1 into the earliest step. Count is capped to
+      # brief.scale.initial when present so a 1-instance brief actually
+      # produces a 1-instance plan even if the LLM hallucinated a tree of
+      # 8 redundant steps. External dependencies that pointed at any of the
+      # collapsed steps get repointed to the kept step; remaining steps are
+      # renumbered to stay 1-contiguous.
+      def collapse_redundant_provisioning_clusters!(plan)
+        brief = extract_brief_safe
+        target_count = Integer(brief&.dig("scale", "initial") || 0) rescue 0
+
+        loop do
+          steps = plan.steps.reload.order(:step_number).to_a
+          pf_steps = steps.select { |s| (s.execution_config || {})["skill"] == "provision_full_stack" }
+
+          groups = pf_steps.group_by do |s|
+            inp = (s.execution_config || {})["inputs"] || {}
+            [inp["template_id"], inp["provider_region_id"], inp["provider_instance_type_id"]]
+          end
+
+          duplicate_group = groups.values.find { |g| g.size > 1 }
+          break unless duplicate_group
+
+          collapse_group!(plan, duplicate_group, target_count)
+        end
+      end
+
+      def collapse_group!(plan, group, target_count)
+        keeper = group.first
+        others = group[1..]
+
+        # Pick the count: prefer the brief's scale.initial when set, else
+        # sum the LLM-emitted counts. Floor at 1 so we never produce a no-op.
+        sum = group.sum { |s| Integer(s.execution_config.dig("inputs", "count") || 1) rescue 1 }
+        new_count = target_count.positive? ? target_count : sum
+        new_count = 1 if new_count < 1
+
+        cfg = (keeper.execution_config || {}).deep_dup
+        cfg["inputs"] ||= {}
+        cfg["inputs"]["count"] = new_count
+        keeper.update!(execution_config: cfg)
+
+        # Build remap: every collapsed step's number → keeper's number.
+        remap = {}
+        others.each { |o| remap[o.step_number] = keeper.step_number }
+        others.each(&:destroy!)
+
+        # Renumber remaining 1-contiguous + repoint dependencies. Drop any
+        # self-loops (a step depending on itself after repointing) or
+        # references to deleted step numbers.
+        remaining = plan.steps.reload.order(:step_number).to_a
+        renumber = {}
+        remaining.each_with_index { |s, idx| renumber[s.step_number] = idx + 1 }
+
+        remaining.each do |s|
+          new_deps = Array(s.dependencies).map do |dep|
+            dep = dep.to_i
+            target = remap[dep] || dep
+            renumber[target]
+          end.compact.uniq
+          new_number = renumber[s.step_number]
+          new_deps.delete(new_number) # no self-loops
+          s.update!(step_number: new_number, dependencies: new_deps)
+        end
+      end
+
+      # Brief lookup helper that doesn't raise — used by the collapse pass
+      # which runs after compose! so the brief is always present, but we
+      # guard against the unlikely case of a mission whose configuration
+      # was wiped between extract_brief! and rewrite_steps!.
+      def extract_brief_safe
+        cfg = mission.configuration
+        return nil unless cfg.is_a?(Hash)
+        brief = cfg["brief"] || cfg[:brief]
+        brief.is_a?(Hash) ? brief : nil
       end
 
       def try_collapse_pass!(plan, steps)
