@@ -1,0 +1,432 @@
+# frozen_string_literal: true
+
+module Ai
+  module Provisioning
+    # Executes a provisioning plan (typically an Ai::GoalPlan whose steps were
+    # rewritten by PlanComposerService into step_type: "provisioning_skill") as
+    # a DAG of skill invocations.
+    #
+    # The runner is server-side and orchestrates by parallel-safe layers:
+    #   1. execute! — kick off the run by enqueueing every step in the first
+    #      ready layer through WorkerJobService.enqueue_job("AiProvisioningStepJob", …).
+    #      Returns immediately with the runner_id, started_at, and step_count
+    #      so the caller (worker job → internal API) can record provenance.
+    #   2. execute_step!(step) — the per-step entrypoint. The step worker job
+    #      calls back into this method via the internal API; here we resolve
+    #      the skill executor, run it with the step's inputs, mark progress,
+    #      and dispatch any newly-unblocked successors. On step failure with
+    #      execution_config[:on_failure] == "rollback", we walk completed
+    #      predecessors in reverse and call rollback_step! on each.
+    #   3. rollback_step!(step) — invokes the executor's descriptor[:rollback]
+    #      method (if any) with the step's previously-recorded outputs, then
+    #      marks the step as rolled back / failed.
+    #
+    # Each transition emits two side effects (best-effort, logged on failure):
+    #   - mission.conversation.add_system_message — chat surface activity
+    #   - MissionChannel.broadcast_mission_event — live UI streaming
+    #
+    # Plan / step contract (consumed, produced by PlanComposerService):
+    #   plan.steps.in_order  → Enumerable<Step> (ordered by step_number)
+    #   step.id              → String (passed to step worker job)
+    #   step.step_number     → Integer (used as dependency token)
+    #   step.dependencies    → Array<Integer> (predecessor step_numbers)
+    #   step.execution_config → { "skill" => String, "inputs" => Hash,
+    #                             "on_failure" => "rollback"|"continue" }
+    class SkillCompositionRunner
+      ACTIVITY_TYPE = "provisioning_step_progress"
+      EVENT_TYPE    = "provisioning_step_changed"
+      RUN_START_EVENT = "provisioning_run_started"
+
+      attr_reader :account, :mission, :plan, :runner_id, :started_at
+
+      def initialize(account:, mission:, plan:)
+        @account = account
+        @mission = mission
+        @plan = plan
+        @runner_id = nil
+        @started_at = nil
+      end
+
+      # Kick off the DAG run. Computes parallel-safe layers from
+      # step.dependencies, dispatches the first layer of step jobs, and
+      # records run-start side effects.
+      #
+      # @return [Hash] { runner_id:, started_at:, step_count: }
+      def execute!
+        @runner_id = ::UUID7.generate
+        @started_at = Time.current
+
+        ordered_steps = steps_in_order
+        step_count = ordered_steps.size
+        layers = topological_layers(ordered_steps)
+
+        broadcast_run_started(step_count: step_count, layer_count: layers.size)
+        post_system_message(
+          "Provisioning run started — #{step_count} step(s) across #{layers.size} layer(s).",
+          status: "started",
+          metadata: { runner_id: @runner_id, step_count: step_count, layer_count: layers.size }
+        )
+
+        # Dispatch the first ready layer; subsequent layers are dispatched
+        # by execute_step! as predecessors complete.
+        first_layer = layers.first || []
+        first_layer.each { |step| dispatch_step_job(step) }
+
+        { runner_id: @runner_id, started_at: @started_at, step_count: step_count }
+      end
+
+      # Run a single step through its skill executor. Called by the step
+      # worker job via the internal API once it has been picked up.
+      #
+      # @param step [#id, #step_number, #execution_config, …]
+      # @return [Hash] { success:, outputs:, error: }
+      def execute_step!(step)
+        config = step_config(step)
+        skill_name = config["skill"] || config[:skill]
+        inputs = (config["inputs"] || config[:inputs] || {})
+        on_failure = config["on_failure"] || config[:on_failure] || "continue"
+
+        begin
+          executor_class = resolve_executor(skill_name)
+          raise "skill not found: #{skill_name}" unless executor_class
+
+          mark_executing(step)
+          result = invoke_executor(executor_class, inputs)
+
+          if result_success?(result)
+            outputs = result_outputs(result)
+            mark_completed(step, outputs)
+            announce_step(step, status: "completed", outputs: outputs)
+            dispatch_unblocked_successors(step)
+            { success: true, outputs: outputs, error: nil }
+          else
+            error_message = result_error(result) || "skill returned non-success"
+            handle_failure(step, error_message, on_failure)
+            { success: false, outputs: {}, error: error_message }
+          end
+        rescue StandardError => e
+          Rails.logger.error("[SkillCompositionRunner] step #{step_id(step)} raised: #{e.class}: #{e.message}")
+          handle_failure(step, e.message, on_failure)
+          { success: false, outputs: {}, error: e.message }
+        end
+      end
+
+      # Lazily-built orchestrator that owns the canonical
+      # `provisioning_step_changed` emission path. We instantiate one per
+      # runner so all step events for a single run flow through the same
+      # OrchestratorService surface — keeping a single source of truth for
+      # MissionChannel broadcasts (M1 + M2 consolidation).
+      def orchestrator
+        @orchestrator ||= ::Ai::Missions::OrchestratorService.new(mission: mission)
+      end
+
+      # Compensating action for a previously-completed step. Looks up the
+      # executor's descriptor[:rollback] hook; if present, calls it with the
+      # outputs we recorded when the step originally completed.
+      #
+      # @param step [#id, #execution_config, …]
+      # @return [Hash] { success: }
+      def rollback_step!(step)
+        config = step_config(step)
+        skill_name = config["skill"] || config[:skill]
+
+        executor_class = resolve_executor(skill_name)
+        descriptor = executor_class&.respond_to?(:descriptor) ? executor_class.descriptor : nil
+        rollback_hook = descriptor.is_a?(Hash) ? (descriptor[:rollback] || descriptor["rollback"]) : nil
+
+        if rollback_hook && executor_class
+          outputs = recorded_outputs_for(step)
+          executor = build_executor(executor_class)
+          if executor.respond_to?(rollback_hook)
+            executor.public_send(rollback_hook, **(outputs.is_a?(Hash) ? symbolize(outputs) : {}))
+          end
+        end
+
+        mark_rolled_back(step)
+        announce_step(step, status: "rolled_back", outputs: {})
+        { success: true }
+      rescue StandardError => e
+        Rails.logger.error("[SkillCompositionRunner] rollback for step #{step_id(step)} raised: #{e.class}: #{e.message}")
+        announce_step(step, status: "rollback_failed", outputs: { error: e.message }, error: e.message)
+        { success: false }
+      end
+
+      private
+
+      # ===== Step traversal & topological sort =====
+
+      def steps_in_order
+        if plan.respond_to?(:steps)
+          relation = plan.steps
+          relation.respond_to?(:in_order) ? relation.in_order.to_a : relation.to_a.sort_by { |s| s.step_number.to_i }
+        else
+          Array(plan).sort_by { |s| s.step_number.to_i }
+        end
+      end
+
+      # Kahn-style layering: each layer holds steps whose dependencies are
+      # entirely satisfied by steps in earlier layers.
+      def topological_layers(steps)
+        by_number = steps.index_by { |s| s.step_number.to_i }
+        remaining = steps.dup
+        placed = {}
+        layers = []
+
+        while remaining.any?
+          layer = remaining.select do |s|
+            Array(s.dependencies).map(&:to_i).all? { |dep| placed[dep] }
+          end
+
+          if layer.empty?
+            # Cycle or unresolvable dependency; emit remaining as a final
+            # best-effort layer so they at least surface as failures.
+            Rails.logger.warn("[SkillCompositionRunner] dependency cycle or unresolved deps for plan #{plan_id}")
+            layers << remaining
+            break
+          end
+
+          layer.each { |s| placed[s.step_number.to_i] = true }
+          layers << layer
+          remaining -= layer
+        end
+
+        layers
+      end
+
+      def dispatch_step_job(step)
+        ::WorkerJobService.enqueue_job(
+          "AiProvisioningStepJob",
+          args: {
+            mission_id: mission.id,
+            step_id: step.id,
+            account_id: account.id,
+            runner_id: @runner_id
+          },
+          queue: "ai_execution"
+        )
+      end
+
+      # After a step completes, any successor whose remaining dependencies
+      # are now all "completed" is ready to run.
+      def dispatch_unblocked_successors(completed_step)
+        remaining = steps_in_order
+        completed_numbers = remaining
+          .select { |s| step_status(s) == "completed" }
+          .map { |s| s.step_number.to_i }
+          .to_set
+
+        remaining.each do |s|
+          next if step_status(s) != "pending"
+          deps = Array(s.dependencies).map(&:to_i)
+          next if deps.empty?
+          dispatch_step_job(s) if deps.all? { |d| completed_numbers.include?(d) }
+        end
+      end
+
+      # ===== Skill resolution =====
+
+      # Default convention: skill name `provision_full_stack` →
+      # `System::Ai::Skills::ProvisionFullStackExecutor`. Stubbable in tests.
+      def resolve_executor(skill_name)
+        return nil if skill_name.nil? || skill_name.to_s.empty?
+
+        const_name = "#{skill_name.to_s.camelize}Executor"
+        if Object.const_defined?("System::Ai::Skills::#{const_name}")
+          "System::Ai::Skills::#{const_name}".constantize
+        elsif Object.const_defined?("Ai::Skills::#{const_name}")
+          "Ai::Skills::#{const_name}".constantize
+        end
+      end
+
+      def build_executor(executor_class)
+        if executor_class.instance_method(:initialize).parameters.any? { |type, _| %i[key keyreq].include?(type) }
+          executor_class.new(account: account)
+        else
+          executor_class.new
+        end
+      rescue ArgumentError
+        executor_class.new
+      end
+
+      def invoke_executor(executor_class, inputs)
+        executor = build_executor(executor_class)
+        executor.execute(**symbolize(inputs))
+      end
+
+      # ===== Result coercion =====
+
+      def result_success?(result)
+        return false if result.nil?
+        return result if result == true || result == false
+        return result[:success] == true || result["success"] == true if result.respond_to?(:[])
+        false
+      end
+
+      def result_outputs(result)
+        return {} unless result.respond_to?(:[])
+        result[:data] || result["data"] || result[:outputs] || result["outputs"] || result.to_h
+      rescue StandardError
+        {}
+      end
+
+      def result_error(result)
+        return result.message if result.is_a?(Exception)
+        return nil unless result.respond_to?(:[])
+        result[:error] || result["error"] || result[:message] || result["message"]
+      end
+
+      # ===== Step state transitions =====
+      #
+      # We try to use the Ai::GoalPlanStep AASM-style helpers (start!,
+      # complete!, fail!) when present; otherwise fall back to plain
+      # update! so tests can pass duck-typed doubles.
+
+      def mark_executing(step)
+        if step.respond_to?(:start!)
+          step.start!
+        elsif step.respond_to?(:update!)
+          step.update!(status: "executing", started_at: Time.current)
+        end
+      end
+
+      def mark_completed(step, outputs)
+        record_outputs(step, outputs)
+        if step.respond_to?(:complete!)
+          step.complete!(result: outputs)
+        elsif step.respond_to?(:update!)
+          step.update!(status: "completed", completed_at: Time.current, result_summary: outputs)
+        end
+      end
+
+      def mark_failed(step, reason)
+        if step.respond_to?(:fail!)
+          step.fail!(reason: reason)
+        elsif step.respond_to?(:update!)
+          step.update!(status: "failed", completed_at: Time.current, result_summary: reason)
+        end
+      end
+
+      def mark_rolled_back(step)
+        if step.respond_to?(:update!)
+          # GoalPlanStep doesn't have a "rolled_back" status — encode it as
+          # failed with a result_summary marker so audit history is preserved.
+          step.update!(status: "failed", result_summary: { rolled_back: true, at: Time.current })
+        end
+      end
+
+      def step_status(step)
+        step.respond_to?(:status) ? step.status.to_s : "pending"
+      end
+
+      def record_outputs(step, outputs)
+        return unless step.respond_to?(:metadata) && step.respond_to?(:metadata=)
+        meta = step.metadata.is_a?(Hash) ? step.metadata.dup : {}
+        meta["last_outputs"] = outputs
+        step.metadata = meta
+      end
+
+      def recorded_outputs_for(step)
+        return {} unless step.respond_to?(:metadata)
+        meta = step.metadata.is_a?(Hash) ? step.metadata : {}
+        meta["last_outputs"] || meta[:last_outputs] || {}
+      end
+
+      # ===== Failure handling =====
+
+      def handle_failure(step, error_message, on_failure)
+        mark_failed(step, error_message)
+        announce_step(step, status: "failed", outputs: { error: error_message }, error: error_message)
+
+        return unless on_failure.to_s == "rollback"
+
+        completed_predecessors_in_reverse(step).each do |prev|
+          rollback_step!(prev)
+        end
+      end
+
+      def completed_predecessors_in_reverse(failed_step)
+        ordered = steps_in_order
+        failed_number = failed_step.step_number.to_i
+        ordered
+          .select { |s| s.step_number.to_i < failed_number && step_status(s) == "completed" }
+          .sort_by { |s| -s.step_number.to_i }
+      end
+
+      # ===== Side effects =====
+
+      # Step-level event emission. Delegates the `provisioning_step_changed`
+      # broadcast through OrchestratorService#broadcast_step_event! so the
+      # orchestrator owns the single canonical emission path (M1+M2
+      # consolidation). The runner_id and skill name are passed through as
+      # `extra` payload metadata to preserve the previous broadcast shape
+      # for any downstream listeners — frontend (StepProgressStream) only
+      # consumes mission_id/step_id/status/outputs/error and ignores extras.
+      def announce_step(step, status:, outputs:, error: nil)
+        skill = step_config(step)["skill"] || step_config(step)[:skill]
+
+        orchestrator.broadcast_step_event!(
+          step: step,
+          status: status,
+          outputs: outputs,
+          error: error,
+          extra: { runner_id: @runner_id, skill: skill }.compact
+        )
+
+        post_system_message(
+          "Step #{step.step_number} (#{skill}) → #{status}",
+          status: status,
+          metadata: { step_id: step_id(step), status: status, outputs: outputs }
+        )
+      end
+
+      def broadcast_run_started(step_count:, layer_count:)
+        broadcast(RUN_START_EVENT, {
+          mission_id: mission.id,
+          runner_id: @runner_id,
+          started_at: @started_at&.iso8601,
+          step_count: step_count,
+          layer_count: layer_count
+        })
+      end
+
+      def broadcast(event_type, payload)
+        ::MissionChannel.broadcast_mission_event(mission.id, event_type, payload)
+      rescue StandardError => e
+        Rails.logger.warn("[SkillCompositionRunner] broadcast failed: #{e.class}: #{e.message}")
+      end
+
+      def post_system_message(content, status:, metadata: {})
+        conv = mission.respond_to?(:conversation) ? mission.conversation : nil
+        return unless conv
+
+        conv.add_system_message(
+          content,
+          activity_type: ACTIVITY_TYPE,
+          metadata: metadata.merge(runner_id: @runner_id, status: status)
+        )
+      rescue StandardError => e
+        Rails.logger.warn("[SkillCompositionRunner] system message failed: #{e.class}: #{e.message}")
+      end
+
+      # ===== Misc helpers =====
+
+      def step_config(step)
+        cfg = step.respond_to?(:execution_config) ? step.execution_config : {}
+        cfg.is_a?(Hash) ? cfg : {}
+      end
+
+      def step_id(step)
+        step.respond_to?(:id) ? step.id : nil
+      end
+
+      def plan_id
+        plan.respond_to?(:id) ? plan.id : "<inline>"
+      end
+
+      def symbolize(hash)
+        return {} unless hash.is_a?(Hash)
+        hash.each_with_object({}) { |(k, v), h| h[k.to_sym] = v }
+      end
+    end
+  end
+end
