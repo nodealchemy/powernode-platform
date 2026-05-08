@@ -478,20 +478,34 @@ export const buildTopologyFlowGraph = (
     ...leaves.map(renderNode)
   ];
 
-  const flowEdges: FlowEdge[] = (preview.edges ?? []).map((edge, idx) => ({
-    id: `e-${idx}-${edge.source}-${edge.target}`,
-    source: edge.source,
-    target: edge.target,
-    // Floating edges anchor at the closest perimeter point of each node
-    // rather than fixed left/right handles — minimizes edge length when
-    // source and target aren't horizontally aligned (e.g. provider node
-    // sitting below the gateway connects via Top→Bottom instead of being
-    // forced through Right→Left). Geometry handled by FloatingSmoothEdge.
-    type: 'floating',
-    data: { routedLabel: edge.label },
-    markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--theme-secondary, #9ca3af)' },
-    style: { stroke: 'var(--theme-secondary, #9ca3af)', strokeWidth: 1.25 }
-  }));
+  // Drop edges that just restate container→child or child→container
+  // membership — the dashed parent border already conveys "this child is
+  // inside this container", and the label ("lan", etc.) lands inside the
+  // child node since the edge is tiny. Visual containment IS the
+  // relationship; the explicit edge adds nothing.
+  const nodeById = new Map(preview.nodes.map((n) => [n.id, n]));
+  const isContainmentEdge = (sourceId: string, targetId: string): boolean => {
+    const s = nodeById.get(sourceId);
+    const t = nodeById.get(targetId);
+    if (!s || !t) return false;
+    return s.parent_id === targetId || t.parent_id === sourceId;
+  };
+
+  const flowEdges: FlowEdge[] = (preview.edges ?? [])
+    .filter((edge) => !isContainmentEdge(edge.source, edge.target))
+    .map((edge, idx) => ({
+      id: `e-${idx}-${edge.source}-${edge.target}`,
+      source: edge.source,
+      target: edge.target,
+      // Floating edges anchor at the closest perimeter point of each node
+      // rather than fixed left/right handles — minimizes edge length when
+      // source and target aren't horizontally aligned. Geometry in
+      // FloatingSmoothEdge.
+      type: 'floating',
+      data: { routedLabel: edge.label },
+      markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--theme-secondary, #9ca3af)' },
+      style: { stroke: 'var(--theme-secondary, #9ca3af)', strokeWidth: 1.25 }
+    }));
 
   return { nodes: flowNodes, edges: flowEdges };
 };
