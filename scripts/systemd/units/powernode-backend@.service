@@ -23,6 +23,18 @@ TimeoutStopSec=30s
 
 SyslogIdentifier=powernode-backend-%i
 
+# fw-cfg blob staging for LocalQemuProvider's CloudSeed. Without this the
+# provider falls back to /tmp/powernode-fwcfg-<uid>/ with a Permission denied
+# warning. RuntimeDirectory= creates /run/powernode-fwcfg owned by User= on
+# start. RuntimeDirectoryPreserve=yes keeps the dir's contents across unit
+# restarts — without it, a backend restart wipes all staged fw-cfg files
+# and any libvirt domain that had been provisioned but not yet started
+# would fail to start ("can't load /var/run/powernode-fwcfg/...: No such
+# file or directory"). The dir still goes away on host shutdown.
+RuntimeDirectory=powernode-fwcfg
+RuntimeDirectoryMode=0750
+RuntimeDirectoryPreserve=yes
+
 # Security hardening (injected by installer in production mode)
 # NoNewPrivileges=true
 # ProtectSystem=strict
