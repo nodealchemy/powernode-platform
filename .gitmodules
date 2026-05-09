@@ -1,12 +1,12 @@
 [submodule "extensions/system"]
 	path = extensions/system
-	url = https://github.com/rett/powernode-system.git
+	url = https://github.com/nodealchemy/powernode-system.git
 	branch = develop
 [submodule "extensions/supply-chain"]
 	path = extensions/supply-chain
-	url = https://github.com/rett/powernode-supply-chain.git
+	url = https://github.com/nodealchemy/powernode-supply-chain.git
 	branch = develop
 [submodule "extensions/marketing"]
 	path = extensions/marketing
-	url = https://github.com/rett/powernode-marketing.git
+	url = https://github.com/nodealchemy/powernode-marketing.git
 	branch = develop
