@@ -65,6 +65,12 @@ interface MessageListProps {
   onPlanAction?: (actionType: string, executionId: string, feedback?: string) => Promise<void>;
   conversationId?: string;
   isConcierge?: boolean;
+  // M5 conversation unification — when true, the empty-state greeting +
+  // suggested-message chips are scoped to provisioning intent rather than
+  // the generic concierge greeting. The provisioning conversation still
+  // routes through the Concierge agent (which has ProvisioningTool
+  // registered), but the cold-open UX is different.
+  isProvisioning?: boolean;
   onConciergeConfirm?: () => void;
   onSuggestedMessage?: (text: string) => void;
   hasOlder?: boolean;
@@ -92,6 +98,7 @@ export const MessageList = React.memo<MessageListProps>(({
   onPlanAction,
   conversationId,
   isConcierge,
+  isProvisioning,
   onConciergeConfirm,
   onSuggestedMessage,
   hasOlder,
@@ -535,7 +542,35 @@ export const MessageList = React.memo<MessageListProps>(({
           </div>
         )}
 
-        {messages.length === 0 && isConcierge ? (
+        {messages.length === 0 && isProvisioning ? (
+          <div className="flex flex-col items-center justify-center h-full py-12 px-4">
+            <div className="w-14 h-14 rounded-2xl bg-theme-interactive-primary/10 flex items-center justify-center mb-4">
+              <Bot className="h-7 w-7 text-theme-interactive-primary" />
+            </div>
+            <h3 className="text-lg font-semibold text-theme-primary mb-1">What would you like to provision?</h3>
+            <p className="text-sm text-theme-secondary mb-6 text-center max-w-sm">
+              Describe the infrastructure you need in plain English — I&apos;ll plan it, estimate the cost, and walk you through approval before anything is created.
+            </p>
+            {onSuggestedMessage && (
+              <div className="flex flex-wrap gap-2 justify-center max-w-md">
+                {[
+                  'Provision a small VM for a Discord bot',
+                  'Set up a Postgres database',
+                  'Deploy a web app from a Git repo',
+                  'Add a Redis cache instance',
+                ].map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    onClick={() => onSuggestedMessage(suggestion)}
+                    className="px-3 py-1.5 text-sm rounded-full border border-theme bg-theme-surface hover:bg-theme-surface-hover text-theme-primary transition-colors"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : messages.length === 0 && isConcierge ? (
           <div className="flex flex-col items-center justify-center h-full py-12 px-4">
             <div className="w-14 h-14 rounded-2xl bg-theme-interactive-primary/10 flex items-center justify-center mb-4">
               <Bot className="h-7 w-7 text-theme-interactive-primary" />

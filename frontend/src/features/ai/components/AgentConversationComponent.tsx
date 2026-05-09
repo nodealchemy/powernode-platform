@@ -80,6 +80,10 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
 
   const agentId = conversation.ai_agent?.id;
   const isConcierge = !!(conversation as AiConversation).ai_agent?.is_concierge;
+  // M5 conversation unification — when conversation_type='provisioning',
+  // MessageList renders a provisioning-specific cold-open greeting +
+  // suggestion chips instead of the generic concierge greeting.
+  const isProvisioning = (conversation as AiConversation).conversation_type === 'provisioning';
   const { isConnected } = useWebSocket();
 
   // WebSocket connection
@@ -518,6 +522,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
           onPlanAction={handlePlanAction}
           conversationId={conversation.id}
           isConcierge={isConcierge}
+          isProvisioning={isProvisioning}
           onConciergeConfirm={loadMessages}
           onSuggestedMessage={handleSendMessage}
           hasOlder={hasOlder}
