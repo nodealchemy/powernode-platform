@@ -144,8 +144,17 @@ export const MessageList = React.memo<MessageListProps>(({
     const hasError = message.metadata?.error;
     const isDeleted = !!message.deleted_at;
     const isEditing = editingMessageId === message.id;
-    const canEdit = isUser && currentUser?.id === message.user_id;
-    const canDelete = isUser && currentUser?.id === message.user_id;
+    // Edit/delete: any user message of the current user. We accept either the
+    // explicit user_id field OR a missing user_id when sender_info matches —
+    // older messages and some optimistic-paint paths don't populate user_id,
+    // and the backend enforces ownership on the actual mutation.
+    const ownsMessage = isUser && (
+      message.user_id == null
+        ? message.sender_info?.id === currentUser?.id || message.sender_info?.id == null
+        : message.user_id === currentUser?.id
+    );
+    const canEdit = ownsMessage;
+    const canDelete = ownsMessage;
     const isClickableSuggestion = isAI && message.id === lastAiMessageId && !!onSuggestedMessage;
 
     // Extract mention names for highlighting

@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { LucideIcon } from 'lucide-react';
 
 export interface DropdownMenuItem {
@@ -29,19 +30,76 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({
   columns = 1
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<{ top: number; left: number; right: number } | null>(null);
+  // Per-item armed state for destructive actions. Per platform convention
+  // (memory `feedback_destructive_confirm`), items with `danger: true`
+  // require two clicks: first arms with visual change, second within the
+  // arm window commits. Keyed by `${groupIndex}-${itemIndex}` so a menu
+  // with multiple danger items tracks each independently.
+  const [armedKey, setArmedKey] = useState<string | null>(null);
+  const armTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ARM_WINDOW_MS = 5000;
+  const triggerWrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown when clicking outside
+  const disarm = useCallback(() => {
+    setArmedKey(null);
+    if (armTimerRef.current) {
+      clearTimeout(armTimerRef.current);
+      armTimerRef.current = null;
+    }
+  }, []);
+
+  // Disarm on close
+  useEffect(() => {
+    if (!isOpen) disarm();
+  }, [isOpen, disarm]);
+
+  // Cleanup timer on unmount
+  useEffect(() => () => { if (armTimerRef.current) clearTimeout(armTimerRef.current); }, []);
+
+  // Don't render the trigger at all when there are no actions to show.
+  // Previously this rendered an empty popup on click, which surfaced as
+  // an unclickable artifact for messages with no available actions.
+  const visibleItems = items.filter((i) => i.divider || i.label || i.icon);
+  if (visibleItems.length === 0) return null;
+
+  const computePosition = useCallback(() => {
+    const trig = triggerWrapRef.current;
+    if (!trig) return;
+    const rect = trig.getBoundingClientRect();
+    setPosition({
+      top: rect.bottom + 8, // mt-2 equivalent
+      left: rect.left,
+      right: window.innerWidth - rect.right,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    computePosition();
+    window.addEventListener('scroll', computePosition, true);
+    window.addEventListener('resize', computePosition);
+    return () => {
+      window.removeEventListener('scroll', computePosition, true);
+      window.removeEventListener('resize', computePosition);
+    };
+  }, [isOpen, computePosition]);
+
+  // Close on outside click. Includes the menu itself in the "inside" check
+  // since the menu is portaled to body and otherwise wouldn't be a descendant
+  // of the trigger wrapper.
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
+      const target = event.target as Node;
+      if (
+        triggerWrapRef.current?.contains(target) ||
+        menuRef.current?.contains(target)
+      ) return;
+      setIsOpen(false);
     };
 
     if (isOpen) {
-      // Use capture phase to ensure we catch the event before React Flow or other components
-      // might call stopPropagation()
       document.addEventListener('mousedown', handleClickOutside, true);
       document.addEventListener('click', handleClickOutside, true);
       return () => {
@@ -67,23 +125,37 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({
     }
   }, [isOpen]);
 
-  const handleItemClick = (item: DropdownMenuItem) => {
+  const handleItemClick = (item: DropdownMenuItem, key: string) => {
     if (item.disabled) return;
-    
+
+    // Arm-and-confirm for destructive items. First click arms with visual
+    // change; second click within ARM_WINDOW_MS commits. The dropdown stays
+    // open during the armed state so the user can see the warning.
+    if (item.danger && armedKey !== key) {
+      setArmedKey(key);
+      if (armTimerRef.current) clearTimeout(armTimerRef.current);
+      armTimerRef.current = setTimeout(() => {
+        setArmedKey((prev) => (prev === key ? null : prev));
+        armTimerRef.current = null;
+      }, ARM_WINDOW_MS);
+      return;
+    }
+
+    if (armTimerRef.current) {
+      clearTimeout(armTimerRef.current);
+      armTimerRef.current = null;
+    }
+    setArmedKey(null);
+
     if (item.onClick) {
       item.onClick();
     }
-    
+
     if (item.href) {
       window.location.href = item.href;
     }
-    
-    setIsOpen(false);
-  };
 
-  const alignmentClasses = {
-    left: 'left-0',
-    right: 'right-0'
+    setIsOpen(false);
   };
 
   // Group items for multi-column layout
@@ -102,7 +174,7 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({
     return groups;
   };
 
-  const columnGroups = groupItemsForColumns(items, columns);
+  const columnGroups = groupItemsForColumns(visibleItems, columns);
   const columnClasses = {
     1: 'grid-cols-1',
     2: 'grid-cols-2',
@@ -124,19 +196,25 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({
       );
     }
 
+    const isArmed = item.danger && armedKey === key;
+    const displayLabel = isArmed ? `Click to confirm ${item.label.toLowerCase()}` : item.label;
+
     return (
       <button
         key={key}
-        onClick={() => handleItemClick(item)}
+        onClick={() => handleItemClick(item, key)}
         disabled={item.disabled}
         data-menu-item={item.label}
+        data-armed={isArmed ? 'true' : undefined}
         className={`
           w-full flex items-center px-3 py-2 text-sm text-left transition-colors duration-150
           ${item.disabled
             ? 'text-theme-tertiary cursor-not-allowed opacity-50'
-            : item.danger
-              ? 'text-theme-error hover:bg-theme-error-background'
-              : 'text-theme-primary hover:bg-theme-surface-hover'
+            : isArmed
+              ? 'bg-theme-error text-white font-medium'
+              : item.danger
+                ? 'text-theme-error hover:bg-theme-error-background'
+                : 'text-theme-primary hover:bg-theme-surface-hover'
           }
         `}
       >
@@ -144,38 +222,56 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({
           <div className={`mr-2 h-4 w-4 flex-shrink-0 ${
             item.disabled
               ? 'text-theme-tertiary'
-              : item.danger
-                ? 'text-theme-error'
-                : 'text-theme-secondary'
+              : isArmed
+                ? 'text-white'
+                : item.danger
+                  ? 'text-theme-error'
+                  : 'text-theme-secondary'
           }`}>
             <item.icon className="h-4 w-4" />
           </div>
         )}
-        <span className="truncate">{item.label}</span>
+        <span className="truncate">{displayLabel}</span>
       </button>
     );
   };
 
+  // Resolve width string ("w-48" → 12rem) for the portaled menu's inline
+  // style. Tailwind class shorthand maps to 0.25rem * N.
+  const widthMatch = /^w-(\d+)$/.exec(width);
+  const widthRem = widthMatch ? `${parseInt(widthMatch[1], 10) * 0.25}rem` : undefined;
+
+  // Position the portaled menu relative to the viewport. Use right-align
+  // when the prop says so to keep the dropdown anchored to the trigger's
+  // right edge (typical for action menus floating off message bubbles).
+  const menuStyle: React.CSSProperties = position
+    ? {
+        position: 'fixed',
+        top: position.top,
+        ...(align === 'right' ? { right: position.right } : { left: position.left }),
+        width: widthRem,
+      }
+    : { display: 'none' };
+
   return (
-    <div className={`relative ${className}`} ref={dropdownRef}>
-      {/* Trigger */}
-      <div onClick={(e) => {
-        e.stopPropagation();
-        setIsOpen(!isOpen);
-      }}>
-        {React.cloneElement(trigger as React.ReactElement<any>, {
-          'aria-expanded': isOpen,
-          'aria-haspopup': true
-        })}
+    <>
+      <div className={`relative inline-flex ${className}`} ref={triggerWrapRef}>
+        <div onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}>
+          {React.cloneElement(trigger as React.ReactElement<any>, {
+            'aria-expanded': isOpen,
+            'aria-haspopup': true
+          })}
+        </div>
       </div>
 
-      {/* Dropdown Menu */}
-      {isOpen && (
+      {isOpen && createPortal(
         <div
-          className={`
-            absolute mt-2 ${width} bg-theme-surface rounded-lg shadow-lg border border-theme z-[9999] py-1
-            ${alignmentClasses[align]}
-          `}
+          ref={menuRef}
+          style={menuStyle}
+          className="bg-theme-background border border-theme rounded-lg shadow-xl py-1 z-[10000]"
         >
           <div className={`grid ${columnClasses[columns as keyof typeof columnClasses] || 'grid-cols-1'} gap-1`}>
             {columnGroups.map((group, groupIndex) => (
@@ -184,9 +280,10 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({
               </div>
             ))}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 };
 
