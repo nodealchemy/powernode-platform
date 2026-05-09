@@ -49,7 +49,7 @@ class Billing::BillingCleanupJob < BaseJob
     }
     
     result = with_api_retry do
-      api_client.post('/api/v1/billing/cleanup', cleanup_params)
+      api_client.post('/api/v1/internal/billing/cleanup', cleanup_params)
     end
     
     log_info("Cleaned up #{result['count']} old failed payments")
@@ -64,7 +64,7 @@ class Billing::BillingCleanupJob < BaseJob
     }
     
     result = with_api_retry do
-      api_client.post('/api/v1/billing/cleanup', cleanup_params)
+      api_client.post('/api/v1/internal/billing/cleanup', cleanup_params)
     end
     
     log_info("Marked #{result['count']} invoices as expired")
@@ -89,7 +89,7 @@ class Billing::BillingCleanupJob < BaseJob
     }
     
     result = with_api_retry do
-      api_client.post('/api/v1/billing/cleanup', cleanup_params)
+      api_client.post('/api/v1/internal/billing/cleanup', cleanup_params)
     end
     
     log_info("Cleaned up #{result['count']} orphaned payment methods")
@@ -98,7 +98,7 @@ class Billing::BillingCleanupJob < BaseJob
   def update_account_suspension_status
     # Request account suspension status updates via API
     result = with_api_retry do
-      api_client.post('/api/v1/billing/reactivate_suspended_accounts')
+      api_client.post('/api/v1/internal/billing/reactivate_suspended_accounts')
     end
     
     if result['reactivated_count'] > 0
@@ -113,7 +113,7 @@ class Billing::BillingCleanupJob < BaseJob
   def generate_billing_health_report
     # Request billing health report generation via API
     report_result = with_api_retry do
-      api_client.post('/api/v1/billing/health_report')
+      api_client.post('/api/v1/internal/billing/health_report')
     end
     
     report_data = report_result['report']
