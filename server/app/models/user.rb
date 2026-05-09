@@ -17,6 +17,7 @@ class User < ApplicationRecord
   # Include concerns - must come after has_secure_password
   include PasswordSecurity
   include Auditable
+  include OpensshKeyValidatable
 
   # Attributes
   attr_reader :reset_token
@@ -51,6 +52,29 @@ class User < ApplicationRecord
                    uniqueness: { case_sensitive: false }
   validates :name, presence: true, length: { minimum: 1, maximum: 100 }
   validates :status, presence: true, inclusion: { in: %w[active inactive suspended] }
+  validate :authorized_keys_format
+
+  # Operator-supplied OpenSSH `authorized_keys` lines. Aggregated by
+  # `System::Node#authorized_keys` (cross-extension) so every node owned by
+  # this user's account picks them up via the agent's heartbeat-driven
+  # /node_api/config/authorized_keys reconciler — no per-node config push
+  # required.
+  def authorized_keys=(value)
+    super(Array(value).compact_blank.uniq)
+  end
+
+  private
+
+  def authorized_keys_format
+    keys = authorized_keys
+    return unless keys.is_a?(Array)
+    keys.each_with_index do |line, idx|
+      next if openssh_authorized_key?(line)
+      errors.add(:authorized_keys, "entry #{idx + 1} is not a valid OpenSSH authorized_keys line")
+    end
+  end
+
+  public
 
   # Callbacks
   before_validation :normalize_email
