@@ -96,8 +96,7 @@
       cron: '0 2 * * *'  # Every day at 2:00 AM UTC
       class: Maintenance::ScheduledBackupJob
       queue: maintenance
-      args:
-        backup_type: full
+      args: ['full']
       description: 'Automated daily full database backup'
 
     # Database backup - weekly schema backup on Sundays at 3 AM UTC
@@ -105,8 +104,7 @@
       cron: '0 3 * * 0'  # Every Sunday at 3:00 AM UTC
       class: Maintenance::ScheduledBackupJob
       queue: maintenance
-      args:
-        backup_type: schema_only
+      args: ['schema_only']
       description: 'Automated weekly schema-only backup'
 
     # Backup cleanup - remove backups older than retention period

@@ -12,7 +12,7 @@ module Maintenance
                     retry: 3,
                     dead: true
 
-    def execute(backup_type: 'full')
+    def execute(backup_type = 'full')
       log_info "Starting scheduled backup", backup_type: backup_type
 
       # Validate backup type
