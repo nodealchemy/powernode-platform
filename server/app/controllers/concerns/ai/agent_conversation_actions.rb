@@ -198,7 +198,7 @@ module Ai
       return if performed?
 
       conversation = @agent.conversations.find(params[:conversation_id])
-      message = conversation.messages.find(params[:id])
+      message = find_message_in!(conversation, params[:id])
       result = conversation_service.regenerate_message(conversation, message)
 
       if result.success?
@@ -221,7 +221,7 @@ module Ai
       return if performed?
 
       conversation = @agent.conversations.find(params[:conversation_id])
-      message = conversation.messages.find(params[:id])
+      message = find_message_in!(conversation, params[:id])
       result = conversation_service.rate_message(
         message,
         rating: params[:rating],
@@ -247,7 +247,7 @@ module Ai
       return if performed?
 
       conversation = @agent.conversations.find(params[:conversation_id])
-      message = conversation.messages.find(params[:id])
+      message = find_message_in!(conversation, params[:id])
 
       unless message.can_edit?(current_user)
         return render_error("You don't have permission to edit this message", status: :forbidden)
@@ -272,7 +272,7 @@ module Ai
       return if performed?
 
       conversation = @agent.conversations.find(params[:conversation_id])
-      message = conversation.messages.find(params[:id])
+      message = find_message_in!(conversation, params[:id])
 
       unless message.can_delete?(current_user)
         return render_error("You don't have permission to delete this message", status: :forbidden)
@@ -292,7 +292,7 @@ module Ai
       return if performed?
 
       conversation = @agent.conversations.find(params[:conversation_id])
-      message = conversation.messages.unscoped.find(params[:id])
+      message = find_message_in!(conversation, params[:id], include_deleted: true)
 
       unless message.can_delete?(current_user)
         return render_error("You don't have permission to restore this message", status: :forbidden)
@@ -312,7 +312,7 @@ module Ai
       return if performed?
 
       conversation = @agent.conversations.find(params[:conversation_id])
-      message = conversation.messages.find(params[:id])
+      message = find_message_in!(conversation, params[:id])
 
       thread = message.thread_messages.select(&:not_deleted?)
 
@@ -331,7 +331,7 @@ module Ai
       return if performed?
 
       conversation = @agent.conversations.find(params[:conversation_id])
-      parent_message = conversation.messages.find(params[:id])
+      parent_message = find_message_in!(conversation, params[:id])
 
       content = params[:content]
       return render_error("Content is required", status: :bad_request) if content.blank?
@@ -370,7 +370,7 @@ module Ai
       return if performed?
 
       conversation = @agent.conversations.find(params[:conversation_id])
-      message = conversation.messages.find(params[:id])
+      message = find_message_in!(conversation, params[:id])
 
       render_success(
         message_id: message.message_id,
@@ -383,6 +383,18 @@ module Ai
     end
 
     private
+
+    # Tolerant message lookup. Ai::Message has TWO uuid columns: `id` (PK)
+    # and `message_id` (separate uniqueness-validated field). The
+    # `message_data` serializer exposes `message_id` as the wire-level `id`,
+    # so the frontend rounds-trips that value back as `params[:id]` on
+    # member routes. Looking up only by PK was 404'ing for every member
+    # action (delete, restore, edit, regenerate, rate, thread, reply).
+    def find_message_in!(conversation, id_param, include_deleted: false)
+      scope = include_deleted ? conversation.messages.unscoped : conversation.messages
+      scope.find_by(id: id_param) || scope.find_by(message_id: id_param) ||
+        raise(ActiveRecord::RecordNotFound, "Couldn't find Ai::Message with id=#{id_param}")
+    end
 
     # Conversation parameter handling (can be overridden in including controller)
     def conversation_params
