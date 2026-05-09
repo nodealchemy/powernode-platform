@@ -357,7 +357,10 @@ class Api::V1::Internal::BillingController < Api::V1::Internal::InternalBaseCont
       action: "billing.#{action}",
       resource_type: "Subscription",
       resource_id: subscription&.id,
-      details: metadata.merge(
+      # AuditLog's column is `metadata` (jsonb); the previous `details:` key
+      # always raised, but the rescue swallowed it so every billing audit
+      # write was a silent no-op. Verified against schema via AuditLog.columns.
+      metadata: metadata.merge(
         worker_initiated: true,
         timestamp: Time.current.iso8601
       )

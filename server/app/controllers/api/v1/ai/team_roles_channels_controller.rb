@@ -90,11 +90,15 @@ module Api
         end
 
         # POST /api/v1/ai/teams/cleanup_messages
+        # Called by AiTeamMessageCleanupJob (worker, JWT-authenticated). The
+        # Authentication concern sets @current_account for both user and
+        # worker tokens, but @current_user is nil for worker tokens — so
+        # use current_account directly here.
         def cleanup_messages
           channels_processed = 0
           messages_deleted = 0
 
-          current_user.account.ai_agent_teams.find_each do |team|
+          current_account.ai_agent_teams.find_each do |team|
             team.ai_team_channels.where.not(message_retention_hours: nil).find_each do |channel|
               count_before = channel.messages.count
               channel.cleanup_old_messages!

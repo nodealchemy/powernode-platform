@@ -48,7 +48,10 @@ class Api::V1::Internal::InternalBaseController < ApplicationController
       resource_id: resource_id,
       ip_address: request.remote_ip,
       user_agent: request.user_agent,
-      details: metadata.merge(
+      # AuditLog's column is `metadata` (jsonb); the previous `details:` key
+      # silently rescued every internal-audit write to nothing. Verified
+      # against current schema via `AuditLog.columns`.
+      metadata: metadata.merge(
         internal_request: true,
         service: "worker",
         timestamp: Time.current.iso8601

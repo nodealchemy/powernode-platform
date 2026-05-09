@@ -167,12 +167,44 @@ class Api::V1::ReconciliationController < ApplicationController
     nil
   end
 
+  # Accepts EITHER:
+  #   1. Worker JWT (Authorization: Bearer <jwt>) — modern path used by all
+  #      worker jobs since the JWT migration. Mirrors the auth contract used
+  #      by Internal::InternalBaseController#authenticate_service_token.
+  #   2. Legacy X-Service-Token header — opaque secure_compare against
+  #      Rails.application.credentials.dig(:worker_service, :api_token).
+  #      Retained for any out-of-tree caller still on the old contract.
+  #
+  # Prior to this fix only path (2) was supported, so every
+  # Billing::PaymentReconciliationJob run failed at the auth filter.
   def authenticate_service_request
+    return if authenticate_via_jwt
+    return if authenticate_via_service_token
+
+    render_error("Unauthorized service request", status: :unauthorized)
+  end
+
+  def authenticate_via_jwt
+    token = request.headers["Authorization"]&.split(" ")&.last
+    return false if token.blank?
+
+    payload = ::Security::JwtService.decode(token)
+    return false unless payload[:type] == "worker"
+
+    @current_worker = ::Worker.find_by(id: payload[:sub])
+    return false unless @current_worker&.active?
+
+    @current_account = @current_worker.account
+    true
+  rescue StandardError
+    false
+  end
+
+  def authenticate_via_service_token
     service_token = request.headers["X-Service-Token"]
     expected_token = Rails.application.credentials.dig(:worker_service, :api_token)
+    return false if service_token.blank? || expected_token.blank?
 
-    unless service_token.present? && expected_token.present? && ActiveSupport::SecurityUtils.secure_compare(service_token, expected_token)
-      render_error("Unauthorized service request", status: :unauthorized)
-    end
+    ActiveSupport::SecurityUtils.secure_compare(service_token, expected_token)
   end
 end
