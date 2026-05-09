@@ -15,13 +15,19 @@ module Ai
     # Action shapes match the M0 plan:
     #   platform_provisioning_capture_brief  — NL + optional mission_id → brief + missing fields
     #   platform_provisioning_compose_plan   — mission_id → plan_id + DAG (cost/topology/risk nil for M0)
-    #   platform_provisioning_approve_plan   — plan_id + decision → mission status transition
-    #   platform_provisioning_execute        — mission_id → runner_id + step_count
+    #   platform_provisioning_approve_plan   — plan_id + decision → mission status transition (also kicks off execution via the orchestrator)
     #   platform_provisioning_status         — mission_id → phase + step lists
     #   platform_provisioning_adapt          — M0 stub returning { todo: "M2", adaptation_plan: nil }
     #
-    # Adapt is intentionally inert in M0; the actual adaptation engine ships
-    # with the ProjectSloSensor reconciler in M2.
+    # Note: there is intentionally NO `platform_provisioning_execute` action.
+    # The approve_plan action advances the mission past `review_plan`, which
+    # the orchestrator picks up and triggers AiProvisioningExecuteJob → the
+    # SkillCompositionRunner. A separate execute action would race with that
+    # path and double-provision (root cause of an early-M1 incident where
+    # two duplicate VMs spun up because the Concierge LLM called approve and
+    # then execute as separate tool calls). Adapt is intentionally inert in
+    # M0; the actual adaptation engine ships with the ProjectSloSensor
+    # reconciler in M2.
     class ProvisioningTool < BaseTool
       MISSION_TEMPLATE_NAME = "system_provisioning"
       VALID_DECISIONS = %w[approved rejected modified].freeze
@@ -78,15 +84,6 @@ module Ai
                                             "(shape: { steps: [{ step_number: Int, skill: String }] })" }
             }
           },
-          "platform_provisioning_execute" => {
-            description: "Kick off the SkillCompositionRunner for the mission's most recent plan. Returns " \
-                         "the runner_id, started_at, and step_count. Subsequent step progress streams via " \
-                         "MissionChannel events (provisioning_run_started + provisioning_step_changed); use " \
-                         "platform_provisioning_status for snapshot polling.",
-            parameters: {
-              mission_id: { type: "string", required: true, description: "Infrastructure mission ID" }
-            }
-          },
           "platform_provisioning_status" => {
             description: "Snapshot of provisioning progress: mission phase, currently-executing step number, " \
                          "and step-number lists by status (completed, pending, failed). For live streaming " \
@@ -116,7 +113,6 @@ module Ai
         when "platform_provisioning_capture_brief"  then capture_brief(params)
         when "platform_provisioning_compose_plan"   then compose_plan(params)
         when "platform_provisioning_approve_plan"   then approve_plan(params)
-        when "platform_provisioning_execute"        then execute_plan(params)
         when "platform_provisioning_status"         then status_snapshot(params)
         when "platform_provisioning_adapt"          then adapt(params)
         else
@@ -251,35 +247,6 @@ module Ai
           plan: serialize_plan(plan.reload),
           approval_request_id: nil,
           mission_status: mission.reload.status
-        )
-      end
-
-      def execute_plan(params)
-        mission = find_mission!(params[:mission_id])
-        plan = latest_plan_for(mission)
-        return error_result("No plan exists for mission #{mission.id} — run compose_plan first") unless plan
-
-        # M1 Self-Serve Hardening — gate execution on the active subscription's
-        # plan limits. On denial, return a structured `requires_upgrade: true`
-        # payload that the frontend (UpgradeRequiredCard, Slice D) consumes
-        # rather than running the SkillCompositionRunner.
-        if defined?(::Billing::ProvisioningQuotaGuard)
-          allow, reason = ::Billing::ProvisioningQuotaGuard.allow?(account: account, mission: mission)
-          unless allow
-            payload = ::Billing::ProvisioningQuotaGuard.upgrade_payload(reason: reason, account: account)
-            return success_result(payload.merge(mission_id: mission.id))
-          end
-        end
-
-        runner = ::Ai::Provisioning::SkillCompositionRunner.new(
-          account: account, mission: mission, plan: plan
-        )
-        result = runner.execute!
-
-        success_result(
-          runner_id: result[:runner_id],
-          started_at: result[:started_at].respond_to?(:iso8601) ? result[:started_at].iso8601 : result[:started_at],
-          step_count: result[:step_count]
         )
       end
 

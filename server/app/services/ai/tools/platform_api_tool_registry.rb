@@ -145,7 +145,6 @@ module Ai
         "platform_provisioning_capture_brief" => "Ai::Tools::ProvisioningTool",
         "platform_provisioning_compose_plan"  => "Ai::Tools::ProvisioningTool",
         "platform_provisioning_approve_plan"  => "Ai::Tools::ProvisioningTool",
-        "platform_provisioning_execute"       => "Ai::Tools::ProvisioningTool",
         "platform_provisioning_status"        => "Ai::Tools::ProvisioningTool",
         "platform_provisioning_adapt"         => "Ai::Tools::ProvisioningTool",
         # Project & CI/CD

@@ -9,7 +9,7 @@ RSpec.describe Ai::ToolRelevanceFilter do
 
   let(:provisioning_tools) do
     %w[platform_provisioning_capture_brief platform_provisioning_compose_plan
-       platform_provisioning_execute system_node_create docker_create_container
+       platform_provisioning_approve_plan system_node_create docker_create_container
        kubernetes_get_cluster].map { |n| tool(n) }
   end
 

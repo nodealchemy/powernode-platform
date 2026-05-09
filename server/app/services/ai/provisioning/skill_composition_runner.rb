@@ -37,6 +37,11 @@ module Ai
       EVENT_TYPE    = "provisioning_step_changed"
       RUN_START_EVENT = "provisioning_run_started"
 
+      # Step statuses that mean "this step is past the pending gate" — used
+      # by the execute! and execute_step! idempotency guards to detect a
+      # concurrent or completed run.
+      IN_FLIGHT_STATUSES = %w[executing completed failed].freeze
+
       attr_reader :account, :mission, :plan, :runner_id, :started_at
 
       def initialize(account:, mission:, plan:)
@@ -51,13 +56,31 @@ module Ai
       # step.dependencies, dispatches the first layer of step jobs, and
       # records run-start side effects.
       #
+      # Idempotent: if any step in the plan is already past `pending`, a
+      # previous run is in flight (or completed) — return that run's signal
+      # without re-dispatching. Two callers race for `execute!` whenever the
+      # approve flow's worker job and the Concierge LLM's tool both fire on
+      # the same approval (the LLM was historically over-eager); without
+      # this guard we'd double-provision every infrastructure step.
+      #
       # @return [Hash] { runner_id:, started_at:, step_count: }
       def execute!
+        ordered_steps = steps_in_order
+        step_count = ordered_steps.size
+
+        if (in_flight = ordered_steps.find { |s| IN_FLIGHT_STATUSES.include?(step_status(s)) })
+          Rails.logger.info(
+            "[SkillCompositionRunner] execute! no-op — plan #{plan.id[0..7]} " \
+            "already has step in '#{step_status(in_flight)}'; returning existing runner state."
+          )
+          @runner_id ||= ::UUID7.generate
+          @started_at ||= Time.current
+          return { runner_id: @runner_id, started_at: @started_at, step_count: step_count, already_running: true }
+        end
+
         @runner_id = ::UUID7.generate
         @started_at = Time.current
 
-        ordered_steps = steps_in_order
-        step_count = ordered_steps.size
         layers = topological_layers(ordered_steps)
 
         broadcast_run_started(step_count: step_count, layer_count: layers.size)
@@ -78,9 +101,24 @@ module Ai
       # Run a single step through its skill executor. Called by the step
       # worker job via the internal API once it has been picked up.
       #
+      # Idempotent: if the step is already past `pending` (executing /
+      # completed / failed) when this fires, a previous run already moved
+      # it forward — bail without re-invoking the skill executor. This
+      # closes the race where two `execute!` calls each enqueue per-step
+      # jobs against the same step_id.
+      #
       # @param step [#id, #step_number, #execution_config, …]
       # @return [Hash] { success:, outputs:, error: }
       def execute_step!(step)
+        current = step_status(step)
+        if IN_FLIGHT_STATUSES.include?(current)
+          Rails.logger.info(
+            "[SkillCompositionRunner] execute_step! no-op — step #{step_id(step)[0..7]} " \
+            "already in '#{current}'; refusing duplicate invocation."
+          )
+          return { success: current == "completed", outputs: {}, error: nil, already_running: true }
+        end
+
         config = step_config(step)
         skill_name = config["skill"] || config[:skill]
         inputs = (config["inputs"] || config[:inputs] || {})

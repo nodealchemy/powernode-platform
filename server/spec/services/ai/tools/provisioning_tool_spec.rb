@@ -58,13 +58,15 @@ RSpec.describe Ai::Tools::ProvisioningTool do
   # --------------------------------------------------------------------------
 
   describe ".action_definitions" do
-    it "registers all 6 platform_provisioning_* actions" do
+    # platform_provisioning_execute was removed — approve_plan is the
+    # canonical execute trigger via the orchestrator. A separate execute
+    # action raced with that path and double-provisioned (early-M1 bug).
+    it "registers all 5 platform_provisioning_* actions" do
       keys = described_class.action_definitions.keys
       expect(keys).to contain_exactly(
         "platform_provisioning_capture_brief",
         "platform_provisioning_compose_plan",
         "platform_provisioning_approve_plan",
-        "platform_provisioning_execute",
         "platform_provisioning_status",
         "platform_provisioning_adapt"
       )
@@ -79,12 +81,11 @@ RSpec.describe Ai::Tools::ProvisioningTool do
   end
 
   describe "Registry wiring" do
-    it "is registered in PlatformApiToolRegistry::TOOLS for all 6 actions" do
+    it "is registered in PlatformApiToolRegistry::TOOLS for all 5 actions" do
       %w[
         platform_provisioning_capture_brief
         platform_provisioning_compose_plan
         platform_provisioning_approve_plan
-        platform_provisioning_execute
         platform_provisioning_status
         platform_provisioning_adapt
       ].each do |action|
@@ -358,36 +359,6 @@ RSpec.describe Ai::Tools::ProvisioningTool do
 
       r = call("platform_provisioning_approve_plan", plan_id: other_plan.id, decision: "approved")
       expect(r[:success]).to be false
-    end
-  end
-
-  # --------------------------------------------------------------------------
-  # platform_provisioning_execute
-  # --------------------------------------------------------------------------
-
-  describe "platform_provisioning_execute" do
-    it "delegates to SkillCompositionRunner.execute! and returns runner metadata" do
-      mission = create_mission!
-      goal = create_goal_for(mission)
-      _plan = create_plan_with_step!(goal)
-
-      time = Time.utc(2026, 5, 6, 12, 0, 0)
-      expect_any_instance_of(::Ai::Provisioning::SkillCompositionRunner)
-        .to receive(:execute!)
-        .and_return(runner_id: "run-1", started_at: time, step_count: 3)
-
-      r = call("platform_provisioning_execute", mission_id: mission.id)
-      expect(r[:success]).to be true
-      expect(r[:data][:runner_id]).to eq("run-1")
-      expect(r[:data][:started_at]).to eq(time.iso8601)
-      expect(r[:data][:step_count]).to eq(3)
-    end
-
-    it "errors when no plan exists for the mission" do
-      mission = create_mission!
-      r = call("platform_provisioning_execute", mission_id: mission.id)
-      expect(r[:success]).to be false
-      expect(r[:error]).to include("compose_plan first")
     end
   end
 

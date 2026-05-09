@@ -42,9 +42,27 @@ class Api::V1::Internal::Ai::ProvisioningController < Api::V1::Internal::Interna
   end
 
   # POST /api/v1/internal/ai/provisioning/missions/:mission_id/execute
+  #
+  # Canonical entry point for kicking off a provisioning run. Reached by the
+  # AiProvisioningExecuteJob worker job after the approve gate advances the
+  # mission past `review_plan`. This is the ONLY path to execution — there
+  # is no `platform_provisioning_execute` MCP tool action (was removed; the
+  # tool variant raced with this path and double-provisioned).
   def execute
     plan = resolve_plan!
     return render_error("No plan available for mission", status: :unprocessable_entity) unless plan
+
+    # M1 Self-Serve Hardening — gate execution on subscription quota. On
+    # denial, surface a structured upgrade payload the frontend can render.
+    # Previously the gate lived only in the (now-removed) tool action, so
+    # the worker-job path was bypassing it.
+    if defined?(::Billing::ProvisioningQuotaGuard)
+      allow, reason = ::Billing::ProvisioningQuotaGuard.allow?(account: @mission.account, mission: @mission)
+      unless allow
+        payload = ::Billing::ProvisioningQuotaGuard.upgrade_payload(reason: reason, account: @mission.account)
+        return render_success(payload.merge(mission_id: @mission.id))
+      end
+    end
 
     runner = ::Ai::Provisioning::SkillCompositionRunner.new(
       account: @mission.account,

@@ -72,7 +72,6 @@ module Ai
       "platform_provisioning_capture_brief" => "provisioning_brief",
       "platform_provisioning_compose_plan"  => "provisioning_plan",
       "platform_provisioning_approve_plan"  => "provisioning_plan_approved",
-      "platform_provisioning_execute"       => "provisioning_execution",
       "platform_provisioning_status"        => "provisioning_status",
       "platform_provisioning_adapt"         => "provisioning_adaptation"
     }.freeze
