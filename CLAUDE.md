@@ -296,19 +296,9 @@ Contribute at least one of:
 - Speculative or unverified analysis
 - Knowledge that already exists in MCP (always search first)
 
-### MCP Helper (Claude Code Sessions)
+### MCP Tool Invocation
 
-Claude Code can invoke MCP tools via the Powernode MCP endpoint. The workspace SSE daemon (`/.claude/hooks/workspace-sse-daemon.sh`) manages OAuth tokens and sessions. Helper functions are available via `source .claude/hooks/mcp-helper.sh`:
-
-```bash
-# Get/cache an OAuth token
-mcp_token
-
-# Invoke any platform.* tool
-mcp_call "platform.knowledge_health" '{}'
-mcp_call "platform.query_learnings" '{"category": "pattern", "query": "memory access"}'
-mcp_call "platform.create_learning" '{"title": "...", "content": "...", "category": "discovery"}'
-```
+Claude Code invokes `platform.*` tools directly via the streamable-http MCP server registered in `.claude/settings.json` (`powernode` entry pointing at `http://localhost:3000/api/v1/mcp/message`). No external daemon, no helper scripts — just call the tool by name.
 
 ---
 

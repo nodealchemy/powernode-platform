@@ -24,36 +24,9 @@
     "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/statusline.sh"
   },
   "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/mcp-sse-autoconnect.sh",
-            "timeout": 3
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/workspace-messages.sh",
-            "timeout": 3
-          }
-        ]
-      }
-    ],
     "Stop": [
       {
         "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/workspace-stop-check.sh",
-            "timeout": 3
-          },
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/service-restart-apply.sh",
@@ -68,16 +41,6 @@
       }
     ],
     "PostToolUse": [
-      {
-        "matcher": "mcp__powernode__",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/mcp-sse-autostart.sh",
-            "timeout": 5
-          }
-        ]
-      },
       {
         "matcher": "Edit|Write",
         "hooks": [
