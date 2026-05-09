@@ -14,7 +14,7 @@ interface ChatWindowProps {
 }
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({ onDragStart }) => {
-  const { state, dispatch } = useChatWindow();
+  const { state, dispatch, materializePendingTab } = useChatWindow();
 
   const isFloating = state.mode === 'floating';
 
@@ -74,6 +74,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ onDragStart }) => {
                   key={activeConv.id}
                   conversation={activeConv}
                   onNewMessage={() => handleNewMessage(activeTab!.id)}
+                  beforeSend={activeTab?.isPending ? () => materializePendingTab(activeTab!.id) : undefined}
+                  isPending={activeTab?.isPending}
                 />
               ) : (
                 <ConversationCreator onComplete={() => {}} />

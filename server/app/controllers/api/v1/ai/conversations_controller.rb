@@ -410,7 +410,18 @@ module Api
 
           ProviderAvailabilityService.validate_agent_provider!(agent)
 
+          # Optional conversation_id: lets the client materialize a previously-pending
+          # tab at a specific id (lazy-creation flow — the tab generated this id
+          # client-side when the user clicked the Provisioning quick-launch, but
+          # we deferred the DB row until they actually typed something). If absent
+          # or the row already exists, fall back to a fresh server-generated id.
+          requested_id = params[:conversation_id].presence
+          if requested_id && (existing = current_user.account.ai_conversations.find_by(id: requested_id))
+            return render_success({ conversation: serialize_conversation_detail(existing) })
+          end
+
           conversation = agent.conversations.create!(
+            id: requested_id || UUID7.generate,
             conversation_id: UUID7.generate,
             user_id: current_user.id,
             account_id: current_user.account_id,

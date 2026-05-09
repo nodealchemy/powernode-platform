@@ -61,8 +61,14 @@ export const chatApi = {
   // which resumes the user's existing concierge conversation. The new
   // conversation appears in the sidebar's Provisioning group via the
   // conversation_type='provisioning' tag.
-  createProvisioningConversation: async (): Promise<ChatConversation> => {
-    const response = await apiClient.post('/ai/conversations/provisioning');
+  //
+  // Optional conversationId materializes a previously-pending tab at a
+  // specific id — the lazy-creation flow generates a UUIDv7 client-side
+  // when the user clicks the Provisioning quick-launch and only POSTs here
+  // when they send their first message.
+  createProvisioningConversation: async (conversationId?: string): Promise<ChatConversation> => {
+    const body = conversationId ? { conversation_id: conversationId } : undefined;
+    const response = await apiClient.post('/ai/conversations/provisioning', body);
     return response.data?.data?.conversation;
   },
 

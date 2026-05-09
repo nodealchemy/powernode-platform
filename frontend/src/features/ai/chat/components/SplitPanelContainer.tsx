@@ -27,7 +27,7 @@ function snapSizes(sizes: number[]): number[] {
 }
 
 export const SplitPanelContainer: React.FC = () => {
-  const { state, dispatch, setPanelSizes, setActivePanelId } = useChatWindow();
+  const { state, dispatch, setPanelSizes, setActivePanelId, materializePendingTab } = useChatWindow();
   const { panels, panelSizes, activePanelId, tabs } = state;
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -141,6 +141,8 @@ export const SplitPanelContainer: React.FC = () => {
                     key={conv.id}
                     conversation={conv}
                     onNewMessage={() => handleNewMessage(activeTabInPanel.id)}
+                    beforeSend={activeTabInPanel.isPending ? () => materializePendingTab(activeTabInPanel.id) : undefined}
+                    isPending={activeTabInPanel.isPending}
                   />
                 ) : (
                   <ConversationCreator onComplete={() => {}} />

@@ -16,6 +16,7 @@ import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import { useMessageActions } from './conversation/useMessageActions';
 import { MessageList } from './conversation/MessageList';
 import { MessageComposer } from './conversation/MessageComposer';
+import { MissionStatusBar } from '@/features/ai/provisioning/MissionStatusBar';
 
 // Union type to accept either conversation format
 type ConversationInput = AiConversation | ConversationBase;
@@ -24,12 +25,23 @@ interface AgentConversationComponentProps {
   conversation: ConversationInput;
   onConversationUpdate?: (conversation: ConversationInput) => void;
   onNewMessage?: (message: AiMessage) => void;
+  // Lazy-creation hook — chat surface passes this for pending tabs to
+  // materialize the server-side row before the first message send. Returns
+  // the agent_id to use for the send call (may differ from conversation.ai_agent
+  // when materialization is what assigns the agent). Returns null on failure.
+  beforeSend?: () => Promise<string | null>;
+  // Lazy-creation gate — false while the conversation is pending (no DB row
+  // yet); true once materialized. Skips the websocket subscription while
+  // pending so it doesn't get rejected by the channel's row-existence check.
+  isPending?: boolean;
 }
 
 export const AgentConversationComponent: React.FC<AgentConversationComponentProps> = ({
   conversation,
   onConversationUpdate: _onConversationUpdate,
-  onNewMessage
+  onNewMessage,
+  beforeSend,
+  isPending = false
 }) => {
   const [messages, setMessagesRaw] = useState<AiMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,14 +109,16 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
   const isProvisioning = effectiveConversation.conversation_type === 'provisioning';
   const { isConnected } = useWebSocket();
 
-  // WebSocket connection
+  // WebSocket connection. Skipped while the conversation is pending (lazy
+  // creation has not yet materialized the DB row); flips on after materialize.
   const { sendChannelMessage } = useConversationSocket({
     conversationId: conversation.id,
     currentUserId: currentUser?.id,
     onNewMessage,
     setMessages,
     setTypingUsers,
-    setAiThinking
+    setAiThinking,
+    enabled: !isPending
   });
 
   // Message action handlers
@@ -145,6 +159,11 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
   }, []);
 
   const loadMessages = useCallback(async () => {
+    if (isPending) {
+      // Lazy-pending conversation — no DB row yet, no messages to fetch.
+      setLoading(false);
+      return;
+    }
     if (!agentId) {
       setLoading(false);
       return;
@@ -158,16 +177,27 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
       setHasOlder(response.pagination?.has_older ?? false);
       setOldestCursor(response.pagination?.oldest_cursor ?? null);
       newestCursorRef.current = response.pagination?.newest_cursor ?? null;
-    } catch (_error) {
-      addNotification({
-        type: 'error',
-        title: 'Load Failed',
-        message: 'Failed to load conversation messages'
-      });
+    } catch (err) {
+      // Stale tab: conversation deleted server-side. Same close-tab signal
+      // as the realConversation fetch — whichever 404 fires first wins; the
+      // listener (in ChatWindowContext) is idempotent so duplicate events
+      // are harmless.
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 404) {
+        window.dispatchEvent(new CustomEvent('ai:conversation-not-found', {
+          detail: { conversationId: conversation.id }
+        }));
+      } else {
+        addNotification({
+          type: 'error',
+          title: 'Load Failed',
+          message: 'Failed to load conversation messages'
+        });
+      }
     } finally {
       setLoading(false);
     }
-  }, [conversation.id]);
+  }, [conversation.id, agentId, isPending, addNotification]);
 
   // Catch up on messages missed during WebSocket disconnection or tab blur
   const catchUpMissedMessages = useCallback(async () => {
@@ -263,7 +293,23 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     setMessages(prev => [...prev, optimisticMessage]);
 
     try {
-      if (!agentId) {
+      // Materialize lazy-created conversations (e.g., provisioning tab opened
+      // by quick-launch but the DB row was deferred until first message).
+      // beforeSend may return a freshly-allocated agent_id when materialization
+      // is what assigns it, so prefer it over the prop-derived agentId.
+      let resolvedAgentId = agentId;
+      if (beforeSend) {
+        const materializedAgentId = await beforeSend();
+        if (materializedAgentId === null) {
+          // Materialization failed; surface the optimistic message removal and bail.
+          setMessages(prev => prev.filter(m => m.id !== optimisticMessage.id));
+          setSending(false);
+          return;
+        }
+        if (materializedAgentId) resolvedAgentId = materializedAgentId;
+      }
+
+      if (!resolvedAgentId) {
         throw new Error('No agent associated with this conversation');
       }
 
@@ -273,7 +319,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
         ? { content: messageContent, metadata: { mentions: currentMentions } }
         : messageContent;
 
-      const response = await agentsApi.sendMessage(agentId, conversation.id, messagePayload);
+      const response = await agentsApi.sendMessage(resolvedAgentId, conversation.id, messagePayload);
 
       // Don't construct user message from HTTP response — let WebSocket deliver it
       // with full metadata (mentions, content_metadata). The optimistic message will
@@ -329,7 +375,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     } finally {
       setSending(false);
     }
-  }, [currentUser, conversation.id, agentId]);
+  }, [currentUser, conversation.id, agentId, beforeSend, addNotification]);
 
   const handleTyping = useCallback(() => {
     if (!isTyping) {
@@ -398,7 +444,10 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
   // synthetic placeholder (from the tab metadata) — the fetched row is
   // the source of truth for conversation_type, agent_team, etc. Stored
   // in component state so derivations re-evaluate on update.
+  // Skipped while isPending (lazy-creation: no DB row exists yet); re-runs
+  // when isPending flips to false after materialization.
   useEffect(() => {
+    if (isPending) return;
     let cancelled = false;
     const verifyAndFetch = async () => {
       try {
@@ -414,13 +463,25 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
         if (isWorkspace) {
           await refreshWorkspaceMembers();
         }
-      } catch {
-        // Non-critical — derivations fall back to the synthetic prop
+      } catch (err) {
+        // Stale tab: the conversation was deleted server-side while it was
+        // still open here (cleanup job, manual delete, cross-device sync).
+        // Emit an event so ChatWindowContext can close the orphaned tab —
+        // we use a CustomEvent to keep this component decoupled from the
+        // chat surface (it's also rendered standalone in AgentChatPage and
+        // ConversationContinueModal where the event is simply ignored).
+        const status = (err as { response?: { status?: number } })?.response?.status;
+        if (status === 404) {
+          window.dispatchEvent(new CustomEvent('ai:conversation-not-found', {
+            detail: { conversationId: conversation.id }
+          }));
+        }
+        // Otherwise non-critical — derivations fall back to the synthetic prop
       }
     };
     verifyAndFetch();
     return () => { cancelled = true; };
-  }, [conversation.id, refreshWorkspaceMembers]);
+  }, [conversation.id, refreshWorkspaceMembers, isPending]);
 
   // Re-fetch workspace members when members are added/removed via the panel
   useEffect(() => {
@@ -478,10 +539,12 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     wasConnectedRef.current = isConnected;
   }, [isConnected, catchUpMissedMessages]);
 
-  // Load initial messages
+  // Load initial messages. Re-runs when isPending flips false after lazy
+  // materialization so the conversation's empty state transitions to its
+  // real (still empty, but server-backed) state.
   useEffect(() => {
     loadMessages();
-  }, [conversation.id]);
+  }, [conversation.id, isPending]);
 
   // Auto-scroll to bottom when messages change (skip when loading older messages)
   useEffect(() => {
@@ -519,6 +582,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     <div className="h-full flex bg-theme-background">
       {/* Main chat area */}
       <div className={`flex flex-col ${threadMessage ? 'w-[60%]' : 'w-full'} transition-all duration-200`}>
+        {isProvisioning && <MissionStatusBar messages={messages} />}
         {/* Messages */}
         <MessageList
           messages={messages}

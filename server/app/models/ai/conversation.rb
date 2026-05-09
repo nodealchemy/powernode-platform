@@ -63,6 +63,12 @@ module Ai
     after_update :broadcast_status_change, if: :saved_change_to_status?
     after_destroy :cleanup_orphaned_workspace_team
 
+    # List-level CRUD events for the sidebar (AiConversationsListChannel).
+    # Per-message events are handled separately by broadcast_message.
+    after_create_commit :broadcast_list_created
+    after_update_commit :broadcast_list_updated, if: :list_relevant_change?
+    after_destroy_commit :broadcast_list_destroyed
+
     # Methods
     def active?
       status == "active"
@@ -391,6 +397,30 @@ module Ai
 
     def set_conversation_id
       self.conversation_id ||= UUID7.generate
+    end
+
+    LIST_RELEVANT_FIELDS = %w[title status message_count last_activity_at pinned_at tags conversation_type ai_agent_id agent_team_id].freeze
+
+    def list_relevant_change?
+      (saved_changes.keys & LIST_RELEVANT_FIELDS).any?
+    end
+
+    def broadcast_list_created
+      AiConversationsListChannel.broadcast_created(self)
+    rescue StandardError => e
+      Rails.logger.warn "[AiConversationsListChannel] broadcast_created failed: #{e.message}"
+    end
+
+    def broadcast_list_updated
+      AiConversationsListChannel.broadcast_updated(self)
+    rescue StandardError => e
+      Rails.logger.warn "[AiConversationsListChannel] broadcast_updated failed: #{e.message}"
+    end
+
+    def broadcast_list_destroyed
+      AiConversationsListChannel.broadcast_destroyed(self)
+    rescue StandardError => e
+      Rails.logger.warn "[AiConversationsListChannel] broadcast_destroyed failed: #{e.message}"
     end
 
     def set_websocket_channel

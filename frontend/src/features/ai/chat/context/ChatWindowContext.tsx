@@ -10,6 +10,8 @@ import { chatWindowReducer, initialChatWindowState } from './chatWindowReducer';
 import { saveChatState, loadChatState, createBroadcastChannel } from './chatWindowPersistence';
 import { chatApi } from '../services/chatApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { useWebSocket } from '@/shared/hooks/useWebSocket';
+import { uuid7 } from '@/shared/utils/uuid7';
 
 const ChatWindowContext = createContext<ChatWindowContextValue | null>(null);
 
@@ -78,7 +80,47 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
     });
     broadcastRef.current = bc;
     return () => bc?.close();
-  }, []);  
+  }, []);
+
+  // Close orphaned tabs whose backing conversation no longer exists. Two
+  // signals trigger closure:
+  //   1. AgentConversationComponent's mount-fetch hits 404 (covers stale
+  //      tabs hydrated from localStorage when the row was deleted offline).
+  //   2. AiConversationsListChannel pushes `conversation_destroyed` (covers
+  //      live deletes from another tab/device/cleanup job).
+  // Both routes converge here so tab cleanup is consistent.
+  const closeTabsForConversation = useCallback((conversationId: string) => {
+    const matching = stateRef.current.tabs.filter(t => t.conversationId === conversationId);
+    matching.forEach(t => dispatch({ type: 'CLOSE_TAB', payload: t.id }));
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const id = (e as CustomEvent<{ conversationId: string }>).detail?.conversationId;
+      if (id) closeTabsForConversation(id);
+    };
+    window.addEventListener('ai:conversation-not-found', handler);
+    return () => window.removeEventListener('ai:conversation-not-found', handler);
+  }, [closeTabsForConversation]);
+
+  const webSocket = useWebSocket();
+  const wsSubscribeRef = useRef(webSocket.subscribe);
+  if (wsSubscribeRef.current !== webSocket.subscribe) {
+    wsSubscribeRef.current = webSocket.subscribe;
+  }
+
+  useEffect(() => {
+    const unsubscribe = wsSubscribeRef.current({
+      channel: 'AiConversationsListChannel',
+      onMessage: (data: unknown) => {
+        const msg = data as { type: string; conversation_id?: string };
+        if (msg.type === 'conversation_destroyed' && msg.conversation_id) {
+          closeTabsForConversation(msg.conversation_id);
+        }
+      },
+    });
+    return () => unsubscribe();
+  }, [closeTabsForConversation]);
 
   // Detached mode: signal ready on mount, track resize, signal closed on unmount
   useEffect(() => {
@@ -236,55 +278,72 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
     }
   }, [state.mode, addNotification]);
 
-  // M5 conversation unification — always creates a fresh provisioning-typed
-  // conversation (distinct from openConcierge which resumes the existing
-  // concierge conversation). Routes through the Concierge agent so the
-  // existing ProvisioningTool registration handles intent capture; the
-  // conversation_type tag puts it in the sidebar's Provisioning group.
+  // Lazy-creation flow — generates a UUIDv7 client-side and opens the tab
+  // immediately with isPending=true. No DB row yet; the synthetic conversation
+  // (buildSyntheticConversation) paints the greeting card. The DB row
+  // materializes server-side on first message send via materializePendingTab.
+  // This stops empty provisioning conversations accumulating from button
+  // clicks the user never followed through on.
   const openProvisioning = useCallback(async () => {
+    const conversationId = uuid7();
+    const tab: ChatTab = {
+      id: `tab-${conversationId}`,
+      conversationId,
+      agentId: '',
+      agentName: 'Provisioning',
+      title: 'Provisioning',
+      unreadCount: 0,
+      createdAt: Date.now(),
+      isConcierge: true,
+      isProvisioning: true,
+      isPending: true,
+    };
+
+    dispatch({ type: 'OPEN_TAB', payload: tab });
+
+    if (state.mode === 'closed') {
+      dispatch({ type: 'SET_MODE', payload: 'floating' });
+    }
+
+    if (state.mode === 'detached') {
+      broadcastRef.current?.send({ type: 'open_tab', payload: tab });
+    }
+  }, [state.mode]);
+
+  // Called by the chat surface immediately before sending the first message
+  // on a pending provisioning tab. POSTs to /provisioning with the client-
+  // allocated UUIDv7 to materialize the row at that id, then clears isPending
+  // so subsequent sends use the normal path. Returns the agent_id of the
+  // materialized conversation, or null on failure.
+  const materializePendingTab = useCallback(async (tabId: string): Promise<string | null> => {
+    const tab = stateRef.current.tabs.find(t => t.id === tabId);
+    if (!tab || !tab.isPending) return tab?.agentId || null;
+
     try {
-      const conv = await chatApi.createProvisioningConversation();
+      const conv = await chatApi.createProvisioningConversation(tab.conversationId);
       if (!conv) {
         addNotification({
-          type: 'warning',
-          title: 'No Assistant',
-          message: 'No concierge agent configured. Please select an agent manually.',
+          type: 'error',
+          title: 'Provisioning Error',
+          message: 'No concierge agent configured. Cannot create provisioning conversation.',
         });
-        return;
+        return null;
       }
-
-      const tab: ChatTab = {
-        id: `tab-${conv.id}`,
-        conversationId: conv.id,
-        agentId: conv.ai_agent?.id || '',
-        agentName: 'Provisioning',
-        title: 'Provisioning',
-        unreadCount: 0,
-        createdAt: Date.now(),
-        isConcierge: true,
-        // M5 — tag the tab so ChatWindow's tabConversations builder
-        // synthesizes conversation_type='provisioning' for the
-        // AgentConversationComponent.
-        isProvisioning: true,
-      };
-
-      dispatch({ type: 'OPEN_TAB', payload: tab });
-
-      if (state.mode === 'closed') {
-        dispatch({ type: 'SET_MODE', payload: 'floating' });
-      }
-
-      if (state.mode === 'detached') {
-        broadcastRef.current?.send({ type: 'open_tab', payload: tab });
-      }
+      const agentId = conv.ai_agent?.id || '';
+      dispatch({
+        type: 'UPDATE_TAB',
+        payload: { id: tabId, changes: { isPending: false, agentId } },
+      });
+      return agentId;
     } catch {
       addNotification({
         type: 'error',
         title: 'Provisioning Error',
-        message: 'Failed to open provisioning chat. Please try again.',
+        message: 'Failed to start provisioning conversation. Please try again.',
       });
+      return null;
     }
-  }, [state.mode, addNotification]);
+  }, [addNotification]);
 
   const openChannel = useCallback((channelId: string, channelName: string, teamId: string, teamName: string) => {
     const tabId = `tab-channel-${channelId}`;
@@ -429,6 +488,7 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
     openConversationMaximized,
     openConcierge,
     openProvisioning,
+    materializePendingTab,
     openChannel,
     openInNewTab,
     closeTab,

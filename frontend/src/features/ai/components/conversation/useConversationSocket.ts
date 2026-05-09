@@ -11,6 +11,10 @@ interface UseConversationSocketOptions {
   setMessages: React.Dispatch<React.SetStateAction<AiMessage[]>>;
   setTypingUsers: React.Dispatch<React.SetStateAction<Set<string>>>;
   setAiThinking: React.Dispatch<React.SetStateAction<string | null>>;
+  // Gate subscription on the conversation existing server-side. Defaults true.
+  // Pending lazy-created conversations pass false until materialization, then
+  // flip to true — the deps change re-runs the subscribe effect.
+  enabled?: boolean;
 }
 
 export function useConversationSocket({
@@ -19,7 +23,8 @@ export function useConversationSocket({
   onNewMessage,
   setMessages,
   setTypingUsers,
-  setAiThinking
+  setAiThinking,
+  enabled = true
 }: UseConversationSocketOptions) {
   const { addNotification } = useNotifications();
   const webSocket = useWebSocket();
@@ -147,8 +152,12 @@ export function useConversationSocket({
   // Update ref immediately when callback changes
   handleChannelMessageRef.current = handleChannelMessage;
 
-  // Set up WebSocket subscription
+  // Set up WebSocket subscription. Gated on `enabled` so lazy-created
+  // conversations defer subscription until materialization — the channel's
+  // subscribed{} would otherwise reject (conversation not found yet).
   useEffect(() => {
+    if (!enabled) return;
+
     const unsubscribe = subscribeRef.current({
       channel: 'AiConversationChannel',
       params: {
@@ -162,7 +171,7 @@ export function useConversationSocket({
     return () => {
       unsubscribe();
     };
-  }, [conversationId]);
+  }, [conversationId, enabled]);
 
   return {
     sendChannelMessage: sendChannelMessageRef

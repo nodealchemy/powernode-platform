@@ -14,6 +14,11 @@ export interface ChatTab {
   // openProvisioning so ChatWindow can construct a synthetic conversation
   // with conversation_type='provisioning' for AgentConversationComponent.
   isProvisioning?: boolean;
+  // Lazy-creation flag — true between openProvisioning() (client-only tab
+  // open, generates UUIDv7) and the first message send (server materializes
+  // the row at that id). While pending, no DB row exists; the chat surface
+  // renders the synthetic conversation card from buildSyntheticConversation.
+  isPending?: boolean;
   teamId?: string;
   isChannel?: boolean;
   channelId?: string;
@@ -87,6 +92,11 @@ export interface ChatWindowContextValue {
   // concierge conversation. The new conversation appears in the sidebar's
   // Provisioning group via the conversation_type='provisioning' tag.
   openProvisioning: () => Promise<void>;
+  // Lazy-creation hook — when called for a pending provisioning tab,
+  // POSTs to materialize the DB row at the tab's client-allocated UUIDv7
+  // and clears isPending. No-op for non-pending tabs. Called by the chat
+  // surface immediately before the first message send for a pending tab.
+  materializePendingTab: (tabId: string) => Promise<string | null>;
   openChannel: (channelId: string, channelName: string, teamId: string, teamName: string) => void;
   openInNewTab: () => void;
   closeTab: (tabId: string) => void;

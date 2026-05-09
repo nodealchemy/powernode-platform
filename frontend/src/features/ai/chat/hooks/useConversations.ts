@@ -3,7 +3,14 @@ import { conversationsApi } from '@/shared/services/ai';
 import { agentsApi } from '@/shared/services/ai';
 import type { ConversationBase, ConversationDetail, GlobalConversationFilters } from '@/shared/services/ai/ConversationsApiService';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import { logger } from '@/shared/utils/logger';
+
+interface ConversationsListChannelMessage {
+  type: 'subscription.confirmed' | 'conversation_created' | 'conversation_updated' | 'conversation_destroyed';
+  conversation?: ConversationBase;
+  conversation_id?: string;
+}
 
 interface UseConversationsOptions {
   pollInterval?: number;
@@ -39,7 +46,10 @@ interface UseConversationsReturn {
   searchMessages: (query: string) => Promise<ConversationBase[]>;
 }
 
-const POLL_INTERVAL_DEFAULT = 30000;
+// WebSocket-pushed list events (AiConversationsListChannel) keep the local
+// list in sync. Polling is now a slow fallback in case the socket drops, not
+// the primary sync mechanism.
+const POLL_INTERVAL_DEFAULT = 120000;
 
 export function useConversations(options: UseConversationsOptions = {}): UseConversationsReturn {
   const { pollInterval = POLL_INTERVAL_DEFAULT, initialFilters } = options;
@@ -355,7 +365,57 @@ export function useConversations(options: UseConversationsOptions = {}): UseConv
     loadConversations();
   }, [loadConversations]);
 
-  // Polling
+  // Live sidebar — subscribe to AiConversationsListChannel for push updates.
+  // Created/updated/destroyed events patch the local list directly so the
+  // sidebar reflects changes from other tabs, devices, or server-side
+  // operations (cleanup jobs, lazy-creation materializations) without HTTP
+  // refetch. Polling stays on a long interval as defense-in-depth.
+  const webSocket = useWebSocket();
+  const subscribeRef = useRef(webSocket.subscribe);
+  if (subscribeRef.current !== webSocket.subscribe) {
+    subscribeRef.current = webSocket.subscribe;
+  }
+
+  useEffect(() => {
+    const unsubscribe = subscribeRef.current({
+      channel: 'AiConversationsListChannel',
+      onMessage: (data: unknown) => {
+        const msg = data as ConversationsListChannelMessage;
+        if (!mountedRef.current) return;
+
+        switch (msg.type) {
+          case 'conversation_created':
+            if (msg.conversation) {
+              setConversations(prev => {
+                if (prev.some(c => c.id === msg.conversation!.id)) return prev;
+                return [msg.conversation!, ...prev];
+              });
+            }
+            break;
+          case 'conversation_updated':
+            if (msg.conversation) {
+              setConversations(prev =>
+                prev.map(c => (c.id === msg.conversation!.id ? { ...c, ...msg.conversation } : c))
+              );
+              setActiveConversation(prev =>
+                prev && prev.id === msg.conversation!.id ? { ...prev, ...msg.conversation } : prev
+              );
+            }
+            break;
+          case 'conversation_destroyed':
+            if (msg.conversation_id) {
+              setConversations(prev => prev.filter(c => c.id !== msg.conversation_id));
+              setActiveConversation(prev => (prev && prev.id === msg.conversation_id ? null : prev));
+            }
+            break;
+        }
+      },
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Polling (fallback, low frequency)
   useEffect(() => {
     if (pollInterval > 0) {
       pollTimerRef.current = setInterval(() => {
