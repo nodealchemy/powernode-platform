@@ -1,53 +1,161 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowUpRight, CheckCircle2, ClipboardList, Layers, Server, TrendingUp, Wrench } from 'lucide-react';
+import React, { useCallback, useState } from 'react';
+import { CheckCircle2, ClipboardList, Layers, Server, TrendingUp, Wrench } from 'lucide-react';
 import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
+import { Button } from '@/shared/components/ui/Button';
+import apiClient from '@/shared/services/apiClient';
+import { logger } from '@/shared/utils/logger';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import type { ChatCard } from '@/shared/types/ai';
 import { BriefCard } from './BriefCard';
+import { ProvisioningPlanReview } from './ProvisioningPlanReview';
 import type { ProjectBrief, ProvisioningPlan, PlanStep, RiskFactor } from './types';
 
 /**
  * Renders a single ChatCard (surfaced from a Concierge tool result via
  * `assistant_message.content_metadata.cards`) inline in the standard chat.
  *
- * Each card kind picks a compact renderer suited for inline display, plus a
- * "Open in provisioning" deep-link to `/app/system/provision?mission_id=…`
- * for the full flow when the user wants to drill in.
+ * Plan cards (`provisioning_plan`) get a "Review plan" button that opens
+ * ProvisioningPlanReview as an inline modal, keeping the user in the same
+ * conversation. Previously this slot deep-linked to /app/system/provision
+ * which bootstrapped a *new* concierge conversation, dropping the user
+ * out of their current chat.
  */
 export interface ChatProvisioningCardSlotProps {
   card: ChatCard;
   className?: string;
 }
 
-const PROVISION_PATH = '/app/system/provision';
-
 export const ChatProvisioningCardSlot: React.FC<ChatProvisioningCardSlotProps> = ({
   card,
   className = ''
 }) => {
   const missionId = (card.payload?.mission_id as string | undefined) ?? undefined;
-  const deepLinkHref = missionId
-    ? `${PROVISION_PATH}?mission_id=${encodeURIComponent(missionId)}`
-    : PROVISION_PATH;
-
   const inner = renderInner(card);
   if (!inner) return null;
 
   return (
     <div className={`mt-3 ${className}`.trim()} data-testid={`chat-card-${card.kind}`}>
       {inner}
-      <div className="mt-2 flex justify-end">
-        <Link
-          to={deepLinkHref}
-          className="inline-flex items-center gap-1 text-xs font-medium text-theme-interactive-primary hover:underline"
-          data-testid={`chat-card-${card.kind}-deeplink`}
-        >
-          Open in provisioning
-          <ArrowUpRight className="h-3 w-3" />
-        </Link>
-      </div>
+      {card.kind === 'provisioning_plan' && missionId && (
+        <PlanReviewLauncher card={card} missionId={missionId} />
+      )}
     </div>
+  );
+};
+
+interface PlanReviewLauncherProps {
+  card: ChatCard;
+  missionId: string;
+}
+
+const PlanReviewLauncher: React.FC<PlanReviewLauncherProps> = ({ card, missionId }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [plan, setPlan] = useState<ProvisioningPlan | null>(
+    (card.payload?.plan as ProvisioningPlan | undefined) ?? null
+  );
+  const [brief, setBrief] = useState<ProjectBrief | undefined>(
+    (card.payload?.brief as ProjectBrief | undefined) ?? undefined
+  );
+  const [loading, setLoading] = useState(false);
+  const { addNotification } = useNotifications();
+
+  const handleOpen = useCallback(async () => {
+    if (plan) {
+      // Card payload already carries the plan — open immediately, refresh
+      // in the background so a stale card still shows but updates if the
+      // mission moved on.
+      setIsOpen(true);
+      apiClient
+        .post<{ data?: { plan?: ProvisioningPlan; brief?: ProjectBrief } }>(`/ai/missions/${missionId}/compose_plan`)
+        .then((r) => {
+          const env = r.data?.data;
+          if (env?.plan) setPlan(env.plan);
+          if (env?.brief) setBrief(env.brief);
+        })
+        .catch((err) => logger.warn('Plan refresh failed', { missionId, err }));
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const r = await apiClient.post<{ data?: { plan?: ProvisioningPlan; brief?: ProjectBrief } }>(
+        `/ai/missions/${missionId}/compose_plan`
+      );
+      const env = r.data?.data;
+      if (!env?.plan) {
+        addNotification({ type: 'error', title: 'Plan unavailable', message: 'Plan composition returned no plan.' });
+        return;
+      }
+      setPlan(env.plan);
+      if (env.brief) setBrief(env.brief);
+      setIsOpen(true);
+    } catch (err) {
+      logger.error('Failed to load plan for review', { missionId, err });
+      addNotification({ type: 'error', title: 'Plan unavailable', message: 'Could not load the plan for review.' });
+    } finally {
+      setLoading(false);
+    }
+  }, [plan, missionId, addNotification]);
+
+  const handleApprove = useCallback(async () => {
+    try {
+      await apiClient.post(`/ai/missions/${missionId}/approve`);
+      addNotification({ type: 'success', message: 'Plan approved. Provisioning started.' });
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 409) {
+        addNotification({ type: 'info', message: 'Mission already past review.' });
+      } else {
+        logger.error('Failed to approve plan', { missionId, err });
+        addNotification({ type: 'error', title: 'Approve failed', message: 'Could not approve the plan.' });
+        throw err;
+      }
+    }
+    setIsOpen(false);
+  }, [missionId, addNotification]);
+
+  const handleReject = useCallback(async (reason?: string) => {
+    try {
+      await apiClient.post(`/ai/missions/${missionId}/reject`, { reason });
+      addNotification({ type: 'success', message: 'Plan rejected. Continue refining in chat.' });
+    } catch (err) {
+      logger.error('Failed to reject plan', { missionId, err });
+      addNotification({ type: 'error', title: 'Reject failed', message: 'Could not reject the plan.' });
+    }
+    setIsOpen(false);
+  }, [missionId, addNotification]);
+
+  const handleModify = useCallback(() => {
+    setIsOpen(false);
+  }, []);
+
+  return (
+    <>
+      <div className="mt-2 flex justify-end">
+        <Button
+          size="sm"
+          variant="primary"
+          onClick={handleOpen}
+          disabled={loading}
+          data-testid={`chat-card-${card.kind}-review`}
+        >
+          {loading ? 'Loading…' : 'Review plan'}
+        </Button>
+      </div>
+      {isOpen && plan && (
+        <ProvisioningPlanReview
+          isOpen
+          onClose={() => setIsOpen(false)}
+          missionId={missionId}
+          plan={plan}
+          brief={brief}
+          onApprove={handleApprove}
+          onReject={handleReject}
+          onModify={handleModify}
+        />
+      )}
+    </>
   );
 };
 
