@@ -53,7 +53,7 @@ module Api
 
           conversation = agent.conversations.build(
             conversation_params.merge(
-              conversation_id: SecureRandom.uuid,
+              conversation_id: UUID7.generate,
               user_id: current_user.id,
               account_id: current_user.account_id,
               ai_provider_id: agent.ai_provider_id,
@@ -381,7 +381,7 @@ module Api
           unless conversation
             ProviderAvailabilityService.validate_agent_provider!(agent)
             conversation = agent.conversations.create!(
-              conversation_id: SecureRandom.uuid,
+              conversation_id: UUID7.generate,
               user_id: current_user.id,
               account_id: current_user.account_id,
               ai_provider_id: agent.ai_provider_id,
@@ -411,7 +411,7 @@ module Api
           ProviderAvailabilityService.validate_agent_provider!(agent)
 
           conversation = agent.conversations.create!(
-            conversation_id: SecureRandom.uuid,
+            conversation_id: UUID7.generate,
             user_id: current_user.id,
             account_id: current_user.account_id,
             ai_provider_id: agent.ai_provider_id,
