@@ -1,5 +1,4 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { ConversationSidebar } from './ConversationSidebar';
 import { AgentSelector } from './AgentSelector';
@@ -18,15 +17,31 @@ type SortOption = 'last_activity' | 'created_at' | 'message_count';
 export const ChatWindowSidebar: React.FC = () => {
   const { state, dispatch, openConversation, openConcierge, openChannel } = useChatWindow();
   const { addNotification } = useNotifications();
-  const navigate = useNavigate();
-  // Sidebar quick-launch — opens a fresh provisioning chat. Navigates to
-  // the existing /app/system/provision route which creates a new mission +
-  // conversation. After M5 next-slice (ProvisioningPage persists to
-  // Ai::Conversation), the new conversation will appear in the
-  // Provisioning sidebar group automatically via the after_save tag.
-  const handleNewProvisioning = useCallback(() => {
-    navigate('/app/system/provision');
-  }, [navigate]);
+  // Sidebar quick-launch — opens an inline conversation primed for
+  // provisioning intent. Currently routes through the Concierge agent
+  // (which already has ProvisioningTool registered, so cards render
+  // inline via ChatProvisioningCardSlot when the user describes what
+  // they want). Once the M5 second slice lands a true
+  // chatApi.createProvisioningConversation() endpoint, this will swap
+  // to opening a fresh provisioning-typed conversation directly. Stays
+  // inside the chat surface either way — no full-page navigation.
+  const handleNewProvisioning = useCallback(async () => {
+    try {
+      await openConcierge();
+      addNotification({
+        type: 'info',
+        title: 'Provisioning chat ready',
+        message: 'Tell the assistant what infrastructure you need.',
+      });
+    } catch (err) {
+      logger.error('Failed to open provisioning chat', err);
+      addNotification({
+        type: 'error',
+        title: 'Could not open chat',
+        message: 'Please try again.',
+      });
+    }
+  }, [openConcierge, addNotification]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortBy, setSortBy] = useState<SortOption>('last_activity');
   const [searchMode, setSearchMode] = useState<SearchMode>('title');
