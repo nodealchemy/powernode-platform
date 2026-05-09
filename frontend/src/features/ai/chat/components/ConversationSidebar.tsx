@@ -62,6 +62,10 @@ interface ConversationSidebarProps {
   // own sidebar group, distinct from agent + workspace conversations.
   provisioningConversations?: ConversationBase[];
   onNewWorkspace?: () => void;
+  // M5 — quick-launch a new provisioning chat. Sibling affordance to the
+  // workspace button so operators can start a provisioning conversation
+  // straight from the sidebar without leaving the chat surface.
+  onNewProvisioning?: () => void;
   channels?: TeamChannelSidebarItem[];
   activeChannelId?: string | null;
   onSelectChannel?: (channel: TeamChannelSidebarItem) => void;
@@ -91,6 +95,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   workspaceConversations = [],
   provisioningConversations = [],
   onNewWorkspace,
+  onNewProvisioning,
   channels = [],
   activeChannelId,
   onSelectChannel,
@@ -259,6 +264,17 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
               title="New workspace"
             >
               <Users className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {onNewProvisioning && (
+            <Button
+              variant="ghost"
+              size="xs"
+              iconOnly
+              onClick={onNewProvisioning}
+              title="Provision infrastructure"
+            >
+              <Server className="h-3.5 w-3.5" />
             </Button>
           )}
           {onBulkAction && (

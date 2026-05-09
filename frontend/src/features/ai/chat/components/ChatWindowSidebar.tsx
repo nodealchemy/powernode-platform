@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { ConversationSidebar } from './ConversationSidebar';
 import { AgentSelector } from './AgentSelector';
@@ -17,6 +18,15 @@ type SortOption = 'last_activity' | 'created_at' | 'message_count';
 export const ChatWindowSidebar: React.FC = () => {
   const { state, dispatch, openConversation, openConcierge, openChannel } = useChatWindow();
   const { addNotification } = useNotifications();
+  const navigate = useNavigate();
+  // Sidebar quick-launch — opens a fresh provisioning chat. Navigates to
+  // the existing /app/system/provision route which creates a new mission +
+  // conversation. After M5 next-slice (ProvisioningPage persists to
+  // Ai::Conversation), the new conversation will appear in the
+  // Provisioning sidebar group automatically via the after_save tag.
+  const handleNewProvisioning = useCallback(() => {
+    navigate('/app/system/provision');
+  }, [navigate]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortBy, setSortBy] = useState<SortOption>('last_activity');
   const [searchMode, setSearchMode] = useState<SearchMode>('title');
@@ -155,6 +165,7 @@ export const ChatWindowSidebar: React.FC = () => {
         onSelectConversation={handleSelectConversation}
         onNewChat={handleNewChat}
         onNewWorkspace={() => setShowWorkspaceCreator(true)}
+        onNewProvisioning={handleNewProvisioning}
         onArchive={archiveConversation}
         onDelete={deleteConversation}
         onPin={pinConversation}
