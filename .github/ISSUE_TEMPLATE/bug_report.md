@@ -8,8 +8,9 @@ labels: bug
 <!--
 Before filing:
 - Search existing issues to avoid duplicates.
-- For SECURITY issues, do NOT file publicly. Email security@powernode.org
-  (fallback everett@quickfreeze.net) and we'll coordinate disclosure within 72 hours.
+- For SECURITY issues, do NOT file publicly. Open a private GitHub Security
+  Advisory at https://github.com/rett/powernode-platform/security/advisories/new
+  and we'll coordinate disclosure within 72 hours.
 - See CONTRIBUTING.md for the full contribution guide.
 -->
 

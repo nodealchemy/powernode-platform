@@ -4,7 +4,7 @@ Thanks for considering contributing to Powernode! This document covers how to ge
 
 ## Code of Conduct
 
-This project adheres to the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). By participating, you're expected to uphold this code. Report unacceptable behavior to `conduct@powernode.org` (or `everett@quickfreeze.net` if that address isn't routed yet).
+This project adheres to the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). By participating, you're expected to uphold this code. Report unacceptable behavior by opening a private GitHub Security Advisory on this repository (Settings → Security → Report a vulnerability — works for conduct issues too) or via [GitHub Discussions](https://github.com/rett/powernode-platform/discussions) for non-sensitive matters.
 
 ## Getting Started
 
@@ -38,7 +38,7 @@ Use the appropriate template:
 
 - **Bug reports** — for things that are broken (use the bug report template)
 - **Feature requests** — for proposals (new capability, integration, or workflow)
-- **Security issues** — **DO NOT file as public issues.** Email `security@powernode.org` (or `everett@quickfreeze.net`) with details. We'll respond within 72 hours and coordinate disclosure.
+- **Security issues** — **DO NOT file as public issues.** Open a [private GitHub Security Advisory](https://github.com/rett/powernode-platform/security/advisories/new) with details. We'll respond within 72 hours and coordinate disclosure.
 
 Please search existing issues first to avoid duplicates.
 
@@ -109,9 +109,9 @@ Then `journalctl -u powernode-backend@default -f` to tail logs.
 
 ## Communication
 
-- **Issues** — best for bugs and feature requests
-- **GitHub Discussions** — best for design questions, ideas, "is this approach right?"
-- **Email** — `everett@quickfreeze.net` for private questions or security reports
+- **[GitHub Issues](https://github.com/rett/powernode-platform/issues)** — best for bugs and feature requests
+- **[GitHub Discussions](https://github.com/rett/powernode-platform/discussions)** — best for design questions, ideas, "is this approach right?"
+- **[GitHub Security Advisories](https://github.com/rett/powernode-platform/security/advisories/new)** — for private questions or security reports
 
 ## License
 

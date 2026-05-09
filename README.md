@@ -1,8 +1,10 @@
 # Powernode Platform
 
-> **AI orchestration infrastructure with production-grade platform engineering**
+> **Open-source mission control for AI agent fleets — chat to provision, agents to operate, humans to approve.**
 
-Powernode is a self-hosted platform that gives you full control over AI agents, automated workflows, and the infrastructure they run on. It combines multi-provider LLM routing, knowledge graph reasoning, and agent autonomy with a complete operational foundation — authentication, permissions, real-time communication, DevOps pipelines, and container orchestration — in a single, coherent system. Every component is designed to work together: agents share memory, learn from execution history, and operate within safety guardrails you define.
+Powernode turns AI agents into accountable operators of real infrastructure. Describe what you need in plain English, an agent fleet provisions it, and an autonomous control loop keeps it healthy — with every consequential action gated through an approval workflow you configure.
+
+It's the full operational substrate underneath: authentication, permissions, multi-provider LLM routing, knowledge graph reasoning, real-time communication, DevOps pipelines, container orchestration, and a fleet sensor + intervention policy framework that lets agents observe, propose, and act within safety guardrails you define. Every component is designed to work together: agents share memory, learn from execution history, and operate within boundaries that keep them auditable.
 
 ### Why Powernode
 

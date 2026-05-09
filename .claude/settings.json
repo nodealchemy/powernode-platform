@@ -1,7 +1,7 @@
 {
   "env": {
     "POWERNODE_ROOT": "/opt/powernode",
-    "POWERNODE_URL": "https://platform.powernode.org"
+    "POWERNODE_URL": "http://localhost:3000"
   },
   "mcpServers": {
     "filesystem": {
@@ -16,7 +16,7 @@
     },
     "powernode": {
       "type": "streamable-http",
-      "url": "https://platform.powernode.org/api/v1/mcp/message"
+      "url": "http://localhost:3000/api/v1/mcp/message"
     }
   },
   "statusLine": {
