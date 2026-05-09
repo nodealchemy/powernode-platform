@@ -262,6 +262,10 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
         unreadCount: 0,
         createdAt: Date.now(),
         isConcierge: true,
+        // M5 — tag the tab so ChatWindow's tabConversations builder
+        // synthesizes conversation_type='provisioning' for the
+        // AgentConversationComponent.
+        isProvisioning: true,
       };
 
       dispatch({ type: 'OPEN_TAB', payload: tab });

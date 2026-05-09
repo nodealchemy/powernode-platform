@@ -10,6 +10,10 @@ export interface ChatTab {
   createdAt: number;
   isConcierge?: boolean;
   isWorkspace?: boolean;
+  // M5 conversation unification — set when the tab was opened via
+  // openProvisioning so ChatWindow can construct a synthetic conversation
+  // with conversation_type='provisioning' for AgentConversationComponent.
+  isProvisioning?: boolean;
   teamId?: string;
   isChannel?: boolean;
   channelId?: string;
