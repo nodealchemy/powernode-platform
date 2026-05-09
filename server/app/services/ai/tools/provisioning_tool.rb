@@ -398,30 +398,46 @@ module Ai
 
       # ===== Phase transitions =====
       #
-      # The MCP-direct flow and the worker-job-driven flow both write the
-      # same data (brief, plan, approval) but only the worker-job flow used
-      # to advance the mission's `current_phase`. These helpers close that
-      # gap so MCP callers see the same phase progression as chat-surface
-      # callers.
+      # All advances delegate to OrchestratorService so status (draft→active),
+      # phase_history bookkeeping, dispatch, and approval gate semantics stay
+      # in one place. Direct mission.update!(current_phase: …) here used to
+      # produce hybrid states (e.g. current_phase=execute, status=draft) that
+      # left the orchestrator unaware of an in-flight mission.
+
+      def orchestrator_for(mission)
+        ::Ai::Missions::OrchestratorService.new(mission: mission)
+      end
 
       def advance_to_compose_plan!(mission)
         return unless mission.current_phase == "capture_intent"
-        mission.update!(current_phase: "compose_plan")
+        orchestrator_for(mission).transition_to!("compose_plan")
       end
 
       def advance_to_review_plan!(mission)
         return unless %w[capture_intent compose_plan].include?(mission.current_phase)
-        mission.update!(current_phase: "review_plan")
+        orchestrator_for(mission).transition_to!("review_plan")
       end
 
+      # Approval — creates Ai::MissionApproval record AND dispatches the
+      # execute-phase worker job via OrchestratorService#advance!.
       def advance_past_review_gate!(mission)
         return unless mission.current_phase == "review_plan"
-        mission.update!(current_phase: "execute")
+        orchestrator_for(mission).handle_approval!(
+          gate: "plan_review",
+          user: user,
+          decision: "approved"
+        )
       end
 
+      # Rejection — creates Ai::MissionApproval(decision="rejected") record
+      # AND rolls phase back per the template's rejection_mappings.
       def send_back_to_compose!(mission)
         return unless mission.current_phase == "review_plan"
-        mission.update!(current_phase: "compose_plan")
+        orchestrator_for(mission).handle_approval!(
+          gate: "plan_review",
+          user: user,
+          decision: "rejected"
+        )
       end
 
       # ===== Plan modifications (decision='modified') =====

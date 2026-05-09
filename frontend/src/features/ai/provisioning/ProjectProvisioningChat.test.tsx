@@ -86,13 +86,13 @@ describe('ProjectProvisioningChat', () => {
     expect(await screen.findByText('Got it — drafting a brief.')).toBeInTheDocument();
   });
 
-  it('subscribes to ConversationChannel and appends incoming messages', async () => {
+  it('subscribes to AiConversationChannel and appends incoming messages', async () => {
     buildMessages([]);
     render(<ProjectProvisioningChat conversationId="conv-1" onOpenPlan={jest.fn()} />);
 
     await waitFor(() => expect(mockSubscribe).toHaveBeenCalled());
     const sub = mockSubscribe.mock.calls[0][0];
-    expect(sub.channel).toBe('ConversationChannel');
+    expect(sub.channel).toBe('AiConversationChannel');
     expect(sub.params).toEqual({ conversation_id: 'conv-1' });
 
     act(() => {

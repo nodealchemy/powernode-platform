@@ -162,11 +162,15 @@ export const ProjectProvisioningChat: React.FC<ProjectProvisioningChatProps> = (
     fetchMessages();
   }, [fetchMessages]);
 
-  // Subscribe to ConversationChannel for streaming/new messages
+  // Subscribe to AiConversationChannel for streaming/new messages.
+  // (The Rails channel class is `AiConversationChannel`. Using the bare
+  // `'ConversationChannel'` value matches no server-side channel and
+  // surfaces as `Subscription class not found: "ConversationChannel"` in
+  // backend logs, breaking live message streaming silently.)
   useEffect(() => {
     if (!isConnected || !conversationId) return;
     const unsub = subscribe({
-      channel: 'ConversationChannel',
+      channel: 'AiConversationChannel',
       params: { conversation_id: conversationId },
       onMessage: (data: unknown) => {
         const evt = data as {
@@ -182,7 +186,7 @@ export const ProjectProvisioningChat: React.FC<ProjectProvisioningChatProps> = (
           setMessages((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
         }
       },
-      onError: (err) => logger.warn('ConversationChannel error', { err }),
+      onError: (err) => logger.warn('AiConversationChannel error', { err }),
     });
     return () => {
       if (unsub) unsub();

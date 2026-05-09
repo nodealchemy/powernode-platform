@@ -202,7 +202,7 @@ RSpec.describe Ai::Tools::ProvisioningTool do
       r = call("platform_provisioning_compose_plan", mission_id: mission.id)
       expect(r[:success]).to be true
       expect(r[:data][:plan_id]).to eq(plan.id)
-      expect(r[:data][:dag][:steps].first[:skill]).to eq("provision_full_stack")
+      expect(r[:data][:dag][:nodes].first[:skill]).to eq("provision_full_stack")
 
       cost = r[:data][:cost_estimate]
       expect(cost).to be_a(Hash)

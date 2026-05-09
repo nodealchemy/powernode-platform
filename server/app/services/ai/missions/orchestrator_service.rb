@@ -67,7 +67,10 @@ module Ai
       end
 
       def handle_approval!(gate:, user:, decision:, comment: nil, selected_feature: nil, prd_modifications: nil)
-        gate_name = gate_for_phase(gate)
+        # Translation is idempotent — if `gate` is already a valid gate
+        # name (e.g. caller already translated), passing it through the
+        # canonical mapping returns it unchanged.
+        gate_name = ::Ai::MissionApproval.gate_for_phase(gate, mission: mission)
 
         approval = mission.approvals.create!(
           account: account,
@@ -103,6 +106,37 @@ module Ai
           handle_rejection!(gate: mission.current_phase, comment: comment)
         end
 
+        mission
+      end
+
+      # Public, idempotent phase jump that mirrors the bookkeeping of
+       # advance!/start! without forcing a worker-job dispatch. Used by the
+       # chat-tool path (Ai::Tools::ProvisioningTool) which advances phases
+       # interactively as the operator refines the brief and plan — the
+       # interactive UX doesn't want to fire the phase job until an
+       # approval gate clears.
+       #
+       # Why this exists: callers used to update current_phase via raw
+       # mission.update!, which bypassed status flip (draft→active),
+       # phase_history bookkeeping, and approval gate semantics. That
+       # produced hybrid states like (current_phase=execute, status=draft)
+       # where the orchestrator never knew the mission was active.
+      def transition_to!(target_phase, dispatch: false)
+        target = target_phase.to_s
+        return mission if mission.current_phase == target
+
+        ActiveRecord::Base.transaction do
+          if mission.status == "draft"
+            mission.update!(
+              status: "active",
+              started_at: mission.started_at || Time.current
+            )
+          end
+          record_phase_exit({}) if mission.current_phase.present?
+          transition_to_phase!(target)
+        end
+
+        dispatch_phase_job! if dispatch && !mission.awaiting_approval?
         mission
       end
 
@@ -295,9 +329,11 @@ module Ai
         end
       end
 
+      # Kept as a thin shim for any callers still using the orchestrator's
+      # method directly. Delegates to the canonical mapping on the model
+      # — same answer either way.
       def gate_for_phase(phase)
-        config = find_custom_phase_config(phase)
-        config&.dig("gate_name") || phase
+        ::Ai::MissionApproval.gate_for_phase(phase, mission: mission)
       end
 
       def create_conversation!

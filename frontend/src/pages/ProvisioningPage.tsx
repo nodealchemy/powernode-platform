@@ -95,31 +95,109 @@ export const ProvisioningPage: React.FC = () => {
   }, []);
 
   // ------------------------------------------------------------------ //
-  // Plan fetch — invoked when the chat surfaces a `plan_ready` event
+  // Phase → ViewMode mapping. Called after fetching mission state on mount
+  // or deep-link to decide which surface to show. Without this, refreshing
+  // a deep-linked mission_id always re-opened the Approve modal even if
+  // the mission had already advanced past review_plan.
+  // ------------------------------------------------------------------ //
+  // Returns true if the mission is finished — refreshing a deep link to a
+  // finished mission should NOT pop up the execution overlay. Treat finished
+  // as: terminal mission status, OR phase past `execute`, OR all plan steps
+  // completed in `execute` (the steady state for a successful provision).
+  const isMissionFinished = (
+    phase: string | null | undefined,
+    status: string | null | undefined,
+    plan: ProvisioningPlan | null
+  ): boolean => {
+    if (status === 'completed' || status === 'cancelled' || status === 'failed') return true;
+    if (phase === 'handoff' || phase === 'completed' || phase === 'adapting') return true;
+    // execute + every step done = nothing left to watch live
+    if (phase === 'execute' && plan?.dag?.nodes?.length) {
+      const allDone = plan.dag.nodes.every(
+        (n) => n.status === 'completed' || n.status === 'skipped'
+      );
+      if (allDone) return true;
+    }
+    return false;
+  };
+
+  const phaseToViewMode = (phase: string | undefined | null): ViewMode => {
+    switch (phase) {
+      case 'execute':
+      case 'verify':
+        return 'executing';
+      case 'capture_intent':
+      case 'compose_plan':
+      case 'review_plan':
+      default:
+        return 'plan';
+    }
+  };
+
+  // ------------------------------------------------------------------ //
+  // Plan fetch — invoked when the chat surfaces a `plan_ready` event,
+  // OR on mount when the URL carries ?mission_id=… Two fetches in parallel:
+  //   1. /missions/:id            — current_phase + status (gate viewMode)
+  //   2. /missions/:id/compose_plan — idempotent plan snapshot
   // ------------------------------------------------------------------ //
   const handleOpenPlan = useCallback(async (missionId: string) => {
     setActiveMissionId(missionId);
-    setViewMode('plan');
     setPillVisible(false);
     setPlan(null);
     setPlanError(null);
     setPlanLoading(true);
 
     try {
-      const response = await apiClient.post<ApiEnvelope<{ plan?: ProvisioningPlan; brief?: ProjectBrief }>>(
-        `/ai/missions/${missionId}/compose_plan`
-      );
-      const envelope = response.data?.data;
+      const [missionResponse, planResponse] = await Promise.all([
+        apiClient.get<ApiEnvelope<{ mission?: { current_phase?: string; status?: string } }>>(
+          `/ai/missions/${missionId}`
+        ),
+        apiClient.post<ApiEnvelope<{ plan?: ProvisioningPlan; brief?: ProjectBrief }>>(
+          `/ai/missions/${missionId}/compose_plan`
+        ),
+      ]);
+
+      const phase = missionResponse.data?.data?.mission?.current_phase ?? null;
+      const status = missionResponse.data?.data?.mission?.status ?? null;
+      const envelope = planResponse.data?.data;
       const fetchedPlan = envelope?.plan ?? null;
+
+      // Finished mission on a refreshed deep link: drop the mission_id from
+      // the URL, hand the user a fresh chat surface. Avoids the dead "100%
+      // complete" overlay popping over the page on every refresh.
+      if (isMissionFinished(phase, status, fetchedPlan)) {
+        setActiveMissionId(null);
+        setPlan(null);
+        setBrief(undefined);
+        setViewMode('chat');
+        // Strip ?mission_id=… without a navigation/scroll-jump.
+        if (typeof window !== 'undefined' && window.history?.replaceState) {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('mission_id');
+          window.history.replaceState({}, '', url.toString());
+        }
+        return;
+      }
+
+      // Decide viewMode FROM phase, not from "is there a plan". A completed
+      // mission still has a plan, but the user shouldn't see Approve.
+      setViewMode(phaseToViewMode(phase));
+
       if (!fetchedPlan) {
         setPlanError('Plan composition returned an empty payload.');
         return;
       }
       setPlan(fetchedPlan);
       if (envelope?.brief) setBrief(envelope.brief);
+
+      if (phaseToViewMode(phase) === 'executing') {
+        const total = fetchedPlan.dag?.nodes?.length ?? 0;
+        setExecutionStats({ total, completed: 0 });
+      }
     } catch (err) {
-      logger.error('ProvisioningPage: failed to compose plan', { missionId, err });
+      logger.error('ProvisioningPage: failed to load mission/plan', { missionId, err });
       setPlanError('Failed to load provisioning plan.');
+      setViewMode('plan');
     } finally {
       setPlanLoading(false);
     }
@@ -144,12 +222,24 @@ export const ProvisioningPage: React.FC = () => {
     if (!activeMissionId || !plan) return;
     try {
       await apiClient.post(`/ai/missions/${activeMissionId}/approve`);
+      const total = plan.dag?.nodes?.length ?? 0;
+      setExecutionStats({ total, completed: 0 });
+      setViewMode('executing');
     } catch (err) {
+      // 409 NO_APPROVAL_GATE means the mission is already past review_plan
+      // (e.g. operator clicked Approve from a stale UI after the mission
+      // already advanced — happens on refresh of an old deep link). Treat
+      // as success and surface the executing view; the StepProgressStream
+      // will reflect terminal state if provisioning has finished.
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 409) {
+        const total = plan.dag?.nodes?.length ?? 0;
+        setExecutionStats({ total, completed: 0 });
+        setViewMode('executing');
+        return;
+      }
       logger.error('ProvisioningPage: failed to approve plan', { missionId: activeMissionId, err });
     }
-    const total = plan.dag?.nodes?.length ?? 0;
-    setExecutionStats({ total, completed: 0 });
-    setViewMode('executing');
   }, [activeMissionId, plan]);
 
   const handleReject = useCallback(
@@ -227,7 +317,11 @@ export const ProvisioningPage: React.FC = () => {
     );
   }
 
-  const showPlanModal = viewMode === 'plan' || viewMode === 'executing';
+  // Modal is for plan review only. During 'executing' the StepProgressStream
+  // below renders the live progress; previously the modal stayed open in
+  // 'executing' too, which kept showing the Approve button on top of an
+  // already-approved mission.
+  const showPlanModal = viewMode === 'plan';
 
   return (
     <div className="flex h-screen w-full flex-col bg-theme-background" data-testid="provisioning-page">
@@ -289,14 +383,25 @@ export const ProvisioningPage: React.FC = () => {
       )}
 
       {viewMode === 'executing' && plan && activeMissionId && (
-        <div className="fixed inset-x-0 bottom-16 mx-auto max-w-3xl px-4">
-          <StepProgressStream
-            missionId={activeMissionId}
-            steps={progressSteps}
-            onAllComplete={() =>
-              setExecutionStats((prev) => ({ total: prev.total, completed: prev.total }))
-            }
-          />
+        <div className="fixed inset-x-0 bottom-16 mx-auto max-w-3xl px-4" data-testid="provisioning-execution-overlay">
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setViewMode('chat')}
+              className="absolute -top-2 -right-2 z-10 rounded-full border border-theme bg-theme-surface p-1.5 text-theme-tertiary shadow-sm hover:bg-theme-background-secondary hover:text-theme-primary"
+              aria-label="Dismiss execution view"
+              data-testid="provisioning-execution-dismiss"
+            >
+              <X className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+            <StepProgressStream
+              missionId={activeMissionId}
+              steps={progressSteps}
+              onAllComplete={() =>
+                setExecutionStats((prev) => ({ total: prev.total, completed: prev.total }))
+              }
+            />
+          </div>
         </div>
       )}
 
