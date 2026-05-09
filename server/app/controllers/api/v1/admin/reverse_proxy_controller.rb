@@ -175,7 +175,7 @@ class Api::V1::Admin::ReverseProxyController < ApplicationController
   # POST /api/v1/admin/reverse_proxy/url_mappings
   def create
     mapping_data = url_mapping_params
-    mapping_data["id"] = SecureRandom.uuid
+    mapping_data["id"] = UUID7.generate
     mapping_data["enabled"] = true
 
     AdminSetting.add_url_mapping(mapping_data)

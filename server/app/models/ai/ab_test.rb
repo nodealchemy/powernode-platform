@@ -131,7 +131,7 @@ module Ai
     private
 
     def set_test_id
-      self.test_id ||= SecureRandom.uuid
+      self.test_id ||= UUID7.generate
     end
 
     def select_weighted_variant

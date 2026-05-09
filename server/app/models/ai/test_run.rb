@@ -119,7 +119,7 @@ module Ai
     private
 
     def set_run_id
-      self.run_id ||= SecureRandom.uuid
+      self.run_id ||= UUID7.generate
     end
 
     def calculate_results

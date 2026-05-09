@@ -142,7 +142,7 @@ module SupplyChain
 
     def add_recommended_action(action:, priority: "medium", due_date: nil)
       rec = {
-        id: SecureRandom.uuid,
+        id: UUID7.generate,
         action: action,
         priority: priority,
         due_date: due_date&.iso8601,
@@ -257,7 +257,7 @@ module SupplyChain
           description: "The #{certification_name} certification for #{vendor.name} expires on #{expires_at.to_date}",
           recommended_actions: [
             {
-              id: SecureRandom.uuid,
+              id: UUID7.generate,
               action: "Request updated certification from vendor",
               priority: "high",
               due_date: (expires_at - 14.days).iso8601,
@@ -282,7 +282,7 @@ module SupplyChain
           description: "Contract with #{vendor.name} is due for renewal on #{renewal_date.to_date}",
           recommended_actions: [
             {
-              id: SecureRandom.uuid,
+              id: UUID7.generate,
               action: "Review contract terms and initiate renewal process",
               priority: severity,
               due_date: (renewal_date - 30.days).iso8601,
@@ -290,7 +290,7 @@ module SupplyChain
               added_at: Time.current.iso8601
             },
             {
-              id: SecureRandom.uuid,
+              id: UUID7.generate,
               action: "Conduct vendor risk reassessment before renewal",
               priority: "medium",
               due_date: (renewal_date - 45.days).iso8601,

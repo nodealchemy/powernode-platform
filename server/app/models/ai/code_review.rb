@@ -106,7 +106,7 @@ module Ai
     private
 
     def set_review_id
-      self.review_id ||= SecureRandom.uuid
+      self.review_id ||= UUID7.generate
     end
   end
 end

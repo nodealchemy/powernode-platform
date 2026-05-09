@@ -106,7 +106,7 @@ module Ai
     private
 
     def set_result_id
-      self.result_id ||= SecureRandom.uuid
+      self.result_id ||= UUID7.generate
     end
   end
 end

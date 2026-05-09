@@ -99,7 +99,7 @@ module Ai
     private
 
     def set_execution_id
-      self.execution_id ||= SecureRandom.uuid
+      self.execution_id ||= UUID7.generate
     end
   end
 end

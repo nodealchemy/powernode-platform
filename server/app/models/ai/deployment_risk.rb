@@ -115,7 +115,7 @@ module Ai
     private
 
     def set_assessment_id
-      self.assessment_id ||= SecureRandom.uuid
+      self.assessment_id ||= UUID7.generate
     end
 
     def calculate_risk_score(factors)

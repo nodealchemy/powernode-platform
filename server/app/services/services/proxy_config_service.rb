@@ -144,7 +144,7 @@ module Services
     # @param mapping_data [Hash] Mapping data
     # @return [Hash] Created mapping with ID
     def create_url_mapping(mapping_data)
-      mapping_data["id"] = SecureRandom.uuid
+      mapping_data["id"] = UUID7.generate
       mapping_data["enabled"] = true
 
       AdminSetting.add_url_mapping(mapping_data)

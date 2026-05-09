@@ -141,7 +141,7 @@ module Ai
     private
 
     def set_benchmark_id
-      self.benchmark_id ||= SecureRandom.uuid
+      self.benchmark_id ||= UUID7.generate
     end
 
     def calculate_score(results)

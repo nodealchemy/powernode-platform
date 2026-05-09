@@ -124,6 +124,6 @@ class UsageEvent < ApplicationRecord
 
   def set_defaults
     self.timestamp ||= Time.current
-    self.event_id ||= SecureRandom.uuid
+    self.event_id ||= UUID7.generate
   end
 end

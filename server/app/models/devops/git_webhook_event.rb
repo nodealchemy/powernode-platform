@@ -216,7 +216,7 @@ module Devops
     end
 
     def generate_delivery_id
-      self.delivery_id ||= SecureRandom.uuid
+      self.delivery_id ||= UUID7.generate
     end
   end
 end

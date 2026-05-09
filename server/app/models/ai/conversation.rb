@@ -390,7 +390,7 @@ module Ai
     end
 
     def set_conversation_id
-      self.conversation_id ||= SecureRandom.uuid
+      self.conversation_id ||= UUID7.generate
     end
 
     def set_websocket_channel

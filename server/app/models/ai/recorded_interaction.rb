@@ -96,7 +96,7 @@ module Ai
     private
 
     def set_recording_id
-      self.recording_id ||= SecureRandom.uuid
+      self.recording_id ||= UUID7.generate
     end
 
     def set_recorded_at

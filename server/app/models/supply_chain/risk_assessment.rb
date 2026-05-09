@@ -159,7 +159,7 @@ module SupplyChain
 
     def add_finding(title:, severity:, description:, category: nil, remediation: nil)
       finding = {
-        id: SecureRandom.uuid,
+        id: UUID7.generate,
         title: title,
         severity: severity,
         description: description,
@@ -187,7 +187,7 @@ module SupplyChain
 
     def add_recommendation(title:, priority:, description:, due_date: nil)
       rec = {
-        id: SecureRandom.uuid,
+        id: UUID7.generate,
         title: title,
         priority: priority,
         description: description,
@@ -203,7 +203,7 @@ module SupplyChain
 
     def add_evidence(name:, type:, url: nil, notes: nil)
       ev = {
-        id: SecureRandom.uuid,
+        id: UUID7.generate,
         name: name,
         type: type,
         url: url,

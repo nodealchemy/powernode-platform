@@ -116,7 +116,7 @@ module SupplyChain
 
     def add_question(section_id:, text:, type: "text", required: true, **options)
       question = {
-        id: SecureRandom.uuid,
+        id: UUID7.generate,
         section_id: section_id,
         text: text,
         type: type,
