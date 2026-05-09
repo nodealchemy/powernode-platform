@@ -213,8 +213,11 @@ module Ai
         { success: false, error: "Failed to promote knowledge entry" }
       end
 
-      # Import high-importance CompoundLearning entries as SharedKnowledge
-      def import_from_learnings(team: nil, min_importance: 0.7)
+      # Import high-importance CompoundLearning entries as SharedKnowledge.
+      # Caps per-call work via `max_per_run` so the worker's HTTP timeout
+      # (120s default) doesn't kill mid-batch — caller chains follow-up
+      # invocations until `remaining` reaches 0.
+      def import_from_learnings(team: nil, min_importance: 0.7, max_per_run: 500)
         scope = Ai::CompoundLearning
           .active
           .for_account(@account.id)
@@ -225,7 +228,10 @@ module Ai
         imported = 0
         skipped = 0
 
-        scope.find_each do |learning|
+        # `find_each` ignores .limit, so materialize a bounded batch first.
+        # Order by id (UUIDv7-sortable) to make checkpoint resumption stable.
+        batch = scope.order(:id).limit(max_per_run).to_a
+        batch.each do |learning|
           # Map compound learning category to shared knowledge content type
           content_type = map_learning_to_content_type(learning.category)
 
@@ -253,11 +259,12 @@ module Ai
           end
         end
 
-        Rails.logger.info("[SharedKnowledge] Import complete: #{imported} imported, #{skipped} skipped (duplicates)")
-        { success: true, imported: imported, skipped: skipped }
+        remaining = scope.count - batch.size
+        Rails.logger.info("[SharedKnowledge] Import: #{imported} imported, #{skipped} skipped (duplicates), #{[ remaining, 0 ].max} remaining")
+        { success: true, imported: imported, skipped: skipped, remaining: [ remaining, 0 ].max }
       rescue StandardError => e
         Rails.logger.error("[SharedKnowledge] Import from learnings failed: #{e.message}")
-        { success: false, error: "Import failed", imported: 0, skipped: 0 }
+        { success: false, error: "Import failed", imported: 0, skipped: 0, remaining: 0 }
       end
 
       # Get knowledge statistics
@@ -304,8 +311,11 @@ module Ai
         { success: false, error: "Failed to compute stats", stats: {} }
       end
 
-      # Batch recalculate quality scores for entries not recalculated in 24h
-      def recalculate_all_quality(batch_size: 100)
+      # Batch recalculate quality scores for entries not recalculated in 24h.
+      # Caps per-call work via `max_per_run` (default 200) so the worker's
+      # HTTP timeout (120s) can't kill us mid-batch. Returns `remaining` so
+      # the caller can decide whether to chain follow-up invocations.
+      def recalculate_all_quality(batch_size: 100, max_per_run: 200)
         scope = Ai::SharedKnowledge.where(account: @account)
           .where.not("provenance @> ?", { archived: true }.to_json)
           .where("last_quality_recalc_at < ? OR last_quality_recalc_at IS NULL", 24.hours.ago)
@@ -317,16 +327,25 @@ module Ai
           .where("last_event_processed_at >= ?", 24.hours.ago)
           .count
 
-        scope.find_each(batch_size: batch_size) do |entry|
-          entry.recalculate_quality_score!
-          recalculated += 1
+        # `find_each` ignores .limit, so materialize the bounded batch.
+        # Oldest-first by `last_quality_recalc_at` so the most-stale rows
+        # get attention first across runs.
+        batch = scope.order(Arel.sql("last_quality_recalc_at NULLS FIRST"))
+                     .limit(max_per_run)
+                     .to_a
+        batch.each_slice(batch_size) do |slice|
+          slice.each do |entry|
+            entry.recalculate_quality_score!
+            recalculated += 1
+          end
         end
 
-        Rails.logger.info("[SharedKnowledge] Batch quality recalc: #{recalculated} updated, #{skipped} skipped by event-driven")
-        { success: true, recalculated: recalculated, skipped_by_event: skipped }
+        remaining = scope.count - batch.size
+        Rails.logger.info("[SharedKnowledge] Batch quality recalc: #{recalculated} updated, #{skipped} skipped by event-driven, #{[ remaining, 0 ].max} remaining")
+        { success: true, recalculated: recalculated, skipped_by_event: skipped, remaining: [ remaining, 0 ].max }
       rescue StandardError => e
         Rails.logger.error("[SharedKnowledge] Batch quality recalc failed: #{e.message}")
-        { success: false, error: e.message, recalculated: 0 }
+        { success: false, error: e.message, recalculated: 0, remaining: 0 }
       end
 
       # Build LLM context from relevant shared knowledge within a token budget
