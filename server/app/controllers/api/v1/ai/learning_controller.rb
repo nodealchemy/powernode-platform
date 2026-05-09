@@ -209,16 +209,28 @@ module Api
         end
 
         # POST /api/v1/ai/learning/knowledge_graph_maintenance (internal, called by worker)
+        # Caps per-call work via `max_per_run` (default 200) so the worker's
+        # 120s HTTP timeout doesn't kill mid-batch. Returns `remaining` so
+        # the worker / cron can chain follow-up runs until the corpus is
+        # caught up — same pattern as SharedKnowledgeService.
         def knowledge_graph_maintenance
+          max_per_run = (params[:max_per_run] || 200).to_i.clamp(1, 5000)
+
           all_nodes = ::Ai::KnowledgeGraphNode.active.where(account: current_account)
           # Skip nodes recently processed by event-driven jobs
-          nodes = all_nodes.where("last_event_processed_at IS NULL OR last_event_processed_at < ?", 24.hours.ago)
+          stale_scope = all_nodes.where("last_event_processed_at IS NULL OR last_event_processed_at < ?", 24.hours.ago)
           skipped = all_nodes.where("last_event_processed_at >= ?", 24.hours.ago).count
+
+          # find_each ignores .limit, so materialize the bounded slice.
+          # Order by last_event_processed_at NULLS FIRST so the most-stale
+          # nodes get attention first across runs.
+          batch = stale_scope.order(Arel.sql("last_event_processed_at NULLS FIRST")).limit(max_per_run).to_a
+          remaining = stale_scope.count - batch.size
 
           decayed = 0
           recalculated = 0
 
-          nodes.find_each do |node|
+          batch.each do |node|
             node.decay_confidence!
             decayed += 1
 
@@ -228,12 +240,13 @@ module Api
             Rails.logger.warn("[KnowledgeGraphMaintenance] Failed for node #{node.id}: #{e.message}")
           end
 
-          Rails.logger.info("[KnowledgeGraphMaintenance] decayed=#{decayed} recalculated=#{recalculated} skipped_by_event=#{skipped}")
+          Rails.logger.info("[KnowledgeGraphMaintenance] decayed=#{decayed} recalculated=#{recalculated} skipped_by_event=#{skipped} remaining=#{[ remaining, 0 ].max}")
 
           render_success(
             decayed: decayed,
             recalculated: recalculated,
-            skipped_by_event: skipped
+            skipped_by_event: skipped,
+            remaining: [ remaining, 0 ].max
           )
         rescue StandardError => e
           Rails.logger.error("#{self.class.name}##{action_name} failed: #{e.message}")
