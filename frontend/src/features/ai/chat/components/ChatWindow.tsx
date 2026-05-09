@@ -6,6 +6,7 @@ import { ConversationCreator } from './ConversationCreator';
 import { ChatWindowSidebar } from './ChatWindowSidebar';
 import { SplitPanelContainer } from './SplitPanelContainer';
 import { useChatWindow } from '../context/ChatWindowContext';
+import { buildSyntheticConversation } from '../utils/buildSyntheticConversation';
 import type { AiConversation } from '@/shared/types/ai';
 
 interface ChatWindowProps {
@@ -21,29 +22,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ onDragStart }) => {
     dispatch({ type: 'INCREMENT_UNREAD', payload: tabId });
   }, [dispatch]);
 
-  // Build conversation objects for each tab (only used in floating mode)
+  // Build the initial conversation shape for each tab. AgentConversationComponent
+  // fetches the full row server-side after mount and uses that for derivations
+  // (isConcierge, isProvisioning, isWorkspace), so this synthesis is just a
+  // first-paint placeholder. Logic is in a shared util to keep ChatWindow +
+  // SplitPanelContainer in lockstep.
   const tabConversations = useMemo(() => {
     const map = new Map<string, AiConversation>();
     for (const tab of state.tabs) {
-      map.set(tab.id, {
-        id: tab.conversationId,
-        title: tab.title,
-        status: 'active',
-        // M5 — preserve provisioning tag so AgentConversationComponent's
-        // isProvisioning derivation works for the empty-state greeting.
-        conversation_type: tab.isProvisioning ? 'provisioning' : tab.isWorkspace ? 'team' : 'agent',
-        ai_agent: { id: tab.agentId, name: tab.agentName, agent_type: 'assistant', is_concierge: tab.isConcierge },
-        agent_team: tab.teamId ? { id: tab.teamId, name: tab.title, team_type: tab.isWorkspace ? 'workspace' : undefined } : undefined,
-        metadata: {
-          created_by: '',
-          total_messages: 0,
-          total_tokens: 0,
-          total_cost: 0,
-          last_activity: new Date().toISOString(),
-        },
-        created_at: new Date(tab.createdAt).toISOString(),
-        updated_at: new Date().toISOString(),
-      });
+      map.set(tab.id, buildSyntheticConversation(tab));
     }
     return map;
   }, [state.tabs]);

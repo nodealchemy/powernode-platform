@@ -3,6 +3,7 @@ import { AgentConversationComponent } from '@/features/ai/components/AgentConver
 import { ChannelConversationComponent } from './ChannelConversationComponent';
 import { ConversationCreator } from './ConversationCreator';
 import { useChatWindow } from '../context/ChatWindowContext';
+import { buildSyntheticConversation } from '../utils/buildSyntheticConversation';
 import type { AiConversation } from '@/shared/types/ai';
 
 const MIN_PANEL_WIDTH_PX = 320;
@@ -36,27 +37,13 @@ export const SplitPanelContainer: React.FC = () => {
     startSizes: number[];
   } | null>(null);
 
-  // Build conversation objects for tabs
+  // Initial conversation shape for each tab. AgentConversationComponent
+  // fetches the full row server-side after mount and uses that for
+  // derivations (isConcierge, isProvisioning, isWorkspace).
   const tabConversations = useMemo(() => {
     const map = new Map<string, AiConversation>();
     for (const tab of tabs) {
-      map.set(tab.id, {
-        id: tab.conversationId,
-        title: tab.title,
-        status: 'active',
-        conversation_type: tab.isProvisioning ? 'provisioning' : tab.isWorkspace ? 'team' : 'agent',
-        ai_agent: { id: tab.agentId, name: tab.agentName, agent_type: 'assistant', is_concierge: tab.isConcierge },
-        agent_team: tab.teamId ? { id: tab.teamId, name: tab.title, team_type: tab.isWorkspace ? 'workspace' : undefined } : undefined,
-        metadata: {
-          created_by: '',
-          total_messages: 0,
-          total_tokens: 0,
-          total_cost: 0,
-          last_activity: new Date().toISOString(),
-        },
-        created_at: new Date(tab.createdAt).toISOString(),
-        updated_at: new Date().toISOString(),
-      });
+      map.set(tab.id, buildSyntheticConversation(tab));
     }
     return map;
   }, [tabs]);

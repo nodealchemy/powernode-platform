@@ -25,6 +25,30 @@ class Billing::BillingSchedulerJob < BaseJob
 
   private
 
+  # The Rails API wraps every collection response in {success:, data: [...]}.
+  # api_client.get returns the parsed Hash, so consumers that want to iterate
+  # the array need to navigate to `data` first. Returns [] when the shape is
+  # unrecognized so the caller's .each is always safe.
+  #
+  # Without this, every `response.each do |item|` in this file iterated the
+  # wrapper Hash, yielding [key, value] arrays where the body then did
+  # `subscription['id']` on an Array → TypeError 'no implicit conversion of
+  # String into Integer'. The job died on the first iteration every run.
+  def extract_collection(response)
+    return [] unless response
+    return response if response.is_a?(Array)
+    if response.is_a?(Hash)
+      data = response['data'] || response[:data]
+      return data if data.is_a?(Array)
+      # nested under data.subscriptions / data.payment_methods etc.
+      if data.is_a?(Hash)
+        nested = data.values.find { |v| v.is_a?(Array) }
+        return nested if nested
+      end
+    end
+    []
+  end
+
   def process_billing_schedule(date)
     begin
       # Schedule billing automation for subscriptions ending today
@@ -83,9 +107,9 @@ class Billing::BillingSchedulerJob < BaseJob
         account_status: 'active'
       }
       
-      trials_ending = with_api_retry do
+      trials_ending = extract_collection(with_api_retry do
         api_client.get('/api/v1/subscriptions', params)
-      end
+      end)
 
       log_info("Scheduling #{trials_ending.size} trial ending reminders for #{days_ahead} days ahead")
 
@@ -110,9 +134,9 @@ class Billing::BillingSchedulerJob < BaseJob
         account_status: 'active'
       }
       
-      subscriptions_renewing = with_api_retry do
+      subscriptions_renewing = extract_collection(with_api_retry do
         api_client.get('/api/v1/subscriptions', params)
-      end
+      end)
 
       log_info("Scheduling #{subscriptions_renewing.size} renewal reminders for #{days_ahead} days ahead")
 
@@ -137,9 +161,9 @@ class Billing::BillingSchedulerJob < BaseJob
       has_active_subscriptions: true
     }
     
-    expiring_soon = with_api_retry do
+    expiring_soon = extract_collection(with_api_retry do
       api_client.get('/api/v1/payment_methods', params)
-    end
+    end)
 
     log_info("Found #{expiring_soon.size} payment methods expiring in next 30 days")
 
@@ -155,10 +179,10 @@ class Billing::BillingSchedulerJob < BaseJob
           status: 'active'
         }
         
-        subscriptions = with_api_retry do
+        subscriptions = extract_collection(with_api_retry do
           api_client.get('/api/v1/subscriptions', subscription_params)
-        end
-        
+        end)
+
         subscriptions.each do |subscription|
           Billing::SubscriptionLifecycleJob.perform_async(
             'payment_method_update_required',
@@ -177,9 +201,9 @@ class Billing::BillingSchedulerJob < BaseJob
       has_active_subscriptions: true
     }
     
-    expired_today = with_api_retry do
+    expired_today = extract_collection(with_api_retry do
       api_client.get('/api/v1/payment_methods', expiring_today_params)
-    end
+    end)
 
     log_info("Found #{expired_today.size} payment methods expiring today")
 
@@ -198,10 +222,10 @@ class Billing::BillingSchedulerJob < BaseJob
         status: 'active'
       }
       
-      subscriptions = with_api_retry do
+      subscriptions = extract_collection(with_api_retry do
         api_client.get('/api/v1/subscriptions', subscription_params)
-      end
-      
+      end)
+
       subscriptions.each do |subscription|
         Billing::SubscriptionLifecycleJob.perform_async(
           'payment_method_update_required',
@@ -220,9 +244,9 @@ class Billing::BillingSchedulerJob < BaseJob
       grace_period_ending_on: date.iso8601
     }
     
-    grace_period_ending = with_api_retry do
+    grace_period_ending = extract_collection(with_api_retry do
       api_client.get('/api/v1/subscriptions', grace_period_params)
-    end
+    end)
 
     log_info("Found #{grace_period_ending.size} subscriptions with grace period ending")
 
@@ -237,9 +261,9 @@ class Billing::BillingSchedulerJob < BaseJob
       account_status: 'active'
     }
     
-    overdue_subscriptions = with_api_retry do
+    overdue_subscriptions = extract_collection(with_api_retry do
       api_client.get('/api/v1/subscriptions', overdue_params)
-    end
+    end)
 
     log_info("Found #{overdue_subscriptions.size} long-overdue subscriptions")
 
@@ -257,9 +281,9 @@ class Billing::BillingSchedulerJob < BaseJob
       account_has_new_payment_method: true
     }
     
-    reactivation_candidates = with_api_retry do
+    reactivation_candidates = extract_collection(with_api_retry do
       api_client.get('/api/v1/subscriptions', reactivation_params)
-    end
+    end)
 
     log_info("Found #{reactivation_candidates.size} subscriptions eligible for reactivation")
 

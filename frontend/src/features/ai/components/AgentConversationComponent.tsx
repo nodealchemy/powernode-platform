@@ -78,12 +78,23 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
   const { addNotification } = useNotifications();
   const currentUser = useSelector((state: RootState) => state.auth.user);
 
-  const agentId = conversation.ai_agent?.id;
-  const isConcierge = !!(conversation as AiConversation).ai_agent?.is_concierge;
+  // The conversation prop is a synthetic placeholder from the chat tab's
+  // metadata (per ChatWindow.tsx + SplitPanelContainer.tsx via
+  // buildSyntheticConversation). The mount effect below replaces it with
+  // the full server row via conversationsApi.getConversation. Derivations
+  // (isConcierge, isProvisioning, isWorkspace) prefer the fetched copy
+  // when available so newly-introduced conversation_type discriminators
+  // work without coordinating frontend type plumbing through the tab
+  // builder.
+  const [realConversation, setRealConversation] = useState<AiConversation | null>(null);
+  const effectiveConversation = realConversation || (conversation as AiConversation);
+
+  const agentId = effectiveConversation.ai_agent?.id;
+  const isConcierge = !!effectiveConversation.ai_agent?.is_concierge;
   // M5 conversation unification — when conversation_type='provisioning',
   // MessageList renders a provisioning-specific cold-open greeting +
   // suggestion chips instead of the generic concierge greeting.
-  const isProvisioning = (conversation as AiConversation).conversation_type === 'provisioning';
+  const isProvisioning = effectiveConversation.conversation_type === 'provisioning';
   const { isConnected } = useWebSocket();
 
   // WebSocket connection
@@ -383,15 +394,19 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
     );
   }, [conversation.id]);
 
-  // Initial workspace verification + member fetch.
-  // The conversation prop may be a synthetic object from tab state (SplitPanelContainer)
-  // with stale workspace flags, so we verify via the real conversations API first.
+  // Fetch the full conversation server-side after mount. The prop is a
+  // synthetic placeholder (from the tab metadata) — the fetched row is
+  // the source of truth for conversation_type, agent_team, etc. Stored
+  // in component state so derivations re-evaluate on update.
   useEffect(() => {
     let cancelled = false;
     const verifyAndFetch = async () => {
       try {
         const real = await conversationsApi.getConversation(conversation.id);
         if (cancelled) return;
+        // Cast via unknown — ConversationDetail is a strict superset of
+        // AiConversation in practice but TS can't prove the shape match.
+        setRealConversation(real as unknown as AiConversation);
         const isWorkspace = real.conversation_type === 'team' &&
           real.agent_team?.team_type === 'workspace' &&
           real.agent_team?.id;
@@ -400,7 +415,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
           await refreshWorkspaceMembers();
         }
       } catch {
-        // Non-critical
+        // Non-critical — derivations fall back to the synthetic prop
       }
     };
     verifyAndFetch();
