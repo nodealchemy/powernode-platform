@@ -24,7 +24,11 @@ module Ai
     # Validations
     validates :conversation_id, presence: true, uniqueness: true
     validates :status, inclusion: { in: %w[active paused completed archived] }
-    validates :conversation_type, inclusion: { in: %w[agent team] }
+    # M5 conversation unification — provisioning conversations are typed
+    # distinctly from agent + team so the operator UI's chat sidebar groups
+    # them separately. Tagged via Ai::Mission's after_save callback OR
+    # directly by the dedicated /ai/conversations/provisioning endpoint.
+    validates :conversation_type, inclusion: { in: %w[agent team provisioning] }
     validates :message_count, numericality: { greater_than_or_equal_to: 0 }
     validates :total_tokens, numericality: { greater_than_or_equal_to: 0 }
     validates :total_cost, numericality: { greater_than_or_equal_to: 0 }

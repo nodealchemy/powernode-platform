@@ -56,6 +56,16 @@ export const chatApi = {
     return response.data?.data?.conversation;
   },
 
+  // M5 conversation unification — always creates a fresh
+  // provisioning-typed conversation. Distinct from createConciergeConversation
+  // which resumes the user's existing concierge conversation. The new
+  // conversation appears in the sidebar's Provisioning group via the
+  // conversation_type='provisioning' tag.
+  createProvisioningConversation: async (): Promise<ChatConversation> => {
+    const response = await apiClient.post('/ai/conversations/provisioning');
+    return response.data?.data?.conversation;
+  },
+
   confirmConciergeAction: async (
     conversationId: string,
     actionType: string,

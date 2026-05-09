@@ -78,6 +78,11 @@ export interface ChatWindowContextValue {
   openConversation: (agentId: string, agentName: string, conversationId?: string, tabProps?: Partial<ChatTab>) => Promise<void>;
   openConversationMaximized: (agentId: string, agentName: string, conversationId?: string, tabProps?: Partial<ChatTab>) => Promise<void>;
   openConcierge: () => Promise<void>;
+  // M5 conversation unification — always opens a fresh provisioning-typed
+  // conversation. Distinct from openConcierge which resumes the existing
+  // concierge conversation. The new conversation appears in the sidebar's
+  // Provisioning group via the conversation_type='provisioning' tag.
+  openProvisioning: () => Promise<void>;
   openChannel: (channelId: string, channelName: string, teamId: string, teamName: string) => void;
   openInNewTab: () => void;
   closeTab: (tabId: string) => void;

@@ -236,6 +236,52 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
     }
   }, [state.mode, addNotification]);
 
+  // M5 conversation unification — always creates a fresh provisioning-typed
+  // conversation (distinct from openConcierge which resumes the existing
+  // concierge conversation). Routes through the Concierge agent so the
+  // existing ProvisioningTool registration handles intent capture; the
+  // conversation_type tag puts it in the sidebar's Provisioning group.
+  const openProvisioning = useCallback(async () => {
+    try {
+      const conv = await chatApi.createProvisioningConversation();
+      if (!conv) {
+        addNotification({
+          type: 'warning',
+          title: 'No Assistant',
+          message: 'No concierge agent configured. Please select an agent manually.',
+        });
+        return;
+      }
+
+      const tab: ChatTab = {
+        id: `tab-${conv.id}`,
+        conversationId: conv.id,
+        agentId: conv.ai_agent?.id || '',
+        agentName: 'Provisioning',
+        title: 'Provisioning',
+        unreadCount: 0,
+        createdAt: Date.now(),
+        isConcierge: true,
+      };
+
+      dispatch({ type: 'OPEN_TAB', payload: tab });
+
+      if (state.mode === 'closed') {
+        dispatch({ type: 'SET_MODE', payload: 'floating' });
+      }
+
+      if (state.mode === 'detached') {
+        broadcastRef.current?.send({ type: 'open_tab', payload: tab });
+      }
+    } catch {
+      addNotification({
+        type: 'error',
+        title: 'Provisioning Error',
+        message: 'Failed to open provisioning chat. Please try again.',
+      });
+    }
+  }, [state.mode, addNotification]);
+
   const openChannel = useCallback((channelId: string, channelName: string, teamId: string, teamName: string) => {
     const tabId = `tab-channel-${channelId}`;
     const existing = state.tabs.find(t => t.id === tabId);
@@ -378,6 +424,7 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
     openConversation,
     openConversationMaximized,
     openConcierge,
+    openProvisioning,
     openChannel,
     openInNewTab,
     closeTab,

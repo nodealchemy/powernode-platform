@@ -15,33 +15,26 @@ type SearchMode = 'title' | 'messages';
 type SortOption = 'last_activity' | 'created_at' | 'message_count';
 
 export const ChatWindowSidebar: React.FC = () => {
-  const { state, dispatch, openConversation, openConcierge, openChannel } = useChatWindow();
+  const { state, dispatch, openConversation, openConcierge, openProvisioning, openChannel } = useChatWindow();
   const { addNotification } = useNotifications();
-  // Sidebar quick-launch — opens an inline conversation primed for
-  // provisioning intent. Currently routes through the Concierge agent
-  // (which already has ProvisioningTool registered, so cards render
-  // inline via ChatProvisioningCardSlot when the user describes what
-  // they want). Once the M5 second slice lands a true
-  // chatApi.createProvisioningConversation() endpoint, this will swap
-  // to opening a fresh provisioning-typed conversation directly. Stays
-  // inside the chat surface either way — no full-page navigation.
+  // Sidebar quick-launch — always creates a fresh provisioning-typed
+  // conversation via openProvisioning. Distinct from openConcierge
+  // which resumes the user's existing concierge conversation; provisioning
+  // gets a new conversation each click so each provisioning intent has
+  // its own thread. Surfaces in the sidebar's Provisioning group via the
+  // conversation_type tag set server-side.
   const handleNewProvisioning = useCallback(async () => {
     try {
-      await openConcierge();
-      addNotification({
-        type: 'info',
-        title: 'Provisioning chat ready',
-        message: 'Tell the assistant what infrastructure you need.',
-      });
+      await openProvisioning();
     } catch (err) {
       logger.error('Failed to open provisioning chat', err);
       addNotification({
         type: 'error',
-        title: 'Could not open chat',
+        title: 'Could not open provisioning chat',
         message: 'Please try again.',
       });
     }
-  }, [openConcierge, addNotification]);
+  }, [openProvisioning, addNotification]);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortBy, setSortBy] = useState<SortOption>('last_activity');
   const [searchMode, setSearchMode] = useState<SearchMode>('title');

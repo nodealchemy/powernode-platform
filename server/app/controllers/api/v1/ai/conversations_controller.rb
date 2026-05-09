@@ -397,6 +397,38 @@ module Api
           render_error(e.message, status: :precondition_failed)
         end
 
+        # POST /api/v1/ai/conversations/provisioning
+        # M5 conversation unification — always creates a fresh provisioning-typed
+        # conversation rather than resuming an existing one (unlike concierge).
+        # The conversation routes through the Concierge agent, which has
+        # ProvisioningTool registered, so cards render inline as the user
+        # describes intent. Tagged conversation_type='provisioning' so the
+        # sidebar's Provisioning group surfaces it immediately.
+        def create_provisioning
+          agent = current_user.account.ai_agents.default_concierge.first
+          return render_error("No concierge agent configured", status: :not_found) unless agent
+
+          ProviderAvailabilityService.validate_agent_provider!(agent)
+
+          conversation = agent.conversations.create!(
+            conversation_id: SecureRandom.uuid,
+            user_id: current_user.id,
+            account_id: current_user.account_id,
+            ai_provider_id: agent.ai_provider_id,
+            title: "Provisioning · #{Time.current.strftime('%b %-d %H:%M')}",
+            status: "active",
+            conversation_type: "provisioning",
+            last_activity_at: Time.current
+          )
+
+          render_success({ conversation: serialize_conversation_detail(conversation) })
+        rescue ProviderAvailabilityService::ProviderUnavailableError => e
+          render_error(e.message, status: :precondition_failed)
+        rescue StandardError => e
+          Rails.logger.error("create_provisioning failed: #{e.class}: #{e.message}")
+          render_error("Failed to create provisioning conversation", status: :unprocessable_content)
+        end
+
         # POST /api/v1/ai/conversations/:id/confirm_action
         def confirm_action
           @conversation = current_user.account.ai_conversations

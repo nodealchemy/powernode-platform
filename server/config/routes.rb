@@ -1625,6 +1625,10 @@ Rails.application.routes.draw do
             patch :bulk
             post :team, action: :create_team
             post :concierge, action: :create_concierge
+            # M5 conversation unification — always creates a fresh
+            # provisioning-typed conversation. Distinct from :concierge
+            # which resumes the user's existing concierge conversation.
+            post :provisioning, action: :create_provisioning
           end
           member do
             post :archive
