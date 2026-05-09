@@ -60,9 +60,17 @@ export const ChatWindowSidebar: React.FC = () => {
     openChannel(channel.id, channel.name, channel.team.id, channel.team.name);
   }, [openChannel]);
 
-  // Split conversations into workspace vs regular for the sidebar sections
+  // Split conversations into workspace, provisioning, and regular for the
+  // sidebar sections. Provisioning conversations are tagged via the
+  // associated Mission's after_save callback (server/app/models/ai/mission.rb).
+  // M5 conversation unification — surfaces provisioning sessions in the
+  // unified chat list rather than locking them behind /app/system/provision.
   const workspaceConversations = conversations.filter(c => c.conversation_type === 'team' && c.agent_team?.team_type === 'workspace');
-  const regularConversations = conversations.filter(c => !(c.conversation_type === 'team' && c.agent_team?.team_type === 'workspace'));
+  const provisioningConversations = conversations.filter(c => c.conversation_type === 'provisioning');
+  const regularConversations = conversations.filter(c =>
+    !(c.conversation_type === 'team' && c.agent_team?.team_type === 'workspace') &&
+    c.conversation_type !== 'provisioning'
+  );
 
   const handleSelectConversation = useCallback((id: string) => {
     const conv = conversations.find(c => c.id === id);
@@ -141,6 +149,7 @@ export const ChatWindowSidebar: React.FC = () => {
       <ConversationSidebar
         conversations={regularConversations}
         workspaceConversations={workspaceConversations}
+        provisioningConversations={provisioningConversations}
         activeConversationId={activeConversationId}
         loading={loading}
         onSelectConversation={handleSelectConversation}

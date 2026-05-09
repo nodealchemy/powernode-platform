@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Plus, Loader2, CheckSquare, X, Archive, Trash2, Pin, Tag, Users, Hash, ChevronRight } from 'lucide-react';
+import { Plus, Loader2, CheckSquare, X, Archive, Trash2, Pin, Tag, Users, Hash, ChevronRight, Server } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { ConversationSearch } from './ConversationSearch';
@@ -15,7 +15,7 @@ const MIN_WIDTH = 200;
 const MAX_WIDTH = 400;
 const DEFAULT_WIDTH = 280;
 
-type SectionKey = 'channels' | 'workspaces' | 'pinned' | 'recent';
+type SectionKey = 'channels' | 'workspaces' | 'provisioning' | 'pinned' | 'recent';
 
 type CollapsedState = Partial<Record<SectionKey, boolean>>;
 
@@ -58,6 +58,9 @@ interface ConversationSidebarProps {
   searchMode?: SearchMode;
   onSearchModeChange?: (mode: SearchMode) => void;
   workspaceConversations?: ConversationBase[];
+  // M5 conversation unification — provisioning conversations get their
+  // own sidebar group, distinct from agent + workspace conversations.
+  provisioningConversations?: ConversationBase[];
   onNewWorkspace?: () => void;
   channels?: TeamChannelSidebarItem[];
   activeChannelId?: string | null;
@@ -86,6 +89,7 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
   searchMode,
   onSearchModeChange,
   workspaceConversations = [],
+  provisioningConversations = [],
   onNewWorkspace,
   channels = [],
   activeChannelId,
@@ -284,11 +288,11 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
 
       {/* Conversation list */}
       <div className="flex-1 overflow-y-auto">
-        {loading && conversations.length === 0 && workspaceConversations.length === 0 ? (
+        {loading && conversations.length === 0 && workspaceConversations.length === 0 && provisioningConversations.length === 0 ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-5 w-5 text-theme-text-tertiary animate-spin" />
           </div>
-        ) : conversations.length === 0 && workspaceConversations.length === 0 && channels.length === 0 ? (
+        ) : conversations.length === 0 && workspaceConversations.length === 0 && provisioningConversations.length === 0 && channels.length === 0 ? (
           <EmptyState
             icon={MessageSquare}
             title="No conversations"
@@ -362,6 +366,31 @@ export const ConversationSidebar: React.FC<ConversationSidebarProps> = ({
                   <span className="text-[9px] text-theme-text-tertiary ml-auto">{workspaceConversations.length}</span>
                 </button>
                 {!collapsedSections.workspaces && workspaceConversations.map(renderConversationItem)}
+              </div>
+            )}
+
+            {/* Provisioning section — M5 conversation unification.
+                Provisioning conversations are tagged via Ai::Mission's
+                after_save callback so they surface here alongside agent
+                + workspace conversations. */}
+            {provisioningConversations.length > 0 && (
+              <div>
+                {(conciergeConversations.length > 0 || workspaceConversations.length > 0 || channels.length > 0) && (
+                  <div className="border-t border-theme" />
+                )}
+                <button
+                  type="button"
+                  onClick={() => toggleSection('provisioning')}
+                  className="w-full px-3 py-1.5 flex items-center gap-1.5 hover:bg-theme-surface-hover/50 transition-colors"
+                >
+                  <ChevronRight className={`h-3 w-3 text-theme-text-tertiary transition-transform ${collapsedSections.provisioning ? '' : 'rotate-90'}`} />
+                  <Server className="h-3 w-3 text-theme-text-tertiary" />
+                  <span className="text-[10px] font-semibold text-theme-text-tertiary uppercase tracking-wider">
+                    Provisioning
+                  </span>
+                  <span className="text-[9px] text-theme-text-tertiary ml-auto">{provisioningConversations.length}</span>
+                </button>
+                {!collapsedSections.provisioning && provisioningConversations.map(renderConversationItem)}
               </div>
             )}
 

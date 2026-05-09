@@ -152,7 +152,7 @@ export interface AiConversation {
   id: string;
   title: string;
   status: 'active' | 'completed' | 'archived' | 'error';
-  conversation_type?: 'agent' | 'team';
+  conversation_type?: 'agent' | 'team' | 'provisioning';
   ai_agent: {
     id: string;
     name: string;

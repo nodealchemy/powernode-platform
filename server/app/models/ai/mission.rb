@@ -62,6 +62,12 @@ module Ai
     before_save :calculate_duration, if: -> { completed_at_changed? && completed_at.present? }
     after_save :broadcast_status_update, if: :saved_change_to_status?
     after_save :broadcast_phase_update, if: :saved_change_to_current_phase?
+    # M5 conversation unification: provisioning missions tag their associated
+    # conversation so the operator UI's chat sidebar can surface them in a
+    # dedicated "Provisioning" group alongside agent + workspace conversations.
+    after_save :tag_conversation_as_provisioning, if: -> {
+      saved_change_to_conversation_id? && conversation_id.present? && mission_type == "infrastructure"
+    }
     after_save :post_milestone_to_conversation, if: -> {
       saved_change_to_current_phase? && conversation_id.present?
     }
@@ -240,6 +246,16 @@ module Ai
       else
         {}
       end
+    end
+
+    # Tags the associated conversation as provisioning-typed so the chat
+    # sidebar groups it accordingly. Idempotent: safe to call repeatedly,
+    # only updates when the type isn't already 'provisioning'.
+    def tag_conversation_as_provisioning
+      conv = conversation
+      return unless conv
+      return if conv.conversation_type == "provisioning"
+      conv.update_column(:conversation_type, "provisioning")
     end
 
     def post_milestone_to_conversation

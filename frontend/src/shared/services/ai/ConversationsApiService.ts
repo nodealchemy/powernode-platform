@@ -63,7 +63,7 @@ export interface ConversationBase {
   conversation_id: string;
   title: string | null;
   status: 'active' | 'paused' | 'completed' | 'archived';
-  conversation_type?: 'agent' | 'team';
+  conversation_type?: 'agent' | 'team' | 'provisioning';
   message_count: number;
   total_tokens: number;
   total_cost: number | null;
