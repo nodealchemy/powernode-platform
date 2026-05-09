@@ -310,6 +310,19 @@ const authSlice = createSlice({
       state.error = 'Session expired. Please log in again.';
       // DON'T reset impersonation state here - let it be validated separately
     },
+    // Synchronous token swap for the WebSocket-driven refresh path: the
+    // ActionCable Connection accepts a refresh_token alongside an expired
+    // access_token, mints a fresh pair on the server, and pushes them down
+    // the live cable as an `auth_refreshed` system message. The handler
+    // dispatches this reducer to update auth state without an extra HTTP
+    // round-trip — keeps HTTP and WS auth aligned.
+    applyRefreshedTokens: (state, action: { payload: { access_token: string; refresh_token: string } }) => {
+      if (!action.payload?.access_token || !action.payload?.refresh_token) return;
+      state.access_token = action.payload.access_token;
+      state.refresh_token = action.payload.refresh_token;
+      state.isAuthenticated = true;
+      state.error = null;
+    },
     clearResendVerificationSuccess: (state) => {
       state.resendVerificationSuccess = false;
     },
@@ -611,5 +624,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearError, clearAuth, forceTokenClear, clearResendVerificationSuccess, decrementResendCooldown } = authSlice.actions;
+export const { clearError, clearAuth, forceTokenClear, applyRefreshedTokens, clearResendVerificationSuccess, decrementResendCooldown } = authSlice.actions;
 export default authSlice.reducer;

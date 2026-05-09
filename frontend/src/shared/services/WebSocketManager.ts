@@ -19,6 +19,11 @@ interface WebSocketConfig {
   onConnect?: () => void;
   onDisconnect?: (code: number, reason: string) => void;
   onError?: (error: Event) => void;
+  // Called when the server pushes an `auth_refreshed` system message — the
+  // ActionCable Connection accepted a refresh_token alongside an expired
+  // access_token and minted fresh tokens. Consumers persist the new tokens
+  // into the auth slice so subsequent HTTP calls + reconnects use them.
+  onAuthRefreshed?: (tokens: { access_token: string; refresh_token: string; expires_at?: string; refresh_expires_at?: string }) => void;
 }
 
 interface ChannelSubscription {
@@ -259,6 +264,25 @@ export class WebSocketManager {
 
       // Handle system messages
       if (data.type === 'welcome' || data.type === 'ping') {
+        return;
+      }
+
+      // Server-side per-connection refresh: the cable accepted our
+      // refresh_token alongside an expired access_token and minted fresh
+      // tokens. Persist them into auth state so HTTP calls and the next
+      // reconnect use the new pair — no extra HTTP /auth/refresh roundtrip.
+      if (data.type === 'auth_refreshed' && typeof data.access_token === 'string' && typeof data.refresh_token === 'string') {
+        try {
+          this.config?.onAuthRefreshed?.({
+            access_token: data.access_token,
+            refresh_token: data.refresh_token,
+            expires_at: data.expires_at,
+            refresh_expires_at: data.refresh_expires_at,
+          });
+          logger.debug('[WebSocket] auth_refreshed: tokens swapped on live connection');
+        } catch (e) {
+          logger.error('[WebSocket] auth_refreshed handler error', e);
+        }
         return;
       }
 

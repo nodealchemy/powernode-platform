@@ -7,17 +7,20 @@ module ApplicationCable
 
     def connect
       find_verified_identity
+      transmit_minted_tokens!
     end
 
     private
 
     def find_verified_identity
       token = request.params[:token] || extract_token_from_headers
+      refresh_param = request.params[:refresh_token]
 
       if token
         begin
           if token.include?(".") # JWT tokens contain dots
-            payload = Security::JwtService.decode(token)
+            payload = decode_or_refresh(token, refresh_param)
+            return if payload.nil?
 
             case payload[:type]
             when "worker"
@@ -35,10 +38,66 @@ module ApplicationCable
           Rails.logger.error "ActionCable authentication failed: #{e.message}"
           reject_unauthorized_connection
         end
+      elsif refresh_param.present?
+        # Standalone-refresh path: no live access token (e.g. tab suspended
+        # past access TTL but refresh is still valid). Mint a fresh access
+        # from the refresh and authenticate against that — collapses HTTP
+        # /auth/refresh + WS reconnect into a single round-trip.
+        begin
+          authenticate_via_refresh!(refresh_param)
+        rescue StandardError => e
+          Rails.logger.warn "ActionCable: refresh-only auth failed: #{e.message}"
+          reject_unauthorized_connection
+        end
       else
         Rails.logger.warn "ActionCable: No token provided"
         reject_unauthorized_connection
       end
+    end
+
+    # Decode the access token. If decode raises with an "expired" message AND
+    # a refresh token was supplied alongside it, mint a fresh access token,
+    # stash it for post-connect transmit, and return the *new* access payload
+    # so the rest of the auth flow runs against a fresh subject.
+    def decode_or_refresh(access_token, refresh_token)
+      Security::JwtService.decode(access_token)
+    rescue StandardError => e
+      message = e.message.to_s
+      expired = message.match?(/expired/i)
+      raise(e) unless expired && refresh_token.present?
+
+      tokens = Security::JwtService.refresh_access_token(refresh_token)
+      @minted_tokens = tokens
+      Security::JwtService.decode(tokens[:access_token])
+    end
+
+    def authenticate_via_refresh!(refresh_token)
+      tokens = Security::JwtService.refresh_access_token(refresh_token)
+      @minted_tokens = tokens
+      payload = Security::JwtService.decode(tokens[:access_token])
+      authenticate_user(payload)
+    end
+
+    # Push the freshly-minted tokens to the client over the live cable so
+    # the frontend can swap them into auth state without a separate HTTP
+    # /auth/refresh round-trip.
+    #
+    # In tests, ActionCable's TestConnection module skips initializing
+    # `@coder` (Rails 8.x: actioncable's test_case.rb), so transmit would
+    # raise NoMethodError. Production code always has both — guard the
+    # call so the test surface stays clean while keeping the production
+    # behavior identical.
+    def transmit_minted_tokens!
+      return unless @minted_tokens
+      return unless instance_variable_defined?(:@coder) && @coder
+
+      transmit(
+        type: "auth_refreshed",
+        access_token: @minted_tokens[:access_token],
+        refresh_token: @minted_tokens[:refresh_token],
+        expires_at: @minted_tokens[:expires_at],
+        refresh_expires_at: @minted_tokens[:refresh_expires_at]
+      )
     end
 
     def authenticate_worker(payload)

@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useState, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/shared/services';
-import { refreshAccessToken } from '@/shared/services/slices/authSlice';
+import { refreshAccessToken, applyRefreshedTokens } from '@/shared/services/slices/authSlice';
 import { wsManager } from '@/shared/services/WebSocketManager';
 
 // WebSocket connection state
@@ -40,7 +40,7 @@ interface UseWebSocketReturn {
  * - Proper cleanup on unmount
  */
 export const useWebSocket = (): UseWebSocketReturn => {
-  const { user, access_token: accessToken } = useSelector((state: RootState) => state.auth);
+  const { user, access_token: accessToken, refresh_token: refreshToken } = useSelector((state: RootState) => state.auth);
   const dispatch = useDispatch<AppDispatch>();
 
   const mountedRef = useRef<boolean>(true);
@@ -53,7 +53,13 @@ export const useWebSocket = (): UseWebSocketReturn => {
   });
 
   /**
-   * Get WebSocket URL with authentication
+   * Get WebSocket URL with authentication.
+   *
+   * Includes both `token` (access) and `refresh_token` query params when
+   * available. The server-side ApplicationCable::Connection prefers the
+   * access token; if it's expired and the refresh token is valid, the
+   * server mints fresh tokens and pushes them down via an `auth_refreshed`
+   * system message. Avoids an HTTP /auth/refresh roundtrip on reconnect.
    */
   const getWebSocketUrl = useCallback(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -87,10 +93,11 @@ export const useWebSocket = (): UseWebSocketReturn => {
     }
 
     const baseUrl = `${protocol}//${host}${port}/cable`;
-    const wsUrl = accessToken ? `${baseUrl}?token=${encodeURIComponent(accessToken)}` : baseUrl;
-
-    return wsUrl;
-  }, [accessToken]);
+    const params: string[] = [];
+    if (accessToken) params.push(`token=${encodeURIComponent(accessToken)}`);
+    if (refreshToken) params.push(`refresh_token=${encodeURIComponent(refreshToken)}`);
+    return params.length > 0 ? `${baseUrl}?${params.join('&')}` : baseUrl;
+  }, [accessToken, refreshToken]);
 
   /**
    * Send message to a channel
@@ -158,6 +165,17 @@ export const useWebSocket = (): UseWebSocketReturn => {
     if (user?.account?.id && accessToken) {
       wsManager.initialize({
         getUrl: getWebSocketUrl,
+        onAuthRefreshed: (tokens) => {
+          // Server pushed fresh tokens after accepting our refresh_token on
+          // an expired access_token. Swap them into auth state synchronously
+          // so subsequent HTTP calls + the next WS reconnect use the new pair.
+          if (mountedRef.current) {
+            dispatch(applyRefreshedTokens({
+              access_token: tokens.access_token,
+              refresh_token: tokens.refresh_token,
+            }));
+          }
+        },
         onConnect: () => {
           if (mountedRef.current) {
             setState({
