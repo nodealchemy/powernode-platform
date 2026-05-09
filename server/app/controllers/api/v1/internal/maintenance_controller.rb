@@ -4,6 +4,41 @@ class Api::V1::Internal::MaintenanceController < Api::V1::Internal::InternalBase
   # Internal API endpoints for maintenance operations
   # These endpoints are called by background workers only
 
+  # GET /api/v1/internal/maintenance/backups
+  # Lists backups with optional `status` and `created_before` filters.
+  # Worker uses this to scan for expired rows during BackupCleanupJob.
+  # Returns the list under data: ... so the worker's `response['data']`
+  # path lands on an array.
+  def list_backups
+    scope = Database::Backup.all
+    scope = scope.where(status: params[:status]) if params[:status].present?
+    if params[:created_before].present?
+      cutoff = Time.parse(params[:created_before].to_s) rescue nil
+      scope = scope.where("created_at < ?", cutoff) if cutoff
+    end
+    backups = scope.order(created_at: :desc).limit(500).map do |b|
+      { id: b.id, status: b.status, backup_type: b.backup_type, file_path: b.file_path,
+        file_size_bytes: b.file_size_bytes, created_at: b.created_at, completed_at: b.completed_at }
+    end
+    render_success(backups)
+  end
+
+  # DELETE /api/v1/internal/maintenance/backups/:id
+  # Removes a backup row (and best-effort the on-disk file). Worker uses
+  # this during retention cleanup. Returns success even if the row was
+  # already gone — idempotent for retry safety.
+  def delete_backup
+    backup = Database::Backup.find_by(id: params[:id])
+    return render_success(deleted: true, already_gone: true) unless backup
+
+    file_path = backup.file_path
+    backup.destroy
+    if file_path.present? && File.exist?(file_path)
+      File.delete(file_path) rescue Rails.logger.warn("[Maintenance] Could not delete backup file #{file_path}")
+    end
+    render_success(deleted: true, id: params[:id])
+  end
+
   # GET /api/v1/internal/maintenance/backups/:id
   def show_backup
     backup = Database::Backup.find_by!(id: params[:id])

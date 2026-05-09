@@ -241,9 +241,13 @@ Rails.application.routes.draw do
 
         # Maintenance internal endpoints (for worker service)
         scope :maintenance do
-          # Database backups
+          # Database backups — list endpoint added 2026-05-08; the
+          # Maintenance::BackupCleanupJob worker scans this to find expired
+          # rows for deletion. Filterable by `status` and `created_before`.
+          get "backups", to: "maintenance#list_backups"
           get "backups/:id", to: "maintenance#show_backup"
           patch "backups/:id", to: "maintenance#update_backup"
+          delete "backups/:id", to: "maintenance#delete_backup"
           post "backups/cleanup", to: "maintenance#cleanup_old_backups"
 
           # Database restores
