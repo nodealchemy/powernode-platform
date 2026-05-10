@@ -12,6 +12,17 @@ module Security
       wireguard_node_key: "wireguard-node-keys",
       wireguard_user_key: "wireguard-user-keys",
       federation_trust_jwt: "sdwan-federation-trust-jwts",
+      # Per-node Ed25519 signing keypair. Used to sign membership
+      # credentials, control-plane messages, and multipath probes. Stored
+      # alongside the existing X25519 wireguard_node_key — same VaultCredential
+      # plumbing, distinct vault path so rotations are independent.
+      node_signing_key: "sdwan-node-signing-keys",
+      # Per-constellation Ed25519 signing keypair. The constellation is
+      # the platform's signed-manifest scope; its signing key is what the
+      # MC signer uses to seal each MembershipCredential envelope. The
+      # public half is published in the constellation manifest; the
+      # private half lives only in Vault.
+      constellation_signing_key: "sdwan-constellation-signing-keys",
       # Docker daemon mTLS material — platform-side client cert/key for
       # calling a managed `dockerd` over the SDWAN overlay. The CA chain
       # comes from `System::InternalCaService.ca_chain_pem`; only the
