@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_10_000004) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_10_010001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -8696,6 +8696,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_000004) do
     t.check_constraint "table_id >= 100 AND table_id <= 65535 AND (table_id <> ALL (ARRAY[253, 254, 255]))", name: "sdwan_hva_table_id_range"
   end
 
+  create_table "sdwan_ipfix_collectors", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.string "host", null: false
+    t.string "name", null: false
+    t.integer "port", default: 4739, null: false
+    t.integer "sampling_rate", default: 1, null: false
+    t.jsonb "settings", default: {}, null: false
+    t.string "state", default: "active", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "name"], name: "idx_sdwan_ipfix_account_name", unique: true
+    t.index ["account_id"], name: "index_sdwan_ipfix_collectors_on_account_id"
+    t.index ["state"], name: "index_sdwan_ipfix_collectors_on_state"
+    t.check_constraint "port >= 1 AND port <= 65535", name: "chk_sdwan_ipfix_port_range"
+    t.check_constraint "sampling_rate >= 1", name: "chk_sdwan_ipfix_sampling_min"
+    t.check_constraint "state::text = ANY (ARRAY['active'::character varying, 'disabled'::character varying]::text[])", name: "chk_sdwan_ipfix_state"
+  end
+
   create_table "sdwan_membership_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.string "constellation_handle", null: false
@@ -13071,6 +13089,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_000004) do
   add_foreign_key "sdwan_host_vrf_assignments", "accounts"
   add_foreign_key "sdwan_host_vrf_assignments", "sdwan_networks"
   add_foreign_key "sdwan_host_vrf_assignments", "system_node_instances", column: "node_instance_id"
+  add_foreign_key "sdwan_ipfix_collectors", "accounts"
   add_foreign_key "sdwan_membership_credentials", "accounts"
   add_foreign_key "sdwan_membership_credentials", "sdwan_networks"
   add_foreign_key "sdwan_membership_credentials", "sdwan_peers"
