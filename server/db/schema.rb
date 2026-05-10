@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_09_200001) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_09_210001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -8641,6 +8641,31 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_09_200001) do
     t.index ["sdwan_network_id"], name: "index_sdwan_firewall_rules_on_sdwan_network_id"
   end
 
+  create_table "sdwan_host_bridges", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "applied_at"
+    t.string "bridge_name", limit: 15, null: false
+    t.datetime "created_at", null: false
+    t.datetime "draining_at"
+    t.string "ipv4_cidr", limit: 64
+    t.string "ipv6_cidr", limit: 64
+    t.string "kind", default: "linux", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.uuid "node_instance_id", null: false
+    t.datetime "removed_at"
+    t.integer "short_id", null: false
+    t.string "state", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_sdwan_host_bridges_on_account_id"
+    t.index ["node_instance_id", "bridge_name"], name: "index_sdwan_host_bridges_on_host_and_bridge_name", unique: true
+    t.index ["node_instance_id", "short_id"], name: "index_sdwan_host_bridges_on_host_and_short_id", unique: true
+    t.index ["node_instance_id"], name: "index_sdwan_host_bridges_on_node_instance_id"
+    t.index ["state"], name: "index_sdwan_host_bridges_on_state"
+    t.check_constraint "kind::text = ANY (ARRAY['linux'::character varying, 'ovs'::character varying]::text[])", name: "sdwan_host_bridges_kind_check"
+    t.check_constraint "short_id >= 1 AND short_id <= 9999", name: "sdwan_host_bridges_short_id_range"
+    t.check_constraint "state::text = ANY (ARRAY['pending'::character varying, 'active'::character varying, 'draining'::character varying, 'removed'::character varying]::text[])", name: "sdwan_host_bridges_state_check"
+  end
+
   create_table "sdwan_host_vrf_assignments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.datetime "applied_at"
@@ -12975,6 +13000,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_09_200001) do
   add_foreign_key "sdwan_federation_peers", "accounts"
   add_foreign_key "sdwan_firewall_rules", "accounts"
   add_foreign_key "sdwan_firewall_rules", "sdwan_networks"
+  add_foreign_key "sdwan_host_bridges", "accounts"
+  add_foreign_key "sdwan_host_bridges", "system_node_instances", column: "node_instance_id"
   add_foreign_key "sdwan_host_vrf_assignments", "accounts"
   add_foreign_key "sdwan_host_vrf_assignments", "sdwan_networks"
   add_foreign_key "sdwan_host_vrf_assignments", "system_node_instances", column: "node_instance_id"
