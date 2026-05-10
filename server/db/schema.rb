@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_10_000003) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_10_000004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -6001,6 +6001,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_000003) do
     t.uuid "account_id", null: false
     t.string "api_endpoint", null: false
     t.boolean "auto_sync", default: true, null: false
+    t.string "cni_plugin", default: "flannel", null: false, comment: "OVS+OVN dual-profile CNI selector — see Devops::KubernetesCluster::CNI_PLUGINS"
     t.integer "consecutive_failures", default: 0, null: false
     t.datetime "created_at", null: false
     t.text "description"
@@ -6022,10 +6023,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_000003) do
     t.datetime "updated_at", null: false
     t.index ["account_id", "name"], name: "index_devops_kubernetes_clusters_on_account_id_and_name", unique: true
     t.index ["account_id"], name: "index_devops_kubernetes_clusters_on_account_id"
+    t.index ["cni_plugin"], name: "index_devops_kubernetes_clusters_on_cni_plugin"
     t.index ["environment"], name: "index_devops_kubernetes_clusters_on_environment"
     t.index ["flavor"], name: "index_devops_kubernetes_clusters_on_flavor"
     t.index ["slug"], name: "index_devops_kubernetes_clusters_on_slug", unique: true
     t.index ["status"], name: "index_devops_kubernetes_clusters_on_status"
+    t.check_constraint "cni_plugin::text = ANY (ARRAY['flannel'::character varying, 'ovn_kubernetes'::character varying]::text[])", name: "chk_kubernetes_clusters_cni_plugin"
     t.check_constraint "environment::text = ANY (ARRAY['staging'::character varying, 'production'::character varying, 'development'::character varying, 'custom'::character varying]::text[])", name: "chk_kubernetes_clusters_environment"
     t.check_constraint "flavor::text = ANY (ARRAY['k3s'::character varying, 'kubeadm'::character varying]::text[])", name: "chk_kubernetes_clusters_flavor"
     t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'bootstrapping'::character varying, 'active'::character varying, 'degraded'::character varying, 'disconnected'::character varying, 'error'::character varying]::text[])", name: "chk_kubernetes_clusters_status"
