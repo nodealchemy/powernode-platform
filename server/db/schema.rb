@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_08_000006) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_09_200001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -8576,6 +8576,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_08_000006) do
     t.index ["instance_prefix_40"], name: "index_sdwan_configurations_on_instance_prefix_40"
   end
 
+  create_table "sdwan_constellation_signing_keys", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.text "encrypted_credentials"
+    t.string "handle", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "migrated_to_vault_at"
+    t.string "public_key_b64", null: false
+    t.string "revocation_reason"
+    t.datetime "revoked_at"
+    t.uuid "rotated_from_id"
+    t.datetime "updated_at", null: false
+    t.string "vault_path"
+    t.index ["account_id", "handle"], name: "idx_sdwan_constellation_keys_acct_handle", unique: true
+    t.index ["account_id"], name: "index_sdwan_constellation_signing_keys_on_account_id"
+    t.index ["rotated_from_id"], name: "index_sdwan_constellation_signing_keys_on_rotated_from_id"
+  end
+
   create_table "sdwan_federation_peers", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "acceptance_token_digest", comment: "SHA-256 hex digest of the plaintext acceptance token. Plaintext returned exactly once on propose; stored only as digest."
     t.datetime "acceptance_token_expires_at", comment: "When the acceptance token expires. accept! refuses tokens past this time."
@@ -8623,6 +8641,63 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_08_000006) do
     t.index ["sdwan_network_id"], name: "index_sdwan_firewall_rules_on_sdwan_network_id"
   end
 
+  create_table "sdwan_host_vrf_assignments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "applied_at"
+    t.datetime "created_at", null: false
+    t.datetime "draining_at"
+    t.jsonb "metadata", default: {}, null: false
+    t.uuid "node_instance_id", null: false
+    t.datetime "removed_at"
+    t.uuid "sdwan_network_id", null: false
+    t.integer "short_id", null: false
+    t.string "state", default: "pending", null: false
+    t.integer "table_id", null: false
+    t.datetime "updated_at", null: false
+    t.string "vrf_name", limit: 15, null: false
+    t.index ["account_id"], name: "index_sdwan_host_vrf_assignments_on_account_id"
+    t.index ["node_instance_id", "sdwan_network_id"], name: "index_sdwan_hva_on_host_and_network", unique: true
+    t.index ["node_instance_id", "short_id"], name: "index_sdwan_hva_on_host_and_short_id", unique: true
+    t.index ["node_instance_id", "table_id"], name: "index_sdwan_hva_on_host_and_table_id", unique: true
+    t.index ["node_instance_id", "vrf_name"], name: "index_sdwan_hva_on_host_and_vrf_name", unique: true
+    t.index ["node_instance_id"], name: "index_sdwan_host_vrf_assignments_on_node_instance_id"
+    t.index ["sdwan_network_id"], name: "index_sdwan_host_vrf_assignments_on_sdwan_network_id"
+    t.index ["state"], name: "index_sdwan_host_vrf_assignments_on_state"
+    t.check_constraint "short_id >= 1 AND short_id <= 9999", name: "sdwan_hva_short_id_range"
+    t.check_constraint "state::text = ANY (ARRAY['pending'::character varying, 'active'::character varying, 'draining'::character varying, 'removed'::character varying]::text[])", name: "sdwan_hva_state_check"
+    t.check_constraint "table_id >= 100 AND table_id <= 65535 AND (table_id <> ALL (ARRAY[253, 254, 255]))", name: "sdwan_hva_table_id_range"
+  end
+
+  create_table "sdwan_membership_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "constellation_handle", null: false
+    t.datetime "created_at", null: false
+    t.text "envelope_json", null: false
+    t.datetime "issued_at", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "not_after", null: false
+    t.datetime "not_before", null: false
+    t.datetime "refresh_after", null: false
+    t.bigint "revision", default: 0, null: false
+    t.string "revocation_reason"
+    t.datetime "revoked_at"
+    t.uuid "sdwan_network_id", null: false
+    t.uuid "sdwan_peer_id", null: false
+    t.text "signature_b64", null: false
+    t.string "signed_with_vault_path"
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_sdwan_membership_credentials_on_account_id"
+    t.index ["not_after"], name: "index_sdwan_membership_credentials_on_not_after"
+    t.index ["sdwan_network_id"], name: "index_sdwan_membership_credentials_on_sdwan_network_id"
+    t.index ["sdwan_peer_id", "sdwan_network_id", "revision"], name: "idx_sdwan_mc_revision_chain"
+    t.index ["sdwan_peer_id", "sdwan_network_id"], name: "idx_sdwan_mc_one_active_per_peer_network", unique: true, where: "((status)::text = 'active'::text)"
+    t.index ["sdwan_peer_id"], name: "index_sdwan_membership_credentials_on_sdwan_peer_id"
+    t.index ["status"], name: "index_sdwan_membership_credentials_on_status"
+    t.check_constraint "not_after > not_before", name: "sdwan_mc_window_ordered"
+    t.check_constraint "revision >= 0", name: "sdwan_mc_revision_nonneg"
+  end
+
   create_table "sdwan_networks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.boolean "advertise_overlay_subnet", default: true, null: false
@@ -8639,6 +8714,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_08_000006) do
     t.string "status", default: "registered", null: false
     t.string "tags", default: [], array: true
     t.datetime "updated_at", null: false
+    t.string "vrf_name_template", default: "sdwan-{handle}", null: false
     t.index ["account_id", "name"], name: "index_sdwan_networks_on_account_id_and_name", unique: true
     t.index ["account_id", "slug"], name: "index_sdwan_networks_on_account_id_and_slug", unique: true
     t.index ["account_id"], name: "index_sdwan_networks_on_account_id"
@@ -8729,6 +8805,31 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_08_000006) do
     t.check_constraint "((target_peer_id IS NOT NULL)::integer + (target_virtual_ip_id IS NOT NULL)::integer) = 1", name: "sdwan_port_mappings_exactly_one_target"
     t.check_constraint "listen_port >= 1 AND listen_port <= 65535", name: "sdwan_port_mappings_listen_port_range"
     t.check_constraint "protocol::text = ANY (ARRAY['tcp'::character varying, 'udp'::character varying]::text[])", name: "sdwan_port_mappings_protocol_enum"
+  end
+
+  create_table "sdwan_route_leaks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "activated_at"
+    t.uuid "approved_by_id"
+    t.datetime "created_at", null: false
+    t.uuid "dest_network_id", null: false
+    t.string "direction", default: "one_way", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.jsonb "prefix_filter", default: [], null: false
+    t.string "reason"
+    t.datetime "revoked_at"
+    t.uuid "source_network_id", null: false
+    t.string "state", default: "proposed", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_sdwan_route_leaks_on_account_id"
+    t.index ["approved_by_id"], name: "index_sdwan_route_leaks_on_approved_by_id"
+    t.index ["dest_network_id"], name: "index_sdwan_route_leaks_on_dest_network_id"
+    t.index ["source_network_id", "dest_network_id", "direction"], name: "index_sdwan_route_leaks_on_pair_and_direction", unique: true
+    t.index ["source_network_id"], name: "index_sdwan_route_leaks_on_source_network_id"
+    t.index ["state"], name: "index_sdwan_route_leaks_on_state"
+    t.check_constraint "direction::text = ANY (ARRAY['one_way'::character varying, 'bidirectional'::character varying]::text[])", name: "sdwan_route_leaks_direction_check"
+    t.check_constraint "source_network_id <> dest_network_id", name: "sdwan_route_leaks_distinct_networks"
+    t.check_constraint "state::text = ANY (ARRAY['proposed'::character varying, 'active'::character varying, 'revoked'::character varying]::text[])", name: "sdwan_route_leaks_state_check"
   end
 
   create_table "sdwan_route_policies", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -12869,9 +12970,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_08_000006) do
   add_foreign_key "sdwan_bgp_sessions", "sdwan_peers"
   add_foreign_key "sdwan_bgp_sessions", "sdwan_peers", column: "neighbor_peer_id"
   add_foreign_key "sdwan_configurations", "accounts"
+  add_foreign_key "sdwan_constellation_signing_keys", "accounts"
+  add_foreign_key "sdwan_constellation_signing_keys", "sdwan_constellation_signing_keys", column: "rotated_from_id"
   add_foreign_key "sdwan_federation_peers", "accounts"
   add_foreign_key "sdwan_firewall_rules", "accounts"
   add_foreign_key "sdwan_firewall_rules", "sdwan_networks"
+  add_foreign_key "sdwan_host_vrf_assignments", "accounts"
+  add_foreign_key "sdwan_host_vrf_assignments", "sdwan_networks"
+  add_foreign_key "sdwan_host_vrf_assignments", "system_node_instances", column: "node_instance_id"
+  add_foreign_key "sdwan_membership_credentials", "accounts"
+  add_foreign_key "sdwan_membership_credentials", "sdwan_networks"
+  add_foreign_key "sdwan_membership_credentials", "sdwan_peers"
   add_foreign_key "sdwan_networks", "accounts"
   add_foreign_key "sdwan_peer_keys", "sdwan_peer_keys", column: "rotated_from_id"
   add_foreign_key "sdwan_peer_keys", "sdwan_peers"
@@ -12883,6 +12992,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_08_000006) do
   add_foreign_key "sdwan_port_mappings", "sdwan_peers"
   add_foreign_key "sdwan_port_mappings", "sdwan_peers", column: "target_peer_id"
   add_foreign_key "sdwan_port_mappings", "sdwan_virtual_ips", column: "target_virtual_ip_id"
+  add_foreign_key "sdwan_route_leaks", "accounts"
+  add_foreign_key "sdwan_route_leaks", "sdwan_networks", column: "dest_network_id"
+  add_foreign_key "sdwan_route_leaks", "sdwan_networks", column: "source_network_id"
+  add_foreign_key "sdwan_route_leaks", "users", column: "approved_by_id"
   add_foreign_key "sdwan_route_policies", "accounts"
   add_foreign_key "sdwan_subnet_advertisements", "accounts"
   add_foreign_key "sdwan_subnet_advertisements", "sdwan_networks"
