@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_10_030001) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_10_040002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -8644,6 +8644,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_030001) do
     t.index ["sdwan_network_id"], name: "index_sdwan_firewall_rules_on_sdwan_network_id"
   end
 
+  create_table "sdwan_flow_samples", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.inet "dst_ip", null: false
+    t.integer "dst_port"
+    t.datetime "flow_end_at", null: false
+    t.datetime "flow_start_at", null: false
+    t.uuid "ipfix_collector_id", null: false
+    t.datetime "observed_at", null: false
+    t.bigint "octet_count", default: 0, null: false
+    t.bigint "packet_count", default: 0, null: false
+    t.integer "protocol", null: false
+    t.inet "src_ip", null: false
+    t.integer "src_port"
+    t.datetime "updated_at", null: false
+    t.index ["account_id", "observed_at"], name: "idx_flow_samples_account_recent", order: { observed_at: :desc }
+    t.index ["ipfix_collector_id", "observed_at"], name: "idx_flow_samples_collector_recent", order: { observed_at: :desc }
+  end
+
   create_table "sdwan_host_bridges", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.datetime "applied_at"
@@ -13103,6 +13122,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_030001) do
   add_foreign_key "sdwan_federation_peers", "accounts"
   add_foreign_key "sdwan_firewall_rules", "accounts"
   add_foreign_key "sdwan_firewall_rules", "sdwan_networks"
+  add_foreign_key "sdwan_flow_samples", "accounts"
+  add_foreign_key "sdwan_flow_samples", "sdwan_ipfix_collectors", column: "ipfix_collector_id", on_delete: :cascade
   add_foreign_key "sdwan_host_bridges", "accounts"
   add_foreign_key "sdwan_host_bridges", "system_node_instances", column: "node_instance_id"
   add_foreign_key "sdwan_host_vrf_assignments", "accounts"
