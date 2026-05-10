@@ -122,6 +122,15 @@ module Ai
         "system_sdwan_create_port_mapping"         => "Ai::Tools::SdwanTool",
         "system_sdwan_update_port_mapping"         => "Ai::Tools::SdwanTool",
         "system_sdwan_delete_port_mapping"         => "Ai::Tools::SdwanTool",
+        # Phase O6: host bridges (O1) + OVN deployment/switches/ports (O3) + IPFIX (O5)
+        "system_sdwan_create_host_bridge"              => "Ai::Tools::SdwanTool",
+        "system_sdwan_list_host_bridges"               => "Ai::Tools::SdwanTool",
+        "system_sdwan_create_ovn_deployment"           => "Ai::Tools::SdwanTool",
+        "system_sdwan_create_ovn_logical_switch"       => "Ai::Tools::SdwanTool",
+        "system_sdwan_create_ovn_logical_switch_port"  => "Ai::Tools::SdwanTool",
+        "system_sdwan_compile_ovn_plan"                => "Ai::Tools::SdwanTool",
+        "system_sdwan_create_ipfix_collector"          => "Ai::Tools::SdwanTool",
+        "system_sdwan_list_ipfix_collectors"           => "Ai::Tools::SdwanTool",
         # Phase B: Docker daemon auto-provisioning on NodeInstances.
         # Distinct from the docker_* family below — those tools manage
         # *external*, operator-registered hosts; these manage *managed*
