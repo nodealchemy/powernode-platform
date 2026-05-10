@@ -27,6 +27,17 @@ FactoryBot.define do
       sequence(:k8s_version) { |_n| "v1.30.4" }
     end
 
+    # Phase O4 — CNI plugin traits. Default is `flannel` (set on the
+    # base factory via the column default at insert time). The traits
+    # let specs name the heavyweight path explicitly.
+    trait :cni_flannel do
+      cni_plugin { "flannel" }
+    end
+
+    trait :cni_ovn_kubernetes do
+      cni_plugin { "ovn_kubernetes" }
+    end
+
     trait :with_kubeconfig do
       encrypted_kubeconfig { SecureRandom.hex(64) }
       encrypted_server_token { SecureRandom.hex(32) }

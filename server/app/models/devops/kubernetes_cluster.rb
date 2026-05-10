@@ -30,6 +30,24 @@ module Devops
     STATUSES     = %w[pending bootstrapping active degraded disconnected error].freeze
     MAX_CONSECUTIVE_FAILURES = 5
 
+    # Phase O4 — OVS+OVN dual-profile CNI selector. Picks which CNI the
+    # K3s server boots with and (downstream in the integration step) the
+    # `--flannel-backend=*` / `--disable-network-policy` flags the agent
+    # passes to `k3s server`. Default is `flannel` because it ships in
+    # K3s out of the box and works on every supported host. Promoting a
+    # cluster to `ovn_kubernetes` is the deliberate heavyweight-profile
+    # choice — see KubernetesClusterProvisionerService for the auto-
+    # default selector that consults the bootstrap NodeInstance's
+    # `network_profile`.
+    CNI_PLUGINS = %w[flannel ovn_kubernetes].freeze
+
+    # Lifecycle states past which `cni_plugin` is locked. Once K3s
+    # has booted with a CNI choice, swapping it requires draining the
+    # cluster and re-provisioning — the column is therefore immutable
+    # once the cluster has left `pending`. Mirrors how `flavor` is set
+    # at create time and never updated.
+    CNI_LOCKED_STATUSES = (STATUSES - %w[pending]).freeze
+
     belongs_to :account
     has_many :kubernetes_nodes,
              class_name: "Devops::KubernetesNode",
@@ -48,8 +66,17 @@ module Devops
     validates :flavor, presence: true, inclusion: { in: FLAVORS }
     validates :environment, presence: true, inclusion: { in: ENVIRONMENTS }
     validates :status, presence: true, inclusion: { in: STATUSES }
+    validates :cni_plugin, presence: true, inclusion: { in: CNI_PLUGINS }
     validates :sync_interval_seconds,
               numericality: { greater_than_or_equal_to: 30, less_than_or_equal_to: 3600 }
+
+    # Phase O4 — `cni_plugin` is set at create time (or auto-defaulted by
+    # the provisioner from the bootstrap NodeInstance's network_profile)
+    # and locked once the cluster boots K3s. K3s only honours
+    # `--flannel-backend=*` at server boot time; flipping CNI in place
+    # would leave the running pods on the old plugin while new pods land
+    # on the new one — so the model rejects updates past `pending`.
+    validate :cni_plugin_immutable_after_bootstrap
 
     # Phase 2.5 hardening (slice 3) — when the cluster goes away, its
     # api_endpoint VIP must go with it. Otherwise the VIP orphans on
@@ -65,6 +92,12 @@ module Devops
     scope :k3s,     -> { where(flavor: "k3s") }
     scope :kubeadm, -> { where(flavor: "kubeadm") }
 
+    # Phase O4 — CNI partition. Used by the autonomy reconcile path
+    # that surfaces "needs OVN install" pressure on heavyweight
+    # clusters and the heavyweight-cluster operator dashboard.
+    scope :cni_flannel, -> { where(cni_plugin: "flannel") }
+    scope :cni_ovn_kubernetes, -> { where(cni_plugin: "ovn_kubernetes") }
+
     before_validation :generate_slug, on: :create
 
     # ──────────────────────────────────────────────────────────────────
@@ -76,6 +109,57 @@ module Devops
     def bootstrapping? = status == "bootstrapping"
     def degraded?     = status == "degraded"
     def disconnected? = status == "disconnected"
+
+    # ──────────────────────────────────────────────────────────────────
+    # CNI predicates + install-flag helper (Phase O4)
+    # ──────────────────────────────────────────────────────────────────
+
+    def cni_flannel?         = cni_plugin == "flannel"
+    def cni_ovn_kubernetes?  = cni_plugin == "ovn_kubernetes"
+
+    # Returns the K3s server install-flag list for this cluster's CNI
+    # choice. The runtime config endpoint serves these to the on-node
+    # agent, which appends them to the `k3s server` command line.
+    #
+    # Always returns an Array<String> so the wire payload is uniform —
+    # callers can splat into `argv` directly without flattening / nil-
+    # filtering. The wire shape stays the same when we add more
+    # plugins (Cilium/Calico in a hypothetical Phase O5+).
+    #
+    #   flannel       → []  (K3s default; no extra args)
+    #   ovn_kubernetes → ["--flannel-backend=none", "--disable-network-policy"]
+    #
+    # Class-level helper exists so callers that have the plugin string
+    # but not a full cluster row (e.g. validation paths in the
+    # provisioner) can still resolve flags without instantiating.
+    def k3s_install_flags
+      self.class.k3s_install_flags_for(cni_plugin)
+    end
+
+    def self.k3s_install_flags_for(plugin)
+      case plugin.to_s
+      when "flannel"
+        # K3s ships Flannel with no extra args — explicit empty list keeps
+        # the wire payload uniform for callers iterating across plugins.
+        []
+      when "ovn_kubernetes"
+        # `--flannel-backend=none` tells K3s not to start its bundled
+        # Flannel daemon; `--disable-network-policy` skips kube-proxy's
+        # NetworkPolicy implementation because OVN-K8s ships its own.
+        # Order matters for K3s argv determinism (the agent dedupes by
+        # exact string match before merging with the operator-provided
+        # extra_args list, so changing order would churn the diff).
+        [ "--flannel-backend=none", "--disable-network-policy" ]
+      else
+        # Unknown plugin — return empty list rather than raising. The
+        # validation layer is the source of truth for "is this plugin
+        # known" and rejects unknown values at create/update time. If
+        # an unknown value somehow lives on the row (DB hand-edit), the
+        # safe behaviour is to fall back to no extra flags rather than
+        # boot K3s with a poisoned argv.
+        []
+      end
+    end
 
     # ──────────────────────────────────────────────────────────────────
     # Sync bookkeeping (mirrors DockerHost helpers)
@@ -108,6 +192,7 @@ module Devops
         flavor: flavor,
         environment: environment,
         status: status,
+        cni_plugin: cni_plugin,
         k8s_version: k8s_version,
         node_count: node_count,
         pod_count: pod_count,
@@ -129,6 +214,34 @@ module Devops
     end
 
     private
+
+    # Phase O4 — CNI is set at K3s server bootstrap and immutable
+    # thereafter. K3s only reads `--flannel-backend=*` /
+    # `--disable-network-policy` at server boot time, so flipping the
+    # column on a running cluster would silently leave the cluster on
+    # the previously-installed CNI while platform metadata claims
+    # otherwise. The model rejects updates past the `pending` state to
+    # surface the contradiction loudly. Operators who genuinely need
+    # to change CNI must drain + re-provision the cluster.
+    def cni_plugin_immutable_after_bootstrap
+      return unless persisted?
+      return unless cni_plugin_changed?
+      # The status column itself transitions through the lifecycle on
+      # the same save (e.g. `pending` → `bootstrapping` when the agent
+      # reports the K3s server is up). We need to read the *previously
+      # persisted* status to decide whether the update is allowed —
+      # not the in-memory value the caller is also trying to write.
+      previous_status = status_in_database
+      return if previous_status == "pending"
+
+      errors.add(
+        :cni_plugin,
+        "is set at K3s server bootstrap and cannot change once the cluster " \
+        "has left the 'pending' state (current status: #{previous_status}). " \
+        "To change the CNI for this cluster, drain the workload, decommission " \
+        "the cluster, and re-provision with the desired cni_plugin."
+      )
+    end
 
     def destroy_api_vip!
       vip_id = (metadata || {})["api_vip_id"]
