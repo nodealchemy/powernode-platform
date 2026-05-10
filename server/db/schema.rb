@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_10_020001) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_10_030001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -8769,6 +8769,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_020001) do
     t.index ["status"], name: "index_sdwan_networks_on_status"
   end
 
+  create_table "sdwan_ovn_acls", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "action", limit: 16, null: false
+    t.datetime "activated_at"
+    t.datetime "created_at", null: false
+    t.string "direction", limit: 16, null: false
+    t.text "match", null: false
+    t.string "name", limit: 63, null: false
+    t.integer "priority", default: 1000, null: false
+    t.datetime "removed_at"
+    t.uuid "sdwan_ovn_logical_switch_id", null: false
+    t.string "state", limit: 16, default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_sdwan_ovn_acls_on_account_id"
+    t.index ["sdwan_ovn_logical_switch_id", "name"], name: "idx_ovn_acls_unique_name_per_switch", unique: true
+    t.index ["sdwan_ovn_logical_switch_id", "state", "priority", "name"], name: "idx_ovn_acls_compile_order"
+    t.index ["sdwan_ovn_logical_switch_id"], name: "index_sdwan_ovn_acls_on_sdwan_ovn_logical_switch_id"
+  end
+
   create_table "sdwan_ovn_deployments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.datetime "activated_at"
@@ -13094,6 +13113,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_020001) do
   add_foreign_key "sdwan_membership_credentials", "sdwan_networks"
   add_foreign_key "sdwan_membership_credentials", "sdwan_peers"
   add_foreign_key "sdwan_networks", "accounts"
+  add_foreign_key "sdwan_ovn_acls", "accounts"
+  add_foreign_key "sdwan_ovn_acls", "sdwan_ovn_logical_switches", on_delete: :cascade
   add_foreign_key "sdwan_ovn_deployments", "accounts"
   add_foreign_key "sdwan_ovn_logical_switch_ports", "accounts"
   add_foreign_key "sdwan_ovn_logical_switch_ports", "sdwan_ovn_logical_switches"
