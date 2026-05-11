@@ -17,6 +17,7 @@ module Api
         # Operators add clusters by assigning the k3s-server module to
         # a NodeInstance.
         class ClustersController < ApplicationController
+          include ::Ai::GatedActions
 
           before_action :set_cluster, only: %i[show destroy kubeconfig]
 
@@ -39,18 +40,33 @@ module Api
           # DELETE /api/v1/devops/kubernetes/clusters/:id
           # Cascades to all member Devops::KubernetesNode rows. The
           # underlying NodeInstances are NOT terminated.
+          #
+          # Gated through Ai::AutonomyGate — cluster decommission is one of
+          # the highest-blast operations in the platform (cascade-deletes
+          # node rows, leaves workloads orphaned). Default policy is
+          # require_approval per system_runtime_manager_agent.rb.
           def destroy
             cluster_id = @cluster.id
+            cluster_name = @cluster.name
             node_count = @cluster.kubernetes_nodes.count
-            @cluster.destroy!
 
-            Rails.logger.info(
-              "[Devops::Kubernetes::ClustersController] decommissioned " \
-              "cluster_id=#{cluster_id} freed #{node_count} member node(s)"
+            gate!(
+              action_category: "system.runtime_k8s_cluster_decommission",
+              executor_class: "System::Executors::Runtime::DecommissionK3sCluster",
+              params: { cluster_id: cluster_id },
+              source_type: "Devops::KubernetesCluster",
+              source_id: cluster_id,
+              description: "Decommission K3s cluster '#{cluster_name}' (#{node_count} nodes)",
+              on_proceed: ->(_r) {
+                @cluster.destroy! if @cluster.persisted?
+                Rails.logger.info(
+                  "[Devops::Kubernetes::ClustersController] decommissioned " \
+                  "cluster_id=#{cluster_id} freed #{node_count} member node(s)"
+                )
+                render_success(message: "Cluster decommissioned",
+                               freed_node_count: node_count)
+              }
             )
-
-            render_success(message: "Cluster decommissioned",
-                           freed_node_count: node_count)
           end
 
           # GET /api/v1/devops/kubernetes/clusters/:id/kubeconfig
