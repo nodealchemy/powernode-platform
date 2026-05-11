@@ -15,7 +15,7 @@ export const AppPreviewPanel: React.FC<AppPreviewPanelProps> = ({ url, port, con
     <div className="card-theme-elevated p-5">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Monitor className="w-5 h-5 text-theme-accent" />
+          <Monitor className="w-5 h-5 text-theme-info" />
           <h3 className="text-sm font-semibold text-theme-primary">App Preview</h3>
         </div>
         <div className="flex items-center gap-2">
@@ -32,7 +32,7 @@ export const AppPreviewPanel: React.FC<AppPreviewPanelProps> = ({ url, port, con
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-theme-accent hover:underline"
+            className="inline-flex items-center gap-1 text-xs text-theme-info hover:underline"
           >
             Open in new tab <ExternalLink className="w-3 h-3" />
           </a>
@@ -58,13 +58,13 @@ export const AppPreviewPanel: React.FC<AppPreviewPanelProps> = ({ url, port, con
         {!showIframe ? (
           <button
             onClick={() => setShowIframe(true)}
-            className="w-full py-8 border-2 border-dashed border-theme-border rounded-lg text-center hover:border-theme-accent/50 transition-colors"
+            className="w-full py-8 border-2 border-dashed border-theme rounded-lg text-center hover:border-theme-info/50 transition-colors"
           >
             <Monitor className="w-8 h-8 text-theme-tertiary mx-auto mb-2" />
             <span className="text-sm text-theme-secondary">Click to load preview</span>
           </button>
         ) : (
-          <div className="border border-theme-border rounded-lg overflow-hidden">
+          <div className="border border-theme rounded-lg overflow-hidden">
             <iframe
               key={iframeKey}
               src={url}

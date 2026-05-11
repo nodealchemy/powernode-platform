@@ -38,7 +38,7 @@ const QuotaBar: React.FC<QuotaBarProps> = ({ label, used, limit, icon: Icon, uni
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-sm">
-        <div className="flex items-center gap-2 text-theme-text-secondary">
+        <div className="flex items-center gap-2 text-theme-secondary">
           <Icon className="w-4 h-4" />
           <span>{label}</span>
         </div>
@@ -51,7 +51,7 @@ const QuotaBar: React.FC<QuotaBarProps> = ({ label, used, limit, icon: Icon, uni
           {used}{unit} / {limit}{unit}
         </span>
       </div>
-      <div className="h-2 bg-theme-bg-secondary rounded-full overflow-hidden">
+      <div className="h-2 bg-theme-background-secondary rounded-full overflow-hidden">
         <div
           className={cn(
             'h-full rounded-full transition-all duration-300',
@@ -122,8 +122,8 @@ export const QuotaDisplay: React.FC<QuotaDisplayProps> = ({ className, compact =
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <Gauge className="w-4 h-4 text-theme-text-secondary" />
-                <span className="text-sm text-theme-text-secondary">Concurrent:</span>
+                <Gauge className="w-4 h-4 text-theme-secondary" />
+                <span className="text-sm text-theme-secondary">Concurrent:</span>
                 <span className={cn(
                   'text-sm font-medium',
                   !status.concurrent.ok ? 'text-theme-status-error' : 'text-theme-text-primary'
@@ -132,8 +132,8 @@ export const QuotaDisplay: React.FC<QuotaDisplayProps> = ({ className, compact =
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-theme-text-secondary" />
-                <span className="text-sm text-theme-text-secondary">Hourly:</span>
+                <Clock className="w-4 h-4 text-theme-secondary" />
+                <span className="text-sm text-theme-secondary">Hourly:</span>
                 <span className={cn(
                   'text-sm font-medium',
                   !status.hourly.ok ? 'text-theme-status-error' : 'text-theme-text-primary'
@@ -205,33 +205,33 @@ export const QuotaDisplay: React.FC<QuotaDisplayProps> = ({ className, compact =
         </div>
 
         {/* Resource Limits */}
-        <div className="space-y-3 pt-3 border-t border-theme-border-primary">
+        <div className="space-y-3 pt-3 border-t border-theme-interactive-primary">
           <h4 className="text-sm font-medium text-theme-text-primary">Resource Limits per Container</h4>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex items-center gap-2 text-sm">
-              <Cpu className="w-4 h-4 text-theme-text-secondary" />
-              <span className="text-theme-text-secondary">CPU:</span>
+              <Cpu className="w-4 h-4 text-theme-secondary" />
+              <span className="text-theme-secondary">CPU:</span>
               <span className="font-medium text-theme-text-primary">
                 {resource_limits.cpu_millicores}m
               </span>
             </div>
             <div className="flex items-center gap-2 text-sm">
-              <HardDrive className="w-4 h-4 text-theme-text-secondary" />
-              <span className="text-theme-text-secondary">Memory:</span>
+              <HardDrive className="w-4 h-4 text-theme-secondary" />
+              <span className="text-theme-secondary">Memory:</span>
               <span className="font-medium text-theme-text-primary">
                 {resource_limits.memory_mb}MB
               </span>
             </div>
             <div className="flex items-center gap-2 text-sm">
-              <Clock className="w-4 h-4 text-theme-text-secondary" />
-              <span className="text-theme-text-secondary">Timeout:</span>
+              <Clock className="w-4 h-4 text-theme-secondary" />
+              <span className="text-theme-secondary">Timeout:</span>
               <span className="font-medium text-theme-text-primary">
                 {resource_limits.execution_time_seconds}s
               </span>
             </div>
             <div className="flex items-center gap-2 text-sm">
-              <HardDrive className="w-4 h-4 text-theme-text-secondary" />
-              <span className="text-theme-text-secondary">Storage:</span>
+              <HardDrive className="w-4 h-4 text-theme-secondary" />
+              <span className="text-theme-secondary">Storage:</span>
               <span className="font-medium text-theme-text-primary">
                 {Math.round(resource_limits.storage_bytes / (1024 * 1024))}MB
               </span>
@@ -241,9 +241,9 @@ export const QuotaDisplay: React.FC<QuotaDisplayProps> = ({ className, compact =
 
         {/* Overage Info */}
         {status.allow_overage && (
-          <div className="pt-3 border-t border-theme-border-primary">
+          <div className="pt-3 border-t border-theme-interactive-primary">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-theme-text-secondary">Overage Allowed</span>
+              <span className="text-theme-secondary">Overage Allowed</span>
               <span className="text-theme-text-primary">
                 Current Cost: ${overage_cost.toFixed(2)}
               </span>

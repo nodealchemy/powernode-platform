@@ -120,16 +120,16 @@ export const RalphLoopScheduleStatus: React.FC<RalphLoopScheduleStatusProps> = (
 
   if (!isSchedulable) {
     return (
-      <Card className={cn('border-theme-border-primary', className)}>
+      <Card className={cn('border-theme-interactive-primary', className)}>
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-theme-bg-secondary flex items-center justify-center">
-                <Play className="w-5 h-5 text-theme-text-secondary" />
+              <div className="h-10 w-10 rounded-lg bg-theme-background-secondary flex items-center justify-center">
+                <Play className="w-5 h-5 text-theme-secondary" />
               </div>
               <div>
                 <p className="font-medium text-theme-text-primary">Manual Execution</p>
-                <p className="text-sm text-theme-text-secondary">
+                <p className="text-sm text-theme-secondary">
                   This loop runs only when manually triggered
                 </p>
               </div>
@@ -147,7 +147,7 @@ export const RalphLoopScheduleStatus: React.FC<RalphLoopScheduleStatusProps> = (
   }
 
   return (
-    <Card className={cn('border-theme-border-primary', className)}>
+    <Card className={cn('border-theme-interactive-primary', className)}>
       <CardContent className="p-4 space-y-4">
         {/* Header */}
         <div className="flex items-start justify-between">
@@ -170,7 +170,7 @@ export const RalphLoopScheduleStatus: React.FC<RalphLoopScheduleStatusProps> = (
                   <Badge variant="warning" size="sm">Paused</Badge>
                 )}
               </div>
-              <p className="text-sm text-theme-text-secondary">
+              <p className="text-sm text-theme-secondary">
                 {loop.scheduling_mode === 'scheduled' && loop.schedule_config?.cron_expression && (
                   `Cron: ${loop.schedule_config.cron_expression}`
                 )}
@@ -219,9 +219,9 @@ export const RalphLoopScheduleStatus: React.FC<RalphLoopScheduleStatusProps> = (
             <AlertTriangle className="w-4 h-4 text-theme-status-warning mt-0.5" />
             <div>
               <p className="text-sm font-medium text-theme-status-warning">Schedule Paused</p>
-              <p className="text-xs text-theme-text-secondary">{loop.schedule_paused_reason}</p>
+              <p className="text-xs text-theme-secondary">{loop.schedule_paused_reason}</p>
               {loop.schedule_paused_at && (
-                <p className="text-xs text-theme-text-secondary mt-1">
+                <p className="text-xs text-theme-secondary mt-1">
                   Paused {formatRelativeTime(loop.schedule_paused_at)}
                 </p>
               )}
@@ -232,7 +232,7 @@ export const RalphLoopScheduleStatus: React.FC<RalphLoopScheduleStatusProps> = (
         {/* Schedule Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="space-y-1">
-            <p className="text-xs text-theme-text-secondary">Next Execution</p>
+            <p className="text-xs text-theme-secondary">Next Execution</p>
             <p className="text-sm font-medium text-theme-text-primary flex items-center gap-1">
               <Clock className="w-3 h-3" />
               {loop.next_scheduled_at
@@ -240,38 +240,38 @@ export const RalphLoopScheduleStatus: React.FC<RalphLoopScheduleStatusProps> = (
                 : 'Not scheduled'}
             </p>
             {loop.next_scheduled_at && (
-              <p className="text-xs text-theme-text-secondary">
+              <p className="text-xs text-theme-secondary">
                 {new Date(loop.next_scheduled_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
               </p>
             )}
           </div>
           <div className="space-y-1">
-            <p className="text-xs text-theme-text-secondary">Last Execution</p>
+            <p className="text-xs text-theme-secondary">Last Execution</p>
             <p className="text-sm font-medium text-theme-text-primary">
               {loop.last_scheduled_at
                 ? formatRelativeTime(loop.last_scheduled_at)
                 : 'Never'}
             </p>
             {loop.last_scheduled_at && (
-              <p className="text-xs text-theme-text-secondary">
+              <p className="text-xs text-theme-secondary">
                 {new Date(loop.last_scheduled_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
               </p>
             )}
           </div>
           <div className="space-y-1">
-            <p className="text-xs text-theme-text-secondary">Daily Iterations</p>
+            <p className="text-xs text-theme-secondary">Daily Iterations</p>
             <p className="text-sm font-medium text-theme-text-primary">
               {dailyUsed}
               {dailyLimit && ` / ${dailyLimit}`}
             </p>
           </div>
           <div className="space-y-1">
-            <p className="text-xs text-theme-text-secondary">Timezone</p>
+            <p className="text-xs text-theme-secondary">Timezone</p>
             <p className="text-sm font-medium text-theme-text-primary">
               {loop.schedule_config?.timezone || 'UTC'}
             </p>
             {(loop.schedule_config?.timezone || 'UTC') !== Intl.DateTimeFormat().resolvedOptions().timeZone && (
-              <p className="text-xs text-theme-text-secondary">
+              <p className="text-xs text-theme-secondary">
                 You: {Intl.DateTimeFormat().resolvedOptions().timeZone}
               </p>
             )}
@@ -281,11 +281,11 @@ export const RalphLoopScheduleStatus: React.FC<RalphLoopScheduleStatusProps> = (
         {/* Daily Limit Progress */}
         {dailyLimit && (
           <div>
-            <div className="flex items-center justify-between text-xs text-theme-text-secondary mb-1">
+            <div className="flex items-center justify-between text-xs text-theme-secondary mb-1">
               <span>Daily Usage</span>
               <span>{dailyPercentage.toFixed(0)}%</span>
             </div>
-            <div className="h-2 bg-theme-bg-secondary rounded-full overflow-hidden">
+            <div className="h-2 bg-theme-background-secondary rounded-full overflow-hidden">
               <div
                 className={cn(
                   'h-full rounded-full transition-all duration-500',
@@ -301,7 +301,7 @@ export const RalphLoopScheduleStatus: React.FC<RalphLoopScheduleStatusProps> = (
 
         {/* Webhook URL (for event-triggered) */}
         {isEventTriggered && webhookUrl && (
-          <div className="p-3 rounded-lg bg-theme-bg-secondary border border-theme-border-primary">
+          <div className="p-3 rounded-lg bg-theme-background-secondary border border-theme-interactive-primary">
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-medium text-theme-text-primary">Webhook URL</p>
               <div className="flex items-center gap-2">
@@ -337,10 +337,10 @@ export const RalphLoopScheduleStatus: React.FC<RalphLoopScheduleStatusProps> = (
                 )}
               </div>
             </div>
-            <code className="block text-xs text-theme-text-secondary break-all bg-theme-bg-primary p-2 rounded">
+            <code className="block text-xs text-theme-secondary break-all bg-theme-surface p-2 rounded">
               {webhookUrl}
             </code>
-            <p className="mt-2 text-xs text-theme-text-secondary">
+            <p className="mt-2 text-xs text-theme-secondary">
               POST to this URL to trigger a loop iteration. The webhook token is secret - regenerate if compromised.
             </p>
           </div>
@@ -348,7 +348,7 @@ export const RalphLoopScheduleStatus: React.FC<RalphLoopScheduleStatusProps> = (
 
         {/* Schedule Config Summary */}
         {loop.schedule_config && (
-          <div className="flex flex-wrap gap-2 pt-3 border-t border-theme-border-primary">
+          <div className="flex flex-wrap gap-2 pt-3 border-t border-theme-interactive-primary">
             {loop.schedule_config.pause_on_failure && (
               <Badge variant="outline" size="sm">Pause on Failure</Badge>
             )}

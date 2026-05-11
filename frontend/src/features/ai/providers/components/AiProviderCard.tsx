@@ -254,7 +254,7 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
         />
       </div>
 
-      <p className="text-sm text-theme-text-secondary mb-4 line-clamp-2">
+      <p className="text-sm text-theme-secondary mb-4 line-clamp-2">
         {provider.description}
       </p>
 
@@ -359,10 +359,10 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
 
       {/* Status Indicators */}
       {(!provider.is_active || provider.health_status === 'unhealthy') && (
-        <div className="mt-4 p-3 bg-theme-surface-secondary rounded-lg border border-theme-border">
+        <div className="mt-4 p-3 bg-theme-surface-secondary rounded-lg border border-theme">
           <div className="flex items-center gap-2">
             <AlertCircle className={`h-4 w-4 ${getHealthStatusColor(provider.health_status)}`} />
-            <span className="text-sm text-theme-text-secondary">
+            <span className="text-sm text-theme-secondary">
               {!provider.is_active 
                 ? 'Provider is currently inactive'
                 : 'Provider health check failed'

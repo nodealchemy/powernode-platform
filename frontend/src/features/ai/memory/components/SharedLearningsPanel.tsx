@@ -7,7 +7,7 @@ const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
   fact: { label: 'Facts', color: 'bg-theme-info/10 text-theme-info' },
   pattern: { label: 'Patterns', color: 'bg-theme-success/10 text-theme-success' },
   anti_pattern: { label: 'Anti-Patterns', color: 'bg-theme-danger/10 text-theme-danger' },
-  best_practice: { label: 'Best Practices', color: 'bg-theme-accent/10 text-theme-accent' },
+  best_practice: { label: 'Best Practices', color: 'bg-theme-info/10 text-theme-info' },
   discovery: { label: 'Discoveries', color: 'bg-theme-warning/10 text-theme-warning' },
 };
 
@@ -33,7 +33,7 @@ interface CategorySectionProps {
 
 function CategorySection({ category, learnings }: CategorySectionProps) {
   const [expanded, setExpanded] = useState(true);
-  const config = CATEGORY_CONFIG[category] || { label: category, color: 'bg-theme-accent text-theme-primary' };
+  const config = CATEGORY_CONFIG[category] || { label: category, color: 'bg-theme-info text-theme-primary' };
 
   return (
     <div className="border border-theme rounded-lg overflow-hidden">

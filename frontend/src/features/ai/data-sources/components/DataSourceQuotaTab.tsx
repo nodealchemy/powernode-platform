@@ -82,7 +82,7 @@ export const DataSourceQuotaTab: React.FC<DataSourceQuotaTabProps> = ({ dataSour
               pct={quota.utilization.day_pct}
             />
             {quota.usage.bandwidth_today > 0 && (
-              <div className="pt-2 border-t border-theme-border">
+              <div className="pt-2 border-t border-theme">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-theme-primary">Bandwidth Today</span>
                   <span className="text-sm text-theme-muted">

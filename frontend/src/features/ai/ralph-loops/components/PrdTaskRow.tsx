@@ -37,7 +37,7 @@ interface PrdTaskRowProps {
 
 const getTaskStatusIcon = (task: PrdTask) => {
   if (!task.description) {
-    return <Circle className="w-4 h-4 text-theme-text-secondary" />;
+    return <Circle className="w-4 h-4 text-theme-secondary" />;
   }
   return <CheckCircle2 className="w-4 h-4 text-theme-status-success" />;
 };
@@ -75,25 +75,25 @@ export const PrdTaskRow: React.FC<PrdTaskRowProps> = ({
         {/* Collapsed Header */}
         <div
           className={cn(
-            'flex items-center gap-3 p-3 cursor-pointer hover:bg-theme-bg-secondary/50',
-            isExpanded && 'border-b border-theme-border-primary'
+            'flex items-center gap-3 p-3 cursor-pointer hover:bg-theme-background-secondary/50',
+            isExpanded && 'border-b border-theme-interactive-primary'
           )}
           onClick={() => onToggleExpanded(task.key)}
         >
           {!readOnly && (
             <div
-              className="cursor-grab active:cursor-grabbing p-1 hover:bg-theme-bg-secondary rounded"
+              className="cursor-grab active:cursor-grabbing p-1 hover:bg-theme-background-secondary rounded"
               onClick={(e) => e.stopPropagation()}
             >
-              <GripVertical className="w-4 h-4 text-theme-text-secondary" />
+              <GripVertical className="w-4 h-4 text-theme-secondary" />
             </div>
           )}
 
           <div className="flex items-center gap-2">
             {isExpanded ? (
-              <ChevronDown className="w-4 h-4 text-theme-text-secondary" />
+              <ChevronDown className="w-4 h-4 text-theme-secondary" />
             ) : (
-              <ChevronRight className="w-4 h-4 text-theme-text-secondary" />
+              <ChevronRight className="w-4 h-4 text-theme-secondary" />
             )}
             {getTaskStatusIcon(task)}
           </div>
@@ -101,7 +101,7 @@ export const PrdTaskRow: React.FC<PrdTaskRowProps> = ({
           <Badge variant="outline" size="sm" className="font-mono">{task.key}</Badge>
 
           <span className="flex-1 text-sm text-theme-text-primary truncate">
-            {task.description || <span className="italic text-theme-text-secondary">No description</span>}
+            {task.description || <span className="italic text-theme-secondary">No description</span>}
           </span>
 
           {task.dependencies && task.dependencies.length > 0 && (
@@ -113,12 +113,12 @@ export const PrdTaskRow: React.FC<PrdTaskRowProps> = ({
 
           {warnings && <AlertTriangle className="w-4 h-4 text-theme-status-warning" />}
 
-          <span className="text-xs text-theme-text-secondary">#{actualIndex + 1}</span>
+          <span className="text-xs text-theme-secondary">#{actualIndex + 1}</span>
         </div>
 
         {/* Expanded Content */}
         {isExpanded && (
-          <div className="p-4 space-y-4 bg-theme-bg-secondary/30">
+          <div className="p-4 space-y-4 bg-theme-background-secondary/30">
             {/* Warnings */}
             {warnings && (
               <div className="p-3 rounded-lg bg-theme-status-warning/10 border border-theme-status-warning/20">
@@ -135,7 +135,7 @@ export const PrdTaskRow: React.FC<PrdTaskRowProps> = ({
 
             {/* Task Key */}
             <div className="grid grid-cols-[120px_1fr] gap-3 items-start">
-              <label className="text-sm font-medium text-theme-text-secondary pt-2">Task Key</label>
+              <label className="text-sm font-medium text-theme-secondary pt-2">Task Key</label>
               <Input
                 value={task.key}
                 onChange={(e) => onUpdateTask(actualIndex, { key: e.target.value.replace(/\s/g, '_') })}
@@ -147,7 +147,7 @@ export const PrdTaskRow: React.FC<PrdTaskRowProps> = ({
 
             {/* Description */}
             <div className="grid grid-cols-[120px_1fr] gap-3 items-start">
-              <label className="text-sm font-medium text-theme-text-secondary pt-2">Description</label>
+              <label className="text-sm font-medium text-theme-secondary pt-2">Description</label>
               <Textarea
                 value={task.description}
                 onChange={(e) => onUpdateTask(actualIndex, { description: e.target.value })}
@@ -159,7 +159,7 @@ export const PrdTaskRow: React.FC<PrdTaskRowProps> = ({
 
             {/* Dependencies */}
             <div className="grid grid-cols-[120px_1fr] gap-3 items-start">
-              <label className="text-sm font-medium text-theme-text-secondary pt-2">Dependencies</label>
+              <label className="text-sm font-medium text-theme-secondary pt-2">Dependencies</label>
               <div className="space-y-2">
                 <Input
                   value={task.dependencies?.join(', ') || ''}
@@ -169,7 +169,7 @@ export const PrdTaskRow: React.FC<PrdTaskRowProps> = ({
                   placeholder="task_1, task_2"
                   disabled={readOnly}
                 />
-                <p className="text-xs text-theme-text-secondary">
+                <p className="text-xs text-theme-secondary">
                   Comma-separated list of task keys that must complete before this task
                 </p>
               </div>
@@ -177,7 +177,7 @@ export const PrdTaskRow: React.FC<PrdTaskRowProps> = ({
 
             {/* Acceptance Criteria */}
             <div className="grid grid-cols-[120px_1fr] gap-3 items-start">
-              <label className="text-sm font-medium text-theme-text-secondary pt-2">Acceptance</label>
+              <label className="text-sm font-medium text-theme-secondary pt-2">Acceptance</label>
               <Textarea
                 value={task.acceptance_criteria || ''}
                 onChange={(e) => onUpdateTask(actualIndex, { acceptance_criteria: e.target.value })}
@@ -189,12 +189,12 @@ export const PrdTaskRow: React.FC<PrdTaskRowProps> = ({
 
             {/* Actions */}
             {!readOnly && (
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-theme-border-primary">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-theme-interactive-primary">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => onDuplicateTask(actualIndex)}
-                  className="text-theme-text-secondary"
+                  className="text-theme-secondary"
                 >
                   <Copy className="w-4 h-4 mr-1" />
                   Duplicate

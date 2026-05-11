@@ -64,22 +64,22 @@ export const ExecutorSkillTab: React.FC<ExecutorSkillTabProps> = ({
 
         {/* Skill selection by category */}
         {loadingSkills ? (
-          <div className="flex items-center justify-center gap-2 py-8 border border-theme-border-primary rounded-lg bg-theme-bg-primary">
-            <Loader2 className="w-4 h-4 animate-spin text-theme-text-secondary" />
-            <span className="text-sm text-theme-text-secondary">Loading skills...</span>
+          <div className="flex items-center justify-center gap-2 py-8 border border-theme-interactive-primary rounded-lg bg-theme-surface">
+            <Loader2 className="w-4 h-4 animate-spin text-theme-secondary" />
+            <span className="text-sm text-theme-secondary">Loading skills...</span>
           </div>
         ) : Object.keys(availableSkillsByCategory).length > 0 ? (
-          <div className="max-h-64 overflow-y-auto border border-theme-border-primary rounded-lg bg-theme-bg-primary">
+          <div className="max-h-64 overflow-y-auto border border-theme-interactive-primary rounded-lg bg-theme-surface">
             {Object.entries(availableSkillsByCategory).map(([category, skills]) => (
-              <div key={category} className="border-b border-theme-border-primary last:border-b-0">
-                <div className="px-3 py-2 bg-theme-bg-secondary text-xs font-semibold text-theme-text-secondary uppercase tracking-wider">
+              <div key={category} className="border-b border-theme-interactive-primary last:border-b-0">
+                <div className="px-3 py-2 bg-theme-background-secondary text-xs font-semibold text-theme-secondary uppercase tracking-wider">
                   {category.replace(/_/g, ' ')}
                 </div>
                 <div className="grid grid-cols-2 gap-1 p-2">
                   {skills.map((skill) => (
                     <label
                       key={skill.slug}
-                      className="flex items-center gap-2 cursor-pointer hover:bg-theme-bg-secondary p-1.5 rounded text-sm"
+                      className="flex items-center gap-2 cursor-pointer hover:bg-theme-background-secondary p-1.5 rounded text-sm"
                     >
                       <input
                         type="checkbox"
@@ -88,7 +88,7 @@ export const ExecutorSkillTab: React.FC<ExecutorSkillTabProps> = ({
                           if (e.target.checked) onCapabilitiesChange([...capabilities, skill.slug]);
                           else onCapabilitiesChange(capabilities.filter(c => c !== skill.slug));
                         }}
-                        className="w-4 h-4 rounded border-theme-border-primary text-theme-brand-primary focus:ring-theme-brand-primary"
+                        className="w-4 h-4 rounded border-theme-interactive-primary text-theme-brand-primary focus:ring-theme-brand-primary"
                       />
                       <span className="text-theme-text-primary truncate" title={skill.name}>
                         {skill.name}
@@ -100,8 +100,8 @@ export const ExecutorSkillTab: React.FC<ExecutorSkillTabProps> = ({
             ))}
           </div>
         ) : (
-          <div className="py-4 px-3 border border-theme-border-primary rounded-lg bg-theme-bg-primary text-center">
-            <p className="text-sm text-theme-text-secondary">
+          <div className="py-4 px-3 border border-theme-interactive-primary rounded-lg bg-theme-surface text-center">
+            <p className="text-sm text-theme-secondary">
               No skills found. Add custom skill slugs below.
             </p>
           </div>
@@ -127,7 +127,7 @@ export const ExecutorSkillTab: React.FC<ExecutorSkillTabProps> = ({
             <Plus className="w-4 h-4" />
           </Button>
         </div>
-        <p className="mt-1 text-xs text-theme-text-secondary">
+        <p className="mt-1 text-xs text-theme-secondary">
           {Object.keys(availableSkillsByCategory).length > 0
             ? 'Select skills from the list above or add custom slugs'
             : 'Enter custom skill slugs'}
@@ -148,7 +148,7 @@ export const ExecutorSkillTab: React.FC<ExecutorSkillTabProps> = ({
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </Select>
-          <p className="mt-1 text-xs text-theme-text-secondary">
+          <p className="mt-1 text-xs text-theme-secondary">
             {matchStrategyOptions.find(o => o.value === matchStrategy)?.description}
           </p>
         </div>

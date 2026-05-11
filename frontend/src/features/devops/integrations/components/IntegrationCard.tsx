@@ -90,7 +90,7 @@ export function IntegrationCard({
               <div className="flex items-center gap-2">
                 <Link
                   to={`/app/integrations/${instance.id}`}
-                  className="font-medium text-theme-primary hover:text-theme-accent truncate"
+                  className="font-medium text-theme-primary hover:text-theme-info truncate"
                 >
                   {instance.name}
                 </Link>

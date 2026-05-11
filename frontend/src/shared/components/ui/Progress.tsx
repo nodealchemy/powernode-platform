@@ -41,7 +41,7 @@ export const Progress: React.FC<ProgressProps> = ({
         />
       </div>
       {showLabel && (
-        <div className="flex justify-between text-xs text-theme-text-secondary mt-1">
+        <div className="flex justify-between text-xs text-theme-secondary mt-1">
           <span>{Math.round(percentage)}%</span>
           <span>{value} / {max}</span>
         </div>

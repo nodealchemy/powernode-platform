@@ -274,7 +274,7 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
             <span>{executionState.tasksCompleted}/{executionState.tasksTotal} agents completed</span>
             <span>{executionState.progress}%</span>
           </div>
-          <div className="w-full bg-theme-accent rounded-full h-2">
+          <div className="w-full bg-theme-info rounded-full h-2">
             <div
               className="bg-theme-info h-2 rounded-full transition-all duration-300"
               style={{ width: `${executionState.progress}%` }}
@@ -294,7 +294,7 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
             {executionState.memberResults.map((member) => (
               <div
                 key={member.name}
-                className="flex items-center justify-between p-2 bg-theme-accent/50 rounded-md"
+                className="flex items-center justify-between p-2 bg-theme-info/50 rounded-md"
               >
                 <div className="flex items-center gap-2">
                   {getMemberStatusIcon(member.status)}
@@ -324,7 +324,7 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
 
       {/* Current Member (when no grid data yet) */}
       {executionState.currentMember && executionState.status === 'running' && executionState.memberResults.length === 0 && (
-        <div className="flex items-center gap-2 text-sm text-theme-secondary mb-4 p-2 bg-theme-accent rounded-md">
+        <div className="flex items-center gap-2 text-sm text-theme-secondary mb-4 p-2 bg-theme-info rounded-md">
           <User size={16} />
           <span>Current member: <span className="font-medium text-theme-primary">{executionState.currentMember}</span></span>
         </div>
@@ -368,7 +368,7 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
 
       {/* Trajectory Status */}
       {executionState.status === 'running' && (
-        <div className="flex items-center gap-2 text-xs text-theme-secondary mt-4 p-2 bg-theme-accent/50 rounded-md">
+        <div className="flex items-center gap-2 text-xs text-theme-secondary mt-4 p-2 bg-theme-info/50 rounded-md">
           <BookOpen size={14} className="text-theme-info" />
           <span>Trajectory building in progress...</span>
         </div>
@@ -418,7 +418,7 @@ export const TeamExecutionMonitor: React.FC<TeamExecutionMonitorProps> = ({
             {executionState.updates.map((update, index) => (
               <div
                 key={index}
-                className="text-xs text-theme-secondary p-2 bg-theme-accent rounded"
+                className="text-xs text-theme-secondary p-2 bg-theme-info rounded"
               >
                 <span className="font-medium">{new Date(update.timestamp).toLocaleTimeString()}</span>
                 {' - '}

@@ -37,7 +37,7 @@ const MiniProgressBar: React.FC<{ status: string }> = ({ status }) => {
             idx > i
               ? 'bg-theme-success'
               : idx === i
-              ? isFailed ? 'bg-theme-error' : 'bg-theme-accent'
+              ? isFailed ? 'bg-theme-error' : 'bg-theme-info'
               : 'bg-theme-background-secondary-bg'
           }`}
         />
@@ -75,7 +75,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
           className="card-theme p-3 text-center cursor-pointer hover:ring-1 hover:ring-theme-accent/30 transition-all"
           onClick={() => toggleExpand('contracts')}
         >
-          <div className="text-2xl font-bold text-theme-accent">{activeContracts.length}</div>
+          <div className="text-2xl font-bold text-theme-info">{activeContracts.length}</div>
           <div className="text-xs text-theme-secondary mt-0.5">Active Contracts</div>
           {draftContracts.length > 0 && (
             <div className="text-[10px] text-theme-warning mt-0.5">{draftContracts.length} draft</div>
@@ -145,7 +145,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
         <div className="card-theme p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold text-theme-primary">Contract Overview</h4>
-            <button onClick={() => onNavigateTab?.('contracts')} className="text-xs text-theme-accent hover:underline">
+            <button onClick={() => onNavigateTab?.('contracts')} className="text-xs text-theme-info hover:underline">
               View All
             </button>
           </div>
@@ -161,7 +161,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
                       contract.status === 'active'
                         ? 'bg-theme-success text-theme-success'
                         : contract.status === 'draft'
-                        ? 'bg-theme-surface-bg text-theme-secondary border border-theme-border'
+                        ? 'bg-theme-surface-bg text-theme-secondary border border-theme'
                         : 'bg-theme-warning text-theme-warning'
                     }`}>
                       {contract.status}
@@ -184,7 +184,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
         <div className="card-theme p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold text-theme-primary">Active Runs</h4>
-            <button onClick={() => onNavigateTab?.('runs')} className="text-xs text-theme-accent hover:underline">
+            <button onClick={() => onNavigateTab?.('runs')} className="text-xs text-theme-info hover:underline">
               View All
             </button>
           </div>
@@ -217,7 +217,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
                   <div className="flex items-center gap-3 text-[10px] text-theme-secondary">
                     <span className="capitalize">{run.status.replace(/_/g, ' ')}</span>
                     <span>{run.remediation_attempts} remediations</span>
-                    {run.risk_contract && <span className="text-theme-accent">{run.risk_contract.name}</span>}
+                    {run.risk_contract && <span className="text-theme-info">{run.risk_contract.name}</span>}
                   </div>
                 </div>
               ))}
@@ -230,7 +230,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
         <div className="card-theme p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold text-theme-primary">SLA Status</h4>
-            <button onClick={() => onNavigateTab?.('harness-gaps')} className="text-xs text-theme-accent hover:underline">
+            <button onClick={() => onNavigateTab?.('harness-gaps')} className="text-xs text-theme-info hover:underline">
               View Gaps
             </button>
           </div>
@@ -298,7 +298,7 @@ export const CodeFactoryStatsCards: React.FC<Props> = ({
         <div className="card-theme p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold text-theme-primary">Open Harness Gaps</h4>
-            <button onClick={() => onNavigateTab?.('harness-gaps')} className="text-xs text-theme-accent hover:underline">
+            <button onClick={() => onNavigateTab?.('harness-gaps')} className="text-xs text-theme-info hover:underline">
               View All
             </button>
           </div>

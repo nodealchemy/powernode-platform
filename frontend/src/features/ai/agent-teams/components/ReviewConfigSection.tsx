@@ -36,7 +36,7 @@ export const ReviewConfigSection: React.FC<ReviewConfigSectionProps> = ({
 
   return (
     <details className="border border-theme rounded-lg" data-testid="review-config-section">
-      <summary className="flex items-center gap-2 p-4 cursor-pointer hover:bg-theme-accent/50 transition-colors">
+      <summary className="flex items-center gap-2 p-4 cursor-pointer hover:bg-theme-info/50 transition-colors">
         <Shield size={18} className="text-theme-primary" />
         <span className="text-sm font-medium text-theme-primary">Review Configuration</span>
         {config.auto_review_enabled && (

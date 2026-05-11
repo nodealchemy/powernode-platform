@@ -12,7 +12,7 @@ interface AccountWebhooksListProps {
 
 const statusColors: Record<string, string> = {
   active: 'bg-theme-success/10 text-theme-success',
-  inactive: 'bg-theme-bg-tertiary text-theme-text-secondary',
+  inactive: 'bg-theme-background-secondary text-theme-secondary',
 };
 
 const healthColors: Record<string, string> = {
@@ -110,7 +110,7 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-theme-text-primary">Account Webhooks</h2>
-          <p className="text-sm text-theme-text-secondary">
+          <p className="text-sm text-theme-secondary">
             Configure webhooks that receive events from all repositories in your account
           </p>
         </div>
@@ -133,7 +133,7 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search webhooks..."
-            className="w-full max-w-xs px-3 py-2 text-sm border border-theme-border rounded-lg bg-theme-bg-secondary text-theme-text-primary placeholder-theme-text-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary"
+            className="w-full max-w-xs px-3 py-2 text-sm border border-theme rounded-lg bg-theme-background-secondary text-theme-text-primary placeholder-theme-text-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -144,7 +144,7 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
               className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
                 statusFilter === status
                   ? 'bg-theme-primary text-white'
-                  : 'bg-theme-bg-tertiary text-theme-text-secondary hover:bg-theme-bg-hover'
+                  : 'bg-theme-background-secondary text-theme-secondary hover:bg-theme-surface-hover'
               }`}
             >
               {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -198,17 +198,17 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
             />
           </svg>
           <h3 className="mt-2 text-sm font-medium text-theme-text-primary">No webhooks</h3>
-          <p className="mt-1 text-sm text-theme-text-secondary">
+          <p className="mt-1 text-sm text-theme-secondary">
             Get started by creating a new account webhook.
           </p>
         </div>
       )}
 
       {!isLoading && webhooks.length > 0 && (
-        <div className="bg-theme-bg-primary border border-theme-border rounded-lg overflow-hidden">
+        <div className="bg-theme-surface border border-theme rounded-lg overflow-hidden">
           <table className="w-full">
             <thead>
-              <tr className="bg-theme-bg-secondary border-b border-theme-border">
+              <tr className="bg-theme-background-secondary border-b border-theme">
                 <th className="px-4 py-3 text-left text-xs font-medium text-theme-text-tertiary uppercase tracking-wider">
                   Name / URL
                 </th>
@@ -228,14 +228,14 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
             </thead>
             <tbody className="divide-y divide-theme-border">
               {webhooks.map((webhook) => (
-                <tr key={webhook.id} className="hover:bg-theme-bg-hover">
+                <tr key={webhook.id} className="hover:bg-theme-surface-hover">
                   <td className="px-4 py-4">
                     <div className="font-medium text-theme-text-primary">{webhook.name}</div>
-                    <div className="text-sm text-theme-text-secondary truncate max-w-xs">
+                    <div className="text-sm text-theme-secondary truncate max-w-xs">
                       {webhook.url}
                     </div>
                     {webhook.branch_filter_enabled && (
-                      <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 bg-theme-bg-tertiary rounded text-xs text-theme-text-secondary">
+                      <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 bg-theme-background-secondary rounded text-xs text-theme-secondary">
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path
                             strokeLinecap="round"
@@ -278,7 +278,7 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
                         onClick={() => handleTest(webhook)}
                         disabled={actionLoading === webhook.id || !webhook.is_active}
                         title="Send test webhook"
-                        className="p-1.5 text-theme-text-secondary hover:text-theme-primary hover:bg-theme-bg-hover rounded transition-colors disabled:opacity-50"
+                        className="p-1.5 text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover rounded transition-colors disabled:opacity-50"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path
@@ -293,7 +293,7 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
                         onClick={() => handleToggleStatus(webhook)}
                         disabled={actionLoading === webhook.id}
                         title={webhook.is_active ? 'Deactivate' : 'Activate'}
-                        className="p-1.5 text-theme-text-secondary hover:text-theme-primary hover:bg-theme-bg-hover rounded transition-colors disabled:opacity-50"
+                        className="p-1.5 text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover rounded transition-colors disabled:opacity-50"
                       >
                         {webhook.is_active ? (
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -324,7 +324,7 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
                       <button
                         onClick={() => onViewDetails?.(webhook)}
                         title="View details"
-                        className="p-1.5 text-theme-text-secondary hover:text-theme-primary hover:bg-theme-bg-hover rounded transition-colors"
+                        className="p-1.5 text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover rounded transition-colors"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path
@@ -345,7 +345,7 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
                         onClick={() => handleDelete(webhook)}
                         disabled={actionLoading === webhook.id}
                         title="Delete"
-                        className="p-1.5 text-theme-text-secondary hover:text-theme-danger hover:bg-theme-danger/10 rounded transition-colors disabled:opacity-50"
+                        className="p-1.5 text-theme-secondary hover:text-theme-danger hover:bg-theme-danger/10 rounded transition-colors disabled:opacity-50"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path
@@ -368,7 +368,7 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
       {/* Pagination */}
       {pagination && pagination.total_pages > 1 && (
         <div className="flex items-center justify-between">
-          <div className="text-sm text-theme-text-secondary">
+          <div className="text-sm text-theme-secondary">
             Showing {(pagination.current_page - 1) * pagination.per_page + 1} to{' '}
             {Math.min(pagination.current_page * pagination.per_page, pagination.total_count)} of{' '}
             {pagination.total_count} webhooks
@@ -377,14 +377,14 @@ export const AccountWebhooksList: React.FC<AccountWebhooksListProps> = ({ onView
             <button
               onClick={() => fetchWebhooks(pagination.current_page - 1)}
               disabled={pagination.current_page === 1}
-              className="px-3 py-1 text-sm font-medium text-theme-text-secondary hover:text-theme-text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1 text-sm font-medium text-theme-secondary hover:text-theme-text-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Previous
             </button>
             <button
               onClick={() => fetchWebhooks(pagination.current_page + 1)}
               disabled={pagination.current_page === pagination.total_pages}
-              className="px-3 py-1 text-sm font-medium text-theme-text-secondary hover:text-theme-text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-1 text-sm font-medium text-theme-secondary hover:text-theme-text-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Next
             </button>

@@ -21,7 +21,7 @@ const DEFAULT_AGENTS: AgentNode[] = [
 
 const STATUS_COLORS: Record<string, string> = {
   active: 'bg-theme-success border-theme-success',
-  idle: 'bg-theme-accent border-theme',
+  idle: 'bg-theme-info border-theme',
   error: 'bg-theme-error/20 border-theme-danger'
 };
 

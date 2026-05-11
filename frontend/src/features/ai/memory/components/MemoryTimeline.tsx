@@ -172,7 +172,7 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
                 'flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors border',
                 tier === t
                   ? 'border-theme-primary bg-theme-primary/10 text-theme-primary'
-                  : 'border-theme-border bg-theme-surface text-theme-secondary hover:border-theme-primary/30'
+                  : 'border-theme bg-theme-surface text-theme-secondary hover:border-theme-primary/30'
               )}
             >
               {config.label}
@@ -318,7 +318,7 @@ export const MemoryTimeline: React.FC<MemoryTimelineProps> = ({
                                     <code>{entryText}</code>
                                   </pre>
                                 ) : (
-                                  <div className="rounded-lg border border-theme-border p-4 bg-theme-surface/30">
+                                  <div className="rounded-lg border border-theme p-4 bg-theme-surface/30">
                                     <MarkdownRenderer content={entryText} variant="admin" />
                                   </div>
                                 )}

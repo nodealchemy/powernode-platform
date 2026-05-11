@@ -20,7 +20,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({ session, onClick }) =>
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <GitBranch className="w-4 h-4 text-theme-text-secondary" />
+            <GitBranch className="w-4 h-4 text-theme-secondary" />
             <span className="font-medium text-theme-text-primary truncate max-w-[200px]">
               {session.base_branch}
             </span>
@@ -28,19 +28,19 @@ export const SessionCard: React.FC<SessionCardProps> = ({ session, onClick }) =>
           <WorktreeStatusBadge status={session.status} type="session" size="sm" />
         </div>
 
-        <div className="text-xs text-theme-text-secondary mb-3 truncate">
+        <div className="text-xs text-theme-secondary mb-3 truncate">
           {session.repository_path}
         </div>
 
         {/* Progress bar */}
-        <div className="h-1.5 bg-theme-bg-secondary rounded-full overflow-hidden mb-3">
+        <div className="h-1.5 bg-theme-background-secondary rounded-full overflow-hidden mb-3">
           <div
             className="h-full bg-theme-status-info rounded-full transition-all duration-300"
             style={{ width: `${progress}%` }}
           />
         </div>
 
-        <div className="flex items-center justify-between text-xs text-theme-text-secondary">
+        <div className="flex items-center justify-between text-xs text-theme-secondary">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
               <GitBranch className="w-3 h-3" />

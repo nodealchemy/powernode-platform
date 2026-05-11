@@ -35,7 +35,7 @@ export const MonitoringStatusBar: React.FC<MonitoringStatusBarProps> = ({
   };
 
   return (
-    <div className="flex items-center justify-between bg-theme-surface border border-theme-border rounded-lg p-4">
+    <div className="flex items-center justify-between bg-theme-surface border border-theme rounded-lg p-4">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
           <div className={`h-3 w-3 rounded-full ${getConnectionStatusColor(isConnected)}`} />

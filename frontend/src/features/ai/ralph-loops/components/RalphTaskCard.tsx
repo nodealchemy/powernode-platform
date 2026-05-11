@@ -86,7 +86,7 @@ export const RalphTaskCard: React.FC<RalphTaskCardProps> = ({
   const StatusIcon = status.icon;
 
   return (
-    <Card className="transition-colors cursor-pointer hover:bg-theme-bg-secondary/50">
+    <Card className="transition-colors cursor-pointer hover:bg-theme-background-secondary/50">
       <CardContent className="p-3">
         {/* Header row */}
         <div
@@ -100,18 +100,18 @@ export const RalphTaskCard: React.FC<RalphTaskCardProps> = ({
               task.status === 'failed' && 'text-theme-status-error',
               task.status === 'in_progress' && 'text-theme-status-info',
               task.status === 'blocked' && 'text-theme-status-warning',
-              (task.status === 'pending' || task.status === 'skipped') && 'text-theme-text-secondary'
+              (task.status === 'pending' || task.status === 'skipped') && 'text-theme-secondary'
             )} />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-mono text-xs text-theme-text-secondary truncate max-w-[120px]">
+                <span className="font-mono text-xs text-theme-secondary truncate max-w-[120px]">
                   {task.task_key}
                 </span>
                 <Badge variant={status.variant} size="sm" className="flex-shrink-0 whitespace-nowrap">
                   {status.label}
                 </Badge>
                 {task.priority > 0 && (
-                  <span className="text-xs text-theme-text-secondary flex-shrink-0">
+                  <span className="text-xs text-theme-secondary flex-shrink-0">
                     P{task.priority}
                   </span>
                 )}
@@ -126,7 +126,7 @@ export const RalphTaskCard: React.FC<RalphTaskCardProps> = ({
           </div>
           <div className="flex items-center gap-2 ml-2">
             {task.iteration_count > 0 && (
-              <span className="text-xs text-theme-text-secondary">
+              <span className="text-xs text-theme-secondary">
                 {task.iteration_count} iteration{task.iteration_count !== 1 ? 's' : ''}
               </span>
             )}
@@ -144,19 +144,19 @@ export const RalphTaskCard: React.FC<RalphTaskCardProps> = ({
               </Button>
             )}
             {isExpanded ? (
-              <ChevronDown className="w-4 h-4 text-theme-text-secondary" />
+              <ChevronDown className="w-4 h-4 text-theme-secondary" />
             ) : (
-              <ChevronRight className="w-4 h-4 text-theme-text-secondary" />
+              <ChevronRight className="w-4 h-4 text-theme-secondary" />
             )}
           </div>
         </div>
 
         {/* Expanded details */}
         {isExpanded && (
-          <div className="mt-4 pt-3 border-t border-theme-border-primary space-y-4">
+          <div className="mt-4 pt-3 border-t border-theme-interactive-primary space-y-4">
             {isLoadingDetails ? (
               <div className="flex items-center justify-center py-4">
-                <Loader2 className="w-5 h-5 animate-spin text-theme-text-secondary" />
+                <Loader2 className="w-5 h-5 animate-spin text-theme-secondary" />
               </div>
             ) : details ? (
               <>
@@ -169,7 +169,7 @@ export const RalphTaskCard: React.FC<RalphTaskCardProps> = ({
                 )}
 
                 {/* Executor Configuration Section */}
-                <div className="p-3 rounded-lg bg-theme-bg-secondary space-y-3">
+                <div className="p-3 rounded-lg bg-theme-background-secondary space-y-3">
                   <h4 className="text-sm font-medium text-theme-text-primary flex items-center gap-2">
                     <Settings className="w-4 h-4" />
                     Executor Configuration
@@ -177,7 +177,7 @@ export const RalphTaskCard: React.FC<RalphTaskCardProps> = ({
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                     <div>
-                      <span className="text-theme-text-secondary block mb-1">Type</span>
+                      <span className="text-theme-secondary block mb-1">Type</span>
                       {details.execution_type && (
                         <div className="flex items-center gap-1.5">
                           {(() => {
@@ -192,19 +192,19 @@ export const RalphTaskCard: React.FC<RalphTaskCardProps> = ({
                       )}
                     </div>
                     <div>
-                      <span className="text-theme-text-secondary block mb-1">Executor ID</span>
+                      <span className="text-theme-secondary block mb-1">Executor ID</span>
                       <span className="text-theme-text-primary font-mono text-xs">
                         {details.executor_id ? details.executor_id.slice(0, 8) + '...' : 'Auto-select'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-theme-text-secondary block mb-1">Match Strategy</span>
+                      <span className="text-theme-secondary block mb-1">Match Strategy</span>
                       <span className="text-theme-text-primary">
                         {matchStrategyLabels[details.capability_match_strategy || 'all'] || 'Match All'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-theme-text-secondary block mb-1">Attempts</span>
+                      <span className="text-theme-secondary block mb-1">Attempts</span>
                       <span className="text-theme-text-primary flex items-center gap-1">
                         <Zap className="w-3 h-3" />
                         {details.execution_attempts || 0}
@@ -215,7 +215,7 @@ export const RalphTaskCard: React.FC<RalphTaskCardProps> = ({
                   {/* Required Capabilities */}
                   {details.required_capabilities && details.required_capabilities.length > 0 && (
                     <div>
-                      <span className="text-theme-text-secondary text-sm block mb-1.5">Required Capabilities</span>
+                      <span className="text-theme-secondary text-sm block mb-1.5">Required Capabilities</span>
                       <div className="flex flex-wrap gap-1.5">
                         {details.required_capabilities.map((cap) => (
                           <Badge key={cap} variant="info" size="sm">{cap}</Badge>
@@ -226,30 +226,30 @@ export const RalphTaskCard: React.FC<RalphTaskCardProps> = ({
 
                   {/* Delegation Config */}
                   {details.delegation_config && Object.keys(details.delegation_config).length > 0 && (
-                    <div className="pt-2 border-t border-theme-border-primary">
-                      <span className="text-theme-text-secondary text-sm block mb-2">Delegation Settings</span>
+                    <div className="pt-2 border-t border-theme-interactive-primary">
+                      <span className="text-theme-secondary text-sm block mb-2">Delegation Settings</span>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
                         {details.delegation_config.timeout_seconds && (
                           <div>
-                            <span className="text-theme-text-secondary">Timeout:</span>
+                            <span className="text-theme-secondary">Timeout:</span>
                             <span className="text-theme-text-primary ml-1">{details.delegation_config.timeout_seconds}s</span>
                           </div>
                         )}
                         {details.delegation_config.max_delegation_depth && (
                           <div>
-                            <span className="text-theme-text-secondary">Max Depth:</span>
+                            <span className="text-theme-secondary">Max Depth:</span>
                             <span className="text-theme-text-primary ml-1">{details.delegation_config.max_delegation_depth}</span>
                           </div>
                         )}
                         {details.delegation_config.retry_strategy && (
                           <div>
-                            <span className="text-theme-text-secondary">Retry:</span>
+                            <span className="text-theme-secondary">Retry:</span>
                             <span className="text-theme-text-primary ml-1 capitalize">{details.delegation_config.retry_strategy}</span>
                           </div>
                         )}
                         {details.delegation_config.fallback_executor_type && (
                           <div>
-                            <span className="text-theme-text-secondary">Fallback:</span>
+                            <span className="text-theme-secondary">Fallback:</span>
                             <span className="text-theme-text-primary ml-1">
                               {executionTypeConfig[details.delegation_config.fallback_executor_type]?.label}
                             </span>
@@ -264,7 +264,7 @@ export const RalphTaskCard: React.FC<RalphTaskCardProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <div className="flex items-center gap-1.5 text-sm mb-2">
-                      <GitBranch className="w-4 h-4 text-theme-text-secondary" />
+                      <GitBranch className="w-4 h-4 text-theme-secondary" />
                       <span className="font-medium text-theme-text-primary">Dependencies</span>
                     </div>
                     {details.dependencies && details.dependencies.length > 0 ? (
@@ -274,42 +274,42 @@ export const RalphTaskCard: React.FC<RalphTaskCardProps> = ({
                         ))}
                       </div>
                     ) : (
-                      <span className="text-sm text-theme-text-secondary">No dependencies</span>
+                      <span className="text-sm text-theme-secondary">No dependencies</span>
                     )}
                   </div>
                   <div>
                     <div className="flex items-center gap-1.5 text-sm mb-2">
-                      <Target className="w-4 h-4 text-theme-text-secondary" />
+                      <Target className="w-4 h-4 text-theme-secondary" />
                       <span className="font-medium text-theme-text-primary">Acceptance Criteria</span>
                     </div>
                     {details.acceptance_criteria ? (
-                      <p className="text-sm text-theme-text-primary whitespace-pre-wrap bg-theme-bg-secondary p-2 rounded">
+                      <p className="text-sm text-theme-text-primary whitespace-pre-wrap bg-theme-background-secondary p-2 rounded">
                         {details.acceptance_criteria}
                       </p>
                     ) : (
-                      <span className="text-sm text-theme-text-secondary">Not specified</span>
+                      <span className="text-sm text-theme-secondary">Not specified</span>
                     )}
                   </div>
                 </div>
 
                 {/* Timestamps & Iteration Info */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs p-3 bg-theme-bg-secondary rounded-lg">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs p-3 bg-theme-background-secondary rounded-lg">
                   <div>
-                    <div className="flex items-center gap-1 text-theme-text-secondary mb-1">
+                    <div className="flex items-center gap-1 text-theme-secondary mb-1">
                       <Hash className="w-3 h-3" />
                       <span>Priority</span>
                     </div>
                     <span className="text-theme-text-primary font-medium">{details.priority || 'Not set'}</span>
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 text-theme-text-secondary mb-1">
+                    <div className="flex items-center gap-1 text-theme-secondary mb-1">
                       <RefreshCw className="w-3 h-3" />
                       <span>Iterations</span>
                     </div>
                     <span className="text-theme-text-primary font-medium">{details.iteration_count || 0}</span>
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 text-theme-text-secondary mb-1">
+                    <div className="flex items-center gap-1 text-theme-secondary mb-1">
                       <Calendar className="w-3 h-3" />
                       <span>Created</span>
                     </div>
@@ -318,7 +318,7 @@ export const RalphTaskCard: React.FC<RalphTaskCardProps> = ({
                     </span>
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 text-theme-text-secondary mb-1">
+                    <div className="flex items-center gap-1 text-theme-secondary mb-1">
                       <Calendar className="w-3 h-3" />
                       <span>Last Iteration</span>
                     </div>
@@ -329,7 +329,7 @@ export const RalphTaskCard: React.FC<RalphTaskCardProps> = ({
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex items-center gap-2 pt-2 border-t border-theme-border-primary">
+                <div className="flex items-center gap-2 pt-2 border-t border-theme-interactive-primary">
                   {onSelectTask && (
                     <Button
                       variant="outline"
@@ -346,7 +346,7 @@ export const RalphTaskCard: React.FC<RalphTaskCardProps> = ({
                 </div>
               </>
             ) : (
-              <p className="text-sm text-theme-text-secondary">
+              <p className="text-sm text-theme-secondary">
                 Failed to load task details
               </p>
             )}

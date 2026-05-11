@@ -34,7 +34,7 @@ const SEVERITY_CONFIG: Record<string, { icon: React.ReactNode; color: string; la
 };
 
 const STATUS_BADGES: Record<string, { color: string; label: string }> = {
-  pending: { color: 'bg-theme-accent text-theme-secondary', label: 'Pending' },
+  pending: { color: 'bg-theme-info text-theme-secondary', label: 'Pending' },
   in_progress: { color: 'bg-theme-info/10 text-theme-info', label: 'In Review' },
   approved: { color: 'bg-theme-success/10 text-theme-success', label: 'Approved' },
   rejected: { color: 'bg-theme-error/10 text-theme-danger', label: 'Rejected' },
@@ -128,7 +128,7 @@ export const ReviewPanel: React.FC<ReviewPanelProps> = ({
           </span>
         </div>
         {review.quality_score !== null && review.quality_score !== undefined && (
-          <div className="w-full bg-theme-accent rounded-full h-2 relative">
+          <div className="w-full bg-theme-info rounded-full h-2 relative">
             {/* Threshold marker */}
             <div
               className="absolute top-0 bottom-0 w-0.5 bg-theme-surface"

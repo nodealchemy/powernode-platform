@@ -50,7 +50,7 @@ export const RemediationTimeline: React.FC<RemediationTimelineProps> = ({ logs }
         return (
           <div
             key={log.id}
-            className="flex items-start gap-3 p-3 rounded-lg bg-theme-surface border border-theme-border"
+            className="flex items-start gap-3 p-3 rounded-lg bg-theme-surface border border-theme"
           >
             <Icon className={`w-5 h-5 mt-0.5 ${config.color}`} />
             <div className="flex-1 min-w-0">

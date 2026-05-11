@@ -52,7 +52,7 @@ export const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
                 <div
                   className={`h-0.5 flex-shrink-0 w-6 ${
                     state === 'completed' ? 'bg-theme-success' :
-                    state === 'active' ? 'bg-theme-accent' :
+                    state === 'active' ? 'bg-theme-info' :
                     'bg-theme-border'
                   }`}
                 />
@@ -69,7 +69,7 @@ export const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
                     <CheckCircle2 className="w-5 h-5 text-theme-success" />
                   )}
                   {state === 'active' && (
-                    <Loader2 className="w-5 h-5 text-theme-accent animate-spin" />
+                    <Loader2 className="w-5 h-5 text-theme-info animate-spin" />
                   )}
                   {state === 'failed' && (
                     <AlertCircle className="w-5 h-5 text-theme-error" />
@@ -80,7 +80,7 @@ export const PhaseTimeline: React.FC<PhaseTimelineProps> = ({
                 </div>
                 <span
                   className={`text-[10px] text-center leading-tight ${
-                    state === 'active' ? 'text-theme-accent font-medium' :
+                    state === 'active' ? 'text-theme-info font-medium' :
                     state === 'completed' ? 'text-theme-success' :
                     state === 'failed' ? 'text-theme-error' :
                     'text-theme-tertiary'

@@ -24,7 +24,7 @@ const ansiToHtml = (text: string): string => {
     '32': '<span class="text-theme-success">',
     '33': '<span class="text-theme-warning">',
     '34': '<span class="text-theme-info">',
-    '35': '<span class="text-theme-accent">',
+    '35': '<span class="text-theme-info">',
     '36': '<span class="text-theme-info">',
     '37': '<span class="text-theme-tertiary">',
     '90': '<span class="text-theme-secondary">',
@@ -32,7 +32,7 @@ const ansiToHtml = (text: string): string => {
     '92': '<span class="text-theme-success">',
     '93': '<span class="text-theme-warning">',
     '94': '<span class="text-theme-info">',
-    '95': '<span class="text-theme-accent">',
+    '95': '<span class="text-theme-info">',
     '96': '<span class="text-theme-info">',
   };
 

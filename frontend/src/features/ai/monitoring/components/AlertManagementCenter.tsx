@@ -139,7 +139,7 @@ export const AlertManagementCenter: React.FC<AlertManagementCenterProps> = ({
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-4 p-4 bg-theme-surface rounded-lg border border-theme-border">
+      <div className="flex items-center gap-4 p-4 bg-theme-surface rounded-lg border border-theme">
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4 text-theme-muted" />
           <span className="text-sm text-theme-muted">Filters:</span>
@@ -178,7 +178,7 @@ export const AlertManagementCenter: React.FC<AlertManagementCenterProps> = ({
             alert.severity === 'critical' ? 'border-theme-error' :
             alert.severity === 'high' ? 'border-theme-error' :
             alert.severity === 'medium' ? 'border-theme-warning' :
-            'border-theme-border'
+            'border-theme'
           }`}>
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
@@ -277,7 +277,7 @@ export const AlertManagementCenter: React.FC<AlertManagementCenterProps> = ({
           title={`${actionType === 'acknowledge' ? 'Acknowledge' : 'Resolve'} Alert`}
         >
           <div className="space-y-4">
-            <div className="p-4 bg-theme-surface rounded border border-theme-border">
+            <div className="p-4 bg-theme-surface rounded border border-theme">
               <h4 className="font-medium text-theme-primary mb-2">{selectedAlert.title}</h4>
               <p className="text-sm text-theme-muted">{selectedAlert.message}</p>
             </div>

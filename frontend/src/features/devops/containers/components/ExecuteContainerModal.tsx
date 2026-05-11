@@ -154,23 +154,23 @@ export const ExecuteContainerModal: React.FC<ExecuteContainerModalProps> = ({
       ) : (
         <div className="space-y-6">
           {/* Template Info Header */}
-          <div className="bg-theme-bg-secondary rounded-lg p-4 space-y-3">
+          <div className="bg-theme-background-secondary rounded-lg p-4 space-y-3">
             <div className="flex items-center gap-3">
               <FileCode className="w-5 h-5 text-theme-brand-primary flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <h3 className="font-medium text-theme-text-primary">{template.name}</h3>
                 {template.description && (
-                  <p className="text-sm text-theme-text-secondary mt-0.5">{template.description}</p>
+                  <p className="text-sm text-theme-secondary mt-0.5">{template.description}</p>
                 )}
               </div>
             </div>
 
-            <div className="flex items-center gap-2 text-xs text-theme-text-secondary font-mono bg-theme-bg-primary px-2 py-1 rounded">
+            <div className="flex items-center gap-2 text-xs text-theme-secondary font-mono bg-theme-surface px-2 py-1 rounded">
               {template.image_name}
             </div>
 
             {templateDetails && (
-              <div className="flex flex-wrap items-center gap-3 text-xs text-theme-text-secondary">
+              <div className="flex flex-wrap items-center gap-3 text-xs text-theme-secondary">
                 <span className="flex items-center gap-1">
                   <HardDrive className="w-3 h-3" />
                   {templateDetails.memory_mb} MB
@@ -205,7 +205,7 @@ export const ExecuteContainerModal: React.FC<ExecuteContainerModalProps> = ({
           {templateDetails?.input_schema && Object.keys(templateDetails.input_schema).length > 0 && (
             <div className="space-y-2">
               <h4 className="text-sm font-medium text-theme-text-primary">Expected Parameters</h4>
-              <div className="bg-theme-bg-secondary rounded-lg p-3 text-xs font-mono text-theme-text-secondary overflow-auto max-h-32">
+              <div className="bg-theme-background-secondary rounded-lg p-3 text-xs font-mono text-theme-secondary overflow-auto max-h-32">
                 <pre>{JSON.stringify(templateDetails.input_schema, null, 2)}</pre>
               </div>
             </div>

@@ -251,7 +251,7 @@ export const AgentDetailModal: React.FC = () => {
                 {successRate}%
               </span>
             </div>
-            <div className="h-2 bg-theme-bg-secondary rounded-full overflow-hidden">
+            <div className="h-2 bg-theme-background-secondary rounded-full overflow-hidden">
               <div
                 className={cn(
                   'h-full rounded-full transition-all duration-500',

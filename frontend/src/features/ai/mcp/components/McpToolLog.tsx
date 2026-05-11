@@ -93,7 +93,7 @@ export const McpToolLog: React.FC<McpToolLogProps> = ({ entries, className }) =>
                 return (
                   <tr
                     key={entry.id}
-                    className="border-t border-theme-border/50 hover:bg-theme-surface-hover transition-colors"
+                    className="border-t border-theme/50 hover:bg-theme-surface-hover transition-colors"
                   >
                     <td className="px-3 py-1 text-theme-muted whitespace-nowrap">
                       {formatTime(entry.timestamp)}

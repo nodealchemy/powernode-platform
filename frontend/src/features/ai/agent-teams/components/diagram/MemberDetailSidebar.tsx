@@ -56,7 +56,7 @@ export const MemberDetailSidebar: React.FC<MemberDetailSidebarProps> = ({ member
           <span className="text-theme-secondary">Capabilities</span>
           <div className="flex flex-wrap gap-1 mt-1">
             {member.capabilities.map((cap) => (
-              <span key={cap} className="px-1.5 py-0.5 text-[10px] rounded bg-theme-accent text-theme-secondary">
+              <span key={cap} className="px-1.5 py-0.5 text-[10px] rounded bg-theme-info text-theme-secondary">
                 {cap}
               </span>
             ))}

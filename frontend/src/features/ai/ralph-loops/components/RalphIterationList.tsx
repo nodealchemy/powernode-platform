@@ -79,7 +79,7 @@ const IterationReport: React.FC<{ iteration: RalphIteration }> = ({ iteration })
 
   if (!hasContent) {
     return (
-      <p className="text-xs text-theme-text-secondary italic py-2">
+      <p className="text-xs text-theme-secondary italic py-2">
         No detailed output available for this iteration.
       </p>
     );
@@ -88,7 +88,7 @@ const IterationReport: React.FC<{ iteration: RalphIteration }> = ({ iteration })
   return (
     <div className="space-y-4">
       {/* Timing & Git Bar */}
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-theme-text-secondary">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-theme-secondary">
         {iteration.started_at && (
           <span className="flex items-center gap-1">
             <Clock className="w-3 h-3" />
@@ -118,7 +118,7 @@ const IterationReport: React.FC<{ iteration: RalphIteration }> = ({ iteration })
       {/* Prompt */}
       {iteration.ai_prompt && (
         <ReportSection icon={MessageSquare} title="Prompt">
-          <pre className="text-xs text-theme-text-primary bg-theme-bg-primary p-3 rounded overflow-x-auto max-h-40 whitespace-pre-wrap">
+          <pre className="text-xs text-theme-text-primary bg-theme-surface p-3 rounded overflow-x-auto max-h-40 whitespace-pre-wrap">
             {iteration.ai_prompt}
           </pre>
         </ReportSection>
@@ -127,7 +127,7 @@ const IterationReport: React.FC<{ iteration: RalphIteration }> = ({ iteration })
       {/* AI Output */}
       {iteration.ai_output && (
         <ReportSection icon={FileText} title="AI Output">
-          <pre className="text-xs text-theme-text-primary bg-theme-bg-primary p-3 rounded overflow-x-auto max-h-64 whitespace-pre-wrap">
+          <pre className="text-xs text-theme-text-primary bg-theme-surface p-3 rounded overflow-x-auto max-h-64 whitespace-pre-wrap">
             {iteration.ai_output}
           </pre>
         </ReportSection>
@@ -144,8 +144,8 @@ const IterationReport: React.FC<{ iteration: RalphIteration }> = ({ iteration })
                 <div key={idx}>
                   <div
                     className={cn(
-                      'flex items-center gap-2 text-xs p-2 rounded bg-theme-bg-primary',
-                      hasOutput && 'cursor-pointer hover:bg-theme-bg-secondary/70'
+                      'flex items-center gap-2 text-xs p-2 rounded bg-theme-surface',
+                      hasOutput && 'cursor-pointer hover:bg-theme-background-secondary/70'
                     )}
                     onClick={() => hasOutput && toggleCheck(idx)}
                   >
@@ -157,8 +157,8 @@ const IterationReport: React.FC<{ iteration: RalphIteration }> = ({ iteration })
                     <span className="font-mono text-theme-text-primary flex-1">{check.command}</span>
                     {hasOutput && (
                       isOpen
-                        ? <ChevronUp className="w-3 h-3 text-theme-text-secondary" />
-                        : <ChevronDown className="w-3 h-3 text-theme-text-secondary" />
+                        ? <ChevronUp className="w-3 h-3 text-theme-secondary" />
+                        : <ChevronDown className="w-3 h-3 text-theme-secondary" />
                     )}
                   </div>
                   {isOpen && hasOutput && (
@@ -193,7 +193,7 @@ const IterationReport: React.FC<{ iteration: RalphIteration }> = ({ iteration })
 
       {/* Token Usage & Cost */}
       {(iteration.input_tokens || iteration.output_tokens || iteration.total_tokens || iteration.cost) && (
-        <div className="flex items-center gap-5 text-xs text-theme-text-secondary pt-1 border-t border-theme-border-primary">
+        <div className="flex items-center gap-5 text-xs text-theme-secondary pt-1 border-t border-theme-interactive-primary">
           <Coins className="w-3.5 h-3.5" />
           {iteration.input_tokens != null && (
             <span>In: <strong className="text-theme-text-primary">{iteration.input_tokens.toLocaleString()}</strong></span>
@@ -224,7 +224,7 @@ const ReportSection: React.FC<{
   <div>
     <div className={cn(
       'flex items-center gap-1.5 text-xs font-medium mb-1.5',
-      variant === 'error' ? 'text-theme-status-error' : 'text-theme-text-secondary'
+      variant === 'error' ? 'text-theme-status-error' : 'text-theme-secondary'
     )}>
       <Icon className="w-3.5 h-3.5" />
       {title}
@@ -381,7 +381,7 @@ export const RalphIterationList: React.FC<RalphIterationListProps> = ({
                 <CardContent className="p-0">
                   {/* Summary Row */}
                   <div
-                    className="p-3 cursor-pointer hover:bg-theme-bg-secondary/50 transition-colors"
+                    className="p-3 cursor-pointer hover:bg-theme-background-secondary/50 transition-colors"
                     onClick={() => handleExpand(iteration)}
                   >
                     <div className="flex items-center justify-between">
@@ -395,7 +395,7 @@ export const RalphIterationList: React.FC<RalphIterationListProps> = ({
                           </Badge>
                         </div>
                         {iteration.task_key && (
-                          <span className="text-xs text-theme-text-secondary font-mono">
+                          <span className="text-xs text-theme-secondary font-mono">
                             {iteration.task_key}
                           </span>
                         )}
@@ -408,27 +408,27 @@ export const RalphIterationList: React.FC<RalphIterationListProps> = ({
                             ) : (
                               <XCircle className="w-4 h-4 text-theme-status-error" />
                             )}
-                            <span className="text-xs text-theme-text-secondary">
+                            <span className="text-xs text-theme-secondary">
                               checks
                             </span>
                           </div>
                         )}
                         {iteration.git_commit_sha && (
-                          <div className="flex items-center gap-1 text-xs text-theme-text-secondary">
+                          <div className="flex items-center gap-1 text-xs text-theme-secondary">
                             <GitCommit className="w-4 h-4" />
                             <span className="font-mono">{iteration.git_commit_sha.slice(0, 7)}</span>
                           </div>
                         )}
                         {iteration.duration_ms && (
-                          <div className="flex items-center gap-1 text-xs text-theme-text-secondary">
+                          <div className="flex items-center gap-1 text-xs text-theme-secondary">
                             <Timer className="w-4 h-4" />
                             <span>{formatDuration(iteration.duration_ms)}</span>
                           </div>
                         )}
                         {isExpanded ? (
-                          <ChevronUp className="w-4 h-4 text-theme-text-secondary" />
+                          <ChevronUp className="w-4 h-4 text-theme-secondary" />
                         ) : (
-                          <ChevronDown className="w-4 h-4 text-theme-text-secondary" />
+                          <ChevronDown className="w-4 h-4 text-theme-secondary" />
                         )}
                       </div>
                     </div>
@@ -436,10 +436,10 @@ export const RalphIterationList: React.FC<RalphIterationListProps> = ({
 
                   {/* Expanded Report */}
                   {isExpanded && (
-                    <div className="border-t border-theme-border-primary p-4 bg-theme-bg-secondary/30">
+                    <div className="border-t border-theme-interactive-primary p-4 bg-theme-background-secondary/30">
                       {loadingDetail ? (
                         <div className="flex items-center justify-center py-6">
-                          <Loader2 className="w-5 h-5 text-theme-text-secondary animate-spin" />
+                          <Loader2 className="w-5 h-5 text-theme-secondary animate-spin" />
                         </div>
                       ) : expandedIteration ? (
                         <IterationReport iteration={expandedIteration} />
@@ -457,14 +457,14 @@ export const RalphIterationList: React.FC<RalphIterationListProps> = ({
           {/* Loading more indicator */}
           {loadingMore && (
             <div className="flex items-center justify-center py-3">
-              <Loader2 className="w-4 h-4 text-theme-text-secondary animate-spin mr-2" />
-              <span className="text-xs text-theme-text-secondary">Loading more...</span>
+              <Loader2 className="w-4 h-4 text-theme-secondary animate-spin mr-2" />
+              <span className="text-xs text-theme-secondary">Loading more...</span>
             </div>
           )}
 
           {/* End of list */}
           {!hasMore && iterations.length > PAGE_SIZE && (
-            <p className="text-center text-xs text-theme-text-secondary py-2">
+            <p className="text-center text-xs text-theme-secondary py-2">
               All {iterations.length} iterations loaded
             </p>
           )}

@@ -215,7 +215,7 @@ export const DataSourceCard: React.FC<DataSourceCardProps> = ({
         />
       </div>
 
-      <p className="text-sm text-theme-text-secondary mb-4 line-clamp-2">
+      <p className="text-sm text-theme-secondary mb-4 line-clamp-2">
         {dataSource.description}
       </p>
 
@@ -334,10 +334,10 @@ export const DataSourceCard: React.FC<DataSourceCardProps> = ({
 
       {/* Status Indicators */}
       {(!dataSource.is_active || dataSource.health_status === 'critical') && (
-        <div className="mt-4 p-3 bg-theme-surface-secondary rounded-lg border border-theme-border">
+        <div className="mt-4 p-3 bg-theme-surface-secondary rounded-lg border border-theme">
           <div className="flex items-center gap-2">
             <AlertCircle className={`h-4 w-4 ${getHealthStatusColor(dataSource.health_status)}`} />
-            <span className="text-sm text-theme-text-secondary">
+            <span className="text-sm text-theme-secondary">
               {!dataSource.is_active
                 ? 'Data source is currently inactive'
                 : 'Data source health check is critical'

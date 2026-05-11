@@ -16,7 +16,7 @@ export const MissionExpandedRow: React.FC<MissionExpandedRowProps> = ({ mission 
   return (
     <tr>
       <td colSpan={8} className="p-0">
-        <div className="border-l-2 border-theme-accent mx-4 my-3 ml-6 pl-5 pr-2">
+        <div className="border-l-2 border-theme-info mx-4 my-3 ml-6 pl-5 pr-2">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Column 1: Mission Info */}
             <div className="space-y-3">
@@ -36,7 +36,7 @@ export const MissionExpandedRow: React.FC<MissionExpandedRowProps> = ({ mission 
                         <span className="text-xs text-theme-tertiary">Progress</span>
                         <span className="text-xs font-semibold text-theme-primary">{mission.phase_progress ?? 0}%</span>
                       </div>
-                      <div className="h-1.5 bg-theme-bg-secondary rounded-full overflow-hidden max-w-[180px]">
+                      <div className="h-1.5 bg-theme-background-secondary rounded-full overflow-hidden max-w-[180px]">
                         <div
                           className={cn(
                             'h-full rounded-full transition-all duration-500',
@@ -79,7 +79,7 @@ export const MissionExpandedRow: React.FC<MissionExpandedRowProps> = ({ mission 
                       href={mission.pr_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-theme-accent hover:underline font-medium truncate"
+                      className="text-theme-info hover:underline font-medium truncate"
                     >
                       #{mission.pr_number}
                     </a>
@@ -93,7 +93,7 @@ export const MissionExpandedRow: React.FC<MissionExpandedRowProps> = ({ mission 
                       href={mission.deployed_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-theme-accent hover:underline font-medium truncate"
+                      className="text-theme-info hover:underline font-medium truncate"
                     >
                       {mission.deployed_url}
                     </a>

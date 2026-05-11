@@ -68,8 +68,8 @@ export const CostOverviewPanel: React.FC = () => {
       label: 'Active Models',
       value: overview?.active_models ?? 0,
       icon: Cpu,
-      colorClass: 'text-theme-accent',
-      bgClass: 'bg-theme-accent',
+      colorClass: 'text-theme-info',
+      bgClass: 'bg-theme-info',
     },
     {
       label: 'Optimization Score',

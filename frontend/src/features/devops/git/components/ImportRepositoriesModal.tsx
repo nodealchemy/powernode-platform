@@ -245,7 +245,7 @@ export const ImportRepositoriesModal: React.FC<ImportRepositoriesModalProps> = (
             </div>
             <button
               onClick={onClose}
-              className="p-2 text-theme-secondary hover:text-theme-primary rounded-lg hover:bg-theme-hover transition-colors"
+              className="p-2 text-theme-secondary hover:text-theme-primary rounded-lg hover:bg-theme-surface-hover transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -361,7 +361,7 @@ export const ImportRepositoriesModal: React.FC<ImportRepositoriesModalProps> = (
               <button
                 onClick={loadRepositories}
                 disabled={loading}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-theme-primary hover:bg-theme-hover rounded-lg transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-3 py-2 text-sm text-theme-primary hover:bg-theme-surface-hover rounded-lg transition-colors disabled:opacity-50"
               >
                 <Loader2 className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                 Refresh

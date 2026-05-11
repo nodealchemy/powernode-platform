@@ -121,7 +121,7 @@ export const RulesTab: React.FC<RulesTabProps> = ({
             >
               <div className="flex items-center gap-3">
                 {isExpanded
-                  ? <ChevronUp size={16} className="text-theme-accent flex-shrink-0" />
+                  ? <ChevronUp size={16} className="text-theme-info flex-shrink-0" />
                   : <ChevronDown size={16} className="text-theme-secondary flex-shrink-0" />}
                 <span className="text-sm font-mono text-theme-secondary">#{rule.priority}</span>
                 <h3 className="font-medium text-theme-primary">{rule.name}</h3>
@@ -155,7 +155,7 @@ export const RulesTab: React.FC<RulesTabProps> = ({
               <div className="border-t border-theme px-4 py-4">
                 {isLoadingDetail ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 size={20} className="animate-spin text-theme-accent" />
+                    <Loader2 size={20} className="animate-spin text-theme-info" />
                     <span className="ml-2 text-sm text-theme-secondary">Loading rule details...</span>
                   </div>
                 ) : detail ? (

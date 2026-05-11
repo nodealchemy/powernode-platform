@@ -325,7 +325,7 @@ const MyFilesPage: React.FC = () => {
               <div className="mt-4 flex justify-end">
                 <button
                   onClick={() => setShowUploadModal(false)}
-                  className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary hover:bg-theme-hover transition-colors"
+                  className="px-4 py-2 bg-theme-surface border border-theme rounded-lg text-theme-primary hover:bg-theme-surface-hover transition-colors"
                 >
                   Close
                 </button>
@@ -400,7 +400,7 @@ const MyFilesPage: React.FC = () => {
             <div className="flex gap-2 ml-auto">
               <button
                 onClick={handleBulkDownload}
-                className="px-3 py-1.5 text-sm bg-theme-surface border border-theme rounded-lg text-theme-primary hover:bg-theme-hover transition-colors flex items-center gap-2"
+                className="px-3 py-1.5 text-sm bg-theme-surface border border-theme rounded-lg text-theme-primary hover:bg-theme-surface-hover transition-colors flex items-center gap-2"
               >
                 <Download className="h-3.5 w-3.5" />
                 Download

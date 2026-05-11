@@ -25,7 +25,7 @@ const ApprovalCard: React.FC<{ request: ApprovalRequest }> = ({ request }) => {
   const isPending = request.status === 'pending';
 
   return (
-    <div className="p-4 rounded-lg bg-theme-surface border border-theme-border">
+    <div className="p-4 rounded-lg bg-theme-surface border border-theme">
       <div className="flex items-start justify-between mb-3">
         <div>
           <div className="flex items-center gap-2 mb-1">

@@ -188,7 +188,7 @@ export const LicenseViolationsPage: React.FC = () => {
     >
       <div className="card-theme-elevated">
         {/* Tabs */}
-        <div className="border-b border-theme-border">
+        <div className="border-b border-theme">
           <nav className="-mb-px flex space-x-8 px-6 pt-4">
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -204,7 +204,7 @@ export const LicenseViolationsPage: React.FC = () => {
                     ${
                       activeTab === tab.id
                         ? 'border-theme-interactive-primary text-theme-interactive-primary'
-                        : 'border-transparent text-theme-tertiary hover:text-theme-secondary hover:border-theme-border-hover'
+                        : 'border-transparent text-theme-tertiary hover:text-theme-secondary hover:border-theme'
                     }
                   `}
                 >

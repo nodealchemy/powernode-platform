@@ -123,7 +123,7 @@ export const ImageRepoCreateModal: React.FC<ImageRepoCreateModalProps> = ({
             ))}
           </Select>
           {selectedVariant && (
-            <p className="text-xs text-theme-text-secondary">{selectedVariant.description}</p>
+            <p className="text-xs text-theme-secondary">{selectedVariant.description}</p>
           )}
         </div>
 
@@ -144,7 +144,7 @@ export const ImageRepoCreateModal: React.FC<ImageRepoCreateModalProps> = ({
                 </option>
               ))}
             </Select>
-            <p className="text-xs text-theme-text-secondary">
+            <p className="text-xs text-theme-secondary">
               Variant images inherit from the selected base. Rebuilding the base triggers cascade rebuilds.
             </p>
           </div>

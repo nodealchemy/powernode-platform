@@ -171,8 +171,8 @@ export const RalphPrdEditor: React.FC<RalphPrdEditorProps> = ({
 
       {/* Keyboard Shortcuts Hint */}
       {!readOnly && tasks.length > 0 && (
-        <p className="text-xs text-theme-text-secondary text-center">
-          Tip: Press <kbd className="px-1.5 py-0.5 rounded bg-theme-bg-secondary border border-theme-border-primary font-mono">Ctrl+S</kbd> to save
+        <p className="text-xs text-theme-secondary text-center">
+          Tip: Press <kbd className="px-1.5 py-0.5 rounded bg-theme-background-secondary border border-theme-interactive-primary font-mono">Ctrl+S</kbd> to save
         </p>
       )}
     </div>

@@ -43,7 +43,7 @@ interface MissionPhaseEvent {
 }
 
 const STATUS_ICON_CLS: Record<ProvisioningStepStatus, string> = {
-  pending: 'text-theme-text-secondary',
+  pending: 'text-theme-secondary',
   running: 'text-theme-info animate-spin',
   completed: 'text-theme-success',
   failed: 'text-theme-danger',
@@ -202,7 +202,7 @@ export const StepProgressStream: React.FC<StepProgressStreamProps> = ({
     >
       {/* Aggregate progress bar */}
       <div className="space-y-1.5" data-testid="step-progress-bar">
-        <div className="flex items-center justify-between text-xs text-theme-text-secondary">
+        <div className="flex items-center justify-between text-xs text-theme-secondary">
           <span className="font-medium text-theme-primary">
             {completedCount} of {steps.length} steps
           </span>
@@ -254,14 +254,14 @@ export const StepProgressStream: React.FC<StepProgressStreamProps> = ({
                 <span className="flex-1 text-sm font-medium text-theme-primary truncate">
                   {step.label}
                 </span>
-                <span className="text-[10px] text-theme-text-secondary tabular-nums shrink-0">
+                <span className="text-[10px] text-theme-secondary tabular-nums shrink-0">
                   {formatTimestamp(state.updatedAt)}
                 </span>
                 {isExpandable && (
                   <button
                     type="button"
                     onClick={() => toggleExpand(step.id)}
-                    className="p-1 rounded hover:bg-theme-surface text-theme-text-secondary"
+                    className="p-1 rounded hover:bg-theme-surface text-theme-secondary"
                     aria-label={isExpanded ? 'Collapse details' : 'Expand details'}
                     aria-expanded={isExpanded}
                     data-testid={`step-toggle-${step.id}`}
@@ -276,7 +276,7 @@ export const StepProgressStream: React.FC<StepProgressStreamProps> = ({
               </div>
 
               {step.description && (
-                <p className="text-xs text-theme-text-secondary pl-6">{step.description}</p>
+                <p className="text-xs text-theme-secondary pl-6">{step.description}</p>
               )}
 
               {isExpandable && isExpanded && (

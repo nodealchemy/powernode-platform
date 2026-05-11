@@ -160,7 +160,7 @@ export const ChannelMetrics: React.FC<ChannelMetricsProps> = ({
         </div>
 
         {/* Additional stats */}
-        <div className="mt-4 pt-4 border-t border-theme-border">
+        <div className="mt-4 pt-4 border-t border-theme">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
             <div>
               <span className="text-theme-secondary">Messages/Hour:</span>

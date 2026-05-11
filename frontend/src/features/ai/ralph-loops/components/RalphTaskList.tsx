@@ -112,7 +112,7 @@ export const RalphTaskList: React.FC<RalphTaskListProps> = ({
               return (
                 <div className="flex items-center justify-center p-8">
                   <Loader2 className="w-6 h-6 animate-spin text-theme-brand-primary" />
-                  <span className="ml-2 text-theme-text-secondary">Loading task details...</span>
+                  <span className="ml-2 text-theme-secondary">Loading task details...</span>
                 </div>
               );
             }
@@ -139,9 +139,9 @@ export const RalphTaskList: React.FC<RalphTaskListProps> = ({
             );
           })()}
           {savingConfig && (
-            <div className="flex items-center justify-center p-4 border-t border-theme-border-primary">
+            <div className="flex items-center justify-center p-4 border-t border-theme-interactive-primary">
               <Loader2 className="w-5 h-5 animate-spin text-theme-brand-primary" />
-              <span className="ml-2 text-sm text-theme-text-secondary">Saving changes...</span>
+              <span className="ml-2 text-sm text-theme-secondary">Saving changes...</span>
             </div>
           )}
         </Modal>

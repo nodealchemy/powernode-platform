@@ -33,7 +33,7 @@ export const RalphTasksPanel: React.FC<RalphTasksPanelProps> = ({
     <div className={cn('space-y-4', className)}>
       {/* Mode Toggle */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1 p-1 bg-theme-bg-secondary rounded-lg">
+        <div className="flex items-center gap-1 p-1 bg-theme-background-secondary rounded-lg">
           <Button
             variant={mode === 'view' ? 'primary' : 'ghost'}
             size="sm"
@@ -57,12 +57,12 @@ export const RalphTasksPanel: React.FC<RalphTasksPanelProps> = ({
         </div>
 
         {mode === 'view' && (
-          <p className="text-xs text-theme-text-secondary">
+          <p className="text-xs text-theme-secondary">
             Showing task execution status
           </p>
         )}
         {mode === 'edit' && (
-          <p className="text-xs text-theme-text-secondary">
+          <p className="text-xs text-theme-secondary">
             {isRunning ? 'Editing disabled while running' : 'Edit PRD task definitions'}
           </p>
         )}

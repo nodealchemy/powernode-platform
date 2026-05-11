@@ -129,7 +129,7 @@ export const CompoundMetricsDashboard: React.FC = () => {
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {categoryEntries.map(([category, count]) => (
-                <div key={category} className="flex items-center justify-between p-3 rounded-lg bg-theme-surface border border-theme-border">
+                <div key={category} className="flex items-center justify-between p-3 rounded-lg bg-theme-surface border border-theme">
                   <Badge variant={(CATEGORY_COLORS[category] || 'default') as 'info' | 'danger' | 'success' | 'warning' | 'default'}>
                     {category.replace('_', ' ')}
                   </Badge>

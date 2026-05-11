@@ -60,7 +60,7 @@ export const WebhookEventActions: React.FC<WebhookEventActionsProps> = ({
             onClick={handleRetry}
             disabled={isRetrying}
             title="Retry this event"
-            className="p-1.5 text-theme-text-secondary hover:text-theme-primary hover:bg-theme-bg-hover rounded transition-colors disabled:opacity-50"
+            className="p-1.5 text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover rounded transition-colors disabled:opacity-50"
           >
             {isRetrying ? (
               <svg
@@ -100,7 +100,7 @@ export const WebhookEventActions: React.FC<WebhookEventActionsProps> = ({
             onClick={() => setShowRedeliverConfirm(true)}
             disabled={isRedelivering}
             title="Redeliver this event (creates a new event)"
-            className="p-1.5 text-theme-text-secondary hover:text-theme-primary hover:bg-theme-bg-hover rounded transition-colors disabled:opacity-50"
+            className="p-1.5 text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover rounded transition-colors disabled:opacity-50"
           >
             {isRedelivering ? (
               <svg
@@ -139,18 +139,18 @@ export const WebhookEventActions: React.FC<WebhookEventActionsProps> = ({
         {/* Redeliver Confirmation Modal */}
         {showRedeliverConfirm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="bg-theme-bg-primary rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <div className="bg-theme-surface rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
               <h3 className="text-lg font-semibold text-theme-text-primary mb-2">
                 Redeliver Webhook Event?
               </h3>
-              <p className="text-sm text-theme-text-secondary mb-4">
+              <p className="text-sm text-theme-secondary mb-4">
                 This will create a new webhook event with the same payload and queue it for
                 processing. The original event will remain unchanged.
               </p>
               <div className="flex justify-end gap-3">
                 <button
                   onClick={() => setShowRedeliverConfirm(false)}
-                  className="px-4 py-2 text-sm font-medium text-theme-text-secondary hover:text-theme-text-primary transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-theme-secondary hover:text-theme-text-primary transition-colors"
                 >
                   Cancel
                 </button>
@@ -221,7 +221,7 @@ export const WebhookEventActions: React.FC<WebhookEventActionsProps> = ({
           <button
             onClick={() => setShowRedeliverConfirm(true)}
             disabled={isRedelivering}
-            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-theme-text-secondary bg-theme-bg-tertiary hover:bg-theme-bg-hover rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-theme-secondary bg-theme-background-secondary hover:bg-theme-surface-hover rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isRedelivering ? (
               <>
@@ -265,24 +265,24 @@ export const WebhookEventActions: React.FC<WebhookEventActionsProps> = ({
           {/* Redeliver Confirmation Modal */}
           {showRedeliverConfirm && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-              <div className="bg-theme-bg-primary rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+              <div className="bg-theme-surface rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
                 <h3 className="text-lg font-semibold text-theme-text-primary mb-2">
                   Redeliver Webhook Event?
                 </h3>
-                <p className="text-sm text-theme-text-secondary mb-4">
+                <p className="text-sm text-theme-secondary mb-4">
                   This will create a new webhook event with the same payload and queue it for
                   processing. The original event will remain unchanged.
                 </p>
-                <div className="p-3 bg-theme-bg-tertiary rounded-lg mb-4">
+                <div className="p-3 bg-theme-background-secondary rounded-lg mb-4">
                   <div className="text-xs text-theme-text-tertiary mb-1">Event Details</div>
                   <div className="text-sm">
                     <span className="font-medium text-theme-text-primary">{event.event_type}</span>
                     {event.action && (
-                      <span className="text-theme-text-secondary"> ({event.action})</span>
+                      <span className="text-theme-secondary"> ({event.action})</span>
                     )}
                   </div>
                   {event.branch_name && (
-                    <div className="text-xs text-theme-text-secondary mt-1">
+                    <div className="text-xs text-theme-secondary mt-1">
                       Branch: {event.branch_name}
                     </div>
                   )}
@@ -290,7 +290,7 @@ export const WebhookEventActions: React.FC<WebhookEventActionsProps> = ({
                 <div className="flex justify-end gap-3">
                   <button
                     onClick={() => setShowRedeliverConfirm(false)}
-                    className="px-4 py-2 text-sm font-medium text-theme-text-secondary hover:text-theme-text-primary transition-colors"
+                    className="px-4 py-2 text-sm font-medium text-theme-secondary hover:text-theme-text-primary transition-colors"
                   >
                     Cancel
                   </button>

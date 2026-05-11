@@ -22,7 +22,7 @@ export const AgentExpandedRow: React.FC<AgentExpandedRowProps> = ({ agent }) => 
   return (
     <tr>
       <td colSpan={7} className="p-0">
-        <div className="border-l-2 border-theme-accent mx-4 my-3 ml-6 pl-5 pr-2">
+        <div className="border-l-2 border-theme-info mx-4 my-3 ml-6 pl-5 pr-2">
           {/* Description */}
           {agent.description && (
             <p className="text-sm text-theme-secondary mb-4 max-w-3xl">
@@ -55,7 +55,7 @@ export const AgentExpandedRow: React.FC<AgentExpandedRowProps> = ({ agent }) => 
                     <span className="text-theme-secondary shrink-0">Skills:</span>
                     <div className="flex flex-wrap gap-1">
                       {agent.skills.slice(0, 5).map(s => (
-                        <span key={s.id} className="px-1.5 py-0.5 rounded bg-theme-interactive-primary/10 text-theme-accent text-[10px] font-medium">
+                        <span key={s.id} className="px-1.5 py-0.5 rounded bg-theme-interactive-primary/10 text-theme-info text-[10px] font-medium">
                           {s.name}
                         </span>
                       ))}
@@ -109,7 +109,7 @@ export const AgentExpandedRow: React.FC<AgentExpandedRowProps> = ({ agent }) => 
                         {execStats.success_rate ?? 0}%
                       </span>
                     </div>
-                    <div className="h-1.5 bg-theme-bg-secondary rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-theme-background-secondary rounded-full overflow-hidden">
                       <div
                         className={cn(
                           'h-full rounded-full transition-all duration-500',

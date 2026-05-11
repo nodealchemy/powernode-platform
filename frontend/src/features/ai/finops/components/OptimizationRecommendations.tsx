@@ -75,7 +75,7 @@ export const OptimizationRecommendations: React.FC = () => {
 
         {/* Score progress bar */}
         <div className="mt-4">
-          <div className="w-full bg-theme-accent rounded-full h-2">
+          <div className="w-full bg-theme-info rounded-full h-2">
             <div
               className="h-2 rounded-full bg-theme-success transition-all"
               style={{ width: `${max_score > 0 ? (score / max_score) * 100 : 0}%` }}
@@ -127,7 +127,7 @@ export const OptimizationRecommendations: React.FC = () => {
                           {rec.affected_resources.map((resource) => (
                             <span
                               key={resource}
-                              className="text-xs px-2 py-0.5 rounded bg-theme-accent text-theme-tertiary"
+                              className="text-xs px-2 py-0.5 rounded bg-theme-info text-theme-tertiary"
                             >
                               {resource}
                             </span>

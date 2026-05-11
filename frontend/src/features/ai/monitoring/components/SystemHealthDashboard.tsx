@@ -155,7 +155,7 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
 
           <div className="grid grid-cols-1 gap-3">
             {/* AI Providers - from native providers object */}
-            <div className="flex items-center justify-between p-3 bg-theme-surface rounded-lg border border-theme-border">
+            <div className="flex items-center justify-between p-3 bg-theme-surface rounded-lg border border-theme">
               <div className="flex items-center gap-3">
                 {getComponentStatusIcon(
                   healthData.providers.healthy_providers === healthData.providers.total_providers
@@ -182,7 +182,7 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
             </div>
 
             {/* AI Agents - from native system object */}
-            <div className="flex items-center justify-between p-3 bg-theme-surface rounded-lg border border-theme-border">
+            <div className="flex items-center justify-between p-3 bg-theme-surface rounded-lg border border-theme">
               <div className="flex items-center gap-3">
                 {getComponentStatusIcon(healthData.system.status)}
                 <div className="flex items-center gap-2">
@@ -201,7 +201,7 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
             </div>
 
             {/* Workflows - from native system object */}
-            <div className="flex items-center justify-between p-3 bg-theme-surface rounded-lg border border-theme-border">
+            <div className="flex items-center justify-between p-3 bg-theme-surface rounded-lg border border-theme">
               <div className="flex items-center gap-3">
                 {getComponentStatusIcon(healthData.system.status)}
                 <div className="flex items-center gap-2">
@@ -220,7 +220,7 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
             </div>
 
             {/* Database - from native database object */}
-            <div className="flex items-center justify-between p-3 bg-theme-surface rounded-lg border border-theme-border">
+            <div className="flex items-center justify-between p-3 bg-theme-surface rounded-lg border border-theme">
               <div className="flex items-center gap-3">
                 {getComponentStatusIcon(healthData.database.status)}
                 <div className="flex items-center gap-2">
@@ -249,7 +249,7 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
             </div>
 
             {/* Redis - from native redis object */}
-            <div className="flex items-center justify-between p-3 bg-theme-surface rounded-lg border border-theme-border">
+            <div className="flex items-center justify-between p-3 bg-theme-surface rounded-lg border border-theme">
               <div className="flex items-center gap-3">
                 {getComponentStatusIcon(healthData.redis.status)}
                 <div className="flex items-center gap-2">
@@ -270,7 +270,7 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
             </div>
 
             {/* Workers - from native workers object */}
-            <div className="flex items-center justify-between p-3 bg-theme-surface rounded-lg border border-theme-border">
+            <div className="flex items-center justify-between p-3 bg-theme-surface rounded-lg border border-theme">
               <div className="flex items-center gap-3">
                 {getComponentStatusIcon(healthData.workers.status)}
                 <div className="flex items-center gap-2">
@@ -303,25 +303,25 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
           <div className="space-y-3">
             <h4 className="text-sm font-medium text-theme-primary">Circuit Breakers</h4>
             <div className="grid grid-cols-2 gap-3">
-              <div className="flex items-center justify-between p-2 bg-theme-surface rounded border border-theme-border">
+              <div className="flex items-center justify-between p-2 bg-theme-surface rounded border border-theme">
                 <span className="text-sm text-theme-muted">Healthy</span>
                 <Badge variant="success" size="sm">
                   {healthData.circuit_breakers.healthy}
                 </Badge>
               </div>
-              <div className="flex items-center justify-between p-2 bg-theme-surface rounded border border-theme-border">
+              <div className="flex items-center justify-between p-2 bg-theme-surface rounded border border-theme">
                 <span className="text-sm text-theme-muted">Degraded</span>
                 <Badge variant="warning" size="sm">
                   {healthData.circuit_breakers.degraded}
                 </Badge>
               </div>
-              <div className="flex items-center justify-between p-2 bg-theme-surface rounded border border-theme-border">
+              <div className="flex items-center justify-between p-2 bg-theme-surface rounded border border-theme">
                 <span className="text-sm text-theme-muted">Unhealthy</span>
                 <Badge variant="danger" size="sm">
                   {healthData.circuit_breakers.unhealthy}
                 </Badge>
               </div>
-              <div className="flex items-center justify-between p-2 bg-theme-surface rounded border border-theme-border">
+              <div className="flex items-center justify-between p-2 bg-theme-surface rounded border border-theme">
                 <span className="text-sm text-theme-muted">Total</span>
                 <Badge variant="info" size="sm">
                   {healthData.circuit_breakers.total_services}
@@ -332,7 +332,7 @@ export const SystemHealthDashboard: React.FC<SystemHealthDashboardProps> = ({
         )}
 
         {/* Last Updated */}
-        <div className="text-center pt-2 border-t border-theme-border">
+        <div className="text-center pt-2 border-t border-theme">
           <p className="text-xs text-theme-muted">
             Last updated: {new Date(healthData.timestamp).toLocaleTimeString()}
           </p>

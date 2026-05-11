@@ -38,7 +38,7 @@ export const ExecutorAgentTab: React.FC<ExecutorAgentTabProps> = ({
           placeholder="task_key"
           className="font-mono"
         />
-        <p className="mt-1 text-xs text-theme-text-secondary">
+        <p className="mt-1 text-xs text-theme-secondary">
           Unique identifier for this task (no spaces)
         </p>
       </div>
@@ -60,13 +60,13 @@ export const ExecutorAgentTab: React.FC<ExecutorAgentTabProps> = ({
           Dependencies
         </label>
         {availableTaskKeys.length > 0 ? (
-          <div className="space-y-2 max-h-40 overflow-y-auto p-2 border border-theme-border-primary rounded-lg bg-theme-bg-primary">
+          <div className="space-y-2 max-h-40 overflow-y-auto p-2 border border-theme-interactive-primary rounded-lg bg-theme-surface">
             {availableTaskKeys
               .filter(key => key !== taskKey)
               .map((key) => (
                 <label
                   key={key}
-                  className="flex items-center gap-2 cursor-pointer hover:bg-theme-bg-secondary p-1.5 rounded"
+                  className="flex items-center gap-2 cursor-pointer hover:bg-theme-background-secondary p-1.5 rounded"
                 >
                   <input
                     type="checkbox"
@@ -75,17 +75,17 @@ export const ExecutorAgentTab: React.FC<ExecutorAgentTabProps> = ({
                       if (e.target.checked) onTaskDependenciesChange([...taskDependencies, key]);
                       else onTaskDependenciesChange(taskDependencies.filter(d => d !== key));
                     }}
-                    className="w-4 h-4 rounded border-theme-border-primary text-theme-brand-primary focus:ring-theme-brand-primary"
+                    className="w-4 h-4 rounded border-theme-interactive-primary text-theme-brand-primary focus:ring-theme-brand-primary"
                   />
                   <span className="font-mono text-sm text-theme-text-primary">{key}</span>
                 </label>
               ))}
             {availableTaskKeys.filter(key => key !== taskKey).length === 0 && (
-              <p className="text-sm text-theme-text-secondary py-2">No other tasks available</p>
+              <p className="text-sm text-theme-secondary py-2">No other tasks available</p>
             )}
           </div>
         ) : (
-          <p className="text-sm text-theme-text-secondary p-2 border border-theme-border-primary rounded-lg">
+          <p className="text-sm text-theme-secondary p-2 border border-theme-interactive-primary rounded-lg">
             No other tasks available to select as dependencies
           </p>
         )}
@@ -96,7 +96,7 @@ export const ExecutorAgentTab: React.FC<ExecutorAgentTabProps> = ({
             ))}
           </div>
         )}
-        <p className="mt-1 text-xs text-theme-text-secondary">
+        <p className="mt-1 text-xs text-theme-secondary">
           Select tasks that must complete before this task can start
         </p>
       </div>

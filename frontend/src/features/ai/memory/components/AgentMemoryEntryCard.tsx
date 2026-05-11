@@ -242,7 +242,7 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
                   </code>
                 </pre>
               ) : (
-                <div className="rounded-lg border border-theme-border p-4 bg-theme-surface/30">
+                <div className="rounded-lg border border-theme p-4 bg-theme-surface/30">
                   <MarkdownRenderer content={contentText} variant="admin" />
                 </div>
               )}

@@ -191,7 +191,7 @@ export const RoleFormModal: React.FC<RoleFormModalProps> = ({
                           type="checkbox"
                           checked={form.values.permission_ids.includes(permission.id)}
                           onChange={() => handlePermissionToggle(permission.id)}
-                          className="mt-0.5 h-4 w-4 text-theme-interactive-primary rounded border-theme-border focus:ring-2 focus:ring-theme-interactive-primary focus:ring-offset-0"
+                          className="mt-0.5 h-4 w-4 text-theme-interactive-primary rounded border-theme focus:ring-2 focus:ring-theme-interactive-primary focus:ring-offset-0"
                           disabled={role?.system_role || form.isSubmitting}
                         />
                         <div className="flex-1 min-w-0">

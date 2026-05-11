@@ -16,7 +16,7 @@ export const AgentLane: React.FC<AgentLaneProps> = ({ worktree }) => {
     : 0;
 
   return (
-    <div className="bg-theme-bg-primary border border-theme rounded-lg p-4 flex flex-col h-full">
+    <div className="bg-theme-surface border border-theme rounded-lg p-4 flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 min-w-0">
@@ -29,13 +29,13 @@ export const AgentLane: React.FC<AgentLaneProps> = ({ worktree }) => {
       </div>
 
       {/* Branch info */}
-      <div className="flex items-center gap-1 text-xs text-theme-text-secondary mb-2">
+      <div className="flex items-center gap-1 text-xs text-theme-secondary mb-2">
         <GitBranch className="w-3 h-3 flex-shrink-0" />
         <span className="truncate">{worktree.branch_name}</span>
       </div>
 
       {/* Progress bar */}
-      <div className="h-1 bg-theme-bg-secondary rounded-full overflow-hidden mb-3">
+      <div className="h-1 bg-theme-background-secondary rounded-full overflow-hidden mb-3">
         <div
           className="h-full bg-theme-status-info rounded-full transition-all duration-500"
           style={{ width: `${progress}%` }}
@@ -43,7 +43,7 @@ export const AgentLane: React.FC<AgentLaneProps> = ({ worktree }) => {
       </div>
 
       {/* Stats */}
-      <div className="flex-1 space-y-1 text-xs text-theme-text-secondary">
+      <div className="flex-1 space-y-1 text-xs text-theme-secondary">
         {worktree.head_commit_sha && (
           <div className="flex items-center gap-1">
             <GitCommit className="w-3 h-3" />
@@ -84,7 +84,7 @@ export const AgentLane: React.FC<AgentLaneProps> = ({ worktree }) => {
           <div className={`flex items-center gap-1 ${
             worktree.test_status === 'passed' ? 'text-theme-status-success' :
             worktree.test_status === 'failed' ? 'text-theme-status-error' :
-            'text-theme-text-secondary'
+            'text-theme-secondary'
           }`}>
             <TestTube className="w-3 h-3" />
             <span>Tests: {worktree.test_status}</span>
@@ -110,7 +110,7 @@ export const AgentLane: React.FC<AgentLaneProps> = ({ worktree }) => {
 
       {/* Container indicator */}
       {worktree.container_instance_id && (
-        <div className="mt-2 flex items-center gap-1 text-xs text-theme-text-secondary">
+        <div className="mt-2 flex items-center gap-1 text-xs text-theme-secondary">
           <Container className="w-3 h-3 text-theme-status-info" />
           <span>Container: {worktree.container_instance_id.substring(0, 8)}</span>
         </div>

@@ -146,7 +146,7 @@ export const ProviderCredentialsPanel: React.FC<ProviderCredentialsPanelProps> =
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-theme-hover text-theme-secondary"
+            className="p-1 rounded-lg hover:bg-theme-surface-hover text-theme-secondary"
           >
             <X className="w-5 h-5" />
           </button>
@@ -219,7 +219,7 @@ export const ProviderCredentialsPanel: React.FC<ProviderCredentialsPanelProps> =
                       <button
                         onClick={() => handleTest(credential)}
                         disabled={actionLoading !== null}
-                        className="p-1.5 rounded-lg hover:bg-theme-hover text-theme-secondary hover:text-theme-primary"
+                        className="p-1.5 rounded-lg hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
                         title="Test Connection"
                       >
                         {actionLoading === `test-${credential.id}` ? (
@@ -233,7 +233,7 @@ export const ProviderCredentialsPanel: React.FC<ProviderCredentialsPanelProps> =
                       <button
                         ref={(el) => { menuButtonRefs.current[credential.id] = el; }}
                         onClick={() => handleMenuToggle(credential.id)}
-                        className="p-1.5 rounded-lg hover:bg-theme-hover text-theme-secondary"
+                        className="p-1.5 rounded-lg hover:bg-theme-surface-hover text-theme-secondary"
                       >
                         <MoreVertical className="w-4 h-4" />
                       </button>
@@ -296,7 +296,7 @@ export const ProviderCredentialsPanel: React.FC<ProviderCredentialsPanelProps> =
                     setMenuPosition(null);
                     if (credential) onEditCredential(credential);
                   }}
-                  className="w-full px-3 py-2 text-left text-sm text-theme-primary hover:bg-theme-hover flex items-center gap-2"
+                  className="w-full px-3 py-2 text-left text-sm text-theme-primary hover:bg-theme-surface-hover flex items-center gap-2"
                 >
                   <Pencil className="w-4 h-4" />
                   Edit
@@ -309,7 +309,7 @@ export const ProviderCredentialsPanel: React.FC<ProviderCredentialsPanelProps> =
                       setMenuPosition(null);
                       if (credential) handleMakeDefault(credential);
                     }}
-                    className="w-full px-3 py-2 text-left text-sm text-theme-primary hover:bg-theme-hover flex items-center gap-2"
+                    className="w-full px-3 py-2 text-left text-sm text-theme-primary hover:bg-theme-surface-hover flex items-center gap-2"
                   >
                     <CheckCircle className="w-4 h-4" />
                     Make Default
@@ -322,7 +322,7 @@ export const ProviderCredentialsPanel: React.FC<ProviderCredentialsPanelProps> =
                     setMenuPosition(null);
                     if (credential) handleDelete(credential);
                   }}
-                  className="w-full px-3 py-2 text-left text-sm text-theme-error hover:bg-theme-hover flex items-center gap-2"
+                  className="w-full px-3 py-2 text-left text-sm text-theme-error hover:bg-theme-surface-hover flex items-center gap-2"
                 >
                   <Trash2 className="w-4 h-4" />
                   Delete

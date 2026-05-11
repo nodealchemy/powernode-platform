@@ -135,7 +135,7 @@ export const TrajectoryList: React.FC<TrajectoryListProps> = ({
               </div>
 
               <div className="flex items-center gap-3 text-xs text-theme-secondary">
-                <span className="px-1.5 py-0.5 rounded bg-theme-accent">
+                <span className="px-1.5 py-0.5 rounded bg-theme-info">
                   {TRAJECTORY_TYPE_LABELS[trajectory.trajectory_type] || trajectory.trajectory_type}
                 </span>
                 <span className="flex items-center gap-1">
@@ -152,7 +152,7 @@ export const TrajectoryList: React.FC<TrajectoryListProps> = ({
               {trajectory.tags && trajectory.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
                   {trajectory.tags.map((tag: string, idx: number) => (
-                    <span key={idx} className="flex items-center gap-0.5 px-1.5 py-0.5 text-xs rounded bg-theme-accent text-theme-secondary">
+                    <span key={idx} className="flex items-center gap-0.5 px-1.5 py-0.5 text-xs rounded bg-theme-info text-theme-secondary">
                       <Tag size={8} />
                       {tag}
                     </span>

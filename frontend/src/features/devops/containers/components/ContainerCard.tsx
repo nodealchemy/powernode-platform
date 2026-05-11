@@ -72,7 +72,7 @@ export const ContainerCard: React.FC<ContainerCardProps> = ({
     <Card
       className={cn(
         'cursor-pointer transition-all hover:shadow-md',
-        'border-theme-border-primary',
+        'border-theme-interactive-primary',
         isActive && 'border-theme-status-info',
         className
       )}
@@ -84,18 +84,18 @@ export const ContainerCard: React.FC<ContainerCardProps> = ({
           <div className="flex items-center gap-3">
             <div className={cn(
               'h-10 w-10 rounded-lg flex items-center justify-center',
-              isActive ? 'bg-theme-status-info/10' : 'bg-theme-bg-secondary'
+              isActive ? 'bg-theme-status-info/10' : 'bg-theme-background-secondary'
             )}>
               <Box className={cn(
                 'w-5 h-5',
-                isActive ? 'text-theme-status-info' : 'text-theme-text-secondary'
+                isActive ? 'text-theme-status-info' : 'text-theme-secondary'
               )} />
             </div>
             <div className="min-w-0">
               <h3 className="font-medium text-theme-text-primary truncate">
                 {container.image_name}
               </h3>
-              <p className="text-xs text-theme-text-secondary truncate">
+              <p className="text-xs text-theme-secondary truncate">
                 {container.execution_id}
               </p>
             </div>
@@ -107,7 +107,7 @@ export const ContainerCard: React.FC<ContainerCardProps> = ({
         </div>
 
         {/* Timing Info */}
-        <div className="flex items-center gap-4 text-sm text-theme-text-secondary mb-3">
+        <div className="flex items-center gap-4 text-sm text-theme-secondary mb-3">
           {container.started_at && (
             <div className="flex items-center gap-1">
               <Clock className="w-4 h-4" />
@@ -124,7 +124,7 @@ export const ContainerCard: React.FC<ContainerCardProps> = ({
 
         {/* Runner Info */}
         {container.runner_name && (
-          <div className="flex items-center gap-2 text-sm text-theme-text-secondary mb-3">
+          <div className="flex items-center gap-2 text-sm text-theme-secondary mb-3">
             <Cpu className="w-4 h-4" />
             <span>Runner: {container.runner_name}</span>
           </div>
@@ -147,7 +147,7 @@ export const ContainerCard: React.FC<ContainerCardProps> = ({
         )}
 
         {/* Footer */}
-        <div className="flex items-center justify-between pt-3 border-t border-theme-border-primary">
+        <div className="flex items-center justify-between pt-3 border-t border-theme-interactive-primary">
           <div className="flex items-center gap-2">
             {onViewLogs && (
               <Button

@@ -109,7 +109,7 @@ export const ContainerList: React.FC<ContainerListProps> = ({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-theme-text-primary">Container Executions</h2>
-          <p className="text-sm text-theme-text-secondary">
+          <p className="text-sm text-theme-secondary">
             {totalCount} container{totalCount !== 1 ? 's' : ''}
           </p>
         </div>

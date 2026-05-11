@@ -27,7 +27,7 @@ const PROFILE_COLORS: Record<string, string> = {
   type_checker: 'border-theme-success/40 hover:border-theme-success',
   test_writer: 'border-theme-danger/40 hover:border-theme-danger',
   documentation_expert: 'border-theme-secondary/40 hover:border-theme-secondary',
-  custom: 'border-theme-accent hover:border-theme-primary',
+  custom: 'border-theme-info hover:border-theme-primary',
 };
 
 const SELECTED_COLORS: Record<string, string> = {
@@ -37,7 +37,7 @@ const SELECTED_COLORS: Record<string, string> = {
   type_checker: 'border-theme-success bg-theme-success/10',
   test_writer: 'border-theme-danger bg-theme-danger/10',
   documentation_expert: 'border-theme-secondary bg-theme-surface/10',
-  custom: 'border-theme-primary bg-theme-accent',
+  custom: 'border-theme-primary bg-theme-info',
 };
 
 export const RoleProfileSelector: React.FC<RoleProfileSelectorProps> = ({
@@ -131,7 +131,7 @@ export const RoleProfileSelector: React.FC<RoleProfileSelectorProps> = ({
               <h5 className="text-xs font-medium text-theme-secondary mb-2">Communication</h5>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(selectedProfile.communication_style).map(([key, value]) => (
-                  <span key={key} className="px-2 py-1 text-xs rounded-full bg-theme-accent text-theme-primary">
+                  <span key={key} className="px-2 py-1 text-xs rounded-full bg-theme-info text-theme-primary">
                     {key}: {String(value)}
                   </span>
                 ))}
@@ -164,7 +164,7 @@ export const RoleProfileSelector: React.FC<RoleProfileSelectorProps> = ({
               <summary className="text-xs font-medium text-theme-secondary cursor-pointer hover:text-theme-primary">
                 System Prompt Preview
               </summary>
-              <pre className="mt-2 p-3 text-xs bg-theme-accent rounded-md text-theme-secondary overflow-x-auto whitespace-pre-wrap">
+              <pre className="mt-2 p-3 text-xs bg-theme-info rounded-md text-theme-secondary overflow-x-auto whitespace-pre-wrap">
                 {selectedProfile.system_prompt_template}
               </pre>
             </details>

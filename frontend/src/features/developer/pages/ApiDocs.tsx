@@ -123,7 +123,7 @@ curl -H "X-API-Key: YOUR_API_KEY" \\
             {category.routes.map((route, index) => (
               <div
                 key={index}
-                className="flex items-center gap-4 p-3 rounded-lg bg-theme-surface hover:bg-theme-hover transition-colors"
+                className="flex items-center gap-4 p-3 rounded-lg bg-theme-surface hover:bg-theme-surface-hover transition-colors"
               >
                 <span className={`px-2 py-1 text-xs font-bold rounded ${getMethodColor(route.method)}`}>
                   {route.method}

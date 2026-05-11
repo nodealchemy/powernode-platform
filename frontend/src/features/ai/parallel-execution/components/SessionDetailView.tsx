@@ -52,7 +52,7 @@ export const SessionDetailView: React.FC<SessionDetailViewProps> = ({
       <SessionSummaryCards session={session} />
 
       {/* Progress bar */}
-      <div className="h-2 bg-theme-bg-secondary rounded-full overflow-hidden">
+      <div className="h-2 bg-theme-background-secondary rounded-full overflow-hidden">
         <div
           className={`h-full rounded-full transition-all duration-500 ${
             session.status === 'completed' ? 'bg-theme-status-success' :

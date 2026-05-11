@@ -305,7 +305,7 @@ export const EditDataSourceModal: React.FC<EditDataSourceModalProps> = ({
               <h5 className="text-sm font-medium text-theme-secondary">Existing Credentials ({credentials.length})</h5>
               <div className="space-y-2">
                 {credentials.map((credential) => (
-                  <div key={credential.id} className="flex items-center justify-between p-3 border border-theme-border rounded-lg">
+                  <div key={credential.id} className="flex items-center justify-between p-3 border border-theme rounded-lg">
                     <div className="flex items-center gap-3">
                       <div className={`h-3 w-3 rounded-full ${
                         credential.last_test_status === 'success' ? 'bg-theme-success' :
@@ -354,7 +354,7 @@ export const EditDataSourceModal: React.FC<EditDataSourceModalProps> = ({
           )}
 
           {/* Add New Credential */}
-          <div className="space-y-3 p-4 border border-dashed border-theme-border rounded-lg">
+          <div className="space-y-3 p-4 border border-dashed border-theme rounded-lg">
             <h5 className="text-sm font-medium text-theme-secondary flex items-center gap-2">
               <Plus className="h-4 w-4" />
               Add New Credential

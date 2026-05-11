@@ -322,7 +322,7 @@ const RepositoryCard: React.FC<{
             <div className="relative" ref={menuRef}>
               <button
                 onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
-                className="p-1.5 hover:bg-theme-bg-subtle rounded-lg text-theme-secondary hover:text-theme-primary"
+                className="p-1.5 hover:bg-theme-background-secondary rounded-lg text-theme-secondary hover:text-theme-primary"
               >
                 <MoreVertical className="w-4 h-4" />
               </button>
@@ -330,7 +330,7 @@ const RepositoryCard: React.FC<{
                 <div className="absolute right-0 top-full mt-1 w-48 bg-theme-surface border border-theme rounded-lg shadow-lg z-10 py-1">
                   <button
                     onClick={(e) => { e.stopPropagation(); onConfigureWebhook(); setMenuOpen(false); }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-primary hover:bg-theme-bg-subtle"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-primary hover:bg-theme-background-secondary"
                   >
                     <Webhook className="w-4 h-4" />
                     {repository.webhook_configured ? 'Update Webhook' : 'Configure Webhook'}
@@ -341,7 +341,7 @@ const RepositoryCard: React.FC<{
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => { e.stopPropagation(); setMenuOpen(false); }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-primary hover:bg-theme-bg-subtle"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-primary hover:bg-theme-background-secondary"
                     >
                       <ExternalLink className="w-4 h-4" />
                       Open in Browser
@@ -361,7 +361,7 @@ const RepositoryCard: React.FC<{
             {mode === 'expanded' && (
               <button
                 onClick={handleCollapse}
-                className="p-1.5 hover:bg-theme-bg-subtle rounded-lg text-theme-secondary hover:text-theme-primary"
+                className="p-1.5 hover:bg-theme-background-secondary rounded-lg text-theme-secondary hover:text-theme-primary"
                 title="Collapse"
               >
                 <X className="w-4 h-4" />
@@ -399,7 +399,7 @@ const RepositoryCard: React.FC<{
       {mode === 'expanded' && (
         <div className="border-t border-theme no-expand">
           {/* Tabs */}
-          <div className="flex border-b border-theme bg-theme-bg-subtle/30">
+          <div className="flex border-b border-theme bg-theme-background-secondary/30">
             {[
               { id: 'overview', label: 'Overview', icon: FolderGit2 },
               { id: 'code', label: 'Code', icon: GitBranch },
@@ -433,30 +433,30 @@ const RepositoryCard: React.FC<{
                     </div>
                   )}
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    <div className="bg-theme-bg-subtle rounded-lg p-3">
+                    <div className="bg-theme-background-secondary rounded-lg p-3">
                       <p className="text-xs text-theme-secondary">Visibility</p>
                       <p className="text-sm font-medium text-theme-primary flex items-center gap-1 mt-1">
                         {repository.is_private ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
                         {repository.is_private ? 'Private' : 'Public'}
                       </p>
                     </div>
-                    <div className="bg-theme-bg-subtle rounded-lg p-3">
+                    <div className="bg-theme-background-secondary rounded-lg p-3">
                       <p className="text-xs text-theme-secondary">Stars</p>
                       <p className="text-sm font-medium text-theme-primary mt-1">{repository.stars_count}</p>
                     </div>
-                    <div className="bg-theme-bg-subtle rounded-lg p-3">
+                    <div className="bg-theme-background-secondary rounded-lg p-3">
                       <p className="text-xs text-theme-secondary">Forks</p>
                       <p className="text-sm font-medium text-theme-primary mt-1">{repository.forks_count}</p>
                     </div>
-                    <div className="bg-theme-bg-subtle rounded-lg p-3">
+                    <div className="bg-theme-background-secondary rounded-lg p-3">
                       <p className="text-xs text-theme-secondary">Open Issues</p>
                       <p className="text-sm font-medium text-theme-primary mt-1">{repository.open_issues_count}</p>
                     </div>
-                    <div className="bg-theme-bg-subtle rounded-lg p-3">
+                    <div className="bg-theme-background-secondary rounded-lg p-3">
                       <p className="text-xs text-theme-secondary">Open PRs</p>
                       <p className="text-sm font-medium text-theme-primary mt-1">{repository.open_prs_count}</p>
                     </div>
-                    <div className="bg-theme-bg-subtle rounded-lg p-3">
+                    <div className="bg-theme-background-secondary rounded-lg p-3">
                       <p className="text-xs text-theme-secondary">Default Branch</p>
                       <p className="text-sm font-medium text-theme-primary mt-1">{repository.default_branch}</p>
                     </div>
@@ -490,7 +490,7 @@ const RepositoryCard: React.FC<{
                       const totalCommits = weeklyData.reduce((sum, w) => sum + w.count, 0);
 
                       return (
-                        <div className="bg-theme-bg-subtle rounded-lg p-3">
+                        <div className="bg-theme-background-secondary rounded-lg p-3">
                           {/* Bar Chart */}
                           <div className="flex items-end justify-between gap-1 h-20 mb-2">
                             {weeklyData.map((week, idx) => (
@@ -527,7 +527,7 @@ const RepositoryCard: React.FC<{
                     <div className="flex flex-wrap gap-2">
                       <button
                         onClick={(e) => { e.stopPropagation(); onConfigureWebhook(); }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-theme text-theme-primary hover:bg-theme-bg-subtle transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-theme text-theme-primary hover:bg-theme-background-secondary transition-colors"
                       >
                         <Webhook className="w-3.5 h-3.5" />
                         {repository.webhook_configured ? 'Update Webhook' : 'Add Webhook'}
@@ -538,7 +538,7 @@ const RepositoryCard: React.FC<{
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-theme text-theme-primary hover:bg-theme-bg-subtle transition-colors"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-theme text-theme-primary hover:bg-theme-background-secondary transition-colors"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
                           Open in Browser
@@ -546,14 +546,14 @@ const RepositoryCard: React.FC<{
                       )}
                       <button
                         onClick={(e) => { e.stopPropagation(); setActiveTab('code'); }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-theme text-theme-primary hover:bg-theme-bg-subtle transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-theme text-theme-primary hover:bg-theme-background-secondary transition-colors"
                       >
                         <GitBranch className="w-3.5 h-3.5" />
                         Browse Code
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); setActiveTab('prs'); }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-theme text-theme-primary hover:bg-theme-bg-subtle transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-theme text-theme-primary hover:bg-theme-background-secondary transition-colors"
                       >
                         <GitPullRequest className="w-3.5 h-3.5" />
                         View PRs
@@ -568,7 +568,7 @@ const RepositoryCard: React.FC<{
             {activeTab === 'code' && (
               <div className="flex h-[400px]">
                 {/* Left Panel - Branches */}
-                <div className="w-56 border-r border-theme flex flex-col bg-theme-bg-subtle/30">
+                <div className="w-56 border-r border-theme flex flex-col bg-theme-background-secondary/30">
                   <div className="p-2 border-b border-theme">
                     <h4 className="text-xs font-medium text-theme-secondary uppercase tracking-wide flex items-center gap-1">
                       <GitBranch className="w-3 h-3" />
@@ -590,7 +590,7 @@ const RepositoryCard: React.FC<{
                             className={`w-full flex items-center gap-1.5 px-2 py-1.5 text-left text-xs transition-colors ${
                               selectedBranch === branch.name
                                 ? 'bg-theme-primary/10 text-theme-primary border-l-2 border-theme-primary'
-                                : 'text-theme-secondary hover:bg-theme-bg-subtle hover:text-theme-primary'
+                                : 'text-theme-secondary hover:bg-theme-background-secondary hover:text-theme-primary'
                             }`}
                           >
                             <GitBranch className="w-3 h-3 flex-shrink-0" />
@@ -642,8 +642,8 @@ const RepositoryCard: React.FC<{
                           <div key={commit.sha}>
                             <button
                               onClick={(e) => { e.stopPropagation(); setExpandedCommit(expandedCommit === commit.sha ? null : commit.sha); }}
-                              className={`w-full text-left p-2 hover:bg-theme-bg-subtle transition-colors ${
-                                expandedCommit === commit.sha ? 'bg-theme-bg-subtle' : ''
+                              className={`w-full text-left p-2 hover:bg-theme-background-secondary transition-colors ${
+                                expandedCommit === commit.sha ? 'bg-theme-background-secondary' : ''
                               }`}
                             >
                               <div className="flex items-start gap-2">
@@ -658,7 +658,7 @@ const RepositoryCard: React.FC<{
                                 <div className="flex-1 min-w-0">
                                   <p className="text-xs text-theme-primary line-clamp-1">{commit.message}</p>
                                   <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-theme-secondary">
-                                    <span className="font-mono bg-theme-bg-subtle px-1 py-0.5 rounded">{commit.short_sha}</span>
+                                    <span className="font-mono bg-theme-background-secondary px-1 py-0.5 rounded">{commit.short_sha}</span>
                                     <span>{commit.author}</span>
                                     <span>•</span>
                                     <span>{commit.date}</span>
@@ -667,7 +667,7 @@ const RepositoryCard: React.FC<{
                               </div>
                             </button>
                             {expandedCommit === commit.sha && (
-                              <div className="px-2 pb-2 bg-theme-bg-subtle/50">
+                              <div className="px-2 pb-2 bg-theme-background-secondary/50">
                                 <div className="ml-4 pl-2 border-l-2 border-theme-primary/30">
                                   <div className="flex items-center gap-2 mb-2">
                                     <Button
@@ -715,7 +715,7 @@ const RepositoryCard: React.FC<{
                 ) : pullRequests.length > 0 ? (
                   <div className="space-y-2">
                     {pullRequests.map((pr) => (
-                      <div key={pr.id} className="p-3 bg-theme-bg-subtle rounded-lg">
+                      <div key={pr.id} className="p-3 bg-theme-background-secondary rounded-lg">
                         <div className="flex items-start gap-3">
                           <GitPullRequest className={`w-4 h-4 mt-0.5 ${pr.state === 'open' ? 'text-theme-success' : 'text-theme-interactive-primary'}`} />
                           <div className="flex-1 min-w-0">

@@ -33,7 +33,7 @@ export const RolesTab: React.FC<RolesTabProps> = ({ selectedTeam, roles }) => {
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-3">
               <h3 className="font-medium text-theme-primary">{role.role_name}</h3>
-              <span className="px-2 py-1 text-xs bg-theme-accent/10 text-theme-accent rounded">{role.role_type}</span>
+              <span className="px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded">{role.role_type}</span>
               <span className="text-xs text-theme-secondary">Priority: {role.priority_order}</span>
             </div>
             <div className="flex gap-2 text-xs">

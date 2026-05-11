@@ -97,7 +97,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
           <div key={contract.id} className="card-theme overflow-hidden">
             {/* Header row — always visible */}
             <div
-              className="p-4 flex items-center justify-between hover:bg-theme-hover transition-colors cursor-pointer"
+              className="p-4 flex items-center justify-between hover:bg-theme-surface-hover transition-colors cursor-pointer"
               onClick={() => toggleExpand(contract.id)}
             >
               <div className="flex-1 min-w-0">
@@ -125,7 +125,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
                 {!compact && contract.status === 'draft' && onActivate && (
                   <button
                     onClick={() => onActivate(contract.id)}
-                    className="px-3 py-1 text-xs font-medium bg-theme-accent text-theme-on-primary rounded hover:opacity-90 transition-opacity"
+                    className="px-3 py-1 text-xs font-medium bg-theme-info text-theme-on-primary rounded hover:opacity-90 transition-opacity"
                   >
                     Activate
                   </button>
@@ -135,7 +135,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
 
             {/* Compact expanded details */}
             {isExpanded && compact && (
-              <div className="border-t border-theme-border px-4 py-3 space-y-2">
+              <div className="border-t border-theme px-4 py-3 space-y-2">
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <span className="text-theme-secondary">Version: </span>
@@ -170,7 +170,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
                 {onNavigateToContract && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onNavigateToContract(contract.id); }}
-                    className="text-xs text-theme-accent hover:underline"
+                    className="text-xs text-theme-info hover:underline"
                   >
                     View Full Contract →
                   </button>
@@ -180,7 +180,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
 
             {/* Full expanded details */}
             {isExpanded && !compact && (
-              <div className="border-t border-theme-border px-4 pb-4">
+              <div className="border-t border-theme px-4 pb-4">
                 {/* Toolbar */}
                 <div className="flex items-center justify-between py-3">
                   <div className="text-xs text-theme-secondary">
@@ -199,7 +199,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
                         <button
                           onClick={() => handleSave(contract)}
                           disabled={saving || !editName.trim()}
-                          className="px-3 py-1 text-xs font-medium bg-theme-accent text-theme-on-primary rounded hover:opacity-90 disabled:opacity-50 transition-opacity"
+                          className="px-3 py-1 text-xs font-medium bg-theme-info text-theme-on-primary rounded hover:opacity-90 disabled:opacity-50 transition-opacity"
                         >
                           {saving ? 'Saving...' : 'Save'}
                         </button>
@@ -208,7 +208,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
                       onSave && contract.status !== 'archived' && (
                         <button
                           onClick={() => startEditing(contract)}
-                          className="px-3 py-1 text-xs text-theme-accent hover:underline"
+                          className="px-3 py-1 text-xs text-theme-info hover:underline"
                         >
                           Edit
                         </button>
@@ -225,7 +225,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
                       type="text"
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
-                      className="w-full px-3 py-2 bg-theme-surface-bg rounded border border-theme-border text-sm text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+                      className="w-full px-3 py-2 bg-theme-surface-bg rounded border border-theme text-sm text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
                     />
                   </div>
                 )}
@@ -235,7 +235,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
                   <div className="flex items-center justify-between mb-2">
                     <h5 className="text-xs font-semibold text-theme-secondary uppercase tracking-wider">Risk Tiers</h5>
                     {isEditing && (
-                      <button onClick={addTier} className="text-xs text-theme-accent hover:underline">+ Add Tier</button>
+                      <button onClick={addTier} className="text-xs text-theme-info hover:underline">+ Add Tier</button>
                     )}
                   </div>
                   <div className="space-y-2">
@@ -247,7 +247,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
                               <select
                                 value={tier.tier}
                                 onChange={(e) => handleTierChange(index, 'tier', e.target.value)}
-                                className="px-2 py-1 bg-theme-surface rounded border border-theme-border text-sm text-theme-primary"
+                                className="px-2 py-1 bg-theme-surface rounded border border-theme text-sm text-theme-primary"
                               >
                                 <option value="low">Low</option>
                                 <option value="standard">Standard</option>
@@ -266,7 +266,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
                                 type="text"
                                 value={tier.patterns.join(', ')}
                                 onChange={(e) => handleTierChange(index, 'patterns', e.target.value.split(',').map(p => p.trim()))}
-                                className="w-full px-2 py-1 bg-theme-surface rounded border border-theme-border text-sm text-theme-primary"
+                                className="w-full px-2 py-1 bg-theme-surface rounded border border-theme text-sm text-theme-primary"
                               />
                             </div>
                             <div>
@@ -275,7 +275,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
                                 type="text"
                                 value={tier.required_checks.join(', ')}
                                 onChange={(e) => handleTierChange(index, 'required_checks', e.target.value.split(',').map(c => c.trim()))}
-                                className="w-full px-2 py-1 bg-theme-surface rounded border border-theme-border text-sm text-theme-primary"
+                                className="w-full px-2 py-1 bg-theme-surface rounded border border-theme text-sm text-theme-primary"
                               />
                             </div>
                             <div className="flex items-center gap-4">
@@ -294,7 +294,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
                                   min="0"
                                   value={tier.min_reviewers}
                                   onChange={(e) => handleTierChange(index, 'min_reviewers', parseInt(e.target.value) || 0)}
-                                  className="w-16 px-1 py-0.5 bg-theme-surface rounded border border-theme-border text-sm text-theme-primary"
+                                  className="w-16 px-1 py-0.5 bg-theme-surface rounded border border-theme text-sm text-theme-primary"
                                 />
                               </label>
                             </div>
@@ -325,7 +325,7 @@ export const ContractList: React.FC<Props> = ({ contracts, compact, loading, onA
                               {tier.required_checks.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-0.5">
                                   {tier.required_checks.map((check, ci) => (
-                                    <span key={ci} className="text-xs text-theme-accent bg-theme-accent/10 px-1.5 py-0.5 rounded">
+                                    <span key={ci} className="text-xs text-theme-info bg-theme-info/10 px-1.5 py-0.5 rounded">
                                       {check}
                                     </span>
                                   ))}

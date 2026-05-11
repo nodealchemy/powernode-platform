@@ -33,7 +33,7 @@ export const StepTeamConfig: React.FC<StepTeamConfigProps> = ({
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3 p-4 bg-theme-surface rounded-lg">
-        <Users className="w-5 h-5 text-theme-accent flex-shrink-0" />
+        <Users className="w-5 h-5 text-theme-info flex-shrink-0" />
         <div>
           <p className="text-sm font-medium text-theme-primary">Agent Team</p>
           <p className="text-xs text-theme-tertiary">

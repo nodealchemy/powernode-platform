@@ -174,7 +174,7 @@ export const ApiKeyManager: React.FC = () => {
                       </Badge>
                     </div>
                     <div className="flex items-center gap-4 text-sm text-theme-tertiary">
-                      <code className="bg-theme-hover px-2 py-1 rounded font-mono">
+                      <code className="bg-theme-surface-hover px-2 py-1 rounded font-mono">
                         {key.key_preview}
                       </code>
                       <span>Created: {formatDate(key.created_at)}</span>
@@ -185,7 +185,7 @@ export const ApiKeyManager: React.FC = () => {
                         {key.scopes.map((scope) => (
                           <span
                             key={scope}
-                            className="text-xs px-2 py-0.5 rounded bg-theme-hover text-theme-secondary"
+                            className="text-xs px-2 py-0.5 rounded bg-theme-surface-hover text-theme-secondary"
                           >
                             {scope}
                           </span>
@@ -257,7 +257,7 @@ export const ApiKeyManager: React.FC = () => {
                 {availableScopes.map((scope) => (
                   <label
                     key={scope.id}
-                    className="flex items-center gap-2 p-2 rounded-lg bg-theme-surface cursor-pointer hover:bg-theme-hover"
+                    className="flex items-center gap-2 p-2 rounded-lg bg-theme-surface cursor-pointer hover:bg-theme-surface-hover"
                   >
                     <input
                       type="checkbox"

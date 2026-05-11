@@ -242,7 +242,7 @@ const AgentMarketplacePage: React.FC = () => {
           <h2 className="text-lg font-semibold text-theme-primary mb-4">Featured Templates</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {featuredTemplates.slice(0, 3).map(template => (
-              <div key={template.id} className="bg-theme-surface border-2 border-theme-accent rounded-lg p-4">
+              <div key={template.id} className="bg-theme-surface border-2 border-theme-info rounded-lg p-4">
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="font-medium text-theme-primary">{template.name}</h3>
                   <span className="text-xs px-2 py-1 bg-theme-interactive-primary text-theme-on-primary rounded">Featured</span>
@@ -260,7 +260,7 @@ const AgentMarketplacePage: React.FC = () => {
                       {template.installation_count} installs
                     </span>
                   </div>
-                  <span className="text-sm font-medium text-theme-accent">{getPricingLabel(template)}</span>
+                  <span className="text-sm font-medium text-theme-info">{getPricingLabel(template)}</span>
                 </div>
               </div>
             ))}
@@ -271,7 +271,7 @@ const AgentMarketplacePage: React.FC = () => {
       {/* Templates Grid/List */}
       {loading ? (
         <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-accent border-t-theme-primary"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-info border-t-theme-primary"></div>
           <p className="mt-4 text-theme-secondary">Loading templates...</p>
         </div>
       ) : templates.length === 0 ? (
@@ -285,7 +285,7 @@ const AgentMarketplacePage: React.FC = () => {
       ) : (
         <div data-testid="marketplace-templates-grid" className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-4'}>
           {templates.map(template => (
-            <div key={template.id} data-testid="template-card" className="bg-theme-surface border border-theme rounded-lg p-4 hover:border-theme-accent transition-colors cursor-pointer">
+            <div key={template.id} data-testid="template-card" className="bg-theme-surface border border-theme rounded-lg p-4 hover:border-theme-info transition-colors cursor-pointer">
               <div className="flex justify-between items-start mb-2">
                 <div>
                   <h3 data-testid="template-title" className="font-medium text-theme-primary">{template.name}</h3>
@@ -310,7 +310,7 @@ const AgentMarketplacePage: React.FC = () => {
                 </div>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-theme-accent">{getPricingLabel(template)}</span>
+                <span className="text-sm font-medium text-theme-info">{getPricingLabel(template)}</span>
                 {isInstalled(template.id) ? (
                   <span className="text-sm text-theme-success font-medium">Installed</span>
                 ) : (
@@ -513,7 +513,7 @@ export const AgentMarketplaceContent: React.FC = () => {
           <h2 className="text-lg font-semibold text-theme-primary mb-4">Featured Templates</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {featuredTemplates.slice(0, 3).map(template => (
-              <div key={template.id} className="bg-theme-surface border-2 border-theme-accent rounded-lg p-4">
+              <div key={template.id} className="bg-theme-surface border-2 border-theme-info rounded-lg p-4">
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="font-medium text-theme-primary">{template.name}</h3>
                   <span className="text-xs px-2 py-1 bg-theme-interactive-primary text-theme-on-primary rounded">Featured</span>
@@ -531,7 +531,7 @@ export const AgentMarketplaceContent: React.FC = () => {
                       {template.installation_count} installs
                     </span>
                   </div>
-                  <span className="text-sm font-medium text-theme-accent">{getPricingLabel(template)}</span>
+                  <span className="text-sm font-medium text-theme-info">{getPricingLabel(template)}</span>
                 </div>
               </div>
             ))}
@@ -542,7 +542,7 @@ export const AgentMarketplaceContent: React.FC = () => {
       {/* Templates Grid/List */}
       {loading ? (
         <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-accent border-t-theme-primary"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-info border-t-theme-primary"></div>
           <p className="mt-4 text-theme-secondary">Loading templates...</p>
         </div>
       ) : templates.length === 0 ? (
@@ -556,7 +556,7 @@ export const AgentMarketplaceContent: React.FC = () => {
       ) : (
         <div data-testid="marketplace-templates-grid" className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-4'}>
           {templates.map(template => (
-            <div key={template.id} data-testid="template-card" className="bg-theme-surface border border-theme rounded-lg p-4 hover:border-theme-accent transition-colors cursor-pointer">
+            <div key={template.id} data-testid="template-card" className="bg-theme-surface border border-theme rounded-lg p-4 hover:border-theme-info transition-colors cursor-pointer">
               <div className="flex justify-between items-start mb-2">
                 <div>
                   <h3 data-testid="template-title" className="font-medium text-theme-primary">{template.name}</h3>
@@ -581,7 +581,7 @@ export const AgentMarketplaceContent: React.FC = () => {
                 </div>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-theme-accent">{getPricingLabel(template)}</span>
+                <span className="text-sm font-medium text-theme-info">{getPricingLabel(template)}</span>
                 {isInstalled(template.id) ? (
                   <span className="text-sm text-theme-success font-medium">Installed</span>
                 ) : (

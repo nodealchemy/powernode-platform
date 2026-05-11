@@ -163,7 +163,7 @@ export const CreateRalphLoopDialog: React.FC<CreateRalphLoopDialogProps> = ({
               </option>
             ))}
           </Select>
-          <p className="text-xs text-theme-text-secondary mt-1">
+          <p className="text-xs text-theme-secondary mt-1">
             AI agent that will execute loop tasks
           </p>
         </div>
@@ -179,7 +179,7 @@ export const CreateRalphLoopDialog: React.FC<CreateRalphLoopDialogProps> = ({
             min={1}
             max={1000}
           />
-          <p className="text-xs text-theme-text-secondary mt-1">
+          <p className="text-xs text-theme-secondary mt-1">
             Maximum number of AI iterations before stopping
           </p>
         </div>
@@ -193,7 +193,7 @@ export const CreateRalphLoopDialog: React.FC<CreateRalphLoopDialogProps> = ({
             onChange={(e) => setRepositoryUrl(e.target.value)}
             placeholder="https://github.com/user/repo"
           />
-          <p className="text-xs text-theme-text-secondary mt-1">
+          <p className="text-xs text-theme-secondary mt-1">
             Git repository URL (optional)
           </p>
         </div>

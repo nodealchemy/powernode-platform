@@ -11,7 +11,7 @@ export const TeamExpandedRow: React.FC<TeamExpandedRowProps> = ({ team }) => {
   return (
     <tr>
       <td colSpan={7} className="p-0">
-        <div className="border-l-2 border-theme-accent mx-4 my-3 ml-6 pl-5 pr-2">
+        <div className="border-l-2 border-theme-info mx-4 my-3 ml-6 pl-5 pr-2">
           {/* Description */}
           {team.description && (
             <p className="text-sm text-theme-secondary mb-4 max-w-3xl">

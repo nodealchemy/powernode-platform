@@ -33,7 +33,7 @@ export const MessagesTab: React.FC<MessagesTabProps> = ({ selectedExecution, mes
       {messages.map(msg => (
         <div key={msg.id} className="bg-theme-surface border border-theme rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-sm font-medium text-theme-accent">{msg.from_role_name || 'System'}</span>
+            <span className="text-sm font-medium text-theme-info">{msg.from_role_name || 'System'}</span>
             {msg.to_role_name && (
               <>
                 <ArrowRightLeft size={12} className="text-theme-secondary" />
@@ -44,7 +44,7 @@ export const MessagesTab: React.FC<MessagesTabProps> = ({ selectedExecution, mes
           </div>
           <p className="text-sm text-theme-primary">{msg.content}</p>
           {msg.message_type && (
-            <span className="inline-block mt-1 px-2 py-0.5 text-xs bg-theme-accent/10 text-theme-accent rounded">{msg.message_type}</span>
+            <span className="inline-block mt-1 px-2 py-0.5 text-xs bg-theme-info/10 text-theme-info rounded">{msg.message_type}</span>
           )}
         </div>
       ))}

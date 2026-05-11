@@ -112,7 +112,7 @@ export const A2aTaskListPanel: React.FC<A2aTaskListPanelProps> = ({
           className={cn(
             'flex-1 px-2 py-1 text-xs font-medium rounded transition-colors',
             activeTab === tab.key
-              ? 'bg-theme-interactive-primary/10 text-theme-accent'
+              ? 'bg-theme-interactive-primary/10 text-theme-info'
               : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
           )}
         >

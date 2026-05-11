@@ -132,10 +132,10 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
   }, [config.cron_expression]);
 
   return (
-    <Card className={cn('border-theme-border-primary', className)}>
+    <Card className={cn('border-theme-interactive-primary', className)}>
       <CardHeader
         title="Schedule Configuration"
-        icon={<Settings className="w-4 h-4 text-theme-text-secondary" />}
+        icon={<Settings className="w-4 h-4 text-theme-secondary" />}
         className="pb-3"
       />
       <CardContent className="space-y-4">
@@ -160,7 +160,7 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
                     'hover:border-theme-brand-primary/50',
                     isSelected
                       ? 'border-theme-brand-primary bg-theme-brand-primary/20 ring-2 ring-theme-brand-primary/30'
-                      : 'border-theme-border-primary bg-theme-bg-primary'
+                      : 'border-theme-interactive-primary bg-theme-surface'
                   )}
                 >
                   {isSelected && (
@@ -170,7 +170,7 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
                   )}
                   <Icon className={cn(
                     'w-5 h-5 mb-1',
-                    isSelected ? 'text-theme-brand-primary' : 'text-theme-text-secondary'
+                    isSelected ? 'text-theme-brand-primary' : 'text-theme-secondary'
                   )} />
                   <span className={cn(
                     'text-xs font-medium',
@@ -182,14 +182,14 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
               );
             })}
           </div>
-          <p className="mt-2 text-xs text-theme-text-secondary">
+          <p className="mt-2 text-xs text-theme-secondary">
             {schedulingModeConfig[mode].description}
           </p>
         </div>
 
         {/* Scheduled Mode Options */}
         {mode === 'scheduled' && (
-          <div className="space-y-3 pt-3 border-t border-theme-border-primary">
+          <div className="space-y-3 pt-3 border-t border-theme-interactive-primary">
             <div>
               <label className="block text-sm font-medium text-theme-text-primary mb-1">
                 Schedule Preset
@@ -217,15 +217,15 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
                   value={config.cron_expression || ''}
                   onChange={(e) => updateConfig({ cron_expression: e.target.value })}
                 />
-                <p className="mt-1 text-xs text-theme-text-secondary">
+                <p className="mt-1 text-xs text-theme-secondary">
                   Format: minute hour day month weekday (e.g., 0 9 * * 1-5 = 9am weekdays)
                 </p>
               </div>
             )}
 
             {cronDescription && (
-              <div className="flex items-center gap-2 p-2 rounded-lg bg-theme-bg-secondary">
-                <Clock className="w-4 h-4 text-theme-text-secondary" />
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-theme-background-secondary">
+                <Clock className="w-4 h-4 text-theme-secondary" />
                 <span className="text-sm text-theme-text-primary">{cronDescription}</span>
               </div>
             )}
@@ -248,7 +248,7 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
 
         {/* Continuous Mode Options */}
         {mode === 'continuous' && (
-          <div className="space-y-3 pt-3 border-t border-theme-border-primary">
+          <div className="space-y-3 pt-3 border-t border-theme-interactive-primary">
             <div>
               <label className="block text-sm font-medium text-theme-text-primary mb-1">
                 Interval (seconds)
@@ -263,7 +263,7 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
                   iteration_interval_seconds: parseInt(e.target.value) || undefined,
                 })}
               />
-              <p className="mt-1 text-xs text-theme-text-secondary">
+              <p className="mt-1 text-xs text-theme-secondary">
                 Minimum 60 seconds. Recommended: 300 (5 minutes) or more.
               </p>
             </div>
@@ -272,14 +272,14 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
 
         {/* Event Triggered Mode Info */}
         {mode === 'event_triggered' && (
-          <div className="p-3 rounded-lg bg-theme-bg-secondary border border-theme-border-primary">
+          <div className="p-3 rounded-lg bg-theme-background-secondary border border-theme-interactive-primary">
             <div className="flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-theme-status-info mt-0.5" />
               <div>
                 <p className="text-sm text-theme-text-primary font-medium">
                   Webhook URL will be generated
                 </p>
-                <p className="text-xs text-theme-text-secondary mt-1">
+                <p className="text-xs text-theme-secondary mt-1">
                   After saving, a unique webhook URL will be created. Use this URL to trigger
                   iterations from external systems like Git hooks or CI/CD pipelines.
                 </p>
@@ -290,7 +290,7 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
 
         {/* Common Options (for non-manual modes) */}
         {mode !== 'manual' && (
-          <div className="space-y-3 pt-3 border-t border-theme-border-primary">
+          <div className="space-y-3 pt-3 border-t border-theme-interactive-primary">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-theme-text-primary mb-1">
@@ -385,7 +385,7 @@ export const RalphLoopScheduleConfig: React.FC<RalphLoopScheduleConfigProps> = (
         )}
 
         {/* Actions */}
-        <div className="flex justify-end gap-2 pt-4 border-t border-theme-border-primary">
+        <div className="flex justify-end gap-2 pt-4 border-t border-theme-interactive-primary">
           {onCancel && (
             <Button variant="outline" size="sm" onClick={onCancel}>
               Cancel

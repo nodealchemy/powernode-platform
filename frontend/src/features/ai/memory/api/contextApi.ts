@@ -445,13 +445,13 @@ export const contextApi = {
       case 'preference':
         return 'bg-theme-warning/10 text-theme-warning';
       case 'interaction':
-        return 'bg-theme-accent/10 text-theme-accent';
+        return 'bg-theme-info/10 text-theme-info';
       case 'knowledge':
         return 'bg-theme-success/10 text-theme-success';
       case 'skill':
         return 'bg-theme-info/10 text-theme-info';
       case 'relationship':
-        return 'bg-theme-accent/10 text-theme-accent';
+        return 'bg-theme-info/10 text-theme-info';
       case 'goal':
         return 'bg-theme-warning/10 text-theme-warning';
       case 'constraint':

@@ -42,7 +42,7 @@ export const AnalyticsTab: React.FC<AnalyticsTabProps> = ({ costAnalysis, rankin
             {rankings.map((ranking, idx) => (
               <div key={ranking.provider_id || idx} className="flex items-center justify-between p-3 bg-theme-bg rounded-lg">
                 <div className="flex items-center gap-3">
-                  <span className="text-lg font-bold text-theme-accent">#{idx + 1}</span>
+                  <span className="text-lg font-bold text-theme-info">#{idx + 1}</span>
                   <span className="text-sm font-medium text-theme-primary">{ranking.provider_name || ranking.provider_id}</span>
                 </div>
                 <div className="flex gap-4 text-xs text-theme-secondary">

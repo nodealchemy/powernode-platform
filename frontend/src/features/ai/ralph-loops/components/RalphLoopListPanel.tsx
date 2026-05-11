@@ -151,7 +151,7 @@ export const RalphLoopListPanel: React.FC<RalphLoopListPanelProps> = ({
               onClick={() => setActiveTab(tab.id)}
               className={`flex-1 px-2 py-1 text-xs font-medium rounded transition-colors ${
                 activeTab === tab.id
-                  ? 'bg-theme-interactive-primary/10 text-theme-accent'
+                  ? 'bg-theme-interactive-primary/10 text-theme-info'
                   : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover'
               }`}
             >
@@ -187,7 +187,7 @@ export const RalphLoopListPanel: React.FC<RalphLoopListPanelProps> = ({
         <>
           <button
             onClick={onCreateLoop}
-            className="w-8 h-8 rounded-md flex items-center justify-center text-theme-accent hover:bg-theme-surface-hover transition-colors"
+            className="w-8 h-8 rounded-md flex items-center justify-center text-theme-info hover:bg-theme-surface-hover transition-colors"
             title="New Loop"
           >
             <Plus className="h-4 w-4" />

@@ -172,7 +172,7 @@ export const AgentPerformancePanel: React.FC<AgentPerformancePanelProps> = ({
 
               {/* Actions */}
               {onTestAgent && (
-                <div className="pt-2 border-t border-theme-border">
+                <div className="pt-2 border-t border-theme">
                   <Button
                     onClick={() => onTestAgent(agent.id, {})}
                     variant="outline"

@@ -9,7 +9,7 @@ interface AgentLanesPanelProps {
 export const AgentLanesPanel: React.FC<AgentLanesPanelProps> = ({ worktrees }) => {
   if (worktrees.length === 0) {
     return (
-      <div className="text-center p-8 text-theme-text-secondary">
+      <div className="text-center p-8 text-theme-secondary">
         No worktrees provisioned yet.
       </div>
     );

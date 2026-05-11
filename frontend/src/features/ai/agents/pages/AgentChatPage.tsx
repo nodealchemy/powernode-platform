@@ -90,10 +90,10 @@ export const AgentChatPage: React.FC = () => {
       description={agent?.description || 'Full-page agent conversation interface'}
       breadcrumbs={breadcrumbs}
     >
-      <div className="flex h-[calc(100vh-220px)] rounded-lg border border-theme-border overflow-hidden bg-theme-bg-primary">
+      <div className="flex h-[calc(100vh-220px)] rounded-lg border border-theme overflow-hidden bg-theme-surface">
         {/* Left Sidebar - Conversations */}
-        <div className="w-72 border-r border-theme-border flex flex-col shrink-0">
-          <div className="p-3 border-b border-theme-border">
+        <div className="w-72 border-r border-theme flex flex-col shrink-0">
+          <div className="p-3 border-b border-theme">
             <Button
               variant="primary"
               size="sm"
@@ -107,7 +107,7 @@ export const AgentChatPage: React.FC = () => {
 
           <div className="flex-1 overflow-y-auto">
             {conversations.length === 0 ? (
-              <div className="p-4 text-center text-sm text-theme-text-secondary">
+              <div className="p-4 text-center text-sm text-theme-secondary">
                 <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-40" />
                 No conversations yet
               </div>
@@ -117,8 +117,8 @@ export const AgentChatPage: React.FC = () => {
                   <button
                     key={conv.id}
                     className={cn(
-                      'w-full text-left p-3 hover:bg-theme-bg-secondary transition-colors',
-                      activeConversation?.id === conv.id && 'bg-theme-bg-secondary'
+                      'w-full text-left p-3 hover:bg-theme-background-secondary transition-colors',
+                      activeConversation?.id === conv.id && 'bg-theme-background-secondary'
                     )}
                     onClick={() => setActiveConversation(conv)}
                   >
@@ -134,11 +134,11 @@ export const AgentChatPage: React.FC = () => {
                       </Badge>
                     </div>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-theme-text-secondary">
+                      <span className="text-xs text-theme-secondary">
                         {conv.metadata?.total_messages || 0} messages
                       </span>
                       {conv.metadata?.last_activity && (
-                        <span className="text-xs text-theme-text-secondary flex items-center gap-0.5">
+                        <span className="text-xs text-theme-secondary flex items-center gap-0.5">
                           <Clock className="w-3 h-3" />
                           {formatTime(conv.metadata.last_activity)}
                         </span>
@@ -166,8 +166,8 @@ export const AgentChatPage: React.FC = () => {
           ) : (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
-                <MessageSquare className="w-12 h-12 mx-auto mb-3 text-theme-text-secondary opacity-40" />
-                <p className="text-theme-text-secondary">
+                <MessageSquare className="w-12 h-12 mx-auto mb-3 text-theme-secondary opacity-40" />
+                <p className="text-theme-secondary">
                   {conversations.length > 0
                     ? 'Select a conversation to continue chatting'
                     : 'Start a new conversation to begin'}

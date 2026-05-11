@@ -168,7 +168,7 @@ export const TeamExecutionDiagram: React.FC<TeamExecutionDiagramProps> = ({
 
       {/* Trajectory status */}
       {execState.status === 'running' && (
-        <div className="flex items-center gap-2 text-xs text-theme-secondary mt-3 p-2 bg-theme-accent/50 rounded-md">
+        <div className="flex items-center gap-2 text-xs text-theme-secondary mt-3 p-2 bg-theme-info/50 rounded-md">
           <BookOpen size={14} className="text-theme-info" />
           <span>Trajectory building in progress...</span>
         </div>
@@ -215,7 +215,7 @@ export const TeamExecutionDiagram: React.FC<TeamExecutionDiagramProps> = ({
           </summary>
           <div className="mt-2 space-y-1 max-h-48 overflow-y-auto">
             {execState.updates.map((update, index) => (
-              <div key={index} className="text-xs text-theme-secondary p-2 bg-theme-accent rounded">
+              <div key={index} className="text-xs text-theme-secondary p-2 bg-theme-info rounded">
                 <span className="font-medium">{new Date(update.timestamp).toLocaleTimeString()}</span>
                 {' - '}
                 <span>{update.type.replace(/_/g, ' ')}</span>

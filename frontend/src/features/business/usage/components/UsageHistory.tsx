@@ -54,7 +54,7 @@ export const UsageHistory: React.FC<UsageHistoryProps> = ({ events, onExport }) 
             </thead>
             <tbody>
               {events.map((event) => (
-                <tr key={event.id} className="border-b border-theme hover:bg-theme-hover">
+                <tr key={event.id} className="border-b border-theme hover:bg-theme-surface-hover">
                   <td className="py-3 px-2">
                     <span className="text-sm font-mono text-theme-tertiary">
                       {event.event_id.slice(0, 8)}...

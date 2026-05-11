@@ -35,7 +35,7 @@ const getStatusColor = (status: string) => {
     case 'timeout':
       return 'bg-theme-warning/10 text-theme-warning';
     default:
-      return 'bg-theme-accent text-theme-secondary';
+      return 'bg-theme-info text-theme-secondary';
   }
 };
 
@@ -116,7 +116,7 @@ export const TeamExecutionHistory: React.FC<TeamExecutionHistoryProps> = ({ team
         <button
           type="button"
           onClick={loadExecutions}
-          className="p-1 rounded text-theme-secondary hover:bg-theme-accent hover:text-theme-primary transition-colors"
+          className="p-1 rounded text-theme-secondary hover:bg-theme-info hover:text-theme-primary transition-colors"
           title="Refresh"
         >
           <RefreshCw size={14} />
@@ -128,7 +128,7 @@ export const TeamExecutionHistory: React.FC<TeamExecutionHistoryProps> = ({ team
           <div key={execution.id} className="border border-theme rounded-md overflow-hidden">
             <button
               type="button"
-              className="w-full flex items-center justify-between p-3 hover:bg-theme-accent/50 transition-colors text-left"
+              className="w-full flex items-center justify-between p-3 hover:bg-theme-info/50 transition-colors text-left"
               onClick={() => setExpandedId(prev => prev === execution.id ? null : execution.id)}
             >
               <div className="flex items-center gap-3">
@@ -165,7 +165,7 @@ export const TeamExecutionHistory: React.FC<TeamExecutionHistoryProps> = ({ team
             </button>
 
             {expandedId === execution.id && (
-              <div className="border-t border-theme p-3 bg-theme-accent/30 text-xs space-y-2">
+              <div className="border-t border-theme p-3 bg-theme-info/30 text-xs space-y-2">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <span className="text-theme-secondary">Execution ID:</span>{' '}

@@ -111,7 +111,7 @@ export const StorageProviderCard: React.FC<StorageProviderCardProps> = ({
             <button
               data-testid="provider-action-menu"
               onClick={() => setShowMenu(!showMenu)}
-              className="p-1 hover:bg-theme-hover rounded transition-colors"
+              className="p-1 hover:bg-theme-surface-hover rounded transition-colors"
             >
               <MoreVertical className="h-5 w-5 text-theme-secondary" />
             </button>
@@ -128,7 +128,7 @@ export const StorageProviderCard: React.FC<StorageProviderCardProps> = ({
                       setShowMenu(false);
                       onEdit(provider);
                     }}
-                    className="w-full px-4 py-2 text-left text-sm text-theme-primary hover:bg-theme-hover flex items-center gap-2"
+                    className="w-full px-4 py-2 text-left text-sm text-theme-primary hover:bg-theme-surface-hover flex items-center gap-2"
                   >
                     <Settings className="h-4 w-4" />
                     Configure
@@ -139,7 +139,7 @@ export const StorageProviderCard: React.FC<StorageProviderCardProps> = ({
                       onTest(provider);
                     }}
                     disabled={testing}
-                    className="w-full px-4 py-2 text-left text-sm text-theme-primary hover:bg-theme-hover flex items-center gap-2 disabled:opacity-50"
+                    className="w-full px-4 py-2 text-left text-sm text-theme-primary hover:bg-theme-surface-hover flex items-center gap-2 disabled:opacity-50"
                   >
                     <RefreshCw className={`h-4 w-4 ${testing ? 'animate-spin' : ''}`} />
                     Test Connection
@@ -150,7 +150,7 @@ export const StorageProviderCard: React.FC<StorageProviderCardProps> = ({
                         setShowMenu(false);
                         onSetDefault(provider);
                       }}
-                      className="w-full px-4 py-2 text-left text-sm text-theme-primary hover:bg-theme-hover flex items-center gap-2"
+                      className="w-full px-4 py-2 text-left text-sm text-theme-primary hover:bg-theme-surface-hover flex items-center gap-2"
                     >
                       <Star className="h-4 w-4" />
                       Set as Default

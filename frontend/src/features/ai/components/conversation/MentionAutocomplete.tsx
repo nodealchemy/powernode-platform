@@ -240,7 +240,7 @@ function getRoleBadgeColor(role: string): string {
     case 'researcher': return 'bg-theme-info/15 text-theme-info';
     case 'writer': return 'bg-theme-success/15 text-theme-success';
     case 'executor': return 'bg-theme-interactive-primary/15 text-theme-interactive-primary';
-    default: return 'bg-theme-hover text-theme-secondary';
+    default: return 'bg-theme-surface-hover text-theme-secondary';
   }
 }
 
@@ -278,7 +278,7 @@ export const MentionDropdown: React.FC<MentionDropdownProps> = ({
           className={`w-full text-left px-3 py-2.5 transition-colors ${
             index === selectedIndex
               ? 'bg-theme-interactive-primary/10'
-              : 'hover:bg-theme-hover'
+              : 'hover:bg-theme-surface-hover'
           }`}
         >
           <div className="flex items-center gap-2.5">

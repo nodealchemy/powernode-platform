@@ -46,7 +46,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
     <Card
       className={cn(
         'cursor-pointer transition-all hover:shadow-md',
-        'border-theme-border-primary',
+        'border-theme-interactive-primary',
         className
       )}
       onClick={() => onSelect?.(agent)}
@@ -67,7 +67,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
               </Badge>
             )}
           </div>
-          <div className="flex items-center gap-1 text-theme-text-secondary">
+          <div className="flex items-center gap-1 text-theme-secondary">
             <Star className="w-4 h-4 text-theme-warning fill-current" />
             <span className="text-sm font-medium">{formatRating(agent.avg_rating)}</span>
             <span className="text-xs">({agent.rating_count})</span>
@@ -75,7 +75,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
         </div>
 
         {/* Description */}
-        <p className="text-sm text-theme-text-secondary line-clamp-2 mb-3">
+        <p className="text-sm text-theme-secondary line-clamp-2 mb-3">
           {agent.description}
         </p>
 
@@ -96,7 +96,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
         )}
 
         {/* Stats */}
-        <div className="flex items-center gap-4 text-sm text-theme-text-secondary mb-3">
+        <div className="flex items-center gap-4 text-sm text-theme-secondary mb-3">
           <div className="flex items-center gap-1">
             <Activity className="w-4 h-4" />
             <span>{agent.task_count} tasks</span>
@@ -108,7 +108,7 @@ export const AgentCard: React.FC<AgentCardProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between pt-3 border-t border-theme-border-primary">
+        <div className="flex items-center justify-between pt-3 border-t border-theme-interactive-primary">
           <span className="text-sm font-medium text-theme-text-primary">
             {formatPrice(agent.pricing_model, agent.price_per_task)}
           </span>

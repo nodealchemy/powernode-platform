@@ -117,7 +117,7 @@ export const RecommendationsDashboard: React.FC = () => {
                 {pending.map((rec) => (
                   <div
                     key={rec.id}
-                    className="p-4 rounded-lg bg-theme-surface border border-theme-border"
+                    className="p-4 rounded-lg bg-theme-surface border border-theme"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -151,7 +151,7 @@ export const RecommendationsDashboard: React.FC = () => {
                         </button>
                         <button
                           onClick={() => dismissRecommendation(rec.id)}
-                          className="px-3 py-1.5 text-xs font-medium bg-theme-surface border border-theme-border rounded-md hover:bg-theme-surface-hover"
+                          className="px-3 py-1.5 text-xs font-medium bg-theme-surface border border-theme rounded-md hover:bg-theme-surface-hover"
                         >
                           Dismiss
                         </button>

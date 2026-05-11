@@ -618,7 +618,7 @@ export const StorageProviderModal: React.FC<StorageProviderModalProps> = ({
             type="button"
             onClick={onClose}
             disabled={saving}
-            className="px-4 py-2 text-sm text-theme-primary hover:bg-theme-hover rounded-lg transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-sm text-theme-primary hover:bg-theme-surface-hover rounded-lg transition-colors disabled:opacity-50"
           >
             Cancel
           </button>

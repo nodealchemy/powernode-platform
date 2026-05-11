@@ -55,7 +55,7 @@ export const RalphLoopCard: React.FC<RalphLoopCardProps> = ({
     <Card
       className={cn(
         'cursor-pointer transition-all hover:shadow-md',
-        'border-theme-border-primary',
+        'border-theme-interactive-primary',
         isRunning && 'border-l-4 border-l-theme-status-info',
         className
       )}
@@ -67,18 +67,18 @@ export const RalphLoopCard: React.FC<RalphLoopCardProps> = ({
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <div className={cn(
               'h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0',
-              isRunning ? 'bg-theme-status-info/10' : 'bg-theme-bg-secondary'
+              isRunning ? 'bg-theme-status-info/10' : 'bg-theme-background-secondary'
             )}>
               <RotateCcw className={cn(
                 'w-5 h-5',
-                isRunning ? 'text-theme-status-info animate-spin' : 'text-theme-text-secondary'
+                isRunning ? 'text-theme-status-info animate-spin' : 'text-theme-secondary'
               )} />
             </div>
             <div className="min-w-0">
               <h3 className="font-medium text-theme-text-primary truncate">
                 {loop.name}
               </h3>
-              <div className="flex items-center gap-2 text-xs text-theme-text-secondary">
+              <div className="flex items-center gap-2 text-xs text-theme-secondary">
                 <Bot className="w-3 h-3 flex-shrink-0" />
                 <span className="truncate">{loop.default_agent_name || 'No Agent'}</span>
               </div>
@@ -92,18 +92,18 @@ export const RalphLoopCard: React.FC<RalphLoopCardProps> = ({
 
         {/* Description */}
         {loop.description && (
-          <p className="text-sm text-theme-text-secondary line-clamp-2 mb-3">
+          <p className="text-sm text-theme-secondary line-clamp-2 mb-3">
             {loop.description}
           </p>
         )}
 
         {/* Progress Bar */}
         <div className="mb-3">
-          <div className="flex items-center justify-between text-xs text-theme-text-secondary mb-1">
+          <div className="flex items-center justify-between text-xs text-theme-secondary mb-1">
             <span>Progress</span>
             <span>{loop.progress_percentage}%</span>
           </div>
-          <div className="h-2 bg-theme-bg-secondary rounded-full overflow-hidden">
+          <div className="h-2 bg-theme-background-secondary rounded-full overflow-hidden">
             <div
               className={cn(
                 'h-full rounded-full transition-all duration-500',
@@ -117,7 +117,7 @@ export const RalphLoopCard: React.FC<RalphLoopCardProps> = ({
         </div>
 
         {/* Stats */}
-        <div className="flex items-center gap-4 text-sm text-theme-text-secondary mb-3">
+        <div className="flex items-center gap-4 text-sm text-theme-secondary mb-3">
           <div className="flex items-center gap-1">
             <Zap className="w-4 h-4" />
             <span>{loop.current_iteration}/{loop.max_iterations} iterations</span>
@@ -129,8 +129,8 @@ export const RalphLoopCard: React.FC<RalphLoopCardProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between pt-3 border-t border-theme-border-primary">
-          <div className="text-xs text-theme-text-secondary">
+        <div className="flex items-center justify-between pt-3 border-t border-theme-interactive-primary">
+          <div className="text-xs text-theme-secondary">
             {loop.started_at && (
               <span>Started {new Date(loop.started_at).toLocaleDateString()}</span>
             )}

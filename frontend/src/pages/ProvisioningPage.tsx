@@ -310,7 +310,7 @@ export const ProvisioningPage: React.FC = () => {
 
   if (!conversationId) {
     return (
-      <div className="flex h-full w-full items-center justify-center p-8 text-center text-theme-text-secondary">
+      <div className="flex h-full w-full items-center justify-center p-8 text-center text-theme-secondary">
         <Loader2 className="h-5 w-5 animate-spin mr-2" aria-hidden="true" />
         Starting provisioning session…
       </div>
@@ -365,7 +365,7 @@ export const ProvisioningPage: React.FC = () => {
           className="fixed inset-0 z-50 flex items-center justify-center bg-theme-background/80"
           data-testid="provisioning-plan-loading"
         >
-          <div className="flex items-center gap-2 rounded-md border border-theme bg-theme-surface px-4 py-3 text-sm text-theme-text-secondary shadow-lg">
+          <div className="flex items-center gap-2 rounded-md border border-theme bg-theme-surface px-4 py-3 text-sm text-theme-secondary shadow-lg">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
             Composing plan…
           </div>

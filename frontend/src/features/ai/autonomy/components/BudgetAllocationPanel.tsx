@@ -81,7 +81,7 @@ export const BudgetAllocationPanel: React.FC<BudgetAllocationPanelProps> = ({ bu
                 const pct = Math.min(budget.utilization_percentage, 100);
                 const isExpanded = expandedBudgetId === budget.id;
                 return (
-                  <div key={budget.id} className="rounded-lg bg-theme-surface border border-theme-border">
+                  <div key={budget.id} className="rounded-lg bg-theme-surface border border-theme">
                     <div className="p-3">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
@@ -96,21 +96,21 @@ export const BudgetAllocationPanel: React.FC<BudgetAllocationPanelProps> = ({ bu
                           </span>
                           <button
                             onClick={() => setEditingBudget(budget)}
-                            className="p-1 rounded hover:bg-theme-bg-secondary text-theme-muted hover:text-theme-primary transition-colors"
+                            className="p-1 rounded hover:bg-theme-background-secondary text-theme-muted hover:text-theme-primary transition-colors"
                             title="Edit budget"
                           >
                             <Edit2 className="h-3.5 w-3.5" />
                           </button>
                           <button
                             onClick={() => handleDelete(budget.id)}
-                            className="p-1 rounded hover:bg-theme-bg-secondary text-theme-muted hover:text-theme-error transition-colors"
+                            className="p-1 rounded hover:bg-theme-background-secondary text-theme-muted hover:text-theme-error transition-colors"
                             title="Delete budget"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                           <button
                             onClick={() => toggleExpand(budget.id)}
-                            className="p-1 rounded hover:bg-theme-bg-secondary text-theme-muted hover:text-theme-primary transition-colors"
+                            className="p-1 rounded hover:bg-theme-background-secondary text-theme-muted hover:text-theme-primary transition-colors"
                             title={isExpanded ? 'Collapse' : 'View transactions'}
                           >
                             {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
@@ -139,7 +139,7 @@ export const BudgetAllocationPanel: React.FC<BudgetAllocationPanelProps> = ({ bu
                     </div>
 
                     {isExpanded && (
-                      <div className="border-t border-theme-border p-3">
+                      <div className="border-t border-theme p-3">
                         <BudgetTransactionHistory budgetId={budget.id} currency={budget.currency} />
                       </div>
                     )}

@@ -28,7 +28,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         {title}
       </h3>
       
-      <p className="text-theme-text-secondary max-w-md mb-6">
+      <p className="text-theme-secondary max-w-md mb-6">
         {description}
       </p>
       

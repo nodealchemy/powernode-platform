@@ -16,7 +16,7 @@ export const DelegationConfigForm: React.FC<DelegationConfigFormProps> = ({
   isDeleting = false,
 }) => {
   return (
-    <div className="flex items-center justify-between pt-4 mt-4 border-t border-theme-border-primary">
+    <div className="flex items-center justify-between pt-4 mt-4 border-t border-theme-interactive-primary">
       {onDelete ? (
         <Button
           variant="ghost"

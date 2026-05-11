@@ -89,7 +89,7 @@ export const PrdTaskTemplates: React.FC<PrdTaskTemplatesProps> = ({
         <Button
           variant="ghost"
           onClick={onToggleTemplates}
-          className={cn(showTemplates && 'bg-theme-bg-secondary')}
+          className={cn(showTemplates && 'bg-theme-background-secondary')}
         >
           <Wand2 className="w-4 h-4" />
         </Button>

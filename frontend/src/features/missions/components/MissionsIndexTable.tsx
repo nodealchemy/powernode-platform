@@ -115,7 +115,7 @@ export const MissionsIndexTable: React.FC<MissionsIndexTableProps> = ({
               className={cn(
                 'px-3 py-1.5 text-xs font-medium rounded-md transition-colors',
                 statusFilter === tab.id
-                  ? 'bg-theme-interactive-primary/10 text-theme-accent border border-theme-accent/30'
+                  ? 'bg-theme-interactive-primary/10 text-theme-info border border-theme-info/30'
                   : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover border border-transparent'
               )}
             >
@@ -145,7 +145,7 @@ export const MissionsIndexTable: React.FC<MissionsIndexTableProps> = ({
               className={cn(
                 'inline-flex items-center gap-0.5 px-2 py-1.5 text-xs font-medium rounded-md transition-colors',
                 sortBy === opt.key
-                  ? 'bg-theme-interactive-primary/10 text-theme-accent border border-theme-accent/30'
+                  ? 'bg-theme-interactive-primary/10 text-theme-info border border-theme-info/30'
                   : 'text-theme-tertiary hover:text-theme-secondary hover:bg-theme-surface-hover border border-transparent'
               )}
             >
@@ -194,7 +194,7 @@ export const MissionsIndexTable: React.FC<MissionsIndexTableProps> = ({
                     )}>
                       <ChevronRight className={cn(
                         'h-4 w-4',
-                        expandedRows.has(mission.id) ? 'text-theme-accent' : 'text-theme-tertiary'
+                        expandedRows.has(mission.id) ? 'text-theme-info' : 'text-theme-tertiary'
                       )} />
                     </div>
                   </td>
@@ -230,7 +230,7 @@ export const MissionsIndexTable: React.FC<MissionsIndexTableProps> = ({
                   <td className="px-4 py-3">
                     {mission.current_phase ? (
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 bg-theme-bg-secondary rounded-full overflow-hidden max-w-[100px]">
+                        <div className="flex-1 h-1.5 bg-theme-background-secondary rounded-full overflow-hidden max-w-[100px]">
                           <div
                             className="h-full rounded-full bg-theme-interactive-primary transition-all"
                             style={{ width: `${mission.phase_progress || 0}%` }}

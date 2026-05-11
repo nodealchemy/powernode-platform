@@ -148,7 +148,7 @@ export const ProviderMonitoringGrid: React.FC<ProviderMonitoringGridProps> = ({
 
               {/* Actions */}
               {onTestProvider && (
-                <div className="pt-2 border-t border-theme-border">
+                <div className="pt-2 border-t border-theme">
                   <Button
                     onClick={() => onTestProvider(provider.id, {})}
                     variant="outline"

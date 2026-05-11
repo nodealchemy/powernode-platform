@@ -115,7 +115,7 @@ export const AgentDiscovery: React.FC<AgentDiscoveryProps> = ({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-theme-text-primary">Community Agents</h2>
-          <p className="text-sm text-theme-text-secondary">
+          <p className="text-sm text-theme-secondary">
             {totalCount} agent{totalCount !== 1 ? 's' : ''} available
           </p>
         </div>
@@ -124,7 +124,7 @@ export const AgentDiscovery: React.FC<AgentDiscoveryProps> = ({
       {/* Search and Filters */}
       <form onSubmit={handleSearch} className="flex items-center gap-4">
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-theme-text-secondary" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-theme-secondary" />
           <Input
             placeholder="Search agents by name, skill, or description..."
             value={searchQuery}

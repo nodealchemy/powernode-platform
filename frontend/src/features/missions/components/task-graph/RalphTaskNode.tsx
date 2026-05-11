@@ -13,12 +13,12 @@ interface RalphTaskNodeData {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-theme-surface text-theme-tertiary border-theme-border',
-  in_progress: 'bg-theme-accent/10 text-theme-accent border-theme-accent',
+  pending: 'bg-theme-surface text-theme-tertiary border-theme',
+  in_progress: 'bg-theme-info/10 text-theme-info border-theme-info',
   passed: 'bg-theme-success/10 text-theme-success border-theme-success',
   failed: 'bg-theme-error/10 text-theme-error border-theme-error',
   blocked: 'bg-theme-warning/10 text-theme-warning border-theme-warning',
-  skipped: 'bg-theme-surface text-theme-tertiary border-theme-border',
+  skipped: 'bg-theme-surface text-theme-tertiary border-theme',
 };
 
 const EXEC_ICONS: Record<string, React.ElementType> = {

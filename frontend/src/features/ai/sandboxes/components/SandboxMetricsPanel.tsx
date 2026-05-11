@@ -131,7 +131,7 @@ export const SandboxMetricsPanel: React.FC<SandboxMetricsPanelProps> = ({ sandbo
 
           {/* Network */}
           {(metrics.network_bytes_in !== undefined || metrics.network_bytes_out !== undefined) && (
-            <div className="flex items-center justify-between text-sm p-3 rounded-lg bg-theme-surface border border-theme-border">
+            <div className="flex items-center justify-between text-sm p-3 rounded-lg bg-theme-surface border border-theme">
               <span className="text-theme-secondary flex items-center gap-1.5">
                 <Wifi className="h-3.5 w-3.5" /> Network
               </span>
@@ -152,7 +152,7 @@ export const SandboxMetricsPanel: React.FC<SandboxMetricsPanelProps> = ({ sandbo
 
           {/* Uptime */}
           {metrics.uptime_seconds !== undefined && (
-            <div className="flex items-center justify-between text-sm p-3 rounded-lg bg-theme-surface border border-theme-border">
+            <div className="flex items-center justify-between text-sm p-3 rounded-lg bg-theme-surface border border-theme">
               <span className="text-theme-secondary flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5" /> Uptime
               </span>

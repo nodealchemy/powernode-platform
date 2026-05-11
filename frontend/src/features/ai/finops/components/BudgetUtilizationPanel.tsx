@@ -105,7 +105,7 @@ export const BudgetUtilizationPanel: React.FC = () => {
                 </div>
 
                 {/* Progress bar */}
-                <div className="w-full bg-theme-accent rounded-full h-2 mb-2">
+                <div className="w-full bg-theme-info rounded-full h-2 mb-2">
                   <div
                     className={`h-2 rounded-full ${utilizationColor} transition-all`}
                     style={{ width: `${Math.min(budget.utilization_pct, 100)}%` }}

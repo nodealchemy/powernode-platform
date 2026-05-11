@@ -61,7 +61,7 @@ export const BranchProtectionConfig: React.FC<BranchProtectionConfigProps> = ({ 
           aria-checked={config.branch_protection_enabled}
           onClick={() => handleToggle('branch_protection_enabled')}
           className={`relative w-10 h-5 rounded-full transition-colors ${
-            config.branch_protection_enabled ? 'bg-theme-primary' : 'bg-theme-accent'
+            config.branch_protection_enabled ? 'bg-theme-primary' : 'bg-theme-info'
           }`}
         >
           <span
@@ -123,7 +123,7 @@ export const BranchProtectionConfig: React.FC<BranchProtectionConfigProps> = ({ 
               aria-checked={config.require_worktree_for_repos}
               onClick={() => handleToggle('require_worktree_for_repos')}
               className={`relative w-10 h-5 rounded-full transition-colors ${
-                config.require_worktree_for_repos ? 'bg-theme-primary' : 'bg-theme-accent'
+                config.require_worktree_for_repos ? 'bg-theme-primary' : 'bg-theme-info'
               }`}
             >
               <span
@@ -143,7 +143,7 @@ export const BranchProtectionConfig: React.FC<BranchProtectionConfigProps> = ({ 
               aria-checked={config.merge_approval_required}
               onClick={() => handleToggle('merge_approval_required')}
               className={`relative w-10 h-5 rounded-full transition-colors ${
-                config.merge_approval_required ? 'bg-theme-primary' : 'bg-theme-accent'
+                config.merge_approval_required ? 'bg-theme-primary' : 'bg-theme-info'
               }`}
             >
               <span

@@ -104,7 +104,7 @@ export const PipelineList: React.FC<PipelineListProps> = ({
               return (
                 <div
                   key={pipeline.id}
-                  className="p-4 hover:bg-theme-hover/50 cursor-pointer"
+                  className="p-4 hover:bg-theme-surface-hover/50 cursor-pointer"
                   onClick={() => onSelectPipeline?.(pipeline)}
                 >
                   <div className="flex items-center justify-between">
@@ -151,7 +151,7 @@ export const PipelineList: React.FC<PipelineListProps> = ({
                           {pipeline.short_sha && (
                             <>
                               <span>•</span>
-                              <code className="text-xs bg-theme-hover px-1 rounded">
+                              <code className="text-xs bg-theme-surface-hover px-1 rounded">
                                 {pipeline.short_sha}
                               </code>
                             </>
@@ -179,7 +179,7 @@ export const PipelineList: React.FC<PipelineListProps> = ({
                       {pipeline.status === 'running' && (
                         <div className="w-24">
                           <div className="flex items-center gap-2">
-                            <div className="flex-1 h-1.5 bg-theme-hover rounded-full overflow-hidden">
+                            <div className="flex-1 h-1.5 bg-theme-surface-hover rounded-full overflow-hidden">
                               <div
                                 className="h-full bg-theme-primary transition-all"
                                 style={{
@@ -202,7 +202,7 @@ export const PipelineList: React.FC<PipelineListProps> = ({
                               e.stopPropagation();
                               onCancel(pipeline.id);
                             }}
-                            className="p-1 rounded hover:bg-theme-hover text-theme-error"
+                            className="p-1 rounded hover:bg-theme-surface-hover text-theme-error"
                             title="Cancel"
                           >
                             <StopCircle className="w-4 h-4" />
@@ -215,7 +215,7 @@ export const PipelineList: React.FC<PipelineListProps> = ({
                               e.stopPropagation();
                               onRetry(pipeline.id);
                             }}
-                            className="p-1 rounded hover:bg-theme-hover text-theme-primary"
+                            className="p-1 rounded hover:bg-theme-surface-hover text-theme-primary"
                             title="Retry"
                           >
                             <RotateCw className="w-4 h-4" />
@@ -226,7 +226,7 @@ export const PipelineList: React.FC<PipelineListProps> = ({
                             href={pipeline.web_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-1 rounded hover:bg-theme-hover text-theme-secondary"
+                            className="p-1 rounded hover:bg-theme-surface-hover text-theme-secondary"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <ExternalLink className="w-4 h-4" />

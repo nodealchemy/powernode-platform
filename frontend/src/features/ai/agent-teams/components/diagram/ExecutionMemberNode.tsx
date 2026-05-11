@@ -72,8 +72,8 @@ function ExecutionInputNode({ data }: { data: ExecutionMemberNodeData }) {
 
 function ExecutionOutputNode({ data }: { data: ExecutionMemberNodeData }) {
   const colorMap: Record<string, { border: string; bg: string; text: string }> = {
-    idle: { border: 'border-theme', bg: 'bg-theme-accent/50', text: 'text-theme-secondary' },
-    running: { border: 'border-theme', bg: 'bg-theme-accent/50', text: 'text-theme-secondary' },
+    idle: { border: 'border-theme', bg: 'bg-theme-info/50', text: 'text-theme-secondary' },
+    running: { border: 'border-theme', bg: 'bg-theme-info/50', text: 'text-theme-secondary' },
     completed: { border: 'border-theme-success', bg: 'bg-theme-success/10', text: 'text-theme-success' },
     failed: { border: 'border-theme-danger', bg: 'bg-theme-error/10', text: 'text-theme-danger' },
   };

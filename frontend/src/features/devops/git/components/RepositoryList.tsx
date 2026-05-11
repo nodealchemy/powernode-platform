@@ -84,7 +84,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-theme bg-theme-hover/50">
+            <tr className="border-b border-theme bg-theme-surface-hover/50">
               <th className="text-left px-4 py-3 text-sm font-medium text-theme-secondary">
                 Repository
               </th>
@@ -106,7 +106,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
             {repositories.map((repo) => (
               <tr
                 key={repo.id}
-                className="border-b border-theme last:border-0 hover:bg-theme-hover/50 cursor-pointer"
+                className="border-b border-theme last:border-0 hover:bg-theme-surface-hover/50 cursor-pointer"
                 onClick={() => onSelectRepository?.(repo)}
               >
                 <td className="px-4 py-3">
@@ -166,7 +166,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
                         href={repo.web_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="p-1 rounded hover:bg-theme-hover text-theme-secondary"
+                        className="p-1 rounded hover:bg-theme-surface-hover text-theme-secondary"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <ExternalLink className="w-4 h-4" />
@@ -179,7 +179,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
                           e.stopPropagation();
                           setMenuOpen(menuOpen === repo.id ? null : repo.id);
                         }}
-                        className="p-1 rounded hover:bg-theme-hover text-theme-secondary"
+                        className="p-1 rounded hover:bg-theme-surface-hover text-theme-secondary"
                         disabled={actionLoading === repo.id}
                       >
                         {actionLoading === repo.id ? (
@@ -200,7 +200,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
                                 'Pipelines synced'
                               );
                             }}
-                            className="w-full px-3 py-2 text-left text-sm text-theme-primary hover:bg-theme-hover flex items-center gap-2"
+                            className="w-full px-3 py-2 text-left text-sm text-theme-primary hover:bg-theme-surface-hover flex items-center gap-2"
                           >
                             <Play className="w-4 h-4" />
                             Sync Pipelines
@@ -216,7 +216,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
                                   'Webhook removed'
                                 );
                               }}
-                              className="w-full px-3 py-2 text-left text-sm text-theme-primary hover:bg-theme-hover flex items-center gap-2"
+                              className="w-full px-3 py-2 text-left text-sm text-theme-primary hover:bg-theme-surface-hover flex items-center gap-2"
                             >
                               <Webhook className="w-4 h-4" />
                               Remove Webhook
@@ -231,7 +231,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
                                   'Webhook configured'
                                 );
                               }}
-                              className="w-full px-3 py-2 text-left text-sm text-theme-primary hover:bg-theme-hover flex items-center gap-2"
+                              className="w-full px-3 py-2 text-left text-sm text-theme-primary hover:bg-theme-surface-hover flex items-center gap-2"
                             >
                               <Webhook className="w-4 h-4" />
                               Configure Webhook
@@ -247,7 +247,7 @@ export const RepositoryList: React.FC<RepositoryListProps> = ({
                                 'Repository removed'
                               );
                             }}
-                            className="w-full px-3 py-2 text-left text-sm text-theme-error hover:bg-theme-hover flex items-center gap-2"
+                            className="w-full px-3 py-2 text-left text-sm text-theme-error hover:bg-theme-surface-hover flex items-center gap-2"
                           >
                             <Trash2 className="w-4 h-4" />
                             Remove

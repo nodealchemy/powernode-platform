@@ -183,7 +183,7 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
           <div
             key={execution.id}
             className={`bg-theme-surface border rounded-lg transition-all ${
-              isExpanded ? 'border-theme-accent/60 shadow-sm' : 'border-theme hover:border-theme-accent/30'
+              isExpanded ? 'border-theme-info/60 shadow-sm' : 'border-theme hover:border-theme-info/30'
             }`}
           >
             {/* Header */}
@@ -230,7 +230,7 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
                   className={`h-1.5 rounded-full transition-all ${
                     execution.status === 'failed' ? 'bg-theme-danger' :
                     execution.status === 'completed' ? 'bg-theme-success' :
-                    'bg-theme-accent'
+                    'bg-theme-info'
                   }`}
                   style={{ width: `${progressPct}%` }}
                 />
@@ -251,7 +251,7 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
               <div className="border-t border-theme px-4 pb-4">
                 {isLoadingThis ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 size={20} className="animate-spin text-theme-accent mr-2" />
+                    <Loader2 size={20} className="animate-spin text-theme-info mr-2" />
                     <span className="text-sm text-theme-secondary">Loading details...</span>
                   </div>
                 ) : (
@@ -305,11 +305,11 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
                               <span className="flex items-center gap-2"><CheckCircle size={14} className="text-theme-success" />Output</span>
                               <div className="flex items-center gap-1">
                                 {mdContent && (
-                                  <button onClick={(e) => { e.stopPropagation(); downloadContent(mdContent, `${execution.execution_id}-output.md`, 'text/markdown'); }} className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-theme-bg border border-theme/50 text-theme-secondary hover:text-theme-primary hover:border-theme-accent/50 transition-colors" title="Download as Markdown">
+                                  <button onClick={(e) => { e.stopPropagation(); downloadContent(mdContent, `${execution.execution_id}-output.md`, 'text/markdown'); }} className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-theme-bg border border-theme/50 text-theme-secondary hover:text-theme-primary hover:border-theme-info/50 transition-colors" title="Download as Markdown">
                                     <FileText size={12} />.md
                                   </button>
                                 )}
-                                <button onClick={(e) => { e.stopPropagation(); downloadContent(JSON.stringify(outputResult, null, 2), `${execution.execution_id}-output.json`, 'application/json'); }} className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-theme-bg border border-theme/50 text-theme-secondary hover:text-theme-primary hover:border-theme-accent/50 transition-colors" title="Download as JSON">
+                                <button onClick={(e) => { e.stopPropagation(); downloadContent(JSON.stringify(outputResult, null, 2), `${execution.execution_id}-output.json`, 'application/json'); }} className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-theme-bg border border-theme/50 text-theme-secondary hover:text-theme-primary hover:border-theme-info/50 transition-colors" title="Download as JSON">
                                   <FileJson size={12} />.json
                                 </button>
                               </div>
@@ -406,7 +406,7 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
                           {execMessages.map(msg => (
                             <div key={msg.id} className="flex items-start gap-2 text-xs p-2 bg-theme-bg rounded-md border border-theme/50">
                               <div className="flex items-center gap-1 shrink-0">
-                                <span className="font-medium text-theme-accent">{msg.from_role_name || 'System'}</span>
+                                <span className="font-medium text-theme-info">{msg.from_role_name || 'System'}</span>
                                 {msg.to_role_name && (
                                   <>
                                     <ArrowRightLeft size={10} className="text-theme-secondary" />

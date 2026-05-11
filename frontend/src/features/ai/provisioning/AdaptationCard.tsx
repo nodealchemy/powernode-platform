@@ -121,7 +121,7 @@ export const AdaptationCard: React.FC<AdaptationCardProps> = ({
       ? 'text-theme-warning'
       : cost < 0
         ? 'text-theme-success'
-        : 'text-theme-text-secondary';
+        : 'text-theme-secondary';
 
   const run = async (kind: 'approve' | 'reject' | 'snooze', fn: () => Promise<void>) => {
     setPending(kind);
@@ -149,12 +149,12 @@ export const AdaptationCard: React.FC<AdaptationCardProps> = ({
           ADAPTATION
         </span>
         {relative && (
-          <span className="inline-flex items-center gap-1 text-xs text-theme-text-secondary">
+          <span className="inline-flex items-center gap-1 text-xs text-theme-secondary">
             <Clock className="h-3 w-3" aria-hidden="true" />
             proposed {relative}
           </span>
         )}
-        <span className="text-xs text-theme-text-secondary">
+        <span className="text-xs text-theme-secondary">
           · for project{' '}
           <span className="font-medium text-theme-primary">{proposal.project_name}</span>
         </span>
@@ -163,19 +163,19 @@ export const AdaptationCard: React.FC<AdaptationCardProps> = ({
       {/* Signal / Trigger / Proposed change */}
       <dl className="space-y-2 text-sm">
         <div className="flex gap-2">
-          <dt className="font-semibold text-theme-text-secondary w-24 shrink-0">Signal:</dt>
+          <dt className="font-semibold text-theme-secondary w-24 shrink-0">Signal:</dt>
           <dd data-testid="adaptation-signal" className="text-theme-primary">
             {proposal.signal}
           </dd>
         </div>
         <div className="flex gap-2">
-          <dt className="font-semibold text-theme-text-secondary w-24 shrink-0">Trigger:</dt>
+          <dt className="font-semibold text-theme-secondary w-24 shrink-0">Trigger:</dt>
           <dd data-testid="adaptation-trigger" className="text-theme-primary">
             {proposal.trigger}
           </dd>
         </div>
         <div className="flex gap-2">
-          <dt className="font-semibold text-theme-text-secondary w-24 shrink-0">Proposed:</dt>
+          <dt className="font-semibold text-theme-secondary w-24 shrink-0">Proposed:</dt>
           <dd
             data-testid="adaptation-proposed-change"
             className="text-theme-primary whitespace-pre-wrap"
@@ -187,22 +187,22 @@ export const AdaptationCard: React.FC<AdaptationCardProps> = ({
 
       {/* Meta line: blast radius + resources + cost + reversibility */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-4 text-xs">
-        <span className="text-theme-text-secondary">Blast radius:</span>
+        <span className="text-theme-secondary">Blast radius:</span>
         <span
           data-testid="adaptation-blast-radius"
           className={`inline-flex items-center px-2 py-0.5 rounded font-semibold ${blastRadius.className}`}
         >
           {blastRadius.label}
         </span>
-        <span className="text-theme-text-secondary">
+        <span className="text-theme-secondary">
           · {proposal.proposed_change.resources_changed} changed,{' '}
           {proposal.proposed_change.resources_destroyed} destroyed
         </span>
-        <span className="text-theme-text-secondary">·</span>
+        <span className="text-theme-secondary">·</span>
         <span data-testid="adaptation-cost-delta" className={`font-medium ${costClass}`}>
           {formatCostDelta(cost)}
         </span>
-        <span className="text-theme-text-secondary">·</span>
+        <span className="text-theme-secondary">·</span>
         <span
           data-testid="adaptation-reversible"
           className={
@@ -247,7 +247,7 @@ export const AdaptationCard: React.FC<AdaptationCardProps> = ({
           type="button"
           onClick={() => onShowDetails(proposal.id)}
           data-testid="adaptation-why"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-theme-text-secondary hover:bg-theme-background-secondary transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-theme-secondary hover:bg-theme-background-secondary transition-colors"
         >
           <HelpCircle className="h-4 w-4" aria-hidden="true" />
           Why?
@@ -257,7 +257,7 @@ export const AdaptationCard: React.FC<AdaptationCardProps> = ({
           onClick={() => run('snooze', () => onSnooze(proposal.id, 7))}
           disabled={pending !== null}
           data-testid="adaptation-snooze"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-theme-text-secondary hover:bg-theme-background-secondary disabled:opacity-50 transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-theme-secondary hover:bg-theme-background-secondary disabled:opacity-50 transition-colors"
         >
           {pending === 'snooze' ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

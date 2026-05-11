@@ -174,7 +174,7 @@ export const ExecutionsTab: React.FC<ExecutionsTabProps> = ({
           <div
             key={execution.id}
             className={`bg-theme-surface border rounded-lg transition-all ${
-              isExpanded ? 'border-theme-accent/60 shadow-sm' : 'border-theme hover:border-theme-accent/30'
+              isExpanded ? 'border-theme-info/60 shadow-sm' : 'border-theme hover:border-theme-info/30'
             }`}
           >
             {/* Card Header - Always visible */}
@@ -245,7 +245,7 @@ export const ExecutionsTab: React.FC<ExecutionsTabProps> = ({
                   className={`h-1.5 rounded-full transition-all ${
                     execution.status === 'failed' ? 'bg-theme-danger' :
                     execution.status === 'completed' ? 'bg-theme-success' :
-                    'bg-theme-accent'
+                    'bg-theme-info'
                   }`}
                   style={{ width: `${progressPct}%` }}
                 />
@@ -290,7 +290,7 @@ export const ExecutionsTab: React.FC<ExecutionsTabProps> = ({
               <div className="border-t border-theme px-4 pb-4">
                 {isLoadingThis ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 size={20} className="animate-spin text-theme-accent mr-2" />
+                    <Loader2 size={20} className="animate-spin text-theme-info mr-2" />
                     <span className="text-sm text-theme-secondary">Loading details...</span>
                   </div>
                 ) : (
@@ -368,7 +368,7 @@ export const ExecutionsTab: React.FC<ExecutionsTabProps> = ({
                                       e.stopPropagation();
                                       downloadContent(mdContent, `${execution.execution_id}-output.md`, 'text/markdown');
                                     }}
-                                    className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-theme-bg border border-theme/50 text-theme-secondary hover:text-theme-primary hover:border-theme-accent/50 transition-colors"
+                                    className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-theme-bg border border-theme/50 text-theme-secondary hover:text-theme-primary hover:border-theme-info/50 transition-colors"
                                     title="Download as Markdown"
                                   >
                                     <FileText size={12} />
@@ -380,7 +380,7 @@ export const ExecutionsTab: React.FC<ExecutionsTabProps> = ({
                                     e.stopPropagation();
                                     downloadContent(JSON.stringify(outputResult, null, 2), `${execution.execution_id}-output.json`, 'application/json');
                                   }}
-                                  className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-theme-bg border border-theme/50 text-theme-secondary hover:text-theme-primary hover:border-theme-accent/50 transition-colors"
+                                  className="flex items-center gap-1 px-2 py-1 text-[10px] rounded bg-theme-bg border border-theme/50 text-theme-secondary hover:text-theme-primary hover:border-theme-info/50 transition-colors"
                                   title="Download as JSON"
                                 >
                                   <FileJson size={12} />
@@ -494,7 +494,7 @@ export const ExecutionsTab: React.FC<ExecutionsTabProps> = ({
                           {detail.messages.slice(0, 10).map(msg => (
                             <div key={msg.id} className="flex gap-2 text-xs p-1.5 bg-theme-bg rounded border border-theme/50">
                               {msg.sender && (
-                                <span className="text-theme-accent font-medium shrink-0">{msg.sender}:</span>
+                                <span className="text-theme-info font-medium shrink-0">{msg.sender}:</span>
                               )}
                               <span className="text-theme-secondary truncate">
                                 {msg.content?.slice(0, 120) || '-'}

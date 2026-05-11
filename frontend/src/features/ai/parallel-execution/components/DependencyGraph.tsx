@@ -36,7 +36,7 @@ export const DependencyGraph: React.FC<DependencyGraphProps> = ({ worktrees }) =
 
   if (worktrees.length === 0) {
     return (
-      <div className="text-center p-8 text-theme-text-secondary">
+      <div className="text-center p-8 text-theme-secondary">
         No worktrees to display.
       </div>
     );

@@ -105,7 +105,7 @@ export const DevOpsTeamTemplates: React.FC = () => {
                 {template.roles.map((role, idx) => (
                   <span
                     key={idx}
-                    className="px-2 py-0.5 text-xs bg-theme-accent text-theme-secondary rounded-full"
+                    className="px-2 py-0.5 text-xs bg-theme-info text-theme-secondary rounded-full"
                   >
                     {role}
                   </span>

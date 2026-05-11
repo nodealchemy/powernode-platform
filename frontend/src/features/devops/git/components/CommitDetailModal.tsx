@@ -223,7 +223,7 @@ export function CommitDetailModal({
           <div className="p-6 max-h-[75vh] overflow-y-auto">
             {loading ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-theme-accent" />
+                <Loader2 className="w-8 h-8 animate-spin text-theme-info" />
               </div>
             ) : error ? (
               <div className="flex flex-col items-center justify-center py-12 text-theme-danger">
@@ -232,7 +232,7 @@ export function CommitDetailModal({
                 <p className="text-sm text-theme-secondary mt-1">{error}</p>
                 <button
                   onClick={fetchCommit}
-                  className="mt-4 px-4 py-2 bg-theme-accent text-white rounded-lg hover:bg-theme-accent/90"
+                  className="mt-4 px-4 py-2 bg-theme-info text-white rounded-lg hover:bg-theme-info/90"
                 >
                   Retry
                 </button>
@@ -325,7 +325,7 @@ export function CommitDetailModal({
                         href={commit.web_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="ml-auto flex items-center gap-1 text-theme-accent hover:underline"
+                        className="ml-auto flex items-center gap-1 text-theme-info hover:underline"
                       >
                         <ExternalLink className="w-3 h-3" />
                         View on Git
@@ -343,7 +343,7 @@ export function CommitDetailModal({
                     {commit.files.some(f => f.patch) && (
                       <button
                         onClick={() => setAllExpanded(!allExpanded)}
-                        className="text-xs text-theme-accent hover:underline"
+                        className="text-xs text-theme-info hover:underline"
                       >
                         {allExpanded ? 'Collapse all' : 'Expand all'}
                       </button>

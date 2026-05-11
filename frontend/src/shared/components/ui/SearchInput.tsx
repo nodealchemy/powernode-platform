@@ -32,7 +32,7 @@ export const SearchInput: React.FC<SearchInputProps> = ({
         placeholder={placeholder}
         disabled={disabled}
         className={`
-          w-full pl-10 pr-10 py-2 border border-theme-border rounded-md 
+          w-full pl-10 pr-10 py-2 border border-theme rounded-md 
           bg-theme-surface text-theme-primary 
           placeholder-theme-tertiary 
           focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-transparent

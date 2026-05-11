@@ -97,7 +97,7 @@ export const EvalResultsViewer: React.FC<EvalResultsViewerProps> = ({ agentId })
             <select
               value={selectedDimension}
               onChange={(e) => setSelectedDimension(e.target.value as ScoreDimension | 'all')}
-              className="text-sm bg-theme-surface border border-theme-border rounded px-2 py-1 text-theme-primary"
+              className="text-sm bg-theme-surface border border-theme rounded px-2 py-1 text-theme-primary"
             >
               <option value="all">All Dimensions</option>
               {SCORE_DIMENSIONS.map((dim) => (
@@ -116,7 +116,7 @@ export const EvalResultsViewer: React.FC<EvalResultsViewerProps> = ({ agentId })
               {filteredResults.map((result) => (
                 <div
                   key={result.id}
-                  className="p-4 rounded-lg bg-theme-surface border border-theme-border"
+                  className="p-4 rounded-lg bg-theme-surface border border-theme"
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">

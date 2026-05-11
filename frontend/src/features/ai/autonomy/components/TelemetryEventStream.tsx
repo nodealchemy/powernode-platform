@@ -19,7 +19,7 @@ const formatDate = (dateStr: string): string => {
 };
 
 const EventRow: React.FC<{ event: TelemetryEvent }> = ({ event }) => (
-  <div className="flex items-start gap-3 py-2 border-b border-theme-border last:border-0">
+  <div className="flex items-start gap-3 py-2 border-b border-theme last:border-0">
     <div className="mt-1">
       <ArrowRight className="h-3 w-3 text-theme-muted" />
     </div>

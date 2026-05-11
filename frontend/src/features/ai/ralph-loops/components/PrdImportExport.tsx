@@ -53,7 +53,7 @@ export const PrdImportExport: React.FC<PrdImportExportProps> = ({
 
       <div className="relative">
         <textarea
-          className="w-full h-[500px] p-4 font-mono text-sm bg-theme-bg-secondary border border-theme-border-primary rounded-lg focus:outline-none focus:ring-2 focus:ring-theme-status-info resize-none"
+          className="w-full h-[500px] p-4 font-mono text-sm bg-theme-background-secondary border border-theme-interactive-primary rounded-lg focus:outline-none focus:ring-2 focus:ring-theme-status-info resize-none"
           value={jsonText}
           onChange={(e) => {
             onJsonTextChange(e.target.value);
@@ -61,12 +61,12 @@ export const PrdImportExport: React.FC<PrdImportExportProps> = ({
           placeholder='{"tasks": [{"key": "task_1", "description": "...", "dependencies": [], "acceptance_criteria": "..."}]}'
           spellCheck={false}
         />
-        <div className="absolute bottom-2 right-2 text-xs text-theme-text-secondary">
+        <div className="absolute bottom-2 right-2 text-xs text-theme-secondary">
           {jsonText.length} characters
         </div>
       </div>
 
-      <p className="text-xs text-theme-text-secondary">
+      <p className="text-xs text-theme-secondary">
         Tip: You can paste a JSON array of tasks directly, or an object with a &quot;tasks&quot; property.
       </p>
     </div>

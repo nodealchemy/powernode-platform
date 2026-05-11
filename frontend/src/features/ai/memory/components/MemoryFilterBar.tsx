@@ -135,7 +135,7 @@ export const MemoryFilterBar: React.FC<MemoryFilterBarProps> = ({
 
         {/* Advanced filters row */}
         {showAdvanced && hasAdvancedFilters && (
-          <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-theme-border">
+          <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-theme">
             {showCategoryFilter && (
               <Select
                 value={filters.category || ''}

@@ -96,7 +96,7 @@ function TeamNode({ data }: { data: ConnectionNodeData }) {
     <div className="px-3 py-2 rounded-lg border border-theme bg-theme-surface shadow min-w-[120px]">
       <Handle type="target" position={Position.Top} className="!bg-theme-border" />
       <div className="flex items-center gap-2">
-        <Users className="h-4 w-4 text-theme-accent" />
+        <Users className="h-4 w-4 text-theme-info" />
         <div>
           <div className="font-medium text-theme-primary text-xs">{data.label}</div>
           <div className="text-[10px] text-theme-tertiary">
@@ -250,7 +250,7 @@ export const AgentConnectionsGraph: React.FC<AgentConnectionsGraphProps> = ({ ag
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Card className="p-3">
             <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-theme-accent" />
+              <Users className="h-4 w-4 text-theme-info" />
               <div>
                 <div className="text-xs text-theme-tertiary">Teams</div>
                 <div className="text-lg font-semibold text-theme-primary">{summary.teams}</div>

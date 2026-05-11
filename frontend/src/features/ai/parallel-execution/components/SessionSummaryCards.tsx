@@ -32,7 +32,7 @@ export const SessionSummaryCards: React.FC<SessionSummaryCardsProps> = ({ sessio
         <Card key={stat.label}>
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-theme-text-primary">{stat.value}</div>
-            <div className="text-sm text-theme-text-secondary">{stat.label}</div>
+            <div className="text-sm text-theme-secondary">{stat.label}</div>
           </CardContent>
         </Card>
       ))}

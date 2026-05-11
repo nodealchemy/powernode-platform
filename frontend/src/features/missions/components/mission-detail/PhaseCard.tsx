@@ -21,10 +21,10 @@ const PhaseIcon: React.FC<{ phase: string }> = ({ phase }) => {
 };
 
 const FeatureSuggestionCard: React.FC<{ feature: FeatureSuggestion; index: number }> = ({ feature, index }) => (
-  <div className="p-3 bg-theme-surface rounded-lg border border-theme-border">
+  <div className="p-3 bg-theme-surface rounded-lg border border-theme">
     <div className="flex items-start justify-between mb-1">
       <h4 className="text-sm font-medium text-theme-primary">{index + 1}. {feature.title}</h4>
-      <span className="text-xs px-2 py-0.5 rounded bg-theme-accent/10 text-theme-accent flex-shrink-0 ml-2">
+      <span className="text-xs px-2 py-0.5 rounded bg-theme-info/10 text-theme-info flex-shrink-0 ml-2">
         {feature.complexity}
       </span>
     </div>
@@ -91,7 +91,7 @@ const PlanContent: React.FC<{ mission: Mission }> = ({ mission }) => {
       {mission.ralph_loop_id && (
         <div className="flex items-center gap-2 text-sm">
           <span className="text-theme-secondary">Ralph Loop:</span>
-          <span className="text-theme-accent text-xs">{mission.ralph_loop_id}</span>
+          <span className="text-theme-info text-xs">{mission.ralph_loop_id}</span>
         </div>
       )}
       <div>
@@ -143,7 +143,7 @@ const MergeContent: React.FC<{ mission: Mission }> = ({ mission }) => (
           href={mission.pr_url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-sm text-theme-accent hover:underline"
+          className="text-sm text-theme-info hover:underline"
         >
           PR #{mission.pr_number} - View on Gitea
         </a>
@@ -158,12 +158,12 @@ const EventLog: React.FC<{ events: MissionWebSocketEvent[] }> = ({ events }) => 
   if (events.length === 0) return null;
 
   return (
-    <div className="mt-4 pt-4 border-t border-theme-border">
+    <div className="mt-4 pt-4 border-t border-theme">
       <h4 className="text-xs font-medium text-theme-secondary mb-2">Recent Events</h4>
       <div className="space-y-1 max-h-32 overflow-y-auto">
         {events.slice(-10).reverse().map((evt, i) => (
           <div key={i} className="text-xs text-theme-tertiary flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-theme-accent flex-shrink-0" />
+            <span className="w-1.5 h-1.5 rounded-full bg-theme-info flex-shrink-0" />
             <span>{evt.event}</span>
             <span className="ml-auto">{new Date(evt.timestamp).toLocaleTimeString()}</span>
           </div>
@@ -196,7 +196,7 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({ mission, events }) => {
   return (
     <div className="card-theme-elevated p-5">
       <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 rounded-lg bg-theme-accent/10 text-theme-accent">
+        <div className="p-2 rounded-lg bg-theme-info/10 text-theme-info">
           <PhaseIcon phase={phase} />
         </div>
         <div>
@@ -226,7 +226,7 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({ mission, events }) => {
             {mission.ralph_loop_id && (
               <a
                 href={`/app/ai/execution?ralph_loop=${mission.ralph_loop_id}`}
-                className="text-xs text-theme-accent hover:underline"
+                className="text-xs text-theme-info hover:underline"
               >
                 View in Execution Dashboard
               </a>

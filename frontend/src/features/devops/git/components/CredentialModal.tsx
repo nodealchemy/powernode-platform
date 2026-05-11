@@ -138,7 +138,7 @@ export const CredentialModal: React.FC<CredentialModalProps> = ({
           </h2>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-theme-hover text-theme-secondary"
+            className="p-1 rounded-lg hover:bg-theme-surface-hover text-theme-secondary"
           >
             <X className="w-5 h-5" />
           </button>

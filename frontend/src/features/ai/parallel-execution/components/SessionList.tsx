@@ -64,7 +64,7 @@ export const SessionList: React.FC<SessionListProps> = ({
           <Loading size="lg" />
         </div>
       ) : sessions.length === 0 ? (
-        <div className="text-center p-12 text-theme-text-secondary">
+        <div className="text-center p-12 text-theme-secondary">
           <p className="text-lg font-medium mb-2">No parallel execution sessions</p>
           <p className="text-sm mb-4">Create a session to start parallel agent execution with git worktrees.</p>
           <Button variant="primary" onClick={onCreateSession}>

@@ -76,10 +76,10 @@ export const RalphProgressView: React.FC<RalphProgressViewProps> = ({
         <Card>
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
-              <FileText className="w-5 h-5 text-theme-text-secondary flex-shrink-0 mt-0.5" />
+              <FileText className="w-5 h-5 text-theme-secondary flex-shrink-0 mt-0.5" />
               <div>
                 <h4 className="font-medium text-theme-text-primary mb-2">Progress Log</h4>
-                <pre className="text-sm text-theme-text-secondary whitespace-pre-wrap font-mono bg-theme-bg-secondary p-3 rounded">
+                <pre className="text-sm text-theme-secondary whitespace-pre-wrap font-mono bg-theme-background-secondary p-3 rounded">
                   {progress.progress_text}
                 </pre>
               </div>
@@ -100,9 +100,9 @@ export const RalphProgressView: React.FC<RalphProgressViewProps> = ({
                   {progress.learnings.map((learning, idx) => (
                     <div
                       key={idx}
-                      className="flex items-start gap-2 p-2 bg-theme-bg-secondary rounded"
+                      className="flex items-start gap-2 p-2 bg-theme-background-secondary rounded"
                     >
-                      <span className="text-xs font-medium text-theme-text-secondary min-w-6">
+                      <span className="text-xs font-medium text-theme-secondary min-w-6">
                         {idx + 1}.
                       </span>
                       <p className="text-sm text-theme-text-primary">{typeof learning === 'string' ? learning : (learning as unknown as { text: string }).text}</p>
@@ -120,14 +120,14 @@ export const RalphProgressView: React.FC<RalphProgressViewProps> = ({
         <Card>
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
-              <GitCommit className="w-5 h-5 text-theme-text-secondary flex-shrink-0 mt-0.5" />
+              <GitCommit className="w-5 h-5 text-theme-secondary flex-shrink-0 mt-0.5" />
               <div className="flex-1">
                 <h4 className="font-medium text-theme-text-primary mb-3">Recent Commits</h4>
                 <div className="space-y-2">
                   {progress.recent_commits.map((commit, idx) => (
                     <div
                       key={idx}
-                      className="flex items-start gap-3 p-2 bg-theme-bg-secondary rounded"
+                      className="flex items-start gap-3 p-2 bg-theme-background-secondary rounded"
                     >
                       <span className="font-mono text-xs text-theme-status-info">
                         {commit.sha.slice(0, 7)}
@@ -135,7 +135,7 @@ export const RalphProgressView: React.FC<RalphProgressViewProps> = ({
                       <p className="text-sm text-theme-text-primary flex-1">
                         {commit.message}
                       </p>
-                      <span className="text-xs text-theme-text-secondary">
+                      <span className="text-xs text-theme-secondary">
                         {new Date(commit.timestamp).toLocaleTimeString()}
                       </span>
                     </div>
@@ -149,7 +149,7 @@ export const RalphProgressView: React.FC<RalphProgressViewProps> = ({
 
       {/* Empty State */}
       {!progress.progress_text && (!progress.learnings || progress.learnings.length === 0) && (
-        <div className="text-center py-8 text-theme-text-secondary">
+        <div className="text-center py-8 text-theme-secondary">
           <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
           <p>No progress or learnings recorded yet.</p>
           <p className="text-sm">Run iterations to accumulate knowledge.</p>

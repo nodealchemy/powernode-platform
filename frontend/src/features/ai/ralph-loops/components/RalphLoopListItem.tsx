@@ -75,7 +75,7 @@ export const RalphLoopListItem: React.FC<RalphLoopListItemProps> = ({ loop, isSe
           )}
           <div className="flex-1 h-1 bg-theme-surface rounded-full overflow-hidden max-w-[80px]">
             <div
-              className="h-full bg-theme-accent rounded-full transition-all"
+              className="h-full bg-theme-info rounded-full transition-all"
               style={{ width: `${progressPct}%` }}
             />
           </div>

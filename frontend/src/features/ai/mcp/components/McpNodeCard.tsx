@@ -56,7 +56,7 @@ export const McpNodeCard: React.FC<McpNodeCardProps> = ({
         'hover:bg-theme-surface-hover cursor-pointer',
         isSelected
           ? 'border-theme-interactive-primary bg-theme-interactive-primary/5'
-          : 'border-theme-border bg-theme-surface'
+          : 'border-theme bg-theme-surface'
       )}
     >
       <div className="flex items-center gap-2 min-w-0">

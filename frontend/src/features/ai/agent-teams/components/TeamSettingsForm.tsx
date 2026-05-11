@@ -34,7 +34,7 @@ const getTeamTypeColor = (type: string) => {
     case 'parallel':
       return 'bg-theme-warning/10 text-theme-warning';
     default:
-      return 'bg-theme-accent text-theme-secondary';
+      return 'bg-theme-info text-theme-secondary';
   }
 };
 
@@ -43,11 +43,11 @@ const getStatusColor = (status: string) => {
     case 'active':
       return 'bg-theme-success/10 text-theme-success';
     case 'inactive':
-      return 'bg-theme-accent text-theme-secondary';
+      return 'bg-theme-info text-theme-secondary';
     case 'archived':
       return 'bg-theme-error/10 text-theme-error';
     default:
-      return 'bg-theme-accent text-theme-secondary';
+      return 'bg-theme-info text-theme-secondary';
   }
 };
 

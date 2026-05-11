@@ -621,9 +621,9 @@ export const MessageList = React.memo<MessageListProps>(({
         {aiThinking && (
           <div className="flex items-center gap-3 p-3 bg-theme-surface/70 backdrop-blur-md rounded-xl border border-theme/20 shadow-lg">
             <div className="flex gap-1">
-              <div className="w-2 h-2 bg-theme-accent/80 rounded-full animate-bounce" />
-              <div className="w-2 h-2 bg-theme-accent/80 rounded-full animate-bounce [animation-delay:100ms]" />
-              <div className="w-2 h-2 bg-theme-accent/80 rounded-full animate-bounce [animation-delay:200ms]" />
+              <div className="w-2 h-2 bg-theme-info/80 rounded-full animate-bounce" />
+              <div className="w-2 h-2 bg-theme-info/80 rounded-full animate-bounce [animation-delay:100ms]" />
+              <div className="w-2 h-2 bg-theme-info/80 rounded-full animate-bounce [animation-delay:200ms]" />
             </div>
             <span className="text-sm font-medium text-theme-secondary">
               {aiThinking} is thinking...

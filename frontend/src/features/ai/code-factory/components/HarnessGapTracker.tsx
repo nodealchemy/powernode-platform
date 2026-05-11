@@ -21,7 +21,7 @@ const severityColors: Record<string, string> = {
 const statusColors: Record<string, string> = {
   open: 'bg-theme-error-bg text-theme-error',
   in_progress: 'bg-theme-info text-theme-info',
-  case_added: 'bg-theme-accent/10 text-theme-accent',
+  case_added: 'bg-theme-info/10 text-theme-info',
   verified: 'bg-theme-success text-theme-success',
   closed: 'bg-theme-surface-bg text-theme-secondary',
 };
@@ -123,7 +123,7 @@ export const HarnessGapTracker: React.FC<Props> = ({
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="text-xs bg-theme-surface-bg text-theme-primary border border-theme-border rounded px-2 py-1"
+          className="text-xs bg-theme-surface-bg text-theme-primary border border-theme rounded px-2 py-1"
         >
           <option value="all">All Statuses</option>
           <option value="open">Open</option>
@@ -135,7 +135,7 @@ export const HarnessGapTracker: React.FC<Props> = ({
         <select
           value={filterSeverity}
           onChange={(e) => setFilterSeverity(e.target.value)}
-          className="text-xs bg-theme-surface-bg text-theme-primary border border-theme-border rounded px-2 py-1"
+          className="text-xs bg-theme-surface-bg text-theme-primary border border-theme rounded px-2 py-1"
         >
           <option value="all">All Severities</option>
           <option value="critical">Critical</option>
@@ -145,7 +145,7 @@ export const HarnessGapTracker: React.FC<Props> = ({
         </select>
         <button
           onClick={onRefresh}
-          className="text-xs text-theme-accent hover:text-theme-accent-hover ml-auto"
+          className="text-xs text-theme-info hover:text-theme-link-hover ml-auto"
         >
           Refresh
         </button>
@@ -166,7 +166,7 @@ export const HarnessGapTracker: React.FC<Props> = ({
               <div key={gap.id} className="card-theme overflow-hidden">
                 {/* Header */}
                 <div
-                  className="p-3 flex items-center justify-between hover:bg-theme-hover transition-colors cursor-pointer"
+                  className="p-3 flex items-center justify-between hover:bg-theme-surface-hover transition-colors cursor-pointer"
                   onClick={() => setExpandedId(isExpanded ? null : gap.id)}
                 >
                   <div className="flex items-center gap-2 min-w-0">
@@ -195,7 +195,7 @@ export const HarnessGapTracker: React.FC<Props> = ({
 
                 {/* Expanded Details */}
                 {isExpanded && (
-                  <div className="border-t border-theme-border px-4 pb-4 space-y-3 pt-3">
+                  <div className="border-t border-theme px-4 pb-4 space-y-3 pt-3">
                     {/* Description */}
                     <div>
                       <h5 className="text-xs font-semibold text-theme-secondary uppercase tracking-wider mb-1">Description</h5>
@@ -232,7 +232,7 @@ export const HarnessGapTracker: React.FC<Props> = ({
                     {gap.test_case_reference && (
                       <div>
                         <h5 className="text-xs font-semibold text-theme-secondary uppercase tracking-wider mb-1">Test Case</h5>
-                        <span className="text-xs font-mono text-theme-accent bg-theme-accent/10 px-2 py-1 rounded">
+                        <span className="text-xs font-mono text-theme-info bg-theme-info/10 px-2 py-1 rounded">
                           {gap.test_case_reference}
                         </span>
                       </div>
@@ -252,7 +252,7 @@ export const HarnessGapTracker: React.FC<Props> = ({
                         <span className="text-xs text-theme-secondary">Contract:</span>
                         <button
                           onClick={() => onNavigateToContract(gap.risk_contract_id!)}
-                          className="text-xs text-theme-accent hover:underline"
+                          className="text-xs text-theme-info hover:underline"
                         >
                           View Contract
                         </button>
@@ -261,7 +261,7 @@ export const HarnessGapTracker: React.FC<Props> = ({
 
                     {/* Actions */}
                     {gap.status !== 'closed' && (onAddTestCase || onCloseGap) && (
-                      <div className="border-t border-theme-border pt-3 space-y-2">
+                      <div className="border-t border-theme pt-3 space-y-2">
                         {/* Add Test Case */}
                         {onAddTestCase && !gap.test_case_added && (
                           <div className="flex items-center gap-2">
@@ -270,13 +270,13 @@ export const HarnessGapTracker: React.FC<Props> = ({
                               value={testRefInput}
                               onChange={(e) => setTestRefInput(e.target.value)}
                               placeholder="spec/features/example_spec.rb:42"
-                              className="flex-1 px-2 py-1 bg-theme-surface-bg rounded border border-theme-border text-xs text-theme-primary font-mono focus:outline-none focus:ring-1 focus:ring-theme-accent"
+                              className="flex-1 px-2 py-1 bg-theme-surface-bg rounded border border-theme text-xs text-theme-primary font-mono focus:outline-none focus:ring-1 focus:ring-theme-accent"
                               onClick={(e) => e.stopPropagation()}
                             />
                             <button
                               onClick={() => handleAddTestCase(gap.id)}
                               disabled={actionLoading || !testRefInput.trim()}
-                              className="px-3 py-1 text-xs font-medium bg-theme-accent text-theme-on-primary rounded hover:opacity-90 disabled:opacity-50"
+                              className="px-3 py-1 text-xs font-medium bg-theme-info text-theme-on-primary rounded hover:opacity-90 disabled:opacity-50"
                             >
                               Add Test
                             </button>
@@ -291,7 +291,7 @@ export const HarnessGapTracker: React.FC<Props> = ({
                               value={closeNotesInput}
                               onChange={(e) => setCloseNotesInput(e.target.value)}
                               placeholder="Resolution notes (optional)"
-                              className="flex-1 px-2 py-1 bg-theme-surface-bg rounded border border-theme-border text-xs text-theme-primary focus:outline-none focus:ring-1 focus:ring-theme-accent"
+                              className="flex-1 px-2 py-1 bg-theme-surface-bg rounded border border-theme text-xs text-theme-primary focus:outline-none focus:ring-1 focus:ring-theme-accent"
                               onClick={(e) => e.stopPropagation()}
                             />
                             <button

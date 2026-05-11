@@ -56,7 +56,7 @@ export const MemoryTierTabs: React.FC<MemoryTierTabsProps> = ({
               'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors',
               isActive
                 ? 'border-theme-primary text-theme-primary'
-                : 'border-transparent text-theme-secondary hover:text-theme-primary hover:border-theme-border'
+                : 'border-transparent text-theme-secondary hover:text-theme-primary hover:border-theme'
             )}
           >
             <Icon className="h-4 w-4" />

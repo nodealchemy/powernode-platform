@@ -12,7 +12,7 @@ const FingerprintRow: React.FC<{ fp: BehavioralFingerprint }> = ({ fp }) => {
   const hasAnomalies = fp.anomaly_count > 0;
 
   return (
-    <div className="flex items-center justify-between p-3 rounded-lg bg-theme-surface border border-theme-border">
+    <div className="flex items-center justify-between p-3 rounded-lg bg-theme-surface border border-theme">
       <div className="flex items-center gap-3">
         {hasAnomalies ? (
           <AlertTriangle className="h-4 w-4 text-theme-warning" />

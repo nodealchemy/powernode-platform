@@ -104,7 +104,7 @@ export const TeamsTab: React.FC<TeamsTabProps> = ({
     {/* Teams */}
     {teamsLoading ? (
       <div className="text-center py-12">
-        <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-accent border-t-theme-primary"></div>
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-info border-t-theme-primary"></div>
         <p className="mt-4 text-theme-secondary">Loading teams...</p>
       </div>
     ) : filteredTeams.length === 0 ? (
@@ -192,7 +192,7 @@ export const TeamsTab: React.FC<TeamsTabProps> = ({
                   <span className={cn(
                     'px-2 py-0.5 text-xs font-medium rounded-full capitalize',
                     team.status === 'active' && 'bg-theme-success/10 text-theme-success',
-                    team.status === 'inactive' && 'bg-theme-accent text-theme-secondary',
+                    team.status === 'inactive' && 'bg-theme-info text-theme-secondary',
                     team.status === 'archived' && 'bg-theme-error/10 text-theme-error',
                   )}>
                     {team.status}

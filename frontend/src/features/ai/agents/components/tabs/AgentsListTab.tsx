@@ -238,7 +238,7 @@ export const AgentsListTab: React.FC<AgentsListTabProps> = ({
                     <div className="flex items-center justify-end gap-1">
                       <button
                         onClick={() => onChatWithAgent(agent)}
-                        className="p-1.5 rounded text-theme-secondary hover:bg-theme-accent hover:text-theme-primary transition-colors"
+                        className="p-1.5 rounded text-theme-secondary hover:bg-theme-info hover:text-theme-primary transition-colors"
                         title="Chat"
                       >
                         <MessageSquare size={14} />
@@ -246,7 +246,7 @@ export const AgentsListTab: React.FC<AgentsListTabProps> = ({
                       {canManageAgents && (
                         <button
                           onClick={() => onToggleStatus(agent)}
-                          className="p-1.5 rounded text-theme-secondary hover:bg-theme-accent hover:text-theme-primary transition-colors"
+                          className="p-1.5 rounded text-theme-secondary hover:bg-theme-info hover:text-theme-primary transition-colors"
                           title={agent.status === 'active' ? 'Pause' : 'Start'}
                         >
                           {agent.status === 'active' ? <Pause size={14} /> : <Play size={14} />}
@@ -254,7 +254,7 @@ export const AgentsListTab: React.FC<AgentsListTabProps> = ({
                       )}
                       <button
                         onClick={() => onEditAgent(agent)}
-                        className="p-1.5 rounded text-theme-secondary hover:bg-theme-accent hover:text-theme-primary transition-colors"
+                        className="p-1.5 rounded text-theme-secondary hover:bg-theme-info hover:text-theme-primary transition-colors"
                         title="Manage"
                       >
                         <Settings size={14} />

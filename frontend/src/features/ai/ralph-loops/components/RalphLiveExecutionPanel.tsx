@@ -75,7 +75,7 @@ export const RalphLiveExecutionPanel: React.FC<RalphLiveExecutionPanelProps> = (
         </div>
 
         {iterations.length === 0 ? (
-          <div className="text-sm text-theme-text-secondary py-2">
+          <div className="text-sm text-theme-secondary py-2">
             Waiting for iteration results...
           </div>
         ) : (
@@ -91,7 +91,7 @@ export const RalphLiveExecutionPanel: React.FC<RalphLiveExecutionPanelProps> = (
               return (
                 <div
                   key={iteration.id}
-                  className="rounded-lg border border-theme-border bg-theme-bg-primary p-3"
+                  className="rounded-lg border border-theme bg-theme-surface p-3"
                 >
                   <div
                     className="flex items-center justify-between cursor-pointer"
@@ -100,30 +100,30 @@ export const RalphLiveExecutionPanel: React.FC<RalphLiveExecutionPanelProps> = (
                     <div className="flex items-center gap-2">
                       {isSuccess && <CheckCircle2 className="w-4 h-4 text-theme-status-success" />}
                       {isFailed && <XCircle className="w-4 h-4 text-theme-status-error" />}
-                      {!isSuccess && !isFailed && <Clock className="w-4 h-4 text-theme-text-secondary" />}
+                      {!isSuccess && !isFailed && <Clock className="w-4 h-4 text-theme-secondary" />}
                       <span className="text-sm font-medium text-theme-text-primary">
                         #{iteration.iteration_number}
                       </span>
                       {iteration.task_key && (
-                        <span className="text-xs text-theme-text-secondary">
+                        <span className="text-xs text-theme-secondary">
                           {iteration.task_key}
                         </span>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-theme-text-secondary">
+                      <span className="text-xs text-theme-secondary">
                         {formatDuration(iteration.duration_ms)}
                       </span>
                       {isExpanded ? (
-                        <ChevronUp className="w-3.5 h-3.5 text-theme-text-secondary" />
+                        <ChevronUp className="w-3.5 h-3.5 text-theme-secondary" />
                       ) : (
-                        <ChevronDown className="w-3.5 h-3.5 text-theme-text-secondary" />
+                        <ChevronDown className="w-3.5 h-3.5 text-theme-secondary" />
                       )}
                     </div>
                   </div>
 
                   {!isExpanded && iteration.ai_output && (
-                    <p className="text-xs text-theme-text-secondary mt-1.5 line-clamp-2">
+                    <p className="text-xs text-theme-secondary mt-1.5 line-clamp-2">
                       {truncateOutput(iteration.ai_output, 150)}
                     </p>
                   )}
@@ -131,7 +131,7 @@ export const RalphLiveExecutionPanel: React.FC<RalphLiveExecutionPanelProps> = (
                   {isExpanded && (
                     <div className="mt-2 space-y-2">
                       {iteration.ai_output && (
-                        <pre className="text-xs text-theme-text-secondary bg-theme-bg-secondary rounded p-2 whitespace-pre-wrap max-h-48 overflow-y-auto">
+                        <pre className="text-xs text-theme-secondary bg-theme-background-secondary rounded p-2 whitespace-pre-wrap max-h-48 overflow-y-auto">
                           {iteration.ai_output}
                         </pre>
                       )}
@@ -141,8 +141,8 @@ export const RalphLiveExecutionPanel: React.FC<RalphLiveExecutionPanelProps> = (
                         </div>
                       )}
                       {iteration.git_commit_sha && (
-                        <div className="text-xs text-theme-text-secondary">
-                          Commit: <code className="bg-theme-bg-secondary px-1 rounded">{iteration.git_commit_sha.substring(0, 8)}</code>
+                        <div className="text-xs text-theme-secondary">
+                          Commit: <code className="bg-theme-background-secondary px-1 rounded">{iteration.git_commit_sha.substring(0, 8)}</code>
                         </div>
                       )}
                     </div>

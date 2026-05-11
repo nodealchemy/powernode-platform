@@ -120,7 +120,7 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
             <option value="complementary">Complementary (merge all)</option>
             <option value="competitive">Competitive (pick best)</option>
           </Select>
-          <p className="text-xs text-theme-text-secondary mt-1">
+          <p className="text-xs text-theme-secondary mt-1">
             Complementary merges all results; competitive evaluates and picks the best
           </p>
         </div>
@@ -147,7 +147,7 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
             onChange={(e) => setForm((prev) => ({ ...prev, container_template_id: e.target.value }))}
             placeholder="UUID of a DevOps container template"
           />
-          <p className="text-xs text-theme-text-secondary mt-1">
+          <p className="text-xs text-theme-secondary mt-1">
             Each worktree task will execute in a container using this template
           </p>
         </div>
@@ -174,7 +174,7 @@ export const CreateSessionModal: React.FC<CreateSessionModalProps> = ({
             onChange={(e) => setForm((prev) => ({ ...prev, branch_suffixes: e.target.value }))}
             placeholder="feature-a, feature-b, feature-c"
           />
-          <p className="text-xs text-theme-text-secondary mt-1">
+          <p className="text-xs text-theme-secondary mt-1">
             Each suffix creates a worktree branch: worktree/session/suffix
           </p>
         </div>

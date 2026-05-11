@@ -31,7 +31,7 @@ export const RalphTaskEditForm: React.FC<RalphTaskEditFormProps> = ({
           </Button>
         </div>
         <div className="grid grid-cols-[120px_1fr] gap-3 items-start">
-          <label className="text-sm text-theme-text-secondary pt-2">Task Key</label>
+          <label className="text-sm text-theme-secondary pt-2">Task Key</label>
           <Input
             value={newTask.key}
             onChange={(e) => onNewTaskChange({ ...newTask, key: e.target.value })}
@@ -40,7 +40,7 @@ export const RalphTaskEditForm: React.FC<RalphTaskEditFormProps> = ({
           />
         </div>
         <div className="grid grid-cols-[120px_1fr] gap-3 items-start">
-          <label className="text-sm text-theme-text-secondary pt-2">Description</label>
+          <label className="text-sm text-theme-secondary pt-2">Description</label>
           <Textarea
             value={newTask.description}
             onChange={(e) => onNewTaskChange({ ...newTask, description: e.target.value })}
@@ -49,7 +49,7 @@ export const RalphTaskEditForm: React.FC<RalphTaskEditFormProps> = ({
           />
         </div>
         <div className="grid grid-cols-[120px_1fr] gap-3 items-start">
-          <label className="text-sm text-theme-text-secondary pt-2">Dependencies</label>
+          <label className="text-sm text-theme-secondary pt-2">Dependencies</label>
           <Input
             value={newTask.dependencies?.join(', ') || ''}
             onChange={(e) => onNewTaskChange({
@@ -60,7 +60,7 @@ export const RalphTaskEditForm: React.FC<RalphTaskEditFormProps> = ({
           />
         </div>
         <div className="grid grid-cols-[120px_1fr] gap-3 items-start">
-          <label className="text-sm text-theme-text-secondary pt-2">Acceptance</label>
+          <label className="text-sm text-theme-secondary pt-2">Acceptance</label>
           <Input
             value={newTask.acceptance_criteria || ''}
             onChange={(e) => onNewTaskChange({ ...newTask, acceptance_criteria: e.target.value })}

@@ -57,7 +57,7 @@ const RunCardExpanded: React.FC<{
   const isFailed = state.status === 'stale' || state.status === 'dirty';
 
   return (
-    <div className="border-t border-theme-border px-4 pb-4 space-y-4 pt-3">
+    <div className="border-t border-theme px-4 pb-4 space-y-4 pt-3">
       {/* Step Progress */}
       <div>
         <h5 className="text-xs font-semibold text-theme-secondary uppercase tracking-wider mb-2">Pipeline Progress</h5>
@@ -74,7 +74,7 @@ const RunCardExpanded: React.FC<{
                       : isCurrent
                       ? isFailed
                         ? 'bg-theme-error'
-                        : 'bg-theme-accent animate-pulse'
+                        : 'bg-theme-info animate-pulse'
                       : 'bg-theme-background-secondary-bg'
                   }`}
                 />
@@ -155,7 +155,7 @@ const RunCardExpanded: React.FC<{
           {onNavigateToContract ? (
             <button
               onClick={() => onNavigateToContract(state.risk_contract_id)}
-              className="text-xs text-theme-accent hover:underline"
+              className="text-xs text-theme-info hover:underline"
             >
               {state.risk_contract.name}
             </button>
@@ -183,7 +183,7 @@ const RunCardExpanded: React.FC<{
       )}
 
       {/* Metadata footer */}
-      <div className="flex items-center justify-between text-[10px] text-theme-secondary font-mono pt-2 border-t border-theme-border">
+      <div className="flex items-center justify-between text-[10px] text-theme-secondary font-mono pt-2 border-t border-theme">
         <span>ID: {state.id}</span>
         <span>Updated: {new Date(state.updated_at).toLocaleString()}</span>
       </div>
@@ -222,7 +222,7 @@ export const RunList: React.FC<Props> = ({ reviewStates, compact, initialExpande
         return (
           <div key={state.id} className="card-theme overflow-hidden">
             <div
-              className="p-3 flex items-center justify-between hover:bg-theme-hover transition-colors cursor-pointer"
+              className="p-3 flex items-center justify-between hover:bg-theme-surface-hover transition-colors cursor-pointer"
               onClick={() => handleRowClick(state)}
             >
               <div className="flex-1 min-w-0">
@@ -245,7 +245,7 @@ export const RunList: React.FC<Props> = ({ reviewStates, compact, initialExpande
                     <span className="font-mono">{state.head_sha?.substring(0, 8)}</span>
                     <span>{state.review_findings_count} findings</span>
                     <span>{state.remediation_attempts} remediations</span>
-                    {state.risk_contract && <span className="text-theme-accent">{state.risk_contract.name}</span>}
+                    {state.risk_contract && <span className="text-theme-info">{state.risk_contract.name}</span>}
                   </div>
                 )}
                 {compact && (
@@ -254,7 +254,7 @@ export const RunList: React.FC<Props> = ({ reviewStates, compact, initialExpande
                     {state.critical_findings_count > 0 && (
                       <span className="text-theme-error">{state.critical_findings_count} critical</span>
                     )}
-                    {state.risk_contract && <span className="text-theme-accent">{state.risk_contract.name}</span>}
+                    {state.risk_contract && <span className="text-theme-info">{state.risk_contract.name}</span>}
                   </div>
                 )}
               </div>
@@ -270,7 +270,7 @@ export const RunList: React.FC<Props> = ({ reviewStates, compact, initialExpande
 
             {/* Compact expanded details */}
             {isExpanded && compact && (
-              <div className="border-t border-theme-border px-4 py-3 space-y-2">
+              <div className="border-t border-theme px-4 py-3 space-y-2">
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <span className="text-theme-secondary">Findings: </span>
@@ -297,7 +297,7 @@ export const RunList: React.FC<Props> = ({ reviewStates, compact, initialExpande
                     <span className="text-xs text-theme-secondary">Contract:</span>
                     <button
                       onClick={(e) => { e.stopPropagation(); onNavigateToContract(state.risk_contract_id); }}
-                      className="text-xs text-theme-accent hover:underline"
+                      className="text-xs text-theme-info hover:underline"
                     >
                       {state.risk_contract.name} →
                     </button>
@@ -306,7 +306,7 @@ export const RunList: React.FC<Props> = ({ reviewStates, compact, initialExpande
                 {onSelectRun && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onSelectRun(state.id); }}
-                    className="text-xs text-theme-accent hover:underline"
+                    className="text-xs text-theme-info hover:underline"
                   >
                     View Full Run →
                   </button>

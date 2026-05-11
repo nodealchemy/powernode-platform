@@ -23,7 +23,7 @@ export const PrdDependencyGraph: React.FC<PrdDependencyGraphProps> = ({
       {/* Search Bar */}
       {showSearch && (
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-theme-text-secondary" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-theme-secondary" />
           <Input
             value={searchQuery}
             onChange={(e) => onSearchQueryChange(e.target.value)}
@@ -35,7 +35,7 @@ export const PrdDependencyGraph: React.FC<PrdDependencyGraphProps> = ({
 
       {/* Empty State */}
       {taskCount === 0 && (
-        <div className="text-center py-12 text-theme-text-secondary">
+        <div className="text-center py-12 text-theme-secondary">
           <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
           <p className="font-medium">No tasks defined yet</p>
           <p className="text-sm mt-1">
@@ -46,7 +46,7 @@ export const PrdDependencyGraph: React.FC<PrdDependencyGraphProps> = ({
 
       {/* Search Empty State */}
       {taskCount > 0 && filteredCount === 0 && searchQuery && (
-        <div className="text-center py-8 text-theme-text-secondary">
+        <div className="text-center py-8 text-theme-secondary">
           <Search className="w-8 h-8 mx-auto mb-3 opacity-50" />
           <p>No tasks match &quot;{searchQuery}&quot;</p>
           <Button variant="ghost" size="sm" onClick={() => onSearchQueryChange('')} className="mt-2">

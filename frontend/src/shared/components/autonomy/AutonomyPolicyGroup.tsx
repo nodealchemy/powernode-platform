@@ -62,7 +62,7 @@ export function AutonomyPolicyGroup({
               onDirty();
               e.target.value = '';
             }}
-            className="text-[10px] px-1.5 py-0.5 rounded border border-theme bg-theme-background text-theme-accent w-[80px]"
+            className="text-[10px] px-1.5 py-0.5 rounded border border-theme bg-theme-background text-theme-info w-[80px]"
           >
             <option value="">Set all</option>
             <option value="block">Disabled</option>
@@ -83,7 +83,7 @@ export function AutonomyPolicyGroup({
         </div>
       </div>
       <div className="p-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1">
           {actions.map((action) => (
             <div key={action} className="flex items-center gap-1.5 py-0.5">
               <span className="text-xs text-theme-primary truncate flex-1 min-w-0">

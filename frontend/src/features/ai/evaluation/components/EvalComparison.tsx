@@ -68,7 +68,7 @@ export const EvalComparison: React.FC = () => {
                   className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
                     selectedAgents.includes(t.agent_id)
                       ? 'bg-theme-primary text-white border-theme-primary'
-                      : 'bg-theme-surface text-theme-secondary border-theme-border hover:border-theme-primary'
+                      : 'bg-theme-surface text-theme-secondary border-theme hover:border-theme-primary'
                   }`}
                 >
                   {t.agent_name} ({t.count})
@@ -86,7 +86,7 @@ export const EvalComparison: React.FC = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-theme-border">
+                  <tr className="border-b border-theme">
                     <th className="text-left py-2 px-3 text-theme-muted font-medium">Dimension</th>
                     {compared.map((agent) => (
                       <th key={agent.agent_id} className="text-center py-2 px-3 text-theme-primary font-medium">
@@ -99,7 +99,7 @@ export const EvalComparison: React.FC = () => {
                   {SCORE_DIMENSIONS.map((dim) => {
                     const best = maxScore(dim);
                     return (
-                      <tr key={dim} className="border-b border-theme-border last:border-0">
+                      <tr key={dim} className="border-b border-theme last:border-0">
                         <td className="py-2 px-3 text-theme-secondary">{DIMENSION_LABELS[dim]}</td>
                         {compared.map((agent) => {
                           const score = agent[`average_${dim}` as keyof AgentScoreTrend] as number | null;
@@ -120,7 +120,7 @@ export const EvalComparison: React.FC = () => {
                       </tr>
                     );
                   })}
-                  <tr className="border-t-2 border-theme-border">
+                  <tr className="border-t-2 border-theme">
                     <td className="py-2 px-3 font-medium text-theme-secondary">Trend</td>
                     {compared.map((agent) => (
                       <td key={agent.agent_id} className="text-center py-2 px-3">

@@ -116,7 +116,7 @@ export const SendQuestionnaireModal: React.FC<SendQuestionnaireModalProps> = ({
                   className={`w-full p-4 rounded-lg border text-left transition-colors ${
                     selectedTemplateId === template.id
                       ? 'border-theme-interactive-primary bg-theme-interactive-primary/10'
-                      : 'border-theme hover:border-theme-border-hover'
+                      : 'border-theme hover:border-theme'
                   }`}
                 >
                   <div className="flex items-start justify-between mb-2">

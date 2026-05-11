@@ -330,7 +330,7 @@ const CoordinationContent: React.FC<{
         ) : (
           <div className="space-y-3">
             {signals.map(s => (
-              <div key={s.id} className="border border-theme-border rounded-lg p-3">
+              <div key={s.id} className="border border-theme rounded-lg p-3">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Badge variant={getSignalTypeColor(s.signal_type) as 'success' | 'warning' | 'info' | 'danger'} size="sm">{s.signal_type}</Badge>
@@ -365,7 +365,7 @@ const CoordinationContent: React.FC<{
         ) : (
           <div className="space-y-3">
             {pressureFields.map(f => (
-              <div key={f.id} className="border border-theme-border rounded-lg p-3">
+              <div key={f.id} className="border border-theme rounded-lg p-3">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Badge variant={f.actionable ? 'warning' : 'secondary'} size="sm">{getFieldTypeLabel(f.field_type)}</Badge>
@@ -405,7 +405,7 @@ const CoordinationContent: React.FC<{
         ) : (
           <div className="space-y-3">
             {teamEvents.map(e => (
-              <div key={e.id} className="border border-theme-border rounded-lg p-3">
+              <div key={e.id} className="border border-theme rounded-lg p-3">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Badge variant="info" size="sm">{e.event_type.replace(/_/g, ' ')}</Badge>

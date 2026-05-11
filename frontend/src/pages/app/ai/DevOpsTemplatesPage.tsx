@@ -266,7 +266,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                 <p className="text-sm text-theme-secondary">Total Executions</p>
                 <p className="text-2xl font-bold text-theme-primary">{analytics.total_executions}</p>
               </div>
-              <Play className="h-8 w-8 text-theme-accent" />
+              <Play className="h-8 w-8 text-theme-info" />
             </div>
             <p className="text-xs text-theme-secondary mt-2">{(analytics.success_rate * 100).toFixed(1)}% success rate</p>
           </div>
@@ -297,7 +297,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                   {analytics.average_duration_ms ? `${(analytics.average_duration_ms / 1000).toFixed(1)}s` : 'N/A'}
                 </p>
               </div>
-              <BarChart3 className="h-8 w-8 text-theme-accent" />
+              <BarChart3 className="h-8 w-8 text-theme-info" />
             </div>
           </div>
         </div>
@@ -312,7 +312,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
                 activeTab === tab.id
-                  ? 'border-theme-accent text-theme-accent'
+                  ? 'border-theme-info text-theme-info'
                   : 'border-transparent text-theme-secondary hover:text-theme-primary'
               }`}
             >
@@ -366,7 +366,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
       {/* Tab Content */}
       {loading ? (
         <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-accent border-t-theme-primary"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-info border-t-theme-primary"></div>
           <p className="mt-4 text-theme-secondary">Loading DevOps data...</p>
         </div>
       ) : (
@@ -386,7 +386,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                     <div
                       key={template.id}
                       data-testid="devops-template-card"
-                      className="bg-theme-surface border border-theme rounded-lg p-4 hover:border-theme-accent transition-colors cursor-pointer"
+                      className="bg-theme-surface border border-theme rounded-lg p-4 hover:border-theme-info transition-colors cursor-pointer"
                       onClick={() => handleViewTemplate(template)}
                     >
                       <div className="flex items-center justify-between mb-2">
@@ -398,8 +398,8 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                       <p className="text-sm text-theme-secondary mb-3 line-clamp-2">{template.description}</p>
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex gap-2 text-xs text-theme-secondary">
-                          <span className="px-2 py-1 bg-theme-accent/10 rounded">{template.category}</span>
-                          <span className="px-2 py-1 bg-theme-accent/10 rounded">{template.template_type}</span>
+                          <span className="px-2 py-1 bg-theme-info/10 rounded">{template.category}</span>
+                          <span className="px-2 py-1 bg-theme-info/10 rounded">{template.template_type}</span>
                         </div>
                       </div>
                       <div className="flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
@@ -410,7 +410,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                           {template.is_owner && (
                             <button
                               onClick={() => handleEditTemplate(template)}
-                              className="p-1.5 text-theme-secondary hover:text-theme-primary hover:bg-theme-hover rounded transition-colors"
+                              className="p-1.5 text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover rounded transition-colors"
                               title="Edit template"
                             >
                               <Pencil size={14} />
@@ -493,7 +493,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                         <span className={`px-2 py-1 text-xs rounded ${getStatusColor(execution.status)}`}>
                           {execution.status}
                         </span>
-                        <span className="px-2 py-1 text-xs bg-theme-accent/10 text-theme-accent rounded">
+                        <span className="px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded">
                           {execution.pipeline_type}
                         </span>
                       </div>
@@ -589,7 +589,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                           {review.status}
                         </span>
                         {review.overall_rating && (
-                          <span className="px-2 py-1 text-xs bg-theme-accent/10 text-theme-accent rounded">
+                          <span className="px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded">
                             {review.overall_rating}
                           </span>
                         )}
@@ -684,7 +684,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
       >
         {detailModal.loading ? (
           <div className="text-center py-8">
-            <div className="inline-block animate-spin rounded-full h-6 w-6 border-4 border-theme-accent border-t-theme-primary"></div>
+            <div className="inline-block animate-spin rounded-full h-6 w-6 border-4 border-theme-info border-t-theme-primary"></div>
             <p className="mt-3 text-theme-secondary text-sm">Loading template details...</p>
           </div>
         ) : detailModal.template && (
@@ -694,7 +694,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
               <span className={`px-2.5 py-1 text-xs font-medium rounded ${getStatusColor(detailModal.template.status)}`}>
                 {detailModal.template.status}
               </span>
-              <span className="px-2.5 py-1 text-xs font-medium rounded bg-theme-accent/10 text-theme-accent">
+              <span className="px-2.5 py-1 text-xs font-medium rounded bg-theme-info/10 text-theme-info">
                 {detailModal.template.visibility}
               </span>
               <span className="px-2.5 py-1 text-xs rounded bg-theme-surface text-theme-secondary border border-theme">
@@ -757,7 +757,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
                 <h4 className="text-xs font-medium text-theme-secondary uppercase tracking-wide mb-2">Tags</h4>
                 <div className="flex flex-wrap gap-1.5">
                   {detailModal.template.tags.map((tag, i) => (
-                    <span key={i} className="px-2 py-0.5 text-xs rounded-full bg-theme-accent/10 text-theme-accent">
+                    <span key={i} className="px-2 py-0.5 text-xs rounded-full bg-theme-info/10 text-theme-info">
                       {tag}
                     </span>
                   ))}

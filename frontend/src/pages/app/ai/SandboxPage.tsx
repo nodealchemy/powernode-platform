@@ -204,7 +204,7 @@ export const SandboxContent: React.FC<{ refreshKey?: number }> = ({ refreshKey: 
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
                 activeTab === tab.id
-                  ? 'border-theme-accent text-theme-accent'
+                  ? 'border-theme-info text-theme-info'
                   : 'border-transparent text-theme-secondary hover:text-theme-primary'
               }`}
             >
@@ -258,7 +258,7 @@ export const SandboxContent: React.FC<{ refreshKey?: number }> = ({ refreshKey: 
       {/* Tab Content */}
       {loading ? (
         <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-accent border-t-theme-primary"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-info border-t-theme-primary"></div>
           <p className="mt-4 text-theme-secondary">Loading sandbox data...</p>
         </div>
       ) : (
@@ -287,7 +287,7 @@ export const SandboxContent: React.FC<{ refreshKey?: number }> = ({ refreshKey: 
                       data-selected={selectedSandbox?.id === sandbox.id}
                       onClick={() => setSelectedSandbox(sandbox)}
                       className={`bg-theme-surface border rounded-lg p-4 cursor-pointer transition-colors ${
-                        selectedSandbox?.id === sandbox.id ? 'border-theme-accent' : 'border-theme hover:border-theme-accent/50'
+                        selectedSandbox?.id === sandbox.id ? 'border-theme-info' : 'border-theme hover:border-theme-info/50'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-2">
@@ -337,7 +337,7 @@ export const SandboxContent: React.FC<{ refreshKey?: number }> = ({ refreshKey: 
                         <span data-testid="scenario-status-badge" className={`px-2 py-1 text-xs rounded ${getStatusColor(scenario.status)}`}>
                           {scenario.status}
                         </span>
-                        <span data-testid="scenario-type-badge" className="px-2 py-1 text-xs bg-theme-accent/10 text-theme-accent rounded">
+                        <span data-testid="scenario-type-badge" className="px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded">
                           {scenario.scenario_type}
                         </span>
                       </div>
@@ -397,7 +397,7 @@ export const SandboxContent: React.FC<{ refreshKey?: number }> = ({ refreshKey: 
                         <span className={`px-2 py-1 text-xs rounded ${getStatusColor(run.status)}`}>
                           {run.status}
                         </span>
-                        <span className="px-2 py-1 text-xs bg-theme-accent/10 text-theme-accent rounded">
+                        <span className="px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded">
                           {run.run_type}
                         </span>
                       </div>
@@ -449,7 +449,7 @@ export const SandboxContent: React.FC<{ refreshKey?: number }> = ({ refreshKey: 
                           </span>
                         )}
                         {benchmark.latest_score !== null && (
-                          <span className="text-lg font-bold text-theme-accent">{benchmark.latest_score}</span>
+                          <span className="text-lg font-bold text-theme-info">{benchmark.latest_score}</span>
                         )}
                       </div>
                     </div>

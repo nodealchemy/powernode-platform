@@ -17,7 +17,7 @@ export const MergeStatusPanel: React.FC<MergeStatusPanelProps> = ({
 }) => {
   if (mergeOperations.length === 0) {
     return (
-      <div className="text-center p-8 text-theme-text-secondary">
+      <div className="text-center p-8 text-theme-secondary">
         <GitMerge className="w-8 h-8 mx-auto mb-2 opacity-50" />
         <p>No merge operations yet.</p>
         <p className="text-xs mt-1">Merges will appear when all worktrees complete.</p>
@@ -49,7 +49,7 @@ export const MergeStatusPanel: React.FC<MergeStatusPanelProps> = ({
         {mergeOperations.map((op) => (
           <div
             key={op.id}
-            className="flex items-center justify-between p-3 bg-theme-bg-primary border border-theme rounded-lg"
+            className="flex items-center justify-between p-3 bg-theme-surface border border-theme rounded-lg"
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className="flex-shrink-0">
@@ -59,7 +59,7 @@ export const MergeStatusPanel: React.FC<MergeStatusPanelProps> = ({
                 <div className="text-sm font-medium text-theme-text-primary truncate">
                   {op.source_branch} → {op.target_branch}
                 </div>
-                <div className="text-xs text-theme-text-secondary">
+                <div className="text-xs text-theme-secondary">
                   Strategy: {op.strategy}
                   {op.merge_commit_sha && (
                     <span className="ml-2 font-mono">{op.merge_commit_sha.substring(0, 8)}</span>
@@ -92,7 +92,7 @@ export const MergeStatusPanel: React.FC<MergeStatusPanelProps> = ({
             .filter((op) => op.has_conflicts && op.conflict_files.length > 0)
             .map((op) => (
               <div key={op.id} className="p-3 bg-theme-status-error/5 border border-theme-status-error/20 rounded-lg">
-                <div className="text-xs text-theme-text-secondary mb-2">{op.source_branch}</div>
+                <div className="text-xs text-theme-secondary mb-2">{op.source_branch}</div>
                 <div className="space-y-1">
                   {op.conflict_files.map((file) => (
                     <div key={file} className="flex items-center gap-1 text-xs text-theme-status-error">

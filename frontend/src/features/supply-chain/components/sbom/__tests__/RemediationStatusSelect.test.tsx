@@ -90,7 +90,7 @@ describe('RemediationStatusSelect', () => {
         <RemediationStatusSelect {...defaultProps} value="wont_fix" />
       );
       const selectElement = container.querySelector('select');
-      expect(selectElement).toHaveClass('bg-theme-muted/10', 'text-theme-secondary', 'border-theme-border');
+      expect(selectElement).toHaveClass('bg-theme-muted/10', 'text-theme-secondary', 'border-theme');
     });
   });
 

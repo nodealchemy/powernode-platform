@@ -87,7 +87,7 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
     <Card
       className={cn(
         'cursor-pointer transition-all hover:shadow-md',
-        'border-theme-border',
+        'border-theme',
         className
       )}
       onClick={() => onSelect?.(channel)}

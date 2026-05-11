@@ -45,7 +45,7 @@ const REASON_COPY: Record<string, ReasonCopy> = {
     ringClass: 'bg-theme-warning/10',
     heading: "You've hit your plan's instance cap",
     body: () => (
-      <p className="text-sm text-theme-text-secondary">
+      <p className="text-sm text-theme-secondary">
         Your current plan caps the number of active instances you can run. Upgrade to
         keep provisioning new infrastructure without taking anything down first.
       </p>
@@ -57,7 +57,7 @@ const REASON_COPY: Record<string, ReasonCopy> = {
     ringClass: 'bg-theme-info/10',
     heading: "You're out of free runtime",
     body: () => (
-      <p className="text-sm text-theme-text-secondary">
+      <p className="text-sm text-theme-secondary">
         Free-tier hours for this billing period are used up. Upgrade to keep your stack
         online and unlock the rest of the provisioning workflow.
       </p>
@@ -69,7 +69,7 @@ const REASON_COPY: Record<string, ReasonCopy> = {
     ringClass: 'bg-theme-interactive-primary/10',
     heading: 'Add a plan to keep going',
     body: () => (
-      <p className="text-sm text-theme-text-secondary">
+      <p className="text-sm text-theme-secondary">
         Provisioning live infrastructure needs an active subscription. Pick a plan that
         matches what you want to ship — you can change it anytime.
       </p>
@@ -81,7 +81,7 @@ const REASON_COPY: Record<string, ReasonCopy> = {
     ringClass: 'bg-theme-danger/10',
     heading: "You've hit today's AI spend cap",
     body: ({ spent, cap }) => (
-      <p className="text-sm text-theme-text-secondary">
+      <p className="text-sm text-theme-secondary">
         You've used <span className="font-semibold text-theme-primary">{formatUsd(spent)}</span>{' '}
         of your <span className="font-semibold text-theme-primary">{formatUsd(cap)}</span> daily AI
         cap. Upgrade to raise the limit and keep iterating on your plan today.
@@ -96,7 +96,7 @@ const FALLBACK: ReasonCopy = {
   ringClass: 'bg-theme-warning/10',
   heading: "Hit your plan's limit",
   body: () => (
-    <p className="text-sm text-theme-text-secondary">
+    <p className="text-sm text-theme-secondary">
       Your current plan doesn't cover this action. Upgrade to unlock the next step in
       provisioning.
     </p>

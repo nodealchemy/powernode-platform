@@ -25,7 +25,7 @@ export const LoopStatsCards: React.FC<LoopStatsCardsProps> = ({
           <div className="text-2xl font-bold text-theme-text-primary">
             {currentIteration}/{maxIterations}
           </div>
-          <div className="text-sm text-theme-text-secondary">Iterations</div>
+          <div className="text-sm text-theme-secondary">Iterations</div>
         </CardContent>
       </Card>
       <Card>
@@ -33,7 +33,7 @@ export const LoopStatsCards: React.FC<LoopStatsCardsProps> = ({
           <div className="text-2xl font-bold text-theme-text-primary">
             {completedTaskCount}/{taskCount}
           </div>
-          <div className="text-sm text-theme-text-secondary">Tasks Completed</div>
+          <div className="text-sm text-theme-secondary">Tasks Completed</div>
         </CardContent>
       </Card>
       <Card>
@@ -41,7 +41,7 @@ export const LoopStatsCards: React.FC<LoopStatsCardsProps> = ({
           <div className="text-2xl font-bold text-theme-text-primary">
             {progressPercentage}%
           </div>
-          <div className="text-sm text-theme-text-secondary">Progress</div>
+          <div className="text-sm text-theme-secondary">Progress</div>
         </CardContent>
       </Card>
       <Card>
@@ -49,7 +49,7 @@ export const LoopStatsCards: React.FC<LoopStatsCardsProps> = ({
           <div className="text-2xl font-bold text-theme-text-primary truncate">
             {defaultAgentName || 'No Agent'}
           </div>
-          <div className="text-sm text-theme-text-secondary">Default Agent</div>
+          <div className="text-sm text-theme-secondary">Default Agent</div>
         </CardContent>
       </Card>
     </div>

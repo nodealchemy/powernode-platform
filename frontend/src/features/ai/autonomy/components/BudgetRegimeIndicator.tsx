@@ -18,8 +18,8 @@ export const BudgetRegimeIndicator: React.FC<BudgetRegimeIndicatorProps> = ({ re
   const config = REGIME_CONFIG[regime.level];
 
   return (
-    <div className="flex items-center gap-3 p-3 rounded-lg bg-theme-surface border border-theme-border">
-      <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-theme-bg-secondary">
+    <div className="flex items-center gap-3 p-3 rounded-lg bg-theme-surface border border-theme">
+      <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-theme-background-secondary">
         <DollarSign className="h-4 w-4 text-theme-muted" />
       </div>
       <div className="flex-1">

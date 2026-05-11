@@ -156,7 +156,7 @@ export const RalphTaskExecutorSelect: React.FC<RalphTaskExecutorSelectProps> = (
   }, [taskKey, taskDescription, taskDependencies, taskAcceptanceCriteria, executionType, executorId, capabilities, matchStrategy, delegationConfig, showAdvanced, onSave]);
 
   return (
-    <Card className={cn('border-theme-border-primary', className)}>
+    <Card className={cn('border-theme-interactive-primary', className)}>
       <CardContent className="pt-4">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'definition' | 'executor')}>
           <TabsList className="mb-4">

@@ -109,7 +109,7 @@ export const CreateDiffModal: React.FC<CreateDiffModalProps> = ({
                     className={`w-full p-3 rounded-lg border text-left transition-colors ${
                       selectedSbomId === sbom.id
                         ? 'border-theme-interactive-primary bg-theme-interactive-primary/10'
-                        : 'border-theme hover:border-theme-border-hover'
+                        : 'border-theme hover:border-theme'
                     }`}
                   >
                     <p className="font-medium text-theme-primary">{sbom.name}</p>

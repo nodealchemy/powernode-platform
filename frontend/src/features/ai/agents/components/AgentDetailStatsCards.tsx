@@ -26,7 +26,7 @@ export const AgentDetailStatsCards: React.FC<AgentDetailStatsCardsProps> = ({ st
           <div className="text-2xl font-bold text-theme-text-primary">
             {stats.total_executions}
           </div>
-          <div className="text-sm text-theme-text-secondary">Total Executions</div>
+          <div className="text-sm text-theme-secondary">Total Executions</div>
         </CardContent>
       </Card>
       <Card>
@@ -34,7 +34,7 @@ export const AgentDetailStatsCards: React.FC<AgentDetailStatsCardsProps> = ({ st
           <div className={`text-2xl font-bold ${successRateColor(stats.success_rate || 0)}`}>
             {isNaN(stats.success_rate) ? '—' : `${stats.success_rate}%`}
           </div>
-          <div className="text-sm text-theme-text-secondary">Success Rate</div>
+          <div className="text-sm text-theme-secondary">Success Rate</div>
         </CardContent>
       </Card>
       <Card>
@@ -42,7 +42,7 @@ export const AgentDetailStatsCards: React.FC<AgentDetailStatsCardsProps> = ({ st
           <div className="text-2xl font-bold text-theme-text-primary">
             {formatDuration(stats.avg_execution_time)}
           </div>
-          <div className="text-sm text-theme-text-secondary">Avg Time</div>
+          <div className="text-sm text-theme-secondary">Avg Time</div>
         </CardContent>
       </Card>
       <Card>
@@ -50,7 +50,7 @@ export const AgentDetailStatsCards: React.FC<AgentDetailStatsCardsProps> = ({ st
           <div className="text-2xl font-bold text-theme-warning">
             ${stats.estimated_total_cost || '0.00'}
           </div>
-          <div className="text-sm text-theme-text-secondary">Est. Cost</div>
+          <div className="text-sm text-theme-secondary">Est. Cost</div>
         </CardContent>
       </Card>
     </div>

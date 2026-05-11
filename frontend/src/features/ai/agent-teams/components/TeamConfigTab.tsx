@@ -51,7 +51,7 @@ export const TeamConfigTab: React.FC<TeamConfigTabProps> = ({
       {/* Roles Section */}
       <CollapsibleSection
         title="Roles"
-        icon={<UserCog size={16} className="text-theme-accent" />}
+        icon={<UserCog size={16} className="text-theme-info" />}
         count={roles.length}
       >
         {roles.length === 0 ? (
@@ -66,7 +66,7 @@ export const TeamConfigTab: React.FC<TeamConfigTabProps> = ({
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-theme-primary">{role.role_name}</span>
-                    <span className="px-1.5 py-0.5 text-[10px] bg-theme-accent/10 text-theme-accent rounded">{role.role_type}</span>
+                    <span className="px-1.5 py-0.5 text-[10px] bg-theme-info/10 text-theme-info rounded">{role.role_type}</span>
                     <span className="text-xs text-theme-secondary">Priority: {role.priority_order}</span>
                   </div>
                   <div className="flex gap-1.5 text-[10px]">
@@ -90,7 +90,7 @@ export const TeamConfigTab: React.FC<TeamConfigTabProps> = ({
       {/* Channels Section */}
       <CollapsibleSection
         title="Channels"
-        icon={<Hash size={16} className="text-theme-accent" />}
+        icon={<Hash size={16} className="text-theme-info" />}
         count={channels.length}
       >
         {channels.length === 0 ? (
@@ -104,9 +104,9 @@ export const TeamConfigTab: React.FC<TeamConfigTabProps> = ({
               <div key={channel.id} className="px-4 py-3">
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-2">
-                    <Hash size={14} className="text-theme-accent" />
+                    <Hash size={14} className="text-theme-info" />
                     <span className="text-sm font-medium text-theme-primary">{channel.name}</span>
-                    <span className="px-1.5 py-0.5 text-[10px] bg-theme-accent/10 text-theme-accent rounded">{channel.channel_type}</span>
+                    <span className="px-1.5 py-0.5 text-[10px] bg-theme-info/10 text-theme-info rounded">{channel.channel_type}</span>
                     {channel.is_persistent && <span className="px-1.5 py-0.5 text-[10px] bg-theme-info/10 text-theme-info rounded">Persistent</span>}
                   </div>
                   <span className="text-xs text-theme-secondary">{channel.message_count} msgs</span>
@@ -125,7 +125,7 @@ export const TeamConfigTab: React.FC<TeamConfigTabProps> = ({
       {/* Templates Section */}
       <CollapsibleSection
         title="Templates"
-        icon={<Copy size={16} className="text-theme-accent" />}
+        icon={<Copy size={16} className="text-theme-info" />}
         count={templates.length}
         defaultOpen={false}
       >

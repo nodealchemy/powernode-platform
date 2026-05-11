@@ -91,7 +91,7 @@ export const TabContainer: React.FC<TabContainerProps> = ({
         'border-b-2',
         isActive
           ? 'border-theme-interactive-primary text-theme-interactive-primary'
-          : 'border-transparent text-theme-secondary hover:text-theme-primary hover:border-theme-border',
+          : 'border-transparent text-theme-secondary hover:text-theme-primary hover:border-theme',
         !tab.disabled && 'cursor-pointer'
       );
     }
@@ -102,7 +102,7 @@ export const TabContainer: React.FC<TabContainerProps> = ({
         'rounded-md',
         isActive
           ? 'bg-theme-interactive-primary text-white'
-          : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-hover',
+          : 'text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover',
         !tab.disabled && 'cursor-pointer'
       );
     }
@@ -113,7 +113,7 @@ export const TabContainer: React.FC<TabContainerProps> = ({
       'border rounded-md',
       isActive
         ? 'bg-theme-surface border-theme-interactive-primary text-theme-interactive-primary'
-        : 'border-theme bg-theme-background text-theme-secondary hover:text-theme-primary hover:bg-theme-hover',
+        : 'border-theme bg-theme-background text-theme-secondary hover:text-theme-primary hover:bg-theme-surface-hover',
       !tab.disabled && 'cursor-pointer'
     );
   };

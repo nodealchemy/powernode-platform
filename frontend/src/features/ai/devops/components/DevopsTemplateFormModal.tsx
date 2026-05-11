@@ -194,7 +194,7 @@ const DevopsTemplateFormModal: React.FC<DevopsTemplateFormModalProps> = ({
               onClick={() => setActiveFormTab(tab.id)}
               className={`px-3 py-1.5 text-xs font-medium border-b-2 whitespace-nowrap transition-colors ${
                 activeFormTab === tab.id
-                  ? 'border-theme-accent text-theme-accent'
+                  ? 'border-theme-info text-theme-info'
                   : 'border-transparent text-theme-secondary hover:text-theme-primary'
               }`}
             >

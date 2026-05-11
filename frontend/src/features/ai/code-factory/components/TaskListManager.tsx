@@ -21,7 +21,7 @@ const statusIcons: Record<string, string> = {
 
 const statusColors: Record<string, string> = {
   pending: 'text-theme-secondary',
-  in_progress: 'text-theme-accent',
+  in_progress: 'text-theme-info',
   completed: 'text-theme-success',
   failed: 'text-theme-error',
 };
@@ -75,7 +75,7 @@ export const TaskListManager: React.FC<Props> = ({ tasks = [] }) => {
             onClick={() => setFilter(f)}
             className={`px-3 py-1 text-xs rounded-full transition-colors ${
               filter === f
-                ? 'bg-theme-accent text-theme-on-primary'
+                ? 'bg-theme-info text-theme-on-primary'
                 : 'bg-theme-surface-bg text-theme-secondary hover:text-theme-primary'
             }`}
           >

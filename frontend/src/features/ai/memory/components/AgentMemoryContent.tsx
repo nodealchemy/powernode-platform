@@ -132,7 +132,7 @@ export const AgentMemoryContent: React.FC<AgentMemoryContentProps> = ({ onAction
   return (
     <div className="space-y-6">
       {/* Intro callout */}
-      <div className="rounded-lg border border-theme-border bg-theme-surface/50 p-4">
+      <div className="rounded-lg border border-theme bg-theme-surface/50 p-4">
         <div className="flex items-start gap-3">
           <Lightbulb className="w-5 h-5 text-theme-warning shrink-0 mt-0.5" />
           <div className="text-sm text-theme-secondary">
@@ -157,7 +157,7 @@ export const AgentMemoryContent: React.FC<AgentMemoryContentProps> = ({ onAction
             <select
               value={selectedAgentId}
               onChange={(e) => handleAgentChange(e.target.value)}
-              className="flex-1 text-sm rounded-lg bg-theme-surface border border-theme-border text-theme-primary py-2 px-3 focus:outline-none focus:ring-2 focus:ring-theme-primary"
+              className="flex-1 text-sm rounded-lg bg-theme-surface border border-theme text-theme-primary py-2 px-3 focus:outline-none focus:ring-2 focus:ring-theme-primary"
             >
               {agents.length === 0 && <option value="">No agents available</option>}
               {agents.map((agent) => (

@@ -143,7 +143,7 @@ export const ChannelSettingsModal: React.FC<ChannelSettingsModalProps> = ({
     }
   };
 
-  const inputClass = 'w-full px-3 py-2 rounded-lg border border-theme-border bg-theme-surface text-theme-primary';
+  const inputClass = 'w-full px-3 py-2 rounded-lg border border-theme bg-theme-surface text-theme-primary';
   const selectClass = `${inputClass} appearance-none`;
 
   const renderGeneralTab = () => (
@@ -441,7 +441,7 @@ export const ChannelSettingsModal: React.FC<ChannelSettingsModalProps> = ({
           )}
 
           {/* Tabs */}
-          <div className="flex border-b border-theme-border">
+          <div className="flex border-b border-theme">
             {tabs.map((tab) => (
               <button
                 key={tab.id}

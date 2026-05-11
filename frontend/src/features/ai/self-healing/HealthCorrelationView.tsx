@@ -36,7 +36,7 @@ export const HealthCorrelationView: React.FC<HealthCorrelationViewProps> = ({ co
         return (
           <div
             key={index}
-            className="p-3 rounded-lg bg-theme-surface border border-theme-border"
+            className="p-3 rounded-lg bg-theme-surface border border-theme"
           >
             <div className="flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 mt-0.5 text-theme-warning" />

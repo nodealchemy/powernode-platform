@@ -116,7 +116,7 @@ export const FederationPartnerList: React.FC<FederationPartnerListProps> = ({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-theme-text-primary">Federation Partners</h2>
-          <p className="text-sm text-theme-text-secondary">
+          <p className="text-sm text-theme-secondary">
             {totalCount} partner{totalCount !== 1 ? 's' : ''} registered
           </p>
         </div>
@@ -129,7 +129,7 @@ export const FederationPartnerList: React.FC<FederationPartnerListProps> = ({
       {/* Filters */}
       <div className="flex items-center gap-4">
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-theme-text-secondary" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-theme-secondary" />
           <Input
             placeholder="Search partners..."
             value={searchQuery}

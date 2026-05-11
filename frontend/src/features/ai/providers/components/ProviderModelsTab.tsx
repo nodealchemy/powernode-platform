@@ -61,7 +61,7 @@ export const ProviderModelsTab: React.FC<ProviderModelsTabProps> = ({
             {provider.supported_models.map((model, index) => (
               <div
                 key={model.id || index}
-                className="p-4 border border-theme-border rounded-lg hover:bg-theme-surface-hover transition-colors"
+                className="p-4 border border-theme rounded-lg hover:bg-theme-surface-hover transition-colors"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">

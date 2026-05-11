@@ -169,7 +169,7 @@ export const LearningsList: React.FC<LearningsListProps> = ({ refreshKey = 0 }) 
             placeholder="Search learnings..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-theme-surface border border-theme-border text-theme-primary placeholder:text-theme-muted focus:outline-none focus:ring-2 focus:ring-theme-primary"
+            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-theme-surface border border-theme text-theme-primary placeholder:text-theme-muted focus:outline-none focus:ring-2 focus:ring-theme-primary"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -177,7 +177,7 @@ export const LearningsList: React.FC<LearningsListProps> = ({ refreshKey = 0 }) 
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="text-sm rounded-lg bg-theme-surface border border-theme-border text-theme-primary py-2 px-3 focus:outline-none focus:ring-2 focus:ring-theme-primary"
+            className="text-sm rounded-lg bg-theme-surface border border-theme text-theme-primary py-2 px-3 focus:outline-none focus:ring-2 focus:ring-theme-primary"
           >
             <option value="">All Categories</option>
             {CATEGORIES.map((cat) => (
@@ -187,7 +187,7 @@ export const LearningsList: React.FC<LearningsListProps> = ({ refreshKey = 0 }) 
           <select
             value={selectedScope}
             onChange={(e) => setSelectedScope(e.target.value)}
-            className="text-sm rounded-lg bg-theme-surface border border-theme-border text-theme-primary py-2 px-3 focus:outline-none focus:ring-2 focus:ring-theme-primary"
+            className="text-sm rounded-lg bg-theme-surface border border-theme text-theme-primary py-2 px-3 focus:outline-none focus:ring-2 focus:ring-theme-primary"
           >
             <option value="">All Scopes</option>
             <option value="team">Team</option>
@@ -201,7 +201,7 @@ export const LearningsList: React.FC<LearningsListProps> = ({ refreshKey = 0 }) 
                 onClick={() => handleSort(opt.value)}
                 className={`px-2 py-1 text-xs rounded transition-colors ${
                   sortBy === opt.value
-                    ? 'bg-theme-accent/20 text-theme-accent font-medium'
+                    ? 'bg-theme-info/20 text-theme-info font-medium'
                     : 'text-theme-muted hover:text-theme-primary hover:bg-theme-surface-hover'
                 }`}
               >
@@ -256,7 +256,7 @@ export const LearningsList: React.FC<LearningsListProps> = ({ refreshKey = 0 }) 
               <div
                 key={learning.id}
                 onClick={() => setExpandedId(isExpanded ? null : learning.id)}
-                className="relative flex items-start gap-3 pt-5 pb-2 px-3 rounded-lg bg-theme-surface border border-theme-border hover:border-theme-primary transition-colors cursor-pointer"
+                className="relative flex items-start gap-3 pt-5 pb-2 px-3 rounded-lg bg-theme-surface border border-theme hover:border-theme-primary transition-colors cursor-pointer"
               >
                 <div className="absolute -top-2 left-2 z-10">
                   <Badge variant={CATEGORY_BADGE_VARIANT[learning.category] || 'default'} size="xs">

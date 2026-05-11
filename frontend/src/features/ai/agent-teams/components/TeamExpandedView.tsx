@@ -224,7 +224,7 @@ export const TeamExpandedView: React.FC<TeamExpandedViewProps> = ({
             'flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-md transition-colors',
             showHistory
               ? 'text-theme-info bg-theme-info/20'
-              : 'text-theme-secondary bg-theme-accent hover:bg-theme-accent/80'
+              : 'text-theme-secondary bg-theme-info hover:bg-theme-info/80'
           )}
         >
           <History size={14} />

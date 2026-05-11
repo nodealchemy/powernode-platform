@@ -69,7 +69,7 @@ export const CostProfiler: React.FC<CostProfilerProps> = ({
             costTier.label === 'Low' ? 'bg-theme-success/10 text-theme-success' :
             costTier.label === 'Medium' ? 'bg-theme-warning/10 text-theme-warning' :
             costTier.label === 'High' ? 'bg-theme-error/10 text-theme-danger' :
-            'bg-theme-accent text-theme-secondary'
+            'bg-theme-info text-theme-secondary'
           }`}>
             {costTier.label}
           </div>
@@ -113,7 +113,7 @@ export const CostProfiler: React.FC<CostProfilerProps> = ({
                     </div>
                     {totalCost > 0 && (
                       <div className="w-12">
-                        <div className="w-full bg-theme-accent rounded-full h-1">
+                        <div className="w-full bg-theme-info rounded-full h-1">
                           <div
                             className="h-1 rounded-full bg-theme-interactive-primary transition-all"
                             style={{ width: `${Math.min(costPct, 100)}%` }}

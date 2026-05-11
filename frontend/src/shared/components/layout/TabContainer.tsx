@@ -104,7 +104,7 @@ export const TabContainer: React.FC<TabContainerProps> = ({
         return `${baseClasses} ${sizeClass} ${disabledClass} border-b-2 -mb-px ${
           isActive
             ? 'border-theme-interactive-primary text-theme-interactive-primary'
-            : 'border-transparent text-theme-secondary hover:text-theme-primary hover:border-theme-border'
+            : 'border-transparent text-theme-secondary hover:text-theme-primary hover:border-theme'
         }`;
       
       default:

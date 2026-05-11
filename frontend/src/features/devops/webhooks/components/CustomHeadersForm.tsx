@@ -103,7 +103,7 @@ export const CustomHeadersForm: React.FC<CustomHeadersFormProps> = ({
       <div className="flex items-center justify-between">
         <div>
           <label className="block text-sm font-medium text-theme-text-primary">Custom Headers</label>
-          <p className="text-xs text-theme-text-secondary mt-0.5">
+          <p className="text-xs text-theme-secondary mt-0.5">
             Add custom HTTP headers to include with webhook deliveries ({headers.filter((h) => h.key.trim()).length}/{maxHeaders})
           </p>
         </div>
@@ -134,7 +134,7 @@ export const CustomHeadersForm: React.FC<CustomHeadersFormProps> = ({
                   onChange={(e) => handleHeaderChange(header.id, 'key', e.target.value)}
                   placeholder="X-Custom-Header"
                   disabled={disabled}
-                  className="w-full px-3 py-2 text-sm border border-theme-border rounded-lg bg-theme-bg-secondary text-theme-text-primary placeholder-theme-text-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-transparent disabled:opacity-50"
+                  className="w-full px-3 py-2 text-sm border border-theme rounded-lg bg-theme-background-secondary text-theme-text-primary placeholder-theme-text-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-transparent disabled:opacity-50"
                 />
               </div>
               <div>
@@ -147,7 +147,7 @@ export const CustomHeadersForm: React.FC<CustomHeadersFormProps> = ({
                   onChange={(e) => handleHeaderChange(header.id, 'value', e.target.value)}
                   placeholder="header-value"
                   disabled={disabled}
-                  className="w-full px-3 py-2 text-sm border border-theme-border rounded-lg bg-theme-bg-secondary text-theme-text-primary placeholder-theme-text-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-transparent disabled:opacity-50"
+                  className="w-full px-3 py-2 text-sm border border-theme rounded-lg bg-theme-background-secondary text-theme-text-primary placeholder-theme-text-tertiary focus:outline-none focus:ring-2 focus:ring-theme-primary focus:border-transparent disabled:opacity-50"
                 />
               </div>
             </div>
@@ -177,8 +177,8 @@ export const CustomHeadersForm: React.FC<CustomHeadersFormProps> = ({
       )}
 
       {hasValidHeaders && (
-        <div className="p-3 bg-theme-bg-tertiary rounded-lg">
-          <div className="text-xs font-medium text-theme-text-secondary mb-2">Preview</div>
+        <div className="p-3 bg-theme-background-secondary rounded-lg">
+          <div className="text-xs font-medium text-theme-secondary mb-2">Preview</div>
           <div className="font-mono text-xs space-y-0.5">
             {headers
               .filter((h) => h.key.trim())

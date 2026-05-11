@@ -57,7 +57,7 @@ export const RunMonitor: React.FC<Props> = ({ reviewState }) => {
                     : isCurrent
                     ? isFailed
                       ? 'bg-theme-error'
-                      : 'bg-theme-accent animate-pulse'
+                      : 'bg-theme-info animate-pulse'
                     : 'bg-theme-background-secondary-bg'
                 }`}
               />

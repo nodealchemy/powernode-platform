@@ -240,7 +240,7 @@ export const OutcomeBillingContent: React.FC = () => {
                 <p className="text-sm text-theme-secondary">Total Outcomes</p>
                 <p className="text-2xl font-bold text-theme-primary">{summary.total_outcomes}</p>
               </div>
-              <DollarSign className="h-8 w-8 text-theme-accent" />
+              <DollarSign className="h-8 w-8 text-theme-info" />
             </div>
             <p className="text-xs text-theme-secondary mt-2">
               <span className="text-theme-success">{summary.successful_outcomes} successful</span>
@@ -290,7 +290,7 @@ export const OutcomeBillingContent: React.FC = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === tab.id
-                  ? 'border-theme-accent text-theme-accent'
+                  ? 'border-theme-info text-theme-info'
                   : 'border-transparent text-theme-secondary hover:text-theme-primary'
               }`}
             >
@@ -304,7 +304,7 @@ export const OutcomeBillingContent: React.FC = () => {
       {/* Tab Content */}
       {loading ? (
         <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-accent border-t-theme-primary"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-info border-t-theme-primary"></div>
           <p className="mt-4 text-theme-secondary">Loading billing data...</p>
         </div>
       ) : (
@@ -327,7 +327,7 @@ export const OutcomeBillingContent: React.FC = () => {
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-3">
                         <h3 className="font-medium text-theme-primary">{def.name}</h3>
-                        <span className="px-2 py-1 text-xs bg-theme-accent/10 text-theme-accent rounded">{def.outcome_type}</span>
+                        <span className="px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded">{def.outcome_type}</span>
                         <span className={`px-2 py-1 text-xs rounded ${def.is_active ? 'text-theme-success bg-theme-success/10' : 'text-theme-secondary bg-theme-surface'}`}>
                           {def.is_active ? 'Active' : 'Inactive'}
                         </span>
@@ -380,7 +380,7 @@ export const OutcomeBillingContent: React.FC = () => {
                         <h3 className="font-medium text-theme-primary">{contract.name}</h3>
                         <span className={`px-2 py-1 text-xs rounded ${getStatusColor(contract.status)}`}>{contract.status}</span>
                         {contract.contract_type && (
-                          <span className="px-2 py-1 text-xs bg-theme-accent/10 text-theme-accent rounded">{contract.contract_type}</span>
+                          <span className="px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded">{contract.contract_type}</span>
                         )}
                       </div>
                       <div className="flex items-center gap-2">
@@ -454,8 +454,8 @@ export const OutcomeBillingContent: React.FC = () => {
             <div className="space-y-4">
               {/* Actions */}
               {selectedRecordIds.length > 0 && (
-                <div className="flex items-center gap-4 p-3 bg-theme-accent/10 rounded-lg">
-                  <span className="text-sm text-theme-accent">{selectedRecordIds.length} selected</span>
+                <div className="flex items-center gap-4 p-3 bg-theme-info/10 rounded-lg">
+                  <span className="text-sm text-theme-info">{selectedRecordIds.length} selected</span>
                   <button onClick={handleMarkBilled} className="btn-theme btn-theme-primary btn-theme-sm">
                     Mark as Billed
                   </button>
@@ -564,7 +564,7 @@ export const OutcomeBillingContent: React.FC = () => {
                         <span className={`px-2 py-1 text-xs rounded ${getSeverityColor(violation.severity)}`}>
                           {violation.severity}
                         </span>
-                        <span className="px-2 py-1 text-xs bg-theme-accent/10 text-theme-accent rounded">
+                        <span className="px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded">
                           {violation.violation_type}
                         </span>
                         <span className={`px-2 py-1 text-xs rounded ${getStatusColor(violation.credit.status)}`}>

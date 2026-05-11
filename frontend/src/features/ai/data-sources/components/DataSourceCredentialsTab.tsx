@@ -33,7 +33,7 @@ export const DataSourceCredentialsTab: React.FC<DataSourceCredentialsTabProps> =
             {credentials.map((credential) => (
               <div
                 key={credential.id}
-                className="flex items-center justify-between p-3 border border-theme-border rounded-lg"
+                className="flex items-center justify-between p-3 border border-theme rounded-lg"
               >
                 <div className="flex items-center gap-3">
                   <div className={`h-3 w-3 rounded-full ${

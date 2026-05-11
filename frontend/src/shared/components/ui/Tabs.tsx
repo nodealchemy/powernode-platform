@@ -82,7 +82,7 @@ export const TabsTrigger: React.FC<TabsTriggerProps> = ({
         border-b-2 -mb-px whitespace-nowrap
         ${isActive
           ? 'border-theme-interactive-primary text-theme-interactive-primary'
-          : 'border-transparent text-theme-muted hover:text-theme-primary hover:border-theme-border'
+          : 'border-transparent text-theme-muted hover:text-theme-primary hover:border-theme'
         }
         ${className}
       `.replace(/\s+/g, ' ').trim()}

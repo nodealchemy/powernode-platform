@@ -30,7 +30,7 @@ const getTeamTypeColor = (type: string) => {
     case 'parallel':
       return 'bg-theme-warning/10 text-theme-warning';
     default:
-      return 'bg-theme-accent text-theme-secondary';
+      return 'bg-theme-info text-theme-secondary';
   }
 };
 
@@ -39,11 +39,11 @@ const getStatusColor = (status: string) => {
     case 'active':
       return 'bg-theme-success/10 text-theme-success';
     case 'inactive':
-      return 'bg-theme-accent text-theme-secondary';
+      return 'bg-theme-info text-theme-secondary';
     case 'archived':
       return 'bg-theme-error/10 text-theme-error';
     default:
-      return 'bg-theme-accent text-theme-secondary';
+      return 'bg-theme-info text-theme-secondary';
   }
 };
 
@@ -94,7 +94,7 @@ export const TeamCard: React.FC<TeamCardProps> = ({
             {team.team_type}
           </span>
 
-          <span className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-theme-accent text-theme-primary">
+          <span className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-theme-info text-theme-primary">
             <Users size={12} />
             {team.member_count} {team.member_count === 1 ? 'member' : 'members'}
           </span>

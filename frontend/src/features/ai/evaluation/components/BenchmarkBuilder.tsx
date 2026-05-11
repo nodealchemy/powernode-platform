@@ -114,7 +114,7 @@ export const BenchmarkBuilder: React.FC = () => {
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
                   placeholder="e.g., Weekly Agent Quality Check"
-                  className="w-full px-3 py-2 text-sm bg-theme-surface border border-theme-border rounded-md text-theme-primary"
+                  className="w-full px-3 py-2 text-sm bg-theme-surface border border-theme rounded-md text-theme-primary"
                 />
               </div>
               <div>
@@ -122,7 +122,7 @@ export const BenchmarkBuilder: React.FC = () => {
                 <select
                   value={formAgentId}
                   onChange={(e) => setFormAgentId(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-theme-surface border border-theme-border rounded-md text-theme-primary"
+                  className="w-full px-3 py-2 text-sm bg-theme-surface border border-theme rounded-md text-theme-primary"
                 >
                   <option value="">Select an agent</option>
                   {agents.map((a) => (
@@ -140,7 +140,7 @@ export const BenchmarkBuilder: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setShowCreate(false)}
-                  className="px-4 py-2 text-sm font-medium bg-theme-surface border border-theme-border rounded-md hover:bg-theme-surface-hover"
+                  className="px-4 py-2 text-sm font-medium bg-theme-surface border border-theme rounded-md hover:bg-theme-surface-hover"
                 >
                   Cancel
                 </button>

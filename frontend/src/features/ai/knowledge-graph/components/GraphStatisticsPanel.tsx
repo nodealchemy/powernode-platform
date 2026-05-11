@@ -11,7 +11,7 @@ const ENTITY_TYPE_COLORS: Record<EntityType, string> = {
   entity: 'text-theme-success',
   document: 'text-theme-warning',
   agent: 'text-theme-interactive-primary',
-  skill: 'text-theme-accent',
+  skill: 'text-theme-info',
   context: 'text-theme-error',
   learning: 'text-theme-success',
 };

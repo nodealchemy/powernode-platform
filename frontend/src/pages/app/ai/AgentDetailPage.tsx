@@ -104,7 +104,7 @@ const IntelligenceContent: React.FC<{ agentId: string }> = ({ agentId }) => {
         ) : (
           <div className="space-y-3">
             {replays.map(r => (
-              <div key={r.id} className="border border-theme-border rounded-lg p-3">
+              <div key={r.id} className="border border-theme rounded-lg p-3">
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Badge variant={r.status === 'active' ? 'success' : 'secondary'} size="sm">{r.status}</Badge>
@@ -135,7 +135,7 @@ const IntelligenceContent: React.FC<{ agentId: string }> = ({ agentId }) => {
         ) : (
           <div className="space-y-3">
             {challenges.map(c => (
-              <div key={c.id} className="border border-theme-border rounded-lg p-3">
+              <div key={c.id} className="border border-theme rounded-lg p-3">
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Badge variant={getChallengeStatusColor(c.status) as 'success' | 'danger' | 'info' | 'secondary'} size="sm">{c.status}</Badge>

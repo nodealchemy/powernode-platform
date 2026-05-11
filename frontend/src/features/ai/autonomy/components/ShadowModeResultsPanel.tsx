@@ -10,7 +10,7 @@ const formatDate = (dateStr: string): string => {
 };
 
 const ExecutionRow: React.FC<{ execution: ShadowExecution }> = ({ execution }) => (
-  <div className="p-3 rounded-lg bg-theme-surface border border-theme-border">
+  <div className="p-3 rounded-lg bg-theme-surface border border-theme">
     <div className="flex items-center justify-between mb-2">
       <div className="flex items-center gap-2">
         {execution.agreed ? (

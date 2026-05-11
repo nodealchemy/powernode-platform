@@ -186,7 +186,7 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-theme-hover text-theme-secondary"
+            className="p-1 rounded-lg hover:bg-theme-surface-hover text-theme-secondary"
           >
             <X className="w-5 h-5" />
           </button>
@@ -318,7 +318,7 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
                 Supported Features
               </label>
               <div className="grid grid-cols-2 gap-2">
-                <label className="flex items-center gap-2 p-2 rounded-lg border border-theme hover:bg-theme-hover cursor-pointer">
+                <label className="flex items-center gap-2 p-2 rounded-lg border border-theme hover:bg-theme-surface-hover cursor-pointer">
                   <input
                     type="checkbox"
                     checked={formData.supports_pat}
@@ -329,7 +329,7 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
                   />
                   <span className="text-sm text-theme-primary">Personal Access Tokens</span>
                 </label>
-                <label className="flex items-center gap-2 p-2 rounded-lg border border-theme hover:bg-theme-hover cursor-pointer">
+                <label className="flex items-center gap-2 p-2 rounded-lg border border-theme hover:bg-theme-surface-hover cursor-pointer">
                   <input
                     type="checkbox"
                     checked={formData.supports_oauth}
@@ -340,7 +340,7 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
                   />
                   <span className="text-sm text-theme-primary">OAuth</span>
                 </label>
-                <label className="flex items-center gap-2 p-2 rounded-lg border border-theme hover:bg-theme-hover cursor-pointer">
+                <label className="flex items-center gap-2 p-2 rounded-lg border border-theme hover:bg-theme-surface-hover cursor-pointer">
                   <input
                     type="checkbox"
                     checked={formData.supports_webhooks}
@@ -351,7 +351,7 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
                   />
                   <span className="text-sm text-theme-primary">Webhooks</span>
                 </label>
-                <label className="flex items-center gap-2 p-2 rounded-lg border border-theme hover:bg-theme-hover cursor-pointer">
+                <label className="flex items-center gap-2 p-2 rounded-lg border border-theme hover:bg-theme-surface-hover cursor-pointer">
                   <input
                     type="checkbox"
                     checked={formData.supports_devops}

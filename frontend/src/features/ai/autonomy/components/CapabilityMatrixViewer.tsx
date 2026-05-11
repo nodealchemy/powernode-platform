@@ -32,7 +32,7 @@ export const CapabilityMatrixViewer: React.FC = () => {
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-theme-border">
+              <tr className="border-b border-theme">
                 <th className="text-left py-2 px-2 text-theme-muted font-medium">Action</th>
                 {TIER_ORDER.map(tier => (
                   <th key={tier} className="text-center py-2 px-2 text-theme-muted font-medium capitalize">
@@ -43,7 +43,7 @@ export const CapabilityMatrixViewer: React.FC = () => {
             </thead>
             <tbody>
               {actionTypes.map(action => (
-                <tr key={action} className="border-b border-theme-border last:border-0">
+                <tr key={action} className="border-b border-theme last:border-0">
                   <td className="py-2 px-2 text-theme-primary font-medium">
                     {action.replace(/_/g, ' ')}
                   </td>

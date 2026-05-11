@@ -12,7 +12,7 @@ const POLICY_VARIANT: Record<string, 'warning' | 'info' | 'success'> = {
 };
 
 const PolicyRow: React.FC<{ policy: DelegationPolicy }> = ({ policy }) => (
-  <div className="p-3 rounded-lg bg-theme-surface border border-theme-border">
+  <div className="p-3 rounded-lg bg-theme-surface border border-theme">
     <div className="flex items-center justify-between mb-2">
       <div className="flex items-center gap-2">
         <GitBranch className="h-4 w-4 text-theme-muted" />
@@ -36,7 +36,7 @@ const PolicyRow: React.FC<{ policy: DelegationPolicy }> = ({ policy }) => (
     {policy.allowed_delegate_types.length > 0 && (
       <div className="mt-2 flex gap-1 flex-wrap">
         {policy.allowed_delegate_types.map(t => (
-          <span key={t} className="px-1.5 py-0.5 text-[10px] rounded bg-theme-bg-secondary text-theme-muted">
+          <span key={t} className="px-1.5 py-0.5 text-[10px] rounded bg-theme-background-secondary text-theme-muted">
             {t}
           </span>
         ))}

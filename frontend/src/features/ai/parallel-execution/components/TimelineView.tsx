@@ -46,7 +46,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ worktrees }) => {
 
   if (worktrees.length === 0) {
     return (
-      <div className="text-center p-8 text-theme-text-secondary">
+      <div className="text-center p-8 text-theme-secondary">
         No timeline data available.
       </div>
     );
@@ -65,7 +65,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ worktrees }) => {
 
   return (
     <div className="overflow-x-auto">
-      <svg width={chartWidth} height={totalHeight} className="text-theme-text-secondary">
+      <svg width={chartWidth} height={totalHeight} className="text-theme-secondary">
         {/* Time axis */}
         <line
           x1={labelWidth}

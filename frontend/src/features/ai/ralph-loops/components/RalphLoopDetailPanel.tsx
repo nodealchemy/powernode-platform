@@ -159,7 +159,7 @@ export const RalphLoopDetailPanel: React.FC<RalphLoopDetailPanelProps> = ({
         />
 
         {/* Progress Bar */}
-        <div className="h-2 bg-theme-bg-secondary rounded-full overflow-hidden">
+        <div className="h-2 bg-theme-background-secondary rounded-full overflow-hidden">
           <div
             className={cn(
               'h-full rounded-full transition-all duration-500',
@@ -180,7 +180,7 @@ export const RalphLoopDetailPanel: React.FC<RalphLoopDetailPanelProps> = ({
             <GitFork className="w-5 h-5 text-theme-status-info" />
             <div className="flex-1">
               <div className="text-sm font-medium text-theme-text-primary">Parallel Execution Active</div>
-              <div className="text-xs text-theme-text-secondary">
+              <div className="text-xs text-theme-secondary">
                 Session {String(loop.configuration.parallel_session_id).substring(0, 8)} - Click to view worktree dashboard
               </div>
             </div>

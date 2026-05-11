@@ -150,7 +150,7 @@ export const OAuthConsentPage: React.FC = () => {
         </p>
 
         {/* Signed in as */}
-        <div className="bg-theme-hover/50 rounded-md p-3 mb-6">
+        <div className="bg-theme-surface-hover/50 rounded-md p-3 mb-6">
           <p className="text-sm text-theme-secondary">
             Signed in as <span className="font-medium text-theme-primary">{currentUser?.email}</span>
           </p>
@@ -184,7 +184,7 @@ export const OAuthConsentPage: React.FC = () => {
           <button
             onClick={handleDeny}
             disabled={submitting}
-            className="flex-1 px-4 py-2 bg-theme-surface border border-theme rounded-md text-theme-primary hover:bg-theme-hover transition-colors disabled:opacity-50"
+            className="flex-1 px-4 py-2 bg-theme-surface border border-theme rounded-md text-theme-primary hover:bg-theme-surface-hover transition-colors disabled:opacity-50"
           >
             Deny
           </button>

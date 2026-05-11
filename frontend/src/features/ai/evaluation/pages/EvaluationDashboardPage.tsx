@@ -17,7 +17,7 @@ export const EvaluationContent: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-1 border-b border-theme-border">
+      <div className="flex gap-1 border-b border-theme">
         {evalTabs.map((tab) => (
           <button
             key={tab.id}

@@ -86,7 +86,7 @@ export const StartAssessmentModal: React.FC<StartAssessmentModalProps> = ({
                   className={`w-full p-4 rounded-lg border text-left transition-colors ${
                     selectedType === type.value
                       ? 'border-theme-interactive-primary bg-theme-interactive-primary/10'
-                      : 'border-theme hover:border-theme-border-hover'
+                      : 'border-theme hover:border-theme'
                   }`}
                 >
                   <p className="font-medium text-theme-primary">{type.label}</p>

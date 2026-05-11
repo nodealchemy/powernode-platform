@@ -60,7 +60,7 @@ export const ExecutorManualTab: React.FC<ExecutorManualTabProps> = ({
 
       {/* Advanced: Delegation Config */}
       {showAdvanced && (
-        <div className="space-y-3 pt-3 border-t border-theme-border-primary">
+        <div className="space-y-3 pt-3 border-t border-theme-interactive-primary">
           <div>
             <label className="block text-sm font-medium text-theme-text-primary mb-1">
               Timeout (seconds)
@@ -103,8 +103,8 @@ export const ExecutorManualTab: React.FC<ExecutorManualTabProps> = ({
               </label>
               {loadingFallbackExecutors ? (
                 <div className="flex items-center gap-2 py-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-theme-text-secondary" />
-                  <span className="text-sm text-theme-text-secondary">Loading executors...</span>
+                  <Loader2 className="w-4 h-4 animate-spin text-theme-secondary" />
+                  <span className="text-sm text-theme-secondary">Loading executors...</span>
                 </div>
               ) : fallbackExecutorOptions.length > 0 ? (
                 <Select

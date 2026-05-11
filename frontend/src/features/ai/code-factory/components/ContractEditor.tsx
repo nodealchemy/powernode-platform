@@ -65,7 +65,7 @@ export const ContractEditor: React.FC<Props> = ({ contract, onSave, onClose }) =
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 bg-theme-surface-bg rounded border border-theme-border text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
+              className="w-full px-3 py-2 bg-theme-surface-bg rounded border border-theme text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-accent"
               placeholder="Production Risk Contract"
             />
           </div>
@@ -75,7 +75,7 @@ export const ContractEditor: React.FC<Props> = ({ contract, onSave, onClose }) =
               <label className="text-sm font-medium text-theme-secondary">Risk Tiers</label>
               <button
                 onClick={handleAddTier}
-                className="text-xs text-theme-accent hover:underline"
+                className="text-xs text-theme-info hover:underline"
               >
                 + Add Tier
               </button>
@@ -87,7 +87,7 @@ export const ContractEditor: React.FC<Props> = ({ contract, onSave, onClose }) =
                   <select
                     value={tier.tier}
                     onChange={(e) => handleTierChange(index, 'tier', e.target.value)}
-                    className="px-2 py-1 bg-theme-surface-bg rounded border border-theme-border text-sm text-theme-primary"
+                    className="px-2 py-1 bg-theme-surface-bg rounded border border-theme text-sm text-theme-primary"
                   >
                     <option value="low">Low</option>
                     <option value="standard">Standard</option>
@@ -111,7 +111,7 @@ export const ContractEditor: React.FC<Props> = ({ contract, onSave, onClose }) =
                     onChange={(e) =>
                       handleTierChange(index, 'patterns', e.target.value.split(',').map(p => p.trim()))
                     }
-                    className="w-full px-2 py-1 bg-theme-surface-bg rounded border border-theme-border text-sm text-theme-primary"
+                    className="w-full px-2 py-1 bg-theme-surface-bg rounded border border-theme text-sm text-theme-primary"
                   />
                 </div>
                 <div>
@@ -122,7 +122,7 @@ export const ContractEditor: React.FC<Props> = ({ contract, onSave, onClose }) =
                     onChange={(e) =>
                       handleTierChange(index, 'required_checks', e.target.value.split(',').map(c => c.trim()))
                     }
-                    className="w-full px-2 py-1 bg-theme-surface-bg rounded border border-theme-border text-sm text-theme-primary"
+                    className="w-full px-2 py-1 bg-theme-surface-bg rounded border border-theme text-sm text-theme-primary"
                   />
                 </div>
                 <div className="flex items-center gap-4">
@@ -141,7 +141,7 @@ export const ContractEditor: React.FC<Props> = ({ contract, onSave, onClose }) =
                       min="0"
                       value={tier.min_reviewers}
                       onChange={(e) => handleTierChange(index, 'min_reviewers', parseInt(e.target.value) || 0)}
-                      className="w-16 px-1 py-0.5 bg-theme-surface-bg rounded border border-theme-border text-sm text-theme-primary"
+                      className="w-16 px-1 py-0.5 bg-theme-surface-bg rounded border border-theme text-sm text-theme-primary"
                     />
                   </label>
                 </div>
@@ -150,7 +150,7 @@ export const ContractEditor: React.FC<Props> = ({ contract, onSave, onClose }) =
           </div>
         </div>
 
-        <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-theme-border">
+        <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-theme">
           <button
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-theme-secondary hover:text-theme-primary transition-colors"
@@ -160,7 +160,7 @@ export const ContractEditor: React.FC<Props> = ({ contract, onSave, onClose }) =
           <button
             onClick={handleSave}
             disabled={saving || !name.trim()}
-            className="px-4 py-2 text-sm font-medium bg-theme-accent text-theme-on-primary rounded hover:opacity-90 disabled:opacity-50 transition-opacity"
+            className="px-4 py-2 text-sm font-medium bg-theme-info text-theme-on-primary rounded hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
             {saving ? 'Saving...' : contract ? 'Update' : 'Create'}
           </button>

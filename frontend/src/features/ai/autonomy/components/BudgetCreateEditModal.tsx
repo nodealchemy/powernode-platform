@@ -50,12 +50,12 @@ export const BudgetCreateEditModal: React.FC<BudgetCreateEditModalProps> = ({ bu
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-theme-surface border border-theme-border rounded-xl shadow-xl w-full max-w-md mx-4">
-        <div className="flex items-center justify-between p-4 border-b border-theme-border">
+      <div className="bg-theme-surface border border-theme rounded-xl shadow-xl w-full max-w-md mx-4">
+        <div className="flex items-center justify-between p-4 border-b border-theme">
           <h3 className="text-lg font-semibold text-theme-primary">
             {isEdit ? 'Edit Budget' : 'Create Budget'}
           </h3>
-          <button onClick={onClose} className="p-1 rounded hover:bg-theme-bg-secondary text-theme-muted">
+          <button onClick={onClose} className="p-1 rounded hover:bg-theme-background-secondary text-theme-muted">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -68,7 +68,7 @@ export const BudgetCreateEditModal: React.FC<BudgetCreateEditModalProps> = ({ bu
                 type="text"
                 value={agentId}
                 onChange={(e) => setAgentId(e.target.value)}
-                className="w-full rounded-md border border-theme bg-theme-bg-secondary text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info"
+                className="w-full rounded-md border border-theme bg-theme-background-secondary text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info"
                 placeholder="Enter agent UUID"
                 required
               />
@@ -83,7 +83,7 @@ export const BudgetCreateEditModal: React.FC<BudgetCreateEditModalProps> = ({ bu
               min="0.01"
               value={totalDollars}
               onChange={(e) => setTotalDollars(e.target.value)}
-              className="w-full rounded-md border border-theme bg-theme-bg-secondary text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info"
+              className="w-full rounded-md border border-theme bg-theme-background-secondary text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info"
               placeholder="10.00"
               required
             />
@@ -95,7 +95,7 @@ export const BudgetCreateEditModal: React.FC<BudgetCreateEditModalProps> = ({ bu
               <select
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
-                className="w-full rounded-md border border-theme bg-theme-bg-secondary text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info"
+                className="w-full rounded-md border border-theme bg-theme-background-secondary text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info"
               >
                 <option value="USD">USD</option>
                 <option value="EUR">EUR</option>
@@ -107,7 +107,7 @@ export const BudgetCreateEditModal: React.FC<BudgetCreateEditModalProps> = ({ bu
               <select
                 value={periodType}
                 onChange={(e) => setPeriodType(e.target.value)}
-                className="w-full rounded-md border border-theme bg-theme-bg-secondary text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info"
+                className="w-full rounded-md border border-theme bg-theme-background-secondary text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info"
               >
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
@@ -125,7 +125,7 @@ export const BudgetCreateEditModal: React.FC<BudgetCreateEditModalProps> = ({ bu
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm rounded-md border border-theme text-theme-primary hover:bg-theme-bg-secondary"
+              className="px-4 py-2 text-sm rounded-md border border-theme text-theme-primary hover:bg-theme-background-secondary"
             >
               Cancel
             </button>

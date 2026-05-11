@@ -88,7 +88,7 @@ export const ContainerLogViewer: React.FC<ContainerLogViewerProps> = ({
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="bg-theme-bg-surface rounded-lg border border-theme overflow-auto max-h-[500px] custom-scrollbar"
+        className="bg-theme-surface rounded-lg border border-theme overflow-auto max-h-[500px] custom-scrollbar"
       >
         {isLoading ? (
           <div className="p-4 text-center text-xs text-theme-tertiary animate-pulse">

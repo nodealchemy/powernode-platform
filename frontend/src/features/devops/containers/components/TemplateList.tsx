@@ -107,7 +107,7 @@ export const TemplateList: React.FC<TemplateListProps> = ({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-theme-text-primary">Container Templates</h2>
-          <p className="text-sm text-theme-text-secondary">
+          <p className="text-sm text-theme-secondary">
             {totalCount} template{totalCount !== 1 ? 's' : ''} available
           </p>
         </div>
@@ -116,7 +116,7 @@ export const TemplateList: React.FC<TemplateListProps> = ({
       {/* Search and Filters */}
       <form onSubmit={handleSearch} className="flex items-center gap-4">
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-theme-text-secondary" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-theme-secondary" />
           <Input
             placeholder="Search templates..."
             value={searchQuery}
@@ -178,7 +178,7 @@ export const TemplateList: React.FC<TemplateListProps> = ({
                 key={template.id}
                 className={cn(
                   'cursor-pointer transition-all hover:shadow-md',
-                  'border-theme-border-primary'
+                  'border-theme-interactive-primary'
                 )}
                 onClick={() => onSelectTemplate?.(template)}
               >
@@ -187,12 +187,12 @@ export const TemplateList: React.FC<TemplateListProps> = ({
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <FileCode className="w-5 h-5 text-theme-text-secondary flex-shrink-0" />
+                        <FileCode className="w-5 h-5 text-theme-secondary flex-shrink-0" />
                         <h3 className="font-medium text-theme-text-primary truncate">
                           {template.name}
                         </h3>
                       </div>
-                      <div className="flex items-center gap-2 mt-1 text-xs text-theme-text-secondary">
+                      <div className="flex items-center gap-2 mt-1 text-xs text-theme-secondary">
                         <VisibilityIcon className="w-3 h-3" />
                         <span className="capitalize">{template.visibility}</span>
                         {template.category && (
@@ -210,13 +210,13 @@ export const TemplateList: React.FC<TemplateListProps> = ({
 
                   {/* Description */}
                   {template.description && (
-                    <p className="text-sm text-theme-text-secondary line-clamp-2 mb-3">
+                    <p className="text-sm text-theme-secondary line-clamp-2 mb-3">
                       {template.description}
                     </p>
                   )}
 
                   {/* Image */}
-                  <div className="text-xs text-theme-text-secondary font-mono bg-theme-bg-secondary px-2 py-1 rounded mb-3 truncate">
+                  <div className="text-xs text-theme-secondary font-mono bg-theme-background-secondary px-2 py-1 rounded mb-3 truncate">
                     {template.image_name}
                   </div>
 
@@ -241,14 +241,14 @@ export const TemplateList: React.FC<TemplateListProps> = ({
                       </Badge>
                     )}
                     {template.last_built_at && (
-                      <span className="text-xs text-theme-text-secondary">
+                      <span className="text-xs text-theme-secondary">
                         Built {new Date(template.last_built_at).toLocaleDateString()}
                       </span>
                     )}
                   </div>
 
                   {/* Stats */}
-                  <div className="flex items-center gap-4 text-sm text-theme-text-secondary mb-3">
+                  <div className="flex items-center gap-4 text-sm text-theme-secondary mb-3">
                     <div className="flex items-center gap-1">
                       <Play className="w-4 h-4" />
                       <span>{template.execution_count} runs</span>
@@ -268,7 +268,7 @@ export const TemplateList: React.FC<TemplateListProps> = ({
                   </div>
 
                   {/* Footer */}
-                  <div className="flex items-center justify-end gap-2 pt-3 border-t border-theme-border-primary">
+                  <div className="flex items-center justify-end gap-2 pt-3 border-t border-theme-interactive-primary">
                     {template.gitea_repo_full_name && (
                       <Button
                         variant="outline"

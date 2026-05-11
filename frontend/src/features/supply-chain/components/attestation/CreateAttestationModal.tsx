@@ -98,7 +98,7 @@ export const CreateAttestationModal: React.FC<CreateAttestationModalProps> = ({
                   className={`p-3 rounded-lg border text-left transition-colors ${
                     attestationType === type.value
                       ? 'border-theme-interactive-primary bg-theme-interactive-primary/10'
-                      : 'border-theme hover:border-theme-border-hover'
+                      : 'border-theme hover:border-theme'
                   }`}
                 >
                   <p className="font-medium text-theme-primary text-sm">{type.label}</p>

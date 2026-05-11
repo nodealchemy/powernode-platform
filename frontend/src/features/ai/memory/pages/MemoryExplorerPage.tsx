@@ -176,7 +176,7 @@ export const MemoryExplorerContent: React.FC<MemoryExplorerContentProps> = ({ on
             <select
               value={selectedAgentId}
               onChange={(e) => handleAgentChange(e.target.value)}
-              className="flex-1 text-sm rounded-lg bg-theme-surface border border-theme-border text-theme-primary py-2 px-3 focus:outline-none focus:ring-2 focus:ring-theme-primary"
+              className="flex-1 text-sm rounded-lg bg-theme-surface border border-theme text-theme-primary py-2 px-3 focus:outline-none focus:ring-2 focus:ring-theme-primary"
             >
               {agents.length === 0 && <option value="">No agents available</option>}
               {agents.map((agent) => (

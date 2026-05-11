@@ -484,7 +484,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
         );
       case 'disconnected':
         return (
-          <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-theme-bg-subtle text-theme-secondary">
+          <span className="flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-theme-background-secondary text-theme-secondary">
             <AlertTriangle className="w-3 h-3" />
             Disconnected
           </span>
@@ -550,7 +550,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
                           )}
                           {getStatusBadge(provider.status)}
                           {provider.credentialsCount > 0 && (
-                            <span className="px-2 py-0.5 text-xs rounded-full bg-theme-bg-subtle text-theme-secondary">
+                            <span className="px-2 py-0.5 text-xs rounded-full bg-theme-background-secondary text-theme-secondary">
                               {provider.credentialsCount} credential{provider.credentialsCount !== 1 ? 's' : ''}
                             </span>
                           )}
@@ -570,7 +570,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
                     <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => handleEditProvider(provider.id)}
-                        className="p-2 hover:bg-theme-bg-subtle rounded-lg text-theme-secondary hover:text-theme-primary"
+                        className="p-2 hover:bg-theme-background-secondary rounded-lg text-theme-secondary hover:text-theme-primary"
                         title="Settings"
                       >
                         <Settings className="w-4 h-4" />
@@ -578,7 +578,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
                       <div className="relative" ref={openMenuId === provider.id ? menuRef : null}>
                         <button
                           onClick={() => setOpenMenuId(openMenuId === provider.id ? null : provider.id)}
-                          className="p-2 hover:bg-theme-bg-subtle rounded-lg text-theme-secondary hover:text-theme-primary"
+                          className="p-2 hover:bg-theme-background-secondary rounded-lg text-theme-secondary hover:text-theme-primary"
                         >
                           <MoreVertical className="w-4 h-4" />
                         </button>
@@ -587,14 +587,14 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
                             <button
                               onClick={() => handleTestConnection(provider.id)}
                               disabled={testing === provider.id}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-primary hover:bg-theme-bg-subtle disabled:opacity-50"
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-primary hover:bg-theme-background-secondary disabled:opacity-50"
                             >
                               <TestTube className={`w-4 h-4 ${testing === provider.id ? 'animate-pulse' : ''}`} />
                               {testing === provider.id ? 'Testing...' : 'Test Connection'}
                             </button>
                             <button
                               onClick={() => handleViewRepositories(provider.id)}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-primary hover:bg-theme-bg-subtle"
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-primary hover:bg-theme-background-secondary"
                             >
                               <FolderGit2 className="w-4 h-4" />
                               View Repositories
@@ -605,7 +605,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={() => setOpenMenuId(null)}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-primary hover:bg-theme-bg-subtle"
+                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme-primary hover:bg-theme-background-secondary"
                               >
                                 <ExternalLink className="w-4 h-4" />
                                 Open Provider
@@ -667,25 +667,25 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
                       <h4 className="text-sm font-medium text-theme-primary mb-3">Capabilities</h4>
                       <div className="flex flex-wrap gap-2">
                         {provider.supportsOAuth && (
-                          <span className="flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-theme-bg-subtle text-theme-secondary">
+                          <span className="flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-theme-background-secondary text-theme-secondary">
                             <Shield className="w-3 h-3" />
                             OAuth
                           </span>
                         )}
                         {provider.supportsPAT && (
-                          <span className="flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-theme-bg-subtle text-theme-secondary">
+                          <span className="flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-theme-background-secondary text-theme-secondary">
                             <Key className="w-3 h-3" />
                             Personal Access Tokens
                           </span>
                         )}
                         {provider.supportsWebhooks && (
-                          <span className="flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-theme-bg-subtle text-theme-secondary">
+                          <span className="flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-theme-background-secondary text-theme-secondary">
                             <Webhook className="w-3 h-3" />
                             Webhooks
                           </span>
                         )}
                         {provider.supportsDevOps && (
-                          <span className="flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-theme-bg-subtle text-theme-secondary">
+                          <span className="flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-theme-background-secondary text-theme-secondary">
                             <Cpu className="w-3 h-3" />
                             CI/CD
                           </span>
@@ -693,7 +693,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
                         {provider.capabilities.map((cap) => (
                           <span
                             key={cap}
-                            className="px-2 py-1 text-xs rounded-md bg-theme-bg-subtle text-theme-tertiary"
+                            className="px-2 py-1 text-xs rounded-md bg-theme-background-secondary text-theme-tertiary"
                           >
                             {cap}
                           </span>
@@ -778,7 +778,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
                                 <button
                                   onClick={() => handleTestCredential(provider.id, credential.id)}
                                   disabled={credentialActionLoading !== null}
-                                  className="p-1.5 rounded-lg hover:bg-theme-hover text-theme-secondary hover:text-theme-primary"
+                                  className="p-1.5 rounded-lg hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
                                   title="Test Connection"
                                 >
                                   {credentialActionLoading === `test-${credential.id}` ? (
@@ -789,7 +789,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
                                 </button>
                                 <button
                                   onClick={() => handleEditCredential(provider, credential)}
-                                  className="p-1.5 rounded-lg hover:bg-theme-hover text-theme-secondary hover:text-theme-primary"
+                                  className="p-1.5 rounded-lg hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
                                   title="Edit"
                                 >
                                   <Settings className="w-4 h-4" />
@@ -798,7 +798,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
                                   <button
                                     onClick={() => handleMakeDefaultCredential(provider.id, credential.id)}
                                     disabled={credentialActionLoading !== null}
-                                    className="p-1.5 rounded-lg hover:bg-theme-hover text-theme-secondary hover:text-theme-primary"
+                                    className="p-1.5 rounded-lg hover:bg-theme-surface-hover text-theme-secondary hover:text-theme-primary"
                                     title="Make Default"
                                   >
                                     {credentialActionLoading === `default-${credential.id}` ? (

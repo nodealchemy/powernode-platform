@@ -160,14 +160,14 @@ export const CodeFactoryContent: React.FC<{
     <>
       <div className="space-y-6">
         {/* Tab Navigation */}
-        <div className="flex space-x-1 border-b border-theme-border">
+        <div className="flex space-x-1 border-b border-theme">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => navigateTab(tab.id)}
               className={`px-4 py-2 text-sm font-medium transition-colors ${
                 activeTab === tab.id
-                  ? 'text-theme-accent border-b-2 border-theme-accent'
+                  ? 'text-theme-info border-b-2 border-theme-info'
                   : 'text-theme-secondary hover:text-theme-primary'
               }`}
             >
@@ -193,7 +193,7 @@ export const CodeFactoryContent: React.FC<{
                   <h3 className="text-sm font-semibold text-theme-primary">Active Contracts</h3>
                   <button
                     onClick={() => navigateTab('contracts')}
-                    className="text-xs text-theme-accent hover:underline"
+                    className="text-xs text-theme-info hover:underline"
                   >
                     View All
                   </button>
@@ -209,7 +209,7 @@ export const CodeFactoryContent: React.FC<{
                   <h3 className="text-sm font-semibold text-theme-primary">Recent Runs</h3>
                   <button
                     onClick={() => navigateTab('runs')}
-                    className="text-xs text-theme-accent hover:underline"
+                    className="text-xs text-theme-info hover:underline"
                   >
                     View All
                   </button>
@@ -228,7 +228,7 @@ export const CodeFactoryContent: React.FC<{
                   <h3 className="text-sm font-semibold text-theme-primary">Harness Gaps</h3>
                   <button
                     onClick={() => navigateTab('harness-gaps')}
-                    className="text-xs text-theme-accent hover:underline"
+                    className="text-xs text-theme-info hover:underline"
                   >
                     View All
                   </button>
@@ -270,7 +270,7 @@ export const CodeFactoryContent: React.FC<{
                   <h3 className="text-sm font-semibold text-theme-primary">Evidence</h3>
                   <button
                     onClick={() => navigateTab('evidence')}
-                    className="text-xs text-theme-accent hover:underline"
+                    className="text-xs text-theme-info hover:underline"
                   >
                     View All
                   </button>

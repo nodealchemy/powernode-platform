@@ -65,11 +65,11 @@ export const BuildHistoryPanel: React.FC<BuildHistoryPanelProps> = ({
         className="flex items-center gap-2 w-full text-left py-2"
       >
         {isCollapsed ? (
-          <ChevronRight className="w-4 h-4 text-theme-text-secondary" />
+          <ChevronRight className="w-4 h-4 text-theme-secondary" />
         ) : (
-          <ChevronDown className="w-4 h-4 text-theme-text-secondary" />
+          <ChevronDown className="w-4 h-4 text-theme-secondary" />
         )}
-        <Hammer className="w-4 h-4 text-theme-text-secondary" />
+        <Hammer className="w-4 h-4 text-theme-secondary" />
         <span className="text-sm font-medium text-theme-text-primary">
           Build History ({builds.length})
         </span>
@@ -95,59 +95,59 @@ export const BuildHistoryPanel: React.FC<BuildHistoryPanelProps> = ({
               return (
                 <div
                   key={build.id}
-                  className="border border-theme-border-primary rounded-lg overflow-hidden"
+                  className="border border-theme-interactive-primary rounded-lg overflow-hidden"
                 >
                   <button
                     onClick={() => setExpandedBuildId(isExpanded ? null : build.id)}
-                    className="flex items-center justify-between w-full px-3 py-2 text-left hover:bg-theme-bg-secondary transition-colors"
+                    className="flex items-center justify-between w-full px-3 py-2 text-left hover:bg-theme-background-secondary transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       <Badge variant={status.variant} size="sm">
                         {status.label}
                       </Badge>
-                      <span className="text-xs text-theme-text-secondary">
+                      <span className="text-xs text-theme-secondary">
                         {triggerLabels[build.trigger_type] || build.trigger_type}
                       </span>
                       {build.git_sha && (
-                        <span className="flex items-center gap-1 text-xs text-theme-text-secondary font-mono">
+                        <span className="flex items-center gap-1 text-xs text-theme-secondary font-mono">
                           <GitCommit className="w-3 h-3" />
                           {build.git_sha.substring(0, 8)}
                         </span>
                       )}
                       {build.cascade_build_count > 0 && (
-                        <span className="flex items-center gap-1 text-xs text-theme-text-secondary">
+                        <span className="flex items-center gap-1 text-xs text-theme-secondary">
                           <Layers className="w-3 h-3" />
                           {build.cascade_build_count} cascades
                         </span>
                       )}
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="flex items-center gap-1 text-xs text-theme-text-secondary">
+                      <span className="flex items-center gap-1 text-xs text-theme-secondary">
                         <Clock className="w-3 h-3" />
                         {formatDuration(build.duration_ms)}
                       </span>
-                      <span className="text-xs text-theme-text-secondary">
+                      <span className="text-xs text-theme-secondary">
                         {new Date(build.created_at).toLocaleString()}
                       </span>
                     </div>
                   </button>
 
                   {isExpanded && (
-                    <div className="px-3 py-2 border-t border-theme-border-primary bg-theme-bg-secondary">
+                    <div className="px-3 py-2 border-t border-theme-interactive-primary bg-theme-background-secondary">
                       <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                        <dt className="text-theme-text-secondary">Image Tag</dt>
+                        <dt className="text-theme-secondary">Image Tag</dt>
                         <dd className="font-mono text-theme-text-primary">{build.image_tag || '-'}</dd>
-                        <dt className="text-theme-text-secondary">Started</dt>
+                        <dt className="text-theme-secondary">Started</dt>
                         <dd className="text-theme-text-primary">
                           {build.started_at ? new Date(build.started_at).toLocaleString() : '-'}
                         </dd>
-                        <dt className="text-theme-text-secondary">Completed</dt>
+                        <dt className="text-theme-secondary">Completed</dt>
                         <dd className="text-theme-text-primary">
                           {build.completed_at ? new Date(build.completed_at).toLocaleString() : '-'}
                         </dd>
                         {build.triggered_by_build_id && (
                           <>
-                            <dt className="text-theme-text-secondary">Triggered by</dt>
+                            <dt className="text-theme-secondary">Triggered by</dt>
                             <dd className="font-mono text-theme-text-primary">
                               {build.triggered_by_build_id.substring(0, 8)}...
                             </dd>

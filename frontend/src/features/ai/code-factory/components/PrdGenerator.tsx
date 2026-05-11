@@ -41,7 +41,7 @@ export const PrdGenerator: React.FC<Props> = ({ contractId }) => {
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="Describe the feature or change you want to implement..."
-            className="w-full h-32 bg-theme-surface-bg text-theme-primary border border-theme-border rounded-lg p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-theme-accent/50"
+            className="w-full h-32 bg-theme-surface-bg text-theme-primary border border-theme rounded-lg p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-theme-accent/50"
           />
           <div className="flex items-center justify-between">
             <span className="text-xs text-theme-secondary">
@@ -50,7 +50,7 @@ export const PrdGenerator: React.FC<Props> = ({ contractId }) => {
             <button
               onClick={handleGenerate}
               disabled={generating || !prompt.trim()}
-              className="px-4 py-2 bg-theme-accent text-theme-on-primary text-sm rounded-lg hover:bg-theme-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 bg-theme-info text-theme-on-primary text-sm rounded-lg hover:bg-theme-info disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {generating ? 'Generating...' : 'Generate PRD'}
             </button>

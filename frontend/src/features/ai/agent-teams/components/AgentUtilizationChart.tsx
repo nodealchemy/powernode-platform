@@ -52,7 +52,7 @@ export const AgentUtilizationChart: React.FC<AgentUtilizationChartProps> = ({ ag
                 <tr key={rs.role_id} className="border-b border-theme/50">
                   <td className="py-2 text-theme-primary">
                     <span className="font-medium">{rs.role_name}</span>
-                    <span className="ml-2 text-xs px-1.5 py-0.5 bg-theme-accent/10 text-theme-accent rounded">{rs.role_type}</span>
+                    <span className="ml-2 text-xs px-1.5 py-0.5 bg-theme-info/10 text-theme-info rounded">{rs.role_type}</span>
                   </td>
                   <td className="py-2 text-theme-secondary">{rs.agent_name || '—'}</td>
                   <td className="py-2 text-right text-theme-primary">{rs.tasks_total}</td>

@@ -95,17 +95,17 @@ export const TrustScoreCard: React.FC<TrustScoreCardProps> = ({ score }) => {
           })}
         </div>
 
-        <div className="flex items-center justify-between mt-4 pt-3 border-t border-theme-border text-xs text-theme-muted">
+        <div className="flex items-center justify-between mt-4 pt-3 border-t border-theme text-xs text-theme-muted">
           <span>{score.evaluation_count} evaluations</span>
           <span>Last: {formatDate(score.last_evaluated_at)}</span>
         </div>
 
         {currentUser?.permissions?.includes('ai.autonomy.manage') && (
-          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-theme-border">
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-theme">
             <button
               onClick={() => evaluateTrust.mutate(score.agent_id)}
               disabled={evaluateTrust.isPending}
-              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-md bg-theme-bg-secondary text-theme-primary hover:bg-theme-info hover:text-white transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-md bg-theme-background-secondary text-theme-primary hover:bg-theme-info hover:text-white transition-colors disabled:opacity-50"
             >
               <RefreshCw className="h-3 w-3" /> Evaluate
             </button>
@@ -116,7 +116,7 @@ export const TrustScoreCard: React.FC<TrustScoreCardProps> = ({ score }) => {
                 if (tier && reason) overrideTrust.mutate({ agentId: score.agent_id, tier, reason });
               }}
               disabled={overrideTrust.isPending}
-              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-md bg-theme-bg-secondary text-theme-primary hover:bg-theme-warning hover:text-white transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-md bg-theme-background-secondary text-theme-primary hover:bg-theme-warning hover:text-white transition-colors disabled:opacity-50"
             >
               <Edit2 className="h-3 w-3" /> Override
             </button>
@@ -126,7 +126,7 @@ export const TrustScoreCard: React.FC<TrustScoreCardProps> = ({ score }) => {
                 if (reason) emergencyDemote.mutate({ agentId: score.agent_id, reason });
               }}
               disabled={emergencyDemote.isPending}
-              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-md bg-theme-bg-secondary text-theme-error hover:bg-theme-error hover:text-white transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-md bg-theme-background-secondary text-theme-error hover:bg-theme-error hover:text-white transition-colors disabled:opacity-50"
             >
               <AlertTriangle className="h-3 w-3" /> Demote
             </button>

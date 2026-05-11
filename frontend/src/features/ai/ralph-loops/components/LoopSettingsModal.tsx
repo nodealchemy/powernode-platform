@@ -92,7 +92,7 @@ export const LoopSettingsModal: React.FC<LoopSettingsModalProps> = ({
             min={1}
             max={1000}
           />
-          <p className="text-xs text-theme-text-secondary mt-1">
+          <p className="text-xs text-theme-secondary mt-1">
             Maximum number of AI iterations before stopping
           </p>
         </div>
@@ -123,7 +123,7 @@ export const LoopSettingsModal: React.FC<LoopSettingsModalProps> = ({
               </option>
             ))}
           </Select>
-          <p className="text-xs text-theme-text-secondary mt-1">
+          <p className="text-xs text-theme-secondary mt-1">
             AI agent that will execute loop tasks
           </p>
         </div>

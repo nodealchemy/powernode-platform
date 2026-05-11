@@ -116,7 +116,7 @@ export const CompositionHealthBanner: React.FC<CompositionHealthBannerProps> = (
             <span>Workers per Lead</span>
             <span>{isOptimalRange ? 'Optimal (2-5)' : health.workers_per_lead > 5 ? 'High' : 'Low'}</span>
           </div>
-          <div className="w-full bg-theme-accent rounded-full h-2">
+          <div className="w-full bg-theme-info rounded-full h-2">
             <div
               className={`h-2 rounded-full transition-all duration-300 ${
                 isOptimalRange ? 'bg-theme-success' :

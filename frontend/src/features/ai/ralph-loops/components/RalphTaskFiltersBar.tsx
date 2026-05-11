@@ -56,7 +56,7 @@ export const RalphTaskFiltersBar: React.FC<RalphTaskFiltersBarProps> = ({
             variant="outline"
             size="sm"
             onClick={onToggleAddTask}
-            className={cn('min-w-[120px]', showAddTask && 'bg-theme-bg-secondary')}
+            className={cn('min-w-[120px]', showAddTask && 'bg-theme-background-secondary')}
           >
             <Plus className="w-4 h-4 mr-1" />
             Add Task

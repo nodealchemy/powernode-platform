@@ -71,7 +71,7 @@ export const MissionSidebar: React.FC<MissionSidebarProps> = ({ mission }) => {
               href={mission.pr_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-theme-accent hover:underline"
+              className="inline-flex items-center gap-1 text-xs text-theme-info hover:underline"
             >
               PR #{mission.pr_number} <ExternalLink className="w-3 h-3" />
             </a>
@@ -128,7 +128,7 @@ export const MissionSidebar: React.FC<MissionSidebarProps> = ({ mission }) => {
           </h4>
           <Link
             to={`/app/ai/communication/conversations?id=${mission.conversation_id}`}
-            className="inline-flex items-center gap-1 text-xs text-theme-accent hover:underline"
+            className="inline-flex items-center gap-1 text-xs text-theme-info hover:underline"
           >
             Open Conversation <ExternalLink className="w-3 h-3" />
           </Link>

@@ -126,7 +126,7 @@ export const MemoryEntryCard: React.FC<MemoryEntryCardProps> = ({
               </span>
             )}
             {entry.category && (
-              <span className="px-1.5 py-0.5 text-xs rounded bg-theme-accent/10 text-theme-accent">
+              <span className="px-1.5 py-0.5 text-xs rounded bg-theme-info/10 text-theme-info">
                 {entry.category}
               </span>
             )}

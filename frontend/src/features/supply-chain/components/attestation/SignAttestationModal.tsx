@@ -75,7 +75,7 @@ export const SignAttestationModal: React.FC<SignAttestationModalProps> = ({
                   className={`w-full p-3 rounded-lg border text-left transition-colors ${
                     selectedKeyId === null
                       ? 'border-theme-interactive-primary bg-theme-interactive-primary/10'
-                      : 'border-theme hover:border-theme-border-hover'
+                      : 'border-theme hover:border-theme'
                   }`}
                 >
                   <div className="flex items-center justify-between">
@@ -95,7 +95,7 @@ export const SignAttestationModal: React.FC<SignAttestationModalProps> = ({
                     className={`w-full p-3 rounded-lg border text-left transition-colors ${
                       selectedKeyId === key.id
                         ? 'border-theme-interactive-primary bg-theme-interactive-primary/10'
-                        : 'border-theme hover:border-theme-border-hover'
+                        : 'border-theme hover:border-theme'
                     }`}
                   >
                     <div className="flex items-center justify-between">

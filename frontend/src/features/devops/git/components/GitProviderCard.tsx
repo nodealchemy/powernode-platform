@@ -105,7 +105,7 @@ export const GitProviderCard: React.FC<GitProviderCardProps> = ({
                             setShowMenu(false);
                             onEdit();
                           }}
-                          className="w-full px-3 py-2 text-left text-sm text-theme-primary hover:bg-theme-hover flex items-center gap-2"
+                          className="w-full px-3 py-2 text-left text-sm text-theme-primary hover:bg-theme-surface-hover flex items-center gap-2"
                         >
                           <Pencil className="w-4 h-4" />
                           Edit
@@ -117,7 +117,7 @@ export const GitProviderCard: React.FC<GitProviderCardProps> = ({
                             setShowMenu(false);
                             onDelete();
                           }}
-                          className="w-full px-3 py-2 text-left text-sm text-theme-error hover:bg-theme-hover flex items-center gap-2"
+                          className="w-full px-3 py-2 text-left text-sm text-theme-error hover:bg-theme-surface-hover flex items-center gap-2"
                         >
                           <Trash2 className="w-4 h-4" />
                           Delete

@@ -45,7 +45,7 @@ export const OAuthConfigFields: React.FC<OAuthConfigFieldsProps> = ({
     </div>
 
     {config.authType === 'oauth2' && (
-      <div className="space-y-4 p-4 bg-theme-hover rounded-lg border border-theme">
+      <div className="space-y-4 p-4 bg-theme-surface-hover rounded-lg border border-theme">
         <div className="flex items-center gap-2 text-sm text-theme-secondary">
           <HelpCircle className="h-4 w-4" />
           <span>Configure OAuth 2.1 credentials from your MCP server provider</span>

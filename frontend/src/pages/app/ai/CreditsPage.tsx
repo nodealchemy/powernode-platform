@@ -176,7 +176,7 @@ export const CreditsContent: React.FC = () => {
       case 'deduction': return 'text-theme-danger bg-theme-danger/10';
       case 'transfer_in': return 'text-theme-info bg-theme-info/10';
       case 'transfer_out': return 'text-theme-warning bg-theme-warning/10';
-      case 'refund': return 'text-theme-accent bg-theme-accent/10';
+      case 'refund': return 'text-theme-info bg-theme-info/10';
       default: return 'text-theme-secondary bg-theme-surface';
     }
   };
@@ -204,7 +204,7 @@ export const CreditsContent: React.FC = () => {
                 <p className="text-sm text-theme-secondary">Available Balance</p>
                 <p className="text-2xl font-bold text-theme-primary">{balance.available.toLocaleString()}</p>
               </div>
-              <Coins className="h-8 w-8 text-theme-accent" />
+              <Coins className="h-8 w-8 text-theme-info" />
             </div>
             <p className="text-xs text-theme-secondary mt-2">{balance.reserved.toLocaleString()} reserved</p>
           </div>
@@ -254,7 +254,7 @@ export const CreditsContent: React.FC = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
                 activeTab === tab.id
-                  ? 'border-theme-accent text-theme-accent'
+                  ? 'border-theme-info text-theme-info'
                   : 'border-transparent text-theme-secondary hover:text-theme-primary'
               }`}
             >
@@ -268,7 +268,7 @@ export const CreditsContent: React.FC = () => {
       {/* Tab Content */}
       {loading ? (
         <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-accent border-t-theme-primary"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-info border-t-theme-primary"></div>
           <p className="mt-4 text-theme-secondary">Loading credits data...</p>
         </div>
       ) : (
@@ -297,7 +297,7 @@ export const CreditsContent: React.FC = () => {
                   <h3 className="text-lg font-semibold text-theme-primary">Recent Transactions</h3>
                   <button
                     onClick={() => setActiveTab('transactions')}
-                    className="text-sm text-theme-accent hover:underline"
+                    className="text-sm text-theme-info hover:underline"
                   >
                     View All ({transactionCount})
                   </button>
@@ -343,11 +343,11 @@ export const CreditsContent: React.FC = () => {
                     <div
                       key={pack.id}
                       className={`bg-theme-surface border rounded-lg p-6 transition-colors ${
-                        pack.is_featured ? 'border-theme-accent ring-1 ring-theme-accent' : 'border-theme hover:border-theme-accent/50'
+                        pack.is_featured ? 'border-theme-info ring-1 ring-theme-accent' : 'border-theme hover:border-theme-info/50'
                       }`}
                     >
                       {pack.is_featured && (
-                        <span className="inline-block px-2 py-1 text-xs bg-theme-accent/10 text-theme-accent rounded mb-3">Featured</span>
+                        <span className="inline-block px-2 py-1 text-xs bg-theme-info/10 text-theme-info rounded mb-3">Featured</span>
                       )}
                       <h3 className="text-lg font-semibold text-theme-primary mb-1">{pack.name}</h3>
                       <p className="text-sm text-theme-secondary mb-4">{pack.description || `${pack.credits.toLocaleString()} credits`}</p>
@@ -469,7 +469,7 @@ export const CreditsContent: React.FC = () => {
                   <div key={transfer.id} className="bg-theme-surface border border-theme rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-3">
-                        <ArrowRightLeft size={16} className="text-theme-accent" />
+                        <ArrowRightLeft size={16} className="text-theme-info" />
                         <span className="font-medium text-theme-primary">{transfer.amount.toLocaleString()} credits</span>
                         <span className={`px-2 py-1 text-xs rounded ${getStatusColor(transfer.status)}`}>
                           {transfer.status}

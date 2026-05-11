@@ -191,7 +191,7 @@ export const ModelRouterContent: React.FC = () => {
       case 'cost_based': return 'text-theme-success bg-theme-success/10';
       case 'latency_based': return 'text-theme-warning bg-theme-warning/10';
       case 'quality_based': return 'text-theme-info bg-theme-info/10';
-      case 'capability_based': return 'text-theme-accent bg-theme-accent/10';
+      case 'capability_based': return 'text-theme-info bg-theme-info/10';
       case 'custom': return 'text-theme-danger bg-theme-danger/10';
       case 'ml_optimized': return 'text-theme-primary bg-theme-primary/10';
       default: return 'text-theme-secondary bg-theme-surface';
@@ -236,7 +236,7 @@ export const ModelRouterContent: React.FC = () => {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
-                activeTab === tab.id ? 'border-theme-accent text-theme-accent' : 'border-transparent text-theme-secondary hover:text-theme-primary'
+                activeTab === tab.id ? 'border-theme-info text-theme-info' : 'border-transparent text-theme-secondary hover:text-theme-primary'
               }`}
             >
               <tab.icon size={16} />
@@ -249,7 +249,7 @@ export const ModelRouterContent: React.FC = () => {
       {/* Tab Content */}
       {loading ? (
         <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-accent border-t-theme-primary"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-theme-info border-t-theme-primary"></div>
           <p className="mt-4 text-theme-secondary">Loading router data...</p>
         </div>
       ) : (

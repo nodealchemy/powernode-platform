@@ -64,7 +64,7 @@ export const BudgetTransactionHistory: React.FC<BudgetTransactionHistoryProps> =
       </div>
 
       {pagination && pagination.total_pages > 1 && (
-        <div className="flex items-center justify-between pt-2 border-t border-theme-border">
+        <div className="flex items-center justify-between pt-2 border-t border-theme">
           <span className="text-xs text-theme-muted">
             Page {pagination.page} of {pagination.total_pages} ({pagination.total} total)
           </span>
@@ -72,14 +72,14 @@ export const BudgetTransactionHistory: React.FC<BudgetTransactionHistoryProps> =
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page <= 1}
-              className="p-1 rounded hover:bg-theme-bg-secondary text-theme-muted disabled:opacity-30"
+              className="p-1 rounded hover:bg-theme-background-secondary text-theme-muted disabled:opacity-30"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               onClick={() => setPage(p => Math.min(pagination.total_pages, p + 1))}
               disabled={page >= pagination.total_pages}
-              className="p-1 rounded hover:bg-theme-bg-secondary text-theme-muted disabled:opacity-30"
+              className="p-1 rounded hover:bg-theme-background-secondary text-theme-muted disabled:opacity-30"
             >
               <ChevronRight className="h-4 w-4" />
             </button>

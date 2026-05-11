@@ -16,7 +16,7 @@ const BreakerRow: React.FC<{ breaker: CircuitBreaker }> = ({ breaker }) => {
   const stateConfig = STATE_CONFIG[breaker.state] || STATE_CONFIG.closed;
 
   return (
-    <div className="flex items-center justify-between p-3 rounded-lg bg-theme-surface border border-theme-border">
+    <div className="flex items-center justify-between p-3 rounded-lg bg-theme-surface border border-theme">
       <div className="flex items-center gap-3">
         <Zap className={`h-4 w-4 ${breaker.state === 'open' ? 'text-theme-error' : 'text-theme-success'}`} />
         <div>
@@ -33,7 +33,7 @@ const BreakerRow: React.FC<{ breaker: CircuitBreaker }> = ({ breaker }) => {
           <button
             onClick={() => resetMutation.mutate(breaker.id)}
             disabled={resetMutation.isPending}
-            className="p-1 rounded hover:bg-theme-bg-secondary text-theme-muted hover:text-theme-primary"
+            className="p-1 rounded hover:bg-theme-background-secondary text-theme-muted hover:text-theme-primary"
             title="Reset circuit breaker"
           >
             <RefreshCw className="h-3.5 w-3.5" />

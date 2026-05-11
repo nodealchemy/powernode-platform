@@ -104,7 +104,7 @@ export const TrajectoryInsights: React.FC = () => {
               {agentTrends.map((agent) => (
                 <div
                   key={agent.agent_id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-theme-surface border border-theme-border"
+                  className="flex items-center justify-between p-3 rounded-lg bg-theme-surface border border-theme"
                 >
                   <div className="flex items-center gap-3">
                     <TrendIcon trend={agent.trend} />

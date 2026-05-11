@@ -158,7 +158,7 @@ export const McpOAuthCallbackPage: React.FC = () => {
             </p>
             <button
               onClick={handleClose}
-              className="px-4 py-2 bg-theme-surface border border-theme rounded-md text-theme-primary hover:bg-theme-hover transition-colors"
+              className="px-4 py-2 bg-theme-surface border border-theme rounded-md text-theme-primary hover:bg-theme-surface-hover transition-colors"
             >
               Close Window
             </button>
