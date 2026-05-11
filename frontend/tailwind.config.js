@@ -35,7 +35,14 @@ module.exports = {
         'theme-surface': 'var(--color-surface)',
         'theme-surface-hover': 'var(--color-surface-hover)',
         'theme-surface-selected': 'var(--color-surface-selected)',
+        // Page-tint backgrounds — distinct from theme-surface (cards). The
+        // off-white page background lets cards "pop" against it. Defined in
+        // the colors block so any util prefix (text/bg/border) can consume.
+        'theme-background': 'var(--color-background)',
         'theme-background-secondary': 'var(--color-background-secondary)',
+        'theme-background-tertiary': 'var(--color-background-tertiary)',
+        'theme-background-elevated': 'var(--color-background-elevated)',
+        'theme-background-muted': 'var(--color-background-muted)',
         'theme-success': 'var(--color-success)',
         'theme-warning': 'var(--color-warning)',
         'theme-error': 'var(--color-error)',
@@ -97,7 +104,12 @@ module.exports = {
         'theme-surface': 'var(--color-surface)',
         'theme-surface-hover': 'var(--color-surface-hover)',
         'theme-surface-selected': 'var(--color-surface-selected)',
+        // Page-tint backgrounds — distinct from theme-surface (cards).
+        'theme-background': 'var(--color-background)',
         'theme-background-secondary': 'var(--color-background-secondary)',
+        'theme-background-tertiary': 'var(--color-background-tertiary)',
+        'theme-background-elevated': 'var(--color-background-elevated)',
+        'theme-background-muted': 'var(--color-background-muted)',
         'theme-success': 'var(--color-success-background)',
         'theme-warning': 'var(--color-warning-background)',
         'theme-error': 'var(--color-error-background)',
