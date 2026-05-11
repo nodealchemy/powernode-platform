@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_10_040002) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_11_100004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -6748,6 +6748,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_040002) do
     t.jsonb "capabilities", default: {}, null: false
     t.jsonb "configuration", default: {}, null: false
     t.datetime "created_at", null: false
+    t.jsonb "default_mount_options", default: {}, null: false
+    t.string "deployment_shape", default: "self_hosted", null: false
+    t.string "encryption_mode", default: "none", null: false
     t.bigint "files_count", default: 0, null: false
     t.jsonb "health_details", default: {}
     t.string "health_status"
@@ -6755,9 +6758,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_040002) do
     t.datetime "last_health_check_at"
     t.jsonb "metadata", default: {}, null: false
     t.string "name", null: false
+    t.boolean "node_mount_capable", default: false, null: false
     t.integer "priority", default: 100, null: false
     t.string "provider_type", null: false
     t.bigint "quota_bytes"
+    t.boolean "requires_node_credentials", default: false, null: false
     t.string "status", default: "active", null: false
     t.bigint "total_size_bytes", default: 0, null: false
     t.datetime "updated_at", null: false
@@ -6767,7 +6772,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_040002) do
     t.index ["account_id"], name: "index_file_storages_on_account_id"
     t.index ["configuration"], name: "index_file_storages_on_configuration", using: :gin
     t.index ["health_status"], name: "index_file_storages_on_health_status"
+    t.index ["node_mount_capable"], name: "index_file_storages_node_mount_capable_true", where: "(node_mount_capable = true)"
     t.index ["priority"], name: "index_file_storages_on_priority"
+    t.check_constraint "deployment_shape::text = ANY (ARRAY['self_hosted'::character varying, 'gateway_proxy'::character varying]::text[])", name: "file_storages_deployment_shape_check"
+    t.check_constraint "encryption_mode::text = ANY (ARRAY['none'::character varying, 'fscrypt'::character varying, 'luks'::character varying, 'client_side_aes'::character varying]::text[])", name: "file_storages_encryption_mode_check"
     t.check_constraint "provider_type::text = ANY (ARRAY['local'::character varying::text, 's3'::character varying::text, 'gcs'::character varying::text, 'azure'::character varying::text, 'nfs'::character varying::text, 'smb'::character varying::text, 'ftp'::character varying::text, 'webdav'::character varying::text, 'custom'::character varying::text])", name: "file_storages_provider_type_check"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'inactive'::character varying::text, 'maintenance'::character varying::text, 'failed'::character varying::text])", name: "file_storages_status_check"
   end
@@ -10300,6 +10308,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_040002) do
     t.index ["puppet_module_id"], name: "index_system_module_puppet_assignments_on_puppet_module_id"
   end
 
+  create_table "system_mount_encryption_keys", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "algorithm", null: false
+    t.datetime "created_at", null: false
+    t.text "encrypted_credentials"
+    t.string "encryption_key_id"
+    t.boolean "escrowed", default: true, null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "migrated_to_vault_at"
+    t.uuid "node_instance_id"
+    t.datetime "revoked_at"
+    t.uuid "storage_assignment_id", null: false
+    t.datetime "updated_at", null: false
+    t.string "vault_path"
+    t.index ["node_instance_id"], name: "index_system_mount_encryption_keys_on_node_instance_id"
+    t.index ["storage_assignment_id"], name: "index_system_mount_encryption_keys_on_storage_assignment_id"
+    t.check_constraint "algorithm::text = ANY (ARRAY['aes-xts-plain64'::character varying, 'aes-256-gcm'::character varying, 'fscrypt-v2'::character varying]::text[])", name: "system_mount_encryption_keys_algorithm_check"
+  end
+
   create_table "system_node_architectures", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.datetime "created_at", null: false
@@ -10620,7 +10646,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_040002) do
     t.index ["enabled"], name: "index_system_node_mount_points_on_enabled"
     t.index ["mount_type"], name: "index_system_node_mount_points_on_mount_type"
     t.index ["options"], name: "index_system_node_mount_points_on_options", using: :gin
-    t.check_constraint "mount_type::text = ANY (ARRAY['nfs'::character varying, 'cifs'::character varying, 'tmpfs'::character varying, 'bind'::character varying, 'efs'::character varying, 'ebs'::character varying, 'custom'::character varying]::text[])", name: "system_node_mount_points_type_check"
+    t.check_constraint "mount_type::text = ANY (ARRAY['tmpfs'::character varying, 'bind'::character varying, 'custom'::character varying]::text[])", name: "system_node_mount_points_type_check"
   end
 
   create_table "system_node_platforms", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -11098,6 +11124,56 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_040002) do
     t.index ["provider_region_id", "volume_type_id"], name: "idx_region_volume_types_unique", unique: true
     t.index ["provider_region_id"], name: "index_system_region_volume_types_on_provider_region_id"
     t.index ["volume_type_id"], name: "index_system_region_volume_types_on_volume_type_id"
+  end
+
+  create_table "system_storage_assignments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.boolean "auto_mount", default: true, null: false
+    t.datetime "created_at", null: false
+    t.boolean "enabled", default: true, null: false
+    t.string "encryption_mode", default: "inherit", null: false
+    t.text "error_message"
+    t.uuid "file_storage_id", null: false
+    t.datetime "last_mounted_at"
+    t.datetime "last_status_at"
+    t.jsonb "mount_options", default: {}, null: false
+    t.string "mount_path", null: false
+    t.uuid "node_instance_id", null: false
+    t.boolean "read_only", default: false, null: false
+    t.uuid "sdwan_network_id"
+    t.uuid "sdwan_virtual_ip_id"
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_system_storage_assignments_on_account_id"
+    t.index ["file_storage_id", "node_instance_id"], name: "idx_storage_assignments_unique_storage_instance", unique: true
+    t.index ["file_storage_id"], name: "idx_storage_assignments_on_file_storage_id"
+    t.index ["node_instance_id", "mount_path"], name: "idx_storage_assignments_unique_path_per_instance", unique: true
+    t.index ["node_instance_id"], name: "index_system_storage_assignments_on_node_instance_id"
+    t.index ["sdwan_network_id"], name: "index_system_storage_assignments_on_sdwan_network_id"
+    t.index ["sdwan_virtual_ip_id"], name: "index_system_storage_assignments_on_sdwan_virtual_ip_id"
+    t.check_constraint "encryption_mode::text = ANY (ARRAY['inherit'::character varying, 'none'::character varying, 'fscrypt'::character varying, 'luks'::character varying, 'client_side_aes'::character varying]::text[])", name: "system_storage_assignments_encryption_mode_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'provisioning'::character varying, 'mounted'::character varying, 'degraded'::character varying, 'unmounting'::character varying, 'failed'::character varying, 'disabled'::character varying]::text[])", name: "system_storage_assignments_status_check"
+  end
+
+  create_table "system_storage_credentials", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "encrypted_credentials"
+    t.string "encryption_key_id"
+    t.datetime "expires_at"
+    t.string "kind", null: false
+    t.datetime "last_rotated_at"
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "migrated_to_vault_at"
+    t.uuid "node_instance_id", null: false
+    t.string "status", default: "issued", null: false
+    t.uuid "storage_assignment_id", null: false
+    t.datetime "updated_at", null: false
+    t.string "vault_path"
+    t.index ["node_instance_id"], name: "index_system_storage_credentials_on_node_instance_id"
+    t.index ["storage_assignment_id", "status"], name: "idx_storage_credentials_on_assignment_status"
+    t.index ["storage_assignment_id"], name: "index_system_storage_credentials_on_storage_assignment_id"
+    t.check_constraint "kind::text = ANY (ARRAY['peer_ip_acl'::character varying, 'cifs_user_pass'::character varying, 'sts_token'::character varying, 'tls_cert'::character varying, 'webdav_basic'::character varying]::text[])", name: "system_storage_credentials_kind_check"
+    t.check_constraint "status::text = ANY (ARRAY['issued'::character varying, 'active'::character varying, 'rotating'::character varying, 'revoked'::character varying, 'expired'::character varying, 'failed'::character varying]::text[])", name: "system_storage_credentials_status_check"
   end
 
   create_table "system_tasks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -13313,6 +13389,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_040002) do
   add_foreign_key "system_module_dependencies", "system_node_modules", column: "node_module_id"
   add_foreign_key "system_module_puppet_assignments", "system_node_modules", column: "node_module_id"
   add_foreign_key "system_module_puppet_assignments", "system_puppet_modules", column: "puppet_module_id"
+  add_foreign_key "system_mount_encryption_keys", "system_node_instances", column: "node_instance_id", on_delete: :nullify
+  add_foreign_key "system_mount_encryption_keys", "system_storage_assignments", column: "storage_assignment_id", on_delete: :cascade
   add_foreign_key "system_node_architectures", "accounts"
   add_foreign_key "system_node_architectures", "file_objects", column: "image_file_object_id"
   add_foreign_key "system_node_architectures", "file_objects", column: "kernel_file_object_id"
@@ -13383,6 +13461,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_10_040002) do
   add_foreign_key "system_region_instance_types", "system_provider_regions", column: "provider_region_id"
   add_foreign_key "system_region_volume_types", "system_provider_regions", column: "provider_region_id"
   add_foreign_key "system_region_volume_types", "system_provider_volume_types", column: "volume_type_id"
+  add_foreign_key "system_storage_assignments", "accounts"
+  add_foreign_key "system_storage_assignments", "sdwan_networks", on_delete: :nullify
+  add_foreign_key "system_storage_assignments", "sdwan_virtual_ips", on_delete: :nullify
+  add_foreign_key "system_storage_assignments", "system_node_instances", column: "node_instance_id", on_delete: :cascade
+  add_foreign_key "system_storage_credentials", "system_node_instances", column: "node_instance_id", on_delete: :cascade
+  add_foreign_key "system_storage_credentials", "system_storage_assignments", column: "storage_assignment_id", on_delete: :cascade
   add_foreign_key "system_tasks", "accounts"
   add_foreign_key "system_tasks", "users", column: "initiated_by_id"
   add_foreign_key "system_tasks", "workers", column: "claimed_by_worker_id", on_delete: :nullify

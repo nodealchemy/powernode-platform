@@ -15,6 +15,43 @@ module StorageProviders
       @gcs_client = create_gcs_client
     end
 
+    # ----------------------------------------------------------------------
+    # Node-mount provider interface (Phase S1)
+    # gcsfuse recipe with operator-supplied service-account credentials.
+    # Real Workload Identity Federation per-instance issuance is a v1.1 follow-up.
+    # ----------------------------------------------------------------------
+
+    def supports_node_mount?
+      true
+    end
+
+    def node_mount_recipe(context: {})
+      cfg = context[:storage_configuration] || storage_config.configuration
+      bucket = cfg["bucket"]
+
+      {
+        type: "gcsfuse",
+        source: bucket,
+        options: %w[_netdev allow_other implicit_dirs],
+        credential_kind: "sts_token"
+      }
+    end
+
+    def issue_node_credential(context: {})
+      {
+        kind: "sts_token",
+        payload: {
+          credentials_json: decrypt_config("credentials_json")
+        },
+        ttl: nil,
+        metadata: {
+          sts_handle: nil,
+          bucket: @bucket_name,
+          warning: "Static service-account JSON (not per-instance). WIF-based per-instance issuance is a v1.1 follow-up."
+        }
+      }
+    end
+
     # Initialize storage backend
     def initialize_storage
       bucket = @gcs_client.bucket(@bucket_name)

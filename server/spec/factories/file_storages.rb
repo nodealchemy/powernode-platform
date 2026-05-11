@@ -108,5 +108,31 @@ FactoryBot.define do
       last_health_check_at { Time.current }
       health_details { { 'last_check' => 'passed', 'connectivity' => 'ok' } }
     end
+
+    # Phase S1+ — storage opted in for per-instance node mounts.
+    trait :node_mountable do
+      node_mount_capable { true }
+      requires_node_credentials { true }
+      encryption_mode { 'fscrypt' }
+      deployment_shape { 'self_hosted' }
+    end
+
+    # Phase S1+ — Shape 2 gateway proxy fronting an external NFS server.
+    # Provide :gateway_node_instance_id when creating in tests.
+    trait :gateway_proxy do
+      provider_type { 'nfs' }
+      node_mount_capable { true }
+      requires_node_credentials { true }
+      deployment_shape { 'gateway_proxy' }
+      configuration do
+        {
+          'gateway_node_instance_id' => SecureRandom.uuid,
+          'upstream_source_host' => '10.20.30.40',
+          'upstream_export_path' => '/srv/data',
+          're_export_path' => '/var/lib/powernode/storage/test',
+          'upstream_mount_options' => %w[vers=4.2 proto=tcp hard]
+        }
+      end
+    end
   end
 end

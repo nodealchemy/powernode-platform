@@ -23,6 +23,44 @@ module StorageProviders
       @connection = build_connection
     end
 
+    # ----------------------------------------------------------------------
+    # Node-mount provider interface (Phase S1)
+    # rclone mount with account-level SAS for the container.
+    # Per-instance SAS issuance is a v1.1 follow-up.
+    # ----------------------------------------------------------------------
+
+    def supports_node_mount?
+      true
+    end
+
+    def node_mount_recipe(context: {})
+      cfg = context[:storage_configuration] || storage_config.configuration
+      container = cfg["container"]
+
+      {
+        type: "rclone",
+        source: "#{@account_name}/#{container}",
+        options: %w[_netdev allow_other],
+        credential_kind: "sts_token"
+      }
+    end
+
+    def issue_node_credential(context: {})
+      {
+        kind: "sts_token",
+        payload: {
+          account_name: @account_name,
+          account_key: @account_key
+        },
+        ttl: nil,
+        metadata: {
+          sts_handle: nil,
+          container: @container_name,
+          warning: "Static account key (not per-instance). Per-instance SAS issuance is a v1.1 follow-up."
+        }
+      }
+    end
+
     # Initialize storage backend
     def initialize_storage
       begin

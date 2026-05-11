@@ -28,8 +28,17 @@ module FileManagement
     validates :files_count, numericality: { greater_than_or_equal_to: 0 }
     validates :total_size_bytes, numericality: { greater_than_or_equal_to: 0 }
     validates :quota_bytes, numericality: { greater_than: 0, allow_nil: true }
+    validates :encryption_mode, inclusion: {
+      in: %w[none fscrypt luks client_side_aes],
+      message: "must be a valid encryption mode"
+    }
+    validates :deployment_shape, inclusion: {
+      in: %w[self_hosted gateway_proxy],
+      message: "must be a valid deployment shape"
+    }
     validate :validate_configuration
     validate :validate_quota_not_exceeded, if: :quota_bytes?
+    validate :validate_gateway_proxy_configuration, if: :gateway_proxy?
 
     # JSON columns with default values
     attribute :configuration, :json, default: -> { {} }
@@ -48,6 +57,7 @@ module FileManagement
     scope :by_type, ->(type) { where(provider_type: type) }
     scope :available, -> { active.where("quota_bytes IS NULL OR total_size_bytes < quota_bytes") }
     scope :with_space, -> { active.where("quota_bytes IS NULL OR (quota_bytes - total_size_bytes) > ?", 100.megabytes) }
+    scope :node_mountable, -> { where(node_mount_capable: true) }
 
     # Callbacks
     before_validation :set_defaults, on: :create
@@ -117,6 +127,30 @@ module FileManagement
 
     def network_filesystem?
       %w[nfs smb].include?(provider_type)
+    end
+
+    # Deployment shape predicates
+    def self_hosted?
+      deployment_shape == "self_hosted"
+    end
+
+    def gateway_proxy?
+      deployment_shape == "gateway_proxy"
+    end
+
+    # Node-mount capability
+    def node_mountable?
+      node_mount_capable && storage_provider.respond_to?(:supports_node_mount?) && storage_provider.supports_node_mount?
+    end
+
+    # Compose a per-node mount recipe by delegating to the provider with shape + config context injected.
+    # `context` is a plain hash from the system extension (instance_id, peer_ip, uid, gid, etc.) — providers
+    # must not reference ::System::* types.
+    def node_mount_recipe(context: {})
+      merged = context.dup
+      merged[:deployment_shape] = deployment_shape
+      merged[:storage_configuration] = configuration
+      storage_provider.node_mount_recipe(context: merged)
     end
 
     # Quota and storage methods
@@ -383,6 +417,18 @@ module FileManagement
       return unless quota_bytes.present? && total_size_bytes > quota_bytes
 
       errors.add(:quota_bytes, "quota has been exceeded")
+    end
+
+    # Shape-2 (gateway_proxy) requires the operator to designate a gateway powernode
+    # plus the upstream coordinates. The gateway mounts the upstream once and
+    # re-exports it on its SDWAN interface; clients mount the gateway, not the upstream.
+    GATEWAY_PROXY_REQUIRED_CONFIG = %w[gateway_node_instance_id upstream_source_host upstream_export_path re_export_path].freeze
+
+    def validate_gateway_proxy_configuration
+      missing = GATEWAY_PROXY_REQUIRED_CONFIG.reject { |k| configuration[k].present? }
+      return if missing.empty?
+
+      errors.add(:configuration, "gateway_proxy shape requires: #{missing.join(', ')}")
     end
 
     def encrypt_sensitive_configuration

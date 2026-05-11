@@ -13,6 +13,60 @@ module StorageProviders
       @share_path = config("share_path")
     end
 
+    # ----------------------------------------------------------------------
+    # Node-mount provider interface (Phase S1)
+    # Shape-aware: Shape 1 source = <vip>:<export_path>; Shape 2 source =
+    # <gateway_vip>:<re_export_path>. ACL materialization happens in the
+    # system extension's NfsExportManager — provider only describes.
+    # ----------------------------------------------------------------------
+
+    def supports_node_mount?
+      true
+    end
+
+    def node_mount_recipe(context: {})
+      cfg = context[:storage_configuration] || storage_config.configuration
+      shape = context[:deployment_shape] || "self_hosted"
+      vip = context[:virtual_ip_address]
+
+      source_path = shape == "gateway_proxy" ? cfg["re_export_path"] : (cfg["export_path"] || @share_path)
+
+      uid = context[:uid] || 0
+      gid = context[:gid] || uid
+
+      {
+        type: "nfs4",
+        source: "#{vip}:#{source_path}",
+        options: [
+          "vers=4.2",
+          "sec=sys",
+          "proto=tcp",
+          "hard",
+          "timeo=600",
+          "all_squash",
+          "anonuid=#{uid}",
+          "anongid=#{gid}"
+        ],
+        credential_kind: "peer_ip_acl"
+      }
+    end
+
+    def issue_node_credential(context: {})
+      {
+        kind: "peer_ip_acl",
+        payload: {
+          peer_ip: context[:peer_ip],
+          uid: context[:uid],
+          gid: context[:gid] || context[:uid]
+        },
+        ttl: nil,
+        metadata: {
+          export_handle: UUID7.generate,
+          shape: context[:deployment_shape] || "self_hosted"
+        }
+      }
+    end
+
     # Initialize storage backend
     def initialize_storage
       # Verify mount point exists and is mounted

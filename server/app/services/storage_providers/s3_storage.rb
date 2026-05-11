@@ -16,6 +16,84 @@ module StorageProviders
       @s3_resource = Aws::S3::Resource.new(client: @s3_client)
     end
 
+    # ----------------------------------------------------------------------
+    # Node-mount provider interface (Phase S1)
+    # Direct egress with per-instance STS AssumeRole when role_arn configured.
+    # Falls back to static keys with a warning if no role_arn (operator opt-in
+    # to per-instance enforcement).
+    # ----------------------------------------------------------------------
+
+    def supports_node_mount?
+      true
+    end
+
+    def node_mount_recipe(context: {})
+      cfg = context[:storage_configuration] || storage_config.configuration
+      bucket = cfg["bucket"]
+      prefix = cfg["path_prefix"].to_s
+      source = prefix.empty? ? bucket : "#{bucket}/#{prefix}"
+
+      {
+        type: "s3fs",
+        source: source,
+        options: %w[_netdev allow_other],
+        credential_kind: "sts_token"
+      }
+    end
+
+    def issue_node_credential(context: {})
+      role_arn = config("node_assume_role_arn") || config("role_arn")
+
+      if role_arn.present?
+        sts = Aws::STS::Client.new(
+          region: @region,
+          access_key_id: decrypt_config("access_key_id"),
+          secret_access_key: decrypt_config("secret_access_key")
+        )
+        session_name = "powernode-instance-#{context[:instance_id].to_s.delete('-').first(20)}"
+        resp = sts.assume_role(
+          role_arn: role_arn,
+          role_session_name: session_name,
+          duration_seconds: 3600,
+          tags: [
+            { key: "InstanceId", value: context[:instance_id].to_s },
+            { key: "AccountId", value: context[:account_id].to_s }
+          ]
+        )
+        creds = resp.credentials
+        {
+          kind: "sts_token",
+          payload: {
+            access_key_id: creds.access_key_id,
+            secret_access_key: creds.secret_access_key,
+            session_token: creds.session_token
+          },
+          ttl: 1.hour,
+          metadata: {
+            sts_handle: resp.assumed_role_user.assumed_role_id,
+            bucket: @bucket_name,
+            region: @region
+          }
+        }
+      else
+        {
+          kind: "sts_token",
+          payload: {
+            access_key_id: decrypt_config("access_key_id"),
+            secret_access_key: decrypt_config("secret_access_key"),
+            session_token: nil
+          },
+          ttl: nil,
+          metadata: {
+            sts_handle: nil,
+            bucket: @bucket_name,
+            region: @region,
+            warning: "Static keys (not per-instance). Configure node_assume_role_arn for true per-instance STS."
+          }
+        }
+      end
+    end
+
     # Initialize storage backend
     def initialize_storage
       bucket = @s3_resource.bucket(@bucket_name)

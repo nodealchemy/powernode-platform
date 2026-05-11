@@ -15,6 +15,46 @@ module StorageProviders
       @domain = config("domain")
     end
 
+    # ----------------------------------------------------------------------
+    # Node-mount provider interface (Phase S1)
+    # Per-instance Samba user + password sealed in Vault by the system extension.
+    # ----------------------------------------------------------------------
+
+    def supports_node_mount?
+      true
+    end
+
+    def node_mount_recipe(context: {})
+      cfg = context[:storage_configuration] || storage_config.configuration
+      shape = context[:deployment_shape] || "self_hosted"
+      vip = context[:virtual_ip_address]
+
+      share = shape == "gateway_proxy" ? (cfg["re_share_name"] || "powernode-#{storage_config.id}") : (cfg["share_name"] || @share_name)
+
+      {
+        type: "cifs",
+        source: "//#{vip}/#{share}",
+        options: %w[vers=3.1.1 seal],
+        credential_kind: "cifs_user_pass"
+      }
+    end
+
+    def issue_node_credential(context: {})
+      short_id = context[:instance_id].to_s.delete("-").first(12)
+      {
+        kind: "cifs_user_pass",
+        payload: {
+          username: "node-#{short_id}",
+          password: SecureRandom.alphanumeric(16)
+        },
+        ttl: 90.days,
+        metadata: {
+          smb_user_handle: UUID7.generate,
+          shape: context[:deployment_shape] || "self_hosted"
+        }
+      }
+    end
+
     # Initialize storage backend
     def initialize_storage
       # Verify mount point exists

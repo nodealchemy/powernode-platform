@@ -176,6 +176,51 @@ module StorageProviders
       }
     end
 
+    # ----------------------------------------------------------------------
+    # Node-mount provider interface (Phase S1)
+    #
+    # These methods let the system extension drive per-instance, per-node
+    # mounts that traverse the SDWAN with per-instance credentials. They
+    # accept a plain-hash `context` from the extension to avoid any
+    # upward type dependency on ::System::* classes. Providers that don't
+    # support node mounts simply return false / nil.
+    # ----------------------------------------------------------------------
+
+    # Whether this provider can render a mount recipe for a remote node agent.
+    # Override in concrete providers that support node mounts (NFS, SMB, S3, GCS, Azure).
+    def supports_node_mount?
+      false
+    end
+
+    # Compose a mount recipe for the agent to execute on a node.
+    #
+    # @param context [Hash] keys: :instance_id, :instance_hostname, :peer_ip,
+    #   :uid, :gid, :account_id, :sdwan_network_id, :virtual_ip_address,
+    #   :deployment_shape, :storage_configuration
+    # @return [Hash] {type:, source:, options: [Array<String>], credential_kind:}
+    def node_mount_recipe(context: {})
+      return nil unless supports_node_mount?
+      raise NotImplementedError, "#{self.class} must implement node_mount_recipe"
+    end
+
+    # Issue a per-instance credential the agent will use to authenticate at the
+    # backend (e.g. peer_ip ACL line for NFS, Samba user/pass for SMB, STS token
+    # for object storage). Materialization (writing exports.d, samba-tool, etc.)
+    # is the system extension's responsibility — providers only describe.
+    #
+    # @return [Hash, nil] {kind:, payload:, ttl: ActiveSupport::Duration|nil,
+    #   metadata: Hash} or nil if no credential needed
+    def issue_node_credential(context: {})
+      return nil unless supports_node_mount?
+      raise NotImplementedError, "#{self.class} must implement issue_node_credential"
+    end
+
+    # Revoke a previously-issued credential. `handle` is the metadata bag the
+    # provider returned at issue time. Idempotent.
+    def revoke_node_credential(handle)
+      true
+    end
+
     protected
 
     # Get configuration value
