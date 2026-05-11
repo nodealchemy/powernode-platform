@@ -4,24 +4,37 @@ module System
   # Slice 7 — periodic instance pool replenisher.
   #
   # Runs every 60s (cron in worker/config/sidekiq.yml). For each
-  # active or draining pool:
-  #   - active pool: call platform's replenish endpoint to bring
-  #     warming+ready up to target_size
-  #   - draining pool: call platform's recycle endpoint to clean up
-  #     stale ready members
+  # active or draining pool, the reaper performs a 2-phase tick:
+  #   1. recycle_stale → mark stuck-warming members as errored (past
+  #      DEFAULT_WARMING_TIMEOUT_SECONDS), recycle stale ready members
+  #   2. replenish    → provision new warming members up to target_size
+  #
+  # Phase ordering matters: without the recycle phase first, stuck
+  # warming members keep counting toward `target_size` so `deficit`
+  # stays at 0 and replenish becomes a no-op forever — the symptom
+  # was a pool stuck at warming_count=N indefinitely with no
+  # underlying provisioning tasks. The platform's
+  # InstancePoolService.recycle_stale_members! transitions
+  # past-timeout warming members → errored, which jumps the deficit
+  # and unblocks the next replenish call.
   #
   # The reaper is API-only — it talks to the platform via HTTP, not
   # direct DB. The platform's InstancePoolService does the actual work
   # (provisioning, state transitions); this job just triggers it.
   #
-  # Idempotent: replenish is no-op when pool is at capacity, drain is
-  # no-op when no ready members remain.
+  # Idempotent: recycle is no-op when no stale members exist;
+  # replenish is no-op when pool is at capacity.
   class InstancePoolReplenisherJob < BaseJob
     sidekiq_options queue: :default, retry: 3
 
     def execute
       pools = list_active_pools
       results = pools.map do |pool|
+        # Phase 1: recycle stale members (errors-out stuck-warming so
+        # the next phase sees an honest deficit). Failure here doesn't
+        # block replenish — log + proceed.
+        recycle_pool(pool)
+        # Phase 2: replenish to target_size.
         replenish_pool(pool)
       end
 
@@ -69,6 +82,32 @@ module System
         "[InstancePoolReplenisherJob] replenish exception for pool #{pool_id}: #{e.message}"
       )
       { pool_id: pool_id, error: e.message }
+    end
+
+    def recycle_pool(pool)
+      pool_id = pool[:id] || pool["id"]
+      response = api_client.post("/api/v1/system/instance_pools/#{pool_id}/recycle_stale")
+
+      if response[:success]
+        counts = response.dig(:data, :recycle_result) || {}
+        if counts.values.any? { |v| v.is_a?(Integer) && v.positive? }
+          Rails.logger.info(
+            "[InstancePoolReplenisherJob] recycled stale members in pool " \
+            "#{pool_id}: #{counts}"
+          )
+        end
+      else
+        Rails.logger.warn(
+          "[InstancePoolReplenisherJob] recycle failed for pool #{pool_id}: " \
+          "#{response[:error]}"
+        )
+      end
+    rescue StandardError => e
+      Rails.logger.error(
+        "[InstancePoolReplenisherJob] recycle exception for pool #{pool_id}: #{e.message}"
+      )
+      # Don't re-raise — we still want replenish to run on the next
+      # phase even if recycle hit an unexpected error.
     end
 
     def api_client
