@@ -26,8 +26,9 @@ module SdwanTestHelpers
     existing = ::System::NodeTemplate.where(account_id: account.id, name: "sdwan-test-template").first
     return existing if existing
 
-    arch = ::System::NodeArchitecture.where(account_id: account.id).first ||
-           create(:system_node_architecture, account: account)
+    arch = ::System::NodeArchitecture.canonical.find_by(name: "amd64") ||
+           ::System::NodeArchitecture.first ||
+           create(:system_node_architecture)
     platform = ::System::NodePlatform.where(account_id: account.id).first ||
                create(:system_node_platform, account: account, node_architecture: arch)
     ::System::NodeTemplate.create!(

@@ -30,6 +30,15 @@ module Ai
         "system_create_module_from_package"   => "Ai::Tools::SystemPackageRepositoryTool",
         "system_list_package_module_links"    => "Ai::Tools::SystemPackageRepositoryTool",
         "system_refresh_package_module"       => "Ai::Tools::SystemPackageRepositoryTool",
+
+        # === Architecture catalog (platform-wide CPU arches + AI parity) ===
+        "system_list_architectures"    => "Ai::Tools::SystemArchitectureCatalogTool",
+        "system_get_architecture"      => "Ai::Tools::SystemArchitectureCatalogTool",
+        "system_create_architecture"   => "Ai::Tools::SystemArchitectureCatalogTool",
+        "system_update_architecture"   => "Ai::Tools::SystemArchitectureCatalogTool",
+        "system_delete_architecture"   => "Ai::Tools::SystemArchitectureCatalogTool",
+        "system_propose_architecture"  => "Ai::Tools::SystemArchitectureCatalogTool",
+
         "system_sdwan_activate_host_bridge" => "Ai::Tools::SdwanTool",
         "system_sdwan_release_host_bridge"  => "Ai::Tools::SdwanTool",
         "system_list_templates" => "Ai::Tools::SystemFleetTool",

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_11_110007) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_11_130004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -10328,29 +10328,39 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_110007) do
   end
 
   create_table "system_node_architectures", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
+    t.string "apt_name"
     t.datetime "created_at", null: false
     t.text "description"
+    t.string "display_name"
     t.boolean "enabled", default: true, null: false
+    t.string "family", default: "other", null: false
     t.string "image_checksum", comment: "SHA256 checksum of boot image file"
     t.uuid "image_file_object_id"
     t.string "image_format", comment: "Image format (raw, qcow2, vmdk, etc.)"
+    t.boolean "is_canonical", default: false, null: false
     t.string "kernel_checksum", comment: "SHA256 checksum of kernel file"
     t.uuid "kernel_file_object_id"
     t.text "kernel_options"
     t.string "kernel_version", comment: "Kernel version string"
     t.string "name", null: false
+    t.integer "node_platform_count", default: 0, null: false
+    t.integer "package_count", default: 0, null: false
+    t.integer "package_repository_count", default: 0, null: false
     t.boolean "public", default: false, null: false
     t.string "ramdisk_checksum", comment: "SHA256 checksum of ramdisk file"
     t.uuid "ramdisk_file_object_id"
+    t.string "rpm_name"
     t.datetime "updated_at", null: false
-    t.index ["account_id", "enabled"], name: "index_system_node_architectures_on_account_id_and_enabled"
-    t.index ["account_id", "name"], name: "index_system_node_architectures_on_account_id_and_name", unique: true
-    t.index ["account_id", "public"], name: "index_system_node_architectures_on_account_id_and_public"
-    t.index ["account_id"], name: "index_system_node_architectures_on_account_id"
+    t.index ["apt_name"], name: "index_system_node_architectures_on_apt_name", where: "(apt_name IS NOT NULL)"
+    t.index ["enabled"], name: "index_system_node_architectures_on_enabled"
+    t.index ["family"], name: "index_system_node_architectures_on_family"
     t.index ["image_file_object_id"], name: "index_system_node_architectures_on_image_file_object_id"
+    t.index ["is_canonical"], name: "index_system_node_architectures_on_is_canonical"
     t.index ["kernel_file_object_id"], name: "index_system_node_architectures_on_kernel_file_object_id"
+    t.index ["name"], name: "index_system_node_architectures_on_name", unique: true
+    t.index ["public"], name: "index_system_node_architectures_on_public"
     t.index ["ramdisk_file_object_id"], name: "index_system_node_architectures_on_ramdisk_file_object_id"
+    t.index ["rpm_name"], name: "index_system_node_architectures_on_rpm_name", where: "(rpm_name IS NOT NULL)"
   end
 
   create_table "system_node_certificates", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -13494,7 +13504,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_110007) do
   add_foreign_key "system_module_puppet_assignments", "system_puppet_modules", column: "puppet_module_id"
   add_foreign_key "system_mount_encryption_keys", "system_node_instances", column: "node_instance_id", on_delete: :nullify
   add_foreign_key "system_mount_encryption_keys", "system_storage_assignments", column: "storage_assignment_id", on_delete: :cascade
-  add_foreign_key "system_node_architectures", "accounts"
   add_foreign_key "system_node_architectures", "file_objects", column: "image_file_object_id"
   add_foreign_key "system_node_architectures", "file_objects", column: "kernel_file_object_id"
   add_foreign_key "system_node_architectures", "file_objects", column: "ramdisk_file_object_id"
