@@ -10,10 +10,11 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_11_100004) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_11_110007) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
+  enable_extension "pg_trgm"
   enable_extension "pgcrypto"
   enable_extension "vector"
 
@@ -10468,19 +10469,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_100004) do
   end
 
   create_table "system_node_module_assignments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.boolean "auto_resolved", default: false, null: false
     t.jsonb "config", default: {}, null: false
     t.datetime "created_at", null: false
     t.boolean "enabled", default: true, null: false
     t.uuid "node_id", null: false
     t.uuid "node_module_id", null: false
     t.integer "priority", default: 0, null: false
+    t.uuid "source_template_module_id"
     t.datetime "updated_at", null: false
+    t.index ["auto_resolved"], name: "index_system_node_module_assignments_on_auto_resolved"
     t.index ["config"], name: "index_system_node_module_assignments_on_config", using: :gin
     t.index ["enabled"], name: "index_system_node_module_assignments_on_enabled"
     t.index ["node_id", "node_module_id"], name: "idx_node_module_assignments_unique", unique: true
     t.index ["node_id"], name: "index_system_node_module_assignments_on_node_id"
     t.index ["node_module_id"], name: "index_system_node_module_assignments_on_node_module_id"
     t.index ["priority"], name: "index_system_node_module_assignments_on_priority"
+    t.index ["source_template_module_id"], name: "idx_on_source_template_module_id_ca62ce738b"
   end
 
   create_table "system_node_module_categories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -10564,6 +10569,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_100004) do
 
   create_table "system_node_modules", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
+    t.boolean "auto_generated", default: false, null: false
     t.uuid "category_id"
     t.jsonb "config", default: {}, null: false
     t.integer "consent_budget_per_day"
@@ -10604,6 +10610,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_100004) do
     t.string "webhook_secret"
     t.index ["account_id", "name"], name: "index_system_node_modules_on_account_id_and_name", unique: true
     t.index ["account_id"], name: "index_system_node_modules_on_account_id"
+    t.index ["auto_generated"], name: "index_system_node_modules_on_auto_generated"
     t.index ["category_id"], name: "index_system_node_modules_on_category_id"
     t.index ["config"], name: "index_system_node_modules_on_config", using: :gin
     t.index ["copy_path_id"], name: "index_system_node_modules_on_copy_path_id"
@@ -10749,6 +10756,101 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_100004) do
     t.index ["ssh_key_fingerprint"], name: "index_system_nodes_on_ssh_key_fingerprint"
     t.index ["worker_id"], name: "index_system_nodes_on_worker_id"
     t.check_constraint "lifecycle_class::text = ANY (ARRAY['persistent'::character varying, 'ephemeral'::character varying, 'spot'::character varying]::text[])", name: "chk_system_nodes_lifecycle_class"
+  end
+
+  create_table "system_package_module_links", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.jsonb "alternatives_chosen", default: {}, null: false
+    t.string "architecture", null: false
+    t.boolean "auto_generated", default: true, null: false
+    t.datetime "created_at", null: false
+    t.string "file_spec_source", default: "package_query", null: false
+    t.datetime "last_synced_at"
+    t.uuid "node_module_id", null: false
+    t.string "package_name", null: false
+    t.uuid "package_repository_id", null: false
+    t.string "package_version", null: false
+    t.jsonb "recommends_chosen", default: [], null: false
+    t.datetime "updated_at", null: false
+    t.index ["node_module_id"], name: "index_system_package_module_links_on_node_module_id", unique: true
+    t.index ["package_repository_id", "package_name", "architecture"], name: "idx_pkg_module_link_repo_pkg_arch"
+    t.index ["package_repository_id"], name: "index_system_package_module_links_on_package_repository_id"
+    t.check_constraint "file_spec_source::text = ANY (ARRAY['manual'::character varying, 'package_query'::character varying]::text[])", name: "chk_pkgmodlink_file_spec_source"
+  end
+
+  create_table "system_package_repositories", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "account_id"
+    t.jsonb "apt_config", default: {}, null: false
+    t.jsonb "architectures", default: ["amd64"], null: false
+    t.string "base_url", null: false
+    t.datetime "created_at", null: false
+    t.uuid "created_by_id", null: false
+    t.text "description"
+    t.boolean "enabled", default: true, null: false
+    t.string "kind", null: false
+    t.text "last_sync_error"
+    t.datetime "last_synced_at"
+    t.string "name", null: false
+    t.uuid "node_platform_id"
+    t.integer "package_count", default: 0, null: false
+    t.integer "priority", default: 100, null: false
+    t.jsonb "rpm_config", default: {}, null: false
+    t.text "signing_key_armor"
+    t.string "sync_status", default: "idle", null: false
+    t.datetime "updated_at", null: false
+    t.string "vault_credential_path"
+    t.string "visibility", default: "account", null: false
+    t.index ["account_id", "name"], name: "idx_pkgrepo_account_name_unique", unique: true, where: "(account_id IS NOT NULL)"
+    t.index ["account_id"], name: "index_system_package_repositories_on_account_id"
+    t.index ["created_by_id"], name: "index_system_package_repositories_on_created_by_id"
+    t.index ["enabled"], name: "index_system_package_repositories_on_enabled"
+    t.index ["name"], name: "idx_pkgrepo_shared_name_unique", unique: true, where: "(account_id IS NULL)"
+    t.index ["node_platform_id"], name: "index_system_package_repositories_on_node_platform_id"
+    t.index ["sync_status"], name: "index_system_package_repositories_on_sync_status"
+    t.index ["visibility"], name: "index_system_package_repositories_on_visibility"
+    t.check_constraint "kind::text = ANY (ARRAY['apt'::character varying, 'rpm'::character varying, 'dnf'::character varying]::text[])", name: "chk_pkgrepo_kind"
+    t.check_constraint "sync_status::text = ANY (ARRAY['idle'::character varying, 'syncing'::character varying, 'failed'::character varying]::text[])", name: "chk_pkgrepo_sync_status"
+    t.check_constraint "visibility::text = 'shared'::text AND account_id IS NULL OR visibility::text = 'account'::text AND account_id IS NOT NULL", name: "chk_pkgrepo_visibility_account_consistency"
+    t.check_constraint "visibility::text = ANY (ARRAY['account'::character varying, 'shared'::character varying]::text[])", name: "chk_pkgrepo_visibility"
+  end
+
+  create_table "system_packages", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "architecture", null: false
+    t.jsonb "breaks", default: [], null: false
+    t.jsonb "conflicts", default: [], null: false
+    t.datetime "created_at", null: false
+    t.jsonb "depends", default: [], null: false
+    t.text "description"
+    t.bigint "download_size_bytes"
+    t.string "filename"
+    t.string "homepage"
+    t.bigint "installed_size_bytes"
+    t.string "license"
+    t.string "maintainer"
+    t.string "name", null: false
+    t.datetime "obsoleted_at"
+    t.uuid "package_repository_id", null: false
+    t.jsonb "pre_depends", default: [], null: false
+    t.jsonb "provides", default: [], null: false
+    t.jsonb "raw_metadata", default: {}, null: false
+    t.jsonb "recommends", default: [], null: false
+    t.string "release_version"
+    t.jsonb "replaces", default: [], null: false
+    t.string "section_or_group"
+    t.string "sha256"
+    t.string "sha512"
+    t.jsonb "suggests", default: [], null: false
+    t.text "summary"
+    t.datetime "updated_at", null: false
+    t.string "version", null: false
+    t.index ["depends"], name: "idx_packages_depends_gin", using: :gin
+    t.index ["description"], name: "idx_packages_description_trgm", opclass: :gin_trgm_ops, using: :gin
+    t.index ["name", "architecture"], name: "index_system_packages_on_name_and_architecture"
+    t.index ["name"], name: "idx_packages_name_trgm", opclass: :gin_trgm_ops, using: :gin
+    t.index ["name"], name: "index_system_packages_on_name"
+    t.index ["obsoleted_at"], name: "index_system_packages_on_obsoleted_at", where: "(obsoleted_at IS NOT NULL)"
+    t.index ["package_repository_id", "name", "architecture", "version"], name: "idx_pkg_repo_name_arch_ver", unique: true
+    t.index ["package_repository_id"], name: "index_system_packages_on_package_repository_id"
+    t.index ["provides"], name: "idx_packages_provides_gin", using: :gin
   end
 
   create_table "system_project_metrics", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -11221,6 +11323,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_100004) do
     t.uuid "node_module_id", null: false
     t.uuid "node_template_id", null: false
     t.integer "priority", default: 0, null: false
+    t.jsonb "recommends_override", default: {}, null: false
     t.datetime "updated_at", null: false
     t.index ["config"], name: "index_system_template_modules_on_config", using: :gin
     t.index ["enabled"], name: "index_system_template_modules_on_enabled"
@@ -13405,6 +13508,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_100004) do
   add_foreign_key "system_node_instances", "system_provider_regions", column: "provider_region_id"
   add_foreign_key "system_node_module_assignments", "system_node_modules", column: "node_module_id"
   add_foreign_key "system_node_module_assignments", "system_nodes", column: "node_id"
+  add_foreign_key "system_node_module_assignments", "system_template_modules", column: "source_template_module_id", on_delete: :nullify
   add_foreign_key "system_node_module_categories", "accounts"
   add_foreign_key "system_node_module_categories", "system_node_module_categories", column: "config_category_id"
   add_foreign_key "system_node_module_categories", "system_node_module_categories", column: "instance_category_id"
@@ -13429,6 +13533,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_11_100004) do
   add_foreign_key "system_nodes", "accounts"
   add_foreign_key "system_nodes", "system_node_templates", column: "node_template_id"
   add_foreign_key "system_nodes", "workers"
+  add_foreign_key "system_package_module_links", "system_node_modules", column: "node_module_id", on_delete: :cascade
+  add_foreign_key "system_package_module_links", "system_package_repositories", column: "package_repository_id", on_delete: :restrict
+  add_foreign_key "system_package_repositories", "accounts"
+  add_foreign_key "system_package_repositories", "system_node_platforms", column: "node_platform_id", on_delete: :nullify
+  add_foreign_key "system_package_repositories", "users", column: "created_by_id", on_delete: :restrict
+  add_foreign_key "system_packages", "system_package_repositories", column: "package_repository_id", on_delete: :cascade
   add_foreign_key "system_project_metrics", "ai_missions", column: "mission_id"
   add_foreign_key "system_provider_availability_zones", "system_provider_regions", column: "provider_region_id"
   add_foreign_key "system_provider_connections", "accounts"
