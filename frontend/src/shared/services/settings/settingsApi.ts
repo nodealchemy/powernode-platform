@@ -54,6 +54,7 @@ export interface SecuritySettings {
   login_history?: unknown[];
   failed_attempts?: number;
   account_locked?: boolean;
+  authorized_keys?: string[];
 }
 
 export interface UserSettingsData {
@@ -125,6 +126,39 @@ export const settingsApi = {
         error: isErrorWithResponse(error) ? (error.response?.data?.error || 'Failed to update user settings') : 'Failed to update user settings',
         message: isErrorWithResponse(error) ? error.response?.data?.errors?.join(', ') : undefined
       };
+    }
+  },
+
+  // Replace the current user's authorized_keys (SSH public keys).
+  // The backend's User#authorized_keys= setter deduplicates + compacts;
+  // validate :authorized_keys_format rejects malformed lines (returned
+  // as detail.errors). Aggregated across the account by
+  // System::Node#authorized_keys and pulled by each agent on heartbeat
+  // — no per-node push required.
+  async updateSshKeys(keys: string[]): Promise<{ success: boolean; authorized_keys?: string[]; error?: string; errors?: string[] }> {
+    try {
+      const response = await api.put<{ success: boolean; data: { authorized_keys: string[]; message?: string } }>(
+        '/settings/ssh_keys',
+        { keys }
+      );
+      return {
+        success: response.data.success,
+        authorized_keys: response.data.data?.authorized_keys
+      };
+    } catch (error) {
+      if (isErrorWithResponse(error)) {
+        // unprocessable_content shape: { success: false, error: "...",
+        // details: { errors: [...] } }. The shared isErrorWithResponse
+        // type narrows to a subset without `details` — cast through
+        // unknown to read it safely without widening the shared type.
+        const data = error.response?.data as unknown as { error?: string; details?: { errors?: string[] } } | undefined;
+        return {
+          success: false,
+          error: data?.error || 'Failed to update SSH keys',
+          errors: data?.details?.errors
+        };
+      }
+      return { success: false, error: 'Failed to update SSH keys' };
     }
   },
 

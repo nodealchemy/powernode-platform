@@ -69,6 +69,14 @@ export const ProfilePage: React.FC = () => {
     password_confirmation: ''
   });
 
+  // SSH keys editor — bound to settings.security_settings.authorized_keys.
+  // One key per line. Saved separately from the rest of settings so
+  // validation errors (malformed OpenSSH line) don't block other
+  // security changes.
+  const [sshKeysText, setSshKeysText] = useState('');
+  const [savingSshKeys, setSavingSshKeys] = useState(false);
+  const [sshKeysError, setSshKeysError] = useState<string | null>(null);
+
   const [preferences, setPreferences] = useState<Partial<UserSettings>>({});
   const [notifications, setNotifications] = useState<Partial<UserSettings>>({});
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -173,6 +181,7 @@ export const ProfilePage: React.FC = () => {
 
       setPreferences({ user_preferences: settingsData.user_preferences || {} });
       setNotifications({ notification_preferences: settingsData.notification_preferences || {} });
+      setSshKeysText((settingsData.security_settings?.authorized_keys || []).join('\n'));
     } catch (_error) {
       dispatch(addNotification({
         type: 'error',
@@ -279,6 +288,42 @@ export const ProfilePage: React.FC = () => {
       showError(errorMsg);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSshKeysSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingSshKeys(true);
+    setSshKeysError(null);
+
+    const lines = sshKeysText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0 && !l.startsWith('#'));
+
+    try {
+      const result = await settingsApi.updateSshKeys(lines);
+      if (result.success) {
+        const newKeys = result.authorized_keys ?? lines;
+        setSettings((prev) =>
+          prev
+            ? {
+                ...prev,
+                security_settings: {
+                  ...(prev.security_settings || {}),
+                  authorized_keys: newKeys
+                }
+              }
+            : prev
+        );
+        setSshKeysText(newKeys.join('\n'));
+        dispatch(addNotification({ type: 'success', message: 'SSH keys updated' }));
+      } else {
+        const detail = result.errors?.join('\n') || result.error || 'Failed to update SSH keys';
+        setSshKeysError(detail);
+      }
+    } finally {
+      setSavingSshKeys(false);
     }
   };
 
@@ -771,6 +816,43 @@ export const ProfilePage: React.FC = () => {
                       className="btn-theme btn-theme-primary"
                     >
                       {saving ? 'Changing...' : 'Change Password'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            {/* SSH Keys */}
+            <div className="card-theme">
+              <div className="px-6 py-4 border-b border-theme">
+                <h3 className="text-lg font-medium text-theme-primary">SSH Public Keys</h3>
+                <p className="text-sm text-theme-secondary mt-1">
+                  One OpenSSH-format key per line. Propagates to every instance in your account via the agent&apos;s
+                  authorized_keys reconciler — no per-node config push required.
+                </p>
+              </div>
+              <div className="p-6">
+                <form onSubmit={handleSshKeysSave} className="space-y-4">
+                  <textarea
+                    value={sshKeysText}
+                    onChange={(e) => setSshKeysText(e.target.value)}
+                    className="input-theme font-mono text-xs"
+                    rows={6}
+                    spellCheck={false}
+                    placeholder="ssh-ed25519 AAAA... user@host"
+                  />
+                  {sshKeysError && (
+                    <div className="p-3 bg-theme-danger text-theme-danger rounded text-sm whitespace-pre-line">
+                      {sshKeysError}
+                    </div>
+                  )}
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={savingSshKeys}
+                      className="btn-theme-primary"
+                    >
+                      {savingSshKeys ? 'Saving…' : 'Save SSH Keys'}
                     </button>
                   </div>
                 </form>

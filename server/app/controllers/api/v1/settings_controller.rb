@@ -41,6 +41,29 @@ class Api::V1::SettingsController < ApplicationController
     end
   end
 
+  # PUT /api/v1/settings/ssh_keys
+  # Replaces the current user's authorized_keys with the supplied
+  # OpenSSH lines. The User model's `authorized_keys=` setter
+  # deduplicates + compacts, and `validate :authorized_keys_format`
+  # rejects malformed lines (returned as 422 details). Aggregated
+  # across the account by System::Node#authorized_keys and pulled by
+  # each agent on heartbeat — no per-node push needed.
+  def update_ssh_keys
+    keys = Array(params[:keys] || params.dig(:settings, :keys))
+    if current_user.update(authorized_keys: keys)
+      render_success(
+        authorized_keys: Array(current_user.authorized_keys),
+        message: "SSH keys updated"
+      )
+    else
+      render_error(
+        "Failed to update SSH keys",
+        :unprocessable_content,
+        details: { errors: current_user.errors.full_messages }
+      )
+    end
+  end
+
   # GET /api/v1/settings/notifications
   def notifications
     render_success(current_notification_preferences)
@@ -180,7 +203,8 @@ class Api::V1::SettingsController < ApplicationController
       backup_codes_generated_at: current_user.two_factor_backup_codes_generated_at,
       login_history: recent_login_history,
       failed_attempts: current_user.failed_login_attempts,
-      account_locked: current_user.locked?
+      account_locked: current_user.locked?,
+      authorized_keys: Array(current_user.authorized_keys)
     }
   end
 

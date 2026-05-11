@@ -813,6 +813,7 @@ Rails.application.routes.draw do
       put "settings/notifications", to: "settings#update_notifications"
       get "settings/preferences", to: "settings#preferences"
       put "settings/preferences", to: "settings#update_preferences"
+      put "settings/ssh_keys", to: "settings#update_ssh_keys"
 
       # Admin Settings endpoints (restricted to admin/owner roles)
       resource :admin_settings, only: [ :show, :update ] do
