@@ -22,6 +22,9 @@
   - [subscription_lifecycle, 3]  # Billing lifecycle (renewals, cancellations)
   - [ai_cancellations, 3]        # AI task cancellations (fast processing)
   - [devops_high, 3]             # High priority DevOps operations (pipeline execution, deployment)
+  - [system, 3]                  # System extension jobs: NodeInstance provision/sync/control,
+                                 # module commit/build, image create, instance pool dispatch.
+                                 # WorkerDispatch's DEFAULT_QUEUE = "system".
   - [ai_agents, 2]               # AI agent operations (uses 600s circuit breaker)
   - [ai_conversations, 2]        # AI conversation processing
   - [ai_execution, 2]             # AI team execution (multi-agent orchestration)
@@ -164,6 +167,18 @@
       class: Swarm::ClusterSyncJob
       queue: devops_default
       description: 'Sync Docker Swarm cluster state'
+
+    # System instance pool reaper - every 60 seconds.
+    # 2-phase tick: recycle stale warming members past timeout,
+    # then replenish to bring warming+ready up to target_size.
+    # Without this entry the job class exists but never fires —
+    # pools stay wedged at warming_count=N indefinitely when their
+    # provisioning gets stuck.
+    instance_pool_replenisher:
+      every: '60s'
+      class: System::InstancePoolReplenisherJob
+      queue: default
+      description: 'Recycle stale + replenish active instance pools'
 
     # Docker Swarm health check - every 10 minutes
     swarm_health_check:

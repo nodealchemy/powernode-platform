@@ -39,7 +39,7 @@ module System
       end
 
       total_provisioned = results.sum { |r| r[:provisioned] || 0 }
-      Rails.logger.info(
+      logger.info(
         "[InstancePoolReplenisherJob] processed #{pools.size} pools, " \
         "provisioned=#{total_provisioned}"
       )
@@ -55,7 +55,7 @@ module System
       return [] unless response[:success]
       response.dig(:data, :pools) || []
     rescue StandardError => e
-      Rails.logger.error("[InstancePoolReplenisherJob] list pools failed: #{e.message}")
+      logger.error("[InstancePoolReplenisherJob] list pools failed: #{e.message}")
       []
     end
 
@@ -65,20 +65,20 @@ module System
 
       if response[:success]
         provisioned = response.dig(:data, :replenish_result, :provisioned) || 0
-        Rails.logger.info(
+        logger.info(
           "[InstancePoolReplenisherJob] replenished pool #{pool_id}: " \
           "provisioned=#{provisioned}"
         )
         { pool_id: pool_id, provisioned: provisioned }
       else
-        Rails.logger.warn(
+        logger.warn(
           "[InstancePoolReplenisherJob] replenish failed for pool #{pool_id}: " \
           "#{response[:error]}"
         )
         { pool_id: pool_id, error: response[:error] }
       end
     rescue StandardError => e
-      Rails.logger.error(
+      logger.error(
         "[InstancePoolReplenisherJob] replenish exception for pool #{pool_id}: #{e.message}"
       )
       { pool_id: pool_id, error: e.message }
@@ -91,19 +91,19 @@ module System
       if response[:success]
         counts = response.dig(:data, :recycle_result) || {}
         if counts.values.any? { |v| v.is_a?(Integer) && v.positive? }
-          Rails.logger.info(
+          logger.info(
             "[InstancePoolReplenisherJob] recycled stale members in pool " \
             "#{pool_id}: #{counts}"
           )
         end
       else
-        Rails.logger.warn(
+        logger.warn(
           "[InstancePoolReplenisherJob] recycle failed for pool #{pool_id}: " \
           "#{response[:error]}"
         )
       end
     rescue StandardError => e
-      Rails.logger.error(
+      logger.error(
         "[InstancePoolReplenisherJob] recycle exception for pool #{pool_id}: #{e.message}"
       )
       # Don't re-raise — we still want replenish to run on the next
